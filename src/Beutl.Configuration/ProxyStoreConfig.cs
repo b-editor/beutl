@@ -8,6 +8,7 @@ public sealed class ProxyStoreConfig : ConfigurationBase
     public const long MinTotalBytes = 5L * 1024 * 1024 * 1024;
     public const long DefaultTotalBytes = 50L * 1024 * 1024 * 1024;
     public const long MaxTotalBytesLimit = 500L * 1024 * 1024 * 1024;
+    public static string DefaultStoreRootPath => Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "proxies");
 
     public static readonly CoreProperty<string> StoreRootPathProperty;
     public static readonly CoreProperty<long> MaxTotalBytesProperty;
@@ -16,7 +17,7 @@ public sealed class ProxyStoreConfig : ConfigurationBase
     static ProxyStoreConfig()
     {
         StoreRootPathProperty = ConfigureProperty<string, ProxyStoreConfig>(nameof(StoreRootPath))
-            .DefaultValue(Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "proxies"))
+            .DefaultValue(DefaultStoreRootPath)
             .Register();
 
         MaxTotalBytesProperty = ConfigureProperty<long, ProxyStoreConfig>(nameof(MaxTotalBytes))
@@ -31,8 +32,8 @@ public sealed class ProxyStoreConfig : ConfigurationBase
 
     public string StoreRootPath
     {
-        get => Path.GetFullPath(GetValue(StoreRootPathProperty));
-        set => SetValue(StoreRootPathProperty, Path.GetFullPath(value));
+        get => Path.GetFullPath(NormalizeStoreRootPath(GetValue(StoreRootPathProperty)));
+        set => SetValue(StoreRootPathProperty, NormalizeStoreRootPath(value));
     }
 
     [Range(MinTotalBytes, MaxTotalBytesLimit)]
@@ -46,5 +47,12 @@ public sealed class ProxyStoreConfig : ConfigurationBase
     {
         get => GetValue(DefaultPresetProperty);
         set => SetValue(DefaultPresetProperty, value);
+    }
+
+    private static string NormalizeStoreRootPath(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? DefaultStoreRootPath
+            : Path.GetFullPath(value);
     }
 }

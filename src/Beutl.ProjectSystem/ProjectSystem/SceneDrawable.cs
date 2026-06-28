@@ -95,7 +95,8 @@ public sealed partial class SceneDrawable : Drawable
             }
 
             if (_compositor?.Scene != ReferencedScene
-                || _compositor?.DisableResourceShare != context.DisableResourceShare)
+                || _compositor?.DisableResourceShare != context.DisableResourceShare
+                || _compositor?.ForceOriginalSource != context.ForceOriginalSource)
             {
                 _compositor?.Dispose();
                 _compositor = null;
@@ -106,6 +107,7 @@ public sealed partial class SceneDrawable : Drawable
                 _compositor = new SceneCompositor(ReferencedScene)
                 {
                     DisableResourceShare = context.DisableResourceShare,
+                    ForceOriginalSource = context.ForceOriginalSource,
                 };
             }
 

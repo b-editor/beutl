@@ -58,7 +58,7 @@ public readonly record struct ProxyFingerprint
     internal static string NormalizeAbsolutePath(string path)
     {
         string fullPath = Path.GetFullPath(path);
-        if (OperatingSystem.IsWindows() || OperatingSystem.IsMacOS())
+        if (OperatingSystem.IsWindows())
         {
             fullPath = fullPath.ToUpperInvariant();
         }

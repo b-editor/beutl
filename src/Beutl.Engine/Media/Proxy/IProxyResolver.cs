@@ -23,9 +23,10 @@ public sealed record ProxyResolution(
         get
         {
             int originalLongEdge = Math.Max(OriginalLogicalFrameSize.Width, OriginalLogicalFrameSize.Height);
-            return originalLongEdge == 0
+            int proxyLongEdge = Math.Max(ProxyDecodedFrameSize.Width, ProxyDecodedFrameSize.Height);
+            return originalLongEdge == 0 || proxyLongEdge == 0
                 ? 1f
-                : (float)Math.Max(ProxyDecodedFrameSize.Width, ProxyDecodedFrameSize.Height) / originalLongEdge;
+                : (float)proxyLongEdge / originalLongEdge;
         }
     }
 }

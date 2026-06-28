@@ -41,4 +41,17 @@ public class ProxyStoreConfigTests
 
         Assert.That(Path.IsPathFullyQualified(config.StoreRootPath), Is.True);
     }
+
+    [Test]
+    public void StoreRootPath_EmptyValueResetsToDefault()
+    {
+        var config = new ProxyStoreConfig
+        {
+            StoreRootPath = "custom-proxies",
+        };
+
+        config.StoreRootPath = string.Empty;
+
+        Assert.That(config.StoreRootPath, Is.EqualTo(ProxyStoreConfig.DefaultStoreRootPath));
+    }
 }

@@ -193,7 +193,7 @@
     <comment/>
   </data>
   <data name="ProxyStoreRootPath_Description" xml:space="preserve">
-    <value>Proxy files are stored in this folder.</value>
+    <value>Proxy files are stored in this folder. Changes take effect after restart.</value>
     <comment/>
   </data>
   <data name="ProxyStoreMaxTotalGiB" xml:space="preserve">
@@ -201,7 +201,7 @@
     <comment/>
   </data>
   <data name="ProxyStoreMaxTotalGiB_Description" xml:space="preserve">
-    <value>Least-recently-used proxies are removed when the store exceeds this size.</value>
+    <value>Least-recently-used proxies are removed when the store exceeds this size. Changes take effect after restart.</value>
     <comment/>
   </data>
   <data name="ProxyDefaultPreset" xml:space="preserve">

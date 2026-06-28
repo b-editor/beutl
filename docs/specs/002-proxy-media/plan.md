@@ -16,7 +16,7 @@ While editing, Beutl must transparently serve preview video decode requests from
 
 **Primary Dependencies**: `Beutl.Engine` (rendering, media abstractions), `Beutl.ProjectSystem` (project / Scene), `Beutl.Extensions.FFmpeg` (in-MIT IPC client to `Beutl.FFmpegWorker`), `Beutl.FFmpegIpc` (pipes + JSON + shared memory), Avalonia (UI), NUnit + Moq (tests).
 
-**Storage**: On-disk proxy files (MP4/H.264) in a configurable proxy-store root; a single `index.json` per store root tracking entries with `(source path, size, mtime, preset, state, lastUsedUtc, proxyFileName, fileSize)`. Per-user default: `<app cache>/proxies/`. No database.
+**Storage**: On-disk proxy files (MP4/H.264) in a configurable proxy-store root; a single `index.json` per store root tracking entries with `(source path, size, mtime, preset, state, lastUsedUtc, proxyFileName, fileSize)`. Per-user default: `<user data>/proxies/`. No database.
 
 **Testing**: NUnit + Moq under `tests/Beutl.UnitTests` (store, queue, eviction, resolver, fingerprint, FFmpeg-backed proxy generation through the existing `Beutl.Extensions.FFmpeg` test reference). `tests/Beutl.FFmpegIpc.Tests` remains available for pure IPC contracts, but proxy generation E2E belongs with the extension-backed test surface because `FFmpegEncodingControllerProxy` is not referenced by `Beutl.Engine` or `Beutl.FFmpegIpc`. Headless UI smoke for the proxy tool tab if feasible; otherwise manual verification per quickstart.
 

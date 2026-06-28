@@ -28,7 +28,7 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
     private readonly IProxyStore? _store;
     private readonly IProxyJobQueue? _queue;
     private readonly ProxyStoreConfig _config;
-    private readonly ProxyPreset _defaultPreset;
+    private bool _isDisposed;
 
     public ProxiesTabViewModel(IEditorContext editorContext)
     {
@@ -36,7 +36,6 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
         _store = editorContext.GetService<IProxyStore>();
         _queue = editorContext.GetService<IProxyJobQueue>();
         _config = GlobalConfiguration.Instance.ProxyStoreConfig;
-        _defaultPreset = ToPreset(_config.DefaultPreset);
 
         ClipSummary = new ReactiveProperty<string>()
             .DisposeWith(_disposables);
@@ -174,6 +173,10 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
 
     public void Dispose()
     {
+        if (_isDisposed)
+            return;
+
+        _isDisposed = true;
         ClearClips();
         _disposables.Dispose();
     }
@@ -255,12 +258,12 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
         if (_store == null)
             return;
 
-        foreach (ProxyFingerprint source in Clips.Select(static c => c.Source).Distinct().ToArray())
+        HashSet<string> projectPaths = [.. Clips.Select(static c => c.Source.AbsolutePath)];
+        foreach (ProxyEntry entry in _store.Enumerate()
+                     .Where(entry => projectPaths.Contains(entry.Source.AbsolutePath))
+                     .ToArray())
         {
-            foreach (ProxyPreset preset in Enum.GetValues<ProxyPreset>())
-            {
-                _store.Delete(source, preset);
-            }
+            _store.Delete(entry.Source, entry.Preset);
         }
 
         Refresh();
@@ -268,9 +271,16 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
 
     private void Refresh()
     {
+        if (_isDisposed)
+            return;
+
         if (!Dispatcher.UIThread.CheckAccess())
         {
-            Dispatcher.UIThread.Post(Refresh);
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (!_isDisposed)
+                    Refresh();
+            });
             return;
         }
 
@@ -293,9 +303,16 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
 
     private void RefreshJobs()
     {
+        if (_isDisposed)
+            return;
+
         if (!Dispatcher.UIThread.CheckAccess())
         {
-            Dispatcher.UIThread.Post(RefreshJobs);
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (!_isDisposed)
+                    RefreshJobs();
+            });
             return;
         }
 
@@ -395,8 +412,9 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
 
     private ProxyPreset FindDefaultPreset(ProxyFingerprint source)
     {
-        if (IsGenerated(FindEntry(source, _defaultPreset)))
-            return _defaultPreset;
+        ProxyPreset defaultPreset = ToPreset(_config.DefaultPreset);
+        if (IsGenerated(FindEntry(source, defaultPreset)))
+            return defaultPreset;
 
         foreach (ProxyPreset preset in s_presetOrder)
         {
@@ -404,7 +422,7 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
                 return preset;
         }
 
-        return _defaultPreset;
+        return defaultPreset;
     }
 
     private static bool IsGenerated(ProxyEntry? entry)
@@ -414,14 +432,24 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
 
     private void OnStoreChanged(object? sender, ProxyStoreChangedEventArgs e)
     {
+        if (_isDisposed)
+            return;
+
         Refresh();
     }
 
     private void OnJobChanged(object? sender, ProxyJobChangedEventArgs e)
     {
+        if (_isDisposed)
+            return;
+
         if (!Dispatcher.UIThread.CheckAccess())
         {
-            Dispatcher.UIThread.Post(() => OnJobChanged(sender, e));
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (!_isDisposed)
+                    OnJobChanged(sender, e);
+            });
             return;
         }
 

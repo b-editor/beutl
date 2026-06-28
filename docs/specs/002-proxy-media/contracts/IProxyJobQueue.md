@@ -43,6 +43,15 @@ public sealed class ProxyJobChangedEventArgs : EventArgs
 }
 
 public enum ProxyJobChangeKind { Enqueued, Started, Progressed, Succeeded, Failed, Canceled, Skipped }
+
+public interface IProxyGenerator
+{
+    /// <summary>
+    /// Generate the proxy described by the job. Cancellation is carried by
+    /// ProxyJob.CancellationToken so there is only one canonical cancellation source.
+    /// </summary>
+    ValueTask GenerateAsync(ProxyJob job);
+}
 ```
 
 ## Behavior contract

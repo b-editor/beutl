@@ -34,7 +34,7 @@ public sealed class ProxyGenerationE2ETests
 
         try
         {
-            await generator.GenerateAsync(job, CancellationToken.None);
+            await generator.GenerateAsync(job);
         }
         catch (ProxyGeneratorUnavailableException ex)
         {
@@ -82,7 +82,7 @@ public sealed class ProxyGenerationE2ETests
         var job = new ProxyJob(ProxyFingerprint.FromFile(source), ProxyPreset.Quarter);
 
         Assert.ThrowsAsync<ProxyGenerationSkippedException>(
-            async () => await generator.GenerateAsync(job, CancellationToken.None));
+            async () => await generator.GenerateAsync(job));
         Assert.That(store.Enumerate(), Is.Empty);
     }
 
@@ -97,7 +97,7 @@ public sealed class ProxyGenerationE2ETests
         var job = new ProxyJob(ProxyFingerprint.FromFile(source), ProxyPreset.Quarter);
 
         Assert.ThrowsAsync<ProxyGenerationSkippedException>(
-            async () => await generator.GenerateAsync(job, CancellationToken.None));
+            async () => await generator.GenerateAsync(job));
         Assert.That(store.Enumerate(), Is.Empty);
     }
 
@@ -119,10 +119,52 @@ public sealed class ProxyGenerationE2ETests
         });
     }
 
+    [Test]
+    public void WriteMetadata_PreservesSiblingPresetEntries()
+    {
+        string root = CreateRoot();
+        string source = Path.Combine(root, "source.mov");
+        File.WriteAllBytes(source, [1, 2, 3, 4]);
+        ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(source);
+        string proxyPath = Path.Combine(root, "hash", "quarter.mp4");
+        Directory.CreateDirectory(Path.GetDirectoryName(proxyPath)!);
+        File.WriteAllBytes(proxyPath, [1, 2, 3]);
+        ProxyEntry half = CreateEntry(fingerprint, ProxyPreset.Half, "hash/half.mp4");
+        ProxyEntry quarter = CreateEntry(fingerprint, ProxyPreset.Quarter, "hash/quarter.mp4");
+
+        FFmpegProxyGenerator.WriteMetadata(proxyPath, half);
+        FFmpegProxyGenerator.WriteMetadata(proxyPath, quarter);
+
+        ProxySourceMetadata? metadata = JsonSerializer.Deserialize<ProxySourceMetadata>(
+            File.ReadAllText(Path.Combine(root, "hash", "meta.json")),
+            s_jsonOptions);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(metadata, Is.Not.Null);
+            Assert.That(metadata!.Entries.Select(static entry => entry.Preset), Is.EquivalentTo(new[] { ProxyPreset.Half, ProxyPreset.Quarter }));
+        });
+    }
+
     private static string CreateRoot()
     {
         string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         return root;
+    }
+
+    private static ProxyEntry CreateEntry(ProxyFingerprint source, ProxyPreset preset, string relative)
+    {
+        return new ProxyEntry(
+            source,
+            preset,
+            ProxyState.Ready,
+            relative,
+            3,
+            new PixelSize(64, 48),
+            new PixelSize(32, 24),
+            DateTime.UtcNow,
+            DateTime.UtcNow,
+            null);
     }
 }

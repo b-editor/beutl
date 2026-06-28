@@ -20,7 +20,7 @@ public interface IProxyJobQueue : IAsyncDisposable
 
 public interface IProxyGenerator
 {
-    ValueTask GenerateAsync(ProxyJob job, CancellationToken cancellationToken);
+    ValueTask GenerateAsync(ProxyJob job);
 }
 
 public sealed class ProxyJobChangedEventArgs : EventArgs

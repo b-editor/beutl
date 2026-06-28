@@ -63,7 +63,9 @@ public sealed class ProxyStoreTests
         store.Register(entry);
         File.Delete(Path.Combine(root, entry.ProxyFileRelative));
         string tmpPath = Path.Combine(root, "hash", "quarter.mp4.tmp");
+        string encodedTmpPath = Path.Combine(root, "hash", "quarter.123.tmp.mp4");
         File.WriteAllBytes(tmpPath, [1, 2, 3]);
+        File.WriteAllBytes(encodedTmpPath, [1, 2, 3]);
 
         await store.ReconcileAsync(CancellationToken.None);
 
@@ -71,6 +73,7 @@ public sealed class ProxyStoreTests
         {
             Assert.That(store.TryGet(entry.Source, entry.Preset), Is.Null);
             Assert.That(File.Exists(tmpPath), Is.False);
+            Assert.That(File.Exists(encodedTmpPath), Is.False);
         });
     }
 
@@ -170,6 +173,58 @@ public sealed class ProxyStoreTests
             Assert.That(store.TryGet(first.Source, first.Preset), Is.EqualTo(first));
             Assert.That(store.TryGet(second.Source, second.Preset), Is.EqualTo(second));
         });
+    }
+
+    [Test]
+    public void Register_RejectsProxyPathEscapingStoreRoot()
+    {
+        string root = CreateRoot();
+        var store = new ProxyStore(root);
+        ProxyEntry entry = CreateEntry(root, "safe/quarter.mp4") with
+        {
+            ProxyFileRelative = "../outside.mp4",
+        };
+
+        Assert.Throws<ArgumentException>(() => store.Register(entry));
+    }
+
+    [Test]
+    public void LoadIndex_IgnoresProxyPathEscapingStoreRoot()
+    {
+        string root = CreateRoot();
+        ProxyEntry entry = CreateEntry(root, "safe/quarter.mp4") with
+        {
+            ProxyFileRelative = "../outside.mp4",
+        };
+        var index = new ProxyStoreIndex { Entries = [entry] };
+        File.WriteAllText(Path.Combine(root, "index.json"), JsonSerializer.Serialize(index, s_jsonOptions));
+
+        var store = new ProxyStore(root);
+
+        Assert.That(store.Enumerate(), Is.Empty);
+    }
+
+    [Test]
+    public void Delete_RemovesSidecarMetadataEntry()
+    {
+        string root = CreateRoot();
+        var store = new ProxyStore(root);
+        ProxyEntry entry = CreateEntry(root, "hash/quarter.mp4");
+        string metadataPath = Path.Combine(root, "hash", "meta.json");
+        File.WriteAllText(
+            metadataPath,
+            JsonSerializer.Serialize(
+                new ProxySourceMetadata
+                {
+                    Source = entry.Source,
+                    Entries = [entry],
+                },
+                s_jsonOptions));
+        store.Register(entry);
+
+        store.Delete(entry.Source, entry.Preset);
+
+        Assert.That(File.Exists(metadataPath), Is.False);
     }
 
     private static string CreateRoot()

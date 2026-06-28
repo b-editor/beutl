@@ -1,4 +1,5 @@
 ﻿using Beutl.Engine;
+using Beutl.Media.Proxy;
 
 namespace Beutl.Composition;
 
@@ -12,7 +13,11 @@ public class CompositionContext(TimeSpan time)
 
     public bool DisableResourceShare { get; init; }
 
+    public bool ForceOriginalSource { get; init; }
+
     public bool PreferProxy { get; init; }
+
+    public ProxyPreset PreferredProxyPreset { get; init; } = ProxyPreset.Quarter;
 
     public virtual T Get<T>(IProperty<T> property)
     {

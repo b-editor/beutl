@@ -294,11 +294,19 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
                 float renderScale = Math.Max(1, SupersampleFactor.Value);
                 float maxWorkingScale = WorkingScaleCeiling.Export();
-                using var renderer = new SceneRenderer(Model, renderScale, disableResourceShare: true, maxWorkingScale);
+                using var renderer = new SceneRenderer(
+                    Model,
+                    renderScale,
+                    disableResourceShare: true,
+                    maxWorkingScale,
+                    forceOriginalSource: true);
                 renderer.CacheOptions = RenderCacheOptions.Disabled;
                 var frameProgress = new Subject<TimeSpan>();
                 using var frameProvider = new FrameProviderImpl(Model, videoSettings.FrameRate, renderer, frameProgress);
-                using var composer = new SceneComposer(Model, disableResourceShare: true) { SampleRate = audioSettings.SampleRate };
+                using var composer = new SceneComposer(Model, disableResourceShare: true, forceOriginalSource: true)
+                {
+                    SampleRate = audioSettings.SampleRate
+                };
                 var sampleProgress = new Subject<TimeSpan>();
                 using var sampleProvider = new SampleProviderImpl(
                     Model, composer, audioSettings.SampleRate, sampleProgress);

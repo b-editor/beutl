@@ -170,6 +170,9 @@ public sealed class GraphSnapshot : IDisposable
                 Resource = resource,
                 Snapshot = this,
                 DisableResourceShare = context.DisableResourceShare,
+                ForceOriginalSource = context.ForceOriginalSource,
+                PreferProxy = context.PreferProxy,
+                PreferredProxyPreset = context.PreferredProxyPreset,
             };
         }
 

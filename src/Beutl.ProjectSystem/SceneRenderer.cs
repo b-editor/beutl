@@ -11,10 +11,15 @@ public sealed class SceneRenderer : Renderer
         Scene scene,
         float renderScale = 1f,
         bool disableResourceShare = false,
-        float maxWorkingScale = float.PositiveInfinity)
+        float maxWorkingScale = float.PositiveInfinity,
+        bool forceOriginalSource = false)
         : base(scene.FrameSize.Width, scene.FrameSize.Height, renderScale, maxWorkingScale)
     {
-        _compositor = new SceneCompositor(scene) { DisableResourceShare = disableResourceShare };
+        _compositor = new SceneCompositor(scene)
+        {
+            DisableResourceShare = disableResourceShare,
+            ForceOriginalSource = forceOriginalSource,
+        };
     }
 
     public SceneCompositor Compositor => _compositor;

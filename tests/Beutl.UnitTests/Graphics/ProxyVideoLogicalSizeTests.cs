@@ -14,6 +14,7 @@ using Beutl.UnitTests.Engine.Graphics.Rendering;
 namespace Beutl.UnitTests.Graphics;
 
 [TestFixture]
+[NonParallelizable]
 public class ProxyVideoLogicalSizeTests
 {
     private IProxyResolver? _oldResolver;

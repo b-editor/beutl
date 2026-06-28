@@ -56,6 +56,40 @@ public class ProxyJobQueueTests
         });
     }
 
+    [Test]
+    public async Task DisposeAsync_CancelsAndDrainsQueuedJobs()
+    {
+        var generator = new BlockingGenerator();
+        var queue = new ProxyJobQueue(generator);
+        var firstSource = new ProxyFingerprint("/tmp/a.mov", 1, DateTime.UtcNow);
+        var secondSource = new ProxyFingerprint("/tmp/b.mov", 1, DateTime.UtcNow);
+
+        ProxyJob first = await queue.EnqueueAsync(firstSource, ProxyPreset.Quarter);
+        ProxyJob second = await queue.EnqueueAsync(secondSource, ProxyPreset.Quarter);
+
+        await queue.DisposeAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.Status, Is.EqualTo(ProxyJobStatus.Canceled));
+            Assert.That(second.Status, Is.EqualTo(ProxyJobStatus.Canceled));
+            Assert.That(queue.Pending(), Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task Cancel_DoesNotThrowAfterJobAlreadyCompleted()
+    {
+        var generator = new RecordingGenerator();
+        await using var queue = new ProxyJobQueue(generator);
+        var source = new ProxyFingerprint("/tmp/a.mov", 1, DateTime.UtcNow);
+
+        ProxyJob job = await queue.EnqueueAsync(source, ProxyPreset.Quarter);
+        await WaitForTerminalAsync(job);
+
+        Assert.DoesNotThrow(() => queue.Cancel(job.JobId));
+    }
+
     private static async Task WaitForTerminalAsync(ProxyJob job)
     {
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
@@ -82,7 +116,7 @@ public class ProxyJobQueueTests
             }
         }
 
-        public ValueTask GenerateAsync(ProxyJob job, CancellationToken cancellationToken)
+        public ValueTask GenerateAsync(ProxyJob job)
         {
             lock (_sources)
             {
@@ -104,9 +138,9 @@ public class ProxyJobQueueTests
     {
         private readonly TaskCompletionSource _release = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        public async ValueTask GenerateAsync(ProxyJob job, CancellationToken cancellationToken)
+        public async ValueTask GenerateAsync(ProxyJob job)
         {
-            await _release.Task.WaitAsync(cancellationToken);
+            await _release.Task.WaitAsync(job.CancellationToken);
         }
 
         public void Release()
@@ -117,7 +151,7 @@ public class ProxyJobQueueTests
 
     private sealed class SkippingGenerator : IProxyGenerator
     {
-        public ValueTask GenerateAsync(ProxyJob job, CancellationToken cancellationToken)
+        public ValueTask GenerateAsync(ProxyJob job)
         {
             throw new ProxyGenerationSkippedException("ineligible");
         }
