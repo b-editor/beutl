@@ -1,4 +1,5 @@
-﻿using Beutl.Media.Proxy;
+﻿using Beutl.Media;
+using Beutl.Media.Proxy;
 
 namespace Beutl.UnitTests.Media.Proxy;
 
@@ -113,6 +114,49 @@ public class ProxyJobQueueTests
     }
 
     [Test]
+    public async Task FailedException_WithExistingReadyEntry_KeepsReadyEntry()
+    {
+        string root = CreateRoot();
+        var store = new ProxyStore(root);
+        ProxyFingerprint source = CreateFingerprint("ready-before-failure.mov");
+        ProxyEntry ready = CreateReadyEntry(root, source);
+        store.Register(ready);
+        await using var queue = new ProxyJobQueue(new FailingGenerator(), store);
+
+        ProxyJob job = await queue.EnqueueAsync(source, ProxyPreset.Quarter);
+        await WaitForTerminalAsync(job);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Failed));
+            Assert.That(store.TryGet(source, ProxyPreset.Quarter), Is.EqualTo(ready));
+        });
+    }
+
+    [Test]
+    public async Task Cancel_QueuedJobRemovesItFromPendingWithoutRunningIt()
+    {
+        var generator = new BlockingGenerator();
+        await using var queue = new ProxyJobQueue(generator);
+        ProxyFingerprint firstSource = CreateFingerprint("running.mov");
+        ProxyFingerprint secondSource = CreateFingerprint("queued.mov");
+
+        ProxyJob first = await queue.EnqueueAsync(firstSource, ProxyPreset.Quarter);
+        ProxyJob second = await queue.EnqueueAsync(secondSource, ProxyPreset.Quarter);
+        queue.Cancel(second.JobId);
+        generator.Release();
+        await WaitForTerminalAsync(first);
+        await WaitForTerminalAsync(second);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.Status, Is.EqualTo(ProxyJobStatus.Succeeded));
+            Assert.That(second.Status, Is.EqualTo(ProxyJobStatus.Canceled));
+            Assert.That(queue.Pending(), Is.Empty);
+        });
+    }
+
+    [Test]
     public async Task UnavailableGenerator_KeepsRemainingJobsQueued()
     {
         string root = CreateRoot();
@@ -157,6 +201,27 @@ public class ProxyJobQueueTests
         string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         return root;
+    }
+
+    private static ProxyEntry CreateReadyEntry(string root, ProxyFingerprint source)
+    {
+        string relativePath = $"{Guid.NewGuid():N}/quarter.mp4";
+        string proxyPath = Path.Combine(root, relativePath);
+        Directory.CreateDirectory(Path.GetDirectoryName(proxyPath)!);
+        File.WriteAllBytes(proxyPath, [1, 2, 3]);
+
+        var now = DateTime.UtcNow;
+        return new ProxyEntry(
+            source,
+            ProxyPreset.Quarter,
+            ProxyState.Ready,
+            relativePath,
+            3,
+            new PixelSize(1920, 1080),
+            new PixelSize(480, 270),
+            now,
+            now,
+            null);
     }
 
     private sealed class RecordingGenerator : IProxyGenerator

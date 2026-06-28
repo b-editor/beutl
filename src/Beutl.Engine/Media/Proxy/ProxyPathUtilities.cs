@@ -57,6 +57,10 @@ internal static class ProxyPathUtilities
         if (hashDirectory is not { Length: 64 } || !hashDirectory.All(IsLowerHex))
             return false;
 
+        string? hashParent = Path.GetDirectoryName(directory);
+        if (hashParent == null || !AreSameDirectory(hashParent, root))
+            return false;
+
         string fileName = Path.GetFileName(fullPath);
         if (!fileName.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase))
             return false;
@@ -92,6 +96,17 @@ internal static class ProxyPathUtilities
             : StringComparison.Ordinal;
 
         return normalizedCandidate.StartsWith(rootWithSeparator, comparison);
+    }
+
+    private static bool AreSameDirectory(string left, string right)
+    {
+        string normalizedLeft = Path.TrimEndingDirectorySeparator(Path.GetFullPath(left));
+        string normalizedRight = Path.TrimEndingDirectorySeparator(Path.GetFullPath(right));
+        StringComparison comparison = OperatingSystem.IsWindows()
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+
+        return string.Equals(normalizedLeft, normalizedRight, comparison);
     }
 
     private static bool IsLowerHex(char c)

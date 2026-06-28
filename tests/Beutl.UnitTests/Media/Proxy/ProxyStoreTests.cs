@@ -66,9 +66,12 @@ public sealed class ProxyStoreTests
         string tmpPath = Path.Combine(root, hashDirectory, "quarter.mp4.tmp");
         string unrelatedTmpPath = Path.Combine(root, hashDirectory, "clip.tmp.backup.mp4");
         string encodedTmpPath = Path.Combine(root, hashDirectory, $"quarter.{Guid.NewGuid():N}.tmp.mp4");
+        string nestedGeneratedLookingTmpPath = Path.Combine(root, "nested", hashDirectory, $"quarter.{Guid.NewGuid():N}.tmp.mp4");
+        Directory.CreateDirectory(Path.GetDirectoryName(nestedGeneratedLookingTmpPath)!);
         File.WriteAllBytes(tmpPath, [1, 2, 3]);
         File.WriteAllBytes(unrelatedTmpPath, [1, 2, 3]);
         File.WriteAllBytes(encodedTmpPath, [1, 2, 3]);
+        File.WriteAllBytes(nestedGeneratedLookingTmpPath, [1, 2, 3]);
 
         await store.ReconcileAsync(CancellationToken.None);
 
@@ -78,6 +81,7 @@ public sealed class ProxyStoreTests
             Assert.That(File.Exists(tmpPath), Is.True);
             Assert.That(File.Exists(unrelatedTmpPath), Is.True);
             Assert.That(File.Exists(encodedTmpPath), Is.False);
+            Assert.That(File.Exists(nestedGeneratedLookingTmpPath), Is.True);
         });
     }
 
