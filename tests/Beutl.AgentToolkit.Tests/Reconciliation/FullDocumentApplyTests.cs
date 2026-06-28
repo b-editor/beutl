@@ -89,7 +89,65 @@ public sealed class FullDocumentApplyTests
         {
             Assert.That(ex.Error.Code, Is.EqualTo(ErrorCode.StaleHandle));
             Assert.That(ex.Error.Hint, Does.Contain("Omit Id to create"));
+            Assert.That(ex.Error.Hint, Does.Contain("keep the parent Element Id"));
             Assert.That(ex.Error.Hint, Does.Contain("apply_edit"));
+        });
+    }
+
+    [Test]
+    public void New_polymorphic_object_without_discriminator_returns_actionable_validation_error()
+    {
+        using var session = TestEditingSession.Create(new Scene(1920, 1080, "Scene"));
+        var reconciler = new Reconciler();
+        JsonObject desired = session.Documents.Read(session.Scene);
+        ((JsonArray)desired["Elements"]!).Add(new JsonObject
+        {
+            ["$type"] = IdentityHelper.WriteDiscriminator(typeof(Element)),
+            [nameof(Element.Start)] = TimeSpan.Zero.ToString("c"),
+            [nameof(Element.Length)] = TimeSpan.FromSeconds(1).ToString("c"),
+            [nameof(Element.Objects)] = new JsonArray(new JsonObject
+            {
+                [nameof(TextBlock.Text)] = "Title"
+            })
+        });
+
+        ReconcileException ex = Assert.Throws<ReconcileException>(() => reconciler.Plan(session, desired))!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ex.Error.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(ex.Error.Message, Does.Contain("$type"));
+            Assert.That(ex.Error.Hint, Does.Contain("get_schema"));
+        });
+    }
+
+    [Test]
+    public void New_engine_object_with_unknown_property_returns_actionable_validation_error()
+    {
+        using var session = TestEditingSession.Create(new Scene(1920, 1080, "Scene"));
+        var reconciler = new Reconciler();
+        JsonObject desired = session.Documents.Read(session.Scene);
+        ((JsonArray)desired["Elements"]!).Add(new JsonObject
+        {
+            ["$type"] = IdentityHelper.WriteDiscriminator(typeof(Element)),
+            [nameof(Element.Start)] = TimeSpan.Zero.ToString("c"),
+            [nameof(Element.Length)] = TimeSpan.FromSeconds(1).ToString("c"),
+            [nameof(Element.Objects)] = new JsonArray(new JsonObject
+            {
+                ["$type"] = IdentityHelper.WriteDiscriminator(typeof(TextBlock)),
+                [nameof(TextBlock.Text)] = "Title",
+                ["FontSize"] = 72
+            })
+        });
+
+        ReconcileException ex = Assert.Throws<ReconcileException>(() => reconciler.Plan(session, desired))!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ex.Error.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(ex.Error.Message, Does.Contain("FontSize"));
+            Assert.That(ex.Error.Message, Does.Contain(nameof(TextBlock)));
+            Assert.That(ex.Error.Hint, Does.Contain("get_schema"));
         });
     }
 

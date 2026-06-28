@@ -8,7 +8,7 @@ namespace Beutl.AgentToolkit.Reconciliation;
 public static class CollectionReconciler
 {
     private const string StaleHandleHint =
-        "Omit Id to create a new object. To update an existing object, call read_document, then retry apply_edit with an existing Id.";
+        "Omit Id to create a new object. When adding Objects to an existing Element, keep the parent Element Id and omit Id on each new Object. To update an existing object, call read_document, then retry apply_edit with an existing Id.";
 
     public static bool IsIdentityArray(JsonArray array)
     {

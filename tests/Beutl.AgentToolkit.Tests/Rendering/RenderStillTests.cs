@@ -9,6 +9,7 @@ using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Particles;
 using Beutl.Graphics.Shapes;
+using Beutl.Graphics.Transformation;
 using Beutl.Graphics3D;
 using Beutl.Media;
 using Beutl.Media.Source;
@@ -98,6 +99,9 @@ public sealed class RenderStillTests
             1,
             0.01,
             48,
+            0.35,
+            0.90,
+            24,
             CancellationToken.None);
         MotionVariationResponse changingResult = await analyzer.AnalyzeAsync(
             changingScene,
@@ -105,6 +109,9 @@ public sealed class RenderStillTests
             1,
             0.01,
             48,
+            0.35,
+            0.90,
+            24,
             CancellationToken.None);
 
         Assert.Multiple(() =>
@@ -115,6 +122,36 @@ public sealed class RenderStillTests
             Assert.That(changingResult.PassesMinimumMotion, Is.True);
             Assert.That(changingResult.Verdict, Is.EqualTo("motion-variation-ok"));
             Assert.That(changingResult.MinimumChangedPixelRatio, Is.GreaterThan(0.01));
+        });
+    }
+
+    [Test]
+    public async Task Motion_variation_analysis_flags_sustained_one_quadrant_frame_coverage()
+    {
+        string dir = CreateWorkspace();
+        Scene confinedScene = CreateConfinedChangingScene(dir);
+
+        var analyzer = new MotionVariationAnalyzer(new StillRenderer());
+        MotionVariationResponse result = await analyzer.AnalyzeAsync(
+            confinedScene,
+            [TimeSpan.FromSeconds(0.5), TimeSpan.FromSeconds(1.5), TimeSpan.FromSeconds(2.5)],
+            1,
+            0.01,
+            48,
+            0.35,
+            0.90,
+            24,
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.PassesTemporalMotion, Is.True);
+            Assert.That(result.PassesFrameCoverage, Is.False);
+            Assert.That(result.PassesMinimumMotion, Is.False);
+            Assert.That(result.Verdict, Is.EqualTo("poor-frame-coverage"));
+            Assert.That(result.FrameCoverage, Has.All.Matches<MotionFrameCoverage>(item =>
+                item.OccupiedBoundsRatio <= 0.35 && item.MaxQuadrantForegroundRatio >= 0.90));
+            Assert.That(result.ReviewNotes, Has.Some.Contains("confined"));
         });
     }
 
@@ -182,31 +219,61 @@ public sealed class RenderStillTests
             Duration = TimeSpan.FromSeconds(3),
             Uri = new Uri(Path.Combine(dir, "Scene.scene"))
         };
-        var rectElement = new Element
-        {
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(1.4),
-            Uri = new Uri(Path.Combine(dir, "rect.belm"))
-        };
-        rectElement.AddObject(new RectShape());
-        var textElement = new Element
-        {
-            Start = TimeSpan.FromSeconds(1.4),
-            Length = TimeSpan.FromSeconds(0.8),
-            Uri = new Uri(Path.Combine(dir, "text.belm"))
-        };
-        textElement.AddObject(new TextBlock { Text = { CurrentValue = "MOVE" } });
-        var ellipseElement = new Element
-        {
-            Start = TimeSpan.FromSeconds(2.2),
-            Length = TimeSpan.FromSeconds(0.8),
-            Uri = new Uri(Path.Combine(dir, "ellipse.belm"))
-        };
-        ellipseElement.AddObject(new EllipseShape());
-        scene.Children.Add(rectElement);
-        scene.Children.Add(textElement);
-        scene.Children.Add(ellipseElement);
+        AddColorRectElement(scene, dir, "red.belm", TimeSpan.Zero, TimeSpan.FromSeconds(1), 160, 90, Colors.Red);
+        AddColorRectElement(scene, dir, "blue.belm", TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), 160, 90, Colors.Blue);
+        AddColorRectElement(scene, dir, "green.belm", TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1), 160, 90, Colors.Lime);
         return scene;
+    }
+
+    private static Scene CreateConfinedChangingScene(string dir)
+    {
+        var scene = new Scene(160, 90, "confined-motion")
+        {
+            Duration = TimeSpan.FromSeconds(3),
+            Uri = new Uri(Path.Combine(dir, "Scene.scene"))
+        };
+
+        AddColorRectElement(scene, dir, "red.belm", TimeSpan.Zero, TimeSpan.FromSeconds(1), 40, 30, Colors.Red, -50, -30);
+        AddColorRectElement(scene, dir, "blue.belm", TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), 40, 30, Colors.Blue, -50, -30);
+        AddColorRectElement(scene, dir, "green.belm", TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1), 40, 30, Colors.Lime, -50, -30);
+        return scene;
+    }
+
+    private static void AddColorRectElement(
+        Scene scene,
+        string dir,
+        string fileName,
+        TimeSpan start,
+        TimeSpan length,
+        float width,
+        float height,
+        Color color,
+        float translateX = 0,
+        float translateY = 0)
+    {
+        var element = new Element
+        {
+            Start = start,
+            Length = length,
+            Uri = new Uri(Path.Combine(dir, fileName))
+        };
+        var rect = new RectShape
+        {
+            Width = { CurrentValue = width },
+            Height = { CurrentValue = height },
+            Fill = { CurrentValue = new SolidColorBrush(color) }
+        };
+
+        if (translateX != 0 || translateY != 0)
+        {
+            rect.Transform.CurrentValue = new TransformGroup
+            {
+                Children = { new TranslateTransform(translateX, translateY) }
+            };
+        }
+
+        element.AddObject(rect);
+        scene.Children.Add(element);
     }
 
     private static EngineObject CreateDrawable(CpuSafeDrawable drawable, string dir)

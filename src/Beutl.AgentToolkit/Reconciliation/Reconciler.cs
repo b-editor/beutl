@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Text.Json;
+using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Documents;
 using Beutl.AgentToolkit.Sessions;
@@ -11,6 +12,30 @@ namespace Beutl.AgentToolkit.Reconciliation;
 
 public sealed class Reconciler
 {
+    private static readonly HashSet<string> s_typedIdentityArrayNames = new(StringComparer.Ordinal)
+    {
+        "Objects",
+        "Children",
+        "KeyFrames"
+    };
+
+    private static readonly HashSet<string> s_metadataPropertyNames = new(StringComparer.Ordinal)
+    {
+        "$type",
+        "$delete",
+        "$index",
+        "$after",
+        "$before",
+        SchemaVersion.PropertyName,
+        nameof(CoreObject.Id),
+        nameof(CoreObject.Name),
+        "Animations",
+        nameof(EngineObject.Duration),
+        "Expressions",
+        nameof(EngineObject.Start),
+        "Uri"
+    };
+
     public ReconcilePlan Plan(IEditingSession session, JsonObject desired, IReadOnlySet<Guid>? knownNewIds = null)
     {
         ArgumentNullException.ThrowIfNull(session);
@@ -23,6 +48,16 @@ public sealed class Reconciler
     private static ReconcilePlan PlanPrepared(IEditingSession session, JsonObject desiredDocument, IReadOnlySet<Guid>? knownNewIds)
     {
         JsonObject currentDocument = session.Documents.Read(session.Root);
+        if (ValidateNewTypedObjectDiscriminators(desiredDocument, "$") is { } discriminatorError)
+        {
+            throw new ReconcileException(discriminatorError);
+        }
+
+        if (ValidateEngineObjectProperties(desiredDocument, "$") is { } propertyError)
+        {
+            throw new ReconcileException(propertyError);
+        }
+
         HashSet<Guid> newIds = CollectionReconciler.MintMissingIds(desiredDocument);
         if (knownNewIds is not null)
         {
@@ -84,6 +119,133 @@ public sealed class Reconciler
         }
 
         return new ReconcileResult(plan, session.Documents.Read(session.Root));
+    }
+
+    private static ToolError? ValidateNewTypedObjectDiscriminators(JsonNode? node, string path)
+    {
+        if (node is JsonObject obj)
+        {
+            foreach (KeyValuePair<string, JsonNode?> pair in obj.ToArray())
+            {
+                string childPath = $"{path}/{pair.Key}";
+                if (pair.Value is JsonArray array && s_typedIdentityArrayNames.Contains(pair.Key))
+                {
+                    for (int i = 0; i < array.Count; i++)
+                    {
+                        if (array[i] is not JsonObject item || IsDeletionMarker(item) || CollectionReconciler.TryGetId(item, out _))
+                        {
+                            continue;
+                        }
+
+                        if (!item.ContainsKey("$type"))
+                        {
+                            string itemPath = $"{childPath}[{i}]";
+                            return new ToolError(
+                                ErrorCode.ValidationRejected,
+                                $"New typed object at '{itemPath}' is missing the '$type' discriminator.",
+                                itemPath,
+                                "Add the concrete '$type' discriminator returned by get_schema for new objects in polymorphic arrays such as Objects, Children, and KeyFrames.");
+                        }
+                    }
+                }
+
+                if (ValidateNewTypedObjectDiscriminators(pair.Value, childPath) is { } childError)
+                {
+                    return childError;
+                }
+            }
+        }
+        else if (node is JsonArray array)
+        {
+            for (int i = 0; i < array.Count; i++)
+            {
+                if (ValidateNewTypedObjectDiscriminators(array[i], $"{path}[{i}]") is { } childError)
+                {
+                    return childError;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static ToolError? ValidateEngineObjectProperties(JsonNode? node, string path)
+    {
+        if (node is JsonObject obj)
+        {
+            if (obj.TryGetDiscriminator(out Type? type) && type is not null && typeof(EngineObject).IsAssignableFrom(type))
+            {
+                HashSet<string> allowed = CreateAllowedEngineObjectPropertyNames(type);
+                foreach (KeyValuePair<string, JsonNode?> pair in obj.ToArray())
+                {
+                    if (allowed.Contains(pair.Key))
+                    {
+                        continue;
+                    }
+
+                    string propertyPath = $"{path}/{pair.Key}";
+                    return new ToolError(
+                        ErrorCode.ValidationRejected,
+                        $"Property '{pair.Key}' is not supported by '{type.Name}'.",
+                        propertyPath,
+                        $"Call get_schema for '{type.Name}' and use only the returned PascalCase property names.");
+                }
+            }
+
+            foreach (KeyValuePair<string, JsonNode?> pair in obj.ToArray())
+            {
+                if (ValidateEngineObjectProperties(pair.Value, $"{path}/{pair.Key}") is { } childError)
+                {
+                    return childError;
+                }
+            }
+        }
+        else if (node is JsonArray array)
+        {
+            for (int i = 0; i < array.Count; i++)
+            {
+                if (ValidateEngineObjectProperties(array[i], $"{path}[{i}]") is { } childError)
+                {
+                    return childError;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static HashSet<string> CreateAllowedEngineObjectPropertyNames(Type type)
+    {
+        var allowed = new HashSet<string>(s_metadataPropertyNames, StringComparer.Ordinal);
+        foreach (CoreProperty property in PropertyRegistry.GetRegistered(type))
+        {
+            allowed.Add(property.Name);
+        }
+
+        if (Activator.CreateInstance(type) is EngineObject engineObject)
+        {
+            foreach (IProperty property in engineObject.Properties)
+            {
+                allowed.Add(property.Name);
+            }
+
+            var serializerOptions = new CoreSerializerOptions
+            {
+                Mode = CoreSerializationMode.EmbedReferencedObjects
+            };
+            foreach (KeyValuePair<string, JsonNode?> pair in CoreSerializer.SerializeToJsonObject(engineObject, serializerOptions))
+            {
+                allowed.Add(pair.Key);
+            }
+        }
+
+        return allowed;
+    }
+
+    private static bool IsDeletionMarker(JsonObject obj)
+    {
+        return obj.TryGetPropertyValue("$delete", out JsonNode? deleteNode)
+               && deleteNode?.GetValueKind() == JsonValueKind.True;
     }
 
     private static JsonObject PrepareDesired(IEditingSession session, JsonObject desired)

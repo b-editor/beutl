@@ -4,6 +4,7 @@ using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Workspace;
+using Beutl.Editor;
 using Beutl.ProjectSystem;
 using ModelContextProtocol.Server;
 
@@ -29,12 +30,13 @@ public sealed class SessionTools(
     DestructiveGuard destructiveGuard) : ToolBase
 {
     [McpServerTool(Name = "open_project")]
-    [Description("Opens a Beutl project from any readable local path and makes it the active file-backed editing session.")]
+    [Description("Opens a Beutl .bep project from any readable local path and makes it the active file-backed editing session.")]
     public ToolResult<OpenProjectResponse> OpenProject(string path)
     {
         return Execute(() =>
         {
             string fullPath = Path.GetFullPath(path);
+            ValidateProjectFileExtension(fullPath, nameof(path));
             if (!File.Exists(fullPath))
             {
                 return Throw<OpenProjectResponse>(ErrorCode.MediaNotFound, $"Project file not found: {fullPath}", fullPath);
@@ -47,7 +49,7 @@ public sealed class SessionTools(
     }
 
     [McpServerTool(Name = "create_project")]
-    [Description("Creates and saves a new file-backed Beutl project with one scene. The output path is restricted to BEUTL_WORKSPACE.")]
+    [Description("Creates and saves a new file-backed Beutl .bep project with one scene. Paths without an extension are saved as .bep; .beutl is reserved for project packages. The output path is restricted to BEUTL_WORKSPACE.")]
     public ToolResult<CreateProjectResponse> CreateProject(
         string path,
         int width,
@@ -59,7 +61,7 @@ public sealed class SessionTools(
         return Execute(() =>
         {
             ValidateProjectSettings(width, height, frameRate);
-            string writePath = workspace.ResolveForWrite(path);
+            string writePath = NormalizeProjectPath(workspace.ResolveForWrite(path), nameof(path));
             destructiveGuard.EnsureOverwriteAllowed(writePath, confirmOverwrite);
 
             FileEditingSession session = fileSessions.CreateProject(new ProjectCreateOptions(
@@ -99,7 +101,7 @@ public sealed class SessionTools(
     }
 
     [McpServerTool(Name = "save_project")]
-    [Description("Saves the current file-backed project. Optional path is restricted to BEUTL_WORKSPACE.")]
+    [Description("Saves the current file-backed .bep project. Call after each major successful apply_edit in file-backed sessions so partial progress is durable, and again after final revisions. Optional paths without an extension are saved as .bep; .beutl is reserved for project packages. Optional path is restricted to BEUTL_WORKSPACE.")]
     public ToolResult<SaveProjectResponse> SaveProject(
         string session,
         string? path = null,
@@ -111,7 +113,7 @@ public sealed class SessionTools(
             bool skipConflictCheck = false;
             if (!string.IsNullOrWhiteSpace(path))
             {
-                string writePath = workspace.ResolveForWrite(path);
+                string writePath = NormalizeProjectPath(workspace.ResolveForWrite(path), nameof(path));
                 string currentPath = fileSession.Project.Uri?.LocalPath ?? string.Empty;
                 if (!string.Equals(Path.GetFullPath(currentPath), Path.GetFullPath(writePath), StringComparison.OrdinalIgnoreCase))
                 {
@@ -173,6 +175,35 @@ public sealed class SessionTools(
                 ErrorCode.ValidationRejected,
                 "Width, height, and frame rate must be positive."));
         }
+    }
+
+    internal static string NormalizeProjectPath(string path, string target)
+    {
+        string fullPath = Path.GetFullPath(path);
+        string extension = Path.GetExtension(fullPath);
+        if (string.IsNullOrEmpty(extension))
+        {
+            return $"{fullPath}.{EditorConstants.ProjectFileExtension}";
+        }
+
+        ValidateProjectFileExtension(fullPath, target);
+        return fullPath;
+    }
+
+    private static void ValidateProjectFileExtension(string path, string target)
+    {
+        string expected = $".{EditorConstants.ProjectFileExtension}";
+        string actual = Path.GetExtension(path);
+        if (string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        throw new ReconcileException(new ToolError(
+            ErrorCode.ValidationRejected,
+            $"File-backed Beutl projects must use the '{expected}' extension. The '.{EditorConstants.ProjectPackageExtension}' extension is reserved for exported project packages.",
+            target,
+            $"Use a path ending in '{expected}', for example 'agent-output/example{expected}'."));
     }
 
     private static T Throw<T>(string code, string message, string? target = null)

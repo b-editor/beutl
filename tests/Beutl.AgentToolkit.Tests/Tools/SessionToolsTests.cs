@@ -68,6 +68,68 @@ public sealed class SessionToolsTests
         });
     }
 
+    [Test]
+    public void Create_project_rejects_package_extension_and_appends_missing_project_extension()
+    {
+        string root = CreateWorkspace();
+        using var source = new FileSessionSource();
+        var sessionTools = new SessionTools(
+            source,
+            new AgentSessionManager(),
+            new WorkspaceGuard(root),
+            new DestructiveGuard());
+
+        ToolResult<CreateProjectResponse> rejected = sessionTools.CreateProject(
+            "wrong.beutl",
+            width: 640,
+            height: 360,
+            frameRate: 30,
+            duration: "00:00:04");
+        ToolResult<CreateProjectResponse> normalized = sessionTools.CreateProject(
+            "motion",
+            width: 640,
+            height: 360,
+            frameRate: 30,
+            duration: "00:00:04");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rejected.IsSuccess, Is.False);
+            Assert.That(rejected.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(rejected.Error.Message, Does.Contain(".bep"));
+            Assert.That(rejected.Error.Message, Does.Contain(".beutl"));
+            Assert.That(normalized.IsSuccess, Is.True, normalized.Error?.Message);
+            Assert.That(Path.GetExtension(normalized.Value!.SavedPath), Is.EqualTo(".bep"));
+        });
+    }
+
+    [Test]
+    public void Save_project_rejects_package_extension()
+    {
+        string root = CreateWorkspace();
+        using var source = new FileSessionSource();
+        var sessionTools = new SessionTools(
+            source,
+            new AgentSessionManager(),
+            new WorkspaceGuard(root),
+            new DestructiveGuard());
+        ToolResult<CreateProjectResponse> created = sessionTools.CreateProject(
+            "motion.bep",
+            width: 640,
+            height: 360,
+            frameRate: 30,
+            duration: "00:00:04");
+
+        ToolResult<SaveProjectResponse> rejected = sessionTools.SaveProject(created.Value!.Session, "package.beutl");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(created.IsSuccess, Is.True, created.Error?.Message);
+            Assert.That(rejected.IsSuccess, Is.False);
+            Assert.That(rejected.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+        });
+    }
+
     private static string CreateWorkspace()
     {
         string path = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
