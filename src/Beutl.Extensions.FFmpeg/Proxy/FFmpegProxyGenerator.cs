@@ -1,6 +1,4 @@
-﻿using System.Security.Cryptography;
-using System.Text;
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.Json.Serialization;
 using Beutl.Extensibility;
 using Beutl.Extensions.FFmpeg.Encoding;
@@ -46,10 +44,11 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator
             throw new ProxyGenerationSkippedException("Source video has no frame size.");
 
         PixelSize proxySize = CalculateProxySize(originalSize, job.Preset);
-        string relative = BuildRelativePath(job.Source, job.Preset);
+        string relative = ProxyPathUtilities.BuildRelativePath(job.Source, job.Preset);
         string finalPath = Path.Combine(store.StoreRootPath, relative.Replace('/', Path.DirectorySeparatorChar));
         string tempPath = CreateTempPathForOutput(finalPath);
         Directory.CreateDirectory(Path.GetDirectoryName(finalPath)!);
+        bool finalFileMoved = false;
 
         try
         {
@@ -64,6 +63,7 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator
             await controller.Encode(frameProvider, sampleProvider, job.CancellationToken);
 
             File.Move(tempPath, finalPath, overwrite: true);
+            finalFileMoved = true;
             long fileSize = new FileInfo(finalPath).Length;
             var now = DateTime.UtcNow;
             var entry = new ProxyEntry(
@@ -84,11 +84,17 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator
         catch (FFmpegLibrariesNotFoundException ex)
         {
             TryDelete(tempPath);
+            if (finalFileMoved)
+                TryDelete(finalPath);
+
             throw new ProxyGeneratorUnavailableException(ex.Message);
         }
         catch
         {
             TryDelete(tempPath);
+            if (finalFileMoved)
+                TryDelete(finalPath);
+
             throw;
         }
     }
@@ -143,14 +149,6 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator
             or ".webp"
             or ".tif"
             or ".tiff";
-    }
-
-    private static string BuildRelativePath(ProxyFingerprint fingerprint, ProxyPreset preset)
-    {
-        string key = $"{fingerprint.AbsolutePath}|{fingerprint.FileSizeBytes}|{fingerprint.MtimeUtc:O}";
-        byte[] hash = SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(key));
-        string dir = Convert.ToHexString(hash).ToLowerInvariant();
-        return $"{dir}/{preset.ToString().ToLowerInvariant()}.mp4";
     }
 
     internal static string CreateTempPathForOutput(string finalPath)

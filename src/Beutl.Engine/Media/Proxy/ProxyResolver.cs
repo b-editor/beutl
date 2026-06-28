@@ -73,8 +73,17 @@ public sealed class ProxyResolver : IProxyResolver
         if (!File.Exists(absolutePath))
             return null;
 
+        if (entry.ProxyFileSizeBytes <= 0
+            || entry.OriginalLogicalFrameSize.Width <= 0
+            || entry.OriginalLogicalFrameSize.Height <= 0
+            || entry.ProxyDecodedFrameSize.Width <= 0
+            || entry.ProxyDecodedFrameSize.Height <= 0)
+        {
+            return null;
+        }
+
         long fileSize = new FileInfo(absolutePath).Length;
-        if (entry.ProxyFileSizeBytes > 0 && fileSize != entry.ProxyFileSizeBytes)
+        if (fileSize != entry.ProxyFileSizeBytes)
             return null;
 
         _store.Touch(fingerprint, preset, DateTime.UtcNow);

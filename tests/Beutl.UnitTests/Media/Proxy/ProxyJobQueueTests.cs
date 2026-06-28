@@ -90,6 +90,52 @@ public class ProxyJobQueueTests
         Assert.DoesNotThrow(() => queue.Cancel(job.JobId));
     }
 
+    [Test]
+    public async Task FailedException_WithStore_PreservesFailedEntry()
+    {
+        string root = CreateRoot();
+        var store = new ProxyStore(root);
+        await using var queue = new ProxyJobQueue(new FailingGenerator(), store);
+        ProxyFingerprint source = CreateFingerprint("failed.mov");
+
+        ProxyJob job = await queue.EnqueueAsync(source, ProxyPreset.Quarter);
+        await WaitForTerminalAsync(job);
+
+        ProxyEntry? entry = store.TryGet(source, ProxyPreset.Quarter);
+        Assert.Multiple(() =>
+        {
+            Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Failed));
+            Assert.That(queue.Pending(), Is.Empty);
+            Assert.That(entry, Is.Not.Null);
+            Assert.That(entry!.State, Is.EqualTo(ProxyState.Failed));
+            Assert.That(entry.FailureReason, Is.EqualTo("encode failed"));
+        });
+    }
+
+    [Test]
+    public async Task UnavailableGenerator_KeepsRemainingJobsQueued()
+    {
+        string root = CreateRoot();
+        var store = new ProxyStore(root);
+        await using var queue = new ProxyJobQueue(new UnavailableGenerator(), store);
+        ProxyFingerprint firstSource = CreateFingerprint("unavailable-a.mov");
+        ProxyFingerprint secondSource = CreateFingerprint("unavailable-b.mov");
+
+        ProxyJob first = await queue.EnqueueAsync(firstSource, ProxyPreset.Quarter);
+        ProxyJob second = await queue.EnqueueAsync(secondSource, ProxyPreset.Quarter);
+        await WaitForTerminalAsync(first);
+        await Task.Delay(100);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.Status, Is.EqualTo(ProxyJobStatus.Failed));
+            Assert.That(second.Status, Is.EqualTo(ProxyJobStatus.Queued));
+            Assert.That(queue.Pending(), Is.EqualTo(new[] { second }));
+            Assert.That(store.TryGet(firstSource, ProxyPreset.Quarter)?.State, Is.EqualTo(ProxyState.Failed));
+            Assert.That(store.TryGet(secondSource, ProxyPreset.Quarter), Is.Null);
+        });
+    }
+
     private static async Task WaitForTerminalAsync(ProxyJob job)
     {
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
@@ -104,6 +150,13 @@ public class ProxyJobQueueTests
     {
         string path = Path.Combine(TestContext.CurrentContext.WorkDirectory, fileName);
         return new ProxyFingerprint(path, 1, DateTime.UtcNow);
+    }
+
+    private static string CreateRoot()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        return root;
     }
 
     private sealed class RecordingGenerator : IProxyGenerator
@@ -160,6 +213,22 @@ public class ProxyJobQueueTests
         public ValueTask GenerateAsync(ProxyJob job)
         {
             throw new ProxyGenerationSkippedException("ineligible");
+        }
+    }
+
+    private sealed class FailingGenerator : IProxyGenerator
+    {
+        public ValueTask GenerateAsync(ProxyJob job)
+        {
+            throw new InvalidOperationException("encode failed");
+        }
+    }
+
+    private sealed class UnavailableGenerator : IProxyGenerator
+    {
+        public ValueTask GenerateAsync(ProxyJob job)
+        {
+            throw new ProxyGeneratorUnavailableException("missing ffmpeg");
         }
     }
 }

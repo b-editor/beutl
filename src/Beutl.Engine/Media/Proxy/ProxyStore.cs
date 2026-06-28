@@ -15,6 +15,7 @@ public sealed class ProxyStore : IProxyStore
     private readonly Lock _lock = new();
     private readonly Dictionary<(ProxyFingerprint Source, ProxyPreset Preset), ProxyEntry> _entries = [];
     private readonly string _indexPath;
+    private readonly string _indexLockPath;
     private int _touchFlushScheduled;
     private bool _touchDirty;
 
@@ -23,6 +24,7 @@ public sealed class ProxyStore : IProxyStore
         ArgumentException.ThrowIfNullOrWhiteSpace(storeRootPath);
         StoreRootPath = Path.GetFullPath(storeRootPath);
         _indexPath = Path.Combine(StoreRootPath, "index.json");
+        _indexLockPath = Path.Combine(StoreRootPath, "index.lock");
         Directory.CreateDirectory(StoreRootPath);
         LoadIndex();
     }
@@ -50,7 +52,8 @@ public sealed class ProxyStore : IProxyStore
     public void Register(ProxyEntry entry)
     {
         ArgumentNullException.ThrowIfNull(entry);
-        _ = GetAbsolutePath(entry);
+        if (!TryValidateEntry(entry))
+            throw new ArgumentException("Proxy entry is invalid.", nameof(entry));
 
         lock (_lock)
         {
@@ -96,24 +99,15 @@ public sealed class ProxyStore : IProxyStore
         ProxyEntry? removed = null;
         lock (_lock)
         {
-            if (_entries.Remove((source, preset), out removed))
-            {
-                FlushCore();
-            }
-        }
+            if (!_entries.TryGetValue((source, preset), out removed))
+                return false;
 
-        if (removed == null)
-            return false;
+            string absolutePath = GetAbsolutePath(removed);
+            if (!TryDeleteProxyFile(absolutePath))
+                return false;
 
-        string absolutePath = GetAbsolutePath(removed);
-        try
-        {
-            if (File.Exists(absolutePath))
-                File.Delete(absolutePath);
-        }
-        catch
-        {
-            // The index already stopped serving this proxy. A later reconcile can clean the file up.
+            _entries.Remove((source, preset));
+            FlushCore(new HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> { (source, preset) });
         }
 
         RemoveMetadataEntry(removed);
@@ -186,7 +180,7 @@ public sealed class ProxyStore : IProxyStore
         {
             cancellationToken.ThrowIfCancellationRequested();
             foreach (string tmp in Directory.EnumerateFiles(StoreRootPath, "*", SearchOption.AllDirectories)
-                         .Where(static path => Path.GetFileName(path).Contains(".tmp", StringComparison.OrdinalIgnoreCase)))
+                         .Where(path => ProxyPathUtilities.IsGeneratedProxyTempPath(StoreRootPath, path)))
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 TryDelete(tmp);
@@ -211,7 +205,17 @@ public sealed class ProxyStore : IProxyStore
                         continue;
                     }
 
+                    if (entry.State == ProxyState.Failed)
+                        continue;
+
                     if (!File.Exists(path))
+                    {
+                        missing.Add(entry);
+                        continue;
+                    }
+
+                    if (entry.State is ProxyState.Ready or ProxyState.Stale
+                        && !HasValidReadyFile(entry, path))
                     {
                         missing.Add(entry);
                         continue;
@@ -241,7 +245,11 @@ public sealed class ProxyStore : IProxyStore
 
                 if (missing.Count > 0 || changed.Count > 0)
                 {
-                    FlushCore();
+                    HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> removedKeys =
+                    [
+                        .. missing.Select(static entry => (entry.Source, entry.Preset))
+                    ];
+                    FlushCore(removedKeys);
                 }
             }
 
@@ -376,15 +384,35 @@ public sealed class ProxyStore : IProxyStore
             yield return legacyEntry;
     }
 
-    private void FlushCore()
+    private void FlushCore(IReadOnlySet<(ProxyFingerprint Source, ProxyPreset Preset)>? removedKeys = null)
     {
         Directory.CreateDirectory(StoreRootPath);
+        using FileStream indexLock = AcquireIndexLock();
+
+        foreach (ProxyEntry entry in ReadIndexEntriesFromDisk())
+        {
+            var key = (entry.Source, entry.Preset);
+            if (removedKeys?.Contains(key) == true)
+                continue;
+
+            _entries.TryAdd(key, entry);
+        }
+
         var index = new ProxyStoreIndex { Entries = [.. _entries.Values] };
         string json = JsonSerializer.Serialize(index, s_jsonOptions);
-        string tmp = _indexPath + ".tmp";
-        File.WriteAllText(tmp, json);
-        File.Move(tmp, _indexPath, overwrite: true);
-        _touchDirty = false;
+        string tmp = Path.Combine(
+            StoreRootPath,
+            $"{Path.GetFileName(_indexPath)}.{Guid.NewGuid():N}.tmp");
+        try
+        {
+            File.WriteAllText(tmp, json);
+            File.Move(tmp, _indexPath, overwrite: true);
+            _touchDirty = false;
+        }
+        finally
+        {
+            TryDelete(tmp);
+        }
     }
 
     private async Task FlushTouchesAsync()
@@ -452,11 +480,96 @@ public sealed class ProxyStore : IProxyStore
         }
     }
 
+    private IEnumerable<ProxyEntry> ReadIndexEntriesFromDisk()
+    {
+        if (!File.Exists(_indexPath))
+            yield break;
+
+        ProxyStoreIndex? index;
+        try
+        {
+            index = JsonSerializer.Deserialize<ProxyStoreIndex>(File.ReadAllText(_indexPath), s_jsonOptions);
+        }
+        catch
+        {
+            yield break;
+        }
+
+        if (index?.Version != ProxyStoreIndex.CurrentVersion)
+            yield break;
+
+        foreach (ProxyEntry entry in index.Entries)
+        {
+            if (TryValidateEntry(entry))
+                yield return entry;
+        }
+    }
+
+    private FileStream AcquireIndexLock()
+    {
+        const int maxAttempts = 200;
+        for (int attempt = 0; ; attempt++)
+        {
+            try
+            {
+                return new FileStream(
+                    _indexLockPath,
+                    FileMode.OpenOrCreate,
+                    FileAccess.ReadWrite,
+                    FileShare.None);
+            }
+            catch (IOException) when (attempt < maxAttempts)
+            {
+                Thread.Sleep(10);
+            }
+        }
+    }
+
     private bool TryValidateEntry(ProxyEntry entry)
     {
         try
         {
-            _ = GetAbsolutePath(entry);
+            string path = GetAbsolutePath(entry);
+            return entry.State switch
+            {
+                ProxyState.Ready or ProxyState.Stale => File.Exists(path) && HasValidReadyFile(entry, path),
+                _ => true,
+            };
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool HasValidReadyFile(ProxyEntry entry, string absolutePath)
+    {
+        if (entry.ProxyFileSizeBytes <= 0
+            || entry.OriginalLogicalFrameSize.Width <= 0
+            || entry.OriginalLogicalFrameSize.Height <= 0
+            || entry.ProxyDecodedFrameSize.Width <= 0
+            || entry.ProxyDecodedFrameSize.Height <= 0)
+        {
+            return false;
+        }
+
+        try
+        {
+            return new FileInfo(absolutePath).Length == entry.ProxyFileSizeBytes;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool TryDeleteProxyFile(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+
             return true;
         }
         catch

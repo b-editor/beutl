@@ -114,6 +114,10 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
             .Skip(1)
             .Subscribe(_ => FrameCacheManager.Value.Clear())
             .DisposeWith(_disposables);
+        GlobalConfiguration.Instance.ProxyStoreConfig.GetObservable(ProxyStoreConfig.DefaultPresetProperty)
+            .Skip(1)
+            .Subscribe(_ => FrameCacheManager.Value.Clear())
+            .DisposeWith(_disposables);
 
         if (ProxyMediaServices.Current?.Store is { } proxyStore)
         {
