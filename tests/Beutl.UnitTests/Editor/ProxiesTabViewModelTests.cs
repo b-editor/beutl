@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using Beutl;
 using Beutl.Editor.Components.ProxiesTab.ViewModels;
 using Beutl.Extensibility;

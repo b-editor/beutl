@@ -1,4 +1,4 @@
-namespace Beutl.Media.Proxy;
+﻿namespace Beutl.Media.Proxy;
 
 internal static class ProxyPathUtilities
 {
