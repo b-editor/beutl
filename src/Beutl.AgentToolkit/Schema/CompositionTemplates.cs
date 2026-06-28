@@ -184,7 +184,7 @@ public sealed class CompositionTemplateCatalog
                     ErrorCode.ValidationRejected,
                     $"Composition template '{spec.Name}' is not the first candidate for this session seed.",
                     spec.Name,
-                    $"For no-context motion graphics, use '{first.Name}' from list_compositions first. Pass an explicit seed or avoidRecent=false only when the user intentionally asks for '{spec.Name}'."));
+                    $"For no-context motion graphics, use '{first.Name}' from list_compositions first. Pass avoidRecent=false only when the user intentionally asks for '{spec.Name}'."));
             }
         }
 

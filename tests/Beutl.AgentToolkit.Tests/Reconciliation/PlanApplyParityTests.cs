@@ -97,7 +97,8 @@ public sealed class PlanApplyParityTests
         ToolResult<PlanCompositionResponse> plan = tools.PlanComposition(
             name: "kinetic-ribbon-title",
             inputProps: inputProps,
-            seed: "apply-seed");
+            seed: "apply-seed",
+            avoidRecent: false);
         ToolResult<ApplyCompositionResponse> apply = tools.ApplyComposition(
             planId: plan.Value!.PlanId);
 
@@ -129,6 +130,7 @@ public sealed class PlanApplyParityTests
         ToolResult<PlanCompositionResponse> plan = tools.PlanComposition(
             name: "kinetic-ribbon-title",
             seed: "detailed-plan-seed",
+            avoidRecent: false,
             includeDetailedPlan: true);
 
         Assert.Multiple(() =>
@@ -152,7 +154,8 @@ public sealed class PlanApplyParityTests
         ToolResult<PlanCompositionResponse> plan = tools.PlanComposition(
             name: "glitch-cutout-collage",
             inputProps: new JsonObject { ["title"] = "COMPOSITION PROBE" },
-            seed: "existing-scene-seed");
+            seed: "existing-scene-seed",
+            avoidRecent: false);
         ToolResult<ApplyCompositionResponse> apply = tools.ApplyComposition(planId: plan.Value!.PlanId);
 
         Assert.Multiple(() =>
