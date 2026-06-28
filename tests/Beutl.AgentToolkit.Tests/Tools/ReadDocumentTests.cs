@@ -28,6 +28,8 @@ public sealed class ReadDocumentTests
             Assert.That(result.Value!.RecommendedCalls, Does.Contain("In live mode, call attach_active_editor before scene tools."));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("list_compositions"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("plan_composition/apply_composition"));
+            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("list_effects"));
+            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("list_effect_recipes"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("list_examples"));
             Assert.That(result.Value.CategoryAliases["visualEffect"], Is.EqualTo("FilterEffect"));
             Assert.That(result.Value.RawHttpNote, Does.Contain("Server-Sent Events"));
@@ -91,6 +93,59 @@ public sealed class ReadDocumentTests
             Assert.That(render.Value.Composition.ResolvedProps["title"]!.GetValue<string>(), Is.EqualTo("PATCH TITLE"));
             Assert.That(render.Value.Composition.Patch.ToJsonString(), Does.Contain("PATCH TITLE"));
             Assert.That(render.Value.UsageHint, Does.Contain("plan_edit"));
+        });
+    }
+
+    [Test]
+    public void Effect_tools_list_and_fetch_recipes()
+    {
+        var tools = new QueryTools(new AgentSessionManager());
+
+        ToolResult<ListEffectsResponse> effects = tools.ListEffects(intent: "glitch");
+        ToolResult<ListEffectRecipesResponse> recipes = tools.ListEffectRecipes(intent: "glitch");
+        ToolResult<GetEffectRecipeResponse> recipe = tools.GetEffectRecipe(name: "effect-color-shift");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(effects.IsSuccess, Is.True, effects.Error?.Message);
+            Assert.That(effects.Value!.Effects.Select(effect => effect.Name), Does.Contain("ColorShift"));
+            Assert.That(effects.Value.Effects.Select(effect => effect.Name), Does.Contain("PixelSortEffect"));
+            Assert.That(effects.Value.Effects.Single(effect => effect.Name == "PixelSortEffect").RequiresGpu, Is.True);
+            Assert.That(recipes.IsSuccess, Is.True, recipes.Error?.Message);
+            Assert.That(recipes.Value!.Recipes.Select(item => item.Name), Does.Contain("digital-glitch"));
+            Assert.That(recipes.Value.Recipes.Select(item => item.Name), Does.Contain("effect-color-shift"));
+            Assert.That(recipe.IsSuccess, Is.True, recipe.Error?.Message);
+            Assert.That(recipe.Value!.Recipe.EffectNames, Does.Contain("ColorShift"));
+            Assert.That(recipe.Value.Recipe.Patch.ToJsonString(), Does.Contain("ColorShift"));
+            Assert.That(recipe.Value.UsageHint, Does.Contain("plan_edit"));
+        });
+    }
+
+    [Test]
+    public void Composition_tools_reuse_session_seed_when_seed_is_omitted()
+    {
+        var scene = new Scene(1920, 1080, "Scene");
+        using var session = new AgentToolkitTestSession(scene);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var queryTools = new QueryTools(manager);
+        var editTools = new EditTools(manager);
+
+        ToolResult<ListCompositionsResponse> firstList = queryTools.ListCompositions();
+        ToolResult<ListCompositionsResponse> sameList = queryTools.ListCompositions();
+        string selectedName = firstList.Value!.Compositions.First().Name;
+        ToolResult<PlanCompositionResponse> plan = editTools.PlanComposition(name: selectedName);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(firstList.IsSuccess, Is.True, firstList.Error?.Message);
+            Assert.That(sameList.IsSuccess, Is.True, sameList.Error?.Message);
+            Assert.That(plan.IsSuccess, Is.True, plan.Error?.Message);
+            Assert.That(firstList.Value!.Seed, Does.StartWith("session:"));
+            Assert.That(sameList.Value!.Seed, Is.EqualTo(firstList.Value.Seed));
+            Assert.That(sameList.Value.Compositions.Select(composition => composition.Name), Is.EqualTo(firstList.Value.Compositions.Select(composition => composition.Name)));
+            Assert.That(plan.Value!.Composition.Seed, Is.EqualTo(firstList.Value.Seed));
+            Assert.That(plan.Value.Composition.Name, Is.EqualTo(selectedName));
         });
     }
 

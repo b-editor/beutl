@@ -1,9 +1,11 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Globalization;
 using System.Reflection;
+using System.Text;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Beutl.AgentToolkit.Common;
+using Beutl.AgentToolkit.Reconciliation;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Engine;
@@ -12,6 +14,7 @@ using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
+using Beutl.NodeGraph;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
@@ -36,6 +39,8 @@ public sealed class SchemaGenerator
     ];
 
     private static readonly Lazy<ExampleSpec[]> s_exampleSpecs = new(CreateExampleSpecs);
+    private static readonly Lazy<EffectRecipeSpec[]> s_effectRecipeSpecs = new(CreateEffectRecipeSpecs);
+    private static readonly Dictionary<Type, EffectMetadata> s_effectMetadata = CreateEffectMetadata();
 
     public CapabilitySchema Generate(
         string? typeFilter = null,
@@ -129,6 +134,157 @@ public sealed class SchemaGenerator
                 spec.Categories.ToArray(),
                 spec.Tags.ToArray()))
             .ToArray();
+    }
+
+    public IReadOnlyList<EffectSummary> ListEffects(string? intent = null, bool includePropertyNames = true)
+    {
+        TypeRegistration.EnsureRegistered();
+        return EnumerateRegisteredTypes()
+            .Where(item => MatchesCategory(KnownLibraryItemFormats.FilterEffect, item.Category))
+            .Select(item => item.Type)
+            .Distinct()
+            .Select(type => CreateEffectSummary(type, includePropertyNames))
+            .Where(summary => MatchesIntent(summary, intent))
+            .OrderBy(summary => summary.Name, StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    public IReadOnlyList<EffectRecipeSummary> ListEffectRecipes(string? intent = null)
+    {
+        TypeRegistration.EnsureRegistered();
+        return s_effectRecipeSpecs.Value
+            .Where(spec => MatchesIntent(spec.Summary.IntentTags, intent)
+                           || string.IsNullOrWhiteSpace(intent)
+                           || spec.Summary.EffectNames.Any(name => name.Contains(intent, StringComparison.OrdinalIgnoreCase)))
+            .Select(spec => spec.Summary)
+            .OrderBy(summary => summary.Name, StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    public EffectRecipe GetEffectRecipe(string? name = null, string? intent = null)
+    {
+        TypeRegistration.EnsureRegistered();
+        EffectRecipeSpec? spec = !string.IsNullOrWhiteSpace(name)
+            ? s_effectRecipeSpecs.Value.FirstOrDefault(item => string.Equals(item.Summary.Name, name, StringComparison.OrdinalIgnoreCase))
+            : s_effectRecipeSpecs.Value.FirstOrDefault(item => MatchesIntent(item.Summary.IntentTags, intent));
+
+        if (spec is null)
+        {
+            throw new ReconcileException(new ToolError(
+                ErrorCode.UnknownType,
+                $"No effect recipe matched name='{name}' intent='{intent}'.",
+                name ?? intent,
+                "Call list_effect_recipes to inspect available recipe names and intent tags."));
+        }
+
+        return new EffectRecipe(
+            spec.Summary.Name,
+            spec.Summary.Description,
+            spec.Summary.IntentTags.ToArray(),
+            spec.Summary.EffectNames.ToArray(),
+            spec.Summary.Notes.ToArray(),
+            (JsonObject)spec.Patch.DeepClone());
+    }
+
+    private static EffectSummary CreateEffectSummary(Type type, bool includePropertyNames)
+    {
+        string discriminator = IdentityHelper.WriteDiscriminator(type);
+        TypeDescriptor descriptor = CreateDescriptor(KnownLibraryItemFormats.FilterEffect, type, discriminator, includeProperties: includePropertyNames);
+        EffectMetadata metadata = GetEffectMetadata(type);
+        return new EffectSummary(
+            type.Name,
+            descriptor.Type,
+            descriptor.Discriminator,
+            descriptor.DisplayName,
+            descriptor.Description,
+            metadata.IntentTags.ToArray(),
+            includePropertyNames
+                ? descriptor.Properties.Select(property => property.Name).ToArray()
+                : [],
+            metadata.Notes.ToArray(),
+            metadata.RequiresGpu);
+    }
+
+    private static EffectMetadata GetEffectMetadata(Type type)
+    {
+        if (s_effectMetadata.TryGetValue(type, out EffectMetadata? metadata))
+        {
+            return metadata;
+        }
+
+        return new EffectMetadata(InferEffectTags(type.Name), [], RequiresGpu: false);
+    }
+
+    private static string[] InferEffectTags(string name)
+    {
+        string lower = name.ToLowerInvariant();
+        List<string> tags = ["effect"];
+        if (lower.Contains("blur", StringComparison.Ordinal)
+            || lower.Contains("shadow", StringComparison.Ordinal)
+            || lower.Contains("stroke", StringComparison.Ordinal))
+        {
+            tags.AddRange(["glow", "depth", "outline"]);
+        }
+
+        if (lower.Contains("color", StringComparison.Ordinal)
+            || lower.Contains("hue", StringComparison.Ordinal)
+            || lower.Contains("saturate", StringComparison.Ordinal)
+            || lower.Contains("brightness", StringComparison.Ordinal)
+            || lower.Contains("contrast", StringComparison.Ordinal)
+            || lower.Contains("gamma", StringComparison.Ordinal)
+            || lower.Contains("threshold", StringComparison.Ordinal)
+            || lower.Contains("invert", StringComparison.Ordinal)
+            || lower.Contains("curve", StringComparison.Ordinal)
+            || lower.Contains("luma", StringComparison.Ordinal))
+        {
+            tags.AddRange(["color", "grade"]);
+        }
+
+        if (lower.Contains("mosaic", StringComparison.Ordinal)
+            || lower.Contains("pixel", StringComparison.Ordinal)
+            || lower.Contains("shift", StringComparison.Ordinal)
+            || lower.Contains("shake", StringComparison.Ordinal)
+            || lower.Contains("split", StringComparison.Ordinal))
+        {
+            tags.AddRange(["glitch", "stylize"]);
+        }
+
+        if (lower.Contains("key", StringComparison.Ordinal))
+        {
+            tags.AddRange(["keying", "transparent"]);
+        }
+
+        if (lower.Contains("transform", StringComparison.Ordinal)
+            || lower.Contains("displacement", StringComparison.Ordinal)
+            || lower.Contains("path", StringComparison.Ordinal)
+            || lower.Contains("delay", StringComparison.Ordinal)
+            || lower.Contains("layer", StringComparison.Ordinal)
+            || lower.Contains("blend", StringComparison.Ordinal))
+        {
+            tags.AddRange(["motion", "composite"]);
+        }
+
+        if (lower.Contains("script", StringComparison.Ordinal)
+            || lower.Contains("nodegraph", StringComparison.Ordinal))
+        {
+            tags.AddRange(["advanced", "programmable"]);
+        }
+
+        return tags.Distinct(StringComparer.Ordinal).ToArray();
+    }
+
+    private static bool MatchesIntent(EffectSummary summary, string? intent)
+    {
+        return MatchesIntent(summary.IntentTags, intent)
+               || (!string.IsNullOrWhiteSpace(intent)
+                   && (summary.Name.Contains(intent, StringComparison.OrdinalIgnoreCase)
+                       || summary.DisplayName?.Contains(intent, StringComparison.OrdinalIgnoreCase) == true));
+    }
+
+    private static bool MatchesIntent(IReadOnlyList<string> tags, string? intent)
+    {
+        return string.IsNullOrWhiteSpace(intent)
+               || tags.Any(tag => string.Equals(tag, intent, StringComparison.OrdinalIgnoreCase));
     }
 
     private static TypeDescriptor CreateDescriptor(string category, Type type, string discriminator, bool includeProperties)
@@ -331,6 +487,368 @@ public sealed class SchemaGenerator
                 ExampleTypes(typeof(LinearGradientBrush), typeof(GradientStop), typeof(FilterEffectGroup), typeof(Blur), typeof(Brightness)),
                 ExampleTags("targeted", "gradient", "effect"))
         ];
+    }
+
+    private static EffectRecipeSpec[] CreateEffectRecipeSpecs()
+    {
+        EffectRecipeSpec[] curated =
+        [
+            CreateEffectRecipe(
+                "glow-depth",
+                "Reusable glow/depth chain for text, nodes, panels, and highlight shapes.",
+                ["glow", "depth", "title", "node"],
+                CreateFilterEffectGroup(
+                    CreateBlur(5),
+                    CreateDropShadow(0, 0, 22, "#bb43e7ff"),
+                    CreateBrightness(112))),
+            CreateEffectRecipe(
+                "editorial-color-grade",
+                "Color grading chain for stronger palette separation without changing geometry.",
+                ["color", "grade", "editorial", "palette"],
+                CreateFilterEffectGroup(
+                    CreateSaturate(132),
+                    CreateHueRotate(18),
+                    CreateBrightness(108),
+                    CreateHighContrast(14))),
+            CreateEffectRecipe(
+                "digital-glitch",
+                "Glitch chain with channel separation, mosaic sampling, and procedural shake.",
+                ["glitch", "stylize", "motion", "distort"],
+                CreateFilterEffectGroup(
+                    CreateColorShift(14, 0, -12, 0),
+                    CreateMosaic(18),
+                    CreateShake(18, 7, 120))),
+            CreateEffectRecipe(
+                "graphic-outline",
+                "Outline and flat-shadow chain for poster-like labels, icons, and hard-edged shapes.",
+                ["outline", "graphic", "poster", "depth"],
+                CreateFilterEffectGroup(
+                    CreateStroke("#ff36f0ff", 6),
+                    CreateFlatShadow(138, 34, "#aa05121f"))),
+            CreateEffectRecipe(
+                "pixel-sort-distortion",
+                "GPU-dependent pixel-sort chain for harsher scanline and data-corruption looks.",
+                ["glitch", "pixel", "scanline", "gpu"],
+                CreateFilterEffectGroup(
+                    CreatePixelSort(),
+                    CreateColorShift(8, 0, -8, 0)))
+        ];
+
+        EffectRecipeSpec[] individual = EnumerateRegisteredTypes()
+            .Where(item => MatchesCategory(KnownLibraryItemFormats.FilterEffect, item.Category))
+            .Select(item => item.Type)
+            .Distinct()
+            .OrderBy(type => type.Name, StringComparer.Ordinal)
+            .Select(CreateSingleEffectRecipe)
+            .ToArray();
+
+        return curated.Concat(individual)
+            .DistinctBy(spec => spec.Summary.Name, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private static EffectRecipeSpec CreateEffectRecipe(
+        string name,
+        string description,
+        IReadOnlyList<string> tags,
+        FilterEffectGroup effects)
+    {
+        string[] effectNames = effects.Children
+            .Select(effect => effect.GetType().Name)
+            .ToArray();
+        string[] notes = effectNames
+            .SelectMany(name => GetEffectMetadataByName(name).Notes)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        return new EffectRecipeSpec(
+            new EffectRecipeSummary(name, description, tags.ToArray(), effectNames, notes),
+            CreateEffectPatch(effects));
+    }
+
+    private static EffectRecipeSpec CreateSingleEffectRecipe(Type type)
+    {
+        FilterEffect effect = CreateRecipeEffectInstance(type);
+        EffectMetadata metadata = GetEffectMetadata(type);
+        string displayName = TypeNameToWords(type.Name);
+        string name = $"effect-{ToKebabCase(type.Name)}";
+        string[] tags = metadata.IntentTags
+            .Append("single-effect")
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        string[] notes = metadata.Notes.ToArray();
+        JsonObject patch = type == typeof(FilterEffectGroup)
+            ? CreateEffectPatch((FilterEffectGroup)effect)
+            : CreateEffectPatch(CreateFilterEffectGroup(effect));
+
+        return new EffectRecipeSpec(
+            new EffectRecipeSummary(
+                name,
+                $"Single-effect recipe for {displayName}. Use this when you want to intentionally exercise the {type.Name} filter.",
+                tags,
+                [type.Name],
+                notes),
+            patch);
+    }
+
+    private static FilterEffect CreateRecipeEffectInstance(Type type)
+    {
+        FilterEffect effect = type == typeof(FilterEffectGroup)
+            ? new FilterEffectGroup()
+            : Activator.CreateInstance(type) as FilterEffect
+              ?? throw new InvalidOperationException($"Filter effect '{type.FullName}' does not have a usable parameterless constructor.");
+
+        TuneEffectDefaults(effect);
+        return effect;
+    }
+
+    private static void TuneEffectDefaults(FilterEffect effect)
+    {
+        switch (effect)
+        {
+            case FilterEffectGroup group:
+                group.Children.Add(CreateBlur(4));
+                group.Children.Add(CreateBrightness(108));
+                break;
+            case Blur blur:
+                blur.Sigma.CurrentValue = new Size(8, 8);
+                break;
+            case DropShadow dropShadow:
+                dropShadow.Position.CurrentValue = new Point(0, 0);
+                dropShadow.Sigma.CurrentValue = new Size(18, 18);
+                dropShadow.Color.CurrentValue = Color.Parse("#aa36f0ff");
+                break;
+            case InnerShadow innerShadow:
+                innerShadow.Position.CurrentValue = new Point(10, 12);
+                innerShadow.Sigma.CurrentValue = new Size(18, 18);
+                innerShadow.Color.CurrentValue = Color.Parse("#aa000000");
+                break;
+            case FlatShadow flatShadow:
+                flatShadow.Angle.CurrentValue = 138;
+                flatShadow.Length.CurrentValue = 34;
+                flatShadow.Brush.CurrentValue = new SolidColorBrush(Color.Parse("#aa05121f"));
+                break;
+            case StrokeEffect stroke:
+                stroke.Pen.CurrentValue = CreatePen("#ff36f0ff", 6);
+                break;
+            case Clipping clipping:
+                clipping.Left.CurrentValue = 16;
+                clipping.Top.CurrentValue = 16;
+                clipping.Right.CurrentValue = 16;
+                clipping.Bottom.CurrentValue = 16;
+                break;
+            case Dilate dilate:
+                dilate.RadiusX.CurrentValue = 6;
+                dilate.RadiusY.CurrentValue = 6;
+                break;
+            case Erode erode:
+                erode.RadiusX.CurrentValue = 4;
+                erode.RadiusY.CurrentValue = 4;
+                break;
+            case HighContrast highContrast:
+                highContrast.Contrast.CurrentValue = 18;
+                break;
+            case HueRotate hueRotate:
+                hueRotate.Angle.CurrentValue = 24;
+                break;
+            case Lighting lighting:
+                lighting.Multiply.CurrentValue = Color.Parse("#ffffffff");
+                lighting.Add.CurrentValue = Color.Parse("#221ad8ff");
+                break;
+            case Saturate saturate:
+                saturate.Amount.CurrentValue = 136;
+                break;
+            case Threshold threshold:
+                threshold.Value.CurrentValue = 52;
+                threshold.Smoothness.CurrentValue = 18;
+                threshold.Strength.CurrentValue = 70;
+                break;
+            case Brightness brightness:
+                brightness.Amount.CurrentValue = 116;
+                break;
+            case Gamma gamma:
+                gamma.Amount.CurrentValue = 92;
+                gamma.Strength.CurrentValue = 65;
+                break;
+            case ColorGrading colorGrading:
+                colorGrading.Temperature.CurrentValue = -8;
+                colorGrading.Tint.CurrentValue = 5;
+                colorGrading.Contrast.CurrentValue = 12;
+                colorGrading.Saturation.CurrentValue = 18;
+                colorGrading.Vibrance.CurrentValue = 20;
+                break;
+            case Invert invert:
+                invert.Amount.CurrentValue = 32;
+                invert.ExcludeAlphaChannel.CurrentValue = true;
+                break;
+            case BlendEffect blend:
+                blend.Brush.CurrentValue = new SolidColorBrush(Color.Parse("#7736f0ff"));
+                blend.BlendMode.CurrentValue = BlendMode.Plus;
+                break;
+            case Negaposi negaposi:
+                negaposi.Red.CurrentValue = 255;
+                negaposi.Blue.CurrentValue = 255;
+                negaposi.Strength.CurrentValue = 65;
+                break;
+            case ChromaKey chromaKey:
+                chromaKey.Color.CurrentValue = Color.Parse("#ff00ff00");
+                chromaKey.HueRange.CurrentValue = 12;
+                chromaKey.SaturationRange.CurrentValue = 35;
+                chromaKey.Boundary.CurrentValue = 3;
+                break;
+            case ColorKey colorKey:
+                colorKey.Color.CurrentValue = Color.Parse("#ffffffff");
+                colorKey.Range.CurrentValue = 18;
+                colorKey.Boundary.CurrentValue = 3;
+                break;
+            case SplitEffect split:
+                split.HorizontalDivisions.CurrentValue = 3;
+                split.VerticalDivisions.CurrentValue = 2;
+                split.HorizontalSpacing.CurrentValue = 12;
+                split.VerticalSpacing.CurrentValue = 8;
+                break;
+            case TransformEffect transform:
+                transform.Transform.CurrentValue = new RotationTransform(8);
+                transform.TransformOrigin.CurrentValue = RelativePoint.Center;
+                break;
+            case MosaicEffect mosaic:
+                mosaic.TileSize.CurrentValue = new Size(18, 18);
+                break;
+            case ColorShift colorShift:
+                colorShift.RedOffset.CurrentValue = new PixelPoint(12, 0);
+                colorShift.BlueOffset.CurrentValue = new PixelPoint(-12, 0);
+                break;
+            case ShakeEffect shake:
+                shake.StrengthX.CurrentValue = 18;
+                shake.StrengthY.CurrentValue = 7;
+                shake.Speed.CurrentValue = 120;
+                break;
+            case DisplacementMapEffect displacement:
+                if (displacement.Transform.CurrentValue is DisplacementMapTranslateTransform translate)
+                {
+                    translate.X.CurrentValue = 18;
+                    translate.Y.CurrentValue = 10;
+                }
+
+                displacement.Signed.CurrentValue = true;
+                break;
+            case PathFollowEffect pathFollow:
+                pathFollow.Progress.CurrentValue = 42;
+                pathFollow.FollowRotation.CurrentValue = true;
+                break;
+            case DelayAnimationEffect delay:
+                delay.Delay.CurrentValue = 55;
+                delay.Effect.CurrentValue = CreateDropShadow(0, 0, 18, "#9936f0ff");
+                break;
+            case PixelSortEffect pixelSort:
+                pixelSort.Direction.CurrentValue = PixelSortDirection.Horizontal;
+                pixelSort.SortKey.CurrentValue = PixelSortKey.Hue;
+                pixelSort.ThresholdMin.CurrentValue = 18;
+                pixelSort.ThresholdMax.CurrentValue = 82;
+                break;
+        }
+    }
+
+    private static JsonObject CreateEffectPatch(FilterEffectGroup effects)
+    {
+        return new JsonObject
+        {
+            ["Elements"] = new JsonArray(new JsonObject
+            {
+                [nameof(CoreObject.Id)] = "<element-id>",
+                [nameof(Element.Objects)] = new JsonArray(new JsonObject
+                {
+                    [nameof(CoreObject.Id)] = "<drawable-id>",
+                    [nameof(Drawable.FilterEffect)] = SerializeExampleObject(effects)
+                })
+            })
+        };
+    }
+
+    private static FilterEffectGroup CreateFilterEffectGroup(params FilterEffect[] effects)
+    {
+        var group = new FilterEffectGroup();
+        foreach (FilterEffect effect in effects)
+        {
+            group.Children.Add(effect);
+        }
+
+        return group;
+    }
+
+    private static EffectMetadata GetEffectMetadataByName(string typeName)
+    {
+        KeyValuePair<Type, EffectMetadata> pair = s_effectMetadata
+            .FirstOrDefault(item => string.Equals(item.Key.Name, typeName, StringComparison.Ordinal));
+        return pair.Value ?? new EffectMetadata(InferEffectTags(typeName), [], RequiresGpu: false);
+    }
+
+    private static string ToKebabCase(string name)
+    {
+        var builder = new StringBuilder(name.Length + 8);
+        for (int i = 0; i < name.Length; i++)
+        {
+            char c = name[i];
+            if (char.IsUpper(c) && i > 0 && (char.IsLower(name[i - 1]) || (i + 1 < name.Length && char.IsLower(name[i + 1]))))
+            {
+                builder.Append('-');
+            }
+
+            builder.Append(char.ToLowerInvariant(c));
+        }
+
+        return builder.ToString();
+    }
+
+    private static string TypeNameToWords(string name)
+    {
+        return ToKebabCase(name).Replace('-', ' ');
+    }
+
+    private static Dictionary<Type, EffectMetadata> CreateEffectMetadata()
+    {
+        return new Dictionary<Type, EffectMetadata>
+        {
+            [typeof(Blur)] = Metadata(["soften", "glow", "depth"], ["Use inside FilterEffectGroup before shadow/color effects for soft halos."]),
+            [typeof(DropShadow)] = Metadata(["shadow", "glow", "depth"], ["Use zero offset for neon glow, non-zero offset for cast shadows."]),
+            [typeof(InnerShadow)] = Metadata(["shadow", "depth", "inset"], []),
+            [typeof(FlatShadow)] = Metadata(["shadow", "poster", "depth"], ["Good for flat editorial graphics and bold labels."]),
+            [typeof(StrokeEffect)] = Metadata(["outline", "poster", "graphic"], ["Pair with FlatShadow for sticker-like typography or icon treatments."]),
+            [typeof(HighContrast)] = Metadata(["color", "grade", "contrast"], []),
+            [typeof(HueRotate)] = Metadata(["color", "grade", "palette"], []),
+            [typeof(LumaColor)] = Metadata(["color", "luma", "grade"], []),
+            [typeof(Saturate)] = Metadata(["color", "grade", "palette"], []),
+            [typeof(Threshold)] = Metadata(["color", "graphic", "poster"], []),
+            [typeof(Brightness)] = Metadata(["color", "grade", "glow"], []),
+            [typeof(Gamma)] = Metadata(["color", "grade"], []),
+            [typeof(ColorGrading)] = Metadata(["color", "grade", "cinematic"], []),
+            [typeof(Curves)] = Metadata(["color", "grade", "cinematic"], []),
+            [typeof(Invert)] = Metadata(["color", "graphic", "negative"], []),
+            [typeof(LutEffect)] = Metadata(["color", "grade", "lut"], ["Requires a LUT source to have visible effect."]),
+            [typeof(BlendEffect)] = Metadata(["composite", "blend", "layer"], []),
+            [typeof(Negaposi)] = Metadata(["color", "negative", "graphic"], []),
+            [typeof(ChromaKey)] = Metadata(["keying", "transparent", "video"], []),
+            [typeof(ColorKey)] = Metadata(["keying", "transparent", "graphic"], []),
+            [typeof(SplitEffect)] = Metadata(["glitch", "split", "stylize"], []),
+            [typeof(PartsSplitEffect)] = Metadata(["glitch", "split", "stylize"], []),
+            [typeof(TransformEffect)] = Metadata(["motion", "distort", "transform"], []),
+            [typeof(MosaicEffect)] = Metadata(["glitch", "pixel", "stylize"], []),
+            [typeof(ColorShift)] = Metadata(["glitch", "chromatic", "stylize"], []),
+            [typeof(ShakeEffect)] = Metadata(["motion", "glitch", "shake"], ["Time-dependent effect; useful for animated jitter without explicit keyframes."]),
+            [typeof(DisplacementMapEffect)] = Metadata(["distort", "map", "motion"], ["Pair with a map source or generated texture for visible displacement."]),
+            [typeof(PathFollowEffect)] = Metadata(["motion", "path", "distort"], []),
+            [typeof(LayerEffect)] = Metadata(["composite", "layer"], []),
+            [typeof(DelayAnimationEffect)] = Metadata(["motion", "trail", "delay"], []),
+            [typeof(PixelSortEffect)] = Metadata(["glitch", "pixel", "scanline", "gpu"], ["Requires GPU/Vulkan support; may be inactive on CPU-only rendering."], requiresGpu: true),
+            [typeof(CSharpScriptEffect)] = Metadata(["advanced", "script", "programmable"], ["Prefer built-in effects for low-context agents unless script code is explicitly requested."]),
+            [typeof(SKSLScriptEffect)] = Metadata(["advanced", "shader", "programmable"], ["Requires shader source. Prefer built-in effects for normal motion graphics."]),
+            [typeof(GLSLScriptEffect)] = Metadata(["advanced", "shader", "gpu"], ["Requires GPU shader source and GPU support."], requiresGpu: true),
+            [typeof(NodeGraphFilterEffect)] = Metadata(["advanced", "nodegraph", "programmable"], ["Requires a node graph resource to be useful."])
+        };
+    }
+
+    private static EffectMetadata Metadata(IReadOnlyList<string> tags, IReadOnlyList<string> notes, bool requiresGpu = false)
+    {
+        return new EffectMetadata(tags.Append("effect").Distinct(StringComparer.Ordinal).ToArray(), notes.ToArray(), requiresGpu);
     }
 
     private static string[] ExampleCategories(params string[] categories)
@@ -1068,6 +1586,65 @@ public sealed class SchemaGenerator
         return hueRotate;
     }
 
+    private static HighContrast CreateHighContrast(float contrast)
+    {
+        var highContrast = new HighContrast();
+        highContrast.Contrast.CurrentValue = contrast;
+        return highContrast;
+    }
+
+    private static ColorShift CreateColorShift(int redX, int redY, int blueX, int blueY)
+    {
+        var colorShift = new ColorShift();
+        colorShift.RedOffset.CurrentValue = new PixelPoint(redX, redY);
+        colorShift.GreenOffset.CurrentValue = new PixelPoint(0, 0);
+        colorShift.BlueOffset.CurrentValue = new PixelPoint(blueX, blueY);
+        colorShift.AlphaOffset.CurrentValue = new PixelPoint(0, 0);
+        return colorShift;
+    }
+
+    private static MosaicEffect CreateMosaic(float tileSize)
+    {
+        var mosaic = new MosaicEffect();
+        mosaic.TileSize.CurrentValue = new Size(tileSize, tileSize);
+        return mosaic;
+    }
+
+    private static ShakeEffect CreateShake(float strengthX, float strengthY, float speed)
+    {
+        var shake = new ShakeEffect();
+        shake.StrengthX.CurrentValue = strengthX;
+        shake.StrengthY.CurrentValue = strengthY;
+        shake.Speed.CurrentValue = speed;
+        return shake;
+    }
+
+    private static StrokeEffect CreateStroke(string color, float thickness)
+    {
+        var stroke = new StrokeEffect();
+        stroke.Pen.CurrentValue = CreatePen(color, thickness);
+        return stroke;
+    }
+
+    private static FlatShadow CreateFlatShadow(float angle, float length, string color)
+    {
+        var flatShadow = new FlatShadow();
+        flatShadow.Angle.CurrentValue = angle;
+        flatShadow.Length.CurrentValue = length;
+        flatShadow.Brush.CurrentValue = new SolidColorBrush(Color.Parse(color));
+        return flatShadow;
+    }
+
+    private static PixelSortEffect CreatePixelSort()
+    {
+        var pixelSort = new PixelSortEffect();
+        pixelSort.Direction.CurrentValue = PixelSortDirection.Horizontal;
+        pixelSort.SortKey.CurrentValue = PixelSortKey.Hue;
+        pixelSort.ThresholdMin.CurrentValue = 18;
+        pixelSort.ThresholdMax.CurrentValue = 82;
+        return pixelSort;
+    }
+
     private static JsonObject SerializeExampleElement(Element element)
     {
         JsonObject json = CoreSerializer.SerializeToJsonObject(element);
@@ -1255,4 +1832,13 @@ public sealed class SchemaGenerator
         IReadOnlyList<string> Categories,
         IReadOnlyList<string> TypeTokens,
         IReadOnlyList<string> Tags);
+
+    private sealed record EffectRecipeSpec(
+        EffectRecipeSummary Summary,
+        JsonObject Patch);
+
+    private sealed record EffectMetadata(
+        IReadOnlyList<string> IntentTags,
+        IReadOnlyList<string> Notes,
+        bool RequiresGpu);
 }

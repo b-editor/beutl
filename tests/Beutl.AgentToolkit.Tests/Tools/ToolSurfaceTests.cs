@@ -24,6 +24,9 @@ public sealed class ToolSurfaceTests
             {
                 "get_started",
                 "get_schema",
+                "list_effects",
+                "list_effect_recipes",
+                "get_effect_recipe",
                 "list_compositions",
                 "get_composition",
                 "render_composition_patch",
