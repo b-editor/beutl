@@ -1,10 +1,14 @@
-﻿using Beutl.AgentToolkit.Common;
+﻿using System.Security.Cryptography;
+using Beutl.AgentToolkit.Common;
 
 namespace Beutl.AgentToolkit.Sessions;
 
 public sealed class AgentSessionManager
 {
+    private readonly string _hostCompositionSeed = CreateCompositionSeed("host");
     private ISessionSource? _currentSource;
+    private string? _compositionSessionKey;
+    private string? _compositionSessionSeed;
 
     public IEditingSession? CurrentSession => _currentSource?.CurrentSession;
 
@@ -18,6 +22,34 @@ public sealed class AgentSessionManager
     {
         return CurrentSession
                ?? throw new SessionUnavailableException();
+    }
+
+    public string ResolveCompositionSeed(string? seed)
+    {
+        if (!string.IsNullOrWhiteSpace(seed))
+        {
+            return seed.Trim();
+        }
+
+        IEditingSession? session = CurrentSession;
+        if (session is null)
+        {
+            return _hostCompositionSeed;
+        }
+
+        string sessionKey = $"{session.Source}:{session.SessionId}";
+        if (!StringComparer.Ordinal.Equals(_compositionSessionKey, sessionKey))
+        {
+            _compositionSessionKey = sessionKey;
+            _compositionSessionSeed = $"session:{sessionKey}";
+        }
+
+        return _compositionSessionSeed!;
+    }
+
+    private static string CreateCompositionSeed(string scope)
+    {
+        return $"{scope}:{Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLowerInvariant()}";
     }
 }
 

@@ -15,6 +15,32 @@ public sealed record DeclarativeExampleSummary(
     IReadOnlyList<string> Categories,
     IReadOnlyList<string> Tags);
 
+public sealed record EffectSummary(
+    string Name,
+    string Type,
+    string Discriminator,
+    string? DisplayName,
+    string? Description,
+    IReadOnlyList<string> IntentTags,
+    IReadOnlyList<string> PropertyNames,
+    IReadOnlyList<string> Notes,
+    bool RequiresGpu);
+
+public sealed record EffectRecipeSummary(
+    string Name,
+    string Description,
+    IReadOnlyList<string> IntentTags,
+    IReadOnlyList<string> EffectNames,
+    IReadOnlyList<string> Notes);
+
+public sealed record EffectRecipe(
+    string Name,
+    string Description,
+    IReadOnlyList<string> IntentTags,
+    IReadOnlyList<string> EffectNames,
+    IReadOnlyList<string> Notes,
+    JsonObject Patch);
+
 public sealed record TypeDescriptor(
     string Type,
     string Discriminator,

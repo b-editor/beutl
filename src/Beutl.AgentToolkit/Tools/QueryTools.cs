@@ -32,6 +32,21 @@ public sealed record ListCompositionsResponse(
     IReadOnlyList<CompositionTemplateSummary> Compositions,
     string SelectionHint);
 
+public sealed record ListEffectsResponse(
+    string SchemaVersion,
+    IReadOnlyList<EffectSummary> Effects,
+    string SelectionHint);
+
+public sealed record ListEffectRecipesResponse(
+    string SchemaVersion,
+    IReadOnlyList<EffectRecipeSummary> Recipes,
+    string SelectionHint);
+
+public sealed record GetEffectRecipeResponse(
+    string SchemaVersion,
+    EffectRecipe Recipe,
+    string UsageHint);
+
 public sealed record GetCompositionResponse(
     string SchemaVersion,
     CompositionTemplateDetail Composition);
@@ -92,7 +107,8 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
             [
                 "In live mode, call attach_active_editor before scene tools.",
                 "Call read_document_summary to inspect progress without the full document.",
-                "For low-context motion graphics, call list_compositions with an optional seed, then plan_composition/apply_composition with name, inputProps, and seed.",
+                "Call list_effects and list_effect_recipes to discover Beutl's visual effect palette before choosing a repeated look.",
+                "For low-context motion graphics, call list_compositions without seed for a session-varied default order, then plan_composition/apply_composition with the returned seed when you need exact reproduction.",
                 "Use render_composition_patch only when the client explicitly needs the generated patch JSON; plan_composition/apply_composition avoid huge raw HTTP payloads.",
                 "Call list_examples to choose a starter; examples are shuffled so the first empty-scene option varies across repeated runs.",
                 "Call get_examples with name=<selected-example> to fetch exactly one patch.",
@@ -164,18 +180,48 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
             "If more than one example is returned, the order is shuffled. Choose the first suitable empty-scene starter, or use name to fetch a single patch."));
     }
 
+    [McpServerTool(Name = "list_effects")]
+    [Description("Returns Beutl FilterEffect types with intent tags, property names, notes, and GPU requirements. Use before motion-graphics authoring to avoid repeating the same blur/shadow look.")]
+    public ToolResult<ListEffectsResponse> ListEffects(string? intent = null, bool includePropertyNames = true)
+    {
+        return Execute(() => new ListEffectsResponse(
+            SchemaVersion.Current,
+            _schemaGenerator.ListEffects(intent, includePropertyNames),
+            "Filter by intent such as glow, color, grade, glitch, outline, keying, motion, composite, gpu, or advanced. Call get_schema with type=<Name> for full property descriptors."));
+    }
+
+    [McpServerTool(Name = "list_effect_recipes")]
+    [Description("Returns compact effect recipe names. Includes curated chains plus one single-effect recipe for every registered Beutl FilterEffect.")]
+    public ToolResult<ListEffectRecipesResponse> ListEffectRecipes(string? intent = null)
+    {
+        return Execute(() => new ListEffectRecipesResponse(
+            SchemaVersion.Current,
+            _schemaGenerator.ListEffectRecipes(intent),
+            "Call get_effect_recipe with a recipe name, then apply the returned patch through plan_edit/apply_edit after replacing placeholder element/drawable Ids."));
+    }
+
+    [McpServerTool(Name = "get_effect_recipe")]
+    [Description("Returns a declarative patch recipe for a visual effect chain or a single Beutl FilterEffect. Pass name from list_effect_recipes or an intent tag.")]
+    public ToolResult<GetEffectRecipeResponse> GetEffectRecipe(string? name = null, string? intent = null)
+    {
+        return Execute(() => new GetEffectRecipeResponse(
+            SchemaVersion.Current,
+            _schemaGenerator.GetEffectRecipe(name, intent),
+            "Replace <element-id> and <drawable-id> with Ids from read_document/read_document_summary, then pass recipe.patch to plan_edit/apply_edit with schemaVersion=1."));
+    }
+
     [McpServerTool(Name = "list_compositions")]
-    [Description("Returns compact Remotion-style composition templates. Templates include props, style axes, default metadata, and deterministic seed-aware shuffled order.")]
+    [Description("Returns compact Remotion-style composition templates. Templates include props, style axes, default metadata, and deterministic shuffled order. If seed is omitted, the active session default seed is used.")]
     public ToolResult<ListCompositionsResponse> ListCompositions(string? tag = null, string? seed = null)
     {
         return Execute(() =>
         {
-            CompositionTemplateList list = _compositionCatalog.List(tag, seed);
+            CompositionTemplateList list = _compositionCatalog.List(tag, sessions.ResolveCompositionSeed(seed));
             return new ListCompositionsResponse(
                 SchemaVersion.Current,
                 list.Seed,
                 list.Compositions,
-                "Compositions are shuffled by seed. Reuse the returned seed to reproduce the same order and render_composition_patch output.");
+                "Compositions are shuffled by seed. When seed is omitted, the active session default seed is used; reuse the returned seed to reproduce the same order and composition output.");
         });
     }
 
@@ -198,7 +244,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
     {
         return Execute(() => new RenderCompositionPatchResponse(
             SchemaVersion.Current,
-            _compositionCatalog.Render(name, tag, inputProps, seed),
+            _compositionCatalog.Render(name, tag, inputProps, sessions.ResolveCompositionSeed(seed)),
             "Pass composition.patch to plan_edit/apply_edit with schemaVersion=1. Use the returned seed to reproduce or intentionally vary the generated motion."));
     }
 

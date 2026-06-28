@@ -1,4 +1,6 @@
-﻿using Avalonia.Headless.NUnit;
+﻿using System.Net;
+using System.Net.Sockets;
+using Avalonia.Headless.NUnit;
 using Beutl.AgentHost;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Sessions;
@@ -10,9 +12,14 @@ namespace Beutl.HeadlessUITests;
 public sealed class AgentHostEndpointTests
 {
     [AvaloniaTest]
-    public async Task Endpoint_binds_loopback_issues_token_and_stops_cleanly()
+    public async Task Endpoint_binds_default_loopback_port_uses_fixed_token_and_stops_cleanly()
     {
         await TestReset.ResetShellAsync();
+        if (!CanBindLoopbackPort(AgentHostEndpoint.DefaultPort))
+        {
+            Assert.Inconclusive($"Default port {AgentHostEndpoint.DefaultPort} is already in use.");
+        }
+
         var endpoint = new AgentHostEndpoint(new EditorService(new ExtensionProvider()));
 
         try
@@ -25,8 +32,8 @@ public sealed class AgentHostEndpointTests
                 Assert.That(endpoint.EndpointUri, Is.Not.Null);
                 Assert.That(endpoint.EndpointUri!.Host, Is.EqualTo("127.0.0.1"));
                 Assert.That(endpoint.EndpointUri.AbsolutePath, Is.EqualTo("/mcp"));
-                Assert.That(endpoint.EndpointUri.Port, Is.GreaterThan(0));
-                Assert.That(endpoint.Token, Has.Length.EqualTo(32));
+                Assert.That(endpoint.EndpointUri.Port, Is.EqualTo(AgentHostEndpoint.DefaultPort));
+                Assert.That(endpoint.Token, Is.EqualTo(AgentHostEndpoint.DefaultToken));
             });
 
             using var client = new HttpClient();
@@ -48,6 +55,34 @@ public sealed class AgentHostEndpointTests
             Assert.That(endpoint.IsRunning, Is.False);
             Assert.That(endpoint.EndpointUri, Is.Null);
         });
+    }
+
+    [AvaloniaTest]
+    public async Task Endpoint_increments_port_when_preferred_port_is_in_use()
+    {
+        await TestReset.ResetShellAsync();
+        using TcpListener occupiedPort = ReserveLoopbackPortWithAvailableSuccessor();
+        int preferredPort = ((IPEndPoint)occupiedPort.LocalEndpoint).Port;
+        var endpoint = new AgentHostEndpoint(
+            new EditorService(new ExtensionProvider()),
+            preferredPort,
+            AgentHostEndpoint.DefaultToken);
+
+        try
+        {
+            await endpoint.StartAsync();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(endpoint.EndpointUri, Is.Not.Null);
+                Assert.That(endpoint.EndpointUri!.Host, Is.EqualTo("127.0.0.1"));
+                Assert.That(endpoint.EndpointUri.Port, Is.EqualTo(preferredPort + 1));
+            });
+        }
+        finally
+        {
+            await endpoint.StopAsync();
+        }
     }
 
     [AvaloniaTest]
@@ -85,5 +120,39 @@ public sealed class AgentHostEndpointTests
             Assert.That(result.Error?.Code, Is.EqualTo(ErrorCode.NoActiveEditorSession));
             Assert.That(result.Error?.Hint, Does.Contain("attach_active_editor"));
         });
+    }
+
+    private static TcpListener ReserveLoopbackPortWithAvailableSuccessor()
+    {
+        for (int i = 0; i < 50; i++)
+        {
+            var listener = new TcpListener(IPAddress.Loopback, 0);
+            listener.Start();
+            int port = ((IPEndPoint)listener.LocalEndpoint).Port;
+
+            if (port < IPEndPoint.MaxPort && CanBindLoopbackPort(port + 1))
+            {
+                return listener;
+            }
+
+            listener.Stop();
+        }
+
+        Assert.Inconclusive("Could not reserve a loopback port with an available successor.");
+        throw new InvalidOperationException();
+    }
+
+    private static bool CanBindLoopbackPort(int port)
+    {
+        try
+        {
+            using TcpListener listener = new(IPAddress.Loopback, port);
+            listener.Start();
+            return true;
+        }
+        catch (SocketException ex) when (ex.SocketErrorCode is SocketError.AddressAlreadyInUse or SocketError.AccessDenied)
+        {
+            return false;
+        }
     }
 }

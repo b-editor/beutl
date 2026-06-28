@@ -94,7 +94,7 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
         return Execute(() =>
         {
             IEditingSession session = sessions.RequireSession();
-            CompositionRender composition = _compositionCatalog.Render(name, tag, inputProps, seed);
+            CompositionRender composition = _compositionCatalog.Render(name, tag, inputProps, sessions.ResolveCompositionSeed(seed));
             JsonObject resolved = ResolveDesiredDocument(session, desired: null, patch: composition.Patch, schemaVersion: SchemaVersion.Current);
             return new PlanCompositionResponse(
                 SchemaVersion.Current,
@@ -115,7 +115,7 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
         return Execute(() =>
         {
             IEditingSession session = sessions.RequireSession();
-            CompositionRender composition = _compositionCatalog.Render(name, tag, inputProps, seed);
+            CompositionRender composition = _compositionCatalog.Render(name, tag, inputProps, sessions.ResolveCompositionSeed(seed));
             JsonObject resolved = ResolveDesiredDocument(session, desired: null, patch: composition.Patch, schemaVersion: SchemaVersion.Current);
             ReconcilePlan plan = _reconciler.Plan(session, resolved);
             if (expectedChangeSet is not null && !ChangeSetMatches(plan, expectedChangeSet))

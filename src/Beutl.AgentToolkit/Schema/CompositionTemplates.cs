@@ -96,6 +96,15 @@ public sealed class CompositionTemplateCatalog
         new("#ff160c24", "#ff302340", "#ffff7a59", "#ff63f7de", "#fffff8ef")
     ];
 
+    private readonly string _defaultSeed;
+
+    public CompositionTemplateCatalog(string? defaultSeed = null)
+    {
+        _defaultSeed = string.IsNullOrWhiteSpace(defaultSeed)
+            ? CreateSeed("catalog")
+            : defaultSeed.Trim();
+    }
+
     public CompositionTemplateList List(string? tag = null, string? seed = null)
     {
         string resolvedSeed = ResolveSeed(seed);
@@ -423,11 +432,33 @@ public sealed class CompositionTemplateCatalog
                 })
         ];
 
-        float centerX = -250 + context.Random.Range(-140, 80);
-        float centerY = context.Random.Range(-70, 60);
-        for (int i = 0; i < 3; i++)
+        int layoutVariant = context.Random.NextInt(3);
+        float centerBaseX = layoutVariant switch
         {
-            float size = 360 + (i * 190) + context.Random.Range(-34, 44);
+            1 => 250,
+            2 => -20,
+            _ => -250
+        };
+        float centerBaseY = layoutVariant switch
+        {
+            2 => -120,
+            _ => 0
+        };
+        float titleBaseX = layoutVariant switch
+        {
+            1 => -780,
+            2 => -420,
+            _ => 420
+        };
+        float titleBaseY = layoutVariant == 2 ? 300 : -72;
+        int ringCount = layoutVariant == 2 ? 4 : 3;
+        float ringBaseSize = layoutVariant == 2 ? 300 : 360;
+        float ringGap = layoutVariant == 2 ? 150 : 190;
+        float centerX = centerBaseX + context.Random.Range(-140, 80);
+        float centerY = centerBaseY + context.Random.Range(-70, 60);
+        for (int i = 0; i < ringCount; i++)
+        {
+            float size = ringBaseSize + (i * ringGap) + context.Random.Range(-34, 44);
             Element ring = CreateElement(
                 $"Orbital radar ring {i + 1}",
                 4 + i,
@@ -470,6 +501,19 @@ public sealed class CompositionTemplateCatalog
             elements.Add(DeserializeElement(ringJson));
         }
 
+        float sweepWidth = layoutVariant switch
+        {
+            1 => 760,
+            2 => 1120,
+            _ => 820
+        };
+        float sweepStartRotation = layoutVariant switch
+        {
+            1 => 150,
+            2 => -70,
+            _ => -20
+        };
+        float sweepEndRotation = sweepStartRotation + (layoutVariant == 1 ? -260 : 260);
         Element sweep = CreateElement(
             "Orbital radar sweep",
             10,
@@ -477,7 +521,7 @@ public sealed class CompositionTemplateCatalog
             new RectShape
             {
                 Name = "Seeded scan sweep",
-                Width = { CurrentValue = 820 },
+                Width = { CurrentValue = sweepWidth },
                 Height = { CurrentValue = 9 },
                 Fill = { CurrentValue = CreateLinearGradient("#0036f0ff", palette.Accent) },
                 Transform =
@@ -487,7 +531,7 @@ public sealed class CompositionTemplateCatalog
                         Children =
                         {
                             new TranslateTransform(centerX, centerY),
-                            new RotationTransform(-20)
+                            new RotationTransform(sweepStartRotation)
                         }
                     }
                 },
@@ -504,13 +548,16 @@ public sealed class CompositionTemplateCatalog
             });
         JsonObject sweepJson = SerializeElement(sweep);
         AddFloatAnimation(GetFirstObjectJson(sweepJson), nameof(Drawable.Opacity), (0, 0, typeof(CubicEaseOut)), (0.8, 78, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, 0, typeof(SineEaseInOut)));
-        AddFloatAnimation(GetTransformChildJson(GetFirstObjectJson(sweepJson), typeof(RotationTransform)), nameof(RotationTransform.Rotation), (0, -30, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, 230, typeof(SineEaseInOut)));
+        AddFloatAnimation(GetTransformChildJson(GetFirstObjectJson(sweepJson), typeof(RotationTransform)), nameof(RotationTransform.Rotation), (0, sweepStartRotation, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, sweepEndRotation, typeof(SineEaseInOut)));
         elements.Add(DeserializeElement(sweepJson));
 
-        for (int i = 0; i < Math.Clamp((int)MathF.Round(4 * density), 2, 8); i++)
+        int nodeCount = Math.Clamp((int)MathF.Round((layoutVariant == 2 ? 5 : 4) * density), 2, 9);
+        float nodeSpreadX = layoutVariant == 2 ? 520 : 420;
+        float nodeSpreadY = layoutVariant == 2 ? 250 : 300;
+        for (int i = 0; i < nodeCount; i++)
         {
-            float x = centerX + context.Random.Range(-320, 420);
-            float y = centerY + context.Random.Range(-280, 300);
+            float x = centerX + context.Random.Range(-nodeSpreadX, nodeSpreadX);
+            float y = centerY + context.Random.Range(-nodeSpreadY, nodeSpreadY);
             Element node = CreateElement(
                 $"Orbital signal node {i + 1}",
                 14 + i,
@@ -553,8 +600,8 @@ public sealed class CompositionTemplateCatalog
             elements.Add(DeserializeElement(nodeJson));
         }
 
-        elements.Add(CreateTextElement("Orbital title", "Technical title", title, 30, 88, 10, 420 + context.Random.Range(-40, 80), -72, palette.Foreground, fullLength));
-        elements.Add(CreateTextElement("Orbital subtitle", "Technical subtitle", subtitle, 31, 32, 5, 420 + context.Random.Range(-40, 80), 20, palette.Foreground, fullLength));
+        elements.Add(CreateTextElement("Orbital title", "Technical title", title, 30, 88, 10, titleBaseX + context.Random.Range(-40, 80), titleBaseY, palette.Foreground, fullLength));
+        elements.Add(CreateTextElement("Orbital subtitle", "Technical subtitle", subtitle, 31, 32, 5, titleBaseX + context.Random.Range(-40, 80), titleBaseY + 92, palette.Foreground, fullLength));
 
         return CreateRender(context, elements);
     }
@@ -871,11 +918,16 @@ public sealed class CompositionTemplateCatalog
         return result;
     }
 
-    private static string ResolveSeed(string? seed)
+    private string ResolveSeed(string? seed)
     {
         return string.IsNullOrWhiteSpace(seed)
-            ? Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLowerInvariant()
+            ? _defaultSeed
             : seed.Trim();
+    }
+
+    private static string CreateSeed(string scope)
+    {
+        return $"{scope}:{Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLowerInvariant()}";
     }
 
     private static T[] Shuffle<T>(IReadOnlyList<T> source, string seed)

@@ -1,11 +1,12 @@
 ﻿using System.Net;
-using System.Security.Cryptography;
+using System.Net.Sockets;
 using Beutl.AgentToolkit.Rendering;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tools;
 using Beutl.AgentToolkit.Workspace;
 using Beutl.Services;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
@@ -17,14 +18,34 @@ namespace Beutl.AgentHost;
 
 public sealed class AgentHostEndpoint : IAsyncDisposable
 {
+    internal const int DefaultPort = 59737;
+    internal const string DefaultToken = "424555544C4147454E54484F53543031";
+
     private static readonly TimeSpan s_shutdownTimeout = TimeSpan.FromSeconds(2);
     private readonly EditorService _editorService;
+    private readonly int _preferredPort;
     private WebApplication? _application;
 
     public AgentHostEndpoint(EditorService editorService)
+        : this(editorService, DefaultPort, DefaultToken)
     {
+    }
+
+    internal AgentHostEndpoint(EditorService editorService, int preferredPort, string token)
+    {
+        if (preferredPort is < 1 or > IPEndPoint.MaxPort)
+        {
+            throw new ArgumentOutOfRangeException(nameof(preferredPort));
+        }
+
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            throw new ArgumentException("Token must not be empty.", nameof(token));
+        }
+
         _editorService = editorService;
-        Token = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
+        _preferredPort = preferredPort;
+        Token = token;
     }
 
     public string Token { get; }
@@ -40,6 +61,70 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             return;
         }
 
+        int port = _preferredPort;
+        while (true)
+        {
+            WebApplication app = CreateApplication(port);
+
+            try
+            {
+                await app.StartAsync(cancellationToken).ConfigureAwait(false);
+
+                string address = app.Services
+                    .GetRequiredService<IServer>()
+                    .Features
+                    .Get<IServerAddressesFeature>()!
+                    .Addresses
+                    .Single();
+
+                EndpointUri = new Uri(new Uri(address), "/mcp");
+                _application = app;
+                return;
+            }
+            catch (Exception ex) when (IsAddressInUse(ex))
+            {
+                await app.DisposeAsync().ConfigureAwait(false);
+                if (port >= IPEndPoint.MaxPort)
+                {
+                    throw;
+                }
+
+                port++;
+            }
+            catch
+            {
+                await app.DisposeAsync().ConfigureAwait(false);
+                throw;
+            }
+        }
+    }
+
+    public async Task StopAsync(CancellationToken cancellationToken = default)
+    {
+        WebApplication? app = TakeApplication();
+
+        if (app is not null)
+        {
+            await StopAndDisposeAsync(app, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    public void RequestStop()
+    {
+        WebApplication? app = TakeApplication();
+        if (app is not null)
+        {
+            _ = StopAndDisposeWithTimeoutAsync(app);
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await StopAsync().ConfigureAwait(false);
+    }
+
+    private WebApplication CreateApplication(int port)
+    {
         WebApplicationBuilder builder = WebApplication.CreateBuilder(new WebApplicationOptions
         {
             Args = [],
@@ -48,7 +133,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
 
         builder.WebHost.ConfigureKestrel(options =>
         {
-            options.Listen(IPAddress.Loopback, 0);
+            options.Listen(IPAddress.Loopback, port);
         });
 
         string workspaceRoot = Environment.GetEnvironmentVariable("BEUTL_WORKSPACE")
@@ -75,42 +160,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         WebApplication app = builder.Build();
         app.Use(RequireToken);
         app.MapMcp("/mcp");
-
-        await app.StartAsync(cancellationToken).ConfigureAwait(false);
-
-        string address = app.Services
-            .GetRequiredService<IServer>()
-            .Features
-            .Get<IServerAddressesFeature>()!
-            .Addresses
-            .Single();
-
-        EndpointUri = new Uri(new Uri(address), "/mcp");
-        _application = app;
-    }
-
-    public async Task StopAsync(CancellationToken cancellationToken = default)
-    {
-        WebApplication? app = TakeApplication();
-
-        if (app is not null)
-        {
-            await StopAndDisposeAsync(app, cancellationToken).ConfigureAwait(false);
-        }
-    }
-
-    public void RequestStop()
-    {
-        WebApplication? app = TakeApplication();
-        if (app is not null)
-        {
-            _ = StopAndDisposeWithTimeoutAsync(app);
-        }
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        await StopAsync().ConfigureAwait(false);
+        return app;
     }
 
     private WebApplication? TakeApplication()
@@ -150,6 +200,24 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         {
             await app.DisposeAsync().ConfigureAwait(false);
         }
+    }
+
+    private static bool IsAddressInUse(Exception exception)
+    {
+        for (Exception? current = exception; current is not null; current = current.InnerException)
+        {
+            if (current is AddressInUseException)
+            {
+                return true;
+            }
+
+            if (current is SocketException { SocketErrorCode: SocketError.AddressAlreadyInUse })
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private async Task RequireToken(HttpContext context, RequestDelegate next)

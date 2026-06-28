@@ -158,6 +158,67 @@ public sealed class SchemaGenerationTests
         });
     }
 
+    [Test]
+    public void Composition_templates_vary_seedless_session_order_and_orbital_layouts()
+    {
+        var sessionCatalog = new CompositionTemplateCatalog(defaultSeed: "session-a");
+        CompositionTemplateList firstList = sessionCatalog.List();
+        CompositionTemplateList sameList = sessionCatalog.List();
+        string[] firstOrder = firstList.Compositions.Select(composition => composition.Name).ToArray();
+        string[] sameOrder = sameList.Compositions.Select(composition => composition.Name).ToArray();
+
+        string[] firstChoices = Enumerable.Range(0, 24)
+            .Select(index => new CompositionTemplateCatalog(defaultSeed: $"session-{index}")
+                .List()
+                .Compositions
+                .First()
+                .Name)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        float[] titlePositions = Enumerable.Range(0, 36)
+            .Select(index => FindObjectTranslateX(
+                new CompositionTemplateCatalog().Render("orbital-radar-map", seed: $"orbit-layout-{index}").Patch,
+                "Technical title"))
+            .ToArray();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(firstList.Seed, Is.EqualTo("session-a"));
+            Assert.That(sameList.Seed, Is.EqualTo("session-a"));
+            Assert.That(firstOrder, Is.EqualTo(sameOrder));
+            Assert.That(firstChoices, Has.Length.GreaterThan(1));
+            Assert.That(titlePositions.Min(), Is.LessThan(-200));
+            Assert.That(titlePositions.Max(), Is.GreaterThan(200));
+        });
+    }
+
+    [Test]
+    public void Effect_catalog_exposes_recipe_for_every_registered_filter_effect()
+    {
+        TypeRegistration.EnsureRegistered();
+        var generator = new SchemaGenerator();
+        string[] registeredEffectNames = LibraryService.Current
+            .GetTypesFromFormat(KnownLibraryItemFormats.FilterEffect)
+            .Select(type => type.Name)
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .ToArray();
+        IReadOnlyList<EffectSummary> effects = generator.ListEffects();
+        IReadOnlyList<EffectRecipeSummary> recipes = generator.ListEffectRecipes();
+        EffectRecipe glitchRecipe = generator.GetEffectRecipe("digital-glitch");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(effects.Select(effect => effect.Name), Is.SupersetOf(registeredEffectNames));
+            Assert.That(recipes.SelectMany(recipe => recipe.EffectNames).Distinct(StringComparer.Ordinal), Is.SupersetOf(registeredEffectNames));
+            Assert.That(recipes.Count(recipe => recipe.Name.StartsWith("effect-", StringComparison.Ordinal)), Is.GreaterThanOrEqualTo(registeredEffectNames.Length));
+            Assert.That(recipes.Single(recipe => recipe.Name == "effect-pixel-sort-effect").Notes, Has.Some.Contains("GPU"));
+            Assert.That(glitchRecipe.Patch.ToJsonString(), Does.Contain("ColorShift"));
+            Assert.That(glitchRecipe.Patch.ToJsonString(), Does.Contain("MosaicEffect"));
+            Assert.That(glitchRecipe.Patch.ToJsonString(), Does.Contain("ShakeEffect"));
+        });
+    }
+
     private static bool TransformGroupsUseCanonicalOrder(JsonNode? node)
     {
         bool valid = true;
@@ -181,6 +242,29 @@ public sealed class SchemaGenerationTests
             }
         });
         return valid;
+    }
+
+    private static float FindObjectTranslateX(JsonObject patch, string objectName)
+    {
+        foreach (JsonObject element in patch["Elements"]!.AsArray().OfType<JsonObject>())
+        {
+            foreach (JsonObject obj in element["Objects"]!.AsArray().OfType<JsonObject>())
+            {
+                if (!string.Equals(obj["Name"]?.GetValue<string>(), objectName, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                JsonObject translate = obj["Transform"]!["Children"]!
+                    .AsArray()
+                    .OfType<JsonObject>()
+                    .First(child => child["$type"]?.GetValue<string>().Contains("TranslateTransform", StringComparison.Ordinal) == true);
+                return translate["X"]!.GetValue<float>();
+            }
+        }
+
+        Assert.Fail($"Object '{objectName}' was not found.");
+        return 0;
     }
 
     private static void Visit(JsonNode? node, Action<JsonNode> visitor)
