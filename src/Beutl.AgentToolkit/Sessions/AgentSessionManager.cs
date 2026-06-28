@@ -12,6 +12,7 @@ public sealed class AgentSessionManager
     private readonly Dictionary<string, List<string>> _recentCompositions = new(StringComparer.Ordinal);
     private readonly List<string> _hostRecentCompositions = [];
     private readonly List<string> _preAttachPreviewedCompositions = [];
+    private int _creativeDirectionRequestCount;
     private ISessionSource? _currentSource;
     private string? _compositionSessionKey;
     private string? _compositionSessionSeed;
@@ -78,6 +79,11 @@ public sealed class AgentSessionManager
             .Concat(_preAttachPreviewedCompositions)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
+    }
+
+    public int NextCreativeDirectionRequestIndex()
+    {
+        return Interlocked.Increment(ref _creativeDirectionRequestCount) - 1;
     }
 
     public void RecordPreAttachCompositionPreview(string name)

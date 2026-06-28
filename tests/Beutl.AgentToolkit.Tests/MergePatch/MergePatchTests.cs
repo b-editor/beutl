@@ -78,6 +78,7 @@ public sealed class MergePatchTests
         {
             Assert.That(ex!.Error.Code, Is.EqualTo(ErrorCode.StaleHandle));
             Assert.That(ex.Error.Hint, Does.Contain("Omit Id to create"));
+            Assert.That(ex.Error.Hint, Does.Contain("keep the parent Element Id"));
             Assert.That(ex.Error.Hint, Does.Contain("read_document"));
         });
     }
@@ -129,6 +130,7 @@ public sealed class MergePatchTests
                 JsonNode.Parse($$"""{"items":[{"Id":"{{b}}","$after":"{{Guid.NewGuid()}}"}]}""")!))!;
             Assert.That(staleSibling.Error.Code, Is.EqualTo(ErrorCode.StaleHandle));
             Assert.That(staleSibling.Error.Hint, Does.Contain("Omit Id to create"));
+            Assert.That(staleSibling.Error.Hint, Does.Contain("keep the parent Element Id"));
         });
     }
 

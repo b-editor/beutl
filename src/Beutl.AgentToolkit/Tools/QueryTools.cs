@@ -76,10 +76,18 @@ public sealed record CreativeDirectionResponse(
 public sealed record CreativeConceptPlan(
     string Concept,
     IReadOnlyList<string> Elements,
+    IReadOnlyList<CreativeElementPlan> ElementPlan,
     IReadOnlyList<string> AnimatedProperties,
     IReadOnlyList<string> TimingPhases,
     IReadOnlyList<string> Effects,
     string PatchHint);
+
+public sealed record CreativeElementPlan(
+    string ElementName,
+    string Role,
+    string SuggestedObject,
+    string Timing,
+    string Motion);
 
 public sealed record DocumentSummaryResponse(
     string Session,
@@ -131,7 +139,8 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 "For no-context motion graphics, avoid overused orbit/radar/map/signal/dashboard motifs unless the user asks for them.",
                 "For visible progress, apply large scenes in stages: background first, then motion elements, then text/effects.",
                 "Call plan_edit with the custom patch and schemaVersion=1.",
-                "Call apply_edit with plan_edit.expectedChangeSet.",
+                "Call apply_edit with plan_edit.expectedChangeSet exactly as returned; do not summarize or rewrite the array.",
+                "For file-backed sessions, call save_project after each major successful apply_edit so partial progress is durable.",
                 "Use list_compositions, get_composition, and plan_composition only when the user explicitly asks for a reusable template, starter, or named composition style.",
                 "When using a composition template, call list_compositions, choose a specific returned name that matches the user's request, then pass that name to plan_composition and apply_composition with the returned planId.",
                 "Use render_composition_patch only when the client explicitly needs the generated template patch JSON.",
@@ -156,35 +165,45 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
     [Description("Returns non-template creative direction axes for original motion graphics. Use before authoring when the brief is vague or absent.")]
     public ToolResult<CreativeDirectionResponse> ListCreativeDirections(string? brief = null)
     {
-        return Execute(() => new CreativeDirectionResponse(
-            SchemaVersion.Current,
-            [
-                "material: paper cutouts, ink bleed, glass refraction, fabric folds, projected light, ceramic glaze, thermal camera, risograph print, CRT phosphor, blueprint pencil",
-                "motion: bloom, peel, fold, pour, shatter, magnetic attraction, wave interference, hand-drawn reveal, parallax drift, stop-motion stepping",
-                "composition: macro close-up, off-axis crop, split depth planes, negative-space title, diagonal editorial grid, frame-within-frame, vertical poster stack",
-                "typography: small caption system, kinetic word fragments, numeric countdown, subtitle-only rhythm, oversized cropped letterforms",
-                "palette: warm/cool clash, muted paper plus neon accent, monochrome with one warning color, daylight pastels, high-contrast print inks"
-            ],
-            CreateConceptPlans(),
-            [
-                "orbit rings",
-                "radar sweeps",
-                "map or atlas labels",
-                "signal nodes",
-                "dashboard metric bars",
-                "dark teal background with cyan/magenta neon"
-            ],
-            [
-                "Pick one conceptPlan, then map each listed element to a named Element/Object before writing a patch.",
-                "Use at least three timing phases and animate multiple property families, not only X position and opacity.",
-                "Name the concept in any notes or output summary before creating elements.",
-                "Use list_effects/list_effect_recipes for available effects, then build the scene with plan_edit/apply_edit.",
-                "Keep full-scene examples and composition templates for explicit template/starter requests only.",
-                "Verify at least three stills, run evaluate_motion_variation, and export a short video preview when the encoder is available."
-            ],
-            string.IsNullOrWhiteSpace(brief)
-                ? "No brief was supplied. Choose one conceptPlan that avoids the overused motifs, then implement its element plan with a custom patch."
-                : $"Use one conceptPlan to reinterpret the brief without copying starter scenes, then implement its element plan: {brief.Trim()}"));
+        return Execute(() =>
+        {
+            IReadOnlyList<CreativeConceptPlan> conceptPlans = OrderCreativeConceptPlans(
+                CreateConceptPlans(),
+                brief,
+                sessions.NextCreativeDirectionRequestIndex());
+            string selectionHint = string.IsNullOrWhiteSpace(brief)
+                ? "No brief was supplied. Compare at least two conceptPlans, avoid any concept close to your last output, then implement the chosen element plan with a custom patch. Returned order is seeded and is not a ranking."
+                : $"Compare at least two conceptPlans before choosing, avoid any concept close to your last output, and reinterpret the brief without copying starter scenes: {brief.Trim()}";
+
+            return new CreativeDirectionResponse(
+                SchemaVersion.Current,
+                [
+                    "material: paper cutouts, ink bleed, glass refraction, fabric folds, projected light, ceramic glaze, thermal camera, risograph print, CRT phosphor, blueprint pencil",
+                    "motion: bloom, peel, fold, pour, shatter, magnetic attraction, wave interference, hand-drawn reveal, parallax drift, stop-motion stepping",
+                    "composition: macro close-up, off-axis crop, split depth planes, negative-space title, diagonal editorial grid, frame-within-frame, vertical poster stack",
+                    "typography: small caption system, kinetic word fragments, numeric countdown, subtitle-only rhythm, oversized cropped letterforms",
+                    "palette: warm/cool clash, muted paper plus neon accent, monochrome with one warning color, daylight pastels, high-contrast print inks"
+                ],
+                conceptPlans,
+                [
+                    "orbit rings",
+                    "radar sweeps",
+                    "map or atlas labels",
+                    "signal nodes",
+                    "dashboard metric bars",
+                    "dark teal background with cyan/magenta neon"
+                ],
+                [
+                    "Do not default to the first returned concept. Compare at least two conceptPlans, reject concepts close to your last output, then choose the strongest element plan.",
+                    "Map the chosen conceptPlan's elements to named Element/Object entries before writing a patch.",
+                    "Use at least three timing phases and animate multiple property families, not only X position and opacity.",
+                    "Name the concept in any notes or output summary before creating elements.",
+                    "Use list_effects/list_effect_recipes for available effects, then build the scene with plan_edit/apply_edit.",
+                    "Keep full-scene examples and composition templates for explicit template/starter requests only.",
+                    "Verify at least three stills, run evaluate_motion_variation, and export a short video preview when the encoder is available."
+                ],
+                selectionHint);
+        });
     }
 
     [McpServerTool(Name = "get_schema")]
@@ -415,6 +434,46 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                                   || string.Equals(tag, "empty-scene", StringComparison.OrdinalIgnoreCase));
     }
 
+    private static IReadOnlyList<CreativeConceptPlan> OrderCreativeConceptPlans(
+        IReadOnlyList<CreativeConceptPlan> plans,
+        string? brief,
+        int requestIndex)
+    {
+        if (plans.Count <= 1)
+        {
+            return plans.ToArray();
+        }
+
+        int baseOffset = ComputeCreativeConceptBaseOffset(brief, plans.Count);
+        int offset = ((baseOffset - 1 + requestIndex) % (plans.Count - 1)) + 1;
+        var ordered = new CreativeConceptPlan[plans.Count];
+        for (int i = 0; i < ordered.Length; i++)
+        {
+            ordered[i] = plans[(i + offset) % plans.Count];
+        }
+
+        return ordered;
+    }
+
+    private static int ComputeCreativeConceptBaseOffset(string? brief, int count)
+    {
+        string seedText = string.IsNullOrWhiteSpace(brief)
+            ? (DateTimeOffset.UtcNow.ToUnixTimeSeconds() / 60).ToString()
+            : brief.Trim();
+
+        unchecked
+        {
+            uint hash = 2166136261;
+            foreach (char ch in seedText)
+            {
+                hash ^= char.ToUpperInvariant(ch);
+                hash *= 16777619;
+            }
+
+            return (int)(hash % (uint)(count - 1)) + 1;
+        }
+    }
+
     [McpServerTool(Name = "read_document_summary")]
     [Description("Reads a compact summary of the current scene without returning the full declarative JSON. Use this for live progress observation or before deciding whether a full read_document call is necessary.")]
     public ToolResult<DocumentSummaryResponse> ReadDocumentSummary()
@@ -493,6 +552,38 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                     "cropped kinetic title"
                 ],
                 [
+                    new CreativeElementPlan(
+                        "paper-backplate",
+                        "Full-frame warm paper texture and subtle drift.",
+                        "RectShape with gradient Fill",
+                        "00:00-08:00",
+                        "Slow TranslateTransform drift plus low-opacity brightness pulse."),
+                    new CreativeElementPlan(
+                        "folding-cutout",
+                        "Large geometric plane that folds into the frame.",
+                        "RectShape or PathGeometry-backed GeometryShape",
+                        "00:00-03:00",
+                        "Scale/Rotation reveal with DropShadow depth change."),
+                    new CreativeElementPlan(
+                        "ink-ribbon",
+                        "Sweeping gradient ribbon that crosses the title.",
+                        "RectShape with LinearGradientBrush",
+                        "01:50-06:00",
+                        "Translate across the frame while GradientStops.Offset/Color animate."),
+                    new CreativeElementPlan(
+                        "calibration-ticks",
+                        "Small tick marks that add density without becoming a dashboard.",
+                        "Thin RectShape objects",
+                        "02:00-07:50",
+                        "Staggered Opacity and short TranslateTransform offsets."),
+                    new CreativeElementPlan(
+                        "cropped-title",
+                        "Kinetic cropped title that resolves at the end.",
+                        "TextBlock",
+                        "03:00-08:00",
+                        "Opacity, Spacing, and slight Y motion settle into final lockup.")
+                ],
+                [
                     "Transform.Children.TranslateTransform.X/Y",
                     "Transform.Children.RotationTransform.Rotation",
                     "Opacity",
@@ -520,6 +611,38 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                     "final grouped title lockup"
                 ],
                 [
+                    new CreativeElementPlan(
+                        "neutral-field",
+                        "Quiet base layer that keeps contrast readable.",
+                        "RectShape with SolidColorBrush or LinearGradientBrush",
+                        "00:00-08:00",
+                        "Subtle opacity and scale breathing."),
+                    new CreativeElementPlan(
+                        "type-shard-a",
+                        "First fragment of the final word.",
+                        "TextBlock",
+                        "00:00-06:20",
+                        "Independent X/Y/Rotation overshoot into lockup."),
+                    new CreativeElementPlan(
+                        "type-shard-b",
+                        "Second fragment with offset timing.",
+                        "TextBlock",
+                        "00:20-06:20",
+                        "Counter-motion plus Spacing compression."),
+                    new CreativeElementPlan(
+                        "attraction-lines",
+                        "Thin connector strokes that imply pull without orbit motifs.",
+                        "RectShape lines",
+                        "01:00-05:40",
+                        "ScaleX/Opacity stretch and fade in staggered bursts."),
+                    new CreativeElementPlan(
+                        "accent-dots",
+                        "Small particles that fill negative space.",
+                        "EllipseShape objects",
+                        "01:20-07:00",
+                        "Short TranslateTransform hops and opacity flickers.")
+                ],
+                [
                     "Transform.Children.TranslateTransform.X/Y",
                     "Transform.Children.RotationTransform.Rotation",
                     "Opacity",
@@ -545,6 +668,38 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                     "thin contour strokes",
                     "numeric micro-captions",
                     "white final label"
+                ],
+                [
+                    new CreativeElementPlan(
+                        "thermal-background",
+                        "Full-frame dark-to-warm field.",
+                        "RectShape with LinearGradientBrush",
+                        "00:00-08:00",
+                        "Gradient offset and brightness drift."),
+                    new CreativeElementPlan(
+                        "heat-blob-left",
+                        "Large translucent bloom from one side.",
+                        "EllipseShape with Blur",
+                        "00:00-05:50",
+                        "Scale and blur sigma expand then cool."),
+                    new CreativeElementPlan(
+                        "heat-blob-right",
+                        "Second bloom with delayed counter movement.",
+                        "EllipseShape with Blur",
+                        "00:40-06:50",
+                        "Translate and opacity phase shifted from first blob."),
+                    new CreativeElementPlan(
+                        "contour-strokes",
+                        "Thin contour marks over the blooms.",
+                        "RectShape or GeometryShape strokes",
+                        "02:00-07:00",
+                        "Trim/Opacity staggered in waves."),
+                    new CreativeElementPlan(
+                        "micro-captions",
+                        "Small numeric labels and final white title.",
+                        "TextBlock",
+                        "02:50-08:00",
+                        "Caption opacity cascade, then final label settle.")
                 ],
                 [
                     "Transform.Children.ScaleTransform.Scale",

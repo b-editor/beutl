@@ -86,6 +86,41 @@ public sealed class PlanApplyParityTests
     }
 
     [Test]
+    public void Apply_edit_rejects_shorthand_expected_change_set_with_verbatim_hint()
+    {
+        Scene scene = CreateSceneWithElement(out Element element);
+        using var session = new AgentToolkitTestSession(scene);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var tools = new EditTools(manager);
+
+        JsonObject patch = new()
+        {
+            ["Elements"] = new JsonArray(new JsonObject
+            {
+                [nameof(CoreObject.Id)] = element.Id.ToString(),
+                [nameof(Element.Start)] = TimeSpan.FromSeconds(5).ToString("c")
+            })
+        };
+
+        ToolResult<ReconcilePlan> plan = tools.PlanEdit(patch: patch, schemaVersion: SchemaVersion.Current);
+        ToolResult<ApplyEditResponse> rejected = tools.ApplyEdit(
+            patch: patch,
+            schemaVersion: SchemaVersion.Current,
+            expectedChangeSet: JsonValue.Create($"{plan.Value!.ExpectedChangeSet.Count} changes"));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(plan.IsSuccess, Is.True, plan.Error?.Message);
+            Assert.That(rejected.IsSuccess, Is.False);
+            Assert.That(rejected.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(rejected.Error.Message, Does.Contain("not a shorthand summary"));
+            Assert.That(rejected.Error.Hint, Does.Contain("verbatim"));
+            Assert.That(rejected.Error.Hint, Does.Contain("2 changes"));
+        });
+    }
+
+    [Test]
     public void Apply_edit_returns_compact_response_and_optional_document()
     {
         Scene compactScene = CreateScene();

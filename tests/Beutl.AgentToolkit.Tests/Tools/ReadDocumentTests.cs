@@ -80,15 +80,37 @@ public sealed class ReadDocumentTests
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
             Assert.That(result.Value!.DirectionAxes, Has.Count.GreaterThanOrEqualTo(5));
             Assert.That(result.Value.ConceptPlans, Has.Count.GreaterThanOrEqualTo(3));
+            Assert.That(result.Value.ConceptPlans[0].Concept, Is.Not.EqualTo("Projected ink fold"));
             Assert.That(result.Value.ConceptPlans.Select(plan => plan.Concept), Does.Contain("Projected ink fold"));
             Assert.That(result.Value.ConceptPlans.SelectMany(plan => plan.Elements), Does.Contain("cropped kinetic title"));
+            Assert.That(result.Value.ConceptPlans.SelectMany(plan => plan.ElementPlan).Select(plan => plan.ElementName), Does.Contain("cropped-title"));
+            Assert.That(result.Value.ConceptPlans.SelectMany(plan => plan.ElementPlan).Select(plan => plan.SuggestedObject), Does.Contain("TextBlock"));
             Assert.That(result.Value.ConceptPlans.SelectMany(plan => plan.TimingPhases), Has.Some.Contains("0-25%"));
             Assert.That(result.Value.OverusedMotifs, Has.Some.Contains("orbit rings"));
             Assert.That(result.Value.OverusedMotifs, Has.Some.Contains("radar sweeps"));
             Assert.That(result.Value.OverusedMotifs, Has.Some.Contains("dark teal background with cyan/magenta neon"));
-            Assert.That(result.Value.WorkflowHints, Has.Some.Contains("Pick one conceptPlan"));
+            Assert.That(result.Value.WorkflowHints, Has.Some.Contains("Do not default to the first returned concept"));
+            Assert.That(result.Value.WorkflowHints, Has.Some.Contains("Compare at least two conceptPlans"));
             Assert.That(result.Value.WorkflowHints, Has.Some.Contains("evaluate_motion_variation"));
+            Assert.That(result.Value.SelectionHint, Does.Contain("Compare at least two conceptPlans"));
             Assert.That(result.Value.SelectionHint, Does.Contain("make a short motion graphic"));
+        });
+    }
+
+    [Test]
+    public void Creative_directions_rotate_leading_concept_between_calls()
+    {
+        var tools = new QueryTools(new AgentSessionManager());
+
+        ToolResult<CreativeDirectionResponse> first = tools.ListCreativeDirections("abstract motion graphic");
+        ToolResult<CreativeDirectionResponse> second = tools.ListCreativeDirections("abstract motion graphic");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.IsSuccess, Is.True, first.Error?.Message);
+            Assert.That(second.IsSuccess, Is.True, second.Error?.Message);
+            Assert.That(first.Value!.ConceptPlans[0].Concept, Is.Not.EqualTo("Projected ink fold"));
+            Assert.That(second.Value!.ConceptPlans[0].Concept, Is.Not.EqualTo(first.Value.ConceptPlans[0].Concept));
         });
     }
 

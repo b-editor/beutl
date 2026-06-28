@@ -46,7 +46,7 @@ public sealed class RenderTools(
     }
 
     [McpServerTool(Name = "evaluate_motion_variation")]
-    [Description("Renders multiple in-memory samples from the current scene and reports time-series pixel differences. Use after render_still to catch motion graphics that have visible stills but too little temporal change.")]
+    [Description("Renders multiple in-memory samples from the current scene and reports time-series pixel differences plus frame-coverage checks. Use after render_still to catch motion graphics that have visible stills but too little temporal change or content confined to one quadrant.")]
     public ValueTask<ToolResult<MotionVariationResponse>> EvaluateMotionVariation(
         [Description("Optional explicit scene times in seconds. When omitted, the tool samples evenly across the scene duration.")]
         double[]? timeSeconds = null,
@@ -58,6 +58,12 @@ public sealed class RenderTools(
         double minChangedPixelRatio = 0.02,
         [Description("Per-pixel absolute channel delta threshold. Higher values ignore subtle noise. Defaults to 48.")]
         int pixelDeltaThreshold = 48,
+        [Description("Minimum occupied bounds ratio before repeated one-quadrant framing is treated as poor coverage. Defaults to 0.35.")]
+        double minOccupiedBoundsRatio = 0.35,
+        [Description("Maximum allowed foreground share in a single quadrant when occupied bounds are small. Defaults to 0.90.")]
+        double maxSingleQuadrantForegroundRatio = 0.90,
+        [Description("Per-channel luma threshold used to decide whether a pixel is visible foreground for coverage checks. Defaults to 24.")]
+        int foregroundLumaThreshold = 24,
         CancellationToken cancellationToken = default)
     {
         return ExecuteAsync(async () =>
@@ -70,6 +76,9 @@ public sealed class RenderTools(
                 renderScale,
                 minChangedPixelRatio,
                 pixelDeltaThreshold,
+                minOccupiedBoundsRatio,
+                maxSingleQuadrantForegroundRatio,
+                foregroundLumaThreshold,
                 cancellationToken).ConfigureAwait(false);
         });
     }

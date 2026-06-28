@@ -65,7 +65,7 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
     private readonly CompositionTemplateCatalog _compositionCatalog = new();
 
     [McpServerTool(Name = "plan_edit")]
-    [Description("Dry-runs a declarative edit without mutating the session. In the in-app host, call attach_active_editor first. Supply exactly one of desired or patch; prefer patch for targeted edits.")]
+    [Description("Dry-runs a declarative edit without mutating the session. In the in-app host, call attach_active_editor first. Supply exactly one of desired or patch; prefer patch for targeted edits. Pass the returned expectedChangeSet JSON array to apply_edit exactly as returned; do not summarize, shorten, or rewrite the entries.")]
     public ToolResult<ReconcilePlan> PlanEdit(
         [Description("Full desired declarative document. Uses PascalCase properties, $type discriminators, stable Id fields, typed properties for transforms/geometry/pens/brushes/effects, Animations.<Property>.KeyFrames for keyframes, and schemaVersion. Full desired documents are authoritative: omitted child arrays such as Elements or Objects can delete existing content, so use patch for partial edits.")]
         JsonObject? desired = null,
@@ -83,7 +83,7 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
     }
 
     [McpServerTool(Name = "apply_edit")]
-    [Description("Atomically applies a declarative desired document or JSON Merge Patch through Beutl history. In the in-app host, call attach_active_editor first. Pass plan_edit.expectedChangeSet to guarantee plan/apply parity. The response is compact by default: appliedChangeSet plus createdIds for follow-up edits. Set includeDocument=true only when you need the full updated document.")]
+    [Description("Atomically applies a declarative desired document or JSON Merge Patch through Beutl history. In the in-app host, call attach_active_editor first. Pass plan_edit.expectedChangeSet exactly as returned to guarantee plan/apply parity; shorthand summaries are rejected. For file-backed sessions, call save_project after each major successful apply_edit. The response is compact by default: appliedChangeSet plus createdIds for follow-up edits. Set includeDocument=true only when you need the full updated document.")]
     public ToolResult<ApplyEditResponse> ApplyEdit(
         [Description("Full desired declarative document. Uses PascalCase properties, $type discriminators, stable Id fields, typed properties for transforms/geometry/pens/brushes/effects, Animations.<Property>.KeyFrames for keyframes, and schemaVersion. Full desired documents are authoritative: omitted child arrays such as Elements or Objects can delete existing content, so use patch for partial edits.")]
         JsonObject? desired = null,
@@ -91,7 +91,7 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
         JsonObject? patch = null,
         [Description("Declarative document schema version. Required for patch; for desired, pass it here or include schemaVersion in the document. Mismatches are rejected instead of silently dropping content.")]
         string? schemaVersion = null,
-        [Description("Optional change set returned by plan_edit.expectedChangeSet. apply_edit rejects the edit if the live computed change set differs.")]
+        [Description("Optional JSON array returned by plan_edit.expectedChangeSet. Pass it unchanged; do not pass a count, label, or summarized shorthand. apply_edit rejects the edit if the live computed change set differs.")]
         JsonNode? expectedChangeSet = null,
         [Description("Return the full updated document. Defaults to false to keep apply_edit responses compact; prefer createdIds or read_document_summary for follow-up edits.")]
         bool includeDocument = false)
@@ -496,9 +496,9 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
     {
         return new ReconcileException(new ToolError(
             ErrorCode.ValidationRejected,
-            "expectedChangeSet must be the JSON array returned by plan_edit or plan_composition.",
+            "expectedChangeSet must be the JSON array returned by plan_edit or plan_composition, not a shorthand summary.",
             null,
-            "Pass the object-shaped expectedChangeSet array directly. If a client exposes it as strings, pass either the whole JSON array string or one JSON object string per change entry."));
+            "Pass plan_edit.expectedChangeSet or plan_composition.expectedChangeSet verbatim. If a client exposes it as strings, pass either the whole JSON array string or one JSON object string per change entry; do not replace it with text like '2 changes'."));
     }
 
     private static bool EntryMatches(ChangeSetEntry actual, JsonObject expected)
