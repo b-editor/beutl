@@ -9,7 +9,12 @@ Use this skill when an agent needs to turn a shot list, storyboard, or timed bri
 
 ## Workflow
 
-1. For creative briefs with little or no direction, call `list_creative_directions`, compare at least two `conceptPlan` entries, avoid any concept close to the last output, then map the chosen plan's listed elements into named Beutl elements/objects before authoring. Do not pick a concept only because it appears first.
+1. For creative briefs with little or no direction, call `list_creative_directions`, then select the `conceptPlan` mechanically:
+   - If the user prompt does not specify a concrete motif, style, palette, message, audience, or subject, choose one returned `conceptPlan` by random index before judging quality. Do not override the random choice because another plan looks easier, denser, or more polished.
+   - If the user prompt does specify concrete creative constraints, compare the returned `conceptPlan` entries against those constraints and choose the best fit.
+   - In notes, record whether the concept was random-selected or constraint-selected, the chosen concept name, and the selection index/method.
+   - Only reroll or reject a random-selected concept when it conflicts with an explicit user constraint or a listed overused motif.
+   - After selection, map the chosen plan's listed elements into named Beutl elements/objects before authoring.
 2. Call `get_schema` before authoring if the required drawable, media, or audio type is not already known.
 3. Create or attach a session:
    - Stdio/headless: `create_project` or `open_project` with a `.bep` project path. Paths without an extension are normalized to `.bep`; `.beutl` is reserved for exported project packages.
