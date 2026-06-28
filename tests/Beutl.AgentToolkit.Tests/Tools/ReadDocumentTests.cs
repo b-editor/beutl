@@ -31,6 +31,8 @@ public sealed class ReadDocumentTests
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
             Assert.That(result.Value!.RecommendedCalls, Does.Contain("In live mode, call attach_active_editor before scene tools."));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("list_compositions"));
+            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("first returned composition"));
+            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("memory"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("plan_composition/apply_composition"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("planId"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("try the next list_compositions"));
@@ -179,6 +181,37 @@ public sealed class ReadDocumentTests
     }
 
     [Test]
+    public void Seedless_named_composition_must_match_first_candidate_by_default()
+    {
+        var scene = new Scene(1920, 1080, "Scene");
+        using var session = new AgentToolkitTestSession(scene);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var queryTools = new QueryTools(manager);
+        var editTools = new EditTools(manager);
+
+        ToolResult<ListCompositionsResponse> list = queryTools.ListCompositions();
+        string firstName = list.Value!.Compositions.First().Name;
+        string nonFirstName = list.Value.Compositions.Skip(1).First().Name;
+
+        ToolResult<PlanCompositionResponse> rejected = editTools.PlanComposition(name: nonFirstName);
+        ToolResult<PlanCompositionResponse> accepted = editTools.PlanComposition(name: firstName);
+        ToolResult<PlanCompositionResponse> deliberate = editTools.PlanComposition(name: nonFirstName, avoidRecent: false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(list.IsSuccess, Is.True, list.Error?.Message);
+            Assert.That(rejected.IsSuccess, Is.False);
+            Assert.That(rejected.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(rejected.Error.Hint, Does.Contain(firstName));
+            Assert.That(accepted.IsSuccess, Is.True, accepted.Error?.Message);
+            Assert.That(accepted.Value!.Composition.Name, Is.EqualTo(firstName));
+            Assert.That(deliberate.IsSuccess, Is.True, deliberate.Error?.Message);
+            Assert.That(deliberate.Value!.Composition.Name, Is.EqualTo(nonFirstName));
+        });
+    }
+
+    [Test]
     public void Composition_recent_survives_volatile_live_session_ids()
     {
         var scene = new Scene(1920, 1080, "Scene");
@@ -206,6 +239,38 @@ public sealed class ReadDocumentTests
     }
 
     [Test]
+    public void Composition_recent_applies_across_new_scene_roots()
+    {
+        using var firstSession = new AgentToolkitTestSession(new Scene(1920, 1080, "First"));
+        using var secondSession = new AgentToolkitTestSession(new Scene(1920, 1080, "Second"));
+        var manager = new AgentSessionManager();
+        var queryTools = new QueryTools(manager);
+        var editTools = new EditTools(manager);
+
+        manager.UseSource(new AgentToolkitTestSessionSource(firstSession));
+        ToolResult<ApplyCompositionResponse> firstApply = editTools.ApplyComposition(
+            name: "orbital-radar-map",
+            seed: "global-recent");
+
+        manager.UseSource(new AgentToolkitTestSessionSource(secondSession));
+        ToolResult<ListCompositionsResponse> secondList = queryTools.ListCompositions(seed: "global-recent");
+        ToolResult<PlanCompositionResponse> repeated = editTools.PlanComposition(
+            name: "orbital-radar-map",
+            seed: "global-recent");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(firstApply.IsSuccess, Is.True, firstApply.Error?.Message);
+            Assert.That(secondList.IsSuccess, Is.True, secondList.Error?.Message);
+            Assert.That(secondList.Value!.RecentlyUsedCompositions, Does.Contain("orbital-radar-map"));
+            Assert.That(secondList.Value.Compositions.Last().Name, Is.EqualTo("orbital-radar-map"));
+            Assert.That(repeated.IsSuccess, Is.False);
+            Assert.That(repeated.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(repeated.Error.Hint, Does.Contain("first non-recent"));
+        });
+    }
+
+    [Test]
     public void Apply_edit_fallback_records_recent_style_and_deprioritizes_matching_examples()
     {
         var scene = new Scene(1920, 1080, "Scene");
@@ -220,6 +285,7 @@ public sealed class ReadDocumentTests
             patch: example.Value!.Examples.Single().Patch,
             schemaVersion: SchemaVersion.Current);
         ToolResult<ListCompositionsResponse> compositions = queryTools.ListCompositions(seed: "fallback-recent");
+        ToolResult<PlanCompositionResponse> repeated = editTools.PlanComposition(name: "orbital-radar-map", seed: "fallback-recent");
         ToolResult<ListExamplesResponse> examples = queryTools.ListExamples(category: "motion");
         string[] exampleNames = examples.Value!.Examples.Select(item => item.Name).ToArray();
         int orbitalIndex = Array.FindIndex(exampleNames, name => name == "create-empty-scene-orbital-radar");
@@ -232,6 +298,9 @@ public sealed class ReadDocumentTests
             Assert.That(compositions.IsSuccess, Is.True, compositions.Error?.Message);
             Assert.That(compositions.Value!.RecentlyUsedCompositions, Does.Contain("orbital-radar-map"));
             Assert.That(compositions.Value.Compositions.Last().Name, Is.EqualTo("orbital-radar-map"));
+            Assert.That(repeated.IsSuccess, Is.False);
+            Assert.That(repeated.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(repeated.Error.Hint, Does.Contain("first non-recent"));
             Assert.That(examples.IsSuccess, Is.True, examples.Error?.Message);
             Assert.That(orbitalIndex, Is.GreaterThan(nonOrbitalIndex));
         });

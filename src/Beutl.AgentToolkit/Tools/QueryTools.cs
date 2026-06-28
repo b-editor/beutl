@@ -109,11 +109,11 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 "In live mode, call attach_active_editor before scene tools.",
                 "Call read_document_summary to inspect progress without the full document.",
                 "Call list_effects and list_effect_recipes to discover Beutl's visual effect palette before choosing a repeated look.",
-                "For low-context motion graphics, call list_compositions without seed and prefer the first composition; recently applied compositions are moved to the end by default.",
+                "For low-context motion graphics, call list_compositions without seed and use the first returned composition; do not override that order from memory or remembered examples.",
                 "Call plan_composition and pass the returned planId to apply_composition for compact plan/apply parity without carrying a huge change set.",
                 "If plan_composition fails for one template, try the next list_compositions result before falling back to list_examples.",
                 "Use render_composition_patch only when the client explicitly needs the generated patch JSON; plan_composition/apply_composition avoid huge raw HTTP payloads.",
-                "Call list_examples to choose a starter; examples are shuffled and recently used composition styles are moved to the end.",
+                "Call list_examples to choose a starter only when composition tools are unavailable; examples are shuffled and recently used composition styles are moved to the end.",
                 "Call get_examples with name=<selected-example> to fetch exactly one patch.",
                 "For visible progress, apply large scenes in stages: background first, then motion elements, then text/effects.",
                 "Call plan_edit with the selected patch and schemaVersion=1.",
@@ -226,7 +226,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 list.Seed,
                 list.Compositions,
                 recent,
-                "Compositions are shuffled by seed, then recently applied names are moved to the end when avoidRecent=true. Prefer the first suitable composition; reuse the returned seed and name to reproduce output.");
+                "Compositions are shuffled by seed, then recently applied names are moved to the end when avoidRecent=true. For no-context runs, use the first returned composition exactly; do not re-rank from memory or remembered examples. Explicitly selecting a recently used name is rejected unless avoidRecent=false.");
         });
     }
 
@@ -240,7 +240,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
     }
 
     [McpServerTool(Name = "render_composition_patch")]
-    [Description("Materializes a Remotion-style composition into a declarative Beutl JSON Merge Patch. Pass name or tag, optional inputProps, and optional seed. The same name/inputProps/seed produce the same patch.")]
+    [Description("Materializes a Remotion-style composition into a declarative Beutl JSON Merge Patch. For low-context motion graphics, call list_compositions first and pass its first name; seedless remembered non-first names are rejected.")]
     public ToolResult<RenderCompositionPatchResponse> RenderCompositionPatch(
         string? name = null,
         string? tag = null,
@@ -255,8 +255,14 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 tag,
                 inputProps,
                 sessions.ResolveCompositionSeed(seed),
-                avoidRecent ? sessions.GetRecentCompositions() : null),
+                avoidRecent ? sessions.GetRecentCompositions() : null,
+                EnforceFirstSelection(name, seed, avoidRecent)),
             "Pass composition.patch to plan_edit/apply_edit with schemaVersion=1. Use the returned seed to reproduce or intentionally vary the generated motion."));
+    }
+
+    private static bool EnforceFirstSelection(string? name, string? seed, bool avoidRecent)
+    {
+        return avoidRecent && string.IsNullOrWhiteSpace(seed) && !string.IsNullOrWhiteSpace(name);
     }
 
     private static T[] Shuffle<T>(IReadOnlyList<T> source)

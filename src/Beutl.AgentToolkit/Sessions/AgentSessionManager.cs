@@ -10,6 +10,7 @@ public sealed class AgentSessionManager
     private readonly string _hostCompositionSeed = CreateCompositionSeed("host");
     private readonly Dictionary<string, CompositionPlanState> _compositionPlans = new(StringComparer.Ordinal);
     private readonly Dictionary<string, List<string>> _recentCompositions = new(StringComparer.Ordinal);
+    private readonly List<string> _hostRecentCompositions = [];
     private ISessionSource? _currentSource;
     private string? _compositionSessionKey;
     private string? _compositionSessionSeed;
@@ -54,9 +55,13 @@ public sealed class AgentSessionManager
     public IReadOnlyList<string> GetRecentCompositions()
     {
         string key = GetCompositionSessionKey();
-        return _recentCompositions.TryGetValue(key, out List<string>? names)
-            ? names.ToArray()
+        IEnumerable<string> sessionRecent = _recentCompositions.TryGetValue(key, out List<string>? names)
+            ? names
             : [];
+        return sessionRecent
+            .Concat(_hostRecentCompositions)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
     }
 
     public void RecordCompositionUse(string name)
@@ -66,6 +71,8 @@ public sealed class AgentSessionManager
             return;
         }
 
+        AddRecent(_hostRecentCompositions, name);
+
         string key = GetCompositionSessionKey();
         if (!_recentCompositions.TryGetValue(key, out List<string>? names))
         {
@@ -73,6 +80,11 @@ public sealed class AgentSessionManager
             _recentCompositions[key] = names;
         }
 
+        AddRecent(names, name);
+    }
+
+    private static void AddRecent(List<string> names, string name)
+    {
         names.RemoveAll(item => string.Equals(item, name, StringComparison.OrdinalIgnoreCase));
         names.Insert(0, name);
         if (names.Count > 8)

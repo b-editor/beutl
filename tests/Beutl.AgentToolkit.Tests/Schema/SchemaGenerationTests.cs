@@ -207,6 +207,7 @@ public sealed class SchemaGenerationTests
             Assert.That(firstChoices, Has.Length.GreaterThan(1));
             Assert.That(firstChoices, Has.Length.GreaterThanOrEqualTo(4));
             Assert.That(titlePositions.Min(), Is.LessThan(-200));
+            Assert.That(titlePositions.Min(), Is.GreaterThan(-650));
             Assert.That(titlePositions.Max(), Is.GreaterThan(200));
         });
     }

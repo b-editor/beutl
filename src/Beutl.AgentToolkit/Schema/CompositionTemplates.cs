@@ -150,12 +150,43 @@ public sealed class CompositionTemplateCatalog
         string? tag = null,
         JsonObject? inputProps = null,
         string? seed = null,
-        IReadOnlyList<string>? deprioritizedNames = null)
+        IReadOnlyList<string>? deprioritizedNames = null,
+        bool enforceFirstSelection = false)
     {
         string resolvedSeed = ResolveSeed(seed);
         CompositionTemplateSpec spec = string.IsNullOrWhiteSpace(name)
             ? PickFirst(tag, resolvedSeed, deprioritizedNames)
             : Find(name);
+        if (!string.IsNullOrWhiteSpace(name) && IsDeprioritized(spec.Name, deprioritizedNames))
+        {
+            throw new ReconcileException(new ToolError(
+                ErrorCode.ValidationRejected,
+                $"Composition template '{spec.Name}' was recently used.",
+                spec.Name,
+                "Call list_compositions and choose the first non-recent composition, or pass avoidRecent=false only when the user explicitly asks to repeat this style."));
+        }
+
+        if (enforceFirstSelection && !string.IsNullOrWhiteSpace(name))
+        {
+            CompositionTemplateSummary? first = List(tag, resolvedSeed, deprioritizedNames).Compositions.FirstOrDefault();
+            if (first is null)
+            {
+                throw new ReconcileException(new ToolError(
+                    ErrorCode.ValidationRejected,
+                    $"No composition template matched tag '{tag}'.",
+                    tag,
+                    "Call list_compositions without this tag, or choose a tag returned by get_composition/list_compositions."));
+            }
+
+            if (!string.Equals(first.Name, spec.Name, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new ReconcileException(new ToolError(
+                    ErrorCode.ValidationRejected,
+                    $"Composition template '{spec.Name}' is not the first candidate for this session seed.",
+                    spec.Name,
+                    $"For no-context motion graphics, use '{first.Name}' from list_compositions first. Pass an explicit seed or avoidRecent=false only when the user intentionally asks for '{spec.Name}'."));
+            }
+        }
 
         JsonObject input = inputProps is null ? [] : CloneObject(inputProps);
         JsonObject resolvedProps = MergeProps(spec.DefaultProps, input);
@@ -547,7 +578,7 @@ public sealed class CompositionTemplateCatalog
         };
         float titleBaseX = layoutVariant switch
         {
-            1 => -780,
+            1 => -520,
             2 => -420,
             _ => 420
         };
@@ -701,8 +732,9 @@ public sealed class CompositionTemplateCatalog
             elements.Add(DeserializeElement(nodeJson));
         }
 
-        elements.Add(CreateTextElement("Orbital title", "Technical title", title, 30, 88, 10, titleBaseX + context.Random.Range(-40, 80), titleBaseY, palette.Foreground, fullLength));
-        elements.Add(CreateTextElement("Orbital subtitle", "Technical subtitle", subtitle, 31, 32, 5, titleBaseX + context.Random.Range(-40, 80), titleBaseY + 92, palette.Foreground, fullLength));
+        float titleX = Math.Clamp(titleBaseX + context.Random.Range(-20, 80), -560, 560);
+        elements.Add(CreateTextElement("Orbital title", "Technical title", title, 30, 88, 10, titleX, titleBaseY, palette.Foreground, fullLength));
+        elements.Add(CreateTextElement("Orbital subtitle", "Technical subtitle", subtitle, 31, 32, 5, titleX, titleBaseY + 92, palette.Foreground, fullLength));
 
         return CreateRender(context, elements);
     }
@@ -1411,6 +1443,11 @@ public sealed class CompositionTemplateCatalog
         return source
             .OrderBy(item => recent.Contains(GetTemplateName(item)) ? 1 : 0)
             .ToArray();
+    }
+
+    private static bool IsDeprioritized(string name, IReadOnlyList<string>? names)
+    {
+        return names?.Contains(name, StringComparer.OrdinalIgnoreCase) == true;
     }
 
     private static string GetTemplateName<T>(T item)
