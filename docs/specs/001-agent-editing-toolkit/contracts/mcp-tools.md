@@ -15,15 +15,41 @@ Return a compact guide for agents that only know the MCP endpoint URL.
 ### `get_schema`
 Return the Capability/Schema Descriptor (FR-006/FR-022), including reusable declarative patch examples.
 - **Input**: `{ "type"?: string, "category"?: string, "includeProperties"?: bool, "includeExamples"?: bool }` — omit for the full catalog; filter by `$type` or category. Category aliases are accepted for common agent wording: `visualEffect` / `effect` / `filter` / `videoEffect` ⇒ `FilterEffect`, `fill` / `gradient` ⇒ `Brush`, `stroke` ⇒ `Pen`, `ease` ⇒ `Easing`.
-- **Output**: `{ "types": [ { type, discriminator, category, properties: [ { name, valueType, elementType?, display, range, step, default, animatable, supportsExpression, converter? } ], baseFields: [...] } ], "examples": [ { name, description, patch } ] }`. `discriminator` is the exact string to use as a node's `$type`. Set `includeProperties=false` for a compact type/discriminator catalog; set `includeExamples=false` when examples would make the response too large. Examples include an empty-scene motion-graphics patch that creates visible shape/text elements with gradients, effects, transforms, and keyframes, plus targeted animation and brush/effect-chain snippets.
+- **Output**: `{ "types": [ { type, discriminator, category, properties: [ { name, valueType, elementType?, display, range, step, default, animatable, supportsExpression, converter? } ], baseFields: [...] } ], "examples": [ { name, description, patch } ] }`. `discriminator` is the exact string to use as a node's `$type`. Set `includeProperties=false` for a compact type/discriminator catalog; set `includeExamples=false` when examples would make the response too large. Examples include multiple empty-scene motion-graphics starters (`create-empty-scene-motion-graphics`, `create-empty-scene-orbital-radar`, `create-empty-scene-split-screen-typography`) plus targeted animation and brush/effect-chain snippets.
 - **Errors**: `unknown_type`.
 - **Backed by**: `PropertyRegistry` + `EngineObject.Properties` + `LibraryService` (data-model §Capability).
 
+### `list_examples`
+Return compact example metadata without large patch payloads.
+- **Input**: `{ "type"?: string, "category"?: string }` — same filters and aliases as `get_schema`.
+- **Output**: `{ "schemaVersion": string, "examples": [ { name, description, categories, tags } ], "selectionHint": string }`.
+- **Use when**: a low-context or raw HTTP agent needs to choose a visual direction before fetching a large patch. The returned `examples` order is shuffled so repeated no-context runs do not always pick the same first starter.
+
 ### `get_examples`
 Return only reusable declarative patch examples, without the full property schema.
-- **Input**: `{ "type"?: string, "category"?: string }` — same filters and aliases as `get_schema`.
-- **Output**: `{ "schemaVersion": string, "examples": [ { name, description, patch } ] }`.
-- **Use when**: an agent is starting from an empty scene, wants a known-good patch such as `create-empty-scene-motion-graphics`, or a raw MCP client would truncate the full `get_schema` response.
+- **Input**: `{ "type"?: string, "category"?: string, "name"?: string }` — same filters and aliases as `get_schema`; pass `name` after `list_examples` to fetch exactly one patch.
+- **Output**: `{ "schemaVersion": string, "examples": [ { name, description, patch } ], "selectionHint": string }`. If `name` is omitted, the returned `examples` order is shuffled; if `name` is supplied, the response contains the matching patch.
+- **Use when**: an agent is starting from an empty scene, wants a known-good patch such as `create-empty-scene-orbital-radar`, or a raw MCP client would truncate the full `get_schema` response.
+
+### `list_compositions`
+Return compact Remotion-style composition templates.
+- **Input**: `{ "tag"?: string, "seed"?: string }`. `tag` filters templates such as `starter`, `empty-scene`, `orbital`, `split-screen`, or `typography`. `seed` makes template ordering reproducible; omit it to let the toolkit create a seed.
+- **Output**: `{ "schemaVersion": string, "seed": string, "compositions": [ { name, description, tags, styleAxes, propNames, defaultMetadata } ], "selectionHint": string }`. The returned `compositions` order is shuffled by seed, not by a fixed recommended name.
+- **Use when**: a low-context agent needs a varied high-level visual direction before fetching or materializing a large patch.
+
+### `get_composition`
+Return one Remotion-style composition contract.
+- **Input**: `{ "name": string }`.
+- **Output**: `{ "schemaVersion": string, "composition": { name, description, tags, styleAxes, defaultProps, props, defaultMetadata, sequences, transitions } }`.
+- **Use when**: an agent needs the template's `defaultProps`, input prop descriptors, calculated default metadata, Sequence-like timing, transitions, style axes, and supported variation controls before rendering a patch.
+- **Errors**: `unknown_type`.
+
+### `render_composition_patch`
+Materialize a Remotion-style composition into a declarative Beutl JSON Merge Patch.
+- **Input**: `{ "name"?: string, "tag"?: string, "inputProps"?: object, "seed"?: string }`. Pass `name` for an explicit template, or omit it and pass `tag` to pick the first seed-shuffled match. `inputProps` override `defaultProps`; metadata is calculated from props such as `width`, `height`, `fps`, and `durationSeconds`.
+- **Output**: `{ "schemaVersion": string, "composition": { name, seed, inputProps, resolvedProps, metadata, sequences, transitions, patch }, "usageHint": string }`. The same `name`/`inputProps`/`seed` returns the same patch; a different seed changes seeded layout, colors, noise dots, and motion offsets. `patch` is directly consumable by `plan_edit` / `apply_edit`.
+- **Use when**: an agent should author the first scene like a Remotion composition: choose a template, pass props, calculate metadata, use Sequence/transition timing, and render deterministic declarative Beutl content.
+- **Errors**: `unknown_type`.
 
 ### `read_document_summary`
 Return a compact scene summary for live progress observation.
@@ -83,7 +109,7 @@ Dry-run a declarative change; **does not mutate** (FR-030).
 ### `apply_edit`
 Commit a declarative change atomically and undoably (FR-007/FR-012/FR-015/FR-028/FR-029).
 - **Input**: same as `plan_edit`, plus `"expectedChangeSet"?` (optional — pass `plan_edit.expectedChangeSet`; reject if the live diff diverges, guaranteeing SC-009 plan↔apply parity).
-- **Output**: `{ "plan": { "changes": [ ... ], "validation": [ ... ], "expectedChangeSet": [ ... ] }, "document": <updated declarative JSON> }`. The returned document includes toolkit-minted Ids for new nodes; agents should use it, or call `read_document`, before follow-up edits.
+- **Output**: `{ "plan": { "changes": [ ... ], "validation": [ ... ], "valid": bool, "expectedChangeSet": [ ... ] }, "document": <updated declarative JSON> }`. The returned document includes toolkit-minted Ids for new nodes; agents should use it, or call `read_document`, before follow-up edits.
 - **Errors**: `no_active_editor_session`, `validation_rejected` (whole batch rolled back), `stale_handle`, `schema_version_mismatch`.
 - **Backed by**: reconcile on the live root inside `HistoryManager.ExecuteInTransaction` (commits on success, **rolls back on any mid-reconcile exception** — a bare `Commit` would leave partial live mutations, breaking FR-012).
 

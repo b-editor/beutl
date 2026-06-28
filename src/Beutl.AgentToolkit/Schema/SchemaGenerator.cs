@@ -109,10 +109,26 @@ public sealed class SchemaGenerator
         }
     }
 
-    public IReadOnlyList<DeclarativeExample> GenerateExamples(string? typeFilter = null, string? categoryFilter = null)
+    public IReadOnlyList<DeclarativeExample> GenerateExamples(
+        string? typeFilter = null,
+        string? categoryFilter = null,
+        string? nameFilter = null)
     {
         TypeRegistration.EnsureRegistered();
-        return CreateExamples(typeFilter, categoryFilter);
+        return CreateExamples(typeFilter, categoryFilter, nameFilter);
+    }
+
+    public IReadOnlyList<DeclarativeExampleSummary> ListExamples(string? typeFilter = null, string? categoryFilter = null)
+    {
+        TypeRegistration.EnsureRegistered();
+        return s_exampleSpecs.Value
+            .Where(spec => ExampleMatches(spec, typeFilter, categoryFilter, nameFilter: null))
+            .Select(spec => new DeclarativeExampleSummary(
+                spec.Example.Name,
+                spec.Example.Description,
+                spec.Categories.ToArray(),
+                spec.Tags.ToArray()))
+            .ToArray();
     }
 
     private static TypeDescriptor CreateDescriptor(string category, Type type, string discriminator, bool includeProperties)
@@ -155,16 +171,18 @@ public sealed class SchemaGenerator
         return engineObject.Properties.Select(CreateProperty).ToArray();
     }
 
-    private static IReadOnlyList<DeclarativeExample> CreateExamples(string? typeFilter, string? categoryFilter)
+    private static IReadOnlyList<DeclarativeExample> CreateExamples(string? typeFilter, string? categoryFilter, string? nameFilter = null)
     {
         ExampleSpec[] examples = s_exampleSpecs.Value;
-        if (string.IsNullOrWhiteSpace(typeFilter) && string.IsNullOrWhiteSpace(categoryFilter))
+        if (string.IsNullOrWhiteSpace(typeFilter)
+            && string.IsNullOrWhiteSpace(categoryFilter)
+            && string.IsNullOrWhiteSpace(nameFilter))
         {
             return examples.Select(CloneExample).ToArray();
         }
 
         return examples
-            .Where(spec => ExampleMatches(spec, typeFilter, categoryFilter))
+            .Where(spec => ExampleMatches(spec, typeFilter, categoryFilter, nameFilter))
             .Select(CloneExample)
             .ToArray();
     }
@@ -208,7 +226,65 @@ public sealed class SchemaGenerator
                     typeof(KeyFrameAnimation<float>),
                     typeof(KeyFrame<float>),
                     typeof(CubicEaseOut),
-                    typeof(SineEaseInOut))),
+                    typeof(SineEaseInOut)),
+                ExampleTags("starter", "empty-scene", "ribbon", "typography", "gradient", "effect")),
+            new ExampleSpec(
+                CreateOrbitalRadarExample(),
+                ExampleCategories(
+                    KnownLibraryItemFormats.Drawable,
+                    KnownLibraryItemFormats.EngineObject,
+                    KnownLibraryItemFormats.Brush,
+                    KnownLibraryItemFormats.FilterEffect,
+                    KnownLibraryItemFormats.Transform,
+                    KnownLibraryItemFormats.Pen,
+                    KnownLibraryItemFormats.Easing),
+                ExampleTypes(
+                    typeof(Element),
+                    typeof(RectShape),
+                    typeof(EllipseShape),
+                    typeof(TextBlock),
+                    typeof(LinearGradientBrush),
+                    typeof(SolidColorBrush),
+                    typeof(Pen),
+                    typeof(FilterEffectGroup),
+                    typeof(Blur),
+                    typeof(DropShadow),
+                    typeof(TransformGroup),
+                    typeof(TranslateTransform),
+                    typeof(RotationTransform),
+                    typeof(KeyFrameAnimation<float>),
+                    typeof(KeyFrame<float>),
+                    typeof(CubicEaseOut),
+                    typeof(SineEaseInOut)),
+                ExampleTags("starter", "empty-scene", "orbital", "radar", "rings", "pen", "glow")),
+            new ExampleSpec(
+                CreateSplitScreenTypographyExample(),
+                ExampleCategories(
+                    KnownLibraryItemFormats.Drawable,
+                    KnownLibraryItemFormats.EngineObject,
+                    KnownLibraryItemFormats.Brush,
+                    KnownLibraryItemFormats.FilterEffect,
+                    KnownLibraryItemFormats.Transform,
+                    KnownLibraryItemFormats.Easing),
+                ExampleTypes(
+                    typeof(Element),
+                    typeof(RectShape),
+                    typeof(RoundedRectShape),
+                    typeof(TextBlock),
+                    typeof(LinearGradientBrush),
+                    typeof(SolidColorBrush),
+                    typeof(FilterEffectGroup),
+                    typeof(Blur),
+                    typeof(Brightness),
+                    typeof(Saturate),
+                    typeof(HueRotate),
+                    typeof(TransformGroup),
+                    typeof(TranslateTransform),
+                    typeof(KeyFrameAnimation<float>),
+                    typeof(KeyFrame<float>),
+                    typeof(CubicEaseOut),
+                    typeof(SineEaseInOut)),
+                ExampleTags("starter", "empty-scene", "split-screen", "editorial", "blocks", "typography")),
             new ExampleSpec(
                 new DeclarativeExample(
                     "animate-float-property-keyframes",
@@ -247,11 +323,13 @@ public sealed class SchemaGenerator
                         })
                     }),
                 ExampleCategories(KnownLibraryItemFormats.Drawable, KnownLibraryItemFormats.EngineObject, KnownLibraryItemFormats.Easing),
-                ExampleTypes(typeof(KeyFrameAnimation<float>), typeof(KeyFrame<float>), typeof(LinearEasing), typeof(SineEaseOut))),
+                ExampleTypes(typeof(KeyFrameAnimation<float>), typeof(KeyFrame<float>), typeof(LinearEasing), typeof(SineEaseOut)),
+                ExampleTags("targeted", "keyframes", "animation")),
             new ExampleSpec(
                 CreateBrushAndEffectExample(),
                 ExampleCategories(KnownLibraryItemFormats.Drawable, KnownLibraryItemFormats.EngineObject, KnownLibraryItemFormats.Brush, KnownLibraryItemFormats.FilterEffect),
-                ExampleTypes(typeof(LinearGradientBrush), typeof(GradientStop), typeof(FilterEffectGroup), typeof(Blur), typeof(Brightness)))
+                ExampleTypes(typeof(LinearGradientBrush), typeof(GradientStop), typeof(FilterEffectGroup), typeof(Blur), typeof(Brightness)),
+                ExampleTags("targeted", "gradient", "effect"))
         ];
     }
 
@@ -273,14 +351,21 @@ public sealed class SchemaGenerator
             .ToArray();
     }
 
-    private static bool ExampleMatches(ExampleSpec spec, string? typeFilter, string? categoryFilter)
+    private static string[] ExampleTags(params string[] tags)
+    {
+        return tags;
+    }
+
+    private static bool ExampleMatches(ExampleSpec spec, string? typeFilter, string? categoryFilter, string? nameFilter)
     {
         bool typeMatches = string.IsNullOrWhiteSpace(typeFilter)
                            || spec.TypeTokens.Contains(typeFilter, StringComparer.Ordinal);
         bool categoryMatches = string.IsNullOrWhiteSpace(categoryFilter)
                                || spec.Categories.Any(category => MatchesCategory(categoryFilter, category));
+        bool nameMatches = string.IsNullOrWhiteSpace(nameFilter)
+                           || string.Equals(spec.Example.Name, nameFilter, StringComparison.OrdinalIgnoreCase);
 
-        return typeMatches && categoryMatches;
+        return typeMatches && categoryMatches && nameMatches;
     }
 
     private static DeclarativeExample CreateEmptySceneMotionExample()
@@ -377,6 +462,497 @@ public sealed class SchemaGenerator
             });
     }
 
+    private static DeclarativeExample CreateOrbitalRadarExample()
+    {
+        Element background = CreateElement(
+            "Orbital radar background",
+            zIndex: 0,
+            new RectShape
+            {
+                Name = "Deep teal field",
+                Width = { CurrentValue = 1920 },
+                Height = { CurrentValue = 1080 },
+                Fill = { CurrentValue = CreateLinearGradient("#ff020711", "#ff063835") }
+            });
+
+        Element outerRing = CreateElement(
+            "Orbital radar outer ring",
+            zIndex: 4,
+            new EllipseShape
+            {
+                Name = "Cyan orbit ring",
+                Width = { CurrentValue = 720 },
+                Height = { CurrentValue = 720 },
+                Fill = { CurrentValue = null },
+                Pen = { CurrentValue = CreatePen("#ff43e7ff", 7) },
+                Transform =
+                {
+                    CurrentValue = new TransformGroup
+                    {
+                        Children =
+                        {
+                            new RotationTransform(0),
+                            new TranslateTransform(-270, 0)
+                        }
+                    }
+                },
+                FilterEffect =
+                {
+                    CurrentValue = new FilterEffectGroup
+                    {
+                        Children =
+                        {
+                            CreateBlur(1.5f),
+                            CreateDropShadow(0, 0, 16, "#aa43e7ff")
+                        }
+                    }
+                }
+            });
+
+        Element innerRing = CreateElement(
+            "Orbital radar amber ring",
+            zIndex: 5,
+            new EllipseShape
+            {
+                Name = "Amber offset ring",
+                Width = { CurrentValue = 430 },
+                Height = { CurrentValue = 430 },
+                Fill = { CurrentValue = null },
+                Pen = { CurrentValue = CreatePen("#ffffd36b", 4) },
+                Transform =
+                {
+                    CurrentValue = new TransformGroup
+                    {
+                        Children =
+                        {
+                            new RotationTransform(0),
+                            new TranslateTransform(-270, 0)
+                        }
+                    }
+                },
+                FilterEffect =
+                {
+                    CurrentValue = new FilterEffectGroup
+                    {
+                        Children =
+                        {
+                            CreateBlur(0.8f)
+                        }
+                    }
+                }
+            });
+
+        Element signalNode = CreateElement(
+            "Orbital radar signal node",
+            zIndex: 9,
+            new EllipseShape
+            {
+                Name = "Moving signal node",
+                Width = { CurrentValue = 86 },
+                Height = { CurrentValue = 86 },
+                Fill = { CurrentValue = CreateLinearGradient("#ffff4da3", "#ff36f0ff") },
+                Transform =
+                {
+                    CurrentValue = new TransformGroup
+                    {
+                        Children =
+                        {
+                            new TranslateTransform(-620, -230)
+                        }
+                    }
+                },
+                FilterEffect =
+                {
+                    CurrentValue = new FilterEffectGroup
+                    {
+                        Children =
+                        {
+                            CreateDropShadow(0, 0, 22, "#cc36f0ff"),
+                            CreateBrightness(118)
+                        }
+                    }
+                }
+            });
+
+        Element sweep = CreateElement(
+            "Orbital radar sweep",
+            zIndex: 7,
+            new RectShape
+            {
+                Name = "Thin scanning sweep",
+                Width = { CurrentValue = 820 },
+                Height = { CurrentValue = 10 },
+                Fill = { CurrentValue = CreateLinearGradient("#0036f0ff", "#dd36f0ff") },
+                Transform =
+                {
+                    CurrentValue = new TransformGroup
+                    {
+                        Children =
+                        {
+                            new RotationTransform(0),
+                            new TranslateTransform(-270, 0)
+                        }
+                    }
+                },
+                FilterEffect =
+                {
+                    CurrentValue = new FilterEffectGroup
+                    {
+                        Children =
+                        {
+                            CreateBlur(2)
+                        }
+                    }
+                }
+            });
+
+        Element title = CreateElement(
+            "Orbital radar title",
+            zIndex: 20,
+            new TextBlock
+            {
+                Name = "Orbital title",
+                Text = { CurrentValue = "ORBIT MAP" },
+                Size = { CurrentValue = 92 },
+                Spacing = { CurrentValue = 10 },
+                Fill = { CurrentValue = new SolidColorBrush(Colors.White) },
+                Transform =
+                {
+                    CurrentValue = new TransformGroup
+                    {
+                        Children =
+                        {
+                            new TranslateTransform(420, -72)
+                        }
+                    }
+                },
+                FilterEffect =
+                {
+                    CurrentValue = new FilterEffectGroup
+                    {
+                        Children =
+                        {
+                            CreateDropShadow(10, 16, 12, "#aa000000")
+                        }
+                    }
+                }
+            });
+
+        Element subtitle = CreateElement(
+            "Orbital radar caption",
+            zIndex: 21,
+            new TextBlock
+            {
+                Name = "Orbital caption",
+                Text = { CurrentValue = "SIGNAL ROUTES / LIVE DECLARATIVE EDIT" },
+                Size = { CurrentValue = 34 },
+                Spacing = { CurrentValue = 5 },
+                Fill = { CurrentValue = new SolidColorBrush(Color.Parse("#ffc9faff")) },
+                Transform =
+                {
+                    CurrentValue = new TransformGroup
+                    {
+                        Children =
+                        {
+                            new TranslateTransform(420, 20)
+                        }
+                    }
+                }
+            });
+
+        JsonObject outerRingJson = SerializeExampleElement(outerRing);
+        JsonObject innerRingJson = SerializeExampleElement(innerRing);
+        JsonObject signalNodeJson = SerializeExampleElement(signalNode);
+        JsonObject sweepJson = SerializeExampleElement(sweep);
+        JsonObject titleJson = SerializeExampleElement(title);
+        JsonObject subtitleJson = SerializeExampleElement(subtitle);
+
+        JsonObject outerObject = GetFirstObjectJson(outerRingJson);
+        AddFloatAnimation(outerObject, nameof(Drawable.Opacity), (0, 20, typeof(CubicEaseOut)), (1.4, 100, typeof(CubicEaseOut)), (8, 72, typeof(SineEaseInOut)));
+        AddFloatAnimation(outerObject, nameof(EllipseShape.Width), (0, 640, typeof(CubicEaseOut)), (4, 780, typeof(SineEaseInOut)), (8, 700, typeof(SineEaseInOut)));
+        AddFloatAnimation(outerObject, nameof(EllipseShape.Height), (0, 640, typeof(CubicEaseOut)), (4, 780, typeof(SineEaseInOut)), (8, 700, typeof(SineEaseInOut)));
+        AddFloatAnimation(GetTransformChildJson(outerObject, typeof(RotationTransform)), nameof(RotationTransform.Rotation), (0, 0, typeof(CubicEaseOut)), (8, 360, typeof(SineEaseInOut)));
+
+        JsonObject innerObject = GetFirstObjectJson(innerRingJson);
+        AddFloatAnimation(innerObject, nameof(Drawable.Opacity), (0, 0, typeof(CubicEaseOut)), (1, 88, typeof(CubicEaseOut)), (8, 46, typeof(SineEaseInOut)));
+        AddFloatAnimation(GetTransformChildJson(innerObject, typeof(RotationTransform)), nameof(RotationTransform.Rotation), (0, 18, typeof(CubicEaseOut)), (8, -210, typeof(SineEaseInOut)));
+
+        JsonObject signalObject = GetFirstObjectJson(signalNodeJson);
+        AddFloatAnimation(signalObject, nameof(Drawable.Opacity), (0, 0, typeof(CubicEaseOut)), (0.7, 100, typeof(CubicEaseOut)), (7.5, 100, typeof(SineEaseInOut)), (8, 0, typeof(SineEaseInOut)));
+        JsonObject signalTranslate = GetTransformChildJson(signalObject, typeof(TranslateTransform));
+        AddFloatAnimation(signalTranslate, nameof(TranslateTransform.X), (0, -620, typeof(CubicEaseOut)), (3.4, -160, typeof(SineEaseInOut)), (8, 140, typeof(SineEaseInOut)));
+        AddFloatAnimation(signalTranslate, nameof(TranslateTransform.Y), (0, -230, typeof(CubicEaseOut)), (3.4, 230, typeof(SineEaseInOut)), (8, -80, typeof(SineEaseInOut)));
+
+        JsonObject sweepObject = GetFirstObjectJson(sweepJson);
+        AddFloatAnimation(sweepObject, nameof(Drawable.Opacity), (0, 0, typeof(CubicEaseOut)), (1.2, 70, typeof(CubicEaseOut)), (8, 0, typeof(SineEaseInOut)));
+        AddFloatAnimation(GetTransformChildJson(sweepObject, typeof(RotationTransform)), nameof(RotationTransform.Rotation), (0, -18, typeof(CubicEaseOut)), (8, 205, typeof(SineEaseInOut)));
+
+        JsonObject titleObject = GetFirstObjectJson(titleJson);
+        AddFloatAnimation(titleObject, nameof(Drawable.Opacity), (0, 0, typeof(CubicEaseOut)), (1, 100, typeof(CubicEaseOut)), (7, 100, typeof(SineEaseInOut)), (8, 0, typeof(SineEaseInOut)));
+        AddFloatAnimation(titleObject, nameof(TextBlock.Spacing), (0, 22, typeof(CubicEaseOut)), (1.5, 10, typeof(SineEaseInOut)), (8, 16, typeof(SineEaseInOut)));
+
+        JsonObject subtitleObject = GetFirstObjectJson(subtitleJson);
+        AddFloatAnimation(subtitleObject, nameof(Drawable.Opacity), (0, 0, typeof(CubicEaseOut)), (1.4, 90, typeof(CubicEaseOut)), (7.2, 90, typeof(SineEaseInOut)), (8, 0, typeof(SineEaseInOut)));
+
+        return new DeclarativeExample(
+            "create-empty-scene-orbital-radar",
+            "Patch snippet for an empty scene with orbit rings, a moving signal node, scan sweep, glow, pens, gradients, and title typography. Use this when repeated ribbon/title starters would look too similar.",
+            new JsonObject
+            {
+                ["Duration"] = TimeSpan.FromSeconds(8).ToString("c"),
+                ["Elements"] = new JsonArray(
+                    SerializeExampleElement(background),
+                    outerRingJson,
+                    innerRingJson,
+                    signalNodeJson,
+                    sweepJson,
+                    titleJson,
+                    subtitleJson)
+            });
+    }
+
+    private static DeclarativeExample CreateSplitScreenTypographyExample()
+    {
+        Element background = CreateElement(
+            "Split typography background",
+            zIndex: 0,
+            new RectShape
+            {
+                Name = "Blue violet field",
+                Width = { CurrentValue = 1920 },
+                Height = { CurrentValue = 1080 },
+                Fill = { CurrentValue = CreateLinearGradient("#ff071225", "#ff2e1446") },
+                FilterEffect =
+                {
+                    CurrentValue = new FilterEffectGroup
+                    {
+                        Children =
+                        {
+                            CreateSaturate(115),
+                            CreateHueRotate(4)
+                        }
+                    }
+                }
+            });
+
+        Element panel = CreateElement(
+            "Split typography panel",
+            zIndex: 3,
+            new RoundedRectShape
+            {
+                Name = "Left editorial panel",
+                Width = { CurrentValue = 760 },
+                Height = { CurrentValue = 620 },
+                CornerRadius = { CurrentValue = new CornerRadius(54) },
+                Fill = { CurrentValue = CreateLinearGradient("#eeffffff", "#aa6cf3ff") },
+                Transform =
+                {
+                    CurrentValue = new TransformGroup
+                    {
+                        Children =
+                        {
+                            new TranslateTransform(-420, 0)
+                        }
+                    }
+                },
+                FilterEffect =
+                {
+                    CurrentValue = new FilterEffectGroup
+                    {
+                        Children =
+                        {
+                            CreateBlur(0.8f),
+                            CreateDropShadow(24, 34, 18, "#99000000")
+                        }
+                    }
+                }
+            });
+
+        Element headline = CreateElement(
+            "Split typography headline",
+            zIndex: 12,
+            new TextBlock
+            {
+                Name = "Stacked headline",
+                Text = { CurrentValue = "FRAME FLOW" },
+                Size = { CurrentValue = 96 },
+                Spacing = { CurrentValue = 4 },
+                Fill = { CurrentValue = new SolidColorBrush(Color.Parse("#ff081225")) },
+                Transform =
+                {
+                    CurrentValue = new TransformGroup
+                    {
+                        Children =
+                        {
+                            new TranslateTransform(-420, -72)
+                        }
+                    }
+                }
+            });
+
+        Element caption = CreateElement(
+            "Split typography caption",
+            zIndex: 13,
+            new TextBlock
+            {
+                Name = "Panel caption",
+                Text = { CurrentValue = "KINETIC LAYOUT / GRADIENT BRUSHES / EFFECT CHAIN" },
+                Size = { CurrentValue = 28 },
+                Spacing = { CurrentValue = 3 },
+                Fill = { CurrentValue = new SolidColorBrush(Color.Parse("#ff10223c")) },
+                Transform =
+                {
+                    CurrentValue = new TransformGroup
+                    {
+                        Children =
+                        {
+                            new TranslateTransform(-420, 48)
+                        }
+                    }
+                }
+            });
+
+        Element wideBlock = CreateElement(
+            "Split typography wide block",
+            zIndex: 7,
+            new RectShape
+            {
+                Name = "Right cyan block",
+                Width = { CurrentValue = 680 },
+                Height = { CurrentValue = 96 },
+                Fill = { CurrentValue = CreateLinearGradient("#ff34e6ff", "#fffff072") },
+                Transform =
+                {
+                    CurrentValue = new TransformGroup
+                    {
+                        Children =
+                        {
+                            new TranslateTransform(520, -200)
+                        }
+                    }
+                },
+                FilterEffect =
+                {
+                    CurrentValue = new FilterEffectGroup
+                    {
+                        Children =
+                        {
+                            CreateBrightness(116),
+                            CreateDropShadow(18, 20, 14, "#88000000")
+                        }
+                    }
+                }
+            });
+
+        Element tallBlock = CreateElement(
+            "Split typography vertical block",
+            zIndex: 8,
+            new RectShape
+            {
+                Name = "Magenta vertical block",
+                Width = { CurrentValue = 92 },
+                Height = { CurrentValue = 520 },
+                Fill = { CurrentValue = CreateLinearGradient("#ffff4aa8", "#ff6b7cff") },
+                Transform =
+                {
+                    CurrentValue = new TransformGroup
+                    {
+                        Children =
+                        {
+                            new TranslateTransform(270, 130)
+                        }
+                    }
+                },
+                FilterEffect =
+                {
+                    CurrentValue = new FilterEffectGroup
+                    {
+                        Children =
+                        {
+                            CreateBlur(1.2f)
+                        }
+                    }
+                }
+            });
+
+        Element label = CreateElement(
+            "Split typography right label",
+            zIndex: 18,
+            new TextBlock
+            {
+                Name = "Right label",
+                Text = { CurrentValue = "VARIANT 02" },
+                Size = { CurrentValue = 54 },
+                Spacing = { CurrentValue = 12 },
+                Fill = { CurrentValue = new SolidColorBrush(Colors.White) },
+                Transform =
+                {
+                    CurrentValue = new TransformGroup
+                    {
+                        Children =
+                        {
+                            new TranslateTransform(520, 96)
+                        }
+                    }
+                },
+                FilterEffect =
+                {
+                    CurrentValue = new FilterEffectGroup
+                    {
+                        Children =
+                        {
+                            CreateDropShadow(8, 10, 10, "#aa000000")
+                        }
+                    }
+                }
+            });
+
+        JsonObject panelJson = SerializeExampleElement(panel);
+        JsonObject headlineJson = SerializeExampleElement(headline);
+        JsonObject captionJson = SerializeExampleElement(caption);
+        JsonObject wideBlockJson = SerializeExampleElement(wideBlock);
+        JsonObject tallBlockJson = SerializeExampleElement(tallBlock);
+        JsonObject labelJson = SerializeExampleElement(label);
+
+        JsonObject panelObject = GetFirstObjectJson(panelJson);
+        AddFloatAnimation(panelObject, nameof(Drawable.Opacity), (0, 0, typeof(CubicEaseOut)), (0.7, 100, typeof(CubicEaseOut)), (8, 100, typeof(SineEaseInOut)));
+        AddFloatAnimation(GetTransformChildJson(panelObject, typeof(TranslateTransform)), nameof(TranslateTransform.X), (0, -620, typeof(CubicEaseOut)), (1.1, -420, typeof(CubicEaseOut)), (8, -380, typeof(SineEaseInOut)));
+
+        JsonObject headlineObject = GetFirstObjectJson(headlineJson);
+        AddFloatAnimation(headlineObject, nameof(Drawable.Opacity), (0, 0, typeof(CubicEaseOut)), (1, 100, typeof(CubicEaseOut)), (7.2, 100, typeof(SineEaseInOut)), (8, 0, typeof(SineEaseInOut)));
+        AddFloatAnimation(headlineObject, nameof(TextBlock.Spacing), (0, 26, typeof(CubicEaseOut)), (1.6, 4, typeof(SineEaseInOut)), (8, 10, typeof(SineEaseInOut)));
+
+        JsonObject captionObject = GetFirstObjectJson(captionJson);
+        AddFloatAnimation(captionObject, nameof(Drawable.Opacity), (0, 0, typeof(CubicEaseOut)), (1.5, 92, typeof(CubicEaseOut)), (8, 92, typeof(SineEaseInOut)));
+
+        JsonObject wideObject = GetFirstObjectJson(wideBlockJson);
+        AddFloatAnimation(wideObject, nameof(Drawable.Opacity), (0, 0, typeof(CubicEaseOut)), (0.9, 100, typeof(CubicEaseOut)), (8, 80, typeof(SineEaseInOut)));
+        AddFloatAnimation(GetTransformChildJson(wideObject, typeof(TranslateTransform)), nameof(TranslateTransform.X), (0, 880, typeof(CubicEaseOut)), (1.4, 520, typeof(CubicEaseOut)), (8, 460, typeof(SineEaseInOut)));
+
+        JsonObject tallObject = GetFirstObjectJson(tallBlockJson);
+        AddFloatAnimation(tallObject, nameof(Drawable.Opacity), (0, 0, typeof(CubicEaseOut)), (1.2, 88, typeof(CubicEaseOut)), (8, 88, typeof(SineEaseInOut)));
+        AddFloatAnimation(GetTransformChildJson(tallObject, typeof(TranslateTransform)), nameof(TranslateTransform.Y), (0, 420, typeof(CubicEaseOut)), (1.7, 130, typeof(CubicEaseOut)), (8, 190, typeof(SineEaseInOut)));
+
+        JsonObject labelObject = GetFirstObjectJson(labelJson);
+        AddFloatAnimation(labelObject, nameof(Drawable.Opacity), (0, 0, typeof(CubicEaseOut)), (1.8, 100, typeof(CubicEaseOut)), (7.2, 100, typeof(SineEaseInOut)), (8, 0, typeof(SineEaseInOut)));
+
+        return new DeclarativeExample(
+            "create-empty-scene-split-screen-typography",
+            "Patch snippet for an empty scene with a split-screen editorial layout, animated panels, kinetic typography, blocks, gradients, and layered effects. Use this to avoid repeating the central ribbon composition.",
+            new JsonObject
+            {
+                ["Duration"] = TimeSpan.FromSeconds(8).ToString("c"),
+                ["Elements"] = new JsonArray(
+                    SerializeExampleElement(background),
+                    panelJson,
+                    headlineJson,
+                    captionJson,
+                    wideBlockJson,
+                    tallBlockJson,
+                    labelJson)
+            });
+    }
+
     private static DeclarativeExample CreateBrushAndEffectExample()
     {
         var brush = new LinearGradientBrush
@@ -458,6 +1034,38 @@ public sealed class SchemaGenerator
         var brightness = new Brightness();
         brightness.Amount.CurrentValue = amount;
         return brightness;
+    }
+
+    private static Pen CreatePen(string color, float thickness)
+    {
+        return new Pen
+        {
+            Brush = { CurrentValue = new SolidColorBrush(Color.Parse(color)) },
+            Thickness = { CurrentValue = thickness }
+        };
+    }
+
+    private static DropShadow CreateDropShadow(float x, float y, float sigma, string color)
+    {
+        var dropShadow = new DropShadow();
+        dropShadow.Position.CurrentValue = new Point(x, y);
+        dropShadow.Sigma.CurrentValue = new Size(sigma, sigma);
+        dropShadow.Color.CurrentValue = Color.Parse(color);
+        return dropShadow;
+    }
+
+    private static Saturate CreateSaturate(float amount)
+    {
+        var saturate = new Saturate();
+        saturate.Amount.CurrentValue = amount;
+        return saturate;
+    }
+
+    private static HueRotate CreateHueRotate(float angle)
+    {
+        var hueRotate = new HueRotate();
+        hueRotate.Angle.CurrentValue = angle;
+        return hueRotate;
     }
 
     private static JsonObject SerializeExampleElement(Element element)
@@ -645,5 +1253,6 @@ public sealed class SchemaGenerator
     private sealed record ExampleSpec(
         DeclarativeExample Example,
         IReadOnlyList<string> Categories,
-        IReadOnlyList<string> TypeTokens);
+        IReadOnlyList<string> TypeTokens,
+        IReadOnlyList<string> Tags);
 }

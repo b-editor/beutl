@@ -15,6 +15,8 @@ public sealed record ReconcilePlan(
     IReadOnlyList<ChangeSetEntry> Changes,
     IReadOnlyList<ValidationOutcome> Validation)
 {
+    public bool Valid => Validation.All(item => item.Status != ValidationStatus.Rejected);
+
     public JsonArray ExpectedChangeSet => ChangeSetJson.ToJsonArray(Changes);
 }
 
