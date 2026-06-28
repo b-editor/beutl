@@ -9,12 +9,13 @@ public sealed class ToolSurfaceTests
     private static readonly Type[] s_sharedPublicToolTypes =
     [
         typeof(QueryTools),
+        typeof(SessionTools),
         typeof(EditTools),
         typeof(RenderTools)
     ];
 
     [Test]
-    public void Shared_public_tool_surface_is_declarative_only()
+    public void Shared_public_tool_surface_exposes_session_and_declarative_tools()
     {
         string[] names = ToolNames(s_sharedPublicToolTypes);
 
@@ -33,6 +34,10 @@ public sealed class ToolSurfaceTests
                 "render_composition_patch",
                 "list_examples",
                 "get_examples",
+                "open_project",
+                "create_project",
+                "add_scene",
+                "save_project",
                 "read_document_summary",
                 "read_document",
                 "plan_edit",

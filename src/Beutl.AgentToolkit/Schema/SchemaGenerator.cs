@@ -23,6 +23,20 @@ namespace Beutl.AgentToolkit.Schema;
 
 public sealed class SchemaGenerator
 {
+    private static readonly Dictionary<string, string[]> s_typeAliases = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["text"] = [nameof(TextBlock)],
+        ["label"] = [nameof(TextBlock)],
+        ["typography"] = [nameof(TextBlock)],
+        ["shape"] = [nameof(RectShape), nameof(RoundedRectShape), nameof(EllipseShape), nameof(GeometryShape)],
+        ["rectangle"] = [nameof(RectShape), nameof(RoundedRectShape)],
+        ["rect"] = [nameof(RectShape), nameof(RoundedRectShape)],
+        ["roundedrectangle"] = [nameof(RoundedRectShape)],
+        ["roundedrect"] = [nameof(RoundedRectShape)],
+        ["circle"] = [nameof(EllipseShape)],
+        ["ellipse"] = [nameof(EllipseShape)]
+    };
+
     private static readonly string[] s_formats =
     [
         KnownLibraryItemFormats.Drawable,
@@ -1888,7 +1902,9 @@ public sealed class SchemaGenerator
         return string.IsNullOrWhiteSpace(typeFilter)
                || string.Equals(typeFilter, discriminator, StringComparison.Ordinal)
                || string.Equals(typeFilter, type.FullName, StringComparison.Ordinal)
-               || string.Equals(typeFilter, type.Name, StringComparison.Ordinal);
+               || string.Equals(typeFilter, type.Name, StringComparison.Ordinal)
+               || (s_typeAliases.TryGetValue(typeFilter.Trim(), out string[]? aliases)
+                   && aliases.Contains(type.Name, StringComparer.Ordinal));
     }
 
     private static bool MatchesCategory(string? categoryFilter, string category)

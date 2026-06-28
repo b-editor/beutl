@@ -115,8 +115,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
         return Execute(() => new GettingStartedResponse(
             SchemaVersion.Current,
             [
-                "In live mode, call attach_active_editor before scene tools. If it fails, open or create a project/scene in Beutl, then call attach_active_editor again.",
-                "In stdio/headless mode, call create_project or open_project instead of writing a one-off generator.",
+                "Call attach_active_editor for an open editor scene; if it fails or no editor is available, call create_project or open_project for a file-backed session instead of writing a one-off generator.",
                 "Call read_document_summary to inspect progress without the full document.",
                 "For original creative briefs, call list_creative_directions, read_document, and get_schema only for the drawable/effect types you need, then author a custom declarative patch instead of cloning a starter.",
                 "Call list_effects and list_effect_recipes to discover Beutl's visual effect palette before choosing a repeated look.",

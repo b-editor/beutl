@@ -209,6 +209,6 @@ public sealed class SessionUnavailableException : Exception
             ErrorCode.NoActiveEditorSession,
             Message,
             null,
-            "In the in-app host, call attach_active_editor before read_document_summary, read_document, plan_edit, apply_edit, render_still, or export_video. In the stdio host, call open_project or create_project first.");
+            "Call attach_active_editor for an open editor scene, or call create_project/open_project to start a file-backed session before read_document_summary, read_document, plan_edit, apply_edit, render_still, or export_video.");
     }
 }

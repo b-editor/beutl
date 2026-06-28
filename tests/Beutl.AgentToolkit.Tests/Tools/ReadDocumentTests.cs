@@ -29,8 +29,9 @@ public sealed class ReadDocumentTests
         Assert.Multiple(() =>
         {
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
-            Assert.That(result.Value!.RecommendedCalls, Has.Some.Contains("attach_active_editor before scene tools"));
+            Assert.That(result.Value!.RecommendedCalls, Has.Some.Contains("attach_active_editor for an open editor scene"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("create_project or open_project"));
+            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("file-backed session"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("list_creative_directions"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("custom declarative patch"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("avoid overused orbit/radar/map/signal/dashboard motifs"));
@@ -46,6 +47,24 @@ public sealed class ReadDocumentTests
             Assert.That(result.Value.CategoryAliases["visualEffect"], Is.EqualTo("FilterEffect"));
             Assert.That(result.Value.RawHttpNote, Does.Contain("Server-Sent Events"));
             Assert.That(result.Value.RawHttpNote, Does.Contain("content[0].text"));
+        });
+    }
+
+    [Test]
+    public void Get_schema_accepts_common_low_context_type_aliases()
+    {
+        var tools = new QueryTools(new AgentSessionManager());
+
+        ToolResult<CapabilitySchema> shape = tools.GetSchema(type: "Shape", includeProperties: false);
+        ToolResult<CapabilitySchema> text = tools.GetSchema(type: "Text", includeProperties: false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(shape.IsSuccess, Is.True, shape.Error?.Message);
+            Assert.That(shape.Value!.Types.Select(type => type.Type), Does.Contain(typeof(RectShape).FullName));
+            Assert.That(shape.Value.Types.Select(type => type.Type), Does.Contain(typeof(EllipseShape).FullName));
+            Assert.That(text.IsSuccess, Is.True, text.Error?.Message);
+            Assert.That(text.Value!.Types.Select(type => type.Type), Is.EquivalentTo(new[] { typeof(TextBlock).FullName }));
         });
     }
 
