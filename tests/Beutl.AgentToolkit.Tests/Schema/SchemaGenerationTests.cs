@@ -49,6 +49,7 @@ public sealed class SchemaGenerationTests
         CapabilitySchema freshTextBlockSchema = generator.Generate(typeFilter: nameof(TextBlock));
         CapabilitySchema compactVisualEffectSchema = generator.Generate(categoryFilter: "visualEffect", includeProperties: false, includeExamples: false);
         IReadOnlyList<DeclarativeExample> fillExamples = generator.GenerateExamples(categoryFilter: "fill");
+        IReadOnlyList<DeclarativeExample> motionExamples = generator.GenerateExamples(categoryFilter: "motion");
         IReadOnlyList<DeclarativeExampleSummary> exampleSummaries = generator.ListExamples(typeFilter: nameof(TextBlock));
         IReadOnlyList<DeclarativeExample> namedExamples = generator.GenerateExamples(nameFilter: "create-empty-scene-orbital-radar");
         textBlockSchema.Examples.Single(example => example.Name == "create-empty-scene-motion-graphics").Patch["Duration"] = "00:00:01";
@@ -103,6 +104,9 @@ public sealed class SchemaGenerationTests
             Assert.That(fillExamples.Select(example => example.Name), Does.Contain("create-empty-scene-orbital-radar"));
             Assert.That(fillExamples.Select(example => example.Name), Does.Contain("create-empty-scene-split-screen-typography"));
             Assert.That(fillExamples.Select(example => example.Name), Does.Contain("apply-gradient-fill-and-effect-chain"));
+            Assert.That(motionExamples.Select(example => example.Name), Does.Contain("create-empty-scene-liquid-gradient-system"));
+            Assert.That(motionExamples.Select(example => example.Name), Does.Contain("create-empty-scene-data-bar-dashboard"));
+            Assert.That(motionExamples.Select(example => example.Name), Does.Contain("create-empty-scene-glitch-cutout-collage"));
             Assert.That(exampleSummaries.Count(example => example.Tags.Contains("empty-scene")), Is.GreaterThanOrEqualTo(3));
             Assert.That(exampleSummaries.Single(example => example.Name == "create-empty-scene-orbital-radar").Tags, Does.Contain("orbital"));
             Assert.That(namedExamples, Has.Count.EqualTo(1));

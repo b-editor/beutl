@@ -39,6 +39,8 @@ public sealed record ApplyCompositionResponse(
     string? AppliedPlanId,
     ReconcileResult Result);
 
+internal sealed record ResolvedEdit(JsonObject Document, HashSet<Guid> KnownNewIds);
+
 [McpServerToolType]
 public sealed class EditTools(AgentSessionManager sessions) : ToolBase
 {
@@ -58,7 +60,8 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
         return Execute(() =>
         {
             IEditingSession session = sessions.RequireSession();
-            return _reconciler.Plan(session, ResolveDesiredDocument(session, desired, patch, schemaVersion));
+            ResolvedEdit resolved = ResolveDesiredDocument(session, desired, patch, schemaVersion);
+            return _reconciler.Plan(session, resolved.Document, resolved.KnownNewIds);
         });
     }
 
@@ -77,8 +80,8 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
         return Execute(() =>
         {
             IEditingSession session = sessions.RequireSession();
-            JsonObject resolved = ResolveDesiredDocument(session, desired, patch, schemaVersion);
-            ReconcilePlan plan = _reconciler.Plan(session, resolved);
+            ResolvedEdit resolved = ResolveDesiredDocument(session, desired, patch, schemaVersion);
+            ReconcilePlan plan = _reconciler.Plan(session, resolved.Document, resolved.KnownNewIds);
             if (expectedChangeSet is not null && !ChangeSetMatches(plan, expectedChangeSet))
             {
                 throw new ReconcileException(new ToolError(
@@ -88,7 +91,13 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
                     "Run plan_edit again and submit the updated expectedChangeSet."));
             }
 
-            return _reconciler.Apply(session, resolved);
+            ReconcileResult result = _reconciler.Apply(session, resolved.Document, resolved.KnownNewIds);
+            if (CompositionTemplateCatalog.TryInferTemplateName(patch ?? desired ?? result.Document) is { } inferredName)
+            {
+                sessions.RecordCompositionUse(inferredName);
+            }
+
+            return result;
         });
     }
 
@@ -111,14 +120,15 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
                 inputProps,
                 sessions.ResolveCompositionSeed(seed),
                 avoidRecent ? sessions.GetRecentCompositions() : null);
-            JsonObject resolved = ResolveDesiredDocument(session, desired: null, patch: composition.Patch, schemaVersion: SchemaVersion.Current);
-            ReconcilePlan plan = _reconciler.Plan(session, resolved);
+            ResolvedEdit resolved = ResolveDesiredDocument(session, desired: null, patch: composition.Patch, schemaVersion: SchemaVersion.Current);
+            ReconcilePlan plan = _reconciler.Plan(session, resolved.Document, resolved.KnownNewIds);
             CompositionPlanState state = sessions.StoreCompositionPlan(
                 composition.Name,
                 composition.Seed,
                 composition.InputProps,
-                resolved,
-                plan.ExpectedChangeSet);
+                resolved.Document,
+                plan.ExpectedChangeSet,
+                resolved.KnownNewIds);
 
             return new PlanCompositionResponse(
                 SchemaVersion.Current,
@@ -146,7 +156,10 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
             if (!string.IsNullOrWhiteSpace(planId))
             {
                 CompositionPlanState state = sessions.GetCompositionPlan(planId.Trim());
-                ReconcilePlan storedPlan = _reconciler.Plan(session, (JsonObject)state.DesiredDocument.DeepClone());
+                ReconcilePlan storedPlan = _reconciler.Plan(
+                    session,
+                    (JsonObject)state.DesiredDocument.DeepClone(),
+                    state.KnownNewIds.ToHashSet());
                 if (!ChangeSetMatches(storedPlan, state.ExpectedChangeSet))
                 {
                     throw new ReconcileException(new ToolError(
@@ -156,7 +169,10 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
                         "Run plan_composition again and pass the new planId."));
                 }
 
-                ReconcileResult storedResult = _reconciler.Apply(session, (JsonObject)state.DesiredDocument.DeepClone());
+                ReconcileResult storedResult = _reconciler.Apply(
+                    session,
+                    (JsonObject)state.DesiredDocument.DeepClone(),
+                    state.KnownNewIds.ToHashSet());
                 sessions.RecordCompositionUse(state.CompositionName);
                 sessions.RemoveCompositionPlan(state.Id);
                 return new ApplyCompositionResponse(
@@ -175,8 +191,8 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
                 inputProps,
                 sessions.ResolveCompositionSeed(seed),
                 avoidRecent ? sessions.GetRecentCompositions() : null);
-            JsonObject resolved = ResolveDesiredDocument(session, desired: null, patch: composition.Patch, schemaVersion: SchemaVersion.Current);
-            ReconcilePlan plan = _reconciler.Plan(session, resolved);
+            ResolvedEdit resolved = ResolveDesiredDocument(session, desired: null, patch: composition.Patch, schemaVersion: SchemaVersion.Current);
+            ReconcilePlan plan = _reconciler.Plan(session, resolved.Document, resolved.KnownNewIds);
             if (expectedChangeSet is not null && !ChangeSetMatches(plan, expectedChangeSet))
             {
                 throw new ReconcileException(new ToolError(
@@ -186,7 +202,7 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
                     "Run plan_composition again and submit the updated expectedChangeSet."));
             }
 
-            ReconcileResult result = _reconciler.Apply(session, resolved);
+            ReconcileResult result = _reconciler.Apply(session, resolved.Document, resolved.KnownNewIds);
             sessions.RecordCompositionUse(composition.Name);
             return new ApplyCompositionResponse(
                 SchemaVersion.Current,
@@ -196,7 +212,7 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
         });
     }
 
-    private static JsonObject ResolveDesiredDocument(
+    private static ResolvedEdit ResolveDesiredDocument(
         IEditingSession session,
         JsonObject? desired,
         JsonObject? patch,
@@ -217,7 +233,7 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
                 document[SchemaVersion.PropertyName] = schemaVersion;
             }
 
-            return document;
+            return new ResolvedEdit(document, []);
         }
 
         SchemaVersion.EnsureKnown(schemaVersion);
@@ -231,7 +247,7 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
         }
 
         SchemaVersion.Stamp(mergedObject);
-        return mergedObject;
+        return new ResolvedEdit(mergedObject, CollectionReconciler.CollectInsertedIds(current, mergedObject));
     }
 
     private static CompositionRunSummary CreateCompositionRunSummary(CompositionRender composition)

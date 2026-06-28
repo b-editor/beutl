@@ -144,8 +144,11 @@ public sealed class SchemaGenerator
             .Select(item => item.Type)
             .Distinct()
             .Select(type => CreateEffectSummary(type, includePropertyNames))
-            .Where(summary => MatchesIntent(summary, intent))
-            .OrderBy(summary => summary.Name, StringComparer.Ordinal)
+            .Select(summary => new { Summary = summary, Score = ScoreEffect(summary, intent) })
+            .Where(item => item.Score > 0)
+            .OrderByDescending(item => item.Score)
+            .ThenBy(item => item.Summary.Name, StringComparer.Ordinal)
+            .Select(item => item.Summary)
             .ToArray();
     }
 
@@ -153,11 +156,11 @@ public sealed class SchemaGenerator
     {
         TypeRegistration.EnsureRegistered();
         return s_effectRecipeSpecs.Value
-            .Where(spec => MatchesIntent(spec.Summary.IntentTags, intent)
-                           || string.IsNullOrWhiteSpace(intent)
-                           || spec.Summary.EffectNames.Any(name => name.Contains(intent, StringComparison.OrdinalIgnoreCase)))
-            .Select(spec => spec.Summary)
-            .OrderBy(summary => summary.Name, StringComparer.Ordinal)
+            .Select(spec => new { spec.Summary, Score = ScoreRecipe(spec.Summary, intent) })
+            .Where(item => item.Score > 0)
+            .OrderByDescending(item => item.Score)
+            .ThenBy(item => item.Summary.Name, StringComparer.Ordinal)
+            .Select(item => item.Summary)
             .ToArray();
     }
 
@@ -166,7 +169,15 @@ public sealed class SchemaGenerator
         TypeRegistration.EnsureRegistered();
         EffectRecipeSpec? spec = !string.IsNullOrWhiteSpace(name)
             ? s_effectRecipeSpecs.Value.FirstOrDefault(item => string.Equals(item.Summary.Name, name, StringComparison.OrdinalIgnoreCase))
-            : s_effectRecipeSpecs.Value.FirstOrDefault(item => MatchesIntent(item.Summary.IntentTags, intent));
+            : string.IsNullOrWhiteSpace(intent)
+                ? s_effectRecipeSpecs.Value.FirstOrDefault()
+            : s_effectRecipeSpecs.Value
+                .Select(item => new { Spec = item, Score = ScoreRecipe(item.Summary, intent) })
+                .Where(item => item.Score > 0)
+                .OrderByDescending(item => item.Score)
+                .ThenBy(item => item.Spec.Summary.Name, StringComparer.Ordinal)
+                .Select(item => item.Spec)
+                .FirstOrDefault();
 
         if (spec is null)
         {
@@ -273,18 +284,58 @@ public sealed class SchemaGenerator
         return tags.Distinct(StringComparer.Ordinal).ToArray();
     }
 
-    private static bool MatchesIntent(EffectSummary summary, string? intent)
+    private static int ScoreEffect(EffectSummary summary, string? intent)
     {
-        return MatchesIntent(summary.IntentTags, intent)
-               || (!string.IsNullOrWhiteSpace(intent)
-                   && (summary.Name.Contains(intent, StringComparison.OrdinalIgnoreCase)
-                       || summary.DisplayName?.Contains(intent, StringComparison.OrdinalIgnoreCase) == true));
+        return ScoreSearch(
+            intent,
+            summary.IntentTags,
+            [summary.Name, summary.DisplayName ?? string.Empty, summary.Description ?? string.Empty],
+            summary.Notes);
     }
 
-    private static bool MatchesIntent(IReadOnlyList<string> tags, string? intent)
+    private static int ScoreRecipe(EffectRecipeSummary summary, string? intent)
     {
-        return string.IsNullOrWhiteSpace(intent)
-               || tags.Any(tag => string.Equals(tag, intent, StringComparison.OrdinalIgnoreCase));
+        return ScoreSearch(
+            intent,
+            summary.IntentTags,
+            [summary.Name, summary.Description],
+            summary.EffectNames.Concat(summary.Notes));
+    }
+
+    private static int ScoreSearch(
+        string? query,
+        IEnumerable<string> primaryTokens,
+        IEnumerable<string> names,
+        IEnumerable<string> secondaryTokens)
+    {
+        string[] tokens = SearchTokens(query);
+        if (tokens.Length == 0)
+        {
+            return 1;
+        }
+
+        int score = 0;
+        foreach (string token in tokens)
+        {
+            if (primaryTokens.Any(value => string.Equals(value, token, StringComparison.OrdinalIgnoreCase)))
+            {
+                score += 10;
+            }
+            else if (primaryTokens.Any(value => value.Contains(token, StringComparison.OrdinalIgnoreCase)))
+            {
+                score += 6;
+            }
+            else if (names.Any(value => value.Contains(token, StringComparison.OrdinalIgnoreCase)))
+            {
+                score += 4;
+            }
+            else if (secondaryTokens.Any(value => value.Contains(token, StringComparison.OrdinalIgnoreCase)))
+            {
+                score += 2;
+            }
+        }
+
+        return score;
     }
 
     private static TypeDescriptor CreateDescriptor(string category, Type type, string discriminator, bool includeProperties)
@@ -356,7 +407,7 @@ public sealed class SchemaGenerator
         string linearEasingType = IdentityHelper.WriteDiscriminator(typeof(LinearEasing));
         string sineEaseOutType = IdentityHelper.WriteDiscriminator(typeof(SineEaseOut));
 
-        return
+        List<ExampleSpec> specs =
         [
             new ExampleSpec(
                 CreateEmptySceneMotionExample(),
@@ -383,7 +434,7 @@ public sealed class SchemaGenerator
                     typeof(KeyFrame<float>),
                     typeof(CubicEaseOut),
                     typeof(SineEaseInOut)),
-                ExampleTags("starter", "empty-scene", "ribbon", "typography", "gradient", "effect")),
+                ExampleTags("starter", "empty-scene", "motion", "ribbon", "typography", "gradient", "effect")),
             new ExampleSpec(
                 CreateOrbitalRadarExample(),
                 ExampleCategories(
@@ -412,7 +463,7 @@ public sealed class SchemaGenerator
                     typeof(KeyFrame<float>),
                     typeof(CubicEaseOut),
                     typeof(SineEaseInOut)),
-                ExampleTags("starter", "empty-scene", "orbital", "radar", "rings", "pen", "glow")),
+                ExampleTags("starter", "empty-scene", "motion", "orbital", "radar", "rings", "pen", "glow")),
             new ExampleSpec(
                 CreateSplitScreenTypographyExample(),
                 ExampleCategories(
@@ -440,7 +491,7 @@ public sealed class SchemaGenerator
                     typeof(KeyFrame<float>),
                     typeof(CubicEaseOut),
                     typeof(SineEaseInOut)),
-                ExampleTags("starter", "empty-scene", "split-screen", "editorial", "blocks", "typography")),
+                ExampleTags("starter", "empty-scene", "motion", "split-screen", "editorial", "blocks", "typography")),
             new ExampleSpec(
                 new DeclarativeExample(
                     "animate-float-property-keyframes",
@@ -487,6 +538,68 @@ public sealed class SchemaGenerator
                 ExampleTypes(typeof(LinearGradientBrush), typeof(GradientStop), typeof(FilterEffectGroup), typeof(Blur), typeof(Brightness)),
                 ExampleTags("targeted", "gradient", "effect"))
         ];
+        specs.AddRange(CreateCompositionTemplateExampleSpecs());
+        return specs
+            .DistinctBy(spec => spec.Example.Name, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private static IEnumerable<ExampleSpec> CreateCompositionTemplateExampleSpecs()
+    {
+        var catalog = new CompositionTemplateCatalog(defaultSeed: "schema-examples");
+        foreach (string name in new[]
+                 {
+                     "kinetic-ribbon-title",
+                     "orbital-radar-map",
+                     "split-screen-type-system",
+                     "liquid-gradient-system",
+                     "data-bar-dashboard",
+                     "glitch-cutout-collage"
+                 })
+        {
+            CompositionTemplateDetail detail = catalog.Get(name);
+            CompositionRender render = catalog.Render(name, seed: $"schema-example:{name}");
+            yield return new ExampleSpec(
+                new DeclarativeExample(
+                    $"create-empty-scene-{name}",
+                    $"Composition starter generated from the {name} Remotion-style template. Use this fallback only when plan_composition/apply_composition is unavailable.",
+                    (JsonObject)render.Patch.DeepClone()),
+                ExampleCategories(
+                    KnownLibraryItemFormats.Drawable,
+                    KnownLibraryItemFormats.EngineObject,
+                    KnownLibraryItemFormats.Brush,
+                    KnownLibraryItemFormats.FilterEffect,
+                    KnownLibraryItemFormats.Transform,
+                    KnownLibraryItemFormats.Easing,
+                    KnownLibraryItemFormats.Pen),
+                ExampleTypes(
+                    typeof(Element),
+                    typeof(RectShape),
+                    typeof(EllipseShape),
+                    typeof(TextBlock),
+                    typeof(LinearGradientBrush),
+                    typeof(RadialGradientBrush),
+                    typeof(SolidColorBrush),
+                    typeof(Pen),
+                    typeof(FilterEffectGroup),
+                    typeof(Blur),
+                    typeof(DropShadow),
+                    typeof(Brightness),
+                    typeof(Saturate),
+                    typeof(HueRotate),
+                    typeof(HighContrast),
+                    typeof(ColorShift),
+                    typeof(MosaicEffect),
+                    typeof(ShakeEffect),
+                    typeof(TransformGroup),
+                    typeof(TranslateTransform),
+                    typeof(RotationTransform),
+                    typeof(KeyFrameAnimation<float>),
+                    typeof(KeyFrame<float>),
+                    typeof(CubicEaseOut),
+                    typeof(SineEaseInOut)),
+                ExampleTags(detail.Tags.Concat(detail.StyleAxes.Values).Concat(new[] { "motion", "composition", "remotion" }).ToArray()));
+        }
     }
 
     private static EffectRecipeSpec[] CreateEffectRecipeSpecs()
@@ -879,11 +992,29 @@ public sealed class SchemaGenerator
         bool typeMatches = string.IsNullOrWhiteSpace(typeFilter)
                            || spec.TypeTokens.Contains(typeFilter, StringComparer.Ordinal);
         bool categoryMatches = string.IsNullOrWhiteSpace(categoryFilter)
-                               || spec.Categories.Any(category => MatchesCategory(categoryFilter, category));
+                               || spec.Categories.Any(category => MatchesCategory(categoryFilter, category))
+                               || SearchTokens(categoryFilter).Any(token =>
+                                   spec.Tags.Any(tag => tag.Contains(token, StringComparison.OrdinalIgnoreCase))
+                                   || spec.Example.Name.Contains(token, StringComparison.OrdinalIgnoreCase)
+                                   || spec.Example.Description.Contains(token, StringComparison.OrdinalIgnoreCase));
         bool nameMatches = string.IsNullOrWhiteSpace(nameFilter)
                            || string.Equals(spec.Example.Name, nameFilter, StringComparison.OrdinalIgnoreCase);
 
         return typeMatches && categoryMatches && nameMatches;
+    }
+
+    private static string[] SearchTokens(string? query)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return [];
+        }
+
+        return query
+            .Split([' ', '-', '_', '/', ',', ';', ':', '\t', '\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(token => token.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
     }
 
     private static DeclarativeExample CreateEmptySceneMotionExample()

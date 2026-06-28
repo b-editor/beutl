@@ -111,8 +111,9 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 "Call list_effects and list_effect_recipes to discover Beutl's visual effect palette before choosing a repeated look.",
                 "For low-context motion graphics, call list_compositions without seed and prefer the first composition; recently applied compositions are moved to the end by default.",
                 "Call plan_composition and pass the returned planId to apply_composition for compact plan/apply parity without carrying a huge change set.",
+                "If plan_composition fails for one template, try the next list_compositions result before falling back to list_examples.",
                 "Use render_composition_patch only when the client explicitly needs the generated patch JSON; plan_composition/apply_composition avoid huge raw HTTP payloads.",
-                "Call list_examples to choose a starter; examples are shuffled so the first empty-scene option varies across repeated runs.",
+                "Call list_examples to choose a starter; examples are shuffled and recently used composition styles are moved to the end.",
                 "Call get_examples with name=<selected-example> to fetch exactly one patch.",
                 "For visible progress, apply large scenes in stages: background first, then motion elements, then text/effects.",
                 "Call plan_edit with the selected patch and schemaVersion=1.",
@@ -165,8 +166,8 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
             IReadOnlyList<DeclarativeExampleSummary> examples = _schemaGenerator.ListExamples(type, category);
             return new ListExamplesResponse(
                 SchemaVersion.Current,
-                Shuffle(examples),
-                "Examples are shuffled for no-context runs. Pick the first suitable empty-scene starter unless the user asked for a specific style, then call get_examples with that name.");
+                OrderExamples(Shuffle(examples)),
+                "Examples are shuffled for no-context runs, then examples matching recently used composition styles are moved to the end. Pick the first suitable empty-scene starter unless the user asked for a specific style, then call get_examples with that name.");
         });
     }
 
@@ -177,9 +178,9 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
         return Execute(() => new GetExamplesResponse(
             SchemaVersion.Current,
             string.IsNullOrWhiteSpace(name)
-                ? Shuffle(_schemaGenerator.GenerateExamples(type, category, name))
+                ? OrderExamples(Shuffle(_schemaGenerator.GenerateExamples(type, category, name)))
                 : _schemaGenerator.GenerateExamples(type, category, name),
-            "If more than one example is returned, the order is shuffled. Choose the first suitable empty-scene starter, or use name to fetch a single patch."));
+            "If more than one example is returned, the order is shuffled and recently used composition styles are moved to the end. Choose the first suitable empty-scene starter, or use name to fetch a single patch."));
     }
 
     [McpServerTool(Name = "list_effects")]
@@ -268,6 +269,31 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
         }
 
         return items;
+    }
+
+    private T[] OrderExamples<T>(IReadOnlyList<T> source)
+    {
+        IReadOnlyList<string> recent = sessions.GetRecentCompositions();
+        if (recent.Count == 0)
+        {
+            return source.ToArray();
+        }
+
+        var recentSet = new HashSet<string>(recent, StringComparer.OrdinalIgnoreCase);
+        return source
+            .OrderBy(item =>
+            {
+                string? compositionName = item switch
+                {
+                    DeclarativeExampleSummary summary => CompositionTemplateCatalog.TryInferTemplateNameFromExampleName(summary.Name),
+                    DeclarativeExample example => CompositionTemplateCatalog.TryInferTemplateNameFromExampleName(example.Name)
+                                                  ?? CompositionTemplateCatalog.TryInferTemplateName(example.Patch),
+                    _ => null
+                };
+
+                return compositionName is not null && recentSet.Contains(compositionName) ? 1 : 0;
+            })
+            .ToArray();
     }
 
     [McpServerTool(Name = "read_document_summary")]

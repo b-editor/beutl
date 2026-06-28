@@ -11,19 +11,24 @@ namespace Beutl.AgentToolkit.Reconciliation;
 
 public sealed class Reconciler
 {
-    public ReconcilePlan Plan(IEditingSession session, JsonObject desired)
+    public ReconcilePlan Plan(IEditingSession session, JsonObject desired, IReadOnlySet<Guid>? knownNewIds = null)
     {
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(desired);
 
         JsonObject desiredDocument = PrepareDesired(session, desired);
-        return PlanPrepared(session, desiredDocument);
+        return PlanPrepared(session, desiredDocument, knownNewIds);
     }
 
-    private static ReconcilePlan PlanPrepared(IEditingSession session, JsonObject desiredDocument)
+    private static ReconcilePlan PlanPrepared(IEditingSession session, JsonObject desiredDocument, IReadOnlySet<Guid>? knownNewIds)
     {
         JsonObject currentDocument = session.Documents.Read(session.Root);
         HashSet<Guid> newIds = CollectionReconciler.MintMissingIds(desiredDocument);
+        if (knownNewIds is not null)
+        {
+            newIds.UnionWith(knownNewIds);
+        }
+
         if (CollectionReconciler.ValidateIdentityReferences(currentDocument, desiredDocument, newIds) is { } error)
         {
             throw new ReconcileException(error);
@@ -43,13 +48,13 @@ public sealed class Reconciler
         return new ReconcilePlan(changes, validation);
     }
 
-    public ReconcileResult Apply(IEditingSession session, JsonObject desired)
+    public ReconcileResult Apply(IEditingSession session, JsonObject desired, IReadOnlySet<Guid>? knownNewIds = null)
     {
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(desired);
 
         JsonObject desiredDocument = PrepareDesired(session, desired);
-        ReconcilePlan plan = PlanPrepared(session, desiredDocument);
+        ReconcilePlan plan = PlanPrepared(session, desiredDocument, knownNewIds);
         void Mutate()
         {
             session.History.ExecuteInTransaction(
