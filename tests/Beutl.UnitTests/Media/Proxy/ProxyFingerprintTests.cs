@@ -9,14 +9,16 @@ public class ProxyFingerprintTests
     public void Equality_UsesPathSizeAndMtime()
     {
         var mtime = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc);
-        var baseline = new ProxyFingerprint("/tmp/source.mov", 123, mtime);
+        string sourcePath = CreatePath("source.mov");
+        string otherPath = CreatePath("other.mov");
+        var baseline = new ProxyFingerprint(sourcePath, 123, mtime);
 
         Assert.Multiple(() =>
         {
-            Assert.That(new ProxyFingerprint("/tmp/source.mov", 123, mtime), Is.EqualTo(baseline));
-            Assert.That(new ProxyFingerprint("/tmp/other.mov", 123, mtime), Is.Not.EqualTo(baseline));
-            Assert.That(new ProxyFingerprint("/tmp/source.mov", 456, mtime), Is.Not.EqualTo(baseline));
-            Assert.That(new ProxyFingerprint("/tmp/source.mov", 123, mtime.AddTicks(1)), Is.Not.EqualTo(baseline));
+            Assert.That(new ProxyFingerprint(sourcePath, 123, mtime), Is.EqualTo(baseline));
+            Assert.That(new ProxyFingerprint(otherPath, 123, mtime), Is.Not.EqualTo(baseline));
+            Assert.That(new ProxyFingerprint(sourcePath, 456, mtime), Is.Not.EqualTo(baseline));
+            Assert.That(new ProxyFingerprint(sourcePath, 123, mtime.AddTicks(1)), Is.Not.EqualTo(baseline));
         });
     }
 
@@ -49,5 +51,10 @@ public class ProxyFingerprintTests
             Assert.That(fingerprint.FileSizeBytes, Is.EqualTo(3));
             Assert.That(fingerprint.MtimeUtc.Kind, Is.EqualTo(DateTimeKind.Utc));
         });
+    }
+
+    private static string CreatePath(string fileName)
+    {
+        return Path.Combine(TestContext.CurrentContext.WorkDirectory, fileName);
     }
 }

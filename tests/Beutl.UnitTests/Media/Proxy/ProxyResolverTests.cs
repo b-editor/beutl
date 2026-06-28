@@ -125,8 +125,8 @@ public class ProxyResolverTests
     public void SupplyDensity_ReturnsNeutralDensityForEmptyProxySize()
     {
         var resolution = new ProxyResolution(
-            "/tmp/proxy.mp4",
-            new ProxyFingerprint("/tmp/source.mov", 1, DateTime.UtcNow),
+            Path.Combine(TestContext.CurrentContext.WorkDirectory, "proxy.mp4"),
+            new ProxyFingerprint(Path.Combine(TestContext.CurrentContext.WorkDirectory, "source.mov"), 1, DateTime.UtcNow),
             ProxyPreset.Quarter,
             new PixelSize(100, 80),
             PixelSize.Empty);
