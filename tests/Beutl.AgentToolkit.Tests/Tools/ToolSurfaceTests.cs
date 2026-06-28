@@ -22,7 +22,10 @@ public sealed class ToolSurfaceTests
         {
             Assert.That(names, Is.EquivalentTo(new[]
             {
+                "get_started",
                 "get_schema",
+                "get_examples",
+                "read_document_summary",
                 "read_document",
                 "plan_edit",
                 "apply_edit",

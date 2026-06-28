@@ -53,6 +53,20 @@ To see edits appear live in the running Beutl editor, connect to the **in-app en
 
 Then `attach_active_editor` binds a **live session** to the open project; edits flow through the same scene + history the UI is bound to, so the preview/timeline/property panels update in real time and each change is on the editor's undo stack. (The endpoint binds loopback only, issues a per-session token, and accepts the token either as `?token=` or `X-Beutl-Agent-Token`; the write-boundary and validation guarantees are unchanged.)
 
+### Raw HTTP/SSE smoke test
+
+Most MCP hosts hide the JSON-RPC/SSE details. For a raw client such as `curl`, request `text/event-stream` and read the `data:` payload:
+
+```bash
+curl -sS -X POST \
+  -H 'Accept: application/json, text/event-stream' \
+  -H 'Content-Type: application/json' \
+  --data '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"probe","version":"1"}}}' \
+  'http://127.0.0.1:<port>/mcp?token=<token>'
+```
+
+After `initialize`, send `notifications/initialized`, then `tools/list`, then `get_started` or `attach_active_editor`. `notifications/initialized` may have no response body; that is normal. For progress checks, prefer `read_document_summary` over `read_document` until you need the full JSON.
+
 ## The declarative loop (worked example)
 
 A creator asks the agent: *"10-second 1080p clip: a title that fades in over a background image for the first 3 s, then a logo bottom-right."*
@@ -68,7 +82,9 @@ A creator asks the agent: *"10-second 1080p clip: a title that fades in over a b
 3. **Read** the empty document, then pick a schema-provided starting patch:
    ```
    read_document {}                           → { document, schemaVersion }   // echo schemaVersion back on every edit
-   get_schema { "type": "TextBlock" }          → descriptors plus create-empty-scene-motion-graphics
+   get_examples { "type": "TextBlock" }        → create-empty-scene-motion-graphics without the full schema
+   get_schema { "category": "visualEffect", "includeProperties": false, "includeExamples": false }
+                                               → compact effect type/discriminator catalog; category aliases are accepted
    plan_edit { "schemaVersion": "1", "patch": <examples.create-empty-scene-motion-graphics.patch> }
                                               → changeSet + validation (e.g. any value clamped to its [Range])
    ```
@@ -104,6 +120,7 @@ A creator asks the agent: *"10-second 1080p clip: a title that fades in over a b
      }
    }
    ```
+   In live mode, call `read_document_summary {}` between staged patches to check element count, object types, and which objects already have animations/effects without pulling the full document.
 5. **Verify** by rendering a still (and optionally export):
    ```
    render_still { "timeSeconds": 1.5, "outputPath": "preview.png" }  → imagePath

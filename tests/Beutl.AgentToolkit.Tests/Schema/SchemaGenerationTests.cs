@@ -46,6 +46,8 @@ public sealed class SchemaGenerationTests
         CapabilitySchema brushSchema = generator.Generate(categoryFilter: "Brush");
         CapabilitySchema textBlockSchema = generator.Generate(typeFilter: nameof(TextBlock));
         CapabilitySchema freshTextBlockSchema = generator.Generate(typeFilter: nameof(TextBlock));
+        CapabilitySchema compactVisualEffectSchema = generator.Generate(categoryFilter: "visualEffect", includeProperties: false, includeExamples: false);
+        IReadOnlyList<DeclarativeExample> fillExamples = generator.GenerateExamples(categoryFilter: "fill");
         textBlockSchema.Examples.Single(example => example.Name == "create-empty-scene-motion-graphics").Patch["Duration"] = "00:00:01";
 
         Assert.Multiple(() =>
@@ -87,6 +89,10 @@ public sealed class SchemaGenerationTests
             Assert.That(brushSchema.Examples.Select(example => example.Name), Is.EquivalentTo(new[] { "create-empty-scene-motion-graphics", "apply-gradient-fill-and-effect-chain" }));
             Assert.That(textBlockSchema.Examples.Select(example => example.Name), Does.Contain("create-empty-scene-motion-graphics"));
             Assert.That(freshTextBlockSchema.Examples.Single(example => example.Name == "create-empty-scene-motion-graphics").Patch["Duration"]!.GetValue<string>(), Is.EqualTo("00:00:08"));
+            Assert.That(compactVisualEffectSchema.Types.Any(type => type.Type == typeof(FilterEffectGroup).FullName), Is.True);
+            Assert.That(compactVisualEffectSchema.Types.All(type => type.Properties.Count == 0), Is.True);
+            Assert.That(compactVisualEffectSchema.Examples, Is.Empty);
+            Assert.That(fillExamples.Select(example => example.Name), Is.EquivalentTo(new[] { "create-empty-scene-motion-graphics", "apply-gradient-fill-and-effect-chain" }));
         });
     }
 

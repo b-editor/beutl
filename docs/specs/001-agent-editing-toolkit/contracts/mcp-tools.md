@@ -6,12 +6,31 @@ This is **declarative editing first** (FR-027): `read_document` + `plan_edit` + 
 
 ## Discovery
 
+### `get_started`
+Return a compact guide for agents that only know the MCP endpoint URL.
+- **Input**: `{ }`.
+- **Output**: `{ "schemaVersion": string, "recommendedCalls": string[], "categoryAliases": { ... }, "rawHttpNote": string }`.
+- **Use when**: a raw or low-context agent needs the first valid calls, category alias hints, and the SSE note without pulling the full schema.
+
 ### `get_schema`
 Return the Capability/Schema Descriptor (FR-006/FR-022), including reusable declarative patch examples.
-- **Input**: `{ "type"?: string, "category"?: string }` — omit for the full catalog; filter by `$type` or category.
-- **Output**: `{ "types": [ { type, discriminator, category, properties: [ { name, valueType, elementType?, display, range, step, default, animatable, supportsExpression, converter? } ], baseFields: [...] } ], "examples": [ { name, description, patch } ] }`. `discriminator` is the exact string to use as a node's `$type`. Examples include an empty-scene motion-graphics patch that creates visible shape/text elements with gradients, effects, transforms, and keyframes, plus targeted animation and brush/effect-chain snippets.
+- **Input**: `{ "type"?: string, "category"?: string, "includeProperties"?: bool, "includeExamples"?: bool }` — omit for the full catalog; filter by `$type` or category. Category aliases are accepted for common agent wording: `visualEffect` / `effect` / `filter` / `videoEffect` ⇒ `FilterEffect`, `fill` / `gradient` ⇒ `Brush`, `stroke` ⇒ `Pen`, `ease` ⇒ `Easing`.
+- **Output**: `{ "types": [ { type, discriminator, category, properties: [ { name, valueType, elementType?, display, range, step, default, animatable, supportsExpression, converter? } ], baseFields: [...] } ], "examples": [ { name, description, patch } ] }`. `discriminator` is the exact string to use as a node's `$type`. Set `includeProperties=false` for a compact type/discriminator catalog; set `includeExamples=false` when examples would make the response too large. Examples include an empty-scene motion-graphics patch that creates visible shape/text elements with gradients, effects, transforms, and keyframes, plus targeted animation and brush/effect-chain snippets.
 - **Errors**: `unknown_type`.
 - **Backed by**: `PropertyRegistry` + `EngineObject.Properties` + `LibraryService` (data-model §Capability).
+
+### `get_examples`
+Return only reusable declarative patch examples, without the full property schema.
+- **Input**: `{ "type"?: string, "category"?: string }` — same filters and aliases as `get_schema`.
+- **Output**: `{ "schemaVersion": string, "examples": [ { name, description, patch } ] }`.
+- **Use when**: an agent is starting from an empty scene, wants a known-good patch such as `create-empty-scene-motion-graphics`, or a raw MCP client would truncate the full `get_schema` response.
+
+### `read_document_summary`
+Return a compact scene summary for live progress observation.
+- **Input**: `{ }`.
+- **Output**: `{ session, source, rootId, name, width, height, duration, elementCount, elements: [ { id, name, start, length, zIndex, objects: [ { id, name, type, discriminator, animatedProperties, expressionProperties, brushProperties, effectProperties } ] } ] }`.
+- **Use when**: checking whether a live edit has started or finished without pulling the full declarative document.
+- **Errors**: `no_active_editor_session`.
 
 ### `read_document`
 Return the project/scene (or a subtree) as the normalized Declarative Document (FR-005).

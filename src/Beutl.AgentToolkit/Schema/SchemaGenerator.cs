@@ -37,7 +37,11 @@ public sealed class SchemaGenerator
 
     private static readonly Lazy<ExampleSpec[]> s_exampleSpecs = new(CreateExampleSpecs);
 
-    public CapabilitySchema Generate(string? typeFilter = null, string? categoryFilter = null)
+    public CapabilitySchema Generate(
+        string? typeFilter = null,
+        string? categoryFilter = null,
+        bool includeProperties = true,
+        bool includeExamples = true)
     {
         TypeRegistration.EnsureRegistered();
 
@@ -50,13 +54,13 @@ public sealed class SchemaGenerator
                 continue;
             }
 
-            types.Add(CreateDescriptor(category, type, discriminator));
+            types.Add(CreateDescriptor(category, type, discriminator, includeProperties));
         }
 
         return new CapabilitySchema(
             SchemaVersion.Current,
             types.OrderBy(type => type.Type, StringComparer.Ordinal).ToArray(),
-            CreateExamples(typeFilter, categoryFilter));
+            includeExamples ? CreateExamples(typeFilter, categoryFilter) : []);
     }
 
     public bool ContainsType(string typeOrDiscriminator)
@@ -105,15 +109,21 @@ public sealed class SchemaGenerator
         }
     }
 
-    private static TypeDescriptor CreateDescriptor(string category, Type type, string discriminator)
+    public IReadOnlyList<DeclarativeExample> GenerateExamples(string? typeFilter = null, string? categoryFilter = null)
+    {
+        TypeRegistration.EnsureRegistered();
+        return CreateExamples(typeFilter, categoryFilter);
+    }
+
+    private static TypeDescriptor CreateDescriptor(string category, Type type, string discriminator, bool includeProperties)
     {
         LibraryItem? item = LibraryService.Current.FindItem(type);
         return new TypeDescriptor(
             type.FullName ?? type.Name,
             discriminator,
             category,
-            CreateBaseFields(type),
-            CreateProperties(type),
+            includeProperties ? CreateBaseFields(type) : [],
+            includeProperties ? CreateProperties(type) : [],
             item?.DisplayName,
             item?.Description);
     }
@@ -567,15 +577,38 @@ public sealed class SchemaGenerator
 
     private static bool MatchesCategory(string? categoryFilter, string category)
     {
-        return string.IsNullOrWhiteSpace(categoryFilter)
-               || string.Equals(categoryFilter, category, StringComparison.Ordinal)
-               || string.Equals(categoryFilter, SimplifyCategory(category), StringComparison.OrdinalIgnoreCase);
+        if (string.IsNullOrWhiteSpace(categoryFilter))
+        {
+            return true;
+        }
+
+        string normalizedFilter = NormalizeCategoryToken(categoryFilter);
+        return string.Equals(normalizedFilter, NormalizeCategoryToken(category), StringComparison.Ordinal);
     }
 
     private static string SimplifyCategory(string category)
     {
         int index = category.LastIndexOf('.');
         return index >= 0 ? category[(index + 1)..] : category;
+    }
+
+    private static string NormalizeCategoryToken(string category)
+    {
+        string simplified = SimplifyCategory(category).Replace(" ", string.Empty, StringComparison.Ordinal);
+        return simplified.ToLowerInvariant() switch
+        {
+            "effect" or "filter" or "filtereffect" or "visualeffect" or "videoeffect" => "filtereffect",
+            "audio" or "audioeffect" or "soundeffect" => "audioeffect",
+            "drawable" or "shape" or "visual" => "drawable",
+            "brush" or "fill" or "gradient" => "brush",
+            "transform" or "transformation" => "transform",
+            "geometry" => "geometry",
+            "pen" or "stroke" => "pen",
+            "easing" or "ease" => "easing",
+            "graphnode" or "node" => "graphnode",
+            "engineobject" or "object" => "engineobject",
+            _ => simplified.ToLowerInvariant()
+        };
     }
 
     private static RangeDescriptor? TryCreateRange(RangeAttribute? range)
