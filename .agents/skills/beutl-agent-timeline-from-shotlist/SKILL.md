@@ -9,20 +9,24 @@ Use this skill when an agent needs to turn a shot list, storyboard, or timed bri
 
 ## Workflow
 
-1. Call `get_schema` before authoring if the required drawable, media, or audio type is not already known.
-2. Create or attach a session:
+1. For creative briefs with little or no direction, call `list_creative_directions` and choose a concept before authoring.
+2. Call `get_schema` before authoring if the required drawable, media, or audio type is not already known.
+3. Create or attach a session:
    - Stdio/headless: `create_project` or `open_project`.
    - Live editor: `attach_active_editor`.
-3. Call `read_document` and keep the returned `schemaVersion`.
-4. Build the timeline as a declarative document:
+4. If live attach fails and the task allows headless output, switch to the stdio/headless `create_project` route rather than creating a custom generator.
+5. When an output directory is requested, create/update `notes.md` there before the first edit and after every route change, validation failure, render, or save.
+6. Call `read_document` and keep the returned `schemaVersion`.
+7. Build the timeline as a declarative document:
    - Use PascalCase property names exactly as returned by `get_schema`.
    - Use stable `Id` handles when modifying existing elements.
    - Omit `Id` only for genuinely new elements/objects so the toolkit can mint one.
    - Keep element `Start`, `Length`, and layer/Z values consistent with the shot list.
-5. Call `plan_edit` and inspect the change set and validation outcomes.
-6. Call `apply_edit` with the same `schemaVersion` and `expectedChangeSet` from the accepted plan.
-7. Verify with `read_document`, then `render_still` at representative shot boundaries.
-8. Save with `save_project` for file sessions.
+8. Call `plan_edit` and inspect the change set and validation outcomes.
+9. Call `apply_edit` with the same `schemaVersion` and `expectedChangeSet` from the accepted plan.
+10. Verify with `read_document`, then `render_still` at representative shot boundaries.
+11. Export a short preview with `export_video` when an encoder is available; if export is unavailable, record the reason in notes.
+12. Save with `save_project` for file sessions.
 
 ## Originality Rules
 
@@ -30,6 +34,7 @@ Use this skill when an agent needs to turn a shot list, storyboard, or timed bri
 - Use composition templates only when the user explicitly asks for a template, starter, quick draft, or named template style.
 - When a template is explicitly requested, pick a specific returned template name from `list_compositions`; do not rely on an implicit first template selection.
 - Treat examples as schema snippets or fallbacks. Adapt their structure to the brief instead of copying a full starter scene unchanged.
+- Avoid overused no-context motifs such as orbit rings, radar sweeps, map/atlas labels, signal nodes, dashboard bars, and dark teal cyan/magenta neon unless the user asks for them.
 
 ## Shot List Mapping
 

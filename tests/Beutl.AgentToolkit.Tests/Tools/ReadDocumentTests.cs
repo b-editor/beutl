@@ -30,7 +30,10 @@ public sealed class ReadDocumentTests
         {
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
             Assert.That(result.Value!.RecommendedCalls, Has.Some.Contains("attach_active_editor before scene tools"));
+            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("create_project or open_project"));
+            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("list_creative_directions"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("custom declarative patch"));
+            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("avoid overused orbit/radar/map/signal/dashboard motifs"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("list_compositions"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("explicitly asks for a reusable template"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("specific returned name"));
@@ -38,10 +41,31 @@ public sealed class ReadDocumentTests
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("planId"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("list_effects"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("list_effect_recipes"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("do not treat empty-scene examples as the default creative output"));
+            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("full-scene starters are hidden by default"));
+            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("export_video"));
             Assert.That(result.Value.CategoryAliases["visualEffect"], Is.EqualTo("FilterEffect"));
             Assert.That(result.Value.RawHttpNote, Does.Contain("Server-Sent Events"));
             Assert.That(result.Value.RawHttpNote, Does.Contain("content[0].text"));
+        });
+    }
+
+    [Test]
+    public void Creative_directions_discourage_reused_orbit_radar_motifs()
+    {
+        var tools = new QueryTools(new AgentSessionManager());
+
+        ToolResult<CreativeDirectionResponse> result = tools.ListCreativeDirections("make a short motion graphic");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+            Assert.That(result.Value!.DirectionAxes, Has.Count.GreaterThanOrEqualTo(5));
+            Assert.That(result.Value.OverusedMotifs, Has.Some.Contains("orbit rings"));
+            Assert.That(result.Value.OverusedMotifs, Has.Some.Contains("radar sweeps"));
+            Assert.That(result.Value.OverusedMotifs, Has.Some.Contains("dark teal background with cyan/magenta neon"));
+            Assert.That(result.Value.WorkflowHints, Has.Some.Contains("Pick two direction axes"));
+            Assert.That(result.Value.WorkflowHints, Has.Some.Contains("export a short video preview"));
+            Assert.That(result.Value.SelectionHint, Does.Contain("make a short motion graphic"));
         });
     }
 
@@ -68,18 +92,29 @@ public sealed class ReadDocumentTests
     {
         var tools = new QueryTools(new AgentSessionManager());
 
-        ToolResult<ListExamplesResponse> list = tools.ListExamples(type: nameof(TextBlock));
-        ToolResult<ListExamplesResponse> motionList = tools.ListExamples(category: "motion");
+        ToolResult<ListExamplesResponse> defaultList = tools.ListExamples(type: nameof(TextBlock));
+        ToolResult<ListExamplesResponse> list = tools.ListExamples(type: nameof(TextBlock), includeStarters: true);
+        ToolResult<ListExamplesResponse> defaultMotionList = tools.ListExamples(category: "motion");
+        ToolResult<ListExamplesResponse> motionList = tools.ListExamples(category: "motion", includeStarters: true);
         string selectedName = list.Value!.Examples
             .Single(example => example.Name == "create-empty-scene-split-screen-typography")
             .Name;
+        ToolResult<GetExamplesResponse> defaultExamples = tools.GetExamples(category: "motion");
         ToolResult<GetExamplesResponse> selected = tools.GetExamples(name: selectedName);
 
         Assert.Multiple(() =>
         {
+            Assert.That(defaultList.IsSuccess, Is.True, defaultList.Error?.Message);
+            Assert.That(defaultList.Value!.Examples.Count(example => example.Tags.Contains("empty-scene")), Is.Zero);
+            Assert.That(defaultList.Value.SelectionHint, Does.Contain("hidden by default"));
             Assert.That(list.IsSuccess, Is.True, list.Error?.Message);
             Assert.That(list.Value!.Examples.Count(example => example.Tags.Contains("empty-scene")), Is.GreaterThanOrEqualTo(3));
-            Assert.That(list.Value.SelectionHint, Does.Contain("shuffled"));
+            Assert.That(list.Value.SelectionHint, Does.Contain("includeStarters=true"));
+            Assert.That(defaultMotionList.IsSuccess, Is.True, defaultMotionList.Error?.Message);
+            Assert.That(defaultMotionList.Value!.Examples, Is.Empty);
+            Assert.That(defaultExamples.IsSuccess, Is.True, defaultExamples.Error?.Message);
+            Assert.That(defaultExamples.Value!.Examples, Is.Empty);
+            Assert.That(defaultExamples.Value.SelectionHint, Does.Contain("Full-scene starters are hidden by default"));
             Assert.That(motionList.IsSuccess, Is.True, motionList.Error?.Message);
             Assert.That(motionList.Value!.Examples.Select(example => example.Name), Does.Contain("create-empty-scene-liquid-gradient-system"));
             Assert.That(motionList.Value.Examples.Select(example => example.Name), Does.Contain("create-empty-scene-data-bar-dashboard"));
@@ -376,7 +411,7 @@ public sealed class ReadDocumentTests
             schemaVersion: SchemaVersion.Current);
         ToolResult<ListCompositionsResponse> compositions = queryTools.ListCompositions(seed: "fallback-recent");
         ToolResult<PlanCompositionResponse> repeated = editTools.PlanComposition(name: "orbital-radar-map", seed: "fallback-recent");
-        ToolResult<ListExamplesResponse> examples = queryTools.ListExamples(category: "motion");
+        ToolResult<ListExamplesResponse> examples = queryTools.ListExamples(category: "motion", includeStarters: true);
         string[] exampleNames = examples.Value!.Examples.Select(item => item.Name).ToArray();
         int orbitalIndex = Array.FindIndex(exampleNames, name => name == "create-empty-scene-orbital-radar");
         int nonOrbitalIndex = Array.FindIndex(exampleNames, name => CompositionTemplateCatalog.TryInferTemplateNameFromExampleName(name) != "orbital-radar-map");

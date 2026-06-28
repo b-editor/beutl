@@ -65,6 +65,13 @@ public sealed record GettingStartedResponse(
     IReadOnlyDictionary<string, string> CategoryAliases,
     string RawHttpNote);
 
+public sealed record CreativeDirectionResponse(
+    string SchemaVersion,
+    IReadOnlyList<string> DirectionAxes,
+    IReadOnlyList<string> OverusedMotifs,
+    IReadOnlyList<string> WorkflowHints,
+    string SelectionHint);
+
 public sealed record DocumentSummaryResponse(
     string Session,
     string Source,
@@ -109,17 +116,19 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
             SchemaVersion.Current,
             [
                 "In live mode, call attach_active_editor before scene tools. If it fails, open or create a project/scene in Beutl, then call attach_active_editor again.",
+                "In stdio/headless mode, call create_project or open_project instead of writing a one-off generator.",
                 "Call read_document_summary to inspect progress without the full document.",
-                "For original creative briefs, call read_document, get_schema only for the drawable/effect types you need, then author a custom declarative patch instead of cloning a starter.",
+                "For original creative briefs, call list_creative_directions, read_document, and get_schema only for the drawable/effect types you need, then author a custom declarative patch instead of cloning a starter.",
                 "Call list_effects and list_effect_recipes to discover Beutl's visual effect palette before choosing a repeated look.",
+                "For no-context motion graphics, avoid overused orbit/radar/map/signal/dashboard motifs unless the user asks for them.",
                 "For visible progress, apply large scenes in stages: background first, then motion elements, then text/effects.",
                 "Call plan_edit with the custom patch and schemaVersion=1.",
                 "Call apply_edit with plan_edit.expectedChangeSet.",
                 "Use list_compositions, get_composition, and plan_composition only when the user explicitly asks for a reusable template, starter, or named composition style.",
                 "When using a composition template, call list_compositions, choose a specific returned name that matches the user's request, then pass that name to plan_composition and apply_composition with the returned planId.",
                 "Use render_composition_patch only when the client explicitly needs the generated template patch JSON.",
-                "Call list_examples/get_examples for small schema snippets or as a fallback when a user asks for an example; do not treat empty-scene examples as the default creative output.",
-                "Call render_still or export_video to verify the result."
+                "Call list_examples/get_examples for small schema snippets or as a fallback when a user asks for an example; full-scene starters are hidden by default.",
+                "Call render_still for representative frames and export_video for a finished motion preview when an encoder is available."
             ],
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
@@ -133,6 +142,39 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 ["ease"] = "Easing"
             },
             "Raw HTTP MCP responses are Server-Sent Events. Read the JSON from the data: line, then decode result.content[0].text as the tool JSON payload. notifications/initialized may return no body."));
+    }
+
+    [McpServerTool(Name = "list_creative_directions")]
+    [Description("Returns non-template creative direction axes for original motion graphics. Use before authoring when the brief is vague or absent.")]
+    public ToolResult<CreativeDirectionResponse> ListCreativeDirections(string? brief = null)
+    {
+        return Execute(() => new CreativeDirectionResponse(
+            SchemaVersion.Current,
+            [
+                "material: paper cutouts, ink bleed, glass refraction, fabric folds, projected light, ceramic glaze, thermal camera, risograph print, CRT phosphor, blueprint pencil",
+                "motion: bloom, peel, fold, pour, shatter, magnetic attraction, wave interference, hand-drawn reveal, parallax drift, stop-motion stepping",
+                "composition: macro close-up, off-axis crop, split depth planes, negative-space title, diagonal editorial grid, frame-within-frame, vertical poster stack",
+                "typography: small caption system, kinetic word fragments, numeric countdown, subtitle-only rhythm, oversized cropped letterforms",
+                "palette: warm/cool clash, muted paper plus neon accent, monochrome with one warning color, daylight pastels, high-contrast print inks"
+            ],
+            [
+                "orbit rings",
+                "radar sweeps",
+                "map or atlas labels",
+                "signal nodes",
+                "dashboard metric bars",
+                "dark teal background with cyan/magenta neon"
+            ],
+            [
+                "Pick two direction axes and one contrast axis before writing a patch.",
+                "Name the concept in any notes or output summary before creating elements.",
+                "Use list_effects/list_effect_recipes for available effects, then build the scene with plan_edit/apply_edit.",
+                "Keep full-scene examples and composition templates for explicit template/starter requests only.",
+                "Verify at least three stills and export a short video preview when the encoder is available."
+            ],
+            string.IsNullOrWhiteSpace(brief)
+                ? "No brief was supplied. Choose a direction that avoids the overused motifs and write a one-sentence concept before editing."
+                : $"Use these axes to reinterpret the brief without copying starter scenes: {brief.Trim()}"));
     }
 
     [McpServerTool(Name = "get_schema")]
@@ -159,29 +201,35 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
     }
 
     [McpServerTool(Name = "list_examples")]
-    [Description("Returns compact example names, descriptions, categories, and tags without large patches. Use examples as snippets or explicit starters, not as the default path for original creative briefs.")]
-    public ToolResult<ListExamplesResponse> ListExamples(string? type = null, string? category = null)
+    [Description("Returns compact example names, descriptions, categories, and tags without large patches. Full-scene starters are hidden by default; use includeStarters=true only for explicit starter/template requests.")]
+    public ToolResult<ListExamplesResponse> ListExamples(string? type = null, string? category = null, bool includeStarters = false)
     {
         return Execute(() =>
         {
-            IReadOnlyList<DeclarativeExampleSummary> examples = _schemaGenerator.ListExamples(type, category);
+            IReadOnlyList<DeclarativeExampleSummary> examples = FilterExamples(
+                _schemaGenerator.ListExamples(type, category),
+                includeStarters);
             return new ListExamplesResponse(
                 SchemaVersion.Current,
                 OrderExamples(Shuffle(examples)),
-                "Examples are shuffled, then examples matching recently used composition styles are moved to the end. Use get_examples with a specific name for snippets or explicit starters; for original briefs, author a custom patch with plan_edit/apply_edit.");
+                includeStarters
+                    ? "Starter examples are included because includeStarters=true. Use get_examples with a specific name and adapt the structure to the brief."
+                    : "Full-scene starters are hidden by default. Use examples as small snippets; for original briefs, call list_creative_directions and author a custom patch with plan_edit/apply_edit.");
         });
     }
 
     [McpServerTool(Name = "get_examples")]
-    [Description("Returns reusable declarative patch examples without the full property schema. Prefer list_examples first, then pass name to fetch exactly one patch. Accepts the same type and category aliases as get_schema.")]
-    public ToolResult<GetExamplesResponse> GetExamples(string? type = null, string? category = null, string? name = null)
+    [Description("Returns reusable declarative patch examples without the full property schema. Prefer list_examples first, then pass name to fetch exactly one patch. Full-scene starters are hidden by default unless name is provided or includeStarters=true.")]
+    public ToolResult<GetExamplesResponse> GetExamples(string? type = null, string? category = null, string? name = null, bool includeStarters = false)
     {
         return Execute(() => new GetExamplesResponse(
             SchemaVersion.Current,
             string.IsNullOrWhiteSpace(name)
-                ? OrderExamples(Shuffle(_schemaGenerator.GenerateExamples(type, category, name)))
+                ? OrderExamples(Shuffle(FilterExamples(_schemaGenerator.GenerateExamples(type, category, name), includeStarters)))
                 : _schemaGenerator.GenerateExamples(type, category, name),
-            "If more than one example is returned, the order is shuffled and recently used composition styles are moved to the end. Use name to fetch a single snippet or explicit starter; for original briefs, build a custom patch instead of cloning an empty-scene example."));
+            string.IsNullOrWhiteSpace(name) && !includeStarters
+                ? "Full-scene starters are hidden by default. Pass name for an explicit starter, or includeStarters=true when the user asks for starters."
+                : "If more than one example is returned, the order is shuffled and recently used composition styles are moved to the end. Use name to fetch a single snippet or explicit starter; for original briefs, build a custom patch instead of cloning an empty-scene example."));
     }
 
     [McpServerTool(Name = "list_effects")]
@@ -330,6 +378,31 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 return compositionName is not null && recentSet.Contains(compositionName) ? 1 : 0;
             })
             .ToArray();
+    }
+
+    private static IReadOnlyList<DeclarativeExampleSummary> FilterExamples(
+        IReadOnlyList<DeclarativeExampleSummary> examples,
+        bool includeStarters)
+    {
+        return includeStarters
+            ? examples
+            : examples.Where(example => !IsStarterExample(example.Name, example.Tags)).ToArray();
+    }
+
+    private static IReadOnlyList<DeclarativeExample> FilterExamples(
+        IReadOnlyList<DeclarativeExample> examples,
+        bool includeStarters)
+    {
+        return includeStarters
+            ? examples
+            : examples.Where(example => !IsStarterExample(example.Name, [])).ToArray();
+    }
+
+    private static bool IsStarterExample(string name, IReadOnlyList<string> tags)
+    {
+        return name.StartsWith("create-empty-scene-", StringComparison.OrdinalIgnoreCase)
+               || tags.Any(tag => string.Equals(tag, "starter", StringComparison.OrdinalIgnoreCase)
+                                  || string.Equals(tag, "empty-scene", StringComparison.OrdinalIgnoreCase));
     }
 
     [McpServerTool(Name = "read_document_summary")]
