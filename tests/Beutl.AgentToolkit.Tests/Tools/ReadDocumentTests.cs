@@ -1,10 +1,14 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
+using Beutl.AgentToolkit.Documents;
+using Beutl.AgentToolkit.Reconciliation;
+using Beutl.AgentToolkit.Schema;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
+using Beutl.Editor;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
@@ -29,6 +33,7 @@ public sealed class ReadDocumentTests
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("list_compositions"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("plan_composition/apply_composition"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("planId"));
+            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("try the next list_compositions"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("list_effects"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("list_effect_recipes"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("list_examples"));
@@ -44,6 +49,7 @@ public sealed class ReadDocumentTests
         var tools = new QueryTools(new AgentSessionManager());
 
         ToolResult<ListExamplesResponse> list = tools.ListExamples(type: nameof(TextBlock));
+        ToolResult<ListExamplesResponse> motionList = tools.ListExamples(category: "motion");
         string selectedName = list.Value!.Examples
             .Single(example => example.Name == "create-empty-scene-split-screen-typography")
             .Name;
@@ -54,6 +60,10 @@ public sealed class ReadDocumentTests
             Assert.That(list.IsSuccess, Is.True, list.Error?.Message);
             Assert.That(list.Value!.Examples.Count(example => example.Tags.Contains("empty-scene")), Is.GreaterThanOrEqualTo(3));
             Assert.That(list.Value.SelectionHint, Does.Contain("shuffled"));
+            Assert.That(motionList.IsSuccess, Is.True, motionList.Error?.Message);
+            Assert.That(motionList.Value!.Examples.Select(example => example.Name), Does.Contain("create-empty-scene-liquid-gradient-system"));
+            Assert.That(motionList.Value.Examples.Select(example => example.Name), Does.Contain("create-empty-scene-data-bar-dashboard"));
+            Assert.That(motionList.Value.Examples.Select(example => example.Name), Does.Contain("create-empty-scene-glitch-cutout-collage"));
             Assert.That(selected.IsSuccess, Is.True, selected.Error?.Message);
             Assert.That(selected.Value!.Examples, Has.Count.EqualTo(1));
             Assert.That(selected.Value.Examples.Single().Name, Is.EqualTo(selectedName));
@@ -73,6 +83,7 @@ public sealed class ReadDocumentTests
         };
 
         ToolResult<ListCompositionsResponse> list = tools.ListCompositions(seed: "tool-seed");
+        ToolResult<ListCompositionsResponse> motionList = tools.ListCompositions(tag: "motion", seed: "tool-seed");
         ToolResult<GetCompositionResponse> detail = tools.GetComposition("split-screen-type-system");
         ToolResult<RenderCompositionPatchResponse> render = tools.RenderCompositionPatch(
             name: "split-screen-type-system",
@@ -86,6 +97,8 @@ public sealed class ReadDocumentTests
             Assert.That(list.Value.Compositions.Select(composition => composition.Name), Does.Contain("split-screen-type-system"));
             Assert.That(list.Value.SelectionHint, Does.Contain("avoidRecent"));
             Assert.That(list.Value.RecentlyUsedCompositions, Is.Empty);
+            Assert.That(motionList.IsSuccess, Is.True, motionList.Error?.Message);
+            Assert.That(motionList.Value!.Compositions, Has.Count.GreaterThanOrEqualTo(6));
             Assert.That(detail.IsSuccess, Is.True, detail.Error?.Message);
             Assert.That(detail.Value!.Composition.DefaultProps["title"]!.GetValue<string>(), Is.EqualTo("FRAME FLOW"));
             Assert.That(detail.Value.Composition.Sequences.Any(sequence => sequence.Name == "typography"), Is.True);
@@ -105,6 +118,7 @@ public sealed class ReadDocumentTests
 
         ToolResult<ListEffectsResponse> effects = tools.ListEffects(intent: "glitch");
         ToolResult<ListEffectRecipesResponse> recipes = tools.ListEffectRecipes(intent: "glitch");
+        ToolResult<ListEffectRecipesResponse> glowMotionRecipes = tools.ListEffectRecipes(intent: "glow motion");
         ToolResult<GetEffectRecipeResponse> recipe = tools.GetEffectRecipe(name: "effect-color-shift");
 
         Assert.Multiple(() =>
@@ -116,6 +130,9 @@ public sealed class ReadDocumentTests
             Assert.That(recipes.IsSuccess, Is.True, recipes.Error?.Message);
             Assert.That(recipes.Value!.Recipes.Select(item => item.Name), Does.Contain("digital-glitch"));
             Assert.That(recipes.Value.Recipes.Select(item => item.Name), Does.Contain("effect-color-shift"));
+            Assert.That(glowMotionRecipes.IsSuccess, Is.True, glowMotionRecipes.Error?.Message);
+            Assert.That(glowMotionRecipes.Value!.Recipes.Select(item => item.Name), Does.Contain("glow-depth"));
+            Assert.That(glowMotionRecipes.Value.Recipes.Select(item => item.Name), Does.Contain("digital-glitch"));
             Assert.That(recipe.IsSuccess, Is.True, recipe.Error?.Message);
             Assert.That(recipe.Value!.Recipe.EffectNames, Does.Contain("ColorShift"));
             Assert.That(recipe.Value.Recipe.Patch.ToJsonString(), Does.Contain("ColorShift"));
@@ -158,6 +175,65 @@ public sealed class ReadDocumentTests
             Assert.That(afterApplyList.Value!.RecentlyUsedCompositions, Does.Contain(selectedName));
             Assert.That(afterApplyList.Value.Compositions.First().Name, Is.Not.EqualTo(selectedName));
             Assert.That(afterApplyList.Value.Compositions.Last().Name, Is.EqualTo(selectedName));
+        });
+    }
+
+    [Test]
+    public void Composition_recent_survives_volatile_live_session_ids()
+    {
+        var scene = new Scene(1920, 1080, "Scene");
+        using var source = new VolatileLiveSessionSource(scene);
+        var manager = new AgentSessionManager();
+        manager.UseSource(source);
+        var queryTools = new QueryTools(manager);
+        var editTools = new EditTools(manager);
+
+        ToolResult<ListCompositionsResponse> firstList = queryTools.ListCompositions();
+        string selectedName = firstList.Value!.Compositions.First().Name;
+        ToolResult<PlanCompositionResponse> plan = editTools.PlanComposition(name: selectedName);
+        ToolResult<ApplyCompositionResponse> apply = editTools.ApplyComposition(planId: plan.Value!.PlanId);
+        ToolResult<ListCompositionsResponse> afterApplyList = queryTools.ListCompositions();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(firstList.IsSuccess, Is.True, firstList.Error?.Message);
+            Assert.That(plan.IsSuccess, Is.True, plan.Error?.Message);
+            Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
+            Assert.That(afterApplyList.IsSuccess, Is.True, afterApplyList.Error?.Message);
+            Assert.That(afterApplyList.Value!.RecentlyUsedCompositions, Does.Contain(selectedName));
+            Assert.That(afterApplyList.Value.Compositions.Last().Name, Is.EqualTo(selectedName));
+        });
+    }
+
+    [Test]
+    public void Apply_edit_fallback_records_recent_style_and_deprioritizes_matching_examples()
+    {
+        var scene = new Scene(1920, 1080, "Scene");
+        using var session = new AgentToolkitTestSession(scene);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var queryTools = new QueryTools(manager);
+        var editTools = new EditTools(manager);
+
+        ToolResult<GetExamplesResponse> example = queryTools.GetExamples(name: "create-empty-scene-orbital-radar");
+        ToolResult<ReconcileResult> apply = editTools.ApplyEdit(
+            patch: example.Value!.Examples.Single().Patch,
+            schemaVersion: SchemaVersion.Current);
+        ToolResult<ListCompositionsResponse> compositions = queryTools.ListCompositions(seed: "fallback-recent");
+        ToolResult<ListExamplesResponse> examples = queryTools.ListExamples(category: "motion");
+        string[] exampleNames = examples.Value!.Examples.Select(item => item.Name).ToArray();
+        int orbitalIndex = Array.FindIndex(exampleNames, name => name == "create-empty-scene-orbital-radar");
+        int nonOrbitalIndex = Array.FindIndex(exampleNames, name => CompositionTemplateCatalog.TryInferTemplateNameFromExampleName(name) != "orbital-radar-map");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(example.IsSuccess, Is.True, example.Error?.Message);
+            Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
+            Assert.That(compositions.IsSuccess, Is.True, compositions.Error?.Message);
+            Assert.That(compositions.Value!.RecentlyUsedCompositions, Does.Contain("orbital-radar-map"));
+            Assert.That(compositions.Value.Compositions.Last().Name, Is.EqualTo("orbital-radar-map"));
+            Assert.That(examples.IsSuccess, Is.True, examples.Error?.Message);
+            Assert.That(orbitalIndex, Is.GreaterThan(nonOrbitalIndex));
         });
     }
 
@@ -278,6 +354,40 @@ public sealed class ReadDocumentTests
             Assert.That(objectSummary.NestedAnimatedProperties, Does.Contain("Transform.Children[0].X"));
             Assert.That(objectSummary.NestedAnimatedProperties, Does.Contain("Transform.Children[1].Rotation"));
         });
+    }
+
+    private sealed class VolatileLiveSessionSource : ISessionSource, IDisposable
+    {
+        private readonly AgentToolkitTestSession _inner;
+
+        public VolatileLiveSessionSource(Scene scene)
+        {
+            _inner = new AgentToolkitTestSession(scene);
+        }
+
+        public EditingSessionSource Source => EditingSessionSource.LiveEditor;
+
+        public IEditingSession? CurrentSession => new VolatileLiveSession(_inner);
+
+        public void Dispose()
+        {
+            _inner.Dispose();
+        }
+    }
+
+    private sealed class VolatileLiveSession(AgentToolkitTestSession inner) : IEditingSession
+    {
+        public string SessionId { get; } = Guid.NewGuid().ToString("N");
+
+        public EditingSessionSource Source => EditingSessionSource.LiveEditor;
+
+        public CoreObject Root => inner.Root;
+
+        public HistoryManager History => inner.History;
+
+        public DocumentAdapter Documents => inner.Documents;
+
+        public bool IsDirty => inner.IsDirty;
     }
 
     private static KeyFrameAnimation<float> CreateFloatAnimation()

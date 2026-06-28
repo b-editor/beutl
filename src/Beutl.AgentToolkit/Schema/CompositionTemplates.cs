@@ -96,6 +96,16 @@ public sealed class CompositionTemplateCatalog
         new("#ff160c24", "#ff302340", "#ffff7a59", "#ff63f7de", "#fffff8ef")
     ];
 
+    private static readonly (string Name, string[] Tokens)[] s_templateInferenceTokens =
+    [
+        ("kinetic-ribbon-title", ["kinetic-ribbon-title", "create-empty-scene-motion-graphics", "kinetic ribbon", "beutl motion", "seeded ribbon"]),
+        ("orbital-radar-map", ["orbital-radar-map", "create-empty-scene-orbital-radar", "orbital radar", "orbit map", "seeded orbit", "signal atlas"]),
+        ("split-screen-type-system", ["split-screen-type-system", "create-empty-scene-split-screen-typography", "split screen", "frame flow", "seeded panel"]),
+        ("liquid-gradient-system", ["liquid-gradient-system", "liquid signal", "seeded liquid", "blob field"]),
+        ("data-bar-dashboard", ["data-bar-dashboard", "signal index", "seeded metric", "dashboard"]),
+        ("glitch-cutout-collage", ["glitch-cutout-collage", "glitch cut", "seeded glitch", "chromatic collage"])
+    ];
+
     private readonly string _defaultSeed;
 
     public CompositionTemplateCatalog(string? defaultSeed = null)
@@ -160,6 +170,38 @@ public sealed class CompositionTemplateCatalog
             spec.CreateTransitions(metadata));
 
         return spec.Render(context);
+    }
+
+    public static string? TryInferTemplateName(JsonNode? node)
+    {
+        if (node is null)
+        {
+            return null;
+        }
+
+        string text = node.ToJsonString();
+        foreach ((string name, string[] tokens) in s_templateInferenceTokens)
+        {
+            if (tokens.Any(token => text.Contains(token, StringComparison.OrdinalIgnoreCase)))
+            {
+                return name;
+            }
+        }
+
+        return null;
+    }
+
+    public static string? TryInferTemplateNameFromExampleName(string exampleName)
+    {
+        foreach ((string name, string[] tokens) in s_templateInferenceTokens)
+        {
+            if (tokens.Any(token => exampleName.Contains(token, StringComparison.OrdinalIgnoreCase)))
+            {
+                return name;
+            }
+        }
+
+        return null;
     }
 
     private static CompositionTemplateSpec PickFirst(string? tag, string seed, IReadOnlyList<string>? deprioritizedNames)
@@ -1383,8 +1425,29 @@ public sealed class CompositionTemplateCatalog
 
     private static bool MatchesTag(CompositionTemplateSpec spec, string? tag)
     {
-        return string.IsNullOrWhiteSpace(tag)
-               || spec.Tags.Contains(tag, StringComparer.OrdinalIgnoreCase);
+        if (string.IsNullOrWhiteSpace(tag))
+        {
+            return true;
+        }
+
+        string[] tokens = SearchTokens(tag);
+        return tokens.Length == 0
+               || tokens.Any(token =>
+                   spec.Name.Contains(token, StringComparison.OrdinalIgnoreCase)
+                   || spec.Description.Contains(token, StringComparison.OrdinalIgnoreCase)
+                   || spec.Tags.Any(value => value.Contains(token, StringComparison.OrdinalIgnoreCase))
+                   || spec.StyleAxes.Any(axis =>
+                       axis.Key.Contains(token, StringComparison.OrdinalIgnoreCase)
+                       || axis.Value.Contains(token, StringComparison.OrdinalIgnoreCase)));
+    }
+
+    private static string[] SearchTokens(string query)
+    {
+        return query
+            .Split([' ', '-', '_', '/', ',', ';', ':', '\t', '\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(token => token.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
     }
 
     private static Element CreateElement(string name, int zIndex, TimeSpan length, EngineObject obj)

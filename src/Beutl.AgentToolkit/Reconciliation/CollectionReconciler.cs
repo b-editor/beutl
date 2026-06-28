@@ -101,6 +101,66 @@ public static class CollectionReconciler
         return null;
     }
 
+    internal static HashSet<Guid> CollectInsertedIds(JsonObject current, JsonObject desired)
+    {
+        var ids = new HashSet<Guid>();
+        CollectInsertedIds(current, desired, ids);
+        return ids;
+    }
+
+    private static void CollectInsertedIds(JsonNode? current, JsonNode? desired, HashSet<Guid> inserted)
+    {
+        if (current is JsonArray currentArray && desired is JsonArray desiredArray)
+        {
+            if (IsIdentityArray(currentArray) || IsIdentityArray(desiredArray))
+            {
+                Dictionary<Guid, JsonObject> currentById = currentArray
+                    .OfType<JsonObject>()
+                    .Where(item => TryGetId(item, out _))
+                    .ToDictionary(item => ReadId(item), item => item);
+
+                foreach (JsonObject desiredItem in desiredArray.OfType<JsonObject>())
+                {
+                    if (!TryGetId(desiredItem, out Guid id))
+                    {
+                        continue;
+                    }
+
+                    if (!currentById.TryGetValue(id, out JsonObject? currentItem))
+                    {
+                        foreach ((Guid insertedId, _) in EnumerateIds(desiredItem))
+                        {
+                            inserted.Add(insertedId);
+                        }
+                    }
+                    else
+                    {
+                        CollectInsertedIds(currentItem, desiredItem, inserted);
+                    }
+                }
+
+                return;
+            }
+
+            int count = Math.Min(currentArray.Count, desiredArray.Count);
+            for (int i = 0; i < count; i++)
+            {
+                CollectInsertedIds(currentArray[i], desiredArray[i], inserted);
+            }
+
+            return;
+        }
+
+        if (current is JsonObject currentObject && desired is JsonObject desiredObject)
+        {
+            foreach (KeyValuePair<string, JsonNode?> pair in desiredObject.ToArray())
+            {
+                currentObject.TryGetPropertyValue(pair.Key, out JsonNode? currentChild);
+                CollectInsertedIds(currentChild, pair.Value, inserted);
+            }
+        }
+    }
+
     private static Dictionary<Guid, string?> CollectTypesById(JsonNode? node)
     {
         var result = new Dictionary<Guid, string?>();
@@ -150,5 +210,11 @@ public static class CollectionReconciler
         return obj.TryGetPropertyValue(nameof(CoreObject.Id), out JsonNode? idNode)
                && idNode?.GetValue<string>() is { } idText
                && Guid.TryParse(idText, out id);
+    }
+
+    private static Guid ReadId(JsonObject obj)
+    {
+        TryGetId(obj, out Guid id);
+        return id;
     }
 }

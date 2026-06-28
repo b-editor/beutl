@@ -41,7 +41,7 @@ public sealed class AgentSessionManager
             return _hostCompositionSeed;
         }
 
-        string sessionKey = $"{session.Source}:{session.SessionId}";
+        string sessionKey = GetCompositionSessionKey();
         if (!StringComparer.Ordinal.Equals(_compositionSessionKey, sessionKey))
         {
             _compositionSessionKey = sessionKey;
@@ -86,7 +86,8 @@ public sealed class AgentSessionManager
         string seed,
         JsonObject inputProps,
         JsonObject desiredDocument,
-        JsonArray expectedChangeSet)
+        JsonArray expectedChangeSet,
+        IReadOnlySet<Guid> knownNewIds)
     {
         string id = Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLowerInvariant();
         var state = new CompositionPlanState(
@@ -97,6 +98,7 @@ public sealed class AgentSessionManager
             (JsonObject)inputProps.DeepClone(),
             (JsonObject)desiredDocument.DeepClone(),
             (JsonArray)expectedChangeSet.DeepClone(),
+            knownNewIds.ToArray(),
             DateTimeOffset.UtcNow);
         _compositionPlans[id] = state;
         return state;
@@ -136,7 +138,7 @@ public sealed class AgentSessionManager
         IEditingSession? session = CurrentSession;
         return session is null
             ? "host"
-            : $"{session.Source}:{session.SessionId}";
+            : $"{session.Source}:{session.Root.Id}";
     }
 
     private static string CreateCompositionSeed(string scope)
@@ -153,6 +155,7 @@ public sealed record CompositionPlanState(
     JsonObject InputProps,
     JsonObject DesiredDocument,
     JsonArray ExpectedChangeSet,
+    IReadOnlyList<Guid> KnownNewIds,
     DateTimeOffset CreatedAt);
 
 public sealed class SessionUnavailableException : Exception

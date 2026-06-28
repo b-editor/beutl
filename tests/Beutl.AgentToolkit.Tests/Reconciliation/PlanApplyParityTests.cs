@@ -104,6 +104,32 @@ public sealed class PlanApplyParityTests
         });
     }
 
+    [Test]
+    public void Composition_patch_plans_and_applies_after_existing_elements()
+    {
+        Scene scene = CreateSceneWithElement(out Element existingElement);
+        using var session = new AgentToolkitTestSession(scene);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var tools = new EditTools(manager);
+
+        ToolResult<PlanCompositionResponse> plan = tools.PlanComposition(
+            name: "glitch-cutout-collage",
+            inputProps: new JsonObject { ["title"] = "COMPOSITION PROBE" },
+            seed: "existing-scene-seed");
+        ToolResult<ApplyCompositionResponse> apply = tools.ApplyComposition(planId: plan.Value!.PlanId);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(plan.IsSuccess, Is.True, plan.Error?.Message);
+            Assert.That(plan.Value!.Plan.Valid, Is.True);
+            Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
+            Assert.That(scene.Children.Select(element => element.Id), Does.Contain(existingElement.Id));
+            Assert.That(scene.Children.Select(element => element.Name), Does.Contain("Glitch title"));
+            Assert.That(apply.Value!.Result.Document.ToJsonString(), Does.Contain("COMPOSITION PROBE"));
+        });
+    }
+
     private static Scene CreateSceneWithElement(out Element element)
     {
         Scene scene = CreateScene();
