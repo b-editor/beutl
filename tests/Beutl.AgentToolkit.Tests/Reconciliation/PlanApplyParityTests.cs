@@ -56,26 +56,28 @@ public sealed class PlanApplyParityTests
         var manager = new AgentSessionManager();
         manager.UseSource(new AgentToolkitTestSessionSource(session));
         var tools = new EditTools(manager);
-        var catalog = new CompositionTemplateCatalog();
-        CompositionRender composition = catalog.Render(
-            "kinetic-ribbon-title",
-            inputProps: new JsonObject { ["title"] = "APPLY PATCH" },
-            seed: "apply-seed");
+        var inputProps = new JsonObject { ["title"] = "APPLY PATCH" };
 
-        var plan = tools.PlanEdit(patch: composition.Patch, schemaVersion: SchemaVersion.Current);
-        var apply = tools.ApplyEdit(
-            patch: composition.Patch,
-            schemaVersion: SchemaVersion.Current,
-            expectedChangeSet: plan.Value!.ExpectedChangeSet);
+        ToolResult<PlanCompositionResponse> plan = tools.PlanComposition(
+            name: "kinetic-ribbon-title",
+            inputProps: inputProps,
+            seed: "apply-seed");
+        ToolResult<ApplyCompositionResponse> apply = tools.ApplyComposition(
+            name: "kinetic-ribbon-title",
+            inputProps: inputProps,
+            seed: "apply-seed",
+            expectedChangeSet: plan.Value!.Plan.ExpectedChangeSet);
 
         Assert.Multiple(() =>
         {
             Assert.That(plan.IsSuccess, Is.True, plan.Error?.Message);
-            Assert.That(plan.Value!.Valid, Is.True);
+            Assert.That(plan.Value!.Plan.Valid, Is.True);
+            Assert.That(plan.Value.Composition.Name, Is.EqualTo("kinetic-ribbon-title"));
             Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
+            Assert.That(apply.Value!.Composition.ResolvedProps["title"]!.GetValue<string>(), Is.EqualTo("APPLY PATCH"));
             Assert.That(scene.Children, Has.Count.GreaterThan(3));
             Assert.That(scene.Children.Select(element => element.Name), Does.Contain("Kinetic ribbon title"));
-            Assert.That(apply.Value!.Document.ToJsonString(), Does.Contain("APPLY PATCH"));
+            Assert.That(apply.Value.Result.Document.ToJsonString(), Does.Contain("APPLY PATCH"));
         });
     }
 

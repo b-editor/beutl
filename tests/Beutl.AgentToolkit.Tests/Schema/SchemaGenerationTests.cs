@@ -149,7 +149,65 @@ public sealed class SchemaGenerationTests
             Assert.That(firstRender.Patch.ToJsonString(), Does.Contain("KeyFrames"));
             Assert.That(firstRender.Patch.ToJsonString(), Does.Contain("FilterEffectGroup"));
             Assert.That(noiseRender.Patch.ToJsonString(), Does.Contain("Deterministic noise dot"));
+            Assert.That(TransformGroupsUseCanonicalOrder(firstRender.Patch), Is.True);
+            Assert.That(TransformGroupsUseCanonicalOrder(catalog.Render("kinetic-ribbon-title", seed: "ribbon-seed").Patch), Is.True);
+            Assert.That(TransformGroupsUseCanonicalOrder(new SchemaGenerator()
+                .GenerateExamples(nameFilter: "create-empty-scene-orbital-radar")
+                .Single()
+                .Patch), Is.True);
         });
+    }
+
+    private static bool TransformGroupsUseCanonicalOrder(JsonNode? node)
+    {
+        bool valid = true;
+        Visit(node, current =>
+        {
+            if (current is not JsonObject obj
+                || obj["Children"] is not JsonArray children)
+            {
+                return;
+            }
+
+            string[] types = children
+                .OfType<JsonObject>()
+                .Select(child => child["$type"]?.GetValue<string>() ?? string.Empty)
+                .ToArray();
+            int translateIndex = Array.FindIndex(types, type => type.Contains("TranslateTransform", StringComparison.Ordinal));
+            int rotationIndex = Array.FindIndex(types, type => type.Contains("RotationTransform", StringComparison.Ordinal));
+            if (translateIndex >= 0 && rotationIndex >= 0 && translateIndex > rotationIndex)
+            {
+                valid = false;
+            }
+        });
+        return valid;
+    }
+
+    private static void Visit(JsonNode? node, Action<JsonNode> visitor)
+    {
+        if (node is null)
+        {
+            return;
+        }
+
+        visitor(node);
+        switch (node)
+        {
+            case JsonObject obj:
+                foreach (JsonNode? child in obj.Select(pair => pair.Value))
+                {
+                    Visit(child, visitor);
+                }
+
+                break;
+            case JsonArray array:
+                foreach (JsonNode? child in array)
+                {
+                    Visit(child, visitor);
+                }
+
+                break;
+        }
     }
 
     private sealed class FakeExtensionDrawable : EngineObject

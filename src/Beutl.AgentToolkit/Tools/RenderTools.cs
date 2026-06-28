@@ -18,9 +18,9 @@ public sealed class RenderTools(
     VideoExporter videoExporter) : ToolBase
 {
     [McpServerTool(Name = "render_still")]
-    [Description("Renders a still PNG from the current scene to a workspace-relative output path.")]
+    [Description("Renders a still PNG from the current scene to a workspace-relative output path. Bare filenames are written under agent-output/.")]
     public ValueTask<ToolResult<RenderStillResponse>> RenderStill(
-        [Description("Workspace-relative or in-workspace absolute output path. Existing files require confirmOverwrite.")]
+        [Description("Workspace-relative or in-workspace absolute output path. Bare filenames are written under agent-output/. Existing files require confirmOverwrite.")]
         string outputPath,
         [Description("Scene time in seconds.")]
         double timeSeconds = 0,
@@ -33,7 +33,7 @@ public sealed class RenderTools(
         return ExecuteAsync(async () =>
         {
             Scene scene = RequireScene();
-            string resolvedPath = workspace.ResolveForWrite(outputPath);
+            string resolvedPath = workspace.ResolveForWrite(NormalizeOutputPath(outputPath));
             destructiveGuard.EnsureOverwriteAllowed(resolvedPath, confirmOverwrite);
             return await stillRenderer.RenderAsync(
                 scene,
@@ -45,9 +45,9 @@ public sealed class RenderTools(
     }
 
     [McpServerTool(Name = "export_video")]
-    [Description("Exports the current scene through a registered headless encoder to a workspace-relative output path.")]
+    [Description("Exports the current scene through a registered headless encoder to a workspace-relative output path. Bare filenames are written under agent-output/.")]
     public ValueTask<ToolResult<ExportVideoResponse>> ExportVideo(
-        [Description("Workspace-relative or in-workspace absolute output path. Existing files require confirmOverwrite.")]
+        [Description("Workspace-relative or in-workspace absolute output path. Bare filenames are written under agent-output/. Existing files require confirmOverwrite.")]
         string outputPath,
         [Description("Frame-rate numerator.")]
         int frameRateNumerator = 30,
@@ -71,7 +71,7 @@ public sealed class RenderTools(
             }
 
             Scene scene = RequireScene();
-            string resolvedPath = workspace.ResolveForWrite(outputPath);
+            string resolvedPath = workspace.ResolveForWrite(NormalizeOutputPath(outputPath));
             destructiveGuard.EnsureOverwriteAllowed(resolvedPath, confirmOverwrite);
             return await videoExporter.ExportAsync(
                 scene,
@@ -81,6 +81,17 @@ public sealed class RenderTools(
                 renderScale,
                 cancellationToken).ConfigureAwait(false);
         });
+    }
+
+    public static string NormalizeOutputPath(string outputPath)
+    {
+        if (Path.IsPathRooted(outputPath)
+            || !string.IsNullOrEmpty(Path.GetDirectoryName(outputPath)))
+        {
+            return outputPath;
+        }
+
+        return Path.Combine("agent-output", outputPath);
     }
 
     private Scene RequireScene()

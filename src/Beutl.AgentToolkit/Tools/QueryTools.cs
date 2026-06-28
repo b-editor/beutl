@@ -1,4 +1,5 @@
-﻿using System.ComponentModel;
+﻿using System.Collections;
+using System.ComponentModel;
 using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
@@ -73,7 +74,8 @@ public sealed record ObjectSummary(
     IReadOnlyList<string> AnimatedProperties,
     IReadOnlyList<string> ExpressionProperties,
     IReadOnlyList<string> BrushProperties,
-    IReadOnlyList<string> EffectProperties);
+    IReadOnlyList<string> EffectProperties,
+    IReadOnlyList<string> NestedAnimatedProperties);
 
 [McpServerToolType]
 public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
@@ -90,8 +92,8 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
             [
                 "In live mode, call attach_active_editor before scene tools.",
                 "Call read_document_summary to inspect progress without the full document.",
-                "For Remotion-style authoring, call list_compositions with an optional seed, then render_composition_patch with name, inputProps, and seed.",
-                "Use render_composition_patch output as a patch for plan_edit/apply_edit; it includes defaultProps/inputProps, calculated metadata, sequences, transitions, and a deterministic patch.",
+                "For low-context motion graphics, call list_compositions with an optional seed, then plan_composition/apply_composition with name, inputProps, and seed.",
+                "Use render_composition_patch only when the client explicitly needs the generated patch JSON; plan_composition/apply_composition avoid huge raw HTTP payloads.",
                 "Call list_examples to choose a starter; examples are shuffled so the first empty-scene option varies across repeated runs.",
                 "Call get_examples with name=<selected-example> to fetch exactly one patch.",
                 "For visible progress, apply large scenes in stages: background first, then motion elements, then text/effects.",
@@ -298,7 +300,77 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
             properties.Where(property => property.Animation is not null).Select(property => property.Name).ToArray(),
             properties.Where(property => property.HasExpression).Select(property => property.Name).ToArray(),
             properties.Where(IsBrushProperty).Select(property => property.Name).ToArray(),
-            properties.Where(IsEffectProperty).Select(property => property.Name).ToArray());
+            properties.Where(IsEffectProperty).Select(property => property.Name).ToArray(),
+            properties.SelectMany(property => CreateNestedAnimatedPropertySummaries(
+                    property.Name,
+                    property.CurrentValue,
+                    new HashSet<Guid>()))
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(path => path, StringComparer.Ordinal)
+                .ToArray());
+    }
+
+    private static IEnumerable<string> CreateNestedAnimatedPropertySummaries(string path, object? value, ISet<Guid> visited)
+    {
+        switch (value)
+        {
+            case EngineObject engineObject:
+                if (!visited.Add(engineObject.Id))
+                {
+                    yield break;
+                }
+
+                foreach (IProperty property in engineObject.Properties)
+                {
+                    string propertyPath = $"{path}.{property.Name}";
+                    if (property.Animation is not null)
+                    {
+                        yield return propertyPath;
+                    }
+
+                    foreach (string child in CreateNestedAnimatedPropertySummaries(propertyPath, property.CurrentValue, visited))
+                    {
+                        yield return child;
+                    }
+
+                    if (property is IListProperty listProperty)
+                    {
+                        foreach (string child in CreateListNestedAnimatedPropertySummaries(propertyPath, listProperty, visited))
+                        {
+                            yield return child;
+                        }
+                    }
+                }
+
+                break;
+            case IEnumerable enumerable when value is not string:
+                int index = 0;
+                foreach (object? item in enumerable)
+                {
+                    foreach (string child in CreateNestedAnimatedPropertySummaries($"{path}[{index}]", item, visited))
+                    {
+                        yield return child;
+                    }
+
+                    index++;
+                }
+
+                break;
+        }
+    }
+
+    private static IEnumerable<string> CreateListNestedAnimatedPropertySummaries(string path, IListProperty listProperty, ISet<Guid> visited)
+    {
+        int index = 0;
+        foreach (object? item in listProperty)
+        {
+            foreach (string child in CreateNestedAnimatedPropertySummaries($"{path}[{index}]", item, visited))
+            {
+                yield return child;
+            }
+
+            index++;
+        }
     }
 
     private static bool IsBrushProperty(IProperty property)

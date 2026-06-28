@@ -4,8 +4,10 @@ using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
 using Beutl.Animation;
+using Beutl.Animation.Easings;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
+using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 
@@ -25,7 +27,7 @@ public sealed class ReadDocumentTests
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
             Assert.That(result.Value!.RecommendedCalls, Does.Contain("In live mode, call attach_active_editor before scene tools."));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("list_compositions"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("render_composition_patch"));
+            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("plan_composition/apply_composition"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("list_examples"));
             Assert.That(result.Value.CategoryAliases["visualEffect"], Is.EqualTo("FilterEffect"));
             Assert.That(result.Value.RawHttpNote, Does.Contain("Server-Sent Events"));
@@ -164,9 +166,22 @@ public sealed class ReadDocumentTests
             Name = "Title",
             Text = { CurrentValue = "Summary" },
             Fill = { CurrentValue = new SolidColorBrush(Colors.White) },
-            FilterEffect = { CurrentValue = new FilterEffectGroup { Children = { new Blur() } } }
+            FilterEffect = { CurrentValue = new FilterEffectGroup { Children = { new Blur() } } },
+            Transform =
+            {
+                CurrentValue = new TransformGroup
+                {
+                    Children =
+                    {
+                        new TranslateTransform(20, 30),
+                        new RotationTransform(12)
+                    }
+                }
+            }
         };
         text.Opacity.Animation = new KeyFrameAnimation<float>();
+        ((TranslateTransform)((TransformGroup)text.Transform.CurrentValue!).Children[0]).X.Animation = CreateFloatAnimation();
+        ((RotationTransform)((TransformGroup)text.Transform.CurrentValue!).Children[1]).Rotation.Animation = CreateFloatAnimation();
         element.AddObject(text);
         scene.Children.Add(element);
 
@@ -193,6 +208,30 @@ public sealed class ReadDocumentTests
             Assert.That(objectSummary.AnimatedProperties, Does.Contain(nameof(TextBlock.Opacity)));
             Assert.That(objectSummary.BrushProperties, Does.Contain(nameof(TextBlock.Fill)));
             Assert.That(objectSummary.EffectProperties, Does.Contain(nameof(TextBlock.FilterEffect)));
+            Assert.That(objectSummary.NestedAnimatedProperties, Does.Contain("Transform.Children[0].X"));
+            Assert.That(objectSummary.NestedAnimatedProperties, Does.Contain("Transform.Children[1].Rotation"));
         });
+    }
+
+    private static KeyFrameAnimation<float> CreateFloatAnimation()
+    {
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(
+            new KeyFrame<float>
+            {
+                KeyTime = TimeSpan.Zero,
+                Value = 0,
+                Easing = new LinearEasing()
+            },
+            out _);
+        animation.KeyFrames.Add(
+            new KeyFrame<float>
+            {
+                KeyTime = TimeSpan.FromSeconds(1),
+                Value = 1,
+                Easing = new SineEaseOut()
+            },
+            out _);
+        return animation;
     }
 }

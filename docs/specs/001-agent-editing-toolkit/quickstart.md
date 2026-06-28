@@ -86,22 +86,25 @@ A creator asks the agent: *"10-second 1080p clip: a title that fades in over a b
                                                → shuffled compact templates + reusable seed
    get_composition { "name": "<first suitable composition name>" }
                                                → defaultProps, prop descriptors, calculated metadata, sequences, transitions
-   render_composition_patch {
+   plan_composition {
      "name": "<selected composition name>",
      "seed": "promo-a",
      "inputProps": { "title": "BEUTL MOTION", "subtitle": "SUMMER LAUNCH", "durationSeconds": 10 }
    }
-                                               → deterministic patch generated from defaultProps + inputProps + seed
+                                               → metadata + sequences + validation + valid + expectedChangeSet
    get_schema { "category": "visualEffect", "includeProperties": false, "includeExamples": false }
                                                → compact effect type/discriminator catalog; category aliases are accepted
-   plan_edit { "schemaVersion": "1", "patch": <render_composition_patch.composition.patch> }
-                                              → changeSet + validation + valid + expectedChangeSet
    ```
-   To keep repeated raw-agent runs visually varied, `list_compositions` shuffles templates by seed and `render_composition_patch` uses deterministic seeded random/noise internally. Reuse the returned seed for reproducibility; change it for a new layout, palette, and motion offsets. For smaller targeted snippets, `list_examples` / `get_examples` still provide compact declarative patches.
+   To keep repeated raw-agent runs visually varied, `list_compositions` shuffles templates by seed and `plan_composition` / `apply_composition` use deterministic seeded random/noise internally. Reuse the returned seed for reproducibility; change it for a new layout, palette, and motion offsets. Use `render_composition_patch` only when the client explicitly needs the generated JSON patch. For smaller targeted snippets, `list_examples` / `get_examples` still provide compact declarative patches.
 4. **Apply** atomically once the plan looks right:
    ```
-   apply_edit { "schemaVersion": "1", "patch": <same>, "expectedChangeSet": <plan_edit.expectedChangeSet> }
-                                              → { plan, document }   // document includes minted Ids
+   apply_composition {
+     "name": "<selected composition name>",
+     "seed": "promo-a",
+     "inputProps": { "title": "BEUTL MOTION", "subtitle": "SUMMER LAUNCH", "durationSeconds": 10 },
+     "expectedChangeSet": <plan_composition.plan.expectedChangeSet>
+   }
+                                              → { composition, result: { plan, document } }   // document includes minted Ids
    ```
    Use `apply_edit.document` (or call `read_document`) before follow-up edits so later patches reference existing `Id` values. A patch that supplies an unknown `Id` is rejected as `stale_handle`; omit `Id` to create a new node.
 
@@ -136,6 +139,7 @@ A creator asks the agent: *"10-second 1080p clip: a title that fades in over a b
    render_still { "timeSeconds": 1.5, "outputPath": "preview.png" }  → imagePath
    export_video { "outputPath": "promo.mp4" }                        → videoPath   (needs FFmpeg native libs)
    ```
+   Bare output filenames are written under `agent-output/`; pass an explicit relative directory when a different workspace location is intentional.
 6. **Save**:
    ```
    save_project { session }                   → savedPath (under BEUTL_WORKSPACE)
