@@ -1,4 +1,5 @@
 ﻿using System.Text.Json.Nodes;
+using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Documents;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Sessions;
@@ -66,6 +67,30 @@ public sealed class FullDocumentApplyTests
         Assert.Throws<InvalidOperationException>(() => reconciler.Apply(session, desired));
 
         Assert.That(root.First, Is.Zero);
+    }
+
+    [Test]
+    public void Desired_document_with_unknown_id_returns_actionable_stale_handle()
+    {
+        using var session = TestEditingSession.Create(new Scene(1920, 1080, "Scene"));
+        var reconciler = new Reconciler();
+        JsonObject desired = session.Documents.Read(session.Scene);
+        ((JsonArray)desired["Elements"]!).Add(new JsonObject
+        {
+            ["$type"] = IdentityHelper.WriteDiscriminator(typeof(Element)),
+            [nameof(CoreObject.Id)] = Guid.NewGuid().ToString(),
+            [nameof(Element.Start)] = TimeSpan.Zero.ToString("c"),
+            [nameof(Element.Length)] = TimeSpan.FromSeconds(1).ToString("c")
+        });
+
+        ReconcileException ex = Assert.Throws<ReconcileException>(() => reconciler.Plan(session, desired))!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ex.Error.Code, Is.EqualTo(ErrorCode.StaleHandle));
+            Assert.That(ex.Error.Hint, Does.Contain("Omit Id to create"));
+            Assert.That(ex.Error.Hint, Does.Contain("apply_edit"));
+        });
     }
 
     private sealed class TestEditingSession : IEditingSession, IDisposable

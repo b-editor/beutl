@@ -1,8 +1,8 @@
 ﻿using System.Net;
 using System.Security.Cryptography;
-using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Rendering;
 using Beutl.AgentToolkit.Sessions;
+using Beutl.AgentToolkit.Tools;
 using Beutl.AgentToolkit.Workspace;
 using Beutl.Services;
 using Microsoft.AspNetCore.Builder;
@@ -67,8 +67,10 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         builder.Services
             .AddMcpServer()
             .WithHttpTransport(options => options.Stateless = true)
-            .WithToolsFromAssembly(typeof(AgentToolkitAssembly).Assembly)
-            .WithToolsFromAssembly(typeof(AgentHostEndpoint).Assembly);
+            .WithTools<AgentHostTools>()
+            .WithTools<QueryTools>()
+            .WithTools<EditTools>()
+            .WithTools<RenderTools>();
 
         WebApplication app = builder.Build();
         app.Use(RequireToken);

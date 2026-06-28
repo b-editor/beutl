@@ -1,4 +1,8 @@
-﻿using Beutl.AgentToolkit.Rendering;
+﻿using System.Text.Json.Nodes;
+using Beutl.AgentToolkit.Reconciliation;
+using Beutl.AgentToolkit.Rendering;
+using Beutl.AgentToolkit.Schema;
+using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
@@ -8,6 +12,8 @@ using Beutl.Graphics3D;
 using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
+using SkiaSharp;
+using MergePatchApplier = Beutl.AgentToolkit.MergePatch.MergePatch;
 
 namespace Beutl.AgentToolkit.Tests.Rendering;
 
@@ -63,6 +69,46 @@ public sealed class RenderStillTests
         }
     }
 
+    [Test]
+    public async Task Empty_scene_motion_graphics_example_renders_visible_text()
+    {
+        string dir = CreateWorkspace();
+        string withTextPath = Path.Combine(dir, "with-text.png");
+        string withoutTextPath = Path.Combine(dir, "without-text.png");
+        var scene = new Scene(640, 360, "example")
+        {
+            Duration = TimeSpan.FromSeconds(8),
+            Uri = new Uri(Path.Combine(dir, "Scene.scene"))
+        };
+        using var session = new AgentToolkitTestSession(scene);
+
+        DeclarativeExample example = new SchemaGenerator()
+            .Generate(typeFilter: nameof(TextBlock))
+            .Examples
+            .Single(item => item.Name == "create-empty-scene-motion-graphics");
+        JsonObject current = session.Documents.Read(scene);
+        JsonObject desired = (JsonObject)MergePatchApplier.Apply(current, example.Patch)!;
+
+        new Reconciler().Apply(session, desired);
+
+        TextBlock title = scene.Children
+            .SelectMany(element => element.Objects)
+            .OfType<TextBlock>()
+            .Single(item => item.Text.CurrentValue == "BEUTL MOTION");
+
+        var renderer = new StillRenderer();
+        await renderer.RenderAsync(scene, TimeSpan.FromSeconds(2), withTextPath, 1, CancellationToken.None);
+
+        title.Text.CurrentValue = string.Empty;
+        await renderer.RenderAsync(scene, TimeSpan.FromSeconds(2), withoutTextPath, 1, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(scene.Children, Has.Count.EqualTo(3));
+            Assert.That(CountDifferingPixels(withTextPath, withoutTextPath), Is.GreaterThan(500));
+        });
+    }
+
     private static Scene CreateScene(string dir, EngineObject drawable)
     {
         var scene = new Scene(160, 90, "still")
@@ -116,6 +162,36 @@ public sealed class RenderStillTests
         string path = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(path);
         return path;
+    }
+
+    private static int CountDifferingPixels(string firstPath, string secondPath)
+    {
+        using SKBitmap? first = SKBitmap.Decode(firstPath);
+        using SKBitmap? second = SKBitmap.Decode(secondPath);
+        Assert.That(first, Is.Not.Null);
+        Assert.That(second, Is.Not.Null);
+        Assert.That(first!.Width, Is.EqualTo(second!.Width));
+        Assert.That(first.Height, Is.EqualTo(second.Height));
+
+        int count = 0;
+        for (int y = 0; y < first.Height; y++)
+        {
+            for (int x = 0; x < first.Width; x++)
+            {
+                SKColor a = first.GetPixel(x, y);
+                SKColor b = second.GetPixel(x, y);
+                int delta = Math.Abs(a.Red - b.Red)
+                            + Math.Abs(a.Green - b.Green)
+                            + Math.Abs(a.Blue - b.Blue)
+                            + Math.Abs(a.Alpha - b.Alpha);
+                if (delta > 48)
+                {
+                    count++;
+                }
+            }
+        }
+
+        return count;
     }
 
     public enum CpuSafeDrawable

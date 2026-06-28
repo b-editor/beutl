@@ -7,6 +7,9 @@ namespace Beutl.AgentToolkit.Reconciliation;
 
 public static class CollectionReconciler
 {
+    private const string StaleHandleHint =
+        "Omit Id to create a new object. To update an existing object, call read_document or use apply_edit's returned document and retry with an existing Id.";
+
     public static bool IsIdentityArray(JsonArray array)
     {
         return array.OfType<JsonObject>().Any(item => item.ContainsKey(nameof(CoreObject.Id)));
@@ -78,7 +81,11 @@ public static class CollectionReconciler
 
             if (!currentTypes.TryGetValue(id, out string? currentType))
             {
-                return new ToolError(ErrorCode.StaleHandle, $"No entity with Id '{id}' exists in the current session.", id.ToString());
+                return new ToolError(
+                    ErrorCode.StaleHandle,
+                    $"No entity with Id '{id}' exists in the current session.",
+                    id.ToString(),
+                    StaleHandleHint);
             }
 
             if (type is not null && currentType is not null && type != currentType)

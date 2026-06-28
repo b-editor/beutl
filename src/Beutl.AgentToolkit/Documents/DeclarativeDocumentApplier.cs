@@ -447,11 +447,7 @@ internal sealed class DeclarativeDocumentApplier
     {
         if (node is JsonValue value && value.TryGetValue(out string? typeName))
         {
-            Type? type = Type.GetType(typeName)
-                         ?? typeof(Easing).Assembly.GetTypes().FirstOrDefault(candidate =>
-                             candidate.Name == typeName
-                             && candidate.IsAssignableTo(typeof(Easing))
-                             && candidate.GetConstructor(Type.EmptyTypes) is not null);
+            Type? type = ResolveEasingType(typeName);
             if (type is not null && Activator.CreateInstance(type) is Easing easing)
             {
                 return easing;
@@ -472,6 +468,23 @@ internal sealed class DeclarativeDocumentApplier
         throw new ReconcileException(new ToolError(
             ErrorCode.ValidationRejected,
             "Easing must be a type string or spline object."));
+    }
+
+    private static Type? ResolveEasingType(string typeName)
+    {
+        return Type.GetType(typeName)
+               ?? typeof(Easing).Assembly.GetTypes().FirstOrDefault(candidate =>
+                   candidate.IsAssignableTo(typeof(Easing))
+                   && candidate.GetConstructor(Type.EmptyTypes) is not null
+                   && IsEasingTypeMatch(candidate, typeName));
+    }
+
+    private static bool IsEasingTypeMatch(Type candidate, string typeName)
+    {
+        return candidate.Name == typeName
+               || candidate.FullName == typeName
+               || typeName.EndsWith($":{candidate.Name}", StringComparison.Ordinal)
+               || typeName.EndsWith($".{candidate.Name}", StringComparison.Ordinal);
     }
 
     private static CoreObject? FindById(IList list, Guid id)

@@ -6,6 +6,9 @@ namespace Beutl.AgentToolkit.MergePatch;
 
 public static class MergePatch
 {
+    private const string StaleHandleHint =
+        "Omit Id to create a new object. To update an existing object, call read_document or use apply_edit's returned document and retry with an existing Id.";
+
     private static readonly string[] s_directives = ["$index", "$after", "$before"];
 
     public static JsonNode? Apply(JsonNode? target, JsonNode? patch)
@@ -17,8 +20,13 @@ public static class MergePatch
     {
         if (patch is JsonObject patchObject)
         {
-            JsonObject targetObject = target as JsonObject ?? [];
-            JsonObject result = (JsonObject)targetObject.DeepClone();
+            JsonObject? targetObject = target as JsonObject;
+            if (ShouldReplaceTypedObject(targetObject, patchObject))
+            {
+                return patchObject.DeepClone();
+            }
+
+            JsonObject result = (JsonObject)(targetObject ?? []).DeepClone();
 
             foreach (KeyValuePair<string, JsonNode?> pair in patchObject)
             {
@@ -49,6 +57,25 @@ public static class MergePatch
         }
 
         return patch?.DeepClone();
+    }
+
+    private static bool ShouldReplaceTypedObject(JsonObject? target, JsonObject patch)
+    {
+        if (target is null || TryGetId(patch, out _))
+        {
+            return false;
+        }
+
+        string? targetType = target.TryGetPropertyValue("$type", out JsonNode? targetTypeNode)
+            ? targetTypeNode?.GetValue<string>()
+            : null;
+        string? patchType = patch.TryGetPropertyValue("$type", out JsonNode? patchTypeNode)
+            ? patchTypeNode?.GetValue<string>()
+            : null;
+
+        return targetType is not null
+               && patchType is not null
+               && !string.Equals(targetType, patchType, StringComparison.Ordinal);
     }
 
     private static JsonArray ApplyIdentityArray(JsonArray target, JsonArray patch, string path)
@@ -94,7 +121,8 @@ public static class MergePatch
                 throw new ReconcileException(new ToolError(
                     ErrorCode.StaleHandle,
                     $"No array member with Id '{id}' exists.",
-                    id.ToString()));
+                    id.ToString(),
+                    StaleHandleHint));
             }
 
             JsonObject currentItem = (JsonObject)result[currentIndex]!;
@@ -170,7 +198,11 @@ public static class MergePatch
             int siblingIndex = IndexOf(array, sibling);
             if (siblingIndex < 0)
             {
-                throw new ReconcileException(new ToolError(ErrorCode.StaleHandle, $"Sibling '{sibling}' was not found.", sibling.ToString()));
+                throw new ReconcileException(new ToolError(
+                    ErrorCode.StaleHandle,
+                    $"Sibling '{sibling}' was not found.",
+                    sibling.ToString(),
+                    StaleHandleHint));
             }
 
             targetIndex = siblingIndex + (siblingIndex < sourceIndex ? 1 : 0);
@@ -181,7 +213,11 @@ public static class MergePatch
             int siblingIndex = IndexOf(array, sibling);
             if (siblingIndex < 0)
             {
-                throw new ReconcileException(new ToolError(ErrorCode.StaleHandle, $"Sibling '{sibling}' was not found.", sibling.ToString()));
+                throw new ReconcileException(new ToolError(
+                    ErrorCode.StaleHandle,
+                    $"Sibling '{sibling}' was not found.",
+                    sibling.ToString(),
+                    StaleHandleHint));
             }
 
             targetIndex = siblingIndex > sourceIndex ? siblingIndex - 1 : siblingIndex;

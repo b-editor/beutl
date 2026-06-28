@@ -1,6 +1,13 @@
-﻿namespace Beutl.AgentToolkit.Schema;
+﻿using System.Text.Json.Nodes;
 
-public sealed record CapabilitySchema(string SchemaVersion, IReadOnlyList<TypeDescriptor> Types);
+namespace Beutl.AgentToolkit.Schema;
+
+public sealed record CapabilitySchema(
+    string SchemaVersion,
+    IReadOnlyList<TypeDescriptor> Types,
+    IReadOnlyList<DeclarativeExample> Examples);
+
+public sealed record DeclarativeExample(string Name, string Description, JsonObject Patch);
 
 public sealed record TypeDescriptor(
     string Type,
@@ -22,7 +29,8 @@ public sealed record PropertyDescriptor(
     DisplayDescriptor? Display = null,
     RangeDescriptor? Range = null,
     double? Step = null,
-    string? Converter = null);
+    string? Converter = null,
+    string? ElementType = null);
 
 public sealed record DisplayDescriptor(string? Name, string? Description, string? GroupName);
 

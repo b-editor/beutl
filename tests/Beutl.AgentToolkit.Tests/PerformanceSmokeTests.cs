@@ -7,6 +7,7 @@ using Beutl.ProjectSystem;
 
 namespace Beutl.AgentToolkit.Tests;
 
+[NonParallelizable]
 public sealed class PerformanceSmokeTests
 {
     [Test]

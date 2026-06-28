@@ -16,13 +16,13 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
     private readonly Reconciler _reconciler = new();
 
     [McpServerTool(Name = "plan_edit")]
-    [Description("Dry-runs a declarative edit without mutating the session. Supply exactly one of desired or patch; use read_document first, then submit a full desired document or a JSON Merge Patch.")]
+    [Description("Dry-runs a declarative edit without mutating the session. In the in-app host, call attach_active_editor first. Supply exactly one of desired or patch; prefer patch for targeted edits.")]
     public ToolResult<ReconcilePlan> PlanEdit(
-        [Description("Full desired declarative document. Uses PascalCase properties, $type discriminators, stable Id fields, Animations.<Property>.KeyFrames for keyframes, and schemaVersion.")]
+        [Description("Full desired declarative document. Uses PascalCase properties, $type discriminators, stable Id fields, typed properties for transforms/geometry/pens/brushes/effects, Animations.<Property>.KeyFrames for keyframes, and schemaVersion. Full desired documents are authoritative: omitted child arrays such as Elements or Objects can delete existing content, so use patch for partial edits.")]
         JsonObject? desired = null,
-        [Description("JSON Merge Patch. Objects follow RFC 7396; Id-bearing arrays such as Elements, Objects, effects, and KeyFrames are merged by Id. Omit Id to insert; use {Id,$delete:true} to delete; use $index/$after/$before to reorder non-keyframe arrays. Unmentioned siblings are preserved.")]
+        [Description("JSON Merge Patch. Objects follow RFC 7396; Id-bearing arrays such as Elements, Objects, GradientStops, transform/effect Children, audio effect Children, and KeyFrames are merged by Id. Omit Id to insert; use {Id,$delete:true} to delete; use $index/$after/$before to reorder non-keyframe arrays. Unmentioned siblings are preserved.")]
         JsonObject? patch = null,
-        [Description("Declarative document schema version. Mismatches are rejected instead of silently dropping content.")]
+        [Description("Declarative document schema version. Required for patch; for desired, pass it here or include schemaVersion in the document. Mismatches are rejected instead of silently dropping content.")]
         string? schemaVersion = null)
     {
         return Execute(() =>
@@ -33,15 +33,15 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
     }
 
     [McpServerTool(Name = "apply_edit")]
-    [Description("Atomically applies a declarative desired document or JSON Merge Patch through Beutl history. Use expectedChangeSet from plan_edit to guarantee plan/apply parity.")]
+    [Description("Atomically applies a declarative desired document or JSON Merge Patch through Beutl history. In the in-app host, call attach_active_editor first. Pass plan_edit.expectedChangeSet to guarantee plan/apply parity. The response includes the updated document with minted Ids; use those Ids or read_document for follow-up edits.")]
     public ToolResult<ReconcileResult> ApplyEdit(
-        [Description("Full desired declarative document. Uses PascalCase properties, $type discriminators, stable Id fields, Animations.<Property>.KeyFrames for keyframes, and schemaVersion.")]
+        [Description("Full desired declarative document. Uses PascalCase properties, $type discriminators, stable Id fields, typed properties for transforms/geometry/pens/brushes/effects, Animations.<Property>.KeyFrames for keyframes, and schemaVersion. Full desired documents are authoritative: omitted child arrays such as Elements or Objects can delete existing content, so use patch for partial edits.")]
         JsonObject? desired = null,
-        [Description("JSON Merge Patch. Objects follow RFC 7396; Id-bearing arrays such as Elements, Objects, effects, and KeyFrames are merged by Id. Omit Id to insert; use {Id,$delete:true} to delete; use $index/$after/$before to reorder non-keyframe arrays. Unmentioned siblings are preserved.")]
+        [Description("JSON Merge Patch. Objects follow RFC 7396; Id-bearing arrays such as Elements, Objects, GradientStops, transform/effect Children, audio effect Children, and KeyFrames are merged by Id. Omit Id to insert; use {Id,$delete:true} to delete; use $index/$after/$before to reorder non-keyframe arrays. Unmentioned siblings are preserved.")]
         JsonObject? patch = null,
-        [Description("Declarative document schema version. Mismatches are rejected instead of silently dropping content.")]
+        [Description("Declarative document schema version. Required for patch; for desired, pass it here or include schemaVersion in the document. Mismatches are rejected instead of silently dropping content.")]
         string? schemaVersion = null,
-        [Description("Optional change set returned by plan_edit. apply_edit rejects the edit if the live computed change set differs.")]
+        [Description("Optional change set returned by plan_edit.expectedChangeSet. apply_edit rejects the edit if the live computed change set differs.")]
         JsonArray? expectedChangeSet = null)
     {
         return Execute(() =>

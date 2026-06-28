@@ -17,7 +17,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
     private readonly SchemaGenerator _schemaGenerator = new();
 
     [McpServerTool(Name = "get_schema")]
-    [Description("Returns the capability schema for registered editable types, optionally filtered by type or category.")]
+    [Description("Returns the capability schema for registered editable types, optionally filtered by type or category. The response includes type metadata for drawables, brushes, transforms, geometry, pens, visual/audio effects, easings, and declarative patch examples.")]
     public ToolResult<CapabilitySchema> GetSchema(string? type = null, string? category = null)
     {
         return Execute(() =>
@@ -36,7 +36,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
     }
 
     [McpServerTool(Name = "read_document")]
-    [Description("Reads the current declarative document, or a subtree selected by rootId.")]
+    [Description("Reads the current declarative document, or a subtree selected by rootId. In the in-app host, call attach_active_editor first; in the stdio host, call open_project or create_project first.")]
     public ToolResult<ReadDocumentResponse> ReadDocument(string? rootId = null)
     {
         return Execute(() =>

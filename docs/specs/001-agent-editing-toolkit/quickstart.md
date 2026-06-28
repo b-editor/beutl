@@ -65,20 +65,44 @@ A creator asks the agent: *"10-second 1080p clip: a title that fades in over a b
    ```
    create_project { "path": "promo.bep", "width": 1920, "height": 1080, "frameRate": 30, "duration": "00:00:10" }  → { session }
    ```
-3. **Read** the (empty) document, then **plan** the full desired state:
+3. **Read** the empty document, then pick a schema-provided starting patch:
    ```
    read_document {}                           → { document, schemaVersion }   // echo schemaVersion back on every edit
-   plan_edit { "schemaVersion": "1", "desired": <document with the image, title (with an Opacity fade-in keyframe animation), and logo elements> }
+   get_schema { "type": "TextBlock" }          → descriptors plus create-empty-scene-motion-graphics
+   plan_edit { "schemaVersion": "1", "patch": <examples.create-empty-scene-motion-graphics.patch> }
                                               → changeSet + validation (e.g. any value clamped to its [Range])
    ```
 4. **Apply** atomically once the plan looks right:
    ```
-   apply_edit { "schemaVersion": "1", "desired": <same>, "expectedChangeSet": <from plan> }  → applied, historyEntry
+   apply_edit { "schemaVersion": "1", "patch": <same>, "expectedChangeSet": <plan_edit.expectedChangeSet> }
+                                              → { plan, document }   // document includes minted Ids
    ```
+   Use `apply_edit.document` (or call `read_document`) before follow-up edits so later patches reference existing `Id` values. A patch that supplies an unknown `Id` is rejected as `stale_handle`; omit `Id` to create a new node.
+
    For a later tweak — *"make the title bigger"* — send a tiny **merge-patch** instead of the whole document:
    ```
    plan_edit { "schemaVersion": "1", "patch": { "Elements": [ { "Id": "<title-el>", "Objects": [ { "Id": "<text>", "Size": 140 } ] } ] } }
    apply_edit { "schemaVersion": "1", "patch": <same> }
+   ```
+   Brushes and effects are ordinary declarative properties. Discover them with `get_schema { "category": "Brush" }` and `get_schema { "category": "FilterEffect" }`. For example, a shape or text object can receive a gradient fill and a filter chain in the same patch:
+   ```
+   plan_edit {
+     "schemaVersion": "1",
+     "patch": {
+       "Elements": [
+         {
+           "Id": "<element-id>",
+           "Objects": [
+             {
+               "Id": "<drawable-id>",
+               "Fill": { "$type": "[Beutl.Engine]Beutl.Media:LinearGradientBrush", "GradientStops": [ { "$type": "[Beutl.Engine]Beutl.Media:GradientStop", "Offset": 0, "Color": "#FF1AD8FF" }, { "$type": "[Beutl.Engine]Beutl.Media:GradientStop", "Offset": 1, "Color": "#FFFF45B5" } ] },
+               "FilterEffect": { "$type": "[Beutl.Engine]Beutl.Graphics.Effects:FilterEffectGroup", "Children": [ { "$type": "[Beutl.Engine]Beutl.Graphics.Effects:Blur", "Sigma": "8,8" } ] }
+             }
+           ]
+         }
+       ]
+     }
+   }
    ```
 5. **Verify** by rendering a still (and optionally export):
    ```
@@ -96,7 +120,7 @@ Undo is same-session: file sessions record normal history while open, and live e
 
 - **Declarative-first**: express the whole desired scene at once, or a small merge-patch; the toolkit computes the minimal undoable change set.
 - **Safe by construction**: out-of-range values are reported (coerced/rejected), not silently applied; a failed multi-step edit rolls back wholly; writes can't escape the workspace.
-- **Plan == apply**: `plan_edit` predicts `apply_edit` exactly (pass `expectedChangeSet` to enforce).
+- **Plan == apply**: `plan_edit` predicts `apply_edit` exactly (pass `plan_edit.expectedChangeSet` to enforce).
 
 ## Tests
 
