@@ -10,8 +10,8 @@ public class ProxyJobQueueTests
     {
         var generator = new RecordingGenerator();
         await using var queue = new ProxyJobQueue(generator);
-        var first = new ProxyFingerprint("/tmp/a.mov", 1, DateTime.UtcNow);
-        var second = new ProxyFingerprint("/tmp/b.mov", 1, DateTime.UtcNow);
+        ProxyFingerprint first = CreateFingerprint("a.mov");
+        ProxyFingerprint second = CreateFingerprint("b.mov");
 
         ProxyJob firstJob = await queue.EnqueueAsync(first, ProxyPreset.Quarter);
         ProxyJob secondJob = await queue.EnqueueAsync(second, ProxyPreset.Quarter);
@@ -31,7 +31,7 @@ public class ProxyJobQueueTests
     {
         var generator = new BlockingGenerator();
         await using var queue = new ProxyJobQueue(generator);
-        var source = new ProxyFingerprint("/tmp/a.mov", 1, DateTime.UtcNow);
+        ProxyFingerprint source = CreateFingerprint("a.mov");
 
         ProxyJob first = await queue.EnqueueAsync(source, ProxyPreset.Quarter);
         ProxyJob second = await queue.EnqueueAsync(source, ProxyPreset.Quarter);
@@ -44,7 +44,7 @@ public class ProxyJobQueueTests
     public async Task SkippedException_ProducesSkippedTerminalState()
     {
         await using var queue = new ProxyJobQueue(new SkippingGenerator());
-        var source = new ProxyFingerprint("/tmp/a.mov", 1, DateTime.UtcNow);
+        ProxyFingerprint source = CreateFingerprint("a.mov");
 
         ProxyJob job = await queue.EnqueueAsync(source, ProxyPreset.Quarter);
         await WaitForTerminalAsync(job);
@@ -61,8 +61,8 @@ public class ProxyJobQueueTests
     {
         var generator = new BlockingGenerator();
         var queue = new ProxyJobQueue(generator);
-        var firstSource = new ProxyFingerprint("/tmp/a.mov", 1, DateTime.UtcNow);
-        var secondSource = new ProxyFingerprint("/tmp/b.mov", 1, DateTime.UtcNow);
+        ProxyFingerprint firstSource = CreateFingerprint("a.mov");
+        ProxyFingerprint secondSource = CreateFingerprint("b.mov");
 
         ProxyJob first = await queue.EnqueueAsync(firstSource, ProxyPreset.Quarter);
         ProxyJob second = await queue.EnqueueAsync(secondSource, ProxyPreset.Quarter);
@@ -82,7 +82,7 @@ public class ProxyJobQueueTests
     {
         var generator = new RecordingGenerator();
         await using var queue = new ProxyJobQueue(generator);
-        var source = new ProxyFingerprint("/tmp/a.mov", 1, DateTime.UtcNow);
+        ProxyFingerprint source = CreateFingerprint("a.mov");
 
         ProxyJob job = await queue.EnqueueAsync(source, ProxyPreset.Quarter);
         await WaitForTerminalAsync(job);
@@ -98,6 +98,12 @@ public class ProxyJobQueueTests
         {
             await Task.Delay(10, cts.Token);
         }
+    }
+
+    private static ProxyFingerprint CreateFingerprint(string fileName)
+    {
+        string path = Path.Combine(TestContext.CurrentContext.WorkDirectory, fileName);
+        return new ProxyFingerprint(path, 1, DateTime.UtcNow);
     }
 
     private sealed class RecordingGenerator : IProxyGenerator
