@@ -18,7 +18,9 @@ public sealed record AttachActiveEditorResponse(string Session, string Source, A
 
     public IReadOnlyList<string> NextSteps { get; } =
     [
-        "Call read_document to get the normalized declarative scene.",
+        "Call read_document_summary to observe the scene without pulling the full document.",
+        "Call get_examples to get compact starting patches, or get_schema with includeProperties/includeExamples filters for detailed discovery.",
+        "Call read_document when you need the normalized declarative scene.",
         "Call plan_edit with a patch or desired document.",
         "Call apply_edit with plan_edit.expectedChangeSet.",
         "Use apply_edit's returned document or read_document to get minted Ids before follow-up edits.",
