@@ -90,7 +90,8 @@ public sealed class ReadDocumentTests
         ToolResult<RenderCompositionPatchResponse> render = tools.RenderCompositionPatch(
             name: "split-screen-type-system",
             inputProps: inputProps,
-            seed: "tool-seed");
+            seed: "tool-seed",
+            avoidRecent: false);
 
         Assert.Multiple(() =>
         {
@@ -181,7 +182,7 @@ public sealed class ReadDocumentTests
     }
 
     [Test]
-    public void Seedless_named_composition_must_match_first_candidate_by_default()
+    public void Named_composition_must_match_first_candidate_by_default()
     {
         var scene = new Scene(1920, 1080, "Scene");
         using var session = new AgentToolkitTestSession(scene);
@@ -195,6 +196,7 @@ public sealed class ReadDocumentTests
         string nonFirstName = list.Value.Compositions.Skip(1).First().Name;
 
         ToolResult<PlanCompositionResponse> rejected = editTools.PlanComposition(name: nonFirstName);
+        ToolResult<PlanCompositionResponse> seededRejected = editTools.PlanComposition(name: nonFirstName, seed: list.Value.Seed);
         ToolResult<PlanCompositionResponse> accepted = editTools.PlanComposition(name: firstName);
         ToolResult<PlanCompositionResponse> deliberate = editTools.PlanComposition(name: nonFirstName, avoidRecent: false);
 
@@ -204,6 +206,9 @@ public sealed class ReadDocumentTests
             Assert.That(rejected.IsSuccess, Is.False);
             Assert.That(rejected.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
             Assert.That(rejected.Error.Hint, Does.Contain(firstName));
+            Assert.That(seededRejected.IsSuccess, Is.False);
+            Assert.That(seededRejected.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(seededRejected.Error.Hint, Does.Contain(firstName));
             Assert.That(accepted.IsSuccess, Is.True, accepted.Error?.Message);
             Assert.That(accepted.Value!.Composition.Name, Is.EqualTo(firstName));
             Assert.That(deliberate.IsSuccess, Is.True, deliberate.Error?.Message);
@@ -250,7 +255,8 @@ public sealed class ReadDocumentTests
         manager.UseSource(new AgentToolkitTestSessionSource(firstSession));
         ToolResult<ApplyCompositionResponse> firstApply = editTools.ApplyComposition(
             name: "orbital-radar-map",
-            seed: "global-recent");
+            seed: "global-recent",
+            avoidRecent: false);
 
         manager.UseSource(new AgentToolkitTestSessionSource(secondSession));
         ToolResult<ListCompositionsResponse> secondList = queryTools.ListCompositions(seed: "global-recent");

@@ -104,7 +104,7 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
     }
 
     [McpServerTool(Name = "plan_composition")]
-    [Description("Dry-runs a Remotion-style composition without returning a huge patch. For low-context motion graphics, call list_compositions first and pass its first name; when seed is omitted and avoidRecent=true, memorized non-first names are rejected.")]
+    [Description("Dry-runs a Remotion-style composition without returning a huge patch. For low-context motion graphics, call list_compositions first and pass its first name; when avoidRecent=true, memorized non-first names are rejected.")]
     public ToolResult<PlanCompositionResponse> PlanComposition(
         string? name = null,
         string? tag = null,
@@ -122,7 +122,7 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
                 inputProps,
                 sessions.ResolveCompositionSeed(seed),
                 avoidRecent ? sessions.GetRecentCompositions() : null,
-                EnforceFirstSelection(name, seed, avoidRecent));
+                EnforceFirstSelection(name, avoidRecent));
             ResolvedEdit resolved = ResolveDesiredDocument(session, desired: null, patch: composition.Patch, schemaVersion: SchemaVersion.Current);
             ReconcilePlan plan = _reconciler.Plan(session, resolved.Document, resolved.KnownNewIds);
             CompositionPlanState state = sessions.StoreCompositionPlan(
@@ -194,7 +194,7 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
                 inputProps,
                 sessions.ResolveCompositionSeed(seed),
                 avoidRecent ? sessions.GetRecentCompositions() : null,
-                EnforceFirstSelection(name, seed, avoidRecent));
+                EnforceFirstSelection(name, avoidRecent));
             ResolvedEdit resolved = ResolveDesiredDocument(session, desired: null, patch: composition.Patch, schemaVersion: SchemaVersion.Current);
             ReconcilePlan plan = _reconciler.Plan(session, resolved.Document, resolved.KnownNewIds);
             JsonArray? normalizedExpectedChangeSet = NormalizeExpectedChangeSet(expectedChangeSet);
@@ -278,9 +278,9 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
             "Pass planId to apply_composition for compact plan/apply parity. Set includeDetailedPlan=true only if you explicitly need expectedChangeSet.");
     }
 
-    private static bool EnforceFirstSelection(string? name, string? seed, bool avoidRecent)
+    private static bool EnforceFirstSelection(string? name, bool avoidRecent)
     {
-        return avoidRecent && string.IsNullOrWhiteSpace(seed) && !string.IsNullOrWhiteSpace(name);
+        return avoidRecent && !string.IsNullOrWhiteSpace(name);
     }
 
     private static bool ChangeSetMatches(ReconcilePlan plan, JsonArray expectedChangeSet)

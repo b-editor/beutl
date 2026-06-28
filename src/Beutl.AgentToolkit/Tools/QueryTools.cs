@@ -240,7 +240,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
     }
 
     [McpServerTool(Name = "render_composition_patch")]
-    [Description("Materializes a Remotion-style composition into a declarative Beutl JSON Merge Patch. For low-context motion graphics, call list_compositions first and pass its first name; seedless remembered non-first names are rejected.")]
+    [Description("Materializes a Remotion-style composition into a declarative Beutl JSON Merge Patch. For low-context motion graphics, call list_compositions first and pass its first name; remembered non-first names are rejected while avoidRecent=true.")]
     public ToolResult<RenderCompositionPatchResponse> RenderCompositionPatch(
         string? name = null,
         string? tag = null,
@@ -256,13 +256,13 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 inputProps,
                 sessions.ResolveCompositionSeed(seed),
                 avoidRecent ? sessions.GetRecentCompositions() : null,
-                EnforceFirstSelection(name, seed, avoidRecent)),
+                EnforceFirstSelection(name, avoidRecent)),
             "Pass composition.patch to plan_edit/apply_edit with schemaVersion=1. Use the returned seed to reproduce or intentionally vary the generated motion."));
     }
 
-    private static bool EnforceFirstSelection(string? name, string? seed, bool avoidRecent)
+    private static bool EnforceFirstSelection(string? name, bool avoidRecent)
     {
-        return avoidRecent && string.IsNullOrWhiteSpace(seed) && !string.IsNullOrWhiteSpace(name);
+        return avoidRecent && !string.IsNullOrWhiteSpace(name);
     }
 
     private static T[] Shuffle<T>(IReadOnlyList<T> source)
