@@ -9,6 +9,12 @@ public sealed record CapabilitySchema(
 
 public sealed record DeclarativeExample(string Name, string Description, JsonObject Patch);
 
+public sealed record DeclarativeExampleSummary(
+    string Name,
+    string Description,
+    IReadOnlyList<string> Categories,
+    IReadOnlyList<string> Tags);
+
 public sealed record TypeDescriptor(
     string Type,
     string Discriminator,

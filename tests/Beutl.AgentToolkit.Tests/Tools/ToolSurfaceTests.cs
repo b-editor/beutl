@@ -24,6 +24,10 @@ public sealed class ToolSurfaceTests
             {
                 "get_started",
                 "get_schema",
+                "list_compositions",
+                "get_composition",
+                "render_composition_patch",
+                "list_examples",
                 "get_examples",
                 "read_document_summary",
                 "read_document",

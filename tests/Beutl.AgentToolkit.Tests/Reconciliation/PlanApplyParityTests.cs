@@ -1,5 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
+using Beutl.AgentToolkit.Schema;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
@@ -37,6 +38,7 @@ public sealed class PlanApplyParityTests
         Assert.Multiple(() =>
         {
             Assert.That(plan.IsSuccess, Is.True);
+            Assert.That(plan.Value!.Valid, Is.True);
             Assert.That(plan.Value!.ExpectedChangeSet, Has.Count.EqualTo(plan.Value.Changes.Count));
             Assert.That(apply.IsSuccess, Is.True);
             Assert.That(apply.Value!.Plan.Changes.Select(change => change.Operation), Is.EqualTo(plan.Value!.Changes.Select(change => change.Operation)));
@@ -46,21 +48,57 @@ public sealed class PlanApplyParityTests
         });
     }
 
+    [Test]
+    public void Composition_patch_plans_and_applies_through_declarative_loop()
+    {
+        Scene scene = CreateScene();
+        using var session = new AgentToolkitTestSession(scene);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var tools = new EditTools(manager);
+        var catalog = new CompositionTemplateCatalog();
+        CompositionRender composition = catalog.Render(
+            "kinetic-ribbon-title",
+            inputProps: new JsonObject { ["title"] = "APPLY PATCH" },
+            seed: "apply-seed");
+
+        var plan = tools.PlanEdit(patch: composition.Patch, schemaVersion: SchemaVersion.Current);
+        var apply = tools.ApplyEdit(
+            patch: composition.Patch,
+            schemaVersion: SchemaVersion.Current,
+            expectedChangeSet: plan.Value!.ExpectedChangeSet);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(plan.IsSuccess, Is.True, plan.Error?.Message);
+            Assert.That(plan.Value!.Valid, Is.True);
+            Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
+            Assert.That(scene.Children, Has.Count.GreaterThan(3));
+            Assert.That(scene.Children.Select(element => element.Name), Does.Contain("Kinetic ribbon title"));
+            Assert.That(apply.Value!.Document.ToJsonString(), Does.Contain("APPLY PATCH"));
+        });
+    }
+
     private static Scene CreateSceneWithElement(out Element element)
     {
-        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
-        var scene = new Scene(1920, 1080, "Scene")
-        {
-            Uri = new Uri(Path.Combine(dir, "Scene.scene"))
-        };
+        Scene scene = CreateScene();
         element = new Element
         {
             Start = TimeSpan.FromSeconds(1),
             Length = TimeSpan.FromSeconds(2),
-            Uri = new Uri(Path.Combine(dir, "element.belm"))
+            Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "element.belm"))
         };
         scene.Children.Add(element);
         return scene;
+    }
+
+    private static Scene CreateScene()
+    {
+        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        return new Scene(1920, 1080, "Scene")
+        {
+            Uri = new Uri(Path.Combine(dir, "Scene.scene"))
+        };
     }
 }

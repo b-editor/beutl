@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Schema;
 using Beutl.Animation.Easings;
 using Beutl.Audio.Effects;
@@ -48,6 +49,8 @@ public sealed class SchemaGenerationTests
         CapabilitySchema freshTextBlockSchema = generator.Generate(typeFilter: nameof(TextBlock));
         CapabilitySchema compactVisualEffectSchema = generator.Generate(categoryFilter: "visualEffect", includeProperties: false, includeExamples: false);
         IReadOnlyList<DeclarativeExample> fillExamples = generator.GenerateExamples(categoryFilter: "fill");
+        IReadOnlyList<DeclarativeExampleSummary> exampleSummaries = generator.ListExamples(typeFilter: nameof(TextBlock));
+        IReadOnlyList<DeclarativeExample> namedExamples = generator.GenerateExamples(nameFilter: "create-empty-scene-orbital-radar");
         textBlockSchema.Examples.Single(example => example.Name == "create-empty-scene-motion-graphics").Patch["Duration"] = "00:00:01";
 
         Assert.Multiple(() =>
@@ -86,13 +89,66 @@ public sealed class SchemaGenerationTests
             Assert.That(brushEffectExample, Does.Contain("Blur"));
             Assert.That(audioSchema.Types.Any(type => type.Type == typeof(DelayEffect).FullName), Is.True);
             Assert.That(audioSchema.Examples, Is.Empty);
-            Assert.That(brushSchema.Examples.Select(example => example.Name), Is.EquivalentTo(new[] { "create-empty-scene-motion-graphics", "apply-gradient-fill-and-effect-chain" }));
+            Assert.That(brushSchema.Examples.Select(example => example.Name), Does.Contain("create-empty-scene-motion-graphics"));
+            Assert.That(brushSchema.Examples.Select(example => example.Name), Does.Contain("create-empty-scene-orbital-radar"));
+            Assert.That(brushSchema.Examples.Select(example => example.Name), Does.Contain("create-empty-scene-split-screen-typography"));
+            Assert.That(brushSchema.Examples.Select(example => example.Name), Does.Contain("apply-gradient-fill-and-effect-chain"));
             Assert.That(textBlockSchema.Examples.Select(example => example.Name), Does.Contain("create-empty-scene-motion-graphics"));
+            Assert.That(textBlockSchema.Examples.Select(example => example.Name), Does.Contain("create-empty-scene-orbital-radar"));
+            Assert.That(textBlockSchema.Examples.Select(example => example.Name), Does.Contain("create-empty-scene-split-screen-typography"));
             Assert.That(freshTextBlockSchema.Examples.Single(example => example.Name == "create-empty-scene-motion-graphics").Patch["Duration"]!.GetValue<string>(), Is.EqualTo("00:00:08"));
             Assert.That(compactVisualEffectSchema.Types.Any(type => type.Type == typeof(FilterEffectGroup).FullName), Is.True);
             Assert.That(compactVisualEffectSchema.Types.All(type => type.Properties.Count == 0), Is.True);
             Assert.That(compactVisualEffectSchema.Examples, Is.Empty);
-            Assert.That(fillExamples.Select(example => example.Name), Is.EquivalentTo(new[] { "create-empty-scene-motion-graphics", "apply-gradient-fill-and-effect-chain" }));
+            Assert.That(fillExamples.Select(example => example.Name), Does.Contain("create-empty-scene-orbital-radar"));
+            Assert.That(fillExamples.Select(example => example.Name), Does.Contain("create-empty-scene-split-screen-typography"));
+            Assert.That(fillExamples.Select(example => example.Name), Does.Contain("apply-gradient-fill-and-effect-chain"));
+            Assert.That(exampleSummaries.Count(example => example.Tags.Contains("empty-scene")), Is.GreaterThanOrEqualTo(3));
+            Assert.That(exampleSummaries.Single(example => example.Name == "create-empty-scene-orbital-radar").Tags, Does.Contain("orbital"));
+            Assert.That(namedExamples, Has.Count.EqualTo(1));
+            Assert.That(namedExamples.Single().Patch.ToJsonString(), Does.Contain("ORBIT MAP"));
+        });
+    }
+
+    [Test]
+    public void Composition_templates_expose_remotion_style_contract()
+    {
+        var catalog = new CompositionTemplateCatalog();
+        CompositionTemplateList firstList = catalog.List(seed: "alpha");
+        CompositionTemplateList sameList = catalog.List(seed: "alpha");
+        CompositionTemplateDetail detail = catalog.Get("orbital-radar-map");
+        var inputProps = new JsonObject
+        {
+            ["title"] = "CUSTOM ORBIT",
+            ["durationSeconds"] = 6,
+            ["fps"] = 24,
+            ["density"] = 1.25
+        };
+
+        CompositionRender firstRender = catalog.Render("orbital-radar-map", inputProps: inputProps, seed: "orbit-seed");
+        CompositionRender sameRender = catalog.Render("orbital-radar-map", inputProps: inputProps, seed: "orbit-seed");
+        CompositionRender differentRender = catalog.Render("orbital-radar-map", inputProps: inputProps, seed: "orbit-seed-2");
+        CompositionRender noiseRender = catalog.Render("kinetic-ribbon-title", seed: "noise-seed");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(firstList.Seed, Is.EqualTo("alpha"));
+            Assert.That(firstList.Compositions.Select(composition => composition.Name), Is.EqualTo(sameList.Compositions.Select(composition => composition.Name)));
+            Assert.That(firstList.Compositions, Has.Count.GreaterThanOrEqualTo(3));
+            Assert.That(detail.DefaultProps["title"]!.GetValue<string>(), Is.EqualTo("ORBIT MAP"));
+            Assert.That(detail.Props.Select(prop => prop.Name), Does.Contain("durationSeconds"));
+            Assert.That(detail.Sequences.Any(sequence => sequence.Name == "body"), Is.True);
+            Assert.That(detail.Transitions.Any(transition => transition.Type.Contains("opacity", StringComparison.Ordinal)), Is.True);
+            Assert.That(firstRender.Metadata.DurationInFrames, Is.EqualTo(144));
+            Assert.That(firstRender.ResolvedProps["title"]!.GetValue<string>(), Is.EqualTo("CUSTOM ORBIT"));
+            Assert.That(firstRender.Sequences, Has.Count.GreaterThanOrEqualTo(4));
+            Assert.That(firstRender.Transitions, Has.Count.GreaterThanOrEqualTo(2));
+            Assert.That(JsonNode.DeepEquals(firstRender.Patch, sameRender.Patch), Is.True);
+            Assert.That(JsonNode.DeepEquals(firstRender.Patch, differentRender.Patch), Is.False);
+            Assert.That(firstRender.Patch.ToJsonString(), Does.Contain("CUSTOM ORBIT"));
+            Assert.That(firstRender.Patch.ToJsonString(), Does.Contain("KeyFrames"));
+            Assert.That(firstRender.Patch.ToJsonString(), Does.Contain("FilterEffectGroup"));
+            Assert.That(noiseRender.Patch.ToJsonString(), Does.Contain("Deterministic noise dot"));
         });
     }
 

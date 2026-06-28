@@ -65,7 +65,7 @@ curl -sS -X POST \
   'http://127.0.0.1:<port>/mcp?token=<token>'
 ```
 
-After `initialize`, send `notifications/initialized`, then `tools/list`, then `get_started` or `attach_active_editor`. `notifications/initialized` may have no response body; that is normal. For progress checks, prefer `read_document_summary` over `read_document` until you need the full JSON.
+After `initialize`, send `notifications/initialized`, then `tools/list`, then `get_started` or `attach_active_editor`. `notifications/initialized` may have no response body; that is normal. Tool results are nested as JSON text under `result.content[0].text` in raw HTTP clients, so decode that text payload after reading the SSE `data:` line. For progress checks, prefer `read_document_summary` over `read_document` until you need the full JSON.
 
 ## The declarative loop (worked example)
 
@@ -79,15 +79,25 @@ A creator asks the agent: *"10-second 1080p clip: a title that fades in over a b
    ```
    create_project { "path": "promo.bep", "width": 1920, "height": 1080, "frameRate": 30, "duration": "00:00:10" }  → { session }
    ```
-3. **Read** the empty document, then pick a schema-provided starting patch:
+3. **Read** the empty document, then materialize a Remotion-style composition:
    ```
    read_document {}                           → { document, schemaVersion }   // echo schemaVersion back on every edit
-   get_examples { "type": "TextBlock" }        → create-empty-scene-motion-graphics without the full schema
+   list_compositions { "tag": "empty-scene", "seed": "promo-a" }
+                                               → shuffled compact templates + reusable seed
+   get_composition { "name": "<first suitable composition name>" }
+                                               → defaultProps, prop descriptors, calculated metadata, sequences, transitions
+   render_composition_patch {
+     "name": "<selected composition name>",
+     "seed": "promo-a",
+     "inputProps": { "title": "BEUTL MOTION", "subtitle": "SUMMER LAUNCH", "durationSeconds": 10 }
+   }
+                                               → deterministic patch generated from defaultProps + inputProps + seed
    get_schema { "category": "visualEffect", "includeProperties": false, "includeExamples": false }
                                                → compact effect type/discriminator catalog; category aliases are accepted
-   plan_edit { "schemaVersion": "1", "patch": <examples.create-empty-scene-motion-graphics.patch> }
-                                              → changeSet + validation (e.g. any value clamped to its [Range])
+   plan_edit { "schemaVersion": "1", "patch": <render_composition_patch.composition.patch> }
+                                              → changeSet + validation + valid + expectedChangeSet
    ```
+   To keep repeated raw-agent runs visually varied, `list_compositions` shuffles templates by seed and `render_composition_patch` uses deterministic seeded random/noise internally. Reuse the returned seed for reproducibility; change it for a new layout, palette, and motion offsets. For smaller targeted snippets, `list_examples` / `get_examples` still provide compact declarative patches.
 4. **Apply** atomically once the plan looks right:
    ```
    apply_edit { "schemaVersion": "1", "patch": <same>, "expectedChangeSet": <plan_edit.expectedChangeSet> }

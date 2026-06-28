@@ -1,4 +1,5 @@
-﻿using Beutl.AgentToolkit.Common;
+﻿using System.Text.Json.Nodes;
+using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
@@ -23,8 +24,71 @@ public sealed class ReadDocumentTests
         {
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
             Assert.That(result.Value!.RecommendedCalls, Does.Contain("In live mode, call attach_active_editor before scene tools."));
+            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("list_compositions"));
+            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("render_composition_patch"));
+            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("list_examples"));
             Assert.That(result.Value.CategoryAliases["visualEffect"], Is.EqualTo("FilterEffect"));
             Assert.That(result.Value.RawHttpNote, Does.Contain("Server-Sent Events"));
+            Assert.That(result.Value.RawHttpNote, Does.Contain("content[0].text"));
+        });
+    }
+
+    [Test]
+    public void Examples_can_be_listed_and_fetched_by_name()
+    {
+        var tools = new QueryTools(new AgentSessionManager());
+
+        ToolResult<ListExamplesResponse> list = tools.ListExamples(type: nameof(TextBlock));
+        string selectedName = list.Value!.Examples
+            .Single(example => example.Name == "create-empty-scene-split-screen-typography")
+            .Name;
+        ToolResult<GetExamplesResponse> selected = tools.GetExamples(name: selectedName);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(list.IsSuccess, Is.True, list.Error?.Message);
+            Assert.That(list.Value!.Examples.Count(example => example.Tags.Contains("empty-scene")), Is.GreaterThanOrEqualTo(3));
+            Assert.That(list.Value.SelectionHint, Does.Contain("shuffled"));
+            Assert.That(selected.IsSuccess, Is.True, selected.Error?.Message);
+            Assert.That(selected.Value!.Examples, Has.Count.EqualTo(1));
+            Assert.That(selected.Value.Examples.Single().Name, Is.EqualTo(selectedName));
+            Assert.That(selected.Value.Examples.Single().Patch.ToJsonString(), Does.Contain("FRAME FLOW"));
+        });
+    }
+
+    [Test]
+    public void Composition_tools_list_detail_and_render_seeded_patch()
+    {
+        var tools = new QueryTools(new AgentSessionManager());
+        var inputProps = new JsonObject
+        {
+            ["title"] = "PATCH TITLE",
+            ["durationSeconds"] = 5,
+            ["fps"] = 20
+        };
+
+        ToolResult<ListCompositionsResponse> list = tools.ListCompositions(seed: "tool-seed");
+        ToolResult<GetCompositionResponse> detail = tools.GetComposition("split-screen-type-system");
+        ToolResult<RenderCompositionPatchResponse> render = tools.RenderCompositionPatch(
+            name: "split-screen-type-system",
+            inputProps: inputProps,
+            seed: "tool-seed");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(list.IsSuccess, Is.True, list.Error?.Message);
+            Assert.That(list.Value!.Seed, Is.EqualTo("tool-seed"));
+            Assert.That(list.Value.Compositions.Select(composition => composition.Name), Does.Contain("split-screen-type-system"));
+            Assert.That(list.Value.SelectionHint, Does.Contain("seed"));
+            Assert.That(detail.IsSuccess, Is.True, detail.Error?.Message);
+            Assert.That(detail.Value!.Composition.DefaultProps["title"]!.GetValue<string>(), Is.EqualTo("FRAME FLOW"));
+            Assert.That(detail.Value.Composition.Sequences.Any(sequence => sequence.Name == "typography"), Is.True);
+            Assert.That(render.IsSuccess, Is.True, render.Error?.Message);
+            Assert.That(render.Value!.Composition.Seed, Is.EqualTo("tool-seed"));
+            Assert.That(render.Value.Composition.Metadata.DurationInFrames, Is.EqualTo(100));
+            Assert.That(render.Value.Composition.ResolvedProps["title"]!.GetValue<string>(), Is.EqualTo("PATCH TITLE"));
+            Assert.That(render.Value.Composition.Patch.ToJsonString(), Does.Contain("PATCH TITLE"));
+            Assert.That(render.Value.UsageHint, Does.Contain("plan_edit"));
         });
     }
 
@@ -84,14 +148,16 @@ public sealed class ReadDocumentTests
     {
         var scene = new Scene(1280, 720, "Summary")
         {
-            Duration = TimeSpan.FromSeconds(8)
+            Duration = TimeSpan.FromSeconds(8),
+            Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.scene"))
         };
         var element = new Element
         {
             Name = "Title element",
             Start = TimeSpan.FromSeconds(1),
             Length = TimeSpan.FromSeconds(4),
-            ZIndex = 3
+            ZIndex = 3,
+            Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.belm"))
         };
         var text = new TextBlock
         {
