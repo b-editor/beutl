@@ -20,14 +20,23 @@ public sealed record CompositionRunSummary(
     IReadOnlyList<CompositionSequenceDescriptor> Sequences,
     IReadOnlyList<CompositionTransitionDescriptor> Transitions);
 
+public sealed record CompositionPlanPreview(
+    bool Valid,
+    int ChangeCount,
+    IReadOnlyDictionary<string, int> Operations,
+    string UsageHint);
+
 public sealed record PlanCompositionResponse(
     string SchemaVersion,
+    string PlanId,
     CompositionRunSummary Composition,
-    ReconcilePlan Plan);
+    CompositionPlanPreview Plan,
+    ReconcilePlan? DetailedPlan);
 
 public sealed record ApplyCompositionResponse(
     string SchemaVersion,
     CompositionRunSummary Composition,
+    string? AppliedPlanId,
     ReconcileResult Result);
 
 [McpServerToolType]
@@ -89,33 +98,83 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
         string? name = null,
         string? tag = null,
         JsonObject? inputProps = null,
-        string? seed = null)
+        string? seed = null,
+        bool avoidRecent = true,
+        bool includeDetailedPlan = false)
     {
         return Execute(() =>
         {
             IEditingSession session = sessions.RequireSession();
-            CompositionRender composition = _compositionCatalog.Render(name, tag, inputProps, sessions.ResolveCompositionSeed(seed));
+            CompositionRender composition = _compositionCatalog.Render(
+                name,
+                tag,
+                inputProps,
+                sessions.ResolveCompositionSeed(seed),
+                avoidRecent ? sessions.GetRecentCompositions() : null);
             JsonObject resolved = ResolveDesiredDocument(session, desired: null, patch: composition.Patch, schemaVersion: SchemaVersion.Current);
+            ReconcilePlan plan = _reconciler.Plan(session, resolved);
+            CompositionPlanState state = sessions.StoreCompositionPlan(
+                composition.Name,
+                composition.Seed,
+                composition.InputProps,
+                resolved,
+                plan.ExpectedChangeSet);
+
             return new PlanCompositionResponse(
                 SchemaVersion.Current,
+                state.Id,
                 CreateCompositionRunSummary(composition),
-                _reconciler.Plan(session, resolved));
+                CreateCompositionPlanPreview(plan),
+                includeDetailedPlan ? plan : null);
         });
     }
 
     [McpServerTool(Name = "apply_composition")]
-    [Description("Applies a Remotion-style composition through the declarative editor loop without requiring the client to handle a huge patch. Pass plan_composition.plan.expectedChangeSet to enforce parity.")]
+    [Description("Applies a Remotion-style composition through the declarative editor loop without requiring the client to handle a huge patch. Prefer planId from plan_composition for compact plan/apply parity; expectedChangeSet remains supported.")]
     public ToolResult<ApplyCompositionResponse> ApplyComposition(
         string? name = null,
         string? tag = null,
         JsonObject? inputProps = null,
         string? seed = null,
+        string? planId = null,
+        bool avoidRecent = true,
         JsonArray? expectedChangeSet = null)
     {
         return Execute(() =>
         {
             IEditingSession session = sessions.RequireSession();
-            CompositionRender composition = _compositionCatalog.Render(name, tag, inputProps, sessions.ResolveCompositionSeed(seed));
+            if (!string.IsNullOrWhiteSpace(planId))
+            {
+                CompositionPlanState state = sessions.GetCompositionPlan(planId.Trim());
+                ReconcilePlan storedPlan = _reconciler.Plan(session, (JsonObject)state.DesiredDocument.DeepClone());
+                if (!ChangeSetMatches(storedPlan, state.ExpectedChangeSet))
+                {
+                    throw new ReconcileException(new ToolError(
+                        ErrorCode.ValidationRejected,
+                        "The live composition change set differs from the stored planId.",
+                        planId,
+                        "Run plan_composition again and pass the new planId."));
+                }
+
+                ReconcileResult storedResult = _reconciler.Apply(session, (JsonObject)state.DesiredDocument.DeepClone());
+                sessions.RecordCompositionUse(state.CompositionName);
+                sessions.RemoveCompositionPlan(state.Id);
+                return new ApplyCompositionResponse(
+                    SchemaVersion.Current,
+                    CreateCompositionRunSummary(_compositionCatalog.Render(
+                        state.CompositionName,
+                        inputProps: state.InputProps,
+                        seed: state.Seed)),
+                    state.Id,
+                    storedResult);
+            }
+
+            CompositionRender composition = _compositionCatalog.Render(
+                name,
+                tag,
+                inputProps,
+                sessions.ResolveCompositionSeed(seed),
+                avoidRecent ? sessions.GetRecentCompositions() : null);
             JsonObject resolved = ResolveDesiredDocument(session, desired: null, patch: composition.Patch, schemaVersion: SchemaVersion.Current);
             ReconcilePlan plan = _reconciler.Plan(session, resolved);
             if (expectedChangeSet is not null && !ChangeSetMatches(plan, expectedChangeSet))
@@ -127,10 +186,13 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
                     "Run plan_composition again and submit the updated expectedChangeSet."));
             }
 
+            ReconcileResult result = _reconciler.Apply(session, resolved);
+            sessions.RecordCompositionUse(composition.Name);
             return new ApplyCompositionResponse(
                 SchemaVersion.Current,
                 CreateCompositionRunSummary(composition),
-                _reconciler.Apply(session, resolved));
+                null,
+                result);
         });
     }
 
@@ -182,6 +244,17 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
             composition.Metadata,
             composition.Sequences.ToArray(),
             composition.Transitions.ToArray());
+    }
+
+    private static CompositionPlanPreview CreateCompositionPlanPreview(ReconcilePlan plan)
+    {
+        return new CompositionPlanPreview(
+            plan.Valid,
+            plan.Changes.Count,
+            plan.Changes
+                .GroupBy(change => change.Operation, StringComparer.Ordinal)
+                .ToDictionary(group => group.Key, group => group.Count(), StringComparer.Ordinal),
+            "Pass planId to apply_composition for compact plan/apply parity. Set includeDetailedPlan=true only if you explicitly need expectedChangeSet.");
     }
 
     private static bool ChangeSetMatches(ReconcilePlan plan, JsonArray expectedChangeSet)

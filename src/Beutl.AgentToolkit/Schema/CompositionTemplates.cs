@@ -105,7 +105,10 @@ public sealed class CompositionTemplateCatalog
             : defaultSeed.Trim();
     }
 
-    public CompositionTemplateList List(string? tag = null, string? seed = null)
+    public CompositionTemplateList List(
+        string? tag = null,
+        string? seed = null,
+        IReadOnlyList<string>? deprioritizedNames = null)
     {
         string resolvedSeed = ResolveSeed(seed);
         CompositionTemplateSummary[] summaries = s_templates.Value
@@ -113,7 +116,7 @@ public sealed class CompositionTemplateCatalog
             .Select(CreateSummary)
             .ToArray();
 
-        return new CompositionTemplateList(resolvedSeed, Shuffle(summaries, resolvedSeed));
+        return new CompositionTemplateList(resolvedSeed, Deprioritize(Shuffle(summaries, resolvedSeed), deprioritizedNames));
     }
 
     public CompositionTemplateDetail Get(string name)
@@ -132,11 +135,16 @@ public sealed class CompositionTemplateCatalog
             spec.CreateTransitions(metadata));
     }
 
-    public CompositionRender Render(string? name = null, string? tag = null, JsonObject? inputProps = null, string? seed = null)
+    public CompositionRender Render(
+        string? name = null,
+        string? tag = null,
+        JsonObject? inputProps = null,
+        string? seed = null,
+        IReadOnlyList<string>? deprioritizedNames = null)
     {
         string resolvedSeed = ResolveSeed(seed);
         CompositionTemplateSpec spec = string.IsNullOrWhiteSpace(name)
-            ? PickFirst(tag, resolvedSeed)
+            ? PickFirst(tag, resolvedSeed, deprioritizedNames)
             : Find(name);
 
         JsonObject input = inputProps is null ? [] : CloneObject(inputProps);
@@ -154,7 +162,7 @@ public sealed class CompositionTemplateCatalog
         return spec.Render(context);
     }
 
-    private static CompositionTemplateSpec PickFirst(string? tag, string seed)
+    private static CompositionTemplateSpec PickFirst(string? tag, string seed, IReadOnlyList<string>? deprioritizedNames)
     {
         CompositionTemplateSpec[] candidates = s_templates.Value
             .Where(spec => MatchesTag(spec, tag))
@@ -168,7 +176,7 @@ public sealed class CompositionTemplateCatalog
                 tag));
         }
 
-        return Shuffle(candidates, seed)[0];
+        return Deprioritize(Shuffle(candidates, seed), deprioritizedNames)[0];
     }
 
     private static CompositionTemplateSpec Find(string name)
@@ -253,7 +261,58 @@ public sealed class CompositionTemplateCatalog
                 SharedProps("FRAME FLOW", "KINETIC LAYOUT / GRADIENT BRUSHES / EFFECT CHAIN"),
                 CreateSplitSequences,
                 CreateDefaultTransitions,
-                RenderSplitScreen)
+                RenderSplitScreen),
+            new CompositionTemplateSpec(
+                "liquid-gradient-system",
+                "Remotion-style composition for liquid blobs, oversized gradient fields, soft focus, and drifting typography.",
+                ["starter", "empty-scene", "liquid", "gradient", "organic", "soft-focus", "blob"],
+                new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    ["layoutFamily"] = "organic-blob-field",
+                    ["motionLanguage"] = "drift-morph",
+                    ["palette"] = "seeded-liquid",
+                    ["effectMood"] = "soft-saturate",
+                    ["typography"] = "floating-title"
+                },
+                DefaultProps("LIQUID SIGNAL", "SOFT GRADIENT FIELD / DRIFTING BLOBS"),
+                SharedProps("LIQUID SIGNAL", "SOFT GRADIENT FIELD / DRIFTING BLOBS"),
+                CreateLiquidSequences,
+                CreateDefaultTransitions,
+                RenderLiquidGradient),
+            new CompositionTemplateSpec(
+                "data-bar-dashboard",
+                "Remotion-style composition for animated metric bars, dense data strips, dashboard labels, and editorial color grading.",
+                ["starter", "empty-scene", "data", "dashboard", "bars", "metrics", "editorial"],
+                new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    ["layoutFamily"] = "dashboard-bars",
+                    ["motionLanguage"] = "metric-rise",
+                    ["palette"] = "seeded-analytics",
+                    ["effectMood"] = "high-contrast-grade",
+                    ["typography"] = "metric-label"
+                },
+                DefaultProps("SIGNAL INDEX", "LIVE METRICS / EDITORIAL DATA SYSTEM"),
+                SharedProps("SIGNAL INDEX", "LIVE METRICS / EDITORIAL DATA SYSTEM"),
+                CreateDataSequences,
+                CreateDefaultTransitions,
+                RenderDataDashboard),
+            new CompositionTemplateSpec(
+                "glitch-cutout-collage",
+                "Remotion-style composition for glitch slices, cutout panels, chromatic shifts, pixel sampling, and hard title cuts.",
+                ["starter", "empty-scene", "glitch", "collage", "cutout", "chromatic", "pixel"],
+                new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    ["layoutFamily"] = "cutout-collage",
+                    ["motionLanguage"] = "jump-cut-slice",
+                    ["palette"] = "seeded-glitch",
+                    ["effectMood"] = "chromatic-pixel",
+                    ["typography"] = "hard-cut"
+                },
+                DefaultProps("GLITCH CUT", "CHROMATIC COLLAGE / PIXEL SLICE SYSTEM"),
+                SharedProps("GLITCH CUT", "CHROMATIC COLLAGE / PIXEL SLICE SYSTEM"),
+                CreateGlitchSequences,
+                CreateDefaultTransitions,
+                RenderGlitchCollage)
         ];
     }
 
@@ -732,6 +791,346 @@ public sealed class CompositionTemplateCatalog
         return CreateRender(context, elements);
     }
 
+    private static CompositionRender RenderLiquidGradient(CompositionContext context)
+    {
+        Palette palette = ResolvePalette(context, offset: 3);
+        string title = ReadString(context.ResolvedProps, "title", "LIQUID SIGNAL");
+        string subtitle = ReadString(context.ResolvedProps, "subtitle", "SOFT GRADIENT FIELD");
+        float intensity = ReadFloat(context.ResolvedProps, "intensity", 1);
+        float density = ReadFloat(context.ResolvedProps, "density", 1);
+        TimeSpan fullLength = TimeSpan.FromSeconds(context.Metadata.DurationSeconds);
+
+        List<Element> elements =
+        [
+            CreateElement(
+                "Liquid gradient background",
+                0,
+                fullLength,
+                new RectShape
+                {
+                    Name = "Soft liquid field",
+                    Width = { CurrentValue = context.Metadata.Width },
+                    Height = { CurrentValue = context.Metadata.Height },
+                    Fill = { CurrentValue = CreateLinearGradient(palette.BackgroundA, palette.BackgroundB) },
+                    FilterEffect =
+                    {
+                        CurrentValue = new FilterEffectGroup
+                        {
+                            Children =
+                            {
+                                CreateSaturate(118 + (8 * intensity)),
+                                CreateBrightness(104)
+                            }
+                        }
+                    }
+                })
+        ];
+
+        int blobCount = Math.Clamp((int)MathF.Round(5 * density), 4, 9);
+        for (int i = 0; i < blobCount; i++)
+        {
+            float size = 260 + context.Random.Range(0, 260);
+            float x = context.Random.Range(-760, 760);
+            float y = context.Random.Range(-340, 340);
+            float endX = x + context.Random.Range(-220, 220);
+            float endY = y + context.Random.Range(-180, 180);
+            Element blob = CreateElement(
+                $"Liquid gradient blob {i + 1}",
+                3 + i,
+                fullLength,
+                new EllipseShape
+                {
+                    Name = $"Seeded liquid blob {i + 1}",
+                    Width = { CurrentValue = size },
+                    Height = { CurrentValue = size * context.Random.Range(0.62f, 1.18f) },
+                    Fill = { CurrentValue = CreateRadialGradient(i % 2 == 0 ? palette.Accent : palette.SecondaryAccent, "#00111111") },
+                    Transform =
+                    {
+                        CurrentValue = new TransformGroup
+                        {
+                            Children =
+                            {
+                                new TranslateTransform(x, y),
+                                new RotationTransform(context.Random.Range(-24, 24))
+                            }
+                        }
+                    },
+                    FilterEffect =
+                    {
+                        CurrentValue = new FilterEffectGroup
+                        {
+                            Children =
+                            {
+                                CreateBlur((6 + (i * 1.2f)) * intensity),
+                                CreateDropShadow(0, 0, 28 * intensity, i % 2 == 0 ? "#7734e6ff" : "#77ff7a59")
+                            }
+                        }
+                    }
+                });
+
+            JsonObject blobJson = SerializeElement(blob);
+            JsonObject blobObject = GetFirstObjectJson(blobJson);
+            AddFloatAnimation(blobObject, nameof(Drawable.Opacity), (0, 0, typeof(CubicEaseOut)), (0.5 + (i * 0.1), 84, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, 54, typeof(SineEaseInOut)));
+            JsonObject translate = GetTransformChildJson(blobObject, typeof(TranslateTransform));
+            AddFloatAnimation(translate, nameof(TranslateTransform.X), (0, x, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, endX, typeof(SineEaseInOut)));
+            AddFloatAnimation(translate, nameof(TranslateTransform.Y), (0, y, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, endY, typeof(SineEaseInOut)));
+            AddFloatAnimation(GetTransformChildJson(blobObject, typeof(RotationTransform)), nameof(RotationTransform.Rotation), (0, context.Random.Range(-18, 18), typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, context.Random.Range(90, 220), typeof(SineEaseInOut)));
+            elements.Add(DeserializeElement(blobJson));
+        }
+
+        elements.Add(CreateTextElement("Liquid title", "Floating title", title, 30, 84, 7, -620 + context.Random.Range(-60, 90), 245 + context.Random.Range(-40, 30), palette.Foreground, fullLength));
+        elements.Add(CreateTextElement("Liquid subtitle", "Floating subtitle", subtitle, 31, 30, 4, -618 + context.Random.Range(-60, 90), 338, palette.Foreground, fullLength));
+        AddNoiseDots(elements, context, palette, fullLength, zStart: 18, count: Math.Clamp((int)MathF.Round(10 * density), 6, 20));
+
+        return CreateRender(context, elements);
+    }
+
+    private static CompositionRender RenderDataDashboard(CompositionContext context)
+    {
+        Palette palette = ResolvePalette(context, offset: 4);
+        string title = ReadString(context.ResolvedProps, "title", "SIGNAL INDEX");
+        string subtitle = ReadString(context.ResolvedProps, "subtitle", "LIVE METRICS");
+        float intensity = ReadFloat(context.ResolvedProps, "intensity", 1);
+        float density = ReadFloat(context.ResolvedProps, "density", 1);
+        TimeSpan fullLength = TimeSpan.FromSeconds(context.Metadata.DurationSeconds);
+
+        List<Element> elements =
+        [
+            CreateElement(
+                "Dashboard background",
+                0,
+                fullLength,
+                new RectShape
+                {
+                    Name = "Editorial dashboard field",
+                    Width = { CurrentValue = context.Metadata.Width },
+                    Height = { CurrentValue = context.Metadata.Height },
+                    Fill = { CurrentValue = CreateLinearGradient(palette.BackgroundA, palette.BackgroundB) },
+                    FilterEffect =
+                    {
+                        CurrentValue = new FilterEffectGroup
+                        {
+                            Children =
+                            {
+                                CreateHighContrast(8 + (6 * intensity)),
+                                CreateSaturate(122)
+                            }
+                        }
+                    }
+                })
+        ];
+
+        for (int i = 0; i < 7; i++)
+        {
+            float y = -300 + (i * 100);
+            Element rule = CreateElement(
+                $"Dashboard scanline {i + 1}",
+                2,
+                fullLength,
+                new RectShape
+                {
+                    Name = $"Metric rule {i + 1}",
+                    Width = { CurrentValue = 1380 },
+                    Height = { CurrentValue = 2 },
+                    Fill = { CurrentValue = new SolidColorBrush(Color.Parse(i % 2 == 0 ? "#33ffffff" : "#2243e7ff")) },
+                    Transform =
+                    {
+                        CurrentValue = new TransformGroup
+                        {
+                            Children =
+                            {
+                                new TranslateTransform(120, y)
+                            }
+                        }
+                    }
+                });
+            elements.Add(rule);
+        }
+
+        int barCount = Math.Clamp((int)MathF.Round(12 * density), 8, 18);
+        for (int i = 0; i < barCount; i++)
+        {
+            float targetHeight = 140 + (float)((context.Random.Noise("bar-height", i) + 1) * 190);
+            float x = -620 + (i * (1120f / Math.Max(1, barCount - 1))) + context.Random.Range(-18, 18);
+            float y = 220 - (targetHeight / 2);
+            Element bar = CreateElement(
+                $"Dashboard metric bar {i + 1}",
+                5 + i,
+                fullLength,
+                new RoundedRectShape
+                {
+                    Name = $"Seeded metric bar {i + 1}",
+                    Width = { CurrentValue = 46 + context.Random.Range(-8, 16) },
+                    Height = { CurrentValue = 20 },
+                    CornerRadius = { CurrentValue = new CornerRadius(18) },
+                    Fill = { CurrentValue = CreateLinearGradient(i % 3 == 0 ? palette.Accent : palette.SecondaryAccent, i % 3 == 0 ? palette.SecondaryAccent : palette.Accent) },
+                    Transform =
+                    {
+                        CurrentValue = new TransformGroup
+                        {
+                            Children =
+                            {
+                                new TranslateTransform(x, y + (targetHeight / 2))
+                            }
+                        }
+                    },
+                    FilterEffect =
+                    {
+                        CurrentValue = new FilterEffectGroup
+                        {
+                            Children =
+                            {
+                                CreateDropShadow(0, 10, 16 * intensity, "#77000000"),
+                                CreateBrightness(110)
+                            }
+                        }
+                    }
+                });
+
+            JsonObject barJson = SerializeElement(bar);
+            JsonObject barObject = GetFirstObjectJson(barJson);
+            AddFloatAnimation(barObject, nameof(Drawable.Opacity), (0, 0, typeof(CubicEaseOut)), (0.35 + (i * 0.05), 100, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, 82, typeof(SineEaseInOut)));
+            AddFloatAnimation(barObject, nameof(RectShape.Height), (0, 20, typeof(CubicEaseOut)), (0.65 + (i * 0.04), targetHeight, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, targetHeight + context.Random.Range(-80, 80), typeof(SineEaseInOut)));
+            JsonObject translate = GetTransformChildJson(barObject, typeof(TranslateTransform));
+            AddFloatAnimation(translate, nameof(TranslateTransform.Y), (0, y + (targetHeight / 2), typeof(CubicEaseOut)), (0.65 + (i * 0.04), y, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, y + context.Random.Range(-30, 30), typeof(SineEaseInOut)));
+            elements.Add(DeserializeElement(barJson));
+        }
+
+        elements.Add(CreateTextElement("Dashboard title", "Metric title", title, 30, 76, 6, -710, -360, palette.Foreground, fullLength));
+        elements.Add(CreateTextElement("Dashboard subtitle", "Metric subtitle", subtitle, 31, 28, 4, -708, -270, palette.Foreground, fullLength));
+        elements.Add(CreateTextElement("Dashboard value label", "Metric value", $"{(int)(StableHash(context.Seed) % 9000) + 1000}", 32, 96, 2, 520, -335, palette.Accent, fullLength));
+
+        return CreateRender(context, elements);
+    }
+
+    private static CompositionRender RenderGlitchCollage(CompositionContext context)
+    {
+        Palette palette = ResolvePalette(context, offset: 5);
+        string title = ReadString(context.ResolvedProps, "title", "GLITCH CUT");
+        string subtitle = ReadString(context.ResolvedProps, "subtitle", "CHROMATIC COLLAGE");
+        float intensity = ReadFloat(context.ResolvedProps, "intensity", 1);
+        float density = ReadFloat(context.ResolvedProps, "density", 1);
+        TimeSpan fullLength = TimeSpan.FromSeconds(context.Metadata.DurationSeconds);
+
+        List<Element> elements =
+        [
+            CreateElement(
+                "Glitch collage background",
+                0,
+                fullLength,
+                new RectShape
+                {
+                    Name = "Chromatic cutout field",
+                    Width = { CurrentValue = context.Metadata.Width },
+                    Height = { CurrentValue = context.Metadata.Height },
+                    Fill = { CurrentValue = CreateLinearGradient(palette.BackgroundA, palette.BackgroundB) },
+                    FilterEffect =
+                    {
+                        CurrentValue = new FilterEffectGroup
+                        {
+                            Children =
+                            {
+                                CreateHighContrast(12),
+                                CreateColorShift((int)(4 * intensity))
+                            }
+                        }
+                    }
+                })
+        ];
+
+        int sliceCount = Math.Clamp((int)MathF.Round(8 * density), 6, 14);
+        for (int i = 0; i < sliceCount; i++)
+        {
+            float width = 280 + context.Random.Range(80, 420);
+            float height = 34 + context.Random.Range(20, 110);
+            float x = context.Random.Range(-720, 720);
+            float y = context.Random.Range(-310, 290);
+            float endX = x + context.Random.Range(-260, 260);
+            Element slice = CreateElement(
+                $"Glitch collage slice {i + 1}",
+                4 + i,
+                fullLength,
+                new RectShape
+                {
+                    Name = $"Seeded glitch slice {i + 1}",
+                    Width = { CurrentValue = width },
+                    Height = { CurrentValue = height },
+                    Fill = { CurrentValue = CreateLinearGradient(i % 2 == 0 ? palette.Accent : "#eeffffff", i % 2 == 0 ? palette.SecondaryAccent : palette.Accent) },
+                    Transform =
+                    {
+                        CurrentValue = new TransformGroup
+                        {
+                            Children =
+                            {
+                                new TranslateTransform(x, y),
+                                new RotationTransform(context.Random.Range(-7, 7))
+                            }
+                        }
+                    },
+                    FilterEffect =
+                    {
+                        CurrentValue = new FilterEffectGroup
+                        {
+                            Children =
+                            {
+                                CreateMosaic(5 + (i % 4 * 3)),
+                                CreateColorShift((int)(3 + (i % 5) * intensity)),
+                                CreateDropShadow(16, 16, 8 * intensity, "#88000000")
+                            }
+                        }
+                    }
+                });
+
+            JsonObject sliceJson = SerializeElement(slice);
+            JsonObject sliceObject = GetFirstObjectJson(sliceJson);
+            AddFloatAnimation(sliceObject, nameof(Drawable.Opacity), (0, 0, typeof(CubicEaseOut)), (0.2 + (i * 0.06), 88, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, 52 + (i % 4 * 8), typeof(SineEaseInOut)));
+            AddFloatAnimation(GetTransformChildJson(sliceObject, typeof(TranslateTransform)), nameof(TranslateTransform.X), (0, x + context.Random.Range(-420, 420), typeof(CubicEaseOut)), (0.55 + (i * 0.05), x, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, endX, typeof(SineEaseInOut)));
+            elements.Add(DeserializeElement(sliceJson));
+        }
+
+        Element titleElement = CreateElement(
+            "Glitch title",
+            30,
+            fullLength,
+            new TextBlock
+            {
+                Name = "Hard cut title",
+                Text = { CurrentValue = title },
+                Size = { CurrentValue = 112 + context.Random.Range(-12, 10) },
+                Spacing = { CurrentValue = 2 },
+                Fill = { CurrentValue = new SolidColorBrush(Color.Parse(palette.Foreground)) },
+                Transform =
+                {
+                    CurrentValue = new TransformGroup
+                    {
+                        Children =
+                        {
+                            new TranslateTransform(-610 + context.Random.Range(-80, 120), 118 + context.Random.Range(-40, 60))
+                        }
+                    }
+                },
+                FilterEffect =
+                {
+                    CurrentValue = new FilterEffectGroup
+                    {
+                        Children =
+                        {
+                            CreateColorShift((int)(8 * intensity)),
+                            CreateDropShadow(12, 18, 10, "#aa000000")
+                        }
+                    }
+                }
+            });
+        JsonObject titleJson = SerializeElement(titleElement);
+        JsonObject titleObject = GetFirstObjectJson(titleJson);
+        AddFloatAnimation(titleObject, nameof(Drawable.Opacity), (0, 0, typeof(CubicEaseOut)), (0.45, 100, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds - 0.25, 100, typeof(SineEaseInOut)), (context.Metadata.DurationSeconds, 0, typeof(SineEaseInOut)));
+        AddFloatAnimation(titleObject, nameof(TextBlock.Spacing), (0, 18, typeof(CubicEaseOut)), (0.9, 2, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, 8, typeof(SineEaseInOut)));
+        elements.Add(DeserializeElement(titleJson));
+        elements.Add(CreateTextElement("Glitch subtitle", "Hard cut subtitle", subtitle, 31, 30, 6, -600, 238, palette.Foreground, fullLength));
+
+        return CreateRender(context, elements);
+    }
+
     private static void AddNoiseDots(List<Element> elements, CompositionContext context, Palette palette, TimeSpan length, int zStart, int count)
     {
         for (int i = 0; i < count; i++)
@@ -836,6 +1235,21 @@ public sealed class CompositionTemplateCatalog
     private static CompositionSequenceDescriptor[] CreateSplitSequences(CompositionMetadata metadata)
     {
         return CreateSequences(metadata, "absolute-fill", "panel-slide", "type-system");
+    }
+
+    private static CompositionSequenceDescriptor[] CreateLiquidSequences(CompositionMetadata metadata)
+    {
+        return CreateSequences(metadata, "organic-blob-field", "blob-drift", "floating-title");
+    }
+
+    private static CompositionSequenceDescriptor[] CreateDataSequences(CompositionMetadata metadata)
+    {
+        return CreateSequences(metadata, "dashboard-bars", "metric-rise", "metric-labels");
+    }
+
+    private static CompositionSequenceDescriptor[] CreateGlitchSequences(CompositionMetadata metadata)
+    {
+        return CreateSequences(metadata, "cutout-collage", "slice-jump", "hard-cut-type");
     }
 
     private static CompositionSequenceDescriptor[] CreateSequences(CompositionMetadata metadata, string layout, string bodyRole, string textRole)
@@ -943,6 +1357,30 @@ public sealed class CompositionTemplateCatalog
         return items;
     }
 
+    private static T[] Deprioritize<T>(IReadOnlyList<T> source, IReadOnlyList<string>? names)
+        where T : class
+    {
+        if (names is null || names.Count == 0)
+        {
+            return source.ToArray();
+        }
+
+        var recent = new HashSet<string>(names, StringComparer.OrdinalIgnoreCase);
+        return source
+            .OrderBy(item => recent.Contains(GetTemplateName(item)) ? 1 : 0)
+            .ToArray();
+    }
+
+    private static string GetTemplateName<T>(T item)
+    {
+        return item switch
+        {
+            CompositionTemplateSpec spec => spec.Name,
+            CompositionTemplateSummary summary => summary.Name,
+            _ => string.Empty
+        };
+    }
+
     private static bool MatchesTag(CompositionTemplateSpec spec, string? tag)
     {
         return string.IsNullOrWhiteSpace(tag)
@@ -1027,6 +1465,21 @@ public sealed class CompositionTemplateCatalog
         };
     }
 
+    private static RadialGradientBrush CreateRadialGradient(string innerColor, string outerColor)
+    {
+        return new RadialGradientBrush
+        {
+            Center = { CurrentValue = RelativePoint.Center },
+            GradientOrigin = { CurrentValue = RelativePoint.Center },
+            Radius = { CurrentValue = 72 },
+            GradientStops =
+            {
+                new GradientStop(Color.Parse(innerColor), 0),
+                new GradientStop(Color.Parse(outerColor), 1)
+            }
+        };
+    }
+
     private static Pen CreatePen(string color, float thickness)
     {
         return new Pen
@@ -1071,6 +1524,30 @@ public sealed class CompositionTemplateCatalog
         var hueRotate = new HueRotate();
         hueRotate.Angle.CurrentValue = angle;
         return hueRotate;
+    }
+
+    private static HighContrast CreateHighContrast(float contrast)
+    {
+        var highContrast = new HighContrast();
+        highContrast.Contrast.CurrentValue = contrast;
+        return highContrast;
+    }
+
+    private static MosaicEffect CreateMosaic(float tileSize)
+    {
+        var mosaic = new MosaicEffect();
+        mosaic.TileSize.CurrentValue = new Size(tileSize, tileSize);
+        return mosaic;
+    }
+
+    private static ColorShift CreateColorShift(int offset)
+    {
+        var colorShift = new ColorShift();
+        colorShift.RedOffset.CurrentValue = new PixelPoint(offset, 0);
+        colorShift.GreenOffset.CurrentValue = PixelPoint.Origin;
+        colorShift.BlueOffset.CurrentValue = new PixelPoint(-offset, 0);
+        colorShift.AlphaOffset.CurrentValue = PixelPoint.Origin;
+        return colorShift;
     }
 
     private static JsonObject SerializeElement(Element element)

@@ -30,6 +30,7 @@ public sealed record ListCompositionsResponse(
     string SchemaVersion,
     string Seed,
     IReadOnlyList<CompositionTemplateSummary> Compositions,
+    IReadOnlyList<string> RecentlyUsedCompositions,
     string SelectionHint);
 
 public sealed record ListEffectsResponse(
@@ -108,7 +109,8 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 "In live mode, call attach_active_editor before scene tools.",
                 "Call read_document_summary to inspect progress without the full document.",
                 "Call list_effects and list_effect_recipes to discover Beutl's visual effect palette before choosing a repeated look.",
-                "For low-context motion graphics, call list_compositions without seed for a session-varied default order, then plan_composition/apply_composition with the returned seed when you need exact reproduction.",
+                "For low-context motion graphics, call list_compositions without seed and prefer the first composition; recently applied compositions are moved to the end by default.",
+                "Call plan_composition and pass the returned planId to apply_composition for compact plan/apply parity without carrying a huge change set.",
                 "Use render_composition_patch only when the client explicitly needs the generated patch JSON; plan_composition/apply_composition avoid huge raw HTTP payloads.",
                 "Call list_examples to choose a starter; examples are shuffled so the first empty-scene option varies across repeated runs.",
                 "Call get_examples with name=<selected-example> to fetch exactly one patch.",
@@ -211,17 +213,19 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
     }
 
     [McpServerTool(Name = "list_compositions")]
-    [Description("Returns compact Remotion-style composition templates. Templates include props, style axes, default metadata, and deterministic shuffled order. If seed is omitted, the active session default seed is used.")]
-    public ToolResult<ListCompositionsResponse> ListCompositions(string? tag = null, string? seed = null)
+    [Description("Returns compact Remotion-style composition templates. Templates include props, style axes, default metadata, and deterministic shuffled order. If seed is omitted, the active session default seed is used. Recently applied templates are moved to the end by default.")]
+    public ToolResult<ListCompositionsResponse> ListCompositions(string? tag = null, string? seed = null, bool avoidRecent = true)
     {
         return Execute(() =>
         {
-            CompositionTemplateList list = _compositionCatalog.List(tag, sessions.ResolveCompositionSeed(seed));
+            IReadOnlyList<string> recent = avoidRecent ? sessions.GetRecentCompositions() : [];
+            CompositionTemplateList list = _compositionCatalog.List(tag, sessions.ResolveCompositionSeed(seed), recent);
             return new ListCompositionsResponse(
                 SchemaVersion.Current,
                 list.Seed,
                 list.Compositions,
-                "Compositions are shuffled by seed. When seed is omitted, the active session default seed is used; reuse the returned seed to reproduce the same order and composition output.");
+                recent,
+                "Compositions are shuffled by seed, then recently applied names are moved to the end when avoidRecent=true. Prefer the first suitable composition; reuse the returned seed and name to reproduce output.");
         });
     }
 
@@ -240,11 +244,17 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
         string? name = null,
         string? tag = null,
         JsonObject? inputProps = null,
-        string? seed = null)
+        string? seed = null,
+        bool avoidRecent = true)
     {
         return Execute(() => new RenderCompositionPatchResponse(
             SchemaVersion.Current,
-            _compositionCatalog.Render(name, tag, inputProps, sessions.ResolveCompositionSeed(seed)),
+            _compositionCatalog.Render(
+                name,
+                tag,
+                inputProps,
+                sessions.ResolveCompositionSeed(seed),
+                avoidRecent ? sessions.GetRecentCompositions() : null),
             "Pass composition.patch to plan_edit/apply_edit with schemaVersion=1. Use the returned seed to reproduce or intentionally vary the generated motion."));
     }
 

@@ -129,12 +129,18 @@ public sealed class SchemaGenerationTests
         CompositionRender sameRender = catalog.Render("orbital-radar-map", inputProps: inputProps, seed: "orbit-seed");
         CompositionRender differentRender = catalog.Render("orbital-radar-map", inputProps: inputProps, seed: "orbit-seed-2");
         CompositionRender noiseRender = catalog.Render("kinetic-ribbon-title", seed: "noise-seed");
+        CompositionRender liquidRender = catalog.Render("liquid-gradient-system", seed: "liquid-seed");
+        CompositionRender dataRender = catalog.Render("data-bar-dashboard", seed: "data-seed");
+        CompositionRender glitchRender = catalog.Render("glitch-cutout-collage", seed: "glitch-seed");
 
         Assert.Multiple(() =>
         {
             Assert.That(firstList.Seed, Is.EqualTo("alpha"));
             Assert.That(firstList.Compositions.Select(composition => composition.Name), Is.EqualTo(sameList.Compositions.Select(composition => composition.Name)));
-            Assert.That(firstList.Compositions, Has.Count.GreaterThanOrEqualTo(3));
+            Assert.That(firstList.Compositions, Has.Count.GreaterThanOrEqualTo(6));
+            Assert.That(firstList.Compositions.SelectMany(composition => composition.Tags), Does.Contain("liquid"));
+            Assert.That(firstList.Compositions.SelectMany(composition => composition.Tags), Does.Contain("dashboard"));
+            Assert.That(firstList.Compositions.SelectMany(composition => composition.Tags), Does.Contain("glitch"));
             Assert.That(detail.DefaultProps["title"]!.GetValue<string>(), Is.EqualTo("ORBIT MAP"));
             Assert.That(detail.Props.Select(prop => prop.Name), Does.Contain("durationSeconds"));
             Assert.That(detail.Sequences.Any(sequence => sequence.Name == "body"), Is.True);
@@ -149,8 +155,14 @@ public sealed class SchemaGenerationTests
             Assert.That(firstRender.Patch.ToJsonString(), Does.Contain("KeyFrames"));
             Assert.That(firstRender.Patch.ToJsonString(), Does.Contain("FilterEffectGroup"));
             Assert.That(noiseRender.Patch.ToJsonString(), Does.Contain("Deterministic noise dot"));
+            Assert.That(liquidRender.Patch.ToJsonString(), Does.Contain("Seeded liquid blob"));
+            Assert.That(dataRender.Patch.ToJsonString(), Does.Contain("Seeded metric bar"));
+            Assert.That(glitchRender.Patch.ToJsonString(), Does.Contain("Seeded glitch slice"));
             Assert.That(TransformGroupsUseCanonicalOrder(firstRender.Patch), Is.True);
             Assert.That(TransformGroupsUseCanonicalOrder(catalog.Render("kinetic-ribbon-title", seed: "ribbon-seed").Patch), Is.True);
+            Assert.That(TransformGroupsUseCanonicalOrder(liquidRender.Patch), Is.True);
+            Assert.That(TransformGroupsUseCanonicalOrder(dataRender.Patch), Is.True);
+            Assert.That(TransformGroupsUseCanonicalOrder(glitchRender.Patch), Is.True);
             Assert.That(TransformGroupsUseCanonicalOrder(new SchemaGenerator()
                 .GenerateExamples(nameFilter: "create-empty-scene-orbital-radar")
                 .Single()
@@ -166,6 +178,7 @@ public sealed class SchemaGenerationTests
         CompositionTemplateList sameList = sessionCatalog.List();
         string[] firstOrder = firstList.Compositions.Select(composition => composition.Name).ToArray();
         string[] sameOrder = sameList.Compositions.Select(composition => composition.Name).ToArray();
+        CompositionTemplateList avoidedList = sessionCatalog.List(deprioritizedNames: [firstOrder[0]]);
 
         string[] firstChoices = Enumerable.Range(0, 24)
             .Select(index => new CompositionTemplateCatalog(defaultSeed: $"session-{index}")
@@ -186,7 +199,9 @@ public sealed class SchemaGenerationTests
             Assert.That(firstList.Seed, Is.EqualTo("session-a"));
             Assert.That(sameList.Seed, Is.EqualTo("session-a"));
             Assert.That(firstOrder, Is.EqualTo(sameOrder));
+            Assert.That(avoidedList.Compositions.Last().Name, Is.EqualTo(firstOrder[0]));
             Assert.That(firstChoices, Has.Length.GreaterThan(1));
+            Assert.That(firstChoices, Has.Length.GreaterThanOrEqualTo(4));
             Assert.That(titlePositions.Min(), Is.LessThan(-200));
             Assert.That(titlePositions.Max(), Is.GreaterThan(200));
         });
