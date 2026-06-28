@@ -28,6 +28,7 @@ public sealed class ReadDocumentTests
             Assert.That(result.Value!.RecommendedCalls, Does.Contain("In live mode, call attach_active_editor before scene tools."));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("list_compositions"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("plan_composition/apply_composition"));
+            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("planId"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("list_effects"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("list_effect_recipes"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("list_examples"));
@@ -83,7 +84,8 @@ public sealed class ReadDocumentTests
             Assert.That(list.IsSuccess, Is.True, list.Error?.Message);
             Assert.That(list.Value!.Seed, Is.EqualTo("tool-seed"));
             Assert.That(list.Value.Compositions.Select(composition => composition.Name), Does.Contain("split-screen-type-system"));
-            Assert.That(list.Value.SelectionHint, Does.Contain("seed"));
+            Assert.That(list.Value.SelectionHint, Does.Contain("avoidRecent"));
+            Assert.That(list.Value.RecentlyUsedCompositions, Is.Empty);
             Assert.That(detail.IsSuccess, Is.True, detail.Error?.Message);
             Assert.That(detail.Value!.Composition.DefaultProps["title"]!.GetValue<string>(), Is.EqualTo("FRAME FLOW"));
             Assert.That(detail.Value.Composition.Sequences.Any(sequence => sequence.Name == "typography"), Is.True);
@@ -135,17 +137,27 @@ public sealed class ReadDocumentTests
         ToolResult<ListCompositionsResponse> sameList = queryTools.ListCompositions();
         string selectedName = firstList.Value!.Compositions.First().Name;
         ToolResult<PlanCompositionResponse> plan = editTools.PlanComposition(name: selectedName);
+        ToolResult<ApplyCompositionResponse> apply = editTools.ApplyComposition(planId: plan.Value!.PlanId);
+        ToolResult<ListCompositionsResponse> afterApplyList = queryTools.ListCompositions();
 
         Assert.Multiple(() =>
         {
             Assert.That(firstList.IsSuccess, Is.True, firstList.Error?.Message);
             Assert.That(sameList.IsSuccess, Is.True, sameList.Error?.Message);
             Assert.That(plan.IsSuccess, Is.True, plan.Error?.Message);
+            Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
+            Assert.That(afterApplyList.IsSuccess, Is.True, afterApplyList.Error?.Message);
             Assert.That(firstList.Value!.Seed, Does.StartWith("session:"));
             Assert.That(sameList.Value!.Seed, Is.EqualTo(firstList.Value.Seed));
             Assert.That(sameList.Value.Compositions.Select(composition => composition.Name), Is.EqualTo(firstList.Value.Compositions.Select(composition => composition.Name)));
             Assert.That(plan.Value!.Composition.Seed, Is.EqualTo(firstList.Value.Seed));
             Assert.That(plan.Value.Composition.Name, Is.EqualTo(selectedName));
+            Assert.That(plan.Value.DetailedPlan, Is.Null);
+            Assert.That(plan.Value.Plan.Valid, Is.True);
+            Assert.That(apply.Value!.AppliedPlanId, Is.EqualTo(plan.Value.PlanId));
+            Assert.That(afterApplyList.Value!.RecentlyUsedCompositions, Does.Contain(selectedName));
+            Assert.That(afterApplyList.Value.Compositions.First().Name, Is.Not.EqualTo(selectedName));
+            Assert.That(afterApplyList.Value.Compositions.Last().Name, Is.EqualTo(selectedName));
         });
     }
 

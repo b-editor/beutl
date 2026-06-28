@@ -63,21 +63,44 @@ public sealed class PlanApplyParityTests
             inputProps: inputProps,
             seed: "apply-seed");
         ToolResult<ApplyCompositionResponse> apply = tools.ApplyComposition(
-            name: "kinetic-ribbon-title",
-            inputProps: inputProps,
-            seed: "apply-seed",
-            expectedChangeSet: plan.Value!.Plan.ExpectedChangeSet);
+            planId: plan.Value!.PlanId);
 
         Assert.Multiple(() =>
         {
             Assert.That(plan.IsSuccess, Is.True, plan.Error?.Message);
             Assert.That(plan.Value!.Plan.Valid, Is.True);
+            Assert.That(plan.Value.PlanId, Is.Not.Empty);
+            Assert.That(plan.Value.DetailedPlan, Is.Null);
             Assert.That(plan.Value.Composition.Name, Is.EqualTo("kinetic-ribbon-title"));
             Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
+            Assert.That(apply.Value!.AppliedPlanId, Is.EqualTo(plan.Value.PlanId));
             Assert.That(apply.Value!.Composition.ResolvedProps["title"]!.GetValue<string>(), Is.EqualTo("APPLY PATCH"));
             Assert.That(scene.Children, Has.Count.GreaterThan(3));
             Assert.That(scene.Children.Select(element => element.Name), Does.Contain("Kinetic ribbon title"));
             Assert.That(apply.Value.Result.Document.ToJsonString(), Does.Contain("APPLY PATCH"));
+        });
+    }
+
+    [Test]
+    public void Composition_plan_can_include_detailed_expected_change_set_when_requested()
+    {
+        Scene scene = CreateScene();
+        using var session = new AgentToolkitTestSession(scene);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var tools = new EditTools(manager);
+
+        ToolResult<PlanCompositionResponse> plan = tools.PlanComposition(
+            name: "kinetic-ribbon-title",
+            seed: "detailed-plan-seed",
+            includeDetailedPlan: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(plan.IsSuccess, Is.True, plan.Error?.Message);
+            Assert.That(plan.Value!.DetailedPlan, Is.Not.Null);
+            Assert.That(plan.Value.DetailedPlan!.ExpectedChangeSet, Has.Count.EqualTo(plan.Value.Plan.ChangeCount));
+            Assert.That(plan.Value.Plan.UsageHint, Does.Contain("planId"));
         });
     }
 
