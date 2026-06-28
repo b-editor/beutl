@@ -154,7 +154,7 @@ public sealed class ProxyJobQueue : IProxyJobQueue
             bool removedBeforeFinally = false;
             try
             {
-                if (item.IsCancellationRequested)
+                if (!item.TryStart())
                 {
                     CompleteCanceled(item);
                     continue;
@@ -229,11 +229,10 @@ public sealed class ProxyJobQueue : IProxyJobQueue
 
     private void CancelItem(WorkItem item)
     {
-        if (item.Job.Status == ProxyJobStatus.Queued)
+        if (item.TryCancelQueued())
         {
             CompleteCanceled(item);
             Remove(item);
-            item.Dispose();
             return;
         }
 
@@ -247,6 +246,9 @@ public sealed class ProxyJobQueue : IProxyJobQueue
 
         try
         {
+            if (_store.TryGet(job.Source, job.Preset) is { State: ProxyState.Ready or ProxyState.Stale })
+                return;
+
             var now = DateTime.UtcNow;
             _store.Register(new ProxyEntry(
                 job.Source,
@@ -292,20 +294,34 @@ public sealed class ProxyJobQueue : IProxyJobQueue
     private sealed class WorkItem(ProxyJob job, CancellationTokenSource cancellation) : IDisposable
     {
         private readonly Lock _lock = new();
+        private bool _started;
         private bool _disposed;
 
         public ProxyJob Job { get; } = job;
 
         public CancellationTokenSource Cancellation { get; } = cancellation;
 
-        public bool IsCancellationRequested
+        public bool TryStart()
         {
-            get
+            lock (_lock)
             {
-                lock (_lock)
-                {
-                    return _disposed || Cancellation.IsCancellationRequested;
-                }
+                if (_disposed || Cancellation.IsCancellationRequested)
+                    return false;
+
+                _started = true;
+                return true;
+            }
+        }
+
+        public bool TryCancelQueued()
+        {
+            lock (_lock)
+            {
+                if (_disposed || _started || IsTerminal(Job.Status))
+                    return false;
+
+                Cancellation.Cancel();
+                return true;
             }
         }
 
