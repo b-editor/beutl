@@ -28,8 +28,8 @@ public sealed record AttachActiveEditorResponse(string Session, string Source, A
         "Call read_document when you need the normalized declarative scene.",
         "Call plan_edit with a patch or desired document.",
         "Call apply_edit with plan_edit.expectedChangeSet.",
-        "Use apply_edit's returned document or read_document to get minted Ids before follow-up edits.",
-        "Use render_still or export_video for workspace outputs."
+        "Use apply_edit.createdIds or read_document to get new Ids before follow-up edits.",
+        "Use render_still, evaluate_motion_variation, and export_video for workspace outputs."
     ];
 }
 

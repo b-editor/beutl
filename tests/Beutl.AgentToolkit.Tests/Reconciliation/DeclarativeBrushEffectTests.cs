@@ -35,7 +35,7 @@ public sealed class DeclarativeBrushEffectTests
 
         ToolResult<ReconcilePlan> createPlan = tools.PlanEdit(patch: createPatch, schemaVersion: SchemaVersion.Current);
         Assert.That(createPlan.IsSuccess, Is.True, createPlan.Error?.Message);
-        ToolResult<ReconcileResult> createApply = tools.ApplyEdit(
+        ToolResult<ApplyEditResponse> createApply = tools.ApplyEdit(
             patch: createPatch,
             schemaVersion: SchemaVersion.Current,
             expectedChangeSet: createPlan.Value!.ExpectedChangeSet);
@@ -72,7 +72,7 @@ public sealed class DeclarativeBrushEffectTests
             });
 
         ToolResult<ReconcilePlan> updatePlan = tools.PlanEdit(patch: updatePatch, schemaVersion: SchemaVersion.Current);
-        ToolResult<ReconcileResult> updateApply = tools.ApplyEdit(
+        ToolResult<ApplyEditResponse> updateApply = tools.ApplyEdit(
             patch: updatePatch,
             schemaVersion: SchemaVersion.Current,
             expectedChangeSet: updatePlan.Value!.ExpectedChangeSet);

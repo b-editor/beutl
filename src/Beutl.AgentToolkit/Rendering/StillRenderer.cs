@@ -22,13 +22,6 @@ public sealed class StillRenderer
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentException.ThrowIfNullOrWhiteSpace(outputPath);
 
-        if (ContainsGpuOnlyContent(scene)
-            && !await Has3DGraphicsContextAsync(cancellationToken).ConfigureAwait(false))
-        {
-            throw new RenderingUnavailableException(
-                "The scene contains 3D content, but no GPU context with 3D rendering support is available.");
-        }
-
         string? directory = Path.GetDirectoryName(outputPath);
         if (!string.IsNullOrEmpty(directory))
         {
@@ -36,7 +29,35 @@ public sealed class StillRenderer
         }
 
         float normalizedScale = float.IsFinite(renderScale) && renderScale > 0f ? renderScale : 1f;
+        using Bitmap snapshot = await RenderBitmapAsync(
+            scene,
+            time,
+            normalizedScale,
+            cancellationToken).ConfigureAwait(false);
 
+        if (!snapshot.Save(outputPath, EncodedImageFormat.Png))
+        {
+            throw new IOException($"Failed to write still image to '{outputPath}'.");
+        }
+
+        return new RenderStillResponse(outputPath, snapshot.Width, snapshot.Height, time.ToString("c"));
+    }
+
+    public async ValueTask<Bitmap> RenderBitmapAsync(
+        Scene scene,
+        TimeSpan time,
+        float renderScale,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(scene);
+        if (ContainsGpuOnlyContent(scene)
+            && !await Has3DGraphicsContextAsync(cancellationToken).ConfigureAwait(false))
+        {
+            throw new RenderingUnavailableException(
+                "The scene contains 3D content, but no GPU context with 3D rendering support is available.");
+        }
+
+        float normalizedScale = float.IsFinite(renderScale) && renderScale > 0f ? renderScale : 1f;
         return await RenderThread.Dispatcher.InvokeAsync(() =>
         {
             using var renderer = new SceneRenderer(scene, normalizedScale, disableResourceShare: true);
@@ -44,13 +65,7 @@ public sealed class StillRenderer
 
             var frame = renderer.Compositor.EvaluateGraphics(time + scene.Start);
             renderer.Render(frame);
-            using Bitmap snapshot = renderer.Snapshot();
-            if (!snapshot.Save(outputPath, EncodedImageFormat.Png))
-            {
-                throw new IOException($"Failed to write still image to '{outputPath}'.");
-            }
-
-            return new RenderStillResponse(outputPath, snapshot.Width, snapshot.Height, time.ToString("c"));
+            return renderer.Snapshot();
         }, ct: cancellationToken).ConfigureAwait(false);
     }
 

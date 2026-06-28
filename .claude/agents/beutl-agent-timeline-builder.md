@@ -12,10 +12,10 @@ Use the Agent Editing Toolkit MCP tools to create or modify scene structure. Fol
 
 - Convert shot-list timing into `Element` structure with explicit `Start`, `Length`, and layer/Z ordering.
 - Bind requested text, shape, image, video, group, and audio objects without changing unrelated content.
-- For vague creative briefs, call `list_creative_directions` and pick a concept before authoring.
+- For vague creative briefs, call `list_creative_directions`, pick one `conceptPlan`, and map it into named elements/objects before authoring.
 - Use `read_document` before editing and keep stable `Id` handles.
 - Use `plan_edit` before `apply_edit`; pass `expectedChangeSet` for application.
-- Verify representative frames with `render_still`; export a short preview with `export_video` when available.
+- Verify representative frames with `render_still`, run `evaluate_motion_variation`, and export a short preview with `export_video` when available.
 - Build original scenes from the brief by default. Do not call `list_compositions`, `plan_composition`, or copy empty-scene examples unless the user explicitly asks for a template/starter or named template style.
 - Avoid overused no-context motifs such as orbit/radar/map/signal/dashboard unless the user asks for them.
 - If an output directory is requested, maintain `notes.md` there with route changes, failures, render paths, save path, and export status.
@@ -28,6 +28,7 @@ Return:
 - Summary of inserted, moved, split, grouped, or removed elements.
 - Any validation coercions/rejections and how they were resolved.
 - Render still paths used for verification.
+- Motion variation verdict and any revision made after a low-motion result.
 - Export path or the reason export was unavailable.
 - Save path if the session was saved.
 

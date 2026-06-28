@@ -5,6 +5,7 @@ using Beutl.AgentToolkit.Schema;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
+using Beutl.Graphics.Shapes;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 
@@ -42,7 +43,7 @@ public sealed class PlanApplyParityTests
             Assert.That(plan.Value!.Valid, Is.True);
             Assert.That(plan.Value!.ExpectedChangeSet, Has.Count.EqualTo(plan.Value.Changes.Count));
             Assert.That(apply.IsSuccess, Is.True);
-            Assert.That(apply.Value!.Plan.Changes.Select(change => change.Operation), Is.EqualTo(plan.Value!.Changes.Select(change => change.Operation)));
+            Assert.That(apply.Value!.Changes.Select(change => change.Operation), Is.EqualTo(plan.Value!.Changes.Select(change => change.Operation)));
             Assert.That(scene.Children.Single().Start, Is.EqualTo(TimeSpan.FromSeconds(3)));
             Assert.That(rejected.IsSuccess, Is.False);
             Assert.That(rejected.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
@@ -71,7 +72,7 @@ public sealed class PlanApplyParityTests
         JsonArray stringifiedExpectedChangeSet = new(plan.Value!.ExpectedChangeSet
             .Select(change => JsonValue.Create(change!.ToJsonString()))
             .ToArray<JsonNode?>());
-        ToolResult<ReconcileResult> apply = tools.ApplyEdit(
+        ToolResult<ApplyEditResponse> apply = tools.ApplyEdit(
             patch: patch,
             schemaVersion: SchemaVersion.Current,
             expectedChangeSet: stringifiedExpectedChangeSet);
@@ -81,6 +82,45 @@ public sealed class PlanApplyParityTests
             Assert.That(plan.IsSuccess, Is.True, plan.Error?.Message);
             Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
             Assert.That(scene.Children.Single().Start, Is.EqualTo(TimeSpan.FromSeconds(4)));
+        });
+    }
+
+    [Test]
+    public void Apply_edit_returns_compact_response_and_optional_document()
+    {
+        Scene compactScene = CreateScene();
+        using var compactSession = new AgentToolkitTestSession(compactScene);
+        var compactManager = new AgentSessionManager();
+        compactManager.UseSource(new AgentToolkitTestSessionSource(compactSession));
+        var compactTools = new EditTools(compactManager);
+
+        ToolResult<ApplyEditResponse> compact = compactTools.ApplyEdit(
+            patch: CreateInsertedTextElementPatch(),
+            schemaVersion: SchemaVersion.Current);
+
+        Scene documentScene = CreateScene();
+        using var documentSession = new AgentToolkitTestSession(documentScene);
+        var documentManager = new AgentSessionManager();
+        documentManager.UseSource(new AgentToolkitTestSessionSource(documentSession));
+        var documentTools = new EditTools(documentManager);
+
+        ToolResult<ApplyEditResponse> withDocument = documentTools.ApplyEdit(
+            patch: CreateInsertedTextElementPatch(),
+            schemaVersion: SchemaVersion.Current,
+            includeDocument: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(compact.IsSuccess, Is.True, compact.Error?.Message);
+            Assert.That(compact.Value!.Document, Is.Null);
+            Assert.That(compact.Value.Valid, Is.True);
+            Assert.That(compact.Value.AppliedChangeSet, Has.Count.EqualTo(compact.Value.Changes.Count));
+            Assert.That(compact.Value.CreatedIds.Select(item => item.Name), Does.Contain("Inserted element"));
+            Assert.That(compact.Value.CreatedIds.Select(item => item.Name), Does.Contain("Inserted title"));
+            Assert.That(compact.Value.CreatedIds.Select(item => item.Path), Has.Some.Contains("/Elements"));
+            Assert.That(withDocument.IsSuccess, Is.True, withDocument.Error?.Message);
+            Assert.That(withDocument.Value!.Document, Is.Not.Null);
+            Assert.That(withDocument.Value.Document!.ToJsonString(), Does.Contain("Inserted title"));
         });
     }
 
@@ -180,6 +220,47 @@ public sealed class PlanApplyParityTests
         };
         scene.Children.Add(element);
         return scene;
+    }
+
+    private static JsonObject CreateInsertedTextElementPatch()
+    {
+        var element = new Element
+        {
+            Name = "Inserted element",
+            Start = TimeSpan.Zero,
+            Length = TimeSpan.FromSeconds(2)
+        };
+        element.AddObject(new TextBlock
+        {
+            Name = "Inserted title",
+            Text = { CurrentValue = "Inserted title" }
+        });
+
+        JsonObject elementJson = CoreSerializer.SerializeToJsonObject(element);
+        RemoveIds(elementJson);
+        return new JsonObject
+        {
+            ["Elements"] = new JsonArray(elementJson)
+        };
+    }
+
+    private static void RemoveIds(JsonNode? node)
+    {
+        if (node is JsonObject obj)
+        {
+            obj.Remove(nameof(CoreObject.Id));
+            foreach (JsonNode? child in obj.Select(pair => pair.Value).ToArray())
+            {
+                RemoveIds(child);
+            }
+        }
+        else if (node is JsonArray array)
+        {
+            foreach (JsonNode? child in array.ToArray())
+            {
+                RemoveIds(child);
+            }
+        }
     }
 
     private static Scene CreateScene()

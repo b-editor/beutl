@@ -9,7 +9,7 @@ Use this skill when an agent needs to turn a shot list, storyboard, or timed bri
 
 ## Workflow
 
-1. For creative briefs with little or no direction, call `list_creative_directions` and choose a concept before authoring.
+1. For creative briefs with little or no direction, call `list_creative_directions`, choose one `conceptPlan`, and map its listed elements into named Beutl elements/objects before authoring.
 2. Call `get_schema` before authoring if the required drawable, media, or audio type is not already known.
 3. Create or attach a session:
    - Stdio/headless: `create_project` or `open_project`.
@@ -25,8 +25,17 @@ Use this skill when an agent needs to turn a shot list, storyboard, or timed bri
 8. Call `plan_edit` and inspect the change set and validation outcomes.
 9. Call `apply_edit` with the same `schemaVersion` and `expectedChangeSet` from the accepted plan.
 10. Verify with `read_document`, then `render_still` at representative shot boundaries.
-11. Export a short preview with `export_video` when an encoder is available; if export is unavailable, record the reason in notes.
-12. Save with `save_project` for file sessions.
+11. Run `evaluate_motion_variation` across 4-6 samples. If it reports `low-motion-variation`, revise the edit before exporting.
+12. Export a short preview with `export_video` when an encoder is available; if export is unavailable, record the reason in notes.
+13. Save with `save_project` for file sessions.
+
+## Motion Graphics Quality Bar
+
+- Use at least three timing phases: reveal, development, and resolution. Avoid a single continuous drift.
+- Animate multiple property families across the piece, such as transform, opacity, brush/gradient, effect parameters, and text spacing. Do not rely only on X movement plus opacity.
+- Maintain visual density: use layered background, foreground motion, accents, and typography/labels. A lone title over one moving shape is too sparse unless the brief asks for minimalism.
+- Give each major visual part a clear name in the patch so `read_document_summary` exposes the intended structure.
+- After still renders, use `evaluate_motion_variation`; treat low adjacent-frame variation as a failed self-check for motion graphics.
 
 ## Originality Rules
 

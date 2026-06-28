@@ -35,7 +35,7 @@ public sealed class DeclarativeAnimationTests
             });
 
         ToolResult<ReconcilePlan> createPlan = tools.PlanEdit(patch: createPatch, schemaVersion: SchemaVersion.Current);
-        ToolResult<ReconcileResult> createApply = tools.ApplyEdit(
+        ToolResult<ApplyEditResponse> createApply = tools.ApplyEdit(
             patch: createPatch,
             schemaVersion: SchemaVersion.Current,
             expectedChangeSet: createPlan.Value!.ExpectedChangeSet);
@@ -78,7 +78,7 @@ public sealed class DeclarativeAnimationTests
             });
 
         ToolResult<ReconcilePlan> updatePlan = tools.PlanEdit(patch: updatePatch, schemaVersion: SchemaVersion.Current);
-        ToolResult<ReconcileResult> updateApply = tools.ApplyEdit(
+        ToolResult<ApplyEditResponse> updateApply = tools.ApplyEdit(
             patch: updatePatch,
             schemaVersion: SchemaVersion.Current,
             expectedChangeSet: updatePlan.Value!.ExpectedChangeSet);
@@ -134,13 +134,13 @@ public sealed class DeclarativeAnimationTests
             });
 
         ToolResult<ReconcilePlan> createPlan = tools.PlanEdit(patch: createPatch, schemaVersion: SchemaVersion.Current);
-        ToolResult<ReconcileResult> createApply = tools.ApplyEdit(
+        ToolResult<ApplyEditResponse> createApply = tools.ApplyEdit(
             patch: createPatch,
             schemaVersion: SchemaVersion.Current,
             expectedChangeSet: createPlan.Value!.ExpectedChangeSet);
 
         JsonObject desired = session.Documents.Read(session.Root);
-        ToolResult<ReconcileResult> roundTripApply = tools.ApplyEdit(desired: desired, schemaVersion: SchemaVersion.Current);
+        ToolResult<ApplyEditResponse> roundTripApply = tools.ApplyEdit(desired: desired, schemaVersion: SchemaVersion.Current);
 
         var animation = (KeyFrameAnimation<float>)text.Opacity.Animation!;
         var second = (KeyFrame<float>)animation.KeyFrames[1];

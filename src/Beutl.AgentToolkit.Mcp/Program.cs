@@ -21,6 +21,7 @@ builder.Services
     .AddSingleton<IWorkspaceGuard>(_ => new WorkspaceGuard(workspaceRoot))
     .AddSingleton<DestructiveGuard>()
     .AddSingleton<StillRenderer>()
+    .AddSingleton<MotionVariationAnalyzer>()
     .AddSingleton<EncoderRegistration>()
     .AddSingleton<VideoExporter>()
     .AddSingleton<FileSessionSource>()

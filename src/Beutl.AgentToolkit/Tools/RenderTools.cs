@@ -15,6 +15,7 @@ public sealed class RenderTools(
     IWorkspaceGuard workspace,
     DestructiveGuard destructiveGuard,
     StillRenderer stillRenderer,
+    MotionVariationAnalyzer motionVariationAnalyzer,
     VideoExporter videoExporter) : ToolBase
 {
     [McpServerTool(Name = "render_still")]
@@ -40,6 +41,35 @@ public sealed class RenderTools(
                 TimeSpan.FromSeconds(Math.Max(0, timeSeconds)),
                 resolvedPath,
                 renderScale,
+                cancellationToken).ConfigureAwait(false);
+        });
+    }
+
+    [McpServerTool(Name = "evaluate_motion_variation")]
+    [Description("Renders multiple in-memory samples from the current scene and reports time-series pixel differences. Use after render_still to catch motion graphics that have visible stills but too little temporal change.")]
+    public ValueTask<ToolResult<MotionVariationResponse>> EvaluateMotionVariation(
+        [Description("Optional explicit scene times in seconds. When omitted, the tool samples evenly across the scene duration.")]
+        double[]? timeSeconds = null,
+        [Description("Number of evenly spaced samples when timeSeconds is omitted. Clamped to 2..8.")]
+        int sampleCount = 5,
+        [Description("Supersampling render scale. Values <= 0 use 1.")]
+        float renderScale = 1,
+        [Description("Minimum changed-pixel ratio required for every adjacent sample pair. Defaults to 0.02.")]
+        double minChangedPixelRatio = 0.02,
+        [Description("Per-pixel absolute channel delta threshold. Higher values ignore subtle noise. Defaults to 48.")]
+        int pixelDeltaThreshold = 48,
+        CancellationToken cancellationToken = default)
+    {
+        return ExecuteAsync(async () =>
+        {
+            Scene scene = RequireScene();
+            IReadOnlyList<TimeSpan> sampleTimes = ResolveSampleTimes(scene, timeSeconds, sampleCount);
+            return await motionVariationAnalyzer.AnalyzeAsync(
+                scene,
+                sampleTimes,
+                renderScale,
+                minChangedPixelRatio,
+                pixelDeltaThreshold,
                 cancellationToken).ConfigureAwait(false);
         });
     }
@@ -92,6 +122,37 @@ public sealed class RenderTools(
         }
 
         return Path.Combine("agent-output", outputPath);
+    }
+
+    private static IReadOnlyList<TimeSpan> ResolveSampleTimes(Scene scene, double[]? timeSeconds, int sampleCount)
+    {
+        if (timeSeconds is { Length: > 0 })
+        {
+            TimeSpan duration = scene.Duration > TimeSpan.Zero ? scene.Duration : TimeSpan.FromSeconds(1);
+            TimeSpan[] explicitTimes = timeSeconds
+                .Select(seconds => double.IsFinite(seconds) ? Math.Max(0, seconds) : 0)
+                .Select(seconds => TimeSpan.FromSeconds(Math.Min(seconds, duration.TotalSeconds)))
+                .Distinct()
+                .OrderBy(time => time)
+                .ToArray();
+            if (explicitTimes.Length >= 2)
+            {
+                return explicitTimes;
+            }
+
+            throw new ReconcileException(new ToolError(
+                ErrorCode.ValidationRejected,
+                "evaluate_motion_variation requires at least two distinct sample times."));
+        }
+
+        int count = Math.Clamp(sampleCount, 2, 8);
+        double durationSeconds = scene.Duration > TimeSpan.Zero
+            ? scene.Duration.TotalSeconds
+            : 1;
+        return Enumerable
+            .Range(0, count)
+            .Select(index => TimeSpan.FromSeconds(durationSeconds * (index + 0.5) / count))
+            .ToArray();
     }
 
     private Scene RequireScene()
