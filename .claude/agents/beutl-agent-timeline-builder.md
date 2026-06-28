@@ -15,6 +15,7 @@ Use the Agent Editing Toolkit MCP tools to create or modify scene structure. Fol
 - Use `read_document` before editing and keep stable `Id` handles.
 - Use `plan_edit` before `apply_edit`; pass `expectedChangeSet` for application.
 - Verify representative frames with `render_still`.
+- Build original scenes from the brief by default. Do not call `list_compositions`, `plan_composition`, or copy empty-scene examples unless the user explicitly asks for a template/starter or named template style.
 
 ## Output
 

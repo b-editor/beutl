@@ -163,7 +163,7 @@ public sealed class CompositionTemplateCatalog
                 ErrorCode.ValidationRejected,
                 $"Composition template '{spec.Name}' was recently used or previewed.",
                 spec.Name,
-                "Call list_compositions and choose the first non-avoided composition, or pass avoidRecent=false only when the user explicitly asks to repeat this style."));
+                "Call list_compositions and choose a different non-avoided returned template name only when the user explicitly asks for a reusable template/starter, or pass avoidRecent=false only when the user intentionally asks to repeat this style."));
         }
 
         if (enforceFirstSelection && !string.IsNullOrWhiteSpace(name))
@@ -182,9 +182,9 @@ public sealed class CompositionTemplateCatalog
             {
                 throw new ReconcileException(new ToolError(
                     ErrorCode.ValidationRejected,
-                    $"Composition template '{spec.Name}' is not the first candidate for this session seed.",
+                    $"Composition template '{spec.Name}' is not allowed by the current template rotation.",
                     spec.Name,
-                    $"For no-context motion graphics, use '{first.Name}' from list_compositions first. Pass avoidRecent=false only when the user intentionally asks for '{spec.Name}'."));
+                    $"Choose '{first.Name}' from list_compositions when you need the default template rotation, or pass avoidRecent=false only when the user intentionally asks for '{spec.Name}'. For original creative briefs, use plan_edit/apply_edit with a custom patch instead."));
             }
         }
 
@@ -286,7 +286,7 @@ public sealed class CompositionTemplateCatalog
         [
             new CompositionTemplateSpec(
                 "kinetic-ribbon-title",
-                "Remotion-style composition for a kinetic title reveal, seeded ribbon motion, noise dots, gradient fills, and effect chains.",
+                "Reusable composition template for a kinetic title reveal, seeded ribbon motion, noise dots, gradient fills, and effect chains.",
                 ["starter", "empty-scene", "kinetic", "typography", "gradient", "noise"],
                 new Dictionary<string, string>(StringComparer.Ordinal)
                 {
@@ -303,7 +303,7 @@ public sealed class CompositionTemplateCatalog
                 RenderKineticRibbon),
             new CompositionTemplateSpec(
                 "orbital-radar-map",
-                "Remotion-style composition for orbit rings, a radar sweep, seeded signal nodes, pens, glow effects, and calculated metadata.",
+                "Reusable composition template for orbit rings, a radar sweep, seeded signal nodes, pens, glow effects, and calculated metadata.",
                 ["starter", "empty-scene", "orbital", "radar", "rings", "pen", "glow"],
                 new Dictionary<string, string>(StringComparer.Ordinal)
                 {
@@ -320,7 +320,7 @@ public sealed class CompositionTemplateCatalog
                 RenderOrbitalRadar),
             new CompositionTemplateSpec(
                 "split-screen-type-system",
-                "Remotion-style composition for split-screen editorial panels, seeded block layout, animated typography, gradients, and color effects.",
+                "Reusable composition template for split-screen editorial panels, seeded block layout, animated typography, gradients, and color effects.",
                 ["starter", "empty-scene", "split-screen", "editorial", "blocks", "typography"],
                 new Dictionary<string, string>(StringComparer.Ordinal)
                 {
@@ -337,7 +337,7 @@ public sealed class CompositionTemplateCatalog
                 RenderSplitScreen),
             new CompositionTemplateSpec(
                 "liquid-gradient-system",
-                "Remotion-style composition for liquid blobs, oversized gradient fields, soft focus, and drifting typography.",
+                "Reusable composition template for liquid blobs, oversized gradient fields, soft focus, and drifting typography.",
                 ["starter", "empty-scene", "liquid", "gradient", "organic", "soft-focus", "blob"],
                 new Dictionary<string, string>(StringComparer.Ordinal)
                 {
@@ -354,7 +354,7 @@ public sealed class CompositionTemplateCatalog
                 RenderLiquidGradient),
             new CompositionTemplateSpec(
                 "data-bar-dashboard",
-                "Remotion-style composition for animated metric bars, dense data strips, dashboard labels, and editorial color grading.",
+                "Reusable composition template for animated metric bars, dense data strips, dashboard labels, and editorial color grading.",
                 ["starter", "empty-scene", "data", "dashboard", "bars", "metrics", "editorial"],
                 new Dictionary<string, string>(StringComparer.Ordinal)
                 {
@@ -371,7 +371,7 @@ public sealed class CompositionTemplateCatalog
                 RenderDataDashboard),
             new CompositionTemplateSpec(
                 "glitch-cutout-collage",
-                "Remotion-style composition for glitch slices, cutout panels, chromatic shifts, pixel sampling, and hard title cuts.",
+                "Reusable composition template for glitch slices, cutout panels, chromatic shifts, pixel sampling, and hard title cuts.",
                 ["starter", "empty-scene", "glitch", "collage", "cutout", "chromatic", "pixel"],
                 new Dictionary<string, string>(StringComparer.Ordinal)
                 {
