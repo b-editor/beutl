@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
@@ -75,14 +76,15 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
         [Description("Declarative document schema version. Required for patch; for desired, pass it here or include schemaVersion in the document. Mismatches are rejected instead of silently dropping content.")]
         string? schemaVersion = null,
         [Description("Optional change set returned by plan_edit.expectedChangeSet. apply_edit rejects the edit if the live computed change set differs.")]
-        JsonArray? expectedChangeSet = null)
+        JsonNode? expectedChangeSet = null)
     {
         return Execute(() =>
         {
             IEditingSession session = sessions.RequireSession();
             ResolvedEdit resolved = ResolveDesiredDocument(session, desired, patch, schemaVersion);
             ReconcilePlan plan = _reconciler.Plan(session, resolved.Document, resolved.KnownNewIds);
-            if (expectedChangeSet is not null && !ChangeSetMatches(plan, expectedChangeSet))
+            JsonArray? normalizedExpectedChangeSet = NormalizeExpectedChangeSet(expectedChangeSet);
+            if (normalizedExpectedChangeSet is not null && !ChangeSetMatches(plan, normalizedExpectedChangeSet))
             {
                 throw new ReconcileException(new ToolError(
                     ErrorCode.ValidationRejected,
@@ -102,7 +104,7 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
     }
 
     [McpServerTool(Name = "plan_composition")]
-    [Description("Dry-runs a Remotion-style composition without returning a huge patch. Pass name or tag, optional inputProps, and optional seed. The generated declarative patch is planned server-side.")]
+    [Description("Dry-runs a Remotion-style composition without returning a huge patch. For low-context motion graphics, call list_compositions first and pass its first name; when seed is omitted and avoidRecent=true, memorized non-first names are rejected.")]
     public ToolResult<PlanCompositionResponse> PlanComposition(
         string? name = null,
         string? tag = null,
@@ -119,7 +121,8 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
                 tag,
                 inputProps,
                 sessions.ResolveCompositionSeed(seed),
-                avoidRecent ? sessions.GetRecentCompositions() : null);
+                avoidRecent ? sessions.GetRecentCompositions() : null,
+                EnforceFirstSelection(name, seed, avoidRecent));
             ResolvedEdit resolved = ResolveDesiredDocument(session, desired: null, patch: composition.Patch, schemaVersion: SchemaVersion.Current);
             ReconcilePlan plan = _reconciler.Plan(session, resolved.Document, resolved.KnownNewIds);
             CompositionPlanState state = sessions.StoreCompositionPlan(
@@ -148,7 +151,7 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
         string? seed = null,
         string? planId = null,
         bool avoidRecent = true,
-        JsonArray? expectedChangeSet = null)
+        JsonNode? expectedChangeSet = null)
     {
         return Execute(() =>
         {
@@ -190,10 +193,12 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
                 tag,
                 inputProps,
                 sessions.ResolveCompositionSeed(seed),
-                avoidRecent ? sessions.GetRecentCompositions() : null);
+                avoidRecent ? sessions.GetRecentCompositions() : null,
+                EnforceFirstSelection(name, seed, avoidRecent));
             ResolvedEdit resolved = ResolveDesiredDocument(session, desired: null, patch: composition.Patch, schemaVersion: SchemaVersion.Current);
             ReconcilePlan plan = _reconciler.Plan(session, resolved.Document, resolved.KnownNewIds);
-            if (expectedChangeSet is not null && !ChangeSetMatches(plan, expectedChangeSet))
+            JsonArray? normalizedExpectedChangeSet = NormalizeExpectedChangeSet(expectedChangeSet);
+            if (normalizedExpectedChangeSet is not null && !ChangeSetMatches(plan, normalizedExpectedChangeSet))
             {
                 throw new ReconcileException(new ToolError(
                     ErrorCode.ValidationRejected,
@@ -273,6 +278,11 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
             "Pass planId to apply_composition for compact plan/apply parity. Set includeDetailedPlan=true only if you explicitly need expectedChangeSet.");
     }
 
+    private static bool EnforceFirstSelection(string? name, string? seed, bool avoidRecent)
+    {
+        return avoidRecent && string.IsNullOrWhiteSpace(seed) && !string.IsNullOrWhiteSpace(name);
+    }
+
     private static bool ChangeSetMatches(ReconcilePlan plan, JsonArray expectedChangeSet)
     {
         if (plan.Changes.Count != expectedChangeSet.Count)
@@ -290,6 +300,92 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
         }
 
         return true;
+    }
+
+    private static JsonArray? NormalizeExpectedChangeSet(JsonNode? expectedChangeSet)
+    {
+        if (expectedChangeSet is null)
+        {
+            return null;
+        }
+
+        if (expectedChangeSet is JsonArray array)
+        {
+            if (array.Count == 1 && TryReadString(array[0], out string? singleText))
+            {
+                return ParseExpectedChangeSet(singleText);
+            }
+
+            var normalized = new JsonArray();
+            foreach (JsonNode? item in array)
+            {
+                if (item is JsonObject obj)
+                {
+                    normalized.Add(obj.DeepClone());
+                }
+                else if (TryReadString(item, out string? text))
+                {
+                    JsonNode? parsed = JsonNode.Parse(text);
+                    if (parsed is not JsonObject parsedObject)
+                    {
+                        throw InvalidExpectedChangeSet();
+                    }
+
+                    normalized.Add(parsedObject);
+                }
+                else
+                {
+                    throw InvalidExpectedChangeSet();
+                }
+            }
+
+            return normalized;
+        }
+
+        if (TryReadString(expectedChangeSet, out string? serialized))
+        {
+            return ParseExpectedChangeSet(serialized);
+        }
+
+        throw InvalidExpectedChangeSet();
+    }
+
+    private static JsonArray ParseExpectedChangeSet(string serialized)
+    {
+        try
+        {
+            return JsonNode.Parse(serialized) switch
+            {
+                JsonArray parsedArray => parsedArray,
+                JsonObject parsedObject => new JsonArray(parsedObject),
+                _ => throw InvalidExpectedChangeSet()
+            };
+        }
+        catch (JsonException)
+        {
+            throw InvalidExpectedChangeSet();
+        }
+    }
+
+    private static bool TryReadString(JsonNode? node, [NotNullWhen(true)] out string? text)
+    {
+        text = null;
+        if (node is null || node.GetValueKind() != JsonValueKind.String)
+        {
+            return false;
+        }
+
+        text = node.GetValue<string>();
+        return true;
+    }
+
+    private static ReconcileException InvalidExpectedChangeSet()
+    {
+        return new ReconcileException(new ToolError(
+            ErrorCode.ValidationRejected,
+            "expectedChangeSet must be the JSON array returned by plan_edit or plan_composition.",
+            null,
+            "Pass the object-shaped expectedChangeSet array directly. If a client exposes it as strings, pass either the whole JSON array string or one JSON object string per change entry."));
     }
 
     private static bool EntryMatches(ChangeSetEntry actual, JsonObject expected)

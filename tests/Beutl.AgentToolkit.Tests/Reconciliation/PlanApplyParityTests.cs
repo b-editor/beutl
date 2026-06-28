@@ -1,5 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
+using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Schema;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tests.Helpers;
@@ -32,7 +33,7 @@ public sealed class PlanApplyParityTests
         var plan = tools.PlanEdit(patch: patch, schemaVersion: SchemaVersion.Current);
         JsonArray expected = plan.Value!.ExpectedChangeSet;
 
-        var rejected = tools.ApplyEdit(patch: patch, schemaVersion: SchemaVersion.Current, expectedChangeSet: []);
+        var rejected = tools.ApplyEdit(patch: patch, schemaVersion: SchemaVersion.Current, expectedChangeSet: new JsonArray());
         var apply = tools.ApplyEdit(patch: patch, schemaVersion: SchemaVersion.Current, expectedChangeSet: expected);
 
         Assert.Multiple(() =>
@@ -45,6 +46,41 @@ public sealed class PlanApplyParityTests
             Assert.That(scene.Children.Single().Start, Is.EqualTo(TimeSpan.FromSeconds(3)));
             Assert.That(rejected.IsSuccess, Is.False);
             Assert.That(rejected.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+        });
+    }
+
+    [Test]
+    public void Apply_edit_accepts_stringified_expected_change_set_entries()
+    {
+        Scene scene = CreateSceneWithElement(out Element element);
+        using var session = new AgentToolkitTestSession(scene);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var tools = new EditTools(manager);
+
+        JsonObject patch = new()
+        {
+            ["Elements"] = new JsonArray(new JsonObject
+            {
+                [nameof(CoreObject.Id)] = element.Id.ToString(),
+                [nameof(Element.Start)] = TimeSpan.FromSeconds(4).ToString("c")
+            })
+        };
+
+        ToolResult<ReconcilePlan> plan = tools.PlanEdit(patch: patch, schemaVersion: SchemaVersion.Current);
+        JsonArray stringifiedExpectedChangeSet = new(plan.Value!.ExpectedChangeSet
+            .Select(change => JsonValue.Create(change!.ToJsonString()))
+            .ToArray<JsonNode?>());
+        ToolResult<ReconcileResult> apply = tools.ApplyEdit(
+            patch: patch,
+            schemaVersion: SchemaVersion.Current,
+            expectedChangeSet: stringifiedExpectedChangeSet);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(plan.IsSuccess, Is.True, plan.Error?.Message);
+            Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
+            Assert.That(scene.Children.Single().Start, Is.EqualTo(TimeSpan.FromSeconds(4)));
         });
     }
 
