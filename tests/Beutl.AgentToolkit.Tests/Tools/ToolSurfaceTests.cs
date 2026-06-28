@@ -23,6 +23,7 @@ public sealed class ToolSurfaceTests
             Assert.That(names, Is.EquivalentTo(new[]
             {
                 "get_started",
+                "list_creative_directions",
                 "get_schema",
                 "list_effects",
                 "list_effect_recipes",
