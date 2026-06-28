@@ -142,6 +142,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         builder.Services
             .AddSingleton(_editorService)
             .AddSingleton<LiveSessionSource>()
+            .AddSingleton<FileSessionSource>()
             .AddSingleton<AgentSessionManager>()
             .AddSingleton<IWorkspaceGuard>(_ => new WorkspaceGuard(workspaceRoot))
             .AddSingleton<DestructiveGuard>()
@@ -153,6 +154,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             .AddMcpServer()
             .WithHttpTransport(options => options.Stateless = true)
             .WithTools<AgentHostTools>()
+            .WithTools<SessionTools>()
             .WithTools<QueryTools>()
             .WithTools<EditTools>()
             .WithTools<RenderTools>();

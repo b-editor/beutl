@@ -1,14 +1,13 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using System.Globalization;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Sessions;
-using Beutl.AgentToolkit.Tools;
 using Beutl.AgentToolkit.Workspace;
 using Beutl.ProjectSystem;
 using ModelContextProtocol.Server;
 
-namespace Beutl.AgentToolkit.Mcp.Tools;
+namespace Beutl.AgentToolkit.Tools;
 
 public sealed record SceneSummary(string SceneId, string Name, int Width, int Height, string Start, string Duration, int Elements);
 
@@ -30,7 +29,7 @@ public sealed class SessionTools(
     DestructiveGuard destructiveGuard) : ToolBase
 {
     [McpServerTool(Name = "open_project")]
-    [Description("Opens a Beutl project from any readable local path. Reads are unrestricted.")]
+    [Description("Opens a Beutl project from any readable local path and makes it the active file-backed editing session.")]
     public ToolResult<OpenProjectResponse> OpenProject(string path)
     {
         return Execute(() =>
@@ -48,7 +47,7 @@ public sealed class SessionTools(
     }
 
     [McpServerTool(Name = "create_project")]
-    [Description("Creates and saves a new project with one scene. The output path is restricted to BEUTL_WORKSPACE.")]
+    [Description("Creates and saves a new file-backed Beutl project with one scene. The output path is restricted to BEUTL_WORKSPACE.")]
     public ToolResult<CreateProjectResponse> CreateProject(
         string path,
         int width,
@@ -76,7 +75,7 @@ public sealed class SessionTools(
     }
 
     [McpServerTool(Name = "add_scene")]
-    [Description("Adds a scene to the current file-opened project. Persist with save_project.")]
+    [Description("Adds a scene to the current file-backed project. Persist with save_project.")]
     public ToolResult<AddSceneResponse> AddScene(
         string session,
         int width,
@@ -100,7 +99,7 @@ public sealed class SessionTools(
     }
 
     [McpServerTool(Name = "save_project")]
-    [Description("Saves the current file-opened project. Optional path is restricted to BEUTL_WORKSPACE.")]
+    [Description("Saves the current file-backed project. Optional path is restricted to BEUTL_WORKSPACE.")]
     public ToolResult<SaveProjectResponse> SaveProject(
         string session,
         string? path = null,

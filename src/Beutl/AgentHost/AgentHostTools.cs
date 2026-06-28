@@ -15,14 +15,15 @@ public sealed record AgentHostSceneSummary(string SceneId, string Name, int Widt
 public sealed record AttachActiveEditorResponse(string Session, string Source, AgentHostSceneSummary Summary)
 {
     public string Persistence =>
-        "LiveEditor sessions edit the open scene. Persist with the Beutl editor UI; create_project and save_project are available only in the stdio MCP host.";
+        "LiveEditor sessions edit the open scene. Persist live edits with the Beutl editor UI; create_project, open_project, and save_project create or persist a file-backed session.";
 
     public IReadOnlyList<string> NextSteps { get; } =
     [
         "Call read_document_summary to observe the scene without pulling the full document.",
+        "For vague or no-context motion graphics, call list_creative_directions and choose a concept before authoring.",
         "Call list_effects and list_effect_recipes to discover Beutl visual effects before settling on a repeated look.",
-        "After attach_active_editor succeeds, call list_compositions without seed for a session-varied composition order; for no-context motion graphics, use the first returned composition and do not re-rank from memory.",
-        "Call list_examples to choose a compact declarative snippet only when composition tools are unavailable or you need a targeted patch.",
+        "Build original scenes with plan_edit/apply_edit; call list_compositions only when the user explicitly asks for a template, starter, or named composition style.",
+        "Call list_examples to choose a compact declarative snippet only when you need a targeted patch.",
         "Call get_schema with includeProperties/includeExamples filters for detailed discovery.",
         "Call read_document when you need the normalized declarative scene.",
         "Call plan_edit with a patch or desired document.",
@@ -39,7 +40,7 @@ public sealed class AgentHostTools(
     AgentSessionManager sessions) : ToolBase
 {
     [McpServerTool(Name = "attach_active_editor")]
-    [Description("Attaches the toolkit to the active editor tab so read_document, plan_edit, apply_edit, render_still, and export_video can operate on the live scene and history. Live mode does not expose create_project or save_project; use the editor UI for persistence.")]
+    [Description("Attaches the toolkit to the active editor tab so read_document, plan_edit, apply_edit, render_still, and export_video can operate on the live scene and history.")]
     public ToolResult<AttachActiveEditorResponse> AttachActiveEditor()
     {
         return Execute(() =>
@@ -50,7 +51,7 @@ public sealed class AgentHostTools(
                     ErrorCode.NoActiveEditorSession,
                     "No active Beutl editor scene is available.",
                     null,
-                    "Open or create a project/scene in the Beutl editor first, then call attach_active_editor again. In live mode, project creation and saving are currently UI operations."));
+                    "Open or create a project/scene in the Beutl editor and call attach_active_editor again, or call create_project/open_project to start a file-backed session."));
             }
 
             LiveEditingSession session = liveSessions.Attach(new EditViewModelLiveBinding(editViewModel));
