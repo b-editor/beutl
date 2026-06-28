@@ -26,7 +26,7 @@ This describes the toolkit's own conceptual entities and how each maps onto exis
 
 **Rules**: exactly one writer; reconciliation runs with `PublishingSuppression`/`RecordingSuppression` **inactive** (so mutations both publish and record). Undo/redo is available via `History.Undo()`/`Redo()` — agent edits are normal, human-undoable history entries (FR-015).
 
-**Scope (Scene-rooted undo)**: the unit that carries an undo history (one `HistoryManager`) is a **Scene** — `EditViewModel.Scene` in live mode. Declarative reconcile/plan/apply and the imperative assists target a Scene root. **Project-level** actions (create a project, add/remove scenes, project variables like frame rate / sample rate) mutate `Project.Items`/variables separately and are NOT part of a scene's undo stack; they are exposed as distinct, coarser project tools with file-level semantics.
+**Scope (Scene-rooted undo)**: the unit that carries an undo history (one `HistoryManager`) is a **Scene** — `EditViewModel.Scene` in live mode. Declarative reconcile/plan/apply targets a Scene root. **Project-level** actions (create a project, add/remove scenes, project variables like frame rate / sample rate) mutate `Project.Items`/variables separately and are NOT part of a scene's undo stack; they are exposed as distinct, coarser project tools with file-level semantics.
 
 ## Declarative Document
 
@@ -37,25 +37,25 @@ The normalized JSON the agent reads and writes. It mirrors `CoreSerializer`'s **
 - one key per property, under its `CoreProperty.Name` / `IProperty.Name` (e.g. `"FrameSize"`, `"Start"`, `"Amount"`).
 - `"Animations"` — dict of animatable-property → keyframe animation.
 - `"Expressions"` — dict of property → expression.
-- child collections (e.g. Scene → Elements, Element → `Objects`) as JSON arrays of typed child documents.
+- child collections (e.g. Scene → Elements, Element → `Objects`, `FilterEffect.Children`, `GradientBrush.GradientStops`) as JSON arrays of typed child documents.
 
-**Hierarchy** (unchanged from the spec's Key Entities): Project → Scene(s) → Element(s) (`Start`/`Length`/`ZIndex`) → content `EngineObject`s (Drawable: image/video/text/shape/group, **audio source**) → properties (visual + audio) → optional `Animations`/`Expressions`/`FilterEffect`(s). Full document and merge-patch both conform to this shape; see `contracts/declarative-document.md`.
+**Hierarchy** (unchanged from the spec's Key Entities): Project → Scene(s) → Element(s) (`Start`/`Length`/`ZIndex`) → content `EngineObject`s (Drawable: image/video/text/shape/group, **audio source**) → properties (visual + audio, including brush-valued properties such as `Fill`) → optional `Animations`/`Expressions`/`FilterEffect`(s). Full document and merge-patch both conform to this shape; see `contracts/declarative-document.md`.
 
 **Validation**: applied at mutation time by `SetValue`/`IProperty` (`[Range]` coercion, validators) — surfaced (never silently swallowed) per FR-007.
 
 ## Merge Patch (RFC 7396)
 
-A partial Declarative Document. Apply semantics: object members recurse; a `null` member deletes the key; **arrays of identity-bearing entities (elements/objects/keyframes) use id-keyed merge** (members matched by `Id`, unmentioned siblings untouched, `$delete` removes one); only scalar / non-identified arrays replace wholesale. The toolkit applies the patch to the current serialized document to derive the **desired document** (siblings preserved), then diffs by `Id` to compute the minimal operations (Change Set). See [contracts/declarative-document.md](./contracts/declarative-document.md) §2.
+A partial Declarative Document. Apply semantics: object members recurse; a `null` member deletes the key; a `$type`-bearing object with no `Id` replaces an existing object-valued property when the discriminator changes (for example `SolidColorBrush` → `LinearGradientBrush`); **arrays of identity-bearing entities (elements/objects/keyframes/effect children/gradient stops) use id-keyed merge** (members matched by `Id`, unmentioned siblings untouched, `$delete` removes one); only scalar / non-identified arrays replace wholesale. The toolkit applies the patch to the current serialized document to derive the **desired document** (siblings preserved), then diffs by `Id` to compute the minimal operations (Change Set). See [contracts/declarative-document.md](./contracts/declarative-document.md) §2.
 
 ## Capability / Schema Descriptor
 
 Per editable type:
 
-- `type` (CLR name), `$type` (discriminator string), `category` (Drawable / FilterEffect / Sound / Transform / …, from `LibraryService` / `KnownLibraryItemFormats`).
-- `properties[]`: `name`, `valueType`, `unit`/`display` (`[Display]`), `range` (`[Range]` min/max), `step` (`[NumberStep]`), `default` (`IProperty.DefaultValue`), `animatable` (`IProperty.IsAnimatable`), `supportsExpression`, optional `converter`/encoding note for custom `JsonConverter`s.
+- `type` (CLR name), `$type` (discriminator string), `category` (Drawable / Sound / FilterEffect / AudioEffect / Brush / Transform / Geometry / Pen / Easing / GraphNode / EngineObject / extension category, from `LibraryService` / `KnownLibraryItemFormats`).
+- `properties[]`: `name`, `valueType`, optional `elementType` for `IListProperty`, `unit`/`display` (`[Display]`), `range` (`[Range]` min/max), `step` (`[NumberStep]`), `default` (`IProperty.DefaultValue`), `animatable` (`IProperty.IsAnimatable`), `supportsExpression`, optional `converter`/encoding note for custom `JsonConverter`s.
 - inherited base fields: `Id` (Guid), `EngineObject` CoreProperties (`IsEnabled`, `ZIndex`, `TimeRange`, …).
 
-Generated by instantiating each registered type and reading `EngineObject.Properties` + `PropertyRegistry.GetRegistered(type)`. Covers built-in **and installed-extension** types (FR-022). This descriptor is what `get_schema` returns and what the agent reads to plan valid edits (FR-006).
+Generated by instantiating each registered type and reading `EngineObject.Properties` + `PropertyRegistry.GetRegistered(type)`. Covers built-in **and installed-extension** types, including transforms, geometry, pens, brushes, visual effects, audio effects, easings, node-graph-backed drawables/effects, and nested object types used by properties such as `Fill`, `Transform`, `FilterEffect`, and `Effect` (FR-022). This descriptor is what `get_schema` returns and what the agent reads to plan valid edits (FR-006).
 
 ## Change Set / Plan
 

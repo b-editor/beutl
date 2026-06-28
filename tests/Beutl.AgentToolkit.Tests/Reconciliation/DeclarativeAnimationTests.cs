@@ -1,5 +1,4 @@
-﻿using System.Text.Json;
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Sessions;
@@ -39,7 +38,7 @@ public sealed class DeclarativeAnimationTests
         ToolResult<ReconcileResult> createApply = tools.ApplyEdit(
             patch: createPatch,
             schemaVersion: SchemaVersion.Current,
-            expectedChangeSet: ToExpectedChangeSet(createPlan.Value!));
+            expectedChangeSet: createPlan.Value!.ExpectedChangeSet);
 
         Assert.Multiple(() =>
         {
@@ -82,7 +81,7 @@ public sealed class DeclarativeAnimationTests
         ToolResult<ReconcileResult> updateApply = tools.ApplyEdit(
             patch: updatePatch,
             schemaVersion: SchemaVersion.Current,
-            expectedChangeSet: ToExpectedChangeSet(updatePlan.Value!));
+            expectedChangeSet: updatePlan.Value!.ExpectedChangeSet);
 
         Assert.Multiple(() =>
         {
@@ -114,6 +113,46 @@ public sealed class DeclarativeAnimationTests
         Assert.That(createdAnimation.KeyFrames, Has.Count.EqualTo(2));
     }
 
+    [Test]
+    public void Full_desired_round_trip_preserves_serialized_easing_type_strings()
+    {
+        Scene scene = CreateSceneWithText(out Element element, out TextBlock text);
+        using var session = new AgentToolkitTestSession(scene);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var tools = new EditTools(manager);
+
+        JsonObject createPatch = PatchTextObject(
+            element,
+            text,
+            new JsonObject
+            {
+                ["Animations"] = new JsonObject
+                {
+                    ["Opacity"] = CreateOpacityAnimationDocument()
+                }
+            });
+
+        ToolResult<ReconcilePlan> createPlan = tools.PlanEdit(patch: createPatch, schemaVersion: SchemaVersion.Current);
+        ToolResult<ReconcileResult> createApply = tools.ApplyEdit(
+            patch: createPatch,
+            schemaVersion: SchemaVersion.Current,
+            expectedChangeSet: createPlan.Value!.ExpectedChangeSet);
+
+        JsonObject desired = session.Documents.Read(session.Root);
+        ToolResult<ReconcileResult> roundTripApply = tools.ApplyEdit(desired: desired, schemaVersion: SchemaVersion.Current);
+
+        var animation = (KeyFrameAnimation<float>)text.Opacity.Animation!;
+        var second = (KeyFrame<float>)animation.KeyFrames[1];
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(createApply.IsSuccess, Is.True, createApply.Error?.Message);
+            Assert.That(roundTripApply.IsSuccess, Is.True, roundTripApply.Error?.Message);
+            Assert.That(second.Easing, Is.InstanceOf<SineEaseOut>());
+        });
+    }
+
     private static JsonObject PatchTextObject(Element element, TextBlock text, JsonObject textPatch)
     {
         textPatch[nameof(CoreObject.Id)] = text.Id.ToString();
@@ -125,15 +164,6 @@ public sealed class DeclarativeAnimationTests
                 ["Objects"] = new JsonArray(textPatch)
             })
         };
-    }
-
-    private static JsonArray ToExpectedChangeSet(ReconcilePlan plan)
-    {
-        return new JsonArray(plan.Changes
-            .Select(change => JsonSerializer.SerializeToNode(
-                change,
-                new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }))
-            .ToArray());
     }
 
     private static JsonObject CreateOpacityAnimationDocument()

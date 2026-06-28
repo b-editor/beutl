@@ -50,7 +50,13 @@ public sealed class LiveSessionTests
         var source = new LiveSessionSource();
         var ex = Assert.Throws<SessionUnavailableException>(() => source.Attach(new FakeLiveBinding(null, null)));
 
-        Assert.That(ex!.ToError().Code, Is.EqualTo(ErrorCode.NoActiveEditorSession));
+        ToolError error = ex!.ToError();
+        Assert.Multiple(() =>
+        {
+            Assert.That(error.Code, Is.EqualTo(ErrorCode.NoActiveEditorSession));
+            Assert.That(error.Hint, Does.Contain("attach_active_editor"));
+            Assert.That(error.Hint, Does.Contain("open_project"));
+        });
     }
 
     private sealed class FakeLiveBinding(Scene? scene, HistoryManager? history) : ILiveSessionBinding

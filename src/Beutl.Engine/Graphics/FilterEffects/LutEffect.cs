@@ -2,6 +2,7 @@
 using System.Numerics;
 using Beutl.Engine;
 using Beutl.Language;
+using Beutl.Logging;
 using Beutl.Media.Source;
 using Microsoft.Extensions.Logging;
 using SkiaSharp;
@@ -11,8 +12,7 @@ namespace Beutl.Graphics.Effects;
 [Display(Name = nameof(GraphicsStrings.LutEffect), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class LutEffect : FilterEffect
 {
-    private static readonly ILogger<LutEffect> s_logger =
-        BeutlApplication.Current.LoggerFactory.CreateLogger<LutEffect>();
+    private static readonly ILogger<LutEffect> s_logger = Log.CreateLogger<LutEffect>();
 
     private static readonly SKSLShader? s_shader;
     private static readonly SKSLShader? s_1dShader;

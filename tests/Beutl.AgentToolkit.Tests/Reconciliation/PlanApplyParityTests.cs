@@ -1,5 +1,4 @@
-﻿using System.Text.Json;
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tests.Helpers;
@@ -30,11 +29,7 @@ public sealed class PlanApplyParityTests
         };
 
         var plan = tools.PlanEdit(patch: patch, schemaVersion: SchemaVersion.Current);
-        JsonArray expected = new(plan.Value!.Changes
-            .Select(change => JsonSerializer.SerializeToNode(
-                change,
-                new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }))
-            .ToArray());
+        JsonArray expected = plan.Value!.ExpectedChangeSet;
 
         var rejected = tools.ApplyEdit(patch: patch, schemaVersion: SchemaVersion.Current, expectedChangeSet: []);
         var apply = tools.ApplyEdit(patch: patch, schemaVersion: SchemaVersion.Current, expectedChangeSet: expected);
@@ -42,6 +37,7 @@ public sealed class PlanApplyParityTests
         Assert.Multiple(() =>
         {
             Assert.That(plan.IsSuccess, Is.True);
+            Assert.That(plan.Value!.ExpectedChangeSet, Has.Count.EqualTo(plan.Value.Changes.Count));
             Assert.That(apply.IsSuccess, Is.True);
             Assert.That(apply.Value!.Plan.Changes.Select(change => change.Operation), Is.EqualTo(plan.Value!.Changes.Select(change => change.Operation)));
             Assert.That(scene.Children.Single().Start, Is.EqualTo(TimeSpan.FromSeconds(3)));

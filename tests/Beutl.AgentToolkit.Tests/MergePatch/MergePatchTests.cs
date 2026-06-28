@@ -23,6 +23,24 @@ public sealed class MergePatchTests
     }
 
     [Test]
+    public void Typed_object_patch_without_id_replaces_when_discriminator_changes()
+    {
+        JsonNode result = MergePatchApplier.Apply(
+            JsonNode.Parse("""{"Fill":{"$type":"SolidColorBrush","Id":"existing-brush","Color":"White"}}""")!,
+            JsonNode.Parse("""{"Fill":{"$type":"LinearGradientBrush","GradientStops":[{"$type":"GradientStop","Offset":0,"Color":"Blue"}]}}""")!)!;
+
+        JsonObject fill = (JsonObject)result["Fill"]!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(fill["$type"]!.GetValue<string>(), Is.EqualTo("LinearGradientBrush"));
+            Assert.That(fill["Id"], Is.Null);
+            Assert.That(fill["Color"], Is.Null);
+            Assert.That((JsonArray)fill["GradientStops"]!, Has.Count.EqualTo(1));
+        });
+    }
+
+    [Test]
     public void Id_keyed_array_patch_updates_one_member_without_dropping_siblings()
     {
         Guid first = Guid.NewGuid();
@@ -56,7 +74,12 @@ public sealed class MergePatchTests
         var ex = Assert.Throws<ReconcileException>(() => MergePatchApplier.Apply(
             target,
             JsonNode.Parse($$"""{"items":[{"Id":"{{unknown}}","Name":"missing"}]}""")!));
-        Assert.That(ex!.Error.Code, Is.EqualTo(ErrorCode.StaleHandle));
+        Assert.Multiple(() =>
+        {
+            Assert.That(ex!.Error.Code, Is.EqualTo(ErrorCode.StaleHandle));
+            Assert.That(ex.Error.Hint, Does.Contain("Omit Id to create"));
+            Assert.That(ex.Error.Hint, Does.Contain("read_document"));
+        });
     }
 
     [Test]
@@ -101,10 +124,11 @@ public sealed class MergePatchTests
                 JsonNode.Parse($$"""{"items":[{"Id":"{{b}}","$index":0,"$after":"{{a}}"}]}""")!))!.Error.Code,
                 Is.EqualTo(ErrorCode.ValidationRejected));
 
-            Assert.That(Assert.Throws<ReconcileException>(() => MergePatchApplier.Apply(
+            ReconcileException staleSibling = Assert.Throws<ReconcileException>(() => MergePatchApplier.Apply(
                 target,
-                JsonNode.Parse($$"""{"items":[{"Id":"{{b}}","$after":"{{Guid.NewGuid()}}"}]}""")!))!.Error.Code,
-                Is.EqualTo(ErrorCode.StaleHandle));
+                JsonNode.Parse($$"""{"items":[{"Id":"{{b}}","$after":"{{Guid.NewGuid()}}"}]}""")!))!;
+            Assert.That(staleSibling.Error.Code, Is.EqualTo(ErrorCode.StaleHandle));
+            Assert.That(staleSibling.Error.Hint, Does.Contain("Omit Id to create"));
         });
     }
 

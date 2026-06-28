@@ -83,6 +83,7 @@ public sealed class AgentHostEndpointTests
         {
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Error?.Code, Is.EqualTo(ErrorCode.NoActiveEditorSession));
+            Assert.That(result.Error?.Hint, Does.Contain("attach_active_editor"));
         });
     }
 }
