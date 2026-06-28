@@ -82,6 +82,43 @@ public sealed class RenderStillTests
     }
 
     [Test]
+    public async Task Motion_variation_analysis_flags_static_scenes_and_accepts_temporal_changes()
+    {
+        string staticDir = CreateWorkspace();
+        Scene staticScene = CreateScene(staticDir, new RectShape());
+        staticScene.Duration = TimeSpan.FromSeconds(3);
+
+        string changingDir = CreateWorkspace();
+        Scene changingScene = CreateChangingScene(changingDir);
+
+        var analyzer = new MotionVariationAnalyzer(new StillRenderer());
+        MotionVariationResponse staticResult = await analyzer.AnalyzeAsync(
+            staticScene,
+            [TimeSpan.FromSeconds(0.5), TimeSpan.FromSeconds(1.5), TimeSpan.FromSeconds(2.5)],
+            1,
+            0.01,
+            48,
+            CancellationToken.None);
+        MotionVariationResponse changingResult = await analyzer.AnalyzeAsync(
+            changingScene,
+            [TimeSpan.FromSeconds(0.5), TimeSpan.FromSeconds(1.5), TimeSpan.FromSeconds(2.5)],
+            1,
+            0.01,
+            48,
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(staticResult.PassesMinimumMotion, Is.False);
+            Assert.That(staticResult.Verdict, Is.EqualTo("low-motion-variation"));
+            Assert.That(staticResult.MinimumChangedPixelRatio, Is.EqualTo(0));
+            Assert.That(changingResult.PassesMinimumMotion, Is.True);
+            Assert.That(changingResult.Verdict, Is.EqualTo("motion-variation-ok"));
+            Assert.That(changingResult.MinimumChangedPixelRatio, Is.GreaterThan(0.01));
+        });
+    }
+
+    [Test]
     public async Task Empty_scene_motion_graphics_example_renders_visible_text()
     {
         string dir = CreateWorkspace();
@@ -135,6 +172,40 @@ public sealed class RenderStillTests
         };
         element.AddObject(drawable);
         scene.Children.Add(element);
+        return scene;
+    }
+
+    private static Scene CreateChangingScene(string dir)
+    {
+        var scene = new Scene(160, 90, "motion-check")
+        {
+            Duration = TimeSpan.FromSeconds(3),
+            Uri = new Uri(Path.Combine(dir, "Scene.scene"))
+        };
+        var rectElement = new Element
+        {
+            Start = TimeSpan.Zero,
+            Length = TimeSpan.FromSeconds(1.4),
+            Uri = new Uri(Path.Combine(dir, "rect.belm"))
+        };
+        rectElement.AddObject(new RectShape());
+        var textElement = new Element
+        {
+            Start = TimeSpan.FromSeconds(1.4),
+            Length = TimeSpan.FromSeconds(0.8),
+            Uri = new Uri(Path.Combine(dir, "text.belm"))
+        };
+        textElement.AddObject(new TextBlock { Text = { CurrentValue = "MOVE" } });
+        var ellipseElement = new Element
+        {
+            Start = TimeSpan.FromSeconds(2.2),
+            Length = TimeSpan.FromSeconds(0.8),
+            Uri = new Uri(Path.Combine(dir, "ellipse.belm"))
+        };
+        ellipseElement.AddObject(new EllipseShape());
+        scene.Children.Add(rectElement);
+        scene.Children.Add(textElement);
+        scene.Children.Add(ellipseElement);
         return scene;
     }
 

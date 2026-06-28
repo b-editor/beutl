@@ -45,6 +45,7 @@ public sealed class ToolSurfaceTests
                 "plan_composition",
                 "apply_composition",
                 "render_still",
+                "evaluate_motion_variation",
                 "export_video"
             }));
             Assert.That(names, Does.Not.Contain("add_keyframe"));

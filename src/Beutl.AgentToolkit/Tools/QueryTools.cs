@@ -68,9 +68,18 @@ public sealed record GettingStartedResponse(
 public sealed record CreativeDirectionResponse(
     string SchemaVersion,
     IReadOnlyList<string> DirectionAxes,
+    IReadOnlyList<CreativeConceptPlan> ConceptPlans,
     IReadOnlyList<string> OverusedMotifs,
     IReadOnlyList<string> WorkflowHints,
     string SelectionHint);
+
+public sealed record CreativeConceptPlan(
+    string Concept,
+    IReadOnlyList<string> Elements,
+    IReadOnlyList<string> AnimatedProperties,
+    IReadOnlyList<string> TimingPhases,
+    IReadOnlyList<string> Effects,
+    string PatchHint);
 
 public sealed record DocumentSummaryResponse(
     string Session,
@@ -117,7 +126,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
             [
                 "Call attach_active_editor for an open editor scene; if it fails or no editor is available, call create_project or open_project for a file-backed session instead of writing a one-off generator.",
                 "Call read_document_summary to inspect progress without the full document.",
-                "For original creative briefs, call list_creative_directions, read_document, and get_schema only for the drawable/effect types you need, then author a custom declarative patch instead of cloning a starter.",
+                "For original creative briefs, call list_creative_directions, pick a conceptPlan, read_document, and get_schema only for the drawable/effect types you need, then author a custom declarative patch instead of cloning a starter.",
                 "Call list_effects and list_effect_recipes to discover Beutl's visual effect palette before choosing a repeated look.",
                 "For no-context motion graphics, avoid overused orbit/radar/map/signal/dashboard motifs unless the user asks for them.",
                 "For visible progress, apply large scenes in stages: background first, then motion elements, then text/effects.",
@@ -127,7 +136,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 "When using a composition template, call list_compositions, choose a specific returned name that matches the user's request, then pass that name to plan_composition and apply_composition with the returned planId.",
                 "Use render_composition_patch only when the client explicitly needs the generated template patch JSON.",
                 "Call list_examples/get_examples for small schema snippets or as a fallback when a user asks for an example; full-scene starters are hidden by default.",
-                "Call render_still for representative frames and export_video for a finished motion preview when an encoder is available."
+                "Call render_still for representative frames, then evaluate_motion_variation to check temporal change before export_video."
             ],
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
@@ -156,6 +165,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 "typography: small caption system, kinetic word fragments, numeric countdown, subtitle-only rhythm, oversized cropped letterforms",
                 "palette: warm/cool clash, muted paper plus neon accent, monochrome with one warning color, daylight pastels, high-contrast print inks"
             ],
+            CreateConceptPlans(),
             [
                 "orbit rings",
                 "radar sweeps",
@@ -165,15 +175,16 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 "dark teal background with cyan/magenta neon"
             ],
             [
-                "Pick two direction axes and one contrast axis before writing a patch.",
+                "Pick one conceptPlan, then map each listed element to a named Element/Object before writing a patch.",
+                "Use at least three timing phases and animate multiple property families, not only X position and opacity.",
                 "Name the concept in any notes or output summary before creating elements.",
                 "Use list_effects/list_effect_recipes for available effects, then build the scene with plan_edit/apply_edit.",
                 "Keep full-scene examples and composition templates for explicit template/starter requests only.",
-                "Verify at least three stills and export a short video preview when the encoder is available."
+                "Verify at least three stills, run evaluate_motion_variation, and export a short video preview when the encoder is available."
             ],
             string.IsNullOrWhiteSpace(brief)
-                ? "No brief was supplied. Choose a direction that avoids the overused motifs and write a one-sentence concept before editing."
-                : $"Use these axes to reinterpret the brief without copying starter scenes: {brief.Trim()}"));
+                ? "No brief was supplied. Choose one conceptPlan that avoids the overused motifs, then implement its element plan with a custom patch."
+                : $"Use one conceptPlan to reinterpret the brief without copying starter scenes, then implement its element plan: {brief.Trim()}"));
     }
 
     [McpServerTool(Name = "get_schema")]
@@ -466,6 +477,94 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
 
             return new ReadDocumentResponse(document, SchemaVersion.Current);
         });
+    }
+
+    private static IReadOnlyList<CreativeConceptPlan> CreateConceptPlans()
+    {
+        return
+        [
+            new CreativeConceptPlan(
+                "Projected ink fold",
+                [
+                    "warm paper background plate",
+                    "large folding cutout plane",
+                    "ink-gradient light ribbon",
+                    "small calibration ticks",
+                    "cropped kinetic title"
+                ],
+                [
+                    "Transform.Children.TranslateTransform.X/Y",
+                    "Transform.Children.RotationTransform.Rotation",
+                    "Opacity",
+                    "Fill.GradientStops.Color/Offset",
+                    "FilterEffect.Children.Blur.Sigma"
+                ],
+                [
+                    "0-25%: quiet paper reveal and cutout fold-in",
+                    "25-75%: ribbon sweep crosses title and shifts color",
+                    "75-100%: title resolves while background drifts out"
+                ],
+                [
+                    "Blur",
+                    "DropShadow",
+                    "Brightness"
+                ],
+                "Create at least five named Elements/Objects from this plan before calling plan_edit."),
+            new CreativeConceptPlan(
+                "Magnetic type shards",
+                [
+                    "soft neutral background",
+                    "three to five letter-fragment TextBlock objects",
+                    "thin attraction lines",
+                    "accent particle dots",
+                    "final grouped title lockup"
+                ],
+                [
+                    "Transform.Children.TranslateTransform.X/Y",
+                    "Transform.Children.RotationTransform.Rotation",
+                    "Opacity",
+                    "TextBlock.Spacing",
+                    "BlendMode"
+                ],
+                [
+                    "0-20%: fragments enter separately",
+                    "20-70%: fragments overshoot and orbit-free attraction lines stretch",
+                    "70-100%: fragments snap into readable lockup"
+                ],
+                [
+                    "DropShadow",
+                    "Brightness",
+                    "FilterEffectGroup"
+                ],
+                "Map each shard to its own element or object so the motion can vary by phase."),
+            new CreativeConceptPlan(
+                "Thermal bloom diagram",
+                [
+                    "dark-to-warm thermal background",
+                    "two translucent heat blobs",
+                    "thin contour strokes",
+                    "numeric micro-captions",
+                    "white final label"
+                ],
+                [
+                    "Transform.Children.ScaleTransform.Scale",
+                    "Transform.Children.TranslateTransform.X/Y",
+                    "Opacity",
+                    "Fill.GradientStops.Offset",
+                    "FilterEffect.Children.Blur.Sigma"
+                ],
+                [
+                    "0-30%: heat blobs bloom from opposite corners",
+                    "30-70%: contours and captions stagger in",
+                    "70-100%: final label appears while blobs cool"
+                ],
+                [
+                    "Blur",
+                    "Brightness",
+                    "DropShadow"
+                ],
+                "Use separate background, blob, contour, caption, and label layers for visual density.")
+        ];
     }
 
     private static ElementSummary CreateElementSummary(Element element)

@@ -34,6 +34,12 @@ public sealed class AgentToolkitInstallerTests
         Assert.That(assets.Count(x => x.Kind == AgentToolkitAssetKind.Skill), Is.EqualTo(2));
         Assert.That(assets.Count(x => x.Kind == AgentToolkitAssetKind.Subagent), Is.EqualTo(2));
         Assert.That(assets.Select(x => x.RelativePath), Does.Contain("beutl-agent-timeline-from-shotlist/SKILL.md"));
+        Assert.That(
+            assets.Single(x => x.RelativePath == "beutl-agent-timeline-from-shotlist/SKILL.md").Content,
+            Does.Contain("evaluate_motion_variation"));
+        Assert.That(
+            assets.Single(x => x.RelativePath == "beutl-agent-timeline-builder.md").Content,
+            Does.Contain("evaluate_motion_variation"));
         Assert.That(assets.Single(x => x.RelativePath == "beutl-agent-look-applier.md").Content, Does.Contain("render_still"));
     }
 

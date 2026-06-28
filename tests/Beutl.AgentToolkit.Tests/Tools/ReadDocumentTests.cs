@@ -43,7 +43,7 @@ public sealed class ReadDocumentTests
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("list_effects"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("list_effect_recipes"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("full-scene starters are hidden by default"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("export_video"));
+            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("evaluate_motion_variation"));
             Assert.That(result.Value.CategoryAliases["visualEffect"], Is.EqualTo("FilterEffect"));
             Assert.That(result.Value.RawHttpNote, Does.Contain("Server-Sent Events"));
             Assert.That(result.Value.RawHttpNote, Does.Contain("content[0].text"));
@@ -79,11 +79,15 @@ public sealed class ReadDocumentTests
         {
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
             Assert.That(result.Value!.DirectionAxes, Has.Count.GreaterThanOrEqualTo(5));
+            Assert.That(result.Value.ConceptPlans, Has.Count.GreaterThanOrEqualTo(3));
+            Assert.That(result.Value.ConceptPlans.Select(plan => plan.Concept), Does.Contain("Projected ink fold"));
+            Assert.That(result.Value.ConceptPlans.SelectMany(plan => plan.Elements), Does.Contain("cropped kinetic title"));
+            Assert.That(result.Value.ConceptPlans.SelectMany(plan => plan.TimingPhases), Has.Some.Contains("0-25%"));
             Assert.That(result.Value.OverusedMotifs, Has.Some.Contains("orbit rings"));
             Assert.That(result.Value.OverusedMotifs, Has.Some.Contains("radar sweeps"));
             Assert.That(result.Value.OverusedMotifs, Has.Some.Contains("dark teal background with cyan/magenta neon"));
-            Assert.That(result.Value.WorkflowHints, Has.Some.Contains("Pick two direction axes"));
-            Assert.That(result.Value.WorkflowHints, Has.Some.Contains("export a short video preview"));
+            Assert.That(result.Value.WorkflowHints, Has.Some.Contains("Pick one conceptPlan"));
+            Assert.That(result.Value.WorkflowHints, Has.Some.Contains("evaluate_motion_variation"));
             Assert.That(result.Value.SelectionHint, Does.Contain("make a short motion graphic"));
         });
     }
@@ -425,7 +429,7 @@ public sealed class ReadDocumentTests
         var editTools = new EditTools(manager);
 
         ToolResult<GetExamplesResponse> example = queryTools.GetExamples(name: "create-empty-scene-orbital-radar");
-        ToolResult<ReconcileResult> apply = editTools.ApplyEdit(
+        ToolResult<ApplyEditResponse> apply = editTools.ApplyEdit(
             patch: example.Value!.Examples.Single().Patch,
             schemaVersion: SchemaVersion.Current);
         ToolResult<ListCompositionsResponse> compositions = queryTools.ListCompositions(seed: "fallback-recent");

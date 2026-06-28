@@ -2,6 +2,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Schema;
@@ -40,6 +41,21 @@ public sealed record ApplyCompositionResponse(
     string? AppliedPlanId,
     ReconcileResult Result);
 
+public sealed record AppliedEntityId(
+    string Id,
+    string Path,
+    string? Type,
+    string? Name);
+
+public sealed record ApplyEditResponse(
+    bool Valid,
+    IReadOnlyList<ChangeSetEntry> Changes,
+    IReadOnlyList<ValidationOutcome> Validation,
+    JsonArray AppliedChangeSet,
+    IReadOnlyList<AppliedEntityId> CreatedIds,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    JsonObject? Document = null);
+
 internal sealed record ResolvedEdit(JsonObject Document, HashSet<Guid> KnownNewIds);
 
 [McpServerToolType]
@@ -67,8 +83,8 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
     }
 
     [McpServerTool(Name = "apply_edit")]
-    [Description("Atomically applies a declarative desired document or JSON Merge Patch through Beutl history. In the in-app host, call attach_active_editor first. Pass plan_edit.expectedChangeSet to guarantee plan/apply parity. The response includes the updated document with minted Ids; use those Ids or read_document for follow-up edits.")]
-    public ToolResult<ReconcileResult> ApplyEdit(
+    [Description("Atomically applies a declarative desired document or JSON Merge Patch through Beutl history. In the in-app host, call attach_active_editor first. Pass plan_edit.expectedChangeSet to guarantee plan/apply parity. The response is compact by default: appliedChangeSet plus createdIds for follow-up edits. Set includeDocument=true only when you need the full updated document.")]
+    public ToolResult<ApplyEditResponse> ApplyEdit(
         [Description("Full desired declarative document. Uses PascalCase properties, $type discriminators, stable Id fields, typed properties for transforms/geometry/pens/brushes/effects, Animations.<Property>.KeyFrames for keyframes, and schemaVersion. Full desired documents are authoritative: omitted child arrays such as Elements or Objects can delete existing content, so use patch for partial edits.")]
         JsonObject? desired = null,
         [Description("JSON Merge Patch. Objects follow RFC 7396; Id-bearing arrays such as Elements, Objects, GradientStops, transform/effect Children, audio effect Children, and KeyFrames are merged by Id. Omit Id to insert; use {Id,$delete:true} to delete; use $index/$after/$before to reorder non-keyframe arrays. Unmentioned siblings are preserved.")]
@@ -76,7 +92,9 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
         [Description("Declarative document schema version. Required for patch; for desired, pass it here or include schemaVersion in the document. Mismatches are rejected instead of silently dropping content.")]
         string? schemaVersion = null,
         [Description("Optional change set returned by plan_edit.expectedChangeSet. apply_edit rejects the edit if the live computed change set differs.")]
-        JsonNode? expectedChangeSet = null)
+        JsonNode? expectedChangeSet = null,
+        [Description("Return the full updated document. Defaults to false to keep apply_edit responses compact; prefer createdIds or read_document_summary for follow-up edits.")]
+        bool includeDocument = false)
     {
         return Execute(() =>
         {
@@ -94,12 +112,12 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
             }
 
             ReconcileResult result = _reconciler.Apply(session, resolved.Document, resolved.KnownNewIds);
-            if (CompositionTemplateCatalog.TryInferTemplateName(patch ?? desired ?? result.Document) is { } inferredName)
+            if (CompositionTemplateCatalog.TryInferTemplateName(patch ?? desired!) is { } inferredName)
             {
                 sessions.RecordCompositionUse(inferredName);
             }
 
-            return result;
+            return CreateApplyEditResponse(result, includeDocument);
         });
     }
 
@@ -278,6 +296,85 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
                 .GroupBy(change => change.Operation, StringComparer.Ordinal)
                 .ToDictionary(group => group.Key, group => group.Count(), StringComparer.Ordinal),
             "Pass planId to apply_composition for compact plan/apply parity. Set includeDetailedPlan=true only if you explicitly need expectedChangeSet.");
+    }
+
+    private static ApplyEditResponse CreateApplyEditResponse(ReconcileResult result, bool includeDocument)
+    {
+        return new ApplyEditResponse(
+            result.Plan.Valid,
+            result.Plan.Changes,
+            result.Plan.Validation,
+            result.Plan.ExpectedChangeSet,
+            CreateCreatedIdSummary(result.Plan),
+            includeDocument ? result.Document : null);
+    }
+
+    private static IReadOnlyList<AppliedEntityId> CreateCreatedIdSummary(ReconcilePlan plan)
+    {
+        var ids = new List<AppliedEntityId>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (ChangeSetEntry change in plan.Changes)
+        {
+            if (change.Operation == ChangeOperations.InsertChild)
+            {
+                AddCreatedIds(change.NewValue, change.Path, ids, seen);
+            }
+        }
+
+        return ids;
+    }
+
+    private static void AddCreatedIds(
+        JsonNode? node,
+        string path,
+        List<AppliedEntityId> ids,
+        HashSet<string> seen)
+    {
+        if (node is JsonObject obj)
+        {
+            string currentPath = path;
+            if (TryReadObjectString(obj, nameof(CoreObject.Id)) is { } id)
+            {
+                string idSelector = $"[Id={id}]";
+                currentPath = path.EndsWith(idSelector, StringComparison.Ordinal)
+                    ? path
+                    : $"{path}{idSelector}";
+                if (seen.Add(id))
+                {
+                    ids.Add(new AppliedEntityId(
+                        id,
+                        currentPath,
+                        TryReadObjectString(obj, "$type"),
+                        TryReadObjectString(obj, nameof(CoreObject.Name))));
+                }
+            }
+
+            foreach (KeyValuePair<string, JsonNode?> pair in obj.ToArray())
+            {
+                AddCreatedIds(pair.Value, $"{currentPath}/{pair.Key}", ids, seen);
+            }
+        }
+        else if (node is JsonArray array)
+        {
+            for (int i = 0; i < array.Count; i++)
+            {
+                JsonNode? item = array[i];
+                string itemPath = item is JsonObject itemObject
+                                  && TryReadObjectString(itemObject, nameof(CoreObject.Id)) is { } id
+                    ? $"{path}[Id={id}]"
+                    : $"{path}[{i}]";
+                AddCreatedIds(item, itemPath, ids, seen);
+            }
+        }
+    }
+
+    private static string? TryReadObjectString(JsonObject obj, string name)
+    {
+        return obj.TryGetPropertyValue(name, out JsonNode? node)
+               && node is not null
+               && node.GetValueKind() == JsonValueKind.String
+            ? node.GetValue<string>()
+            : null;
     }
 
     private static bool EnforceFirstSelection(string? name, bool avoidRecent)
