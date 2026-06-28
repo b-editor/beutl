@@ -47,7 +47,7 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
         ProxyStoreConfig config = configuration.ProxyStoreConfig;
         var store = new ProxyStore(config.StoreRootPath);
         var resolver = new ProxyResolver(store);
-        var queue = new ProxyJobQueue(CreateGenerator(store));
+        var queue = new ProxyJobQueue(CreateGenerator(store), store);
         var eviction = new ProxyEvictionService(
             store,
             resolver,

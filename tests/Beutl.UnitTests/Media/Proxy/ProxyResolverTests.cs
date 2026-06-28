@@ -122,6 +122,60 @@ public class ProxyResolverTests
     }
 
     [Test]
+    public void Resolve_RejectsReadyEntryWithInvalidRecordedSize()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string source = CreateSourceFile();
+        string proxyPath = Path.Combine(root, "proxy.mp4");
+        File.WriteAllBytes(proxyPath, [1, 2, 3]);
+        ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(source);
+        var store = new UnsafeStore(root, new ProxyEntry(
+            fingerprint,
+            ProxyPreset.Quarter,
+            ProxyState.Ready,
+            "proxy.mp4",
+            0,
+            new PixelSize(100, 80),
+            new PixelSize(25, 20),
+            DateTime.UtcNow,
+            DateTime.UtcNow,
+            null));
+        var resolver = new ProxyResolver(store);
+
+        ProxyResolution? result = resolver.Resolve(new Uri(source), ProxyPreset.Quarter);
+
+        Assert.That(result, Is.Null);
+    }
+
+    [Test]
+    public void Resolve_RejectsReadyEntryWithInvalidDimensions()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string source = CreateSourceFile();
+        string proxyPath = Path.Combine(root, "proxy.mp4");
+        File.WriteAllBytes(proxyPath, [1, 2, 3]);
+        ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(source);
+        var store = new UnsafeStore(root, new ProxyEntry(
+            fingerprint,
+            ProxyPreset.Quarter,
+            ProxyState.Ready,
+            "proxy.mp4",
+            3,
+            PixelSize.Empty,
+            new PixelSize(25, 20),
+            DateTime.UtcNow,
+            DateTime.UtcNow,
+            null));
+        var resolver = new ProxyResolver(store);
+
+        ProxyResolution? result = resolver.Resolve(new Uri(source), ProxyPreset.Quarter);
+
+        Assert.That(result, Is.Null);
+    }
+
+    [Test]
     public void SupplyDensity_ReturnsNeutralDensityForEmptyProxySize()
     {
         var resolution = new ProxyResolution(

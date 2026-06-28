@@ -7,6 +7,8 @@ using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.Proxy;
 using Beutl.Media.Source;
+using Beutl.NodeGraph;
+using Beutl.NodeGraph.Nodes;
 using Beutl.ProjectSystem;
 using Reactive.Bindings;
 
@@ -23,7 +25,7 @@ public sealed class ProxiesTabViewModelTests
         var store = new ProxyStore(Path.Combine(root, "proxies"));
         ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(sourcePath);
         DateTime now = DateTime.UtcNow;
-        store.Register(new ProxyEntry(
+        RegisterProxyEntry(store, new ProxyEntry(
             fingerprint,
             ProxyPreset.Quarter,
             ProxyState.Ready,
@@ -71,7 +73,7 @@ public sealed class ProxiesTabViewModelTests
         string missingSourcePath = CreateSourceFile(root, "missing.mov", 512);
         var store = new ProxyStore(Path.Combine(root, "proxies"));
         ProxyFingerprint oldFingerprint = ProxyFingerprint.FromFile(staleSourcePath);
-        store.Register(new ProxyEntry(
+        RegisterProxyEntry(store, new ProxyEntry(
             oldFingerprint,
             ProxyPreset.Quarter,
             ProxyState.Ready,
@@ -105,7 +107,7 @@ public sealed class ProxiesTabViewModelTests
         var store = new ProxyStore(Path.Combine(root, "proxies"));
         ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(sourcePath);
         DateTime now = DateTime.UtcNow;
-        store.Register(new ProxyEntry(
+        RegisterProxyEntry(store, new ProxyEntry(
             fingerprint,
             ProxyPreset.Half,
             ProxyState.Ready,
@@ -142,6 +144,22 @@ public sealed class ProxiesTabViewModelTests
             Assert.That(
                 viewModel.ClipSummary.Value,
                 Is.EqualTo(string.Format(CultureInfo.CurrentCulture, Strings.ProxyClipSummaryFormat, 1, 0, 0, 0, 1)));
+        });
+    }
+
+    [Test]
+    public void Refresh_IncludesVideoSourceNodeSources()
+    {
+        string root = CreateRoot();
+        string sourcePath = CreateSourceFile(root, "graph.mov", 1024);
+        var store = new ProxyStore(Path.Combine(root, "proxies"));
+
+        using var viewModel = new ProxiesTabViewModel(CreateGraphContext(root, store, sourcePath));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.Clips, Has.Count.EqualTo(1));
+            Assert.That(viewModel.Clips.Single().FileName, Is.EqualTo("graph.mov"));
         });
     }
 
@@ -247,6 +265,35 @@ public sealed class ProxiesTabViewModelTests
         return context;
     }
 
+    private static TestEditorContext CreateGraphContext(string root, ProxyStore store, string sourcePath)
+    {
+        var scene = new Scene(1920, 1080, string.Empty)
+        {
+            Uri = new Uri(Path.Combine(root, "test.scene")),
+        };
+
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(sourcePath));
+        var node = new VideoSourceNode();
+        node.Source.Property!.SetValue(source);
+        var drawable = new NodeGraphDrawable();
+        drawable.Model.CurrentValue!.Nodes.Add(node);
+        var element = new Element
+        {
+            Start = TimeSpan.Zero,
+            Length = TimeSpan.FromSeconds(1),
+            IsEnabled = true,
+            Uri = new Uri(Path.Combine(root, $"{Guid.NewGuid():N}.layer")),
+        };
+        element.AddObject(drawable);
+        scene.Children.Add(element);
+
+        var context = new TestEditorContext(scene);
+        context.AddService(scene);
+        context.AddService<IProxyStore>(store);
+        return context;
+    }
+
     private static string CreateRoot()
     {
         string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
@@ -260,6 +307,16 @@ public sealed class ProxiesTabViewModelTests
         File.WriteAllBytes(path, Enumerable.Repeat((byte)7, bytes).ToArray());
         File.SetLastWriteTimeUtc(path, DateTime.UtcNow);
         return path;
+    }
+
+    private static void RegisterProxyEntry(ProxyStore store, ProxyEntry entry)
+    {
+        string proxyPath = Path.Combine(
+            store.StoreRootPath,
+            entry.ProxyFileRelative.Replace('/', Path.DirectorySeparatorChar));
+        Directory.CreateDirectory(Path.GetDirectoryName(proxyPath)!);
+        File.WriteAllBytes(proxyPath, Enumerable.Repeat((byte)1, checked((int)entry.ProxyFileSizeBytes)).ToArray());
+        store.Register(entry);
     }
 
     private sealed class TestEditorContext(CoreObject obj) : IEditorContext

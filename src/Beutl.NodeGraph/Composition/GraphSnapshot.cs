@@ -292,6 +292,10 @@ public sealed class GraphSnapshot : IDisposable
         {
             ctx.Target = target;
             ctx.Time = context.Time;
+            ctx.DisableResourceShare = context.DisableResourceShare;
+            ctx.ForceOriginalSource = context.ForceOriginalSource;
+            ctx.PreferProxy = context.PreferProxy;
+            ctx.PreferredProxyPreset = context.PreferredProxyPreset;
 
             // アニメーション/プロパティ値をロード
             LoadAnimatedValues(ctx.Resource, ctx.Time);

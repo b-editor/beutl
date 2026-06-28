@@ -5,8 +5,10 @@ namespace Beutl.Media.Proxy;
 public sealed class ProxyJobQueue : IProxyJobQueue
 {
     private readonly IProxyGenerator _generator;
+    private readonly IProxyStore? _store;
     private readonly Channel<WorkItem> _channel;
     private readonly CancellationTokenSource _disposeCts = new();
+    private readonly TaskCompletionSource _resumeAfterGeneratorUnavailable = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly Dictionary<(ProxyFingerprint Source, ProxyPreset Preset), WorkItem> _itemsByKey = [];
     private readonly List<WorkItem> _items = [];
     private readonly Lock _lock = new();
@@ -14,11 +16,17 @@ public sealed class ProxyJobQueue : IProxyJobQueue
     private bool _disposed;
 
     public ProxyJobQueue(IProxyGenerator generator, int capacity = 256)
+        : this(generator, store: null, capacity)
+    {
+    }
+
+    public ProxyJobQueue(IProxyGenerator generator, IProxyStore? store, int capacity = 256)
     {
         ArgumentNullException.ThrowIfNull(generator);
         ArgumentOutOfRangeException.ThrowIfLessThan(capacity, 1);
 
         _generator = generator;
+        _store = store;
         _channel = Channel.CreateBounded<WorkItem>(new BoundedChannelOptions(capacity)
         {
             FullMode = BoundedChannelFullMode.Wait,
@@ -100,7 +108,8 @@ public sealed class ProxyJobQueue : IProxyJobQueue
             item = _items.FirstOrDefault(i => i.Job.JobId == jobId);
         }
 
-        item?.Cancel();
+        if (item != null)
+            CancelItem(item);
     }
 
     public void CancelAll()
@@ -113,7 +122,7 @@ public sealed class ProxyJobQueue : IProxyJobQueue
 
         foreach (WorkItem item in snapshot)
         {
-            item.Cancel();
+            CancelItem(item);
         }
     }
 
@@ -123,6 +132,7 @@ public sealed class ProxyJobQueue : IProxyJobQueue
             return;
 
         _disposed = true;
+        CancelAll();
         _channel.Writer.TryComplete();
         _disposeCts.Cancel();
 
@@ -141,6 +151,7 @@ public sealed class ProxyJobQueue : IProxyJobQueue
     {
         await foreach (WorkItem item in _channel.Reader.ReadAllAsync())
         {
+            bool removedBeforeFinally = false;
             try
             {
                 if (item.IsCancellationRequested)
@@ -171,19 +182,39 @@ public sealed class ProxyJobQueue : IProxyJobQueue
                 item.Job.Status = ProxyJobStatus.Failed;
                 item.Job.Error = ex;
                 item.Job.StatusMessage = ex.Message;
+                RegisterFailure(item.Job, ex.Message);
                 OnJobChanged(item.Job, ProxyJobChangeKind.Failed);
+                Remove(item);
+                item.Dispose();
+                removedBeforeFinally = true;
+                await WaitForGeneratorResumeOrDisposeAsync().ConfigureAwait(false);
             }
             catch (Exception ex)
             {
                 item.Job.Status = ProxyJobStatus.Failed;
                 item.Job.Error = ex;
+                RegisterFailure(item.Job, ex.Message);
                 OnJobChanged(item.Job, ProxyJobChangeKind.Failed);
             }
             finally
             {
-                Remove(item);
-                item.Dispose();
+                if (!removedBeforeFinally)
+                {
+                    Remove(item);
+                    item.Dispose();
+                }
             }
+        }
+    }
+
+    private async Task WaitForGeneratorResumeOrDisposeAsync()
+    {
+        try
+        {
+            await _resumeAfterGeneratorUnavailable.Task.WaitAsync(_disposeCts.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
         }
     }
 
@@ -193,6 +224,44 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         {
             item.Job.Status = ProxyJobStatus.Canceled;
             OnJobChanged(item.Job, ProxyJobChangeKind.Canceled);
+        }
+    }
+
+    private void CancelItem(WorkItem item)
+    {
+        if (item.Job.Status == ProxyJobStatus.Queued)
+        {
+            CompleteCanceled(item);
+            Remove(item);
+            item.Dispose();
+            return;
+        }
+
+        item.Cancel();
+    }
+
+    private void RegisterFailure(ProxyJob job, string? failureReason)
+    {
+        if (_store == null)
+            return;
+
+        try
+        {
+            var now = DateTime.UtcNow;
+            _store.Register(new ProxyEntry(
+                job.Source,
+                job.Preset,
+                ProxyState.Failed,
+                ProxyPathUtilities.BuildRelativePath(job.Source, job.Preset),
+                0,
+                default,
+                default,
+                now,
+                now,
+                failureReason));
+        }
+        catch
+        {
         }
     }
 

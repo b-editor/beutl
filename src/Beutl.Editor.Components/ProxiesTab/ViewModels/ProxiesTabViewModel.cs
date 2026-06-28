@@ -7,6 +7,9 @@ using Beutl.Editor.Components.ProxiesTab;
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Media.Proxy;
+using Beutl.Media.Source;
+using Beutl.NodeGraph;
+using Beutl.NodeGraph.Nodes;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
@@ -336,18 +339,47 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
         {
             foreach (SourceVideo video in element.Objects.OfType<SourceVideo>())
             {
-                Uri? uri = video.Source.CurrentValue?.Uri;
-                if (uri is not { IsFile: true })
+                if (TryGetVideoSource(video.Source.CurrentValue, seen, out var item))
+                    yield return item;
+            }
+
+            foreach (NodeGraphDrawable graphDrawable in element.Objects.OfType<NodeGraphDrawable>())
+            {
+                GraphModel? model = graphDrawable.Model.CurrentValue;
+                if (model == null)
                     continue;
 
-                string path = uri.LocalPath;
-                if (!ProxyFingerprint.TryFromFile(path, out ProxyFingerprint fingerprint))
-                    continue;
-
-                if (seen.Add(fingerprint))
-                    yield return (path, fingerprint);
+                foreach (VideoSourceNode node in model.Nodes.OfType<VideoSourceNode>())
+                {
+                    VideoSource? source = node.Source.Property?.GetValue();
+                    if (TryGetVideoSource(source, seen, out var item))
+                        yield return item;
+                }
             }
         }
+    }
+
+    private static bool TryGetVideoSource(
+        VideoSource? source,
+        HashSet<ProxyFingerprint> seen,
+        out (string Path, ProxyFingerprint Fingerprint) item)
+    {
+        Uri? uri = source?.Uri;
+        if (uri is not { IsFile: true })
+        {
+            item = default;
+            return false;
+        }
+
+        string path = uri.LocalPath;
+        if (!ProxyFingerprint.TryFromFile(path, out ProxyFingerprint fingerprint) || !seen.Add(fingerprint))
+        {
+            item = default;
+            return false;
+        }
+
+        item = (path, fingerprint);
+        return true;
     }
 
     private void UpdateStoreSummary()

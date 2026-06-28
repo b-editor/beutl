@@ -55,16 +55,19 @@ public sealed class ProxyStoreTests
     }
 
     [Test]
-    public async Task ReconcileAsync_DropsMissingEntriesAndDeletesTmpFiles()
+    public async Task ReconcileAsync_DropsMissingEntriesAndDeletesOnlyGeneratedProxyTmpFiles()
     {
         string root = CreateRoot();
         var store = new ProxyStore(root);
-        ProxyEntry entry = CreateEntry(root, "hash/quarter.mp4");
+        string hashDirectory = new('a', 64);
+        ProxyEntry entry = CreateEntry(root, $"{hashDirectory}/quarter.mp4");
         store.Register(entry);
         File.Delete(Path.Combine(root, entry.ProxyFileRelative));
-        string tmpPath = Path.Combine(root, "hash", "quarter.mp4.tmp");
-        string encodedTmpPath = Path.Combine(root, "hash", "quarter.123.tmp.mp4");
+        string tmpPath = Path.Combine(root, hashDirectory, "quarter.mp4.tmp");
+        string unrelatedTmpPath = Path.Combine(root, hashDirectory, "clip.tmp.backup.mp4");
+        string encodedTmpPath = Path.Combine(root, hashDirectory, $"quarter.{Guid.NewGuid():N}.tmp.mp4");
         File.WriteAllBytes(tmpPath, [1, 2, 3]);
+        File.WriteAllBytes(unrelatedTmpPath, [1, 2, 3]);
         File.WriteAllBytes(encodedTmpPath, [1, 2, 3]);
 
         await store.ReconcileAsync(CancellationToken.None);
@@ -72,7 +75,8 @@ public sealed class ProxyStoreTests
         Assert.Multiple(() =>
         {
             Assert.That(store.TryGet(entry.Source, entry.Preset), Is.Null);
-            Assert.That(File.Exists(tmpPath), Is.False);
+            Assert.That(File.Exists(tmpPath), Is.True);
+            Assert.That(File.Exists(unrelatedTmpPath), Is.True);
             Assert.That(File.Exists(encodedTmpPath), Is.False);
         });
     }
@@ -173,6 +177,64 @@ public sealed class ProxyStoreTests
             Assert.That(store.TryGet(first.Source, first.Preset), Is.EqualTo(first));
             Assert.That(store.TryGet(second.Source, second.Preset), Is.EqualTo(second));
         });
+    }
+
+    [Test]
+    public void Register_MergesEntriesWrittenByAnotherStoreInstance()
+    {
+        string root = CreateRoot();
+        var firstStore = new ProxyStore(root);
+        var secondStore = new ProxyStore(root);
+        ProxyEntry first = CreateEntry(root, "first.mp4");
+        ProxyEntry second = CreateEntry(root, "second.mp4");
+
+        firstStore.Register(first);
+        secondStore.Register(second);
+
+        var reloaded = new ProxyStore(root);
+        Assert.Multiple(() =>
+        {
+            Assert.That(reloaded.TryGet(first.Source, first.Preset), Is.EqualTo(first));
+            Assert.That(reloaded.TryGet(second.Source, second.Preset), Is.EqualTo(second));
+        });
+    }
+
+    [Test]
+    public void LoadIndex_IgnoresReadyEntryWithInvalidSize()
+    {
+        string root = CreateRoot();
+        ProxyEntry entry = CreateEntry(root, "hash/quarter.mp4") with
+        {
+            ProxyFileSizeBytes = 0,
+        };
+        var index = new ProxyStoreIndex { Entries = [entry] };
+        File.WriteAllText(Path.Combine(root, "index.json"), JsonSerializer.Serialize(index, s_jsonOptions));
+
+        var store = new ProxyStore(root);
+
+        Assert.That(store.TryGet(entry.Source, entry.Preset), Is.Null);
+    }
+
+    [Test]
+    public async Task ReconcileAsync_PreservesFailedEntryWithoutProxyFile()
+    {
+        string root = CreateRoot();
+        var store = new ProxyStore(root);
+        ProxyEntry ready = CreateEntry(root, "hash/quarter.mp4");
+        ProxyEntry failed = ready with
+        {
+            State = ProxyState.Failed,
+            ProxyFileRelative = "hash/failed.mp4",
+            ProxyFileSizeBytes = 0,
+            OriginalLogicalFrameSize = PixelSize.Empty,
+            ProxyDecodedFrameSize = PixelSize.Empty,
+            FailureReason = "decode failed",
+        };
+        store.Register(failed);
+
+        await store.ReconcileAsync(CancellationToken.None);
+
+        Assert.That(store.TryGet(failed.Source, failed.Preset), Is.EqualTo(failed));
     }
 
     [Test]
