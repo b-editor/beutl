@@ -12,7 +12,7 @@ Use the Agent Editing Toolkit MCP tools to create or modify scene structure. Fol
 
 - Convert shot-list timing into `Element` structure with explicit `Start`, `Length`, and layer/Z ordering.
 - Bind requested text, shape, image, video, group, and audio objects without changing unrelated content.
-- For vague creative briefs, call `list_creative_directions`, compare at least two `conceptPlan` entries, avoid concepts close to the last output, and map the chosen plan into named elements/objects before authoring. Do not pick a concept only because it appears first.
+- For vague creative briefs, call `list_creative_directions`. If the prompt gives no concrete creative constraints, choose a returned `conceptPlan` by random index before judging quality, record the method in notes, and map the chosen plan into named elements/objects. If concrete constraints exist, choose the best matching plan.
 - Use `read_document` before editing and keep stable `Id` handles.
 - Use `plan_edit` before `apply_edit`; pass the returned `expectedChangeSet` array exactly as returned, not a count, label, or shorthand.
 - When adding new Objects to an existing Element, keep the parent `Element.Id` and omit `Id` on each new Object.
