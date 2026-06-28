@@ -29,9 +29,10 @@ public sealed class ReadDocumentTests
         Assert.Multiple(() =>
         {
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
-            Assert.That(result.Value!.RecommendedCalls, Does.Contain("In live mode, call attach_active_editor before scene tools."));
+            Assert.That(result.Value!.RecommendedCalls, Has.Some.Contains("attach_active_editor before scene tools"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("list_compositions"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("first returned composition"));
+            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("pre-attach lists are only previews"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("memory"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("plan_composition/apply_composition"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("planId"));
@@ -100,6 +101,8 @@ public sealed class ReadDocumentTests
             Assert.That(list.Value.Compositions.Select(composition => composition.Name), Does.Contain("split-screen-type-system"));
             Assert.That(list.Value.SelectionHint, Does.Contain("avoidRecent"));
             Assert.That(list.Value.RecentlyUsedCompositions, Is.Empty);
+            Assert.That(list.Value.PreAttachPreviewedCompositions, Is.Empty);
+            Assert.That(list.Value.PreviewOnly, Is.False);
             Assert.That(motionList.IsSuccess, Is.True, motionList.Error?.Message);
             Assert.That(motionList.Value!.Compositions, Has.Count.GreaterThanOrEqualTo(6));
             Assert.That(detail.IsSuccess, Is.True, detail.Error?.Message);
@@ -217,6 +220,42 @@ public sealed class ReadDocumentTests
     }
 
     [Test]
+    public void Pre_attach_composition_preview_is_deprioritized_after_attach()
+    {
+        var manager = new AgentSessionManager();
+        var queryTools = new QueryTools(manager);
+        var editTools = new EditTools(manager);
+
+        ToolResult<ListCompositionsResponse> previewList = queryTools.ListCompositions();
+        string previewedName = previewList.Value!.Compositions.First().Name;
+
+        var scene = new Scene(1920, 1080, "Scene");
+        using var session = new AgentToolkitTestSession(scene);
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+
+        ToolResult<ListCompositionsResponse> attachedList = queryTools.ListCompositions();
+        ToolResult<PlanCompositionResponse> rejected = editTools.PlanComposition(name: previewedName);
+        ToolResult<PlanCompositionResponse> deliberate = editTools.PlanComposition(name: previewedName, avoidRecent: false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(previewList.IsSuccess, Is.True, previewList.Error?.Message);
+            Assert.That(previewList.Value!.PreviewOnly, Is.True);
+            Assert.That(previewList.Value.PreAttachPreviewedCompositions, Does.Contain(previewedName));
+            Assert.That(previewList.Value.SelectionHint, Does.Contain("pre-attach preview"));
+            Assert.That(attachedList.IsSuccess, Is.True, attachedList.Error?.Message);
+            Assert.That(attachedList.Value!.PreviewOnly, Is.False);
+            Assert.That(attachedList.Value.PreAttachPreviewedCompositions, Does.Contain(previewedName));
+            Assert.That(attachedList.Value.Compositions.First().Name, Is.Not.EqualTo(previewedName));
+            Assert.That(attachedList.Value.Compositions.Last().Name, Is.EqualTo(previewedName));
+            Assert.That(rejected.IsSuccess, Is.False);
+            Assert.That(rejected.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(rejected.Error.Hint, Does.Contain("non-avoided"));
+            Assert.That(deliberate.IsSuccess, Is.True, deliberate.Error?.Message);
+        });
+    }
+
+    [Test]
     public void Composition_recent_survives_volatile_live_session_ids()
     {
         var scene = new Scene(1920, 1080, "Scene");
@@ -272,7 +311,7 @@ public sealed class ReadDocumentTests
             Assert.That(secondList.Value.Compositions.Last().Name, Is.EqualTo("orbital-radar-map"));
             Assert.That(repeated.IsSuccess, Is.False);
             Assert.That(repeated.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
-            Assert.That(repeated.Error.Hint, Does.Contain("first non-recent"));
+            Assert.That(repeated.Error.Hint, Does.Contain("non-avoided"));
         });
     }
 
@@ -306,7 +345,7 @@ public sealed class ReadDocumentTests
             Assert.That(compositions.Value.Compositions.Last().Name, Is.EqualTo("orbital-radar-map"));
             Assert.That(repeated.IsSuccess, Is.False);
             Assert.That(repeated.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
-            Assert.That(repeated.Error.Hint, Does.Contain("first non-recent"));
+            Assert.That(repeated.Error.Hint, Does.Contain("non-avoided"));
             Assert.That(examples.IsSuccess, Is.True, examples.Error?.Message);
             Assert.That(orbitalIndex, Is.GreaterThan(nonOrbitalIndex));
         });

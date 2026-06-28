@@ -161,9 +161,9 @@ public sealed class CompositionTemplateCatalog
         {
             throw new ReconcileException(new ToolError(
                 ErrorCode.ValidationRejected,
-                $"Composition template '{spec.Name}' was recently used.",
+                $"Composition template '{spec.Name}' was recently used or previewed.",
                 spec.Name,
-                "Call list_compositions and choose the first non-recent composition, or pass avoidRecent=false only when the user explicitly asks to repeat this style."));
+                "Call list_compositions and choose the first non-avoided composition, or pass avoidRecent=false only when the user explicitly asks to repeat this style."));
         }
 
         if (enforceFirstSelection && !string.IsNullOrWhiteSpace(name))

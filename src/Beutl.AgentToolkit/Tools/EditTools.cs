@@ -121,7 +121,7 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
                 tag,
                 inputProps,
                 sessions.ResolveCompositionSeed(seed),
-                avoidRecent ? sessions.GetRecentCompositions() : null,
+                avoidRecent ? sessions.GetAvoidedCompositions() : null,
                 EnforceFirstSelection(name, avoidRecent));
             ResolvedEdit resolved = ResolveDesiredDocument(session, desired: null, patch: composition.Patch, schemaVersion: SchemaVersion.Current);
             ReconcilePlan plan = _reconciler.Plan(session, resolved.Document, resolved.KnownNewIds);
@@ -193,7 +193,7 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
                 tag,
                 inputProps,
                 sessions.ResolveCompositionSeed(seed),
-                avoidRecent ? sessions.GetRecentCompositions() : null,
+                avoidRecent ? sessions.GetAvoidedCompositions() : null,
                 EnforceFirstSelection(name, avoidRecent));
             ResolvedEdit resolved = ResolveDesiredDocument(session, desired: null, patch: composition.Patch, schemaVersion: SchemaVersion.Current);
             ReconcilePlan plan = _reconciler.Plan(session, resolved.Document, resolved.KnownNewIds);

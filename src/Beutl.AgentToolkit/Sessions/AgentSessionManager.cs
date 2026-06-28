@@ -11,11 +11,14 @@ public sealed class AgentSessionManager
     private readonly Dictionary<string, CompositionPlanState> _compositionPlans = new(StringComparer.Ordinal);
     private readonly Dictionary<string, List<string>> _recentCompositions = new(StringComparer.Ordinal);
     private readonly List<string> _hostRecentCompositions = [];
+    private readonly List<string> _preAttachPreviewedCompositions = [];
     private ISessionSource? _currentSource;
     private string? _compositionSessionKey;
     private string? _compositionSessionSeed;
 
     public IEditingSession? CurrentSession => _currentSource?.CurrentSession;
+
+    public bool HasActiveSession => CurrentSession is not null;
 
     public void UseSource(ISessionSource source)
     {
@@ -62,6 +65,29 @@ public sealed class AgentSessionManager
             .Concat(_hostRecentCompositions)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
+    }
+
+    public IReadOnlyList<string> GetPreAttachPreviewedCompositions()
+    {
+        return _preAttachPreviewedCompositions.ToArray();
+    }
+
+    public IReadOnlyList<string> GetAvoidedCompositions()
+    {
+        return GetRecentCompositions()
+            .Concat(_preAttachPreviewedCompositions)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    public void RecordPreAttachCompositionPreview(string name)
+    {
+        if (HasActiveSession || string.IsNullOrWhiteSpace(name))
+        {
+            return;
+        }
+
+        AddRecent(_preAttachPreviewedCompositions, name);
     }
 
     public void RecordCompositionUse(string name)

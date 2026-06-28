@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel;
 using Beutl.AgentToolkit.Common;
+using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tools;
 using Beutl.ProjectSystem;
@@ -20,7 +21,7 @@ public sealed record AttachActiveEditorResponse(string Session, string Source, A
     [
         "Call read_document_summary to observe the scene without pulling the full document.",
         "Call list_effects and list_effect_recipes to discover Beutl visual effects before settling on a repeated look.",
-        "Call list_compositions without seed for a session-varied composition order; for no-context motion graphics, use the first returned composition and do not re-rank from memory.",
+        "After attach_active_editor succeeds, call list_compositions without seed for a session-varied composition order; for no-context motion graphics, use the first returned composition and do not re-rank from memory.",
         "Call list_examples to choose a compact declarative snippet only when composition tools are unavailable or you need a targeted patch.",
         "Call get_schema with includeProperties/includeExamples filters for detailed discovery.",
         "Call read_document when you need the normalized declarative scene.",
@@ -45,7 +46,11 @@ public sealed class AgentHostTools(
         {
             if (editorService.SelectedTabItem.Value?.Context.Value is not EditViewModel editViewModel)
             {
-                throw new SessionUnavailableException();
+                throw new ReconcileException(new ToolError(
+                    ErrorCode.NoActiveEditorSession,
+                    "No active Beutl editor scene is available.",
+                    null,
+                    "Open or create a project/scene in the Beutl editor first, then call attach_active_editor again. In live mode, project creation and saving are currently UI operations."));
             }
 
             LiveEditingSession session = liveSessions.Attach(new EditViewModelLiveBinding(editViewModel));

@@ -31,6 +31,8 @@ public sealed record ListCompositionsResponse(
     string Seed,
     IReadOnlyList<CompositionTemplateSummary> Compositions,
     IReadOnlyList<string> RecentlyUsedCompositions,
+    IReadOnlyList<string> PreAttachPreviewedCompositions,
+    bool PreviewOnly,
     string SelectionHint);
 
 public sealed record ListEffectsResponse(
@@ -106,10 +108,10 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
         return Execute(() => new GettingStartedResponse(
             SchemaVersion.Current,
             [
-                "In live mode, call attach_active_editor before scene tools.",
+                "In live mode, call attach_active_editor before scene tools. If it fails, open or create a project/scene in Beutl, then call attach_active_editor again.",
                 "Call read_document_summary to inspect progress without the full document.",
                 "Call list_effects and list_effect_recipes to discover Beutl's visual effect palette before choosing a repeated look.",
-                "For low-context motion graphics, call list_compositions without seed and use the first returned composition; do not override that order from memory or remembered examples.",
+                "For low-context motion graphics, call list_compositions after an editor session is attached, then use the first returned composition; pre-attach lists are only previews and should be refreshed after attach, and do not override the refreshed order from memory.",
                 "Call plan_composition and pass the returned planId to apply_composition for compact plan/apply parity without carrying a huge change set.",
                 "If plan_composition fails for one template, try the next list_compositions result before falling back to list_examples.",
                 "Use render_composition_patch only when the client explicitly needs the generated patch JSON; plan_composition/apply_composition avoid huge raw HTTP payloads.",
@@ -219,14 +221,25 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
     {
         return Execute(() =>
         {
-            IReadOnlyList<string> recent = avoidRecent ? sessions.GetRecentCompositions() : [];
-            CompositionTemplateList list = _compositionCatalog.List(tag, sessions.ResolveCompositionSeed(seed), recent);
+            bool previewOnly = !sessions.HasActiveSession && string.IsNullOrWhiteSpace(seed);
+            IReadOnlyList<string> recent = sessions.GetRecentCompositions();
+            IReadOnlyList<string> avoided = avoidRecent ? sessions.GetAvoidedCompositions() : [];
+            CompositionTemplateList list = _compositionCatalog.List(tag, sessions.ResolveCompositionSeed(seed), avoided);
+            if (previewOnly && avoidRecent && list.Compositions.FirstOrDefault() is { } first)
+            {
+                sessions.RecordPreAttachCompositionPreview(first.Name);
+            }
+
             return new ListCompositionsResponse(
                 SchemaVersion.Current,
                 list.Seed,
                 list.Compositions,
                 recent,
-                "Compositions are shuffled by seed, then recently applied names are moved to the end when avoidRecent=true. For no-context runs, use the first returned composition exactly; do not re-rank from memory or remembered examples. Explicitly selecting a recently used name is rejected unless avoidRecent=false.");
+                sessions.GetPreAttachPreviewedCompositions(),
+                previewOnly,
+                previewOnly
+                    ? "This list is a pre-attach preview. Open/create a Beutl project, call attach_active_editor, then call list_compositions again before choosing. The first previewed composition is deprioritized after attach so no-context agents do not repeat the preview choice."
+                    : "Compositions are shuffled by seed, then recently applied or pre-attach previewed names are moved to the end when avoidRecent=true. For no-context runs, use the first returned composition exactly; do not re-rank from memory or remembered examples. Explicitly selecting an avoided name is rejected unless avoidRecent=false.");
         });
     }
 
@@ -255,7 +268,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 tag,
                 inputProps,
                 sessions.ResolveCompositionSeed(seed),
-                avoidRecent ? sessions.GetRecentCompositions() : null,
+                avoidRecent ? sessions.GetAvoidedCompositions() : null,
                 EnforceFirstSelection(name, avoidRecent)),
             "Pass composition.patch to plan_edit/apply_edit with schemaVersion=1. Use the returned seed to reproduce or intentionally vary the generated motion."));
     }
