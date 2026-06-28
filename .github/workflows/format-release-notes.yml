@@ -55,9 +55,12 @@ jobs:
                a. `## What's Changed`
 
                b. Download links (use these exact URLs — the tag is `${{ inputs.tag }}`):
-                  - Windows
+                  - Windows (x64)
                     - `[Installer](https://github.com/${{ github.repository }}/releases/download/${{ inputs.tag }}/beutl-standalone-setup.exe)`
                     - `[Installer (.NET Runtime required)](https://github.com/${{ github.repository }}/releases/download/${{ inputs.tag }}/beutl-setup.exe)`
+                  - Windows (ARM64)
+                    - `[Installer](https://github.com/${{ github.repository }}/releases/download/${{ inputs.tag }}/beutl-standalone-arm64-setup.exe)`
+                    - `[Installer (.NET Runtime required)](https://github.com/${{ github.repository }}/releases/download/${{ inputs.tag }}/beutl-arm64-setup.exe)`
                   - macOS
                     - `[Zip (arm64)](https://github.com/${{ github.repository }}/releases/download/${{ inputs.tag }}/Beutl.osx_arm64.app.zip)`
                     - `[Zip (x64)](https://github.com/${{ github.repository }}/releases/download/${{ inputs.tag }}/Beutl.osx_x64.app.zip)`

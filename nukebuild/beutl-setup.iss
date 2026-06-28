@@ -16,6 +16,14 @@
 #define MyAppAssocKey StringChange(MyAppAssocName, " ", "") + MyAppAssocExt
 ; #define MyOutputBaseFilename "beutl-setup"
 
+; Target architecture. Defaults to x64; the build passes arm64 values for win-arm64.
+#ifndef MyArchitecturesAllowed
+  #define MyArchitecturesAllowed "x64compatible"
+#endif
+#ifndef MyArchitecturesInstallIn64BitMode
+  #define MyArchitecturesInstallIn64BitMode "x64compatible"
+#endif
+
 [Setup]
 ; NOTE: The value of AppId uniquely identifies this application. Do not use the same AppId value in installers for other applications.
 ; (To generate a new GUID, click Tools | Generate GUID inside the IDE.)
@@ -40,8 +48,8 @@ SetupIconFile={#MySetupIconFile}
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
-ArchitecturesInstallIn64BitMode=x64compatible
-ArchitecturesAllowed=x64compatible
+ArchitecturesInstallIn64BitMode={#MyArchitecturesInstallIn64BitMode}
+ArchitecturesAllowed={#MyArchitecturesAllowed}
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"

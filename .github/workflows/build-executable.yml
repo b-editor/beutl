@@ -27,7 +27,7 @@ jobs:
       artifact-run-id: ${{ steps.run-id.outputs.run-id }}
     strategy:
       matrix:
-        rid: [ linux_x64, win_x64, osx_x64, osx_arm64 ]
+        rid: [ linux_x64, win_x64, win_arm64, osx_x64, osx_arm64 ]
         standalone: [ true, false ]
 
     steps:

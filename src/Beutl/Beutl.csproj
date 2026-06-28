@@ -6,7 +6,15 @@
     <OutputType>WinExe</OutputType>
     <DesktopExeRids>true</DesktopExeRids>
     <FFmpegBuildIn Condition="'$(FFmpegBuildIn)' == ''">True</FFmpegBuildIn>
-    <MFBuildIn Condition="'$(MFBuildIn)' == '' And $(TargetFramework.Contains('windows'))">True</MFBuildIn>
+    <!-- True when this build effectively targets ARM64: an explicit arm64 RID, or a
+         RID-less dev/debug run (e.g. `dotnet run`) on an ARM64 host. Mirrors the host
+         detection in Beutl.Engine.csproj (_ShadercNativeRid). -->
+    <_BeutlTargetsArm64 Condition="$(RuntimeIdentifier.Contains('arm64'))">true</_BeutlTargetsArm64>
+    <_BeutlTargetsArm64 Condition="'$(_BeutlTargetsArm64)' == '' And '$(RuntimeIdentifier)' == '' And '$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture)' == 'Arm64'">true</_BeutlTargetsArm64>
+    <!-- Exclude MediaFoundation on ARM64: it depends on Direct3D9/DXVA2 (x86/x64-only).
+         ARM64 falls back to FFmpeg decoding. Covers both arm64 publishes and RID-less
+         arm64 host runs. -->
+    <MFBuildIn Condition="'$(MFBuildIn)' == '' And $(TargetFramework.Contains('windows')) And '$(_BeutlTargetsArm64)' != 'true'">True</MFBuildIn>
     <!-- AVFoundationはmacOS専用。osx-* RID向けpublish時、または非Windows TFMの開発ビルド
          (RID未指定) のときに含める。Linux/Windows向けpublishでは除外する。 -->
     <AVFBuildIn Condition="'$(AVFBuildIn)' == '' And !$(TargetFramework.Contains('windows')) And ('$(RuntimeIdentifier)' == '' Or $(RuntimeIdentifier.StartsWith('osx')))">True</AVFBuildIn>
