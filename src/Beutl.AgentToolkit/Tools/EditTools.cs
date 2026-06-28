@@ -104,7 +104,7 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
     }
 
     [McpServerTool(Name = "plan_composition")]
-    [Description("Dry-runs a Remotion-style composition without returning a huge patch. For low-context motion graphics, call list_compositions first and pass its first name; when avoidRecent=true, memorized non-first names are rejected.")]
+    [Description("Dry-runs an explicitly named reusable composition template without returning a huge patch. Use only when the user asked for a template/starter or a named composition style.")]
     public ToolResult<PlanCompositionResponse> PlanComposition(
         string? name = null,
         string? tag = null,
@@ -115,6 +115,7 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
     {
         return Execute(() =>
         {
+            RequireCompositionName(name);
             IEditingSession session = sessions.RequireSession();
             CompositionRender composition = _compositionCatalog.Render(
                 name,
@@ -143,7 +144,7 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
     }
 
     [McpServerTool(Name = "apply_composition")]
-    [Description("Applies a Remotion-style composition through the declarative editor loop without requiring the client to handle a huge patch. Prefer planId from plan_composition for compact plan/apply parity; expectedChangeSet remains supported.")]
+    [Description("Applies an explicitly named reusable composition template through the declarative editor loop. Prefer planId from plan_composition for compact plan/apply parity; expectedChangeSet remains supported.")]
     public ToolResult<ApplyCompositionResponse> ApplyComposition(
         string? name = null,
         string? tag = null,
@@ -188,6 +189,7 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
                     storedResult);
             }
 
+            RequireCompositionName(name);
             CompositionRender composition = _compositionCatalog.Render(
                 name,
                 tag,
@@ -281,6 +283,20 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
     private static bool EnforceFirstSelection(string? name, bool avoidRecent)
     {
         return avoidRecent && !string.IsNullOrWhiteSpace(name);
+    }
+
+    private static void RequireCompositionName(string? name)
+    {
+        if (!string.IsNullOrWhiteSpace(name))
+        {
+            return;
+        }
+
+        throw new ReconcileException(new ToolError(
+            ErrorCode.ValidationRejected,
+            "Composition templates require an explicit template name.",
+            null,
+            "Call list_compositions to inspect options, then pass a returned name only when the user explicitly asked for a reusable template/starter. For original creative briefs, author a custom patch with plan_edit/apply_edit."));
     }
 
     private static bool ChangeSetMatches(ReconcilePlan plan, JsonArray expectedChangeSet)

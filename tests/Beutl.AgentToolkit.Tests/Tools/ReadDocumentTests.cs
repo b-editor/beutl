@@ -30,19 +30,36 @@ public sealed class ReadDocumentTests
         {
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
             Assert.That(result.Value!.RecommendedCalls, Has.Some.Contains("attach_active_editor before scene tools"));
+            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("custom declarative patch"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("list_compositions"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("first returned composition"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("pre-attach lists are only previews"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("memory"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("plan_composition/apply_composition"));
+            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("explicitly asks for a reusable template"));
+            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("specific returned name"));
+            Assert.That(result.Value.RecommendedCalls, Has.None.Contains("first returned composition"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("planId"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("try the next list_compositions"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("list_effects"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("list_effect_recipes"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("list_examples"));
+            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("do not treat empty-scene examples as the default creative output"));
             Assert.That(result.Value.CategoryAliases["visualEffect"], Is.EqualTo("FilterEffect"));
             Assert.That(result.Value.RawHttpNote, Does.Contain("Server-Sent Events"));
             Assert.That(result.Value.RawHttpNote, Does.Contain("content[0].text"));
+        });
+    }
+
+    [Test]
+    public void Get_schema_omits_examples_by_default()
+    {
+        var tools = new QueryTools(new AgentSessionManager());
+
+        ToolResult<CapabilitySchema> defaultSchema = tools.GetSchema();
+        ToolResult<CapabilitySchema> schemaWithExamples = tools.GetSchema(includeExamples: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(defaultSchema.IsSuccess, Is.True, defaultSchema.Error?.Message);
+            Assert.That(defaultSchema.Value!.Types, Is.Not.Empty);
+            Assert.That(defaultSchema.Value.Examples, Is.Empty);
+            Assert.That(schemaWithExamples.IsSuccess, Is.True, schemaWithExamples.Error?.Message);
+            Assert.That(schemaWithExamples.Value!.Examples.Select(example => example.Name), Does.Contain("create-empty-scene-motion-graphics"));
         });
     }
 
@@ -114,6 +131,34 @@ public sealed class ReadDocumentTests
             Assert.That(render.Value.Composition.ResolvedProps["title"]!.GetValue<string>(), Is.EqualTo("PATCH TITLE"));
             Assert.That(render.Value.Composition.Patch.ToJsonString(), Does.Contain("PATCH TITLE"));
             Assert.That(render.Value.UsageHint, Does.Contain("plan_edit"));
+        });
+    }
+
+    [Test]
+    public void Composition_tools_require_explicit_template_name()
+    {
+        var scene = new Scene(1920, 1080, "Scene");
+        using var session = new AgentToolkitTestSession(scene);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var queryTools = new QueryTools(manager);
+        var editTools = new EditTools(manager);
+
+        ToolResult<RenderCompositionPatchResponse> render = queryTools.RenderCompositionPatch();
+        ToolResult<PlanCompositionResponse> plan = editTools.PlanComposition();
+        ToolResult<ApplyCompositionResponse> apply = editTools.ApplyComposition();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(render.IsSuccess, Is.False);
+            Assert.That(render.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(render.Error.Hint, Does.Contain("original creative briefs"));
+            Assert.That(plan.IsSuccess, Is.False);
+            Assert.That(plan.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(plan.Error.Hint, Does.Contain("original creative briefs"));
+            Assert.That(apply.IsSuccess, Is.False);
+            Assert.That(apply.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(apply.Error.Hint, Does.Contain("original creative briefs"));
         });
     }
 

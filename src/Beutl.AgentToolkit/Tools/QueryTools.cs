@@ -110,16 +110,15 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
             [
                 "In live mode, call attach_active_editor before scene tools. If it fails, open or create a project/scene in Beutl, then call attach_active_editor again.",
                 "Call read_document_summary to inspect progress without the full document.",
+                "For original creative briefs, call read_document, get_schema only for the drawable/effect types you need, then author a custom declarative patch instead of cloning a starter.",
                 "Call list_effects and list_effect_recipes to discover Beutl's visual effect palette before choosing a repeated look.",
-                "For low-context motion graphics, call list_compositions after an editor session is attached, then use the first returned composition; pre-attach lists are only previews and should be refreshed after attach, and do not override the refreshed order from memory.",
-                "Call plan_composition and pass the returned planId to apply_composition for compact plan/apply parity without carrying a huge change set.",
-                "If plan_composition fails for one template, try the next list_compositions result before falling back to list_examples.",
-                "Use render_composition_patch only when the client explicitly needs the generated patch JSON; plan_composition/apply_composition avoid huge raw HTTP payloads.",
-                "Call list_examples to choose a starter only when composition tools are unavailable; examples are shuffled and recently used composition styles are moved to the end.",
-                "Call get_examples with name=<selected-example> to fetch exactly one patch.",
                 "For visible progress, apply large scenes in stages: background first, then motion elements, then text/effects.",
-                "Call plan_edit with the selected patch and schemaVersion=1.",
+                "Call plan_edit with the custom patch and schemaVersion=1.",
                 "Call apply_edit with plan_edit.expectedChangeSet.",
+                "Use list_compositions, get_composition, and plan_composition only when the user explicitly asks for a reusable template, starter, or named composition style.",
+                "When using a composition template, call list_compositions, choose a specific returned name that matches the user's request, then pass that name to plan_composition and apply_composition with the returned planId.",
+                "Use render_composition_patch only when the client explicitly needs the generated template patch JSON.",
+                "Call list_examples/get_examples for small schema snippets or as a fallback when a user asks for an example; do not treat empty-scene examples as the default creative output.",
                 "Call render_still or export_video to verify the result."
             ],
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
@@ -137,12 +136,12 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
     }
 
     [McpServerTool(Name = "get_schema")]
-    [Description("Returns the capability schema for registered editable types, optionally filtered by type or category. Category aliases such as visualEffect, effect, filter, videoEffect, fill, stroke, and ease are accepted. Set includeProperties=false for a compact type/discriminator catalog, or includeExamples=false when examples would make the response too large.")]
+    [Description("Returns the capability schema for registered editable types, optionally filtered by type or category. Category aliases such as visualEffect, effect, filter, videoEffect, fill, stroke, and ease are accepted. Examples are opt-in so creative briefs do not anchor on starter scenes; set includeExamples=true when snippets are explicitly needed.")]
     public ToolResult<CapabilitySchema> GetSchema(
         string? type = null,
         string? category = null,
         bool includeProperties = true,
-        bool includeExamples = true)
+        bool includeExamples = false)
     {
         return Execute(() =>
         {
@@ -160,7 +159,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
     }
 
     [McpServerTool(Name = "list_examples")]
-    [Description("Returns compact example names, descriptions, categories, and tags without large patches. Use this before get_examples so repeated runs can pick different visual starters.")]
+    [Description("Returns compact example names, descriptions, categories, and tags without large patches. Use examples as snippets or explicit starters, not as the default path for original creative briefs.")]
     public ToolResult<ListExamplesResponse> ListExamples(string? type = null, string? category = null)
     {
         return Execute(() =>
@@ -169,7 +168,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
             return new ListExamplesResponse(
                 SchemaVersion.Current,
                 OrderExamples(Shuffle(examples)),
-                "Examples are shuffled for no-context runs, then examples matching recently used composition styles are moved to the end. Pick the first suitable empty-scene starter unless the user asked for a specific style, then call get_examples with that name.");
+                "Examples are shuffled, then examples matching recently used composition styles are moved to the end. Use get_examples with a specific name for snippets or explicit starters; for original briefs, author a custom patch with plan_edit/apply_edit.");
         });
     }
 
@@ -182,7 +181,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
             string.IsNullOrWhiteSpace(name)
                 ? OrderExamples(Shuffle(_schemaGenerator.GenerateExamples(type, category, name)))
                 : _schemaGenerator.GenerateExamples(type, category, name),
-            "If more than one example is returned, the order is shuffled and recently used composition styles are moved to the end. Choose the first suitable empty-scene starter, or use name to fetch a single patch."));
+            "If more than one example is returned, the order is shuffled and recently used composition styles are moved to the end. Use name to fetch a single snippet or explicit starter; for original briefs, build a custom patch instead of cloning an empty-scene example."));
     }
 
     [McpServerTool(Name = "list_effects")]
@@ -216,7 +215,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
     }
 
     [McpServerTool(Name = "list_compositions")]
-    [Description("Returns compact Remotion-style composition templates. Templates include props, style axes, default metadata, and deterministic shuffled order. If seed is omitted, the active session default seed is used. Recently applied templates are moved to the end by default.")]
+    [Description("Returns optional reusable composition templates for explicit template/starter requests. Templates include props, style axes, default metadata, and deterministic shuffled order. If seed is omitted, the active session default seed is used. Recently applied templates are moved to the end by default.")]
     public ToolResult<ListCompositionsResponse> ListCompositions(string? tag = null, string? seed = null, bool avoidRecent = true)
     {
         return Execute(() =>
@@ -238,13 +237,13 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 sessions.GetPreAttachPreviewedCompositions(),
                 previewOnly,
                 previewOnly
-                    ? "This list is a pre-attach preview. Open/create a Beutl project, call attach_active_editor, then call list_compositions again before choosing. The first previewed composition is deprioritized after attach so no-context agents do not repeat the preview choice."
-                    : "Compositions are shuffled by seed, then recently applied or pre-attach previewed names are moved to the end when avoidRecent=true. For no-context runs, use the first returned composition exactly; do not re-rank from memory or remembered examples. Explicitly selecting an avoided name is rejected unless avoidRecent=false.");
+                    ? "This list is a pre-attach preview. Open/create a Beutl project, call attach_active_editor, then call list_compositions again before choosing a named template. The first previewed composition is deprioritized after attach."
+                    : "Compositions are shuffled by seed, then recently applied or pre-attach previewed names are moved to the end when avoidRecent=true. Use a specific returned name only when the user explicitly asked for a template/starter; original creative briefs should use custom plan_edit/apply_edit patches. Explicitly selecting an avoided name is rejected unless avoidRecent=false.");
         });
     }
 
     [McpServerTool(Name = "get_composition")]
-    [Description("Returns one Remotion-style composition contract: defaultProps, prop descriptors, calculated default metadata, Sequence-like timing, transitions, tags, and style axes.")]
+    [Description("Returns one reusable composition template contract: defaultProps, prop descriptors, calculated default metadata, Sequence-like timing, transitions, tags, and style axes.")]
     public ToolResult<GetCompositionResponse> GetComposition(string name)
     {
         return Execute(() => new GetCompositionResponse(
@@ -253,7 +252,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
     }
 
     [McpServerTool(Name = "render_composition_patch")]
-    [Description("Materializes a Remotion-style composition into a declarative Beutl JSON Merge Patch. For low-context motion graphics, call list_compositions first and pass its first name; remembered non-first names are rejected while avoidRecent=true.")]
+    [Description("Materializes an explicitly named reusable composition template into a declarative Beutl JSON Merge Patch. Use only when the user asked for a template/starter or a named composition style.")]
     public ToolResult<RenderCompositionPatchResponse> RenderCompositionPatch(
         string? name = null,
         string? tag = null,
@@ -261,21 +260,39 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
         string? seed = null,
         bool avoidRecent = true)
     {
-        return Execute(() => new RenderCompositionPatchResponse(
-            SchemaVersion.Current,
-            _compositionCatalog.Render(
-                name,
-                tag,
-                inputProps,
-                sessions.ResolveCompositionSeed(seed),
-                avoidRecent ? sessions.GetAvoidedCompositions() : null,
-                EnforceFirstSelection(name, avoidRecent)),
-            "Pass composition.patch to plan_edit/apply_edit with schemaVersion=1. Use the returned seed to reproduce or intentionally vary the generated motion."));
+        return Execute(() =>
+        {
+            RequireCompositionName(name);
+            return new RenderCompositionPatchResponse(
+                SchemaVersion.Current,
+                _compositionCatalog.Render(
+                    name,
+                    tag,
+                    inputProps,
+                    sessions.ResolveCompositionSeed(seed),
+                    avoidRecent ? sessions.GetAvoidedCompositions() : null,
+                    EnforceFirstSelection(name, avoidRecent)),
+                "Pass composition.patch to plan_edit/apply_edit with schemaVersion=1. Use the returned seed to reproduce or intentionally vary this named template.");
+        });
     }
 
     private static bool EnforceFirstSelection(string? name, bool avoidRecent)
     {
         return avoidRecent && !string.IsNullOrWhiteSpace(name);
+    }
+
+    private static void RequireCompositionName(string? name)
+    {
+        if (!string.IsNullOrWhiteSpace(name))
+        {
+            return;
+        }
+
+        throw new ReconcileException(new ToolError(
+            ErrorCode.ValidationRejected,
+            "Composition templates require an explicit template name.",
+            null,
+            "Call list_compositions to inspect options, then pass a returned name only when the user explicitly asked for a reusable template/starter. For original creative briefs, author a custom patch with plan_edit/apply_edit."));
     }
 
     private static T[] Shuffle<T>(IReadOnlyList<T> source)

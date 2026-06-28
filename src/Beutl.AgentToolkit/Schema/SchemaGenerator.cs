@@ -562,7 +562,7 @@ public sealed class SchemaGenerator
             yield return new ExampleSpec(
                 new DeclarativeExample(
                     $"create-empty-scene-{name}",
-                    $"Composition starter generated from the {name} Remotion-style template. Use this fallback only when plan_composition/apply_composition is unavailable.",
+                    $"Composition starter generated from the {name} reusable template. Use only when the user explicitly asks for this template/starter style; otherwise treat it as a structure reference and author a custom patch.",
                     (JsonObject)render.Patch.DeepClone()),
                 ExampleCategories(
                     KnownLibraryItemFormats.Drawable,
@@ -1100,7 +1100,7 @@ public sealed class SchemaGenerator
 
         return new DeclarativeExample(
             "create-empty-scene-motion-graphics",
-            "Patch snippet for an empty scene. It appends visible elements without Id fields so the toolkit mints stable Ids; use the returned apply_edit document or read_document before follow-up edits.",
+            "Patch snippet for an empty scene. Use as a schema reference or explicit starter; for original creative briefs, adapt the structure instead of copying it unchanged. It appends visible elements without Id fields so the toolkit mints stable Ids.",
             new JsonObject
             {
                 ["Duration"] = TimeSpan.FromSeconds(8).ToString("c"),
@@ -1345,7 +1345,7 @@ public sealed class SchemaGenerator
 
         return new DeclarativeExample(
             "create-empty-scene-orbital-radar",
-            "Patch snippet for an empty scene with orbit rings, a moving signal node, scan sweep, glow, pens, gradients, and title typography. Use this when repeated ribbon/title starters would look too similar.",
+            "Patch snippet for an empty scene with orbit rings, a moving signal node, scan sweep, glow, pens, gradients, and title typography. Use only when the user explicitly asks for an orbit/radar style; otherwise treat it as a shape/effect reference, not a full-scene starter.",
             new JsonObject
             {
                 ["Duration"] = TimeSpan.FromSeconds(8).ToString("c"),
@@ -1587,7 +1587,7 @@ public sealed class SchemaGenerator
 
         return new DeclarativeExample(
             "create-empty-scene-split-screen-typography",
-            "Patch snippet for an empty scene with a split-screen editorial layout, animated panels, kinetic typography, blocks, gradients, and layered effects. Use this to avoid repeating the central ribbon composition.",
+            "Patch snippet for an empty scene with a split-screen editorial layout, animated panels, kinetic typography, blocks, gradients, and layered effects. Use as an explicit starter or adapt the parts into an original brief-driven composition.",
             new JsonObject
             {
                 ["Duration"] = TimeSpan.FromSeconds(8).ToString("c"),

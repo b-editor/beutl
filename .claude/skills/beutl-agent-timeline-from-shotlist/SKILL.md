@@ -24,6 +24,13 @@ Use this skill when an agent needs to turn a shot list, storyboard, or timed bri
 7. Verify with `read_document`, then `render_still` at representative shot boundaries.
 8. Save with `save_project` for file sessions.
 
+## Originality Rules
+
+- For creative briefs, build an original timeline with `plan_edit` / `apply_edit`; do not use `list_compositions`, `plan_composition`, or empty-scene examples as the default output path.
+- Use composition templates only when the user explicitly asks for a template, starter, quick draft, or named template style.
+- When a template is explicitly requested, pick a specific returned template name from `list_compositions`; do not rely on an implicit first template selection.
+- Treat examples as schema snippets or fallbacks. Adapt their structure to the brief instead of copying a full starter scene unchanged.
+
 ## Shot List Mapping
 
 - One shot normally maps to one `Element` with `Start`, `Length`, `ZIndex`, and one or more drawable/audio objects.
