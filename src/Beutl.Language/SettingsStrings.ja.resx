@@ -189,7 +189,7 @@
     <comment/>
   </data>
   <data name="ProxyStoreRootPath_Description" xml:space="preserve">
-    <value>プロキシファイルを保存するフォルダーです。</value>
+    <value>プロキシファイルを保存するフォルダーです。変更は再起動後に反映されます。</value>
     <comment/>
   </data>
   <data name="ProxyStoreMaxTotalGiB" xml:space="preserve">
@@ -197,7 +197,7 @@
     <comment/>
   </data>
   <data name="ProxyStoreMaxTotalGiB_Description" xml:space="preserve">
-    <value>ストアがこのサイズを超えると、最も使われていないプロキシから削除されます。</value>
+    <value>ストアがこのサイズを超えると、最も使われていないプロキシから削除されます。変更は再起動後に反映されます。</value>
     <comment/>
   </data>
   <data name="ProxyDefaultPreset" xml:space="preserve">

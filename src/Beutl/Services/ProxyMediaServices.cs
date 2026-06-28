@@ -1,14 +1,17 @@
 ﻿using Beutl.Configuration;
+using Beutl.Logging;
 #if FFMPEG_BUILD_IN
 using Beutl.Extensions.FFmpeg.Proxy;
 #endif
 using Beutl.Media.Decoding;
 using Beutl.Media.Proxy;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.Services;
 
 internal sealed class ProxyMediaServices : IAsyncDisposable
 {
+    private static readonly ILogger s_logger = Log.CreateLogger<ProxyMediaServices>();
     private bool _disposed;
 
     private ProxyMediaServices(
@@ -57,11 +60,7 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
         Current = services;
         DecoderRegistry.ProxyResolver = resolver;
 
-        _ = Task.Run(async () =>
-        {
-            await store.ReconcileAsync(CancellationToken.None).ConfigureAwait(false);
-            eviction.Sweep();
-        });
+        _ = Task.Run(() => ReconcileAndSweepAsync(store, eviction));
 
         return services;
     }
@@ -94,7 +93,32 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
     private void OnJobChanged(object? sender, ProxyJobChangedEventArgs e)
     {
         if (e.Kind == ProxyJobChangeKind.Succeeded)
-            _ = Task.Run(EvictionService.Sweep);
+            _ = Task.Run(() => SweepBestEffort(EvictionService));
+    }
+
+    private static async Task ReconcileAndSweepAsync(ProxyStore store, ProxyEvictionService eviction)
+    {
+        try
+        {
+            await store.ReconcileAsync(CancellationToken.None).ConfigureAwait(false);
+            eviction.Sweep();
+        }
+        catch (Exception ex)
+        {
+            s_logger.LogWarning(ex, "Proxy store startup reconciliation failed.");
+        }
+    }
+
+    private static void SweepBestEffort(ProxyEvictionService eviction)
+    {
+        try
+        {
+            eviction.Sweep();
+        }
+        catch (Exception ex)
+        {
+            s_logger.LogWarning(ex, "Proxy store eviction failed.");
+        }
     }
 
     private static string FormatBytes(long bytes)
@@ -113,7 +137,7 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
 
     private sealed class UnavailableProxyGenerator : IProxyGenerator
     {
-        public ValueTask GenerateAsync(ProxyJob job, CancellationToken cancellationToken)
+        public ValueTask GenerateAsync(ProxyJob job)
         {
             throw new ProxyGeneratorUnavailableException("FFmpeg proxy generation is not available in this build.");
         }

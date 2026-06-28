@@ -1318,6 +1318,15 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="ProxyPresetHalf" xml:space="preserve">
     <value>Half (1/2)</value>
   </data>
+  <data name="PreviewSource" xml:space="preserve">
+    <value>Preview source</value>
+  </data>
+  <data name="PreviewSourcePreferProxy" xml:space="preserve">
+    <value>Proxy</value>
+  </data>
+  <data name="PreviewSourceForceOriginal" xml:space="preserve">
+    <value>Original</value>
+  </data>
   <data name="ProxyPresetQuarter" xml:space="preserve">
     <value>Quarter (1/4)</value>
   </data>

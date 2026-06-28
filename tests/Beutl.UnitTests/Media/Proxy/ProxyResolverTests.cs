@@ -29,7 +29,7 @@ public class ProxyResolverTests
     }
 
     [Test]
-    public void Resolve_ReturnsReadyEntry_AndTouchesOnce()
+    public async Task Resolve_ReturnsReadyEntry_AndTouchesOnce()
     {
         string source = CreateSourceFile();
         ProxyEntry entry = RegisterProxy(source, ProxyPreset.Quarter, new PixelSize(100, 80), new PixelSize(25, 20));
@@ -38,6 +38,7 @@ public class ProxyResolverTests
         ProxyResolution? result = _resolver.Resolve(new Uri(source), ProxyPreset.Quarter);
 
         ProxyEntry? touched = _store.TryGet(entry.Source, ProxyPreset.Quarter);
+        await _store.FlushAsync(CancellationToken.None);
         var reloaded = new ProxyStore(_root);
         ProxyEntry? persisted = reloaded.TryGet(entry.Source, ProxyPreset.Quarter);
         Assert.Multiple(() =>
@@ -96,6 +97,43 @@ public class ProxyResolverTests
         Assert.That(_resolver.IsPinned(resolution.AbsoluteProxyFilePath), Is.False);
     }
 
+    [Test]
+    public void Resolve_RejectsProxyPathEscapingStoreRoot()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        string source = CreateSourceFile();
+        ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(source);
+        var store = new UnsafeStore(root, new ProxyEntry(
+            fingerprint,
+            ProxyPreset.Quarter,
+            ProxyState.Ready,
+            "../outside.mp4",
+            3,
+            new PixelSize(100, 80),
+            new PixelSize(25, 20),
+            DateTime.UtcNow,
+            DateTime.UtcNow,
+            null));
+        var resolver = new ProxyResolver(store);
+
+        ProxyResolution? result = resolver.Resolve(new Uri(source), ProxyPreset.Quarter);
+
+        Assert.That(result, Is.Null);
+    }
+
+    [Test]
+    public void SupplyDensity_ReturnsNeutralDensityForEmptyProxySize()
+    {
+        var resolution = new ProxyResolution(
+            "/tmp/proxy.mp4",
+            new ProxyFingerprint("/tmp/source.mov", 1, DateTime.UtcNow),
+            ProxyPreset.Quarter,
+            new PixelSize(100, 80),
+            PixelSize.Empty);
+
+        Assert.That(resolution.SupplyDensity, Is.EqualTo(1f));
+    }
+
     private static string CreateSourceFile()
     {
         string path = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid() + ".mov");
@@ -130,5 +168,46 @@ public class ProxyResolverTests
 
         _store.Register(entry);
         return entry;
+    }
+
+    private sealed class UnsafeStore(string root, ProxyEntry entry) : IProxyStore
+    {
+        public string StoreRootPath { get; } = root;
+
+        public event EventHandler<ProxyStoreChangedEventArgs>? Changed;
+
+        public ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset)
+        {
+            return source == entry.Source && preset == entry.Preset ? entry : null;
+        }
+
+        public IReadOnlyList<ProxyEntry> Enumerate() => [entry];
+
+        public void Register(ProxyEntry entry)
+        {
+        }
+
+        public bool TryTransition(ProxyFingerprint source, ProxyPreset preset, ProxyState newState, string? failureReason = null)
+            => false;
+
+        public bool Delete(ProxyFingerprint source, ProxyPreset preset) => false;
+
+        public void Touch(ProxyFingerprint source, ProxyPreset preset, DateTime nowUtc)
+        {
+            Changed?.Invoke(this, new ProxyStoreChangedEventArgs
+            {
+                Source = source,
+                Preset = preset,
+                Kind = ProxyStoreChangeKind.Touched,
+            });
+        }
+
+        public long GetTotalBytes() => 0;
+
+        public long GetTotalBytes(IReadOnlySet<string> sourceAbsolutePaths) => 0;
+
+        public Task FlushAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task ReconcileAsync(CancellationToken cancellationToken) => Task.CompletedTask;
     }
 }

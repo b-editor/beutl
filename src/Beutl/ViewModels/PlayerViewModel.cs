@@ -1904,8 +1904,12 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             if (Scene == null) throw new Exception("Scene is null.");
 
             // Throwaway renderer with disableResourceShare to avoid mutating live preview resources.
-            using var renderer = new SceneRenderer(Scene, renderScale: outputScale, disableResourceShare: true,
-                maxWorkingScale: WorkingScaleCeiling.Export());
+            using var renderer = new SceneRenderer(
+                Scene,
+                renderScale: outputScale,
+                disableResourceShare: true,
+                maxWorkingScale: WorkingScaleCeiling.Export(),
+                forceOriginalSource: true);
             renderer.CacheOptions = RenderCacheOptions.Disabled;
 
             var compositionFrame = renderer.Compositor.EvaluateGraphics(CurrentFrame.Value);

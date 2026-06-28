@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using Beutl.Collections.Pooled;
 using Beutl.Composition;
+using Beutl.Configuration;
 using Beutl.Engine;
 using Beutl.Media;
 using Beutl.Media.Proxy;
@@ -34,6 +35,8 @@ public sealed class SceneCompositor : ICompositor
 
     public bool DisableResourceShare { get; init; }
 
+    public bool ForceOriginalSource { get; init; }
+
     private sealed class CompositorContext : CompositionContext, ISceneCompositionContext
     {
         private readonly SceneCompositor _compositor;
@@ -49,13 +52,22 @@ public sealed class SceneCompositor : ICompositor
             Target = target;
             Flow = flow;
             DisableResourceShare = compositor.DisableResourceShare;
-            PreferProxy = !compositor.DisableResourceShare
+            ForceOriginalSource = compositor.ForceOriginalSource;
+            PreferProxy = !compositor.ForceOriginalSource
                 && compositor.Scene.PreviewSourceMode == PreviewSourceMode.PreferProxy;
+            PreferredProxyPreset = ToPreset(GlobalConfiguration.Instance.ProxyStoreConfig.DefaultPreset);
         }
 
         public IList<Element> CurrentElements { get; set; }
 
         public CompositionTarget Target { get; set; }
+
+        private static ProxyPreset ToPreset(int value)
+        {
+            return Enum.IsDefined(typeof(ProxyPreset), value)
+                ? (ProxyPreset)value
+                : ProxyPreset.Quarter;
+        }
 
         public void EvaluateElementIntoFlow(Element element)
         {

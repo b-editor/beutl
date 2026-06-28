@@ -46,7 +46,7 @@ End-to-end developer/manual-test walkthrough for the proxy media feature. The he
 
 ## 4. Verify preview now uses the proxy (P1 acceptance)
 
-1. Add a verbose log or use the debug overlay to confirm that `DecoderRegistry.OpenMediaFile` returned an `FFmpegReaderProxy` opened against `<store-root>/<hash>/quarter.mp4` for this clip.
+1. Add a verbose log or use the debug overlay to confirm that `DecoderRegistry.OpenMediaFile` returned a `ProxyMediaReader` opened against `<store-root>/<hash>/quarter.mp4` for this clip.
 2. **Confirm**: scrubbing the timeline on `$SRC_SMALL` is visibly snappier than it was in step 1 (or measurably so via the perf overlay — meet SC-001 on `$SRC` later in step 7).
 
 ## 4a. Verify the proxy preserves the logical footprint (post-003 — FR-021 / FR-022)
@@ -108,7 +108,7 @@ End-to-end developer/manual-test walkthrough for the proxy media feature. The he
 
 ## 11. Verify LRU eviction (FR-018a / FR-018b)
 
-> If the default 50 GB cap is large relative to your test corpus, temporarily set `ProxyStoreConfig.MaxTotalBytes` to a smaller value (e.g., 100 MB) via the configuration UI for this step.
+> If the default 50 GB cap is large relative to your test corpus, temporarily set `ProxyStoreConfig.MaxTotalBytes` to a smaller in-range value (e.g., 5 GB) via the configuration UI for this step.
 
 1. With the smaller cap in effect, generate proxies for several heavy clips until the cap is exceeded.
 2. **Confirm**:

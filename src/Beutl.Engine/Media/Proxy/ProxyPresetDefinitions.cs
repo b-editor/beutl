@@ -1,4 +1,6 @@
-﻿namespace Beutl.Media.Proxy;
+﻿using System.Collections.ObjectModel;
+
+namespace Beutl.Media.Proxy;
 
 public readonly record struct ProxyEncodeParameters(
     float Scale,
@@ -10,12 +12,13 @@ public readonly record struct ProxyEncodeParameters(
 public static class ProxyPresetDefinitions
 {
     private static readonly IReadOnlyDictionary<ProxyPreset, ProxyEncodeParameters> s_parameters =
-        new Dictionary<ProxyPreset, ProxyEncodeParameters>
+        new ReadOnlyDictionary<ProxyPreset, ProxyEncodeParameters>(
+            new Dictionary<ProxyPreset, ProxyEncodeParameters>
         {
             [ProxyPreset.Half] = new(0.5f, 25, 1920, "fastdecode", "fast"),
             [ProxyPreset.Quarter] = new(0.25f, 26, 1280, "fastdecode", "fast"),
             [ProxyPreset.Eighth] = new(0.125f, 28, 960, "fastdecode", "fast"),
-        };
+        });
 
     public static ProxyEncodeParameters Get(ProxyPreset preset)
     {

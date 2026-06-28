@@ -67,7 +67,9 @@ public sealed class ProxyResolver : IProxyResolver
         if (entry is not { State: ProxyState.Ready })
             return null;
 
-        string absolutePath = GetAbsolutePath(entry);
+        if (!TryGetAbsolutePath(entry, out string absolutePath))
+            return null;
+
         if (!File.Exists(absolutePath))
             return null;
 
@@ -84,10 +86,9 @@ public sealed class ProxyResolver : IProxyResolver
             entry.ProxyDecodedFrameSize);
     }
 
-    private string GetAbsolutePath(ProxyEntry entry)
+    private bool TryGetAbsolutePath(ProxyEntry entry, out string absolutePath)
     {
-        string relative = entry.ProxyFileRelative.Replace('/', Path.DirectorySeparatorChar);
-        return Path.GetFullPath(Path.Combine(_store.StoreRootPath, relative));
+        return ProxyPathUtilities.TryResolveRelativePath(_store.StoreRootPath, entry.ProxyFileRelative, out absolutePath);
     }
 
     private void OnStoreChanged(object? sender, ProxyStoreChangedEventArgs e)

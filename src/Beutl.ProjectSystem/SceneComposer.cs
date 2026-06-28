@@ -9,9 +9,13 @@ public sealed class SceneComposer : Composer
 {
     private readonly SceneCompositor _compositor;
 
-    public SceneComposer(Scene scene, bool disableResourceShare = false)
+    public SceneComposer(Scene scene, bool disableResourceShare = false, bool forceOriginalSource = false)
     {
-        _compositor = new SceneCompositor(scene) { DisableResourceShare = disableResourceShare };
+        _compositor = new SceneCompositor(scene)
+        {
+            DisableResourceShare = disableResourceShare,
+            ForceOriginalSource = forceOriginalSource,
+        };
     }
 
     public SceneCompositor Compositor => _compositor;

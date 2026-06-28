@@ -51,9 +51,9 @@ public static class DecoderRegistry
         if (options.PreferProxy && ProxyResolver is { } resolver)
         {
             var sourceUri = new Uri(Path.GetFullPath(file));
-            if (resolver.Resolve(sourceUri, ProxyPreset.Quarter) is { } resolution)
+            if (resolver.Resolve(sourceUri, options.PreferredProxyPreset) is { } resolution)
             {
-                IDisposable pin = resolver.Pin(resolution);
+                IDisposable? pin = resolver.Pin(resolution);
                 try
                 {
                     var proxyOptions = options with { PreferProxy = false };
@@ -61,17 +61,17 @@ public static class DecoderRegistry
                     {
                         if (decoder.Open(resolution.AbsoluteProxyFilePath, proxyOptions) is { } reader)
                         {
-                            return new ProxyMediaReader(reader, pin, resolution);
+                            return new ProxyMediaReader(reader, pin!, resolution);
                         }
                     }
                 }
                 catch
                 {
                     pin.Dispose();
-                    throw;
+                    pin = null;
                 }
 
-                pin.Dispose();
+                pin?.Dispose();
             }
         }
 

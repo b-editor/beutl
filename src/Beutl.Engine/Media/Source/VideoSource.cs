@@ -44,6 +44,7 @@ public sealed class VideoSource : MediaSource
         private Counter<MediaReader>? _counter;
         private Uri? _loadedUri;
         private bool _loadedPreferProxy;
+        private ProxyPreset _loadedPreferredProxyPreset;
         private long _loadedProxyResolverVersion;
 
         public TimeSpan Duration { get; private set; }
@@ -95,6 +96,7 @@ public sealed class VideoSource : MediaSource
             // Load media reader if URI or proxy preference changed.
             if ((_loadedUri != videoSource.Uri
                     || _loadedPreferProxy != context.PreferProxy
+                    || _loadedPreferredProxyPreset != context.PreferredProxyPreset
                     || _loadedProxyResolverVersion != proxyResolverVersion)
                 && videoSource.HasUri)
             {
@@ -103,7 +105,11 @@ public sealed class VideoSource : MediaSource
                 ProxyResolution = null;
 
                 Counter<MediaReader>? shared = null;
-                if (!context.DisableResourceShare)
+                bool canReuseShared = !context.DisableResourceShare
+                    && (!context.PreferProxy
+                        || (_loadedProxyResolverVersion == proxyResolverVersion
+                            && _loadedPreferredProxyPreset == context.PreferredProxyPreset));
+                if (canReuseShared)
                 {
                     var localRef = Volatile.Read(ref videoSource._mediaReaderRef);
                     if (localRef?.TryGetTarget(out var counter) == true && counter.TryAddRef())
@@ -134,7 +140,11 @@ public sealed class VideoSource : MediaSource
                 {
                     try
                     {
-                        var options = new MediaOptions(MediaMode.Video) { PreferProxy = context.PreferProxy };
+                        var options = new MediaOptions(MediaMode.Video)
+                        {
+                            PreferProxy = context.PreferProxy,
+                            PreferredProxyPreset = context.PreferredProxyPreset,
+                        };
                         var reader = MediaReader.Open(videoSource.Uri.LocalPath, options);
                         _counter = new Counter<MediaReader>(reader, null);
                         // DisableResourceShare 時は WeakReference を書き換えない。
@@ -151,6 +161,7 @@ public sealed class VideoSource : MediaSource
                         _counter = null;
                         _loadedUri = videoSource.Uri;
                         _loadedPreferProxy = context.PreferProxy;
+                        _loadedPreferredProxyPreset = context.PreferredProxyPreset;
                         _loadedProxyResolverVersion = proxyResolverVersion;
                         return;
                     }
@@ -163,6 +174,7 @@ public sealed class VideoSource : MediaSource
                 LogicalFrameSize = ProxyResolution?.OriginalLogicalFrameSize ?? FrameSize;
                 _loadedUri = videoSource.Uri;
                 _loadedPreferProxy = context.PreferProxy;
+                _loadedPreferredProxyPreset = context.PreferredProxyPreset;
                 _loadedProxyResolverVersion = proxyResolverVersion;
 
                 if (!updateOnly)

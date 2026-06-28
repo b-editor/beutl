@@ -22,9 +22,8 @@ public sealed class ProxyEvictionService(
             if (total <= maxTotalBytes)
                 break;
 
-            string absolutePath = Path.GetFullPath(Path.Combine(
-                store.StoreRootPath,
-                entry.ProxyFileRelative.Replace('/', Path.DirectorySeparatorChar)));
+            if (!ProxyPathUtilities.TryResolveRelativePath(store.StoreRootPath, entry.ProxyFileRelative, out string absolutePath))
+                continue;
 
             if (resolver?.IsPinned(absolutePath) == true)
                 continue;
@@ -37,7 +36,7 @@ public sealed class ProxyEvictionService(
             {
                 removed++;
                 reclaimed += bytes;
-                total -= bytes;
+                total -= entry.ProxyFileSizeBytes;
             }
         }
 

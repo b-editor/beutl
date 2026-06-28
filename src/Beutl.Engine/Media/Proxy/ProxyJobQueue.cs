@@ -100,8 +100,7 @@ public sealed class ProxyJobQueue : IProxyJobQueue
             item = _items.FirstOrDefault(i => i.Job.JobId == jobId);
         }
 
-        if (item != null && !IsTerminal(item.Job.Status))
-            item.Cancellation.Cancel();
+        item?.Cancel();
     }
 
     public void CancelAll()
@@ -114,7 +113,7 @@ public sealed class ProxyJobQueue : IProxyJobQueue
 
         foreach (WorkItem item in snapshot)
         {
-            item.Cancellation.Cancel();
+            item.Cancel();
         }
     }
 
@@ -140,20 +139,20 @@ public sealed class ProxyJobQueue : IProxyJobQueue
 
     private async Task DrainAsync()
     {
-        await foreach (WorkItem item in _channel.Reader.ReadAllAsync(_disposeCts.Token))
+        await foreach (WorkItem item in _channel.Reader.ReadAllAsync())
         {
-            if (item.Cancellation.IsCancellationRequested)
-            {
-                CompleteCanceled(item);
-                continue;
-            }
-
-            item.Job.Status = ProxyJobStatus.Running;
-            OnJobChanged(item.Job, ProxyJobChangeKind.Started);
-
             try
             {
-                await _generator.GenerateAsync(item.Job, item.Job.CancellationToken).ConfigureAwait(false);
+                if (item.IsCancellationRequested)
+                {
+                    CompleteCanceled(item);
+                    continue;
+                }
+
+                item.Job.Status = ProxyJobStatus.Running;
+                OnJobChanged(item.Job, ProxyJobChangeKind.Started);
+
+                await _generator.GenerateAsync(item.Job).ConfigureAwait(false);
                 item.Job.Status = ProxyJobStatus.Succeeded;
                 OnJobChanged(item.Job, ProxyJobChangeKind.Succeeded);
             }
@@ -190,10 +189,11 @@ public sealed class ProxyJobQueue : IProxyJobQueue
 
     private void CompleteCanceled(WorkItem item)
     {
-        item.Job.Status = ProxyJobStatus.Canceled;
-        OnJobChanged(item.Job, ProxyJobChangeKind.Canceled);
-        Remove(item);
-        item.Dispose();
+        if (!IsTerminal(item.Job.Status))
+        {
+            item.Job.Status = ProxyJobStatus.Canceled;
+            OnJobChanged(item.Job, ProxyJobChangeKind.Canceled);
+        }
     }
 
     private void Remove(WorkItem item)
@@ -220,11 +220,47 @@ public sealed class ProxyJobQueue : IProxyJobQueue
             or ProxyJobStatus.Canceled
             or ProxyJobStatus.Skipped;
 
-    private sealed record WorkItem(ProxyJob Job, CancellationTokenSource Cancellation) : IDisposable
+    private sealed class WorkItem(ProxyJob job, CancellationTokenSource cancellation) : IDisposable
     {
+        private readonly Lock _lock = new();
+        private bool _disposed;
+
+        public ProxyJob Job { get; } = job;
+
+        public CancellationTokenSource Cancellation { get; } = cancellation;
+
+        public bool IsCancellationRequested
+        {
+            get
+            {
+                lock (_lock)
+                {
+                    return _disposed || Cancellation.IsCancellationRequested;
+                }
+            }
+        }
+
+        public void Cancel()
+        {
+            lock (_lock)
+            {
+                if (_disposed || IsTerminal(Job.Status))
+                    return;
+
+                Cancellation.Cancel();
+            }
+        }
+
         public void Dispose()
         {
-            Cancellation.Dispose();
+            lock (_lock)
+            {
+                if (_disposed)
+                    return;
+
+                _disposed = true;
+                Cancellation.Dispose();
+            }
         }
     }
 }

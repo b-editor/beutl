@@ -15,6 +15,8 @@ public sealed class ProxyStore : IProxyStore
     private readonly Lock _lock = new();
     private readonly Dictionary<(ProxyFingerprint Source, ProxyPreset Preset), ProxyEntry> _entries = [];
     private readonly string _indexPath;
+    private int _touchFlushScheduled;
+    private bool _touchDirty;
 
     public ProxyStore(string storeRootPath)
     {
@@ -48,7 +50,7 @@ public sealed class ProxyStore : IProxyStore
     public void Register(ProxyEntry entry)
     {
         ArgumentNullException.ThrowIfNull(entry);
-        ValidateRelativePath(entry.ProxyFileRelative);
+        _ = GetAbsolutePath(entry);
 
         lock (_lock)
         {
@@ -114,6 +116,8 @@ public sealed class ProxyStore : IProxyStore
             // The index already stopped serving this proxy. A later reconcile can clean the file up.
         }
 
+        RemoveMetadataEntry(removed);
+
         OnChanged(source, preset, ProxyStoreChangeKind.Deleted);
         return true;
     }
@@ -129,13 +133,16 @@ public sealed class ProxyStore : IProxyStore
             if (_entries.TryGetValue((source, preset), out ProxyEntry? entry))
             {
                 _entries[(source, preset)] = entry with { LastUsedUtc = nowUtc };
-                FlushCore();
+                _touchDirty = true;
                 touched = true;
             }
         }
 
         if (touched)
+        {
+            ScheduleTouchFlush();
             OnChanged(source, preset, ProxyStoreChangeKind.Touched);
+        }
     }
 
     public long GetTotalBytes()
@@ -178,7 +185,8 @@ public sealed class ProxyStore : IProxyStore
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
-            foreach (string tmp in Directory.EnumerateFiles(StoreRootPath, "*.tmp", SearchOption.AllDirectories))
+            foreach (string tmp in Directory.EnumerateFiles(StoreRootPath, "*", SearchOption.AllDirectories)
+                         .Where(static path => Path.GetFileName(path).Contains(".tmp", StringComparison.OrdinalIgnoreCase)))
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 TryDelete(tmp);
@@ -192,7 +200,17 @@ public sealed class ProxyStore : IProxyStore
 
                 foreach (ProxyEntry entry in _entries.Values)
                 {
-                    string path = GetAbsolutePath(entry);
+                    string path;
+                    try
+                    {
+                        path = GetAbsolutePath(entry);
+                    }
+                    catch
+                    {
+                        missing.Add(entry);
+                        continue;
+                    }
+
                     if (!File.Exists(path))
                     {
                         missing.Add(entry);
@@ -247,8 +265,7 @@ public sealed class ProxyStore : IProxyStore
 
     internal string GetAbsolutePath(ProxyEntry entry)
     {
-        string relative = entry.ProxyFileRelative.Replace('/', Path.DirectorySeparatorChar);
-        return Path.GetFullPath(Path.Combine(StoreRootPath, relative));
+        return ProxyPathUtilities.ResolveRelativePath(StoreRootPath, entry.ProxyFileRelative);
     }
 
     private void LoadIndex()
@@ -293,7 +310,16 @@ public sealed class ProxyStore : IProxyStore
                 if (!TryValidateEntry(entry))
                     continue;
 
-                string proxyPath = GetAbsolutePath(entry);
+                string proxyPath;
+                try
+                {
+                    proxyPath = GetAbsolutePath(entry);
+                }
+                catch
+                {
+                    continue;
+                }
+
                 if (!File.Exists(proxyPath))
                     continue;
 
@@ -358,20 +384,79 @@ public sealed class ProxyStore : IProxyStore
         string tmp = _indexPath + ".tmp";
         File.WriteAllText(tmp, json);
         File.Move(tmp, _indexPath, overwrite: true);
+        _touchDirty = false;
     }
 
-    private static void ValidateRelativePath(string relativePath)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(relativePath);
-        if (Path.IsPathFullyQualified(relativePath) || relativePath.StartsWith('/'))
-            throw new ArgumentException("Proxy path must be relative.", nameof(relativePath));
-    }
-
-    private static bool TryValidateEntry(ProxyEntry entry)
+    private async Task FlushTouchesAsync()
     {
         try
         {
-            ValidateRelativePath(entry.ProxyFileRelative);
+            await Task.Delay(TimeSpan.FromSeconds(1)).ConfigureAwait(false);
+            lock (_lock)
+            {
+                if (!_touchDirty)
+                    return;
+
+                FlushCore();
+            }
+        }
+        catch
+        {
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _touchFlushScheduled, 0);
+            lock (_lock)
+            {
+                if (_touchDirty)
+                    ScheduleTouchFlush();
+            }
+        }
+    }
+
+    private void ScheduleTouchFlush()
+    {
+        if (Interlocked.Exchange(ref _touchFlushScheduled, 1) == 0)
+            _ = FlushTouchesAsync();
+    }
+
+    private void RemoveMetadataEntry(ProxyEntry removed)
+    {
+        try
+        {
+            string metadataPath = Path.Combine(Path.GetDirectoryName(GetAbsolutePath(removed))!, "meta.json");
+            if (!File.Exists(metadataPath))
+                return;
+
+            string json = File.ReadAllText(metadataPath);
+            ProxySourceMetadata? metadata = JsonSerializer.Deserialize<ProxySourceMetadata>(json, s_jsonOptions);
+            if (metadata == null)
+                return;
+
+            ProxyEntry[] entries =
+            [
+                .. metadata.Entries.Where(entry => entry.Source != removed.Source || entry.Preset != removed.Preset)
+            ];
+
+            if (entries.Length == 0)
+            {
+                File.Delete(metadataPath);
+                return;
+            }
+
+            metadata = metadata with { Entries = [.. entries] };
+            File.WriteAllText(metadataPath, JsonSerializer.Serialize(metadata, s_jsonOptions));
+        }
+        catch
+        {
+        }
+    }
+
+    private bool TryValidateEntry(ProxyEntry entry)
+    {
+        try
+        {
+            _ = GetAbsolutePath(entry);
             return true;
         }
         catch

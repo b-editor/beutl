@@ -140,12 +140,14 @@ public sealed class EditorSettingsPageViewModel : IDisposable
             })
             .DisposeWith(_disposables);
         ProxyStoreRootPath
-            .Where(static path => !string.IsNullOrWhiteSpace(path))
             .Subscribe(path =>
             {
-                if (_proxyStoreConfig.StoreRootPath != path)
+                string normalized = string.IsNullOrWhiteSpace(path)
+                    ? ProxyStoreConfig.DefaultStoreRootPath
+                    : path;
+                if (_proxyStoreConfig.StoreRootPath != normalized)
                 {
-                    _proxyStoreConfig.StoreRootPath = path;
+                    _proxyStoreConfig.StoreRootPath = normalized;
                 }
             })
             .DisposeWith(_disposables);

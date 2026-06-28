@@ -13,7 +13,9 @@ public static class ProxyStateTransitions
             (ProxyState.Ready, ProxyState.Stale) => true,
             (ProxyState.Ready, ProxyState.None) => true,
             (ProxyState.Stale, ProxyState.Generating) => true,
+            (ProxyState.Stale, ProxyState.None) => true,
             (ProxyState.Failed, ProxyState.Generating) => true,
+            (ProxyState.Failed, ProxyState.None) => true,
             (ProxyState.Partial, ProxyState.None) => true,
             _ => false
         };

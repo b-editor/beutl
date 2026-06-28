@@ -10,6 +10,7 @@ using Beutl.UnitTests.Engine.Graphics.Rendering;
 namespace Beutl.UnitTests.ProjectSystem;
 
 [TestFixture]
+[NonParallelizable]
 public sealed class ExportRenderContextSafetyTests
 {
     private IProxyResolver? _oldResolver;
@@ -59,6 +60,7 @@ public sealed class ExportRenderContextSafetyTests
         using var compositor = new SceneCompositor(scene)
         {
             DisableResourceShare = true,
+            ForceOriginalSource = true,
         };
 
         CompositionFrame frame = compositor.EvaluateGraphics(TimeSpan.Zero);
@@ -75,10 +77,14 @@ public sealed class ExportRenderContextSafetyTests
     private sealed class ProxyScope : IDisposable
     {
         private readonly string _root;
+        private readonly string _originalPath;
+        private readonly string _proxyTemplatePath;
 
-        private ProxyScope(string root, string originalPath, ProxyStore store)
+        private ProxyScope(string root, string originalPath, string proxyTemplatePath, ProxyStore store)
         {
             _root = root;
+            _originalPath = originalPath;
+            _proxyTemplatePath = proxyTemplatePath;
             OriginalPath = originalPath;
             Store = store;
         }
@@ -115,13 +121,19 @@ public sealed class ExportRenderContextSafetyTests
                 now,
                 null));
 
-            return new ProxyScope(root, original, store);
+            return new ProxyScope(root, original, proxyTemplate, store);
         }
 
         public void Dispose()
         {
             if (Directory.Exists(_root))
                 Directory.Delete(_root, recursive: true);
+
+            if (File.Exists(_originalPath))
+                File.Delete(_originalPath);
+
+            if (File.Exists(_proxyTemplatePath))
+                File.Delete(_proxyTemplatePath);
         }
     }
 }

@@ -3,20 +3,19 @@ using Avalonia.Data;
 using Avalonia.Data.Converters;
 using Beutl.Media.Proxy;
 
-namespace Beutl.Editor.Components.ProxiesTab.Views;
+namespace Beutl.Editor.Components.SceneSettingsTab.Views;
 
-public sealed class ProxyPresetIndexConverter : IValueConverter
+public sealed class PreviewSourceModeIndexConverter : IValueConverter
 {
-    public static readonly ProxyPresetIndexConverter Instance = new();
+    public static readonly PreviewSourceModeIndexConverter Instance = new();
 
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         return value switch
         {
-            ProxyPreset.Half => 0,
-            ProxyPreset.Quarter => 1,
-            ProxyPreset.Eighth => 2,
-            _ => 1,
+            PreviewSourceMode.PreferProxy => 0,
+            PreviewSourceMode.ForceOriginal => 1,
+            _ => 0,
         };
     }
 
@@ -24,9 +23,8 @@ public sealed class ProxyPresetIndexConverter : IValueConverter
     {
         return value switch
         {
-            0 => ProxyPreset.Half,
-            1 => ProxyPreset.Quarter,
-            2 => ProxyPreset.Eighth,
+            0 => PreviewSourceMode.PreferProxy,
+            1 => PreviewSourceMode.ForceOriginal,
             _ => BindingOperations.DoNothing,
         };
     }
