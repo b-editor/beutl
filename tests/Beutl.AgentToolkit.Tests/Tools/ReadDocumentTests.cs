@@ -43,6 +43,10 @@ public sealed class ReadDocumentTests
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("list_effects"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("list_effect_recipes"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("full-scene starters are hidden by default"));
+            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("[Beutl.ProjectSystem]:Element"));
+            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("insert-new-element-skeleton"));
+            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("SKSLScriptEffect"));
+            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("KeyFrame times are scene timeline times"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("evaluate_motion_variation"));
             Assert.That(result.Value.CategoryAliases["visualEffect"], Is.EqualTo("FilterEffect"));
             Assert.That(result.Value.RawHttpNote, Does.Contain("Server-Sent Events"));
@@ -97,6 +101,8 @@ public sealed class ReadDocumentTests
             Assert.That(result.Value.ConceptPlans.SelectMany(plan => plan.Elements), Does.Contain("cropped kinetic title"));
             Assert.That(result.Value.ConceptPlans.SelectMany(plan => plan.ElementPlan).Select(plan => plan.ElementName), Does.Contain("cropped-title"));
             Assert.That(result.Value.ConceptPlans.SelectMany(plan => plan.ElementPlan).Select(plan => plan.SuggestedObject), Does.Contain("TextBlock"));
+            Assert.That(result.Value.ConceptPlans.SelectMany(plan => plan.ElementPlan).Select(plan => plan.SuggestedObject), Does.Contain("RectShape with SKSLScriptEffect or LinearGradientBrush"));
+            Assert.That(result.Value.ConceptPlans.SelectMany(plan => plan.Effects), Does.Contain("SKSLScriptEffect"));
             Assert.That(result.Value.ConceptPlans.SelectMany(plan => plan.TimingPhases), Has.Some.Contains("0-25%"));
             Assert.That(result.Value.OverusedMotifs, Has.Some.Contains("orbit rings"));
             Assert.That(result.Value.OverusedMotifs, Has.Some.Contains("radar sweeps"));
@@ -104,6 +110,10 @@ public sealed class ReadDocumentTests
             Assert.That(result.Value.WorkflowHints, Has.Some.Contains("Do not default to the first returned concept"));
             Assert.That(result.Value.WorkflowHints, Has.Some.Contains("Compare at least two conceptPlans"));
             Assert.That(result.Value.WorkflowHints, Has.Some.Contains("evaluate_motion_variation"));
+            Assert.That(result.Value.WorkflowHints, Has.Some.Contains("exactly one elementPlan item per stage"));
+            Assert.That(result.Value.WorkflowHints, Has.Some.Contains("SKSLScriptEffect"));
+            Assert.That(result.Value.WorkflowHints, Has.Some.Contains("scene-time KeyFrame values"));
+            Assert.That(result.Value.DirectionAxes, Has.Some.Contains("procedural surface"));
             Assert.That(result.Value.SelectionHint, Does.Contain("Compare at least two conceptPlans"));
             Assert.That(result.Value.SelectionHint, Does.Contain("make a short motion graphic"));
         });
@@ -151,11 +161,13 @@ public sealed class ReadDocumentTests
 
         ToolResult<ListExamplesResponse> defaultList = tools.ListExamples(type: nameof(TextBlock));
         ToolResult<ListExamplesResponse> list = tools.ListExamples(type: nameof(TextBlock), includeStarters: true);
+        ToolResult<ListExamplesResponse> structureList = tools.ListExamples(category: "structure");
         ToolResult<ListExamplesResponse> defaultMotionList = tools.ListExamples(category: "motion");
         ToolResult<ListExamplesResponse> motionList = tools.ListExamples(category: "motion", includeStarters: true);
         string selectedName = list.Value!.Examples
             .Single(example => example.Name == "create-empty-scene-split-screen-typography")
             .Name;
+        ToolResult<GetExamplesResponse> skeleton = tools.GetExamples(name: "insert-new-element-skeleton");
         ToolResult<GetExamplesResponse> defaultExamples = tools.GetExamples(category: "motion");
         ToolResult<GetExamplesResponse> selected = tools.GetExamples(name: selectedName);
 
@@ -167,6 +179,12 @@ public sealed class ReadDocumentTests
             Assert.That(list.IsSuccess, Is.True, list.Error?.Message);
             Assert.That(list.Value!.Examples.Count(example => example.Tags.Contains("empty-scene")), Is.GreaterThanOrEqualTo(3));
             Assert.That(list.Value.SelectionHint, Does.Contain("includeStarters=true"));
+            Assert.That(structureList.IsSuccess, Is.True, structureList.Error?.Message);
+            Assert.That(structureList.Value!.Examples.Select(example => example.Name), Does.Contain("insert-new-element-skeleton"));
+            Assert.That(skeleton.IsSuccess, Is.True, skeleton.Error?.Message);
+            Assert.That(skeleton.Value!.Examples, Has.Count.EqualTo(1));
+            Assert.That(skeleton.Value.Examples.Single().Patch.ToJsonString(), Does.Contain("[Beutl.ProjectSystem]:Element"));
+            Assert.That(skeleton.Value.Examples.Single().Patch.ToJsonString(), Does.Contain("\"$type\""));
             Assert.That(defaultMotionList.IsSuccess, Is.True, defaultMotionList.Error?.Message);
             Assert.That(defaultMotionList.Value!.Examples, Is.Empty);
             Assert.That(defaultExamples.IsSuccess, Is.True, defaultExamples.Error?.Message);
@@ -262,7 +280,9 @@ public sealed class ReadDocumentTests
         ToolResult<ListEffectsResponse> effects = tools.ListEffects(intent: "glitch");
         ToolResult<ListEffectRecipesResponse> recipes = tools.ListEffectRecipes(intent: "glitch");
         ToolResult<ListEffectRecipesResponse> glowMotionRecipes = tools.ListEffectRecipes(intent: "glow motion");
+        ToolResult<ListEffectRecipesResponse> shaderRecipes = tools.ListEffectRecipes(intent: "shader organic");
         ToolResult<GetEffectRecipeResponse> recipe = tools.GetEffectRecipe(name: "effect-color-shift");
+        ToolResult<GetEffectRecipeResponse> shaderRecipe = tools.GetEffectRecipe(name: "organic-shader-field");
 
         Assert.Multiple(() =>
         {
@@ -276,10 +296,16 @@ public sealed class ReadDocumentTests
             Assert.That(glowMotionRecipes.IsSuccess, Is.True, glowMotionRecipes.Error?.Message);
             Assert.That(glowMotionRecipes.Value!.Recipes.Select(item => item.Name), Does.Contain("glow-depth"));
             Assert.That(glowMotionRecipes.Value.Recipes.Select(item => item.Name), Does.Contain("digital-glitch"));
+            Assert.That(shaderRecipes.IsSuccess, Is.True, shaderRecipes.Error?.Message);
+            Assert.That(shaderRecipes.Value!.Recipes.Select(item => item.Name), Does.Contain("organic-shader-field"));
             Assert.That(recipe.IsSuccess, Is.True, recipe.Error?.Message);
             Assert.That(recipe.Value!.Recipe.EffectNames, Does.Contain("ColorShift"));
             Assert.That(recipe.Value.Recipe.Patch.ToJsonString(), Does.Contain("ColorShift"));
             Assert.That(recipe.Value.UsageHint, Does.Contain("plan_edit"));
+            Assert.That(shaderRecipe.IsSuccess, Is.True, shaderRecipe.Error?.Message);
+            Assert.That(shaderRecipe.Value!.Recipe.EffectNames, Does.Contain("SKSLScriptEffect"));
+            Assert.That(shaderRecipe.Value.Recipe.Patch.ToJsonString(), Does.Contain("uniform shader src"));
+            Assert.That(shaderRecipe.Value.Recipe.Notes, Has.Some.Contains("render_still"));
         });
     }
 

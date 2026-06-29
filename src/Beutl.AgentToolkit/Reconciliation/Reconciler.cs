@@ -14,6 +14,7 @@ public sealed class Reconciler
 {
     private static readonly HashSet<string> s_typedIdentityArrayNames = new(StringComparer.Ordinal)
     {
+        "Elements",
         "Objects",
         "Children",
         "KeyFrames"
@@ -140,11 +141,14 @@ public sealed class Reconciler
                         if (!item.ContainsKey("$type"))
                         {
                             string itemPath = $"{childPath}[{i}]";
+                            string hint = pair.Key == "Elements"
+                                ? "Add '$type': '[Beutl.ProjectSystem]:Element' for new timeline elements. Existing elements keep their Id; genuinely new Elements omit Id so the toolkit can mint one."
+                                : "Add the concrete '$type' discriminator returned by get_schema for new objects in polymorphic arrays such as Objects, Children, and KeyFrames.";
                             return new ToolError(
                                 ErrorCode.ValidationRejected,
                                 $"New typed object at '{itemPath}' is missing the '$type' discriminator.",
                                 itemPath,
-                                "Add the concrete '$type' discriminator returned by get_schema for new objects in polymorphic arrays such as Objects, Children, and KeyFrames.");
+                                hint);
                         }
                     }
                 }

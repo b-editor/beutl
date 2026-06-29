@@ -122,6 +122,31 @@ public sealed class FullDocumentApplyTests
     }
 
     [Test]
+    public void New_element_without_discriminator_returns_actionable_validation_error()
+    {
+        using var session = TestEditingSession.Create(new Scene(1920, 1080, "Scene"));
+        var reconciler = new Reconciler();
+        JsonObject desired = session.Documents.Read(session.Scene);
+        ((JsonArray)desired["Elements"]!).Add(new JsonObject
+        {
+            [nameof(Element.Start)] = TimeSpan.Zero.ToString("c"),
+            [nameof(Element.Length)] = TimeSpan.FromSeconds(1).ToString("c"),
+            [nameof(Element.Objects)] = new JsonArray()
+        });
+
+        ReconcileException ex = Assert.Throws<ReconcileException>(() => reconciler.Plan(session, desired))!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ex.Error.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(ex.Error.Message, Does.Contain("$type"));
+            Assert.That(ex.Error.Target, Does.Contain("/Elements["));
+            Assert.That(ex.Error.Hint, Does.Contain("[Beutl.ProjectSystem]:Element"));
+            Assert.That(ex.Error.Hint, Does.Contain("omit Id"));
+        });
+    }
+
+    [Test]
     public void New_engine_object_with_unknown_property_returns_actionable_validation_error()
     {
         using var session = TestEditingSession.Create(new Scene(1920, 1080, "Scene"));

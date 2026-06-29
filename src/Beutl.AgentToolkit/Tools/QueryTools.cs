@@ -135,10 +135,12 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 "Call attach_active_editor for an open editor scene; if it fails or no editor is available, call create_project or open_project for a file-backed session instead of writing a one-off generator.",
                 "Call read_document_summary to inspect progress without the full document.",
                 "For original creative briefs, call list_creative_directions, pick a conceptPlan, read_document, and get_schema only for the drawable/effect types you need, then author a custom declarative patch instead of cloning a starter.",
-                "Call list_effects and list_effect_recipes to discover Beutl's visual effect palette before choosing a repeated look.",
+                "Call list_effects and list_effect_recipes to discover Beutl's visual effect palette before choosing a repeated look; for organic heat/ink/glass/noise fields, consider an SKSLScriptEffect shader recipe instead of stacking only blurred gradients.",
                 "For no-context motion graphics, avoid overused orbit/radar/map/signal/dashboard motifs unless the user asks for them.",
-                "For visible progress, apply large scenes in stages: background first, then motion elements, then text/effects; for conceptPlans, prefer one elementPlan item per stage.",
+                "For visible progress, apply large scenes in stages: background first, then motion elements, then text/effects; for conceptPlans, use exactly one elementPlan item per plan/apply/save stage unless the user explicitly asks for a combined edit.",
                 "For unconstrained creative briefs, keep project/video/still basenames neutral and record the chosen concept name in notes instead of filenames.",
+                "New timeline Elements need '$type': '[Beutl.ProjectSystem]:Element'. Existing Elements keep Id; genuinely new Elements and Objects omit Id. If you need structure only, fetch the targeted insert-new-element-skeleton example instead of a full-scene starter.",
+                "Animation KeyFrame times are scene timeline times in serialized toolkit patches. For Elements with nonzero Start, set keyframes to scene times that intersect the frames you will render.",
                 "Call plan_edit with the custom patch and schemaVersion=1.",
                 "Call apply_edit with plan_edit.planId when present, especially for large edits. Otherwise pass plan_edit.expectedChangeSet exactly as returned; do not summarize or rewrite the array.",
                 "For file-backed sessions, call save_project after each major successful apply_edit so partial progress is durable.",
@@ -147,7 +149,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 "When using a composition template, call list_compositions, choose a specific returned name that matches the user's request, then pass that name to plan_composition and apply_composition with the returned planId.",
                 "Use render_composition_patch only when the client explicitly needs the generated template patch JSON.",
                 "Call list_examples/get_examples for small schema snippets or as a fallback when a user asks for an example; full-scene starters are hidden by default.",
-                "Call render_still for representative frames, record planned-element visibility/readability, then evaluate_motion_variation to check temporal change before export_video."
+                "Call render_still for representative frames, record planned-element visibility/readability plus layer density/contrast, then evaluate_motion_variation to check temporal change before export_video."
             ],
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
@@ -188,7 +190,8 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                     "composition: macro close-up, off-axis crop, split depth planes, negative-space title, diagonal editorial grid, frame-within-frame, vertical poster stack",
                     "typography: small caption system, kinetic word fragments, numeric countdown, subtitle-only rhythm, oversized cropped letterforms",
                     "palette: warm/cool clash, muted paper plus neon accent, monochrome with one warning color, daylight pastels, high-contrast print inks",
-                    "detail density: crop marks, micro-captions, texture grains, edge highlights, calibration ticks, fracture lines, shimmer bands"
+                    "detail density: crop marks, micro-captions, texture grains, edge highlights, calibration ticks, fracture lines, shimmer bands",
+                    "procedural surface: use SKSLScriptEffect for organic heat, ink, glass, smoke, grain, or caustic fields when gradients alone look flat"
                 ],
                 conceptPlans,
                 [
@@ -202,11 +205,13 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 [
                     "Do not default to the first returned concept. Compare at least two conceptPlans, reject concepts close to your last output, then choose the strongest element plan.",
                     "Map the chosen conceptPlan's elements to named Element/Object entries before writing a patch.",
-                    "Plan/apply/save in small stages that follow the chosen elementPlan. Prefer one elementPlan item per stage; avoid one huge full-scene patch because large expectedChangeSet payloads may be omitted in favor of planId.",
+                    "Plan/apply/save in small stages that follow the chosen elementPlan. Use exactly one elementPlan item per stage; avoid one huge full-scene patch because large expectedChangeSet payloads may be omitted in favor of planId.",
                     "After read_document_summary, compare actual element names with the chosen elementPlan and revise missing planned parts before rendering.",
                     "For unconstrained briefs, keep project/video/still basenames neutral instead of naming files after the chosen concept.",
-                    "After rendering stills, record which planned elements are visible/readable in each still and revise if planned elements are never visible.",
+                    "After rendering stills, record which planned elements are visible/readable in each still, plus whether each development/resolution frame has at least three visible layer types and readable text contrast; revise if it does not.",
                     "Use at least three timing phases and animate multiple property families, not only X position and opacity.",
+                    "For organic abstract concepts, consider SKSLScriptEffect from list_effect_recipes(intent: 'shader organic') and verify the shader with render_still before export.",
+                    "Use scene-time KeyFrame values that intersect sampled still/video frames, especially for Elements with nonzero Start offsets.",
                     "Name the concept in any notes or output summary before creating elements.",
                     "Use list_effects/list_effect_recipes for available effects, then build the scene with plan_edit/apply_edit.",
                     "Keep full-scene examples and composition templates for explicit template/starter requests only.",
@@ -683,9 +688,9 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                     new CreativeElementPlan(
                         "thermal-background",
                         "Full-frame dark-to-warm field.",
-                        "RectShape with LinearGradientBrush",
+                        "RectShape with SKSLScriptEffect or LinearGradientBrush",
                         "00:00-08:00",
-                        "Gradient offset and brightness drift."),
+                        "Procedural shader time/progress field, or gradient offset and brightness drift."),
                     new CreativeElementPlan(
                         "heat-blob-left",
                         "Large translucent bloom from one side.",
@@ -724,6 +729,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                     "70-100%: final label appears while blobs cool"
                 ],
                 [
+                    "SKSLScriptEffect",
                     "Blur",
                     "Brightness",
                     "DropShadow"

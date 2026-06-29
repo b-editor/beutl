@@ -526,9 +526,14 @@ public sealed class SchemaGenerator
                     typeof(SineEaseInOut)),
                 ExampleTags("starter", "empty-scene", "motion", "split-screen", "editorial", "blocks", "typography")),
             new ExampleSpec(
+                CreateNewElementSkeletonExample(),
+                ExampleCategories(KnownLibraryItemFormats.EngineObject, KnownLibraryItemFormats.Drawable),
+                ExampleTypes(typeof(Element), typeof(TextBlock)),
+                ExampleTags("targeted", "skeleton", "structure", "element", "discriminator")),
+            new ExampleSpec(
                 new DeclarativeExample(
                     "animate-float-property-keyframes",
-                    "Patch snippet for a float animatable property such as Opacity. Replace the placeholder Ids and property name. For non-float properties, use the matching KeyFrameAnimation<T> and KeyFrame<T> discriminator from a serialized sample.",
+                    "Patch snippet for a float animatable property such as Opacity. Replace the placeholder Ids and property name. KeyFrame.KeyTime values are scene timeline times in toolkit patches; choose values that intersect the still/video frames you will render. For non-float properties, use the matching KeyFrameAnimation<T> and KeyFrame<T> discriminator from a serialized sample.",
                     new JsonObject
                     {
                         ["Elements"] = new JsonArray(new JsonObject
@@ -656,6 +661,13 @@ public sealed class SchemaGenerator
                     CreateHueRotate(18),
                     CreateBrightness(108),
                     CreateHighContrast(14))),
+            CreateEffectRecipe(
+                "organic-shader-field",
+                "SKSL shader field for organic heat, ink, glass, smoke, grain, or caustic motion that would look flat as stacked gradients alone.",
+                ["shader", "organic", "thermal", "ink", "glass", "field", "motion"],
+                CreateFilterEffectGroup(
+                    CreateOrganicShaderEffect(),
+                    CreateBrightness(106))),
             CreateEffectRecipe(
                 "digital-glitch",
                 "Glitch chain with channel separation, mosaic sampling, and procedural shake.",
@@ -891,6 +903,9 @@ public sealed class SchemaGenerator
                 pixelSort.ThresholdMin.CurrentValue = 18;
                 pixelSort.ThresholdMax.CurrentValue = 82;
                 break;
+            case SKSLScriptEffect sksl:
+                sksl.Script.CurrentValue = CreateOrganicShaderScript();
+                break;
         }
     }
 
@@ -919,6 +934,33 @@ public sealed class SchemaGenerator
         }
 
         return group;
+    }
+
+    private static SKSLScriptEffect CreateOrganicShaderEffect()
+    {
+        var effect = new SKSLScriptEffect();
+        effect.Script.CurrentValue = CreateOrganicShaderScript();
+        return effect;
+    }
+
+    private static string CreateOrganicShaderScript()
+    {
+        return """
+               uniform shader src;
+               uniform float time;
+               uniform float progress;
+               uniform float2 iResolution;
+
+               half4 main(float2 fragCoord) {
+                   float2 res = float2(max(iResolution.x, 1.0), max(iResolution.y, 1.0));
+                   float2 uv = fragCoord / res;
+                   float wave = sin(uv.x * 14.0 + time * 1.2) * 0.5 + 0.5;
+                   float plume = sin((uv.x + uv.y) * 9.0 - time * 0.9) * 0.5 + 0.5;
+                   half4 base = src.eval(fragCoord);
+                   half3 field = half3(0.95 * wave, 0.26 + 0.45 * plume, 0.12 + 0.25 * (1.0 - wave));
+                   return half4(mix(base.rgb, field, 0.35), base.a);
+               }
+               """;
     }
 
     private static EffectMetadata GetEffectMetadataByName(string typeName)
@@ -986,7 +1028,7 @@ public sealed class SchemaGenerator
             [typeof(DelayAnimationEffect)] = Metadata(["motion", "trail", "delay"], []),
             [typeof(PixelSortEffect)] = Metadata(["glitch", "pixel", "scanline", "gpu"], ["Requires GPU/Vulkan support; may be inactive on CPU-only rendering."], requiresGpu: true),
             [typeof(CSharpScriptEffect)] = Metadata(["advanced", "script", "programmable"], ["Prefer built-in effects for low-context agents unless script code is explicitly requested."]),
-            [typeof(SKSLScriptEffect)] = Metadata(["advanced", "shader", "programmable"], ["Requires shader source. Prefer built-in effects for normal motion graphics."]),
+            [typeof(SKSLScriptEffect)] = Metadata(["advanced", "shader", "programmable", "organic", "procedural"], ["Requires shader source. Prefer for organic heat, ink, glass, smoke, grain, caustic, or procedural fields when blurred gradients look flat; verify with render_still because script compile errors can make the effect invisible."]),
             [typeof(GLSLScriptEffect)] = Metadata(["advanced", "shader", "gpu"], ["Requires GPU shader source and GPU support."], requiresGpu: true),
             [typeof(NodeGraphFilterEffect)] = Metadata(["advanced", "nodegraph", "programmable"], ["Requires a node graph resource to be useful."])
         };
@@ -1060,6 +1102,33 @@ public sealed class SchemaGenerator
             .Where(token => token.Length > 0)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
+    }
+
+    private static DeclarativeExample CreateNewElementSkeletonExample()
+    {
+        string elementType = IdentityHelper.WriteDiscriminator(typeof(Element));
+        string textType = IdentityHelper.WriteDiscriminator(typeof(TextBlock));
+
+        return new DeclarativeExample(
+            "insert-new-element-skeleton",
+            "Minimal structure-only patch for inserting one new timeline Element with one new TextBlock object. Use this to copy the required Element/Object $type shape without cloning a full-scene starter. Omit Id for genuinely new Elements and Objects; keep Id only when modifying an existing parent.",
+            new JsonObject
+            {
+                ["Elements"] = new JsonArray(new JsonObject
+                {
+                    ["$type"] = elementType,
+                    [nameof(CoreObject.Name)] = "new-text-element",
+                    [nameof(Element.Start)] = TimeSpan.Zero.ToString("c"),
+                    [nameof(Element.Length)] = TimeSpan.FromSeconds(2).ToString("c"),
+                    [nameof(Element.ZIndex)] = 10,
+                    [nameof(Element.Objects)] = new JsonArray(new JsonObject
+                    {
+                        ["$type"] = textType,
+                        [nameof(CoreObject.Name)] = "new-text",
+                        [nameof(TextBlock.Text)] = "TITLE"
+                    })
+                })
+            });
     }
 
     private static DeclarativeExample CreateEmptySceneMotionExample()
