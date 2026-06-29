@@ -20,6 +20,7 @@ Use this skill when an agent needs to apply color, blur, shadow, stylization, or
    - `contrastPlan`: how text, backing plates, and focal objects stay readable.
    - `hierarchyPlan`: what remains the primary focal point after the look change.
    - `effectIntentPlan`: the job of each effect chain, such as material texture, hierarchy separation, transition energy, color grade, or text legibility.
+   - `transformPreservationPlan`: if a target object has animated transform children plus static rotation/skew/scale, state whether the motion is screen-space or local/rotated-space and preserve the existing `TransformGroup.Children` order unless the change explicitly fixes it.
 5. Prefer a merge-patch for look changes:
    - Preserve existing element timing and unrelated properties.
    - Patch only the target `Objects`, effect collections, and property values.
@@ -37,6 +38,7 @@ Use this skill when an agent needs to apply color, blur, shadow, stylization, or
 - Use in-range values from the schema. A coerced value is a signal to retry the same small `apply_edit` stage with the exact accepted value.
 - Use concrete serialized color values such as `#ffffb34d`; do not use palette names such as `Amber`.
 - For `Pen`, brush, transform, animation, and effect values, copy the schema/read-document object shape with a concrete `$type` discriminator instead of inventing shorthand fields.
+- When editing a moving rotated object, treat `TransformGroup.Children` order as behavior, not formatting. For screen-space drift with a tilted object, static orientation transforms should precede the animated `TranslateTransform`; for local-axis motion, record that intent and verify the result with still/motion samples.
 - Keep effect types installed and discoverable; `unknown_type` means the effect cannot be used in this runtime.
 - Do not stack effects decoratively. Every effect must serve material texture, hierarchy separation, transition energy, color grade, or text legibility.
 - Avoid three or more foreground objects with dense three-effect stacks unless the brief explicitly asks for a maximal or degraded look and the reason is recorded.
@@ -52,4 +54,5 @@ Use this skill when an agent needs to apply color, blur, shadow, stylization, or
 - If text uses a backing plate, keep text and plate timing, center, and padding aligned after the look change.
 - For default-aligned text and shape backing plates, use the source-grounded center-offset coordinate rule: `TranslateTransform(0, 0)` means centered, and `(x, y)` offsets the object center from the scene center unless `AlignmentX=Left`/`AlignmentY=Top` is deliberately set.
 - Use `measure_object_bounds` for text/backing-plate or shape alignment changes before judging the result from still renders.
+- Before exporting or finishing a look change, run a transform-order audit on any object whose summary shows nested transform animation and a static rotation/skew/scale. If the order does not match the recorded motion intent, patch only the transform child ordering and rerun the representative still/motion check.
 - Do not leave `evaluate_edit_quality` critical/major issues unresolved.
