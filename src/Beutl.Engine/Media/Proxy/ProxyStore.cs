@@ -5,6 +5,8 @@ namespace Beutl.Media.Proxy;
 
 public sealed class ProxyStore : IProxyStore
 {
+    private static readonly TimeSpan s_generatedTempCleanupMinAge = TimeSpan.FromHours(1);
+
     private static readonly JsonSerializerOptions s_jsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -184,7 +186,8 @@ public sealed class ProxyStore : IProxyStore
         {
             cancellationToken.ThrowIfCancellationRequested();
             foreach (string tmp in Directory.EnumerateFiles(StoreRootPath, "*", SearchOption.AllDirectories)
-                         .Where(path => ProxyPathUtilities.IsGeneratedProxyTempPath(StoreRootPath, path)))
+                         .Where(path => ProxyPathUtilities.IsGeneratedProxyTempPath(StoreRootPath, path))
+                         .Where(IsOldEnoughToCleanGeneratedTemp))
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 TryDelete(tmp);
@@ -628,6 +631,18 @@ public sealed class ProxyStore : IProxyStore
         try
         {
             return new FileInfo(absolutePath).Length == entry.ProxyFileSizeBytes;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool IsOldEnoughToCleanGeneratedTemp(string path)
+    {
+        try
+        {
+            return DateTime.UtcNow - File.GetLastWriteTimeUtc(path) >= s_generatedTempCleanupMinAge;
         }
         catch
         {

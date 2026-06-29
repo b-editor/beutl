@@ -70,7 +70,7 @@ public sealed class ProxyResolver : IProxyResolver
         if (!TryGetAbsolutePath(entry, out string absolutePath))
             return null;
 
-        if (!File.Exists(absolutePath))
+        if (!TryGetProxyFileSize(absolutePath, out long fileSize))
             return null;
 
         if (entry.ProxyFileSizeBytes <= 0
@@ -82,7 +82,6 @@ public sealed class ProxyResolver : IProxyResolver
             return null;
         }
 
-        long fileSize = new FileInfo(absolutePath).Length;
         if (fileSize != entry.ProxyFileSizeBytes)
             return null;
 
@@ -98,6 +97,27 @@ public sealed class ProxyResolver : IProxyResolver
     private bool TryGetAbsolutePath(ProxyEntry entry, out string absolutePath)
     {
         return ProxyPathUtilities.TryResolveRelativePath(_store.StoreRootPath, entry.ProxyFileRelative, out absolutePath);
+    }
+
+    private static bool TryGetProxyFileSize(string absolutePath, out long fileSize)
+    {
+        try
+        {
+            var info = new FileInfo(absolutePath);
+            if (!info.Exists)
+            {
+                fileSize = 0;
+                return false;
+            }
+
+            fileSize = info.Length;
+            return true;
+        }
+        catch
+        {
+            fileSize = 0;
+            return false;
+        }
     }
 
     private void OnStoreChanged(object? sender, ProxyStoreChangedEventArgs e)

@@ -1,6 +1,9 @@
 ﻿using Beutl.Composition;
 using Beutl.Engine;
+using Beutl.Graphics;
+using Beutl.Graphics.Rendering;
 using Beutl.Media;
+using Beutl.Media.Proxy;
 using Beutl.ProjectSystem;
 
 namespace Beutl.UnitTests.ProjectSystem;
@@ -136,6 +139,37 @@ public class SceneCompositorTests
         }
     }
 
+    [Test]
+    public void EvaluateGraphics_PropagatesForceOriginalPreviewIntoReferencedScene()
+    {
+        string basePath = GetTempPath();
+        try
+        {
+            Scene childScene = CreateScene(basePath);
+            var capture = new SceneCompositorContextCaptureDrawable();
+            childScene.Children.Add(CreateElement(basePath, isEnabled: true, capture));
+            Scene parentScene = CreateScene(basePath);
+            parentScene.PreviewSourceMode = PreviewSourceMode.ForceOriginal;
+            var sceneDrawable = new SceneDrawable();
+            sceneDrawable.ReferencedScene.CurrentValue = childScene;
+            parentScene.Children.Add(CreateElement(basePath, isEnabled: true, sceneDrawable));
+            using var compositor = new SceneCompositor(parentScene);
+
+            compositor.EvaluateGraphics(TimeSpan.FromMilliseconds(500));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(capture.CapturedContexts, Has.Count.EqualTo(1));
+                Assert.That(capture.CapturedContexts[0].PreferProxy, Is.False);
+                Assert.That(capture.CapturedContexts[0].ForceOriginalSource, Is.True);
+            });
+        }
+        finally
+        {
+            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+        }
+    }
+
     [Beutl.Engine.SuppressResourceClassGeneration]
     private class TestGraphicsObject : EngineObject
     {
@@ -148,3 +182,28 @@ public class SceneCompositorTests
         public override CompositionTarget GetCompositionTarget() => CompositionTarget.Audio;
     }
 }
+
+internal sealed partial class SceneCompositorContextCaptureDrawable : Drawable
+{
+    public List<CapturedCompositionContext> CapturedContexts { get; } = [];
+
+    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource) => Size.Empty;
+
+    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
+    {
+    }
+
+    public partial class Resource
+    {
+        partial void PostUpdate(SceneCompositorContextCaptureDrawable obj, CompositionContext context)
+        {
+            obj.CapturedContexts.Add(new CapturedCompositionContext(
+                context.ForceOriginalSource,
+                context.PreferProxy));
+        }
+    }
+}
+
+internal readonly record struct CapturedCompositionContext(
+    bool ForceOriginalSource,
+    bool PreferProxy);

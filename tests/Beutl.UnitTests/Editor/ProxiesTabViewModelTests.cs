@@ -1,6 +1,8 @@
 ﻿using System.Globalization;
 using Beutl;
+using Beutl.Animation;
 using Beutl.Editor.Components.ProxiesTab.ViewModels;
+using Beutl.Engine;
 using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Language;
@@ -164,6 +166,121 @@ public sealed class ProxiesTabViewModelTests
     }
 
     [Test]
+    public void Refresh_IncludesNestedSceneVideoSources()
+    {
+        string root = CreateRoot();
+        string sourcePath = CreateSourceFile(root, "nested.mov", 1024);
+        var store = new ProxyStore(Path.Combine(root, "proxies"));
+        Scene childScene = CreateScene(root, "child.scene");
+        AddSourceVideo(childScene, root, sourcePath);
+        Scene parentScene = CreateScene(root, "parent.scene");
+        var sceneDrawable = new SceneDrawable();
+        sceneDrawable.ReferencedScene.CurrentValue = childScene;
+        AddObject(parentScene, root, sceneDrawable);
+
+        using var viewModel = new ProxiesTabViewModel(CreateContext(parentScene, store));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.Clips, Has.Count.EqualTo(1));
+            Assert.That(viewModel.Clips.Single().FileName, Is.EqualTo("nested.mov"));
+        });
+    }
+
+    [Test]
+    public void Refresh_IncludesOfflineSourceWhenStoreHasExistingEntry()
+    {
+        string root = CreateRoot();
+        string sourcePath = CreateSourceFile(root, "offline.mov", 1024);
+        var store = new ProxyStore(Path.Combine(root, "proxies"));
+        ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(sourcePath);
+        DateTime now = DateTime.UtcNow;
+        var entry = new ProxyEntry(
+            fingerprint,
+            ProxyPreset.Quarter,
+            ProxyState.Ready,
+            "hash/quarter.mp4",
+            512,
+            new PixelSize(1920, 1080),
+            new PixelSize(480, 270),
+            now,
+            now,
+            null);
+        RegisterProxyEntry(store, entry);
+        File.Delete(sourcePath);
+
+        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
+
+        ProxyClipViewModel clip = viewModel.Clips.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(clip.FileName, Is.EqualTo("offline.mov"));
+            Assert.That(clip.Source, Is.EqualTo(fingerprint));
+            Assert.That(clip.IsReady.Value, Is.True);
+            Assert.That(viewModel.ProjectUsageText.Value, Is.EqualTo("512 B"));
+        });
+    }
+
+    [Test]
+    public void Refresh_IncludesAnimatedSourceVideoValues()
+    {
+        string root = CreateRoot();
+        string firstPath = CreateSourceFile(root, "first.mov", 1024);
+        string secondPath = CreateSourceFile(root, "second.mov", 1024);
+        var store = new ProxyStore(Path.Combine(root, "proxies"));
+        Scene scene = CreateScene(root, "animated.scene");
+        var drawable = new SourceVideo();
+        drawable.Source.CurrentValue = CreateVideoSource(firstPath);
+        var animation = new KeyFrameAnimation<VideoSource?>();
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?>
+        {
+            KeyTime = TimeSpan.FromSeconds(1),
+            Value = CreateVideoSource(secondPath),
+        });
+        drawable.Source.Animation = animation;
+        AddObject(scene, root, drawable);
+
+        using var viewModel = new ProxiesTabViewModel(CreateContext(scene, store));
+
+        Assert.That(
+            viewModel.Clips.Select(static clip => clip.FileName),
+            Is.EquivalentTo(new[] { "first.mov", "second.mov" }));
+    }
+
+    [Test]
+    public async Task RegenerateAsync_KeepsExistingProxyUntilReplacementSucceeds()
+    {
+        string root = CreateRoot();
+        string sourcePath = CreateSourceFile(root, "clip.mov", 2048);
+        var store = new ProxyStore(Path.Combine(root, "proxies"));
+        ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(sourcePath);
+        DateTime now = DateTime.UtcNow;
+        var entry = new ProxyEntry(
+            fingerprint,
+            ProxyPreset.Quarter,
+            ProxyState.Ready,
+            "hash/quarter.mp4",
+            1536,
+            new PixelSize(1920, 1080),
+            new PixelSize(480, 270),
+            now,
+            now,
+            null);
+        RegisterProxyEntry(store, entry);
+        var queue = new TestProxyJobQueue();
+
+        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, queue, sourcePath));
+
+        await viewModel.RegenerateAsync(viewModel.Clips.Single());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(store.TryGet(entry.Source, entry.Preset), Is.EqualTo(entry));
+            Assert.That(queue.Pending().Single().Source, Is.EqualTo(fingerprint));
+        });
+    }
+
+    [Test]
     public void Refresh_AttachesPendingQueueJobToMatchingClip()
     {
         string root = CreateRoot();
@@ -292,6 +409,55 @@ public sealed class ProxiesTabViewModelTests
         context.AddService(scene);
         context.AddService<IProxyStore>(store);
         return context;
+    }
+
+    private static TestEditorContext CreateContext(Scene scene, ProxyStore store, IProxyJobQueue? queue = null)
+    {
+        var context = new TestEditorContext(scene);
+        context.AddService(scene);
+        context.AddService<IProxyStore>(store);
+        if (queue != null)
+        {
+            context.AddService(queue);
+        }
+
+        return context;
+    }
+
+    private static Scene CreateScene(string root, string fileName)
+    {
+        return new Scene(1920, 1080, string.Empty)
+        {
+            Uri = new Uri(Path.Combine(root, fileName)),
+        };
+    }
+
+    private static SourceVideo AddSourceVideo(Scene scene, string root, string sourcePath)
+    {
+        var drawable = new SourceVideo();
+        drawable.Source.CurrentValue = CreateVideoSource(sourcePath);
+        AddObject(scene, root, drawable);
+        return drawable;
+    }
+
+    private static void AddObject(Scene scene, string root, EngineObject obj)
+    {
+        var element = new Element
+        {
+            Start = TimeSpan.Zero,
+            Length = TimeSpan.FromSeconds(1),
+            IsEnabled = true,
+            Uri = new Uri(Path.Combine(root, $"{Guid.NewGuid():N}.layer")),
+        };
+        element.AddObject(obj);
+        scene.Children.Add(element);
+    }
+
+    private static VideoSource CreateVideoSource(string sourcePath)
+    {
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(sourcePath));
+        return source;
     }
 
     private static string CreateRoot()

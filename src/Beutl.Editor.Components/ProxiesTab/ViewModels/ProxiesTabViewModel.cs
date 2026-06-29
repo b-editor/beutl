@@ -2,8 +2,11 @@
 using System.Globalization;
 using System.Reactive.Disposables;
 using Avalonia.Threading;
+using Beutl.Animation;
 using Beutl.Configuration;
 using Beutl.Editor.Components.ProxiesTab;
+using Beutl.Engine;
+using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Media.Proxy;
@@ -143,7 +146,6 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
 
     public async Task RegenerateAsync(ProxyClipViewModel clip)
     {
-        _store?.Delete(clip.EntrySource ?? clip.Source, clip.Preset.Value);
         await GenerateAsync(clip);
     }
 
@@ -239,7 +241,6 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
 
         foreach (ProxyClipViewModel clip in Clips.Where(static c => c.IsSelected.Value).ToArray())
         {
-            _store?.Delete(clip.EntrySource ?? clip.Source, clip.Preset.Value);
             await _queue.EnqueueAsync(clip.Source, clip.Preset.Value);
         }
 
@@ -334,13 +335,30 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
 
     private IEnumerable<(string Path, ProxyFingerprint Fingerprint)> EnumerateVideoSources()
     {
-        HashSet<ProxyFingerprint> seen = [];
-        foreach (Element element in _scene.Children)
+        HashSet<string> seenPaths = new(StringComparer.Ordinal);
+        HashSet<Scene> seenScenes = new(ReferenceEqualityComparer.Instance);
+        ProxyEntry[] storeEntries = [.. _store?.Enumerate() ?? []];
+        return EnumerateVideoSources(_scene, seenPaths, seenScenes, storeEntries);
+    }
+
+    private static IEnumerable<(string Path, ProxyFingerprint Fingerprint)> EnumerateVideoSources(
+        Scene scene,
+        HashSet<string> seenPaths,
+        HashSet<Scene> seenScenes,
+        IReadOnlyList<ProxyEntry> storeEntries)
+    {
+        if (!seenScenes.Add(scene))
+            yield break;
+
+        foreach (Element element in scene.Children)
         {
             foreach (SourceVideo video in element.Objects.OfType<SourceVideo>())
             {
-                if (TryGetVideoSource(video.Source.CurrentValue, seen, out var item))
-                    yield return item;
+                foreach (VideoSource? source in EnumerateVideoSourceValues(video.Source))
+                {
+                    if (TryGetVideoSource(source, storeEntries, seenPaths, out var item))
+                        yield return item;
+                }
             }
 
             foreach (NodeGraphDrawable graphDrawable in element.Objects.OfType<NodeGraphDrawable>())
@@ -351,35 +369,108 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
 
                 foreach (VideoSourceNode node in model.Nodes.OfType<VideoSourceNode>())
                 {
-                    VideoSource? source = node.Source.Property?.GetValue();
-                    if (TryGetVideoSource(source, seen, out var item))
-                        yield return item;
+                    if (node.Source.Property == null)
+                        continue;
+
+                    foreach (VideoSource? source in EnumerateVideoSourceValues(node.Source.Property))
+                    {
+                        if (TryGetVideoSource(source, storeEntries, seenPaths, out var item))
+                            yield return item;
+                    }
+                }
+            }
+
+            foreach (SceneDrawable sceneDrawable in element.Objects.OfType<SceneDrawable>())
+            {
+                if (sceneDrawable.ReferencedScene.CurrentValue is not { } referencedScene)
+                    continue;
+
+                foreach (var item in EnumerateVideoSources(referencedScene, seenPaths, seenScenes, storeEntries))
+                {
+                    yield return item;
                 }
             }
         }
     }
 
+    private static IEnumerable<VideoSource?> EnumerateVideoSourceValues(IProperty<VideoSource?> property)
+    {
+        yield return property.CurrentValue;
+
+        foreach (VideoSource? source in EnumerateAnimatedVideoSourceValues(property.Animation))
+        {
+            yield return source;
+        }
+    }
+
+    private static IEnumerable<VideoSource?> EnumerateVideoSourceValues(IPropertyAdapter<VideoSource?> property)
+    {
+        yield return property.GetValue();
+
+        if (property is IAnimatablePropertyAdapter<VideoSource?> animatable)
+        {
+            foreach (VideoSource? source in EnumerateAnimatedVideoSourceValues(animatable.Animation))
+            {
+                yield return source;
+            }
+        }
+    }
+
+    private static IEnumerable<VideoSource?> EnumerateAnimatedVideoSourceValues(IAnimation<VideoSource?>? animation)
+    {
+        if (animation is not KeyFrameAnimation<VideoSource?> keyFrameAnimation)
+            yield break;
+
+        foreach (IKeyFrame keyFrame in keyFrameAnimation.KeyFrames)
+        {
+            if (keyFrame.Value is VideoSource source)
+                yield return source;
+        }
+    }
+
     private static bool TryGetVideoSource(
         VideoSource? source,
-        HashSet<ProxyFingerprint> seen,
+        IReadOnlyList<ProxyEntry> storeEntries,
+        HashSet<string> seenPaths,
         out (string Path, ProxyFingerprint Fingerprint) item)
     {
-        Uri? uri = source?.Uri;
-        if (uri is not { IsFile: true })
+        if (source is not { HasUri: true } || source.Uri is not { IsFile: true } uri)
         {
             item = default;
             return false;
         }
 
         string path = uri.LocalPath;
-        if (!ProxyFingerprint.TryFromFile(path, out ProxyFingerprint fingerprint) || !seen.Add(fingerprint))
+        if (ProxyFingerprint.TryFromFile(path, out ProxyFingerprint fingerprint))
+        {
+            if (!seenPaths.Add(fingerprint.AbsolutePath))
+            {
+                item = default;
+                return false;
+            }
+
+            item = (path, fingerprint);
+            return true;
+        }
+
+        string normalizedPath = NormalizeSourcePath(path);
+        ProxyEntry? existing = storeEntries.FirstOrDefault(entry => entry.Source.AbsolutePath == normalizedPath);
+        if (existing == null || !seenPaths.Add(existing.Source.AbsolutePath))
         {
             item = default;
             return false;
         }
 
-        item = (path, fingerprint);
+        item = (path, existing.Source);
         return true;
+    }
+
+    private static string NormalizeSourcePath(string path)
+    {
+        string fullPath = Path.GetFullPath(path);
+        return OperatingSystem.IsWindows()
+            ? fullPath.ToUpperInvariant()
+            : fullPath;
     }
 
     private void UpdateStoreSummary()
