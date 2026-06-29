@@ -148,6 +148,10 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 "For original creative briefs, call list_creative_directions, synthesize an original pitch from at least two inspiration seeds, read_document, and get_schema only for the drawable/effect types you need, then author a custom declarative patch instead of cloning a starter.",
                 "Call list_effects and list_effect_recipes to discover Beutl's visual effect palette before choosing a repeated look; for organic heat/ink/glass/noise fields, consider an SKSLScriptEffect shader recipe instead of stacking only blurred gradients.",
                 "For no-context motion graphics, avoid overused orbit/radar/map/signal/dashboard motifs unless the user asks for them.",
+                "Before authoring, write a compact creative brief with objective, audience, emotional temperature, message hierarchy, palette roles, typography roles, motion phases, and effect purpose.",
+                "Design every shot around one primary focal point; use grouping, alignment, scale contrast, color contrast, and repetition to make supporting layers scan below it.",
+                "For readable type, keep copy short or extend duration; verify contrast, backing plates, and read time with render_still and evaluate_edit_quality.",
+                "Use effects only when they serve material texture, hierarchy separation, transition energy, or text legibility; avoid dense decorative stacks with no named job.",
                 "For visible progress, apply large scenes in stages that follow your synthesized pitch: background/surface first, then motion elements, then text/effects.",
                 "For unconstrained creative briefs, keep project/video/still basenames neutral and record the synthesized pitch in notes instead of filenames.",
                 "New timeline Elements need '$type': '[Beutl.ProjectSystem]:Element'. Existing Elements keep Id; genuinely new Elements and Objects omit Id. If you need structure only, fetch the targeted insert-new-element-skeleton example instead of a full-scene starter.",
@@ -215,6 +219,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 inspirationSeeds,
                 [
                     "Synthesize a new pitch from at least two inspiration seeds in different categories before writing any patch.",
+                    "Write a one-line direction contract that names objective, audience, emotional temperature, message hierarchy, brand posture, and delivery surface.",
                     "Use one seed as the visual subject and a second seed as the motion, texture, palette, or editing rhythm.",
                     "Change at least one material, motion verb, or composition relation from every seed you use.",
                     "Write your own element/object names from the synthesized pitch; do not reuse returned seed names as scene names.",
@@ -249,11 +254,14 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                     "Map your synthesized pitch to named Element/Object entries before writing a patch.",
                     "Apply/save in small stages that follow your own scene plan; avoid one huge full-scene patch when staged progress is easier to inspect.",
                     "After read_document_summary, compare actual element names with your own scene plan and revise missing planned parts before rendering.",
+                    "Check that each shot has one primary focal point and that supporting copy, marks, effects, and accents sit below it in the hierarchy.",
+                    "Check read time before rendering: short-lived text should be short, split across beats, or held longer.",
+                    "Name the job of every effect chain before applying it: material texture, hierarchy separation, transition energy, color grade, or text legibility.",
                     "For unconstrained briefs, keep project/video/still basenames neutral instead of naming files after a returned seed or synthesized pitch.",
                     "After rendering stills, record which planned elements are visible/readable in each still, plus whether each development/resolution frame has at least three visible layer types and readable text contrast; revise if it does not.",
                     "Use at least three timing phases and animate multiple property families, not only X position and opacity.",
                     "For organic abstract pitches, consider SKSLScriptEffect from list_effect_recipes(intent: 'shader organic') and verify the shader with render_still before export.",
-                    "Use scene-time KeyFrame values that intersect sampled still/video frames, especially for Elements with nonzero Start offsets.",
+                    "Choose animation clock mode intentionally: UseGlobalClock=false uses Element-local KeyTime values; UseGlobalClock=true uses scene-timeline KeyTime values that should intersect sampled frames.",
                     "Name the synthesized pitch in any notes or output summary before creating elements.",
                     "Use list_effects/list_effect_recipes for available effects, then build the scene with apply_edit.",
                     "Keep full-scene examples and composition templates for explicit template/starter requests only.",
@@ -261,6 +269,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 ],
                 [
                     "Do not default to all-caps title locks; use Title Case or sentence case unless the brief explicitly asks for an all-caps mark.",
+                    "Every shot should have one primary focal point; avoid making several type blocks, panels, and effects compete at the same visual weight.",
                     "Use RectShape primarily for full-frame plates or deliberately plain geometry. Prefer RoundedRectShape, EllipseShape, GeometryShape, media, strokes, or procedural texture for foreground structure.",
                     "Avoid repeated card surfaces with heavy shadows or blur; use flatter editorial plates, texture, line work, masks, or subtle depth instead.",
                     "When placing a backing plate behind text, create a named text/backing pair with matching Start/Length, centered transforms, and clear padding."
@@ -268,17 +277,20 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 [
                     "Assign explicit roles before authoring: background, text, accent, support, and shadow.",
                     "Use a neutral or muted base plus one saturated accent; avoid dark teal with cyan and magenta unless the user asks for that specific look.",
-                    "Keep text and backing plates separated by luma, not just hue.",
+                    "Keep text and backing plates separated by luma, not just hue, and treat readable text contrast as a hard delivery requirement.",
                     "If three or more colors are highly saturated, mute at least one support color before exporting."
                 ],
                 [
                     "Use mixed case for titles and captions by default.",
+                    "Assign type roles before authoring: hero message, secondary emphasis, caption, label, and texture text.",
                     "Keep letter spacing modest; reserve wide tracking for one short label only.",
+                    "Scale copy to duration: a fast beat should carry a word, short phrase, or symbol, not a full sentence.",
                     "Do not use slash-delimited technical captions as filler copy.",
                     "Check text readability in render_still and evaluate_edit_quality, especially when a backing plate is present."
                 ],
                 [
                     "Plan at least three phases: reveal, development, and resolution.",
+                    "Build fast tempo through contrast between quick accents and held readability beats, not by making every layer move at the same speed.",
                     "Bridge shot boundaries with overlap, opacity, transform continuation, or an intentional beat; avoid repeated unmotivated hard cuts.",
                     "Animate more than one property family across the piece.",
                     "After still checks, run evaluate_motion_variation and evaluate_edit_quality; do not export while critical or major issues remain."

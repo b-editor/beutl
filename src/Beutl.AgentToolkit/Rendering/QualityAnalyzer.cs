@@ -93,6 +93,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         typography = typography with { TextPlateMismatchCount = textPlateMismatchCount };
         PaletteMetrics palette = AnalyzePalette(objects, issues);
         AnalyzeMaterialUiLook(objects, issues);
+        AnalyzeDesignStructure(scene, objects, issues);
         MotionContinuityMetrics motion = await AnalyzeMotionAsync(
             scene,
             objects,
@@ -181,6 +182,69 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         }
 
         return new TypographyMetrics(textCount, allCapsCount, spacingCount, 0);
+    }
+
+    private static void AnalyzeDesignStructure(
+        Scene scene,
+        IReadOnlyList<SceneObjectInfo> objects,
+        List<QualityIssue> issues)
+    {
+        SceneObjectInfo[] textObjects = objects.Where(item => item.Object is TextBlock).ToArray();
+        SceneObjectInfo[] dominantTextObjects = textObjects
+            .Where(item => item.Object is TextBlock textBlock && textBlock.Size.CurrentValue >= 88)
+            .ToArray();
+
+        if (dominantTextObjects.Length >= 4)
+        {
+            issues.Add(new QualityIssue(
+                "visualHierarchy",
+                Major,
+                "Too many text elements are styled as dominant focal points.",
+                $"{dominantTextObjects.Length} text objects use size 88 or larger.",
+                "Limit hero-scale type to one primary message and one secondary emphasis; make supporting copy smaller, quieter, or grouped.",
+                null,
+                dominantTextObjects.Select(item => item.Element.Id.ToString()).ToArray(),
+                dominantTextObjects.Select(item => item.Object.Id.ToString()).ToArray()));
+        }
+
+        foreach (SceneObjectInfo info in textObjects)
+        {
+            var textBlock = (TextBlock)info.Object;
+            string text = textBlock.Text.CurrentValue ?? string.Empty;
+            int wordCount = CountWords(text);
+            int characterCount = text.Count(ch => !char.IsControl(ch) && !char.IsWhiteSpace(ch));
+            double durationSeconds = info.Element.Length.TotalSeconds;
+            if (durationSeconds is > 0 and < 2.0
+                && (wordCount >= 8 || characterCount >= 44))
+            {
+                issues.Add(CreateIssue(
+                    "typographyReadTime",
+                    Major,
+                    "A short-lived text element contains more copy than viewers can reliably read.",
+                    $"Text '{Shorten(text)}' has {wordCount} words / {characterCount} non-space characters over {durationSeconds:F2}s.",
+                    "Shorten the copy, split it across beats, or keep it on screen longer with a calmer entrance/exit.",
+                    info,
+                    info.Element.Start.ToString("c")));
+            }
+        }
+
+        SceneObjectInfo[] effectHeavyObjects = objects
+            .Where(item => !IsBackgroundObject(scene, item))
+            .Where(item => item.Object is Drawable drawable
+                           && FlattenEffects(drawable.FilterEffect.CurrentValue).Count() >= 3)
+            .ToArray();
+        if (effectHeavyObjects.Length >= 3)
+        {
+            issues.Add(new QualityIssue(
+                "effectIntent",
+                Major,
+                "Several foreground objects carry dense effect stacks, which can make the look feel arbitrary.",
+                $"{effectHeavyObjects.Length} foreground objects have three or more filter effects.",
+                "Assign each effect a job such as material texture, hierarchy separation, transition energy, or text legibility; remove decorative repeats.",
+                null,
+                effectHeavyObjects.Select(item => item.Element.Id.ToString()).ToArray(),
+                effectHeavyObjects.Select(item => item.Object.Id.ToString()).ToArray()));
+        }
     }
 
     private static ShapeDiversityMetrics AnalyzeShapeDiversity(
@@ -528,6 +592,29 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         return lowercase == 0 && uppercase / (double)letters >= 0.85;
     }
 
+    private static int CountWords(string text)
+    {
+        int count = 0;
+        bool inWord = false;
+        foreach (char ch in text)
+        {
+            if (char.IsLetterOrDigit(ch))
+            {
+                if (!inWord)
+                {
+                    count++;
+                    inWord = true;
+                }
+            }
+            else
+            {
+                inWord = false;
+            }
+        }
+
+        return count;
+    }
+
     private static bool IsBackgroundRect(Scene scene, SceneObjectInfo info)
     {
         if (info.Object is not RectShape rect)
@@ -542,6 +629,22 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
                || info.Element.ZIndex <= 1
                || ContainsAny(info.Element.Name, "background", "plate", "field", "backdrop")
                || ContainsAny(rect.Name, "background", "plate", "field", "backdrop");
+    }
+
+    private static bool IsBackgroundObject(Scene scene, SceneObjectInfo info)
+    {
+        if (IsBackgroundRect(scene, info))
+        {
+            return true;
+        }
+
+        ObjectBounds bounds = GetBounds(scene, info);
+        double sceneArea = Math.Max(1, scene.FrameSize.Width * scene.FrameSize.Height);
+        double objectArea = bounds.Width * bounds.Height;
+        return objectArea >= sceneArea * 0.72
+               || info.Element.ZIndex <= 1
+               || ContainsAny(info.Element.Name, "background", "plate", "field", "backdrop", "surface")
+               || ContainsAny(info.Object.Name, "background", "plate", "field", "backdrop", "surface");
     }
 
     private static bool HasHeavyCardEffects(EngineObject obj)

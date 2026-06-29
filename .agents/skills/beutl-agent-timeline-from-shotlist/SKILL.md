@@ -19,10 +19,16 @@ Use this skill when an agent needs to turn a shot list, storyboard, or timed bri
 2. Call `get_schema` before authoring if the required drawable, media, or audio type is not already known.
    - For organic heat, ink, glass, smoke, grain, caustic, or other procedural fields, call `list_effect_recipes` with a shader/organic intent and consider `SKSLScriptEffect` instead of stacking only blurred gradient shapes. Prefer SKSL over GLSL for low-context file sessions because it is CPU-safe in still renders.
 3. Before authoring, record a quality preflight plan in notes:
+   - `directionContract`: state the objective, audience, emotional temperature, brand posture, delivery surface, and one-sentence promise.
+   - `messageHierarchy`: name the primary message, secondary emphasis, and supporting/caption information for each shot.
    - `textCasePlan`: use Title Case or sentence case by default; avoid long all-caps unless explicitly requested.
+   - `typographyRolePlan`: assign type roles such as hero, secondary, caption, label, and texture text before choosing sizes.
+   - `readTimePlan`: keep fast-beat copy to a word, phrase, or symbol; hold or split longer text.
    - `shapeBudget`: reserve `RectShape` for full-frame/background plates or deliberately plain geometry; use rounded rectangles, ellipses, paths, media, strokes, or procedural texture for foreground structure.
    - `paletteRoles`: name background, text, accent, support, and shadow colors; avoid dark teal plus cyan/magenta unless requested.
    - `textPlatePlan`: if text needs a backing plate, plan matching Start/Length, centered transforms, and padding for the named text/plate pair.
+   - `effectIntentPlan`: name the job of each effect chain: material texture, hierarchy separation, transition energy, color grade, or text legibility.
+   - `compositionPlan`: define one primary focal point per shot and how grouping, alignment, scale, color, and repetition support it.
    - `motionContinuityPlan`: define reveal, development, and resolution phases plus how boundaries are bridged.
    - `verificationSamples`: choose at least three still times plus the motion/quality review sample set.
 4. Create or attach a session:
@@ -46,7 +52,7 @@ Use this skill when an agent needs to turn a shot list, storyboard, or timed bri
 10. If `apply_edit` returns `validation_rejected`, `unknown_type`, stale handles, or fallback-object guidance, fix the patch from `get_schema`/`read_document` and retry only that stage. Do not invent shorthand values for colors, pens, animations, brushes, transforms, or effects.
 11. For file sessions, call `save_project` after every successful major `apply_edit` before continuing to the next stage. For LiveEditor sessions, `save_project` should report that saving is not required/supported; record that message instead of treating it as a blocker.
 12. After each major stage, verify with `read_document_summary`. Compare every expected element name/role from your synthesized scene plan against the actual elements and revise before rendering unless the omission is recorded with a concrete reason. If any object has `isFallback: true`, stop rendering and fix the patch from schema because fallback objects are placeholders, not usable visuals.
-13. Verify with `render_still` at representative shot boundaries. Treat any returned `warnings` as a blocker for export until you have either revised the scene or recorded why the warning is acceptable. For each still, record `visibilityAnalysis.visiblePixelRatio`, `foregroundPixelRatio`, `occupiedBoundsRatio`, and `maxQuadrantForegroundRatio`; compare `activeElements` against the planned visible elements; note whether text/title elements are readable and whether foreground/background/accent density is present. Development and resolution stills should show at least three visible layer types, such as background/surface, primary motion, accent/detail, and typography; if text is present, it must have clear contrast against the background.
+13. Verify with `render_still` at representative shot boundaries. Treat any returned `warnings` as a blocker for export until you have either revised the scene or recorded why the warning is acceptable. For each still, record `visibilityAnalysis.visiblePixelRatio`, `foregroundPixelRatio`, `occupiedBoundsRatio`, and `maxQuadrantForegroundRatio`; compare `activeElements` against the planned visible elements; note the primary focal point, whether text/title elements are readable for their duration, whether effect chains still serve their named jobs, and whether foreground/background/accent density is present. Development and resolution stills should show at least three visible layer types, such as background/surface, primary motion, accent/detail, and typography; if text is present, it must have clear contrast against the background.
 14. Run `evaluate_motion_variation` across 4-6 samples. If it reports `low-motion-variation` or `poor-frame-coverage`, or if the still review shows planned elements are never visible/readable, revise the edit.
 15. Run `evaluate_edit_quality` with the same sample set. Treat `critical` or `major` issues as blockers for export; revise and re-run until `passesQualityGate` is true, or record the explicit user reason for allowing an issue.
 16. Export a short preview with `export_video` when an encoder is available; if export is unavailable, record the reason in notes.
@@ -55,15 +61,19 @@ Use this skill when an agent needs to turn a shot list, storyboard, or timed bri
 ## Motion Graphics Quality Bar
 
 - Use at least three timing phases: reveal, development, and resolution. Avoid a single continuous drift.
+- Build fast tempo through contrast between quick accents and held readability beats. Do not make every layer move at the same speed.
 - Animate multiple property families across the piece, such as transform, opacity, brush/gradient, effect parameters, and text spacing. Do not rely only on X movement plus opacity.
+- Every shot needs one primary focal point. Supporting text, marks, panels, and effects should sit lower in scale, contrast, timing, or density.
+- Readability is timed: short-lived text must be short, split across beats, or held longer.
 - Maintain visual density: use layered background, foreground motion, accents, and typography/labels. A lone title over one moving shape is too sparse unless the brief asks for minimalism.
 - Use procedural texture when the concept is organic or atmospheric. A short `SKSLScriptEffect` on a broad shape is often better than many low-contrast blurred ellipses for heat, ink, glass, smoke, caustics, grain, or shimmer.
+- Every effect chain needs a named job: material texture, hierarchy separation, transition energy, color grade, or text legibility. Remove decorative stacks that do not serve one.
 - Give each major visual part a clear name in the patch so `read_document_summary` exposes the intended structure.
 - Treat your synthesized scene plan as a completion checklist. A final scene that omits planned accent/density elements without a recorded reason is incomplete.
 - After still renders, use `evaluate_motion_variation`; treat low adjacent-frame variation or persistent one-quadrant/sparse frame coverage as a failed self-check for motion graphics.
 - Numerical motion variation is necessary but not sufficient: planned elements must also be visibly present across representative stills, and text/title elements must be readable before export.
 - A still that is mostly a smooth background after the reveal phase is not dense enough even if `evaluate_motion_variation` passes.
-- Long all-caps text, foreground RectShape dominance, misaligned text backing plates, dark teal/cyan/magenta palettes, repeated card shadows, low temporal variation, and unmotivated hard cuts are quality failures unless explicitly requested by the user.
+- Long all-caps text, overloaded visual hierarchy, unreadable short-lived copy, foreground RectShape dominance, misaligned text backing plates, dark teal/cyan/magenta palettes, dense effect stacks without a named job, repeated card shadows, low temporal variation, and unmotivated hard cuts are quality failures unless explicitly requested by the user.
 - `evaluate_edit_quality.passesQualityGate` must be true before final export for normal deliverables.
 
 ## Originality Rules

@@ -13,6 +13,7 @@ Use the Agent Editing Toolkit MCP tools to inspect available editable types and 
 - Discover effect and drawable schemas with `get_schema`.
 - Patch only the target elements/objects/effects.
 - Preserve timing, media bindings, and unrelated properties.
+- Before applying a look, name `paletteRoles`, `contrastPlan`, `hierarchyPlan`, and `effectIntentPlan`.
 - Use PascalCase property names and in-range values.
 - Use id-keyed merge-patch semantics for effect arrays.
 - Apply look changes through small staged `apply_edit` calls and inspect `valid`, `changes`, `validation`, and `createdIds` before continuing.
@@ -21,6 +22,8 @@ Use the Agent Editing Toolkit MCP tools to inspect available editable types and 
 - Verify before/after frames with `render_still`.
 - Run `evaluate_edit_quality` after the look change and resolve critical/major issues before export.
 - Prefer subtle texture, restrained grading, and light depth over heavy blur/glow/card-shadow chains.
+- Every effect chain needs a named job: material texture, hierarchy separation, transition energy, color grade, or text legibility.
+- Do not let supporting effects, labels, or panels compete with the primary focal point.
 - Keep text/backing plate contrast and alignment intact.
 - If the coordinator asks for status, call `read_operation_status` when available and respond immediately with session/source, last successful stage, and current blocker before continuing.
 
@@ -32,6 +35,7 @@ Return:
 - Effect chain order after the change.
 - Values applied, including any schema-driven adjustments.
 - Render still paths used for verification.
+- Primary focal point, contrast, and effect-intent checks.
 - Quality review verdict and any critical/major issues resolved.
 - Any unsupported or missing effect types.
 

@@ -11,14 +11,14 @@ Use the Agent Editing Toolkit MCP tools to create or modify scene structure. Fol
 - Bind requested text, shape, image, video, group, and audio objects without changing unrelated content.
 - For vague creative briefs, call `list_creative_directions` and synthesize an original pitch from at least two inspiration seeds before authoring.
 - Record `selectionTrace` plus the chosen seed names/categories and synthesized pitch in notes before editing.
-- Before authoring, record `textCasePlan`, `shapeBudget`, `paletteRoles`, `textPlatePlan`, `motionContinuityPlan`, and `verificationSamples` in notes.
+- Before authoring, record `directionContract`, `messageHierarchy`, `textCasePlan`, `typographyRolePlan`, `readTimePlan`, `shapeBudget`, `paletteRoles`, `textPlatePlan`, `effectIntentPlan`, `compositionPlan`, `motionContinuityPlan`, and `verificationSamples` in notes.
 - Use `read_document` before editing and keep stable `Id` handles.
 - Use small staged `apply_edit` calls. Inspect `valid`, `changes`, `validation`, and `createdIds` after each stage before continuing.
 - Decide animation clock mode deliberately. With `UseGlobalClock=false`, `KeyFrame.KeyTime` is local to the owning timeline Element and should normally stay within `00:00:00`..`Element.Length`; with `UseGlobalClock=true`, `KeyFrame.KeyTime` is a scene timeline time and should intersect sampled still/video frames.
 - Treat `apply_edit.validation` `Warning` entries for relative keyframes outside the Element local range as timing bugs unless the coordinator/user explicitly accepts them. Fix by converting keyframes to local times or setting `UseGlobalClock=true` when scene timeline times were intended.
 - For rotated moving shapes, do not animate only `TranslateTransform.X` and assume it will travel along the rotated visual axis. If the intended screen-space path is diagonal, animate both X and Y as a vector; if the intended local-axis path depends on transform order, verify it with rendered samples before export.
-- Verify `read_document_summary` has no fallback objects, then verify representative frames with `render_still`; compare `activeElements` and `visibilityAnalysis` against the planned scene, run `evaluate_motion_variation`, then run `evaluate_edit_quality`. Resolve warnings plus all critical/major quality issues before export. Export a short preview with `export_video` when available.
-- Avoid long all-caps text, foreground RectShape dominance, misaligned text backing plates, dark teal/cyan/magenta palettes, repeated card shadows, low motion continuity, and unmotivated hard cuts unless requested.
+- Verify `read_document_summary` has no fallback objects, then verify representative frames with `render_still`; compare `activeElements` and `visibilityAnalysis` against the planned scene, identify the primary focal point, check read time and text contrast, confirm effect chains serve their named jobs, run `evaluate_motion_variation`, then run `evaluate_edit_quality`. Resolve warnings plus all critical/major quality issues before export. Export a short preview with `export_video` when available.
+- Avoid long all-caps text, overloaded visual hierarchy, unreadable short-lived copy, foreground RectShape dominance, misaligned text backing plates, dark teal/cyan/magenta palettes, dense effect stacks without a named job, repeated card shadows, low motion continuity, and unmotivated hard cuts unless requested.
 - Build original scenes from the brief by default. Do not call `list_compositions`, `plan_composition`, or copy empty-scene examples unless the user explicitly asks for a template/starter or named template style.
 - Avoid overused no-context motifs such as orbit/radar/map/signal/dashboard unless the user asks for them.
 - If an output directory is requested, maintain `notes.md` there with route changes, failures, render paths, save path, and export status.
@@ -31,6 +31,7 @@ Return:
 - Summary of inserted, moved, split, grouped, or removed elements.
 - Any validation coercions/rejections and how they were resolved.
 - Render still paths used for verification.
+- Primary focal point, read-time, palette/contrast, and effect-intent checks.
 - Quality review verdict and any critical/major issues resolved or explicitly accepted.
 - Export path or the reason export was unavailable.
 - Save path if the session was saved.

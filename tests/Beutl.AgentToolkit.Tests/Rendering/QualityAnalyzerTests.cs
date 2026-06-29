@@ -118,6 +118,58 @@ public sealed class QualityAnalyzerTests
     }
 
     [Test]
+    public async Task Too_many_dominant_type_elements_are_reported()
+    {
+        Scene scene = CreateScene();
+        AddText(scene, "Build", zIndex: 10, x: -420, y: -180, size: 96);
+        AddText(scene, "Edit", zIndex: 11, x: 120, y: -120, size: 96);
+        AddText(scene, "Grade", zIndex: 12, x: -260, y: 80, size: 96);
+        AddText(scene, "Export", zIndex: 13, x: 330, y: 160, size: 96);
+
+        QualityReviewResponse result = await AnalyzeAsync(scene, evaluateMotion: false);
+
+        Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
+            issue.Category == "visualHierarchy"
+            && issue.Severity == "major"
+            && issue.ElementIds.Count == 4));
+    }
+
+    [Test]
+    public async Task Short_lived_long_copy_is_reported()
+    {
+        Scene scene = CreateScene(durationSeconds: 4);
+        Element text = AddText(
+            scene,
+            "Design motion graphics faster with precise timeline editing",
+            zIndex: 10,
+            size: 64);
+        text.Length = TimeSpan.FromSeconds(1.2);
+
+        QualityReviewResponse result = await AnalyzeAsync(scene, evaluateMotion: false);
+
+        Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
+            issue.Category == "typographyReadTime"
+            && issue.Severity == "major"
+            && issue.Time == "00:00:00"));
+    }
+
+    [Test]
+    public async Task Dense_foreground_effect_stacks_are_reported()
+    {
+        Scene scene = CreateScene();
+        AddEffectStackedEllipse(scene, "Glow shard A", zIndex: 4, x: -360);
+        AddEffectStackedEllipse(scene, "Glow shard B", zIndex: 5, x: 0);
+        AddEffectStackedEllipse(scene, "Glow shard C", zIndex: 6, x: 360);
+
+        QualityReviewResponse result = await AnalyzeAsync(scene, evaluateMotion: false);
+
+        Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
+            issue.Category == "effectIntent"
+            && issue.Severity == "major"
+            && issue.ObjectIds.Count == 3));
+    }
+
+    [Test]
     public async Task Low_motion_variation_is_included_in_quality_review()
     {
         Scene scene = CreateScene(durationSeconds: 3);
@@ -180,13 +232,14 @@ public sealed class QualityAnalyzerTests
         int zIndex,
         float x = 0,
         float y = 0,
-        Color? fill = null)
+        Color? fill = null,
+        float size = 72)
     {
         var block = new TextBlock
         {
             Name = text,
             Text = { CurrentValue = text },
-            Size = { CurrentValue = 72 },
+            Size = { CurrentValue = size },
             Fill = { CurrentValue = new SolidColorBrush(fill ?? Colors.White) },
             Transform =
             {
@@ -318,6 +371,37 @@ public sealed class QualityAnalyzerTests
             }
         };
         AddObject(scene, $"{name} element", zIndex, card);
+    }
+
+    private static void AddEffectStackedEllipse(Scene scene, string name, int zIndex, float x)
+    {
+        var ellipse = new EllipseShape
+        {
+            Name = name,
+            Width = { CurrentValue = 180 },
+            Height = { CurrentValue = 110 },
+            Fill = { CurrentValue = new SolidColorBrush(Color.Parse("#ff6ca8ff")) },
+            Transform =
+            {
+                CurrentValue = new TransformGroup
+                {
+                    Children = { new TranslateTransform(x, 0) }
+                }
+            },
+            FilterEffect =
+            {
+                CurrentValue = new FilterEffectGroup
+                {
+                    Children =
+                    {
+                        new Blur { Sigma = { CurrentValue = new Size(1.2f, 1.2f) } },
+                        new Blur { Sigma = { CurrentValue = new Size(1.6f, 1.6f) } },
+                        new Blur { Sigma = { CurrentValue = new Size(2.0f, 2.0f) } }
+                    }
+                }
+            }
+        };
+        AddObject(scene, $"{name} element", zIndex, ellipse);
     }
 
     private static Element AddObject(Scene scene, string name, int zIndex, EngineObject obj)

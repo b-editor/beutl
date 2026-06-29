@@ -37,6 +37,10 @@ public sealed class ReadDocumentTests
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("list_creative_directions"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("custom declarative patch"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("avoid overused orbit/radar/map/signal/dashboard motifs"));
+            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("objective, audience"));
+            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("one primary focal point"));
+            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("read time"));
+            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("effect purpose"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("list_compositions"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("explicitly asks for a reusable template"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("specific returned name"));
@@ -120,6 +124,7 @@ public sealed class ReadDocumentTests
             Assert.That(result.Value.InspirationSeeds.Select(seed => seed.Category), Does.Contain("procedural surface"));
             Assert.That(result.Value.InspirationSeeds.SelectMany(seed => seed.UsefulTools), Does.Contain("SKSLScriptEffect"));
             Assert.That(result.Value.CombinationRules, Has.Some.Contains("Synthesize a new pitch"));
+            Assert.That(result.Value.CombinationRules, Has.Some.Contains("direction contract"));
             Assert.That(result.Value.OriginalityConstraints, Has.Some.Contains("Do not implement any returned seed as a complete scene"));
             Assert.That(result.Value.OriginalityConstraints, Has.Some.Contains("Do not use returned seed names"));
             Assert.That(result.Value.VariationPrompts, Has.Some.Contains("Invert the seed relationship"));
@@ -130,7 +135,9 @@ public sealed class ReadDocumentTests
             Assert.That(result.Value.WorkflowHints, Has.Some.Contains("synthesize a new pitch"));
             Assert.That(result.Value.WorkflowHints, Has.Some.Contains("evaluate_motion_variation"));
             Assert.That(result.Value.WorkflowHints, Has.Some.Contains("SKSLScriptEffect"));
-            Assert.That(result.Value.WorkflowHints, Has.Some.Contains("scene-time KeyFrame values"));
+            Assert.That(result.Value.WorkflowHints, Has.Some.Contains("one primary focal point"));
+            Assert.That(result.Value.WorkflowHints, Has.Some.Contains("effect chain"));
+            Assert.That(result.Value.WorkflowHints, Has.Some.Contains("UseGlobalClock=false uses Element-local KeyTime values"));
             Assert.That(result.Value.DirectionAxes, Has.Some.Contains("procedural surface"));
             Assert.That(result.Value.SelectionHint, Does.Contain("combine at least two inspiration seeds"));
             Assert.That(result.Value.SelectionHint, Does.Contain("make a short motion graphic"));
