@@ -20,7 +20,7 @@ public sealed record AttachActiveEditorResponse(string Session, string Source, A
     public IReadOnlyList<string> NextSteps { get; } =
     [
         "Call read_document_summary to observe the scene without pulling the full document.",
-        "For vague or no-context motion graphics, call list_creative_directions and choose a concept before authoring.",
+        "For vague or no-context motion graphics, call list_creative_directions and synthesize an original pitch from at least two inspiration seeds before authoring.",
         "Call list_effects and list_effect_recipes to discover Beutl visual effects before settling on a repeated look.",
         "Build original scenes with plan_edit/apply_edit; call list_compositions only when the user explicitly asks for a template, starter, or named composition style.",
         "Call list_examples to choose a compact declarative snippet only when you need a targeted patch.",

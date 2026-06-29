@@ -9,7 +9,7 @@ Use the Agent Editing Toolkit MCP tools to create or modify scene structure. Fol
 
 - Convert shot-list timing into `Element` structure with explicit `Start`, `Length`, and layer/Z ordering.
 - Bind requested text, shape, image, video, group, and audio objects without changing unrelated content.
-- For vague creative briefs, call `list_creative_directions` and pick a concept before authoring.
+- For vague creative briefs, call `list_creative_directions` and synthesize an original pitch from at least two inspiration seeds before authoring.
 - Use `read_document` before editing and keep stable `Id` handles.
 - Use `plan_edit` before `apply_edit`; pass `expectedChangeSet` for application.
 - Verify representative frames with `render_still`; export a short preview with `export_video` when available.

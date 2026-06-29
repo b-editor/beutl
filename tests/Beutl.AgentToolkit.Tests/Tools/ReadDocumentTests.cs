@@ -92,35 +92,34 @@ public sealed class ReadDocumentTests
         {
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
             Assert.That(result.Value!.DirectionAxes, Has.Count.GreaterThanOrEqualTo(6));
-            Assert.That(result.Value.ConceptPlans, Has.Count.GreaterThanOrEqualTo(6));
-            Assert.That(result.Value.ConceptPlans[0].Concept, Is.Not.EqualTo("Projected ink fold"));
-            Assert.That(result.Value.ConceptPlans.Select(plan => plan.Concept), Does.Contain("Projected ink fold"));
-            Assert.That(result.Value.ConceptPlans.Select(plan => plan.Concept), Does.Contain("Glass prism clock"));
-            Assert.That(result.Value.ConceptPlans.Select(plan => plan.Concept), Does.Contain("Risograph registration drift"));
-            Assert.That(result.Value.ConceptPlans.Select(plan => plan.Concept), Does.Contain("Ceramic glaze fracture"));
-            Assert.That(result.Value.ConceptPlans.SelectMany(plan => plan.Elements), Does.Contain("cropped kinetic title"));
-            Assert.That(result.Value.ConceptPlans.SelectMany(plan => plan.ElementPlan).Select(plan => plan.ElementName), Does.Contain("cropped-title"));
-            Assert.That(result.Value.ConceptPlans.SelectMany(plan => plan.ElementPlan).Select(plan => plan.SuggestedObject), Does.Contain("TextBlock"));
-            Assert.That(result.Value.ConceptPlans.SelectMany(plan => plan.ElementPlan).Select(plan => plan.SuggestedObject), Does.Contain("RectShape with SKSLScriptEffect or LinearGradientBrush"));
-            Assert.That(result.Value.ConceptPlans.SelectMany(plan => plan.Effects), Does.Contain("SKSLScriptEffect"));
-            Assert.That(result.Value.ConceptPlans.SelectMany(plan => plan.TimingPhases), Has.Some.Contains("0-25%"));
+            Assert.That(result.Value.InspirationSeeds, Has.Count.GreaterThanOrEqualTo(8));
+            Assert.That(result.Value.InspirationSeeds.Select(seed => seed.Name), Does.Not.Contain("Projected ink fold"));
+            Assert.That(result.Value.InspirationSeeds.Select(seed => seed.Category), Does.Contain("material"));
+            Assert.That(result.Value.InspirationSeeds.Select(seed => seed.Category), Does.Contain("motion"));
+            Assert.That(result.Value.InspirationSeeds.Select(seed => seed.Category), Does.Contain("composition"));
+            Assert.That(result.Value.InspirationSeeds.Select(seed => seed.Category), Does.Contain("typography"));
+            Assert.That(result.Value.InspirationSeeds.Select(seed => seed.Category), Does.Contain("procedural surface"));
+            Assert.That(result.Value.InspirationSeeds.SelectMany(seed => seed.UsefulTools), Does.Contain("SKSLScriptEffect"));
+            Assert.That(result.Value.CombinationRules, Has.Some.Contains("Synthesize a new pitch"));
+            Assert.That(result.Value.OriginalityConstraints, Has.Some.Contains("Do not implement any returned seed as a complete scene"));
+            Assert.That(result.Value.OriginalityConstraints, Has.Some.Contains("Do not use returned seed names"));
+            Assert.That(result.Value.VariationPrompts, Has.Some.Contains("Invert the seed relationship"));
             Assert.That(result.Value.OverusedMotifs, Has.Some.Contains("orbit rings"));
             Assert.That(result.Value.OverusedMotifs, Has.Some.Contains("radar sweeps"));
             Assert.That(result.Value.OverusedMotifs, Has.Some.Contains("dark teal background with cyan/magenta neon"));
-            Assert.That(result.Value.WorkflowHints, Has.Some.Contains("Do not default to the first returned concept"));
-            Assert.That(result.Value.WorkflowHints, Has.Some.Contains("Compare at least two conceptPlans"));
+            Assert.That(result.Value.WorkflowHints, Has.Some.Contains("Do not default to the first returned seed"));
+            Assert.That(result.Value.WorkflowHints, Has.Some.Contains("synthesize a new pitch"));
             Assert.That(result.Value.WorkflowHints, Has.Some.Contains("evaluate_motion_variation"));
-            Assert.That(result.Value.WorkflowHints, Has.Some.Contains("exactly one elementPlan item per stage"));
             Assert.That(result.Value.WorkflowHints, Has.Some.Contains("SKSLScriptEffect"));
             Assert.That(result.Value.WorkflowHints, Has.Some.Contains("scene-time KeyFrame values"));
             Assert.That(result.Value.DirectionAxes, Has.Some.Contains("procedural surface"));
-            Assert.That(result.Value.SelectionHint, Does.Contain("Compare at least two conceptPlans"));
+            Assert.That(result.Value.SelectionHint, Does.Contain("combine at least two inspiration seeds"));
             Assert.That(result.Value.SelectionHint, Does.Contain("make a short motion graphic"));
         });
     }
 
     [Test]
-    public void Creative_directions_rotate_leading_concept_between_calls()
+    public void Creative_directions_rotate_leading_seed_between_calls()
     {
         var tools = new QueryTools(new AgentSessionManager());
 
@@ -131,8 +130,7 @@ public sealed class ReadDocumentTests
         {
             Assert.That(first.IsSuccess, Is.True, first.Error?.Message);
             Assert.That(second.IsSuccess, Is.True, second.Error?.Message);
-            Assert.That(first.Value!.ConceptPlans[0].Concept, Is.Not.EqualTo("Projected ink fold"));
-            Assert.That(second.Value!.ConceptPlans[0].Concept, Is.Not.EqualTo(first.Value.ConceptPlans[0].Concept));
+            Assert.That(first.Value!.InspirationSeeds[0].Name, Is.Not.EqualTo(second.Value!.InspirationSeeds[0].Name));
         });
     }
 
