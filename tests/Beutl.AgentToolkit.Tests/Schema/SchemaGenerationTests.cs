@@ -48,6 +48,7 @@ public sealed class SchemaGenerationTests
         TypeDescriptor fake = schema.Types.Single(type => type.Type == typeof(FakeExtensionDrawable).FullName);
         string emptySceneExample = schema.Examples.Single(example => example.Name == "create-empty-scene-motion-graphics").Patch.ToJsonString();
         string brushEffectExample = schema.Examples.Single(example => example.Name == "apply-gradient-fill-and-effect-chain").Patch.ToJsonString();
+        string newAnimatedTextExample = schema.Examples.Single(example => example.Name == "insert-new-animated-text-keyframes").Patch.ToJsonString();
         CapabilitySchema audioSchema = generator.Generate(categoryFilter: "AudioEffect");
         CapabilitySchema brushSchema = generator.Generate(categoryFilter: "Brush");
         CapabilitySchema textBlockSchema = generator.Generate(typeFilter: nameof(TextBlock));
@@ -95,6 +96,9 @@ public sealed class SchemaGenerationTests
             Assert.That(fake.Properties.Single(property => property.Name == nameof(FakeExtensionDrawable.Amount)).Range, Is.Not.Null);
             Assert.That(schema.Examples.Single(example => example.Name == "animate-float-property-keyframes").Patch.ToJsonString(), Does.Contain("KeyFrames"));
             Assert.That(schema.Examples.Single(example => example.Name == "animate-float-property-keyframes").Patch.ToJsonString(), Does.Contain("KeyFrameAnimation"));
+            Assert.That(newAnimatedTextExample, Does.Contain("TextBlock"));
+            Assert.That(newAnimatedTextExample, Does.Contain("KeyFrameAnimation"));
+            Assert.That(newAnimatedTextExample, Does.Contain("UseGlobalClock"));
             Assert.That(emptySceneExample, Does.Contain("TextBlock"));
             Assert.That(emptySceneExample, Does.Contain("Beutl motion"));
             Assert.That(emptySceneExample, Does.Contain("LinearGradientBrush"));
@@ -112,6 +116,7 @@ public sealed class SchemaGenerationTests
             Assert.That(textBlockSchema.Examples.Select(example => example.Name), Does.Contain("create-empty-scene-motion-graphics"));
             Assert.That(textBlockSchema.Examples.Select(example => example.Name), Does.Contain("create-empty-scene-orbital-radar"));
             Assert.That(textBlockSchema.Examples.Select(example => example.Name), Does.Contain("create-empty-scene-split-screen-typography"));
+            Assert.That(textBlockSchema.Examples.Select(example => example.Name), Does.Contain("insert-new-animated-text-keyframes"));
             Assert.That(freshTextBlockSchema.Examples.Single(example => example.Name == "create-empty-scene-motion-graphics").Patch["Duration"]!.GetValue<string>(), Is.EqualTo("00:00:08"));
             Assert.That(compactVisualEffectSchema.Types.Any(type => type.Type == typeof(FilterEffectGroup).FullName), Is.True);
             Assert.That(compactVisualEffectSchema.Types.All(type => type.Properties.Count == 0), Is.True);

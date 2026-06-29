@@ -533,7 +533,7 @@ public sealed class SchemaGenerator
             new ExampleSpec(
                 new DeclarativeExample(
                     "animate-float-property-keyframes",
-                    "Patch snippet for a float animatable property such as Opacity. Replace the placeholder Ids and property name. UseGlobalClock=false means KeyFrame.KeyTime is local to the owning timeline Element and should stay within Element.Length; set UseGlobalClock=true when the KeyTime values are scene timeline times. For non-float properties, use the matching KeyFrameAnimation<T> and KeyFrame<T> discriminator from a serialized sample.",
+                    "Minimal patch for adding keyframes to an existing float animatable property such as Opacity. Replace the placeholder Ids and property name. UseGlobalClock=false means KeyFrame.KeyTime is local to the owning timeline Element and should stay within Element.Length; set UseGlobalClock=true when the KeyTime values are scene timeline times. For non-float properties, use the matching KeyFrameAnimation<T> and KeyFrame<T> discriminator from a serialized sample.",
                     new JsonObject
                     {
                         ["Elements"] = new JsonArray(new JsonObject
@@ -571,6 +571,11 @@ public sealed class SchemaGenerator
                 ExampleCategories(KnownLibraryItemFormats.Drawable, KnownLibraryItemFormats.EngineObject, KnownLibraryItemFormats.Easing),
                 ExampleTypes(typeof(KeyFrameAnimation<float>), typeof(KeyFrame<float>), typeof(LinearEasing), typeof(SineEaseOut)),
                 ExampleTags("targeted", "keyframes", "animation")),
+            new ExampleSpec(
+                CreateNewAnimatedTextElementExample(),
+                ExampleCategories(KnownLibraryItemFormats.Drawable, KnownLibraryItemFormats.EngineObject, KnownLibraryItemFormats.Easing),
+                ExampleTypes(typeof(Element), typeof(TextBlock), typeof(KeyFrameAnimation<float>), typeof(KeyFrame<float>), typeof(LinearEasing), typeof(SineEaseOut)),
+                ExampleTags("targeted", "keyframes", "animation", "new-object", "minimal")),
             new ExampleSpec(
                 CreateBrushAndEffectExample(),
                 ExampleCategories(KnownLibraryItemFormats.Drawable, KnownLibraryItemFormats.EngineObject, KnownLibraryItemFormats.Brush, KnownLibraryItemFormats.FilterEffect),
@@ -1149,6 +1154,43 @@ public sealed class SchemaGenerator
                         ["$type"] = textType,
                         [nameof(CoreObject.Name)] = "new-text",
                         [nameof(TextBlock.Text)] = "Title"
+                    })
+                })
+            });
+    }
+
+    private static DeclarativeExample CreateNewAnimatedTextElementExample()
+    {
+        string elementType = IdentityHelper.WriteDiscriminator(typeof(Element));
+        string textType = IdentityHelper.WriteDiscriminator(typeof(TextBlock));
+        JsonObject opacityAnimation = CreateFloatAnimation(
+            (0, 0, typeof(LinearEasing)),
+            (0.35, 100, typeof(SineEaseOut)),
+            (1.65, 100, typeof(LinearEasing)),
+            (2, 0, typeof(LinearEasing)));
+        opacityAnimation[nameof(KeyFrameAnimation.UseGlobalClock)] = false;
+
+        return new DeclarativeExample(
+            "insert-new-animated-text-keyframes",
+            "Minimal patch for inserting one new TextBlock object with a valid KeyFrameAnimation<float> on Opacity. New Elements and Objects omit Id; use schema-returned discriminators and keep UseGlobalClock=false key times inside Element.Length.",
+            new JsonObject
+            {
+                ["Elements"] = new JsonArray(new JsonObject
+                {
+                    ["$type"] = elementType,
+                    [nameof(CoreObject.Name)] = "animated-text-element",
+                    [nameof(Element.Start)] = TimeSpan.Zero.ToString("c"),
+                    [nameof(Element.Length)] = TimeSpan.FromSeconds(2).ToString("c"),
+                    [nameof(Element.ZIndex)] = 20,
+                    [nameof(Element.Objects)] = new JsonArray(new JsonObject
+                    {
+                        ["$type"] = textType,
+                        [nameof(CoreObject.Name)] = "animated-text",
+                        [nameof(TextBlock.Text)] = "Animated",
+                        ["Animations"] = new JsonObject
+                        {
+                            ["Opacity"] = opacityAnimation
+                        }
                     })
                 })
             });

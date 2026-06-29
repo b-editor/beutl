@@ -45,6 +45,7 @@ Use this skill when an agent needs to turn a shot list, storyboard, or timed bri
    - When adding new `Objects` to an existing `Element`, keep the parent `Element.Id` and omit `Id` on each new Object.
    - Keep element `Start`, `Length`, and layer/Z values consistent with the shot list.
    - Decide the animation clock mode deliberately. With `UseGlobalClock=false`, `KeyFrame.KeyTime` is local to the owning timeline Element and should normally stay within `00:00:00`..`Element.Length`. With `UseGlobalClock=true`, `KeyFrame.KeyTime` is a scene timeline time and should intersect the visible Element range.
+   - For explicit keyframes, fetch `get_examples` for `animate-float-property-keyframes` when animating an existing object, or `insert-new-animated-text-keyframes` when creating a new animated text object. Copy the concrete `KeyFrameAnimation<T>` and `KeyFrame<T>` discriminators from the example instead of inventing animation type names.
    - If `apply_edit.validation` contains a `Warning` for relative keyframes outside the Element local range, treat it as a timing bug unless the user explicitly asked for that state. Fix by either converting the keyframes to local times or setting `UseGlobalClock=true` when scene timeline times were intended.
    - For rotated moving shapes, do not animate only `TranslateTransform.X` and assume it will travel along the rotated visual axis. If the intended screen-space path is diagonal, animate both X and Y as a vector; if the intended local-axis path depends on transform order, verify the order with a rendered still/motion sample before export.
    - If you only need the required container shape, fetch the targeted `insert-new-element-skeleton` example; do not inspect a full-scene starter just to learn `$type` placement.
@@ -64,6 +65,7 @@ Use this skill when an agent needs to turn a shot list, storyboard, or timed bri
 - Build fast tempo through contrast between quick accents and held readability beats. Do not make every layer move at the same speed.
 - Animate multiple property families across the piece, such as transform, opacity, brush/gradient, effect parameters, and text spacing. Do not rely only on X movement plus opacity.
 - Every shot needs one primary focal point. Supporting text, marks, panels, and effects should sit lower in scale, contrast, timing, or density.
+- Keep hero-scale typography to one primary message per beat; make captions, labels, and texture text visibly quieter before running `evaluate_edit_quality`.
 - Readability is timed: short-lived text must be short, split across beats, or held longer.
 - Maintain visual density: use layered background, foreground motion, accents, and typography/labels. A lone title over one moving shape is too sparse unless the brief asks for minimalism.
 - Use procedural texture when the concept is organic or atmospheric. A short `SKSLScriptEffect` on a broad shape is often better than many low-contrast blurred ellipses for heat, ink, glass, smoke, caustics, grain, or shimmer.
