@@ -9,11 +9,13 @@ using Beutl.AgentToolkit.Tools;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Editor;
+using Beutl.Engine;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 
 namespace Beutl.AgentToolkit.Tests.Tools;
 
@@ -78,6 +80,23 @@ public sealed class ReadDocumentTests
             Assert.That(transform.Value.Types.Select(type => type.Type), Does.Contain(typeof(TranslateTransform).FullName));
             Assert.That(transform.Value.Types.Select(type => type.Type), Does.Contain(typeof(RotationTransform).FullName));
             Assert.That(transform.Value.Types.Select(type => type.Type), Does.Contain(typeof(ScaleTransform).FullName));
+        });
+    }
+
+    [Test]
+    public void Get_schema_explains_timeline_element_container_requests()
+    {
+        var tools = new QueryTools(new AgentSessionManager());
+
+        ToolResult<CapabilitySchema> result = tools.GetSchema(type: "Element", includeProperties: false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error!.Code, Is.EqualTo(ErrorCode.UnknownType));
+            Assert.That(result.Error.Hint, Does.Contain("[Beutl.ProjectSystem]:Element"));
+            Assert.That(result.Error.Hint, Does.Contain("Objects"));
+            Assert.That(result.Error.Hint, Does.Contain("insert-new-element-skeleton"));
         });
     }
 
@@ -628,6 +647,51 @@ public sealed class ReadDocumentTests
             Assert.That(objectSummary.EffectProperties, Does.Contain(nameof(TextBlock.FilterEffect)));
             Assert.That(objectSummary.NestedAnimatedProperties, Does.Contain("Transform.Children[0].X"));
             Assert.That(objectSummary.NestedAnimatedProperties, Does.Contain("Transform.Children[1].Rotation"));
+        });
+    }
+
+    [Test]
+    public void Read_document_summary_exposes_fallback_objects()
+    {
+        var scene = new Scene(1280, 720, "Fallback summary")
+        {
+            Duration = TimeSpan.FromSeconds(2),
+            Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.scene"))
+        };
+        var element = new Element
+        {
+            Name = "Fallback element",
+            Length = TimeSpan.FromSeconds(2),
+            Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.belm"))
+        };
+        var fallback = new FallbackEngineObject
+        {
+            Name = "Fallback rect",
+            Reason = FallbackReason.DeserializationFailed,
+            ErrorMessage = "Width: The JSON value could not be converted.",
+            Json = new JsonObject
+            {
+                ["$type"] = IdentityHelper.WriteDiscriminator(typeof(RectShape))
+            }
+        };
+        element.AddObject(fallback);
+        scene.Children.Add(element);
+
+        using var session = new AgentToolkitTestSession(scene);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var tools = new QueryTools(manager);
+
+        ToolResult<DocumentSummaryResponse> result = tools.ReadDocumentSummary();
+        ObjectSummary objectSummary = result.Value!.Elements.Single().Objects.Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+            Assert.That(objectSummary.IsFallback, Is.True);
+            Assert.That(objectSummary.FallbackReason, Is.EqualTo(nameof(FallbackReason.DeserializationFailed)));
+            Assert.That(objectSummary.FallbackTypeName, Is.EqualTo(IdentityHelper.WriteDiscriminator(typeof(RectShape))));
+            Assert.That(objectSummary.FallbackMessage, Does.Contain("Width"));
         });
     }
 
