@@ -143,6 +143,87 @@ public sealed class DeclarativeAnimationTests
         });
     }
 
+    [Test]
+    public void Apply_edit_warns_but_applies_relative_keyframes_outside_element_length()
+    {
+        Scene scene = CreateSceneWithText(out Element element, out TextBlock text);
+        using var session = new AgentToolkitTestSession(scene);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var tools = new EditTools(manager);
+
+        JsonObject createPatch = PatchTextObject(
+            element,
+            text,
+            new JsonObject
+            {
+                ["Animations"] = new JsonObject
+                {
+                    ["Opacity"] = CreateOpacityAnimationDocument(TimeSpan.Zero, TimeSpan.FromSeconds(5))
+                }
+            });
+
+        ToolResult<ApplyEditResponse> apply = tools.ApplyEdit(
+            patch: createPatch,
+            schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
+            Assert.That(apply.Value!.Valid, Is.True);
+            Assert.That(apply.Value.Validation.Select(item => item.Status), Does.Contain(ValidationStatus.Warning));
+            Assert.That(apply.Value.Validation.Single(item => item.Status == ValidationStatus.Warning).Message, Does.Contain("UseGlobalClock=false"));
+            Assert.That(apply.Value.Validation.Single(item => item.Status == ValidationStatus.Warning).Hint, Does.Contain("UseGlobalClock=true"));
+            Assert.That(text.Opacity.Animation, Is.Not.Null);
+        });
+    }
+
+    [Test]
+    public void Apply_edit_warns_when_element_length_change_makes_relative_keyframes_outside_range()
+    {
+        Scene scene = CreateSceneWithText(out Element element, out TextBlock text);
+        using var session = new AgentToolkitTestSession(scene);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var tools = new EditTools(manager);
+
+        JsonObject createPatch = PatchTextObject(
+            element,
+            text,
+            new JsonObject
+            {
+                ["Animations"] = new JsonObject
+                {
+                    ["Opacity"] = CreateOpacityAnimationDocument(TimeSpan.Zero, TimeSpan.FromSeconds(3.5))
+                }
+            });
+        ToolResult<ApplyEditResponse> createApply = tools.ApplyEdit(
+            patch: createPatch,
+            schemaVersion: SchemaVersion.Current);
+
+        JsonObject retimePatch = new()
+        {
+            ["Elements"] = new JsonArray(new JsonObject
+            {
+                [nameof(CoreObject.Id)] = element.Id.ToString(),
+                [nameof(Element.Length)] = TimeSpan.FromSeconds(2).ToString("c")
+            })
+        };
+        ToolResult<ApplyEditResponse> retimeApply = tools.ApplyEdit(
+            patch: retimePatch,
+            schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(createApply.IsSuccess, Is.True, createApply.Error?.Message);
+            Assert.That(createApply.Value!.Validation.Select(item => item.Status), Does.Not.Contain(ValidationStatus.Warning));
+            Assert.That(retimeApply.IsSuccess, Is.True, retimeApply.Error?.Message);
+            Assert.That(retimeApply.Value!.Valid, Is.True);
+            Assert.That(retimeApply.Value.Validation.Select(item => item.Status), Does.Contain(ValidationStatus.Warning));
+            Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+        });
+    }
+
     private static JsonObject PatchTextObject(Element element, TextBlock text, JsonObject textPatch)
     {
         textPatch[nameof(CoreObject.Id)] = text.Id.ToString();
@@ -157,12 +238,15 @@ public sealed class DeclarativeAnimationTests
     }
 
     private static JsonObject CreateOpacityAnimationDocument()
+        => CreateOpacityAnimationDocument(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+
+    private static JsonObject CreateOpacityAnimationDocument(TimeSpan firstKeyTime, TimeSpan secondKeyTime)
     {
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(
             new KeyFrame<float>
             {
-                KeyTime = TimeSpan.Zero,
+                KeyTime = firstKeyTime,
                 Value = 0,
                 Easing = new LinearEasing()
             },
@@ -170,7 +254,7 @@ public sealed class DeclarativeAnimationTests
         animation.KeyFrames.Add(
             new KeyFrame<float>
             {
-                KeyTime = TimeSpan.FromSeconds(1),
+                KeyTime = secondKeyTime,
                 Value = 100,
                 Easing = new SineEaseOut()
             },

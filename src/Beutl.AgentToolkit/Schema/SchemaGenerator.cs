@@ -533,7 +533,7 @@ public sealed class SchemaGenerator
             new ExampleSpec(
                 new DeclarativeExample(
                     "animate-float-property-keyframes",
-                    "Patch snippet for a float animatable property such as Opacity. Replace the placeholder Ids and property name. KeyFrame.KeyTime values are scene timeline times in toolkit patches; choose values that intersect the still/video frames you will render. For non-float properties, use the matching KeyFrameAnimation<T> and KeyFrame<T> discriminator from a serialized sample.",
+                    "Patch snippet for a float animatable property such as Opacity. Replace the placeholder Ids and property name. UseGlobalClock=false means KeyFrame.KeyTime is local to the owning timeline Element and should stay within Element.Length; set UseGlobalClock=true when the KeyTime values are scene timeline times. For non-float properties, use the matching KeyFrameAnimation<T> and KeyFrame<T> discriminator from a serialized sample.",
                     new JsonObject
                     {
                         ["Elements"] = new JsonArray(new JsonObject
@@ -547,6 +547,7 @@ public sealed class SchemaGenerator
                                     ["Opacity"] = new JsonObject
                                     {
                                         ["$type"] = animationType,
+                                        [nameof(KeyFrameAnimation.UseGlobalClock)] = false,
                                         [nameof(KeyFrameAnimation.KeyFrames)] = new JsonArray(
                                             new JsonObject
                                             {
@@ -2029,7 +2030,7 @@ public sealed class SchemaGenerator
 
         if (animatable)
         {
-            hints.Add("Animate through Animations.<Property>.KeyFrames using schema-returned animation/keyframe discriminators; KeyTime values are scene timeline times.");
+            hints.Add("Animate through Animations.<Property>.KeyFrames using schema-returned animation/keyframe discriminators; UseGlobalClock=false uses Element-local KeyTime values, and UseGlobalClock=true uses scene timeline KeyTime values.");
         }
 
         return hints.Count == 0 ? null : string.Join(" ", hints);

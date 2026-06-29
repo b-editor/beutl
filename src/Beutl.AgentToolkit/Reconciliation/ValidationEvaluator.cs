@@ -8,6 +8,7 @@ namespace Beutl.AgentToolkit.Reconciliation;
 public enum ValidationStatus
 {
     Ok,
+    Warning,
     Coerced,
     Rejected,
 }
@@ -28,6 +29,11 @@ public sealed record ValidationOutcome(
     public static ValidationOutcome Coerced(object? original, object? coerced)
     {
         return new ValidationOutcome(ValidationStatus.Coerced, original, coerced, null);
+    }
+
+    public static ValidationOutcome Warning(object? value, string message, string? hint = null)
+    {
+        return new ValidationOutcome(ValidationStatus.Warning, value, value, message, hint);
     }
 
     public static ValidationOutcome Rejected(object? original, string message, string? hint = null)

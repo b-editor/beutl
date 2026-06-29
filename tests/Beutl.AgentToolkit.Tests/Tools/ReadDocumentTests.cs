@@ -48,7 +48,7 @@ public sealed class ReadDocumentTests
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("[Beutl.ProjectSystem]:Element"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("insert-new-element-skeleton"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("SKSLScriptEffect"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("KeyFrame times are scene timeline times"));
+            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("UseGlobalClock=false uses Element-local KeyTime values"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("evaluate_motion_variation"));
             Assert.That(result.Value.CategoryAliases["visualEffect"], Is.EqualTo("FilterEffect"));
             Assert.That(result.Value.RawHttpNote, Does.Contain("Server-Sent Events"));

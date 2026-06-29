@@ -151,7 +151,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 "For visible progress, apply large scenes in stages that follow your synthesized pitch: background/surface first, then motion elements, then text/effects.",
                 "For unconstrained creative briefs, keep project/video/still basenames neutral and record the synthesized pitch in notes instead of filenames.",
                 "New timeline Elements need '$type': '[Beutl.ProjectSystem]:Element'. Existing Elements keep Id; genuinely new Elements and Objects omit Id. If you need structure only, fetch the targeted insert-new-element-skeleton example instead of a full-scene starter.",
-                "Animation KeyFrame times are scene timeline times in serialized toolkit patches. For Elements with nonzero Start, set keyframes to scene times that intersect the frames you will render.",
+                "Choose animation clock mode explicitly: UseGlobalClock=false uses Element-local KeyTime values in 00:00:00..Element.Length; UseGlobalClock=true uses scene timeline KeyTime values that should intersect the visible Element range.",
                 "Call apply_edit with the custom patch and schemaVersion=1.",
                 "For file-backed sessions, call save_project after each major successful apply_edit so partial progress is durable.",
                 "For synthesized creative pitches, verify read_document_summary contains your own planned element names before rendering or exporting.",
