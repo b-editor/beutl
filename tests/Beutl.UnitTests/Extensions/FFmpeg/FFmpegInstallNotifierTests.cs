@@ -34,6 +34,54 @@ public class FFmpegInstallNotifierTests
         Assert.That(FFmpegInstallNotifier.TryAcquireNotifySlot(now: 1_000 + throttleMs), Is.True);
     }
 
+    [Test]
+    public void AvailabilityChanged_FiresWhenMissingStateChanges()
+    {
+        int changes = 0;
+        void OnAvailabilityChanged(object? sender, EventArgs e) => changes++;
+
+        FFmpegInstallNotifier.AvailabilityChanged += OnAvailabilityChanged;
+        try
+        {
+            FFmpegInstallNotifier.MarkMissing();
+            FFmpegInstallNotifier.MarkMissing();
+            FFmpegInstallNotifier.MarkInstalled();
+        }
+        finally
+        {
+            FFmpegInstallNotifier.AvailabilityChanged -= OnAvailabilityChanged;
+        }
+
+        Assert.That(changes, Is.EqualTo(2));
+    }
+
+    [Test]
+    public void MarkVerificationStarted_ClearsMissingWithoutAvailabilitySignal()
+    {
+        FFmpegInstallNotifier.MarkMissing();
+        int changes = 0;
+        void OnAvailabilityChanged(object? sender, EventArgs e) => changes++;
+
+        FFmpegInstallNotifier.AvailabilityChanged += OnAvailabilityChanged;
+        try
+        {
+            FFmpegInstallNotifier.MarkVerificationStarted();
+            Assert.Multiple(() =>
+            {
+                Assert.That(FFmpegInstallNotifier.IsLibrariesMissing, Is.False);
+                Assert.That(changes, Is.EqualTo(0));
+            });
+
+            FFmpegInstallNotifier.MarkInstalled();
+        }
+        finally
+        {
+            FFmpegInstallNotifier.AvailabilityChanged -= OnAvailabilityChanged;
+        }
+
+        Assert.That(changes, Is.EqualTo(1));
+    }
+
     // Regression test for the TOCTOU race: when many threads observe the same
     // pre-throttle state simultaneously, exactly one must acquire the slot.
     // The pre-fix Read/Exchange split allows >=2 winners; the CAS-based fix

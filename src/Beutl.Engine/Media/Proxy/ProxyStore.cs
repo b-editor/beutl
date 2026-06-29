@@ -14,6 +14,7 @@ public sealed class ProxyStore : IProxyStore
 
     private readonly Lock _lock = new();
     private readonly Dictionary<(ProxyFingerprint Source, ProxyPreset Preset), ProxyEntry> _entries = [];
+    private readonly HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> _touchDirtyKeys = [];
     private readonly string _indexPath;
     private readonly string _indexLockPath;
     private int _touchFlushScheduled;
@@ -57,8 +58,9 @@ public sealed class ProxyStore : IProxyStore
 
         lock (_lock)
         {
-            _entries[(entry.Source, entry.Preset)] = entry;
-            FlushCore();
+            var key = GetKey(entry);
+            _entries[key] = entry;
+            FlushCore(changedKeys: new HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> { key });
         }
 
         OnChanged(entry.Source, entry.Preset, ProxyStoreChangeKind.Registered);
@@ -86,8 +88,9 @@ public sealed class ProxyStore : IProxyStore
                 LastUsedUtc = DateTime.UtcNow,
                 FailureReason = newState == ProxyState.Failed ? failureReason : null,
             };
-            _entries[(source, preset)] = updated;
-            FlushCore();
+            var key = (source, preset);
+            _entries[key] = updated;
+            FlushCore(changedKeys: new HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> { key });
         }
 
         OnChanged(source, preset, ProxyStoreChangeKind.StateChanged);
@@ -107,7 +110,7 @@ public sealed class ProxyStore : IProxyStore
                 return false;
 
             _entries.Remove((source, preset));
-            FlushCore(new HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> { (source, preset) });
+            FlushCore(removedKeys: new HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> { (source, preset) });
         }
 
         RemoveMetadataEntry(removed);
@@ -128,6 +131,7 @@ public sealed class ProxyStore : IProxyStore
             {
                 _entries[(source, preset)] = entry with { LastUsedUtc = nowUtc };
                 _touchDirty = true;
+                _touchDirtyKeys.Add((source, preset));
                 touched = true;
             }
         }
@@ -188,9 +192,10 @@ public sealed class ProxyStore : IProxyStore
 
             List<ProxyEntry> missing = [];
             List<ProxyEntry> changed = [];
+            HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> changedKeys = [];
             lock (_lock)
             {
-                AdoptSidecarsCore(cancellationToken);
+                changedKeys.UnionWith(AdoptSidecarsCore(cancellationToken));
 
                 foreach (ProxyEntry entry in _entries.Values)
                 {
@@ -241,15 +246,16 @@ public sealed class ProxyStore : IProxyStore
                         State = ProxyState.Stale,
                         LastUsedUtc = DateTime.UtcNow,
                     };
+                    changedKeys.Add((entry.Source, entry.Preset));
                 }
 
-                if (missing.Count > 0 || changed.Count > 0)
+                if (missing.Count > 0 || changedKeys.Count > 0)
                 {
                     HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> removedKeys =
                     [
                         .. missing.Select(static entry => (entry.Source, entry.Preset))
                     ];
-                    FlushCore(removedKeys);
+                    FlushCore(changedKeys, removedKeys);
                 }
             }
 
@@ -288,8 +294,8 @@ public sealed class ProxyStore : IProxyStore
             if (index?.Version != ProxyStoreIndex.CurrentVersion)
             {
                 _entries.Clear();
-                AdoptSidecarsCore(CancellationToken.None);
-                FlushCore();
+                HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> adoptedKeys = AdoptSidecarsCore(CancellationToken.None);
+                FlushCore(adoptedKeys);
                 return;
             }
 
@@ -302,13 +308,14 @@ public sealed class ProxyStore : IProxyStore
         catch
         {
             _entries.Clear();
-            AdoptSidecarsCore(CancellationToken.None);
-            FlushCore();
+            HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> adoptedKeys = AdoptSidecarsCore(CancellationToken.None);
+            FlushCore(adoptedKeys);
         }
     }
 
-    private void AdoptSidecarsCore(CancellationToken cancellationToken)
+    private HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> AdoptSidecarsCore(CancellationToken cancellationToken)
     {
+        HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> adoptedKeys = [];
         foreach (string metadataPath in Directory.EnumerateFiles(StoreRootPath, "meta.json", SearchOption.AllDirectories))
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -331,9 +338,17 @@ public sealed class ProxyStore : IProxyStore
                 if (!File.Exists(proxyPath))
                     continue;
 
-                _entries.TryAdd((entry.Source, entry.Preset), entry);
+                var key = (entry.Source, entry.Preset);
+                if (!_entries.TryGetValue(key, out ProxyEntry? existing)
+                    || ShouldAdoptSidecar(entry, existing))
+                {
+                    _entries[key] = entry;
+                    adoptedKeys.Add(key);
+                }
             }
         }
+
+        return adoptedKeys;
     }
 
     private static IEnumerable<ProxyEntry> ReadMetadataEntries(string metadataPath)
@@ -384,21 +399,62 @@ public sealed class ProxyStore : IProxyStore
             yield return legacyEntry;
     }
 
-    private void FlushCore(IReadOnlySet<(ProxyFingerprint Source, ProxyPreset Preset)>? removedKeys = null)
+    private void FlushCore(
+        IReadOnlySet<(ProxyFingerprint Source, ProxyPreset Preset)>? changedKeys = null,
+        IReadOnlySet<(ProxyFingerprint Source, ProxyPreset Preset)>? removedKeys = null)
     {
         Directory.CreateDirectory(StoreRootPath);
         using FileStream indexLock = AcquireIndexLock();
 
+        Dictionary<(ProxyFingerprint Source, ProxyPreset Preset), ProxyEntry> merged = [];
         foreach (ProxyEntry entry in ReadIndexEntriesFromDisk())
         {
-            var key = (entry.Source, entry.Preset);
+            var key = GetKey(entry);
             if (removedKeys?.Contains(key) == true)
                 continue;
 
-            _entries.TryAdd(key, entry);
+            merged[key] = entry;
         }
 
-        var index = new ProxyStoreIndex { Entries = [.. _entries.Values] };
+        HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> touchedKeys = [.. _touchDirtyKeys];
+        foreach (var key in touchedKeys)
+        {
+            if (removedKeys?.Contains(key) == true)
+                continue;
+
+            if (merged.TryGetValue(key, out ProxyEntry? diskEntry)
+                && _entries.TryGetValue(key, out ProxyEntry? localEntry))
+            {
+                DateTime lastUsedUtc = diskEntry.LastUsedUtc >= localEntry.LastUsedUtc
+                    ? diskEntry.LastUsedUtc
+                    : localEntry.LastUsedUtc;
+                merged[key] = diskEntry with { LastUsedUtc = lastUsedUtc };
+            }
+            else
+            {
+                _entries.Remove(key);
+            }
+        }
+
+        if (changedKeys != null)
+        {
+            foreach (var key in changedKeys)
+            {
+                if (removedKeys?.Contains(key) == true)
+                    continue;
+
+                if (_entries.TryGetValue(key, out ProxyEntry? entry))
+                    merged[key] = entry;
+            }
+        }
+
+        _entries.Clear();
+        foreach (ProxyEntry entry in merged.Values)
+        {
+            _entries[GetKey(entry)] = entry;
+        }
+
+        var index = new ProxyStoreIndex { Entries = [.. merged.Values] };
         string json = JsonSerializer.Serialize(index, s_jsonOptions);
         string tmp = Path.Combine(
             StoreRootPath,
@@ -407,7 +463,12 @@ public sealed class ProxyStore : IProxyStore
         {
             File.WriteAllText(tmp, json);
             File.Move(tmp, _indexPath, overwrite: true);
-            _touchDirty = false;
+            foreach (var key in touchedKeys)
+            {
+                _touchDirtyKeys.Remove(key);
+            }
+
+            _touchDirty = _touchDirtyKeys.Count > 0;
         }
         finally
         {
@@ -523,6 +584,17 @@ public sealed class ProxyStore : IProxyStore
                 Thread.Sleep(10);
             }
         }
+    }
+
+    private static (ProxyFingerprint Source, ProxyPreset Preset) GetKey(ProxyEntry entry)
+    {
+        return (entry.Source, entry.Preset);
+    }
+
+    private static bool ShouldAdoptSidecar(ProxyEntry sidecarEntry, ProxyEntry existingEntry)
+    {
+        return sidecarEntry.State is ProxyState.Ready or ProxyState.Stale
+            && existingEntry.State is not (ProxyState.Ready or ProxyState.Stale);
     }
 
     private bool TryValidateEntry(ProxyEntry entry)

@@ -157,11 +157,12 @@ public class ProxyJobQueueTests
     }
 
     [Test]
-    public async Task UnavailableGenerator_KeepsRemainingJobsQueued()
+    public async Task UnavailableGenerator_KeepsRemainingJobsQueuedUntilAvailabilityReturns()
     {
         string root = CreateRoot();
         var store = new ProxyStore(root);
-        await using var queue = new ProxyJobQueue(new UnavailableGenerator(), store);
+        var generator = new ToggleAvailabilityGenerator();
+        await using var queue = new ProxyJobQueue(generator, store);
         ProxyFingerprint firstSource = CreateFingerprint("unavailable-a.mov");
         ProxyFingerprint secondSource = CreateFingerprint("unavailable-b.mov");
 
@@ -177,6 +178,46 @@ public class ProxyJobQueueTests
             Assert.That(queue.Pending(), Is.EqualTo(new[] { second }));
             Assert.That(store.TryGet(firstSource, ProxyPreset.Quarter)?.State, Is.EqualTo(ProxyState.Failed));
             Assert.That(store.TryGet(secondSource, ProxyPreset.Quarter), Is.Null);
+        });
+
+        generator.SetAvailable();
+        await WaitForTerminalAsync(second);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(second.Status, Is.EqualTo(ProxyJobStatus.Succeeded));
+            Assert.That(generator.SucceededSources, Is.EqualTo(new[] { secondSource }));
+        });
+    }
+
+    [Test]
+    public async Task Cancel_QueuedReplacementKeepsDeduplicationAfterCanceledItemDrains()
+    {
+        var generator = new ControlledBlockingGenerator();
+        await using var queue = new ProxyJobQueue(generator);
+        ProxyFingerprint runningSource = CreateFingerprint("running-replacement.mov");
+        ProxyFingerprint replacementSource = CreateFingerprint("queued-replacement.mov");
+
+        ProxyJob running = await queue.EnqueueAsync(runningSource, ProxyPreset.Quarter);
+        await generator.WaitForStartedCountAsync(1);
+        ProxyJob canceled = await queue.EnqueueAsync(replacementSource, ProxyPreset.Quarter);
+        queue.Cancel(canceled.JobId);
+        ProxyJob replacement = await queue.EnqueueAsync(replacementSource, ProxyPreset.Quarter);
+
+        generator.ReleaseOne();
+        await generator.WaitForStartedCountAsync(2);
+
+        ProxyJob duplicate = await queue.EnqueueAsync(replacementSource, ProxyPreset.Quarter);
+        generator.ReleaseAll();
+        await WaitForTerminalAsync(running);
+        await WaitForTerminalAsync(canceled);
+        await WaitForTerminalAsync(replacement);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(canceled.Status, Is.EqualTo(ProxyJobStatus.Canceled));
+            Assert.That(duplicate, Is.SameAs(replacement));
+            Assert.That(replacement.Status, Is.EqualTo(ProxyJobStatus.Succeeded));
         });
     }
 
@@ -289,11 +330,111 @@ public class ProxyJobQueueTests
         }
     }
 
-    private sealed class UnavailableGenerator : IProxyGenerator
+    private sealed class ToggleAvailabilityGenerator : IProxyGenerator, IProxyGeneratorAvailability
     {
+        private readonly List<ProxyFingerprint> _succeededSources = [];
+        private bool _available;
+
+        public bool IsAvailable => _available;
+
+        public IReadOnlyList<ProxyFingerprint> SucceededSources
+        {
+            get
+            {
+                lock (_succeededSources)
+                {
+                    return [.. _succeededSources];
+                }
+            }
+        }
+
+        public event EventHandler? AvailabilityChanged;
+
         public ValueTask GenerateAsync(ProxyJob job)
         {
-            throw new ProxyGeneratorUnavailableException("missing ffmpeg");
+            if (!IsAvailable)
+                throw new ProxyGeneratorUnavailableException("missing ffmpeg");
+
+            lock (_succeededSources)
+            {
+                _succeededSources.Add(job.Source);
+            }
+
+            return ValueTask.CompletedTask;
+        }
+
+        public void SetAvailable()
+        {
+            _available = true;
+            AvailabilityChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    private sealed class ControlledBlockingGenerator : IProxyGenerator
+    {
+        private readonly Lock _lock = new();
+        private readonly Queue<TaskCompletionSource> _releases = [];
+        private TaskCompletionSource _startedChanged = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int _startedCount;
+
+        public async ValueTask GenerateAsync(ProxyJob job)
+        {
+            TaskCompletionSource release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            lock (_lock)
+            {
+                _releases.Enqueue(release);
+                _startedCount++;
+                _startedChanged.TrySetResult();
+                _startedChanged = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            }
+
+            await release.Task.WaitAsync(job.CancellationToken);
+        }
+
+        public async Task WaitForStartedCountAsync(int count)
+        {
+            while (true)
+            {
+                Task waitTask;
+                lock (_lock)
+                {
+                    if (_startedCount >= count)
+                        return;
+
+                    waitTask = _startedChanged.Task;
+                }
+
+                await waitTask.WaitAsync(TimeSpan.FromSeconds(5));
+            }
+        }
+
+        public void ReleaseOne()
+        {
+            TaskCompletionSource? release = null;
+            lock (_lock)
+            {
+                if (_releases.TryDequeue(out TaskCompletionSource? queued))
+                    release = queued;
+            }
+
+            release?.TrySetResult();
+        }
+
+        public void ReleaseAll()
+        {
+            while (true)
+            {
+                TaskCompletionSource? release = null;
+                lock (_lock)
+                {
+                    if (!_releases.TryDequeue(out TaskCompletionSource? queued))
+                        return;
+
+                    release = queued;
+                }
+
+                release.TrySetResult();
+            }
         }
     }
 }

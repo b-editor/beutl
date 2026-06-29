@@ -673,8 +673,8 @@ public class FFmpegInstallService
         ProgressTextChanged?.Invoke(Strings.Verifying_FFmpeg_installation);
         IndeterminateChanged?.Invoke(true);
 
-        // 検証のため missing フラグを一旦クリアし、ワーカー起動を許可する
-        FFmpegInstallNotifier.MarkInstalled();
+        // Clear the missing flag so verification can start the worker, but do not resume queued proxy jobs yet.
+        FFmpegInstallNotifier.MarkVerificationStarted();
 
         bool verified = false;
         // Workerプロセスを起動してFFmpegの初期化が成功するか確認
@@ -693,6 +693,7 @@ public class FFmpegInstallService
 
         if (verified)
         {
+            FFmpegInstallNotifier.MarkInstalled();
             ProgressTextChanged?.Invoke(Strings.FFmpeg_installation_successful);
             Completed?.Invoke(true);
         }

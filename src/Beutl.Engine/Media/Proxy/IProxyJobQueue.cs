@@ -23,6 +23,13 @@ public interface IProxyGenerator
     ValueTask GenerateAsync(ProxyJob job);
 }
 
+public interface IProxyGeneratorAvailability
+{
+    bool IsAvailable { get; }
+
+    event EventHandler? AvailabilityChanged;
+}
+
 public sealed class ProxyJobChangedEventArgs : EventArgs
 {
     public required ProxyJob Job { get; init; }
