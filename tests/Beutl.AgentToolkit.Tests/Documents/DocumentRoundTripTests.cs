@@ -5,7 +5,7 @@ namespace Beutl.AgentToolkit.Tests.Documents;
 public class DocumentRoundTripTests
 {
     [Test]
-    public void WriteThenRead_PreservesUnknownTopLevelContentForSameSession()
+    public void WriteThenRead_EmitsOnlyCurrentSerializedContent()
     {
         var root = new TestModel { Value = 3 };
         var adapter = new DocumentAdapter();
@@ -19,7 +19,7 @@ public class DocumentRoundTripTests
         Assert.Multiple(() =>
         {
             Assert.That(root.Value, Is.EqualTo(3));
-            Assert.That(reread["FutureField"]!.GetValue<string>(), Is.EqualTo("kept"));
+            Assert.That(reread.ContainsKey("FutureField"), Is.False);
         });
     }
 

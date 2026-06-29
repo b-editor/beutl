@@ -102,33 +102,14 @@ internal static class EnumJsonValueNormalizer
     private static object ParseEnumString(Type enumType, string text)
     {
         string trimmed = text.Trim();
-        if (TryParseNumericString(enumType, trimmed, out object? numericValue))
+        string? name = Enum.GetNames(enumType)
+            .FirstOrDefault(value => string.Equals(value, trimmed, StringComparison.OrdinalIgnoreCase));
+        if (name is not null)
         {
-            return numericValue!;
-        }
-
-        if (Enum.TryParse(enumType, trimmed, ignoreCase: true, out object? namedValue))
-        {
-            return namedValue;
+            return Enum.Parse(enumType, name);
         }
 
         throw new JsonException(
-            $"Value '{text}' is not a valid {enumType.FullName} enum name or numeric value.");
-    }
-
-    private static bool TryParseNumericString(Type enumType, string text, out object? value)
-    {
-        value = null;
-        Type underlyingType = Enum.GetUnderlyingType(enumType);
-        try
-        {
-            object numericValue = Convert.ChangeType(text, underlyingType, CultureInfo.InvariantCulture);
-            value = Enum.ToObject(enumType, numericValue);
-            return true;
-        }
-        catch (Exception ex) when (ex is FormatException or InvalidCastException or OverflowException)
-        {
-            return false;
-        }
+            $"Value '{text}' is not a valid {enumType.FullName} enum name.");
     }
 }
