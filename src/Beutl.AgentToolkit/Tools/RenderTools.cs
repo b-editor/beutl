@@ -19,7 +19,7 @@ public sealed class RenderTools(
     VideoExporter videoExporter) : ToolBase
 {
     [McpServerTool(Name = "render_still")]
-    [Description("Renders a still PNG from the current scene to a workspace-relative output path. Bare filenames are written under agent-output/.")]
+    [Description("Renders a still PNG from the current scene to a workspace-relative output path and returns visibility warnings for blank or near-black frames. Bare filenames are written under agent-output/.")]
     public ValueTask<ToolResult<RenderStillResponse>> RenderStill(
         [Description("Workspace-relative or in-workspace absolute output path. Bare filenames are written under agent-output/. Existing files require confirmOverwrite.")]
         string outputPath,

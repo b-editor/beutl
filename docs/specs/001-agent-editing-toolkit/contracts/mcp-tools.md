@@ -60,7 +60,7 @@ Materialize a Remotion-style composition into a declarative Beutl JSON Merge Pat
 ### `read_document_summary`
 Return a compact scene summary for live progress observation.
 - **Input**: `{ }`.
-- **Output**: `{ session, source, rootId, name, width, height, duration, elementCount, elements: [ { id, name, start, length, zIndex, objects: [ { id, name, type, discriminator, animatedProperties, expressionProperties, brushProperties, effectProperties } ] } ] }`.
+- **Output**: `{ session, source, rootId, name, width, height, duration, elementCount, elements: [ { id, name, start, length, zIndex, objects: [ { id, name, type, discriminator, animatedProperties, expressionProperties, brushProperties, effectProperties, nestedAnimatedProperties, isFallback, fallbackReason?, fallbackTypeName?, fallbackMessage? } ] } ] }`.
 - **Use when**: checking whether a live edit has started or finished without pulling the full declarative document.
 - **Errors**: `no_active_editor_session`.
 
@@ -109,7 +109,7 @@ Add a scene to an existing project (FR-002) — a project-level, file-level oper
 Dry-run a declarative change; **does not mutate** (FR-030).
 - **Input**: an envelope `{ "schemaVersion"?: string, "desired"?: <full document>, "patch"?: <merge-patch> }` — supply exactly one of `desired`/`patch`. The `patch` is **RFC 7396 for objects + id-keyed merge for `Id`-bearing arrays**, with optional member directives `$delete` / `$index` / `$after` / `$before` (mutually exclusive); the full rules are in [contracts/declarative-document.md](./declarative-document.md) §2 and are surfaced in the tool's input description. `schemaVersion` is required for `patch`; for `desired`, either pass it separately or include `schemaVersion` in the document. The edit targets the current session's active Scene.
 - **Output**: `{ "changeSet": [ { op, targetId, propertyPath?, index?, oldValue?, newValue?, validation } ], "expectedChangeSet": [ ...same shape... ], "valid": bool }` where `validation` ∈ `ok` | `coerced` (with clamped value+range) | `rejected` (with reason). `expectedChangeSet` is intentionally shaped for direct reuse in `apply_edit`.
-- **Errors**: `no_active_editor_session`, `schema_version_mismatch`, `stale_handle`.
+- **Errors**: `no_active_editor_session`, `validation_rejected` (including payloads that would deserialize to fallback placeholder objects), `schema_version_mismatch`, `stale_handle`.
 - **Backed by**: reconcile on a deep clone (research §3); introspect operations (`IUpdatePropertyValueOperation`, collection ops).
 
 ### `plan_composition`
@@ -142,7 +142,7 @@ Element, property, transform, geometry, pen, brush, visual effect, audio effect,
 ### `render_still`
 Render one frame to an image without the GUI (FR-016).
 - **Input**: `{ "outputPath": string, "timeSeconds"?: number, "renderScale"?: number, "confirmOverwrite"?: bool }` (write — **guarded**). Bare filenames are written under `agent-output/`; explicit relative directories and absolute in-workspace paths are preserved.
-- **Output**: `{ "imagePath": string, "size": [w,h] }`.
+- **Output**: `{ "outputPath": string, "width": number, "height": number, "time": string, "warnings": string[] }`. `warnings` includes blank/near-black frame diagnostics so agents can revise before export.
 - **Errors**: `no_active_editor_session`, `workspace_boundary`, `destructive_intent`, `rendering_unavailable` (typed — content needs a GPU absent on the host, FR-018).
 - **Backed by**: `SceneRenderer`→`Renderer.Snapshot`→`Bitmap.Save` on `RenderThread.Dispatcher`.
 

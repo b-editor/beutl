@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using System.Collections;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Documents;
@@ -69,6 +70,8 @@ public sealed class Reconciler
         {
             throw new ReconcileException(error);
         }
+
+        ValidateNoNewFallbackObjects(session, currentDocument, desiredDocument);
 
         var changes = new List<ChangeSetEntry>();
         var validation = new List<ValidationOutcome>();
@@ -216,6 +219,213 @@ public sealed class Reconciler
         }
 
         return null;
+    }
+
+    private static void ValidateNoNewFallbackObjects(
+        IEditingSession session,
+        JsonObject currentDocument,
+        JsonObject desiredDocument)
+    {
+        HashSet<Guid> existingFallbackIds = CollectFallbackIds(session.Root);
+        CoreObject sandboxRoot = CloneCurrentRoot(session, currentDocument);
+        JsonObject payload = (JsonObject)desiredDocument.DeepClone();
+        payload.Remove(SchemaVersion.PropertyName);
+
+        try
+        {
+            new DeclarativeDocumentApplier().Apply(sandboxRoot, payload);
+        }
+        catch (ReconcileException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            throw new ReconcileException(new ToolError(
+                ErrorCode.ValidationRejected,
+                $"Desired document could not be applied in the validation sandbox: {ex.Message}",
+                null,
+                "Call get_schema for the concrete type, then retry plan_edit with the serialized property shapes returned by the schema."));
+        }
+
+        if (FindFirstNewFallback(sandboxRoot, "$", existingFallbackIds) is { } occurrence)
+        {
+            string typeDetail = string.IsNullOrWhiteSpace(occurrence.FallbackTypeName)
+                ? "unknown serialized type"
+                : occurrence.FallbackTypeName;
+            throw new ReconcileException(new ToolError(
+                ErrorCode.ValidationRejected,
+                $"Desired document produced a fallback object at '{occurrence.Path}' for {typeDetail}.",
+                occurrence.Path,
+                CreateFallbackHint(occurrence)));
+        }
+    }
+
+    private static CoreObject CloneCurrentRoot(IEditingSession session, JsonObject currentDocument)
+    {
+        JsonObject snapshot = (JsonObject)currentDocument.DeepClone();
+        snapshot.Remove(SchemaVersion.PropertyName);
+        if (session.Root.Uri is { } rootUri)
+        {
+            snapshot["Uri"] = rootUri.ToString();
+        }
+
+        var clone = (CoreObject)CoreSerializer.DeserializeFromJsonObject(
+            snapshot,
+            session.Root.GetType(),
+            new CoreSerializerOptions
+            {
+                BaseUri = session.Root.Uri,
+                Mode = CoreSerializationMode.Read | CoreSerializationMode.EmbedReferencedObjects
+            });
+        clone.Uri ??= session.Root.Uri;
+        return clone;
+    }
+
+    private static HashSet<Guid> CollectFallbackIds(CoreObject root)
+    {
+        var ids = new HashSet<Guid>();
+        if (root is IHierarchical hierarchical)
+        {
+            foreach (IFallback fallback in hierarchical.EnumerateAllChildren<IFallback>())
+            {
+                if (fallback is CoreObject coreObject)
+                {
+                    ids.Add(coreObject.Id);
+                }
+            }
+        }
+
+        if (root is IFallback rootFallback)
+        {
+            ids.Add(((CoreObject)rootFallback).Id);
+        }
+
+        return ids;
+    }
+
+    private static FallbackOccurrence? FindFirstNewFallback(
+        CoreObject root,
+        string path,
+        HashSet<Guid> existingFallbackIds)
+    {
+        var visited = new HashSet<Guid>();
+        return FindFirstNewFallbackCore(root, path, existingFallbackIds, visited);
+    }
+
+    private static FallbackOccurrence? FindFirstNewFallbackCore(
+        CoreObject node,
+        string path,
+        HashSet<Guid> existingFallbackIds,
+        HashSet<Guid> visited)
+    {
+        if (!visited.Add(node.Id))
+        {
+            return null;
+        }
+
+        if (node is IFallback fallback && !existingFallbackIds.Contains(node.Id))
+        {
+            fallback.TryGetTypeName(out string? fallbackTypeName);
+            return new FallbackOccurrence(
+                path,
+                node.Id,
+                fallbackTypeName,
+                fallback.Reason.ToString(),
+                fallback.ErrorMessage);
+        }
+
+        switch (node)
+        {
+            case Scene scene:
+                for (int i = 0; i < scene.Children.Count; i++)
+                {
+                    if (FindFirstNewFallbackCore(
+                            scene.Children[i],
+                            $"{path}/Elements[{i}]",
+                            existingFallbackIds,
+                            visited) is { } occurrence)
+                    {
+                        return occurrence;
+                    }
+                }
+                break;
+
+            case Element element:
+                for (int i = 0; i < element.Objects.Count; i++)
+                {
+                    if (FindFirstNewFallbackCore(
+                            element.Objects[i],
+                            $"{path}/Objects[{i}]",
+                            existingFallbackIds,
+                            visited) is { } occurrence)
+                    {
+                        return occurrence;
+                    }
+                }
+                break;
+
+            case EngineObject engineObject:
+                foreach (IProperty property in engineObject.Properties)
+                {
+                    if (FindFirstNewFallbackInValue(
+                            property.CurrentValue,
+                            $"{path}/{property.Name}",
+                            existingFallbackIds,
+                            visited) is { } occurrence)
+                    {
+                        return occurrence;
+                    }
+                }
+                break;
+        }
+
+        return null;
+    }
+
+    private static FallbackOccurrence? FindFirstNewFallbackInValue(
+        object? value,
+        string path,
+        HashSet<Guid> existingFallbackIds,
+        HashSet<Guid> visited)
+    {
+        switch (value)
+        {
+            case CoreObject coreObject:
+                return FindFirstNewFallbackCore(coreObject, path, existingFallbackIds, visited);
+            case IEnumerable enumerable when value is not string:
+            {
+                int index = 0;
+                foreach (object? item in enumerable)
+                {
+                    if (FindFirstNewFallbackInValue(
+                            item,
+                            $"{path}[{index}]",
+                            existingFallbackIds,
+                            visited) is { } occurrence)
+                    {
+                        return occurrence;
+                    }
+
+                    index++;
+                }
+
+                break;
+            }
+        }
+
+        return null;
+    }
+
+    private static string CreateFallbackHint(FallbackOccurrence occurrence)
+    {
+        string baseHint = "Call get_schema for the exact drawable/effect/brush/transform type and use the discriminator and PascalCase property names it returns. Timeline Elements use '$type': '[Beutl.ProjectSystem]:Element', but Objects require concrete EngineObject discriminators from get_schema.";
+        if (!string.IsNullOrWhiteSpace(occurrence.Message))
+        {
+            return $"{baseHint} Deserialization error: {occurrence.Message}";
+        }
+
+        return $"{baseHint} Fallback reason: {occurrence.Reason}.";
     }
 
     private static HashSet<string> CreateAllowedEngineObjectPropertyNames(Type type)
@@ -472,4 +682,11 @@ public sealed class Reconciler
 
         return left.ToJsonString() == right.ToJsonString();
     }
+
+    private sealed record FallbackOccurrence(
+        string Path,
+        Guid Id,
+        string? FallbackTypeName,
+        string Reason,
+        string? Message);
 }

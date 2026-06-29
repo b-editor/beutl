@@ -118,6 +118,45 @@ public sealed class PlanApplyParityTests
     }
 
     [Test]
+    public void Plan_edit_rejects_payloads_that_deserialize_to_fallback_objects()
+    {
+        Scene scene = CreateScene();
+        using var session = new AgentToolkitTestSession(scene);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var tools = new EditTools(manager);
+
+        JsonObject patch = new()
+        {
+            ["Elements"] = new JsonArray(new JsonObject
+            {
+                ["$type"] = "[Beutl.ProjectSystem]:Element",
+                [nameof(CoreObject.Name)] = "Invalid rect element",
+                [nameof(Element.Length)] = TimeSpan.FromSeconds(2).ToString("c"),
+                [nameof(Element.Objects)] = new JsonArray(new JsonObject
+                {
+                    ["$type"] = IdentityHelper.WriteDiscriminator(typeof(RectShape)),
+                    [nameof(CoreObject.Name)] = "Invalid rect",
+                    [nameof(RectShape.Width)] = "not-a-number"
+                })
+            })
+        };
+
+        ToolResult<ReconcilePlan> plan = tools.PlanEdit(patch: patch, schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(plan.IsSuccess, Is.False);
+            Assert.That(plan.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(plan.Error.Message, Does.Contain("fallback object"));
+            Assert.That(plan.Error.Target, Does.Contain("Objects[0]"));
+            Assert.That(plan.Error.Hint, Does.Contain("get_schema"));
+            Assert.That(plan.Error.Hint, Does.Contain("Objects require concrete EngineObject discriminators"));
+            Assert.That(scene.Children, Is.Empty);
+        });
+    }
+
+    [Test]
     public void Large_plan_edit_omits_inline_change_details_but_remains_applyable_by_plan_id()
     {
         Scene scene = CreateSceneWithElement(out Element element);

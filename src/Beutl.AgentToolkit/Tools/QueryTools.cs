@@ -111,7 +111,11 @@ public sealed record ObjectSummary(
     IReadOnlyList<string> ExpressionProperties,
     IReadOnlyList<string> BrushProperties,
     IReadOnlyList<string> EffectProperties,
-    IReadOnlyList<string> NestedAnimatedProperties);
+    IReadOnlyList<string> NestedAnimatedProperties,
+    bool IsFallback = false,
+    string? FallbackReason = null,
+    string? FallbackTypeName = null,
+    string? FallbackMessage = null);
 
 [McpServerToolType]
 public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
@@ -251,10 +255,14 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
             CapabilitySchema schema = _schemaGenerator.Generate(type, category, includeProperties, includeExamples);
             if ((type is not null || category is not null) && schema.Types.Count == 0)
             {
+                string? hint = IsElementSchemaRequest(type, category)
+                    ? "Timeline Element is a project-system container, not a capability-schema EngineObject. Use '$type': '[Beutl.ProjectSystem]:Element' only for new entries in Elements; put concrete drawable/effect/brush/transform objects under Objects using discriminators returned by get_schema. For structure, call get_examples(name: 'insert-new-element-skeleton')."
+                    : null;
                 throw new ReconcileException(new ToolError(
                     ErrorCode.UnknownType,
                     $"No schema entries matched type='{type}' category='{category}'.",
-                    type ?? category));
+                    type ?? category,
+                    hint));
             }
 
             return schema;
@@ -464,6 +472,20 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
         return name.StartsWith("create-empty-scene-", StringComparison.OrdinalIgnoreCase)
                || tags.Any(tag => string.Equals(tag, "starter", StringComparison.OrdinalIgnoreCase)
                                   || string.Equals(tag, "empty-scene", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool IsElementSchemaRequest(string? type, string? category)
+    {
+        return IsElementText(type) || IsElementText(category);
+    }
+
+    private static bool IsElementText(string? value)
+    {
+        return string.Equals(value, nameof(Element), StringComparison.OrdinalIgnoreCase)
+               || string.Equals(value, typeof(Element).FullName, StringComparison.OrdinalIgnoreCase)
+               || string.Equals(value, "[Beutl.ProjectSystem]:Element", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(value, "timeline element", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(value, "project element", StringComparison.OrdinalIgnoreCase);
     }
 
     private static IReadOnlyList<CreativeInspirationSeed> OrderCreativeInspirationSeeds(
@@ -752,6 +774,17 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
     private static ObjectSummary CreateObjectSummary(EngineObject obj)
     {
         IProperty[] properties = obj.Properties.ToArray();
+        bool isFallback = obj is IFallback;
+        string? fallbackReason = null;
+        string? fallbackTypeName = null;
+        string? fallbackMessage = null;
+        if (obj is IFallback fallback)
+        {
+            fallbackReason = fallback.Reason.ToString();
+            fallback.TryGetTypeName(out fallbackTypeName);
+            fallbackMessage = fallback.ErrorMessage;
+        }
+
         return new ObjectSummary(
             obj.Id.ToString(),
             obj.Name,
@@ -767,7 +800,11 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                     new HashSet<Guid>()))
                 .Distinct(StringComparer.Ordinal)
                 .OrderBy(path => path, StringComparer.Ordinal)
-                .ToArray());
+                .ToArray(),
+            isFallback,
+            fallbackReason,
+            fallbackTypeName,
+            fallbackMessage);
     }
 
     private static IEnumerable<string> CreateNestedAnimatedPropertySummaries(string path, object? value, ISet<Guid> visited)

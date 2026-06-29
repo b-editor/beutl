@@ -133,13 +133,13 @@ A creator asks the agent: *"10-second 1080p clip: a title that fades in over a b
      }
    }
    ```
-   In live mode, call `read_document_summary {}` between staged patches to check element count, object types, and which objects already have animations/effects without pulling the full document.
+   In live mode, call `read_document_summary {}` between staged patches to check element count, object types, fallback placeholders, and which objects already have animations/effects without pulling the full document.
 5. **Verify** by rendering a still (and optionally export):
    ```
-   render_still { "timeSeconds": 1.5, "outputPath": "preview.png" }  → imagePath
+   render_still { "timeSeconds": 1.5, "outputPath": "preview.png" }  → outputPath + warnings
    export_video { "outputPath": "promo.mp4" }                        → videoPath   (needs FFmpeg native libs)
    ```
-   Bare output filenames are written under `agent-output/`; pass an explicit relative directory when a different workspace location is intentional.
+   Bare output filenames are written under `agent-output/`; pass an explicit relative directory when a different workspace location is intentional. Treat blank/near-black `warnings` as a prompt to revise before export unless the dark frame is intentional.
 6. **Save**:
    ```
    save_project { session }                   → savedPath (under BEUTL_WORKSPACE)

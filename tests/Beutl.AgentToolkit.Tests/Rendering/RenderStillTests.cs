@@ -52,6 +52,32 @@ public sealed class RenderStillTests
             Assert.That(new FileInfo(output).Length, Is.GreaterThan(0));
             Assert.That(result.Width, Is.EqualTo(160));
             Assert.That(result.Height, Is.EqualTo(90));
+            if (drawable is CpuSafeDrawable.Shape or CpuSafeDrawable.Text or CpuSafeDrawable.SkslRuntimeShader)
+            {
+                Assert.That(result.Warnings, Is.Empty);
+            }
+        });
+    }
+
+    [Test]
+    public async Task Empty_scene_render_still_returns_near_black_warning()
+    {
+        string dir = CreateWorkspace();
+        string output = Path.Combine(dir, "empty.png");
+        var scene = new Scene(160, 90, "empty")
+        {
+            Duration = TimeSpan.FromSeconds(1),
+            Uri = new Uri(Path.Combine(dir, "Scene.scene"))
+        };
+
+        var renderer = new StillRenderer();
+        RenderStillResponse result = await renderer.RenderAsync(scene, TimeSpan.Zero, output, 1, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.Exists(output), Is.True);
+            Assert.That(result.Warnings, Has.Some.Contains("near-black"));
+            Assert.That(result.Warnings, Has.Some.Contains("read_document_summary"));
         });
     }
 
