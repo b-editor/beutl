@@ -18,6 +18,7 @@ Use the Agent Editing Toolkit MCP tools to create or modify scene structure. Fol
 - Use `read_document` before editing and keep stable `Id` handles.
 - New timeline `Elements` require `$type: "[Beutl.ProjectSystem]:Element"`. Existing elements keep `Id`; genuinely new Elements and Objects omit `Id`.
 - If only the required container shape is unclear, fetch the targeted `insert-new-element-skeleton` example. Do not inspect full-scene starters just to learn `$type` placement.
+- For explicit keyframes, fetch `get_examples` for `animate-float-property-keyframes` or `insert-new-animated-text-keyframes` and copy the concrete animation/keyframe discriminators before authoring the patch.
 - For organic heat, ink, glass, smoke, grain, caustic, or atmospheric fields, consider `SKSLScriptEffect` from `list_effect_recipes` with a shader/organic intent instead of stacking only blurred gradients.
 - The Agent Editing Toolkit edit loop is small staged `apply_edit` calls. Inspect `valid`, `changes`, `validation`, and `createdIds` after each stage before continuing.
 - For multi-element motion graphics, apply/save in small stages that map to the synthesized scene plan.
@@ -31,6 +32,7 @@ Use the Agent Editing Toolkit MCP tools to create or modify scene structure. Fol
 - Verify representative frames with `render_still`, record which planned elements are visible/readable in each still, identify the primary focal point, check read time and text contrast, confirm effect chains serve their named jobs, run `evaluate_motion_variation`, and revise before export when the verdict is `low-motion-variation` or `poor-frame-coverage` or planned elements never become visible/readable.
 - Run `evaluate_edit_quality` after still and motion checks. Do not export while critical or major issues remain unless the user explicitly accepts that issue.
 - Avoid long all-caps text, overloaded visual hierarchy, unreadable short-lived copy, foreground RectShape dominance, misaligned text backing plates, dark teal/cyan/magenta palettes, dense effect stacks without a named job, repeated card shadows, low motion continuity, and unmotivated hard cuts unless requested.
+- Keep foreground `RectShape` use low and reserve hero-scale typography for one primary message per beat unless the user explicitly asks otherwise.
 - Treat still quality as a real gate: after the reveal phase, representative stills should show at least three visible layer types and readable text contrast. A mostly smooth background is not enough even when motion variation passes.
 - Build original scenes from the brief by default. Do not call `list_compositions`, `plan_composition`, or copy empty-scene examples unless the user explicitly asks for a template/starter or named template style.
 - Avoid overused no-context motifs such as orbit/radar/map/signal/dashboard unless the user asks for them.

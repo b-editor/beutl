@@ -364,24 +364,44 @@ internal sealed class DeclarativeDocumentApplier
             }
 
             CoreObject item;
-            if (TryGetId(itemJson, out Guid id) && FindById(list, id) is { } existing)
+            string itemPath = CreateIdentityListItemPath(elementBaseType, desiredIndex);
+            try
             {
-                item = existing;
-                ApplyCoreObject(existing, itemJson);
+                if (TryGetId(itemJson, out Guid id) && FindById(list, id) is { } existing)
+                {
+                    item = existing;
+                    ApplyCoreObject(existing, itemJson);
+                }
+                else
+                {
+                    item = CreateIdentityListItem(itemJson, elementBaseType);
+                    if (owner is Scene scene && item is Element element)
+                    {
+                        JsonObject elementJson = (JsonObject)itemJson.DeepClone();
+                        elementJson.Remove("Uri");
+                        ApplyCoreObject(element, elementJson);
+                        AssignNewElementUri(scene, element);
+                    }
+                    else
+                    {
+                        ApplyCoreObject(item, itemJson);
+                    }
+                }
             }
-            else
+            catch (Exception ex) when (ex is not ReconcileException)
             {
-                item = (CoreObject)CoreSerializer.DeserializeFromJsonObject(
-                    NormalizeCoreSerializableJson(itemJson, elementBaseType),
-                    elementBaseType,
-                    CreateOptions(null));
+                throw new ReconcileException(new ToolError(
+                    ErrorCode.ValidationRejected,
+                    $"Desired document produced a fallback object or invalid serialized object at '{itemPath}': {ex.Message}",
+                    itemPath,
+                    "Call get_schema for the concrete type, then retry apply_edit with serialized property shapes returned by the schema. Objects require concrete EngineObject discriminators from get_schema; typed property values such as Pen, Brush, Transform, Effect, and Animation also require concrete schema-returned object shapes."));
             }
 
             desiredIds.Add(item.Id);
             int currentIndex = IndexOfReference(list, item);
             if (currentIndex < 0)
             {
-                if (owner is Scene scene && item is Element element)
+                if (owner is Scene scene && item is Element { Uri: null } element)
                 {
                     AssignNewElementUri(scene, element);
                 }
@@ -453,6 +473,38 @@ internal sealed class DeclarativeDocumentApplier
                     CreateOptions(null))
                 : EnumJsonValueNormalizer.Deserialize(node, elementBaseType, CreateOptions(null));
             list.Add(item);
+        }
+    }
+
+    private static string CreateIdentityListItemPath(Type elementBaseType, int index)
+    {
+        if (elementBaseType == typeof(Element))
+        {
+            return $"Elements[{index}]";
+        }
+
+        return elementBaseType == typeof(EngineObject)
+            ? $"Objects[{index}]"
+            : $"Children[{index}]";
+    }
+
+    private static CoreObject CreateIdentityListItem(JsonObject itemJson, Type elementBaseType)
+    {
+        var shell = new JsonObject();
+        CopyIfPresent(itemJson, shell, "$type");
+        CopyIfPresent(itemJson, shell, nameof(CoreObject.Id));
+
+        return (CoreObject)CoreSerializer.DeserializeFromJsonObject(
+            NormalizeCoreSerializableJson(shell, elementBaseType),
+            elementBaseType,
+            CreateOptions(null));
+    }
+
+    private static void CopyIfPresent(JsonObject source, JsonObject destination, string propertyName)
+    {
+        if (source.TryGetPropertyValue(propertyName, out JsonNode? node))
+        {
+            destination[propertyName] = node?.DeepClone();
         }
     }
 

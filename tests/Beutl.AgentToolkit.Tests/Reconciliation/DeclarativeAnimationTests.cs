@@ -15,6 +15,50 @@ namespace Beutl.AgentToolkit.Tests.Reconciliation;
 public sealed class DeclarativeAnimationTests
 {
     [Test]
+    public void Patch_creates_new_object_with_inline_keyframe_animation()
+    {
+        Scene scene = CreateSceneWithText(out Element element, out _);
+        using var session = new AgentToolkitTestSession(scene);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var tools = new EditTools(manager);
+
+        JsonObject createPatch = new()
+        {
+            ["Elements"] = new JsonArray(new JsonObject
+            {
+                [nameof(CoreObject.Id)] = element.Id.ToString(),
+                ["Objects"] = new JsonArray(new JsonObject
+                {
+                    ["$type"] = IdentityHelper.WriteDiscriminator(typeof(TextBlock)),
+                    [nameof(CoreObject.Name)] = "animated-new-text",
+                    [nameof(TextBlock.Text)] = "Animated",
+                    ["Animations"] = new JsonObject
+                    {
+                        ["Opacity"] = CreateOpacityAnimationDocument()
+                    }
+                })
+            })
+        };
+
+        ToolResult<ApplyEditResponse> createApply = tools.ApplyEdit(
+            patch: createPatch,
+            schemaVersion: SchemaVersion.Current);
+        TextBlock createdText = element.Objects
+            .OfType<TextBlock>()
+            .Single(item => item.Name == "animated-new-text");
+        var animation = (KeyFrameAnimation<float>)createdText.Opacity.Animation!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(createApply.IsSuccess, Is.True, createApply.Error?.Message);
+            Assert.That(createdText.Text.CurrentValue, Is.EqualTo("Animated"));
+            Assert.That(animation.KeyFrames, Has.Count.EqualTo(2));
+            Assert.That(((KeyFrame<float>)animation.KeyFrames[1]).Value, Is.EqualTo(100f));
+        });
+    }
+
+    [Test]
     public void Patch_adds_updates_and_removes_keyframes_through_declarative_apply()
     {
         Scene scene = CreateSceneWithText(out Element element, out TextBlock text);

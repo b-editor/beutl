@@ -38,8 +38,14 @@ public sealed class AgentToolkitInstallerTests
             assets.Single(x => x.RelativePath == "beutl-agent-timeline-from-shotlist/SKILL.md").Content,
             Does.Contain("evaluate_motion_variation"));
         Assert.That(
+            assets.Single(x => x.RelativePath == "beutl-agent-timeline-from-shotlist/SKILL.md").Content,
+            Does.Contain("insert-new-animated-text-keyframes"));
+        Assert.That(
             assets.Single(x => x.RelativePath == "beutl-agent-timeline-builder.md").Content,
             Does.Contain("evaluate_motion_variation"));
+        Assert.That(
+            assets.Single(x => x.RelativePath == "beutl-agent-timeline-builder.md").Content,
+            Does.Contain("animate-float-property-keyframes"));
         Assert.That(assets.Single(x => x.RelativePath == "beutl-agent-look-applier.md").Content, Does.Contain("render_still"));
     }
 
