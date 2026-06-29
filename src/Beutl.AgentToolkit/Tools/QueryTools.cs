@@ -74,7 +74,16 @@ public sealed record CreativeDirectionResponse(
     IReadOnlyList<string> VariationPrompts,
     IReadOnlyList<string> OverusedMotifs,
     IReadOnlyList<string> WorkflowHints,
-    string SelectionHint);
+    string SelectionHint,
+    CreativeDirectionSelectionTrace? SelectionTrace = null);
+
+public sealed record CreativeDirectionSelectionTrace(
+    int RequestIndex,
+    int BaseOffset,
+    int AppliedOffset,
+    string SeedMaterial,
+    IReadOnlyList<string> ReturnedSeedOrder,
+    string RecordHint);
 
 public sealed record CreativeInspirationSeed(
     string Name,
@@ -172,13 +181,22 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
     {
         return Execute(() =>
         {
-            IReadOnlyList<CreativeInspirationSeed> inspirationSeeds = OrderCreativeInspirationSeeds(
-                CreateInspirationSeeds(),
-                brief,
-                sessions.NextCreativeDirectionRequestIndex());
+            IReadOnlyList<CreativeInspirationSeed> allSeeds = CreateInspirationSeeds();
+            int requestIndex = sessions.NextCreativeDirectionRequestIndex();
+            string seedMaterial = CreateCreativeSeedMaterial(brief);
+            int baseOffset = ComputeCreativeSeedBaseOffset(seedMaterial, allSeeds.Count);
+            int appliedOffset = allSeeds.Count == 0 ? 0 : (baseOffset + requestIndex) % allSeeds.Count;
+            IReadOnlyList<CreativeInspirationSeed> inspirationSeeds = OrderCreativeInspirationSeeds(allSeeds, appliedOffset);
             string selectionHint = string.IsNullOrWhiteSpace(brief)
                 ? "No brief was supplied. Pick at least two inspiration seeds from different categories, combine them into a new one-sentence pitch with a new title, then author that pitch with a custom patch. Returned order is seeded and is not a ranking."
                 : $"Use the brief as a constraint, combine at least two inspiration seeds into a new pitch, and avoid copying returned seed names or starter scenes: {brief.Trim()}";
+            var selectionTrace = new CreativeDirectionSelectionTrace(
+                requestIndex,
+                baseOffset,
+                appliedOffset,
+                seedMaterial,
+                inspirationSeeds.Select(seed => seed.Name).ToArray(),
+                "Record requestIndex, appliedOffset, seedMaterial, returnedSeedOrder, chosen seed names/categories, and the synthesized pitch in notes.md before editing.");
 
             return new CreativeDirectionResponse(
                 SchemaVersion.Current,
@@ -238,7 +256,8 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                     "Keep full-scene examples and composition templates for explicit template/starter requests only.",
                     "Verify at least three stills, run evaluate_motion_variation, and export a short video preview when the encoder is available."
                 ],
-                selectionHint);
+                selectionHint,
+                selectionTrace);
         });
     }
 
@@ -490,15 +509,13 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
 
     private static IReadOnlyList<CreativeInspirationSeed> OrderCreativeInspirationSeeds(
         IReadOnlyList<CreativeInspirationSeed> seeds,
-        string? brief,
-        int requestIndex)
+        int offset)
     {
         if (seeds.Count <= 1)
         {
             return seeds.ToArray();
         }
 
-        int offset = (ComputeCreativeSeedBaseOffset(brief, seeds.Count) + requestIndex) % seeds.Count;
         var ordered = new CreativeInspirationSeed[seeds.Count];
         for (int i = 0; i < ordered.Length; i++)
         {
@@ -508,16 +525,24 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
         return ordered;
     }
 
-    private static int ComputeCreativeSeedBaseOffset(string? brief, int count)
+    private static string CreateCreativeSeedMaterial(string? brief)
     {
-        string seedText = string.IsNullOrWhiteSpace(brief)
+        return string.IsNullOrWhiteSpace(brief)
             ? (DateTimeOffset.UtcNow.ToUnixTimeSeconds() / 60).ToString()
             : brief.Trim();
+    }
+
+    private static int ComputeCreativeSeedBaseOffset(string seedMaterial, int count)
+    {
+        if (count <= 0)
+        {
+            return 0;
+        }
 
         unchecked
         {
             uint hash = 2166136261;
-            foreach (char ch in seedText)
+            foreach (char ch in seedMaterial)
             {
                 hash ^= char.ToUpperInvariant(ch);
                 hash *= 16777619;

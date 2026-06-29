@@ -134,6 +134,10 @@ public sealed class ReadDocumentTests
             Assert.That(result.Value.DirectionAxes, Has.Some.Contains("procedural surface"));
             Assert.That(result.Value.SelectionHint, Does.Contain("combine at least two inspiration seeds"));
             Assert.That(result.Value.SelectionHint, Does.Contain("make a short motion graphic"));
+            Assert.That(result.Value.SelectionTrace, Is.Not.Null);
+            Assert.That(result.Value.SelectionTrace!.RequestIndex, Is.EqualTo(0));
+            Assert.That(result.Value.SelectionTrace.ReturnedSeedOrder, Is.EqualTo(result.Value.InspirationSeeds.Select(seed => seed.Name)));
+            Assert.That(result.Value.SelectionTrace.RecordHint, Does.Contain("returnedSeedOrder"));
         });
     }
 
@@ -150,6 +154,9 @@ public sealed class ReadDocumentTests
             Assert.That(first.IsSuccess, Is.True, first.Error?.Message);
             Assert.That(second.IsSuccess, Is.True, second.Error?.Message);
             Assert.That(first.Value!.InspirationSeeds[0].Name, Is.Not.EqualTo(second.Value!.InspirationSeeds[0].Name));
+            Assert.That(first.Value.SelectionTrace!.RequestIndex, Is.EqualTo(0));
+            Assert.That(second.Value!.SelectionTrace!.RequestIndex, Is.EqualTo(1));
+            Assert.That(second.Value.SelectionTrace.AppliedOffset, Is.EqualTo((first.Value.SelectionTrace.AppliedOffset + 1) % first.Value.InspirationSeeds.Count));
         });
     }
 
