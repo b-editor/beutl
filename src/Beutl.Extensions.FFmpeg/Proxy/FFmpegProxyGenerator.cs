@@ -12,7 +12,7 @@ using Beutl.Media.Source;
 
 namespace Beutl.Extensions.FFmpeg.Proxy;
 
-public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator
+public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, IProxyGeneratorAvailability
 {
     private static readonly JsonSerializerOptions s_jsonOptions = new()
     {
@@ -20,6 +20,14 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator
         WriteIndented = true,
         Converters = { new JsonStringEnumConverter() },
     };
+
+    public bool IsAvailable => !FFmpegInstallNotifier.IsLibrariesMissing;
+
+    public event EventHandler? AvailabilityChanged
+    {
+        add => FFmpegInstallNotifier.AvailabilityChanged += value;
+        remove => FFmpegInstallNotifier.AvailabilityChanged -= value;
+    }
 
     public async ValueTask GenerateAsync(ProxyJob job)
     {
@@ -32,9 +40,7 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator
         if (IsStillImage(sourcePath))
             throw new ProxyGenerationSkippedException("Still images are not eligible for proxy generation.");
 
-        using MediaReader reader = MediaReader.Open(
-            sourcePath,
-            new MediaOptions(MediaMode.Video) { PreferProxy = false });
+        using MediaReader reader = OpenSourceReader(sourcePath);
 
         if (!reader.HasVideo || reader.VideoInfo.NumFrames <= 0)
             throw new ProxyGenerationSkippedException("Source has no video stream.");
@@ -87,7 +93,7 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator
             if (finalFileMoved)
                 TryDelete(finalPath);
 
-            throw new ProxyGeneratorUnavailableException(ex.Message);
+            throw CreateUnavailableException(ex);
         }
         catch
         {
@@ -134,6 +140,20 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator
         return new PixelSize(width, height);
     }
 
+    private static MediaReader OpenSourceReader(string sourcePath)
+    {
+        try
+        {
+            return MediaReader.Open(
+                sourcePath,
+                new MediaOptions(MediaMode.Video) { PreferProxy = false });
+        }
+        catch (FFmpegLibrariesNotFoundException ex)
+        {
+            throw CreateUnavailableException(ex);
+        }
+    }
+
     private static int MakeEven(int value)
     {
         return value % 2 == 0 ? value : Math.Max(2, value - 1);
@@ -149,6 +169,12 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator
             or ".webp"
             or ".tif"
             or ".tiff";
+    }
+
+    private static ProxyGeneratorUnavailableException CreateUnavailableException(FFmpegLibrariesNotFoundException ex)
+    {
+        FFmpegInstallNotifier.NotifyMissing();
+        return new ProxyGeneratorUnavailableException(ex.Message);
     }
 
     internal static string CreateTempPathForOutput(string finalPath)

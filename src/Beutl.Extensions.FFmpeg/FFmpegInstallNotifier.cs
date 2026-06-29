@@ -13,9 +13,11 @@ internal static class FFmpegInstallNotifier
 
     public static bool IsLibrariesMissing => s_librariesMissing;
 
+    internal static event EventHandler? AvailabilityChanged;
+
     public static void NotifyMissing()
     {
-        s_librariesMissing = true;
+        SetLibrariesMissing(true);
         if (!TryAcquireNotifySlot(Environment.TickCount64))
             return;
 
@@ -40,13 +42,30 @@ internal static class FFmpegInstallNotifier
 
     public static void MarkInstalled()
     {
-        s_librariesMissing = false;
+        SetLibrariesMissing(false, notifyWhenUnchanged: true);
         Interlocked.Exchange(ref s_lastNotifiedTicks, 0);
     }
 
     public static void MarkMissing()
     {
-        s_librariesMissing = true;
+        SetLibrariesMissing(true);
+    }
+
+    internal static void MarkVerificationStarted()
+    {
+        SetLibrariesMissing(false, notify: false);
+        Interlocked.Exchange(ref s_lastNotifiedTicks, 0);
+    }
+
+    private static void SetLibrariesMissing(bool value, bool notify = true, bool notifyWhenUnchanged = false)
+    {
+        bool changed = s_librariesMissing != value;
+        if (!changed && !notifyWhenUnchanged)
+            return;
+
+        s_librariesMissing = value;
+        if (notify)
+            AvailabilityChanged?.Invoke(null, EventArgs.Empty);
     }
 
     private static void ShowInstallDialog()

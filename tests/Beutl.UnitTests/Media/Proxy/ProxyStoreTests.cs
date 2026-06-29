@@ -242,6 +242,66 @@ public sealed class ProxyStoreTests
     }
 
     [Test]
+    public async Task ReconcileAsync_ReplacesFailedIndexEntryWithRecoveredReadySidecar()
+    {
+        string root = CreateRoot();
+        var store = new ProxyStore(root);
+        ProxyEntry ready = CreateEntry(root, "hash/quarter.mp4");
+        ProxyEntry failed = ready with
+        {
+            State = ProxyState.Failed,
+            ProxyFileRelative = "hash/failed.mp4",
+            ProxyFileSizeBytes = 0,
+            OriginalLogicalFrameSize = PixelSize.Empty,
+            ProxyDecodedFrameSize = PixelSize.Empty,
+            FailureReason = "decode failed",
+        };
+        store.Register(failed);
+        string metadataPath = Path.Combine(root, "hash", "meta.json");
+        File.WriteAllText(
+            metadataPath,
+            JsonSerializer.Serialize(
+                new ProxySourceMetadata
+                {
+                    Source = ready.Source,
+                    Entries = [ready],
+                },
+                s_jsonOptions));
+
+        await store.ReconcileAsync(CancellationToken.None);
+
+        var reloaded = new ProxyStore(root);
+        Assert.Multiple(() =>
+        {
+            Assert.That(store.TryGet(ready.Source, ready.Preset), Is.EqualTo(ready));
+            Assert.That(reloaded.TryGet(ready.Source, ready.Preset), Is.EqualTo(ready));
+        });
+    }
+
+    [Test]
+    public async Task TouchFlush_DoesNotRestoreEntryRemovedByAnotherStoreInstance()
+    {
+        string root = CreateRoot();
+        var staleStore = new ProxyStore(root);
+        ProxyEntry entry = CreateEntry(root, "hash/quarter.mp4");
+        staleStore.Register(entry);
+        var emptyIndex = new ProxyStoreIndex { Entries = [] };
+        File.WriteAllText(Path.Combine(root, "index.json"), JsonSerializer.Serialize(emptyIndex, s_jsonOptions));
+
+        staleStore.Touch(entry.Source, entry.Preset, DateTime.UtcNow.AddMinutes(1));
+        await staleStore.FlushAsync(CancellationToken.None);
+
+        string indexJson = File.ReadAllText(Path.Combine(root, "index.json"));
+        var reloaded = new ProxyStore(root);
+        Assert.Multiple(() =>
+        {
+            Assert.That(indexJson, Does.Not.Contain(entry.ProxyFileRelative));
+            Assert.That(staleStore.TryGet(entry.Source, entry.Preset), Is.Null);
+            Assert.That(reloaded.TryGet(entry.Source, entry.Preset), Is.Null);
+        });
+    }
+
+    [Test]
     public void Register_RejectsProxyPathEscapingStoreRoot()
     {
         string root = CreateRoot();

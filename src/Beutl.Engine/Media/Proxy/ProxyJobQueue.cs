@@ -5,14 +5,15 @@ namespace Beutl.Media.Proxy;
 public sealed class ProxyJobQueue : IProxyJobQueue
 {
     private readonly IProxyGenerator _generator;
+    private readonly IProxyGeneratorAvailability? _generatorAvailability;
     private readonly IProxyStore? _store;
     private readonly Channel<WorkItem> _channel;
     private readonly CancellationTokenSource _disposeCts = new();
-    private readonly TaskCompletionSource _resumeAfterGeneratorUnavailable = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly Dictionary<(ProxyFingerprint Source, ProxyPreset Preset), WorkItem> _itemsByKey = [];
     private readonly List<WorkItem> _items = [];
     private readonly Lock _lock = new();
     private readonly Task _drainTask;
+    private TaskCompletionSource? _resumeAfterGeneratorUnavailable;
     private bool _disposed;
 
     public ProxyJobQueue(IProxyGenerator generator, int capacity = 256)
@@ -26,6 +27,9 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         ArgumentOutOfRangeException.ThrowIfLessThan(capacity, 1);
 
         _generator = generator;
+        _generatorAvailability = generator as IProxyGeneratorAvailability;
+        if (_generatorAvailability != null)
+            _generatorAvailability.AvailabilityChanged += OnGeneratorAvailabilityChanged;
         _store = store;
         _channel = Channel.CreateBounded<WorkItem>(new BoundedChannelOptions(capacity)
         {
@@ -135,6 +139,8 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         CancelAll();
         _channel.Writer.TryComplete();
         _disposeCts.Cancel();
+        if (_generatorAvailability != null)
+            _generatorAvailability.AvailabilityChanged -= OnGeneratorAvailabilityChanged;
 
         try
         {
@@ -209,13 +215,38 @@ public sealed class ProxyJobQueue : IProxyJobQueue
 
     private async Task WaitForGeneratorResumeOrDisposeAsync()
     {
+        Task resumeTask;
+        lock (_lock)
+        {
+            if (_generatorAvailability?.IsAvailable != false)
+                return;
+
+            _resumeAfterGeneratorUnavailable ??= new(TaskCreationOptions.RunContinuationsAsynchronously);
+            resumeTask = _resumeAfterGeneratorUnavailable.Task;
+        }
+
         try
         {
-            await _resumeAfterGeneratorUnavailable.Task.WaitAsync(_disposeCts.Token).ConfigureAwait(false);
+            await resumeTask.WaitAsync(_disposeCts.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
         }
+    }
+
+    private void OnGeneratorAvailabilityChanged(object? sender, EventArgs e)
+    {
+        if (_generatorAvailability?.IsAvailable != true)
+            return;
+
+        TaskCompletionSource? resume;
+        lock (_lock)
+        {
+            resume = _resumeAfterGeneratorUnavailable;
+            _resumeAfterGeneratorUnavailable = null;
+        }
+
+        resume?.TrySetResult();
     }
 
     private void CompleteCanceled(WorkItem item)
@@ -271,7 +302,13 @@ public sealed class ProxyJobQueue : IProxyJobQueue
     {
         lock (_lock)
         {
-            _itemsByKey.Remove((item.Job.Source, item.Job.Preset));
+            var key = (item.Job.Source, item.Job.Preset);
+            if (_itemsByKey.TryGetValue(key, out WorkItem? current)
+                && ReferenceEquals(current, item))
+            {
+                _itemsByKey.Remove(key);
+            }
+
             _items.Remove(item);
         }
     }
