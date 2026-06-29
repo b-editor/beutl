@@ -148,6 +148,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             .AddSingleton<DestructiveGuard>()
             .AddSingleton<StillRenderer>()
             .AddSingleton<MotionVariationAnalyzer>()
+            .AddSingleton<QualityAnalyzer>()
             .AddSingleton<EncoderRegistration>()
             .AddSingleton<VideoExporter>();
 

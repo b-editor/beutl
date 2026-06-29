@@ -89,11 +89,11 @@ public sealed class CompositionTemplateCatalog
 
     private static readonly Palette[] s_palettes =
     [
-        new("#ff06121f", "#ff123f63", "#ff20d6ff", "#ffffe28a", "#ffffffff"),
-        new("#ff020711", "#ff063835", "#ff43e7ff", "#ffffd36b", "#ffc9faff"),
-        new("#ff071225", "#ff2e1446", "#ffff4aa8", "#ff34e6ff", "#ffffffff"),
-        new("#ff11151d", "#ff243b38", "#ffb8ff5c", "#ff6cf3ff", "#fff7fff6"),
-        new("#ff160c24", "#ff302340", "#ffff7a59", "#ff63f7de", "#fffff8ef")
+        new("#ff20242b", "#ff373d45", "#ffb85c38", "#ffd9c8a9", "#fff7f3eb"),
+        new("#ff101820", "#ff29413d", "#ffe3a64b", "#ff8fb3a6", "#fff3f5f0"),
+        new("#ff25212a", "#ff4a3f46", "#ffc86d5b", "#ffb5c7d3", "#fff6efe6"),
+        new("#ff1d241f", "#ff3e4d42", "#ffcf8f52", "#ffa9b9a3", "#fff1f0e8"),
+        new("#ff2a2830", "#ff4a4850", "#ffd0664f", "#ffdad1bd", "#fff8f4ec")
     ];
 
     private static readonly (string Name, string[] Tokens)[] s_templateInferenceTokens =
@@ -184,7 +184,7 @@ public sealed class CompositionTemplateCatalog
                     ErrorCode.ValidationRejected,
                     $"Composition template '{spec.Name}' is not allowed by the current template rotation.",
                     spec.Name,
-                    $"Choose '{first.Name}' from list_compositions when you need the default template rotation, or pass avoidRecent=false only when the user intentionally asks for '{spec.Name}'. For original creative briefs, use plan_edit/apply_edit with a custom patch instead."));
+                    $"Choose '{first.Name}' from list_compositions when you need the default template rotation, or pass avoidRecent=false only when the user intentionally asks for '{spec.Name}'. For original creative briefs, use apply_edit with a custom patch instead."));
             }
         }
 
@@ -296,8 +296,8 @@ public sealed class CompositionTemplateCatalog
                     ["effectMood"] = "glow-blur",
                     ["typography"] = "wide-display"
                 },
-                DefaultProps("BEUTL MOTION", "DECLARATIVE COMPOSITION / SEEDED VARIATION"),
-                SharedProps("BEUTL MOTION", "DECLARATIVE COMPOSITION / SEEDED VARIATION"),
+                DefaultProps("Beutl motion", "Declarative composition with seeded variation"),
+                SharedProps("Beutl motion", "Declarative composition with seeded variation"),
                 CreateKineticSequences,
                 CreateDefaultTransitions,
                 RenderKineticRibbon),
@@ -313,8 +313,8 @@ public sealed class CompositionTemplateCatalog
                     ["effectMood"] = "neon-shadow",
                     ["typography"] = "technical-label"
                 },
-                DefaultProps("ORBIT MAP", "SIGNAL ROUTES / SEEDED DECLARATIVE EDIT"),
-                SharedProps("ORBIT MAP", "SIGNAL ROUTES / SEEDED DECLARATIVE EDIT"),
+                DefaultProps("Orbit map", "Signal route notes"),
+                SharedProps("Orbit map", "Signal route notes"),
                 CreateOrbitalSequences,
                 CreateDefaultTransitions,
                 RenderOrbitalRadar),
@@ -330,8 +330,8 @@ public sealed class CompositionTemplateCatalog
                     ["effectMood"] = "saturated-shadow",
                     ["typography"] = "stacked-display"
                 },
-                DefaultProps("FRAME FLOW", "KINETIC LAYOUT / GRADIENT BRUSHES / EFFECT CHAIN"),
-                SharedProps("FRAME FLOW", "KINETIC LAYOUT / GRADIENT BRUSHES / EFFECT CHAIN"),
+                DefaultProps("Frame flow", "Kinetic layout with restrained gradients"),
+                SharedProps("Frame flow", "Kinetic layout with restrained gradients"),
                 CreateSplitSequences,
                 CreateDefaultTransitions,
                 RenderSplitScreen),
@@ -347,8 +347,8 @@ public sealed class CompositionTemplateCatalog
                     ["effectMood"] = "soft-saturate",
                     ["typography"] = "floating-title"
                 },
-                DefaultProps("LIQUID SIGNAL", "SOFT GRADIENT FIELD / DRIFTING BLOBS"),
-                SharedProps("LIQUID SIGNAL", "SOFT GRADIENT FIELD / DRIFTING BLOBS"),
+                DefaultProps("Liquid signal", "Soft gradient field with drifting blobs"),
+                SharedProps("Liquid signal", "Soft gradient field with drifting blobs"),
                 CreateLiquidSequences,
                 CreateDefaultTransitions,
                 RenderLiquidGradient),
@@ -364,8 +364,8 @@ public sealed class CompositionTemplateCatalog
                     ["effectMood"] = "high-contrast-grade",
                     ["typography"] = "metric-label"
                 },
-                DefaultProps("SIGNAL INDEX", "LIVE METRICS / EDITORIAL DATA SYSTEM"),
-                SharedProps("SIGNAL INDEX", "LIVE METRICS / EDITORIAL DATA SYSTEM"),
+                DefaultProps("Signal index", "Editorial data system"),
+                SharedProps("Signal index", "Editorial data system"),
                 CreateDataSequences,
                 CreateDefaultTransitions,
                 RenderDataDashboard),
@@ -381,8 +381,8 @@ public sealed class CompositionTemplateCatalog
                     ["effectMood"] = "chromatic-pixel",
                     ["typography"] = "hard-cut"
                 },
-                DefaultProps("GLITCH CUT", "CHROMATIC COLLAGE / PIXEL SLICE SYSTEM"),
-                SharedProps("GLITCH CUT", "CHROMATIC COLLAGE / PIXEL SLICE SYSTEM"),
+                DefaultProps("Glitch cut", "Chromatic collage with pixel slices"),
+                SharedProps("Glitch cut", "Chromatic collage with pixel slices"),
                 CreateGlitchSequences,
                 CreateDefaultTransitions,
                 RenderGlitchCollage)
@@ -427,8 +427,8 @@ public sealed class CompositionTemplateCatalog
     private static CompositionRender RenderKineticRibbon(CompositionContext context)
     {
         Palette palette = ResolvePalette(context, offset: 0);
-        string title = ReadString(context.ResolvedProps, "title", "BEUTL MOTION");
-        string subtitle = ReadString(context.ResolvedProps, "subtitle", "DECLARATIVE COMPOSITION");
+        string title = ReadString(context.ResolvedProps, "title", "Beutl motion");
+        string subtitle = ReadString(context.ResolvedProps, "subtitle", "Declarative composition");
         float density = ReadFloat(context.ResolvedProps, "density", 1);
         float intensity = ReadFloat(context.ResolvedProps, "intensity", 1);
         TimeSpan fullLength = TimeSpan.FromSeconds(context.Metadata.DurationSeconds);
@@ -543,8 +543,8 @@ public sealed class CompositionTemplateCatalog
     private static CompositionRender RenderOrbitalRadar(CompositionContext context)
     {
         Palette palette = ResolvePalette(context, offset: 1);
-        string title = ReadString(context.ResolvedProps, "title", "ORBIT MAP");
-        string subtitle = ReadString(context.ResolvedProps, "subtitle", "SIGNAL ROUTES");
+        string title = ReadString(context.ResolvedProps, "title", "Orbit map");
+        string subtitle = ReadString(context.ResolvedProps, "subtitle", "Signal route notes");
         float intensity = ReadFloat(context.ResolvedProps, "intensity", 1);
         float density = ReadFloat(context.ResolvedProps, "density", 1);
         TimeSpan fullLength = TimeSpan.FromSeconds(context.Metadata.DurationSeconds);
@@ -742,8 +742,8 @@ public sealed class CompositionTemplateCatalog
     private static CompositionRender RenderSplitScreen(CompositionContext context)
     {
         Palette palette = ResolvePalette(context, offset: 2);
-        string title = ReadString(context.ResolvedProps, "title", "FRAME FLOW");
-        string subtitle = ReadString(context.ResolvedProps, "subtitle", "KINETIC LAYOUT");
+        string title = ReadString(context.ResolvedProps, "title", "Frame flow");
+        string subtitle = ReadString(context.ResolvedProps, "subtitle", "Kinetic layout notes");
         float intensity = ReadFloat(context.ResolvedProps, "intensity", 1);
         TimeSpan fullLength = TimeSpan.FromSeconds(context.Metadata.DurationSeconds);
 
@@ -860,7 +860,7 @@ public sealed class CompositionTemplateCatalog
             elements.Add(DeserializeElement(blockJson));
         }
 
-        elements.Add(CreateTextElement("Split screen variant label", "Variant label", $"VARIANT {(int)(StableHash(context.Seed) % 97):00}", 30, 50, 10, 520, 96, palette.Foreground, fullLength));
+        elements.Add(CreateTextElement("Split screen variant label", "Variant label", $"Variant {(int)(StableHash(context.Seed) % 97):00}", 30, 50, 10, 520, 96, palette.Foreground, fullLength));
 
         return CreateRender(context, elements);
     }
@@ -868,8 +868,8 @@ public sealed class CompositionTemplateCatalog
     private static CompositionRender RenderLiquidGradient(CompositionContext context)
     {
         Palette palette = ResolvePalette(context, offset: 3);
-        string title = ReadString(context.ResolvedProps, "title", "LIQUID SIGNAL");
-        string subtitle = ReadString(context.ResolvedProps, "subtitle", "SOFT GRADIENT FIELD");
+        string title = ReadString(context.ResolvedProps, "title", "Liquid signal");
+        string subtitle = ReadString(context.ResolvedProps, "subtitle", "Soft gradient field");
         float intensity = ReadFloat(context.ResolvedProps, "intensity", 1);
         float density = ReadFloat(context.ResolvedProps, "density", 1);
         TimeSpan fullLength = TimeSpan.FromSeconds(context.Metadata.DurationSeconds);
@@ -962,8 +962,8 @@ public sealed class CompositionTemplateCatalog
     private static CompositionRender RenderDataDashboard(CompositionContext context)
     {
         Palette palette = ResolvePalette(context, offset: 4);
-        string title = ReadString(context.ResolvedProps, "title", "SIGNAL INDEX");
-        string subtitle = ReadString(context.ResolvedProps, "subtitle", "LIVE METRICS");
+        string title = ReadString(context.ResolvedProps, "title", "Signal index");
+        string subtitle = ReadString(context.ResolvedProps, "subtitle", "Live metrics");
         float intensity = ReadFloat(context.ResolvedProps, "intensity", 1);
         float density = ReadFloat(context.ResolvedProps, "density", 1);
         TimeSpan fullLength = TimeSpan.FromSeconds(context.Metadata.DurationSeconds);
@@ -1080,8 +1080,8 @@ public sealed class CompositionTemplateCatalog
     private static CompositionRender RenderGlitchCollage(CompositionContext context)
     {
         Palette palette = ResolvePalette(context, offset: 5);
-        string title = ReadString(context.ResolvedProps, "title", "GLITCH CUT");
-        string subtitle = ReadString(context.ResolvedProps, "subtitle", "CHROMATIC COLLAGE");
+        string title = ReadString(context.ResolvedProps, "title", "Glitch cut");
+        string subtitle = ReadString(context.ResolvedProps, "subtitle", "Chromatic collage");
         float intensity = ReadFloat(context.ResolvedProps, "intensity", 1);
         float density = ReadFloat(context.ResolvedProps, "density", 1);
         TimeSpan fullLength = TimeSpan.FromSeconds(context.Metadata.DurationSeconds);

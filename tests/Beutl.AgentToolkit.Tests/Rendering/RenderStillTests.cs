@@ -233,7 +233,7 @@ public sealed class RenderStillTests
         TextBlock title = scene.Children
             .SelectMany(element => element.Objects)
             .OfType<TextBlock>()
-            .Single(item => item.Text.CurrentValue == "BEUTL MOTION");
+            .Single(item => item.Text.CurrentValue == "Beutl motion");
 
         var renderer = new StillRenderer();
         await renderer.RenderAsync(scene, TimeSpan.FromSeconds(2), withTextPath, 1, CancellationToken.None);

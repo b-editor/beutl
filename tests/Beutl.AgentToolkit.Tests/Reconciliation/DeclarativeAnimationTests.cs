@@ -34,15 +34,12 @@ public sealed class DeclarativeAnimationTests
                 }
             });
 
-        ToolResult<ReconcilePlan> createPlan = tools.PlanEdit(patch: createPatch, schemaVersion: SchemaVersion.Current);
         ToolResult<ApplyEditResponse> createApply = tools.ApplyEdit(
             patch: createPatch,
-            schemaVersion: SchemaVersion.Current,
-            expectedChangeSet: createPlan.Value!.ExpectedChangeSet);
+            schemaVersion: SchemaVersion.Current);
 
         Assert.Multiple(() =>
         {
-            Assert.That(createPlan.IsSuccess, Is.True, createPlan.Error?.Message);
             Assert.That(createApply.IsSuccess, Is.True, createApply.Error?.Message);
             Assert.That(text.Opacity.Animation, Is.Not.Null);
         });
@@ -77,15 +74,12 @@ public sealed class DeclarativeAnimationTests
                 }
             });
 
-        ToolResult<ReconcilePlan> updatePlan = tools.PlanEdit(patch: updatePatch, schemaVersion: SchemaVersion.Current);
         ToolResult<ApplyEditResponse> updateApply = tools.ApplyEdit(
             patch: updatePatch,
-            schemaVersion: SchemaVersion.Current,
-            expectedChangeSet: updatePlan.Value!.ExpectedChangeSet);
+            schemaVersion: SchemaVersion.Current);
 
         Assert.Multiple(() =>
         {
-            Assert.That(updatePlan.IsSuccess, Is.True, updatePlan.Error?.Message);
             Assert.That(updateApply.IsSuccess, Is.True, updateApply.Error?.Message);
         });
 
@@ -94,14 +88,12 @@ public sealed class DeclarativeAnimationTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(createPlan.IsSuccess, Is.True);
             Assert.That(createApply.IsSuccess, Is.True);
-            Assert.That(createPlan.Value!.Changes, Has.Count.GreaterThanOrEqualTo(1));
+            Assert.That(createApply.Value!.Changes, Has.Count.GreaterThanOrEqualTo(1));
             Assert.That(createdFrames, Has.Length.EqualTo(2));
             Assert.That(createdValues, Is.EqualTo(new[] { 0f, 100f }));
-            Assert.That(updatePlan.IsSuccess, Is.True);
             Assert.That(updateApply.IsSuccess, Is.True);
-            Assert.That(updatePlan.Value!.Changes.Select(change => change.Operation), Does.Contain(ChangeOperations.RemoveChild));
+            Assert.That(updateApply.Value!.Changes.Select(change => change.Operation), Does.Contain(ChangeOperations.RemoveChild));
             Assert.That(remaining.Id, Is.EqualTo(createdFrames[1].Id));
             Assert.That(remaining.KeyTime, Is.EqualTo(TimeSpan.FromSeconds(1.5)));
             Assert.That(remaining.Value, Is.EqualTo(80f));
@@ -133,11 +125,9 @@ public sealed class DeclarativeAnimationTests
                 }
             });
 
-        ToolResult<ReconcilePlan> createPlan = tools.PlanEdit(patch: createPatch, schemaVersion: SchemaVersion.Current);
         ToolResult<ApplyEditResponse> createApply = tools.ApplyEdit(
             patch: createPatch,
-            schemaVersion: SchemaVersion.Current,
-            expectedChangeSet: createPlan.Value!.ExpectedChangeSet);
+            schemaVersion: SchemaVersion.Current);
 
         JsonObject desired = session.Documents.Read(session.Root);
         ToolResult<ApplyEditResponse> roundTripApply = tools.ApplyEdit(desired: desired, schemaVersion: SchemaVersion.Current);

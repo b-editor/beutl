@@ -4,6 +4,7 @@ using Beutl.AgentToolkit.Schema;
 using Beutl.Animation.Easings;
 using Beutl.Audio.Effects;
 using Beutl.Engine;
+using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
@@ -25,6 +26,8 @@ public sealed class SchemaGenerationTests
 
         TypeDescriptor textBlock = schema.Types.Single(type => type.Type == typeof(TextBlock).FullName);
         PropertyDescriptor size = textBlock.Properties.Single(property => property.Name == nameof(TextBlock.Size));
+        PropertyDescriptor blendMode = textBlock.Properties.Single(property => property.Name == nameof(TextBlock.BlendMode));
+        PropertyDescriptor fontWeight = textBlock.Properties.Single(property => property.Name == nameof(TextBlock.FontWeight));
         TypeDescriptor linearGradient = schema.Types.Single(type => type.Type == typeof(LinearGradientBrush).FullName);
         PropertyDescriptor gradientStops = linearGradient.Properties.Single(property => property.Name == nameof(GradientBrush.GradientStops));
         TypeDescriptor filterGroup = schema.Types.Single(type => type.Type == typeof(FilterEffectGroup).FullName);
@@ -62,6 +65,12 @@ public sealed class SchemaGenerationTests
             Assert.That(size.Range, Is.Not.Null);
             Assert.That(size.Default, Is.EqualTo(12f));
             Assert.That(size.Animatable, Is.True);
+            Assert.That(blendMode.ValueType, Is.EqualTo(typeof(BlendMode).FullName));
+            Assert.That(blendMode.EnumValues, Does.Contain(nameof(BlendMode.SrcOver)));
+            Assert.That(blendMode.EnumValues, Does.Contain(nameof(BlendMode.Plus)));
+            Assert.That(fontWeight.ValueType, Is.EqualTo(typeof(FontWeight).FullName));
+            Assert.That(fontWeight.EnumValues, Does.Contain(nameof(FontWeight.Regular)));
+            Assert.That(fontWeight.EnumValues, Does.Contain(nameof(FontWeight.Bold)));
             Assert.That(linearGradient.Category, Is.EqualTo(KnownLibraryItemFormats.Brush));
             Assert.That(gradientStops.ElementType, Is.EqualTo(typeof(GradientStop).FullName));
             Assert.That(effectChildren.ElementType, Is.EqualTo(typeof(FilterEffect).FullName));
@@ -81,7 +90,7 @@ public sealed class SchemaGenerationTests
             Assert.That(schema.Examples.Single(example => example.Name == "animate-float-property-keyframes").Patch.ToJsonString(), Does.Contain("KeyFrames"));
             Assert.That(schema.Examples.Single(example => example.Name == "animate-float-property-keyframes").Patch.ToJsonString(), Does.Contain("KeyFrameAnimation"));
             Assert.That(emptySceneExample, Does.Contain("TextBlock"));
-            Assert.That(emptySceneExample, Does.Contain("BEUTL MOTION"));
+            Assert.That(emptySceneExample, Does.Contain("Beutl motion"));
             Assert.That(emptySceneExample, Does.Contain("LinearGradientBrush"));
             Assert.That(emptySceneExample, Does.Contain("FilterEffectGroup"));
             Assert.That(brushEffectExample, Does.Contain("LinearGradientBrush"));
@@ -110,7 +119,7 @@ public sealed class SchemaGenerationTests
             Assert.That(exampleSummaries.Count(example => example.Tags.Contains("empty-scene")), Is.GreaterThanOrEqualTo(3));
             Assert.That(exampleSummaries.Single(example => example.Name == "create-empty-scene-orbital-radar").Tags, Does.Contain("orbital"));
             Assert.That(namedExamples, Has.Count.EqualTo(1));
-            Assert.That(namedExamples.Single().Patch.ToJsonString(), Does.Contain("ORBIT MAP"));
+            Assert.That(namedExamples.Single().Patch.ToJsonString(), Does.Contain("Orbit map"));
         });
     }
 
@@ -123,7 +132,7 @@ public sealed class SchemaGenerationTests
         CompositionTemplateDetail detail = catalog.Get("orbital-radar-map");
         var inputProps = new JsonObject
         {
-            ["title"] = "CUSTOM ORBIT",
+            ["title"] = "Custom orbit",
             ["durationSeconds"] = 6,
             ["fps"] = 24,
             ["density"] = 1.25
@@ -145,17 +154,17 @@ public sealed class SchemaGenerationTests
             Assert.That(firstList.Compositions.SelectMany(composition => composition.Tags), Does.Contain("liquid"));
             Assert.That(firstList.Compositions.SelectMany(composition => composition.Tags), Does.Contain("dashboard"));
             Assert.That(firstList.Compositions.SelectMany(composition => composition.Tags), Does.Contain("glitch"));
-            Assert.That(detail.DefaultProps["title"]!.GetValue<string>(), Is.EqualTo("ORBIT MAP"));
+            Assert.That(detail.DefaultProps["title"]!.GetValue<string>(), Is.EqualTo("Orbit map"));
             Assert.That(detail.Props.Select(prop => prop.Name), Does.Contain("durationSeconds"));
             Assert.That(detail.Sequences.Any(sequence => sequence.Name == "body"), Is.True);
             Assert.That(detail.Transitions.Any(transition => transition.Type.Contains("opacity", StringComparison.Ordinal)), Is.True);
             Assert.That(firstRender.Metadata.DurationInFrames, Is.EqualTo(144));
-            Assert.That(firstRender.ResolvedProps["title"]!.GetValue<string>(), Is.EqualTo("CUSTOM ORBIT"));
+            Assert.That(firstRender.ResolvedProps["title"]!.GetValue<string>(), Is.EqualTo("Custom orbit"));
             Assert.That(firstRender.Sequences, Has.Count.GreaterThanOrEqualTo(4));
             Assert.That(firstRender.Transitions, Has.Count.GreaterThanOrEqualTo(2));
             Assert.That(JsonNode.DeepEquals(firstRender.Patch, sameRender.Patch), Is.True);
             Assert.That(JsonNode.DeepEquals(firstRender.Patch, differentRender.Patch), Is.False);
-            Assert.That(firstRender.Patch.ToJsonString(), Does.Contain("CUSTOM ORBIT"));
+            Assert.That(firstRender.Patch.ToJsonString(), Does.Contain("Custom orbit"));
             Assert.That(firstRender.Patch.ToJsonString(), Does.Contain("KeyFrames"));
             Assert.That(firstRender.Patch.ToJsonString(), Does.Contain("FilterEffectGroup"));
             Assert.That(noiseRender.Patch.ToJsonString(), Does.Contain("Deterministic noise dot"));
@@ -171,6 +180,29 @@ public sealed class SchemaGenerationTests
                 .GenerateExamples(nameFilter: "create-empty-scene-orbital-radar")
                 .Single()
                 .Patch), Is.True);
+        });
+    }
+
+    [Test]
+    public void Starter_examples_do_not_ship_long_all_caps_display_text()
+    {
+        var generator = new SchemaGenerator();
+        string[] starterJson = generator
+            .GenerateExamples()
+            .Where(example => example.Name.StartsWith("create-empty-scene-", StringComparison.Ordinal))
+            .Select(example => example.Patch.ToJsonString())
+            .ToArray();
+        var catalog = new CompositionTemplateCatalog();
+        string[] defaultTitles = catalog
+            .List(seed: "quality-check")
+            .Compositions
+            .Select(composition => catalog.Get(composition.Name).DefaultProps["title"]!.GetValue<string>())
+            .ToArray();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(starterJson.Any(ContainsLongAllCapsText), Is.False);
+            Assert.That(defaultTitles.Any(LooksLikeLongAllCaps), Is.False);
         });
     }
 
@@ -262,6 +294,21 @@ public sealed class SchemaGenerationTests
             }
         });
         return valid;
+    }
+
+    private static bool ContainsLongAllCapsText(string json)
+    {
+        return json
+            .Split(['"', '\\', '/', ':', ',', '{', '}', '[', ']'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Any(LooksLikeLongAllCaps);
+    }
+
+    private static bool LooksLikeLongAllCaps(string text)
+    {
+        int letters = text.Count(char.IsLetter);
+        return letters >= 7
+               && text.Count(char.IsUpper) / (double)letters >= 0.85
+               && text.Count(char.IsLower) == 0;
     }
 
     private static float FindObjectTranslateX(JsonObject patch, string objectName)

@@ -14,6 +14,7 @@ This describes the toolkit's own conceptual entities and how each maps onto exis
 | Edit Transaction | The atomic, undoable application of a Change Set | `HistoryManager.ExecuteInTransaction` (commits on success, **rolls back on exception**) |
 | Workspace Guard | The write-boundary policy (read anywhere, write only under the configured root) | `IWorkspaceGuard.ResolveForWrite` (new) |
 | Render Job / Export Job | A request to produce a still image or a video/audio file | `SceneRenderer`+`Renderer.Snapshot`+`Bitmap.Save` / `EncodingController.Encode` via `Beutl.FFmpegIpc` |
+| Quality Review | Deterministic review of AI-generated editing quality before export | scene graph + sampled still/motion analysis (`QualityAnalyzer`) |
 | Editing Recipe / Specialist | Packaged Skill / Subagent guidance (the non-code pillar) | `.claude/skills/*`, `.claude/agents/*` assets |
 
 ---
@@ -26,7 +27,7 @@ This describes the toolkit's own conceptual entities and how each maps onto exis
 
 **Rules**: exactly one writer; reconciliation runs with `PublishingSuppression`/`RecordingSuppression` **inactive** (so mutations both publish and record). Undo/redo is available via `History.Undo()`/`Redo()` — agent edits are normal, human-undoable history entries (FR-015).
 
-**Scope (Scene-rooted undo)**: the unit that carries an undo history (one `HistoryManager`) is a **Scene** — `EditViewModel.Scene` in live mode. Declarative reconcile/plan/apply targets a Scene root. **Project-level** actions (create a project, add/remove scenes, project variables like frame rate / sample rate) mutate `Project.Items`/variables separately and are NOT part of a scene's undo stack; they are exposed as distinct, coarser project tools with file-level semantics.
+**Scope (Scene-rooted undo)**: the unit that carries an undo history (one `HistoryManager`) is a **Scene** — `EditViewModel.Scene` in live mode. Declarative reconcile/apply targets a Scene root. **Project-level** actions (create a project, add/remove scenes, project variables like frame rate / sample rate) mutate `Project.Items`/variables separately and are NOT part of a scene's undo stack; they are exposed as distinct, coarser project tools with file-level semantics.
 
 ## Declarative Document
 
@@ -81,6 +82,14 @@ The reconciliation runs inside `HistoryManager.ExecuteInTransaction(action, name
 
 - **Render Job**: `sceneRef`, `time`, `outputPath` (guarded), `scale?`. Produces a PNG via `SceneRenderer`→`Renderer.Snapshot`→`Bitmap.Save`. Returns `unavailable` (typed) when the content needs a GPU absent on the host (FR-018).
 - **Export Job**: `sceneRef`, `range` (or whole timeline), `outputPath` (guarded), `videoSettings`/`audioSettings`. Produces a file via `EncodingController.Encode(frameProvider, sampleProvider, ct)` using a concrete encoder from the MIT non-UI encoder assembly (`Beutl.Extensions.FFmpeg.Core`, split per plan) or a headlessly-registered installed encoder, which reaches the FFmpeg worker over `Beutl.FFmpegIpc` (FR-016/FR-017/FR-023). Returns a typed error when FFmpeg native libraries are missing.
+
+## Quality Review
+
+`evaluate_edit_quality` produces a deterministic gate for common AI-editing failures. It inspects the live `Scene` graph plus rendered motion samples and returns `passesQualityGate`, a verdict, categorized issues, and metrics.
+
+Issue categories are `typography`, `shapeDiversity`, `textBackgroundFit`, `paletteHarmony`, `materialUiLook`, `motionContinuity`, and `cutRhythm`. Severity is `critical`, `major`, or `minor`; normal exports require no critical or major issues unless the user explicitly accepts the trade-off.
+
+The review intentionally avoids OCR and generative visual judging. It uses text properties, shape classes, transform estimates, brush/effect colors, keyframe presence, element timing boundaries, and `MotionVariationAnalyzer` output.
 
 ## Mapping summary (toolkit term → Beutl type / API)
 

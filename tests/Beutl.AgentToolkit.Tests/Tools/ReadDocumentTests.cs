@@ -221,7 +221,7 @@ public sealed class ReadDocumentTests
             Assert.That(selected.IsSuccess, Is.True, selected.Error?.Message);
             Assert.That(selected.Value!.Examples, Has.Count.EqualTo(1));
             Assert.That(selected.Value.Examples.Single().Name, Is.EqualTo(selectedName));
-            Assert.That(selected.Value.Examples.Single().Patch.ToJsonString(), Does.Contain("FRAME FLOW"));
+            Assert.That(selected.Value.Examples.Single().Patch.ToJsonString(), Does.Contain("Frame flow"));
         });
     }
 
@@ -231,7 +231,7 @@ public sealed class ReadDocumentTests
         var tools = new QueryTools(new AgentSessionManager());
         var inputProps = new JsonObject
         {
-            ["title"] = "PATCH TITLE",
+            ["title"] = "Patch title",
             ["durationSeconds"] = 5,
             ["fps"] = 20
         };
@@ -257,14 +257,14 @@ public sealed class ReadDocumentTests
             Assert.That(motionList.IsSuccess, Is.True, motionList.Error?.Message);
             Assert.That(motionList.Value!.Compositions, Has.Count.GreaterThanOrEqualTo(6));
             Assert.That(detail.IsSuccess, Is.True, detail.Error?.Message);
-            Assert.That(detail.Value!.Composition.DefaultProps["title"]!.GetValue<string>(), Is.EqualTo("FRAME FLOW"));
+            Assert.That(detail.Value!.Composition.DefaultProps["title"]!.GetValue<string>(), Is.EqualTo("Frame flow"));
             Assert.That(detail.Value.Composition.Sequences.Any(sequence => sequence.Name == "typography"), Is.True);
             Assert.That(render.IsSuccess, Is.True, render.Error?.Message);
             Assert.That(render.Value!.Composition.Seed, Is.EqualTo("tool-seed"));
             Assert.That(render.Value.Composition.Metadata.DurationInFrames, Is.EqualTo(100));
-            Assert.That(render.Value.Composition.ResolvedProps["title"]!.GetValue<string>(), Is.EqualTo("PATCH TITLE"));
-            Assert.That(render.Value.Composition.Patch.ToJsonString(), Does.Contain("PATCH TITLE"));
-            Assert.That(render.Value.UsageHint, Does.Contain("plan_edit"));
+            Assert.That(render.Value.Composition.ResolvedProps["title"]!.GetValue<string>(), Is.EqualTo("Patch title"));
+            Assert.That(render.Value.Composition.Patch.ToJsonString(), Does.Contain("Patch title"));
+            Assert.That(render.Value.UsageHint, Does.Contain("apply_edit"));
         });
     }
 
@@ -325,7 +325,7 @@ public sealed class ReadDocumentTests
             Assert.That(recipe.IsSuccess, Is.True, recipe.Error?.Message);
             Assert.That(recipe.Value!.Recipe.EffectNames, Does.Contain("ColorShift"));
             Assert.That(recipe.Value.Recipe.Patch.ToJsonString(), Does.Contain("ColorShift"));
-            Assert.That(recipe.Value.UsageHint, Does.Contain("plan_edit"));
+            Assert.That(recipe.Value.UsageHint, Does.Contain("apply_edit"));
             Assert.That(shaderRecipe.IsSuccess, Is.True, shaderRecipe.Error?.Message);
             Assert.That(shaderRecipe.Value!.Recipe.EffectNames, Does.Contain("SKSLScriptEffect"));
             Assert.That(shaderRecipe.Value.Recipe.Patch.ToJsonString(), Does.Contain("uniform shader src"));

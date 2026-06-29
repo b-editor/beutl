@@ -33,12 +33,9 @@ public sealed class DeclarativeBrushEffectTests
                 [nameof(Drawable.FilterEffect)] = SerializeWithoutIds(CreateEffectChain())
             });
 
-        ToolResult<ReconcilePlan> createPlan = tools.PlanEdit(patch: createPatch, schemaVersion: SchemaVersion.Current);
-        Assert.That(createPlan.IsSuccess, Is.True, createPlan.Error?.Message);
         ToolResult<ApplyEditResponse> createApply = tools.ApplyEdit(
             patch: createPatch,
-            schemaVersion: SchemaVersion.Current,
-            expectedChangeSet: createPlan.Value!.ExpectedChangeSet);
+            schemaVersion: SchemaVersion.Current);
 
         var fill = (LinearGradientBrush)rect.Fill.CurrentValue!;
         var effects = (FilterEffectGroup)rect.FilterEffect.CurrentValue!;
@@ -71,11 +68,9 @@ public sealed class DeclarativeBrushEffectTests
                 }
             });
 
-        ToolResult<ReconcilePlan> updatePlan = tools.PlanEdit(patch: updatePatch, schemaVersion: SchemaVersion.Current);
         ToolResult<ApplyEditResponse> updateApply = tools.ApplyEdit(
             patch: updatePatch,
-            schemaVersion: SchemaVersion.Current,
-            expectedChangeSet: updatePlan.Value!.ExpectedChangeSet);
+            schemaVersion: SchemaVersion.Current);
 
         fill = (LinearGradientBrush)rect.Fill.CurrentValue!;
         effects = (FilterEffectGroup)rect.FilterEffect.CurrentValue!;
@@ -84,13 +79,11 @@ public sealed class DeclarativeBrushEffectTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(createPlan.IsSuccess, Is.True, createPlan.Error?.Message);
             Assert.That(createApply.IsSuccess, Is.True, createApply.Error?.Message);
-            Assert.That(createPlan.Value!.Changes.Select(change => change.Operation), Does.Contain(ChangeOperations.SetProperty));
+            Assert.That(createApply.Value!.Changes.Select(change => change.Operation), Does.Contain(ChangeOperations.SetProperty));
             Assert.That(fill.GradientStops, Has.Count.EqualTo(2));
             Assert.That(effects.Children, Has.Count.EqualTo(2));
             Assert.That(effects.Children[1], Is.InstanceOf<Brightness>());
-            Assert.That(updatePlan.IsSuccess, Is.True, updatePlan.Error?.Message);
             Assert.That(updateApply.IsSuccess, Is.True, updateApply.Error?.Message);
             Assert.That(firstStop.Offset.CurrentValue, Is.EqualTo(0.2f));
             Assert.That(firstStop.Color.CurrentValue, Is.EqualTo(Color.FromRgb(0x33, 0x66, 0xff)));

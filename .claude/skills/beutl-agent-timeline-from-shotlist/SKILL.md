@@ -9,22 +9,29 @@ Use this skill when an agent needs to turn a shot list, storyboard, or timed bri
 
 ## Workflow
 
-1. For creative briefs with little or no direction, call `list_creative_directions`, then select the `conceptPlan` mechanically:
-   - If the user prompt does not specify a concrete motif, style, palette, message, audience, or subject, choose one returned `conceptPlan` by random index before judging quality. Do not override the random choice because another plan looks easier, denser, or more polished.
-   - If the user prompt does specify concrete creative constraints, compare the returned `conceptPlan` entries against those constraints and choose the best fit.
-   - In notes, record whether the concept was random-selected or constraint-selected, the chosen concept name, and the selection index/method.
-   - Only reroll or reject a random-selected concept when it conflicts with an explicit user constraint or a listed overused motif.
-   - After selection, map the chosen plan's listed elements into named Beutl elements/objects before authoring.
+1. For creative briefs with little or no direction, call `list_creative_directions`, then synthesize an original pitch from the returned inspiration seeds:
+   - If the user prompt does not specify a concrete motif, style, palette, message, audience, or subject, choose at least two `inspirationSeeds` from different categories by random index before judging quality.
+   - If the user prompt does specify concrete creative constraints, keep those constraints literal and choose seeds only as ways to make the result less generic.
+   - In notes, record `selectionTrace.requestIndex`, `selectionTrace.appliedOffset`, `selectionTrace.seedMaterial`, `selectionTrace.returnedSeedOrder`, the selected seed names/categories, the combination rule or variation prompt used, and a new one-sentence pitch with a new title.
+   - Only reroll or reject a random-selected seed when it conflicts with an explicit user constraint or a listed overused motif.
+   - Before authoring, map the synthesized pitch into your own named Beutl elements/objects. Do not reuse returned seed names as Element/Object names.
    - For unconstrained briefs, keep project, still, and video basenames neutral, such as `project.bep`, `preview.mp4`, and `still-*.png`, or use the requested output directory slug. Record the concept name in notes instead of naming files after it.
 2. Call `get_schema` before authoring if the required drawable, media, or audio type is not already known.
    - For organic heat, ink, glass, smoke, grain, caustic, or other procedural fields, call `list_effect_recipes` with a shader/organic intent and consider `SKSLScriptEffect` instead of stacking only blurred gradient shapes. Prefer SKSL over GLSL for low-context file sessions because it is CPU-safe in still renders.
-3. Create or attach a session:
+3. Before authoring, record a quality preflight plan in notes:
+   - `textCasePlan`: use Title Case or sentence case by default; do not use long all-caps text unless the user explicitly asked for it.
+   - `shapeBudget`: reserve `RectShape` for full-frame/background plates or deliberately plain geometry; use rounded rectangles, ellipses, paths, media, strokes, or procedural texture for foreground structure.
+   - `paletteRoles`: name background, text, accent, support, and shadow colors; avoid dark teal plus cyan/magenta unless requested.
+   - `textPlatePlan`: if text needs a backing plate, plan matching Start/Length, centered transforms, and padding for the named text/plate pair.
+   - `motionContinuityPlan`: define reveal, development, and resolution phases plus how boundaries are bridged.
+   - `verificationSamples`: choose at least three still times plus the motion/quality review sample set.
+4. Create or attach a session:
    - Stdio/headless: `create_project` or `open_project` with a `.bep` project path. Paths without an extension are normalized to `.bep`; `.beutl` is reserved for exported project packages.
    - Live editor: `attach_active_editor`.
-4. If live attach fails and the task allows headless output, switch to the stdio/headless `create_project` route rather than creating a custom generator.
-5. When an output directory is requested, create/update `notes.md` there before the first edit and after every `plan_edit`, `apply_edit`, `save_project`, `render_still`, `evaluate_motion_variation`, and `export_video` result. Record success/failure, change count or verdict/path, and the next action. While drafting a large patch before the next tool call, append a short heartbeat note every few minutes with the current stage and blocker risk.
-6. Call `read_document` and keep the returned `schemaVersion`.
-7. Build the timeline as a declarative document:
+5. If live attach fails and the task allows headless output, switch to the stdio/headless `create_project` route rather than creating a custom generator.
+6. When an output directory is requested, create/update `notes.md` there before the first edit and after every `plan_edit`, `apply_edit`, `save_project`, `render_still`, `evaluate_motion_variation`, `evaluate_edit_quality`, and `export_video` result. Record success/failure, change count or verdict/path, and the next action. While drafting a large patch before the next tool call, append a short heartbeat note every few minutes with the current stage and blocker risk.
+7. Call `read_document` and keep the returned `schemaVersion`.
+8. Build the timeline as a declarative document:
    - Use PascalCase property names exactly as returned by `get_schema`.
    - New timeline `Elements` require `$type: "[Beutl.ProjectSystem]:Element"`.
    - Use stable `Id` handles when modifying existing elements.
@@ -33,14 +40,15 @@ Use this skill when an agent needs to turn a shot list, storyboard, or timed bri
    - Keep element `Start`, `Length`, and layer/Z values consistent with the shot list.
    - Animation `KeyFrame.KeyTime` values are scene timeline times in toolkit patches, not object-local guesses. For Elements with nonzero `Start`, choose keyframe times that intersect the still/video frames you will render.
    - If you only need the required container shape, fetch the targeted `insert-new-element-skeleton` example; do not inspect a full-scene starter just to learn `$type` placement.
-8. Call `plan_edit`, inspect the change count and validation outcomes, and keep either the returned `planId` or the returned `expectedChangeSet` for application. For multi-element motion graphics, plan/apply/save in small stages that map to the selected concept's element plan. Use exactly one `conceptPlan.elementPlan` item per stage unless the user explicitly asks for a combined edit.
-9. Call `apply_edit` with the returned `planId` when present, especially when inline `changes` or `expectedChangeSet` are omitted. If using `expectedChangeSet`, pass the exact array from the accepted plan. Do not replace it with a count, label, or shorthand.
-10. For file sessions, call `save_project` after every successful major `apply_edit` before continuing to the next stage.
-11. Verify with `read_document_summary`. If a selected `conceptPlan` had an `elementPlan`, compare every expected element name/role against the actual elements and revise before rendering unless the omission is recorded with a concrete reason.
-12. Verify with `render_still` at representative shot boundaries. For each still, record which planned elements are visible, whether text/title elements are readable, and whether foreground/background/accent density is present. Development and resolution stills should show at least three visible layer types, such as background/surface, primary motion, accent/detail, and typography; if text is present, it must have clear contrast against the background.
-13. Run `evaluate_motion_variation` across 4-6 samples. If it reports `low-motion-variation` or `poor-frame-coverage`, or if the still review shows planned elements are never visible/readable, revise the edit before exporting.
-14. Export a short preview with `export_video` when an encoder is available; if export is unavailable, record the reason in notes.
-15. Save with `save_project` for file sessions after final revisions.
+9. Call `plan_edit`, inspect the change count and validation outcomes, and keep either the returned `planId` or the returned `expectedChangeSet` for application. For multi-element motion graphics, plan/apply/save in small stages that map to your synthesized scene plan, such as surface/background, primary motion, detail/accent, and typography.
+10. Call `apply_edit` with the returned `planId` when present, especially when inline `changes` or `expectedChangeSet` are omitted. If using `expectedChangeSet`, pass the exact array from the accepted plan. Do not replace it with a count, label, or shorthand.
+11. For file sessions, call `save_project` after every successful major `apply_edit` before continuing to the next stage.
+12. Verify with `read_document_summary`. Compare every expected element name/role from your synthesized scene plan against the actual elements and revise before rendering unless the omission is recorded with a concrete reason.
+13. Verify with `render_still` at representative shot boundaries. For each still, record which planned elements are visible, whether text/title elements are readable, and whether foreground/background/accent density is present. Development and resolution stills should show at least three visible layer types, such as background/surface, primary motion, accent/detail, and typography; if text is present, it must have clear contrast against the background.
+14. Run `evaluate_motion_variation` across 4-6 samples. If it reports `low-motion-variation` or `poor-frame-coverage`, or if the still review shows planned elements are never visible/readable, revise the edit.
+15. Run `evaluate_edit_quality` with the same sample set. Treat `critical` or `major` issues as blockers for export; revise and re-run until `passesQualityGate` is true, or record the explicit user reason for allowing an issue.
+16. Export a short preview with `export_video` when an encoder is available; if export is unavailable, record the reason in notes.
+17. Save with `save_project` for file sessions after final revisions.
 
 ## Motion Graphics Quality Bar
 
@@ -49,10 +57,12 @@ Use this skill when an agent needs to turn a shot list, storyboard, or timed bri
 - Maintain visual density: use layered background, foreground motion, accents, and typography/labels. A lone title over one moving shape is too sparse unless the brief asks for minimalism.
 - Use procedural texture when the concept is organic or atmospheric. A short `SKSLScriptEffect` on a broad shape is often better than many low-contrast blurred ellipses for heat, ink, glass, smoke, caustics, grain, or shimmer.
 - Give each major visual part a clear name in the patch so `read_document_summary` exposes the intended structure.
-- Treat the chosen `conceptPlan.elementPlan` as a completion checklist. A final scene that omits planned accent/density elements without a recorded reason is incomplete.
+- Treat your synthesized scene plan as a completion checklist. A final scene that omits planned accent/density elements without a recorded reason is incomplete.
 - After still renders, use `evaluate_motion_variation`; treat low adjacent-frame variation or persistent one-quadrant/sparse frame coverage as a failed self-check for motion graphics.
 - Numerical motion variation is necessary but not sufficient: planned elements must also be visibly present across representative stills, and text/title elements must be readable before export.
 - A still that is mostly a smooth background after the reveal phase is not dense enough even if `evaluate_motion_variation` passes.
+- Long all-caps text, foreground RectShape dominance, misaligned text backing plates, dark teal/cyan/magenta palettes, repeated card shadows, low temporal variation, and unmotivated hard cuts are quality failures unless explicitly requested by the user.
+- `evaluate_edit_quality.passesQualityGate` must be true before final export for normal deliverables.
 
 ## Originality Rules
 

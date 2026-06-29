@@ -89,7 +89,7 @@ A creator asks the agent: *"10-second 1080p clip: a title that fades in over a b
    plan_composition {
      "name": "<selected composition name>",
      "seed": "promo-a",
-     "inputProps": { "title": "BEUTL MOTION", "subtitle": "SUMMER LAUNCH", "durationSeconds": 10 }
+     "inputProps": { "title": "Beutl motion", "subtitle": "Summer launch", "durationSeconds": 10 }
    }
                                                → metadata + sequences + validation + valid + expectedChangeSet
    get_schema { "category": "visualEffect", "includeProperties": false, "includeExamples": false }
@@ -101,21 +101,20 @@ A creator asks the agent: *"10-second 1080p clip: a title that fades in over a b
    apply_composition {
      "name": "<selected composition name>",
      "seed": "promo-a",
-     "inputProps": { "title": "BEUTL MOTION", "subtitle": "SUMMER LAUNCH", "durationSeconds": 10 },
+     "inputProps": { "title": "Beutl motion", "subtitle": "Summer launch", "durationSeconds": 10 },
      "expectedChangeSet": <plan_composition.plan.expectedChangeSet>
    }
                                               → { composition, result: { plan, document } }   // document includes minted Ids
    ```
-   Use `apply_edit.document` (or call `read_document`) before follow-up edits so later patches reference existing `Id` values. A patch that supplies an unknown `Id` is rejected as `stale_handle`; omit `Id` to create a new node.
+   Use `apply_composition.result.document`, call `apply_edit` with `includeDocument=true`, or call `read_document` before follow-up edits so later patches reference existing `Id` values. A patch that supplies an unknown `Id` is rejected as `stale_handle`; omit `Id` to create a new node.
 
    For a later tweak — *"make the title bigger"* — send a tiny **merge-patch** instead of the whole document:
    ```
-   plan_edit { "schemaVersion": "1", "patch": { "Elements": [ { "Id": "<title-el>", "Objects": [ { "Id": "<text>", "Size": 140 } ] } ] } }
-   apply_edit { "schemaVersion": "1", "patch": <same> }
+   apply_edit { "schemaVersion": "1", "patch": { "Elements": [ { "Id": "<title-el>", "Objects": [ { "Id": "<text>", "Size": 140 } ] } ] } }
    ```
    Brushes and effects are ordinary declarative properties. Discover them with `get_schema { "category": "Brush" }` and `get_schema { "category": "FilterEffect" }`. For example, a shape or text object can receive a gradient fill and a filter chain in the same patch:
    ```
-   plan_edit {
+   apply_edit {
      "schemaVersion": "1",
      "patch": {
        "Elements": [
@@ -137,7 +136,9 @@ A creator asks the agent: *"10-second 1080p clip: a title that fades in over a b
 5. **Verify** by rendering a still (and optionally export):
    ```
    render_still { "timeSeconds": 1.5, "outputPath": "preview.png" }  → outputPath + warnings + visibilityAnalysis + activeElements
-   export_video { "outputPath": "promo.mp4" }                        → videoPath   (needs FFmpeg native libs)
+   evaluate_motion_variation { "sampleCount": 5 }                    → motion verdict + coverage metrics
+   evaluate_edit_quality { "sampleCount": 5 }                        → quality gate + categorized issues
+   export_video { "outputPath": "promo.mp4" }                        → videoPath   (needs FFmpeg native libs; run after quality gate passes)
    ```
    Bare output filenames are written under `agent-output/`; pass an explicit relative directory when a different workspace location is intentional. Treat blank/near-black, very low contrast, or single-quadrant foreground `warnings` as a prompt to revise before export unless the frame is intentionally sparse. Use `visibilityAnalysis` and `activeElements` to confirm the planned foreground layers are actually visible at that time.
 6. **Save**:
@@ -151,7 +152,7 @@ Undo is same-session: file sessions record normal history while open, and live e
 
 - **Declarative-first**: express the whole desired scene at once, or a small merge-patch; the toolkit computes the minimal undoable change set.
 - **Safe by construction**: out-of-range values are reported (coerced/rejected), not silently applied; a failed multi-step edit rolls back wholly; writes can't escape the workspace.
-- **Plan == apply**: `plan_edit` predicts `apply_edit` exactly (pass `plan_edit.expectedChangeSet` to enforce).
+- **Apply result fidelity**: `apply_edit` computes the change set before applying and returns the exact applied change set.
 
 ## Tests
 
@@ -168,7 +169,7 @@ dotnet test tests/Beutl.AgentToolkit.Tests --settings coverlet.runsettings
 1. Open a project in the Beutl editor.
 2. Connect an MCP host to `http://127.0.0.1:<port>/mcp?token=<token>`.
 3. Call `attach_active_editor`.
-4. Call `read_document`, `plan_edit`, and `apply_edit` for one visible text/shape change.
+4. Call `read_document` and `apply_edit` for one visible text/shape change.
 5. Confirm the preview, timeline, and property panel update without reloading the project.
 6. Confirm the edit is one normal undo entry in the active editor session.
 

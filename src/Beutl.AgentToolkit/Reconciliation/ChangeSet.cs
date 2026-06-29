@@ -28,10 +28,6 @@ public sealed record ReconcilePlan
     [JsonIgnore]
     public IReadOnlyList<ValidationOutcome> Validation { get; init; }
 
-    public string? PlanId { get; init; }
-
-    public string UsageHint { get; init; } = "Pass expectedChangeSet to apply_edit, or pass planId when present to avoid copying the change set.";
-
     public int ChangeCount => Changes.Count;
 
     public IReadOnlyDictionary<string, int> Operations => Changes

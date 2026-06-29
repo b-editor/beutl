@@ -16,6 +16,7 @@ public sealed class RenderTools(
     DestructiveGuard destructiveGuard,
     StillRenderer stillRenderer,
     MotionVariationAnalyzer motionVariationAnalyzer,
+    QualityAnalyzer qualityAnalyzer,
     VideoExporter videoExporter) : ToolBase
 {
     [McpServerTool(Name = "render_still")]
@@ -79,6 +80,48 @@ public sealed class RenderTools(
                 minOccupiedBoundsRatio,
                 maxSingleQuadrantForegroundRatio,
                 foregroundLumaThreshold,
+                cancellationToken).ConfigureAwait(false);
+        });
+    }
+
+    [McpServerTool(Name = "evaluate_edit_quality")]
+    [Description("Reviews the current scene for deterministic AI-editing quality risks: all-caps typography, RectShape overuse, text backing alignment, palette problems, dated card/shadow styling, low motion continuity, and chopped-up cut rhythm. Run after render_still and evaluate_motion_variation; resolve critical/major issues before export_video.")]
+    public ValueTask<ToolResult<QualityReviewResponse>> EvaluateEditQuality(
+        [Description("Optional explicit scene times in seconds for rendered motion checks. When omitted, samples evenly across the scene duration.")]
+        double[]? timeSeconds = null,
+        [Description("Number of evenly spaced samples when timeSeconds is omitted. Clamped to 2..8.")]
+        int sampleCount = 5,
+        [Description("Supersampling render scale. Values <= 0 use 1.")]
+        float renderScale = 1,
+        [Description("Optional profile label recorded in the review notes, such as draft, editorial, kinetic-type, or minimal.")]
+        string? styleProfile = null,
+        [Description("When true, long all-caps text is downgraded from major to minor instead of blocking the quality gate.")]
+        bool allowAllCaps = false,
+        [Description("When true, repeated hard-cut-like timing boundaries are not treated as major quality issues.")]
+        bool allowHardCuts = false,
+        [Description("When true, non-background RectShape dominance is not treated as a major quality issue.")]
+        bool allowRectDominance = false,
+        CancellationToken cancellationToken = default)
+    {
+        return ExecuteAsync(async () =>
+        {
+            Scene scene = RequireScene();
+            IReadOnlyList<TimeSpan>? sampleTimes = timeSeconds is { Length: > 0 }
+                ? timeSeconds
+                    .Where(double.IsFinite)
+                    .Select(seconds => TimeSpan.FromSeconds(Math.Max(0, seconds)))
+                    .ToArray()
+                : null;
+            return await qualityAnalyzer.AnalyzeAsync(
+                scene,
+                sampleTimes,
+                sampleCount,
+                renderScale,
+                styleProfile,
+                allowAllCaps,
+                allowHardCuts,
+                allowRectDominance,
+                evaluateMotion: true,
                 cancellationToken).ConfigureAwait(false);
         });
     }
