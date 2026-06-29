@@ -145,7 +145,7 @@ public sealed class ApplyEditTests
     }
 
     [Test]
-    public void Apply_edit_accepts_enum_member_names_and_numeric_strings()
+    public void Apply_edit_accepts_enum_member_names()
     {
         Scene scene = CreateSceneWithElement(out Element element);
         var text = new TextBlock { Text = { CurrentValue = "Enum title" } };
@@ -172,17 +172,6 @@ public sealed class ApplyEditTests
         ToolResult<ApplyEditResponse> namedApply = tools.ApplyEdit(patch: patch, schemaVersion: SchemaVersion.Current);
         BlendMode namedBlendMode = text.BlendMode.CurrentValue;
         FontWeight namedFontWeight = text.FontWeight.CurrentValue;
-        patch["Elements"] = new JsonArray(new JsonObject
-        {
-            [nameof(CoreObject.Id)] = element.Id.ToString(),
-            [nameof(Element.Objects)] = new JsonArray(new JsonObject
-            {
-                [nameof(CoreObject.Id)] = text.Id.ToString(),
-                [nameof(TextBlock.BlendMode)] = ((int)BlendMode.Screen).ToString(),
-                [nameof(TextBlock.FontWeight)] = ((int)FontWeight.SemiBold).ToString()
-            })
-        });
-        ToolResult<ApplyEditResponse> numericApply = tools.ApplyEdit(patch: patch, schemaVersion: SchemaVersion.Current);
 
         Assert.Multiple(() =>
         {
@@ -190,10 +179,41 @@ public sealed class ApplyEditTests
             Assert.That(namedApply.Value!.Valid, Is.True);
             Assert.That(namedBlendMode, Is.EqualTo(BlendMode.Plus));
             Assert.That(namedFontWeight, Is.EqualTo(FontWeight.Bold));
-            Assert.That(numericApply.IsSuccess, Is.True, numericApply.Error?.Message);
-            Assert.That(numericApply.Value!.Valid, Is.True);
-            Assert.That(text.BlendMode.CurrentValue, Is.EqualTo(BlendMode.Screen));
-            Assert.That(text.FontWeight.CurrentValue, Is.EqualTo(FontWeight.SemiBold));
+        });
+    }
+
+    [Test]
+    public void Apply_edit_rejects_numeric_string_enum_values()
+    {
+        Scene scene = CreateSceneWithElement(out Element element);
+        var text = new TextBlock { Text = { CurrentValue = "Enum title" } };
+        element.AddObject(text);
+        using var session = new AgentToolkitTestSession(scene);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var tools = new EditTools(manager);
+
+        JsonObject patch = new()
+        {
+            ["Elements"] = new JsonArray(new JsonObject
+            {
+                [nameof(CoreObject.Id)] = element.Id.ToString(),
+                [nameof(Element.Objects)] = new JsonArray(new JsonObject
+                {
+                    [nameof(CoreObject.Id)] = text.Id.ToString(),
+                    [nameof(TextBlock.BlendMode)] = ((int)BlendMode.Screen).ToString()
+                })
+            })
+        };
+
+        ToolResult<ApplyEditResponse> apply = tools.ApplyEdit(patch: patch, schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(apply.IsSuccess, Is.False);
+            Assert.That(apply.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(apply.Error.Message, Does.Contain(nameof(TextBlock.BlendMode)));
+            Assert.That(text.BlendMode.CurrentValue, Is.EqualTo(BlendMode.SrcOver));
         });
     }
 
