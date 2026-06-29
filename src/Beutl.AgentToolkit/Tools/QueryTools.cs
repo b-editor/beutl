@@ -137,7 +137,8 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 "For original creative briefs, call list_creative_directions, pick a conceptPlan, read_document, and get_schema only for the drawable/effect types you need, then author a custom declarative patch instead of cloning a starter.",
                 "Call list_effects and list_effect_recipes to discover Beutl's visual effect palette before choosing a repeated look.",
                 "For no-context motion graphics, avoid overused orbit/radar/map/signal/dashboard motifs unless the user asks for them.",
-                "For visible progress, apply large scenes in stages: background first, then motion elements, then text/effects.",
+                "For visible progress, apply large scenes in stages: background first, then motion elements, then text/effects; for conceptPlans, prefer one elementPlan item per stage.",
+                "For unconstrained creative briefs, keep project/video/still basenames neutral and record the chosen concept name in notes instead of filenames.",
                 "Call plan_edit with the custom patch and schemaVersion=1.",
                 "Call apply_edit with plan_edit.planId when present, especially for large edits. Otherwise pass plan_edit.expectedChangeSet exactly as returned; do not summarize or rewrite the array.",
                 "For file-backed sessions, call save_project after each major successful apply_edit so partial progress is durable.",
@@ -146,7 +147,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 "When using a composition template, call list_compositions, choose a specific returned name that matches the user's request, then pass that name to plan_composition and apply_composition with the returned planId.",
                 "Use render_composition_patch only when the client explicitly needs the generated template patch JSON.",
                 "Call list_examples/get_examples for small schema snippets or as a fallback when a user asks for an example; full-scene starters are hidden by default.",
-                "Call render_still for representative frames, then evaluate_motion_variation to check temporal change before export_video."
+                "Call render_still for representative frames, record planned-element visibility/readability, then evaluate_motion_variation to check temporal change before export_video."
             ],
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
@@ -154,6 +155,9 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 ["effect"] = "FilterEffect",
                 ["filter"] = "FilterEffect",
                 ["videoEffect"] = "FilterEffect",
+                ["text"] = "TextBlock",
+                ["typography"] = "TextBlock",
+                ["label"] = "TextBlock",
                 ["fill"] = "Brush",
                 ["gradient"] = "Brush",
                 ["stroke"] = "Pen",
@@ -183,7 +187,8 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                     "motion: bloom, peel, fold, pour, shatter, magnetic attraction, wave interference, hand-drawn reveal, parallax drift, stop-motion stepping",
                     "composition: macro close-up, off-axis crop, split depth planes, negative-space title, diagonal editorial grid, frame-within-frame, vertical poster stack",
                     "typography: small caption system, kinetic word fragments, numeric countdown, subtitle-only rhythm, oversized cropped letterforms",
-                    "palette: warm/cool clash, muted paper plus neon accent, monochrome with one warning color, daylight pastels, high-contrast print inks"
+                    "palette: warm/cool clash, muted paper plus neon accent, monochrome with one warning color, daylight pastels, high-contrast print inks",
+                    "detail density: crop marks, micro-captions, texture grains, edge highlights, calibration ticks, fracture lines, shimmer bands"
                 ],
                 conceptPlans,
                 [
@@ -197,8 +202,10 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 [
                     "Do not default to the first returned concept. Compare at least two conceptPlans, reject concepts close to your last output, then choose the strongest element plan.",
                     "Map the chosen conceptPlan's elements to named Element/Object entries before writing a patch.",
-                    "Plan/apply/save in small stages that follow the chosen elementPlan; avoid one huge full-scene patch because large expectedChangeSet payloads may be omitted in favor of planId.",
+                    "Plan/apply/save in small stages that follow the chosen elementPlan. Prefer one elementPlan item per stage; avoid one huge full-scene patch because large expectedChangeSet payloads may be omitted in favor of planId.",
                     "After read_document_summary, compare actual element names with the chosen elementPlan and revise missing planned parts before rendering.",
+                    "For unconstrained briefs, keep project/video/still basenames neutral instead of naming files after the chosen concept.",
+                    "After rendering stills, record which planned elements are visible/readable in each still and revise if planned elements are never visible.",
                     "Use at least three timing phases and animate multiple property families, not only X position and opacity.",
                     "Name the concept in any notes or output summary before creating elements.",
                     "Use list_effects/list_effect_recipes for available effects, then build the scene with plan_edit/apply_edit.",
@@ -210,7 +217,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
     }
 
     [McpServerTool(Name = "get_schema")]
-    [Description("Returns the capability schema for registered editable types, optionally filtered by type or category. Category aliases such as visualEffect, effect, filter, videoEffect, fill, stroke, and ease are accepted. Examples are opt-in so creative briefs do not anchor on starter scenes; set includeExamples=true when snippets are explicitly needed.")]
+    [Description("Returns the capability schema for registered editable types, optionally filtered by type or category. Category aliases such as visualEffect, effect, filter, videoEffect, text, typography, label, fill, stroke, and ease are accepted. Examples are opt-in so creative briefs do not anchor on starter scenes; set includeExamples=true when snippets are explicitly needed.")]
     public ToolResult<CapabilitySchema> GetSchema(
         string? type = null,
         string? category = null,
@@ -721,7 +728,186 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                     "Brightness",
                     "DropShadow"
                 ],
-                "Use separate background, blob, contour, caption, and label layers for visual density.")
+                "Use separate background, blob, contour, caption, and label layers for visual density."),
+            new CreativeConceptPlan(
+                "Glass prism clock",
+                [
+                    "cool gray glass field",
+                    "three refracted prism slabs",
+                    "thin caustic light streaks",
+                    "tiny timecode ticks",
+                    "minimal title aperture"
+                ],
+                [
+                    new CreativeElementPlan(
+                        "glass-field",
+                        "Neutral reflective field that anchors refraction.",
+                        "RectShape with LinearGradientBrush",
+                        "00:00-08:00",
+                        "Gradient offset, opacity, and slight scale breathing."),
+                    new CreativeElementPlan(
+                        "prism-slabs",
+                        "Three translucent slabs crossing at different depths.",
+                        "RectShape objects with alpha Fill and DropShadow",
+                        "00:20-06:50",
+                        "Independent X/Y, Rotation, and blur changes."),
+                    new CreativeElementPlan(
+                        "caustic-streaks",
+                        "Narrow light streaks that sweep across slab edges.",
+                        "Thin RectShape objects",
+                        "01:00-07:20",
+                        "ScaleX, opacity, and gradient color pulse."),
+                    new CreativeElementPlan(
+                        "timecode-ticks",
+                        "Small non-dashboard tick marks for temporal texture.",
+                        "TextBlock or thin RectShape objects",
+                        "02:00-07:50",
+                        "Staggered opacity with short Y offsets."),
+                    new CreativeElementPlan(
+                        "aperture-title",
+                        "Minimal title revealed through a moving crop-like opening.",
+                        "TextBlock",
+                        "03:20-08:00",
+                        "Opacity, spacing, and subtle scale settle.")
+                ],
+                [
+                    "Transform.Children.TranslateTransform.X/Y",
+                    "Transform.Children.RotationTransform.Rotation",
+                    "Transform.Children.ScaleTransform.Scale",
+                    "Opacity",
+                    "Fill.GradientStops.Color/Offset",
+                    "FilterEffect.Children.Blur.Sigma"
+                ],
+                [
+                    "0-25%: glass field and prism slabs slide into depth",
+                    "25-70%: caustic streaks and ticks sweep across",
+                    "70-100%: aperture title resolves as refraction calms"
+                ],
+                [
+                    "Blur",
+                    "DropShadow",
+                    "Brightness"
+                ],
+                "Use translucent slab, streak, tick, and aperture layers so the piece is not just a glow pass."),
+            new CreativeConceptPlan(
+                "Risograph registration drift",
+                [
+                    "off-white print stock",
+                    "misregistered color plates",
+                    "halftone dot field",
+                    "crop marks and fold guides",
+                    "overprinted headline"
+                ],
+                [
+                    new CreativeElementPlan(
+                        "print-stock",
+                        "Off-white base plate with subtle paper motion.",
+                        "RectShape with SolidColorBrush or LinearGradientBrush",
+                        "00:00-08:00",
+                        "Opacity and slight Y drift."),
+                    new CreativeElementPlan(
+                        "color-plates",
+                        "Two or three overlapping print-color blocks.",
+                        "RectShape objects with translucent fills",
+                        "00:00-06:40",
+                        "Misregistered X/Y offsets converge and overshoot."),
+                    new CreativeElementPlan(
+                        "halftone-field",
+                        "Small dot texture across part of the frame.",
+                        "EllipseShape objects or repeated small RectShape dots",
+                        "01:00-07:00",
+                        "Staggered opacity, scale, and short drift."),
+                    new CreativeElementPlan(
+                        "crop-guides",
+                        "Editorial crop marks and fold guide lines.",
+                        "Thin RectShape objects",
+                        "01:40-07:50",
+                        "Line scale and opacity reveal in offset groups."),
+                    new CreativeElementPlan(
+                        "overprint-headline",
+                        "Bold headline that briefly misregisters then locks.",
+                        "TextBlock",
+                        "02:50-08:00",
+                        "Spacing, X/Y offset, and opacity snap into final print.")
+                ],
+                [
+                    "Transform.Children.TranslateTransform.X/Y",
+                    "Transform.Children.ScaleTransform.Scale",
+                    "Opacity",
+                    "TextBlock.Spacing",
+                    "Fill.Color"
+                ],
+                [
+                    "0-25%: print plates arrive with visible offset",
+                    "25-75%: halftone and crop marks build density",
+                    "75-100%: overprint headline locks into registration"
+                ],
+                [
+                    "Brightness",
+                    "DropShadow",
+                    "FilterEffectGroup"
+                ],
+                "Keep the print-stock, plates, dots, guides, and headline as separate planned layers."),
+            new CreativeConceptPlan(
+                "Ceramic glaze fracture",
+                [
+                    "matte ceramic background",
+                    "glaze puddle ellipses",
+                    "fine crack lines",
+                    "kiln heat shimmer bands",
+                    "small maker mark title"
+                ],
+                [
+                    new CreativeElementPlan(
+                        "ceramic-ground",
+                        "Matte base with a softly uneven color field.",
+                        "RectShape with LinearGradientBrush",
+                        "00:00-08:00",
+                        "Gradient color drift and subtle opacity pulse."),
+                    new CreativeElementPlan(
+                        "glaze-puddles",
+                        "Overlapping glossy puddles moving like liquid glaze.",
+                        "EllipseShape objects with blur/brightness",
+                        "00:40-06:50",
+                        "Scale, X/Y drift, opacity, and blur sigma changes."),
+                    new CreativeElementPlan(
+                        "fracture-lines",
+                        "Thin crack marks that branch across the frame.",
+                        "RectShape or GeometryShape strokes",
+                        "01:40-07:20",
+                        "ScaleX/opacity reveal with staggered offsets."),
+                    new CreativeElementPlan(
+                        "heat-shimmer-bands",
+                        "Soft horizontal bands suggesting kiln heat.",
+                        "Translucent RectShape objects",
+                        "02:00-07:50",
+                        "Y drift, opacity wave, and brightness pulse."),
+                    new CreativeElementPlan(
+                        "maker-mark",
+                        "Small final title mark rather than a large poster headline.",
+                        "TextBlock",
+                        "03:50-08:00",
+                        "Opacity, spacing, and slight rotation settle.")
+                ],
+                [
+                    "Transform.Children.TranslateTransform.X/Y",
+                    "Transform.Children.ScaleTransform.Scale",
+                    "Transform.Children.RotationTransform.Rotation",
+                    "Opacity",
+                    "FilterEffect.Children.Blur.Sigma",
+                    "TextBlock.Spacing"
+                ],
+                [
+                    "0-30%: ceramic ground warms and glaze puddles spread",
+                    "30-75%: fracture lines and shimmer bands reveal",
+                    "75-100%: maker mark resolves as glaze motion slows"
+                ],
+                [
+                    "Blur",
+                    "Brightness",
+                    "DropShadow"
+                ],
+                "Use puddles, fracture marks, shimmer bands, and maker mark together so the ceramic premise is readable.")
         ];
     }
 
