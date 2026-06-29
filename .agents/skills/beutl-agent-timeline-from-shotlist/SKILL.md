@@ -15,6 +15,7 @@ Use this skill when an agent needs to turn a shot list, storyboard, or timed bri
    - In notes, record whether the concept was random-selected or constraint-selected, the chosen concept name, and the selection index/method.
    - Only reroll or reject a random-selected concept when it conflicts with an explicit user constraint or a listed overused motif.
    - After selection, map the chosen plan's listed elements into named Beutl elements/objects before authoring.
+   - For unconstrained briefs, keep project, still, and video basenames neutral, such as `project.bep`, `preview.mp4`, and `still-*.png`, or use the requested output directory slug. Record the concept name in notes instead of naming files after it.
 2. Call `get_schema` before authoring if the required drawable, media, or audio type is not already known.
 3. Create or attach a session:
    - Stdio/headless: `create_project` or `open_project` with a `.bep` project path. Paths without an extension are normalized to `.bep`; `.beutl` is reserved for exported project packages.
@@ -28,12 +29,12 @@ Use this skill when an agent needs to turn a shot list, storyboard, or timed bri
    - Omit `Id` only for genuinely new elements/objects so the toolkit can mint one.
    - When adding new `Objects` to an existing `Element`, keep the parent `Element.Id` and omit `Id` on each new Object.
    - Keep element `Start`, `Length`, and layer/Z values consistent with the shot list.
-8. Call `plan_edit`, inspect the change count and validation outcomes, and keep either the returned `planId` or the returned `expectedChangeSet` for application. For multi-element motion graphics, plan/apply/save in small stages that map to the selected concept's element plan; do not start with one huge full-scene patch.
+8. Call `plan_edit`, inspect the change count and validation outcomes, and keep either the returned `planId` or the returned `expectedChangeSet` for application. For multi-element motion graphics, plan/apply/save in small stages that map to the selected concept's element plan. Prefer one `conceptPlan.elementPlan` item per stage; combine items only when the returned plan keeps inline details included.
 9. Call `apply_edit` with the returned `planId` when present, especially when inline `changes` or `expectedChangeSet` are omitted. If using `expectedChangeSet`, pass the exact array from the accepted plan. Do not replace it with a count, label, or shorthand.
 10. For file sessions, call `save_project` after every successful major `apply_edit` before continuing to the next stage.
 11. Verify with `read_document_summary`. If a selected `conceptPlan` had an `elementPlan`, compare every expected element name/role against the actual elements and revise before rendering unless the omission is recorded with a concrete reason.
-12. Verify with `render_still` at representative shot boundaries.
-13. Run `evaluate_motion_variation` across 4-6 samples. If it reports `low-motion-variation` or `poor-frame-coverage`, revise the edit before exporting.
+12. Verify with `render_still` at representative shot boundaries. For each still, record which planned elements are visible, whether text/title elements are readable, and whether foreground/background/accent density is present.
+13. Run `evaluate_motion_variation` across 4-6 samples. If it reports `low-motion-variation` or `poor-frame-coverage`, or if the still review shows planned elements are never visible/readable, revise the edit before exporting.
 14. Export a short preview with `export_video` when an encoder is available; if export is unavailable, record the reason in notes.
 15. Save with `save_project` for file sessions after final revisions.
 
@@ -45,6 +46,7 @@ Use this skill when an agent needs to turn a shot list, storyboard, or timed bri
 - Give each major visual part a clear name in the patch so `read_document_summary` exposes the intended structure.
 - Treat the chosen `conceptPlan.elementPlan` as a completion checklist. A final scene that omits planned accent/density elements without a recorded reason is incomplete.
 - After still renders, use `evaluate_motion_variation`; treat low adjacent-frame variation or persistent one-quadrant/sparse frame coverage as a failed self-check for motion graphics.
+- Numerical motion variation is necessary but not sufficient: planned elements must also be visibly present across representative stills, and text/title elements must be readable before export.
 
 ## Originality Rules
 

@@ -57,6 +57,7 @@ public sealed class ReadDocumentTests
 
         ToolResult<CapabilitySchema> shape = tools.GetSchema(type: "Shape", includeProperties: false);
         ToolResult<CapabilitySchema> text = tools.GetSchema(type: "Text", includeProperties: false);
+        ToolResult<CapabilitySchema> textCategory = tools.GetSchema(category: "text", includeProperties: false);
         ToolResult<CapabilitySchema> transform = tools.GetSchema(type: "Transform", includeProperties: false);
 
         Assert.Multiple(() =>
@@ -66,6 +67,8 @@ public sealed class ReadDocumentTests
             Assert.That(shape.Value.Types.Select(type => type.Type), Does.Contain(typeof(EllipseShape).FullName));
             Assert.That(text.IsSuccess, Is.True, text.Error?.Message);
             Assert.That(text.Value!.Types.Select(type => type.Type), Is.EquivalentTo(new[] { typeof(TextBlock).FullName }));
+            Assert.That(textCategory.IsSuccess, Is.True, textCategory.Error?.Message);
+            Assert.That(textCategory.Value!.Types.Select(type => type.Type), Is.EquivalentTo(new[] { typeof(TextBlock).FullName }));
             Assert.That(transform.IsSuccess, Is.True, transform.Error?.Message);
             Assert.That(transform.Value!.Types.Select(type => type.Type), Does.Contain(typeof(TransformGroup).FullName));
             Assert.That(transform.Value.Types.Select(type => type.Type), Does.Contain(typeof(TranslateTransform).FullName));
@@ -84,10 +87,13 @@ public sealed class ReadDocumentTests
         Assert.Multiple(() =>
         {
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
-            Assert.That(result.Value!.DirectionAxes, Has.Count.GreaterThanOrEqualTo(5));
-            Assert.That(result.Value.ConceptPlans, Has.Count.GreaterThanOrEqualTo(3));
+            Assert.That(result.Value!.DirectionAxes, Has.Count.GreaterThanOrEqualTo(6));
+            Assert.That(result.Value.ConceptPlans, Has.Count.GreaterThanOrEqualTo(6));
             Assert.That(result.Value.ConceptPlans[0].Concept, Is.Not.EqualTo("Projected ink fold"));
             Assert.That(result.Value.ConceptPlans.Select(plan => plan.Concept), Does.Contain("Projected ink fold"));
+            Assert.That(result.Value.ConceptPlans.Select(plan => plan.Concept), Does.Contain("Glass prism clock"));
+            Assert.That(result.Value.ConceptPlans.Select(plan => plan.Concept), Does.Contain("Risograph registration drift"));
+            Assert.That(result.Value.ConceptPlans.Select(plan => plan.Concept), Does.Contain("Ceramic glaze fracture"));
             Assert.That(result.Value.ConceptPlans.SelectMany(plan => plan.Elements), Does.Contain("cropped kinetic title"));
             Assert.That(result.Value.ConceptPlans.SelectMany(plan => plan.ElementPlan).Select(plan => plan.ElementName), Does.Contain("cropped-title"));
             Assert.That(result.Value.ConceptPlans.SelectMany(plan => plan.ElementPlan).Select(plan => plan.SuggestedObject), Does.Contain("TextBlock"));

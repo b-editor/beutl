@@ -79,6 +79,7 @@ public sealed class SchemaGenerator
         bool includeExamples = true)
     {
         TypeRegistration.EnsureRegistered();
+        (typeFilter, categoryFilter) = NormalizeFilters(typeFilter, categoryFilter);
 
         List<TypeDescriptor> types = [];
         foreach ((string category, Type type) in EnumerateRegisteredTypes().DistinctBy(item => (item.Category, item.Type)))
@@ -150,12 +151,14 @@ public sealed class SchemaGenerator
         string? nameFilter = null)
     {
         TypeRegistration.EnsureRegistered();
+        (typeFilter, categoryFilter) = NormalizeFilters(typeFilter, categoryFilter);
         return CreateExamples(typeFilter, categoryFilter, nameFilter);
     }
 
     public IReadOnlyList<DeclarativeExampleSummary> ListExamples(string? typeFilter = null, string? categoryFilter = null)
     {
         TypeRegistration.EnsureRegistered();
+        (typeFilter, categoryFilter) = NormalizeFilters(typeFilter, categoryFilter);
         return s_exampleSpecs.Value
             .Where(spec => ExampleMatches(spec, typeFilter, categoryFilter, nameFilter: null))
             .Select(spec => new DeclarativeExampleSummary(
@@ -1019,8 +1022,7 @@ public sealed class SchemaGenerator
 
     private static bool ExampleMatches(ExampleSpec spec, string? typeFilter, string? categoryFilter, string? nameFilter)
     {
-        bool typeMatches = string.IsNullOrWhiteSpace(typeFilter)
-                           || spec.TypeTokens.Contains(typeFilter, StringComparer.Ordinal);
+        bool typeMatches = ExampleTypeMatches(spec, typeFilter);
         bool categoryMatches = string.IsNullOrWhiteSpace(categoryFilter)
                                || spec.Categories.Any(category => MatchesCategory(categoryFilter, category))
                                || SearchTokens(categoryFilter).Any(token =>
@@ -1031,6 +1033,19 @@ public sealed class SchemaGenerator
                            || string.Equals(spec.Example.Name, nameFilter, StringComparison.OrdinalIgnoreCase);
 
         return typeMatches && categoryMatches && nameMatches;
+    }
+
+    private static bool ExampleTypeMatches(ExampleSpec spec, string? typeFilter)
+    {
+        if (string.IsNullOrWhiteSpace(typeFilter))
+        {
+            return true;
+        }
+
+        string trimmed = typeFilter.Trim();
+        return spec.TypeTokens.Contains(trimmed, StringComparer.Ordinal)
+               || (s_typeAliases.TryGetValue(trimmed, out string[]? aliases)
+                   && aliases.Any(alias => spec.TypeTokens.Contains(alias, StringComparer.Ordinal)));
     }
 
     private static string[] SearchTokens(string? query)
@@ -1932,6 +1947,29 @@ public sealed class SchemaGenerator
 
         string normalizedFilter = NormalizeCategoryToken(categoryFilter);
         return string.Equals(normalizedFilter, NormalizeCategoryToken(category), StringComparison.Ordinal);
+    }
+
+    private static (string? TypeFilter, string? CategoryFilter) NormalizeFilters(string? typeFilter, string? categoryFilter)
+    {
+        if (string.IsNullOrWhiteSpace(typeFilter) && IsTextCategoryAlias(categoryFilter))
+        {
+            return (categoryFilter, null);
+        }
+
+        return (typeFilter, categoryFilter);
+    }
+
+    private static bool IsTextCategoryAlias(string? categoryFilter)
+    {
+        if (string.IsNullOrWhiteSpace(categoryFilter))
+        {
+            return false;
+        }
+
+        string trimmed = categoryFilter.Trim();
+        return string.Equals(trimmed, "text", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(trimmed, "typography", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(trimmed, "label", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string SimplifyCategory(string category)
