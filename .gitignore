@@ -382,6 +382,7 @@ telemetry-data.json
 .claude/logs/
 .claude/.DS_Store
 .claude/.last-self-review
+.agents/.last-self-review
 .claude/worktrees/
 .claude/loop-memory/
 

@@ -1,4 +1,4 @@
-using Beutl.Animation;
+﻿using Beutl.Animation;
 using Beutl.Collections;
 using Beutl.Engine;
 using Beutl.Graphics;
@@ -93,7 +93,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         typography = typography with { TextPlateMismatchCount = textPlateMismatchCount };
         PaletteMetrics palette = AnalyzePalette(objects, issues);
         AnalyzeMaterialUiLook(objects, issues);
-        AnalyzeDesignStructure(scene, objects, issues);
+        AnalyzeDesignStructure(scene, objects, styleProfile, issues);
         MotionContinuityMetrics motion = await AnalyzeMotionAsync(
             scene,
             objects,
@@ -187,8 +187,10 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
     private static void AnalyzeDesignStructure(
         Scene scene,
         IReadOnlyList<SceneObjectInfo> objects,
+        string? styleProfile,
         List<QualityIssue> issues)
     {
+        bool highTempoProfile = IsHighTempoProfile(styleProfile);
         SceneObjectInfo[] textObjects = objects.Where(item => item.Object is TextBlock).ToArray();
         SceneObjectInfo[] dominantTextObjects = textObjects
             .Where(item => item.Object is TextBlock textBlock && textBlock.Size.CurrentValue >= 88)
@@ -214,15 +216,19 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
             int wordCount = CountWords(text);
             int characterCount = text.Count(ch => !char.IsControl(ch) && !char.IsWhiteSpace(ch));
             double durationSeconds = info.Element.Length.TotalSeconds;
+            int maxWords = highTempoProfile && durationSeconds is > 0 and <= 1.75 ? 4 : 7;
+            int maxCharacters = highTempoProfile && durationSeconds is > 0 and <= 1.75 ? 28 : 43;
             if (durationSeconds is > 0 and < 2.0
-                && (wordCount >= 8 || characterCount >= 44))
+                && (wordCount > maxWords || characterCount > maxCharacters))
             {
                 issues.Add(CreateIssue(
                     "typographyReadTime",
                     Major,
                     "A short-lived text element contains more copy than viewers can reliably read.",
                     $"Text '{Shorten(text)}' has {wordCount} words / {characterCount} non-space characters over {durationSeconds:F2}s.",
-                    "Shorten the copy, split it across beats, or keep it on screen longer with a calmer entrance/exit.",
+                    highTempoProfile
+                        ? "For 1.5s kinetic beats, keep hero text to 1-3 words and supporting labels to 2-4 words or compact tokens."
+                        : "Shorten the copy, split it across beats, or keep it on screen longer with a calmer entrance/exit.",
                     info,
                     info.Element.Start.ToString("c")));
             }
@@ -293,7 +299,8 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         int mismatchCount = 0;
         SceneObjectInfo[] plates = objects
             .Where(item => item.Object is RectShape or RoundedRectShape)
-            .Where(item => !IsBackgroundRect(scene, item))
+            .Where(item => !IsBackgroundObject(scene, item))
+            .Where(IsTextBackingPlate)
             .ToArray();
 
         foreach (SceneObjectInfo textInfo in objects.Where(item => item.Object is TextBlock))
@@ -335,7 +342,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
                 Major,
                 "A background plate behind text is not aligned with the text timing or geometry.",
                 $"Center distance {centerDistance:F1}px, plate {plateBounds.Width:F0}x{plateBounds.Height:F0}, text {textBounds.Width:F0}x{textBounds.Height:F0}, matching time range: {sameTime}.",
-                "Pair text and backing plate by name, matching Start/Length, center transform, and at least 12% horizontal plus 18% vertical padding.",
+                "Pair text and backing plate by name or [role:text-backing], matching Start/Length, center transform, and at least 12% horizontal plus 18% vertical padding. Mark decorative rectangles [role:decorative] or use non-rectangular accents so they are not treated as backing plates.",
                 textInfo.Element.Start.ToString("c"),
                 [textInfo.Element.Id.ToString(), backingPlate.Element.Id.ToString()],
                 [textInfo.Object.Id.ToString(), backingPlate.Object.Id.ToString()]));
@@ -625,10 +632,15 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         ObjectBounds bounds = GetBounds(scene, info);
         double sceneArea = Math.Max(1, scene.FrameSize.Width * scene.FrameSize.Height);
         double rectArea = bounds.Width * bounds.Height;
+        if (HasRole(info, "background", "surface", "backdrop", "field"))
+        {
+            return true;
+        }
+
         return rectArea >= sceneArea * 0.72
                || info.Element.ZIndex <= 1
-               || ContainsAny(info.Element.Name, "background", "plate", "field", "backdrop")
-               || ContainsAny(rect.Name, "background", "plate", "field", "backdrop");
+               || ContainsAny(info.Element.Name, "background", "field", "backdrop", "surface")
+               || ContainsAny(rect.Name, "background", "field", "backdrop", "surface");
     }
 
     private static bool IsBackgroundObject(Scene scene, SceneObjectInfo info)
@@ -641,10 +653,26 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         ObjectBounds bounds = GetBounds(scene, info);
         double sceneArea = Math.Max(1, scene.FrameSize.Width * scene.FrameSize.Height);
         double objectArea = bounds.Width * bounds.Height;
+        if (HasRole(info, "background", "surface", "backdrop", "field"))
+        {
+            return true;
+        }
+
         return objectArea >= sceneArea * 0.72
                || info.Element.ZIndex <= 1
-               || ContainsAny(info.Element.Name, "background", "plate", "field", "backdrop", "surface")
-               || ContainsAny(info.Object.Name, "background", "plate", "field", "backdrop", "surface");
+               || ContainsAny(info.Element.Name, "background", "field", "backdrop", "surface")
+               || ContainsAny(info.Object.Name, "background", "field", "backdrop", "surface");
+    }
+
+    private static bool IsTextBackingPlate(SceneObjectInfo info)
+    {
+        if (HasRole(info, "text-backing", "backing", "caption-backing", "label-backing"))
+        {
+            return true;
+        }
+
+        return ContainsAny(info.Element.Name, "text backing", "title backing", "caption backing", "label backing", "backing plate")
+               || ContainsAny(info.Object.Name, "text backing", "title backing", "caption backing", "label backing", "backing plate");
     }
 
     private static bool HasHeavyCardEffects(EngineObject obj)
@@ -923,6 +951,30 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
     {
         return !string.IsNullOrWhiteSpace(value)
                && tokens.Any(token => value.Contains(token, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool HasRole(SceneObjectInfo info, params string[] roles)
+    {
+        return roles.Any(role => HasRole(info.Element.Name, role) || HasRole(info.Object.Name, role));
+    }
+
+    private static bool HasRole(string? value, string role)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        string normalizedValue = value.Replace('_', '-');
+        string normalizedRole = role.Replace('_', '-');
+        return normalizedValue.Contains($"[role:{normalizedRole}]", StringComparison.OrdinalIgnoreCase)
+               || normalizedValue.Contains($"role:{normalizedRole}", StringComparison.OrdinalIgnoreCase)
+               || normalizedValue.Contains($"role={normalizedRole}", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsHighTempoProfile(string? styleProfile)
+    {
+        return ContainsAny(styleProfile, "kinetic", "high-tempo", "fast", "promo", "1.5", "120", "140");
     }
 
     private static bool HueIn(Color color, double start, double end)

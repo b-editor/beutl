@@ -48,6 +48,9 @@ public sealed class ToolSurfaceTests
                 "render_still",
                 "evaluate_motion_variation",
                 "evaluate_edit_quality",
+                "preview_quality_risks",
+                "suggest_quality_fixes",
+                "final_preflight",
                 "export_video"
             }));
             Assert.That(names, Does.Not.Contain("add_keyframe"));
