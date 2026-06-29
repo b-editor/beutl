@@ -52,6 +52,10 @@ public sealed class RenderStillTests
             Assert.That(new FileInfo(output).Length, Is.GreaterThan(0));
             Assert.That(result.Width, Is.EqualTo(160));
             Assert.That(result.Height, Is.EqualTo(90));
+            Assert.That(result.VisibilityAnalysis, Is.Not.Null);
+            Assert.That(result.VisibilityAnalysis!.TotalPixels, Is.EqualTo(160 * 90));
+            Assert.That(result.ActiveElements, Has.Count.EqualTo(1));
+            Assert.That(result.ActiveElements![0].ObjectCount, Is.GreaterThanOrEqualTo(1));
             if (drawable is CpuSafeDrawable.Shape or CpuSafeDrawable.Text or CpuSafeDrawable.SkslRuntimeShader)
             {
                 Assert.That(result.Warnings, Is.Empty);
@@ -78,6 +82,29 @@ public sealed class RenderStillTests
             Assert.That(File.Exists(output), Is.True);
             Assert.That(result.Warnings, Has.Some.Contains("near-black"));
             Assert.That(result.Warnings, Has.Some.Contains("read_document_summary"));
+            Assert.That(result.VisibilityAnalysis!.VisiblePixelRatio, Is.LessThan(0.005));
+            Assert.That(result.ActiveElements, Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task Render_still_warns_when_foreground_is_confined_to_one_quadrant()
+    {
+        string dir = CreateWorkspace();
+        string output = Path.Combine(dir, "confined.png");
+        Scene scene = CreateConfinedChangingScene(dir);
+
+        var renderer = new StillRenderer();
+        RenderStillResponse result = await renderer.RenderAsync(scene, TimeSpan.FromSeconds(0.5), output, 1, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.Exists(output), Is.True);
+            Assert.That(result.Warnings, Has.Some.Contains("single-quadrant"));
+            Assert.That(result.VisibilityAnalysis!.ForegroundPixelRatio, Is.GreaterThan(0));
+            Assert.That(result.VisibilityAnalysis.OccupiedBoundsRatio, Is.LessThan(0.12));
+            Assert.That(result.VisibilityAnalysis.MaxQuadrantForegroundRatio, Is.GreaterThanOrEqualTo(0.90));
+            Assert.That(result.ActiveElements, Has.Count.EqualTo(1));
         });
     }
 

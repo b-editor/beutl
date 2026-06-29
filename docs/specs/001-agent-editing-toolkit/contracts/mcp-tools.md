@@ -22,8 +22,8 @@ Return the Capability/Schema Descriptor (FR-006/FR-022), including reusable decl
 ### `list_creative_directions`
 Return inspiration material for original motion graphics without returning a complete scene recipe.
 - **Input**: `{ "brief"?: string }`.
-- **Output**: `{ "schemaVersion": string, "directionAxes": string[], "inspirationSeeds": [ { name, category, evokes, transformations, usefulTools } ], "combinationRules": string[], "originalityConstraints": string[], "variationPrompts": string[], "overusedMotifs": string[], "workflowHints": string[], "selectionHint": string }`.
-- **Use when**: a vague or no-context creative brief needs inspiration before authoring. Agents must synthesize a new pitch from at least two returned seeds, create their own element/object names, and treat the returned names as raw inspiration rather than a completion checklist.
+- **Output**: `{ "schemaVersion": string, "directionAxes": string[], "inspirationSeeds": [ { name, category, evokes, transformations, usefulTools } ], "combinationRules": string[], "originalityConstraints": string[], "variationPrompts": string[], "overusedMotifs": string[], "workflowHints": string[], "selectionHint": string, "selectionTrace": { requestIndex, baseOffset, appliedOffset, seedMaterial, returnedSeedOrder, recordHint } }`.
+- **Use when**: a vague or no-context creative brief needs inspiration before authoring. Agents must synthesize a new pitch from at least two returned seeds, create their own element/object names, and treat the returned names as raw inspiration rather than a completion checklist. `selectionTrace` makes the seeded rotation auditable; agents should record the trace and chosen seed names/categories in their working notes before editing.
 
 ### `list_examples`
 Return compact example metadata without large patch payloads.
@@ -142,7 +142,7 @@ Element, property, transform, geometry, pen, brush, visual effect, audio effect,
 ### `render_still`
 Render one frame to an image without the GUI (FR-016).
 - **Input**: `{ "outputPath": string, "timeSeconds"?: number, "renderScale"?: number, "confirmOverwrite"?: bool }` (write — **guarded**). Bare filenames are written under `agent-output/`; explicit relative directories and absolute in-workspace paths are preserved.
-- **Output**: `{ "outputPath": string, "width": number, "height": number, "time": string, "warnings": string[] }`. `warnings` includes blank/near-black frame diagnostics so agents can revise before export.
+- **Output**: `{ "outputPath": string, "width": number, "height": number, "time": string, "warnings": string[], "visibilityAnalysis": { totalPixels, visiblePixels, visiblePixelRatio, foregroundPixels, foregroundPixelRatio, occupiedBoundsRatio, maxQuadrantForegroundRatio, left, top, right, bottom, minLuma, maxLuma, meanLuma, lumaStandardDeviation, backgroundLuma, visibilityThreshold, foregroundDeltaThreshold, warnings }, "activeElements": [ { id, name, start, length, zIndex, objectCount } ] }`. `warnings` includes blank/near-black, very low contrast, and small single-quadrant foreground diagnostics so agents can revise before export. `activeElements` reports enabled elements whose ranges include the rendered time.
 - **Errors**: `no_active_editor_session`, `workspace_boundary`, `destructive_intent`, `rendering_unavailable` (typed — content needs a GPU absent on the host, FR-018).
 - **Backed by**: `SceneRenderer`→`Renderer.Snapshot`→`Bitmap.Save` on `RenderThread.Dispatcher`.
 
