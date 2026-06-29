@@ -20,7 +20,7 @@ Use this skill when an agent needs to turn a shot list, storyboard, or timed bri
    - Stdio/headless: `create_project` or `open_project` with a `.bep` project path. Paths without an extension are normalized to `.bep`; `.beutl` is reserved for exported project packages.
    - Live editor: `attach_active_editor`.
 4. If live attach fails and the task allows headless output, switch to the stdio/headless `create_project` route rather than creating a custom generator.
-5. When an output directory is requested, create/update `notes.md` there before the first edit and after every `plan_edit`, `apply_edit`, `save_project`, `render_still`, `evaluate_motion_variation`, and `export_video` result. Record success/failure, change count or verdict/path, and the next action.
+5. When an output directory is requested, create/update `notes.md` there before the first edit and after every `plan_edit`, `apply_edit`, `save_project`, `render_still`, `evaluate_motion_variation`, and `export_video` result. Record success/failure, change count or verdict/path, and the next action. While drafting a large patch before the next tool call, append a short heartbeat note every few minutes with the current stage and blocker risk.
 6. Call `read_document` and keep the returned `schemaVersion`.
 7. Build the timeline as a declarative document:
    - Use PascalCase property names exactly as returned by `get_schema`.
@@ -28,13 +28,14 @@ Use this skill when an agent needs to turn a shot list, storyboard, or timed bri
    - Omit `Id` only for genuinely new elements/objects so the toolkit can mint one.
    - When adding new `Objects` to an existing `Element`, keep the parent `Element.Id` and omit `Id` on each new Object.
    - Keep element `Start`, `Length`, and layer/Z values consistent with the shot list.
-8. Call `plan_edit`, inspect the change set and validation outcomes, and keep the returned `expectedChangeSet` array unchanged for application.
-9. Call `apply_edit` with the same `schemaVersion` and the exact `expectedChangeSet` array from the accepted plan. Do not replace it with a count, label, or shorthand.
+8. Call `plan_edit`, inspect the change count and validation outcomes, and keep either the returned `planId` or the returned `expectedChangeSet` for application. For multi-element motion graphics, plan/apply/save in small stages that map to the selected concept's element plan; do not start with one huge full-scene patch.
+9. Call `apply_edit` with the returned `planId` when present, especially when inline `changes` or `expectedChangeSet` are omitted. If using `expectedChangeSet`, pass the exact array from the accepted plan. Do not replace it with a count, label, or shorthand.
 10. For file sessions, call `save_project` after every successful major `apply_edit` before continuing to the next stage.
-11. Verify with `read_document`, then `render_still` at representative shot boundaries.
-12. Run `evaluate_motion_variation` across 4-6 samples. If it reports `low-motion-variation` or `poor-frame-coverage`, revise the edit before exporting.
-13. Export a short preview with `export_video` when an encoder is available; if export is unavailable, record the reason in notes.
-14. Save with `save_project` for file sessions after final revisions.
+11. Verify with `read_document_summary`. If a selected `conceptPlan` had an `elementPlan`, compare every expected element name/role against the actual elements and revise before rendering unless the omission is recorded with a concrete reason.
+12. Verify with `render_still` at representative shot boundaries.
+13. Run `evaluate_motion_variation` across 4-6 samples. If it reports `low-motion-variation` or `poor-frame-coverage`, revise the edit before exporting.
+14. Export a short preview with `export_video` when an encoder is available; if export is unavailable, record the reason in notes.
+15. Save with `save_project` for file sessions after final revisions.
 
 ## Motion Graphics Quality Bar
 
@@ -42,6 +43,7 @@ Use this skill when an agent needs to turn a shot list, storyboard, or timed bri
 - Animate multiple property families across the piece, such as transform, opacity, brush/gradient, effect parameters, and text spacing. Do not rely only on X movement plus opacity.
 - Maintain visual density: use layered background, foreground motion, accents, and typography/labels. A lone title over one moving shape is too sparse unless the brief asks for minimalism.
 - Give each major visual part a clear name in the patch so `read_document_summary` exposes the intended structure.
+- Treat the chosen `conceptPlan.elementPlan` as a completion checklist. A final scene that omits planned accent/density elements without a recorded reason is incomplete.
 - After still renders, use `evaluate_motion_variation`; treat low adjacent-frame variation or persistent one-quadrant/sparse frame coverage as a failed self-check for motion graphics.
 
 ## Originality Rules
@@ -70,6 +72,7 @@ Use this skill when an agent needs to turn a shot list, storyboard, or timed bri
 ## Progress Watchdog
 
 - Keep `notes.md` granular enough for another observer to reconstruct the route: every plan, apply, save, render, evaluate, export, validation failure, and route change gets an entry.
+- During long patch authoring between tool calls, update `notes.md` before the three-minute mark with a heartbeat such as `drafting stage N patch; next tool: plan_edit`; if you cannot do that, stop and report a blocker.
 - If no tool success, saved project artifact, render/export artifact, or notes update happens for about three minutes while editing, stop and report the blocker/status instead of silently continuing.
 
 ## Safety Rules

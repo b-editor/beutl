@@ -34,7 +34,23 @@ public sealed class SchemaGenerator
         ["roundedrectangle"] = [nameof(RoundedRectShape)],
         ["roundedrect"] = [nameof(RoundedRectShape)],
         ["circle"] = [nameof(EllipseShape)],
-        ["ellipse"] = [nameof(EllipseShape)]
+        ["ellipse"] = [nameof(EllipseShape)],
+        ["transform"] = [nameof(TransformGroup), nameof(TranslateTransform), nameof(RotationTransform), nameof(ScaleTransform), nameof(SkewTransform), nameof(MatrixTransform), nameof(Rotation3DTransform)],
+        ["transforms"] = [nameof(TransformGroup), nameof(TranslateTransform), nameof(RotationTransform), nameof(ScaleTransform), nameof(SkewTransform), nameof(MatrixTransform), nameof(Rotation3DTransform)],
+        ["transformgroup"] = [nameof(TransformGroup)],
+        ["grouptransform"] = [nameof(TransformGroup)],
+        ["translate"] = [nameof(TranslateTransform)],
+        ["translation"] = [nameof(TranslateTransform)],
+        ["translatetransform"] = [nameof(TranslateTransform)],
+        ["rotate"] = [nameof(RotationTransform)],
+        ["rotation"] = [nameof(RotationTransform)],
+        ["rotationtransform"] = [nameof(RotationTransform)],
+        ["scale"] = [nameof(ScaleTransform)],
+        ["scaletransform"] = [nameof(ScaleTransform)],
+        ["skew"] = [nameof(SkewTransform)],
+        ["skewtransform"] = [nameof(SkewTransform)],
+        ["matrix"] = [nameof(MatrixTransform)],
+        ["matrixtransform"] = [nameof(MatrixTransform)]
     };
 
     private static readonly string[] s_formats =

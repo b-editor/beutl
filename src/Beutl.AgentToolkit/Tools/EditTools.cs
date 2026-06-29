@@ -61,29 +61,42 @@ internal sealed record ResolvedEdit(JsonObject Document, HashSet<Guid> KnownNewI
 [McpServerToolType]
 public sealed class EditTools(AgentSessionManager sessions) : ToolBase
 {
+    private const int DefaultPlanDetailMaxJsonLength = 12000;
     private readonly Reconciler _reconciler = new();
     private readonly CompositionTemplateCatalog _compositionCatalog = new();
 
     [McpServerTool(Name = "plan_edit")]
-    [Description("Dry-runs a declarative edit without mutating the session. In the in-app host, call attach_active_editor first. Supply exactly one of desired or patch; prefer patch for targeted edits. Pass the returned expectedChangeSet JSON array to apply_edit exactly as returned; do not summarize, shorten, or rewrite the entries.")]
+    [Description("Dry-runs a declarative edit without mutating the session. In the in-app host, call attach_active_editor first. Supply exactly one of desired or patch; prefer patch for targeted edits. The response includes planId; prefer apply_edit(planId) for large plans so you do not need to copy expectedChangeSet. If expectedChangeSet is returned, pass it to apply_edit exactly as returned; do not summarize, shorten, or rewrite the entries.")]
     public ToolResult<ReconcilePlan> PlanEdit(
         [Description("Full desired declarative document. Uses PascalCase properties, $type discriminators, stable Id fields, typed properties for transforms/geometry/pens/brushes/effects, Animations.<Property>.KeyFrames for keyframes, and schemaVersion. Full desired documents are authoritative: omitted child arrays such as Elements or Objects can delete existing content, so use patch for partial edits.")]
         JsonObject? desired = null,
         [Description("JSON Merge Patch. Objects follow RFC 7396; Id-bearing arrays such as Elements, Objects, GradientStops, transform/effect Children, audio effect Children, and KeyFrames are merged by Id. Omit Id to insert; use {Id,$delete:true} to delete; use $index/$after/$before to reorder non-keyframe arrays. Unmentioned siblings are preserved.")]
         JsonObject? patch = null,
         [Description("Declarative document schema version. Required for patch; for desired, pass it here or include schemaVersion in the document. Mismatches are rejected instead of silently dropping content.")]
-        string? schemaVersion = null)
+        string? schemaVersion = null,
+        [Description("Include detailed change entries in the tool response when compactness allows. Defaults to true; large plans may still omit details and require planId.")]
+        bool includeDetailedChanges = true,
+        [Description("Include expectedChangeSet in the tool response when compactness allows. Defaults to true; large plans may still omit it and require planId.")]
+        bool includeExpectedChangeSet = true,
+        [Description("Maximum expectedChangeSet JSON length to return inline. Larger plans keep full parity in planId storage and omit inline details.")]
+        int maxDetailedJsonLength = DefaultPlanDetailMaxJsonLength)
     {
         return Execute(() =>
         {
             IEditingSession session = sessions.RequireSession();
             ResolvedEdit resolved = ResolveDesiredDocument(session, desired, patch, schemaVersion);
-            return _reconciler.Plan(session, resolved.Document, resolved.KnownNewIds);
+            ReconcilePlan plan = _reconciler.Plan(session, resolved.Document, resolved.KnownNewIds);
+            return StoreEditPlan(
+                resolved,
+                plan,
+                includeDetailedChanges,
+                includeExpectedChangeSet,
+                maxDetailedJsonLength);
         });
     }
 
     [McpServerTool(Name = "apply_edit")]
-    [Description("Atomically applies a declarative desired document or JSON Merge Patch through Beutl history. In the in-app host, call attach_active_editor first. Pass plan_edit.expectedChangeSet exactly as returned to guarantee plan/apply parity; shorthand summaries are rejected. For file-backed sessions, call save_project after each major successful apply_edit. The response is compact by default: appliedChangeSet plus createdIds for follow-up edits. Set includeDocument=true only when you need the full updated document.")]
+    [Description("Atomically applies a declarative desired document, JSON Merge Patch, or stored plan_edit planId through Beutl history. In the in-app host, call attach_active_editor first. Prefer planId from plan_edit for large edits; otherwise pass plan_edit.expectedChangeSet exactly as returned to guarantee plan/apply parity. Shorthand summaries are rejected. For file-backed sessions, call save_project after each major successful apply_edit. The response is compact by default: appliedChangeSet plus createdIds for follow-up edits. Set includeDocument=true only when you need the full updated document.")]
     public ToolResult<ApplyEditResponse> ApplyEdit(
         [Description("Full desired declarative document. Uses PascalCase properties, $type discriminators, stable Id fields, typed properties for transforms/geometry/pens/brushes/effects, Animations.<Property>.KeyFrames for keyframes, and schemaVersion. Full desired documents are authoritative: omitted child arrays such as Elements or Objects can delete existing content, so use patch for partial edits.")]
         JsonObject? desired = null,
@@ -91,6 +104,8 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
         JsonObject? patch = null,
         [Description("Declarative document schema version. Required for patch; for desired, pass it here or include schemaVersion in the document. Mismatches are rejected instead of silently dropping content.")]
         string? schemaVersion = null,
+        [Description("Optional plan id returned by plan_edit. When supplied, omit desired, patch, schemaVersion, and expectedChangeSet; apply_edit rechecks the stored plan before applying.")]
+        string? planId = null,
         [Description("Optional JSON array returned by plan_edit.expectedChangeSet. Pass it unchanged; do not pass a count, label, or summarized shorthand. apply_edit rejects the edit if the live computed change set differs.")]
         JsonNode? expectedChangeSet = null,
         [Description("Return the full updated document. Defaults to false to keep apply_edit responses compact; prefer createdIds or read_document_summary for follow-up edits.")]
@@ -99,6 +114,35 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
         return Execute(() =>
         {
             IEditingSession session = sessions.RequireSession();
+            if (!string.IsNullOrWhiteSpace(planId))
+            {
+                if (desired is not null || patch is not null || schemaVersion is not null || expectedChangeSet is not null)
+                {
+                    throw new ReconcileException(new ToolError(
+                        ErrorCode.ValidationRejected,
+                        "planId cannot be combined with desired, patch, schemaVersion, or expectedChangeSet.",
+                        nameof(planId),
+                        "Call apply_edit with only planId and optional includeDocument, or run plan_edit again for a new desired/patch."));
+                }
+
+                EditPlanState state = sessions.GetEditPlan(planId.Trim());
+                HashSet<Guid> knownNewIds = state.KnownNewIds.ToHashSet();
+                JsonObject desiredDocument = (JsonObject)state.DesiredDocument.DeepClone();
+                ReconcilePlan storedPlan = _reconciler.Plan(session, desiredDocument, knownNewIds);
+                if (!ChangeSetMatches(storedPlan, state.ExpectedChangeSet))
+                {
+                    throw new ReconcileException(new ToolError(
+                        ErrorCode.ValidationRejected,
+                        "The live change set differs from the stored planId.",
+                        planId,
+                        "Run plan_edit again and pass the new planId."));
+                }
+
+                ReconcileResult storedResult = _reconciler.Apply(session, desiredDocument, knownNewIds);
+                sessions.RemoveEditPlan(state.Id);
+                return CreateApplyEditResponse(storedResult, includeDocument);
+            }
+
             ResolvedEdit resolved = ResolveDesiredDocument(session, desired, patch, schemaVersion);
             ReconcilePlan plan = _reconciler.Plan(session, resolved.Document, resolved.KnownNewIds);
             JsonArray? normalizedExpectedChangeSet = NormalizeExpectedChangeSet(expectedChangeSet);
@@ -235,6 +279,36 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
                 null,
                 result);
         });
+    }
+
+    private ReconcilePlan StoreEditPlan(
+        ResolvedEdit resolved,
+        ReconcilePlan plan,
+        bool includeDetailedChanges,
+        bool includeExpectedChangeSet,
+        int maxDetailedJsonLength)
+    {
+        JsonArray expectedChangeSet = plan.ExpectedChangeSet;
+        EditPlanState state = sessions.StoreEditPlan(
+            resolved.Document,
+            expectedChangeSet,
+            resolved.KnownNewIds);
+        int expectedChangeSetJsonLength = expectedChangeSet.ToJsonString().Length;
+        bool isCompact = expectedChangeSetJsonLength > Math.Max(0, maxDetailedJsonLength);
+        bool includeDetails = includeDetailedChanges && !isCompact;
+        bool includeExpected = includeExpectedChangeSet && !isCompact;
+        string usageHint = isCompact
+            ? $"Pass planId '{state.Id}' to apply_edit. Inline changes and expectedChangeSet were omitted because the expectedChangeSet JSON length ({expectedChangeSetJsonLength}) exceeds maxDetailedJsonLength ({maxDetailedJsonLength}). For observable progress, split large scenes into smaller plan/apply/save stages when you need to inspect each step."
+            : $"Pass planId '{state.Id}' to apply_edit, or pass expectedChangeSet exactly as returned. For multi-element scenes, prefer smaller plan/apply/save stages so tool responses remain inspectable.";
+
+        return plan with
+        {
+            PlanId = state.Id,
+            UsageHint = usageHint,
+            DetailedChangesIncluded = includeDetails,
+            DetailedValidationIncluded = includeDetails,
+            ExpectedChangeSetIncluded = includeExpected
+        };
     }
 
     private static ResolvedEdit ResolveDesiredDocument(

@@ -57,6 +57,7 @@ public sealed class ReadDocumentTests
 
         ToolResult<CapabilitySchema> shape = tools.GetSchema(type: "Shape", includeProperties: false);
         ToolResult<CapabilitySchema> text = tools.GetSchema(type: "Text", includeProperties: false);
+        ToolResult<CapabilitySchema> transform = tools.GetSchema(type: "Transform", includeProperties: false);
 
         Assert.Multiple(() =>
         {
@@ -65,6 +66,11 @@ public sealed class ReadDocumentTests
             Assert.That(shape.Value.Types.Select(type => type.Type), Does.Contain(typeof(EllipseShape).FullName));
             Assert.That(text.IsSuccess, Is.True, text.Error?.Message);
             Assert.That(text.Value!.Types.Select(type => type.Type), Is.EquivalentTo(new[] { typeof(TextBlock).FullName }));
+            Assert.That(transform.IsSuccess, Is.True, transform.Error?.Message);
+            Assert.That(transform.Value!.Types.Select(type => type.Type), Does.Contain(typeof(TransformGroup).FullName));
+            Assert.That(transform.Value.Types.Select(type => type.Type), Does.Contain(typeof(TranslateTransform).FullName));
+            Assert.That(transform.Value.Types.Select(type => type.Type), Does.Contain(typeof(RotationTransform).FullName));
+            Assert.That(transform.Value.Types.Select(type => type.Type), Does.Contain(typeof(ScaleTransform).FullName));
         });
     }
 
