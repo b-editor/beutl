@@ -6,7 +6,7 @@ Use this checklist to validate the packaged Skills and Subagents without reading
 
 Create a 10-second 1920x1080 project from this brief:
 
-- 0.0-3.0 s: full-frame dark rectangle background and centered title text.
+- 0.0-3.0 s: full-frame background plate and centered mixed-case title text.
 - 3.0-7.0 s: title moves to the top-left; add a second text caption.
 - 7.0-10.0 s: keep the background, fade the caption out, and show a simple logo shape bottom-right.
 - Apply a consistent look: subtle blur or shadow on text and a warm color adjustment where supported by the runtime schema.
@@ -21,11 +21,14 @@ Create a 10-second 1920x1080 project from this brief:
 ## Pass Criteria
 
 - The agent uses `get_schema` before relying on effect/drawable properties.
-- The agent creates or attaches a session, calls `read_document`, then uses `plan_edit` before `apply_edit`.
+- The agent creates or attaches a session, calls `read_document`, then uses `apply_edit`.
 - The final document uses PascalCase property keys.
 - Existing id-keyed arrays are patched by `Id`; new objects omit `Id` only when they are genuinely new.
+- The agent records `textCasePlan`, `shapeBudget`, `paletteRoles`, `textPlatePlan`, `motionContinuityPlan`, and `verificationSamples` before authoring.
 - The project saves under `BEUTL_WORKSPACE`.
-- At least two still frames are rendered for verification.
+- At least three still frames are rendered for verification.
+- `evaluate_motion_variation` is run on representative samples.
+- `evaluate_edit_quality.passesQualityGate` is `true`; no critical or major issue remains unless explicitly accepted in notes.
 - The project can be reopened by Beutl.
 - The end-to-end task completes within 15 minutes.
 

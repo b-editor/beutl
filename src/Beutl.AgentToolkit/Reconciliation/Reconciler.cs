@@ -245,7 +245,7 @@ public sealed class Reconciler
                 ErrorCode.ValidationRejected,
                 $"Desired document could not be applied in the validation sandbox: {ex.Message}",
                 null,
-                "Call get_schema for the concrete type, then retry plan_edit with the serialized property shapes returned by the schema."));
+                "Call get_schema for the concrete type, then retry apply_edit with the serialized property shapes returned by the schema."));
         }
 
         if (FindFirstNewFallback(sandboxRoot, "$", existingFallbackIds) is { } occurrence)
@@ -643,7 +643,7 @@ public sealed class Reconciler
             {
                 object? value = valueNode is null
                     ? null
-                    : CoreSerializer.DeserializeFromJsonNode(valueNode.DeepClone(), coreProperty.PropertyType);
+                    : EnumJsonValueNormalizer.Deserialize(valueNode, coreProperty.PropertyType);
                 validation.Add(ValidationEvaluator.Evaluate(target, coreProperty, value));
                 return;
             }
@@ -653,7 +653,7 @@ public sealed class Reconciler
             {
                 object? value = valueNode is null
                     ? null
-                    : CoreSerializer.DeserializeFromJsonNode(valueNode.DeepClone(), engineProperty.ValueType);
+                    : EnumJsonValueNormalizer.Deserialize(valueNode, engineProperty.ValueType);
                 validation.Add(ValidationEvaluator.Evaluate(engineProperty, value));
             }
         }

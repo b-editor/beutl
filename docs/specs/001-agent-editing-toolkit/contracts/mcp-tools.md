@@ -2,7 +2,7 @@
 
 The toolkit exposes its capabilities as MCP tools (declared with `[McpServerTool]`, registered explicitly with `WithTools<T>()`). Tool inputs/outputs are JSON; `plan`/`apply` return typed records (structured output). Every tool returns either a success payload or a **typed, machine-readable error** (FR-014) — never a silent failure. Errors use a stable `code` (e.g. `workspace_boundary`, `validation_rejected`, `media_not_found`, `unknown_type`, `stale_handle`, `rendering_unavailable`, `codec_unavailable`, `schema_version_mismatch`, `no_active_editor_session`).
 
-This is **declarative editing first** (FR-027): `read_document` + `plan_edit` + `apply_edit` are the public editing loop. Project/session lifecycle and render/export remain separate tools; structural, property, effect, and keyframe edits are expressed through the declarative document or merge patch.
+This is **declarative editing first** (FR-027): `read_document` + `apply_edit` are the public editing loop. Project/session lifecycle and render/export remain separate tools; structural, property, effect, and keyframe edits are expressed through the declarative document or merge patch.
 
 ## Discovery
 
@@ -22,7 +22,7 @@ Return the Capability/Schema Descriptor (FR-006/FR-022), including reusable decl
 ### `list_creative_directions`
 Return inspiration material for original motion graphics without returning a complete scene recipe.
 - **Input**: `{ "brief"?: string }`.
-- **Output**: `{ "schemaVersion": string, "directionAxes": string[], "inspirationSeeds": [ { name, category, evokes, transformations, usefulTools } ], "combinationRules": string[], "originalityConstraints": string[], "variationPrompts": string[], "overusedMotifs": string[], "workflowHints": string[], "selectionHint": string, "selectionTrace": { requestIndex, baseOffset, appliedOffset, seedMaterial, returnedSeedOrder, recordHint } }`.
+- **Output**: `{ "schemaVersion": string, "directionAxes": string[], "inspirationSeeds": [ { name, category, evokes, transformations, usefulTools } ], "combinationRules": string[], "originalityConstraints": string[], "variationPrompts": string[], "overusedMotifs": string[], "workflowHints": string[], "styleGuardrails": string[], "paletteGuidelines": string[], "typographyGuidelines": string[], "motionGuidelines": string[], "selectionHint": string, "selectionTrace": { requestIndex, baseOffset, appliedOffset, seedMaterial, returnedSeedOrder, recordHint } }`.
 - **Use when**: a vague or no-context creative brief needs inspiration before authoring. Agents must synthesize a new pitch from at least two returned seeds, create their own element/object names, and treat the returned names as raw inspiration rather than a completion checklist. `selectionTrace` makes the seeded rotation auditable; agents should record the trace and chosen seed names/categories in their working notes before editing.
 
 ### `list_examples`
@@ -53,7 +53,7 @@ Return one Remotion-style composition contract.
 ### `render_composition_patch`
 Materialize a Remotion-style composition into a declarative Beutl JSON Merge Patch.
 - **Input**: `{ "name"?: string, "tag"?: string, "inputProps"?: object, "seed"?: string }`. Pass `name` for an explicit template, or omit it and pass `tag` to pick the first seed-shuffled match. `inputProps` override `defaultProps`; metadata is calculated from props such as `width`, `height`, `fps`, and `durationSeconds`.
-- **Output**: `{ "schemaVersion": string, "composition": { name, seed, inputProps, resolvedProps, metadata, sequences, transitions, patch }, "usageHint": string }`. The same `name`/`inputProps`/`seed` returns the same patch; a different seed changes seeded layout, colors, noise dots, and motion offsets. `patch` is directly consumable by `plan_edit` / `apply_edit`.
+- **Output**: `{ "schemaVersion": string, "composition": { name, seed, inputProps, resolvedProps, metadata, sequences, transitions, patch }, "usageHint": string }`. The same `name`/`inputProps`/`seed` returns the same patch; a different seed changes seeded layout, colors, noise dots, and motion offsets. `patch` is directly consumable by `apply_edit`.
 - **Use when**: an agent explicitly needs the generated JSON patch. Prefer `plan_composition` / `apply_composition` for raw HTTP or low-context agents because those tools avoid returning the large patch payload.
 - **Errors**: `unknown_type`.
 
@@ -105,13 +105,6 @@ Add a scene to an existing project (FR-002) — a project-level, file-level oper
 
 ## Declarative edit (the primary loop)
 
-### `plan_edit`
-Dry-run a declarative change; **does not mutate** (FR-030).
-- **Input**: an envelope `{ "schemaVersion"?: string, "desired"?: <full document>, "patch"?: <merge-patch> }` — supply exactly one of `desired`/`patch`. The `patch` is **RFC 7396 for objects + id-keyed merge for `Id`-bearing arrays**, with optional member directives `$delete` / `$index` / `$after` / `$before` (mutually exclusive); the full rules are in [contracts/declarative-document.md](./declarative-document.md) §2 and are surfaced in the tool's input description. `schemaVersion` is required for `patch`; for `desired`, either pass it separately or include `schemaVersion` in the document. The edit targets the current session's active Scene.
-- **Output**: `{ "changeSet": [ { op, targetId, propertyPath?, index?, oldValue?, newValue?, validation } ], "expectedChangeSet": [ ...same shape... ], "valid": bool }` where `validation` ∈ `ok` | `coerced` (with clamped value+range) | `rejected` (with reason). `expectedChangeSet` is intentionally shaped for direct reuse in `apply_edit`.
-- **Errors**: `no_active_editor_session`, `validation_rejected` (including payloads that would deserialize to fallback placeholder objects), `schema_version_mismatch`, `stale_handle`.
-- **Backed by**: reconcile on a deep clone (research §3); introspect operations (`IUpdatePropertyValueOperation`, collection ops).
-
 ### `plan_composition`
 Dry-run a Remotion-style composition without returning a huge patch.
 - **Input**: `{ "name"?: string, "tag"?: string, "inputProps"?: object, "seed"?: string }`. Arguments match `render_composition_patch`, but the generated patch stays server-side.
@@ -121,8 +114,8 @@ Dry-run a Remotion-style composition without returning a huge patch.
 
 ### `apply_edit`
 Commit a declarative change atomically and undoably (FR-007/FR-012/FR-015/FR-028/FR-029).
-- **Input**: same as `plan_edit`, plus `"expectedChangeSet"?` (optional — pass `plan_edit.expectedChangeSet`; reject if the live diff diverges, guaranteeing SC-009 plan↔apply parity).
-- **Output**: `{ "plan": { "changes": [ ... ], "validation": [ ... ], "valid": bool, "expectedChangeSet": [ ... ] }, "document": <updated declarative JSON> }`. The returned document includes toolkit-minted Ids for new nodes; agents should use it, or call `read_document`, before follow-up edits.
+- **Input**: an envelope `{ "schemaVersion"?: string, "desired"?: <full document>, "patch"?: <merge-patch>, "includeDocument"?: bool }` — supply exactly one of `desired`/`patch`. The `patch` is **RFC 7396 for objects + id-keyed merge for `Id`-bearing arrays**, with optional member directives `$delete` / `$index` / `$after` / `$before` (mutually exclusive); the full rules are in [contracts/declarative-document.md](./declarative-document.md) §2 and are surfaced in the tool's input description. `schemaVersion` is required for `patch`; for `desired`, either pass it separately or include `schemaVersion` in the document. The edit targets the current session's active Scene.
+- **Output**: `{ "valid": bool, "changes": [ ... ], "validation": [ ... ], "appliedChangeSet": [ ... ], "createdIds": [ { id, path, type?, name? } ], "document"?: <updated declarative JSON> }`. `document` is returned only when `includeDocument=true`; otherwise agents should use `createdIds`, `read_document_summary`, or `read_document` before follow-up edits that need newly minted `Id` values.
 - **Errors**: `no_active_editor_session`, `validation_rejected` (whole batch rolled back), `stale_handle`, `schema_version_mismatch`.
 - **Backed by**: reconcile on the live root inside `HistoryManager.ExecuteInTransaction` (commits on success, **rolls back on any mid-reconcile exception** — a bare `Commit` would leave partial live mutations, breaking FR-012).
 
@@ -135,7 +128,7 @@ Apply a Remotion-style composition atomically without sending the generated patc
 
 ## Editing Surface
 
-Element, property, transform, geometry, pen, brush, visual effect, audio effect, structure, and keyframe changes are edited through the declarative `plan_edit` / `apply_edit` document surface. Keyframes live under `Animations.<Property>.KeyFrames`; brushes are assigned to properties such as `Fill` and carry nested `GradientStops`; filter effects are assigned through `FilterEffect` / `FilterEffect.Children`; audio effects are assigned through `Effect` / `AudioEffectGroup.Children`; transforms, geometry, and pens are ordinary typed properties. Additions, updates, deletes, and easing or nested-object changes participate in the same id-keyed diff and plan/apply parity checks as the rest of the document. Targeted changes should use `patch`; full `desired` documents are authoritative and can delete omitted child arrays such as `Elements` or `Objects`. There are no public imperative edit tools for keyframes, properties, elements, effects, undo, or redo; undo/redo stays on the editor/session history used by Beutl itself.
+Element, property, transform, geometry, pen, brush, visual effect, audio effect, structure, and keyframe changes are edited through the declarative `apply_edit` document surface. Keyframes live under `Animations.<Property>.KeyFrames`; brushes are assigned to properties such as `Fill` and carry nested `GradientStops`; filter effects are assigned through `FilterEffect` / `FilterEffect.Children`; audio effects are assigned through `Effect` / `AudioEffectGroup.Children`; transforms, geometry, and pens are ordinary typed properties. Targeted changes should use `patch`; full `desired` documents are authoritative and can delete omitted child arrays such as `Elements` or `Objects`. There are no public imperative edit tools for keyframes, properties, elements, effects, undo, or redo; undo/redo stays on the editor/session history used by Beutl itself.
 
 ## Render & export
 
@@ -145,6 +138,14 @@ Render one frame to an image without the GUI (FR-016).
 - **Output**: `{ "outputPath": string, "width": number, "height": number, "time": string, "warnings": string[], "visibilityAnalysis": { totalPixels, visiblePixels, visiblePixelRatio, foregroundPixels, foregroundPixelRatio, occupiedBoundsRatio, maxQuadrantForegroundRatio, left, top, right, bottom, minLuma, maxLuma, meanLuma, lumaStandardDeviation, backgroundLuma, visibilityThreshold, foregroundDeltaThreshold, warnings }, "activeElements": [ { id, name, start, length, zIndex, objectCount } ] }`. `warnings` includes blank/near-black, very low contrast, and small single-quadrant foreground diagnostics so agents can revise before export. `activeElements` reports enabled elements whose ranges include the rendered time.
 - **Errors**: `no_active_editor_session`, `workspace_boundary`, `destructive_intent`, `rendering_unavailable` (typed — content needs a GPU absent on the host, FR-018).
 - **Backed by**: `SceneRenderer`→`Renderer.Snapshot`→`Bitmap.Save` on `RenderThread.Dispatcher`.
+
+### `evaluate_edit_quality`
+Review the current scene for deterministic AI-editing quality risks before final export.
+- **Input**: `{ "timeSeconds"?: number[], "sampleCount"?: number, "renderScale"?: number, "styleProfile"?: string, "allowAllCaps"?: bool, "allowHardCuts"?: bool, "allowRectDominance"?: bool }`. When `timeSeconds` is omitted, the tool samples evenly across the scene duration.
+- **Output**: `{ "passesQualityGate": bool, "verdict": string, "issues": [ { "category": "typography|shapeDiversity|textBackgroundFit|paletteHarmony|materialUiLook|motionContinuity|cutRhythm", "severity": "critical|major|minor", "message": string, "evidence": string, "suggestedFix": string, "time"?: string, "elementIds": string[], "objectIds": string[] } ], "metrics": { "typography": { ... }, "shapeDiversity": { ... }, "palette": { ... }, "motionContinuity": { ... } }, "reviewNotes": string[] }`.
+- **Use when**: after `render_still` and `evaluate_motion_variation`, and before `export_video`. Critical or major issues block normal export unless the user explicitly accepts them.
+- **Detects**: long all-caps text, excessive tracking, foreground `RectShape` dominance, misaligned text backing plates, dark teal/cyan/magenta or oversaturated palettes, outdated card/shadow/blur styling, low rendered motion variation, and unmotivated hard-cut rhythm.
+- **Backed by**: deterministic document, color, geometry, and rendered-motion heuristics; no OCR or generative image judging.
 
 ### `export_video`
 Export a range/timeline to a video file (FR-017).
@@ -159,6 +160,6 @@ Export a range/timeline to a video file (FR-017).
 - **Atomicity**: `apply_edit` commits as exactly one undoable transaction; a mid-batch failure rolls back wholly (FR-012).
 - **Validation surfaced**: coercion/rejection is always reported in the result, never silently applied (FR-007).
 - **Stable handles**: all `*Id` are `CoreObject.Id` Guids, valid for the session; a removed or unknown update target ⇒ `stale_handle` (FR-011). `stale_handle` responses include a hint to omit `Id` for creation and to reuse Ids from `apply_edit.document` or `read_document` for updates.
-- **Determinism**: `plan_edit` predicts `apply_edit` exactly (SC-009); pass `expectedChangeSet` to enforce it.
-- **Scene-rooted scope**: `plan_edit`/`apply_edit` operate on a **Scene** root (one `HistoryManager`). `create_project`, `save_project`, and scene add/remove + project-variable changes are **project-level, file-level** operations outside any scene's undo stack (data-model §Editing Session). The agent edits one scene at a time through the undoable surface.
-- **Validation is computed, not inferred**: coercion/rejection in a result comes from running the property's validator explicitly (`SetValue` is `void`/coerces silently), so `plan_edit` and `apply_edit` report the same typed outcome (FR-007).
+- **Determinism**: `apply_edit` computes the change set before applying and returns the exact applied change set (SC-009).
+- **Scene-rooted scope**: `apply_edit` operates on a **Scene** root (one `HistoryManager`). `create_project`, `save_project`, and scene add/remove + project-variable changes are **project-level, file-level** operations outside any scene's undo stack (data-model §Editing Session). The agent edits one scene at a time through the undoable surface.
+- **Validation is computed, not inferred**: coercion/rejection in a result comes from running the property's validator explicitly (`SetValue` is `void`/coerces silently), so `apply_edit` reports the typed outcome (FR-007).

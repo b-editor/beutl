@@ -1,21 +1,22 @@
-﻿using System.Text.Json;
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Schema;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
+using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
+using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 
 namespace Beutl.AgentToolkit.Tests.Reconciliation;
 
-public sealed class PlanApplyParityTests
+public sealed class ApplyEditTests
 {
     [Test]
-    public void Patch_plan_matches_apply_and_expected_change_set_is_checked()
+    public void Apply_edit_applies_patch_directly()
     {
         Scene scene = CreateSceneWithElement(out Element element);
         using var session = new AgentToolkitTestSession(scene);
@@ -32,93 +33,41 @@ public sealed class PlanApplyParityTests
             })
         };
 
-        var plan = tools.PlanEdit(patch: patch, schemaVersion: SchemaVersion.Current);
-        JsonArray expected = plan.Value!.ExpectedChangeSet;
-
-        var rejected = tools.ApplyEdit(patch: patch, schemaVersion: SchemaVersion.Current, expectedChangeSet: new JsonArray());
-        var apply = tools.ApplyEdit(patch: patch, schemaVersion: SchemaVersion.Current, expectedChangeSet: expected);
+        ToolResult<ApplyEditResponse> apply = tools.ApplyEdit(patch: patch, schemaVersion: SchemaVersion.Current);
 
         Assert.Multiple(() =>
         {
-            Assert.That(plan.IsSuccess, Is.True);
-            Assert.That(plan.Value!.Valid, Is.True);
-            Assert.That(plan.Value!.ExpectedChangeSet, Has.Count.EqualTo(plan.Value.Changes.Count));
-            Assert.That(apply.IsSuccess, Is.True);
-            Assert.That(apply.Value!.Changes.Select(change => change.Operation), Is.EqualTo(plan.Value!.Changes.Select(change => change.Operation)));
+            Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
+            Assert.That(apply.Value!.Valid, Is.True);
+            Assert.That(apply.Value.AppliedChangeSet, Has.Count.EqualTo(apply.Value.Changes.Count));
             Assert.That(scene.Children.Single().Start, Is.EqualTo(TimeSpan.FromSeconds(3)));
-            Assert.That(rejected.IsSuccess, Is.False);
-            Assert.That(rejected.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
         });
     }
 
     [Test]
-    public void Apply_edit_accepts_stringified_expected_change_set_entries()
+    public void Apply_edit_applies_desired_document_directly()
     {
         Scene scene = CreateSceneWithElement(out Element element);
         using var session = new AgentToolkitTestSession(scene);
         var manager = new AgentSessionManager();
         manager.UseSource(new AgentToolkitTestSessionSource(session));
         var tools = new EditTools(manager);
+        JsonObject desired = session.Documents.Read(session.Root);
+        ((JsonObject)((JsonArray)desired["Elements"]!)[0]!)[nameof(Element.Start)] = TimeSpan.FromSeconds(5).ToString("c");
 
-        JsonObject patch = new()
-        {
-            ["Elements"] = new JsonArray(new JsonObject
-            {
-                [nameof(CoreObject.Id)] = element.Id.ToString(),
-                [nameof(Element.Start)] = TimeSpan.FromSeconds(4).ToString("c")
-            })
-        };
-
-        ToolResult<ReconcilePlan> plan = tools.PlanEdit(patch: patch, schemaVersion: SchemaVersion.Current);
-        JsonArray stringifiedExpectedChangeSet = new(plan.Value!.ExpectedChangeSet
-            .Select(change => JsonValue.Create(change!.ToJsonString()))
-            .ToArray<JsonNode?>());
-        ToolResult<ApplyEditResponse> apply = tools.ApplyEdit(
-            patch: patch,
-            schemaVersion: SchemaVersion.Current,
-            expectedChangeSet: stringifiedExpectedChangeSet);
+        ToolResult<ApplyEditResponse> apply = tools.ApplyEdit(desired: desired, schemaVersion: SchemaVersion.Current);
 
         Assert.Multiple(() =>
         {
-            Assert.That(plan.IsSuccess, Is.True, plan.Error?.Message);
             Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
-            Assert.That(scene.Children.Single().Start, Is.EqualTo(TimeSpan.FromSeconds(4)));
+            Assert.That(apply.Value!.Valid, Is.True);
+            Assert.That(scene.Children.Single().Id, Is.EqualTo(element.Id));
+            Assert.That(scene.Children.Single().Start, Is.EqualTo(TimeSpan.FromSeconds(5)));
         });
     }
 
     [Test]
-    public void Apply_edit_accepts_plan_id_from_plan_edit()
-    {
-        Scene scene = CreateSceneWithElement(out Element element);
-        using var session = new AgentToolkitTestSession(scene);
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
-        var tools = new EditTools(manager);
-
-        JsonObject patch = new()
-        {
-            ["Elements"] = new JsonArray(new JsonObject
-            {
-                [nameof(CoreObject.Id)] = element.Id.ToString(),
-                [nameof(Element.Start)] = TimeSpan.FromSeconds(4.5).ToString("c")
-            })
-        };
-
-        ToolResult<ReconcilePlan> plan = tools.PlanEdit(patch: patch, schemaVersion: SchemaVersion.Current);
-        ToolResult<ApplyEditResponse> apply = tools.ApplyEdit(planId: plan.Value!.PlanId);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(plan.IsSuccess, Is.True, plan.Error?.Message);
-            Assert.That(plan.Value!.PlanId, Is.Not.Null.And.Not.Empty);
-            Assert.That(plan.Value.UsageHint, Does.Contain("planId"));
-            Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
-            Assert.That(scene.Children.Single().Start, Is.EqualTo(TimeSpan.FromSeconds(4.5)));
-        });
-    }
-
-    [Test]
-    public void Plan_edit_rejects_payloads_that_deserialize_to_fallback_objects()
+    public void Apply_edit_rejects_payloads_that_deserialize_to_fallback_objects_without_mutation()
     {
         Scene scene = CreateScene();
         using var session = new AgentToolkitTestSession(scene);
@@ -142,91 +91,17 @@ public sealed class PlanApplyParityTests
             })
         };
 
-        ToolResult<ReconcilePlan> plan = tools.PlanEdit(patch: patch, schemaVersion: SchemaVersion.Current);
+        ToolResult<ApplyEditResponse> apply = tools.ApplyEdit(patch: patch, schemaVersion: SchemaVersion.Current);
 
         Assert.Multiple(() =>
         {
-            Assert.That(plan.IsSuccess, Is.False);
-            Assert.That(plan.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
-            Assert.That(plan.Error.Message, Does.Contain("fallback object"));
-            Assert.That(plan.Error.Target, Does.Contain("Objects[0]"));
-            Assert.That(plan.Error.Hint, Does.Contain("get_schema"));
-            Assert.That(plan.Error.Hint, Does.Contain("Objects require concrete EngineObject discriminators"));
+            Assert.That(apply.IsSuccess, Is.False);
+            Assert.That(apply.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(apply.Error.Message, Does.Contain("fallback object"));
+            Assert.That(apply.Error.Target, Does.Contain("Objects[0]"));
+            Assert.That(apply.Error.Hint, Does.Contain("get_schema"));
+            Assert.That(apply.Error.Hint, Does.Contain("Objects require concrete EngineObject discriminators"));
             Assert.That(scene.Children, Is.Empty);
-        });
-    }
-
-    [Test]
-    public void Large_plan_edit_omits_inline_change_details_but_remains_applyable_by_plan_id()
-    {
-        Scene scene = CreateSceneWithElement(out Element element);
-        using var session = new AgentToolkitTestSession(scene);
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
-        var tools = new EditTools(manager);
-        string longName = new('x', 20_000);
-
-        JsonObject patch = new()
-        {
-            ["Elements"] = new JsonArray(new JsonObject
-            {
-                [nameof(CoreObject.Id)] = element.Id.ToString(),
-                [nameof(CoreObject.Name)] = longName
-            })
-        };
-
-        ToolResult<ReconcilePlan> plan = tools.PlanEdit(patch: patch, schemaVersion: SchemaVersion.Current);
-        string serializedPlan = JsonSerializer.Serialize(plan.Value);
-        ToolResult<ApplyEditResponse> apply = tools.ApplyEdit(planId: plan.Value!.PlanId);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(plan.IsSuccess, Is.True, plan.Error?.Message);
-            Assert.That(plan.Value!.PlanId, Is.Not.Null.And.Not.Empty);
-            Assert.That(plan.Value.DetailedChangesIncluded, Is.False);
-            Assert.That(plan.Value.ExpectedChangeSetIncluded, Is.False);
-            Assert.That(plan.Value.ExpectedChangeSet, Has.Count.EqualTo(1));
-            Assert.That(serializedPlan, Does.Not.Contain("\"changes\""));
-            Assert.That(serializedPlan, Does.Not.Contain("\"expectedChangeSet\""));
-            Assert.That(serializedPlan, Does.Not.Contain(longName));
-            Assert.That(plan.Value.UsageHint, Does.Contain("Pass planId"));
-            Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
-            Assert.That(scene.Children.Single().Name, Is.EqualTo(longName));
-        });
-    }
-
-    [Test]
-    public void Apply_edit_rejects_shorthand_expected_change_set_with_verbatim_hint()
-    {
-        Scene scene = CreateSceneWithElement(out Element element);
-        using var session = new AgentToolkitTestSession(scene);
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
-        var tools = new EditTools(manager);
-
-        JsonObject patch = new()
-        {
-            ["Elements"] = new JsonArray(new JsonObject
-            {
-                [nameof(CoreObject.Id)] = element.Id.ToString(),
-                [nameof(Element.Start)] = TimeSpan.FromSeconds(5).ToString("c")
-            })
-        };
-
-        ToolResult<ReconcilePlan> plan = tools.PlanEdit(patch: patch, schemaVersion: SchemaVersion.Current);
-        ToolResult<ApplyEditResponse> rejected = tools.ApplyEdit(
-            patch: patch,
-            schemaVersion: SchemaVersion.Current,
-            expectedChangeSet: JsonValue.Create($"{plan.Value!.ExpectedChangeSet.Count} changes"));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(plan.IsSuccess, Is.True, plan.Error?.Message);
-            Assert.That(rejected.IsSuccess, Is.False);
-            Assert.That(rejected.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
-            Assert.That(rejected.Error.Message, Does.Contain("not a shorthand summary"));
-            Assert.That(rejected.Error.Hint, Does.Contain("verbatim"));
-            Assert.That(rejected.Error.Hint, Does.Contain("2 changes"));
         });
     }
 
@@ -266,6 +141,94 @@ public sealed class PlanApplyParityTests
             Assert.That(withDocument.IsSuccess, Is.True, withDocument.Error?.Message);
             Assert.That(withDocument.Value!.Document, Is.Not.Null);
             Assert.That(withDocument.Value.Document!.ToJsonString(), Does.Contain("Inserted title"));
+        });
+    }
+
+    [Test]
+    public void Apply_edit_accepts_enum_member_names_and_numeric_strings()
+    {
+        Scene scene = CreateSceneWithElement(out Element element);
+        var text = new TextBlock { Text = { CurrentValue = "Enum title" } };
+        element.AddObject(text);
+        using var session = new AgentToolkitTestSession(scene);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var tools = new EditTools(manager);
+
+        JsonObject patch = new()
+        {
+            ["Elements"] = new JsonArray(new JsonObject
+            {
+                [nameof(CoreObject.Id)] = element.Id.ToString(),
+                [nameof(Element.Objects)] = new JsonArray(new JsonObject
+                {
+                    [nameof(CoreObject.Id)] = text.Id.ToString(),
+                    [nameof(TextBlock.BlendMode)] = "Plus",
+                    [nameof(TextBlock.FontWeight)] = "bold"
+                })
+            })
+        };
+
+        ToolResult<ApplyEditResponse> namedApply = tools.ApplyEdit(patch: patch, schemaVersion: SchemaVersion.Current);
+        BlendMode namedBlendMode = text.BlendMode.CurrentValue;
+        FontWeight namedFontWeight = text.FontWeight.CurrentValue;
+        patch["Elements"] = new JsonArray(new JsonObject
+        {
+            [nameof(CoreObject.Id)] = element.Id.ToString(),
+            [nameof(Element.Objects)] = new JsonArray(new JsonObject
+            {
+                [nameof(CoreObject.Id)] = text.Id.ToString(),
+                [nameof(TextBlock.BlendMode)] = ((int)BlendMode.Screen).ToString(),
+                [nameof(TextBlock.FontWeight)] = ((int)FontWeight.SemiBold).ToString()
+            })
+        });
+        ToolResult<ApplyEditResponse> numericApply = tools.ApplyEdit(patch: patch, schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(namedApply.IsSuccess, Is.True, namedApply.Error?.Message);
+            Assert.That(namedApply.Value!.Valid, Is.True);
+            Assert.That(namedBlendMode, Is.EqualTo(BlendMode.Plus));
+            Assert.That(namedFontWeight, Is.EqualTo(FontWeight.Bold));
+            Assert.That(numericApply.IsSuccess, Is.True, numericApply.Error?.Message);
+            Assert.That(numericApply.Value!.Valid, Is.True);
+            Assert.That(text.BlendMode.CurrentValue, Is.EqualTo(BlendMode.Screen));
+            Assert.That(text.FontWeight.CurrentValue, Is.EqualTo(FontWeight.SemiBold));
+        });
+    }
+
+    [Test]
+    public void Apply_edit_rejects_unknown_enum_member_names()
+    {
+        Scene scene = CreateSceneWithElement(out Element element);
+        var text = new TextBlock { Text = { CurrentValue = "Enum title" } };
+        element.AddObject(text);
+        using var session = new AgentToolkitTestSession(scene);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var tools = new EditTools(manager);
+
+        JsonObject patch = new()
+        {
+            ["Elements"] = new JsonArray(new JsonObject
+            {
+                [nameof(CoreObject.Id)] = element.Id.ToString(),
+                [nameof(Element.Objects)] = new JsonArray(new JsonObject
+                {
+                    [nameof(CoreObject.Id)] = text.Id.ToString(),
+                    [nameof(TextBlock.BlendMode)] = "NotARealMode"
+                })
+            })
+        };
+
+        ToolResult<ApplyEditResponse> apply = tools.ApplyEdit(patch: patch, schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(apply.IsSuccess, Is.False);
+            Assert.That(apply.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(apply.Error.Message, Does.Contain(nameof(TextBlock.BlendMode)));
+            Assert.That(text.BlendMode.CurrentValue, Is.EqualTo(BlendMode.SrcOver));
         });
     }
 

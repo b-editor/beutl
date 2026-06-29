@@ -127,7 +127,7 @@ A partial document with delete semantics:
             "Start": "00:00:00",
             "Length": "00:00:08",
             "Objects": [
-              { "$type": "[Beutl.Engine]Beutl.Graphics.Shapes:TextBlock", "Text": "BEUTL MOTION", "Animations": { "Opacity": "..." } }
+              { "$type": "[Beutl.Engine]Beutl.Graphics.Shapes:TextBlock", "Text": "Beutl motion", "Animations": { "Opacity": "..." } }
             ]
           }
         ]
@@ -159,4 +159,4 @@ A partial document with delete semantics:
 ## Conformance notes
 
 - The document shape an agent writes back **must** be deserializable by the same Beutl runtime version (FR-013); cross-version handling is governed by Beutl's serializer (`schemaVersion` surfaces a mismatch rather than dropping content).
-- Values are validated on apply (`[Range]` coercion etc.); the schema's `range`/`step` let the agent stay in-range proactively, and `plan_edit` reports any coercion before commit.
+- Values are validated on apply (`[Range]` coercion etc.); the schema's `range`/`step` let the agent stay in-range proactively, and `apply_edit` reports any coercion in the applied change result.

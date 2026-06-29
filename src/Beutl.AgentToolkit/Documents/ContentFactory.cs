@@ -66,15 +66,17 @@ public static class ContentFactory
 
     private static EngineObject CreateShape(string? shape)
     {
-        return (shape ?? "rect").Trim().ToLowerInvariant() switch
+        return (shape ?? "roundedRect").Trim().ToLowerInvariant() switch
         {
             "rect" or "rectangle" => new RectShape(),
+            "rectbackground" or "backgroundrect" or "backgroundrectangle" => new RectShape(),
+            "roundedrect" or "roundedrectangle" or "rounded-rect" or "rounded-rectangle" => new RoundedRectShape(),
             "ellipse" => new EllipseShape(),
             _ => throw new ReconcileException(new ToolError(
                 ErrorCode.UnknownType,
                 $"Unsupported shape kind '{shape}'.",
                 shape,
-                "Use rect or ellipse."))
+                "Use roundedRect for foreground plates, ellipse for accents, rectBackground for full-frame background plates, or rect only when a plain geometric rectangle is explicitly intended."))
         };
     }
 

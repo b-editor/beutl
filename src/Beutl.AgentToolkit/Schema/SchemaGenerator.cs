@@ -650,17 +650,39 @@ public sealed class SchemaGenerator
                 ["glow", "depth", "title", "node"],
                 CreateFilterEffectGroup(
                     CreateBlur(5),
-                    CreateDropShadow(0, 0, 22, "#bb43e7ff"),
-                    CreateBrightness(112))),
+                    CreateDropShadow(0, 0, 14, "#66496a74"),
+                    CreateBrightness(106))),
+            CreateEffectRecipe(
+                "soft-paper-depth",
+                "Subtle paper/editorial depth chain that avoids heavy card shadows.",
+                ["paper", "editorial", "subtle", "depth"],
+                CreateFilterEffectGroup(
+                    CreateDropShadow(4, 6, 5, "#33000000"),
+                    CreateBrightness(103))),
+            CreateEffectRecipe(
+                "restrained-warm-grade",
+                "Warm color separation for calmer palettes without neon saturation.",
+                ["color", "grade", "warm", "palette", "restrained"],
+                CreateFilterEffectGroup(
+                    CreateSaturate(108),
+                    CreateHueRotate(-4),
+                    CreateBrightness(104))),
+            CreateEffectRecipe(
+                "fine-film-grain-field",
+                "Fine organic surface recipe for texture when flat vector plates feel sterile.",
+                ["grain", "texture", "organic", "field", "subtle"],
+                CreateFilterEffectGroup(
+                    CreateOrganicShaderEffect(),
+                    CreateBrightness(102))),
             CreateEffectRecipe(
                 "editorial-color-grade",
                 "Color grading chain for stronger palette separation without changing geometry.",
                 ["color", "grade", "editorial", "palette"],
                 CreateFilterEffectGroup(
-                    CreateSaturate(132),
-                    CreateHueRotate(18),
-                    CreateBrightness(108),
-                    CreateHighContrast(14))),
+                    CreateSaturate(114),
+                    CreateHueRotate(8),
+                    CreateBrightness(105),
+                    CreateHighContrast(8))),
             CreateEffectRecipe(
                 "organic-shader-field",
                 "SKSL shader field for organic heat, ink, glass, smoke, grain, or caustic motion that would look flat as stacked gradients alone.",
@@ -1125,7 +1147,7 @@ public sealed class SchemaGenerator
                     {
                         ["$type"] = textType,
                         [nameof(CoreObject.Name)] = "new-text",
-                        [nameof(TextBlock.Text)] = "TITLE"
+                        [nameof(TextBlock.Text)] = "Title"
                     })
                 })
             });
@@ -1183,7 +1205,7 @@ public sealed class SchemaGenerator
             new TextBlock
             {
                 Name = "Hero title",
-                Text = { CurrentValue = "BEUTL MOTION" },
+                Text = { CurrentValue = "Beutl motion" },
                 Size = { CurrentValue = 116 },
                 Spacing = { CurrentValue = 8 },
                 Fill = { CurrentValue = new SolidColorBrush(Colors.White) },
@@ -1375,7 +1397,7 @@ public sealed class SchemaGenerator
             new TextBlock
             {
                 Name = "Orbital title",
-                Text = { CurrentValue = "ORBIT MAP" },
+                Text = { CurrentValue = "Orbit map" },
                 Size = { CurrentValue = 92 },
                 Spacing = { CurrentValue = 10 },
                 Fill = { CurrentValue = new SolidColorBrush(Colors.White) },
@@ -1407,7 +1429,7 @@ public sealed class SchemaGenerator
             new TextBlock
             {
                 Name = "Orbital caption",
-                Text = { CurrentValue = "SIGNAL ROUTES / LIVE DECLARATIVE EDIT" },
+                Text = { CurrentValue = "Signal route notes" },
                 Size = { CurrentValue = 34 },
                 Spacing = { CurrentValue = 5 },
                 Fill = { CurrentValue = new SolidColorBrush(Color.Parse("#ffc9faff")) },
@@ -1537,7 +1559,7 @@ public sealed class SchemaGenerator
             new TextBlock
             {
                 Name = "Stacked headline",
-                Text = { CurrentValue = "FRAME FLOW" },
+                Text = { CurrentValue = "Frame flow" },
                 Size = { CurrentValue = 96 },
                 Spacing = { CurrentValue = 4 },
                 Fill = { CurrentValue = new SolidColorBrush(Color.Parse("#ff081225")) },
@@ -1559,7 +1581,7 @@ public sealed class SchemaGenerator
             new TextBlock
             {
                 Name = "Panel caption",
-                Text = { CurrentValue = "KINETIC LAYOUT / GRADIENT BRUSHES / EFFECT CHAIN" },
+                Text = { CurrentValue = "Kinetic layout notes" },
                 Size = { CurrentValue = 28 },
                 Spacing = { CurrentValue = 3 },
                 Fill = { CurrentValue = new SolidColorBrush(Color.Parse("#ff10223c")) },
@@ -1644,7 +1666,7 @@ public sealed class SchemaGenerator
             new TextBlock
             {
                 Name = "Right label",
-                Text = { CurrentValue = "VARIANT 02" },
+                Text = { CurrentValue = "Variant 02" },
                 Size = { CurrentValue = 54 },
                 Spacing = { CurrentValue = 12 },
                 Fill = { CurrentValue = new SolidColorBrush(Colors.White) },
@@ -1983,7 +2005,8 @@ public sealed class SchemaGenerator
             FindJsonConverter(property, attributes),
             ElementType: property is IListProperty listProperty
                 ? listProperty.ElementType.FullName ?? listProperty.ElementType.Name
-                : null);
+                : null,
+            EnumValues: EnumJsonValueNormalizer.GetEnumNames(property.ValueType));
     }
 
     private static string? FindJsonConverter(IProperty property, Attribute[] attributes)

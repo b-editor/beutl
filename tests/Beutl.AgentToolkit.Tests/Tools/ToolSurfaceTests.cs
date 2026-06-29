@@ -40,18 +40,19 @@ public sealed class ToolSurfaceTests
                 "save_project",
                 "read_document_summary",
                 "read_document",
-                "plan_edit",
                 "apply_edit",
                 "plan_composition",
                 "apply_composition",
                 "render_still",
                 "evaluate_motion_variation",
+                "evaluate_edit_quality",
                 "export_video"
             }));
             Assert.That(names, Does.Not.Contain("add_keyframe"));
             Assert.That(names, Does.Not.Contain("update_keyframe"));
             Assert.That(names, Does.Not.Contain("remove_keyframe"));
             Assert.That(names, Does.Not.Contain("set_property"));
+            Assert.That(names, Does.Not.Contain("plan_edit"));
             Assert.That(names, Does.Not.Contain("undo"));
             Assert.That(names, Does.Not.Contain("redo"));
         });

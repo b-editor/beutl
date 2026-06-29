@@ -22,12 +22,11 @@ public sealed record AttachActiveEditorResponse(string Session, string Source, A
         "Call read_document_summary to observe the scene without pulling the full document.",
         "For vague or no-context motion graphics, call list_creative_directions and synthesize an original pitch from at least two inspiration seeds before authoring.",
         "Call list_effects and list_effect_recipes to discover Beutl visual effects before settling on a repeated look.",
-        "Build original scenes with plan_edit/apply_edit; call list_compositions only when the user explicitly asks for a template, starter, or named composition style.",
+        "Build original scenes with apply_edit; call list_compositions only when the user explicitly asks for a template, starter, or named composition style.",
         "Call list_examples to choose a compact declarative snippet only when you need a targeted patch.",
         "Call get_schema with includeProperties/includeExamples filters for detailed discovery.",
         "Call read_document when you need the normalized declarative scene.",
-        "Call plan_edit with a patch or desired document.",
-        "Call apply_edit with plan_edit.expectedChangeSet.",
+        "Call apply_edit with a patch or desired document.",
         "Use apply_edit.createdIds or read_document to get new Ids before follow-up edits.",
         "Use render_still, evaluate_motion_variation, and export_video for workspace outputs."
     ];
@@ -40,7 +39,7 @@ public sealed class AgentHostTools(
     AgentSessionManager sessions) : ToolBase
 {
     [McpServerTool(Name = "attach_active_editor")]
-    [Description("Attaches the toolkit to the active editor tab so read_document, plan_edit, apply_edit, render_still, and export_video can operate on the live scene and history.")]
+    [Description("Attaches the toolkit to the active editor tab so read_document, apply_edit, render_still, and export_video can operate on the live scene and history.")]
     public ToolResult<AttachActiveEditorResponse> AttachActiveEditor()
     {
         return Execute(() =>

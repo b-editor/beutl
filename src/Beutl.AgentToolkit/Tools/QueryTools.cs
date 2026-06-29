@@ -74,6 +74,10 @@ public sealed record CreativeDirectionResponse(
     IReadOnlyList<string> VariationPrompts,
     IReadOnlyList<string> OverusedMotifs,
     IReadOnlyList<string> WorkflowHints,
+    IReadOnlyList<string> StyleGuardrails,
+    IReadOnlyList<string> PaletteGuidelines,
+    IReadOnlyList<string> TypographyGuidelines,
+    IReadOnlyList<string> MotionGuidelines,
     string SelectionHint,
     CreativeDirectionSelectionTrace? SelectionTrace = null);
 
@@ -148,15 +152,14 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 "For unconstrained creative briefs, keep project/video/still basenames neutral and record the synthesized pitch in notes instead of filenames.",
                 "New timeline Elements need '$type': '[Beutl.ProjectSystem]:Element'. Existing Elements keep Id; genuinely new Elements and Objects omit Id. If you need structure only, fetch the targeted insert-new-element-skeleton example instead of a full-scene starter.",
                 "Animation KeyFrame times are scene timeline times in serialized toolkit patches. For Elements with nonzero Start, set keyframes to scene times that intersect the frames you will render.",
-                "Call plan_edit with the custom patch and schemaVersion=1.",
-                "Call apply_edit with plan_edit.planId when present, especially for large edits. Otherwise pass plan_edit.expectedChangeSet exactly as returned; do not summarize or rewrite the array.",
+                "Call apply_edit with the custom patch and schemaVersion=1.",
                 "For file-backed sessions, call save_project after each major successful apply_edit so partial progress is durable.",
                 "For synthesized creative pitches, verify read_document_summary contains your own planned element names before rendering or exporting.",
                 "Use list_compositions, get_composition, and plan_composition only when the user explicitly asks for a reusable template, starter, or named composition style.",
                 "When using a composition template, call list_compositions, choose a specific returned name that matches the user's request, then pass that name to plan_composition and apply_composition with the returned planId.",
                 "Use render_composition_patch only when the client explicitly needs the generated template patch JSON.",
                 "Call list_examples/get_examples for small schema snippets or as a fallback when a user asks for an example; full-scene starters are hidden by default.",
-                "Call render_still for representative frames, record planned-element visibility/readability plus layer density/contrast, then evaluate_motion_variation to check temporal change before export_video."
+                "Call render_still for representative frames, record planned-element visibility/readability plus layer density/contrast, run evaluate_motion_variation, then run evaluate_edit_quality and resolve critical/major issues before export_video."
             ],
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
@@ -244,7 +247,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                     "Do not default to the first returned seed. Compare at least two seeds, reject seeds close to your last output, and synthesize a new pitch before authoring.",
                     "Record the seed names/categories and your new pitch in notes before creating elements.",
                     "Map your synthesized pitch to named Element/Object entries before writing a patch.",
-                    "Plan/apply/save in small stages that follow your own scene plan; avoid one huge full-scene patch because large expectedChangeSet payloads may be omitted in favor of planId.",
+                    "Apply/save in small stages that follow your own scene plan; avoid one huge full-scene patch when staged progress is easier to inspect.",
                     "After read_document_summary, compare actual element names with your own scene plan and revise missing planned parts before rendering.",
                     "For unconstrained briefs, keep project/video/still basenames neutral instead of naming files after a returned seed or synthesized pitch.",
                     "After rendering stills, record which planned elements are visible/readable in each still, plus whether each development/resolution frame has at least three visible layer types and readable text contrast; revise if it does not.",
@@ -252,9 +255,33 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                     "For organic abstract pitches, consider SKSLScriptEffect from list_effect_recipes(intent: 'shader organic') and verify the shader with render_still before export.",
                     "Use scene-time KeyFrame values that intersect sampled still/video frames, especially for Elements with nonzero Start offsets.",
                     "Name the synthesized pitch in any notes or output summary before creating elements.",
-                    "Use list_effects/list_effect_recipes for available effects, then build the scene with plan_edit/apply_edit.",
+                    "Use list_effects/list_effect_recipes for available effects, then build the scene with apply_edit.",
                     "Keep full-scene examples and composition templates for explicit template/starter requests only.",
                     "Verify at least three stills, run evaluate_motion_variation, and export a short video preview when the encoder is available."
+                ],
+                [
+                    "Do not default to all-caps title locks; use Title Case or sentence case unless the brief explicitly asks for an all-caps mark.",
+                    "Use RectShape primarily for full-frame plates or deliberately plain geometry. Prefer RoundedRectShape, EllipseShape, GeometryShape, media, strokes, or procedural texture for foreground structure.",
+                    "Avoid repeated card surfaces with heavy shadows or blur; use flatter editorial plates, texture, line work, masks, or subtle depth instead.",
+                    "When placing a backing plate behind text, create a named text/backing pair with matching Start/Length, centered transforms, and clear padding."
+                ],
+                [
+                    "Assign explicit roles before authoring: background, text, accent, support, and shadow.",
+                    "Use a neutral or muted base plus one saturated accent; avoid dark teal with cyan and magenta unless the user asks for that specific look.",
+                    "Keep text and backing plates separated by luma, not just hue.",
+                    "If three or more colors are highly saturated, mute at least one support color before exporting."
+                ],
+                [
+                    "Use mixed case for titles and captions by default.",
+                    "Keep letter spacing modest; reserve wide tracking for one short label only.",
+                    "Do not use slash-delimited technical captions as filler copy.",
+                    "Check text readability in render_still and evaluate_edit_quality, especially when a backing plate is present."
+                ],
+                [
+                    "Plan at least three phases: reveal, development, and resolution.",
+                    "Bridge shot boundaries with overlap, opacity, transform continuation, or an intentional beat; avoid repeated unmotivated hard cuts.",
+                    "Animate more than one property family across the piece.",
+                    "After still checks, run evaluate_motion_variation and evaluate_edit_quality; do not export while critical or major issues remain."
                 ],
                 selectionHint,
                 selectionTrace);
@@ -302,7 +329,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 OrderExamples(Shuffle(examples)),
                 includeStarters
                     ? "Starter examples are included because includeStarters=true. Use get_examples with a specific name and adapt the structure to the brief."
-                    : "Full-scene starters are hidden by default. Use examples as small snippets; for original briefs, call list_creative_directions, synthesize a pitch, and author a custom patch with plan_edit/apply_edit.");
+                    : "Full-scene starters are hidden by default. Use examples as small snippets; for original briefs, call list_creative_directions, synthesize a pitch, and author a custom patch for apply_edit.");
         });
     }
 
@@ -337,7 +364,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
         return Execute(() => new ListEffectRecipesResponse(
             SchemaVersion.Current,
             _schemaGenerator.ListEffectRecipes(intent),
-            "Call get_effect_recipe with a recipe name, then apply the returned patch through plan_edit/apply_edit after replacing placeholder element/drawable Ids."));
+            "Call get_effect_recipe with a recipe name, then apply the returned patch through apply_edit after replacing placeholder element/drawable Ids."));
     }
 
     [McpServerTool(Name = "get_effect_recipe")]
@@ -347,7 +374,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
         return Execute(() => new GetEffectRecipeResponse(
             SchemaVersion.Current,
             _schemaGenerator.GetEffectRecipe(name, intent),
-            "Replace <element-id> and <drawable-id> with Ids from read_document/read_document_summary, then pass recipe.patch to plan_edit/apply_edit with schemaVersion=1."));
+            "Replace <element-id> and <drawable-id> with Ids from read_document/read_document_summary, then pass recipe.patch to apply_edit with schemaVersion=1."));
     }
 
     [McpServerTool(Name = "list_compositions")]
@@ -374,7 +401,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 previewOnly,
                 previewOnly
                     ? "This list is a pre-attach preview. Open/create a Beutl project, call attach_active_editor, then call list_compositions again before choosing a named template. The first previewed composition is deprioritized after attach."
-                    : "Compositions are shuffled by seed, then recently applied or pre-attach previewed names are moved to the end when avoidRecent=true. Use a specific returned name only when the user explicitly asked for a template/starter; original creative briefs should use custom plan_edit/apply_edit patches. Explicitly selecting an avoided name is rejected unless avoidRecent=false.");
+                    : "Compositions are shuffled by seed, then recently applied or pre-attach previewed names are moved to the end when avoidRecent=true. Use a specific returned name only when the user explicitly asked for a template/starter; original creative briefs should use custom apply_edit patches. Explicitly selecting an avoided name is rejected unless avoidRecent=false.");
         });
     }
 
@@ -408,7 +435,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                     sessions.ResolveCompositionSeed(seed),
                     avoidRecent ? sessions.GetAvoidedCompositions() : null,
                     EnforceFirstSelection(name, avoidRecent)),
-                "Pass composition.patch to plan_edit/apply_edit with schemaVersion=1. Use the returned seed to reproduce or intentionally vary this named template.");
+                "Pass composition.patch to apply_edit with schemaVersion=1. Use the returned seed to reproduce or intentionally vary this named template.");
         });
     }
 
@@ -428,7 +455,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
             ErrorCode.ValidationRejected,
             "Composition templates require an explicit template name.",
             null,
-            "Call list_compositions to inspect options, then pass a returned name only when the user explicitly asked for a reusable template/starter. For original creative briefs, author a custom patch with plan_edit/apply_edit."));
+            "Call list_compositions to inspect options, then pass a returned name only when the user explicitly asked for a reusable template/starter. For original creative briefs, author a custom patch for apply_edit."));
     }
 
     private static T[] Shuffle<T>(IReadOnlyList<T> source)

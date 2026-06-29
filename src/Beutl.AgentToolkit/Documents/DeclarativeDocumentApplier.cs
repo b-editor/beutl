@@ -42,7 +42,9 @@ internal sealed class DeclarativeDocumentApplier
                 ApplyKeyFrame(keyFrame, desired);
                 break;
             default:
-                CoreSerializer.PopulateFromJsonObject(target, target.GetType(), desired, CreateOptions(target));
+                JsonObject payload = (JsonObject)desired.DeepClone();
+                NormalizeRegisteredPropertyValues(target, payload);
+                CoreSerializer.PopulateFromJsonObject(target, target.GetType(), payload, CreateOptions(target));
                 break;
         }
     }
@@ -93,6 +95,7 @@ internal sealed class DeclarativeDocumentApplier
     {
         JsonObject payload = (JsonObject)desired.DeepClone();
         payload.Remove(nameof(Element.Objects));
+        NormalizeRegisteredPropertyValues(element, payload);
 
         CoreSerializer.PopulateFromJsonObject(element, element.GetType(), payload, CreateOptions(element));
 
@@ -117,6 +120,8 @@ internal sealed class DeclarativeDocumentApplier
             payload.Remove(listProperty.Name);
         }
 
+        NormalizeRegisteredPropertyValues(target, payload);
+        NormalizeEnginePropertyValues(target, payload);
         CoreSerializer.PopulateFromJsonObject(target, target.GetType(), payload, CreateOptions(target));
         ApplyListProperties(target, desired);
         ApplyAnimations(target, desired);
@@ -127,6 +132,7 @@ internal sealed class DeclarativeDocumentApplier
     {
         JsonObject payload = (JsonObject)desired.DeepClone();
         payload.Remove(nameof(KeyFrameAnimation.KeyFrames));
+        NormalizeRegisteredPropertyValues(animation, payload);
 
         CoreSerializer.PopulateFromJsonObject(animation, animation.GetType(), payload, CreateOptions(animation));
 
@@ -157,7 +163,7 @@ internal sealed class DeclarativeDocumentApplier
         {
             keyFrame.Value = valueNode is null
                 ? null
-                : CoreSerializer.DeserializeFromJsonNode(valueNode.DeepClone(), valueProperty.PropertyType, CreateOptions(keyFrameObject));
+                : EnumJsonValueNormalizer.Deserialize(valueNode, valueProperty.PropertyType, CreateOptions(keyFrameObject));
         }
 
         if (desired.TryGetPropertyValue(nameof(KeyFrame.Easing), out JsonNode? easingNode) && easingNode is not null)
@@ -186,8 +192,32 @@ internal sealed class DeclarativeDocumentApplier
 
             object? value = valueNode is null
                 ? null
-                : CoreSerializer.DeserializeFromJsonNode(valueNode.DeepClone(), property.PropertyType, CreateOptions(target));
+                : EnumJsonValueNormalizer.Deserialize(valueNode, property.PropertyType, CreateOptions(target));
             target.SetValue(property, value);
+        }
+    }
+
+    private static void NormalizeRegisteredPropertyValues(CoreObject target, JsonObject payload)
+    {
+        foreach (CoreProperty property in PropertyRegistry.GetRegistered(target.GetType()))
+        {
+            NormalizePropertyValue(payload, property.Name, property.PropertyType);
+        }
+    }
+
+    private static void NormalizeEnginePropertyValues(EngineObject target, JsonObject payload)
+    {
+        foreach (IProperty property in target.Properties)
+        {
+            NormalizePropertyValue(payload, property.Name, property.ValueType);
+        }
+    }
+
+    private static void NormalizePropertyValue(JsonObject payload, string propertyName, Type valueType)
+    {
+        if (payload.TryGetPropertyValue(propertyName, out JsonNode? valueNode) && valueNode is not null)
+        {
+            payload[propertyName] = EnumJsonValueNormalizer.Normalize(valueNode, valueType);
         }
     }
 
@@ -260,7 +290,7 @@ internal sealed class DeclarativeDocumentApplier
         else
         {
             var animation = (IAnimation)CoreSerializer.DeserializeFromJsonObject(
-                animationJson,
+                NormalizeCoreSerializableJson(animationJson, typeof(IAnimation)),
                 typeof(IAnimation),
                 CreateOptions(property.GetOwnerObject()));
             if (animation.ValueType != property.ValueType)
@@ -342,7 +372,7 @@ internal sealed class DeclarativeDocumentApplier
             else
             {
                 item = (CoreObject)CoreSerializer.DeserializeFromJsonObject(
-                    itemJson,
+                    NormalizeCoreSerializableJson(itemJson, elementBaseType),
                     elementBaseType,
                     CreateOptions(null));
             }
@@ -387,7 +417,7 @@ internal sealed class DeclarativeDocumentApplier
             else
             {
                 item = (CoreObject)CoreSerializer.DeserializeFromJsonObject(
-                    itemJson,
+                    NormalizeCoreSerializableJson(itemJson, typeof(IKeyFrame)),
                     typeof(IKeyFrame),
                     CreateOptions(null));
                 list.Add((IKeyFrame)item, out _);
@@ -417,10 +447,56 @@ internal sealed class DeclarativeDocumentApplier
             }
 
             object? item = node is JsonObject obj && typeof(ICoreSerializable).IsAssignableFrom(elementBaseType)
-                ? CoreSerializer.DeserializeFromJsonObject(obj, elementBaseType, CreateOptions(null))
-                : CoreSerializer.DeserializeFromJsonNode(node.DeepClone(), elementBaseType, CreateOptions(null));
+                ? CoreSerializer.DeserializeFromJsonObject(
+                    NormalizeCoreSerializableJson(obj, elementBaseType),
+                    elementBaseType,
+                    CreateOptions(null))
+                : EnumJsonValueNormalizer.Deserialize(node, elementBaseType, CreateOptions(null));
             list.Add(item);
         }
+    }
+
+    private static JsonObject NormalizeCoreSerializableJson(JsonObject json, Type baseType)
+    {
+        JsonObject normalized = (JsonObject)EnumJsonValueNormalizer.Normalize(json, baseType);
+        Type? actualType = baseType.IsSealed ? baseType : normalized.GetDiscriminator(baseType);
+        if (actualType is null)
+        {
+            return normalized;
+        }
+
+        if (typeof(Scene).IsAssignableFrom(actualType))
+        {
+            NormalizeIdentityArray(normalized, nameof(Scene.Children), typeof(Element));
+        }
+        else if (typeof(Element).IsAssignableFrom(actualType))
+        {
+            NormalizeIdentityArray(normalized, nameof(Element.Objects), typeof(EngineObject));
+        }
+        else if (typeof(KeyFrameAnimation).IsAssignableFrom(actualType))
+        {
+            NormalizeIdentityArray(normalized, nameof(KeyFrameAnimation.KeyFrames), typeof(IKeyFrame));
+        }
+
+        return normalized;
+    }
+
+    private static void NormalizeIdentityArray(JsonObject obj, string propertyName, Type elementBaseType)
+    {
+        if (!obj.TryGetPropertyValue(propertyName, out JsonNode? node) || node is not JsonArray array)
+        {
+            return;
+        }
+
+        var normalizedArray = new JsonArray();
+        foreach (JsonNode? item in array)
+        {
+            normalizedArray.Add(item is JsonObject child
+                ? NormalizeCoreSerializableJson(child, elementBaseType)
+                : item?.DeepClone());
+        }
+
+        obj[propertyName] = normalizedArray;
     }
 
     private static void AssignNewElementUri(Scene scene, Element element)
