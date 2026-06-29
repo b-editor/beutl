@@ -81,7 +81,9 @@ public sealed class Reconciler
         {
             throw new ReconcileException(new ToolError(
                 ErrorCode.ValidationRejected,
-                rejected.Message ?? "Validation rejected the requested value."));
+                rejected.Message ?? "Validation rejected the requested value.",
+                null,
+                rejected.Hint));
         }
 
         return new ReconcilePlan(changes, validation);
@@ -419,7 +421,7 @@ public sealed class Reconciler
 
     private static string CreateFallbackHint(FallbackOccurrence occurrence)
     {
-        string baseHint = "Call get_schema for the exact drawable/effect/brush/transform type and use the discriminator and PascalCase property names it returns. Timeline Elements use '$type': '[Beutl.ProjectSystem]:Element', but Objects require concrete EngineObject discriminators from get_schema.";
+        string baseHint = "Call get_schema for the exact drawable/effect/brush/transform/pen/animation type and use the discriminator and PascalCase property names it returns. Timeline Elements use '$type': '[Beutl.ProjectSystem]:Element'. Objects require concrete EngineObject discriminators from get_schema; typed property values such as Pen, Brush, Transform, Effect, and Animation also require concrete schema-returned object shapes.";
         if (!string.IsNullOrWhiteSpace(occurrence.Message))
         {
             return $"{baseHint} Deserialization error: {occurrence.Message}";
@@ -659,8 +661,24 @@ public sealed class Reconciler
         }
         catch (Exception ex)
         {
-            validation.Add(ValidationOutcome.Rejected(null, $"{propertyName}: {ex.Message}"));
+            Type? targetType = ResolvePropertyType(target, propertyName);
+            validation.Add(ValidationOutcome.Rejected(
+                null,
+                $"{propertyName}: {ex.Message}",
+                targetType is null ? null : ValidationEvaluator.CreateValueHint(targetType)));
         }
+    }
+
+    private static Type? ResolvePropertyType(CoreObject target, string propertyName)
+    {
+        if (PropertyRegistry.FindRegistered(target, propertyName) is { } coreProperty)
+        {
+            return coreProperty.PropertyType;
+        }
+
+        return target is EngineObject engineObject
+            ? engineObject.Properties.FirstOrDefault(p => p.Name == propertyName)?.ValueType
+            : null;
     }
 
     private static bool ShouldSkip(string propertyName)

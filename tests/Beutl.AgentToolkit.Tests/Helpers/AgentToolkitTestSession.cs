@@ -9,7 +9,7 @@ internal sealed class AgentToolkitTestSession : IEditingSession, IDisposable
 {
     private readonly RecordingPipeline _recording;
 
-    public AgentToolkitTestSession(CoreObject root)
+    public AgentToolkitTestSession(CoreObject root, EditingSessionSource source = EditingSessionSource.File)
     {
         if (root is Scene { Uri: null } scene)
         {
@@ -19,12 +19,13 @@ internal sealed class AgentToolkitTestSession : IEditingSession, IDisposable
         }
 
         Root = root;
+        Source = source;
         _recording = RecordingPipeline.Create(root);
     }
 
     public string SessionId { get; } = Guid.NewGuid().ToString("N");
 
-    public EditingSessionSource Source => EditingSessionSource.File;
+    public EditingSessionSource Source { get; }
 
     public CoreObject Root { get; }
 

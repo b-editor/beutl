@@ -63,7 +63,8 @@ public sealed record PropertyDescriptor(
     double? Step = null,
     string? Converter = null,
     string? ElementType = null,
-    IReadOnlyList<string>? EnumValues = null);
+    IReadOnlyList<string>? EnumValues = null,
+    string? UsageHint = null);
 
 public sealed record DisplayDescriptor(string? Name, string? Description, string? GroupName);
 

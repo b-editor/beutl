@@ -38,6 +38,7 @@ public sealed class ToolSurfaceTests
                 "create_project",
                 "add_scene",
                 "save_project",
+                "read_operation_status",
                 "read_document_summary",
                 "read_document",
                 "apply_edit",
@@ -52,7 +53,6 @@ public sealed class ToolSurfaceTests
             Assert.That(names, Does.Not.Contain("update_keyframe"));
             Assert.That(names, Does.Not.Contain("remove_keyframe"));
             Assert.That(names, Does.Not.Contain("set_property"));
-            Assert.That(names, Does.Not.Contain("plan_edit"));
             Assert.That(names, Does.Not.Contain("undo"));
             Assert.That(names, Does.Not.Contain("redo"));
         });

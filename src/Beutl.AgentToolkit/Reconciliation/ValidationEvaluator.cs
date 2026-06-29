@@ -1,4 +1,6 @@
-﻿using Beutl.Engine;
+﻿using System.Text.Json.Serialization;
+using Beutl.Engine;
+using Beutl.Media;
 using Beutl.Validation;
 
 namespace Beutl.AgentToolkit.Reconciliation;
@@ -14,7 +16,9 @@ public sealed record ValidationOutcome(
     ValidationStatus Status,
     object? OriginalValue,
     object? CoercedValue,
-    string? Message)
+    string? Message,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    string? Hint = null)
 {
     public static ValidationOutcome Ok(object? value)
     {
@@ -26,9 +30,9 @@ public sealed record ValidationOutcome(
         return new ValidationOutcome(ValidationStatus.Coerced, original, coerced, null);
     }
 
-    public static ValidationOutcome Rejected(object? original, string message)
+    public static ValidationOutcome Rejected(object? original, string message, string? hint = null)
     {
-        return new ValidationOutcome(ValidationStatus.Rejected, original, original, message);
+        return new ValidationOutcome(ValidationStatus.Rejected, original, original, message, hint);
     }
 }
 
@@ -41,7 +45,10 @@ public static class ValidationEvaluator
 
         if (!IsAssignableValue(property.PropertyType, value))
         {
-            return ValidationOutcome.Rejected(value, $"Value is not assignable to {property.PropertyType.FullName}.");
+            return ValidationOutcome.Rejected(
+                value,
+                $"Value is not assignable to {property.PropertyType.FullName}.",
+                CreateValueHint(property.PropertyType));
         }
 
         IValidator? validator = property.GetMetadata<ICorePropertyMetadata>(target.GetType()).GetValidator();
@@ -54,7 +61,10 @@ public static class ValidationEvaluator
 
         if (!IsAssignableValue(property.ValueType, value))
         {
-            return ValidationOutcome.Rejected(value, $"Value is not assignable to {property.ValueType.FullName}.");
+            return ValidationOutcome.Rejected(
+                value,
+                $"Value is not assignable to {property.ValueType.FullName}.",
+                CreateValueHint(property.ValueType));
         }
 
         IValidator validator = property.CreateValidator(property.GetAttributes() ?? []);
@@ -90,5 +100,31 @@ public static class ValidationEvaluator
         }
 
         return targetType.IsInstanceOfType(value);
+    }
+
+    internal static string? CreateValueHint(Type targetType)
+    {
+        Type type = Nullable.GetUnderlyingType(targetType) ?? targetType;
+        if (type == typeof(Color))
+        {
+            return "Use serialized Beutl color values such as '#ffffb34d' or the exact color shape returned by read_document/get_schema; do not use palette names such as 'Amber'.";
+        }
+
+        if (type == typeof(Pen))
+        {
+            return "Pen is a typed EngineObject value. Use the Pen shape returned by get_schema/read_document, including its '$type' discriminator and PascalCase properties such as Brush and Thickness, or omit Pen when no stroke is needed.";
+        }
+
+        if (typeof(EngineObject).IsAssignableFrom(type))
+        {
+            return "Use a concrete '$type' discriminator returned by get_schema for this EngineObject value and only the returned PascalCase property names.";
+        }
+
+        if (type.IsEnum)
+        {
+            return $"Use one of the schema enum values for {type.Name}: {string.Join(", ", Enum.GetNames(type))}.";
+        }
+
+        return null;
     }
 }
