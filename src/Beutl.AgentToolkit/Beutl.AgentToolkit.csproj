@@ -15,6 +15,8 @@
                       LogicalName="Beutl.AgentToolkit.Installation.Assets.skills.beutl-agent-timeline-from-shotlist.SKILL.md" />
     <EmbeddedResource Include="..\..\.claude\skills\beutl-agent-look-effect-chain\SKILL.md"
                       LogicalName="Beutl.AgentToolkit.Installation.Assets.skills.beutl-agent-look-effect-chain.SKILL.md" />
+    <EmbeddedResource Include="..\..\.claude\skills\beutl-agent-source-grounding\SKILL.md"
+                      LogicalName="Beutl.AgentToolkit.Installation.Assets.skills.beutl-agent-source-grounding.SKILL.md" />
     <EmbeddedResource Include="..\..\.claude\agents\beutl-agent-timeline-builder.md"
                       LogicalName="Beutl.AgentToolkit.Installation.Assets.agents.beutl-agent-timeline-builder.md" />
     <EmbeddedResource Include="..\..\.claude\agents\beutl-agent-look-applier.md"

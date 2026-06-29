@@ -1,0 +1,4 @@
+interface:
+  display_name: "Beutl Agent Source Grounding"
+  short_description: "Verify Beutl edit behavior in source"
+  default_prompt: "Use $beutl-agent-source-grounding to verify Beutl edit behavior before MCP edits."

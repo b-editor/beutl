@@ -11,19 +11,23 @@ Use this skill when an agent needs to apply color, blur, shadow, stylization, or
 
 1. Call `get_schema` for the target effect/drawable category and read parameter ranges, defaults, animatable flags, and expression support.
 2. Call `read_document` and identify the element/object handles to modify.
-3. Before changing the look, record the look brief in notes or the response:
+3. If source-code reading is allowed, use `beutl-agent-source-grounding` before changing effect-unit, transform, bounds, text measurement, backing-plate alignment, render-scale, or live-session behavior.
+   - Read `.claude/skills/beutl-agent-source-grounding/SKILL.md`, then use narrow `rg`/read passes over the source and tests it identifies.
+   - Record a `sourceGrounding` note with `assumption`, `evidence`, `rule`, and `uncertainty` before the first relevant `apply_edit`.
+   - If the user explicitly forbids source reading, skip this step and record that limitation.
+4. Before changing the look, record the look brief in notes or the response:
    - `paletteRoles`: background, text, accent, support, and shadow.
    - `contrastPlan`: how text, backing plates, and focal objects stay readable.
    - `hierarchyPlan`: what remains the primary focal point after the look change.
    - `effectIntentPlan`: the job of each effect chain, such as material texture, hierarchy separation, transition energy, color grade, or text legibility.
-4. Prefer a merge-patch for look changes:
+5. Prefer a merge-patch for look changes:
    - Preserve existing element timing and unrelated properties.
    - Patch only the target `Objects`, effect collections, and property values.
-5. Call `apply_edit` in the smallest useful look/effect stage and inspect `valid`, `changes`, `validation`, and `createdIds` before continuing.
-6. Resolve all `validation_rejected`, `unknown_type`, fallback-object, and stale-handle errors from `apply_edit` by reading `get_schema`/`read_document` and retrying only that small stage.
-7. For file sessions, call `save_project` after a successful major look stage. For LiveEditor sessions, record the `save_project`/`read_operation_status` message that saving is not required or supported by the toolkit.
-8. Render stills before and after the most visible transition points. Confirm the primary focal point, text contrast, backing plate fit, and whether each visible effect still serves its named job.
-9. Run `evaluate_edit_quality`; resolve all critical/major issues introduced by the look change before export.
+6. Call `apply_edit` in the smallest useful look/effect stage and inspect `valid`, `changes`, `validation`, and `createdIds` before continuing.
+7. Resolve all `validation_rejected`, `unknown_type`, fallback-object, and stale-handle errors from `apply_edit` by reading `get_schema`/`read_document` and retrying only that small stage.
+8. For file sessions, call `save_project` after a successful major look stage. For LiveEditor sessions, record the `save_project`/`read_operation_status` message that saving is not required or supported by the toolkit.
+9. Render stills before and after the most visible transition points. Confirm the primary focal point, text contrast, backing plate fit, and whether each visible effect still serves its named job.
+10. Run `evaluate_edit_quality`; resolve all critical/major issues introduced by the look change before export.
 
 ## Effect Chain Rules
 
@@ -46,4 +50,6 @@ Use this skill when an agent needs to apply color, blur, shadow, stylization, or
 - Verify with `render_still`; do not judge a look only from the JSON document.
 - Preserve the designed visual hierarchy. A look change should not make supporting effects, panels, or labels compete with the primary focal point.
 - If text uses a backing plate, keep text and plate timing, center, and padding aligned after the look change.
+- For default-aligned text and shape backing plates, use the source-grounded center-offset coordinate rule: `TranslateTransform(0, 0)` means centered, and `(x, y)` offsets the object center from the scene center unless `AlignmentX=Left`/`AlignmentY=Top` is deliberately set.
+- Use `measure_object_bounds` for text/backing-plate or shape alignment changes before judging the result from still renders.
 - Do not leave `evaluate_edit_quality` critical/major issues unresolved.

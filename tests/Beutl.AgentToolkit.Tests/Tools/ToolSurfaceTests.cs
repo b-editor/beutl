@@ -40,6 +40,7 @@ public sealed class ToolSurfaceTests
                 "save_project",
                 "read_operation_status",
                 "read_document_summary",
+                "measure_object_bounds",
                 "read_document",
                 "apply_edit",
                 "plan_composition",

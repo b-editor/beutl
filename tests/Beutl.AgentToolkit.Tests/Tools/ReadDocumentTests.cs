@@ -10,6 +10,7 @@ using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Editor;
 using Beutl.Engine;
+using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
@@ -34,6 +35,7 @@ public sealed class ReadDocumentTests
             Assert.That(result.Value!.RecommendedCalls, Has.Some.Contains("attach_active_editor for an open editor scene"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("create_project or open_project"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("file-backed session"));
+            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("measure_object_bounds"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("list_creative_directions"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("custom declarative patch"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("avoid overused orbit/radar/map/signal/dashboard motifs"));
@@ -661,6 +663,142 @@ public sealed class ReadDocumentTests
             Assert.That(objectSummary.EffectProperties, Does.Contain(nameof(TextBlock.FilterEffect)));
             Assert.That(objectSummary.NestedAnimatedProperties, Does.Contain("Transform.Children[0].X"));
             Assert.That(objectSummary.NestedAnimatedProperties, Does.Contain("Transform.Children[1].Rotation"));
+        });
+    }
+
+    [Test]
+    public void Measure_object_bounds_reports_center_aligned_scene_bounds()
+    {
+        var scene = new Scene(1920, 1080, "Measure")
+        {
+            Duration = TimeSpan.FromSeconds(5),
+            Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.scene"))
+        };
+        var titleElement = new Element
+        {
+            Name = "Title element",
+            Length = TimeSpan.FromSeconds(5),
+            ZIndex = 2,
+            Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.belm"))
+        };
+        var title = new TextBlock
+        {
+            Name = "Centered title",
+            Text = { CurrentValue = "Center" },
+            Size = { CurrentValue = 100 }
+        };
+        titleElement.AddObject(title);
+        scene.Children.Add(titleElement);
+
+        var plateElement = new Element
+        {
+            Name = "Plate element",
+            Length = TimeSpan.FromSeconds(5),
+            ZIndex = 1,
+            Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.belm"))
+        };
+        var plate = new RoundedRectShape
+        {
+            Name = "Offset plate",
+            Width = { CurrentValue = 200 },
+            Height = { CurrentValue = 80 },
+            Transform = { CurrentValue = new TranslateTransform(120, -40) }
+        };
+        plateElement.AddObject(plate);
+        scene.Children.Add(plateElement);
+
+        using var session = new AgentToolkitTestSession(scene);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var tools = new QueryTools(manager);
+
+        ToolResult<ObjectBoundsMeasurementResponse> all = tools.MeasureObjectBounds(timeSeconds: 0);
+        ToolResult<ObjectBoundsMeasurementResponse> plateOnly = tools.MeasureObjectBounds(plate.Id.ToString(), timeSeconds: 0);
+        ToolResult<ObjectBoundsMeasurementResponse> late = tools.MeasureObjectBounds(timeSeconds: 6);
+        ObjectBoundsMeasurement titleBounds = all.Value!.Objects.Single(item => item.ObjectId == title.Id.ToString());
+        ObjectBoundsMeasurement plateBounds = all.Value.Objects.Single(item => item.ObjectId == plate.Id.ToString());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(all.IsSuccess, Is.True, all.Error?.Message);
+            Assert.That(all.Value!.Objects, Has.Count.EqualTo(2));
+            Assert.That(all.Value.FrameCenter.X, Is.EqualTo(960));
+            Assert.That(all.Value.FrameCenter.Y, Is.EqualTo(540));
+            Assert.That(all.Value.TimeFiltered, Is.True);
+            Assert.That(titleBounds.MeasurementKind, Is.EqualTo("render-node-operation-bounds"));
+            Assert.That(titleBounds.LocalBounds.Width, Is.GreaterThan(0));
+            Assert.That(titleBounds.LocalBounds.Height, Is.GreaterThan(0));
+            Assert.That(titleBounds.TransformedBounds.Left, Is.LessThan(960));
+            Assert.That(titleBounds.TransformedBounds.Right, Is.GreaterThan(960));
+            Assert.That(titleBounds.TransformedBounds.Top, Is.LessThan(540));
+            Assert.That(titleBounds.TransformedBounds.Bottom, Is.GreaterThan(540));
+            Assert.That(plateBounds.MeasurementKind, Is.EqualTo("render-node-operation-bounds"));
+            Assert.That(plateBounds.LocalBounds.Width, Is.EqualTo(200).Within(0.01));
+            Assert.That(plateBounds.LocalBounds.Height, Is.EqualTo(80).Within(0.01));
+            Assert.That(plateBounds.UserTranslate!.X, Is.EqualTo(120).Within(0.01));
+            Assert.That(plateBounds.UserTranslate.Y, Is.EqualTo(-40).Within(0.01));
+            Assert.That(plateBounds.TransformedBounds.Left, Is.EqualTo(980).Within(0.01));
+            Assert.That(plateBounds.TransformedBounds.Top, Is.EqualTo(460).Within(0.01));
+            Assert.That(plateBounds.Center.X, Is.EqualTo(1080).Within(0.01));
+            Assert.That(plateBounds.Center.Y, Is.EqualTo(500).Within(0.01));
+            Assert.That(plateOnly.IsSuccess, Is.True, plateOnly.Error?.Message);
+            Assert.That(plateOnly.Value!.Objects.Single().ObjectId, Is.EqualTo(plate.Id.ToString()));
+            Assert.That(late.IsSuccess, Is.True, late.Error?.Message);
+            Assert.That(late.Value!.Objects, Is.Empty);
+        });
+    }
+
+    [Test]
+    public void Measure_object_bounds_includes_filter_effect_render_node_bounds()
+    {
+        var scene = new Scene(200, 200, "Measure effect")
+        {
+            Duration = TimeSpan.FromSeconds(5),
+            Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.scene"))
+        };
+        var element = new Element
+        {
+            Name = "Plate element",
+            Length = TimeSpan.FromSeconds(5),
+            Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.belm"))
+        };
+        var plate = new RoundedRectShape
+        {
+            Name = "Shadowed plate",
+            Width = { CurrentValue = 100 },
+            Height = { CurrentValue = 50 },
+            FilterEffect =
+            {
+                CurrentValue = new DropShadow
+                {
+                    Position = { CurrentValue = new Point(10, 5) },
+                    Sigma = { CurrentValue = new Size(3, 4) },
+                    Color = { CurrentValue = Colors.Black }
+                }
+            }
+        };
+        element.AddObject(plate);
+        scene.Children.Add(element);
+
+        using var session = new AgentToolkitTestSession(scene);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var tools = new QueryTools(manager);
+
+        ToolResult<ObjectBoundsMeasurementResponse> result = tools.MeasureObjectBounds(plate.Id.ToString(), timeSeconds: 0);
+        ObjectBoundsMeasurement bounds = result.Value!.Objects.Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+            Assert.That(bounds.MeasurementKind, Is.EqualTo("render-node-operation-bounds"));
+            Assert.That(bounds.TransformedBounds.Left, Is.EqualTo(50).Within(0.01));
+            Assert.That(bounds.TransformedBounds.Top, Is.LessThan(75));
+            Assert.That(bounds.TransformedBounds.Right, Is.GreaterThan(150));
+            Assert.That(bounds.TransformedBounds.Bottom, Is.GreaterThan(125));
+            Assert.That(bounds.LocalBounds.Width, Is.EqualTo(bounds.TransformedBounds.Width).Within(0.01));
+            Assert.That(bounds.LocalBounds.Height, Is.EqualTo(bounds.TransformedBounds.Height).Within(0.01));
+            Assert.That(bounds.Note, Does.Contain("DrawableRenderNode"));
         });
     }
 
