@@ -30,16 +30,20 @@ public sealed class AgentToolkitInstallerTests
     {
         IReadOnlyList<AgentToolkitAsset> assets = BundledAgentToolkitAssets.Load();
 
-        Assert.That(assets, Has.Count.EqualTo(4));
-        Assert.That(assets.Count(x => x.Kind == AgentToolkitAssetKind.Skill), Is.EqualTo(2));
+        Assert.That(assets, Has.Count.EqualTo(5));
+        Assert.That(assets.Count(x => x.Kind == AgentToolkitAssetKind.Skill), Is.EqualTo(3));
         Assert.That(assets.Count(x => x.Kind == AgentToolkitAssetKind.Subagent), Is.EqualTo(2));
         Assert.That(assets.Select(x => x.RelativePath), Does.Contain("beutl-agent-timeline-from-shotlist/SKILL.md"));
+        Assert.That(assets.Select(x => x.RelativePath), Does.Contain("beutl-agent-source-grounding/SKILL.md"));
         Assert.That(
             assets.Single(x => x.RelativePath == "beutl-agent-timeline-from-shotlist/SKILL.md").Content,
             Does.Contain("evaluate_motion_variation"));
         Assert.That(
             assets.Single(x => x.RelativePath == "beutl-agent-timeline-from-shotlist/SKILL.md").Content,
             Does.Contain("insert-new-animated-text-keyframes"));
+        Assert.That(
+            assets.Single(x => x.RelativePath == "beutl-agent-source-grounding/SKILL.md").Content,
+            Does.Contain("measure_object_bounds"));
         Assert.That(
             assets.Single(x => x.RelativePath == "beutl-agent-timeline-builder.md").Content,
             Does.Contain("evaluate_motion_variation"));

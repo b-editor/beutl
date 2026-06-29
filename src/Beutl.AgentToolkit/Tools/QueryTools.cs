@@ -5,8 +5,12 @@ using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Schema;
 using Beutl.AgentToolkit.Sessions;
+using Beutl.Composition;
 using Beutl.Engine;
+using Beutl.Graphics;
 using Beutl.Graphics.Effects;
+using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -107,6 +111,20 @@ public sealed record DocumentSummaryResponse(
     int ElementCount,
     IReadOnlyList<ElementSummary> Elements);
 
+public sealed record ObjectBoundsMeasurementResponse(
+    string SchemaVersion,
+    string Session,
+    string Source,
+    string SceneId,
+    int FrameWidth,
+    int FrameHeight,
+    ObjectBoundsPoint FrameCenter,
+    string Time,
+    bool TimeFiltered,
+    string CoordinateSpace,
+    string MeasurementNote,
+    IReadOnlyList<ObjectBoundsMeasurement> Objects);
+
 public sealed record ElementSummary(
     string Id,
     string Name,
@@ -130,6 +148,47 @@ public sealed record ObjectSummary(
     string? FallbackTypeName = null,
     string? FallbackMessage = null);
 
+public sealed record ObjectBoundsMeasurement(
+    string ElementId,
+    string ElementName,
+    string ElementStart,
+    string ElementLength,
+    int ElementZIndex,
+    string ObjectId,
+    string ObjectName,
+    string Type,
+    bool IsEnabled,
+    string AlignmentX,
+    string AlignmentY,
+    string MeasurementKind,
+    ObjectBoundsRect LocalBounds,
+    ObjectBoundsRect TransformedBounds,
+    ObjectBoundsPoint Center,
+    ObjectBoundsPoint? UserTranslate,
+    ObjectTransformMatrix UserTransformMatrix,
+    string? Note = null);
+
+public sealed record ObjectBoundsRect(
+    double Left,
+    double Top,
+    double Right,
+    double Bottom,
+    double Width,
+    double Height);
+
+public sealed record ObjectBoundsPoint(double X, double Y);
+
+public sealed record ObjectTransformMatrix(
+    double M11,
+    double M12,
+    double M13,
+    double M21,
+    double M22,
+    double M23,
+    double M31,
+    double M32,
+    double M33);
+
 [McpServerToolType]
 public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
 {
@@ -145,6 +204,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
             [
                 "Call attach_active_editor for an open editor scene; if it fails or no editor is available, call create_project or open_project for a file-backed session instead of writing a one-off generator.",
                 "Call read_document_summary to inspect progress without the full document.",
+                "Call measure_object_bounds before positioning text, backing plates, or centered objects; default Drawable alignment is centered, so TranslateTransform(0, 0) means the object's center is at the frame center.",
                 "For original creative briefs, call list_creative_directions, synthesize an original pitch from at least two inspiration seeds, read_document, and get_schema only for the drawable/effect types you need, then author a custom declarative patch instead of cloning a starter.",
                 "Call list_effects and list_effect_recipes to discover Beutl's visual effect palette before choosing a repeated look; for organic heat/ink/glass/noise fields, consider an SKSLScriptEffect shader recipe instead of stacking only blurred gradients.",
                 "For no-context motion graphics, avoid overused orbit/radar/map/signal/dashboard motifs unless the user asks for them.",
@@ -622,6 +682,136 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
         });
     }
 
+    [McpServerTool(Name = "measure_object_bounds")]
+    [Description("Measures RenderNode operation bounds for Drawable objects in the current scene. Use before positioning text, backing plates, or centered objects; default Drawable TranslateTransform values are offsets from the alignment-resolved position, not top-left coordinates.")]
+    public ToolResult<ObjectBoundsMeasurementResponse> MeasureObjectBounds(
+        string? objectId = null,
+        string? elementId = null,
+        double? timeSeconds = null)
+    {
+        return Execute(() =>
+        {
+            IEditingSession session = sessions.RequireSession();
+            if (session.Root is not Scene scene)
+            {
+                throw new ReconcileException(new ToolError(
+                    ErrorCode.ValidationRejected,
+                    $"Current root '{session.Root.GetType().FullName}' is not a Scene.",
+                    session.Root.Id.ToString()));
+            }
+
+            Guid? objectGuid = ParseOptionalGuid(objectId, nameof(objectId));
+            Guid? elementGuid = ParseOptionalGuid(elementId, nameof(elementId));
+            TimeSpan time = ParseMeasurementTime(timeSeconds);
+            bool timeFiltered = timeSeconds.HasValue;
+
+            Element? selectedElement = null;
+            if (elementGuid is { } elementGuidValue)
+            {
+                selectedElement = scene.Children.FirstOrDefault(item => item.Id == elementGuidValue);
+                if (selectedElement is null)
+                {
+                    throw new ReconcileException(new ToolError(
+                        ErrorCode.StaleHandle,
+                        $"No Element with Id '{elementId}' exists in the current scene.",
+                        elementId));
+                }
+            }
+
+            Drawable? selectedDrawable = null;
+            if (objectGuid is { } objectGuidValue)
+            {
+                var entity = IdentityHelper.FindById(scene, objectGuidValue);
+                if (entity is null)
+                {
+                    throw new ReconcileException(new ToolError(
+                        ErrorCode.StaleHandle,
+                        $"No object with Id '{objectId}' exists in the current scene.",
+                        objectId));
+                }
+
+                if (entity is not Drawable drawable)
+                {
+                    throw new ReconcileException(new ToolError(
+                        ErrorCode.ValidationRejected,
+                        $"Object '{objectId}' is a {entity.GetType().FullName}, not a Drawable.",
+                        objectId,
+                        "Pass a Drawable object Id from read_document_summary or omit objectId to measure all direct Drawable objects."));
+                }
+
+                selectedDrawable = drawable;
+            }
+
+            Size canvasSize = new(scene.FrameSize.Width, scene.FrameSize.Height);
+            var context = new CompositionContext(time);
+            var measurements = new List<ObjectBoundsMeasurement>();
+            foreach (Element element in scene.Children)
+            {
+                if (selectedElement is not null && element != selectedElement)
+                {
+                    continue;
+                }
+
+                if (timeFiltered && (!element.IsEnabled || !element.Range.Contains(time)))
+                {
+                    continue;
+                }
+
+                foreach (EngineObject obj in element.Objects)
+                {
+                    if (obj is not Drawable drawable)
+                    {
+                        continue;
+                    }
+
+                    if (selectedDrawable is not null && drawable != selectedDrawable)
+                    {
+                        continue;
+                    }
+
+                    if (timeFiltered && !drawable.IsEnabled)
+                    {
+                        continue;
+                    }
+
+                    measurements.Add(MeasureDrawable(element, drawable, canvasSize, context));
+                }
+            }
+
+            if (selectedElement is not null && selectedDrawable is not null && measurements.Count == 0)
+            {
+                throw new ReconcileException(new ToolError(
+                    ErrorCode.ValidationRejected,
+                    $"Drawable '{objectId}' is not a direct object of Element '{elementId}' at the requested time.",
+                    objectId,
+                    "Measure the object without elementId, or use the Element that directly contains the object."));
+            }
+
+            if (selectedDrawable is not null && measurements.Count == 0 && !timeFiltered)
+            {
+                throw new ReconcileException(new ToolError(
+                    ErrorCode.ValidationRejected,
+                    $"Drawable '{objectId}' is not a direct object of any Element in the current scene.",
+                    objectId,
+                    "measure_object_bounds currently measures direct Drawable objects in timeline Elements. Nested flow/group drawables are reported as an unsupported improvement area."));
+            }
+
+            return new ObjectBoundsMeasurementResponse(
+                SchemaVersion.Current,
+                session.SessionId,
+                session.Source.ToString(),
+                scene.Id.ToString(),
+                scene.FrameSize.Width,
+                scene.FrameSize.Height,
+                new ObjectBoundsPoint(scene.FrameSize.Width / 2d, scene.FrameSize.Height / 2d),
+                time.ToString("c"),
+                timeFiltered,
+                "Scene pixel coordinates. TransformedBounds are authoritative axis-aligned scene-space bounds measured from RenderNodeOperation.Bounds. LocalBounds are normalized from the render-node extents for size only and are not Drawable.MeasureCore results.",
+                "Default Drawable AlignmentX/AlignmentY is Center, so a pure TranslateTransform(x, y) moves the object relative to the alignment-resolved position. For a centered object in a 1920x1080 scene, TranslateTransform(0, 0) centers it at (960, 540). Bounds are measured through DrawableRenderNode and RenderNodeProcessor rather than per-type Drawable.Measure/FilterEffect.TransformBounds estimates.",
+                measurements);
+        });
+    }
+
     [McpServerTool(Name = "read_document")]
     [Description("Reads the current declarative document, or a subtree selected by rootId. This can be large; use read_document_summary for progress checks. In the in-app host, call attach_active_editor first; in the stdio host, call open_project or create_project first.")]
     public ToolResult<ReadDocumentResponse> ReadDocument(string? rootId = null)
@@ -836,6 +1026,164 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
             element.Length.ToString("c"),
             element.ZIndex,
             element.Objects.Select(CreateObjectSummary).ToArray());
+    }
+
+    private static Guid? ParseOptionalGuid(string? value, string parameterName)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        if (Guid.TryParse(value, out Guid id))
+        {
+            return id;
+        }
+
+        throw new ReconcileException(new ToolError(
+            ErrorCode.ValidationRejected,
+            $"{parameterName} must be a GUID.",
+            value));
+    }
+
+    private static TimeSpan ParseMeasurementTime(double? timeSeconds)
+    {
+        if (timeSeconds is not { } seconds)
+        {
+            return TimeSpan.Zero;
+        }
+
+        if (!double.IsFinite(seconds) || seconds < 0)
+        {
+            throw new ReconcileException(new ToolError(
+                ErrorCode.ValidationRejected,
+                "timeSeconds must be a finite non-negative number.",
+                seconds.ToString("R")));
+        }
+
+        return TimeSpan.FromSeconds(seconds);
+    }
+
+    private static ObjectBoundsMeasurement MeasureDrawable(
+        Element element,
+        Drawable drawable,
+        Size canvasSize,
+        CompositionContext context)
+    {
+        RenderNodeBounds renderNodeBounds = MeasureDrawableRenderNodeBounds(drawable, canvasSize, context);
+        Rect transformedBounds = renderNodeBounds.Bounds;
+        Rect localBounds = NormalizeBoundsSize(transformedBounds);
+        AlignmentX alignmentX = context.Get(drawable.AlignmentX);
+        AlignmentY alignmentY = context.Get(drawable.AlignmentY);
+        Transform? transform = context.Get(drawable.Transform);
+        Matrix userTransform = transform?.CreateMatrix(context) ?? Matrix.Identity;
+        ObjectBoundsPoint? userTranslate = userTransform.TryDecomposeTransform(out Vector translate, out _, out _, out _)
+            ? new ObjectBoundsPoint(translate.X, translate.Y)
+            : null;
+        string? note = renderNodeBounds.Note is null
+            ? "Measured through DrawableRenderNode and RenderNodeProcessor.PullToRoot(). LocalBounds is normalized from render-node extents for size only."
+            : $"{renderNodeBounds.Note} LocalBounds is normalized from render-node extents for size only.";
+
+        return new ObjectBoundsMeasurement(
+            element.Id.ToString(),
+            element.Name,
+            element.Start.ToString("c"),
+            element.Length.ToString("c"),
+            element.ZIndex,
+            drawable.Id.ToString(),
+            drawable.Name,
+            drawable.GetType().FullName ?? drawable.GetType().Name,
+            drawable.IsEnabled,
+            alignmentX.ToString(),
+            alignmentY.ToString(),
+            "render-node-operation-bounds",
+            ToBoundsRect(localBounds),
+            ToBoundsRect(transformedBounds),
+            ToBoundsPoint(transformedBounds.Center),
+            userTranslate,
+            ToTransformMatrix(userTransform),
+            note);
+    }
+
+    private static RenderNodeBounds MeasureDrawableRenderNodeBounds(
+        Drawable drawable,
+        Size canvasSize,
+        CompositionContext context)
+    {
+        using var resource = (Drawable.Resource)drawable.ToResource(context);
+        using var node = new DrawableRenderNode(resource);
+        using (var graphicsContext = new GraphicsContext2D(node, canvasSize, outputScale: 1f))
+        {
+            drawable.Render(graphicsContext, resource);
+        }
+
+        var processor = new RenderNodeProcessor(node, useRenderCache: false, outputScale: 1f, maxWorkingScale: 1f);
+        RenderNodeOperation[] operations = processor.PullToRoot();
+        Rect bounds = Rect.Empty;
+        bool hasBounds = false;
+        try
+        {
+            foreach (RenderNodeOperation operation in operations)
+            {
+                Rect operationBounds = operation.Bounds;
+                bounds = hasBounds ? bounds.Union(operationBounds) : operationBounds;
+                hasBounds = true;
+            }
+        }
+        finally
+        {
+            DisposeRenderNodeOperations(operations);
+        }
+
+        return hasBounds
+            ? new RenderNodeBounds(bounds, null)
+            : new RenderNodeBounds(Rect.Empty, "The drawable produced no RenderNode operations at the requested time.");
+    }
+
+    private static void DisposeRenderNodeOperations(RenderNodeOperation[] operations)
+    {
+        foreach (RenderNodeOperation operation in operations)
+        {
+            try
+            {
+                operation.Dispose();
+            }
+            catch
+            {
+                // Match renderer cleanup behavior: disposal faults must not hide measurement results.
+            }
+        }
+    }
+
+    private static Rect NormalizeBoundsSize(Rect bounds)
+    {
+        return new Rect(0, 0, MathF.Max(0f, bounds.Width), MathF.Max(0f, bounds.Height));
+    }
+
+    private sealed record RenderNodeBounds(Rect Bounds, string? Note);
+
+    private static ObjectBoundsRect ToBoundsRect(Rect rect)
+    {
+        return new ObjectBoundsRect(rect.Left, rect.Top, rect.Right, rect.Bottom, rect.Width, rect.Height);
+    }
+
+    private static ObjectBoundsPoint ToBoundsPoint(Point point)
+    {
+        return new ObjectBoundsPoint(point.X, point.Y);
+    }
+
+    private static ObjectTransformMatrix ToTransformMatrix(Matrix matrix)
+    {
+        return new ObjectTransformMatrix(
+            matrix.M11,
+            matrix.M12,
+            matrix.M13,
+            matrix.M21,
+            matrix.M22,
+            matrix.M23,
+            matrix.M31,
+            matrix.M32,
+            matrix.M33);
     }
 
     private static ObjectSummary CreateObjectSummary(EngineObject obj)

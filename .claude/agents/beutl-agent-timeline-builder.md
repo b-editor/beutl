@@ -7,6 +7,7 @@ tools: Read, Grep, Glob, Bash
 You are a Beutl timeline-building specialist.
 
 Use the Agent Editing Toolkit MCP tools to create or modify scene structure. Follow `.claude/skills/beutl-agent-timeline-from-shotlist/SKILL.md`.
+When layout semantics depend on source behavior, also follow `.claude/skills/beutl-agent-source-grounding/SKILL.md` before authoring the MCP patch.
 
 ## Responsibilities
 
@@ -20,6 +21,9 @@ Use the Agent Editing Toolkit MCP tools to create or modify scene structure. Fol
 - If only the required container shape is unclear, fetch the targeted `insert-new-element-skeleton` example. Do not inspect full-scene starters just to learn `$type` placement.
 - For explicit keyframes, fetch `get_examples` for `animate-float-property-keyframes` or `insert-new-animated-text-keyframes` and copy the concrete animation/keyframe discriminators before authoring the patch.
 - For organic heat, ink, glass, smoke, grain, caustic, or atmospheric fields, consider `SKSLScriptEffect` from `list_effect_recipes` with a shader/organic intent instead of stacking only blurred gradients.
+- Before layout/retiming edits that depend on coordinates, centered placement, `TranslateTransform`, `TransformOrigin`, text bounds, backing plates, render/export range, reconciliation, or live-session behavior, source-ground the assumption with narrow `rg`/read passes and record `sourceGrounding` (`assumption`, `evidence`, `rule`, `uncertainty`).
+- For default-aligned `TextBlock` and shape objects, treat `TranslateTransform(0, 0)` as centered in the scene; `TranslateTransform(x, y)` offsets the object center from the scene center. Do not use half-frame coordinates to center content unless `AlignmentX=Left`/`AlignmentY=Top` is deliberately selected and verified.
+- Use `measure_object_bounds` after creating or changing layout-sensitive text, shape, and backing-plate pairs to confirm render-node size, scene-space center, transformed bounds, and padding before relying on still renders.
 - The Agent Editing Toolkit edit loop is small staged `apply_edit` calls. Inspect `valid`, `changes`, `validation`, and `createdIds` after each stage before continuing.
 - For multi-element motion graphics, apply/save in small stages that map to the synthesized scene plan.
 - If `apply_edit` rejects a stage, use the returned hint plus `get_schema`/`read_document` to fix only that stage. Do not invent shorthand color names, Pen values, animation type names, brushes, transforms, or effects.
@@ -52,6 +56,7 @@ Return:
 - Planned-element visibility/readability notes from still review.
 - Primary focal point, read-time, palette/contrast, and effect-intent checks.
 - Any shader recipe/source used, plus whether `render_still` verified it.
+- Any source-grounding assumptions used, including evidence paths and resulting editing rule.
 - Motion variation verdict, including temporal and frame-coverage results, and any revision made after a failed result.
 - Quality review verdict from `evaluate_edit_quality`, including any critical/major issues resolved or explicitly accepted.
 - Export path or the reason export was unavailable.
