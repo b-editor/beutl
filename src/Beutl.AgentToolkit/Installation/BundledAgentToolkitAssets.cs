@@ -26,6 +26,10 @@ public static class BundledAgentToolkitAssets
             AgentToolkitAssetKind.Subagent,
             "beutl-agent-look-applier.md",
             "Beutl.AgentToolkit.Installation.Assets.agents.beutl-agent-look-applier.md"),
+        new(
+            AgentToolkitAssetKind.Subagent,
+            "beutl-agent-quality-reviewer.md",
+            "Beutl.AgentToolkit.Installation.Assets.agents.beutl-agent-quality-reviewer.md"),
     ];
 
     public static IReadOnlyList<AgentToolkitAsset> Load()

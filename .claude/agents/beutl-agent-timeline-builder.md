@@ -14,7 +14,9 @@ When layout semantics depend on source behavior, also follow `.claude/skills/beu
 - Convert shot-list timing into `Element` structure with explicit `Start`, `Length`, and layer/Z ordering.
 - Bind requested text, shape, image, video, group, and audio objects without changing unrelated content.
 - For vague creative briefs, call `list_creative_directions` and synthesize an original pitch from at least two inspiration seeds before authoring.
-- Before authoring, record `directionContract`, `messageHierarchy`, `textCasePlan`, `typographyRolePlan`, `readTimePlan`, `shapeBudget`, `paletteRoles`, `textPlatePlan`, `effectIntentPlan`, `compositionPlan`, `motionContinuityPlan`, and `verificationSamples` in notes.
+- Before authoring, record `directionContract`, `messageHierarchy`, `textCasePlan`, `typographyRolePlan`, `readTimePlan`, `highTempoDensityPlan`, `shapeBudget`, `roleTagPlan`, `paletteRoles`, `textPlatePlan`, `effectIntentPlan`, `compositionPlan`, `motionContinuityPlan`, and `verificationSamples` in notes.
+- For 120-140 BPM or roughly 1.5s shots, keep hero text to 1-3 words and labels to 2-4 word tokens; add information density through short typography, nodes, particles, strokes, texture, and accent motion rather than long copy.
+- Name intent with `[role:background]`, `[role:text-backing]`, and `[role:decorative]` when creating surfaces, backing plates, or decorative rectangles.
 - For unconstrained briefs, keep project, still, and video basenames neutral, such as `project.bep`, `preview.mp4`, and `still-*.png`, or use the requested output directory slug. Put the concept name in notes rather than filenames.
 - Use `read_document` before editing and keep stable `Id` handles.
 - New timeline `Elements` require `$type: "[Beutl.ProjectSystem]:Element"`. Existing elements keep `Id`; genuinely new Elements and Objects omit `Id`.
@@ -33,8 +35,10 @@ When layout semantics depend on source behavior, also follow `.claude/skills/beu
 - For rotated moving shapes, do not animate only `TranslateTransform.X` and assume it will travel along the rotated visual axis. If the intended screen-space path is diagonal, animate both X and Y as a vector; if the intended local-axis path depends on transform order, verify it with rendered samples before export.
 - For file sessions, call `save_project` after each successful major `apply_edit`, not only at the end. For LiveEditor sessions, record the `save_project`/`read_operation_status` message that saving is not required or supported by the toolkit.
 - After `read_document_summary`, compare the synthesized scene plan with actual element names and revise missing planned parts before rendering unless the omission is recorded with a concrete reason.
+- Run `preview_quality_risks` after structure/text-heavy stages when available. For multiple related issues, call `suggest_quality_fixes` and apply the smallest repair before still rendering.
 - Verify representative frames with `render_still`, record which planned elements are visible/readable in each still, identify the primary focal point, check read time and text contrast, confirm effect chains serve their named jobs, run `evaluate_motion_variation`, and revise before export when the verdict is `low-motion-variation` or `poor-frame-coverage` or planned elements never become visible/readable.
 - Run `evaluate_edit_quality` after still and motion checks. Do not export while critical or major issues remain unless the user explicitly accepts that issue.
+- Prefer `final_preflight` before export when available. For motion graphics, pass `requireAnimatedProperties=true` and export only when `readyForExport` is true.
 - Avoid long all-caps text, overloaded visual hierarchy, unreadable short-lived copy, foreground RectShape dominance, misaligned text backing plates, dark teal/cyan/magenta palettes, dense effect stacks without a named job, repeated card shadows, low motion continuity, and unmotivated hard cuts unless requested.
 - Keep foreground `RectShape` use low and reserve hero-scale typography for one primary message per beat unless the user explicitly asks otherwise.
 - Treat still quality as a real gate: after the reveal phase, representative stills should show at least three visible layer types and readable text contrast. A mostly smooth background is not enough even when motion variation passes.
@@ -59,6 +63,7 @@ Return:
 - Any source-grounding assumptions used, including evidence paths and resulting editing rule.
 - Motion variation verdict, including temporal and frame-coverage results, and any revision made after a failed result.
 - Quality review verdict from `evaluate_edit_quality`, including any critical/major issues resolved or explicitly accepted.
+- Final preflight verdict, blockers, and still paths when `final_preflight` is available.
 - Export path or the reason export was unavailable.
 - Save path if the session was saved.
 

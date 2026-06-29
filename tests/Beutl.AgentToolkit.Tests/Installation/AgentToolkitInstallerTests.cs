@@ -30,9 +30,9 @@ public sealed class AgentToolkitInstallerTests
     {
         IReadOnlyList<AgentToolkitAsset> assets = BundledAgentToolkitAssets.Load();
 
-        Assert.That(assets, Has.Count.EqualTo(5));
+        Assert.That(assets, Has.Count.EqualTo(6));
         Assert.That(assets.Count(x => x.Kind == AgentToolkitAssetKind.Skill), Is.EqualTo(3));
-        Assert.That(assets.Count(x => x.Kind == AgentToolkitAssetKind.Subagent), Is.EqualTo(2));
+        Assert.That(assets.Count(x => x.Kind == AgentToolkitAssetKind.Subagent), Is.EqualTo(3));
         Assert.That(assets.Select(x => x.RelativePath), Does.Contain("beutl-agent-timeline-from-shotlist/SKILL.md"));
         Assert.That(assets.Select(x => x.RelativePath), Does.Contain("beutl-agent-source-grounding/SKILL.md"));
         Assert.That(
@@ -51,6 +51,7 @@ public sealed class AgentToolkitInstallerTests
             assets.Single(x => x.RelativePath == "beutl-agent-timeline-builder.md").Content,
             Does.Contain("animate-float-property-keyframes"));
         Assert.That(assets.Single(x => x.RelativePath == "beutl-agent-look-applier.md").Content, Does.Contain("render_still"));
+        Assert.That(assets.Single(x => x.RelativePath == "beutl-agent-quality-reviewer.md").Content, Does.Contain("final_preflight"));
     }
 
     [Test]

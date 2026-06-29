@@ -138,9 +138,12 @@ A creator asks the agent: *"10-second 1080p clip: a title that fades in over a b
    render_still { "timeSeconds": 1.5, "outputPath": "preview.png" }  → outputPath + warnings + visibilityAnalysis + activeElements
    evaluate_motion_variation { "sampleCount": 5 }                    → motion verdict + coverage metrics
    evaluate_edit_quality { "sampleCount": 5 }                        → quality gate + categorized issues
+   preview_quality_risks { "styleProfile": "kinetic-type" }          → document-only early risks
+   suggest_quality_fixes { "includeMotion": false }                  → grouped minimal repair suggestions
+   final_preflight { "outputPrefix": "preflight" }                   → stills + motion + quality + readyForExport
    export_video { "outputPath": "promo.mp4" }                        → videoPath   (needs FFmpeg native libs; run after quality gate passes)
    ```
-   Bare output filenames are written under `agent-output/`; pass an explicit relative directory when a different workspace location is intentional. Treat blank/near-black, very low contrast, or single-quadrant foreground `warnings` as a prompt to revise before export unless the frame is intentionally sparse. Use `visibilityAnalysis` and `activeElements` to confirm the planned foreground layers are actually visible at that time.
+   Bare output filenames are written under `agent-output/`; pass an explicit relative directory when a different workspace location is intentional. Treat blank/near-black, very low contrast, or single-quadrant foreground `warnings` as a prompt to revise before export unless the frame is intentionally sparse. Use `visibilityAnalysis` and `activeElements` to confirm the planned foreground layers are actually visible at that time. For motion graphics, pass `requireAnimatedProperties=true` to `final_preflight` so explicit animation is enforced before export.
 6. **Save**:
    ```
    save_project { session }                   → savedPath (under BEUTL_WORKSPACE)
@@ -181,5 +184,6 @@ Beyond the MCP surface, the toolkit ships discoverable editing recipes (Skills) 
 - `.claude/skills/beutl-agent-look-effect-chain/SKILL.md`
 - `.claude/agents/beutl-agent-timeline-builder.md`
 - `.claude/agents/beutl-agent-look-applier.md`
+- `.claude/agents/beutl-agent-quality-reviewer.md`
 
-Use the timeline recipe/specialist for shot-list layout, retiming, splitting, grouping, and media placement. Use the look/effect recipe/specialist for color/effect chains, effect ordering, and cross-shot consistency. Both document PascalCase property keys, id-keyed array merge-patch rules, and in-range schema-driven values.
+Use the timeline recipe/specialist for shot-list layout, retiming, splitting, grouping, and media placement. Use the look/effect recipe/specialist for color/effect chains, effect ordering, and cross-shot consistency. Use the quality reviewer before export or when an edit feels sparse, over-dense, unreadable, or likely to fail deterministic gates. The guidance documents PascalCase property keys, id-keyed array merge-patch rules, in-range schema-driven values, role tags such as `[role:text-backing]`, and preflight quality checks.

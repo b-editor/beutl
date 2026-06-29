@@ -209,12 +209,14 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 "Call list_effects and list_effect_recipes to discover Beutl's visual effect palette before choosing a repeated look; for organic heat/ink/glass/noise fields, consider an SKSLScriptEffect shader recipe instead of stacking only blurred gradients.",
                 "For no-context motion graphics, avoid overused orbit/radar/map/signal/dashboard motifs unless the user asks for them.",
                 "Before authoring, write a compact creative brief with objective, audience, emotional temperature, message hierarchy, palette roles, typography roles, motion phases, and effect purpose.",
+                "For high-tempo 1.5s motion-graphics beats, keep hero text to 1-3 words, supporting labels to 2-4 word tokens, and use non-text visual density such as nodes, particles, strokes, texture, and accent motion.",
                 "Design every shot around one primary focal point; use grouping, alignment, scale contrast, color contrast, and repetition to make supporting layers scan below it.",
                 "Keep only one hero-scale text role per beat; make captions, labels, and texture text visibly quieter so evaluate_edit_quality does not report overloaded hierarchy.",
-                "Use RectShape mostly for full-frame/background plates; prefer EllipseShape, RoundedRectShape, GeometryShape, media, strokes, or procedural texture for foreground accents.",
-                "For readable type, keep copy short or extend duration; verify contrast, backing plates, and read time with render_still and evaluate_edit_quality.",
+                "Use RectShape mostly for full-frame/background plates; prefer EllipseShape, RoundedRectShape, GeometryShape, media, strokes, or procedural texture for foreground accents. Name intent with tags like [role:background], [role:text-backing], or [role:decorative] so quality tools can classify plates correctly.",
+                "For readable type, keep copy short or extend duration; verify contrast, explicit [role:text-backing] plates, and read time with render_still and evaluate_edit_quality.",
                 "Use effects only when they serve material texture, hierarchy separation, transition energy, or text legibility; avoid dense decorative stacks with no named job.",
                 "For visible progress, apply large scenes in stages that follow your synthesized pitch: background/surface first, then motion elements, then text/effects.",
+                "Before a large edit or after an intermediate stage, call preview_quality_risks to catch document-only risks early; call suggest_quality_fixes when you need a minimal repair plan.",
                 "For unconstrained creative briefs, keep project/video/still basenames neutral and record the synthesized pitch in notes instead of filenames.",
                 "New timeline Elements need '$type': '[Beutl.ProjectSystem]:Element'. Existing Elements keep Id; genuinely new Elements and Objects omit Id. If you need structure only, fetch the targeted insert-new-element-skeleton example instead of a full-scene starter.",
                 "Choose animation clock mode explicitly: UseGlobalClock=false uses Element-local KeyTime values in 00:00:00..Element.Length; UseGlobalClock=true uses scene timeline KeyTime values that should intersect the visible Element range.",
@@ -226,7 +228,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 "When using a composition template, call list_compositions, choose a specific returned name that matches the user's request, then pass that name to plan_composition and apply_composition with the returned planId.",
                 "Use render_composition_patch only when the client explicitly needs the generated template patch JSON.",
                 "Call list_examples/get_examples for small schema snippets or as a fallback when a user asks for an example; full-scene starters are hidden by default.",
-                "Call render_still for representative frames, record planned-element visibility/readability plus layer density/contrast, run evaluate_motion_variation, then run evaluate_edit_quality and resolve critical/major issues before export_video."
+                "Call final_preflight before export_video when available; otherwise call render_still for representative frames, record planned-element visibility/readability plus layer density/contrast, run evaluate_motion_variation, then run evaluate_edit_quality and resolve critical/major issues before export_video."
             ],
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {

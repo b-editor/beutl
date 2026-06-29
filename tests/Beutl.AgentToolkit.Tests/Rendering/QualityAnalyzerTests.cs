@@ -1,4 +1,4 @@
-using Beutl.AgentToolkit.Rendering;
+﻿using Beutl.AgentToolkit.Rendering;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
@@ -83,6 +83,40 @@ public sealed class QualityAnalyzerTests
             issue.Category == "textBackgroundFit"
             && issue.Severity == "major"
             && issue.ElementIds.Count >= 2));
+    }
+
+    [Test]
+    public async Task Decorative_rect_without_backing_role_is_not_treated_as_text_plate()
+    {
+        Scene scene = CreateScene();
+        AddRect(scene, "Refractive slice [role:decorative]", zIndex: 8, width: 680, height: 110, x: 160, y: 0);
+        AddText(scene, "Launch notes", zIndex: 10, x: -120, y: 0);
+
+        QualityReviewResponse result = await AnalyzeAsync(scene, evaluateMotion: false);
+
+        Assert.That(result.Issues.Where(issue => issue.Category == "textBackgroundFit"), Is.Empty);
+    }
+
+    [Test]
+    public async Task High_tempo_profile_restricts_short_lived_copy()
+    {
+        Scene scene = CreateScene(durationSeconds: 4);
+        Element text = AddText(
+            scene,
+            "Build precise motion quickly now",
+            zIndex: 10,
+            size: 64);
+        text.Length = TimeSpan.FromSeconds(1.5);
+
+        QualityReviewResponse result = await AnalyzeAsync(
+            scene,
+            evaluateMotion: false,
+            styleProfile: "high-tempo-promo");
+
+        Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
+            issue.Category == "typographyReadTime"
+            && issue.Severity == "major"
+            && issue.SuggestedFix.Contains("1.5s", StringComparison.Ordinal)));
     }
 
     [Test]
@@ -204,13 +238,16 @@ public sealed class QualityAnalyzerTests
         });
     }
 
-    private static ValueTask<QualityReviewResponse> AnalyzeAsync(Scene scene, bool evaluateMotion = true)
+    private static ValueTask<QualityReviewResponse> AnalyzeAsync(
+        Scene scene,
+        bool evaluateMotion = true,
+        string? styleProfile = null)
         => new QualityAnalyzer(new MotionVariationAnalyzer(new StillRenderer())).AnalyzeAsync(
             scene,
             timeSeconds: null,
             sampleCount: 3,
             renderScale: 1,
-            styleProfile: null,
+            styleProfile,
             allowAllCaps: false,
             allowHardCuts: false,
             allowRectDominance: false,

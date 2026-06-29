@@ -1,24 +1,25 @@
 ---
+name: beutl-ai-self-review
 description: |
-  Cross-check the Beutl AI workflow (AGENTS.md, AGENTS.md, .Codex/agents/,
-  .Codex/skills/, .Codex/rules/, .Codex/hooks/, docs/ai-workflow/) against
+  Cross-check the Beutl AI workflow (AGENTS.md, CLAUDE.md, .agents/skills/,
+  .claude/agents/, .claude/skills/, .claude/rules/, .claude/hooks/, docs/ai-workflow/) against
   the current repo state and propose targeted improvements one item at a time.
   Use proactively after completing a substantial task — 3+ files changed,
   a new feature, a non-trivial refactor, or a finished PR review cycle — or
   when the user says "review the AI setup", "self-review", "AI設定を見直して".
 allowed-tools: Read, Grep, Glob, Bash(git log:*), Bash(git diff:*), Bash(git show:*), Bash(git rev-parse:*), Bash(gh pr list:*), Bash(gh api:*), Bash(cat:*), Bash(test:*)
-argument-hint: "[since=<git-ref-or-date>]"
 ---
 
 # Beutl AI workflow self-review
 
 Refresh the AI setup so it never drifts from the codebase. The skill **only**
-touches files inside the AI surface: `AGENTS.md`, `AGENTS.md`, `.Codex/agents/`,
-`.Codex/skills/beutl-*` (do NOT edit `.Codex/skills/speckit-*`),
-`.Codex/rules/`, `.Codex/hooks/`, `docs/ai-workflow/`,
-`.specify/memory/constitution.md`. It never edits source code, tests, CI
-workflows, the linter config, or anything under `.specify/scripts/` /
-`.specify/templates/`.
+touches files inside the AI surface: `AGENTS.md`, `CLAUDE.md`,
+`.agents/skills/beutl-*` (do NOT edit `.agents/skills/speckit-*`),
+`.claude/agents/`, `.claude/skills/beutl-*` (do NOT edit
+`.claude/skills/speckit-*`), `.claude/rules/`, `.claude/hooks/`,
+`docs/ai-workflow/`, `.specify/memory/constitution.md`. It never edits source
+code, tests, CI workflows, the linter config, or anything under
+`.specify/scripts/` / `.specify/templates/`.
 
 ## 1. Pick the review window
 
@@ -26,7 +27,7 @@ Decide the `git` range to inspect, in this order:
 
 1. If `$ARGUMENTS` starts with `since=`, use the value after the `=` directly
    (e.g. `since=HEAD~20`, `since=2026-04-01`).
-2. Else, if `.Codex/.last-self-review` exists, read its contents and use
+2. Else, if `.agents/.last-self-review` exists, read its contents and use
    `<sha>..HEAD`.
 3. Else, fall back to `--since="30 days ago"`.
 
@@ -57,8 +58,10 @@ files, confirm it still exists. Concretely:
 
 1. List the AI surface files:
    ```bash
-   ls AGENTS.md AGENTS.md .Codex/agents/*.md .Codex/rules/*.md \
-      .Codex/skills/beutl-*/SKILL.md .Codex/skills/beutl-*/references/*.md \
+   ls AGENTS.md CLAUDE.md .agents/skills/beutl-*/SKILL.md \
+      .agents/skills/beutl-*/references/*.md .claude/agents/*.md \
+      .claude/rules/*.md .claude/skills/beutl-*/SKILL.md \
+      .claude/skills/beutl-*/references/*.md \
       docs/ai-workflow/*.md .specify/memory/constitution.md 2>/dev/null
    ```
 2. For each, `Grep` for tokens that look like paths or csproj names:
@@ -79,7 +82,7 @@ For each PR number `N`:
 
 ```bash
 gh api "repos/{owner}/{repo}/pulls/$N/comments" \
-  --jq '[.[] | select(.path | test("^(\\.Codex/|AGENTS\\.md|Codex\\.md|docs/ai-workflow/)")) | {pr: '"$N"', path, line, body, user: .user.login}]'
+  --jq '[.[] | select(.path | test("^(\\.agents/|\\.claude/|AGENTS\\.md|CLAUDE\\.md|docs/ai-workflow/)")) | {pr: '"$N"', path, line, body, user: .user.login}]'
 ```
 
 Aggregate themes by counting how often each cluster recurs (same wording or
@@ -88,8 +91,8 @@ same target path across 2+ PRs).
 ### Hook log (optional)
 
 ```bash
-test -f .Codex/logs/instructions-loaded.log && \
-  awk -F'\t' '{print $4}' .Codex/logs/instructions-loaded.log | sort | uniq -c | sort -rn
+test -f .claude/logs/instructions-loaded.log && \
+  awk -F'\t' '{print $4}' .claude/logs/instructions-loaded.log | sort | uniq -c | sort -rn
 ```
 
 Surface rules that load disproportionately often (description too loose) or
@@ -108,8 +111,10 @@ findings that ask to modify CI workflows.
 
 ## 4. Confirm each finding with the user
 
-Use `AskUserQuestion`. Batch at most 4 questions per call. For every finding,
-offer the same option set:
+Use the runtime's user-question mechanism (`AskUserQuestion` in Claude Code,
+`request_user_input` in Codex plan mode, or a concise direct question when no
+question tool is available). Batch at most 4 questions per call. For every
+finding, offer the same option set:
 
 - **Apply the edit** (the proposed diff)
 - **Skip** (acknowledge, no change this round)
@@ -131,7 +136,7 @@ After the run — even if zero findings were applied — write the current SHA t
 the marker so the next review starts from here:
 
 ```bash
-git rev-parse HEAD > .Codex/.last-self-review
+git rev-parse HEAD > .agents/.last-self-review
 ```
 
 ## 7. Summarize
@@ -150,7 +155,8 @@ changes.
 
 - Stay inside the AI surface. Never edit `src/`, `tests/`, `.github/workflows/`,
   `.specify/scripts/`, `.specify/templates/`, `.specify/integrations/`,
-  `.specify/workflows/`, the linter config, or `.Codex/skills/speckit-*`.
+  `.specify/workflows/`, the linter config, `.agents/skills/speckit-*`, or
+  `.claude/skills/speckit-*`.
 - Do not propose stylistic-only edits — `.editorconfig`, `xamlstyler.json`,
   and `dotnet format` own that.
 - Cap PR-feedback scanning at the most recent 10 PRs.

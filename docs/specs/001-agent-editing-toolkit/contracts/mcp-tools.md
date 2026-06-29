@@ -142,10 +142,29 @@ Render one frame to an image without the GUI (FR-016).
 ### `evaluate_edit_quality`
 Review the current scene for deterministic AI-editing quality risks before final export.
 - **Input**: `{ "timeSeconds"?: number[], "sampleCount"?: number, "renderScale"?: number, "styleProfile"?: string, "allowAllCaps"?: bool, "allowHardCuts"?: bool, "allowRectDominance"?: bool }`. When `timeSeconds` is omitted, the tool samples evenly across the scene duration.
-- **Output**: `{ "passesQualityGate": bool, "verdict": string, "issues": [ { "category": "typography|shapeDiversity|textBackgroundFit|paletteHarmony|materialUiLook|motionContinuity|cutRhythm", "severity": "critical|major|minor", "message": string, "evidence": string, "suggestedFix": string, "time"?: string, "elementIds": string[], "objectIds": string[] } ], "metrics": { "typography": { ... }, "shapeDiversity": { ... }, "palette": { ... }, "motionContinuity": { ... } }, "reviewNotes": string[] }`.
+- **Output**: `{ "passesQualityGate": bool, "verdict": string, "issues": [ { "category": "typography|typographyReadTime|visualHierarchy|shapeDiversity|textBackgroundFit|paletteHarmony|materialUiLook|effectIntent|motionContinuity|cutRhythm", "severity": "critical|major|minor", "message": string, "evidence": string, "suggestedFix": string, "time"?: string, "elementIds": string[], "objectIds": string[] } ], "metrics": { "typography": { ... }, "shapeDiversity": { ... }, "palette": { ... }, "motionContinuity": { ... } }, "reviewNotes": string[] }`.
 - **Use when**: after `render_still` and `evaluate_motion_variation`, and before `export_video`. Critical or major issues block normal export unless the user explicitly accepts them.
 - **Detects**: long all-caps text, excessive tracking, foreground `RectShape` dominance, misaligned text backing plates, dark teal/cyan/magenta or oversaturated palettes, outdated card/shadow/blur styling, low rendered motion variation, and unmotivated hard-cut rhythm.
+- **Role hints**: agents may mark object or element names with intent tags such as `[role:background]`, `[role:text-backing]`, or `[role:decorative]`. Text-background-fit checks only treat explicit backing names/roles as text plates; decorative rectangles should be tagged or replaced with non-rectangular accents.
 - **Backed by**: deterministic document, color, geometry, and rendered-motion heuristics; no OCR or generative image judging.
+
+### `preview_quality_risks`
+Run document-only deterministic quality checks without rendering.
+- **Input**: `{ "styleProfile"?: string, "allowAllCaps"?: bool, "allowHardCuts"?: bool, "allowRectDominance"?: bool }`.
+- **Output**: same shape as `evaluate_edit_quality`, with `metrics.motionContinuity.motionEvaluated=false`.
+- **Use when**: before a large `apply_edit` or immediately after an intermediate stage, so an agent can catch copy density, foreground rectangle, backing-plate, palette, effect-stack, and timeline-structure risks before paying render/export cost.
+
+### `suggest_quality_fixes`
+Group current quality issues into minimal patch-oriented repair suggestions.
+- **Input**: `{ "includeMotion"?: bool, "timeSeconds"?: number[], "sampleCount"?: number, "renderScale"?: number, "styleProfile"?: string, "requireAnimatedProperties"?: bool, "allowAllCaps"?: bool, "allowHardCuts"?: bool, "allowRectDominance"?: bool }`.
+- **Output**: `{ "passesQualityGate": bool, "verdict": string, "suggestions": [ { "category": string, "severity": string, "issueCount": number, "summary": string, "minimalPatchStrategy": string, "elementIds": string[], "objectIds": string[] } ], "metrics": { ... }, "reviewNotes": string[] }`.
+- **Use when**: `preview_quality_risks` or `evaluate_edit_quality` finds multiple related issues and the agent needs the smallest coherent repair plan instead of many raw issue rows.
+
+### `final_preflight`
+Run the standard final verification bundle before `export_video`.
+- **Input**: `{ "outputPrefix"?: string, "timeSeconds"?: number[], "sampleCount"?: number, "renderScale"?: number, "styleProfile"?: string, "requireAnimatedProperties"?: bool, "allowAllCaps"?: bool, "allowHardCuts"?: bool, "allowRectDominance"?: bool, "confirmOverwrite"?: bool }` (still-frame writes are guarded). Bare prefixes are written under `agent-output/`.
+- **Output**: `{ "readyForExport": bool, "blockers": string[], "stillFrames": [ { "outputPath": string, "time": string, "warnings": string[], "visibilityAnalysis": { ... }, "activeElements": [ ... ] } ], "motion": <evaluate_motion_variation output>, "quality": <evaluate_edit_quality output>, "recommendedNextTool": "export_video|suggest_quality_fixes" }`.
+- **Use when**: an agent thinks a scene is finished. For motion-graphics deliverables, pass `requireAnimatedProperties=true` so `animatedPropertyCount=0` blocks export even when rendered samples changed.
 
 ### `export_video`
 Export a range/timeline to a video file (FR-017).

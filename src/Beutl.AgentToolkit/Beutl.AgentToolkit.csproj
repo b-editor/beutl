@@ -21,6 +21,8 @@
                       LogicalName="Beutl.AgentToolkit.Installation.Assets.agents.beutl-agent-timeline-builder.md" />
     <EmbeddedResource Include="..\..\.claude\agents\beutl-agent-look-applier.md"
                       LogicalName="Beutl.AgentToolkit.Installation.Assets.agents.beutl-agent-look-applier.md" />
+    <EmbeddedResource Include="..\..\.claude\agents\beutl-agent-quality-reviewer.md"
+                      LogicalName="Beutl.AgentToolkit.Installation.Assets.agents.beutl-agent-quality-reviewer.md" />
   </ItemGroup>
 
   <ItemGroup>

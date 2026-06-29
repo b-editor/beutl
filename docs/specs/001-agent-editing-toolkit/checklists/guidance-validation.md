@@ -17,6 +17,7 @@ Create a 10-second 1920x1080 project from this brief:
 - Look/effects: `.claude/skills/beutl-agent-look-effect-chain/SKILL.md`
 - Optional specialist: `.claude/agents/beutl-agent-timeline-builder.md`
 - Optional specialist: `.claude/agents/beutl-agent-look-applier.md`
+- Optional specialist: `.claude/agents/beutl-agent-quality-reviewer.md`
 
 ## Pass Criteria
 
@@ -24,11 +25,12 @@ Create a 10-second 1920x1080 project from this brief:
 - The agent creates or attaches a session, calls `read_document`, then uses `apply_edit`.
 - The final document uses PascalCase property keys.
 - Existing id-keyed arrays are patched by `Id`; new objects omit `Id` only when they are genuinely new.
-- The agent records `textCasePlan`, `shapeBudget`, `paletteRoles`, `textPlatePlan`, `motionContinuityPlan`, and `verificationSamples` before authoring.
+- The agent records `textCasePlan`, `highTempoDensityPlan` when relevant, `shapeBudget`, `roleTagPlan`, `paletteRoles`, `textPlatePlan`, `motionContinuityPlan`, and `verificationSamples` before authoring.
 - The project saves under `BEUTL_WORKSPACE`.
 - At least three still frames are rendered for verification.
 - `evaluate_motion_variation` is run on representative samples.
 - `evaluate_edit_quality.passesQualityGate` is `true`; no critical or major issue remains unless explicitly accepted in notes.
+- `final_preflight.readyForExport` is `true` when the tool is available; for motion graphics, `requireAnimatedProperties=true` is used or `animatedPropertyCount > 0` is otherwise recorded.
 - The project can be reopened by Beutl.
 - The end-to-end task completes within 15 minutes.
 
