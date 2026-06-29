@@ -19,11 +19,17 @@ Return the Capability/Schema Descriptor (FR-006/FR-022), including reusable decl
 - **Errors**: `unknown_type`.
 - **Backed by**: `PropertyRegistry` + `EngineObject.Properties` + `LibraryService` (data-model §Capability).
 
+### `list_creative_directions`
+Return inspiration material for original motion graphics without returning a complete scene recipe.
+- **Input**: `{ "brief"?: string }`.
+- **Output**: `{ "schemaVersion": string, "directionAxes": string[], "inspirationSeeds": [ { name, category, evokes, transformations, usefulTools } ], "combinationRules": string[], "originalityConstraints": string[], "variationPrompts": string[], "overusedMotifs": string[], "workflowHints": string[], "selectionHint": string }`.
+- **Use when**: a vague or no-context creative brief needs inspiration before authoring. Agents must synthesize a new pitch from at least two returned seeds, create their own element/object names, and treat the returned names as raw inspiration rather than a completion checklist.
+
 ### `list_examples`
 Return compact example metadata without large patch payloads.
 - **Input**: `{ "type"?: string, "category"?: string }` — same filters and aliases as `get_schema`.
 - **Output**: `{ "schemaVersion": string, "examples": [ { name, description, categories, tags } ], "selectionHint": string }`.
-- **Use when**: a low-context or raw HTTP agent needs to choose a visual direction before fetching a large patch. The returned `examples` order is shuffled so repeated no-context runs do not always pick the same first starter.
+- **Use when**: a low-context or raw HTTP agent needs compact schema snippets before fetching a patch. Full-scene starters are hidden by default so original creative briefs are not anchored on reusable templates.
 
 ### `get_examples`
 Return only reusable declarative patch examples, without the full property schema.

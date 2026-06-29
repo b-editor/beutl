@@ -68,26 +68,20 @@ public sealed record GettingStartedResponse(
 public sealed record CreativeDirectionResponse(
     string SchemaVersion,
     IReadOnlyList<string> DirectionAxes,
-    IReadOnlyList<CreativeConceptPlan> ConceptPlans,
+    IReadOnlyList<CreativeInspirationSeed> InspirationSeeds,
+    IReadOnlyList<string> CombinationRules,
+    IReadOnlyList<string> OriginalityConstraints,
+    IReadOnlyList<string> VariationPrompts,
     IReadOnlyList<string> OverusedMotifs,
     IReadOnlyList<string> WorkflowHints,
     string SelectionHint);
 
-public sealed record CreativeConceptPlan(
-    string Concept,
-    IReadOnlyList<string> Elements,
-    IReadOnlyList<CreativeElementPlan> ElementPlan,
-    IReadOnlyList<string> AnimatedProperties,
-    IReadOnlyList<string> TimingPhases,
-    IReadOnlyList<string> Effects,
-    string PatchHint);
-
-public sealed record CreativeElementPlan(
-    string ElementName,
-    string Role,
-    string SuggestedObject,
-    string Timing,
-    string Motion);
+public sealed record CreativeInspirationSeed(
+    string Name,
+    string Category,
+    IReadOnlyList<string> Evokes,
+    IReadOnlyList<string> Transformations,
+    IReadOnlyList<string> UsefulTools);
 
 public sealed record DocumentSummaryResponse(
     string Session,
@@ -134,17 +128,17 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
             [
                 "Call attach_active_editor for an open editor scene; if it fails or no editor is available, call create_project or open_project for a file-backed session instead of writing a one-off generator.",
                 "Call read_document_summary to inspect progress without the full document.",
-                "For original creative briefs, call list_creative_directions, pick a conceptPlan, read_document, and get_schema only for the drawable/effect types you need, then author a custom declarative patch instead of cloning a starter.",
+                "For original creative briefs, call list_creative_directions, synthesize an original pitch from at least two inspiration seeds, read_document, and get_schema only for the drawable/effect types you need, then author a custom declarative patch instead of cloning a starter.",
                 "Call list_effects and list_effect_recipes to discover Beutl's visual effect palette before choosing a repeated look; for organic heat/ink/glass/noise fields, consider an SKSLScriptEffect shader recipe instead of stacking only blurred gradients.",
                 "For no-context motion graphics, avoid overused orbit/radar/map/signal/dashboard motifs unless the user asks for them.",
-                "For visible progress, apply large scenes in stages: background first, then motion elements, then text/effects; for conceptPlans, use exactly one elementPlan item per plan/apply/save stage unless the user explicitly asks for a combined edit.",
-                "For unconstrained creative briefs, keep project/video/still basenames neutral and record the chosen concept name in notes instead of filenames.",
+                "For visible progress, apply large scenes in stages that follow your synthesized pitch: background/surface first, then motion elements, then text/effects.",
+                "For unconstrained creative briefs, keep project/video/still basenames neutral and record the synthesized pitch in notes instead of filenames.",
                 "New timeline Elements need '$type': '[Beutl.ProjectSystem]:Element'. Existing Elements keep Id; genuinely new Elements and Objects omit Id. If you need structure only, fetch the targeted insert-new-element-skeleton example instead of a full-scene starter.",
                 "Animation KeyFrame times are scene timeline times in serialized toolkit patches. For Elements with nonzero Start, set keyframes to scene times that intersect the frames you will render.",
                 "Call plan_edit with the custom patch and schemaVersion=1.",
                 "Call apply_edit with plan_edit.planId when present, especially for large edits. Otherwise pass plan_edit.expectedChangeSet exactly as returned; do not summarize or rewrite the array.",
                 "For file-backed sessions, call save_project after each major successful apply_edit so partial progress is durable.",
-                "For selected creative conceptPlans, verify read_document_summary contains the planned element names before rendering or exporting.",
+                "For synthesized creative pitches, verify read_document_summary contains your own planned element names before rendering or exporting.",
                 "Use list_compositions, get_composition, and plan_composition only when the user explicitly asks for a reusable template, starter, or named composition style.",
                 "When using a composition template, call list_compositions, choose a specific returned name that matches the user's request, then pass that name to plan_composition and apply_composition with the returned planId.",
                 "Use render_composition_patch only when the client explicitly needs the generated template patch JSON.",
@@ -174,13 +168,13 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
     {
         return Execute(() =>
         {
-            IReadOnlyList<CreativeConceptPlan> conceptPlans = OrderCreativeConceptPlans(
-                CreateConceptPlans(),
+            IReadOnlyList<CreativeInspirationSeed> inspirationSeeds = OrderCreativeInspirationSeeds(
+                CreateInspirationSeeds(),
                 brief,
                 sessions.NextCreativeDirectionRequestIndex());
             string selectionHint = string.IsNullOrWhiteSpace(brief)
-                ? "No brief was supplied. Compare at least two conceptPlans, avoid any concept close to your last output, then implement the chosen element plan with a custom patch. Returned order is seeded and is not a ranking."
-                : $"Compare at least two conceptPlans before choosing, avoid any concept close to your last output, and reinterpret the brief without copying starter scenes: {brief.Trim()}";
+                ? "No brief was supplied. Pick at least two inspiration seeds from different categories, combine them into a new one-sentence pitch with a new title, then author that pitch with a custom patch. Returned order is seeded and is not a ranking."
+                : $"Use the brief as a constraint, combine at least two inspiration seeds into a new pitch, and avoid copying returned seed names or starter scenes: {brief.Trim()}";
 
             return new CreativeDirectionResponse(
                 SchemaVersion.Current,
@@ -193,7 +187,29 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                     "detail density: crop marks, micro-captions, texture grains, edge highlights, calibration ticks, fracture lines, shimmer bands",
                     "procedural surface: use SKSLScriptEffect for organic heat, ink, glass, smoke, grain, or caustic fields when gradients alone look flat"
                 ],
-                conceptPlans,
+                inspirationSeeds,
+                [
+                    "Synthesize a new pitch from at least two inspiration seeds in different categories before writing any patch.",
+                    "Use one seed as the visual subject and a second seed as the motion, texture, palette, or editing rhythm.",
+                    "Change at least one material, motion verb, or composition relation from every seed you use.",
+                    "Write your own element/object names from the synthesized pitch; do not reuse returned seed names as scene names.",
+                    "If the user supplied constraints, keep the constraints literal and treat the seeds as optional ways to make the result less generic."
+                ],
+                [
+                    "Do not implement any returned seed as a complete scene.",
+                    "Do not use returned seed names as the final concept name, Element/Object names, project filename, still filename, or video filename.",
+                    "Do not copy the seed order as a layer order.",
+                    "Do not use full-scene examples or composition templates unless the user explicitly asks for a starter/template.",
+                    "Avoid pitches close to your last output and avoid the listed overused motifs unless the user explicitly asks for them."
+                ],
+                [
+                    "Invert the seed relationship: make the supposed background become the active subject and the subject become texture.",
+                    "Replace a literal material with an abstract geometry that only hints at it.",
+                    "Swap the expected motion speed: make a violent idea move quietly or a quiet material move with sharp editorial cuts.",
+                    "Move the focal point off-center and use cropped detail instead of showing the whole motif.",
+                    "Turn a typographic idea into non-text marks, or let tiny captions become the main rhythm.",
+                    "Use procedural texture for one broad surface, then contrast it with a small hand-authored detail layer."
+                ],
                 [
                     "orbit rings",
                     "radar sweeps",
@@ -203,16 +219,17 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                     "dark teal background with cyan/magenta neon"
                 ],
                 [
-                    "Do not default to the first returned concept. Compare at least two conceptPlans, reject concepts close to your last output, then choose the strongest element plan.",
-                    "Map the chosen conceptPlan's elements to named Element/Object entries before writing a patch.",
-                    "Plan/apply/save in small stages that follow the chosen elementPlan. Use exactly one elementPlan item per stage; avoid one huge full-scene patch because large expectedChangeSet payloads may be omitted in favor of planId.",
-                    "After read_document_summary, compare actual element names with the chosen elementPlan and revise missing planned parts before rendering.",
-                    "For unconstrained briefs, keep project/video/still basenames neutral instead of naming files after the chosen concept.",
+                    "Do not default to the first returned seed. Compare at least two seeds, reject seeds close to your last output, and synthesize a new pitch before authoring.",
+                    "Record the seed names/categories and your new pitch in notes before creating elements.",
+                    "Map your synthesized pitch to named Element/Object entries before writing a patch.",
+                    "Plan/apply/save in small stages that follow your own scene plan; avoid one huge full-scene patch because large expectedChangeSet payloads may be omitted in favor of planId.",
+                    "After read_document_summary, compare actual element names with your own scene plan and revise missing planned parts before rendering.",
+                    "For unconstrained briefs, keep project/video/still basenames neutral instead of naming files after a returned seed or synthesized pitch.",
                     "After rendering stills, record which planned elements are visible/readable in each still, plus whether each development/resolution frame has at least three visible layer types and readable text contrast; revise if it does not.",
                     "Use at least three timing phases and animate multiple property families, not only X position and opacity.",
-                    "For organic abstract concepts, consider SKSLScriptEffect from list_effect_recipes(intent: 'shader organic') and verify the shader with render_still before export.",
+                    "For organic abstract pitches, consider SKSLScriptEffect from list_effect_recipes(intent: 'shader organic') and verify the shader with render_still before export.",
                     "Use scene-time KeyFrame values that intersect sampled still/video frames, especially for Elements with nonzero Start offsets.",
-                    "Name the concept in any notes or output summary before creating elements.",
+                    "Name the synthesized pitch in any notes or output summary before creating elements.",
                     "Use list_effects/list_effect_recipes for available effects, then build the scene with plan_edit/apply_edit.",
                     "Keep full-scene examples and composition templates for explicit template/starter requests only.",
                     "Verify at least three stills, run evaluate_motion_variation, and export a short video preview when the encoder is available."
@@ -258,7 +275,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 OrderExamples(Shuffle(examples)),
                 includeStarters
                     ? "Starter examples are included because includeStarters=true. Use get_examples with a specific name and adapt the structure to the brief."
-                    : "Full-scene starters are hidden by default. Use examples as small snippets; for original briefs, call list_creative_directions and author a custom patch with plan_edit/apply_edit.");
+                    : "Full-scene starters are hidden by default. Use examples as small snippets; for original briefs, call list_creative_directions, synthesize a pitch, and author a custom patch with plan_edit/apply_edit.");
         });
     }
 
@@ -449,28 +466,27 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                                   || string.Equals(tag, "empty-scene", StringComparison.OrdinalIgnoreCase));
     }
 
-    private static IReadOnlyList<CreativeConceptPlan> OrderCreativeConceptPlans(
-        IReadOnlyList<CreativeConceptPlan> plans,
+    private static IReadOnlyList<CreativeInspirationSeed> OrderCreativeInspirationSeeds(
+        IReadOnlyList<CreativeInspirationSeed> seeds,
         string? brief,
         int requestIndex)
     {
-        if (plans.Count <= 1)
+        if (seeds.Count <= 1)
         {
-            return plans.ToArray();
+            return seeds.ToArray();
         }
 
-        int baseOffset = ComputeCreativeConceptBaseOffset(brief, plans.Count);
-        int offset = ((baseOffset - 1 + requestIndex) % (plans.Count - 1)) + 1;
-        var ordered = new CreativeConceptPlan[plans.Count];
+        int offset = (ComputeCreativeSeedBaseOffset(brief, seeds.Count) + requestIndex) % seeds.Count;
+        var ordered = new CreativeInspirationSeed[seeds.Count];
         for (int i = 0; i < ordered.Length; i++)
         {
-            ordered[i] = plans[(i + offset) % plans.Count];
+            ordered[i] = seeds[(i + offset) % seeds.Count];
         }
 
         return ordered;
     }
 
-    private static int ComputeCreativeConceptBaseOffset(string? brief, int count)
+    private static int ComputeCreativeSeedBaseOffset(string? brief, int count)
     {
         string seedText = string.IsNullOrWhiteSpace(brief)
             ? (DateTimeOffset.UtcNow.ToUnixTimeSeconds() / 60).ToString()
@@ -485,7 +501,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 hash *= 16777619;
             }
 
-            return (int)(hash % (uint)(count - 1)) + 1;
+            return (int)(hash % (uint)count);
         }
     }
 
@@ -553,367 +569,172 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
         });
     }
 
-    private static IReadOnlyList<CreativeConceptPlan> CreateConceptPlans()
+    private static IReadOnlyList<CreativeInspirationSeed> CreateInspirationSeeds()
     {
         return
         [
-            new CreativeConceptPlan(
-                "Projected ink fold",
+            new CreativeInspirationSeed(
+                "translucent archive paper",
+                "material",
                 [
-                    "warm paper background plate",
-                    "large folding cutout plane",
-                    "ink-gradient light ribbon",
-                    "small calibration ticks",
-                    "cropped kinetic title"
+                    "fibers, vellum, partial opacity, torn edges",
+                    "quiet historical texture without becoming a literal scrapbook"
                 ],
                 [
-                    new CreativeElementPlan(
-                        "paper-backplate",
-                        "Full-frame warm paper texture and subtle drift.",
-                        "RectShape with gradient Fill",
-                        "00:00-08:00",
-                        "Slow TranslateTransform drift plus low-opacity brightness pulse."),
-                    new CreativeElementPlan(
-                        "folding-cutout",
-                        "Large geometric plane that folds into the frame.",
-                        "RectShape or PathGeometry-backed GeometryShape",
-                        "00:00-03:00",
-                        "Scale/Rotation reveal with DropShadow depth change."),
-                    new CreativeElementPlan(
-                        "ink-ribbon",
-                        "Sweeping gradient ribbon that crosses the title.",
-                        "RectShape with LinearGradientBrush",
-                        "01:50-06:00",
-                        "Translate across the frame while GradientStops.Offset/Color animate."),
-                    new CreativeElementPlan(
-                        "calibration-ticks",
-                        "Small tick marks that add density without becoming a dashboard.",
-                        "Thin RectShape objects",
-                        "02:00-07:50",
-                        "Staggered Opacity and short TranslateTransform offsets."),
-                    new CreativeElementPlan(
-                        "cropped-title",
-                        "Kinetic cropped title that resolves at the end.",
-                        "TextBlock",
-                        "03:00-08:00",
-                        "Opacity, Spacing, and slight Y motion settle into final lockup.")
+                    "make it a mask instead of a background",
+                    "replace torn edges with cropped geometric planes",
+                    "let the paper texture drive typography opacity"
                 ],
                 [
-                    "Transform.Children.TranslateTransform.X/Y",
-                    "Transform.Children.RotationTransform.Rotation",
+                    "RectShape",
+                    "LinearGradientBrush",
                     "Opacity",
-                    "Fill.GradientStops.Color/Offset",
-                    "FilterEffect.Children.Blur.Sigma"
+                    "DropShadow"
+                ]),
+            new CreativeInspirationSeed(
+                "magnetic letter fragments",
+                "typography",
+                [
+                    "broken glyphs, attraction, tension lines, interrupted readability",
+                    "type that behaves like matter instead of a static label"
                 ],
                 [
-                    "0-25%: quiet paper reveal and cutout fold-in",
-                    "25-75%: ribbon sweep crosses title and shifts color",
-                    "75-100%: title resolves while background drifts out"
+                    "make the fragments non-letter shapes until the last third",
+                    "use connector lines as the main motion rather than decoration",
+                    "settle into an unreadable mark instead of a literal headline"
                 ],
                 [
-                    "Blur",
-                    "DropShadow",
-                    "Brightness"
-                ],
-                "Create at least five named Elements/Objects from this plan before calling plan_edit."),
-            new CreativeConceptPlan(
-                "Magnetic type shards",
-                [
-                    "soft neutral background",
-                    "three to five letter-fragment TextBlock objects",
-                    "thin attraction lines",
-                    "accent particle dots",
-                    "final grouped title lockup"
-                ],
-                [
-                    new CreativeElementPlan(
-                        "neutral-field",
-                        "Quiet base layer that keeps contrast readable.",
-                        "RectShape with SolidColorBrush or LinearGradientBrush",
-                        "00:00-08:00",
-                        "Subtle opacity and scale breathing."),
-                    new CreativeElementPlan(
-                        "type-shard-a",
-                        "First fragment of the final word.",
-                        "TextBlock",
-                        "00:00-06:20",
-                        "Independent X/Y/Rotation overshoot into lockup."),
-                    new CreativeElementPlan(
-                        "type-shard-b",
-                        "Second fragment with offset timing.",
-                        "TextBlock",
-                        "00:20-06:20",
-                        "Counter-motion plus Spacing compression."),
-                    new CreativeElementPlan(
-                        "attraction-lines",
-                        "Thin connector strokes that imply pull without orbit motifs.",
-                        "RectShape lines",
-                        "01:00-05:40",
-                        "ScaleX/Opacity stretch and fade in staggered bursts."),
-                    new CreativeElementPlan(
-                        "accent-dots",
-                        "Small particles that fill negative space.",
-                        "EllipseShape objects",
-                        "01:20-07:00",
-                        "Short TranslateTransform hops and opacity flickers.")
-                ],
-                [
-                    "Transform.Children.TranslateTransform.X/Y",
-                    "Transform.Children.RotationTransform.Rotation",
-                    "Opacity",
+                    "TextBlock",
+                    "RectShape",
                     "TextBlock.Spacing",
-                    "BlendMode"
+                    "TranslateTransform"
+                ]),
+            new CreativeInspirationSeed(
+                "thermal afterimage",
+                "palette",
+                [
+                    "heat traces, false color, delayed glow, cooling edges",
+                    "color that reveals time rather than just filling space"
                 ],
                 [
-                    "0-20%: fragments enter separately",
-                    "20-70%: fragments overshoot and orbit-free attraction lines stretch",
-                    "70-100%: fragments snap into readable lockup"
-                ],
-                [
-                    "DropShadow",
-                    "Brightness",
-                    "FilterEffectGroup"
-                ],
-                "Map each shard to its own element or object so the motion can vary by phase."),
-            new CreativeConceptPlan(
-                "Thermal bloom diagram",
-                [
-                    "dark-to-warm thermal background",
-                    "two translucent heat blobs",
-                    "thin contour strokes",
-                    "numeric micro-captions",
-                    "white final label"
-                ],
-                [
-                    new CreativeElementPlan(
-                        "thermal-background",
-                        "Full-frame dark-to-warm field.",
-                        "RectShape with SKSLScriptEffect or LinearGradientBrush",
-                        "00:00-08:00",
-                        "Procedural shader time/progress field, or gradient offset and brightness drift."),
-                    new CreativeElementPlan(
-                        "heat-blob-left",
-                        "Large translucent bloom from one side.",
-                        "EllipseShape with Blur",
-                        "00:00-05:50",
-                        "Scale and blur sigma expand then cool."),
-                    new CreativeElementPlan(
-                        "heat-blob-right",
-                        "Second bloom with delayed counter movement.",
-                        "EllipseShape with Blur",
-                        "00:40-06:50",
-                        "Translate and opacity phase shifted from first blob."),
-                    new CreativeElementPlan(
-                        "contour-strokes",
-                        "Thin contour marks over the blooms.",
-                        "RectShape or GeometryShape strokes",
-                        "02:00-07:00",
-                        "Trim/Opacity staggered in waves."),
-                    new CreativeElementPlan(
-                        "micro-captions",
-                        "Small numeric labels and final white title.",
-                        "TextBlock",
-                        "02:50-08:00",
-                        "Caption opacity cascade, then final label settle.")
-                ],
-                [
-                    "Transform.Children.ScaleTransform.Scale",
-                    "Transform.Children.TranslateTransform.X/Y",
-                    "Opacity",
-                    "Fill.GradientStops.Offset",
-                    "FilterEffect.Children.Blur.Sigma"
-                ],
-                [
-                    "0-30%: heat blobs bloom from opposite corners",
-                    "30-70%: contours and captions stagger in",
-                    "70-100%: final label appears while blobs cool"
+                    "remove the expected black background",
+                    "make the hottest color the smallest object",
+                    "use thermal color on typography instead of blobs"
                 ],
                 [
                     "SKSLScriptEffect",
                     "Blur",
                     "Brightness",
-                    "DropShadow"
-                ],
-                "Use separate background, blob, contour, caption, and label layers for visual density."),
-            new CreativeConceptPlan(
-                "Glass prism clock",
+                    "LinearGradientBrush"
+                ]),
+            new CreativeInspirationSeed(
+                "off-axis glass refraction",
+                "material",
                 [
-                    "cool gray glass field",
-                    "three refracted prism slabs",
-                    "thin caustic light streaks",
-                    "tiny timecode ticks",
-                    "minimal title aperture"
+                    "split highlights, transparent slabs, displaced edges, caustic streaks",
+                    "image layers that feel bent without showing a literal prism"
                 ],
                 [
-                    new CreativeElementPlan(
-                        "glass-field",
-                        "Neutral reflective field that anchors refraction.",
-                        "RectShape with LinearGradientBrush",
-                        "00:00-08:00",
-                        "Gradient offset, opacity, and slight scale breathing."),
-                    new CreativeElementPlan(
-                        "prism-slabs",
-                        "Three translucent slabs crossing at different depths.",
-                        "RectShape objects with alpha Fill and DropShadow",
-                        "00:20-06:50",
-                        "Independent X/Y, Rotation, and blur changes."),
-                    new CreativeElementPlan(
-                        "caustic-streaks",
-                        "Narrow light streaks that sweep across slab edges.",
-                        "Thin RectShape objects",
-                        "01:00-07:20",
-                        "ScaleX, opacity, and gradient color pulse."),
-                    new CreativeElementPlan(
-                        "timecode-ticks",
-                        "Small non-dashboard tick marks for temporal texture.",
-                        "TextBlock or thin RectShape objects",
-                        "02:00-07:50",
-                        "Staggered opacity with short Y offsets."),
-                    new CreativeElementPlan(
-                        "aperture-title",
-                        "Minimal title revealed through a moving crop-like opening.",
-                        "TextBlock",
-                        "03:20-08:00",
-                        "Opacity, spacing, and subtle scale settle.")
+                    "make refraction visible only where text overlaps it",
+                    "replace slabs with narrow moving seams",
+                    "contrast a hard caustic line against soft grain"
                 ],
                 [
-                    "Transform.Children.TranslateTransform.X/Y",
-                    "Transform.Children.RotationTransform.Rotation",
-                    "Transform.Children.ScaleTransform.Scale",
-                    "Opacity",
-                    "Fill.GradientStops.Color/Offset",
-                    "FilterEffect.Children.Blur.Sigma"
-                ],
-                [
-                    "0-25%: glass field and prism slabs slide into depth",
-                    "25-70%: caustic streaks and ticks sweep across",
-                    "70-100%: aperture title resolves as refraction calms"
-                ],
-                [
+                    "RectShape",
+                    "LinearGradientBrush",
                     "Blur",
-                    "DropShadow",
-                    "Brightness"
-                ],
-                "Use translucent slab, streak, tick, and aperture layers so the piece is not just a glow pass."),
-            new CreativeConceptPlan(
-                "Risograph registration drift",
+                    "DropShadow"
+                ]),
+            new CreativeInspirationSeed(
+                "misregistered print pressure",
+                "composition",
                 [
-                    "off-white print stock",
-                    "misregistered color plates",
-                    "halftone dot field",
-                    "crop marks and fold guides",
-                    "overprinted headline"
+                    "offset plates, overprint seams, halftone density, crop pressure",
+                    "editorial composition where errors become the motion"
                 ],
                 [
-                    new CreativeElementPlan(
-                        "print-stock",
-                        "Off-white base plate with subtle paper motion.",
-                        "RectShape with SolidColorBrush or LinearGradientBrush",
-                        "00:00-08:00",
-                        "Opacity and slight Y drift."),
-                    new CreativeElementPlan(
-                        "color-plates",
-                        "Two or three overlapping print-color blocks.",
-                        "RectShape objects with translucent fills",
-                        "00:00-06:40",
-                        "Misregistered X/Y offsets converge and overshoot."),
-                    new CreativeElementPlan(
-                        "halftone-field",
-                        "Small dot texture across part of the frame.",
-                        "EllipseShape objects or repeated small RectShape dots",
-                        "01:00-07:00",
-                        "Staggered opacity, scale, and short drift."),
-                    new CreativeElementPlan(
-                        "crop-guides",
-                        "Editorial crop marks and fold guide lines.",
-                        "Thin RectShape objects",
-                        "01:40-07:50",
-                        "Line scale and opacity reveal in offset groups."),
-                    new CreativeElementPlan(
-                        "overprint-headline",
-                        "Bold headline that briefly misregisters then locks.",
-                        "TextBlock",
-                        "02:50-08:00",
-                        "Spacing, X/Y offset, and opacity snap into final print.")
+                    "use only one printed color plus a foreign accent color",
+                    "make the registration error grow worse instead of resolving",
+                    "turn crop marks into a moving frame rather than corner details"
                 ],
                 [
-                    "Transform.Children.TranslateTransform.X/Y",
-                    "Transform.Children.ScaleTransform.Scale",
-                    "Opacity",
-                    "TextBlock.Spacing",
-                    "Fill.Color"
-                ],
-                [
-                    "0-25%: print plates arrive with visible offset",
-                    "25-75%: halftone and crop marks build density",
-                    "75-100%: overprint headline locks into registration"
-                ],
-                [
+                    "RectShape",
+                    "EllipseShape",
                     "Brightness",
-                    "DropShadow",
-                    "FilterEffectGroup"
-                ],
-                "Keep the print-stock, plates, dots, guides, and headline as separate planned layers."),
-            new CreativeConceptPlan(
-                "Ceramic glaze fracture",
-                [
-                    "matte ceramic background",
-                    "glaze puddle ellipses",
-                    "fine crack lines",
-                    "kiln heat shimmer bands",
-                    "small maker mark title"
-                ],
-                [
-                    new CreativeElementPlan(
-                        "ceramic-ground",
-                        "Matte base with a softly uneven color field.",
-                        "RectShape with LinearGradientBrush",
-                        "00:00-08:00",
-                        "Gradient color drift and subtle opacity pulse."),
-                    new CreativeElementPlan(
-                        "glaze-puddles",
-                        "Overlapping glossy puddles moving like liquid glaze.",
-                        "EllipseShape objects with blur/brightness",
-                        "00:40-06:50",
-                        "Scale, X/Y drift, opacity, and blur sigma changes."),
-                    new CreativeElementPlan(
-                        "fracture-lines",
-                        "Thin crack marks that branch across the frame.",
-                        "RectShape or GeometryShape strokes",
-                        "01:40-07:20",
-                        "ScaleX/opacity reveal with staggered offsets."),
-                    new CreativeElementPlan(
-                        "heat-shimmer-bands",
-                        "Soft horizontal bands suggesting kiln heat.",
-                        "Translucent RectShape objects",
-                        "02:00-07:50",
-                        "Y drift, opacity wave, and brightness pulse."),
-                    new CreativeElementPlan(
-                        "maker-mark",
-                        "Small final title mark rather than a large poster headline.",
-                        "TextBlock",
-                        "03:50-08:00",
-                        "Opacity, spacing, and slight rotation settle.")
-                ],
-                [
-                    "Transform.Children.TranslateTransform.X/Y",
-                    "Transform.Children.ScaleTransform.Scale",
-                    "Transform.Children.RotationTransform.Rotation",
-                    "Opacity",
-                    "FilterEffect.Children.Blur.Sigma",
                     "TextBlock.Spacing"
+                ]),
+            new CreativeInspirationSeed(
+                "liquid glaze memory",
+                "motion",
+                [
+                    "spreading puddles, hairline cracks, slow cooling, glossy islands",
+                    "motion that feels viscous before it becomes crisp"
                 ],
                 [
-                    "0-30%: ceramic ground warms and glaze puddles spread",
-                    "30-75%: fracture lines and shimmer bands reveal",
-                    "75-100%: maker mark resolves as glaze motion slows"
+                    "make cracks appear before the liquid surface",
+                    "let the liquid motion drive a cropped title reveal",
+                    "replace puddles with bands or narrow seams"
                 ],
                 [
+                    "EllipseShape",
+                    "RectShape",
                     "Blur",
-                    "Brightness",
-                    "DropShadow"
+                    "Brightness"
+                ]),
+            new CreativeInspirationSeed(
+                "handheld calibration marks",
+                "detail density",
+                [
+                    "ticks, crop marks, handwritten offsets, imperfect measuring systems",
+                    "small marks that make the frame feel authored but not like a dashboard"
                 ],
-                "Use puddles, fracture marks, shimmer bands, and maker mark together so the ceramic premise is readable.")
+                [
+                    "make the calibration marks drift out of calibration",
+                    "use marks as masks for other layers",
+                    "hide the marks until the final third so they reframe the image"
+                ],
+                [
+                    "RectShape",
+                    "TextBlock",
+                    "Opacity",
+                    "TranslateTransform"
+                ]),
+            new CreativeInspirationSeed(
+                "cropped macro aperture",
+                "composition",
+                [
+                    "extreme crop, frame-within-frame, partial visibility, negative-space pressure",
+                    "a subject that is never fully shown"
+                ],
+                [
+                    "keep the most important object off-screen",
+                    "make the crop window move instead of the subject",
+                    "resolve to a detail, not a wide shot"
+                ],
+                [
+                    "RectShape",
+                    "ScaleTransform",
+                    "TranslateTransform",
+                    "Opacity"
+                ]),
+            new CreativeInspirationSeed(
+                "phosphor decay",
+                "procedural surface",
+                [
+                    "scan persistence, fading trails, soft electronic residue, pixel memory",
+                    "time-lag texture without defaulting to neon dashboards"
+                ],
+                [
+                    "apply it to warm daylight colors instead of cyan/magenta",
+                    "make the decay visible only after cuts",
+                    "use one procedural surface as a memory layer behind physical materials"
+                ],
+                [
+                    "SKSLScriptEffect",
+                    "Brightness",
+                    "Blur",
+                    "Opacity"
+                ])
         ];
     }
 
