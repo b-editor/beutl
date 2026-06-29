@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Text.Json;
+using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Schema;
@@ -82,6 +83,76 @@ public sealed class PlanApplyParityTests
             Assert.That(plan.IsSuccess, Is.True, plan.Error?.Message);
             Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
             Assert.That(scene.Children.Single().Start, Is.EqualTo(TimeSpan.FromSeconds(4)));
+        });
+    }
+
+    [Test]
+    public void Apply_edit_accepts_plan_id_from_plan_edit()
+    {
+        Scene scene = CreateSceneWithElement(out Element element);
+        using var session = new AgentToolkitTestSession(scene);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var tools = new EditTools(manager);
+
+        JsonObject patch = new()
+        {
+            ["Elements"] = new JsonArray(new JsonObject
+            {
+                [nameof(CoreObject.Id)] = element.Id.ToString(),
+                [nameof(Element.Start)] = TimeSpan.FromSeconds(4.5).ToString("c")
+            })
+        };
+
+        ToolResult<ReconcilePlan> plan = tools.PlanEdit(patch: patch, schemaVersion: SchemaVersion.Current);
+        ToolResult<ApplyEditResponse> apply = tools.ApplyEdit(planId: plan.Value!.PlanId);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(plan.IsSuccess, Is.True, plan.Error?.Message);
+            Assert.That(plan.Value!.PlanId, Is.Not.Null.And.Not.Empty);
+            Assert.That(plan.Value.UsageHint, Does.Contain("planId"));
+            Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
+            Assert.That(scene.Children.Single().Start, Is.EqualTo(TimeSpan.FromSeconds(4.5)));
+        });
+    }
+
+    [Test]
+    public void Large_plan_edit_omits_inline_change_details_but_remains_applyable_by_plan_id()
+    {
+        Scene scene = CreateSceneWithElement(out Element element);
+        using var session = new AgentToolkitTestSession(scene);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var tools = new EditTools(manager);
+        string longName = new('x', 20_000);
+
+        JsonObject patch = new()
+        {
+            ["Elements"] = new JsonArray(new JsonObject
+            {
+                [nameof(CoreObject.Id)] = element.Id.ToString(),
+                [nameof(CoreObject.Name)] = longName
+            })
+        };
+
+        ToolResult<ReconcilePlan> plan = tools.PlanEdit(patch: patch, schemaVersion: SchemaVersion.Current);
+        string serializedPlan = JsonSerializer.Serialize(plan.Value);
+        ToolResult<ApplyEditResponse> apply = tools.ApplyEdit(planId: plan.Value!.PlanId);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(plan.IsSuccess, Is.True, plan.Error?.Message);
+            Assert.That(plan.Value!.PlanId, Is.Not.Null.And.Not.Empty);
+            Assert.That(plan.Value.DetailedChangesIncluded, Is.False);
+            Assert.That(plan.Value.ExpectedChangeSetIncluded, Is.False);
+            Assert.That(plan.Value.ExpectedChangeSet, Has.Count.EqualTo(1));
+            Assert.That(serializedPlan, Does.Not.Contain("\"changes\""));
+            Assert.That(serializedPlan, Does.Not.Contain("\"expectedChangeSet\""));
+            Assert.That(serializedPlan, Does.Not.Contain(longName));
+            Assert.That(plan.Value.UsageHint, Does.Contain("Pass planId"));
+            Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
+            Assert.That(scene.Children.Single().Name, Is.EqualTo(longName));
         });
     }
 

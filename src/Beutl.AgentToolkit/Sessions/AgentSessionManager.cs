@@ -9,6 +9,7 @@ public sealed class AgentSessionManager
 {
     private readonly string _hostCompositionSeed = CreateCompositionSeed("host");
     private readonly Dictionary<string, CompositionPlanState> _compositionPlans = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, EditPlanState> _editPlans = new(StringComparer.Ordinal);
     private readonly Dictionary<string, List<string>> _recentCompositions = new(StringComparer.Ordinal);
     private readonly List<string> _hostRecentCompositions = [];
     private readonly List<string> _preAttachPreviewedCompositions = [];
@@ -148,6 +149,52 @@ public sealed class AgentSessionManager
         return state;
     }
 
+    public EditPlanState StoreEditPlan(
+        JsonObject desiredDocument,
+        JsonArray expectedChangeSet,
+        IReadOnlySet<Guid> knownNewIds)
+    {
+        string id = Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLowerInvariant();
+        var state = new EditPlanState(
+            id,
+            GetCompositionSessionKey(),
+            (JsonObject)desiredDocument.DeepClone(),
+            (JsonArray)expectedChangeSet.DeepClone(),
+            knownNewIds.ToArray(),
+            DateTimeOffset.UtcNow);
+        _editPlans[id] = state;
+        return state;
+    }
+
+    public EditPlanState GetEditPlan(string planId)
+    {
+        if (!_editPlans.TryGetValue(planId, out EditPlanState? state))
+        {
+            throw new ReconcileException(new ToolError(
+                ErrorCode.StaleHandle,
+                $"Edit plan '{planId}' was not found.",
+                planId,
+                "Run plan_edit again and pass the returned planId to apply_edit."));
+        }
+
+        string currentKey = GetCompositionSessionKey();
+        if (!StringComparer.Ordinal.Equals(state.SessionKey, currentKey))
+        {
+            throw new ReconcileException(new ToolError(
+                ErrorCode.StaleHandle,
+                $"Edit plan '{planId}' belongs to a different editing session.",
+                planId,
+                "Run plan_edit again in the active session."));
+        }
+
+        return state;
+    }
+
+    public void RemoveEditPlan(string planId)
+    {
+        _editPlans.Remove(planId);
+    }
+
     public CompositionPlanState GetCompositionPlan(string planId)
     {
         if (!_compositionPlans.TryGetValue(planId, out CompositionPlanState? state))
@@ -197,6 +244,14 @@ public sealed record CompositionPlanState(
     string CompositionName,
     string Seed,
     JsonObject InputProps,
+    JsonObject DesiredDocument,
+    JsonArray ExpectedChangeSet,
+    IReadOnlyList<Guid> KnownNewIds,
+    DateTimeOffset CreatedAt);
+
+public sealed record EditPlanState(
+    string Id,
+    string SessionKey,
     JsonObject DesiredDocument,
     JsonArray ExpectedChangeSet,
     IReadOnlyList<Guid> KnownNewIds,

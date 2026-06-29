@@ -1,5 +1,6 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 
 namespace Beutl.AgentToolkit.Reconciliation;
 
@@ -11,13 +12,60 @@ public sealed record ChangeSetEntry(
     JsonNode? NewValue = null,
     int? Index = null);
 
-public sealed record ReconcilePlan(
-    IReadOnlyList<ChangeSetEntry> Changes,
-    IReadOnlyList<ValidationOutcome> Validation)
+public sealed record ReconcilePlan
 {
+    public ReconcilePlan(
+        IReadOnlyList<ChangeSetEntry> changes,
+        IReadOnlyList<ValidationOutcome> validation)
+    {
+        Changes = changes;
+        Validation = validation;
+    }
+
+    [JsonIgnore]
+    public IReadOnlyList<ChangeSetEntry> Changes { get; init; }
+
+    [JsonIgnore]
+    public IReadOnlyList<ValidationOutcome> Validation { get; init; }
+
+    public string? PlanId { get; init; }
+
+    public string UsageHint { get; init; } = "Pass expectedChangeSet to apply_edit, or pass planId when present to avoid copying the change set.";
+
+    public int ChangeCount => Changes.Count;
+
+    public IReadOnlyDictionary<string, int> Operations => Changes
+        .GroupBy(change => change.Operation, StringComparer.Ordinal)
+        .ToDictionary(group => group.Key, group => group.Count(), StringComparer.Ordinal);
+
+    public int ValidationCount => Validation.Count;
+
+    public IReadOnlyDictionary<string, int> ValidationStatuses => Validation
+        .GroupBy(outcome => outcome.Status.ToString(), StringComparer.Ordinal)
+        .ToDictionary(group => group.Key, group => group.Count(), StringComparer.Ordinal);
+
     public bool Valid => Validation.All(item => item.Status != ValidationStatus.Rejected);
 
+    public bool DetailedChangesIncluded { get; init; } = true;
+
+    public bool DetailedValidationIncluded { get; init; } = true;
+
+    public bool ExpectedChangeSetIncluded { get; init; } = true;
+
+    [JsonPropertyName("changes")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<ChangeSetEntry>? SerializedChanges => DetailedChangesIncluded ? Changes : null;
+
+    [JsonPropertyName("validation")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<ValidationOutcome>? SerializedValidation => DetailedValidationIncluded ? Validation : null;
+
+    [JsonIgnore]
     public JsonArray ExpectedChangeSet => ChangeSetJson.ToJsonArray(Changes);
+
+    [JsonPropertyName("expectedChangeSet")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public JsonArray? SerializedExpectedChangeSet => ExpectedChangeSetIncluded ? ExpectedChangeSet : null;
 }
 
 public sealed record ReconcileResult(
