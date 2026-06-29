@@ -17,6 +17,7 @@ Use this skill when an agent needs to turn a shot list, storyboard, or timed bri
    - After selection, map the chosen plan's listed elements into named Beutl elements/objects before authoring.
    - For unconstrained briefs, keep project, still, and video basenames neutral, such as `project.bep`, `preview.mp4`, and `still-*.png`, or use the requested output directory slug. Record the concept name in notes instead of naming files after it.
 2. Call `get_schema` before authoring if the required drawable, media, or audio type is not already known.
+   - For organic heat, ink, glass, smoke, grain, caustic, or other procedural fields, call `list_effect_recipes` with a shader/organic intent and consider `SKSLScriptEffect` instead of stacking only blurred gradient shapes. Prefer SKSL over GLSL for low-context file sessions because it is CPU-safe in still renders.
 3. Create or attach a session:
    - Stdio/headless: `create_project` or `open_project` with a `.bep` project path. Paths without an extension are normalized to `.bep`; `.beutl` is reserved for exported project packages.
    - Live editor: `attach_active_editor`.
@@ -25,15 +26,18 @@ Use this skill when an agent needs to turn a shot list, storyboard, or timed bri
 6. Call `read_document` and keep the returned `schemaVersion`.
 7. Build the timeline as a declarative document:
    - Use PascalCase property names exactly as returned by `get_schema`.
+   - New timeline `Elements` require `$type: "[Beutl.ProjectSystem]:Element"`.
    - Use stable `Id` handles when modifying existing elements.
    - Omit `Id` only for genuinely new elements/objects so the toolkit can mint one.
    - When adding new `Objects` to an existing `Element`, keep the parent `Element.Id` and omit `Id` on each new Object.
    - Keep element `Start`, `Length`, and layer/Z values consistent with the shot list.
-8. Call `plan_edit`, inspect the change count and validation outcomes, and keep either the returned `planId` or the returned `expectedChangeSet` for application. For multi-element motion graphics, plan/apply/save in small stages that map to the selected concept's element plan. Prefer one `conceptPlan.elementPlan` item per stage; combine items only when the returned plan keeps inline details included.
+   - Animation `KeyFrame.KeyTime` values are scene timeline times in toolkit patches, not object-local guesses. For Elements with nonzero `Start`, choose keyframe times that intersect the still/video frames you will render.
+   - If you only need the required container shape, fetch the targeted `insert-new-element-skeleton` example; do not inspect a full-scene starter just to learn `$type` placement.
+8. Call `plan_edit`, inspect the change count and validation outcomes, and keep either the returned `planId` or the returned `expectedChangeSet` for application. For multi-element motion graphics, plan/apply/save in small stages that map to the selected concept's element plan. Use exactly one `conceptPlan.elementPlan` item per stage unless the user explicitly asks for a combined edit.
 9. Call `apply_edit` with the returned `planId` when present, especially when inline `changes` or `expectedChangeSet` are omitted. If using `expectedChangeSet`, pass the exact array from the accepted plan. Do not replace it with a count, label, or shorthand.
 10. For file sessions, call `save_project` after every successful major `apply_edit` before continuing to the next stage.
 11. Verify with `read_document_summary`. If a selected `conceptPlan` had an `elementPlan`, compare every expected element name/role against the actual elements and revise before rendering unless the omission is recorded with a concrete reason.
-12. Verify with `render_still` at representative shot boundaries. For each still, record which planned elements are visible, whether text/title elements are readable, and whether foreground/background/accent density is present.
+12. Verify with `render_still` at representative shot boundaries. For each still, record which planned elements are visible, whether text/title elements are readable, and whether foreground/background/accent density is present. Development and resolution stills should show at least three visible layer types, such as background/surface, primary motion, accent/detail, and typography; if text is present, it must have clear contrast against the background.
 13. Run `evaluate_motion_variation` across 4-6 samples. If it reports `low-motion-variation` or `poor-frame-coverage`, or if the still review shows planned elements are never visible/readable, revise the edit before exporting.
 14. Export a short preview with `export_video` when an encoder is available; if export is unavailable, record the reason in notes.
 15. Save with `save_project` for file sessions after final revisions.
@@ -43,10 +47,12 @@ Use this skill when an agent needs to turn a shot list, storyboard, or timed bri
 - Use at least three timing phases: reveal, development, and resolution. Avoid a single continuous drift.
 - Animate multiple property families across the piece, such as transform, opacity, brush/gradient, effect parameters, and text spacing. Do not rely only on X movement plus opacity.
 - Maintain visual density: use layered background, foreground motion, accents, and typography/labels. A lone title over one moving shape is too sparse unless the brief asks for minimalism.
+- Use procedural texture when the concept is organic or atmospheric. A short `SKSLScriptEffect` on a broad shape is often better than many low-contrast blurred ellipses for heat, ink, glass, smoke, caustics, grain, or shimmer.
 - Give each major visual part a clear name in the patch so `read_document_summary` exposes the intended structure.
 - Treat the chosen `conceptPlan.elementPlan` as a completion checklist. A final scene that omits planned accent/density elements without a recorded reason is incomplete.
 - After still renders, use `evaluate_motion_variation`; treat low adjacent-frame variation or persistent one-quadrant/sparse frame coverage as a failed self-check for motion graphics.
 - Numerical motion variation is necessary but not sufficient: planned elements must also be visibly present across representative stills, and text/title elements must be readable before export.
+- A still that is mostly a smooth background after the reveal phase is not dense enough even if `evaluate_motion_variation` passes.
 
 ## Originality Rules
 
@@ -70,6 +76,7 @@ Use this skill when an agent needs to turn a shot list, storyboard, or timed bri
 - Use `$index`, `$after`, or `$before` for ordering; do not combine ordering directives.
 - Unknown `Id` means stale handle; call `read_document` again instead of guessing.
 - Existing parent with new child example: `{ "Elements": [{ "Id": "<existing-element-id>", "Objects": [{ "$type": "<discriminator-from-get_schema>", "Name": "new-title" }] }] }`. The existing `Element` keeps its `Id`; the new Object omits `Id`.
+- New Element example: `{ "Elements": [{ "$type": "[Beutl.ProjectSystem]:Element", "Name": "new-element", "Start": "00:00:00", "Length": "00:00:02", "Objects": [{ "$type": "<drawable-discriminator-from-get_schema>", "Name": "new-object" }] }] }`. New Elements and Objects omit `Id`.
 
 ## Progress Watchdog
 
