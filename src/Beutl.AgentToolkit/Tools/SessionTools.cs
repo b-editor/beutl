@@ -20,7 +20,25 @@ public sealed record CreateProjectResponse(string Session, string SavedPath, Ses
 
 public sealed record AddSceneResponse(string SceneId, SessionSummary Summary);
 
-public sealed record SaveProjectResponse(string SavedPath);
+public sealed record SaveProjectResponse(string SavedPath)
+{
+    public bool Saved { get; init; } = true;
+
+    public string? Session { get; init; }
+
+    public string? Source { get; init; }
+
+    public string? Message { get; init; }
+}
+
+public sealed record OperationStatusResponse(
+    bool HasActiveSession,
+    string? Session,
+    string? Source,
+    bool? IsDirty,
+    bool SaveProjectSupported,
+    bool HasLongRunningOperation,
+    string Message);
 
 [McpServerToolType]
 public sealed class SessionTools(
@@ -109,6 +127,25 @@ public sealed class SessionTools(
     {
         return Execute(() =>
         {
+            if (sessions.CurrentSession is { Source: EditingSessionSource.LiveEditor } liveSession)
+            {
+                if (!string.Equals(liveSession.SessionId, session, StringComparison.Ordinal))
+                {
+                    throw new ReconcileException(new ToolError(
+                        ErrorCode.StaleHandle,
+                        $"Session '{session}' is not active.",
+                        session));
+                }
+
+                return new SaveProjectResponse(string.Empty)
+                {
+                    Saved = false,
+                    Session = liveSession.SessionId,
+                    Source = liveSession.Source.ToString(),
+                    Message = "Live editor sessions apply edits directly to the open editor; save_project is not required or supported by the Agent Editing Toolkit for LiveEditor. Save from the Beutl UI if you need to persist the open project."
+                };
+            }
+
             FileEditingSession fileSession = RequireFileSession(session);
             bool skipConflictCheck = false;
             if (!string.IsNullOrWhiteSpace(path))
@@ -124,7 +161,46 @@ public sealed class SessionTools(
             }
 
             fileSession.Save(skipConflictCheck);
-            return new SaveProjectResponse(fileSession.Project.Uri!.LocalPath);
+            return new SaveProjectResponse(fileSession.Project.Uri!.LocalPath)
+            {
+                Saved = true,
+                Session = fileSession.SessionId,
+                Source = fileSession.Source.ToString(),
+                Message = "File-backed project saved."
+            };
+        });
+    }
+
+    [McpServerTool(Name = "read_operation_status")]
+    [Description("Reports the active Agent Editing Toolkit session state and whether save_project is supported. Toolkit edit/render calls are synchronous; use this when a workflow needs a quick status response before continuing or stopping.")]
+    public ToolResult<OperationStatusResponse> ReadOperationStatus()
+    {
+        return Execute(() =>
+        {
+            IEditingSession? session = sessions.CurrentSession;
+            if (session is null)
+            {
+                return new OperationStatusResponse(
+                    HasActiveSession: false,
+                    Session: null,
+                    Source: null,
+                    IsDirty: null,
+                    SaveProjectSupported: false,
+                    HasLongRunningOperation: false,
+                    Message: "No active editing session is available. Call attach_active_editor for an open editor scene, or create_project/open_project for a file-backed session.");
+            }
+
+            bool fileBacked = session.Source == EditingSessionSource.File;
+            return new OperationStatusResponse(
+                HasActiveSession: true,
+                Session: session.SessionId,
+                Source: session.Source.ToString(),
+                IsDirty: session.IsDirty,
+                SaveProjectSupported: fileBacked,
+                HasLongRunningOperation: false,
+                Message: fileBacked
+                    ? "Active file-backed session. MCP tool calls are synchronous; call save_project after major successful apply_edit stages."
+                    : "Active LiveEditor session. MCP tool calls are synchronous; edits are already applied to the open editor and save_project is not required or supported.");
         });
     }
 

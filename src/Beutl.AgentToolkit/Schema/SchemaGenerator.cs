@@ -2006,7 +2006,33 @@ public sealed class SchemaGenerator
             ElementType: property is IListProperty listProperty
                 ? listProperty.ElementType.FullName ?? listProperty.ElementType.Name
                 : null,
-            EnumValues: EnumJsonValueNormalizer.GetEnumNames(property.ValueType));
+            EnumValues: EnumJsonValueNormalizer.GetEnumNames(property.ValueType),
+            UsageHint: CreatePropertyUsageHint(property.ValueType, property.IsAnimatable));
+    }
+
+    private static string? CreatePropertyUsageHint(Type valueType, bool animatable)
+    {
+        Type type = Nullable.GetUnderlyingType(valueType) ?? valueType;
+        List<string> hints = [];
+        if (type == typeof(Color))
+        {
+            hints.Add("Use serialized Beutl color values such as '#ffffb34d' or copy the exact shape returned by read_document/get_schema; do not use palette names such as 'Amber'.");
+        }
+        else if (type == typeof(Pen))
+        {
+            hints.Add("Pen is a typed EngineObject value. Use the Pen shape returned by get_schema/read_document, including its '$type' discriminator and PascalCase properties such as Brush and Thickness, or omit Pen when no stroke is needed.");
+        }
+        else if (typeof(EngineObject).IsAssignableFrom(type))
+        {
+            hints.Add("Use a concrete '$type' discriminator returned by get_schema for this EngineObject value and only the returned PascalCase property names.");
+        }
+
+        if (animatable)
+        {
+            hints.Add("Animate through Animations.<Property>.KeyFrames using schema-returned animation/keyframe discriminators; KeyTime values are scene timeline times.");
+        }
+
+        return hints.Count == 0 ? null : string.Join(" ", hints);
     }
 
     private static string? FindJsonConverter(IProperty property, Attribute[] attributes)

@@ -1,7 +1,9 @@
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Sessions;
+using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
 using Beutl.AgentToolkit.Workspace;
+using Beutl.ProjectSystem;
 
 namespace Beutl.AgentToolkit.Tests.Tools;
 
@@ -127,6 +129,35 @@ public sealed class SessionToolsTests
             Assert.That(created.IsSuccess, Is.True, created.Error?.Message);
             Assert.That(rejected.IsSuccess, Is.False);
             Assert.That(rejected.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+        });
+    }
+
+    [Test]
+    public void Save_project_reports_live_editor_sessions_as_not_required()
+    {
+        string root = CreateWorkspace();
+        using var liveSession = new AgentToolkitTestSession(new Scene(), EditingSessionSource.LiveEditor);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(liveSession));
+        using var fileSource = new FileSessionSource();
+        var sessionTools = new SessionTools(
+            fileSource,
+            manager,
+            new WorkspaceGuard(root),
+            new DestructiveGuard());
+
+        ToolResult<SaveProjectResponse> saved = sessionTools.SaveProject(liveSession.SessionId);
+        ToolResult<OperationStatusResponse> status = sessionTools.ReadOperationStatus();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(saved.IsSuccess, Is.True, saved.Error?.Message);
+            Assert.That(saved.Value!.Saved, Is.False);
+            Assert.That(saved.Value.Source, Is.EqualTo(nameof(EditingSessionSource.LiveEditor)));
+            Assert.That(saved.Value.Message, Does.Contain("save_project is not required or supported"));
+            Assert.That(status.IsSuccess, Is.True, status.Error?.Message);
+            Assert.That(status.Value!.SaveProjectSupported, Is.False);
+            Assert.That(status.Value.Source, Is.EqualTo(nameof(EditingSessionSource.LiveEditor)));
         });
     }
 

@@ -39,6 +39,8 @@ public sealed class SchemaGenerationTests
         TypeDescriptor rectGeometry = schema.Types.Single(type => type.Type == typeof(RectGeometry).FullName);
         TypeDescriptor pen = schema.Types.Single(type => type.Type == typeof(Pen).FullName);
         TypeDescriptor gradientStop = schema.Types.Single(type => type.Type == typeof(GradientStop).FullName);
+        PropertyDescriptor gradientStopColor = gradientStop.Properties.Single(property => property.Name == nameof(GradientStop.Color));
+        PropertyDescriptor penBrush = pen.Properties.Single(property => property.Name == nameof(Pen.Brush));
         TypeDescriptor linearEasing = schema.Types.Single(type => type.Type == typeof(LinearEasing).FullName);
         TypeDescriptor nodeGraphDrawable = schema.Types.Single(type => type.Type == typeof(NodeGraphDrawable).FullName);
         TypeDescriptor nodeGraphFilterEffect = schema.Types.Single(type => type.Type == typeof(NodeGraphFilterEffect).FullName);
@@ -80,7 +82,11 @@ public sealed class SchemaGenerationTests
             Assert.That(transformChildren.ElementType, Is.EqualTo(typeof(Transform).FullName));
             Assert.That(rectGeometry.Category, Is.EqualTo(KnownLibraryItemFormats.Geometry));
             Assert.That(pen.Category, Is.EqualTo(KnownLibraryItemFormats.Pen));
-            Assert.That(gradientStop.Properties.Single(property => property.Name == nameof(GradientStop.Color)).Converter, Does.Contain("ColorJsonConverter"));
+            Assert.That(gradientStopColor.Converter, Does.Contain("ColorJsonConverter"));
+            Assert.That(gradientStopColor.UsageHint, Does.Contain("#ffffb34d"));
+            Assert.That(gradientStopColor.UsageHint, Does.Contain("Amber"));
+            Assert.That(penBrush.UsageHint, Does.Contain("$type"));
+            Assert.That(penBrush.UsageHint, Does.Contain("get_schema"));
             Assert.That(linearEasing.Category, Is.EqualTo(KnownLibraryItemFormats.Easing));
             Assert.That(nodeGraphDrawable.Category, Is.EqualTo(KnownLibraryItemFormats.Drawable));
             Assert.That(nodeGraphFilterEffect.Category, Is.EqualTo(KnownLibraryItemFormats.FilterEffect));

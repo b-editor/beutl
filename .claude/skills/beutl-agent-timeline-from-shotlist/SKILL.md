@@ -29,7 +29,7 @@ Use this skill when an agent needs to turn a shot list, storyboard, or timed bri
    - Stdio/headless: `create_project` or `open_project` with a `.bep` project path. Paths without an extension are normalized to `.bep`; `.beutl` is reserved for exported project packages.
    - Live editor: `attach_active_editor`.
 5. If live attach fails and the task allows headless output, switch to the stdio/headless `create_project` route rather than creating a custom generator.
-6. When an output directory is requested, create/update `notes.md` there before the first edit and after every `plan_edit`, `apply_edit`, `save_project`, `render_still`, `evaluate_motion_variation`, `evaluate_edit_quality`, and `export_video` result. Record success/failure, change count or verdict/path, and the next action. While drafting a large patch before the next tool call, append a short heartbeat note every few minutes with the current stage and blocker risk.
+6. When an output directory is requested, create/update `notes.md` there before the first edit and after every `apply_edit`, `save_project`, `render_still`, `evaluate_motion_variation`, `evaluate_edit_quality`, and `export_video` result. Record success/failure, change count or verdict/path, and the next action. While drafting a large patch before the next tool call, append a short heartbeat note every few minutes with the current stage and blocker risk.
 7. Call `read_document` and keep the returned `schemaVersion`.
 8. Build the timeline as a declarative document:
    - Use PascalCase property names exactly as returned by `get_schema`.
@@ -40,15 +40,15 @@ Use this skill when an agent needs to turn a shot list, storyboard, or timed bri
    - Keep element `Start`, `Length`, and layer/Z values consistent with the shot list.
    - Animation `KeyFrame.KeyTime` values are scene timeline times in toolkit patches, not object-local guesses. For Elements with nonzero `Start`, choose keyframe times that intersect the still/video frames you will render.
    - If you only need the required container shape, fetch the targeted `insert-new-element-skeleton` example; do not inspect a full-scene starter just to learn `$type` placement.
-9. Call `plan_edit`, inspect the change count and validation outcomes, and keep either the returned `planId` or the returned `expectedChangeSet` for application. For multi-element motion graphics, plan/apply/save in small stages that map to your synthesized scene plan, such as surface/background, primary motion, detail/accent, and typography.
-10. Call `apply_edit` with the returned `planId` when present, especially when inline `changes` or `expectedChangeSet` are omitted. If using `expectedChangeSet`, pass the exact array from the accepted plan. Do not replace it with a count, label, or shorthand.
-11. For file sessions, call `save_project` after every successful major `apply_edit` before continuing to the next stage.
-12. Verify with `read_document_summary`. Compare every expected element name/role from your synthesized scene plan against the actual elements and revise before rendering unless the omission is recorded with a concrete reason.
-13. Verify with `render_still` at representative shot boundaries. For each still, record which planned elements are visible, whether text/title elements are readable, and whether foreground/background/accent density is present. Development and resolution stills should show at least three visible layer types, such as background/surface, primary motion, accent/detail, and typography; if text is present, it must have clear contrast against the background.
+9. Apply edits in small `apply_edit` stages that map to your synthesized scene plan, such as surface/background, primary motion, detail/accent, and typography. Inspect `valid`, `changes`, `validation`, and `createdIds` after each stage before continuing.
+10. If `apply_edit` returns `validation_rejected`, `unknown_type`, stale handles, or fallback-object guidance, fix the patch from `get_schema`/`read_document` and retry only that stage. Do not invent shorthand values for colors, pens, animations, brushes, transforms, or effects.
+11. For file sessions, call `save_project` after every successful major `apply_edit` before continuing to the next stage. For LiveEditor sessions, `save_project` should report that saving is not required/supported; record that message instead of treating it as a blocker.
+12. After each major stage, verify with `read_document_summary`. Compare every expected element name/role from your synthesized scene plan against the actual elements and revise before rendering unless the omission is recorded with a concrete reason. If any object has `isFallback: true`, stop rendering and fix the patch from schema because fallback objects are placeholders, not usable visuals.
+13. Verify with `render_still` at representative shot boundaries. Treat any returned `warnings` as a blocker for export until you have either revised the scene or recorded why the warning is acceptable. For each still, record `visibilityAnalysis.visiblePixelRatio`, `foregroundPixelRatio`, `occupiedBoundsRatio`, and `maxQuadrantForegroundRatio`; compare `activeElements` against the planned visible elements; note whether text/title elements are readable and whether foreground/background/accent density is present. Development and resolution stills should show at least three visible layer types, such as background/surface, primary motion, accent/detail, and typography; if text is present, it must have clear contrast against the background.
 14. Run `evaluate_motion_variation` across 4-6 samples. If it reports `low-motion-variation` or `poor-frame-coverage`, or if the still review shows planned elements are never visible/readable, revise the edit.
 15. Run `evaluate_edit_quality` with the same sample set. Treat `critical` or `major` issues as blockers for export; revise and re-run until `passesQualityGate` is true, or record the explicit user reason for allowing an issue.
 16. Export a short preview with `export_video` when an encoder is available; if export is unavailable, record the reason in notes.
-17. Save with `save_project` for file sessions after final revisions.
+17. Save with `save_project` for file sessions after final revisions. For LiveEditor sessions, call `read_operation_status` or `save_project` once near the end if you need to report that the live edit is already applied but not file-saved by the toolkit.
 
 ## Motion Graphics Quality Bar
 
@@ -66,7 +66,7 @@ Use this skill when an agent needs to turn a shot list, storyboard, or timed bri
 
 ## Originality Rules
 
-- For creative briefs, build an original timeline with `plan_edit` / `apply_edit`; do not use `list_compositions`, `plan_composition`, or empty-scene examples as the default output path.
+- For creative briefs, build an original timeline with small staged `apply_edit` calls; do not use `list_compositions`, `plan_composition`, or empty-scene examples as the default output path.
 - Use composition templates only when the user explicitly asks for a template, starter, quick draft, or named template style.
 - When a template is explicitly requested, pick a specific returned template name from `list_compositions`; do not rely on an implicit first template selection.
 - Treat examples as schema snippets or fallbacks. Adapt their structure to the brief instead of copying a full starter scene unchanged.
@@ -90,12 +90,13 @@ Use this skill when an agent needs to turn a shot list, storyboard, or timed bri
 
 ## Progress Watchdog
 
-- Keep `notes.md` granular enough for another observer to reconstruct the route: every plan, apply, save, render, evaluate, export, validation failure, and route change gets an entry.
-- During long patch authoring between tool calls, update `notes.md` before the three-minute mark with a heartbeat such as `drafting stage N patch; next tool: plan_edit`; if you cannot do that, stop and report a blocker.
+- Keep `notes.md` granular enough for another observer to reconstruct the route: every apply, save, render, evaluate, export, validation failure, and route change gets an entry.
+- During long patch authoring between tool calls, update `notes.md` before the three-minute mark with a heartbeat such as `drafting stage N patch; next tool: apply_edit`; if you cannot do that, stop and report a blocker.
 - If no tool success, saved project artifact, render/export artifact, or notes update happens for about three minutes while editing, stop and report the blocker/status instead of silently continuing.
+- If the user or coordinator asks for status, call `read_operation_status` when available and respond immediately with the current session/source, last successful stage, and blocker before continuing.
 
 ## Safety Rules
 
-- Keep values in documented ranges. If `plan_edit` reports coercion or rejection, adjust the request and re-plan.
+- Keep values in documented ranges. If `apply_edit` reports coercion or rejection, adjust the request and retry the same small stage.
 - Confirm destructive output overwrites only when the user explicitly asked for overwrite.
 - Do not write outside `BEUTL_WORKSPACE`.
