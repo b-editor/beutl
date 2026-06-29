@@ -76,6 +76,7 @@ public sealed class Reconciler
         var changes = new List<ChangeSetEntry>();
         var validation = new List<ValidationOutcome>();
         CompareObject(session.Root, currentDocument, desiredDocument, "$", changes, validation);
+        AddRelativeKeyFrameRangeWarnings(desiredDocument, validation);
 
         if (validation.FirstOrDefault(item => item.Status == ValidationStatus.Rejected) is { } rejected)
         {
@@ -87,6 +88,177 @@ public sealed class Reconciler
         }
 
         return new ReconcilePlan(changes, validation);
+    }
+
+    private static void AddRelativeKeyFrameRangeWarnings(
+        JsonObject desiredDocument,
+        List<ValidationOutcome> validation)
+    {
+        if (desiredDocument.TryGetPropertyValue("Elements", out JsonNode? elementsNode)
+            && elementsNode is JsonArray elements)
+        {
+            AddRelativeKeyFrameRangeWarningsForElements(elements, "$/Elements", validation);
+        }
+    }
+
+    private static void AddRelativeKeyFrameRangeWarningsForElements(
+        JsonArray elements,
+        string path,
+        List<ValidationOutcome> validation)
+    {
+        for (int i = 0; i < elements.Count; i++)
+        {
+            if (elements[i] is not JsonObject element)
+            {
+                continue;
+            }
+
+            string elementPath = CreateArrayItemPath(path, i, element);
+            TimeSpan? elementLength = ReadTimeSpan(element, nameof(Element.Length))
+                                      ?? ReadTimeSpan(element, nameof(EngineObject.Duration));
+            if (elementLength is null)
+            {
+                continue;
+            }
+
+            string elementStart = ReadTimeSpan(element, nameof(Element.Start))?.ToString("c") ?? TimeSpan.Zero.ToString("c");
+            string elementName = ReadString(element, nameof(CoreObject.Name)) ?? "(unnamed)";
+            if (element.TryGetPropertyValue(nameof(Element.Objects), out JsonNode? objectsNode)
+                && objectsNode is JsonArray objects)
+            {
+                AddRelativeKeyFrameRangeWarningsInNode(
+                    objects,
+                    elementLength.Value,
+                    elementStart,
+                    elementName,
+                    $"{elementPath}/Objects",
+                    validation);
+            }
+        }
+    }
+
+    private static void AddRelativeKeyFrameRangeWarningsInNode(
+        JsonNode? node,
+        TimeSpan elementLength,
+        string elementStart,
+        string elementName,
+        string path,
+        List<ValidationOutcome> validation)
+    {
+        if (node is JsonObject obj)
+        {
+            AddRelativeKeyFrameRangeWarningsForAnimation(
+                obj,
+                elementLength,
+                elementStart,
+                elementName,
+                path,
+                validation);
+
+            foreach (KeyValuePair<string, JsonNode?> pair in obj)
+            {
+                AddRelativeKeyFrameRangeWarningsInNode(
+                    pair.Value,
+                    elementLength,
+                    elementStart,
+                    elementName,
+                    $"{path}/{pair.Key}",
+                    validation);
+            }
+        }
+        else if (node is JsonArray array)
+        {
+            for (int i = 0; i < array.Count; i++)
+            {
+                JsonNode? item = array[i];
+                string itemPath = item is JsonObject itemObject
+                    ? CreateArrayItemPath(path, i, itemObject)
+                    : $"{path}[{i}]";
+                AddRelativeKeyFrameRangeWarningsInNode(
+                    item,
+                    elementLength,
+                    elementStart,
+                    elementName,
+                    itemPath,
+                    validation);
+            }
+        }
+    }
+
+    private static void AddRelativeKeyFrameRangeWarningsForAnimation(
+        JsonObject animation,
+        TimeSpan elementLength,
+        string elementStart,
+        string elementName,
+        string path,
+        List<ValidationOutcome> validation)
+    {
+        if (!animation.TryGetPropertyValue(nameof(KeyFrameAnimation.KeyFrames), out JsonNode? keyFramesNode)
+            || keyFramesNode is not JsonArray keyFrames
+            || ReadBool(animation, nameof(KeyFrameAnimation.UseGlobalClock)) == true)
+        {
+            return;
+        }
+
+        for (int i = 0; i < keyFrames.Count; i++)
+        {
+            if (keyFrames[i] is not JsonObject keyFrame
+                || ReadTimeSpan(keyFrame, nameof(KeyFrame.KeyTime)) is not { } keyTime
+                || (keyTime >= TimeSpan.Zero && keyTime <= elementLength))
+            {
+                continue;
+            }
+
+            string keyFramePath = CreateArrayItemPath($"{path}/KeyFrames", i, keyFrame);
+            string lengthText = elementLength.ToString("c");
+            string message = $"UseGlobalClock=false keyframe at '{keyFramePath}' has KeyTime '{keyTime:c}' outside Element '{elementName}' local range '00:00:00'..'{lengthText}' (Element Start '{elementStart}', Length '{lengthText}').";
+            string hint = "For UseGlobalClock=false, KeyTime is local to the owning timeline element. Use 00:00:00..Element.Length, or set UseGlobalClock=true when the KeyTime values are scene timeline times.";
+            validation.Add(ValidationOutcome.Warning(keyTime.ToString("c"), message, hint));
+        }
+    }
+
+    private static string CreateArrayItemPath(string path, int index, JsonObject obj)
+    {
+        return CollectionReconciler.TryGetId(obj, out Guid id)
+            ? $"{path}[Id={id}]"
+            : $"{path}[{index}]";
+    }
+
+    private static string? ReadString(JsonObject obj, string propertyName)
+    {
+        return obj.TryGetPropertyValue(propertyName, out JsonNode? node)
+               && node?.GetValueKind() == JsonValueKind.String
+            ? node.GetValue<string>()
+            : null;
+    }
+
+    private static bool? ReadBool(JsonObject obj, string propertyName)
+    {
+        if (!obj.TryGetPropertyValue(propertyName, out JsonNode? node) || node is null)
+        {
+            return null;
+        }
+
+        return node.GetValueKind() switch
+        {
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            JsonValueKind.String when bool.TryParse(node.GetValue<string>(), out bool value) => value,
+            _ => null
+        };
+    }
+
+    private static TimeSpan? ReadTimeSpan(JsonObject obj, string propertyName)
+    {
+        if (!obj.TryGetPropertyValue(propertyName, out JsonNode? node) || node is null)
+        {
+            return null;
+        }
+
+        return node.GetValueKind() == JsonValueKind.String
+               && TimeSpan.TryParse(node.GetValue<string>(), out TimeSpan value)
+            ? value
+            : null;
     }
 
     public ReconcileResult Apply(IEditingSession session, JsonObject desired, IReadOnlySet<Guid>? knownNewIds = null)
