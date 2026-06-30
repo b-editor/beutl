@@ -139,9 +139,17 @@ Render one frame to an image without the GUI (FR-016).
 - **Errors**: `no_active_editor_session`, `workspace_boundary`, `destructive_intent`, `rendering_unavailable` (typed — content needs a GPU absent on the host, FR-018).
 - **Backed by**: `SceneRenderer`→`Renderer.Snapshot`→`Bitmap.Save` on `RenderThread.Dispatcher`.
 
+### `render_storyboard`
+Render a storyboard (絵コンテ) contact sheet — one static still per shot — without any motion analysis. Use in the storyboard phase to verify the static layout of every shot before adding effects or motion.
+- **Input**: `{ "shots"?: [ { "name": string, "timeSeconds": number } ], "outputDirectory"?: string, "basename"?: string, "renderScale"?: number, "confirmOverwrite"?: bool }` (write — **guarded**). When `shots` is omitted, one representative time is auto-derived per timeline `Element` (the midpoint of its `[Start, Start+Length)`), deduplicated and ordered. Stills and the contact sheet are written under `agent-output/` by default.
+- **Output**: `{ "contactSheetPath": string, "shots": [ { "name": string, "timeSeconds": number, "stillPath": string, "visibilityAnalysis": { ... } } ] }`. The contact sheet is a grid PNG of every shot still, each cell labeled with the shot name and time.
+- **Use when**: Phase 1 (static storyboard). Pair with `preview_quality_risks` and `evaluate_edit_quality` with `staticLayout=true`; do not run the motion gates on a motionless storyboard.
+- **Errors**: `no_active_editor_session`, `validation_rejected` (no explicit shots and no timeline Element), `workspace_boundary`, `destructive_intent`, `rendering_unavailable`.
+- **Backed by**: per-shot `StillRenderer` + a `StoryboardRenderer` SkiaSharp grid compositor.
+
 ### `evaluate_edit_quality`
 Review the current scene for deterministic AI-editing quality risks before final export.
-- **Input**: `{ "timeSeconds"?: number[], "sampleCount"?: number, "renderScale"?: number, "styleProfile"?: string, "allowAllCaps"?: bool, "allowHardCuts"?: bool, "allowRectDominance"?: bool }`. When `timeSeconds` is omitted, the tool samples evenly across the scene duration.
+- **Input**: `{ "timeSeconds"?: number[], "sampleCount"?: number, "renderScale"?: number, "styleProfile"?: string, "allowAllCaps"?: bool, "allowHardCuts"?: bool, "allowRectDominance"?: bool, "staticLayout"?: bool }`. When `timeSeconds` is omitted, the tool samples evenly across the scene duration. `staticLayout=true` is the storyboard-phase gate: it skips rendered-motion checks (`evaluateMotion=false`) so a motionless 絵コンテ is judged on composition, typography, and structure only — no Major `motionContinuity` blocker.
 - **Output**: `{ "passesQualityGate": bool, "verdict": string, "issues": [ { "category": "typography|typographyReadTime|visualHierarchy|shapeDiversity|shapeIntent|motionIntent|elementStructure|tempoRhythm|textBackgroundFit|paletteHarmony|materialUiLook|effectIntent|motionContinuity|cutRhythm", "severity": "critical|major|minor", "message": string, "evidence": string, "suggestedFix": string, "time"?: string, "elementIds": string[], "objectIds": string[] } ], "metrics": { "typography": { ... }, "shapeDiversity": { ... }, "palette": { ... }, "structure": { ... }, "tempo": { ... }, "motionContinuity": { ... } }, "reviewNotes": string[] }`.
 - **Use when**: after `render_still` and `evaluate_motion_variation`, and before `export_video`. Critical or major issues block normal export unless the user explicitly accepts them.
 - **Detects**: long all-caps text, excessive tracking, foreground `RectShape` dominance, unclear large/animated foreground shapes, animated shapes without motion intent, ordinary Elements with multiple EngineObjects, sparse 120-140 BPM/high-tempo rhythm, misaligned text backing plates, dark teal/cyan/magenta or oversaturated palettes, outdated card/shadow/blur styling, low rendered motion variation, and unmotivated hard-cut rhythm.
@@ -164,9 +172,9 @@ Group current quality issues into minimal patch-oriented repair suggestions.
 
 ### `final_preflight`
 Run the standard final verification bundle before `export_video`.
-- **Input**: `{ "outputPrefix"?: string, "timeSeconds"?: number[], "sampleCount"?: number, "renderScale"?: number, "styleProfile"?: string, "requireAnimatedProperties"?: bool, "allowAllCaps"?: bool, "allowHardCuts"?: bool, "allowRectDominance"?: bool, "confirmOverwrite"?: bool }` (still-frame writes are guarded). Bare prefixes are written under `agent-output/`.
-- **Output**: `{ "readyForExport": bool, "blockers": string[], "stillFrames": [ { "outputPath": string, "time": string, "warnings": string[], "visibilityAnalysis": { ... }, "activeElements": [ ... ] } ], "motion": <evaluate_motion_variation output>, "quality": <evaluate_edit_quality output>, "recommendedNextTool": "export_video|suggest_quality_fixes" }`.
-- **Use when**: an agent thinks a scene is finished. For motion-graphics deliverables, pass `requireAnimatedProperties=true` so `animatedPropertyCount=0` blocks export even when rendered samples changed.
+- **Input**: `{ "outputPrefix"?: string, "timeSeconds"?: number[], "sampleCount"?: number, "renderScale"?: number, "styleProfile"?: string, "requireAnimatedProperties"?: bool, "allowAllCaps"?: bool, "allowHardCuts"?: bool, "allowRectDominance"?: bool, "staticLayout"?: bool, "confirmOverwrite"?: bool }` (still-frame writes are guarded). Bare prefixes are written under `agent-output/`.
+- **Output**: `{ "readyForExport": bool, "readyForStoryboard": bool, "blockers": string[], "stillFrames": [ { "outputPath": string, "time": string, "warnings": string[], "visibilityAnalysis": { ... }, "activeElements": [ ... ] } ], "motion": <evaluate_motion_variation output | null when staticLayout>, "quality": <evaluate_edit_quality output>, "recommendedNextTool": "export_video|render_storyboard|suggest_quality_fixes" }`.
+- **Use when**: an agent thinks a scene is finished. For motion-graphics deliverables, pass `requireAnimatedProperties=true` so `animatedPropertyCount=0` blocks export even when rendered samples changed. Pass `staticLayout=true` in the storyboard phase: it skips the motion analyzer and motion-required blockers, forces `requireAnimatedProperties=false`, and reports `readyForStoryboard` (never `readyForExport`) — use it to confirm a static 絵コンテ before adding motion.
 
 ### `export_video`
 Export a range/timeline to a video file (FR-017).
