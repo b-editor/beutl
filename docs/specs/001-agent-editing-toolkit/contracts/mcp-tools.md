@@ -142,17 +142,19 @@ Render one frame to an image without the GUI (FR-016).
 ### `evaluate_edit_quality`
 Review the current scene for deterministic AI-editing quality risks before final export.
 - **Input**: `{ "timeSeconds"?: number[], "sampleCount"?: number, "renderScale"?: number, "styleProfile"?: string, "allowAllCaps"?: bool, "allowHardCuts"?: bool, "allowRectDominance"?: bool }`. When `timeSeconds` is omitted, the tool samples evenly across the scene duration.
-- **Output**: `{ "passesQualityGate": bool, "verdict": string, "issues": [ { "category": "typography|typographyReadTime|visualHierarchy|shapeDiversity|textBackgroundFit|paletteHarmony|materialUiLook|effectIntent|motionContinuity|cutRhythm", "severity": "critical|major|minor", "message": string, "evidence": string, "suggestedFix": string, "time"?: string, "elementIds": string[], "objectIds": string[] } ], "metrics": { "typography": { ... }, "shapeDiversity": { ... }, "palette": { ... }, "motionContinuity": { ... } }, "reviewNotes": string[] }`.
+- **Output**: `{ "passesQualityGate": bool, "verdict": string, "issues": [ { "category": "typography|typographyReadTime|visualHierarchy|shapeDiversity|shapeIntent|motionIntent|elementStructure|tempoRhythm|textBackgroundFit|paletteHarmony|materialUiLook|effectIntent|motionContinuity|cutRhythm", "severity": "critical|major|minor", "message": string, "evidence": string, "suggestedFix": string, "time"?: string, "elementIds": string[], "objectIds": string[] } ], "metrics": { "typography": { ... }, "shapeDiversity": { ... }, "palette": { ... }, "structure": { ... }, "tempo": { ... }, "motionContinuity": { ... } }, "reviewNotes": string[] }`.
 - **Use when**: after `render_still` and `evaluate_motion_variation`, and before `export_video`. Critical or major issues block normal export unless the user explicitly accepts them.
-- **Detects**: long all-caps text, excessive tracking, foreground `RectShape` dominance, misaligned text backing plates, dark teal/cyan/magenta or oversaturated palettes, outdated card/shadow/blur styling, low rendered motion variation, and unmotivated hard-cut rhythm.
+- **Detects**: long all-caps text, excessive tracking, foreground `RectShape` dominance, unclear large/animated foreground shapes, animated shapes without motion intent, ordinary Elements with multiple EngineObjects, sparse 120-140 BPM/high-tempo rhythm, misaligned text backing plates, dark teal/cyan/magenta or oversaturated palettes, outdated card/shadow/blur styling, low rendered motion variation, and unmotivated hard-cut rhythm.
 - **Role hints**: agents may mark object or element names with intent tags such as `[role:background]`, `[role:text-backing]`, or `[role:decorative]`. Text-background-fit checks only treat explicit backing names/roles as text plates; decorative rectangles should be tagged or replaced with non-rectangular accents.
+- **Structure hints**: ordinary timeline Elements should contain one EngineObject. Multiple Objects in one Element are accepted only when the Element contains an `IFlowOperator` such as `DrawableGroup`, `DrawableDecorator`, `SoundGroup`, or `Scene3D`.
+- **Tempo hints**: high-tempo profiles such as `high-tempo-promo`, `kinetic-type`, `fast`, or `120-140 BPM` are checked against foreground event/keyframe density and long foreground holds, so agents should convert BPM to a beat grid before authoring.
 - **Backed by**: deterministic document, color, geometry, and rendered-motion heuristics; no OCR or generative image judging.
 
 ### `preview_quality_risks`
 Run document-only deterministic quality checks without rendering.
 - **Input**: `{ "styleProfile"?: string, "allowAllCaps"?: bool, "allowHardCuts"?: bool, "allowRectDominance"?: bool }`.
 - **Output**: same shape as `evaluate_edit_quality`, with `metrics.motionContinuity.motionEvaluated=false`.
-- **Use when**: before a large `apply_edit` or immediately after an intermediate stage, so an agent can catch copy density, foreground rectangle, backing-plate, palette, effect-stack, and timeline-structure risks before paying render/export cost.
+- **Use when**: before a large `apply_edit` or immediately after an intermediate stage, so an agent can catch copy density, foreground rectangle, unclear-shape, missing-motion-intent, multi-object Element, high-tempo rhythm, backing-plate, palette, effect-stack, and timeline-structure risks before paying render/export cost.
 
 ### `suggest_quality_fixes`
 Group current quality issues into minimal patch-oriented repair suggestions.

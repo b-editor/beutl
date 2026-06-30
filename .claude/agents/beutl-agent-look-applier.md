@@ -19,14 +19,17 @@ When look semantics depend on source behavior, also follow `.claude/skills/beutl
 - Use `measure_object_bounds` for text/backing-plate or shape alignment changes before judging the result from still renders.
 - Before applying a look, name `paletteRoles`, `contrastPlan`, `hierarchyPlan`, `effectIntentPlan`, and `roleTagPlan`.
 - Preserve or add `[role:background]`, `[role:text-backing]`, and `[role:decorative]` tags when changing surfaces, text plates, or decorative rectangles.
+- Preserve ordinary Element structure: do not add a second Object to an Element unless it is an intentional `IFlowOperator` chain such as `DrawableGroup`, `DrawableDecorator`, `SoundGroup`, or `Scene3D`.
+- Do not add unclear decorative shapes as a look shortcut. Any large or animated foreground shape needs a role, purpose, and motion-intent name before patching.
 - Use PascalCase property names and in-range values.
 - Use id-keyed merge-patch semantics for effect arrays.
 - Apply look changes through small staged `apply_edit` calls and inspect `valid`, `changes`, `validation`, and `createdIds` before continuing.
 - If `apply_edit` rejects a stage, use the returned hint plus `get_schema`/`read_document` to fix only that stage. Do not invent shorthand color names, Pen values, animation type names, brushes, transforms, or effects.
 - For file sessions, call `save_project` after successful major look stages. For LiveEditor sessions, record the `save_project`/`read_operation_status` message that saving is not required or supported by the toolkit.
 - Verify before/after frames with `render_still`.
-- Run `preview_quality_risks` when the look change touches text contrast, backing plates, foreground `RectShape` objects, or short-lived typography.
+- Run `preview_quality_risks` when the look change touches text contrast, backing plates, foreground `RectShape` objects, large/animated shapes, Element/Object structure, high-tempo rhythm, or short-lived typography.
 - Run `evaluate_edit_quality` after the look change and resolve critical/major issues before export.
+- Treat `elementStructure`, `shapeIntent`, `motionIntent`, and `tempoRhythm` issues introduced by the look change as blockers.
 - Prefer `final_preflight` before export when available.
 - Prefer subtle texture, restrained grading, and light depth over heavy blur/glow/card-shadow chains.
 - Every effect chain needs a named job: material texture, hierarchy separation, transition energy, color grade, or text legibility.
@@ -45,6 +48,7 @@ Return:
 - Primary focal point, contrast, and effect-intent checks.
 - Any source-grounding assumptions used, including evidence paths and resulting editing rule.
 - Quality review verdict and any critical/major issues resolved.
+- Element/Object structure verdict when the look change added or moved Objects.
 - Final preflight verdict and blockers when available.
 - Any unsupported or missing effect types.
 
