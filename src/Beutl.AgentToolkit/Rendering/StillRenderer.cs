@@ -46,6 +46,20 @@ public sealed record RenderStillActiveElement(
     int ZIndex,
     int ObjectCount);
 
+public sealed record RenderStoryboardResponse(
+    string ContactSheetPath,
+    IReadOnlyList<RenderStoryboardShot> Shots);
+
+public sealed record RenderStoryboardShot(
+    string Name,
+    double TimeSeconds,
+    string StillPath,
+    StillFrameVisibilityAnalysis? VisibilityAnalysis);
+
+public sealed record StoryboardShotInput(
+    string Name,
+    double TimeSeconds);
+
 public sealed class StillRenderer
 {
     public async ValueTask<RenderStillResponse> RenderAsync(
