@@ -80,7 +80,7 @@ public sealed class DeclarativeBrushEffectTests
         Assert.Multiple(() =>
         {
             Assert.That(createApply.IsSuccess, Is.True, createApply.Error?.Message);
-            Assert.That(createApply.Value!.Changes.Select(change => change.Operation), Does.Contain(ChangeOperations.SetProperty));
+            Assert.That(createApply.Value!.Changes!.Select(change => change.Operation), Does.Contain(ChangeOperations.SetProperty));
             Assert.That(fill.GradientStops, Has.Count.EqualTo(2));
             Assert.That(effects.Children, Has.Count.EqualTo(2));
             Assert.That(effects.Children[1], Is.InstanceOf<Brightness>());
@@ -94,6 +94,30 @@ public sealed class DeclarativeBrushEffectTests
 
         blur = (Blur)((FilterEffectGroup)rect.FilterEffect.CurrentValue!).Children[0]!;
         Assert.That(blur.Sigma.CurrentValue, Is.EqualTo(new Size(8, 8)));
+    }
+
+    [Test]
+    public void Desired_document_absent_typed_property_clears_existing_value()
+    {
+        Scene scene = CreateSceneWithRect(out Element element, out RectShape rect);
+        rect.FilterEffect.CurrentValue = CreateEffectChain();
+        using var session = new AgentToolkitTestSession(scene);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var tools = new EditTools(manager);
+
+        JsonObject desired = session.Documents.Read(session.Root);
+        JsonObject rectJson = (JsonObject)((JsonArray)((JsonObject)((JsonArray)desired["Elements"]!)[0]!)["Objects"]!)[0]!;
+        rectJson.Remove(nameof(Drawable.FilterEffect));
+
+        ToolResult<ApplyEditResponse> apply = tools.ApplyEdit(desired: desired, schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
+            Assert.That(apply.Value!.Valid, Is.True);
+            Assert.That(rect.FilterEffect.CurrentValue, Is.Null);
+        });
     }
 
     private static LinearGradientBrush CreateGradientBrush()

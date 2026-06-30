@@ -23,6 +23,44 @@ public sealed class MergePatchTests
     }
 
     [Test]
+    public void Typed_object_null_patch_deletes_property()
+    {
+        Guid id = Guid.NewGuid();
+        JsonNode result = MergePatchApplier.Apply(
+            JsonNode.Parse($$"""
+                {
+                  "Objects": [
+                    {
+                      "Id": "{{id}}",
+                      "FilterEffect": {
+                        "$type": "FilterEffectGroup",
+                        "Children": [
+                          {
+                            "$type": "Blur"
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+                """)!,
+            JsonNode.Parse($$"""
+                {
+                  "Objects": [
+                    {
+                      "Id": "{{id}}",
+                      "FilterEffect": null
+                    }
+                  ]
+                }
+                """)!)!;
+
+        JsonObject shape = (JsonObject)((JsonArray)result["Objects"]!)[0]!;
+
+        Assert.That(shape["FilterEffect"], Is.Null);
+    }
+
+    [Test]
     public void Typed_object_patch_without_id_replaces_when_discriminator_changes()
     {
         JsonNode result = MergePatchApplier.Apply(

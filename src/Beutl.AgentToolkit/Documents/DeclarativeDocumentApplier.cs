@@ -98,6 +98,7 @@ internal sealed class DeclarativeDocumentApplier
         NormalizeRegisteredPropertyValues(element, payload);
 
         CoreSerializer.PopulateFromJsonObject(element, element.GetType(), payload, CreateOptions(element));
+        ClearAbsentRegisteredObjectProperties(element, desired, payload);
 
         if (desired.TryGetPropertyValue(nameof(Element.Objects), out JsonNode? objectsNode) && objectsNode is JsonArray objects)
         {
@@ -123,6 +124,8 @@ internal sealed class DeclarativeDocumentApplier
         NormalizeRegisteredPropertyValues(target, payload);
         NormalizeEnginePropertyValues(target, payload);
         CoreSerializer.PopulateFromJsonObject(target, target.GetType(), payload, CreateOptions(target));
+        ClearAbsentRegisteredObjectProperties(target, desired, payload);
+        ClearAbsentObjectProperties(target, desired, payload);
         ApplyListProperties(target, desired);
         ApplyAnimations(target, desired);
         ApplyExpressions(target, desired);
@@ -135,6 +138,7 @@ internal sealed class DeclarativeDocumentApplier
         NormalizeRegisteredPropertyValues(animation, payload);
 
         CoreSerializer.PopulateFromJsonObject(animation, animation.GetType(), payload, CreateOptions(animation));
+        ClearAbsentRegisteredObjectProperties(animation, desired, payload);
 
         if (desired.TryGetPropertyValue(nameof(KeyFrameAnimation.KeyFrames), out JsonNode? keyframesNode)
             && keyframesNode is JsonArray keyframes)
@@ -218,6 +222,45 @@ internal sealed class DeclarativeDocumentApplier
         if (payload.TryGetPropertyValue(propertyName, out JsonNode? valueNode) && valueNode is not null)
         {
             payload[propertyName] = EnumJsonValueNormalizer.Normalize(valueNode, valueType);
+        }
+    }
+
+    private static void ClearAbsentRegisteredObjectProperties(
+        CoreObject target,
+        JsonObject desired,
+        JsonObject serializedPayload)
+    {
+        foreach (CoreProperty property in PropertyRegistry.GetRegistered(target.GetType()))
+        {
+            if (property.PropertyType.IsValueType
+                || property.PropertyType == typeof(string)
+                || desired.ContainsKey(property.Name)
+                || serializedPayload.ContainsKey(property.Name))
+            {
+                continue;
+            }
+
+            target.SetValue(property, null);
+        }
+    }
+
+    private static void ClearAbsentObjectProperties(
+        EngineObject target,
+        JsonObject desired,
+        JsonObject serializedPayload)
+    {
+        foreach (IProperty property in target.Properties)
+        {
+            if (property is IListProperty
+                || property.ValueType.IsValueType
+                || property.ValueType == typeof(string)
+                || desired.ContainsKey(property.Name)
+                || serializedPayload.ContainsKey(property.Name))
+            {
+                continue;
+            }
+
+            property.CurrentValue = null;
         }
     }
 
