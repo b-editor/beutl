@@ -185,6 +185,48 @@ public sealed class SchemaGenerator
             .ToArray();
     }
 
+    public ShaderCompilationCheck ValidateShader(string effectType, string script)
+    {
+        TypeRegistration.EnsureRegistered();
+        Type? type = ResolveFilterEffectType(effectType);
+        if (type is null)
+        {
+            return new ShaderCompilationCheck(effectType, "unknown_type", $"No registered FilterEffect matches '{effectType}'.");
+        }
+
+        if (Activator.CreateInstance(type) is not IScriptCompilableEffect effect)
+        {
+            return new ShaderCompilationCheck(type.Name, "not_script_effect", $"{type.Name} does not accept a compilable script.");
+        }
+
+        ScriptCompilationResult result = effect.ValidateScript(script ?? string.Empty);
+        string status = result.Status switch
+        {
+            ScriptCompilationStatus.Compiled => "compiled",
+            ScriptCompilationStatus.Failed => "failed",
+            _ => "unavailable",
+        };
+        return new ShaderCompilationCheck(type.Name, status, result.Error);
+    }
+
+    private static Type? ResolveFilterEffectType(string token)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            return null;
+        }
+
+        string trimmed = token.Trim();
+        return EnumerateRegisteredTypes()
+            .Where(item => MatchesCategory(KnownLibraryItemFormats.FilterEffect, item.Category))
+            .Select(item => item.Type)
+            .Distinct()
+            .FirstOrDefault(type =>
+                string.Equals(type.Name, trimmed, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(type.FullName, trimmed, StringComparison.Ordinal)
+                || string.Equals(IdentityHelper.WriteDiscriminator(type), trimmed, StringComparison.Ordinal));
+    }
+
     public IReadOnlyList<EffectRecipeSummary> ListEffectRecipes(string? intent = null)
     {
         TypeRegistration.EnsureRegistered();
@@ -1055,7 +1097,7 @@ public sealed class SchemaGenerator
             [typeof(DelayAnimationEffect)] = Metadata(["motion", "trail", "delay"], []),
             [typeof(PixelSortEffect)] = Metadata(["glitch", "pixel", "scanline", "gpu"], ["Runs on the Vulkan shader backend, which falls back to the bundled SwiftShader software rasterizer when no hardware GPU is present, so it stays active; the software path is slower."]),
             [typeof(CSharpScriptEffect)] = Metadata(["advanced", "script", "programmable"], ["Prefer built-in effects for low-context agents unless script code is explicitly requested."]),
-            [typeof(SKSLScriptEffect)] = Metadata(["advanced", "shader", "programmable", "organic", "procedural"], ["Requires shader source. Prefer for organic heat, ink, glass, smoke, grain, caustic, or procedural fields when blurred gradients look flat; verify with render_still because script compile errors can make the effect invisible."]),
+            [typeof(SKSLScriptEffect)] = Metadata(["advanced", "shader", "programmable", "organic", "procedural"], ["Requires shader source. Prefer for organic heat, ink, glass, smoke, grain, caustic, or procedural fields when blurred gradients look flat; call validate_shader to compile-check the script before apply_edit, since a compile error makes the effect render nothing."]),
             [typeof(GLSLScriptEffect)] = Metadata(["advanced", "shader", "gpu"], ["Needs GLSL shader source; runs on the Vulkan shader backend (hardware GPU, MoltenVK, or the bundled SwiftShader software fallback), so it does not require a dedicated GPU."]),
             [typeof(NodeGraphFilterEffect)] = Metadata(["advanced", "nodegraph", "programmable"], ["Requires a node graph resource to be useful."])
         };

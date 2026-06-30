@@ -10,7 +10,7 @@ using SkiaSharp;
 namespace Beutl.Graphics.Effects;
 
 [Display(Name = nameof(GraphicsStrings.SKSLScriptEffect), ResourceType = typeof(GraphicsStrings))]
-public sealed partial class SKSLScriptEffect : FilterEffect
+public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEffect
 {
     private static readonly ILogger s_logger = Log.CreateLogger<SKSLScriptEffect>();
 
@@ -44,19 +44,21 @@ public sealed partial class SKSLScriptEffect : FilterEffect
                """;
     }
 
-    internal static string? ValidateScript(string script)
+    public ScriptCompilationResult ValidateScript(string script)
     {
         if (string.IsNullOrWhiteSpace(script))
-            return null;
+            return ScriptCompilationResult.Compiled;
 
         try
         {
             using var effect = SKRuntimeEffect.CreateShader(script, out string? errorText);
-            return errorText;
+            return string.IsNullOrEmpty(errorText)
+                ? ScriptCompilationResult.Compiled
+                : ScriptCompilationResult.Fail(errorText);
         }
         catch (Exception ex)
         {
-            return ex.Message;
+            return ScriptCompilationResult.Fail(ex.Message);
         }
     }
 

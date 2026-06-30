@@ -11,7 +11,7 @@ using Microsoft.Extensions.Logging;
 namespace Beutl.Graphics.Effects;
 
 [Display(Name = nameof(GraphicsStrings.GLSLScriptEffect), ResourceType = typeof(GraphicsStrings))]
-public sealed partial class GLSLScriptEffect : FilterEffect
+public sealed partial class GLSLScriptEffect : FilterEffect, IScriptCompilableEffect
 {
     private static readonly ILogger s_logger = Log.CreateLogger<GLSLScriptEffect>();
 
@@ -50,24 +50,24 @@ public sealed partial class GLSLScriptEffect : FilterEffect
                """;
     }
 
-    internal static string? ValidateScript(string script)
+    public ScriptCompilationResult ValidateScript(string script)
     {
         if (string.IsNullOrWhiteSpace(script))
-            return null;
+            return ScriptCompilationResult.Compiled;
+
+        IGraphicsContext? context = GraphicsContextFactory.SharedContext;
+        if (context == null)
+            return ScriptCompilationResult.Unavailable;
 
         try
         {
-            IGraphicsContext? context = GraphicsContextFactory.SharedContext;
-            if (context == null)
-                return null;
-
             IShaderCompiler compiler = context.CreateShaderCompiler();
             compiler.CompileToSpirv(script, ShaderStage.Fragment);
-            return null;
+            return ScriptCompilationResult.Compiled;
         }
         catch (Exception ex)
         {
-            return ex.Message;
+            return ScriptCompilationResult.Fail(ex.Message);
         }
     }
 

@@ -57,7 +57,7 @@ public class ShaderScaleUniformTests
     [Test]
     public void Sksl_ScaleUnaware_ScaleOne_IsDeterministicByteIdentical()
     {
-        Assert.That(SKSLScriptEffect.ValidateScript(SkslUvScript), Is.Null, "UV SKSL must compile");
+        Assert.That(new SKSLScriptEffect().ValidateScript(SkslUvScript).Error, Is.Null, "UV SKSL must compile");
 
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
@@ -112,7 +112,7 @@ public class ShaderScaleUniformTests
     [Test]
     public void Sksl_iScaleAware_ReducedScale_MatchesReference()
     {
-        Assert.That(SKSLScriptEffect.ValidateScript(SkslDiscScript), Is.Null, "iScale disc SKSL must compile");
+        Assert.That(new SKSLScriptEffect().ValidateScript(SkslDiscScript).Error, Is.Null, "iScale disc SKSL must compile");
 
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
@@ -169,7 +169,7 @@ public class ShaderScaleUniformTests
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            Assert.That(GLSLScriptEffect.ValidateScript(GlslDevicePxBorder), Is.Null, "GLSL border must compile");
+            Assert.That(new GLSLScriptEffect().ValidateScript(GlslDevicePxBorder).Error, Is.Null, "GLSL border must compile");
 
             using Bitmap bordered = GoldenImageHarness.RenderAtScale(Make(MakeGlslBorderEffect), Frame, 1f);
             using Bitmap plain = GoldenImageHarness.RenderAtScale(Make(() => new FilterEffectGroup()), Frame, 1f);
@@ -244,7 +244,7 @@ public class ShaderScaleUniformTests
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            Assert.That(GLSLScriptEffect.ValidateScript(GlslScaleDisc), Is.Null, "scale-aware GLSL must compile");
+            Assert.That(new GLSLScriptEffect().ValidateScript(GlslScaleDisc).Error, Is.Null, "scale-aware GLSL must compile");
 
             using Bitmap disc = GoldenImageHarness.RenderAtScale(Make(MakeGlslScaleDiscEffect), Frame, 1f);
             using Bitmap plain = GoldenImageHarness.RenderAtScale(Make(() => new FilterEffectGroup()), Frame, 1f);

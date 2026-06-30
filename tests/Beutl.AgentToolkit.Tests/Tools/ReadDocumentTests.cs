@@ -356,6 +356,31 @@ public sealed class ReadDocumentTests
     }
 
     [Test]
+    public void Validate_shader_reports_compile_status()
+    {
+        var tools = new QueryTools(new AgentSessionManager());
+        const string validSksl = "half4 main(float2 fragCoord) { return half4(1); }";
+
+        ToolResult<ValidateShaderResponse> ok = tools.ValidateShader("SKSLScriptEffect", validSksl);
+        ToolResult<ValidateShaderResponse> broken = tools.ValidateShader("SKSLScriptEffect", "half4 main(float2 p) { return notAColor; }");
+        ToolResult<ValidateShaderResponse> unknown = tools.ValidateShader("NotARealEffect", validSksl);
+        ToolResult<ValidateShaderResponse> notScript = tools.ValidateShader("Blur", validSksl);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ok.IsSuccess, Is.True, ok.Error?.Message);
+            Assert.That(ok.Value!.Status, Is.EqualTo("compiled"));
+            Assert.That(ok.Value.Error, Is.Null);
+
+            Assert.That(broken.Value!.Status, Is.EqualTo("failed"));
+            Assert.That(broken.Value.Error, Is.Not.Null.And.Not.Empty);
+
+            Assert.That(unknown.Value!.Status, Is.EqualTo("unknown_type"));
+            Assert.That(notScript.Value!.Status, Is.EqualTo("not_script_effect"));
+        });
+    }
+
+    [Test]
     public void Composition_tools_reuse_session_seed_when_seed_is_omitted()
     {
         var scene = new Scene(1920, 1080, "Scene");
