@@ -6,6 +6,7 @@ using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
 using Beutl.Graphics;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using Beutl.ProjectSystem;
@@ -39,7 +40,7 @@ public sealed class ApplyEditTests
         {
             Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
             Assert.That(apply.Value!.Valid, Is.True);
-            Assert.That(apply.Value.AppliedChangeSet, Has.Count.EqualTo(apply.Value.Changes.Count));
+            Assert.That(apply.Value.AppliedChangeSet, Has.Count.EqualTo(apply.Value.Changes!.Count));
             Assert.That(scene.Children.Single().Start, Is.EqualTo(TimeSpan.FromSeconds(3)));
         });
     }
@@ -134,13 +135,115 @@ public sealed class ApplyEditTests
             Assert.That(compact.IsSuccess, Is.True, compact.Error?.Message);
             Assert.That(compact.Value!.Document, Is.Null);
             Assert.That(compact.Value.Valid, Is.True);
-            Assert.That(compact.Value.AppliedChangeSet, Has.Count.EqualTo(compact.Value.Changes.Count));
+            Assert.That(compact.Value.AppliedChangeSet, Has.Count.EqualTo(compact.Value.Changes!.Count));
             Assert.That(compact.Value.CreatedIds.Select(item => item.Name), Does.Contain("Inserted element"));
             Assert.That(compact.Value.CreatedIds.Select(item => item.Name), Does.Contain("Inserted title"));
             Assert.That(compact.Value.CreatedIds.Select(item => item.Path), Has.Some.Contains("/Elements"));
             Assert.That(withDocument.IsSuccess, Is.True, withDocument.Error?.Message);
             Assert.That(withDocument.Value!.Document, Is.Not.Null);
             Assert.That(withDocument.Value.Document!.ToJsonString(), Does.Contain("Inserted title"));
+        });
+    }
+
+    [Test]
+    public void Apply_edit_quiet_response_returns_summary_without_details()
+    {
+        Scene scene = CreateScene();
+        using var session = new AgentToolkitTestSession(scene);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var tools = new EditTools(manager);
+
+        ToolResult<ApplyEditResponse> result = tools.ApplyEdit(
+            patch: CreateInsertedTextElementPatch(),
+            schemaVersion: SchemaVersion.Current,
+            quiet: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+            Assert.That(result.Value!.Valid, Is.True);
+            Assert.That(result.Value.ChangeCount, Is.GreaterThan(0));
+            Assert.That(result.Value.Operations.Values.Sum(), Is.EqualTo(result.Value.ChangeCount));
+            Assert.That(result.Value.CreatedIds.Select(item => item.Name), Does.Contain("Inserted title"));
+            Assert.That(result.Value.Changes, Is.Null);
+            Assert.That(result.Value.Validation, Is.Null);
+            Assert.That(result.Value.AppliedChangeSet, Is.Null);
+        });
+    }
+
+    [Test]
+    public void Apply_edit_null_filter_effect_clears_then_replacing_does_not_append_children()
+    {
+        Scene scene = CreateSceneWithElement(out Element element);
+        var rect = new RectShape
+        {
+            Name = "Filtered rect",
+            Width = { CurrentValue = 200 },
+            Height = { CurrentValue = 100 },
+            FilterEffect =
+            {
+                CurrentValue = new FilterEffectGroup
+                {
+                    Children = { new Blur() }
+                }
+            }
+        };
+        element.AddObject(rect);
+        using var session = new AgentToolkitTestSession(scene);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var tools = new EditTools(manager);
+
+        ToolResult<ApplyEditResponse> clear = tools.ApplyEdit(
+            patch: new JsonObject
+            {
+                ["Elements"] = new JsonArray(new JsonObject
+                {
+                    [nameof(CoreObject.Id)] = element.Id.ToString(),
+                    [nameof(Element.Objects)] = new JsonArray(new JsonObject
+                    {
+                        [nameof(CoreObject.Id)] = rect.Id.ToString(),
+                        [nameof(Drawable.FilterEffect)] = null
+                    })
+                })
+            },
+            schemaVersion: SchemaVersion.Current);
+        bool clearedFilterEffect = rect.FilterEffect.CurrentValue is null;
+
+        ToolResult<ApplyEditResponse> replace = tools.ApplyEdit(
+            patch: new JsonObject
+            {
+                ["Elements"] = new JsonArray(new JsonObject
+                {
+                    [nameof(CoreObject.Id)] = element.Id.ToString(),
+                    [nameof(Element.Objects)] = new JsonArray(new JsonObject
+                    {
+                        [nameof(CoreObject.Id)] = rect.Id.ToString(),
+                        [nameof(Drawable.FilterEffect)] = new JsonObject
+                        {
+                            ["$type"] = IdentityHelper.WriteDiscriminator(typeof(FilterEffectGroup)),
+                            [nameof(FilterEffectGroup.Children)] = new JsonArray(new JsonObject
+                            {
+                                ["$type"] = IdentityHelper.WriteDiscriminator(typeof(Brightness)),
+                                [nameof(Brightness.Amount)] = 120
+                            })
+                        }
+                    })
+                })
+            },
+            schemaVersion: SchemaVersion.Current);
+
+        var effects = (FilterEffectGroup)rect.FilterEffect.CurrentValue!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(clear.IsSuccess, Is.True, clear.Error?.Message);
+            Assert.That(clear.Value!.Valid, Is.True);
+            Assert.That(clearedFilterEffect, Is.True);
+            Assert.That(replace.IsSuccess, Is.True, replace.Error?.Message);
+            Assert.That(effects.Children, Has.Count.EqualTo(1));
+            Assert.That(effects.Children[0], Is.InstanceOf<Brightness>());
         });
     }
 
