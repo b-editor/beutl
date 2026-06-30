@@ -245,8 +245,7 @@ public sealed class SchemaGenerator
             includePropertyNames
                 ? descriptor.Properties.Select(property => property.Name).ToArray()
                 : [],
-            metadata.Notes.ToArray(),
-            metadata.RequiresGpu);
+            metadata.Notes.ToArray());
     }
 
     private static EffectMetadata GetEffectMetadata(Type type)
@@ -256,7 +255,7 @@ public sealed class SchemaGenerator
             return metadata;
         }
 
-        return new EffectMetadata(InferEffectTags(type.Name), [], RequiresGpu: false);
+        return new EffectMetadata(InferEffectTags(type.Name), []);
     }
 
     private static string[] InferEffectTags(string name)
@@ -713,7 +712,7 @@ public sealed class SchemaGenerator
                     CreateFlatShadow(138, 34, "#aa05121f"))),
             CreateEffectRecipe(
                 "pixel-sort-distortion",
-                "GPU-dependent pixel-sort chain for harsher scanline and data-corruption looks.",
+                "Vulkan-backed pixel-sort chain for harsher scanline and data-corruption looks; runs via the bundled SwiftShader software fallback when no hardware GPU is present.",
                 ["glitch", "pixel", "scanline", "gpu"],
                 CreateFilterEffectGroup(
                     CreatePixelSort(),
@@ -995,7 +994,7 @@ public sealed class SchemaGenerator
     {
         KeyValuePair<Type, EffectMetadata> pair = s_effectMetadata
             .FirstOrDefault(item => string.Equals(item.Key.Name, typeName, StringComparison.Ordinal));
-        return pair.Value ?? new EffectMetadata(InferEffectTags(typeName), [], RequiresGpu: false);
+        return pair.Value ?? new EffectMetadata(InferEffectTags(typeName), []);
     }
 
     private static string ToKebabCase(string name)
@@ -1054,17 +1053,17 @@ public sealed class SchemaGenerator
             [typeof(PathFollowEffect)] = Metadata(["motion", "path", "distort"], []),
             [typeof(LayerEffect)] = Metadata(["composite", "layer"], []),
             [typeof(DelayAnimationEffect)] = Metadata(["motion", "trail", "delay"], []),
-            [typeof(PixelSortEffect)] = Metadata(["glitch", "pixel", "scanline", "gpu"], ["Requires GPU/Vulkan support; may be inactive on CPU-only rendering."], requiresGpu: true),
+            [typeof(PixelSortEffect)] = Metadata(["glitch", "pixel", "scanline", "gpu"], ["Runs on the Vulkan shader backend, which falls back to the bundled SwiftShader software rasterizer when no hardware GPU is present, so it stays active; the software path is slower."]),
             [typeof(CSharpScriptEffect)] = Metadata(["advanced", "script", "programmable"], ["Prefer built-in effects for low-context agents unless script code is explicitly requested."]),
             [typeof(SKSLScriptEffect)] = Metadata(["advanced", "shader", "programmable", "organic", "procedural"], ["Requires shader source. Prefer for organic heat, ink, glass, smoke, grain, caustic, or procedural fields when blurred gradients look flat; verify with render_still because script compile errors can make the effect invisible."]),
-            [typeof(GLSLScriptEffect)] = Metadata(["advanced", "shader", "gpu"], ["Requires GPU shader source and GPU support."], requiresGpu: true),
+            [typeof(GLSLScriptEffect)] = Metadata(["advanced", "shader", "gpu"], ["Needs GLSL shader source; runs on the Vulkan shader backend (hardware GPU, MoltenVK, or the bundled SwiftShader software fallback), so it does not require a dedicated GPU."]),
             [typeof(NodeGraphFilterEffect)] = Metadata(["advanced", "nodegraph", "programmable"], ["Requires a node graph resource to be useful."])
         };
     }
 
-    private static EffectMetadata Metadata(IReadOnlyList<string> tags, IReadOnlyList<string> notes, bool requiresGpu = false)
+    private static EffectMetadata Metadata(IReadOnlyList<string> tags, IReadOnlyList<string> notes)
     {
-        return new EffectMetadata(tags.Append("effect").Distinct(StringComparer.Ordinal).ToArray(), notes.ToArray(), requiresGpu);
+        return new EffectMetadata(tags.Append("effect").Distinct(StringComparer.Ordinal).ToArray(), notes.ToArray());
     }
 
     private static string[] ExampleCategories(params string[] categories)
@@ -2201,6 +2200,5 @@ public sealed class SchemaGenerator
 
     private sealed record EffectMetadata(
         IReadOnlyList<string> IntentTags,
-        IReadOnlyList<string> Notes,
-        bool RequiresGpu);
+        IReadOnlyList<string> Notes);
 }
