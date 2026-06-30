@@ -20,9 +20,12 @@ public sealed record FinalPreflightResponse(
     bool ReadyForExport,
     IReadOnlyList<string> Blockers,
     IReadOnlyList<PreflightStillFrame> StillFrames,
-    MotionVariationResponse Motion,
+    MotionVariationResponse? Motion,
     QualityReviewResponse Quality,
-    string RecommendedNextTool);
+    string RecommendedNextTool)
+{
+    public bool ReadyForStoryboard { get; init; }
+}
 
 public sealed record PreflightStillFrame(
     string OutputPath,

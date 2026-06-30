@@ -148,6 +148,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             .AddSingleton<IWorkspaceGuard>(_ => new WorkspaceGuard(workspaceRoot))
             .AddSingleton<DestructiveGuard>()
             .AddSingleton<StillRenderer>()
+            .AddSingleton<StoryboardRenderer>()
             .AddSingleton<MotionVariationAnalyzer>()
             .AddSingleton<QualityAnalyzer>()
             .AddSingleton<EncoderRegistration>()

@@ -47,6 +47,7 @@ public sealed class ToolSurfaceTests
                 "plan_composition",
                 "apply_composition",
                 "render_still",
+                "render_storyboard",
                 "evaluate_motion_variation",
                 "evaluate_edit_quality",
                 "preview_quality_risks",

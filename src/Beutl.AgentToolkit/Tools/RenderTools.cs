@@ -15,6 +15,7 @@ public sealed class RenderTools(
     IWorkspaceGuard workspace,
     DestructiveGuard destructiveGuard,
     StillRenderer stillRenderer,
+    StoryboardRenderer storyboardRenderer,
     MotionVariationAnalyzer motionVariationAnalyzer,
     QualityAnalyzer qualityAnalyzer,
     VideoExporter videoExporter) : ToolBase
@@ -43,6 +44,64 @@ public sealed class RenderTools(
                 resolvedPath,
                 renderScale,
                 cancellationToken).ConfigureAwait(false);
+        });
+    }
+
+    [McpServerTool(Name = "render_storyboard")]
+    [Description("Renders a storyboard contact sheet from explicit shots or one auto-derived midpoint per timeline Element. Writes individual still PNGs and the contact sheet inside BEUTL_WORKSPACE.")]
+    public ValueTask<ToolResult<RenderStoryboardResponse>> RenderStoryboard(
+        [Description("Optional explicit storyboard shots. When omitted, one midpoint is derived per timeline Element.")]
+        StoryboardShotInput[]? shots = null,
+        [Description("Workspace-relative or in-workspace absolute output directory. Existing files require confirmOverwrite.")]
+        string outputDirectory = "agent-output",
+        [Description("Basename used for generated still PNGs and the contact sheet.")]
+        string basename = "storyboard",
+        [Description("Supersampling render scale. Values <= 0 use 1.")]
+        float renderScale = 1,
+        [Description("Required when generated output paths already exist.")]
+        bool confirmOverwrite = false,
+        CancellationToken cancellationToken = default)
+    {
+        return ExecuteAsync(async () =>
+        {
+            Scene scene = RequireScene();
+            IReadOnlyList<ResolvedStoryboardShot> resolvedShots = ResolveStoryboardShots(scene, shots);
+            string normalizedDirectory = NormalizeStoryboardDirectory(outputDirectory);
+            string safeBasename = NormalizeStoryboardBasename(basename);
+            var renderedShots = new List<RenderStoryboardShot>(resolvedShots.Count);
+            var contactSheetFrames = new List<StoryboardContactSheetFrame>(resolvedShots.Count);
+
+            for (int i = 0; i < resolvedShots.Count; i++)
+            {
+                ResolvedStoryboardShot shot = resolvedShots[i];
+                string stillPath = Path.Combine(
+                    normalizedDirectory,
+                    $"{safeBasename}-shot-{i:D2}-{Math.Max(0, (long)Math.Round(shot.Time.TotalMilliseconds)):D8}ms.png");
+                string resolvedPath = workspace.ResolveForWrite(stillPath);
+                destructiveGuard.EnsureOverwriteAllowed(resolvedPath, confirmOverwrite);
+                RenderStillResponse still = await stillRenderer.RenderAsync(
+                    scene,
+                    shot.Time,
+                    resolvedPath,
+                    renderScale,
+                    cancellationToken).ConfigureAwait(false);
+                renderedShots.Add(new RenderStoryboardShot(
+                    shot.Name,
+                    shot.Time.TotalSeconds,
+                    still.OutputPath,
+                    still.VisibilityAnalysis));
+                contactSheetFrames.Add(new StoryboardContactSheetFrame(
+                    shot.Name,
+                    shot.Time.TotalSeconds,
+                    still.OutputPath));
+            }
+
+            string contactSheetPath = Path.Combine(normalizedDirectory, $"{safeBasename}-contact-sheet.png");
+            string resolvedContactSheetPath = workspace.ResolveForWrite(contactSheetPath);
+            destructiveGuard.EnsureOverwriteAllowed(resolvedContactSheetPath, confirmOverwrite);
+            storyboardRenderer.RenderContactSheet(contactSheetFrames, resolvedContactSheetPath);
+
+            return new RenderStoryboardResponse(resolvedContactSheetPath, renderedShots);
         });
     }
 
@@ -101,6 +160,8 @@ public sealed class RenderTools(
         bool allowHardCuts = false,
         [Description("When true, non-background RectShape dominance is not treated as a major quality issue.")]
         bool allowRectDominance = false,
+        [Description("When true, treats the scene as a static layout and skips rendered motion checks.")]
+        bool staticLayout = false,
         CancellationToken cancellationToken = default)
     {
         return ExecuteAsync(async () =>
@@ -121,7 +182,7 @@ public sealed class RenderTools(
                 allowAllCaps,
                 allowHardCuts,
                 allowRectDominance,
-                evaluateMotion: true,
+                evaluateMotion: !staticLayout,
                 cancellationToken).ConfigureAwait(false);
         });
     }
@@ -231,6 +292,8 @@ public sealed class RenderTools(
         bool allowHardCuts = false,
         [Description("When true, non-background RectShape dominance is not treated as a major quality issue.")]
         bool allowRectDominance = false,
+        [Description("When true, treats the scene as a static storyboard layout and skips motion blockers.")]
+        bool staticLayout = false,
         [Description("Required when a generated still output path already exists.")]
         bool confirmOverwrite = false,
         CancellationToken cancellationToken = default)
@@ -262,16 +325,21 @@ public sealed class RenderTools(
                     still.ActiveElements));
             }
 
-            MotionVariationResponse motion = await motionVariationAnalyzer.AnalyzeAsync(
-                scene,
-                sampleTimes,
-                renderScale,
-                0.02,
-                48,
-                0.35,
-                0.90,
-                24,
-                cancellationToken).ConfigureAwait(false);
+            MotionVariationResponse? motion = null;
+            if (!staticLayout)
+            {
+                motion = await motionVariationAnalyzer.AnalyzeAsync(
+                    scene,
+                    sampleTimes,
+                    renderScale,
+                    0.02,
+                    48,
+                    0.35,
+                    0.90,
+                    24,
+                    cancellationToken).ConfigureAwait(false);
+            }
+
             QualityReviewResponse quality = await qualityAnalyzer.AnalyzeAsync(
                 scene,
                 sampleTimes,
@@ -281,11 +349,11 @@ public sealed class RenderTools(
                 allowAllCaps,
                 allowHardCuts,
                 allowRectDominance,
-                evaluateMotion: true,
+                evaluateMotion: !staticLayout,
                 cancellationToken).ConfigureAwait(false);
 
             List<string> blockers = [];
-            if (!motion.PassesMinimumMotion)
+            if (!staticLayout && motion is not null && !motion.PassesMinimumMotion)
             {
                 blockers.Add($"Motion variation did not pass: {motion.Verdict}.");
             }
@@ -295,7 +363,7 @@ public sealed class RenderTools(
                 blockers.Add("evaluate_edit_quality reported critical or major issues.");
             }
 
-            if (requireAnimatedProperties && quality.Metrics.MotionContinuity.AnimatedPropertyCount == 0)
+            if (!staticLayout && requireAnimatedProperties && quality.Metrics.MotionContinuity.AnimatedPropertyCount == 0)
             {
                 blockers.Add("animatedPropertyCount is 0; add explicit transform, opacity, brush, effect, or typography animation before exporting motion graphics.");
             }
@@ -307,12 +375,15 @@ public sealed class RenderTools(
 
             bool ready = blockers.Count == 0;
             return new FinalPreflightResponse(
-                ready,
+                staticLayout ? false : ready,
                 blockers,
                 stills,
                 motion,
                 quality,
-                ready ? "export_video" : "suggest_quality_fixes");
+                ready ? (staticLayout ? "render_storyboard" : "export_video") : "suggest_quality_fixes")
+            {
+                ReadyForStoryboard = staticLayout && ready
+            };
         });
     }
 
@@ -482,6 +553,76 @@ public sealed class RenderTools(
             : Path.Combine(directory, fileName);
     }
 
+    private static IReadOnlyList<ResolvedStoryboardShot> ResolveStoryboardShots(
+        Scene scene,
+        StoryboardShotInput[]? shots)
+    {
+        if (shots is { Length: > 0 })
+        {
+            ResolvedStoryboardShot[] explicitShots = shots
+                .Where(shot => double.IsFinite(shot.TimeSeconds))
+                .Select((shot, index) => new ResolvedStoryboardShot(
+                    string.IsNullOrWhiteSpace(shot.Name) ? $"shot-{index + 1}" : shot.Name.Trim(),
+                    TimeSpan.FromSeconds(Math.Max(0, shot.TimeSeconds))))
+                .OrderBy(shot => shot.Time)
+                .ToArray();
+            if (explicitShots.Length > 0)
+            {
+                return explicitShots;
+            }
+        }
+
+        ResolvedStoryboardShot[] derivedShots = scene.Children
+            .OrderBy(element => element.Start)
+            .ThenBy(element => element.ZIndex)
+            .Select(element =>
+            {
+                TimeSpan midpoint = element.Length > TimeSpan.Zero
+                    ? element.Start + TimeSpan.FromTicks(element.Length.Ticks / 2)
+                    : element.Start;
+                return new ResolvedStoryboardShot(
+                    string.IsNullOrWhiteSpace(element.Name) ? element.Id.ToString() : element.Name,
+                    midpoint);
+            })
+            .GroupBy(shot => shot.Time)
+            .Select(group => group.First())
+            .OrderBy(shot => shot.Time)
+            .ToArray();
+        if (derivedShots.Length > 0)
+        {
+            return derivedShots;
+        }
+
+        throw new ReconcileException(new ToolError(
+            ErrorCode.ValidationRejected,
+            "render_storyboard requires explicit shots or at least one timeline Element."));
+    }
+
+    private static string NormalizeStoryboardDirectory(string outputDirectory)
+    {
+        return string.IsNullOrWhiteSpace(outputDirectory)
+            ? "agent-output"
+            : outputDirectory;
+    }
+
+    private static string NormalizeStoryboardBasename(string basename)
+    {
+        string normalized = string.IsNullOrWhiteSpace(basename)
+            ? "storyboard"
+            : Path.GetFileNameWithoutExtension(basename.Trim());
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            normalized = "storyboard";
+        }
+
+        foreach (char invalid in Path.GetInvalidFileNameChars())
+        {
+            normalized = normalized.Replace(invalid, '-');
+        }
+
+        return normalized;
+    }
+
     private static IReadOnlyList<QualityFixSuggestion> BuildFixSuggestions(
         QualityReviewResponse review,
         bool requireAnimatedProperties)
@@ -582,4 +723,8 @@ public sealed class RenderTools(
             ErrorCode.ValidationRejected,
             "The current editing session is not attached to a scene."));
     }
+
+    private sealed record ResolvedStoryboardShot(
+        string Name,
+        TimeSpan Time);
 }
