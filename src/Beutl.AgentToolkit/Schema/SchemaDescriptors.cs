@@ -23,8 +23,7 @@ public sealed record EffectSummary(
     string? Description,
     IReadOnlyList<string> IntentTags,
     IReadOnlyList<string> PropertyNames,
-    IReadOnlyList<string> Notes,
-    bool RequiresGpu);
+    IReadOnlyList<string> Notes);
 
 public sealed record EffectRecipeSummary(
     string Name,

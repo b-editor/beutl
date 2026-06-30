@@ -332,7 +332,10 @@ public sealed class ReadDocumentTests
             Assert.That(effects.IsSuccess, Is.True, effects.Error?.Message);
             Assert.That(effects.Value!.Effects.Select(effect => effect.Name), Does.Contain("ColorShift"));
             Assert.That(effects.Value.Effects.Select(effect => effect.Name), Does.Contain("PixelSortEffect"));
-            Assert.That(effects.Value.Effects.Single(effect => effect.Name == "PixelSortEffect").RequiresGpu, Is.True);
+            Assert.That(
+                effects.Value.Effects.Single(effect => effect.Name == "PixelSortEffect").Notes,
+                Has.Some.Contains("SwiftShader"),
+                "PixelSort should advertise the SwiftShader software fallback, not a hard GPU requirement.");
             Assert.That(recipes.IsSuccess, Is.True, recipes.Error?.Message);
             Assert.That(recipes.Value!.Recipes.Select(item => item.Name), Does.Contain("digital-glitch"));
             Assert.That(recipes.Value.Recipes.Select(item => item.Name), Does.Contain("effect-color-shift"));
