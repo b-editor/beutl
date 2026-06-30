@@ -99,6 +99,10 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
     private const string Major = "major";
     private const string Minor = "minor";
 
+    // Advisory issues never fail the quality gate; only Critical/Major do. Aesthetic
+    // opinions use this so they surface as guidance without blocking export.
+    private const string Advisory = Minor;
+
     public async ValueTask<QualityReviewResponse> AnalyzeAsync(
         Scene scene,
         IReadOnlyList<TimeSpan>? timeSeconds,
@@ -185,7 +189,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
                 allCapsCount++;
                 issues.Add(CreateIssue(
                     "typography",
-                    allowAllCaps ? Minor : Major,
+                    Advisory,
                     "Long all-caps text tends to make generated edits look generic and rigid.",
                     $"Text '{Shorten(text)}' is mostly uppercase.",
                     allowAllCaps
@@ -226,17 +230,18 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
             .Where(item => item.Object is TextBlock textBlock && textBlock.Size.CurrentValue >= 88)
             .ToArray();
 
-        if (dominantTextObjects.Length >= 4)
+        SceneObjectInfo[] concurrentDominantTextObjects = FindMaxConcurrentDominantText(dominantTextObjects);
+        if (concurrentDominantTextObjects.Length >= 4)
         {
             issues.Add(new QualityIssue(
                 "visualHierarchy",
-                Major,
+                Advisory,
                 "Too many text elements are styled as dominant focal points.",
-                $"{dominantTextObjects.Length} text objects use size 88 or larger.",
+                $"{concurrentDominantTextObjects.Length} simultaneously visible text objects use size 88 or larger.",
                 "Limit hero-scale type to one primary message and one secondary emphasis; make supporting copy smaller, quieter, or grouped.",
                 null,
-                dominantTextObjects.Select(item => item.Element.Id.ToString()).ToArray(),
-                dominantTextObjects.Select(item => item.Object.Id.ToString()).ToArray()));
+                concurrentDominantTextObjects.Select(item => item.Element.Id.ToString()).ToArray(),
+                concurrentDominantTextObjects.Select(item => item.Object.Id.ToString()).ToArray()));
         }
 
         foreach (SceneObjectInfo info in textObjects)
@@ -273,7 +278,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         {
             issues.Add(new QualityIssue(
                 "effectIntent",
-                Major,
+                Advisory,
                 "Several foreground objects carry dense effect stacks, which can make the look feel arbitrary.",
                 $"{effectHeavyObjects.Length} foreground objects have three or more filter effects.",
                 "Assign each effect a job such as material texture, hierarchy separation, transition energy, or text legibility; remove decorative repeats.",
@@ -324,7 +329,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         {
             issues.Add(new QualityIssue(
                 "shapeIntent",
-                Major,
+                Advisory,
                 "Foreground shapes need a visible role or purpose before they become large or animated.",
                 $"{unclearShapes.Length} large or animated foreground shapes have no recognizable role/purpose naming.",
                 "Rename or tag each foreground shape with an explicit role and purpose, such as [role:decorative] beat sweep, [role:text-backing] title plate, or [role:background] surface; delete shapes that do not serve the shot.",
@@ -343,7 +348,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         {
             issues.Add(new QualityIssue(
                 "motionIntent",
-                Major,
+                Advisory,
                 "Animated foreground shapes need an explicit motion intent.",
                 $"{animatedShapesWithoutMotionIntent.Length} animated foreground shapes do not expose motion intent in their Element/Object names.",
                 "Name the motion job before export, such as beat slide, scan sweep, pulse reveal, wipe transition, drift texture, or impact burst; remove arbitrary animated shapes.",
@@ -389,14 +394,21 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         double requiredTimelineEventsPerSecond = highTempoProfile ? Math.Max(1.0, beatRate / 2d) : 0;
         double requiredTotalEventsPerSecond = highTempoProfile ? Math.Max(1.5, beatRate * 0.85d) : 0;
         double maxForegroundEventGapSeconds = highTempoProfile ? Math.Max(1.6, beatDurationSeconds * 4d) : double.PositiveInfinity;
+        Element? finalResolveElement = ResolveFinalForegroundElement(scene, objects);
         (int longForegroundGapCount, double longestForegroundEventGapSeconds) =
             highTempoProfile
-                ? AnalyzeForegroundEventGaps(timelineEvents, keyFrameEvents, scene.Duration, maxForegroundEventGapSeconds)
+                ? AnalyzeForegroundEventGaps(
+                    timelineEvents,
+                    keyFrameEvents,
+                    scene.Duration,
+                    maxForegroundEventGapSeconds,
+                    finalResolveElement?.Start.TotalSeconds)
                 : (0, 0);
 
         SceneObjectInfo[] slowHoldObjects = highTempoProfile
             ? objects
                 .Where(item => IsTempoForegroundObject(scene, item))
+                .Where(item => item.Element != finalResolveElement)
                 .Where(item => item.Element.Length.TotalSeconds > ResolveMaxHoldSeconds(item, beatDurationSeconds))
                 .ToArray()
             : [];
@@ -414,7 +426,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         {
             issues.Add(new QualityIssue(
                 "tempoRhythm",
-                Major,
+                Advisory,
                 "Foreground scene changes are too sparse for the requested BPM.",
                 $"Detected {timelineEvents.Count} foreground start/end events over {durationSeconds:F1}s ({timelineEventsPerSecond:F2}/s); required at least {requiredTimelineEventsPerSecond:F2}/s for target {targetBpm:F0} BPM.",
                 "Add visible foreground boundaries every 1-2 beats with short typography, strokes, particles, wipes, or other concrete accent Elements. Do not rely on background motion or hidden keyframes to satisfy a fast brief.",
@@ -427,7 +439,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         {
             issues.Add(new QualityIssue(
                 "tempoRhythm",
-                Major,
+                Advisory,
                 "The timeline is too sparse for a high-tempo motion-graphics brief.",
                 $"Detected {(timelineEvents.Count + keyFrameEvents.Count)} foreground timing/keyframe events over {durationSeconds:F1}s ({totalEventsPerSecond:F2}/s); required at least {requiredTotalEventsPerSecond:F2}/s for target {targetBpm:F0} BPM.",
                 "For 120-140 BPM promos, plan beat-grid events around every 1-2 beats: split long shots, add short accent Elements, and add explicit keyframes on transform, opacity, brush, effect, or typography spacing.",
@@ -440,7 +452,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         {
             issues.Add(new QualityIssue(
                 "tempoRhythm",
-                Major,
+                Advisory,
                 "Foreground event gaps are too long for a high-tempo brief.",
                 $"{longForegroundGapCount} foreground event gaps exceed the {maxForegroundEventGapSeconds:F2}s beat-grid target; longest gap {longestForegroundEventGapSeconds:F2}s.",
                 "Close long gaps with visible foreground cuts, accent hits, typography swaps, or animated property changes. Background-only drift does not count as fast foreground pacing.",
@@ -453,7 +465,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         {
             issues.Add(new QualityIssue(
                 "tempoRhythm",
-                Major,
+                Advisory,
                 "High-tempo foreground beats are held too long.",
                 $"{slowHoldObjects.Length} foreground objects exceed the {ResolveNormalMaxHoldSeconds(beatDurationSeconds):F2}s high-tempo hold target; longest hold {longestForegroundHoldSeconds:F2}s.",
                 "Keep normal foreground beats near 2-4 beats, reserve longer holds for background texture or a named final resolve, and add interstitial accents when readability requires a longer title hold.",
@@ -504,7 +516,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         {
             issues.Add(new QualityIssue(
                 "shapeDiversity",
-                Major,
+                Advisory,
                 "The scene relies on too many plain RectShape objects outside background use.",
                 $"{nonBackgroundRects} non-background RectShape objects; rect dominance {dominance:P0}.",
                 "Keep full-frame plates as RectShape, but switch foreground panels to RoundedRectShape, EllipseShape, GeometryShape, media, strokes, or procedural texture.",
@@ -517,7 +529,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         {
             issues.Add(new QualityIssue(
                 "decorativeShapeClarity",
-                Major,
+                Advisory,
                 "Abstract decorative light shapes are too ambiguous to read as intentional content.",
                 $"{ambiguousDecorativeShapes.Length} large or animated foreground shapes use abstract light/material naming such as glint, glow, bloom, aperture, lens, or glass.",
                 "Replace these with concrete visual systems the viewer can parse, such as strokes, particles, letter fragments, UI/editor marks, masks, media, or procedural texture; move purely atmospheric light to [role:background] with soft falloff.",
@@ -584,7 +596,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
             mismatchCount++;
             issues.Add(new QualityIssue(
                 "textBackgroundFit",
-                Major,
+                Advisory,
                 "A background plate behind text is not aligned with the text timing or geometry.",
                 $"Center distance {centerDistance:F1}px, plate {plateBounds.Width:F0}x{plateBounds.Height:F0}, text {textBounds.Width:F0}x{textBounds.Height:F0}, matching time range: {sameTime}.",
                 "Pair text and backing plate by name or [role:text-backing], matching Start/Length, center transform, and at least 12% horizontal plus 18% vertical padding. Mark decorative rectangles [role:decorative] or use non-rectangular accents so they are not treated as backing plates.",
@@ -630,7 +642,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         {
             issues.Add(new QualityIssue(
                 "paletteHarmony",
-                Major,
+                Advisory,
                 "The palette repeats the dark teal plus cyan/magenta look that the guidance marks as overused.",
                 "Detected a dark teal base with saturated cyan and magenta accents.",
                 "Use a neutral base, one restrained accent, and a separate text color with clear luma contrast.",
@@ -642,7 +654,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         {
             issues.Add(new QualityIssue(
                 "paletteHarmony",
-                Major,
+                Advisory,
                 "The palette has too many saturated colors competing for attention.",
                 $"Average saturation {averageSaturation:F1}, max saturation {maxSaturation:F1}.",
                 "Reduce to one saturated accent and use muted support colors for background and plates.",
@@ -655,7 +667,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         {
             issues.Add(new QualityIssue(
                 "paletteHarmony",
-                Major,
+                Advisory,
                 "The sampled object colors have low luma separation, which risks unreadable text and muddy layers.",
                 $"Luma range {lumaRange:F2}.",
                 "Separate background, text, and accent roles with stronger luma contrast.",
@@ -694,7 +706,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
 
         issues.Add(new QualityIssue(
             "materialUiLook",
-            Major,
+            Advisory,
             "Multiple rounded or rectangular cards use heavy shadow/blur styling, which reads like outdated Material UI.",
             $"{cardLikeObjects.Length} card-like shapes have heavy DropShadow or Blur effects.",
             "Use flatter editorial plates, texture, line work, image masks, or subtle single shadows instead of repeated card surfaces.",
@@ -722,7 +734,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         {
             issues.Add(new QualityIssue(
                 "cutRhythm",
-                Major,
+                Advisory,
                 "The timeline has repeated hard-cut-like element boundaries without enough bridging animation.",
                 $"{hardCutCount} interior boundaries start or end visible elements with no detected opacity/transform animation.",
                 "Bridge cuts with short overlap, opacity animation, transform continuation, or an intentional rhythm note in the brief.",
@@ -735,7 +747,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         {
             issues.Add(new QualityIssue(
                 "cutRhythm",
-                Major,
+                Advisory,
                 "Several timeline segments are very short, which can produce a chopped-up edit.",
                 $"{shortSegmentCount} elements are shorter than 0.45 seconds.",
                 "Group micro-beats into a clearer phrase, or add visible transition continuity between them.",
@@ -1072,6 +1084,36 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         return element.Objects.Any(obj => IsTempoForegroundObject(scene, new SceneObjectInfo(element, obj)));
     }
 
+    private static Element? ResolveFinalForegroundElement(Scene scene, IReadOnlyList<SceneObjectInfo> objects)
+    {
+        SceneObjectInfo[] foreground = objects
+            .Where(item => IsTempoForegroundObject(scene, item))
+            .ToArray();
+        if (foreground.Length == 0)
+        {
+            return null;
+        }
+
+        SceneObjectInfo? tagged = foreground
+            .Where(IsNamedFinalResolve)
+            .Select(item => (SceneObjectInfo?)item)
+            .FirstOrDefault();
+        if (tagged is { } taggedInfo)
+        {
+            return taggedInfo.Element;
+        }
+
+        SceneObjectInfo last = foreground
+            .OrderByDescending(item => item.Element.Start)
+            .First();
+        return last.Element.Start > TimeSpan.Zero ? last.Element : null;
+    }
+
+    private static bool IsNamedFinalResolve(SceneObjectInfo info)
+        => HasRole(info, "resolve", "final")
+           || ContainsAny(info.Element.Name, "final", "resolve", "outro", "ending", "logo lock")
+           || ContainsAny(info.Object.Name, "final", "resolve", "outro", "ending", "logo lock");
+
     private static bool IsTempoForegroundObject(Scene scene, SceneObjectInfo info)
     {
         return !IsBackgroundObject(scene, info)
@@ -1209,7 +1251,8 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         HashSet<long> timelineEvents,
         HashSet<long> keyFrameEvents,
         TimeSpan sceneDuration,
-        double maxGapSeconds)
+        double maxGapSeconds,
+        double? finalResolveStartSeconds = null)
     {
         double durationSeconds = Math.Max(0.001, sceneDuration.TotalSeconds);
         double[] eventSeconds = timelineEvents
@@ -1227,6 +1270,12 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         for (int i = 1; i < eventSeconds.Length; i++)
         {
             double gap = eventSeconds[i] - eventSeconds[i - 1];
+            if (finalResolveStartSeconds is { } resolveStart
+                && eventSeconds[i - 1] >= resolveStart)
+            {
+                continue;
+            }
+
             longestGapSeconds = Math.Max(longestGapSeconds, gap);
             if (gap > maxGapSeconds)
             {
@@ -1235,6 +1284,33 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         }
 
         return (longGapCount, longestGapSeconds);
+    }
+
+    private static SceneObjectInfo[] FindMaxConcurrentDominantText(SceneObjectInfo[] dominantTextObjects)
+    {
+        if (dominantTextObjects.Length <= 1)
+        {
+            return dominantTextObjects;
+        }
+
+        TimeSpan[] sampleTimes = dominantTextObjects
+            .SelectMany(item => new[] { item.Element.Start, item.Element.Start + item.Element.Length })
+            .Distinct()
+            .Order()
+            .ToArray();
+        SceneObjectInfo[] max = [];
+        foreach (TimeSpan time in sampleTimes)
+        {
+            SceneObjectInfo[] active = dominantTextObjects
+                .Where(item => item.Element.Start <= time && time < item.Element.Start + item.Element.Length)
+                .ToArray();
+            if (active.Length > max.Length)
+            {
+                max = active;
+            }
+        }
+
+        return max;
     }
 
     private static bool IsTextBackingPlate(SceneObjectInfo info)
@@ -1391,7 +1467,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         {
             issues.Add(new QualityIssue(
                 "gradientFalloff",
-                Major,
+                Advisory,
                 "Large ambient gradients have abrupt color or alpha boundaries.",
                 $"{hardGradientObjects.Count} gradient-filled shapes have hard stop transitions or two-stop ambient falloff without a softening effect; detected {hardTransitionCount} hard transitions.",
                 "Use at least three falloff stops, spread color/alpha transitions over wider offsets, add a real Blur/SKSL texture when appropriate, or replace the shape with procedural surface texture.",

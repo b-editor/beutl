@@ -13,7 +13,7 @@ namespace Beutl.AgentToolkit.Tests.Rendering;
 public sealed class QualityAnalyzerTests
 {
     [Test]
-    public async Task All_caps_text_is_reported_as_major_issue()
+    public async Task All_caps_text_is_reported_as_advisory_issue()
     {
         Scene scene = CreateScene();
         AddText(scene, "BREAKING NEWS NOW", zIndex: 10);
@@ -22,10 +22,10 @@ public sealed class QualityAnalyzerTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(result.PassesQualityGate, Is.False);
+            Assert.That(result.PassesQualityGate, Is.True);
             Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
                 issue.Category == "typography"
-                && issue.Severity == "major"
+                && issue.Severity == "minor"
                 && issue.Message.Contains("all-caps", StringComparison.OrdinalIgnoreCase)));
             Assert.That(result.Metrics.Typography.AllCapsTextCount, Is.EqualTo(1));
         });
@@ -47,7 +47,7 @@ public sealed class QualityAnalyzerTests
     }
 
     [Test]
-    public async Task Rect_background_is_allowed_but_rect_dominance_is_reported()
+    public async Task Rect_background_is_allowed_but_rect_dominance_is_advisory()
     {
         Scene backgroundScene = CreateScene();
         AddRect(backgroundScene, "Background plate", zIndex: 0, width: 1920, height: 1080);
@@ -66,13 +66,14 @@ public sealed class QualityAnalyzerTests
         {
             Assert.That(backgroundResult.Issues.Where(issue => issue.Category == "shapeDiversity"), Is.Empty);
             Assert.That(rectHeavyResult.Issues, Has.Some.Matches<QualityIssue>(issue =>
-                issue.Category == "shapeDiversity" && issue.Severity == "major"));
+                issue.Category == "shapeDiversity" && issue.Severity == "minor"));
+            Assert.That(rectHeavyResult.PassesQualityGate, Is.True);
             Assert.That(rectHeavyResult.Metrics.ShapeDiversity.NonBackgroundRectShapeCount, Is.EqualTo(3));
         });
     }
 
     [Test]
-    public async Task Misaligned_text_background_plate_is_reported()
+    public async Task Misaligned_text_background_plate_is_advisory()
     {
         Scene scene = CreateScene();
         AddRoundedRect(scene, "Title backing plate", zIndex: 8, width: 560, height: 150, x: 160, y: 0);
@@ -80,10 +81,14 @@ public sealed class QualityAnalyzerTests
 
         QualityReviewResponse result = await AnalyzeAsync(scene, evaluateMotion: false);
 
-        Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
-            issue.Category == "textBackgroundFit"
-            && issue.Severity == "major"
-            && issue.ElementIds.Count >= 2));
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "textBackgroundFit"
+                && issue.Severity == "minor"
+                && issue.ElementIds.Count >= 2));
+            Assert.That(result.PassesQualityGate, Is.True);
+        });
     }
 
     [Test]
@@ -114,10 +119,14 @@ public sealed class QualityAnalyzerTests
             evaluateMotion: false,
             styleProfile: "high-tempo-promo");
 
-        Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
-            issue.Category == "typographyReadTime"
-            && issue.Severity == "major"
-            && issue.SuggestedFix.Contains("1.5s", StringComparison.Ordinal)));
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "typographyReadTime"
+                && issue.Severity == "major"
+                && issue.SuggestedFix.Contains("1.5s", StringComparison.Ordinal)));
+            Assert.That(result.PassesQualityGate, Is.False);
+        });
     }
 
     [Test]
@@ -135,6 +144,7 @@ public sealed class QualityAnalyzerTests
                 issue.Category == "elementStructure"
                 && issue.Severity == "major"
                 && issue.ObjectIds.Count == 2));
+            Assert.That(result.PassesQualityGate, Is.False);
             Assert.That(result.Metrics.Structure.NonFlowMultiObjectElementCount, Is.EqualTo(1));
         });
     }
@@ -156,7 +166,7 @@ public sealed class QualityAnalyzerTests
     }
 
     [Test]
-    public async Task Large_unclear_foreground_shape_is_reported()
+    public async Task Large_unclear_foreground_shape_is_advisory()
     {
         Scene scene = CreateScene();
         AddEllipse(scene, "EllipseShape", zIndex: 5, width: 480, height: 320, x: 0, y: 0, color: Color.Parse("#ff6ca8ff"));
@@ -168,13 +178,14 @@ public sealed class QualityAnalyzerTests
         {
             Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
                 issue.Category == "shapeIntent"
-                && issue.Severity == "major"));
+                && issue.Severity == "minor"));
+            Assert.That(result.PassesQualityGate, Is.True);
             Assert.That(result.Metrics.Structure.UnclearForegroundShapeCount, Is.EqualTo(1));
         });
     }
 
     [Test]
-    public async Task Animated_shape_without_motion_intent_is_reported()
+    public async Task Animated_shape_without_motion_intent_is_advisory()
     {
         Scene scene = CreateScene(durationSeconds: 2);
         Element element = AddEllipse(
@@ -196,13 +207,14 @@ public sealed class QualityAnalyzerTests
         {
             Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
                 issue.Category == "motionIntent"
-                && issue.Severity == "major"));
+                && issue.Severity == "minor"));
+            Assert.That(result.PassesQualityGate, Is.True);
             Assert.That(result.Metrics.Structure.AnimatedShapeWithoutMotionIntentCount, Is.EqualTo(1));
         });
     }
 
     [Test]
-    public async Task Decorative_glint_ellipse_is_reported_as_ambiguous()
+    public async Task Decorative_glint_ellipse_is_advisory_ambiguous()
     {
         Scene scene = CreateScene(durationSeconds: 3);
         Element element = AddEllipse(
@@ -224,14 +236,15 @@ public sealed class QualityAnalyzerTests
         {
             Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
                 issue.Category == "decorativeShapeClarity"
-                && issue.Severity == "major"
+                && issue.Severity == "minor"
                 && issue.Message.Contains("ambiguous", StringComparison.OrdinalIgnoreCase)));
+            Assert.That(result.PassesQualityGate, Is.True);
             Assert.That(result.Metrics.ShapeDiversity.AmbiguousDecorativeShapeCount, Is.EqualTo(1));
         });
     }
 
     [Test]
-    public async Task Large_ambient_two_stop_gradient_without_softening_is_reported()
+    public async Task Large_ambient_two_stop_gradient_without_softening_is_advisory()
     {
         Scene scene = CreateScene(durationSeconds: 3);
         var ellipse = new EllipseShape
@@ -266,15 +279,16 @@ public sealed class QualityAnalyzerTests
         {
             Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
                 issue.Category == "gradientFalloff"
-                && issue.Severity == "major"
+                && issue.Severity == "minor"
                 && issue.Message.Contains("abrupt", StringComparison.OrdinalIgnoreCase)));
+            Assert.That(result.PassesQualityGate, Is.True);
             Assert.That(result.Metrics.Palette.HardGradientObjectCount, Is.EqualTo(1));
             Assert.That(result.Metrics.Palette.HardGradientTransitionCount, Is.EqualTo(1));
         });
     }
 
     [Test]
-    public async Task High_tempo_profile_reports_sparse_event_density_and_slow_holds()
+    public async Task High_tempo_profile_flags_sparse_event_density_and_slow_holds_as_advisory()
     {
         Scene scene = CreateScene(durationSeconds: 30);
         AddRect(scene, "Background plate", zIndex: 0, width: 1920, height: 1080, color: Color.Parse("#ff20242b"));
@@ -289,12 +303,13 @@ public sealed class QualityAnalyzerTests
         {
             Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
                 issue.Category == "tempoRhythm"
-                && issue.Severity == "major"
+                && issue.Severity == "minor"
                 && issue.Message.Contains("too sparse", StringComparison.OrdinalIgnoreCase)));
             Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
                 issue.Category == "tempoRhythm"
-                && issue.Severity == "major"
+                && issue.Severity == "minor"
                 && issue.Message.Contains("held too long", StringComparison.OrdinalIgnoreCase)));
+            Assert.That(result.PassesQualityGate, Is.True);
             Assert.That(result.Metrics.Tempo.HighTempoProfile, Is.True);
             Assert.That(result.Metrics.Tempo.TargetBpm, Is.EqualTo(130));
             Assert.That(result.Metrics.Tempo.SlowHoldCount, Is.EqualTo(1));
@@ -326,6 +341,7 @@ public sealed class QualityAnalyzerTests
             Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
                 issue.Category == "tempoRhythm"
                 && issue.Message.Contains("Foreground event gaps", StringComparison.Ordinal)));
+            Assert.That(result.PassesQualityGate, Is.True);
             Assert.That(result.Metrics.Tempo.RequiredTimelineEventsPerSecond, Is.GreaterThan(1.0));
             Assert.That(result.Metrics.Tempo.LongForegroundGapCount, Is.GreaterThan(0));
             Assert.That(result.Metrics.Tempo.LongestForegroundEventGapSeconds, Is.GreaterThan(20));
@@ -333,7 +349,7 @@ public sealed class QualityAnalyzerTests
     }
 
     [Test]
-    public async Task Saturated_dark_teal_cyan_magenta_palette_is_reported()
+    public async Task Saturated_dark_teal_cyan_magenta_palette_is_advisory()
     {
         Scene scene = CreateScene();
         AddRect(scene, "Deep teal background", zIndex: 0, width: 1920, height: 1080, color: Color.Parse("#ff020711"));
@@ -345,13 +361,14 @@ public sealed class QualityAnalyzerTests
         Assert.Multiple(() =>
         {
             Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
-                issue.Category == "paletteHarmony" && issue.Severity == "major"));
+                issue.Category == "paletteHarmony" && issue.Severity == "minor"));
+            Assert.That(result.PassesQualityGate, Is.True);
             Assert.That(result.Metrics.Palette.HasDarkTealCyanMagentaPalette, Is.True);
         });
     }
 
     [Test]
-    public async Task Material_ui_card_texture_is_reported()
+    public async Task Material_ui_card_texture_is_advisory()
     {
         Scene scene = CreateScene();
         AddCard(scene, "Card A", zIndex: 4, x: -260);
@@ -360,12 +377,16 @@ public sealed class QualityAnalyzerTests
 
         QualityReviewResponse result = await AnalyzeAsync(scene, evaluateMotion: false);
 
-        Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
-            issue.Category == "materialUiLook" && issue.Severity == "major"));
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "materialUiLook" && issue.Severity == "minor"));
+            Assert.That(result.PassesQualityGate, Is.True);
+        });
     }
 
     [Test]
-    public async Task Too_many_dominant_type_elements_are_reported()
+    public async Task Too_many_dominant_type_elements_are_advisory()
     {
         Scene scene = CreateScene();
         AddText(scene, "Build", zIndex: 10, x: -420, y: -180, size: 96);
@@ -375,10 +396,61 @@ public sealed class QualityAnalyzerTests
 
         QualityReviewResponse result = await AnalyzeAsync(scene, evaluateMotion: false);
 
-        Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
-            issue.Category == "visualHierarchy"
-            && issue.Severity == "major"
-            && issue.ElementIds.Count == 4));
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "visualHierarchy"
+                && issue.Severity == "minor"
+                && issue.ElementIds.Count == 4));
+            Assert.That(result.PassesQualityGate, Is.True);
+        });
+    }
+
+    [Test]
+    public async Task Sequential_dominant_type_elements_do_not_trigger_visual_hierarchy()
+    {
+        Scene scene = CreateScene(durationSeconds: 4);
+        for (int i = 0; i < 4; i++)
+        {
+            Element element = AddText(scene, $"Word {i}", zIndex: 10 + i, size: 96);
+            element.Start = TimeSpan.FromSeconds(i);
+            element.Length = TimeSpan.FromSeconds(0.8);
+        }
+
+        QualityReviewResponse result = await AnalyzeAsync(scene, evaluateMotion: false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Issues, Has.None.Matches<QualityIssue>(issue => issue.Category == "visualHierarchy"));
+            Assert.That(result.PassesQualityGate, Is.True);
+        });
+    }
+
+    [Test]
+    public async Task Named_final_resolve_is_exempt_from_high_tempo_hold_warning()
+    {
+        Scene scene = CreateScene(durationSeconds: 8);
+        AddRect(scene, "Background plate", zIndex: 0, width: 1920, height: 1080, color: Color.Parse("#ff20242b"));
+        Element beat = AddText(scene, "Build", zIndex: 10, size: 72);
+        beat.Start = TimeSpan.Zero;
+        beat.Length = TimeSpan.FromSeconds(0.8);
+        Element resolve = AddText(scene, "[role:resolve] Final mark", zIndex: 11, size: 72);
+        resolve.Start = TimeSpan.FromSeconds(1);
+        resolve.Length = TimeSpan.FromSeconds(7);
+
+        QualityReviewResponse result = await AnalyzeAsync(
+            scene,
+            evaluateMotion: false,
+            styleProfile: "high-tempo-promo 130bpm");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Issues, Has.None.Matches<QualityIssue>(issue =>
+                issue.Category == "tempoRhythm"
+                && issue.Message.Contains("held too long", StringComparison.OrdinalIgnoreCase)));
+            Assert.That(result.Metrics.Tempo.SlowHoldCount, Is.EqualTo(0));
+            Assert.That(result.PassesQualityGate, Is.True);
+        });
     }
 
     [Test]
@@ -394,14 +466,18 @@ public sealed class QualityAnalyzerTests
 
         QualityReviewResponse result = await AnalyzeAsync(scene, evaluateMotion: false);
 
-        Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
-            issue.Category == "typographyReadTime"
-            && issue.Severity == "major"
-            && issue.Time == "00:00:00"));
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "typographyReadTime"
+                && issue.Severity == "major"
+                && issue.Time == "00:00:00"));
+            Assert.That(result.PassesQualityGate, Is.False);
+        });
     }
 
     [Test]
-    public async Task Dense_foreground_effect_stacks_are_reported()
+    public async Task Dense_foreground_effect_stacks_are_advisory()
     {
         Scene scene = CreateScene();
         AddEffectStackedEllipse(scene, "Glow shard A", zIndex: 4, x: -360);
@@ -410,10 +486,14 @@ public sealed class QualityAnalyzerTests
 
         QualityReviewResponse result = await AnalyzeAsync(scene, evaluateMotion: false);
 
-        Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
-            issue.Category == "effectIntent"
-            && issue.Severity == "major"
-            && issue.ObjectIds.Count == 3));
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "effectIntent"
+                && issue.Severity == "minor"
+                && issue.ObjectIds.Count == 3));
+            Assert.That(result.PassesQualityGate, Is.True);
+        });
     }
 
     [Test]
@@ -429,6 +509,7 @@ public sealed class QualityAnalyzerTests
         {
             Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
                 issue.Category == "motionContinuity" && issue.Severity == "major"));
+            Assert.That(result.PassesQualityGate, Is.False);
             Assert.That(result.Metrics.MotionContinuity.MotionVerdict, Is.EqualTo("low-motion-variation"));
         });
     }
@@ -448,6 +529,35 @@ public sealed class QualityAnalyzerTests
         {
             Assert.That(result.PassesQualityGate, Is.True);
             Assert.That(result.Issues.Where(issue => issue.Severity is "critical" or "major"), Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task Distinctive_but_legible_design_passes_gate()
+    {
+        // Exercises several previously-blocking aesthetics at once: four hero-scale
+        // texts, a saturated palette, and a rect-dominant foreground. Each is now
+        // advisory, so a legible, structurally valid scene must still pass the gate.
+        Scene scene = CreateScene(durationSeconds: 3);
+        AddRect(scene, "Background plate", zIndex: 0, width: 1920, height: 1080, color: Color.Parse("#ff101418"));
+        AddRect(scene, "Panel 1", zIndex: 3, width: 420, height: 130, x: -400, y: -220, color: Color.Parse("#ffff5a1f"));
+        AddRect(scene, "Panel 2", zIndex: 4, width: 360, height: 120, x: 280, y: -40, color: Color.Parse("#ffe11d8f"));
+        AddRect(scene, "Panel 3", zIndex: 5, width: 300, height: 110, x: -20, y: 180, color: Color.Parse("#ff1fb6ff"));
+        AddText(scene, "Build", zIndex: 10, x: -420, y: -180, size: 96, fill: Color.Parse("#ffffe14d"));
+        AddText(scene, "Edit", zIndex: 11, x: 120, y: -120, size: 96, fill: Color.Parse("#ff4dff9e"));
+        AddText(scene, "Grade", zIndex: 12, x: -260, y: 80, size: 96, fill: Color.Parse("#ff4dc8ff"));
+        AddText(scene, "Export", zIndex: 13, x: 330, y: 160, size: 96, fill: Color.Parse("#ffff7a4d"));
+
+        QualityReviewResponse result = await AnalyzeAsync(scene, evaluateMotion: false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.PassesQualityGate, Is.True);
+            Assert.That(result.Issues.Where(issue => issue.Severity is "critical" or "major"), Is.Empty);
+            Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "visualHierarchy" && issue.Severity == "minor"));
+            Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "shapeDiversity" && issue.Severity == "minor"));
         });
     }
 
