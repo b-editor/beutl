@@ -1,4 +1,5 @@
 ﻿using Beutl.AgentToolkit.Rendering;
+using Beutl.Animation;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
@@ -117,6 +118,115 @@ public sealed class QualityAnalyzerTests
             issue.Category == "typographyReadTime"
             && issue.Severity == "major"
             && issue.SuggestedFix.Contains("1.5s", StringComparison.Ordinal)));
+    }
+
+    [Test]
+    public async Task Non_flow_element_with_multiple_objects_is_reported()
+    {
+        Scene scene = CreateScene();
+        Element element = AddText(scene, "Launch notes", zIndex: 10);
+        element.AddObject(new EllipseShape { Name = "Extra accent" });
+
+        QualityReviewResponse result = await AnalyzeAsync(scene, evaluateMotion: false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "elementStructure"
+                && issue.Severity == "major"
+                && issue.ObjectIds.Count == 2));
+            Assert.That(result.Metrics.Structure.NonFlowMultiObjectElementCount, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task Flow_operator_element_with_multiple_objects_is_allowed()
+    {
+        Scene scene = CreateScene();
+        Element element = AddText(scene, "Launch notes", zIndex: 10);
+        element.AddObject(new DrawableGroup { Name = "Flow grouping operator" });
+
+        QualityReviewResponse result = await AnalyzeAsync(scene, evaluateMotion: false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Issues.Where(issue => issue.Category == "elementStructure"), Is.Empty);
+            Assert.That(result.Metrics.Structure.FlowMultiObjectElementCount, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task Large_unclear_foreground_shape_is_reported()
+    {
+        Scene scene = CreateScene();
+        AddEllipse(scene, "EllipseShape", zIndex: 5, width: 480, height: 320, x: 0, y: 0, color: Color.Parse("#ff6ca8ff"));
+        AddText(scene, "Launch notes", zIndex: 10);
+
+        QualityReviewResponse result = await AnalyzeAsync(scene, evaluateMotion: false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "shapeIntent"
+                && issue.Severity == "major"));
+            Assert.That(result.Metrics.Structure.UnclearForegroundShapeCount, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task Animated_shape_without_motion_intent_is_reported()
+    {
+        Scene scene = CreateScene(durationSeconds: 2);
+        Element element = AddEllipse(
+            scene,
+            "Soft accent",
+            zIndex: 5,
+            width: 160,
+            height: 120,
+            x: 0,
+            y: 0,
+            color: Color.Parse("#ff6ca8ff"));
+        var ellipse = (EllipseShape)element.Objects[0];
+        var transform = (TransformGroup)ellipse.Transform.CurrentValue!;
+        ((TranslateTransform)transform.Children[0]).X.Animation = CreateFloatAnimation();
+
+        QualityReviewResponse result = await AnalyzeAsync(scene, evaluateMotion: false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "motionIntent"
+                && issue.Severity == "major"));
+            Assert.That(result.Metrics.Structure.AnimatedShapeWithoutMotionIntentCount, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task High_tempo_profile_reports_sparse_event_density_and_slow_holds()
+    {
+        Scene scene = CreateScene(durationSeconds: 30);
+        AddRect(scene, "Background plate", zIndex: 0, width: 1920, height: 1080, color: Color.Parse("#ff20242b"));
+        AddText(scene, "Launch notes", zIndex: 10, size: 72);
+
+        QualityReviewResponse result = await AnalyzeAsync(
+            scene,
+            evaluateMotion: false,
+            styleProfile: "high-tempo-promo 130bpm");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "tempoRhythm"
+                && issue.Severity == "major"
+                && issue.Message.Contains("too sparse", StringComparison.OrdinalIgnoreCase)));
+            Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "tempoRhythm"
+                && issue.Severity == "major"
+                && issue.Message.Contains("held too long", StringComparison.OrdinalIgnoreCase)));
+            Assert.That(result.Metrics.Tempo.HighTempoProfile, Is.True);
+            Assert.That(result.Metrics.Tempo.TargetBpm, Is.EqualTo(130));
+            Assert.That(result.Metrics.Tempo.SlowHoldCount, Is.EqualTo(1));
+        });
     }
 
     [Test]
@@ -439,6 +549,26 @@ public sealed class QualityAnalyzerTests
             }
         };
         AddObject(scene, $"{name} element", zIndex, ellipse);
+    }
+
+    private static KeyFrameAnimation<float> CreateFloatAnimation()
+    {
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(
+            new KeyFrame<float>
+            {
+                KeyTime = TimeSpan.Zero,
+                Value = 0
+            },
+            out _);
+        animation.KeyFrames.Add(
+            new KeyFrame<float>
+            {
+                KeyTime = TimeSpan.FromSeconds(1),
+                Value = 120
+            },
+            out _);
+        return animation;
     }
 
     private static Element AddObject(Scene scene, string name, int zIndex, EngineObject obj)

@@ -31,6 +31,8 @@ public sealed record QualityMetrics(
     TypographyMetrics Typography,
     ShapeDiversityMetrics ShapeDiversity,
     PaletteMetrics Palette,
+    StructureMetrics Structure,
+    TempoMetrics Tempo,
     MotionContinuityMetrics MotionContinuity);
 
 public sealed record TypographyMetrics(
@@ -55,6 +57,25 @@ public sealed record PaletteMetrics(
     bool HasDarkTealCyanMagentaPalette,
     bool HasOversaturatedPalette,
     bool HasLowContrastPalette);
+
+public sealed record StructureMetrics(
+    int ElementCount,
+    int MultiObjectElementCount,
+    int NonFlowMultiObjectElementCount,
+    int FlowMultiObjectElementCount,
+    int UnclearForegroundShapeCount,
+    int AnimatedShapeWithoutMotionIntentCount);
+
+public sealed record TempoMetrics(
+    bool HighTempoProfile,
+    double TargetBpm,
+    double BeatDurationSeconds,
+    int TimelineEventCount,
+    double TimelineEventsPerSecond,
+    int KeyFrameEventCount,
+    double KeyFrameEventsPerSecond,
+    int SlowHoldCount,
+    double LongestForegroundHoldSeconds);
 
 public sealed record MotionContinuityMetrics(
     bool MotionEvaluated,
@@ -89,11 +110,13 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         List<QualityIssue> issues = [];
         TypographyMetrics typography = AnalyzeTypography(objects, allowAllCaps, issues);
         ShapeDiversityMetrics shapeDiversity = AnalyzeShapeDiversity(scene, objects, allowRectDominance, issues);
+        StructureMetrics structure = AnalyzeStructure(scene, objects, issues);
         int textPlateMismatchCount = AnalyzeTextBackgroundFit(scene, objects, issues);
         typography = typography with { TextPlateMismatchCount = textPlateMismatchCount };
         PaletteMetrics palette = AnalyzePalette(objects, issues);
         AnalyzeMaterialUiLook(objects, issues);
         AnalyzeDesignStructure(scene, objects, styleProfile, issues);
+        TempoMetrics tempo = AnalyzeTempo(scene, objects, styleProfile, issues);
         MotionContinuityMetrics motion = await AnalyzeMotionAsync(
             scene,
             objects,
@@ -129,7 +152,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
             !hasBlockingIssue,
             verdict,
             issues,
-            new QualityMetrics(typography, shapeDiversity, palette, motion),
+            new QualityMetrics(typography, shapeDiversity, palette, structure, tempo, motion),
             notes);
     }
 
@@ -251,6 +274,162 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
                 effectHeavyObjects.Select(item => item.Element.Id.ToString()).ToArray(),
                 effectHeavyObjects.Select(item => item.Object.Id.ToString()).ToArray()));
         }
+    }
+
+    private static StructureMetrics AnalyzeStructure(
+        Scene scene,
+        IReadOnlyList<SceneObjectInfo> objects,
+        List<QualityIssue> issues)
+    {
+        Element[] multiObjectElements = scene.Children
+            .Where(element => element.Objects.Count > 1)
+            .ToArray();
+        Element[] flowMultiObjectElements = multiObjectElements
+            .Where(element => element.Objects.Any(obj => obj is IFlowOperator))
+            .ToArray();
+        Element[] nonFlowMultiObjectElements = multiObjectElements
+            .Where(element => element.Objects.All(obj => obj is not IFlowOperator))
+            .ToArray();
+
+        if (nonFlowMultiObjectElements.Length > 0)
+        {
+            issues.Add(new QualityIssue(
+                "elementStructure",
+                Major,
+                "A timeline Element contains multiple EngineObject entries without an IFlowOperator.",
+                $"{nonFlowMultiObjectElements.Length} Elements contain multiple Objects but no DrawableGroup, DrawableDecorator, SoundGroup, Scene3D, or other IFlowOperator.",
+                "Split ordinary content so each Element owns one EngineObject. Keep multiple Objects in one Element only when the Element contains an IFlowOperator flow object.",
+                null,
+                nonFlowMultiObjectElements.Select(element => element.Id.ToString()).ToArray(),
+                nonFlowMultiObjectElements
+                    .SelectMany(element => element.Objects)
+                    .Select(obj => obj.Id.ToString())
+                    .ToArray()));
+        }
+
+        SceneObjectInfo[] unclearShapes = objects
+            .Where(item => item.Object is Shape)
+            .Where(item => !IsBackgroundObject(scene, item))
+            .Where(item => !HasShapeIntent(item))
+            .Where(item => IsLargeForegroundShape(scene, item) || CountAnimatedProperties(item.Object) > 0)
+            .ToArray();
+        if (unclearShapes.Length > 0)
+        {
+            issues.Add(new QualityIssue(
+                "shapeIntent",
+                Major,
+                "Foreground shapes need a visible role or purpose before they become large or animated.",
+                $"{unclearShapes.Length} large or animated foreground shapes have no recognizable role/purpose naming.",
+                "Rename or tag each foreground shape with an explicit role and purpose, such as [role:decorative] beat sweep, [role:text-backing] title plate, or [role:background] surface; delete shapes that do not serve the shot.",
+                null,
+                unclearShapes.Select(item => item.Element.Id.ToString()).ToArray(),
+                unclearShapes.Select(item => item.Object.Id.ToString()).ToArray()));
+        }
+
+        SceneObjectInfo[] animatedShapesWithoutMotionIntent = objects
+            .Where(item => item.Object is Shape)
+            .Where(item => !IsBackgroundObject(scene, item))
+            .Where(item => CountAnimatedProperties(item.Object) > 0)
+            .Where(item => !HasMotionIntent(item))
+            .ToArray();
+        if (animatedShapesWithoutMotionIntent.Length > 0)
+        {
+            issues.Add(new QualityIssue(
+                "motionIntent",
+                Major,
+                "Animated foreground shapes need an explicit motion intent.",
+                $"{animatedShapesWithoutMotionIntent.Length} animated foreground shapes do not expose motion intent in their Element/Object names.",
+                "Name the motion job before export, such as beat slide, scan sweep, pulse reveal, wipe transition, drift texture, or impact burst; remove arbitrary animated shapes.",
+                null,
+                animatedShapesWithoutMotionIntent.Select(item => item.Element.Id.ToString()).ToArray(),
+                animatedShapesWithoutMotionIntent.Select(item => item.Object.Id.ToString()).ToArray()));
+        }
+
+        return new StructureMetrics(
+            scene.Children.Count,
+            multiObjectElements.Length,
+            nonFlowMultiObjectElements.Length,
+            flowMultiObjectElements.Length,
+            unclearShapes.Length,
+            animatedShapesWithoutMotionIntent.Length);
+    }
+
+    private static TempoMetrics AnalyzeTempo(
+        Scene scene,
+        IReadOnlyList<SceneObjectInfo> objects,
+        string? styleProfile,
+        List<QualityIssue> issues)
+    {
+        bool highTempoProfile = IsHighTempoProfile(styleProfile);
+        double targetBpm = highTempoProfile ? ResolveTargetBpm(styleProfile) : 0;
+        double beatDurationSeconds = targetBpm > 0 ? 60d / targetBpm : 0;
+        double durationSeconds = Math.Max(0.001, scene.Duration.TotalSeconds);
+
+        HashSet<long> timelineEvents = [];
+        foreach (Element element in scene.Children.Where(element => IsTempoForegroundElement(scene, element)))
+        {
+            AddEventTime(timelineEvents, element.Start, scene.Duration);
+            AddEventTime(timelineEvents, element.Start + element.Length, scene.Duration);
+        }
+
+        HashSet<long> keyFrameEvents = [];
+        foreach (SceneObjectInfo info in objects.Where(item => IsTempoForegroundObject(scene, item)))
+        {
+            AddKeyFrameEventTimes(info, scene.Duration, keyFrameEvents);
+        }
+
+        SceneObjectInfo[] slowHoldObjects = highTempoProfile
+            ? objects
+                .Where(item => IsTempoForegroundObject(scene, item))
+                .Where(item => item.Element.Length.TotalSeconds > ResolveMaxHoldSeconds(item, beatDurationSeconds))
+                .ToArray()
+            : [];
+        double longestForegroundHoldSeconds = objects
+            .Where(item => IsTempoForegroundObject(scene, item))
+            .Select(item => item.Element.Length.TotalSeconds)
+            .DefaultIfEmpty(0)
+            .Max();
+
+        double timelineEventsPerSecond = timelineEvents.Count / durationSeconds;
+        double keyFrameEventsPerSecond = keyFrameEvents.Count / durationSeconds;
+        double totalEventsPerSecond = (timelineEvents.Count + keyFrameEvents.Count) / durationSeconds;
+
+        if (highTempoProfile && totalEventsPerSecond < 1.0)
+        {
+            issues.Add(new QualityIssue(
+                "tempoRhythm",
+                Major,
+                "The timeline is too sparse for a high-tempo motion-graphics brief.",
+                $"Detected {(timelineEvents.Count + keyFrameEvents.Count)} foreground timing/keyframe events over {durationSeconds:F1}s ({totalEventsPerSecond:F2}/s) for target {targetBpm:F0} BPM.",
+                "For 120-140 BPM promos, plan beat-grid events around every 1-2 beats: split long shots, add short accent Elements, and add explicit keyframes on transform, opacity, brush, effect, or typography spacing.",
+                null,
+                scene.Children.Select(element => element.Id.ToString()).ToArray(),
+                objects.Select(item => item.Object.Id.ToString()).ToArray()));
+        }
+
+        if (slowHoldObjects.Length > 0)
+        {
+            issues.Add(new QualityIssue(
+                "tempoRhythm",
+                Major,
+                "High-tempo foreground beats are held too long.",
+                $"{slowHoldObjects.Length} foreground objects exceed the {ResolveNormalMaxHoldSeconds(beatDurationSeconds):F2}s high-tempo hold target; longest hold {longestForegroundHoldSeconds:F2}s.",
+                "Keep normal foreground beats near 2-4 beats, reserve longer holds for background texture or a named final resolve, and add interstitial accents when readability requires a longer title hold.",
+                null,
+                slowHoldObjects.Select(item => item.Element.Id.ToString()).ToArray(),
+                slowHoldObjects.Select(item => item.Object.Id.ToString()).ToArray()));
+        }
+
+        return new TempoMetrics(
+            highTempoProfile,
+            targetBpm,
+            beatDurationSeconds,
+            timelineEvents.Count,
+            timelineEventsPerSecond,
+            keyFrameEvents.Count,
+            keyFrameEventsPerSecond,
+            slowHoldObjects.Length,
+            longestForegroundHoldSeconds);
     }
 
     private static ShapeDiversityMetrics AnalyzeShapeDiversity(
@@ -664,6 +843,259 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
                || ContainsAny(info.Object.Name, "background", "field", "backdrop", "surface");
     }
 
+    private static bool HasShapeIntent(SceneObjectInfo info)
+    {
+        return HasRole(
+                   info,
+                   "background",
+                   "surface",
+                   "backdrop",
+                   "field",
+                   "text-backing",
+                   "decorative",
+                   "accent",
+                   "texture",
+                   "transition",
+                   "rhythm")
+               || ContainsIntentToken(info.Element.Name)
+               || ContainsIntentToken(info.Object.Name);
+    }
+
+    private static bool HasMotionIntent(SceneObjectInfo info)
+    {
+        return HasRole(info, "motion", "decorative", "transition", "rhythm", "accent", "texture")
+               || ContainsMotionToken(info.Element.Name)
+               || ContainsMotionToken(info.Object.Name);
+    }
+
+    private static bool ContainsIntentToken(string? value)
+    {
+        return ContainsAny(
+            value,
+            "background",
+            "backdrop",
+            "surface",
+            "field",
+            "plate",
+            "backing",
+            "accent",
+            "rhythm",
+            "beat",
+            "mark",
+            "tick",
+            "stroke",
+            "line",
+            "slash",
+            "glint",
+            "light",
+            "scan",
+            "texture",
+            "grain",
+            "noise",
+            "particle",
+            "node",
+            "grid",
+            "frame",
+            "border",
+            "mask",
+            "matte",
+            "glass",
+            "reflection",
+            "refract",
+            "shadow",
+            "wipe",
+            "transition",
+            "burst",
+            "trail",
+            "flow",
+            "guide",
+            "crop",
+            "focus",
+            "divider",
+            "separator",
+            "underline",
+            "cursor",
+            "highlight");
+    }
+
+    private static bool ContainsMotionToken(string? value)
+    {
+        return ContainsAny(
+            value,
+            "motion",
+            "animate",
+            "animation",
+            "beat",
+            "rhythm",
+            "slide",
+            "drift",
+            "sweep",
+            "scan",
+            "pulse",
+            "reveal",
+            "wipe",
+            "transition",
+            "burst",
+            "impact",
+            "snap",
+            "lock",
+            "flicker",
+            "strobe",
+            "tick",
+            "shutter",
+            "parallax",
+            "flow",
+            "trail",
+            "glitch",
+            "type-on",
+            "resolve");
+    }
+
+    private static bool IsLargeForegroundShape(Scene scene, SceneObjectInfo info)
+    {
+        ObjectBounds bounds = GetBounds(scene, info);
+        double sceneArea = Math.Max(1, scene.FrameSize.Width * scene.FrameSize.Height);
+        return (bounds.Width * bounds.Height) >= sceneArea * 0.045;
+    }
+
+    private static bool IsTempoForegroundElement(Scene scene, Element element)
+    {
+        return element.Objects.Any(obj => IsTempoForegroundObject(scene, new SceneObjectInfo(element, obj)));
+    }
+
+    private static bool IsTempoForegroundObject(Scene scene, SceneObjectInfo info)
+    {
+        return !IsBackgroundObject(scene, info)
+               && info.Object is not PortalObject
+               && !IsAmbientSupport(info);
+    }
+
+    private static bool IsAmbientSupport(SceneObjectInfo info)
+    {
+        return HasRole(info, "background", "surface", "field", "texture")
+               || ContainsAny(info.Element.Name, "background", "surface", "field", "texture", "grain", "noise")
+               || ContainsAny(info.Object.Name, "background", "surface", "field", "texture", "grain", "noise");
+    }
+
+    private static double ResolveMaxHoldSeconds(SceneObjectInfo info, double beatDurationSeconds)
+    {
+        double normal = ResolveNormalMaxHoldSeconds(beatDurationSeconds);
+        if (ContainsAny(info.Element.Name, "final", "resolve", "outro", "ending", "logo lock")
+            || ContainsAny(info.Object.Name, "final", "resolve", "outro", "ending", "logo lock"))
+        {
+            return Math.Max(normal, beatDurationSeconds * 8);
+        }
+
+        return normal;
+    }
+
+    private static double ResolveNormalMaxHoldSeconds(double beatDurationSeconds)
+    {
+        return Math.Max(2.1, beatDurationSeconds * 4.5);
+    }
+
+    private static double ResolveTargetBpm(string? styleProfile)
+    {
+        double? explicitBpm = ExtractBpm(styleProfile);
+        if (explicitBpm is { } bpm)
+        {
+            return bpm;
+        }
+
+        return 130;
+    }
+
+    private static double? ExtractBpm(string? styleProfile)
+    {
+        if (string.IsNullOrWhiteSpace(styleProfile))
+        {
+            return null;
+        }
+
+        double? firstBpm = null;
+        int index = 0;
+        while (index < styleProfile.Length)
+        {
+            if (!char.IsDigit(styleProfile[index]))
+            {
+                index++;
+                continue;
+            }
+
+            int start = index;
+            while (index < styleProfile.Length && char.IsDigit(styleProfile[index]))
+            {
+                index++;
+            }
+
+            if (double.TryParse(styleProfile[start..index], out double value)
+                && value is >= 80 and <= 220)
+            {
+                firstBpm ??= value;
+                if (value is >= 120 and <= 140)
+                {
+                    return value;
+                }
+            }
+        }
+
+        return firstBpm;
+    }
+
+    private static void AddEventTime(HashSet<long> events, TimeSpan time, TimeSpan duration)
+    {
+        if (time < TimeSpan.Zero || time > duration)
+        {
+            return;
+        }
+
+        long quantizedMilliseconds = (long)Math.Round(time.TotalMilliseconds / 40d) * 40;
+        events.Add(quantizedMilliseconds);
+    }
+
+    private static void AddKeyFrameEventTimes(SceneObjectInfo info, TimeSpan sceneDuration, HashSet<long> events)
+    {
+        AddKeyFrameEventTimes(info.Object, info.Element.Start, sceneDuration, events);
+    }
+
+    private static void AddKeyFrameEventTimes(
+        EngineObject obj,
+        TimeSpan elementStart,
+        TimeSpan sceneDuration,
+        HashSet<long> events)
+    {
+        foreach (IProperty property in obj.Properties)
+        {
+            if (property.Animation is IKeyFrameAnimation animation)
+            {
+                foreach (IKeyFrame keyFrame in animation.KeyFrames)
+                {
+                    TimeSpan time = animation.UseGlobalClock
+                        ? keyFrame.KeyTime
+                        : elementStart + keyFrame.KeyTime;
+                    AddEventTime(events, time, sceneDuration);
+                }
+            }
+
+            switch (property.CurrentValue)
+            {
+                case EngineObject nested:
+                    AddKeyFrameEventTimes(nested, elementStart, sceneDuration, events);
+                    break;
+                case ICoreList list:
+                    foreach (object? item in list)
+                    {
+                        if (item is EngineObject nestedItem)
+                        {
+                            AddKeyFrameEventTimes(nestedItem, elementStart, sceneDuration, events);
+                        }
+                    }
+
+                    break;
+            }
+        }
+    }
+
     private static bool IsTextBackingPlate(SceneObjectInfo info)
     {
         if (HasRole(info, "text-backing", "backing", "caption-backing", "label-backing"))
@@ -974,7 +1406,8 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
 
     private static bool IsHighTempoProfile(string? styleProfile)
     {
-        return ContainsAny(styleProfile, "kinetic", "high-tempo", "fast", "promo", "1.5", "120", "140");
+        return ContainsAny(styleProfile, "kinetic", "high-tempo", "fast", "quick", "promo", "1.5", "120", "140")
+               || ExtractBpm(styleProfile) is >= 120 and <= 140;
     }
 
     private static bool HueIn(Color color, double start, double end)
