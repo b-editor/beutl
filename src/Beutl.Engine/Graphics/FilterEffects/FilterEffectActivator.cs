@@ -81,6 +81,14 @@ public sealed class FilterEffectActivator(
             for (int i = 0; i < CurrentTargets.Count; i++)
             {
                 EffectTarget target = CurrentTargets[i];
+                if (!IsAllocatableBounds(target.OriginalBounds))
+                {
+                    target.Dispose();
+                    CurrentTargets.RemoveAt(i);
+                    i--;
+                    continue;
+                }
+
                 float w = WorkingScale;
                 int bw = w == 1f ? (int)target.OriginalBounds.Width : (int)MathF.Ceiling(target.OriginalBounds.Width * w);
                 int bh = w == 1f ? (int)target.OriginalBounds.Height : (int)MathF.Ceiling(target.OriginalBounds.Height * w);
@@ -136,6 +144,14 @@ public sealed class FilterEffectActivator(
             throw new InvalidOperationException(message);
         }
     }
+
+    private static bool IsAllocatableBounds(Rect bounds)
+        => double.IsFinite(bounds.X)
+           && double.IsFinite(bounds.Y)
+           && double.IsFinite(bounds.Width)
+           && double.IsFinite(bounds.Height)
+           && bounds.Width > 0
+           && bounds.Height > 0;
 
     // 最小単位である'IFEItem'の数がわからないので 'count'は'nullable'
     public void Apply(FilterEffectContext context)
