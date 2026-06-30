@@ -202,6 +202,78 @@ public sealed class QualityAnalyzerTests
     }
 
     [Test]
+    public async Task Decorative_glint_ellipse_is_reported_as_ambiguous()
+    {
+        Scene scene = CreateScene(durationSeconds: 3);
+        Element element = AddEllipse(
+            scene,
+            "[role:decorative] glass glint ellipse intro sweep",
+            zIndex: 8,
+            width: 760,
+            height: 260,
+            x: 0,
+            y: 0,
+            color: Color.Parse("#88ffcc66"));
+        var ellipse = (EllipseShape)element.Objects[0];
+        var transform = (TransformGroup)ellipse.Transform.CurrentValue!;
+        ((TranslateTransform)transform.Children[0]).X.Animation = CreateFloatAnimation();
+
+        QualityReviewResponse result = await AnalyzeAsync(scene, evaluateMotion: false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "decorativeShapeClarity"
+                && issue.Severity == "major"
+                && issue.Message.Contains("ambiguous", StringComparison.OrdinalIgnoreCase)));
+            Assert.That(result.Metrics.ShapeDiversity.AmbiguousDecorativeShapeCount, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task Large_ambient_two_stop_gradient_without_softening_is_reported()
+    {
+        Scene scene = CreateScene(durationSeconds: 3);
+        var ellipse = new EllipseShape
+        {
+            Name = "[role:background] amber ambient aperture drift",
+            Width = { CurrentValue = 1120 },
+            Height = { CurrentValue = 720 },
+            Fill =
+            {
+                CurrentValue = new RadialGradientBrush
+                {
+                    GradientStops =
+                    {
+                        new GradientStop(Color.Parse("#ddffb34d"), 0),
+                        new GradientStop(Color.Parse("#00120f0a"), 1)
+                    }
+                }
+            },
+            Transform =
+            {
+                CurrentValue = new TransformGroup
+                {
+                    Children = { new TranslateTransform(0, 0) }
+                }
+            }
+        };
+        AddObject(scene, "[role:background] amber ambient aperture drift element", zIndex: 2, ellipse);
+
+        QualityReviewResponse result = await AnalyzeAsync(scene, evaluateMotion: false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "gradientFalloff"
+                && issue.Severity == "major"
+                && issue.Message.Contains("abrupt", StringComparison.OrdinalIgnoreCase)));
+            Assert.That(result.Metrics.Palette.HardGradientObjectCount, Is.EqualTo(1));
+            Assert.That(result.Metrics.Palette.HardGradientTransitionCount, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
     public async Task High_tempo_profile_reports_sparse_event_density_and_slow_holds()
     {
         Scene scene = CreateScene(durationSeconds: 30);
@@ -226,6 +298,37 @@ public sealed class QualityAnalyzerTests
             Assert.That(result.Metrics.Tempo.HighTempoProfile, Is.True);
             Assert.That(result.Metrics.Tempo.TargetBpm, Is.EqualTo(130));
             Assert.That(result.Metrics.Tempo.SlowHoldCount, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task High_tempo_profile_reports_sparse_foreground_boundaries_and_long_gaps()
+    {
+        Scene scene = CreateScene(durationSeconds: 30);
+        AddRect(scene, "Background plate", zIndex: 0, width: 1920, height: 1080, color: Color.Parse("#ff20242b"));
+        Element first = AddText(scene, "Compose", zIndex: 10, size: 72);
+        first.Start = TimeSpan.Zero;
+        first.Length = TimeSpan.FromSeconds(2);
+        Element second = AddText(scene, "Export", zIndex: 10, size: 72);
+        second.Start = TimeSpan.FromSeconds(28);
+        second.Length = TimeSpan.FromSeconds(2);
+
+        QualityReviewResponse result = await AnalyzeAsync(
+            scene,
+            evaluateMotion: false,
+            styleProfile: "high-tempo-promo 130bpm");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "tempoRhythm"
+                && issue.Message.Contains("Foreground scene changes", StringComparison.Ordinal)));
+            Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "tempoRhythm"
+                && issue.Message.Contains("Foreground event gaps", StringComparison.Ordinal)));
+            Assert.That(result.Metrics.Tempo.RequiredTimelineEventsPerSecond, Is.GreaterThan(1.0));
+            Assert.That(result.Metrics.Tempo.LongForegroundGapCount, Is.GreaterThan(0));
+            Assert.That(result.Metrics.Tempo.LongestForegroundEventGapSeconds, Is.GreaterThan(20));
         });
     }
 

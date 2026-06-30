@@ -85,7 +85,7 @@ public sealed class RenderTools(
     }
 
     [McpServerTool(Name = "evaluate_edit_quality")]
-    [Description("Reviews the current scene for deterministic AI-editing quality risks: all-caps typography, visual hierarchy overload, short text read time, RectShape overuse, unclear foreground shapes, missing motion intent, invalid multi-object Element structure, high-tempo rhythm density, text backing alignment, palette problems, arbitrary dense effect stacks, dated card/shadow styling, low motion continuity, and chopped-up cut rhythm. Run after render_still and evaluate_motion_variation; resolve critical/major issues before export_video.")]
+    [Description("Reviews the current scene for deterministic AI-editing quality risks: all-caps typography, visual hierarchy overload, short text read time, RectShape overuse, ambiguous decorative light shapes, hard gradient falloff, unclear foreground shapes, missing motion intent, invalid multi-object Element structure, high-tempo rhythm density/gaps, text backing alignment, palette problems, arbitrary dense effect stacks, dated card/shadow styling, low motion continuity, and chopped-up cut rhythm. Run after render_still and evaluate_motion_variation; resolve critical/major issues before export_video.")]
     public ValueTask<ToolResult<QualityReviewResponse>> EvaluateEditQuality(
         [Description("Optional explicit scene times in seconds for rendered motion checks. When omitted, samples evenly across the scene duration.")]
         double[]? timeSeconds = null,
@@ -127,7 +127,7 @@ public sealed class RenderTools(
     }
 
     [McpServerTool(Name = "preview_quality_risks")]
-    [Description("Runs document-only deterministic quality risk checks without rendering. Use before or immediately after authoring a large apply_edit patch to catch text-density, RectShape, unclear-shape, missing-motion-intent, multi-object Element, high-tempo rhythm, backing-plate, palette, effect-stack, and timeline-structure risks early.")]
+    [Description("Runs document-only deterministic quality risk checks without rendering. Use before or immediately after authoring a large apply_edit patch to catch text-density, RectShape, ambiguous decorative light shapes, hard gradient falloff, unclear-shape, missing-motion-intent, multi-object Element, high-tempo rhythm/gaps, backing-plate, palette, effect-stack, and timeline-structure risks early.")]
     public ValueTask<ToolResult<QualityReviewResponse>> PreviewQualityRisks(
         [Description("Optional profile label recorded in the review notes, such as kinetic-type, high-tempo-promo, editorial, or minimal.")]
         string? styleProfile = "preview-risks",
@@ -492,10 +492,12 @@ public sealed class RenderTools(
         {
             "typographyReadTime" => "For 1.5s beats, replace sentences with 1-3 word hero text and 2-4 word supporting tokens, or split copy into separate Elements.",
             "shapeDiversity" => "Delete or replace foreground RectShape accents with EllipseShape, RoundedRectShape, GeometryShape, strokes, media, or procedural texture; keep RectShape for full-frame [role:background] surfaces.",
+            "decorativeShapeClarity" => "Replace abstract glint/glow/aperture ellipses with concrete, parseable visual systems such as strokes, particles, letter fragments, editor/timeline marks, masks, media, or procedural texture; move pure atmosphere to [role:background].",
+            "gradientFalloff" => "For ambient/aperture/glow gradients, use at least three falloff stops, widen abrupt stop offsets, add Blur/SKSL texture when appropriate, or replace the shape with procedural surface texture.",
             "shapeIntent" => "Rename/tag each large or animated foreground shape with a clear role and purpose, or remove it if it does not serve the shot.",
             "motionIntent" => "Rename/tag animated foreground shapes with a concrete motion job such as beat slide, scan sweep, pulse reveal, wipe transition, or impact burst.",
             "elementStructure" => "Split ordinary content into one Element per EngineObject; keep multi-object Elements only for IFlowOperator chains such as DrawableGroup, DrawableDecorator, SoundGroup, or Scene3D.",
-            "tempoRhythm" => "Convert the BPM target into a beat grid, add foreground timing/keyframe events every 1-2 beats, and keep normal foreground holds near 2-4 beats.",
+            "tempoRhythm" => "Convert the BPM target into a beat grid, add visible foreground boundaries every 1-2 beats, close long foreground event gaps, and keep normal foreground holds near 2-4 beats.",
             "textBackgroundFit" => "Use an explicit [role:text-backing] shape only for real text plates, match its Start/Length to the text Element, then verify with measure_object_bounds.",
             "visualHierarchy" => "Keep one hero-scale text object per beat and reduce supporting labels below hero size and contrast.",
             "effectIntent" => "Remove repeated decorative effect stacks or rename and keep only chains with one job: texture, hierarchy, transition energy, grade, or legibility.",
