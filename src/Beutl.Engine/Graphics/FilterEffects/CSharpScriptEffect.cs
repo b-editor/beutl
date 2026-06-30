@@ -11,7 +11,7 @@ using Microsoft.Extensions.Logging;
 namespace Beutl.Graphics.Effects;
 
 [Display(Name = nameof(GraphicsStrings.CSharpScriptEffect), ResourceType = typeof(GraphicsStrings))]
-public sealed partial class CSharpScriptEffect : FilterEffect
+public sealed partial class CSharpScriptEffect : FilterEffect, IScriptCompilableEffect
 {
     private static readonly ILogger s_logger = Log.CreateLogger<CSharpScriptEffect>();
     private static readonly ScriptOptions s_scriptOptions = CreateScriptOptions();
@@ -39,10 +39,10 @@ public sealed partial class CSharpScriptEffect : FilterEffect
                """;
     }
 
-    internal static string? ValidateScript(string script)
+    public ScriptCompilationResult ValidateScript(string script)
     {
         if (string.IsNullOrWhiteSpace(script))
-            return null;
+            return ScriptCompilationResult.Compiled;
 
         try
         {
@@ -54,16 +54,13 @@ public sealed partial class CSharpScriptEffect : FilterEffect
             var diagnostics = roslynScript.Compile();
             var errors = diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
 
-            if (errors.Count > 0)
-            {
-                return string.Join(Environment.NewLine, errors.Select(e => e.GetMessage()));
-            }
-
-            return null;
+            return errors.Count > 0
+                ? ScriptCompilationResult.Fail(string.Join(Environment.NewLine, errors.Select(e => e.GetMessage())))
+                : ScriptCompilationResult.Compiled;
         }
         catch (Exception ex)
         {
-            return ex.Message;
+            return ScriptCompilationResult.Fail(ex.Message);
         }
     }
 

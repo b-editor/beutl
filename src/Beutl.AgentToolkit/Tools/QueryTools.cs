@@ -54,6 +54,13 @@ public sealed record GetEffectRecipeResponse(
     EffectRecipe Recipe,
     string UsageHint);
 
+public sealed record ValidateShaderResponse(
+    string SchemaVersion,
+    string EffectType,
+    string Status,
+    string? Error,
+    string Hint);
+
 public sealed record GetCompositionResponse(
     string SchemaVersion,
     CompositionTemplateDetail Composition);
@@ -212,6 +219,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 "Call measure_object_bounds before positioning text, backing plates, or centered objects; default Drawable alignment is centered, so TranslateTransform(0, 0) means the object's center is at the frame center.",
                 "For original creative briefs, call list_creative_directions, synthesize an original pitch from at least two inspiration seeds, read_document, and get_schema only for the drawable/effect types you need, then author a custom declarative patch instead of cloning a starter.",
                 "Call list_effects and list_effect_recipes to discover Beutl's visual effect palette before choosing a repeated look; for organic heat/ink/glass/noise fields, consider an SKSLScriptEffect shader recipe instead of stacking only blurred gradients.",
+                "For SKSL/GLSL/CSharp script effects, read the default script and uniform list from get_schema(type=<effect>), then call validate_shader to compile-check an edited script before apply_edit; a compile error renders nothing.",
                 "For no-context motion graphics, avoid overused orbit/radar/map/signal/dashboard motifs unless the user asks for them.",
                 "Before authoring, write a compact creative brief with objective, audience, emotional temperature, message hierarchy, palette roles, typography roles, motion phases, and effect purpose.",
                 "For high-tempo 1.5s motion-graphics beats, keep hero text to 1-3 words, supporting labels to 2-4 word tokens, and use non-text visual density such as nodes, particles, strokes, texture, and accent motion.",
@@ -494,6 +502,26 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
             SchemaVersion.Current,
             _schemaGenerator.GetEffectRecipe(name, intent),
             "Replace <element-id> and <drawable-id> with Ids from read_document/read_document_summary, then pass recipe.patch to apply_edit with schemaVersion=1."));
+    }
+
+    [McpServerTool(Name = "validate_shader")]
+    [Description("Compiles a candidate script for a script-compilable FilterEffect (SKSLScriptEffect, GLSLScriptEffect, CSharpScriptEffect) WITHOUT rendering, so shader edits can be checked before apply_edit. Pass the effect type name (e.g. SKSLScriptEffect) and the script text. status is one of: compiled; failed (error holds the compiler message); unavailable (compilation needs a graphics context absent in this session, e.g. headless GLSL — verify with render_still instead); unknown_type; not_script_effect. Call get_schema with type=<effect> first for the default script and its uniform list.")]
+    public ToolResult<ValidateShaderResponse> ValidateShader(string effectType, string script)
+    {
+        return Execute(() =>
+        {
+            ShaderCompilationCheck check = _schemaGenerator.ValidateShader(effectType, script);
+            string hint = check.Status switch
+            {
+                "compiled" => "The script compiled. Place it in the effect's script property via apply_edit.",
+                "failed" => "Fix the reported compiler error, then validate again before apply_edit.",
+                "unavailable" => "Compilation could not be attempted here (no graphics context). Validate GLSL inside the in-app editor session, or apply it and verify with render_still.",
+                "unknown_type" => "Pass a FilterEffect type name from list_effects, such as SKSLScriptEffect.",
+                "not_script_effect" => "Only SKSLScriptEffect, GLSLScriptEffect, and CSharpScriptEffect accept a script.",
+                _ => string.Empty,
+            };
+            return new ValidateShaderResponse(SchemaVersion.Current, check.EffectType, check.Status, check.Error, hint);
+        });
     }
 
     [McpServerTool(Name = "list_compositions")]

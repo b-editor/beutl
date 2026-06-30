@@ -25,6 +25,11 @@ public sealed record EffectSummary(
     IReadOnlyList<string> PropertyNames,
     IReadOnlyList<string> Notes);
 
+public sealed record ShaderCompilationCheck(
+    string EffectType,
+    string Status,
+    string? Error);
+
 public sealed record EffectRecipeSummary(
     string Name,
     string Description,

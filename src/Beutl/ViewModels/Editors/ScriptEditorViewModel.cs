@@ -14,10 +14,13 @@ public sealed class ScriptEditorViewModel : ValueEditorViewModel<string?>
         GLSL,
     }
 
+    private readonly IScriptCompilableEffect? _validator;
+
     public ScriptEditorViewModel(IPropertyAdapter<string?> property)
         : base(property)
     {
         DetectedScriptType = DetectScriptType(property.ImplementedType);
+        _validator = Activator.CreateInstance(property.ImplementedType) as IScriptCompilableEffect;
 
         Value
             .Throttle(TimeSpan.FromMilliseconds(500))
@@ -43,15 +46,10 @@ public sealed class ScriptEditorViewModel : ValueEditorViewModel<string?>
 
     private string? ValidateScript(string? script)
     {
-        if (string.IsNullOrWhiteSpace(script))
+        if (string.IsNullOrWhiteSpace(script) || _validator is null)
             return null;
 
-        return DetectedScriptType switch
-        {
-            ScriptType.CSharp => CSharpScriptEffect.ValidateScript(script),
-            ScriptType.SKSL => SKSLScriptEffect.ValidateScript(script),
-            ScriptType.GLSL => GLSLScriptEffect.ValidateScript(script),
-            _ => null,
-        };
+        ScriptCompilationResult result = _validator.ValidateScript(script);
+        return result.Status == ScriptCompilationStatus.Failed ? result.Error : null;
     }
 }
