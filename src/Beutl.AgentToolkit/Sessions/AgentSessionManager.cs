@@ -5,7 +5,7 @@ using Beutl.AgentToolkit.Reconciliation;
 
 namespace Beutl.AgentToolkit.Sessions;
 
-public sealed class AgentSessionManager
+public sealed class AgentSessionManager(CreativeMemoryStore? creativeMemory = null)
 {
     private readonly string _hostCompositionSeed = CreateCompositionSeed("host");
     private readonly Dictionary<string, CompositionPlanState> _compositionPlans = new(StringComparer.Ordinal);
@@ -85,6 +85,12 @@ public sealed class AgentSessionManager
     {
         return Interlocked.Increment(ref _creativeDirectionRequestCount) - 1;
     }
+
+    public IReadOnlyList<CreativeDirectionFingerprint> GetRecentCreativeFingerprints()
+        => creativeMemory?.ReadRecent() ?? [];
+
+    public void RecordCreativeDirection(CreativeDirectionFingerprint fingerprint)
+        => creativeMemory?.Record(fingerprint);
 
     public void RecordPreAttachCompositionPreview(string name)
     {

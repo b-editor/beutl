@@ -82,6 +82,7 @@ public sealed record CreativeDirectionResponse(
     IReadOnlyList<string> PaletteGuidelines,
     IReadOnlyList<string> TypographyGuidelines,
     IReadOnlyList<string> MotionGuidelines,
+    IReadOnlyList<CreativeDirectionFingerprint> RecentToAvoid,
     string SelectionHint,
     CreativeDirectionSelectionTrace? SelectionTrace = null);
 
@@ -99,6 +100,10 @@ public sealed record CreativeInspirationSeed(
     IReadOnlyList<string> Evokes,
     IReadOnlyList<string> Transformations,
     IReadOnlyList<string> UsefulTools);
+
+public sealed record RecordCreativeDirectionResponse(
+    bool Recorded,
+    IReadOnlyList<CreativeDirectionFingerprint> RecentToAvoid);
 
 public sealed record DocumentSummaryResponse(
     string Session,
@@ -254,30 +259,31 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
 
     [McpServerTool(Name = "list_creative_directions")]
     [Description("Returns non-template creative direction axes for original motion graphics. Use before authoring when the brief is vague or absent.")]
-    public ToolResult<CreativeDirectionResponse> ListCreativeDirections(string? brief = null)
+    public ToolResult<CreativeDirectionResponse> ListCreativeDirections(string? brief = null, string? seed = null)
     {
         return Execute(() =>
         {
             IReadOnlyList<CreativeInspirationSeed> allSeeds = CreateInspirationSeeds();
             int requestIndex = sessions.NextCreativeDirectionRequestIndex();
-            string seedMaterial = CreateCreativeSeedMaterial(brief);
+            string seedMaterial = CreateCreativeSeedMaterial(brief, seed);
             int baseOffset = ComputeCreativeSeedBaseOffset(seedMaterial, allSeeds.Count);
-            int appliedOffset = allSeeds.Count == 0 ? 0 : (baseOffset + requestIndex) % allSeeds.Count;
-            IReadOnlyList<CreativeInspirationSeed> inspirationSeeds = OrderCreativeInspirationSeeds(allSeeds, appliedOffset);
+            IReadOnlyList<CreativeInspirationSeed> inspirationSeeds = ShuffleCreativeInspirationSeeds(allSeeds, seedMaterial);
+            int appliedOffset = baseOffset;
+            IReadOnlyList<CreativeDirectionFingerprint> recentToAvoid = sessions.GetRecentCreativeFingerprints();
             string selectionHint = string.IsNullOrWhiteSpace(brief)
-                ? "No brief was supplied. Pick at least two inspiration seeds from different categories, combine them into a new one-sentence pitch with a new title, then author that pitch with a custom patch. Returned order is seeded and is not a ranking."
-                : $"Use the brief as a constraint, combine at least two inspiration seeds into a new pitch, and avoid copying returned seed names or starter scenes: {brief.Trim()}";
+                ? "No brief was supplied. Author an original direction first, then use the returned stimulus only to break default habits. Diverge structurally from recentToAvoid and record the locked fingerprint with record_creative_direction."
+                : $"Use the brief as the constraint and author your own direction. Treat returned seeds as optional stimulus, not a menu; diverge structurally from recentToAvoid and do not copy seed names: {brief.Trim()}";
             var selectionTrace = new CreativeDirectionSelectionTrace(
                 requestIndex,
                 baseOffset,
                 appliedOffset,
                 seedMaterial,
                 inspirationSeeds.Select(seed => seed.Name).ToArray(),
-                "Record requestIndex, appliedOffset, seedMaterial, returnedSeedOrder, chosen seed names/categories, and the synthesized pitch in notes.md before editing.");
+                "Record the authored concept label, palette roles, motion verbs, structural signature, stimulus names used, and recentToAvoid comparison in notes.md before editing.");
 
             return new CreativeDirectionResponse(
                 SchemaVersion.Current,
-                [
+                ShuffleCreativeStrings([
                     "material: paper cutouts, ink bleed, glass refraction, fabric folds, projected light, ceramic glaze, thermal camera, risograph print, CRT phosphor, blueprint pencil",
                     "motion: bloom, peel, fold, pour, shatter, magnetic attraction, wave interference, hand-drawn reveal, parallax drift, stop-motion stepping",
                     "composition: macro close-up, off-axis crop, split depth planes, negative-space title, diagonal editorial grid, frame-within-frame, vertical poster stack",
@@ -285,14 +291,14 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                     "palette: warm/cool clash, muted paper plus neon accent, monochrome with one warning color, daylight pastels, high-contrast print inks",
                     "detail density: crop marks, micro-captions, texture grains, edge highlights, calibration ticks, fracture lines, shimmer bands",
                     "procedural surface: use SKSLScriptEffect for organic heat, ink, glass, smoke, grain, or caustic fields when gradients alone look flat"
-                ],
+                ], seedMaterial),
                 inspirationSeeds,
                 [
-                    "Synthesize a new pitch from at least two inspiration seeds in different categories before writing any patch.",
+                    "Author the concept, palette roles, type system, motion vocabulary, and shot structure yourself before writing any patch.",
+                    "Use returned seeds only as divergent stimulus after the original direction exists.",
                     "Write a one-line direction contract that names objective, audience, emotional temperature, message hierarchy, brand posture, and delivery surface.",
-                    "Use one seed as the visual subject and a second seed as the motion, texture, palette, or editing rhythm.",
-                    "Change at least one material, motion verb, or composition relation from every seed you use.",
-                    "Write your own element/object names from the synthesized pitch; do not reuse returned seed names as scene names.",
+                    "Change structural language from recentToAvoid: layout logic, dominant material, motion verbs, palette role balance, and final resolve behavior.",
+                    "Write your own element/object names from the authored pitch; do not reuse returned seed names as scene names.",
                     "If the user supplied constraints, keep the constraints literal and treat the seeds as optional ways to make the result less generic."
                 ],
                 [
@@ -319,8 +325,9 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                     "dark teal background with cyan/magenta neon"
                 ],
                 [
-                    "Do not default to the first returned seed. Compare at least two seeds, reject seeds close to your last output, and synthesize a new pitch before authoring.",
-                    "Record the seed names/categories and your new pitch in notes before creating elements.",
+                    "Do not pick a returned seed as the concept. Author the direction first, then compare stimulus against recentToAvoid.",
+                    "Record the seed names/categories, authored pitch, and recentToAvoid divergence in notes before creating elements.",
+                    "Call record_creative_direction once the concept is locked.",
                     "Map your synthesized pitch to named Element/Object entries before writing a patch.",
                     "Map BPM requests to beat-grid durations before writing a patch; for 120-140 BPM, use 1-2 beat foreground events and avoid long unbroken foreground holds.",
                     "Apply/save in small stages that follow your own scene plan; avoid one huge full-scene patch when staged progress is easier to inspect.",
@@ -374,8 +381,29 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                     "Animate more than one property family across the piece.",
                     "After still checks, run evaluate_motion_variation and evaluate_edit_quality; do not export while critical or major issues remain."
                 ],
+                recentToAvoid,
                 selectionHint,
                 selectionTrace);
+        });
+    }
+
+    [McpServerTool(Name = "record_creative_direction")]
+    [Description("Records the authored creative direction fingerprint so later sessions can avoid repeating the same concept, palette, motion vocabulary, and structure.")]
+    public ToolResult<RecordCreativeDirectionResponse> RecordCreativeDirection(
+        string conceptLabel,
+        string[]? paletteRoles = null,
+        string[]? motionVerbs = null,
+        string? structuralSignature = null)
+    {
+        return Execute(() =>
+        {
+            sessions.RecordCreativeDirection(new CreativeDirectionFingerprint(
+                conceptLabel,
+                paletteRoles ?? [],
+                motionVerbs ?? [],
+                structuralSignature ?? string.Empty,
+                DateTimeOffset.UtcNow));
+            return new RecordCreativeDirectionResponse(true, sessions.GetRecentCreativeFingerprints());
         });
     }
 
@@ -625,29 +653,45 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                || string.Equals(value, "project element", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static IReadOnlyList<CreativeInspirationSeed> OrderCreativeInspirationSeeds(
+    private static IReadOnlyList<CreativeInspirationSeed> ShuffleCreativeInspirationSeeds(
         IReadOnlyList<CreativeInspirationSeed> seeds,
-        int offset)
+        string seedMaterial)
     {
         if (seeds.Count <= 1)
         {
             return seeds.ToArray();
         }
 
-        var ordered = new CreativeInspirationSeed[seeds.Count];
-        for (int i = 0; i < ordered.Length; i++)
+        CreativeInspirationSeed[] ordered = seeds.ToArray();
+        Random random = CreateSeededRandom(seedMaterial);
+        for (int i = ordered.Length - 1; i > 0; i--)
         {
-            ordered[i] = seeds[(i + offset) % seeds.Count];
+            int j = random.Next(i + 1);
+            (ordered[i], ordered[j]) = (ordered[j], ordered[i]);
         }
 
         return ordered;
     }
 
-    private static string CreateCreativeSeedMaterial(string? brief)
+    private static IReadOnlyList<string> ShuffleCreativeStrings(IReadOnlyList<string> values, string seedMaterial)
     {
-        return string.IsNullOrWhiteSpace(brief)
-            ? (DateTimeOffset.UtcNow.ToUnixTimeSeconds() / 60).ToString()
-            : brief.Trim();
+        string[] items = values.ToArray();
+        Random random = CreateSeededRandom(seedMaterial + ":axes");
+        for (int i = items.Length - 1; i > 0; i--)
+        {
+            int j = random.Next(i + 1);
+            (items[i], items[j]) = (items[j], items[i]);
+        }
+
+        return items;
+    }
+
+    private static string CreateCreativeSeedMaterial(string? brief, string? seed)
+    {
+        string nonce = string.IsNullOrWhiteSpace(seed)
+            ? Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(8)).ToLowerInvariant()
+            : seed.Trim();
+        return $"{(string.IsNullOrWhiteSpace(brief) ? "no-brief" : brief.Trim())}:{nonce}";
     }
 
     private static int ComputeCreativeSeedBaseOffset(string seedMaterial, int count)
@@ -669,6 +713,9 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
             return (int)(hash % (uint)count);
         }
     }
+
+    private static Random CreateSeededRandom(string seedMaterial)
+        => new(ComputeCreativeSeedBaseOffset(seedMaterial, int.MaxValue));
 
     [McpServerTool(Name = "read_document_summary")]
     [Description("Reads a compact summary of the current scene without returning the full declarative JSON. Use this for live progress observation or before deciding whether a full read_document call is necessary.")]
@@ -1028,6 +1075,96 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                     "SKSLScriptEffect",
                     "Brightness",
                     "Blur",
+                    "Opacity"
+                ]),
+            new CreativeInspirationSeed(
+                "ceramic fracture bloom",
+                "material",
+                [
+                    "glazed cracks, milky depth, pressure lines, uneven specular islands",
+                    "a refined surface that breaks in controlled places"
+                ],
+                [
+                    "make the fracture lines reveal type instead of outlining it",
+                    "let one crack become the main timing path",
+                    "contrast glossy highlights with a dry matte background"
+                ],
+                [
+                    "GeometryShape",
+                    "LinearGradientBrush",
+                    "Blur",
+                    "Brightness"
+                ]),
+            new CreativeInspirationSeed(
+                "microfiche subtitle crawl",
+                "typography",
+                [
+                    "thin archived text, cropped baselines, optical dust, constrained scan windows",
+                    "information that feels discovered rather than announced"
+                ],
+                [
+                    "make the small text move while the hero word stays still",
+                    "crop the crawl through a vertical slot",
+                    "use dust as a mask for appearing letters"
+                ],
+                [
+                    "TextBlock",
+                    "Opacity",
+                    "TranslateTransform",
+                    "SKSLScriptEffect"
+                ]),
+            new CreativeInspirationSeed(
+                "pressure-band choreography",
+                "motion",
+                [
+                    "compressed bands, elastic spacing, squeeze-release rhythm, directional pressure",
+                    "motion driven by compression instead of travel distance"
+                ],
+                [
+                    "make bands squeeze around the title without boxing it in",
+                    "resolve pressure into negative space",
+                    "let spacing changes carry the beat before color changes"
+                ],
+                [
+                    "RectShape",
+                    "ScaleTransform",
+                    "TranslateTransform",
+                    "Easing"
+                ]),
+            new CreativeInspirationSeed(
+                "woven signal cloth",
+                "procedural surface",
+                [
+                    "thread interference, soft grid tension, signal dropouts, tactile scanlines",
+                    "a digital surface that behaves like fabric"
+                ],
+                [
+                    "use weave density to separate foreground from background",
+                    "animate only the dropped threads",
+                    "make one thread pull the composition into alignment"
+                ],
+                [
+                    "SKSLScriptEffect",
+                    "LinearGradientBrush",
+                    "Opacity",
+                    "TranslateTransform"
+                ]),
+            new CreativeInspirationSeed(
+                "stop-motion registration pins",
+                "detail density",
+                [
+                    "peg holes, tiny misalignments, photographed movement, handmade timing artifacts",
+                    "a controlled imperfection that exposes the frame mechanics"
+                ],
+                [
+                    "make pins define the grid without becoming UI chrome",
+                    "let the frame jump while the title remains optically centered",
+                    "use pin shadows as the only depth cue"
+                ],
+                [
+                    "EllipseShape",
+                    "DropShadow",
+                    "TranslateTransform",
                     "Opacity"
                 ])
         ];

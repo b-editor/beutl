@@ -345,14 +345,77 @@ public sealed class RenderTools(
             Scene scene = RequireScene();
             string resolvedPath = workspace.ResolveForWrite(NormalizeOutputPath(outputPath));
             destructiveGuard.EnsureOverwriteAllowed(resolvedPath, confirmOverwrite);
-            return await videoExporter.ExportAsync(
+            ExportVideoResponse response = await videoExporter.ExportAsync(
                 scene,
                 resolvedPath,
                 new Rational(frameRateNumerator, frameRateDenominator),
                 sampleRate,
                 renderScale,
                 cancellationToken).ConfigureAwait(false);
+            sessions.RecordCreativeDirection(CreateExportCreativeFingerprint(scene, resolvedPath));
+            return response;
         });
+    }
+
+    private static CreativeDirectionFingerprint CreateExportCreativeFingerprint(Scene scene, string outputPath)
+    {
+        string concept = string.IsNullOrWhiteSpace(scene.Name)
+            ? Path.GetFileNameWithoutExtension(outputPath)
+            : scene.Name;
+        string[] paletteRoles = scene.Children
+            .Select(element => element.Name)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .SelectMany(name => name.Split(['[', ']', ':', '/', '-', '_'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            .Where(token => token.Contains("palette", StringComparison.OrdinalIgnoreCase)
+                            || token.Contains("color", StringComparison.OrdinalIgnoreCase)
+                            || token.Contains("accent", StringComparison.OrdinalIgnoreCase)
+                            || token.Contains("background", StringComparison.OrdinalIgnoreCase))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(6)
+            .ToArray();
+        string[] motionVerbs = scene.Children
+            .Select(element => element.Name)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .SelectMany(name => name.Split([' ', '[', ']', ':', '/', '-', '_'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            .Where(token => token.EndsWith("ing", StringComparison.OrdinalIgnoreCase)
+                            || token.Contains("drift", StringComparison.OrdinalIgnoreCase)
+                            || token.Contains("pulse", StringComparison.OrdinalIgnoreCase)
+                            || token.Contains("reveal", StringComparison.OrdinalIgnoreCase)
+                            || token.Contains("settle", StringComparison.OrdinalIgnoreCase))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(8)
+            .ToArray();
+        string timingSignature = string.Join(
+            " | ",
+            scene.Children
+                .OrderBy(element => element.Start)
+                .ThenBy(element => element.ZIndex)
+                .Take(10)
+                .Select(element => $"{NormalizeFingerprintToken(element.Name)}@{element.Start.TotalSeconds:0.##}+{element.Length.TotalSeconds:0.##}"));
+        if (string.IsNullOrWhiteSpace(timingSignature))
+        {
+            timingSignature = "empty-scene-export";
+        }
+
+        return new CreativeDirectionFingerprint(
+            concept,
+            paletteRoles,
+            motionVerbs,
+            timingSignature,
+            DateTimeOffset.UtcNow);
+    }
+
+    private static string NormalizeFingerprintToken(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return "element";
+        }
+
+        return string.Join(
+            "-",
+            value.Split([' ', '\t', '\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Take(4));
     }
 
     public static string NormalizeOutputPath(string outputPath)

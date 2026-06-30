@@ -9,15 +9,17 @@ Use this skill when an agent needs to turn a shot list, storyboard, or timed bri
 
 ## Workflow
 
-1. For creative briefs with little or no direction, call `list_creative_directions`, then synthesize an original pitch from the returned inspiration seeds:
-   - If the user prompt does not specify a concrete motif, style, palette, message, audience, or subject, choose at least two `inspirationSeeds` from different categories by random index before judging quality. Do not implement the seed names as a finished concept.
-   - If the user prompt does specify concrete creative constraints, keep those constraints literal and choose seeds only as ways to make the result less generic.
-   - In notes, record `selectionTrace.requestIndex`, `selectionTrace.appliedOffset`, `selectionTrace.seedMaterial`, `selectionTrace.returnedSeedOrder`, the selected seed names/categories, the combination rule or variation prompt used, and a new one-sentence pitch with a new title.
-   - Only reroll or reject a random-selected seed when it conflicts with an explicit user constraint or a listed overused motif.
-   - Before authoring, map the synthesized pitch into your own named Beutl elements/objects. Do not reuse returned seed names as Element/Object names.
-   - For unconstrained briefs, keep project, still, and video basenames neutral, such as `project.bep`, `preview.mp4`, and `still-*.png`, or use the requested output directory slug. Record the synthesized pitch in notes instead of filenames.
+1. Author the creative direction yourself. `list_creative_directions` is optional divergence stimulus, not a menu to pick from.
+   - Decide the concept, palette roles, type system, motion vocabulary, and shot structure from the brief (or from scratch when the brief is vague) before leaning on any tool. Do not anchor on returned seed names.
+   - Call `list_creative_directions` (pass a fresh `seed` each run to vary the stimulus) and read its `recentToAvoid` list. Your direction MUST differ structurally from those recent fingerprints: change the dominant motion verbs, layout, palette family, and type treatment, not just the words. Do not default to the same look every run (e.g. hero-glow-on-dark + dashed selection-marquee + magnetic letter-spacing) — that repetition is the monotony this step exists to prevent.
+   - If the user prompt specifies concrete constraints (motif, style, palette, message, audience, subject), keep them literal; use the stimulus only to make the result less generic.
+   - Once the concept is locked, call `record_creative_direction` with its fingerprint (concept label, palette roles, motion verbs, structural signature) so future sessions steer away from it.
+   - In notes, record the authored concept label, palette roles, motion verbs, structural signature, any stimulus names you used, and how you diverged from `recentToAvoid`.
+   - Map the concept into your own named Beutl elements/objects. Do not reuse returned seed names as Element/Object names.
+   - For unconstrained briefs, keep project, still, and video basenames neutral, such as `project.bep`, `preview.mp4`, and `still-*.png`, or use the requested output directory slug. Record the concept name in notes instead of filenames.
 2. Call `get_schema` before authoring if the required drawable, media, or audio type is not already known.
    - For organic heat, ink, glass, smoke, grain, caustic, or other procedural fields, call `list_effect_recipes` with a shader/organic intent and consider `SKSLScriptEffect` instead of stacking only blurred gradient shapes. Prefer SKSL over GLSL for low-context file sessions because it is CPU-safe in still renders.
+   - GPU/stylize effects (GLSL, `PixelSortEffect`, `ColorShift` on split-character text) are render-guarded to skip degenerate targets rather than crash the renderer, so use them for richer looks when wanted — but GPU-only effects no-op without a GPU, so always confirm the result with `render_still` before relying on them. Do not over-restrict to a single safe effect; varying the effect vocabulary is part of avoiding monotone output.
 3. If source-code reading is allowed, use `beutl-agent-source-grounding` before authoring layout, transform, bounds, text measurement, render scale, effect-unit, reconciliation, or live-session semantics.
    - This is mandatory when the task mentions centered placement, coordinates/origin, `TranslateTransform`, `TransformOrigin`, backing plates, object bounds, render/export range, or when a rendered/user-observed result contradicts the plan.
    - Read `.agents/skills/beutl-agent-source-grounding/SKILL.md`, then use narrow `rg`/read passes over the source and tests it identifies.
@@ -115,6 +117,8 @@ Use this skill when an agent needs to turn a shot list, storyboard, or timed bri
 - When a template is explicitly requested, pick a specific returned template name from `list_compositions`; do not rely on an implicit first template selection.
 - Treat examples as schema snippets or fallbacks. Adapt their structure to the brief instead of copying a full starter scene unchanged.
 - Avoid overused no-context motifs such as orbit rings, radar sweeps, map/atlas labels, signal nodes, dashboard bars, and dark teal cyan/magenta neon unless the user asks for them.
+- Cross-session variety is a hard requirement: the same brief should NOT keep producing the same video. Before locking a direction, compare it against `recentToAvoid` and deliberately change the structural language (motion verbs, layout grid, palette family, type treatment, transition style) from recent runs; then `record_creative_direction` so the next run can diverge too.
+- Pass `quiet: true` to `apply_edit` for large staged patches; the full echoed change set can exceed the response size limit, so keep individual patches small and use the compact summary while authoring.
 
 ## Shot List Mapping
 
