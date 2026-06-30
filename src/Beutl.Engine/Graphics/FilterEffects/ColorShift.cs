@@ -3,6 +3,7 @@ using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Media;
+using Beutl.Graphics.Rendering;
 using Microsoft.Extensions.Logging;
 using SkiaSharp;
 
@@ -98,7 +99,12 @@ public partial class ColorShift : FilterEffect
         for (int i = 0; i < context.Targets.Count; i++)
         {
             using var effectTarget = context.Targets[i];
-            var renderTarget = effectTarget.RenderTarget!;
+            RenderTarget? renderTarget = effectTarget.RenderTarget;
+            if (renderTarget is null)
+            {
+                continue;
+            }
+
             var bounds = TransformBoundsCore(data, effectTarget.Bounds);
             int minOffsetX = Math.Min(data.RedOffset.X,
                 Math.Min(data.GreenOffset.X, Math.Min(data.BlueOffset.X, data.AlphaOffset.X)));
@@ -106,6 +112,11 @@ public partial class ColorShift : FilterEffect
                 Math.Min(data.GreenOffset.Y, Math.Min(data.BlueOffset.Y, data.AlphaOffset.Y)));
 
             using var image = renderTarget.Value.Snapshot();
+            if (image is null)
+            {
+                continue;
+            }
+
             using var baseShader = image.ToShader(SKShaderTileMode.Decal, SKShaderTileMode.Decal);
 
             // SKRuntimeShaderBuilderを作成して、child shaderとuniformを設定
