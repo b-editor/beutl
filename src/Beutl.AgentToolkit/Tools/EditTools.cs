@@ -49,10 +49,17 @@ public sealed record AppliedEntityId(
 
 public sealed record ApplyEditResponse(
     bool Valid,
-    IReadOnlyList<ChangeSetEntry> Changes,
-    IReadOnlyList<ValidationOutcome> Validation,
-    JsonArray AppliedChangeSet,
+    IReadOnlyDictionary<string, int> Operations,
+    int ChangeCount,
+    IReadOnlyDictionary<string, int> ValidationStatuses,
+    int ValidationCount,
     IReadOnlyList<AppliedEntityId> CreatedIds,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    IReadOnlyList<ChangeSetEntry>? Changes = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    IReadOnlyList<ValidationOutcome>? Validation = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    JsonArray? AppliedChangeSet = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     JsonObject? Document = null);
 
@@ -74,7 +81,9 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
         [Description("Declarative document schema version. Required for patch; for desired, pass it here or include schemaVersion in the document. Mismatches are rejected instead of silently dropping content.")]
         string? schemaVersion = null,
         [Description("Return the full updated document. Defaults to false to keep apply_edit responses compact; prefer createdIds or read_document_summary for follow-up edits.")]
-        bool includeDocument = false)
+        bool includeDocument = false,
+        [Description("When true, return only validity, operation/validation counts, and createdIds. Set false when you need detailed changes, validation, or appliedChangeSet.")]
+        bool quiet = false)
     {
         return Execute(() =>
         {
@@ -86,7 +95,7 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
                 sessions.RecordCompositionUse(inferredName);
             }
 
-            return CreateApplyEditResponse(result, includeDocument);
+            return CreateApplyEditResponse(result, includeDocument, quiet);
         });
     }
 
@@ -267,14 +276,18 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
             "Pass planId to apply_composition for compact plan/apply parity. Set includeDetailedPlan=true only if you explicitly need expectedChangeSet.");
     }
 
-    private static ApplyEditResponse CreateApplyEditResponse(ReconcileResult result, bool includeDocument)
+    private static ApplyEditResponse CreateApplyEditResponse(ReconcileResult result, bool includeDocument, bool quiet)
     {
         return new ApplyEditResponse(
             result.Plan.Valid,
-            result.Plan.Changes,
-            result.Plan.Validation,
-            result.Plan.ExpectedChangeSet,
+            result.Plan.Operations,
+            result.Plan.ChangeCount,
+            result.Plan.ValidationStatuses,
+            result.Plan.ValidationCount,
             CreateCreatedIdSummary(result.Plan),
+            quiet ? null : result.Plan.Changes,
+            quiet ? null : result.Plan.Validation,
+            quiet ? null : result.Plan.ExpectedChangeSet,
             includeDocument ? result.Document : null);
     }
 

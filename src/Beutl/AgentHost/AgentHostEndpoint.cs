@@ -143,6 +143,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             .AddSingleton(_editorService)
             .AddSingleton<LiveSessionSource>()
             .AddSingleton<FileSessionSource>()
+            .AddSingleton(_ => new CreativeMemoryStore(workspaceRoot))
             .AddSingleton<AgentSessionManager>()
             .AddSingleton<IWorkspaceGuard>(_ => new WorkspaceGuard(workspaceRoot))
             .AddSingleton<DestructiveGuard>()

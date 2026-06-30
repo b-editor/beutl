@@ -25,6 +25,7 @@ public sealed class ToolSurfaceTests
             {
                 "get_started",
                 "list_creative_directions",
+                "record_creative_direction",
                 "get_schema",
                 "list_effects",
                 "list_effect_recipes",

@@ -26,6 +26,7 @@ builder.Services
     .AddSingleton<EncoderRegistration>()
     .AddSingleton<VideoExporter>()
     .AddSingleton<FileSessionSource>()
+    .AddSingleton(_ => new CreativeMemoryStore(workspaceRoot))
     .AddSingleton<AgentSessionManager>();
 
 builder.Services

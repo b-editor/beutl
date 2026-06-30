@@ -125,7 +125,7 @@ public sealed class ReadDocumentTests
             Assert.That(result.Value.InspirationSeeds.Select(seed => seed.Category), Does.Contain("typography"));
             Assert.That(result.Value.InspirationSeeds.Select(seed => seed.Category), Does.Contain("procedural surface"));
             Assert.That(result.Value.InspirationSeeds.SelectMany(seed => seed.UsefulTools), Does.Contain("SKSLScriptEffect"));
-            Assert.That(result.Value.CombinationRules, Has.Some.Contains("Synthesize a new pitch"));
+            Assert.That(result.Value.CombinationRules, Has.Some.Contains("Author the concept"));
             Assert.That(result.Value.CombinationRules, Has.Some.Contains("direction contract"));
             Assert.That(result.Value.OriginalityConstraints, Has.Some.Contains("Do not implement any returned seed as a complete scene"));
             Assert.That(result.Value.OriginalityConstraints, Has.Some.Contains("Do not use returned seed names"));
@@ -133,39 +133,49 @@ public sealed class ReadDocumentTests
             Assert.That(result.Value.OverusedMotifs, Has.Some.Contains("orbit rings"));
             Assert.That(result.Value.OverusedMotifs, Has.Some.Contains("radar sweeps"));
             Assert.That(result.Value.OverusedMotifs, Has.Some.Contains("dark teal background with cyan/magenta neon"));
-            Assert.That(result.Value.WorkflowHints, Has.Some.Contains("Do not default to the first returned seed"));
-            Assert.That(result.Value.WorkflowHints, Has.Some.Contains("synthesize a new pitch"));
+            Assert.That(result.Value.WorkflowHints, Has.Some.Contains("Do not pick a returned seed"));
+            Assert.That(result.Value.WorkflowHints, Has.Some.Contains("record_creative_direction"));
             Assert.That(result.Value.WorkflowHints, Has.Some.Contains("evaluate_motion_variation"));
             Assert.That(result.Value.WorkflowHints, Has.Some.Contains("SKSLScriptEffect"));
             Assert.That(result.Value.WorkflowHints, Has.Some.Contains("one primary focal point"));
             Assert.That(result.Value.WorkflowHints, Has.Some.Contains("effect chain"));
             Assert.That(result.Value.WorkflowHints, Has.Some.Contains("UseGlobalClock=false uses Element-local KeyTime values"));
             Assert.That(result.Value.DirectionAxes, Has.Some.Contains("procedural surface"));
-            Assert.That(result.Value.SelectionHint, Does.Contain("combine at least two inspiration seeds"));
+            Assert.That(result.Value.SelectionHint, Does.Contain("author your own direction"));
             Assert.That(result.Value.SelectionHint, Does.Contain("make a short motion graphic"));
             Assert.That(result.Value.SelectionTrace, Is.Not.Null);
             Assert.That(result.Value.SelectionTrace!.RequestIndex, Is.EqualTo(0));
             Assert.That(result.Value.SelectionTrace.ReturnedSeedOrder, Is.EqualTo(result.Value.InspirationSeeds.Select(seed => seed.Name)));
-            Assert.That(result.Value.SelectionTrace.RecordHint, Does.Contain("returnedSeedOrder"));
+            Assert.That(result.Value.SelectionTrace.RecordHint, Does.Contain("recentToAvoid"));
         });
     }
 
     [Test]
-    public void Creative_directions_rotate_leading_seed_between_calls()
+    public void Creative_directions_use_seeded_shuffle_and_surface_recent_fingerprints()
     {
-        var tools = new QueryTools(new AgentSessionManager());
+        string workspace = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        var memory = new CreativeMemoryStore(workspace);
+        memory.Record(new CreativeDirectionFingerprint(
+            "Paper archive resolve",
+            ["paper base", "warning accent"],
+            ["fold", "settle"],
+            "sequential poster stack",
+            DateTimeOffset.UtcNow));
+        var tools = new QueryTools(new AgentSessionManager(memory));
 
-        ToolResult<CreativeDirectionResponse> first = tools.ListCreativeDirections("abstract motion graphic");
-        ToolResult<CreativeDirectionResponse> second = tools.ListCreativeDirections("abstract motion graphic");
+        ToolResult<CreativeDirectionResponse> first = tools.ListCreativeDirections("abstract motion graphic", seed: "seed-a");
+        ToolResult<CreativeDirectionResponse> second = tools.ListCreativeDirections("abstract motion graphic", seed: "seed-b");
 
         Assert.Multiple(() =>
         {
             Assert.That(first.IsSuccess, Is.True, first.Error?.Message);
             Assert.That(second.IsSuccess, Is.True, second.Error?.Message);
-            Assert.That(first.Value!.InspirationSeeds[0].Name, Is.Not.EqualTo(second.Value!.InspirationSeeds[0].Name));
+            Assert.That(first.Value!.InspirationSeeds.Select(seed => seed.Name), Is.Not.EqualTo(second.Value!.InspirationSeeds.Select(seed => seed.Name)));
             Assert.That(first.Value.SelectionTrace!.RequestIndex, Is.EqualTo(0));
             Assert.That(second.Value!.SelectionTrace!.RequestIndex, Is.EqualTo(1));
-            Assert.That(second.Value.SelectionTrace.AppliedOffset, Is.EqualTo((first.Value.SelectionTrace.AppliedOffset + 1) % first.Value.InspirationSeeds.Count));
+            Assert.That(first.Value.RecentToAvoid, Has.Count.EqualTo(1));
+            Assert.That(first.Value.RecentToAvoid[0].ConceptLabel, Is.EqualTo("Paper archive resolve"));
+            Assert.That(first.Value.SelectionHint, Does.Contain("recentToAvoid"));
         });
     }
 
