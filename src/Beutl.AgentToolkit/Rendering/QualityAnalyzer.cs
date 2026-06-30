@@ -47,7 +47,8 @@ public sealed record ShapeDiversityMetrics(
     int NonBackgroundRectShapeCount,
     int RoundedRectShapeCount,
     int EllipseShapeCount,
-    double RectDominanceRatio);
+    double RectDominanceRatio,
+    int AmbiguousDecorativeShapeCount);
 
 public sealed record PaletteMetrics(
     int ColorCount,
@@ -56,7 +57,9 @@ public sealed record PaletteMetrics(
     double LumaRange,
     bool HasDarkTealCyanMagentaPalette,
     bool HasOversaturatedPalette,
-    bool HasLowContrastPalette);
+    bool HasLowContrastPalette,
+    int HardGradientObjectCount,
+    int HardGradientTransitionCount);
 
 public sealed record StructureMetrics(
     int ElementCount,
@@ -70,10 +73,14 @@ public sealed record TempoMetrics(
     bool HighTempoProfile,
     double TargetBpm,
     double BeatDurationSeconds,
+    double RequiredTimelineEventsPerSecond,
+    double RequiredTotalEventsPerSecond,
     int TimelineEventCount,
     double TimelineEventsPerSecond,
     int KeyFrameEventCount,
     double KeyFrameEventsPerSecond,
+    int LongForegroundGapCount,
+    double LongestForegroundEventGapSeconds,
     int SlowHoldCount,
     double LongestForegroundHoldSeconds);
 
@@ -113,7 +120,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         StructureMetrics structure = AnalyzeStructure(scene, objects, issues);
         int textPlateMismatchCount = AnalyzeTextBackgroundFit(scene, objects, issues);
         typography = typography with { TextPlateMismatchCount = textPlateMismatchCount };
-        PaletteMetrics palette = AnalyzePalette(objects, issues);
+        PaletteMetrics palette = AnalyzePalette(scene, objects, issues);
         AnalyzeMaterialUiLook(objects, issues);
         AnalyzeDesignStructure(scene, objects, styleProfile, issues);
         TempoMetrics tempo = AnalyzeTempo(scene, objects, styleProfile, issues);
@@ -378,6 +385,15 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
             AddKeyFrameEventTimes(info, scene.Duration, keyFrameEvents);
         }
 
+        double beatRate = targetBpm > 0 ? targetBpm / 60d : 0;
+        double requiredTimelineEventsPerSecond = highTempoProfile ? Math.Max(1.0, beatRate / 2d) : 0;
+        double requiredTotalEventsPerSecond = highTempoProfile ? Math.Max(1.5, beatRate * 0.85d) : 0;
+        double maxForegroundEventGapSeconds = highTempoProfile ? Math.Max(1.6, beatDurationSeconds * 4d) : double.PositiveInfinity;
+        (int longForegroundGapCount, double longestForegroundEventGapSeconds) =
+            highTempoProfile
+                ? AnalyzeForegroundEventGaps(timelineEvents, keyFrameEvents, scene.Duration, maxForegroundEventGapSeconds)
+                : (0, 0);
+
         SceneObjectInfo[] slowHoldObjects = highTempoProfile
             ? objects
                 .Where(item => IsTempoForegroundObject(scene, item))
@@ -394,14 +410,40 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         double keyFrameEventsPerSecond = keyFrameEvents.Count / durationSeconds;
         double totalEventsPerSecond = (timelineEvents.Count + keyFrameEvents.Count) / durationSeconds;
 
-        if (highTempoProfile && totalEventsPerSecond < 1.0)
+        if (highTempoProfile && timelineEventsPerSecond < requiredTimelineEventsPerSecond)
+        {
+            issues.Add(new QualityIssue(
+                "tempoRhythm",
+                Major,
+                "Foreground scene changes are too sparse for the requested BPM.",
+                $"Detected {timelineEvents.Count} foreground start/end events over {durationSeconds:F1}s ({timelineEventsPerSecond:F2}/s); required at least {requiredTimelineEventsPerSecond:F2}/s for target {targetBpm:F0} BPM.",
+                "Add visible foreground boundaries every 1-2 beats with short typography, strokes, particles, wipes, or other concrete accent Elements. Do not rely on background motion or hidden keyframes to satisfy a fast brief.",
+                null,
+                scene.Children.Select(element => element.Id.ToString()).ToArray(),
+                objects.Select(item => item.Object.Id.ToString()).ToArray()));
+        }
+
+        if (highTempoProfile && totalEventsPerSecond < requiredTotalEventsPerSecond)
         {
             issues.Add(new QualityIssue(
                 "tempoRhythm",
                 Major,
                 "The timeline is too sparse for a high-tempo motion-graphics brief.",
-                $"Detected {(timelineEvents.Count + keyFrameEvents.Count)} foreground timing/keyframe events over {durationSeconds:F1}s ({totalEventsPerSecond:F2}/s) for target {targetBpm:F0} BPM.",
+                $"Detected {(timelineEvents.Count + keyFrameEvents.Count)} foreground timing/keyframe events over {durationSeconds:F1}s ({totalEventsPerSecond:F2}/s); required at least {requiredTotalEventsPerSecond:F2}/s for target {targetBpm:F0} BPM.",
                 "For 120-140 BPM promos, plan beat-grid events around every 1-2 beats: split long shots, add short accent Elements, and add explicit keyframes on transform, opacity, brush, effect, or typography spacing.",
+                null,
+                scene.Children.Select(element => element.Id.ToString()).ToArray(),
+                objects.Select(item => item.Object.Id.ToString()).ToArray()));
+        }
+
+        if (highTempoProfile && longForegroundGapCount > 0)
+        {
+            issues.Add(new QualityIssue(
+                "tempoRhythm",
+                Major,
+                "Foreground event gaps are too long for a high-tempo brief.",
+                $"{longForegroundGapCount} foreground event gaps exceed the {maxForegroundEventGapSeconds:F2}s beat-grid target; longest gap {longestForegroundEventGapSeconds:F2}s.",
+                "Close long gaps with visible foreground cuts, accent hits, typography swaps, or animated property changes. Background-only drift does not count as fast foreground pacing.",
                 null,
                 scene.Children.Select(element => element.Id.ToString()).ToArray(),
                 objects.Select(item => item.Object.Id.ToString()).ToArray()));
@@ -424,10 +466,14 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
             highTempoProfile,
             targetBpm,
             beatDurationSeconds,
+            requiredTimelineEventsPerSecond,
+            requiredTotalEventsPerSecond,
             timelineEvents.Count,
             timelineEventsPerSecond,
             keyFrameEvents.Count,
             keyFrameEventsPerSecond,
+            longForegroundGapCount,
+            longestForegroundEventGapSeconds,
             slowHoldObjects.Length,
             longestForegroundHoldSeconds);
     }
@@ -445,6 +491,12 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         int ellipses = objects.Count(item => item.Object is EllipseShape);
         int geometricCount = objects.Count(item => item.Object is Shape);
         double dominance = geometricCount == 0 ? 0 : rects.Length / (double)geometricCount;
+        SceneObjectInfo[] ambiguousDecorativeShapes = objects
+            .Where(item => item.Object is Shape)
+            .Where(item => !IsBackgroundObject(scene, item))
+            .Where(item => IsLargeForegroundShape(scene, item) || CountAnimatedProperties(item.Object) > 0)
+            .Where(IsAmbiguousDecorativeShape)
+            .ToArray();
 
         if (!allowRectDominance
             && nonBackgroundRects >= 3
@@ -461,13 +513,27 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
                 rects.Select(item => item.Object.Id.ToString()).ToArray()));
         }
 
+        if (ambiguousDecorativeShapes.Length > 0)
+        {
+            issues.Add(new QualityIssue(
+                "decorativeShapeClarity",
+                Major,
+                "Abstract decorative light shapes are too ambiguous to read as intentional content.",
+                $"{ambiguousDecorativeShapes.Length} large or animated foreground shapes use abstract light/material naming such as glint, glow, bloom, aperture, lens, or glass.",
+                "Replace these with concrete visual systems the viewer can parse, such as strokes, particles, letter fragments, UI/editor marks, masks, media, or procedural texture; move purely atmospheric light to [role:background] with soft falloff.",
+                null,
+                ambiguousDecorativeShapes.Select(item => item.Element.Id.ToString()).ToArray(),
+                ambiguousDecorativeShapes.Select(item => item.Object.Id.ToString()).ToArray()));
+        }
+
         return new ShapeDiversityMetrics(
             rects.Length,
             backgroundRects,
             nonBackgroundRects,
             roundedRects,
             ellipses,
-            dominance);
+            dominance,
+            ambiguousDecorativeShapes.Length);
     }
 
     private static int AnalyzeTextBackgroundFit(
@@ -531,6 +597,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
     }
 
     private static PaletteMetrics AnalyzePalette(
+        Scene scene,
         IReadOnlyList<SceneObjectInfo> objects,
         List<QualityIssue> issues)
     {
@@ -542,7 +609,8 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
 
         if (colors.Length == 0)
         {
-            return new PaletteMetrics(0, 0, 0, 0, false, false, false);
+            (int emptyHardObjects, int emptyHardTransitions) = AnalyzeGradientFalloff(scene, objects, issues);
+            return new PaletteMetrics(0, 0, 0, 0, false, false, false, emptyHardObjects, emptyHardTransitions);
         }
 
         Hsv[] hsv = colors.Select(color => color.ToHsv()).ToArray();
@@ -596,6 +664,8 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
                 []));
         }
 
+        (int hardGradientObjectCount, int hardGradientTransitionCount) = AnalyzeGradientFalloff(scene, objects, issues);
+
         return new PaletteMetrics(
             colors.Length,
             averageSaturation,
@@ -603,7 +673,9 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
             lumaRange,
             darkTealCyanMagenta,
             oversaturated,
-            lowContrast);
+            lowContrast,
+            hardGradientObjectCount,
+            hardGradientTransitionCount);
     }
 
     private static void AnalyzeMaterialUiLook(
@@ -868,6 +940,43 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
                || ContainsMotionToken(info.Object.Name);
     }
 
+    private static bool IsAmbiguousDecorativeShape(SceneObjectInfo info)
+    {
+        string name = $"{info.Element.Name} {info.Object.Name}";
+        bool decorative = HasRole(info, "decorative", "accent")
+                          || ContainsAny(name, "glint", "glow", "bloom", "aperture", "lens", "flare", "halo", "shimmer", "glass", "reflection", "refraction", "gold");
+        if (!decorative)
+        {
+            return false;
+        }
+
+        bool abstractLight = ContainsAny(name, "glint", "glow", "bloom", "aperture", "lens", "flare", "halo", "shimmer", "glass", "reflection", "refraction", "gold");
+        bool concreteVisualSystem = ContainsAny(
+            name,
+            "stroke",
+            "line",
+            "particle",
+            "node",
+            "grid",
+            "letter",
+            "type",
+            "glyph",
+            "cursor",
+            "underline",
+            "divider",
+            "mask",
+            "matte",
+            "wipe",
+            "editor",
+            "timeline",
+            "keyframe",
+            "handle",
+            "logo");
+
+        return abstractLight
+               && (info.Object is EllipseShape || !concreteVisualSystem);
+    }
+
     private static bool ContainsIntentToken(string? value)
     {
         return ContainsAny(
@@ -991,7 +1100,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
 
     private static double ResolveNormalMaxHoldSeconds(double beatDurationSeconds)
     {
-        return Math.Max(2.1, beatDurationSeconds * 4.5);
+        return Math.Max(1.6, beatDurationSeconds * 4d);
     }
 
     private static double ResolveTargetBpm(string? styleProfile)
@@ -1094,6 +1203,38 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
                     break;
             }
         }
+    }
+
+    private static (int LongGapCount, double LongestGapSeconds) AnalyzeForegroundEventGaps(
+        HashSet<long> timelineEvents,
+        HashSet<long> keyFrameEvents,
+        TimeSpan sceneDuration,
+        double maxGapSeconds)
+    {
+        double durationSeconds = Math.Max(0.001, sceneDuration.TotalSeconds);
+        double[] eventSeconds = timelineEvents
+            .Concat(keyFrameEvents)
+            .Select(milliseconds => milliseconds / 1000d)
+            .Append(0)
+            .Append(durationSeconds)
+            .Where(seconds => seconds >= 0 && seconds <= durationSeconds)
+            .Distinct()
+            .Order()
+            .ToArray();
+
+        int longGapCount = 0;
+        double longestGapSeconds = 0;
+        for (int i = 1; i < eventSeconds.Length; i++)
+        {
+            double gap = eventSeconds[i] - eventSeconds[i - 1];
+            longestGapSeconds = Math.Max(longestGapSeconds, gap);
+            if (gap > maxGapSeconds)
+            {
+                longGapCount++;
+            }
+        }
+
+        return (longGapCount, longestGapSeconds);
     }
 
     private static bool IsTextBackingPlate(SceneObjectInfo info)
@@ -1216,6 +1357,97 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
 
                 break;
         }
+    }
+
+    private static (int ObjectCount, int TransitionCount) AnalyzeGradientFalloff(
+        Scene scene,
+        IReadOnlyList<SceneObjectInfo> objects,
+        List<QualityIssue> issues)
+    {
+        List<SceneObjectInfo> hardGradientObjects = [];
+        int hardTransitionCount = 0;
+        foreach (SceneObjectInfo info in objects)
+        {
+            if (info.Object is not Shape shape
+                || shape.Fill.CurrentValue is not GradientBrush gradient)
+            {
+                continue;
+            }
+
+            int transitions = CountHardGradientTransitions(gradient);
+            bool largeAmbientFalloff = IsLargeAmbientGradient(scene, info)
+                                       && gradient.GradientStops.Count <= 2
+                                       && !HasSoftFalloffEffect(info.Object);
+            if (transitions == 0 && !largeAmbientFalloff)
+            {
+                continue;
+            }
+
+            hardGradientObjects.Add(info);
+            hardTransitionCount += Math.Max(1, transitions);
+        }
+
+        if (hardGradientObjects.Count > 0)
+        {
+            issues.Add(new QualityIssue(
+                "gradientFalloff",
+                Major,
+                "Large ambient gradients have abrupt color or alpha boundaries.",
+                $"{hardGradientObjects.Count} gradient-filled shapes have hard stop transitions or two-stop ambient falloff without a softening effect; detected {hardTransitionCount} hard transitions.",
+                "Use at least three falloff stops, spread color/alpha transitions over wider offsets, add a real Blur/SKSL texture when appropriate, or replace the shape with procedural surface texture.",
+                null,
+                hardGradientObjects.Select(item => item.Element.Id.ToString()).ToArray(),
+                hardGradientObjects.Select(item => item.Object.Id.ToString()).ToArray()));
+        }
+
+        return (hardGradientObjects.Count, hardTransitionCount);
+    }
+
+    private static int CountHardGradientTransitions(GradientBrush gradient)
+    {
+        GradientStop[] stops = gradient.GradientStops
+            .OrderBy(stop => stop.Offset.CurrentValue)
+            .ToArray();
+        int count = 0;
+        for (int i = 1; i < stops.Length; i++)
+        {
+            GradientStop previous = stops[i - 1];
+            GradientStop current = stops[i];
+            double offsetGap = Math.Max(0.001, current.Offset.CurrentValue - previous.Offset.CurrentValue);
+            double lumaDelta = Math.Abs(RelativeLuma(current.Color.CurrentValue) - RelativeLuma(previous.Color.CurrentValue));
+            double alphaDelta = Math.Abs(current.Color.CurrentValue.A - previous.Color.CurrentValue.A) / 255d;
+            double saturationDelta = Math.Abs(current.Color.CurrentValue.ToHsv().S - previous.Color.CurrentValue.ToHsv().S) / 100d;
+            bool abruptOffset = offsetGap <= 0.12
+                                && (lumaDelta >= 0.25 || alphaDelta >= 0.35 || saturationDelta >= 0.35);
+            if (abruptOffset)
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    private static bool IsLargeAmbientGradient(Scene scene, SceneObjectInfo info)
+    {
+        ObjectBounds bounds = GetBounds(scene, info);
+        double sceneArea = Math.Max(1, scene.FrameSize.Width * scene.FrameSize.Height);
+        string name = $"{info.Element.Name} {info.Object.Name}";
+        return bounds.Width * bounds.Height >= sceneArea * 0.10
+               && ContainsAny(name, "ambient", "aperture", "glow", "bloom", "flare", "halo", "light");
+    }
+
+    private static bool HasSoftFalloffEffect(EngineObject obj)
+    {
+        if (obj is not Drawable drawable)
+        {
+            return false;
+        }
+
+        return FlattenEffects(drawable.FilterEffect.CurrentValue).Any(effect =>
+            (effect is Blur blur
+                && Math.Max(blur.Sigma.CurrentValue.Width, blur.Sigma.CurrentValue.Height) >= 6)
+            || effect is SKSLScriptEffect);
     }
 
     private static int CountAnimatedProperties(EngineObject obj)
