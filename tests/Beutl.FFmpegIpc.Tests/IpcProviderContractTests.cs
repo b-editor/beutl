@@ -863,4 +863,43 @@ public class IpcProviderContractTests
             DisposeBuffers(buffers);
         }
     }
+
+    [Test]
+    public async Task Sample_WhenSecondChunkLoadFaultsMidSplit_DisposesSplitBufferAndDoesNotLeak()
+    {
+        // A cross-chunk SampleExact allocates result2, copies the first chunk's tail into it, then loads
+        // the SECOND chunk. If that load faults (an IPC error / cancellation, which happens for real mid-
+        // encode), result2 must be disposed — not leaked. Straddling request: offset 2, length 4 over
+        // sampleRate-4 chunks pulls samples 2..3 from chunk 0 and 4..5 from chunk 1; the host faults the
+        // chunk 1 request (offset == sampleRate), so the second load throws after result2 is allocated.
+        const long sampleRate = 4;
+        var (server, client) = ConnectPair();
+        var buffers = CreateBuffers();
+        var hostCts = new CancellationTokenSource();
+        var hostTask = RunSamplePrefetchFaultsOnceHost(server, buffers, sampleRate, hostCts.Token);
+
+        using var conn = new IpcConnection(client);
+        // sampleCount 12 == 3 chunks of 4; offset 2 + length 4 straddles the chunk 0/1 boundary.
+        var provider = new IpcSampleProvider(conn, buffers, sampleCount: 12, sampleRate: sampleRate);
+        Pcm<Stereo32BitFloat>? splitBuffer = null;
+        provider.CrossChunkSplitAllocatedForTest = pcm => splitBuffer = pcm;
+
+        try
+        {
+            Assert.That(async () => await provider.Sample(2, 4),
+                Throws.TypeOf<FFmpegWorkerException>(),
+                "the second chunk load faults mid-split, surfacing the worker error");
+
+            Assert.That(splitBuffer, Is.Not.Null,
+                "the cross-chunk split path allocated result2 before the faulting second load");
+            Assert.That(splitBuffer!.IsDisposed, Is.True,
+                "result2 must be disposed on a mid-split fault so its native buffer is not leaked");
+        }
+        finally
+        {
+            provider.Dispose();
+            await StopHost(hostCts, server, hostTask);
+            DisposeBuffers(buffers);
+        }
+    }
 }
