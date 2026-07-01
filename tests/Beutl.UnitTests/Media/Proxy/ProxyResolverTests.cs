@@ -70,6 +70,68 @@ public class ProxyResolverTests
     }
 
     [Test]
+    public void Resolve_PrefersDensestReadyProxy_OverPreferredDefault()
+    {
+        string source = CreateSourceFile();
+        RegisterProxy(source, ProxyPreset.Quarter, new PixelSize(100, 80), new PixelSize(25, 20));
+        RegisterProxy(source, ProxyPreset.Half, new PixelSize(100, 80), new PixelSize(50, 40));
+
+        // The global default is Quarter, but a denser Half proxy exists for this clip.
+        ProxyResolution? result = _resolver.Resolve(new Uri(source), ProxyPreset.Quarter);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result!.Preset, Is.EqualTo(ProxyPreset.Half));
+            Assert.That(result.SupplyDensity, Is.EqualTo(0.5f).Within(1e-6));
+        });
+    }
+
+    [Test]
+    public void Resolve_FallsBackToLowerFidelity_WhenNoneAtOrAboveRequested()
+    {
+        string source = CreateSourceFile();
+        RegisterProxy(source, ProxyPreset.Eighth, new PixelSize(100, 80), new PixelSize(12, 10));
+
+        ProxyResolution? result = _resolver.Resolve(new Uri(source), ProxyPreset.Half);
+
+        Assert.That(result?.Preset, Is.EqualTo(ProxyPreset.Eighth));
+    }
+
+    [Test]
+    public void GetSourceVersion_BumpsOnlyChangedSource()
+    {
+        string sourceA = CreateSourceFile();
+        string sourceB = CreateSourceFile();
+        ProxyFingerprint fingerprintA = ProxyFingerprint.FromFile(sourceA);
+        ProxyFingerprint fingerprintB = ProxyFingerprint.FromFile(sourceB);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_resolver.GetSourceVersion(fingerprintA.AbsolutePath), Is.EqualTo(0));
+            Assert.That(_resolver.GetSourceVersion(fingerprintB.AbsolutePath), Is.EqualTo(0));
+        });
+
+        RegisterProxy(sourceA, ProxyPreset.Quarter, new PixelSize(100, 80), new PixelSize(25, 20));
+
+        long versionA = _resolver.GetSourceVersion(fingerprintA.AbsolutePath);
+        Assert.Multiple(() =>
+        {
+            Assert.That(versionA, Is.GreaterThan(0));
+            Assert.That(_resolver.GetSourceVersion(fingerprintB.AbsolutePath), Is.EqualTo(0));
+        });
+
+        // A real state change to A must keep advancing A's version (SC-003) ...
+        _store.TryTransition(fingerprintA, ProxyPreset.Quarter, ProxyState.Stale);
+        Assert.Multiple(() =>
+        {
+            Assert.That(_resolver.GetSourceVersion(fingerprintA.AbsolutePath), Is.GreaterThan(versionA));
+            // ... without ever touching B.
+            Assert.That(_resolver.GetSourceVersion(fingerprintB.AbsolutePath), Is.EqualTo(0));
+        });
+    }
+
+    [Test]
     public void Resolve_IgnoresStaleEntries()
     {
         string source = CreateSourceFile();

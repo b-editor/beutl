@@ -204,12 +204,63 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
 
     private void OnProxyStoreChanged(object? sender, ProxyStoreChangedEventArgs e)
     {
-        if (e.Kind is ProxyStoreChangeKind.Registered
+        if (e.Kind is not (ProxyStoreChangeKind.Registered
             or ProxyStoreChangeKind.StateChanged
-            or ProxyStoreChangeKind.Deleted)
+            or ProxyStoreChangeKind.Deleted))
         {
-            FrameCacheManager.Value.Clear();
+            return;
         }
+
+        // Invalidate only frames of clips that use the changed source, not the whole
+        // timeline cache (FR-023; unrelated clips stay editable during a bulk generate,
+        // FR-008 / US2 AC4). FrameCacheManager only invalidates by frame range, so the
+        // source is mapped to the ranges of the elements that reference it.
+        string changedSourcePath = e.Source.AbsolutePath;
+        Dispatcher.UIThread.Post(() => InvalidateFrameCacheForSource(changedSourcePath));
+    }
+
+    private void InvalidateFrameCacheForSource(string changedSourcePath)
+    {
+        FrameCacheManager cache = FrameCacheManager.Value;
+        if (cache.IsDisposed)
+        {
+            return;
+        }
+
+        List<TimeRange> affectedRanges = [];
+        foreach (Element element in Scene.Children)
+        {
+            if (ElementUsesSource(element, changedSourcePath))
+            {
+                affectedRanges.Add(element.Range);
+            }
+        }
+
+        if (affectedRanges.Count == 0)
+        {
+            return;
+        }
+
+        int rate = Player.GetFrameRate();
+        cache.DeleteAndUpdateBlocks(affectedRanges
+            .Select(range => (Start: (int)range.Start.ToFrameNumber(rate),
+                End: (int)Math.Ceiling(range.End.ToFrameNumber(rate)))));
+    }
+
+    private static bool ElementUsesSource(Element element, string changedSourcePath)
+    {
+        foreach (Beutl.Graphics.SourceVideo video in element.EnumerateAllChildren<Beutl.Graphics.SourceVideo>())
+        {
+            Beutl.Media.Source.VideoSource? source = video.Source.CurrentValue;
+            if (source is { HasUri: true }
+                && ProxyFingerprint.TryFromFile(source.Uri.LocalPath, out ProxyFingerprint fingerprint)
+                && string.Equals(fingerprint.AbsolutePath, changedSourcePath, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private void OnChangeOperations(IList<ChangeOperation> list)
