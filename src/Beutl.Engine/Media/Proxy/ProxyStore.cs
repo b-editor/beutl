@@ -85,17 +85,6 @@ public sealed class ProxyStore : IProxyStore
         }
     }
 
-    // Entries whose recorded source file is no longer present at its path — candidates for
-    // relink (the source may have merely moved) or purge. This never mutates the store or
-    // transitions the entries; the caller decides what to do with each.
-    public IReadOnlyList<ProxyEntry> EnumerateEntriesWithMissingSource()
-    {
-        lock (_lock)
-        {
-            return [.. _entries.Values.Where(static e => !SourceFileExists(e.Source))];
-        }
-    }
-
     public void Register(ProxyEntry entry)
     {
         ArgumentNullException.ThrowIfNull(entry);
@@ -162,65 +151,6 @@ public sealed class ProxyStore : IProxyStore
         RemoveMetadataEntry(removed);
 
         OnChanged(source, preset, ProxyStoreChangeKind.Deleted);
-        return true;
-    }
-
-    // Re-key every entry of a moved/renamed source from its old fingerprint to a new one,
-    // so the existing proxy files are adopted without regeneration. The proxy files are left
-    // in place; only the index and sidecar metadata are rewritten. Presets that already exist
-    // under the new fingerprint are left untouched (no file is clobbered). Returns true if at
-    // least one entry was relinked.
-    public bool Relink(ProxyFingerprint oldSource, ProxyFingerprint newSource)
-    {
-        if (string.IsNullOrEmpty(oldSource.AbsolutePath) || string.IsNullOrEmpty(newSource.AbsolutePath))
-            return false;
-
-        if (oldSource == newSource)
-            return false;
-
-        List<ProxyEntry> relinked = [];
-        List<(ProxyFingerprint Source, ProxyPreset Preset)> vacated = [];
-        lock (_lock)
-        {
-            List<KeyValuePair<(ProxyFingerprint Source, ProxyPreset Preset), ProxyEntry>> candidates =
-            [
-                .. _entries.Where(pair => pair.Key.Source == oldSource)
-            ];
-
-            HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> changedKeys = [];
-            HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> removedKeys = [];
-            foreach (KeyValuePair<(ProxyFingerprint Source, ProxyPreset Preset), ProxyEntry> pair in candidates)
-            {
-                var newKey = (newSource, pair.Key.Preset);
-                if (_entries.ContainsKey(newKey))
-                    continue;
-
-                ProxyEntry updated = pair.Value with { Source = newSource };
-                _entries.Remove(pair.Key);
-                _entries[newKey] = updated;
-                changedKeys.Add(newKey);
-                removedKeys.Add(pair.Key);
-                relinked.Add(updated);
-                vacated.Add(pair.Key);
-            }
-
-            if (relinked.Count == 0)
-                return false;
-
-            RewriteRelinkedMetadata(relinked, newSource);
-            FlushCore(changedKeys, removedKeys);
-        }
-
-        foreach ((ProxyFingerprint Source, ProxyPreset Preset) key in vacated)
-        {
-            OnChanged(key.Source, key.Preset, ProxyStoreChangeKind.Deleted);
-        }
-
-        foreach (ProxyEntry entry in relinked)
-        {
-            OnChanged(entry.Source, entry.Preset, ProxyStoreChangeKind.Registered);
-        }
-
         return true;
     }
 
@@ -625,6 +555,13 @@ public sealed class ProxyStore : IProxyStore
                 _pendingRemoveKeys.Clear();
                 _persistenceDegraded = false;
             }
+            catch (IOException)
+            {
+                // A transient durable-write failure degrades like a contended lock instead of
+                // throwing out of Register/TryTransition/FlushAsync; the pending sets are left
+                // populated (not cleared above) so the change replays on the next flush.
+                DegradePersistence(changedKeys, removedKeys);
+            }
             finally
             {
                 TryDelete(tmp);
@@ -650,8 +587,9 @@ public sealed class ProxyStore : IProxyStore
         {
             foreach (var key in changedKeys)
             {
-                if (!_pendingRemoveKeys.Contains(key))
-                    _pendingPersistKeys.Add(key);
+                // A re-Register after a Delete (both degraded) must supersede the pending removal.
+                _pendingRemoveKeys.Remove(key);
+                _pendingPersistKeys.Add(key);
             }
         }
 
@@ -691,53 +629,6 @@ public sealed class ProxyStore : IProxyStore
     {
         if (Interlocked.Exchange(ref _touchFlushScheduled, 1) == 0)
             _ = FlushTouchesAsync();
-    }
-
-    private void RewriteRelinkedMetadata(IReadOnlyList<ProxyEntry> relinked, ProxyFingerprint newSource)
-    {
-        foreach (IGrouping<string, ProxyEntry> group in relinked
-                     .Select(entry => (Entry: entry, Directory: TryGetMetadataDirectory(entry)))
-                     .Where(pair => pair.Directory != null)
-                     .GroupBy(pair => pair.Directory!, pair => pair.Entry))
-        {
-            string metadataPath = Path.Combine(group.Key, "meta.json");
-            try
-            {
-                var metadata = new ProxySourceMetadata
-                {
-                    Source = newSource,
-                    Entries = [.. group],
-                };
-                File.WriteAllText(metadataPath, JsonSerializer.Serialize(metadata, s_jsonOptions));
-            }
-            catch
-            {
-            }
-        }
-    }
-
-    private string? TryGetMetadataDirectory(ProxyEntry entry)
-    {
-        try
-        {
-            return Path.GetDirectoryName(GetAbsolutePath(entry));
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
-    private static bool SourceFileExists(ProxyFingerprint source)
-    {
-        try
-        {
-            return !string.IsNullOrEmpty(source.AbsolutePath) && File.Exists(source.AbsolutePath);
-        }
-        catch
-        {
-            return false;
-        }
     }
 
     private void RemoveMetadataEntry(ProxyEntry removed)
