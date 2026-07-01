@@ -586,8 +586,9 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
 
     private static string NormalizeSourcePath(string path)
     {
+        // Case folding must match ProxyFingerprint.NormalizeAbsolutePath (Windows + macOS).
         string fullPath = Path.GetFullPath(path);
-        return OperatingSystem.IsWindows()
+        return OperatingSystem.IsWindows() || OperatingSystem.IsMacOS()
             ? fullPath.ToUpperInvariant()
             : fullPath;
     }
