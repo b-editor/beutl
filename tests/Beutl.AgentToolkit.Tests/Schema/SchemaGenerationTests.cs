@@ -229,6 +229,28 @@ public sealed class SchemaGenerationTests
     }
 
     [Test]
+    public void Organic_shader_recipe_modulates_source_color_and_compiles()
+    {
+        var generator = new SchemaGenerator();
+        EffectRecipe organicRecipe = generator.GetEffectRecipe("organic-shader-field");
+        string script = FindRequiredStringProperty(organicRecipe.Patch, nameof(SKSLScriptEffect.Script));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(script, Does.Contain("sin(uv.x * 14.0"));
+            Assert.That(script, Does.Contain("src.eval(fragCoord)"));
+            Assert.That(script, Does.Contain("base.rgb"));
+            Assert.That(script, Does.Contain("mix(base.rgb, field, 0.2)"));
+            Assert.That(script, Does.Not.Contain("0.95 * wave"));
+            Assert.That(script, Does.Not.Contain("0.35"));
+        });
+
+        using SKSLShader shader = CompileSkslOrSkip(script);
+
+        Assert.That(shader.Effect.Children.Contains("src"), Is.True);
+    }
+
+    [Test]
     public void Single_sksl_effect_recipe_uses_neutral_pass_through_scaffold()
     {
         var generator = new SchemaGenerator();
@@ -558,7 +580,7 @@ public sealed class SchemaGenerationTests
             Assert.Ignore($"SKSL compilation is unavailable in this environment: {errorText}");
         }
 
-        Assert.Fail($"Neutral SKSL scaffold should compile: {errorText}");
+        Assert.Fail($"SKSL script should compile: {errorText}");
         return null!;
     }
 
