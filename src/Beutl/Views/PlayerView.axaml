@@ -152,6 +152,25 @@
 
                 <local:TransformHandlesOverlay Name="transformHandlesOverlay"
                                                IsVisible="False" />
+
+                <Border Name="previewSourceIndicator"
+                        Margin="8"
+                        Padding="8,3"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Top"
+                        Background="#B0000000"
+                        CornerRadius="4"
+                        IsHitTestVisible="False">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock FontSize="11"
+                                   Foreground="#B3FFFFFF"
+                                   Text="{x:Static lang:Strings.PreviewSource}" />
+                        <TextBlock FontSize="11"
+                                   FontWeight="SemiBold"
+                                   Foreground="White"
+                                   Text="{Binding PreviewSourceLabel.Value}" />
+                    </StackPanel>
+                </Border>
             </Panel>
         </Player.Content>
     </Player>

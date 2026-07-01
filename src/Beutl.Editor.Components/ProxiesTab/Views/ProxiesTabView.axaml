@@ -210,8 +210,10 @@
                                             <ComboBox Grid.Column="1"
                                                       MinWidth="88"
                                                       VerticalAlignment="Center"
+                                                      AutomationProperties.Name="{x:Static lang:Strings.ProxyQuality}"
                                                       SelectedIndex="{Binding Preset.Value, Converter={x:Static views:ProxyPresetIndexConverter.Instance}, Mode=TwoWay}"
-                                                      Theme="{StaticResource LiteComboBoxStyle}">
+                                                      Theme="{StaticResource LiteComboBoxStyle}"
+                                                      ToolTip.Tip="{x:Static lang:Strings.ProxyQuality}">
                                                 <ComboBoxItem Content="{x:Static lang:Strings.ProxyPresetHalf}" />
                                                 <ComboBoxItem Content="{x:Static lang:Strings.ProxyPresetQuarter}" />
                                                 <ComboBoxItem Content="{x:Static lang:Strings.ProxyPresetEighth}" />
