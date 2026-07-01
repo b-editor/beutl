@@ -18,6 +18,26 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Beutl.FFmpegIpc\Beutl.FFmpegIpc.csproj" />
+    <!-- MIT->MIT reference: the IPC proxy (FFmpegReaderProxy) and worker launcher
+         (FFmpegWorkerProcess) live in the MIT extension, which does NOT reference the GPL
+         Beutl.FFmpegWorker. The worker is reached only as a spawned process over IPC. -->
+    <ProjectReference Include="..\..\src\Beutl.Extensions.FFmpeg\Beutl.Extensions.FFmpeg.csproj" />
   </ItemGroup>
+
+  <!-- Make the built GPL worker BINARY available at test runtime WITHOUT a compile-closure
+       reference to it, mirroring tests/Beutl.FFmpegBenchmarks' precedent. The worker is copied
+       (not referenced or link-compiled), so the GPL/MIT boundary stays intact: the audio-only
+       ReadVideo contract test spawns this binary as a separate process via IPC. When the worker
+       has not been built (or its output is absent), nothing is copied and the process-level test
+       self-skips via Assert.Ignore. -->
+  <Target Name="CopyWorkerBinary" AfterTargets="Build">
+    <PropertyGroup>
+      <WorkerOutputDir>..\..\src\Beutl.FFmpegWorker\bin\$(Configuration)\$(TargetFramework)\</WorkerOutputDir>
+    </PropertyGroup>
+    <ItemGroup>
+      <WorkerFiles Include="$(WorkerOutputDir)**\*" Exclude="$(WorkerOutputDir)**\*.dev.runtimeconfig.json" />
+    </ItemGroup>
+    <Copy SourceFiles="@(WorkerFiles)" DestinationFiles="@(WorkerFiles->'$(OutputPath)%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+  </Target>
 
 </Project>
