@@ -16,8 +16,8 @@ public interface IEditorContextServices
     /// Resolves a host-provided service of type <typeparamref name="T"/> by type. This is the
     /// abstraction's escape hatch for capabilities that live downstream of
     /// <c>Beutl.Extensibility</c> (for example the host's editor service), so an extension can reach
-    /// them without downcasting to the host's concrete <see cref="IEditorContextServices"/>
-    /// implementation. Downcasting would defeat the abstraction — a hand-written fake could never
+    /// them without downcasting to the host's concrete implementation of
+    /// <see cref="IEditorContextServices"/>. Downcasting would defeat the abstraction — a hand-written fake could never
     /// satisfy it — so implementers must honor this by-type lookup instead.
     /// </summary>
     /// <typeparam name="T">The reference type of the requested service.</typeparam>
