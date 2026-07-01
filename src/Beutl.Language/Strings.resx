@@ -1348,6 +1348,9 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="ProxyDeleteProjectProxies" xml:space="preserve">
     <value>Delete project proxies</value>
   </data>
+  <data name="ProxyDeleteProjectProxiesConfirmationFormat" xml:space="preserve">
+    <value>Proxies are stored in a machine-wide shared cache. Deleting the {0} proxy file(s) used by this project also removes them for every other project that references the same source files, and they will have to be regenerated. Continue?</value>
+  </data>
   <data name="ProxyReady" xml:space="preserve">
     <value>Ready</value>
   </data>

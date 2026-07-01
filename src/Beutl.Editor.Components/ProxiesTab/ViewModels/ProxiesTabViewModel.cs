@@ -14,6 +14,7 @@ using Beutl.Media.Source;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
 using Beutl.ProjectSystem;
+using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -28,6 +29,13 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
         ProxyPreset.Quarter,
         ProxyPreset.Eighth,
     ];
+
+    // Heaviness floor for the bulk "generate all" action (SC-001 targets >= 4K / >= 60 Mbps
+    // media). Coarse heuristics that should become user-configurable and metadata-driven
+    // later. Original resolution is only known once a proxy entry exists, so never-proxied
+    // clips fall back to the file-size floor as a rough bitrate x duration proxy.
+    private const long MinBulkSourcePixelCount = 1920L * 1080L;
+    private const long MinBulkSourceFileBytes = 32L * 1024L * 1024L;
 
     private readonly CompositeDisposable _disposables = [];
     private readonly Scene _scene;
@@ -72,8 +80,8 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
         GenerateAllCommand = new AsyncReactiveCommand()
             .WithSubscribe(GenerateAllAsync)
             .DisposeWith(_disposables);
-        DeleteAllForProjectCommand = new ReactiveCommand()
-            .WithSubscribe(DeleteAllForProject)
+        DeleteAllForProjectCommand = new AsyncReactiveCommand()
+            .WithSubscribe(DeleteAllForProjectAsync)
             .DisposeWith(_disposables);
         RefreshCommand = new ReactiveCommand()
             .WithSubscribe(Refresh)
@@ -122,9 +130,20 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
 
     public AsyncReactiveCommand GenerateAllCommand { get; }
 
-    public ReactiveCommand DeleteAllForProjectCommand { get; }
+    public AsyncReactiveCommand DeleteAllForProjectCommand { get; }
 
     public ReactiveCommand RefreshCommand { get; }
+
+    /// <summary>
+    /// Confirms the destructive "delete all proxies for this project" action. The proxy store
+    /// is a machine-wide shared cache (FR-011), so the entries removed here may also be relied
+    /// on by other projects that reference the same source files; those projects must then
+    /// regenerate them. The argument is the number of cached proxy entries that would be
+    /// deleted. The default shows a confirmation dialog; tests substitute it to drive the
+    /// accept and decline paths without a UI. Returns <see langword="true"/> to proceed.
+    /// </summary>
+    public Func<int, Task<bool>> ConfirmDeleteAllForProjectAsync { get; set; }
+        = ShowDeleteAllForProjectConfirmationAsync;
 
     public ToolTabExtension Extension => ProxiesTabExtension.Instance;
 
@@ -176,6 +195,30 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
         UpdateClipSummary();
     }
 
+    internal void OnPresetChanged(ProxyClipViewModel clip, ProxyPreset oldPreset, ProxyPreset newPreset)
+    {
+        // Moving the dropdown off a preset whose job is still Queued/Running would otherwise
+        // orphan that job: it keeps the sole serial slot and produces a proxy for a preset the
+        // user no longer selected. Each source maps to a single row here, so cancelling the job
+        // for (this source, old preset) cannot affect another visible clip.
+        if (oldPreset != newPreset)
+            CancelJobForSourcePreset(clip.Source, oldPreset);
+
+        RefreshClip(clip);
+    }
+
+    private void CancelJobForSourcePreset(ProxyFingerprint source, ProxyPreset preset)
+    {
+        if (_queue == null)
+            return;
+
+        foreach (ProxyJob job in _queue.Pending())
+        {
+            if (job.Preset == preset && job.Source.Equals(source))
+                _queue.Cancel(job.JobId);
+        }
+    }
+
     public void Dispose()
     {
         if (_isDisposed)
@@ -207,12 +250,38 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
             return;
         }
 
-        foreach (ProxyClipViewModel clip in Clips.ToArray())
+        foreach (ProxyClipViewModel clip in Clips.Where(IsEligibleForBulkGeneration).ToArray())
         {
             await _queue.EnqueueAsync(clip.Source, clip.Preset.Value);
         }
 
         RefreshJobs();
+    }
+
+    private bool IsEligibleForBulkGeneration(ProxyClipViewModel clip)
+    {
+        if (TryGetSourcePixelCount(clip.Source) is { } pixelCount)
+            return pixelCount >= MinBulkSourcePixelCount;
+
+        return clip.Source.FileSizeBytes >= MinBulkSourceFileBytes;
+    }
+
+    private long? TryGetSourcePixelCount(ProxyFingerprint source)
+    {
+        if (_store == null)
+            return null;
+
+        foreach (ProxyEntry entry in _store.Enumerate())
+        {
+            if (entry.Source.AbsolutePath != source.AbsolutePath)
+                continue;
+
+            PixelSize frameSize = entry.OriginalLogicalFrameSize;
+            if (frameSize.Width > 0 && frameSize.Height > 0)
+                return (long)frameSize.Width * frameSize.Height;
+        }
+
+        return null;
     }
 
     private async Task GenerateSelectedAsync()
@@ -257,20 +326,45 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
         Refresh();
     }
 
-    private void DeleteAllForProject()
+    private async Task DeleteAllForProjectAsync()
     {
         if (_store == null)
             return;
 
         HashSet<string> projectPaths = [.. Clips.Select(static c => c.Source.AbsolutePath)];
-        foreach (ProxyEntry entry in _store.Enumerate()
-                     .Where(entry => projectPaths.Contains(entry.Source.AbsolutePath))
-                     .ToArray())
+        ProxyEntry[] entries =
+        [
+            .. _store.Enumerate().Where(entry => projectPaths.Contains(entry.Source.AbsolutePath)),
+        ];
+        if (entries.Length == 0)
+            return;
+
+        if (!await ConfirmDeleteAllForProjectAsync(entries.Length))
+            return;
+
+        foreach (ProxyEntry entry in entries)
         {
             _store.Delete(entry.Source, entry.Preset);
         }
 
         Refresh();
+    }
+
+    private static async Task<bool> ShowDeleteAllForProjectConfirmationAsync(int entryCount)
+    {
+        var dialog = new ContentDialog
+        {
+            Title = Strings.ProxyDeleteProjectProxies,
+            Content = string.Format(
+                CultureInfo.CurrentCulture,
+                Strings.ProxyDeleteProjectProxiesConfirmationFormat,
+                entryCount),
+            PrimaryButtonText = Strings.Yes,
+            CloseButtonText = Strings.No,
+            DefaultButton = ContentDialogButton.Close,
+        };
+
+        return await dialog.ShowAsync() == ContentDialogResult.Primary;
     }
 
     private void Refresh()
@@ -293,7 +387,7 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
             static clip => clip.Preset.Value);
 
         ClearClips();
-        foreach ((string path, ProxyFingerprint fingerprint) in EnumerateVideoSources())
+        foreach ((string path, ProxyFingerprint fingerprint) in EnumerateProjectVideoSources())
         {
             ProxyPreset preset = selectedPresets.GetValueOrDefault(path, FindDefaultPreset(fingerprint));
             ProxyEntry? entry = FindEntry(fingerprint, preset);
@@ -333,15 +427,23 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
                 : string.Format(CultureInfo.CurrentCulture, Strings.ProxyQueuedJobPlural, pendingJobs.Length);
     }
 
-    private IEnumerable<(string Path, ProxyFingerprint Fingerprint)> EnumerateVideoSources()
+    /// <summary>
+    /// The authoritative enumeration of the video sources referenced by the current project.
+    /// Its result is the single source of truth for both the per-project usage total
+    /// (<see cref="UpdateStoreSummary"/>) and the delete-all action
+    /// (<see cref="DeleteAllForProjectAsync"/>) — both consume it via <see cref="Clips"/>.
+    /// Any new element type that can hold a <see cref="VideoSource"/> MUST be walked here,
+    /// otherwise its sources are silently excluded from usage accounting and delete-all.
+    /// </summary>
+    private IEnumerable<(string Path, ProxyFingerprint Fingerprint)> EnumerateProjectVideoSources()
     {
         HashSet<string> seenPaths = new(StringComparer.Ordinal);
         HashSet<Scene> seenScenes = new(ReferenceEqualityComparer.Instance);
         ProxyEntry[] storeEntries = [.. _store?.Enumerate() ?? []];
-        return EnumerateVideoSources(_scene, seenPaths, seenScenes, storeEntries);
+        return EnumerateProjectVideoSources(_scene, seenPaths, seenScenes, storeEntries);
     }
 
-    private static IEnumerable<(string Path, ProxyFingerprint Fingerprint)> EnumerateVideoSources(
+    private static IEnumerable<(string Path, ProxyFingerprint Fingerprint)> EnumerateProjectVideoSources(
         Scene scene,
         HashSet<string> seenPaths,
         HashSet<Scene> seenScenes,
@@ -385,7 +487,7 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
                 if (sceneDrawable.ReferencedScene.CurrentValue is not { } referencedScene)
                     continue;
 
-                foreach (var item in EnumerateVideoSources(referencedScene, seenPaths, seenScenes, storeEntries))
+                foreach (var item in EnumerateProjectVideoSources(referencedScene, seenPaths, seenScenes, storeEntries))
                 {
                     yield return item;
                 }
@@ -748,10 +850,13 @@ public sealed class ProxyClipViewModel : IDisposable
             .DisposeWith(_disposables);
 
         bool initialized = false;
-        Preset.Subscribe(_ =>
+        ProxyPreset previousPreset = preset;
+        Preset.Subscribe(newPreset =>
             {
                 if (initialized)
-                    _owner.RefreshClip(this);
+                    _owner.OnPresetChanged(this, previousPreset, newPreset);
+
+                previousPreset = newPreset;
             })
             .DisposeWith(_disposables);
         UpdateEntry(entry);

@@ -1342,6 +1342,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="ProxyDeleteProjectProxies" xml:space="preserve">
     <value>プロジェクトのプロキシを削除</value>
   </data>
+  <data name="ProxyDeleteProjectProxiesConfirmationFormat" xml:space="preserve">
+    <value>プロキシはマシン全体で共有されるキャッシュに保存されます。このプロジェクトで使用している {0} 個のプロキシファイルを削除すると、同じソースファイルを参照する他のすべてのプロジェクトからも削除され、再生成が必要になります。続行しますか？</value>
+  </data>
   <data name="ProxyReady" xml:space="preserve">
     <value>準備完了</value>
   </data>
