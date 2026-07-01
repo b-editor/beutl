@@ -88,7 +88,7 @@ public class SourceVideoThumbnailProxyTests
     {
         public int ResolveCallCount { get; private set; }
 
-        public long GetSourceVersion(string sourceAbsolutePath) => inner.GetSourceVersion(sourceAbsolutePath);
+        public long GetSourceVersion(ProxyFingerprint source) => inner.GetSourceVersion(source);
 
         public ProxyResolution? Resolve(Uri sourceUri, ProxyPreset preferredPreset)
         {

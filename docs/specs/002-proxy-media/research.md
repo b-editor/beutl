@@ -25,6 +25,8 @@ Phase 0 resolves the open items left after `/speckit-clarify` so that Phase 1 (c
 
 > **Post-003 amendment**: R-1 was written before `003-resolution-independent-pipeline` landed. The `MediaOptions.PreferProxy` toggle and the `DecoderRegistry.OpenMediaFile` choke point remain correct, but they are no longer sufficient on their own — opening a smaller proxy file would shrink the source's decoded `FrameSize` and therefore its logical footprint under 003. The full integration design (logical-size channel, supply density, `MediaOptions` shape trade-off) is settled in **R-11** below; R-1's "minimum-surface change" framing still describes the toggle, while R-11 adds the size/density side-channel the 003 pipeline requires.
 
+> **Resolve-time selection policy (densest-wins)**: `IProxyResolver.Resolve(sourceUri, preferredPreset)` treats `preferredPreset` as a *generation-time floor* (which fidelity to encode), **not** a resolve-time selection cap. It enumerates the source's presets densest-first and returns the densest usable `Ready` proxy, so a deliberately generated denser per-clip proxy always wins over the global default rather than being downgraded to it. This aligns with 003's supply-driven model (R-11): the densest available supply is the most useful one to hand the pipeline.
+
 ---
 
 ## R-11: Integration with the 003 resolution-independent pipeline (logical-size seam + supply density + `MediaOptions` shape)

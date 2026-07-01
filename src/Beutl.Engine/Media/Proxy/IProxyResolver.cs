@@ -12,8 +12,13 @@ public interface IProxyResolver
     /// deleted). Callers cache the value per source and reload when it changes, so a
     /// proxy change to one source never forces unrelated proxied sources to reopen.
     /// </summary>
-    /// <param name="sourceAbsolutePath">Absolute path of the original media file.</param>
-    long GetSourceVersion(string sourceAbsolutePath);
+    /// <param name="source">
+    /// Fingerprint of the original media file. Keying on <see cref="ProxyFingerprint"/>
+    /// (whose <see cref="ProxyFingerprint.AbsolutePath"/> is already symlink-resolved and
+    /// normalized) keeps the resolver's path rules internal, so callers never have to
+    /// reproduce them on a raw path.
+    /// </param>
+    long GetSourceVersion(ProxyFingerprint source);
 
     IDisposable Pin(ProxyResolution resolution);
 }

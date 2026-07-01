@@ -46,7 +46,7 @@ public sealed class VideoSource : MediaSource
         private bool _loadedPreferProxy;
         private ProxyPreset _loadedPreferredProxyPreset;
         private long _loadedProxyResolverVersion;
-        private string? _proxyVersionKey;
+        private ProxyFingerprint? _proxyVersionSource;
 
         public TimeSpan Duration { get; private set; }
 
@@ -93,8 +93,8 @@ public sealed class VideoSource : MediaSource
             IProxyResolver? proxyResolver = context.PreferProxy ? DecoderRegistry.ProxyResolver : null;
             // Compare only THIS source's proxy version so a proxy change to another
             // source does not force this reader to reopen (FR-023).
-            long proxyResolverVersion = proxyResolver is not null && _proxyVersionKey is not null
-                ? proxyResolver.GetSourceVersion(_proxyVersionKey)
+            long proxyResolverVersion = proxyResolver is not null && _proxyVersionSource is { } proxyVersionSource
+                ? proxyResolver.GetSourceVersion(proxyVersionSource)
                 : 0;
 
             // Load media reader if URI or proxy preference changed.
@@ -108,14 +108,14 @@ public sealed class VideoSource : MediaSource
                 _counter = null;
                 ProxyResolution = null;
 
-                // Refresh the per-source version key for the current URI, then re-read
+                // Refresh the per-source fingerprint for the current URI, then re-read
                 // this source's version so the reload baseline matches the new source.
-                _proxyVersionKey = context.PreferProxy
+                _proxyVersionSource = context.PreferProxy
                     && ProxyFingerprint.TryFromFile(videoSource.Uri.LocalPath, out ProxyFingerprint sourceFingerprint)
-                    ? sourceFingerprint.AbsolutePath
+                    ? sourceFingerprint
                     : null;
-                proxyResolverVersion = proxyResolver is not null && _proxyVersionKey is not null
-                    ? proxyResolver.GetSourceVersion(_proxyVersionKey)
+                proxyResolverVersion = proxyResolver is not null && _proxyVersionSource is { } refreshedSource
+                    ? proxyResolver.GetSourceVersion(refreshedSource)
                     : 0;
 
                 Counter<MediaReader>? shared = null;
