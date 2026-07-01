@@ -146,6 +146,82 @@ public sealed class ProxyGenerationE2ETests
         });
     }
 
+    [Test]
+    public void FinalizeAsync_WhenRegisterKeepsThrowing_KeepsProxyFileAndSurfacesError()
+    {
+        string root = CreateRoot();
+        var store = new CountingStore(root, failuresBeforeSuccess: int.MaxValue);
+        var generator = new FFmpegProxyGenerator(store);
+        (string finalPath, ProxyEntry entry) = SeedFinalizedArtifact(root);
+
+        Assert.ThrowsAsync<InvalidOperationException>(async () => await generator.FinalizeAsync(finalPath, entry));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.Exists(finalPath), Is.True, "a finalized, valid proxy artifact must never be deleted on a Register failure");
+            Assert.That(File.Exists(Path.Combine(Path.GetDirectoryName(finalPath)!, "meta.json")), Is.True);
+            Assert.That(store.RegisterAttempts, Is.EqualTo(3), "Register must be retried before giving up");
+        });
+    }
+
+    [Test]
+    public async Task FinalizeAsync_RetriesTransientRegisterFailureThenSucceeds()
+    {
+        string root = CreateRoot();
+        var store = new CountingStore(root, failuresBeforeSuccess: 2);
+        var generator = new FFmpegProxyGenerator(store);
+        (string finalPath, ProxyEntry entry) = SeedFinalizedArtifact(root);
+
+        await generator.FinalizeAsync(finalPath, entry);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(store.RegisterAttempts, Is.EqualTo(3));
+            Assert.That(store.LastRegistered, Is.EqualTo(entry));
+            Assert.That(File.Exists(finalPath), Is.True);
+        });
+    }
+
+    [Test]
+    [TestCase(1920, 1080)]
+    [TestCase(1998, 1080)]
+    [TestCase(1280, 720)]
+    [TestCase(720, 1280)]
+    [TestCase(1440, 1080)]
+    [TestCase(4096, 2160)]
+    [TestCase(4000, 2000)]
+    public void CalculateProxySize_KeepsAspectRatioCloseToSource(int width, int height)
+    {
+        var source = new PixelSize(width, height);
+
+        PixelSize proxy = FFmpegProxyGenerator.CalculateProxySize(source, ProxyPreset.Half);
+
+        double sourceAspect = (double)width / height;
+        double proxyAspect = (double)proxy.Width / proxy.Height;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(proxy.Width % 2, Is.EqualTo(0));
+            Assert.That(proxy.Height % 2, Is.EqualTo(0));
+            Assert.That(proxy.Width, Is.GreaterThanOrEqualTo(2));
+            Assert.That(proxy.Height, Is.GreaterThanOrEqualTo(2));
+            Assert.That(Math.Abs(proxyAspect - sourceAspect), Is.LessThan(sourceAspect * 0.02));
+        });
+    }
+
+    private static (string FinalPath, ProxyEntry Entry) SeedFinalizedArtifact(string root)
+    {
+        string source = Path.Combine(root, "src.mov");
+        File.WriteAllBytes(source, [1, 2, 3, 4]);
+        ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(source);
+        string finalDir = Path.Combine(root, "hash");
+        Directory.CreateDirectory(finalDir);
+        string finalPath = Path.Combine(finalDir, "quarter.mp4");
+        File.WriteAllBytes(finalPath, [9, 9, 9, 9, 9]);
+        ProxyEntry entry = CreateEntry(fingerprint, ProxyPreset.Quarter, "hash/quarter.mp4");
+        return (finalPath, entry);
+    }
+
     private static string CreateRoot()
     {
         string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
@@ -166,5 +242,47 @@ public sealed class ProxyGenerationE2ETests
             DateTime.UtcNow,
             DateTime.UtcNow,
             null);
+    }
+
+    private sealed class CountingStore(string root, int failuresBeforeSuccess) : IProxyStore
+    {
+        public int RegisterAttempts { get; private set; }
+
+        public ProxyEntry? LastRegistered { get; private set; }
+
+        public string StoreRootPath => root;
+
+        public ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset) => null;
+
+        public IReadOnlyList<ProxyEntry> Enumerate() => [];
+
+        public void Register(ProxyEntry entry)
+        {
+            RegisterAttempts++;
+            if (RegisterAttempts <= failuresBeforeSuccess)
+                throw new InvalidOperationException("index locked");
+
+            LastRegistered = entry;
+        }
+
+        public bool TryTransition(ProxyFingerprint source, ProxyPreset preset, ProxyState newState, string? failureReason = null) => false;
+
+        public bool Delete(ProxyFingerprint source, ProxyPreset preset) => false;
+
+        public void Touch(ProxyFingerprint source, ProxyPreset preset, DateTime nowUtc)
+        {
+        }
+
+        public long GetTotalBytes() => 0;
+
+        public long GetTotalBytes(IReadOnlySet<string> sourceAbsolutePaths) => 0;
+
+        public Task FlushAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task ReconcileAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+#pragma warning disable CS0067 // Not exercised by these tests.
+        public event EventHandler<ProxyStoreChangedEventArgs>? Changed;
+#pragma warning restore CS0067
     }
 }

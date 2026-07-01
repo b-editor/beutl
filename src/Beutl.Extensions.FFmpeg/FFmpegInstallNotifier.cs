@@ -8,10 +8,18 @@ namespace Beutl.Extensions.FFmpeg;
 internal static class FFmpegInstallNotifier
 {
     private const long ThrottleMs = 10_000;
+
+    // After libraries are reported missing, skip fresh worker-start probes for this long, then allow
+    // a probe so a transient failure (momentary file lock, crashed worker) can self-recover without
+    // the user re-running the install wizard. A genuinely-missing install just re-arms the cooldown.
+    private const long ReprobeCooldownMs = 5_000;
     private static long s_lastNotifiedTicks;
+    private static long s_missingSinceTicks;
     private static volatile bool s_librariesMissing;
 
     public static bool IsLibrariesMissing => s_librariesMissing;
+
+    internal static long MissingSinceTicks => Interlocked.Read(ref s_missingSinceTicks);
 
     internal static event EventHandler? AvailabilityChanged;
 
@@ -49,6 +57,34 @@ internal static class FFmpegInstallNotifier
     public static void MarkMissing()
     {
         SetLibrariesMissing(true);
+        ArmReprobeCooldown();
+    }
+
+    // A worker process handshaked successfully, so FFmpeg loaded: clear any missing latch. This is
+    // the self-recovery path for a transient failure that had latched the queue.
+    internal static void NotifyWorkerStarted()
+    {
+        SetLibrariesMissing(false);
+    }
+
+    // Start the re-probe throttle window. Called only when a real worker-start attempt observed the
+    // libraries missing, so gate short-circuits (which never start a worker) cannot keep pushing the
+    // window forward and re-latch the queue.
+    internal static void ArmReprobeCooldown()
+    {
+        Interlocked.Exchange(ref s_missingSinceTicks, Environment.TickCount64);
+    }
+
+    // True while a fresh worker-start probe should be skipped (libraries reported missing and the
+    // re-probe cooldown has not elapsed). After the cooldown, callers should attempt a real start so
+    // the outcome re-probes actual FFmpeg availability instead of trusting the sticky flag.
+    internal static bool ShouldSkipStartProbe(long now)
+    {
+        if (!s_librariesMissing)
+            return false;
+
+        long since = Interlocked.Read(ref s_missingSinceTicks);
+        return since != 0 && now - since < ReprobeCooldownMs;
     }
 
     internal static void MarkVerificationStarted()
@@ -60,6 +96,9 @@ internal static class FFmpegInstallNotifier
     private static void SetLibrariesMissing(bool value, bool notify = true, bool notifyWhenUnchanged = false)
     {
         bool changed = s_librariesMissing != value;
+        if (!value)
+            Interlocked.Exchange(ref s_missingSinceTicks, 0);
+
         if (!changed && !notifyWhenUnchanged)
             return;
 
