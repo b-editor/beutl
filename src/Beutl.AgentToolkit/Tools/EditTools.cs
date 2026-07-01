@@ -63,6 +63,12 @@ public sealed record ApplyEditResponse(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     JsonObject? Document = null);
 
+public sealed record DuplicateObjectResponse(
+    bool Valid,
+    string ElementId,
+    string ObjectId,
+    IReadOnlyList<AppliedEntityId> CreatedIds);
+
 internal sealed record ResolvedEdit(JsonObject Document, HashSet<Guid> KnownNewIds);
 
 [McpServerToolType]
@@ -96,6 +102,35 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
             }
 
             return CreateApplyEditResponse(result, includeDocument, quiet);
+        });
+    }
+
+    [McpServerTool(Name = "duplicate_object")]
+    [Description("Duplicates one EngineObject (e.g. a Drawable) within its owning timeline Element.Objects, minting fresh Ids on every nested node, and returns the new object's Id. The copy is appended after the original (front-most within the Element), so applying an additive-blend look to the returned objectId layers an emissive glow over the untouched original — see get_effect_recipe \"additive-bloom\". Two plain drawables in one Element flag the evaluate_edit_quality elementStructure check unless wrapped in a DrawableGroup; duplicate then move the copy to a separate Element when you need independent timing or z-order.")]
+    public ToolResult<DuplicateObjectResponse> DuplicateObject(
+        [Description("Id of the object to duplicate. Must be an object inside some timeline Element.Objects (e.g. a drawable).")]
+        string objectId,
+        [Description("Optional owning Element Id to scope the search; omit to search every element for objectId.")]
+        string? elementId = null)
+    {
+        return Execute(() =>
+        {
+            IEditingSession session = sessions.RequireSession();
+            JsonObject desired = session.Documents.Read(session.Root);
+            (JsonObject element, JsonArray objects, JsonObject source) = FindObjectInElements(desired, objectId, elementId);
+
+            var clone = (JsonObject)source.DeepClone();
+            RemoveIds(clone);
+            var newId = Guid.NewGuid();
+            clone[nameof(CoreObject.Id)] = newId.ToString();
+            objects.Add(clone);
+
+            ReconcileResult result = _reconciler.Apply(session, desired, new HashSet<Guid> { newId });
+            return new DuplicateObjectResponse(
+                result.Plan.Valid,
+                ReadId(element) ?? string.Empty,
+                newId.ToString(),
+                CreateCreatedIdSummary(result.Plan));
         });
     }
 
@@ -513,5 +548,65 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
     {
         JsonNode? node = ReadNode(obj, name);
         return node?.GetValueKind() == JsonValueKind.Null ? null : node?.GetValue<int>();
+    }
+
+    private static (JsonObject Element, JsonArray Objects, JsonObject Source) FindObjectInElements(
+        JsonObject document,
+        string objectId,
+        string? elementId)
+    {
+        if (document["Elements"] is not JsonArray elements)
+        {
+            throw new InvalidOperationException("The current scene document does not contain an Elements array.");
+        }
+
+        foreach (JsonNode? elementNode in elements)
+        {
+            if (elementNode is not JsonObject element
+                || (elementId is not null && ReadId(element) != elementId)
+                || element["Objects"] is not JsonArray objects)
+            {
+                continue;
+            }
+
+            foreach (JsonNode? objectNode in objects)
+            {
+                if (objectNode is JsonObject source && ReadId(source) == objectId)
+                {
+                    return (element, objects, source);
+                }
+            }
+        }
+
+        throw new ReconcileException(new ToolError(
+            ErrorCode.StaleHandle,
+            $"No object with Id '{objectId}' exists in a timeline element.",
+            objectId));
+    }
+
+    private static string? ReadId(JsonObject obj)
+    {
+        return obj.TryGetPropertyValue(nameof(CoreObject.Id), out JsonNode? node)
+            ? node?.GetValue<string>()
+            : null;
+    }
+
+    private static void RemoveIds(JsonNode? node)
+    {
+        if (node is JsonObject obj)
+        {
+            obj.Remove(nameof(CoreObject.Id));
+            foreach (JsonNode? child in obj.Select(pair => pair.Value).ToArray())
+            {
+                RemoveIds(child);
+            }
+        }
+        else if (node is JsonArray array)
+        {
+            foreach (JsonNode? child in array.ToArray())
+            {
+                RemoveIds(child);
+            }
+        }
     }
 }

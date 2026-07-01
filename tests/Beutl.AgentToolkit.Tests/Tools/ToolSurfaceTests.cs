@@ -45,6 +45,7 @@ public sealed class ToolSurfaceTests
                 "measure_object_bounds",
                 "read_document",
                 "apply_edit",
+                "duplicate_object",
                 "plan_composition",
                 "apply_composition",
                 "render_still",

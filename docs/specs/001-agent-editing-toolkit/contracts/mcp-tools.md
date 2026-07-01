@@ -119,6 +119,13 @@ Commit a declarative change atomically and undoably (FR-007/FR-012/FR-015/FR-028
 - **Errors**: `no_active_editor_session`, `validation_rejected` (whole batch rolled back), `stale_handle`, `schema_version_mismatch`.
 - **Backed by**: reconcile on the live root inside `HistoryManager.ExecuteInTransaction` (commits on success, **rolls back on any mid-reconcile exception** — a bare `Commit` would leave partial live mutations, breaking FR-012).
 
+### `duplicate_object`
+Duplicate one `EngineObject` (e.g. a Drawable) within its owning `Element.Objects`, minting **fresh `Id`s on every nested node**, and return the new object's `Id` (FR-011/FR-012). A convenience over hand-authoring the copy in `apply_edit`: it deep-clones the target, strips every `Id` so the reconciler mints new ones, appends the copy after the original (front-most within the Element), and commits through the same reconcile/`HistoryManager` transaction.
+- **Input**: `{ "objectId": string, "elementId"?: string }`. `objectId` is the `CoreObject.Id` of an object inside some `Element.Objects`; `elementId` optionally scopes the search to one element.
+- **Output**: `{ "valid": bool, "elementId": string, "objectId": string, "createdIds": [ { id, path, type?, name? } ] }`. `objectId` is the new copy's `Id`; `createdIds` covers the copy and its minted descendants.
+- **Use when**: building a layered look that needs a second copy of a drawable — e.g. an additive emissive glow: duplicate the drawable, then `apply_edit` the `additive-bloom` recipe (blur + `BlendMode` `Plus` + reduced `Opacity`) onto the returned `objectId` so the copy adds light over the untouched original. Two plain drawables in one Element trip the `evaluate_edit_quality` `elementStructure` check unless wrapped in a `DrawableGroup`; move the copy to a separate Element (higher `ZIndex`) when it needs independent timing or z-order.
+- **Errors**: `no_active_editor_session`, `stale_handle` (unknown `objectId`, or `objectId` not found under `elementId`), `validation_rejected`, `schema_version_mismatch`.
+
 ### `apply_composition`
 Apply a Remotion-style composition atomically without sending the generated patch through the client.
 - **Input**: same as `plan_composition`, plus `"expectedChangeSet"?` (optional — pass `plan_composition.plan.expectedChangeSet`; reject if the live diff diverges).
@@ -128,7 +135,7 @@ Apply a Remotion-style composition atomically without sending the generated patc
 
 ## Editing Surface
 
-Element, property, transform, geometry, pen, brush, visual effect, audio effect, structure, and keyframe changes are edited through the declarative `apply_edit` document surface. Keyframes live under `Animations.<Property>.KeyFrames`; brushes are assigned to properties such as `Fill` and carry nested `GradientStops`; filter effects are assigned through `FilterEffect` / `FilterEffect.Children`; audio effects are assigned through `Effect` / `AudioEffectGroup.Children`; transforms, geometry, and pens are ordinary typed properties. Targeted changes should use `patch`; full `desired` documents are authoritative and can delete omitted child arrays such as `Elements` or `Objects`. There are no public imperative edit tools for keyframes, properties, elements, effects, undo, or redo; undo/redo stays on the editor/session history used by Beutl itself.
+Element, property, transform, geometry, pen, brush, visual effect, audio effect, structure, and keyframe changes are edited through the declarative `apply_edit` document surface. Keyframes live under `Animations.<Property>.KeyFrames`; brushes are assigned to properties such as `Fill` and carry nested `GradientStops`; filter effects are assigned through `FilterEffect` / `FilterEffect.Children`; audio effects are assigned through `Effect` / `AudioEffectGroup.Children`; transforms, geometry, and pens are ordinary typed properties. Targeted changes should use `patch`; full `desired` documents are authoritative and can delete omitted child arrays such as `Elements` or `Objects`. The only convenience mutator outside `apply_edit` is `duplicate_object` (a declarative shortcut for id-safe object cloning that still commits through the reconcile/`HistoryManager` pipeline); there are otherwise no public imperative edit tools for keyframes, properties, elements, effects, undo, or redo; undo/redo stays on the editor/session history used by Beutl itself.
 
 ## Render & export
 

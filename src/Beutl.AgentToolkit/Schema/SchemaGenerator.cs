@@ -700,6 +700,18 @@ public sealed class SchemaGenerator
                     CreateDropShadow(0, 0, 14, "#66496a74"),
                     CreateBrightness(106))),
             CreateEffectRecipe(
+                "additive-bloom",
+                "Additive emissive bloom for a DUPLICATED drawable copy: soft blur + Plus (additive) blend + reduced opacity so the copy adds light over the untouched original for a true glow, not a drop-shadow fake.",
+                ["glow", "bloom", "additive", "emissive", "duplicate"],
+                CreateFilterEffectGroup(
+                    CreateBlur(14),
+                    CreateBrightness(115)),
+                blendMode: BlendMode.Plus,
+                opacity: 60f,
+                "Apply to a COPY, never the original: call duplicate_object on the source drawable to get a fresh objectId (the copy is appended in front within the same Element), then apply this patch's <element-id>/<drawable-id> against that new object so the additive layer glows over the untouched original.",
+                "Lower Opacity (e.g. 35-50) or switch BlendMode to Screen (14) for bright footage that blows out; BlendMode 12 is Plus (additive).",
+                "Two plain drawables in one Element flag the evaluate_edit_quality elementStructure check unless wrapped in a DrawableGroup."),
+            CreateEffectRecipe(
                 "soft-paper-depth",
                 "Subtle paper/editorial depth chain that avoids heavy card shadows.",
                 ["paper", "editorial", "subtle", "depth"],
@@ -790,6 +802,28 @@ public sealed class SchemaGenerator
         return new EffectRecipeSpec(
             new EffectRecipeSummary(name, description, tags.ToArray(), effectNames, notes),
             CreateEffectPatch(effects));
+    }
+
+    private static EffectRecipeSpec CreateEffectRecipe(
+        string name,
+        string description,
+        IReadOnlyList<string> tags,
+        FilterEffectGroup effects,
+        BlendMode? blendMode,
+        float? opacity,
+        params string[] extraNotes)
+    {
+        string[] effectNames = effects.Children
+            .Select(effect => effect.GetType().Name)
+            .ToArray();
+        string[] notes = effectNames
+            .SelectMany(effectName => GetEffectMetadataByName(effectName).Notes)
+            .Concat(extraNotes)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        return new EffectRecipeSpec(
+            new EffectRecipeSummary(name, description, tags.ToArray(), effectNames, notes),
+            CreateEffectPatch(effects, blendMode, opacity));
     }
 
     private static EffectRecipeSpec CreateSingleEffectRecipe(Type type)
@@ -980,16 +1014,33 @@ public sealed class SchemaGenerator
 
     private static JsonObject CreateEffectPatch(FilterEffectGroup effects)
     {
+        return CreateEffectPatch(effects, blendMode: null, opacity: null);
+    }
+
+    private static JsonObject CreateEffectPatch(FilterEffectGroup effects, BlendMode? blendMode, float? opacity)
+    {
+        var drawable = new JsonObject
+        {
+            [nameof(CoreObject.Id)] = "<drawable-id>",
+            [nameof(Drawable.FilterEffect)] = SerializeExampleObject(effects)
+        };
+
+        if (blendMode is { } mode)
+        {
+            drawable[nameof(Drawable.BlendMode)] = (int)mode;
+        }
+
+        if (opacity is { } value)
+        {
+            drawable[nameof(Drawable.Opacity)] = value;
+        }
+
         return new JsonObject
         {
             ["Elements"] = new JsonArray(new JsonObject
             {
                 [nameof(CoreObject.Id)] = "<element-id>",
-                [nameof(Element.Objects)] = new JsonArray(new JsonObject
-                {
-                    [nameof(CoreObject.Id)] = "<drawable-id>",
-                    [nameof(Drawable.FilterEffect)] = SerializeExampleObject(effects)
-                })
+                [nameof(Element.Objects)] = new JsonArray(drawable)
             })
         };
     }
