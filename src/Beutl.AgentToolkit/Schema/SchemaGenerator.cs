@@ -708,9 +708,9 @@ public sealed class SchemaGenerator
                     CreateBrightness(115)),
                 blendMode: BlendMode.Plus,
                 opacity: 60f,
-                "Apply to a COPY, never the original: call duplicate_object on the source drawable to get a fresh objectId (the copy is appended in front within the same Element), then apply this patch's <element-id>/<drawable-id> against that new object so the additive layer glows over the untouched original.",
+                "Apply to a COPY, never the original: call duplicate_object on the source drawable with wrapInGroup=true to get a fresh objectId inside a DrawableGroup, then apply this patch's <element-id>/<drawable-id> against that new object so the additive layer glows over the untouched original while staying gate-clean.",
                 "Lower Opacity (e.g. 35-50) or switch BlendMode to Screen (14) for bright footage that blows out; BlendMode 12 is Plus (additive).",
-                "Two plain drawables in one Element flag the evaluate_edit_quality elementStructure check unless wrapped in a DrawableGroup."),
+                "Do not duplicate into two plain drawables: wrapInGroup=true makes the Element contain an IFlowOperator, avoiding the evaluate_edit_quality elementStructure Major issue."),
             CreateEffectRecipe(
                 "soft-paper-depth",
                 "Subtle paper/editorial depth chain that avoids heavy card shadows.",
