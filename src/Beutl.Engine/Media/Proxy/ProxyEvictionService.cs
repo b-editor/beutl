@@ -1,4 +1,7 @@
-﻿namespace Beutl.Media.Proxy;
+﻿using Beutl.Engine;
+using Beutl.IO;
+
+namespace Beutl.Media.Proxy;
 
 public sealed class ProxyEvictionService
 {
@@ -40,7 +43,7 @@ public sealed class ProxyEvictionService
     /// </summary>
     public ProxyEvictionResult Sweep()
     {
-        return EvictAndNotify(CapOverage(), diskShortfall: 0);
+        return EvictAndNotify(CapOverage(), diskShortfall: 0, notify: true);
     }
 
     /// <summary>
@@ -54,11 +57,17 @@ public sealed class ProxyEvictionService
     /// Extra free space required on top of the configured headroom (e.g. an estimate
     /// of the job's output size). Must be non-negative.
     /// </param>
-    public ProxyEvictionResult SweepForDiskPressure(long additionalBytesNeeded = 0)
+    /// <param name="notify">
+    /// When <see langword="false"/>, evictions performed by this sweep are not reported
+    /// through the notification callback. The routine pre-job disk-pressure path passes
+    /// <see langword="false"/> so it does not spam the user; the cap-overage <see cref="Sweep"/>
+    /// path notifies instead.
+    /// </param>
+    public ProxyEvictionResult SweepForDiskPressure(long additionalBytesNeeded = 0, bool notify = true)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(additionalBytesNeeded);
 
-        return EvictAndNotify(CapOverage(), DiskShortfall(additionalBytesNeeded));
+        return EvictAndNotify(CapOverage(), DiskShortfall(additionalBytesNeeded), notify);
     }
 
     private long CapOverage()
@@ -75,10 +84,10 @@ public sealed class ProxyEvictionService
         return Math.Max(0, target - available);
     }
 
-    private ProxyEvictionResult EvictAndNotify(long capOverage, long diskShortfall)
+    private ProxyEvictionResult EvictAndNotify(long capOverage, long diskShortfall, bool notify)
     {
         ProxyEvictionResult result = Evict(capOverage, diskShortfall);
-        if (result.RemovedCount > 0)
+        if (notify && result.RemovedCount > 0)
             _notify?.Invoke(result);
 
         return result;
@@ -170,7 +179,7 @@ public sealed class ProxyEvictionService
 
             try
             {
-                normalized.Add(ProxyFingerprint.NormalizeAbsolutePath(path));
+                normalized.Add(ResolveComparablePath(path));
             }
             catch
             {
@@ -179,6 +188,68 @@ public sealed class ProxyEvictionService
         }
 
         return normalized;
+    }
+
+    private static string ResolveComparablePath(string path)
+    {
+        // Store entries key their source through ProxyFingerprint.FromFile, which resolves the
+        // final symlink target before normalizing. Protected paths must take the same route or a
+        // source referenced via a symlink will not match its own entry and stays unprotected.
+        if (ProxyFingerprint.TryFromFile(path, out ProxyFingerprint fingerprint))
+            return fingerprint.AbsolutePath;
+
+        // Source missing on disk (e.g. offline media): fall back to plain normalization so
+        // non-symlinked entries still match.
+        return ProxyFingerprint.NormalizeAbsolutePath(path);
+    }
+
+    /// <summary>
+    /// Collects the file-system paths of every <see cref="IFileSource"/> referenced anywhere in
+    /// <paramref name="root"/>, regardless of whether each file lives inside or outside the project
+    /// directory. This is the input the eviction service protects, so it must cover in-project media
+    /// too — otherwise a project whose media lives under its own folder gets no affinity protection.
+    /// </summary>
+    internal static IReadOnlySet<string> CollectProjectFileSources(IHierarchical root)
+    {
+        ArgumentNullException.ThrowIfNull(root);
+
+        var paths = new HashSet<string>(StringComparer.Ordinal);
+        foreach (CoreObject obj in root.EnumerateAllChildren<CoreObject>())
+            CollectFileSourcePaths(obj, paths);
+
+        if (root is CoreObject rootObj)
+            CollectFileSourcePaths(rootObj, paths);
+
+        return paths;
+    }
+
+    private static void CollectFileSourcePaths(CoreObject obj, HashSet<string> paths)
+    {
+        if (obj is EngineObject engineObj)
+        {
+            foreach (IProperty property in engineObj.Properties)
+            {
+                if (property.CurrentValue is IFileSource fileSource)
+                    AddFileSourcePath(fileSource.Uri, paths);
+            }
+        }
+
+        AddFileSourcePath(obj.Uri, paths);
+
+        foreach (CoreProperty prop in PropertyRegistry.GetRegistered(obj.GetType()))
+        {
+            if (prop.PropertyType.IsValueType)
+                continue;
+
+            if (obj.GetValue(prop) is IFileSource fileSource)
+                AddFileSourcePath(fileSource.Uri, paths);
+        }
+    }
+
+    private static void AddFileSourcePath(Uri? uri, HashSet<string> paths)
+    {
+        if (uri is { IsFile: true })
+            paths.Add(uri.LocalPath);
     }
 
     private long? GetAvailableFreeSpace(string storeRootPath)
