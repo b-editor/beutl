@@ -1,4 +1,5 @@
-﻿using Beutl.Extensions.FFmpeg.Decoding;
+﻿using Beutl.Extensions.FFmpeg;
+using Beutl.Extensions.FFmpeg.Decoding;
 using Beutl.Media.Decoding;
 
 namespace Beutl.FFmpegIpc.Tests;
@@ -17,8 +18,11 @@ namespace Beutl.FFmpegIpc.Tests;
 /// </para>
 /// <para>
 /// The worker binary is copied into the test output by the <c>CopyWorkerBinary</c> MSBuild target
-/// (no compile-closure reference to the GPL project). When the worker binary or its FFmpeg natives
-/// are unavailable (e.g. CI without FFmpeg), the test self-skips via <see cref="Assert.Ignore(string)"/>.
+/// (no compile-closure reference to the GPL project). Only a genuinely unavailable prerequisite
+/// self-skips: a missing worker binary, or a worker that exits because the FFmpeg natives are absent
+/// (surfaced as <see cref="FFmpegLibrariesNotFoundException"/>). Once the worker has started with its
+/// natives loaded, any failure to open the fixture is a real worker/proxy regression and fails the
+/// test rather than being masked as "unavailable".
 /// </para>
 /// </summary>
 [TestFixture, NonParallelizable]
@@ -57,28 +61,38 @@ public class FFmpegReaderProxyReadVideoContractTests
                 "FFmpeg worker binary not present in the test output; skipping the process-level contract test.");
         }
 
-        var decoderInfo = new FFmpegDecoderInfo(new FFmpegDecodingSettings());
-
-        // Open spawns the worker over IPC and returns the FFmpegReaderProxy. A null result means the
-        // worker could not start (binary missing or FFmpeg natives absent) -> self-skip on CI.
-        using MediaReader? reader = decoderInfo.Open(_audioOnlyPath, new MediaOptions(MediaMode.AudioVideo));
-        if (reader is null)
+        // Native-availability probe kept separate from the contract call: the worker loads the FFmpeg
+        // natives at startup and only completes the IPC handshake when they are present (otherwise it
+        // exits and EnsureStarted surfaces FFmpegLibrariesNotFoundException). Skipping only on that
+        // exception means a later null from Open — the worker is up, natives loaded — is a real
+        // OpenFile/proxy regression that must fail the test, not be masked as "unavailable".
+        try
+        {
+            FFmpegWorkerProcess.DecodingInstance.EnsureStarted();
+        }
+        catch (FFmpegLibrariesNotFoundException ex)
         {
             Assert.Ignore(
-                "FFmpeg worker/natives unavailable (could not open the audio fixture); skipping the process-level contract test.");
-            return;
+                $"FFmpeg natives unavailable ({ex.Message}); skipping the process-level contract test.");
         }
+
+        var decoderInfo = new FFmpegDecoderInfo(new FFmpegDecodingSettings());
+
+        using MediaReader? reader = decoderInfo.Open(_audioOnlyPath, new MediaOptions(MediaMode.AudioVideo));
+        Assert.That(
+            reader, Is.Not.Null,
+            "the worker started with FFmpeg natives loaded, so Open must succeed; a null result is a real OpenFile/proxy regression, not an unavailable prerequisite");
 
         // Sanity: the fixture must be audio-only, so the reader exercises the HandleReadVideo
         // audio-only error branch (not the "unknown reader" or ring-buffer paths).
         Assert.Multiple(() =>
         {
-            Assert.That(reader.HasAudio, Is.True, "the WAV fixture must expose an audio stream");
+            Assert.That(reader!.HasAudio, Is.True, "the WAV fixture must expose an audio stream");
             Assert.That(reader.HasVideo, Is.False, "the WAV fixture must be audio-only (no video stream)");
         });
 
         Assert.That(
-            () => reader.ReadVideo(0, out _),
+            () => reader!.ReadVideo(0, out _),
             Throws.TypeOf<FFmpegWorkerException>(),
             "ReadVideo on an audio-only reader must surface the worker's CreateError as a thrown FFmpegWorkerException, not a silent false");
     }
