@@ -103,6 +103,10 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
     // opinions use this so they surface as guidance without blocking export.
     private const string Advisory = Minor;
 
+    // A deviation the brief explicitly opted into is guidance, not an accident: Advisory
+    // instead of a gate-failing Major. An unsignalled deviation still blocks.
+    private static string IntentSeverity(bool intentPresent) => intentPresent ? Advisory : Major;
+
     public async ValueTask<QualityReviewResponse> AnalyzeAsync(
         Scene scene,
         IReadOnlyList<TimeSpan>? timeSeconds,
@@ -113,6 +117,10 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         bool allowHardCuts,
         bool allowRectDominance,
         bool relaxAesthetics,
+        bool allowStillness,
+        bool allowDenseText,
+        bool allowMultiObjectElements,
+        bool allowMonochrome,
         bool evaluateMotion,
         CancellationToken cancellationToken)
     {
@@ -127,12 +135,12 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         List<QualityIssue> issues = [];
         TypographyMetrics typography = AnalyzeTypography(objects, allowAllCaps, issues);
         ShapeDiversityMetrics shapeDiversity = AnalyzeShapeDiversity(scene, objects, relaxRectDominance, relaxAesthetics, issues);
-        StructureMetrics structure = AnalyzeStructure(scene, objects, issues);
+        StructureMetrics structure = AnalyzeStructure(scene, objects, allowMultiObjectElements, issues);
         int textPlateMismatchCount = AnalyzeTextBackgroundFit(scene, objects, issues);
         typography = typography with { TextPlateMismatchCount = textPlateMismatchCount };
-        PaletteMetrics palette = AnalyzePalette(scene, objects, issues);
+        PaletteMetrics palette = AnalyzePalette(scene, objects, allowMonochrome, issues);
         AnalyzeMaterialUiLook(objects, relaxAesthetics, issues);
-        AnalyzeDesignStructure(scene, objects, styleProfile, issues);
+        AnalyzeDesignStructure(scene, objects, styleProfile, allowDenseText, issues);
         TempoMetrics tempo = AnalyzeTempo(scene, objects, styleProfile, relaxAesthetics, issues);
         MotionContinuityMetrics motion = await AnalyzeMotionAsync(
             scene,
@@ -142,6 +150,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
             renderScale,
             relaxHardCuts,
             relaxAesthetics,
+            allowStillness,
             evaluateMotion,
             issues,
             cancellationToken).ConfigureAwait(false);
@@ -229,6 +238,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         Scene scene,
         IReadOnlyList<SceneObjectInfo> objects,
         string? styleProfile,
+        bool allowDenseText,
         List<QualityIssue> issues)
     {
         bool highTempoProfile = IsHighTempoProfile(styleProfile);
@@ -263,14 +273,17 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
             if (durationSeconds is > 0 and < 2.0
                 && (wordCount > maxWords || characterCount > maxCharacters))
             {
+                bool readIntent = allowDenseText || HasReadingIntent(info);
                 issues.Add(CreateIssue(
                     "typographyReadTime",
-                    Major,
+                    IntentSeverity(readIntent),
                     "A short-lived text element contains more copy than viewers can reliably read.",
                     $"Text '{Shorten(text)}' has {wordCount} words / {characterCount} non-space characters over {durationSeconds:F2}s.",
-                    highTempoProfile
-                        ? "For 1.5s kinetic beats, keep hero text to 1-3 words and supporting labels to 2-4 words or compact tokens."
-                        : "Shorten the copy, split it across beats, or keep it on screen longer with a calmer entrance/exit.",
+                    readIntent
+                        ? "Intentional dense/long copy is allowed; confirm the copy is legible at playback size, or hold it longer for comfort."
+                        : highTempoProfile
+                            ? "For 1.5s kinetic beats, keep hero text to 1-3 words and supporting labels to 2-4 words or compact tokens."
+                            : "Shorten the copy, split it across beats, or keep it on screen longer with a calmer entrance/exit.",
                     info,
                     info.Element.Start.ToString("c")));
             }
@@ -298,6 +311,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
     private static StructureMetrics AnalyzeStructure(
         Scene scene,
         IReadOnlyList<SceneObjectInfo> objects,
+        bool allowMultiObjectElements,
         List<QualityIssue> issues)
     {
         Element[] multiObjectElements = scene.Children
@@ -310,21 +324,15 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
             .Where(element => element.Objects.All(obj => obj is not IFlowOperator))
             .ToArray();
 
-        if (nonFlowMultiObjectElements.Length > 0)
-        {
-            issues.Add(new QualityIssue(
-                "elementStructure",
-                Major,
-                "A timeline Element contains multiple EngineObject entries without an IFlowOperator.",
-                $"{nonFlowMultiObjectElements.Length} Elements contain multiple Objects but no DrawableGroup, DrawableDecorator, SoundGroup, Scene3D, or other IFlowOperator.",
-                "Split ordinary content so each Element owns one EngineObject. Keep multiple Objects in one Element only when the Element contains an IFlowOperator flow object.",
-                null,
-                nonFlowMultiObjectElements.Select(element => element.Id.ToString()).ToArray(),
-                nonFlowMultiObjectElements
-                    .SelectMany(element => element.Objects)
-                    .Select(obj => obj.Id.ToString())
-                    .ToArray()));
-        }
+        Element[] accidentalMultiObjectElements = allowMultiObjectElements
+            ? []
+            : nonFlowMultiObjectElements.Where(element => !HasCompositeIntent(element)).ToArray();
+        Element[] intendedMultiObjectElements = nonFlowMultiObjectElements
+            .Except(accidentalMultiObjectElements)
+            .ToArray();
+
+        AddElementStructureIssue(accidentalMultiObjectElements, Major, issues);
+        AddElementStructureIssue(intendedMultiObjectElements, Advisory, issues);
 
         SceneObjectInfo[] unclearShapes = objects
             .Where(item => item.Object is Shape)
@@ -371,6 +379,32 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
             flowMultiObjectElements.Length,
             unclearShapes.Length,
             animatedShapesWithoutMotionIntent.Length);
+    }
+
+    private static void AddElementStructureIssue(
+        Element[] elements,
+        string severity,
+        List<QualityIssue> issues)
+    {
+        if (elements.Length == 0)
+        {
+            return;
+        }
+
+        issues.Add(new QualityIssue(
+            "elementStructure",
+            severity,
+            "A timeline Element contains multiple EngineObject entries without an IFlowOperator.",
+            $"{elements.Length} Elements contain multiple Objects but no DrawableGroup, DrawableDecorator, SoundGroup, Scene3D, or other IFlowOperator.",
+            severity == Advisory
+                ? "Intentional composite Element is allowed; keep the grouped Objects together only if they truly move as one, otherwise split them or wrap them in an IFlowOperator flow object."
+                : "Split ordinary content so each Element owns one EngineObject. Keep multiple Objects in one Element only when the Element contains an IFlowOperator flow object, or tag the Element [role:composite] if the grouping is intentional.",
+            null,
+            elements.Select(element => element.Id.ToString()).ToArray(),
+            elements
+                .SelectMany(element => element.Objects)
+                .Select(obj => obj.Id.ToString())
+                .ToArray()));
     }
 
     private static TempoMetrics AnalyzeTempo(
@@ -620,6 +654,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
     private static PaletteMetrics AnalyzePalette(
         Scene scene,
         IReadOnlyList<SceneObjectInfo> objects,
+        bool allowMonochrome,
         List<QualityIssue> issues)
     {
         Color[] colors = objects
@@ -672,7 +707,8 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
                 []));
         }
 
-        if (lowContrast)
+        bool monochromeIntent = allowMonochrome || AnyMonochromeIntent(objects);
+        if (lowContrast && !monochromeIntent)
         {
             issues.Add(new QualityIssue(
                 "paletteHarmony",
@@ -738,6 +774,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         float renderScale,
         bool allowHardCuts,
         bool relaxShortSegments,
+        bool allowStillness,
         bool evaluateMotion,
         List<QualityIssue> issues,
         CancellationToken cancellationToken)
@@ -794,14 +831,17 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
 
         if (!motion.PassesMinimumMotion)
         {
+            bool stillnessIntent = allowStillness || AnyStillnessIntent(objects);
             issues.Add(new QualityIssue(
                 "motionContinuity",
-                Major,
+                IntentSeverity(stillnessIntent),
                 motion.Verdict == "low-motion-variation"
                     ? "Rendered samples have too little temporal change."
                     : "Rendered samples keep visible content too sparse or confined.",
                 $"Motion verdict {motion.Verdict}; minimum changed-pixel ratio {motion.MinimumChangedPixelRatio:P2}.",
-                "Revise with connected phase changes across transform, opacity, brush/effect parameters, and foreground/background motion before export.",
+                stillnessIntent
+                    ? "Intentional stillness/held frame is allowed; confirm the held composition reads as deliberate (negative space, single focal point) rather than a stalled render."
+                    : "Revise with connected phase changes across transform, opacity, brush/effect parameters, and foreground/background motion before export.",
                 null,
                 scene.Children.Select(element => element.Id.ToString()).ToArray(),
                 []));
@@ -966,6 +1006,42 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         return HasRole(info, "motion", "decorative", "transition", "rhythm", "accent", "texture")
                || ContainsMotionToken(info.Element.Name)
                || ContainsMotionToken(info.Object.Name);
+    }
+
+    private static bool AnyStillnessIntent(IReadOnlyList<SceneObjectInfo> objects)
+        => objects.Any(HasStillnessIntent);
+
+    private static bool HasStillnessIntent(SceneObjectInfo info)
+    {
+        return HasRole(info, "still", "stillness", "hold", "static", "freeze", "negative-space", "poster", "minimal")
+               || ContainsAny(info.Element.Name, "stillness", "hold frame", "held frame", "freeze frame", "negative space", "static hold", "poster frame", "held still")
+               || ContainsAny(info.Object.Name, "stillness", "hold frame", "held frame", "freeze frame", "negative space", "static hold", "poster frame", "held still");
+    }
+
+    private static bool HasReadingIntent(SceneObjectInfo info)
+    {
+        return HasRole(info, "reading", "long-read", "dense-copy", "body-copy", "manifesto", "credits", "legal", "paragraph")
+               || ContainsAny(info.Element.Name, "manifesto", "credits", "legal", "long read", "long-read", "dense copy", "reading block", "paragraph")
+               || ContainsAny(info.Object.Name, "manifesto", "credits", "legal", "long read", "long-read", "dense copy", "reading block", "paragraph");
+    }
+
+    private static bool HasCompositeIntent(Element element)
+    {
+        return HasRole(element.Name, "composite")
+               || HasRole(element.Name, "layered")
+               || HasRole(element.Name, "grouped")
+               || HasRole(element.Name, "flow")
+               || ContainsAny(element.Name, "composite element", "layered stack", "grouped layers");
+    }
+
+    private static bool AnyMonochromeIntent(IReadOnlyList<SceneObjectInfo> objects)
+        => objects.Any(HasMonochromeIntent);
+
+    private static bool HasMonochromeIntent(SceneObjectInfo info)
+    {
+        return HasRole(info, "monochrome", "monochromatic", "low-contrast", "grayscale", "greyscale", "tonal", "duotone")
+               || ContainsAny(info.Element.Name, "monochrome", "monochromatic", "low contrast", "low-contrast", "grayscale", "greyscale", "tonal", "duotone")
+               || ContainsAny(info.Object.Name, "monochrome", "monochromatic", "low contrast", "low-contrast", "grayscale", "greyscale", "tonal", "duotone");
     }
 
     private static bool IsAmbiguousDecorativeShape(SceneObjectInfo info)

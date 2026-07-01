@@ -173,7 +173,7 @@ public sealed class RenderTools(
     }
 
     [McpServerTool(Name = "evaluate_edit_quality")]
-    [Description("Reviews the current scene for deterministic AI-editing quality risks: all-caps typography, visual hierarchy overload, short text read time, RectShape overuse, ambiguous decorative light shapes, hard gradient falloff, unclear foreground shapes, missing motion intent, invalid multi-object Element structure, high-tempo rhythm density/gaps, text backing alignment, palette problems, arbitrary dense effect stacks, dated card/shadow styling, low motion continuity, and chopped-up cut rhythm. Run after render_still and evaluate_motion_variation; resolve critical/major issues before export_video.")]
+    [Description("Reviews the current scene for deterministic AI-editing quality risks: all-caps typography, visual hierarchy overload, short text read time, RectShape overuse, ambiguous decorative light shapes, hard gradient falloff, unclear foreground shapes, missing motion intent, invalid multi-object Element structure, high-tempo rhythm density/gaps, text backing alignment, palette problems, arbitrary dense effect stacks, dated card/shadow styling, low motion continuity, and chopped-up cut rhythm. Run after render_still and evaluate_motion_variation; resolve critical/major issues before export_video. Only three checks can fail the gate (short read time, multi-object Element structure, low motion continuity); a deliberate, brief-justified deviation is allowed and downgraded to advisory via its intent flag (allowStillness, allowDenseText, allowMultiObjectElements, allowMonochrome) or an equivalent [role:...] tag on the element, so the gate blocks likely accidents, not intentional creative choices.")]
     public ValueTask<ToolResult<QualityReviewResponse>> EvaluateEditQuality(
         [Description("Optional explicit scene times in seconds for rendered motion checks. When omitted, samples evenly across the scene duration.")]
         double[]? timeSeconds = null,
@@ -183,14 +183,22 @@ public sealed class RenderTools(
         float renderScale = 1,
         [Description("Optional profile label recorded in the review notes, such as draft, editorial, kinetic-type, or minimal.")]
         string? styleProfile = null,
-        [Description("When true, long all-caps text is downgraded from major to minor instead of blocking the quality gate.")]
+        [Description("When true, tailors the intentional all-caps suggested fix. All-caps typography is already advisory (it never blocks the gate); this flag adjusts guidance, not severity.")]
         bool allowAllCaps = false,
-        [Description("When true, repeated hard-cut-like timing boundaries are not treated as major quality issues.")]
+        [Description("When true, suppresses the repeated hard-cut cadence advisory. Hard cuts are already advisory (they never block the gate); this flag removes the note.")]
         bool allowHardCuts = false,
-        [Description("When true, non-background RectShape dominance is not treated as a major quality issue.")]
+        [Description("When true, suppresses the non-background RectShape-dominance advisory. Rect dominance is already advisory (it never blocks the gate).")]
         bool allowRectDominance = false,
         [Description("When true, relax the non-blocking aesthetic and pacing advisories in one switch (ambiguous decorative shapes, Material-UI card look, RectShape dominance, hard cuts, and high-tempo long-hold/short-segment pacing), so expressive shape-rich or kinetic-typography briefs are not nudged toward a plainer look. Blocking checks (read time, element structure, motion) are unaffected.")]
         bool relaxAesthetics = false,
+        [Description("When true, deliberate stillness / held-frame / negative-space composition is allowed: the low motion-continuity blocker is downgraded from major to advisory instead of failing the gate. Tagging an element/object [role:still] (or naming it 'hold frame', 'negative space', etc.) opts in the same way without this flag.")]
+        bool allowStillness = false,
+        [Description("When true, brief-justified dense or long copy on a short-lived text element is allowed: the read-time blocker is downgraded from major to advisory. Tagging the text [role:reading]/[role:manifesto]/[role:credits] (or so naming it) opts in the same way without this flag.")]
+        bool allowDenseText = false,
+        [Description("When true, an intentional composite Element holding multiple EngineObjects without an IFlowOperator is allowed: the element-structure blocker is downgraded from major to advisory. Tagging the Element [role:composite] opts in the same way without this flag.")]
+        bool allowMultiObjectElements = false,
+        [Description("When true, an intentional monochrome / low-contrast palette is allowed: the low luma-separation advisory is suppressed. Tagging an element/object [role:monochrome]/[role:low-contrast] (or so naming it) opts in the same way without this flag.")]
+        bool allowMonochrome = false,
         [Description("When true, treats the scene as a static layout and skips rendered motion checks.")]
         bool staticLayout = false,
         CancellationToken cancellationToken = default)
@@ -214,6 +222,10 @@ public sealed class RenderTools(
                 allowHardCuts,
                 allowRectDominance,
                 relaxAesthetics,
+                allowStillness,
+                allowDenseText,
+                allowMultiObjectElements,
+                allowMonochrome,
                 evaluateMotion: !staticLayout,
                 cancellationToken).ConfigureAwait(false);
         });
@@ -224,14 +236,22 @@ public sealed class RenderTools(
     public ValueTask<ToolResult<QualityReviewResponse>> PreviewQualityRisks(
         [Description("Optional profile label recorded in the review notes, such as kinetic-type, high-tempo-promo, editorial, or minimal.")]
         string? styleProfile = "preview-risks",
-        [Description("When true, long all-caps text is downgraded from major to minor instead of blocking the quality gate.")]
+        [Description("When true, tailors the intentional all-caps suggested fix. All-caps typography is already advisory (it never blocks the gate); this flag adjusts guidance, not severity.")]
         bool allowAllCaps = false,
-        [Description("When true, repeated hard-cut-like timing boundaries are not treated as major quality issues.")]
+        [Description("When true, suppresses the repeated hard-cut cadence advisory. Hard cuts are already advisory (they never block the gate); this flag removes the note.")]
         bool allowHardCuts = false,
-        [Description("When true, non-background RectShape dominance is not treated as a major quality issue.")]
+        [Description("When true, suppresses the non-background RectShape-dominance advisory. Rect dominance is already advisory (it never blocks the gate).")]
         bool allowRectDominance = false,
         [Description("When true, relax the non-blocking aesthetic and pacing advisories in one switch (ambiguous decorative shapes, Material-UI card look, RectShape dominance, hard cuts, and high-tempo long-hold/short-segment pacing), so expressive shape-rich or kinetic-typography briefs are not nudged toward a plainer look. Blocking checks (read time, element structure, motion) are unaffected.")]
         bool relaxAesthetics = false,
+        [Description("When true, deliberate stillness / held-frame / negative-space composition is allowed: the low motion-continuity blocker is downgraded from major to advisory instead of failing the gate. Tagging an element/object [role:still] (or naming it 'hold frame', 'negative space', etc.) opts in the same way without this flag.")]
+        bool allowStillness = false,
+        [Description("When true, brief-justified dense or long copy on a short-lived text element is allowed: the read-time blocker is downgraded from major to advisory. Tagging the text [role:reading]/[role:manifesto]/[role:credits] (or so naming it) opts in the same way without this flag.")]
+        bool allowDenseText = false,
+        [Description("When true, an intentional composite Element holding multiple EngineObjects without an IFlowOperator is allowed: the element-structure blocker is downgraded from major to advisory. Tagging the Element [role:composite] opts in the same way without this flag.")]
+        bool allowMultiObjectElements = false,
+        [Description("When true, an intentional monochrome / low-contrast palette is allowed: the low luma-separation advisory is suppressed. Tagging an element/object [role:monochrome]/[role:low-contrast] (or so naming it) opts in the same way without this flag.")]
+        bool allowMonochrome = false,
         CancellationToken cancellationToken = default)
     {
         return ExecuteAsync(async () =>
@@ -247,6 +267,10 @@ public sealed class RenderTools(
                 allowHardCuts,
                 allowRectDominance,
                 relaxAesthetics,
+                allowStillness,
+                allowDenseText,
+                allowMultiObjectElements,
+                allowMonochrome,
                 evaluateMotion: false,
                 cancellationToken).ConfigureAwait(false);
         });
@@ -267,14 +291,22 @@ public sealed class RenderTools(
         string? styleProfile = null,
         [Description("When true, an animatedPropertyCount of 0 is returned as a fix suggestion even if the quality gate otherwise passes.")]
         bool requireAnimatedProperties = false,
-        [Description("When true, long all-caps text is downgraded from major to minor instead of blocking the quality gate.")]
+        [Description("When true, tailors the intentional all-caps suggested fix. All-caps typography is already advisory (it never blocks the gate); this flag adjusts guidance, not severity.")]
         bool allowAllCaps = false,
-        [Description("When true, repeated hard-cut-like timing boundaries are not treated as major quality issues.")]
+        [Description("When true, suppresses the repeated hard-cut cadence advisory. Hard cuts are already advisory (they never block the gate); this flag removes the note.")]
         bool allowHardCuts = false,
-        [Description("When true, non-background RectShape dominance is not treated as a major quality issue.")]
+        [Description("When true, suppresses the non-background RectShape-dominance advisory. Rect dominance is already advisory (it never blocks the gate).")]
         bool allowRectDominance = false,
         [Description("When true, relax the non-blocking aesthetic and pacing advisories in one switch (ambiguous decorative shapes, Material-UI card look, RectShape dominance, hard cuts, and high-tempo long-hold/short-segment pacing), so expressive shape-rich or kinetic-typography briefs are not nudged toward a plainer look. Blocking checks (read time, element structure, motion) are unaffected.")]
         bool relaxAesthetics = false,
+        [Description("When true, deliberate stillness / held-frame / negative-space composition is allowed: the low motion-continuity blocker is downgraded from major to advisory instead of failing the gate. Tagging an element/object [role:still] (or naming it 'hold frame', 'negative space', etc.) opts in the same way without this flag.")]
+        bool allowStillness = false,
+        [Description("When true, brief-justified dense or long copy on a short-lived text element is allowed: the read-time blocker is downgraded from major to advisory. Tagging the text [role:reading]/[role:manifesto]/[role:credits] (or so naming it) opts in the same way without this flag.")]
+        bool allowDenseText = false,
+        [Description("When true, an intentional composite Element holding multiple EngineObjects without an IFlowOperator is allowed: the element-structure blocker is downgraded from major to advisory. Tagging the Element [role:composite] opts in the same way without this flag.")]
+        bool allowMultiObjectElements = false,
+        [Description("When true, an intentional monochrome / low-contrast palette is allowed: the low luma-separation advisory is suppressed. Tagging an element/object [role:monochrome]/[role:low-contrast] (or so naming it) opts in the same way without this flag.")]
+        bool allowMonochrome = false,
         CancellationToken cancellationToken = default)
     {
         return ExecuteAsync(async () =>
@@ -293,6 +325,10 @@ public sealed class RenderTools(
                 allowHardCuts,
                 allowRectDominance,
                 relaxAesthetics,
+                allowStillness,
+                allowDenseText,
+                allowMultiObjectElements,
+                allowMonochrome,
                 includeMotion,
                 cancellationToken).ConfigureAwait(false);
 
@@ -324,14 +360,22 @@ public sealed class RenderTools(
         string? styleProfile = null,
         [Description("When true, animatedPropertyCount=0 blocks ReadyForExport even if rendered motion changed.")]
         bool requireAnimatedProperties = false,
-        [Description("When true, long all-caps text is downgraded from major to minor instead of blocking the quality gate.")]
+        [Description("When true, tailors the intentional all-caps suggested fix. All-caps typography is already advisory (it never blocks the gate); this flag adjusts guidance, not severity.")]
         bool allowAllCaps = false,
-        [Description("When true, repeated hard-cut-like timing boundaries are not treated as major quality issues.")]
+        [Description("When true, suppresses the repeated hard-cut cadence advisory. Hard cuts are already advisory (they never block the gate); this flag removes the note.")]
         bool allowHardCuts = false,
-        [Description("When true, non-background RectShape dominance is not treated as a major quality issue.")]
+        [Description("When true, suppresses the non-background RectShape-dominance advisory. Rect dominance is already advisory (it never blocks the gate).")]
         bool allowRectDominance = false,
         [Description("When true, relax the non-blocking aesthetic and pacing advisories in one switch (ambiguous decorative shapes, Material-UI card look, RectShape dominance, hard cuts, and high-tempo long-hold/short-segment pacing), so expressive shape-rich or kinetic-typography briefs are not nudged toward a plainer look. Blocking checks (read time, element structure, motion) are unaffected.")]
         bool relaxAesthetics = false,
+        [Description("When true, deliberate stillness / held-frame / negative-space composition is allowed: the low motion-continuity blocker is downgraded from major to advisory instead of failing the gate. Tagging an element/object [role:still] (or naming it 'hold frame', 'negative space', etc.) opts in the same way without this flag.")]
+        bool allowStillness = false,
+        [Description("When true, brief-justified dense or long copy on a short-lived text element is allowed: the read-time blocker is downgraded from major to advisory. Tagging the text [role:reading]/[role:manifesto]/[role:credits] (or so naming it) opts in the same way without this flag.")]
+        bool allowDenseText = false,
+        [Description("When true, an intentional composite Element holding multiple EngineObjects without an IFlowOperator is allowed: the element-structure blocker is downgraded from major to advisory. Tagging the Element [role:composite] opts in the same way without this flag.")]
+        bool allowMultiObjectElements = false,
+        [Description("When true, an intentional monochrome / low-contrast palette is allowed: the low luma-separation advisory is suppressed. Tagging an element/object [role:monochrome]/[role:low-contrast] (or so naming it) opts in the same way without this flag.")]
+        bool allowMonochrome = false,
         [Description("When true, treats the scene as a static storyboard layout and skips motion blockers.")]
         bool staticLayout = false,
         [Description("Required when a generated still output path already exists.")]
@@ -390,6 +434,10 @@ public sealed class RenderTools(
                 allowHardCuts,
                 allowRectDominance,
                 relaxAesthetics,
+                allowStillness,
+                allowDenseText,
+                allowMultiObjectElements,
+                allowMonochrome,
                 evaluateMotion: !staticLayout,
                 cancellationToken).ConfigureAwait(false);
 
