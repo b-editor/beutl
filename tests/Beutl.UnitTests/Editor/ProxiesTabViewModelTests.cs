@@ -340,6 +340,153 @@ public sealed class ProxiesTabViewModelTests
         });
     }
 
+    [Test]
+    public async Task DeleteAllForProject_DeletesSharedCacheEntriesWhenConfirmed()
+    {
+        string root = CreateRoot();
+        string sourcePath = CreateSourceFile(root, "clip.mov", 2048);
+        var store = new ProxyStore(Path.Combine(root, "proxies"));
+        ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(sourcePath);
+        DateTime now = DateTime.UtcNow;
+        var entry = new ProxyEntry(
+            fingerprint,
+            ProxyPreset.Quarter,
+            ProxyState.Ready,
+            "hash/quarter.mp4",
+            1536,
+            new PixelSize(1920, 1080),
+            new PixelSize(480, 270),
+            now,
+            now,
+            null);
+        RegisterProxyEntry(store, entry);
+
+        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
+        int? confirmedCount = null;
+        viewModel.ConfirmDeleteAllForProjectAsync = count =>
+        {
+            confirmedCount = count;
+            return Task.FromResult(true);
+        };
+
+        await viewModel.DeleteAllForProjectCommand.ExecuteAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(confirmedCount, Is.EqualTo(1));
+            Assert.That(store.TryGet(entry.Source, entry.Preset), Is.Null);
+        });
+    }
+
+    [Test]
+    public async Task DeleteAllForProject_KeepsEntriesWhenConfirmationDeclined()
+    {
+        string root = CreateRoot();
+        string sourcePath = CreateSourceFile(root, "clip.mov", 2048);
+        var store = new ProxyStore(Path.Combine(root, "proxies"));
+        ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(sourcePath);
+        DateTime now = DateTime.UtcNow;
+        var entry = new ProxyEntry(
+            fingerprint,
+            ProxyPreset.Quarter,
+            ProxyState.Ready,
+            "hash/quarter.mp4",
+            1536,
+            new PixelSize(1920, 1080),
+            new PixelSize(480, 270),
+            now,
+            now,
+            null);
+        RegisterProxyEntry(store, entry);
+
+        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
+        bool confirmationRequested = false;
+        viewModel.ConfirmDeleteAllForProjectAsync = _ =>
+        {
+            confirmationRequested = true;
+            return Task.FromResult(false);
+        };
+
+        await viewModel.DeleteAllForProjectCommand.ExecuteAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(confirmationRequested, Is.True);
+            Assert.That(store.TryGet(entry.Source, entry.Preset), Is.EqualTo(entry));
+        });
+    }
+
+    [Test]
+    public async Task PresetChange_CancelsInFlightJobForPreviousPreset()
+    {
+        string root = CreateRoot();
+        string sourcePath = CreateSourceFile(root, "clip.mov", 2048);
+        var store = new ProxyStore(Path.Combine(root, "proxies"));
+        ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(sourcePath);
+        var queue = new TestProxyJobQueue();
+
+        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, queue, sourcePath));
+        ProxyClipViewModel clip = viewModel.Clips.Single();
+
+        clip.Preset.Value = ProxyPreset.Quarter;
+        ProxyJob job = await queue.EnqueueAsync(fingerprint, ProxyPreset.Quarter);
+        Assert.That(clip.HasJob.Value, Is.True);
+
+        clip.Preset.Value = ProxyPreset.Half;
+
+        Assert.That(queue.CanceledJobIds, Does.Contain(job.JobId));
+    }
+
+    [Test]
+    public async Task GenerateAll_SkipsSubFloorClipsButSingleGenerateStillEnqueues()
+    {
+        string root = CreateRoot();
+        string heavyPath = CreateSourceFile(root, "heavy.mov", 4096);
+        string lightPath = CreateSourceFile(root, "light.mov", 4096);
+        var store = new ProxyStore(Path.Combine(root, "proxies"));
+        ProxyFingerprint heavyFingerprint = ProxyFingerprint.FromFile(heavyPath);
+        ProxyFingerprint lightFingerprint = ProxyFingerprint.FromFile(lightPath);
+        DateTime now = DateTime.UtcNow;
+        RegisterProxyEntry(store, new ProxyEntry(
+            heavyFingerprint,
+            ProxyPreset.Quarter,
+            ProxyState.Ready,
+            "hash/heavy.mp4",
+            1024,
+            new PixelSize(3840, 2160),
+            new PixelSize(960, 540),
+            now,
+            now,
+            null));
+        RegisterProxyEntry(store, new ProxyEntry(
+            lightFingerprint,
+            ProxyPreset.Quarter,
+            ProxyState.Ready,
+            "hash/light.mp4",
+            1024,
+            new PixelSize(640, 480),
+            new PixelSize(160, 120),
+            now,
+            now,
+            null));
+        var queue = new TestProxyJobQueue();
+
+        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, queue, heavyPath, lightPath));
+
+        await viewModel.GenerateAllCommand.ExecuteAsync();
+
+        Assert.That(
+            queue.Pending().Select(static job => job.Source),
+            Is.EquivalentTo(new[] { heavyFingerprint }));
+
+        ProxyClipViewModel lightClip = viewModel.Clips.Single(static c => c.FileName == "light.mov");
+        await viewModel.GenerateAsync(lightClip);
+
+        Assert.That(
+            queue.Pending().Select(static job => job.Source),
+            Is.EquivalentTo(new[] { heavyFingerprint, lightFingerprint }));
+    }
+
     private static TestEditorContext CreateContext(string root, ProxyStore store, params string[] sourcePaths)
         => CreateContext(root, store, queue: null, sourcePaths);
 
