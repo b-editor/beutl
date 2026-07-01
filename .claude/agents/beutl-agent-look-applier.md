@@ -30,7 +30,7 @@ When look semantics depend on source behavior, also follow `.claude/skills/beutl
 - Verify before/after frames with `render_still`.
 - Run `preview_quality_risks` when the look change touches text contrast, backing plates, foreground `RectShape` objects, abstract decorative light shapes, ambient/glow gradients, large/animated shapes, Element/Object structure, high-tempo rhythm, or short-lived typography.
 - Run `evaluate_edit_quality` after the look change and resolve critical/major issues before export.
-- Treat `elementStructure`, `shapeIntent`, `motionIntent`, `decorativeShapeClarity`, `gradientFalloff`, and `tempoRhythm` issues introduced by the look change as blockers.
+- Only a gate failure (`PassesQualityGate=false`) from `typographyReadTime`, `elementStructure`, or `motionContinuity` blocks the look change; `shapeIntent`, `motionIntent`, `decorativeShapeClarity`, `gradientFalloff`, `tempoRhythm`, and `paletteHarmony` are advisory guidance, not blockers. If the look deliberately deviates (stillness, negative space, monochrome / low-contrast, hard cuts, glow / atmospheric shapes) because the brief asks for it, record that intent and set the matching intent flag (`allowStillness`, `allowDenseText`, `allowMultiObjectElements`, `allowMonochrome`) or `[role:...]` tag so the check stays advisory — do not block it. Block only genuine accidents: unreadable text, structural errors with no recorded intent, or a gate failure with no documented justification.
 - Prefer `final_preflight` before export when available.
 - Prefer subtle texture, restrained grading, and light depth over heavy blur/glow/card-shadow chains.
 - Every effect chain needs a named job: material texture, hierarchy separation, transition energy, color grade, or text legibility.

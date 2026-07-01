@@ -620,11 +620,158 @@ public sealed class QualityAnalyzerTests
         });
     }
 
+    [Test]
+    public async Task Stillness_intent_flag_downgrades_low_motion_blocker_to_advisory()
+    {
+        Scene accidental = CreateScene(durationSeconds: 3);
+        AddRect(accidental, "Static field", zIndex: 0, width: 1920, height: 1080, color: Colors.Black);
+        AddText(accidental, "Launch notes", zIndex: 10);
+
+        QualityReviewResponse blocked = await AnalyzeAsync(accidental);
+
+        Scene intentional = CreateScene(durationSeconds: 3);
+        AddRect(intentional, "Static field", zIndex: 0, width: 1920, height: 1080, color: Colors.Black);
+        AddText(intentional, "Launch notes", zIndex: 10);
+
+        QualityReviewResponse allowed = await AnalyzeAsync(intentional, allowStillness: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(blocked.PassesQualityGate, Is.False);
+            Assert.That(blocked.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "motionContinuity" && issue.Severity == "major"));
+
+            Assert.That(allowed.PassesQualityGate, Is.True);
+            Assert.That(allowed.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "motionContinuity" && issue.Severity == "minor"));
+            Assert.That(allowed.Issues, Has.None.Matches<QualityIssue>(issue =>
+                issue.Category == "motionContinuity" && issue.Severity == "major"));
+        });
+    }
+
+    [Test]
+    public async Task Stillness_role_token_downgrades_low_motion_blocker_without_flag()
+    {
+        Scene scene = CreateScene(durationSeconds: 3);
+        AddRect(scene, "Static field", zIndex: 0, width: 1920, height: 1080, color: Colors.Black);
+        Element title = AddText(scene, "Launch notes", zIndex: 10);
+        title.Name = "[role:still] held title on negative space";
+
+        QualityReviewResponse result = await AnalyzeAsync(scene);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.PassesQualityGate, Is.True);
+            Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "motionContinuity" && issue.Severity == "minor"));
+        });
+    }
+
+    [Test]
+    public async Task Dense_text_intent_flag_downgrades_read_time_blocker_to_advisory()
+    {
+        Scene scene = CreateScene(durationSeconds: 4);
+        Element text = AddText(
+            scene,
+            "Design motion graphics faster with precise timeline editing",
+            zIndex: 10,
+            size: 64);
+        text.Length = TimeSpan.FromSeconds(1.2);
+
+        QualityReviewResponse blocked = await AnalyzeAsync(scene, evaluateMotion: false);
+        QualityReviewResponse allowed = await AnalyzeAsync(scene, evaluateMotion: false, allowDenseText: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(blocked.PassesQualityGate, Is.False);
+            Assert.That(blocked.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "typographyReadTime" && issue.Severity == "major"));
+
+            Assert.That(allowed.PassesQualityGate, Is.True);
+            Assert.That(allowed.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "typographyReadTime" && issue.Severity == "minor"));
+        });
+    }
+
+    [Test]
+    public async Task Composite_element_intent_downgrades_structure_blocker_via_flag_or_token()
+    {
+        Scene flagScene = CreateScene();
+        Element flagElement = AddText(flagScene, "Launch notes", zIndex: 10);
+        flagElement.AddObject(new EllipseShape { Name = "Extra accent" });
+
+        QualityReviewResponse blocked = await AnalyzeAsync(flagScene, evaluateMotion: false);
+        QualityReviewResponse allowedByFlag = await AnalyzeAsync(
+            flagScene,
+            evaluateMotion: false,
+            allowMultiObjectElements: true);
+
+        Scene tokenScene = CreateScene();
+        Element tokenElement = AddText(tokenScene, "Launch notes", zIndex: 10);
+        tokenElement.AddObject(new EllipseShape { Name = "Extra accent" });
+        tokenElement.Name = "[role:composite] grouped layers";
+
+        QualityReviewResponse allowedByToken = await AnalyzeAsync(tokenScene, evaluateMotion: false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(blocked.PassesQualityGate, Is.False);
+            Assert.That(blocked.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "elementStructure" && issue.Severity == "major"));
+
+            Assert.That(allowedByFlag.PassesQualityGate, Is.True);
+            Assert.That(allowedByFlag.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "elementStructure" && issue.Severity == "minor"));
+
+            Assert.That(allowedByToken.PassesQualityGate, Is.True);
+            Assert.That(allowedByToken.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "elementStructure" && issue.Severity == "minor"));
+        });
+    }
+
+    [Test]
+    public async Task Monochrome_intent_suppresses_low_contrast_palette_advisory_via_flag_or_token()
+    {
+        Scene scene = CreateScene();
+        AddRect(scene, "Deep slate field", zIndex: 0, width: 1920, height: 1080, color: Color.Parse("#ff303030"));
+        AddText(scene, "Launch notes", zIndex: 10, fill: Color.Parse("#ff383838"));
+
+        QualityReviewResponse surfaced = await AnalyzeAsync(scene, evaluateMotion: false);
+        QualityReviewResponse suppressedByFlag = await AnalyzeAsync(scene, evaluateMotion: false, allowMonochrome: true);
+
+        Scene tokenScene = CreateScene();
+        AddRect(tokenScene, "[role:monochrome] tonal field", zIndex: 0, width: 1920, height: 1080, color: Color.Parse("#ff303030"));
+        AddText(tokenScene, "Launch notes", zIndex: 10, fill: Color.Parse("#ff383838"));
+
+        QualityReviewResponse suppressedByToken = await AnalyzeAsync(tokenScene, evaluateMotion: false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(surfaced.Metrics.Palette.HasLowContrastPalette, Is.True);
+            Assert.That(surfaced.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "paletteHarmony"
+                && issue.Message.Contains("low luma separation", StringComparison.OrdinalIgnoreCase)));
+
+            Assert.That(suppressedByFlag.PassesQualityGate, Is.True);
+            Assert.That(suppressedByFlag.Issues, Has.None.Matches<QualityIssue>(issue =>
+                issue.Category == "paletteHarmony"
+                && issue.Message.Contains("low luma separation", StringComparison.OrdinalIgnoreCase)));
+
+            Assert.That(suppressedByToken.Issues, Has.None.Matches<QualityIssue>(issue =>
+                issue.Category == "paletteHarmony"
+                && issue.Message.Contains("low luma separation", StringComparison.OrdinalIgnoreCase)));
+        });
+    }
+
     private static ValueTask<QualityReviewResponse> AnalyzeAsync(
         Scene scene,
         bool evaluateMotion = true,
         string? styleProfile = null,
-        bool relaxAesthetics = false)
+        bool relaxAesthetics = false,
+        bool allowStillness = false,
+        bool allowDenseText = false,
+        bool allowMultiObjectElements = false,
+        bool allowMonochrome = false)
         => new QualityAnalyzer(new MotionVariationAnalyzer(new StillRenderer())).AnalyzeAsync(
             scene,
             timeSeconds: null,
@@ -635,6 +782,10 @@ public sealed class QualityAnalyzerTests
             allowHardCuts: false,
             allowRectDominance: false,
             relaxAesthetics: relaxAesthetics,
+            allowStillness: allowStillness,
+            allowDenseText: allowDenseText,
+            allowMultiObjectElements: allowMultiObjectElements,
+            allowMonochrome: allowMonochrome,
             evaluateMotion: evaluateMotion,
             cancellationToken: CancellationToken.None);
 
