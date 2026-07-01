@@ -24,7 +24,7 @@ public sealed class RenderToolsStoryboardTests
         using var session = new AgentToolkitTestSession(scene);
         RenderTools tools = CreateTools(workspace, session);
 
-        ToolResult<RenderStoryboardResponse> result = await tools.RenderStoryboard(
+        ToolResult<RenderStoryboardResult> result = await tools.RenderStoryboard(
             [
                 new StoryboardShotInput("opening", 0.5),
                 new StoryboardShotInput("detail", 1.5)
@@ -36,10 +36,12 @@ public sealed class RenderToolsStoryboardTests
         Assert.Multiple(() =>
         {
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
-            Assert.That(result.Value!.Shots, Has.Count.EqualTo(2));
-            Assert.That(File.Exists(result.Value.ContactSheetPath), Is.True);
-            Assert.That(result.Value.Shots.Select(shot => shot.StillPath), Has.All.Matches<string>(File.Exists));
-            Assert.That(result.Value.Shots.Select(shot => shot.VisibilityAnalysis), Has.All.Not.Null);
+            Assert.That(result.Value!.Status, Is.EqualTo("completed"));
+            Assert.That(result.Value.JobId, Is.Null);
+            Assert.That(result.Value.Result!.Shots, Has.Count.EqualTo(2));
+            Assert.That(File.Exists(result.Value.Result.ContactSheetPath), Is.True);
+            Assert.That(result.Value.Result.Shots.Select(shot => shot.StillPath), Has.All.Matches<string>(File.Exists));
+            Assert.That(result.Value.Result.Shots.Select(shot => shot.VisibilityAnalysis), Has.All.Not.Null);
             Assert.That(typeof(RenderStoryboardResponse).GetProperties().Select(property => property.Name), Has.None.Contains("Motion"));
             Assert.That(result.Error, Is.Null);
         });
@@ -53,7 +55,7 @@ public sealed class RenderToolsStoryboardTests
         using var session = new AgentToolkitTestSession(scene);
         RenderTools tools = CreateTools(workspace, session);
 
-        ToolResult<RenderStoryboardResponse> result = await tools.RenderStoryboard(
+        ToolResult<RenderStoryboardResult> result = await tools.RenderStoryboard(
             outputDirectory: "storyboards",
             basename: "auto",
             cancellationToken: CancellationToken.None);
@@ -61,10 +63,61 @@ public sealed class RenderToolsStoryboardTests
         Assert.Multiple(() =>
         {
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
-            Assert.That(result.Value!.Shots, Has.Count.EqualTo(scene.Children.Count));
-            Assert.That(result.Value.Shots.Select(shot => shot.Name), Is.EquivalentTo(scene.Children.Select(element => element.Name)));
-            Assert.That(File.Exists(result.Value.ContactSheetPath), Is.True);
+            Assert.That(result.Value!.Status, Is.EqualTo("completed"));
+            Assert.That(result.Value.Result!.Shots, Has.Count.EqualTo(scene.Children.Count));
+            Assert.That(result.Value.Result.Shots.Select(shot => shot.Name), Is.EquivalentTo(scene.Children.Select(element => element.Name)));
+            Assert.That(File.Exists(result.Value.Result.ContactSheetPath), Is.True);
         });
+    }
+
+    [Test]
+    public async Task Render_storyboard_background_returns_running_job_then_completes()
+    {
+        AgentToolkitGpuTestEnvironment.EnsureAvailable();
+
+        string workspace = CreateWorkspace();
+        Scene scene = CreateStaticStoryboardScene(workspace);
+        using var session = new AgentToolkitTestSession(scene);
+        RenderTools tools = CreateTools(workspace, session);
+
+        ToolResult<RenderStoryboardResult> started = await tools.RenderStoryboard(
+            outputDirectory: "storyboards",
+            basename: "bg",
+            background: true,
+            cancellationToken: CancellationToken.None);
+
+        Assert.That(started.IsSuccess, Is.True, started.Error?.Message);
+        Assert.That(started.Value!.Status, Is.EqualTo("running"));
+        Assert.That(started.Value.JobId, Is.Not.Null.And.Not.Empty);
+        Assert.That(started.Value.Result, Is.Null);
+
+        string jobId = started.Value.JobId!;
+        RenderJobSnapshot snapshot = await PollUntilTerminalAsync(tools, jobId);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(snapshot.State, Is.EqualTo("completed"), snapshot.Error?.Message);
+            Assert.That(snapshot.Result, Is.Not.Null);
+            Assert.That(snapshot.CompletedAt, Is.Not.Null);
+        });
+    }
+
+    private static async Task<RenderJobSnapshot> PollUntilTerminalAsync(RenderTools tools, string jobId)
+    {
+        for (int attempt = 0; attempt < 300; attempt++)
+        {
+            ToolResult<RenderJobSnapshot> poll = tools.ReadRenderJob(jobId);
+            Assert.That(poll.IsSuccess, Is.True, poll.Error?.Message);
+            if (poll.Value!.State != "running")
+            {
+                return poll.Value;
+            }
+
+            await Task.Delay(100);
+        }
+
+        Assert.Fail($"Render job '{jobId}' did not reach a terminal state in time.");
+        throw new InvalidOperationException("unreachable");
     }
 
     [Test]
@@ -173,7 +226,8 @@ public sealed class RenderToolsStoryboardTests
             new StoryboardRenderer(),
             motionVariationAnalyzer,
             new QualityAnalyzer(motionVariationAnalyzer),
-            new VideoExporter(new EncoderRegistration()));
+            new VideoExporter(new EncoderRegistration()),
+            new RenderJobManager());
     }
 
     private static Scene CreateStaticStoryboardScene(string workspace)

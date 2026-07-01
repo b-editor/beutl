@@ -26,6 +26,7 @@ builder.Services
     .AddSingleton<QualityAnalyzer>()
     .AddSingleton<EncoderRegistration>()
     .AddSingleton<VideoExporter>()
+    .AddSingleton<RenderJobManager>()
     .AddSingleton<FileSessionSource>()
     .AddSingleton(_ => new CreativeMemoryStore(workspaceRoot))
     .AddSingleton<AgentSessionManager>();

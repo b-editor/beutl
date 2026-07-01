@@ -30,6 +30,7 @@ public sealed class ToolSurfaceTests
                 "list_effects",
                 "list_effect_recipes",
                 "get_effect_recipe",
+                "validate_shader",
                 "list_compositions",
                 "get_composition",
                 "render_composition_patch",
@@ -53,7 +54,9 @@ public sealed class ToolSurfaceTests
                 "preview_quality_risks",
                 "suggest_quality_fixes",
                 "final_preflight",
-                "export_video"
+                "export_video",
+                "read_render_job",
+                "cancel_render_job"
             }));
             Assert.That(names, Does.Not.Contain("add_keyframe"));
             Assert.That(names, Does.Not.Contain("update_keyframe"));
