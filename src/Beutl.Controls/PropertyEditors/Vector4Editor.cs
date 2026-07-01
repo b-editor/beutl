@@ -84,7 +84,7 @@ public class Vector4Editor<TElement> : Vector4Editor
         {
             if (SetAndRaise(FirstValueProperty, ref _firstValue, value))
             {
-                FirstText = value.ToString(NumberFormat ?? "G", CultureInfo.CurrentUICulture);
+                FirstText = value.ToString(NumberFormat ?? "G", CultureInfo.CurrentCulture);
             }
         }
     }
@@ -96,7 +96,7 @@ public class Vector4Editor<TElement> : Vector4Editor
         {
             if (SetAndRaise(SecondValueProperty, ref _secondValue, value))
             {
-                SecondText = value.ToString(NumberFormat ?? "G", CultureInfo.CurrentUICulture);
+                SecondText = value.ToString(NumberFormat ?? "G", CultureInfo.CurrentCulture);
             }
         }
     }
@@ -108,7 +108,7 @@ public class Vector4Editor<TElement> : Vector4Editor
         {
             if (SetAndRaise(ThirdValueProperty, ref _thirdValue, value))
             {
-                ThirdText = value.ToString(NumberFormat ?? "G", CultureInfo.CurrentUICulture);
+                ThirdText = value.ToString(NumberFormat ?? "G", CultureInfo.CurrentCulture);
             }
         }
     }
@@ -120,7 +120,7 @@ public class Vector4Editor<TElement> : Vector4Editor
         {
             if (SetAndRaise(FourthValueProperty, ref _fourthValue, value))
             {
-                FourthText = value.ToString(NumberFormat ?? "G", CultureInfo.CurrentUICulture);
+                FourthText = value.ToString(NumberFormat ?? "G", CultureInfo.CurrentCulture);
             }
         }
     }
@@ -164,10 +164,10 @@ public class Vector4Editor<TElement> : Vector4Editor
 
         _disposables.Clear();
         base.OnApplyTemplate(e);
-        FirstText = _firstValue.ToString(NumberFormat ?? "G", CultureInfo.CurrentUICulture);
-        SecondText = _secondValue.ToString(NumberFormat ?? "G", CultureInfo.CurrentUICulture);
-        ThirdText = _thirdValue.ToString(NumberFormat ?? "G", CultureInfo.CurrentUICulture);
-        FourthText = _fourthValue.ToString(NumberFormat ?? "G", CultureInfo.CurrentUICulture);
+        FirstText = _firstValue.ToString(NumberFormat ?? "G", CultureInfo.CurrentCulture);
+        SecondText = _secondValue.ToString(NumberFormat ?? "G", CultureInfo.CurrentCulture);
+        ThirdText = _thirdValue.ToString(NumberFormat ?? "G", CultureInfo.CurrentCulture);
+        FourthText = _fourthValue.ToString(NumberFormat ?? "G", CultureInfo.CurrentCulture);
 
         SubscribeEvents(InnerFirstTextBox);
         SubscribeEvents(InnerSecondTextBox);
@@ -289,9 +289,9 @@ public class Vector4Editor<TElement> : Vector4Editor
     private void OnInnerTextBoxTextChanged(TextBox sender, string newValue, string oldValue)
     {
         if (sender.IsKeyboardFocusWithin
-            && TElement.TryParse(newValue, CultureInfo.CurrentUICulture, out TElement newValue2))
+            && TElement.TryParse(newValue, CultureInfo.CurrentCulture, out TElement newValue2))
         {
-            bool invalidOldValue = !TElement.TryParse(oldValue, CultureInfo.CurrentUICulture, out TElement oldValue2);
+            bool invalidOldValue = !TElement.TryParse(oldValue, CultureInfo.CurrentCulture, out TElement oldValue2);
             if (invalidOldValue)
             {
                 oldValue2 = newValue2;
@@ -346,11 +346,11 @@ public class Vector4Editor<TElement> : Vector4Editor
 
     private void UpdateErrors()
     {
-        if (TElement.TryParse(InnerFirstTextBox.Text, CultureInfo.CurrentUICulture, out _)
+        if (TElement.TryParse(InnerFirstTextBox.Text, CultureInfo.CurrentCulture, out _)
             && (IsUniform
-            || (TElement.TryParse(InnerSecondTextBox.Text, CultureInfo.CurrentUICulture, out _)
-            && TElement.TryParse(InnerThirdTextBox.Text, CultureInfo.CurrentUICulture, out _)
-            && TElement.TryParse(InnerFourthTextBox.Text, CultureInfo.CurrentUICulture, out _))))
+            || (TElement.TryParse(InnerSecondTextBox.Text, CultureInfo.CurrentCulture, out _)
+            && TElement.TryParse(InnerThirdTextBox.Text, CultureInfo.CurrentCulture, out _)
+            && TElement.TryParse(InnerFourthTextBox.Text, CultureInfo.CurrentCulture, out _))))
         {
             DataValidationErrors.ClearErrors(this);
         }
@@ -365,7 +365,7 @@ public class Vector4Editor<TElement> : Vector4Editor
         if (!DataValidationErrors.GetHasErrors(this)
             && sender is TextBox textBox
             && textBox.IsKeyboardFocusWithin
-            && TElement.TryParse(textBox.Text, CultureInfo.CurrentUICulture, out TElement value))
+            && TElement.TryParse(textBox.Text, CultureInfo.CurrentCulture, out TElement value))
         {
             TElement delta = LargeChange;
             double wheelDelta = e.Delta.Y;
