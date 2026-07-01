@@ -1,4 +1,5 @@
 ﻿using Beutl.Configuration;
+using Beutl.Editor;
 using Beutl.Logging;
 #if FFMPEG_BUILD_IN
 using Beutl.Extensions.FFmpeg.Proxy;
@@ -11,7 +12,11 @@ namespace Beutl.Services;
 
 internal sealed class ProxyMediaServices : IAsyncDisposable
 {
+    // Host free-disk headroom kept on the store drive, independent of MaxTotalBytes.
+    private const long DefaultMinFreeDiskBytes = 2L * 1024 * 1024 * 1024;
+
     private static readonly ILogger s_logger = Log.CreateLogger<ProxyMediaServices>();
+    private static readonly IReadOnlySet<string> s_noOpenProjectSources = new HashSet<string>();
     private bool _disposed;
 
     private ProxyMediaServices(
@@ -54,7 +59,9 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
             config.MaxTotalBytes,
             result => NotificationService.ShowInformation(
                 "Proxy media",
-                $"Evicted {result.RemovedCount} proxy file(s), reclaimed {FormatBytes(result.ReclaimedBytes)}."));
+                $"Evicted {result.RemovedCount} proxy file(s), reclaimed {FormatBytes(result.ReclaimedBytes)}."),
+            minFreeDiskBytes: DefaultMinFreeDiskBytes,
+            openProjectSourceProvider: CollectOpenProjectSources);
 
         var services = new ProxyMediaServices(store, resolver, queue, eviction);
         Current = services;
@@ -92,8 +99,19 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
 
     private void OnJobChanged(object? sender, ProxyJobChangedEventArgs e)
     {
-        if (e.Kind == ProxyJobChangeKind.Succeeded)
-            _ = Task.Run(() => SweepBestEffort(EvictionService));
+        switch (e.Kind)
+        {
+            case ProxyJobChangeKind.Succeeded:
+                _ = Task.Run(() => SweepBestEffort(EvictionService));
+                break;
+
+            // Free space before a queued job runs, and again if a job fails so the
+            // next one has a chance. The sweep self-gates on real cap/disk pressure.
+            case ProxyJobChangeKind.Enqueued:
+            case ProxyJobChangeKind.Failed:
+                _ = Task.Run(() => SweepForDiskPressureBestEffort(EvictionService));
+                break;
+        }
     }
 
     private static async Task ReconcileAndSweepAsync(ProxyStore store, ProxyEvictionService eviction)
@@ -118,6 +136,50 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
         catch (Exception ex)
         {
             s_logger.LogWarning(ex, "Proxy store eviction failed.");
+        }
+    }
+
+    private static void SweepForDiskPressureBestEffort(ProxyEvictionService eviction)
+    {
+        try
+        {
+            eviction.SweepForDiskPressure();
+        }
+        catch (Exception ex)
+        {
+            s_logger.LogWarning(ex, "Proxy store disk-pressure eviction failed.");
+        }
+    }
+
+    private static IReadOnlySet<string> CollectOpenProjectSources()
+    {
+        try
+        {
+            if (BeutlApplication.Current.Project is not { } project)
+                return s_noOpenProjectSources;
+
+            if (project.Uri is not { IsFile: true } projectUri)
+                return s_noOpenProjectSources;
+
+            string? projectDir = Path.GetDirectoryName(projectUri.LocalPath);
+            if (string.IsNullOrEmpty(projectDir))
+                return s_noOpenProjectSources;
+
+            ExternalResourceCollector collector = ExternalResourceCollector.Collect(project, projectDir);
+            var sources = new HashSet<string>(StringComparer.Ordinal);
+            foreach ((_, _, Uri originalUri) in collector.FileSources)
+            {
+                if (originalUri.IsFile)
+                    sources.Add(originalUri.LocalPath);
+            }
+
+            return sources;
+        }
+        catch
+        {
+            // Best-effort: the project graph may be mutated on the UI thread while this
+            // runs on a sweep thread. On any failure fall back to global LRU.
+            return s_noOpenProjectSources;
         }
     }
 
