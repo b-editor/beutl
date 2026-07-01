@@ -712,6 +712,34 @@ public sealed class SchemaGenerator
                 "Lower Opacity (e.g. 35-50) or switch BlendMode to Screen (14) for bright footage that blows out; BlendMode 12 is Plus (additive).",
                 "Do not duplicate into two plain drawables: wrapInGroup=true makes the Element contain an IFlowOperator, avoiding the evaluate_edit_quality elementStructure Major issue."),
             CreateEffectRecipe(
+                "screen-light-leak",
+                "Soft Screen light-leak and lens-wash glow for a duplicated drawable copy: gentler than additive Plus and self-limiting on bright footage.",
+                ["glow", "light-leak", "screen", "atmospheric", "duplicate"],
+                CreateFilterEffectGroup(
+                    CreateBlur(18),
+                    CreateBrightness(120)),
+                blendMode: BlendMode.Screen,
+                opacity: 50f,
+                "Apply to a COPY, never the original: call duplicate_object on the source drawable with wrapInGroup=true and apply this patch to the returned copy so it stays gate-clean.",
+                "BlendMode 14 is Screen; it cannot exceed white, making it the safe choice for bright content that would blow out under Plus."),
+            CreateEffectRecipe(
+                "multiply-contrast-glaze",
+                "Multiply glaze for a duplicated drawable copy: a darkened blurred self-composite that deepens shadows and contrast for a moody grade.",
+                ["grade", "contrast", "multiply", "moody", "duplicate"],
+                CreateFilterEffectGroup(
+                    CreateBlur(10),
+                    CreateBrightness(80)),
+                blendMode: BlendMode.Multiply,
+                opacity: 50f,
+                "Apply to a COPY, never the original: call duplicate_object on the source drawable with wrapInGroup=true and apply this patch to the returned copy so it stays gate-clean.",
+                "This is the self-composite darkening glaze part; a true edge vignette also needs the drawable's own dark radial fill."),
+            CreateEffectRecipe(
+                "chromatic-aberration-lite",
+                "Subtle chromatic aberration and lens character: a gentle red/blue split, unlike the aggressive ColorShift inside digital-glitch.",
+                ["chromatic", "aberration", "lens", "subtle", "stylize"],
+                CreateFilterEffectGroup(
+                    CreateColorShift(3, 0, -3, 0))),
+            CreateEffectRecipe(
                 "soft-paper-depth",
                 "Subtle paper/editorial depth chain that avoids heavy card shadows.",
                 ["paper", "editorial", "subtle", "depth"],

@@ -274,6 +274,29 @@ public sealed class SchemaGenerationTests
     }
 
     [Test]
+    public void New_curated_effect_recipes_cover_screen_multiply_and_lite_chromatic_gaps()
+    {
+        var generator = new SchemaGenerator();
+        string bloomJson = generator.GetEffectRecipe("additive-bloom").Patch.ToJsonString();
+        string screenJson = generator.GetEffectRecipe("screen-light-leak").Patch.ToJsonString();
+        string multiplyJson = generator.GetEffectRecipe("multiply-contrast-glaze").Patch.ToJsonString();
+        string chromaticJson = generator.GetEffectRecipe("chromatic-aberration-lite").Patch.ToJsonString();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(screenJson, Does.Contain("\"BlendMode\":14"));
+            Assert.That(screenJson, Does.Contain("\"Opacity\":50"));
+            Assert.That(multiplyJson, Does.Contain("\"BlendMode\":24"));
+            Assert.That(multiplyJson, Does.Contain("\"Opacity\":50"));
+            Assert.That(chromaticJson, Does.Contain("ColorShift"));
+            Assert.That(chromaticJson, Does.Not.Contain("BlendMode"));
+            Assert.That(screenJson, Is.Not.EqualTo(bloomJson));
+            Assert.That(multiplyJson, Is.Not.EqualTo(bloomJson));
+            Assert.That(chromaticJson, Is.Not.EqualTo(bloomJson));
+        });
+    }
+
+    [Test]
     public void Restrained_warm_grade_uses_positive_temperature_color_grading()
     {
         var generator = new SchemaGenerator();
