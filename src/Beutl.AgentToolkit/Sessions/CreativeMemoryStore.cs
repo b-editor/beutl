@@ -13,27 +13,41 @@ public sealed class CreativeMemoryStore
 {
     public const int DefaultCapacity = 12;
 
+    // Overrides the user-global memory root, primarily so tests stay off the real home directory.
+    public const string GlobalRootVariable = "BEUTL_AGENT_MEMORY_HOME";
+
     private static readonly JsonSerializerOptions s_jsonOptions = new()
     {
         WriteIndented = true
     };
 
-    private readonly string _path;
+    private readonly string _workspacePath;
+    private readonly string _globalPath;
+    private readonly bool _globalIsSeparate;
     private readonly int _capacity;
     private readonly object _gate = new();
 
-    public CreativeMemoryStore(string workspaceRoot, int capacity = DefaultCapacity)
+    public CreativeMemoryStore(string workspaceRoot, int capacity = DefaultCapacity, string? globalRoot = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(workspaceRoot);
         _capacity = Math.Max(1, capacity);
-        _path = Path.Combine(workspaceRoot, "agent-output", "creative-memory.json");
+        _workspacePath = MemoryPath(workspaceRoot);
+        _globalPath = MemoryPath(ResolveGlobalRoot(globalRoot));
+        _globalIsSeparate = !PathsEqual(_globalPath, _workspacePath);
     }
 
     public IReadOnlyList<CreativeDirectionFingerprint> ReadRecent()
     {
         lock (_gate)
         {
-            return ReadUnlocked();
+            IReadOnlyList<CreativeDirectionFingerprint> workspace = ReadUnlocked(_workspacePath);
+            if (!_globalIsSeparate)
+            {
+                return workspace;
+            }
+
+            // Anti-repeat considers what the agent produced in this project *and* elsewhere.
+            return Merge(workspace, ReadUnlocked(_globalPath));
         }
     }
 
@@ -58,22 +72,33 @@ public sealed class CreativeMemoryStore
 
         lock (_gate)
         {
-            List<CreativeDirectionFingerprint> items = ReadUnlocked().ToList();
-            items.RemoveAll(item => SameCreativeDirection(item, normalized));
-            items.Insert(0, normalized);
-            if (items.Count > _capacity)
+            // Both layers are updated so the entry survives as per-project history and as a
+            // cross-project fingerprint the next project can avoid.
+            RecordUnlocked(_workspacePath, normalized);
+            if (_globalIsSeparate)
             {
-                items.RemoveRange(_capacity, items.Count - _capacity);
+                RecordUnlocked(_globalPath, normalized);
             }
-
-            Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
-            File.WriteAllText(_path, JsonSerializer.Serialize(items, s_jsonOptions));
         }
     }
 
-    private IReadOnlyList<CreativeDirectionFingerprint> ReadUnlocked()
+    private void RecordUnlocked(string path, CreativeDirectionFingerprint normalized)
     {
-        if (!File.Exists(_path))
+        List<CreativeDirectionFingerprint> items = ReadUnlocked(path).ToList();
+        items.RemoveAll(item => SameCreativeDirection(item, normalized));
+        items.Insert(0, normalized);
+        if (items.Count > _capacity)
+        {
+            items.RemoveRange(_capacity, items.Count - _capacity);
+        }
+
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, JsonSerializer.Serialize(items, s_jsonOptions));
+    }
+
+    private IReadOnlyList<CreativeDirectionFingerprint> ReadUnlocked(string path)
+    {
+        if (!File.Exists(path))
         {
             return [];
         }
@@ -81,7 +106,7 @@ public sealed class CreativeMemoryStore
         try
         {
             CreativeDirectionFingerprint[]? items =
-                JsonSerializer.Deserialize<CreativeDirectionFingerprint[]>(File.ReadAllText(_path), s_jsonOptions);
+                JsonSerializer.Deserialize<CreativeDirectionFingerprint[]>(File.ReadAllText(path), s_jsonOptions);
             return items?
                 .Where(item => item is not null)
                 .Take(_capacity)
@@ -97,6 +122,54 @@ public sealed class CreativeMemoryStore
             return [];
         }
     }
+
+    private IReadOnlyList<CreativeDirectionFingerprint> Merge(
+        IReadOnlyList<CreativeDirectionFingerprint> workspace,
+        IReadOnlyList<CreativeDirectionFingerprint> global)
+    {
+        var merged = new List<CreativeDirectionFingerprint>();
+        foreach (CreativeDirectionFingerprint item in workspace.Concat(global).OrderByDescending(item => item.Timestamp))
+        {
+            if (!merged.Any(existing => SameCreativeDirection(existing, item)))
+            {
+                merged.Add(item);
+            }
+        }
+
+        if (merged.Count > _capacity)
+        {
+            merged.RemoveRange(_capacity, merged.Count - _capacity);
+        }
+
+        return merged;
+    }
+
+    private static string ResolveGlobalRoot(string? globalRoot)
+    {
+        if (!string.IsNullOrWhiteSpace(globalRoot))
+        {
+            return globalRoot;
+        }
+
+        string? fromEnvironment = Environment.GetEnvironmentVariable(GlobalRootVariable);
+        if (!string.IsNullOrWhiteSpace(fromEnvironment))
+        {
+            return fromEnvironment;
+        }
+
+        return BeutlEnvironment.GetHomeDirectoryPath();
+    }
+
+    private static string MemoryPath(string root)
+        => Path.Combine(root, "agent-output", "creative-memory.json");
+
+    private static bool PathsEqual(string left, string right)
+        => string.Equals(
+            Path.GetFullPath(left),
+            Path.GetFullPath(right),
+            OperatingSystem.IsWindows() || OperatingSystem.IsMacOS()
+                ? StringComparison.OrdinalIgnoreCase
+                : StringComparison.Ordinal);
 
     private static string[] NormalizeList(IEnumerable<string> values)
         => values
