@@ -85,7 +85,9 @@ public sealed class FFmpegWorkerProcess : IDisposable
     private static void ThrowIfLibrariesMissing()
     {
 #if !BEUTL_FFMPEG_WORKER
-        if (FFmpegInstallNotifier.IsLibrariesMissing)
+        // Short-circuit only inside the re-probe cooldown; once it elapses, let the start attempt run
+        // so its outcome re-probes real availability instead of trusting the sticky missing flag.
+        if (FFmpegInstallNotifier.ShouldSkipStartProbe(Environment.TickCount64))
         {
             throw new FFmpegLibrariesNotFoundException(
                 "FFmpeg libraries are missing; install FFmpeg before starting the worker.");
@@ -157,6 +159,10 @@ public sealed class FFmpegWorkerProcess : IDisposable
                 pipeServer.Dispose();
                 if (code == 2)
                 {
+#if !BEUTL_FFMPEG_WORKER
+                    // A real probe observed the libraries missing: throttle the next probe.
+                    FFmpegInstallNotifier.ArmReprobeCooldown();
+#endif
                     throw new FFmpegLibrariesNotFoundException(
                         "FFmpeg worker exited because the FFmpeg libraries could not be found.");
                 }
@@ -213,6 +219,11 @@ public sealed class FFmpegWorkerProcess : IDisposable
         if (handshakePayload != null && handshakePayload.ProtocolVersion != ProtocolConstants.CurrentVersion)
             throw new InvalidOperationException(
                 $"Protocol version mismatch: host={ProtocolConstants.CurrentVersion}, worker={handshakePayload.ProtocolVersion}");
+
+#if !BEUTL_FFMPEG_WORKER
+        // Worker handshaked, so FFmpeg loaded: clear any missing latch and wake parked proxy jobs.
+        FFmpegInstallNotifier.NotifyWorkerStarted();
+#endif
 
         // デコード用接続は多重化モードで起動（複数リーダーからの並行リクエスト対応）
         if (_multiplexed)

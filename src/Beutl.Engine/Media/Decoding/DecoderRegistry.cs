@@ -1,4 +1,5 @@
 ﻿using Beutl.Configuration;
+using Beutl.Media.Proxy;
 
 namespace Beutl.Media.Decoding;
 
@@ -7,6 +8,8 @@ public static class DecoderRegistry
     private static readonly List<IDecoderInfo> s_registered = [];
     private static readonly List<IDecoderInfo> s_ordered = [];
     private static readonly object s_lock = new();
+
+    public static IProxyResolver? ProxyResolver { get; set; }
 
     static DecoderRegistry()
     {
@@ -45,6 +48,33 @@ public static class DecoderRegistry
 
     public static MediaReader? OpenMediaFile(string file, MediaOptions options)
     {
+        if (options.PreferProxy && ProxyResolver is { } resolver)
+        {
+            var sourceUri = new Uri(Path.GetFullPath(file));
+            if (resolver.Resolve(sourceUri, options.PreferredProxyPreset) is { } resolution)
+            {
+                IDisposable? pin = resolver.Pin(resolution);
+                try
+                {
+                    var proxyOptions = options with { PreferProxy = false };
+                    foreach (IDecoderInfo decoder in GuessDecoder(resolution.AbsoluteProxyFilePath))
+                    {
+                        if (decoder.Open(resolution.AbsoluteProxyFilePath, proxyOptions) is { } reader)
+                        {
+                            return new ProxyMediaReader(reader, pin!, resolution);
+                        }
+                    }
+                }
+                catch
+                {
+                    pin.Dispose();
+                    pin = null;
+                }
+
+                pin?.Dispose();
+            }
+        }
+
         foreach (IDecoderInfo decoder in GuessDecoder(file))
         {
             if (decoder.Open(file, options) is { } reader)

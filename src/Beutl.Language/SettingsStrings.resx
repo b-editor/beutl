@@ -184,6 +184,34 @@
     <value>The file is automatically saved after the operation is performed.</value>
     <comment/>
   </data>
+  <data name="ProxyMedia" xml:space="preserve">
+    <value>Proxy media</value>
+    <comment/>
+  </data>
+  <data name="ProxyStoreRootPath" xml:space="preserve">
+    <value>Store location</value>
+    <comment/>
+  </data>
+  <data name="ProxyStoreRootPath_Description" xml:space="preserve">
+    <value>Proxy files are stored in this folder. Changes take effect after restart.</value>
+    <comment/>
+  </data>
+  <data name="ProxyStoreMaxTotalGiB" xml:space="preserve">
+    <value>Maximum store size</value>
+    <comment/>
+  </data>
+  <data name="ProxyStoreMaxTotalGiB_Description" xml:space="preserve">
+    <value>Least-recently-used proxies are removed when the store exceeds this size. Changes take effect after restart.</value>
+    <comment/>
+  </data>
+  <data name="ProxyDefaultPreset" xml:space="preserve">
+    <value>Default preset</value>
+    <comment/>
+  </data>
+  <data name="ProxyDefaultPreset_Description" xml:space="preserve">
+    <value>Preset selected by default in the Proxies tool tab.</value>
+    <comment/>
+  </data>
   <data name="FrameCacheMaxSize" xml:space="preserve">
     <value>Maximum bytes</value>
     <comment/>

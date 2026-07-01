@@ -1,0 +1,500 @@
+﻿using System.Threading.Channels;
+
+using Beutl.Logging;
+
+using Microsoft.Extensions.Logging;
+
+namespace Beutl.Media.Proxy;
+
+public sealed class ProxyJobQueue : IProxyJobQueue
+{
+    private static readonly ILogger s_logger = Log.CreateLogger("ProxyJobQueue");
+    private readonly IProxyGenerator _generator;
+    private readonly IProxyGeneratorAvailability? _generatorAvailability;
+    private readonly IProxyStore? _store;
+    private readonly Channel<WorkItem> _channel;
+    private readonly CancellationTokenSource _disposeCts = new();
+    private readonly Dictionary<(ProxyFingerprint Source, ProxyPreset Preset), WorkItem> _itemsByKey = [];
+    private readonly List<WorkItem> _items = [];
+    private readonly Lock _lock = new();
+    private readonly Task _drainTask;
+    private readonly TimeSpan _minUnavailableBackoff;
+    private readonly TimeSpan _maxUnavailableBackoff;
+    private TaskCompletionSource? _resumeAfterGeneratorUnavailable;
+    private int _consecutiveUnavailable;
+    private bool _disposed;
+
+    public ProxyJobQueue(IProxyGenerator generator, int capacity = 256)
+        : this(generator, store: null, capacity)
+    {
+    }
+
+    public ProxyJobQueue(IProxyGenerator generator, IProxyStore? store, int capacity = 256)
+        : this(generator, store, capacity, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(30))
+    {
+    }
+
+    internal ProxyJobQueue(
+        IProxyGenerator generator,
+        IProxyStore? store,
+        int capacity,
+        TimeSpan minUnavailableBackoff,
+        TimeSpan maxUnavailableBackoff)
+    {
+        ArgumentNullException.ThrowIfNull(generator);
+        ArgumentOutOfRangeException.ThrowIfLessThan(capacity, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(minUnavailableBackoff, TimeSpan.Zero);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxUnavailableBackoff, minUnavailableBackoff);
+
+        _generator = generator;
+        _generatorAvailability = generator as IProxyGeneratorAvailability;
+        if (_generatorAvailability != null)
+            _generatorAvailability.AvailabilityChanged += OnGeneratorAvailabilityChanged;
+        _store = store;
+        _minUnavailableBackoff = minUnavailableBackoff;
+        _maxUnavailableBackoff = maxUnavailableBackoff;
+        _channel = Channel.CreateBounded<WorkItem>(new BoundedChannelOptions(capacity)
+        {
+            FullMode = BoundedChannelFullMode.Wait,
+            SingleReader = true,
+            SingleWriter = false,
+        });
+        _drainTask = Task.Run(DrainAsync);
+    }
+
+    public int MaxConcurrency => 1;
+
+    public event EventHandler<ProxyJobChangedEventArgs>? JobChanged;
+
+    public ValueTask<ProxyJob> EnqueueAsync(
+        ProxyFingerprint source,
+        ProxyPreset preset,
+        CancellationToken cancellationToken = default)
+        => EnqueueAsync(source, preset, priority: 0, cancellationToken);
+
+    public async ValueTask<ProxyJob> EnqueueAsync(
+        ProxyFingerprint source,
+        ProxyPreset preset,
+        int priority,
+        CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        var key = (source, preset);
+        WorkItem item;
+        lock (_lock)
+        {
+            if (_itemsByKey.TryGetValue(key, out WorkItem? existing)
+                && !IsTerminal(existing.Job.Status))
+            {
+                return existing.Job;
+            }
+
+            var cts = CancellationTokenSource.CreateLinkedTokenSource(_disposeCts.Token);
+            ProxyJob? job = null;
+            var progress = new Progress<ProxyJobProgress>(value =>
+            {
+                job!.LatestProgress = value;
+                OnJobChanged(job, ProxyJobChangeKind.Progressed);
+            });
+            job = new ProxyJob(
+                source,
+                preset,
+                progress,
+                cts.Token,
+                priority);
+
+            item = new WorkItem(job, cts);
+            _itemsByKey.Add(key, item);
+            _items.Add(item);
+        }
+
+        try
+        {
+            await _channel.Writer.WriteAsync(item, cancellationToken);
+            OnJobChanged(item.Job, ProxyJobChangeKind.Enqueued);
+            return item.Job;
+        }
+        catch
+        {
+            Remove(item);
+            item.Dispose();
+            throw;
+        }
+    }
+
+    public IReadOnlyList<ProxyJob> Pending()
+    {
+        lock (_lock)
+        {
+            return _items
+                .Select(static i => i.Job)
+                .Where(static j => !IsTerminal(j.Status))
+                .ToArray();
+        }
+    }
+
+    public void Cancel(Guid jobId)
+    {
+        WorkItem? item;
+        lock (_lock)
+        {
+            item = _items.FirstOrDefault(i => i.Job.JobId == jobId);
+        }
+
+        if (item != null)
+            CancelItem(item);
+    }
+
+    public void CancelAll()
+    {
+        WorkItem[] snapshot;
+        lock (_lock)
+        {
+            snapshot = [.. _items.Where(static i => !IsTerminal(i.Job.Status))];
+        }
+
+        foreach (WorkItem item in snapshot)
+        {
+            CancelItem(item);
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_disposed)
+            return;
+
+        _disposed = true;
+        CancelAll();
+        _channel.Writer.TryComplete();
+        _disposeCts.Cancel();
+        if (_generatorAvailability != null)
+            _generatorAvailability.AvailabilityChanged -= OnGeneratorAvailabilityChanged;
+
+        try
+        {
+            await _drainTask.ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+
+        _disposeCts.Dispose();
+    }
+
+    private async Task DrainAsync()
+    {
+        // Each channel entry is a permit to drive one job to a terminal state; the job is chosen by
+        // priority (not by which entry was read), so a high-priority enqueue can jump a bulk run.
+        await foreach (WorkItem _ in _channel.Reader.ReadAllAsync())
+        {
+            await ProcessOneAsync().ConfigureAwait(false);
+        }
+    }
+
+    private async Task ProcessOneAsync()
+    {
+        while (true)
+        {
+            WorkItem? item = TakeNextDispatchable();
+            if (item == null)
+                return;
+
+            if (!item.TryStart())
+            {
+                CompleteCanceled(item);
+                Remove(item);
+                item.Dispose();
+                return;
+            }
+
+            item.Job.Status = ProxyJobStatus.Running;
+            OnJobChanged(item.Job, ProxyJobChangeKind.Started);
+
+            bool requeued = false;
+            try
+            {
+                await _generator.GenerateAsync(item.Job).ConfigureAwait(false);
+                item.Job.Status = ProxyJobStatus.Succeeded;
+                Interlocked.Exchange(ref _consecutiveUnavailable, 0);
+                OnJobChanged(item.Job, ProxyJobChangeKind.Succeeded);
+            }
+            catch (ProxyGenerationSkippedException ex)
+            {
+                item.Job.Status = ProxyJobStatus.Skipped;
+                item.Job.StatusMessage = ex.Message;
+                OnJobChanged(item.Job, ProxyJobChangeKind.Skipped);
+            }
+            catch (OperationCanceledException)
+            {
+                CompleteCanceled(item);
+            }
+            catch (ProxyGeneratorUnavailableException)
+            {
+                // Unavailability is environmental, not the job's fault: keep the job Queued and
+                // re-probe after a bounded backoff, so a transient failure self-recovers and a
+                // genuinely-missing install keeps the job (and its install prompt) alive.
+                requeued = RequeueForRetry(item);
+                if (!requeued)
+                    CompleteCanceled(item);
+            }
+            catch (Exception ex)
+            {
+                item.Job.Status = ProxyJobStatus.Failed;
+                item.Job.Error = ex;
+                RegisterFailure(item.Job, ex.Message);
+                OnJobChanged(item.Job, ProxyJobChangeKind.Failed);
+            }
+
+            if (!requeued)
+            {
+                Remove(item);
+                item.Dispose();
+                return;
+            }
+
+            await WaitForGeneratorResumeOrDisposeAsync().ConfigureAwait(false);
+            if (_disposeCts.IsCancellationRequested)
+                return;
+        }
+    }
+
+    private bool RequeueForRetry(WorkItem item)
+    {
+        if (!item.ResetForRetry())
+            return false;
+
+        OnJobChanged(item.Job, ProxyJobChangeKind.Enqueued);
+        return true;
+    }
+
+    private async Task WaitForGeneratorResumeOrDisposeAsync()
+    {
+        Task resumeTask;
+        lock (_lock)
+        {
+            // Retry immediately only if availability is known to have returned; otherwise back off
+            // (including when the generator exposes no availability signal) to avoid a busy retry loop.
+            if (_generatorAvailability is { IsAvailable: true })
+                return;
+
+            _resumeAfterGeneratorUnavailable ??= new(TaskCreationOptions.RunContinuationsAsynchronously);
+            resumeTask = _resumeAfterGeneratorUnavailable.Task;
+        }
+
+        TimeSpan backoff = NextUnavailableBackoff();
+        try
+        {
+            await resumeTask.WaitAsync(backoff, _disposeCts.Token).ConfigureAwait(false);
+        }
+        catch (TimeoutException)
+        {
+            // Backoff elapsed with no availability signal: fall through so the drain loop re-probes
+            // the generator on the next queued job, letting a transient failure self-recover.
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private TimeSpan NextUnavailableBackoff()
+    {
+        int attempt = Interlocked.Increment(ref _consecutiveUnavailable);
+        double factor = Math.Pow(2, Math.Min(attempt - 1, 16));
+        double ms = Math.Min(_maxUnavailableBackoff.TotalMilliseconds, _minUnavailableBackoff.TotalMilliseconds * factor);
+        return TimeSpan.FromMilliseconds(ms);
+    }
+
+    private WorkItem? TakeNextDispatchable()
+    {
+        lock (_lock)
+        {
+            WorkItem? best = null;
+            foreach (WorkItem candidate in _items)
+            {
+                if (candidate.Job.Status != ProxyJobStatus.Queued
+                    || candidate.Cancellation.IsCancellationRequested)
+                {
+                    continue;
+                }
+
+                if (best == null || candidate.Job.Priority > best.Job.Priority)
+                    best = candidate;
+            }
+
+            return best;
+        }
+    }
+
+    private void OnGeneratorAvailabilityChanged(object? sender, EventArgs e)
+    {
+        if (_generatorAvailability?.IsAvailable != true)
+            return;
+
+        TaskCompletionSource? resume;
+        lock (_lock)
+        {
+            resume = _resumeAfterGeneratorUnavailable;
+            _resumeAfterGeneratorUnavailable = null;
+        }
+
+        resume?.TrySetResult();
+    }
+
+    private void CompleteCanceled(WorkItem item)
+    {
+        if (!IsTerminal(item.Job.Status))
+        {
+            item.Job.Status = ProxyJobStatus.Canceled;
+            OnJobChanged(item.Job, ProxyJobChangeKind.Canceled);
+        }
+    }
+
+    private void CancelItem(WorkItem item)
+    {
+        if (item.TryCancelQueued())
+        {
+            CompleteCanceled(item);
+            Remove(item);
+            return;
+        }
+
+        item.Cancel();
+    }
+
+    private void RegisterFailure(ProxyJob job, string? failureReason)
+    {
+        if (_store == null)
+            return;
+
+        try
+        {
+            if (_store.TryGet(job.Source, job.Preset) is { State: ProxyState.Ready or ProxyState.Stale })
+                return;
+
+            var now = DateTime.UtcNow;
+            _store.Register(new ProxyEntry(
+                job.Source,
+                job.Preset,
+                ProxyState.Failed,
+                ProxyPathUtilities.BuildRelativePath(job.Source, job.Preset),
+                0,
+                default,
+                default,
+                now,
+                now,
+                failureReason));
+        }
+        catch (Exception ex)
+        {
+            job.BookkeepingError = ex;
+            s_logger.LogError(
+                ex,
+                "Failed to record Failed proxy entry for {Source} ({Preset}).",
+                job.Source.AbsolutePath,
+                job.Preset);
+        }
+    }
+
+    private void Remove(WorkItem item)
+    {
+        lock (_lock)
+        {
+            var key = (item.Job.Source, item.Job.Preset);
+            if (_itemsByKey.TryGetValue(key, out WorkItem? current)
+                && ReferenceEquals(current, item))
+            {
+                _itemsByKey.Remove(key);
+            }
+
+            _items.Remove(item);
+        }
+    }
+
+    private void OnJobChanged(ProxyJob job, ProxyJobChangeKind kind)
+    {
+        JobChanged?.Invoke(this, new ProxyJobChangedEventArgs
+        {
+            Job = job,
+            Kind = kind,
+        });
+    }
+
+    private static bool IsTerminal(ProxyJobStatus status)
+        => status is ProxyJobStatus.Succeeded
+            or ProxyJobStatus.Failed
+            or ProxyJobStatus.Canceled
+            or ProxyJobStatus.Skipped;
+
+    private sealed class WorkItem(ProxyJob job, CancellationTokenSource cancellation) : IDisposable
+    {
+        private readonly Lock _lock = new();
+        private bool _started;
+        private bool _disposed;
+
+        public ProxyJob Job { get; } = job;
+
+        public CancellationTokenSource Cancellation { get; } = cancellation;
+
+        public bool TryStart()
+        {
+            lock (_lock)
+            {
+                if (_disposed || Cancellation.IsCancellationRequested)
+                    return false;
+
+                _started = true;
+                return true;
+            }
+        }
+
+        public bool ResetForRetry()
+        {
+            lock (_lock)
+            {
+                if (_disposed || Cancellation.IsCancellationRequested || IsTerminal(Job.Status))
+                    return false;
+
+                _started = false;
+                Job.Status = ProxyJobStatus.Queued;
+                return true;
+            }
+        }
+
+        public bool TryCancelQueued()
+        {
+            lock (_lock)
+            {
+                if (_disposed || _started || IsTerminal(Job.Status))
+                    return false;
+
+                Cancellation.Cancel();
+                return true;
+            }
+        }
+
+        public void Cancel()
+        {
+            lock (_lock)
+            {
+                if (_disposed || IsTerminal(Job.Status))
+                    return;
+
+                Cancellation.Cancel();
+            }
+        }
+
+        public void Dispose()
+        {
+            lock (_lock)
+            {
+                if (_disposed)
+                    return;
+
+                _disposed = true;
+                Cancellation.Dispose();
+            }
+        }
+    }
+}

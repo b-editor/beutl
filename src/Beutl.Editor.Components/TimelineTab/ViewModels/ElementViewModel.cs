@@ -5,7 +5,9 @@ using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Avalonia.Media.Immutable;
 using Beutl.Animation;
 using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
@@ -14,6 +16,8 @@ using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Logging;
 using Beutl.Media;
+using Beutl.Media.Proxy;
+using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Utilities;
@@ -40,6 +44,10 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
     private int _lastVisibleEnd = -1;
     private CancellationTokenSource? _scrollThumbnailsCts;
     private readonly Subject<(int Start, int End)> _visibleRangeSubject = new();
+    private readonly IProxyStore? _proxyStore;
+    private readonly IProxyJobQueue? _proxyJobQueue;
+    private Uri? _proxySourceUri;
+    private ProxyFingerprint? _proxyFingerprint;
 
     public Func<int, int, List<int>>? GetMissingThumbnailIndices;
 
@@ -150,6 +158,45 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             .AddTo(_disposables);
 
         InitializeThumbnails();
+
+        _proxyStore = Timeline.EditorContext.GetService<IProxyStore>();
+        _proxyJobQueue = Timeline.EditorContext.GetService<IProxyJobQueue>();
+        ProxyIndicatorBrush = ProxyIndicatorState
+            .Select(GetProxyStateBrush)
+            .ToReadOnlyReactivePropertySlim()
+            .AddTo(_disposables);
+        ProxyIndicatorTooltip = ProxyIndicatorState
+            .Select(GetProxyStateText)
+            .ToReadOnlyReactivePropertySlim()
+            .AddTo(_disposables);
+        InitializeProxyIndicator();
+    }
+
+    private void InitializeProxyIndicator()
+    {
+        if (_proxyStore != null)
+        {
+            EventHandler<ProxyStoreChangedEventArgs> storeHandler = (_, _) => OnProxyStateInvalidated();
+            _proxyStore.Changed += storeHandler;
+            Disposable.Create(() => _proxyStore.Changed -= storeHandler).AddTo(_disposables);
+        }
+
+        if (_proxyJobQueue != null)
+        {
+            EventHandler<ProxyJobChangedEventArgs> jobHandler = (_, _) => OnProxyStateInvalidated();
+            _proxyJobQueue.JobChanged += jobHandler;
+            Disposable.Create(() => _proxyJobQueue.JobChanged -= jobHandler).AddTo(_disposables);
+        }
+
+        // Source edits raise ThumbnailsInvalidated; re-resolve the badge when the backing file changes.
+        // An in-place overwrite keeps the same URI, so the fingerprint cache must be busted to re-stat.
+        _thumbnailsInvalidatedSubject
+            .Throttle(TimeSpan.FromMilliseconds(500))
+            .ObserveOnUIDispatcher()
+            .Subscribe(_ => RefreshProxyState(invalidateFingerprintCache: true))
+            .AddTo(_disposables);
+
+        RefreshProxyState();
     }
 
     private void InitializeThumbnails()
@@ -295,6 +342,14 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     public ReactivePropertySlim<int> WaveformChunkCount { get; } = new();
 
+    public ReactivePropertySlim<bool> ShowProxyIndicator { get; } = new();
+
+    public ReactivePropertySlim<ProxyState> ProxyIndicatorState { get; } = new(ProxyState.None);
+
+    public ReadOnlyReactivePropertySlim<IBrush> ProxyIndicatorBrush { get; }
+
+    public ReadOnlyReactivePropertySlim<string> ProxyIndicatorTooltip { get; }
+
     public event Action<int, WriteableBitmap?>? ThumbnailReady;
 
     public event Action? ThumbnailsClear;
@@ -368,6 +423,8 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         ThumbnailsKind.Dispose();
         VideoThumbnailCount.Dispose();
         WaveformChunkCount.Dispose();
+        ShowProxyIndicator.Dispose();
+        ProxyIndicatorState.Dispose();
 
         LayerHeader.Value = null!;
         AnimationRequested = (_, _) => Task.CompletedTask;
@@ -755,6 +812,152 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         return null;
     }
 
+    private static readonly IBrush s_proxyReadyBrush = new ImmutableSolidColorBrush(Avalonia.Media.Color.FromRgb(0x4C, 0xAF, 0x50));
+    private static readonly IBrush s_proxyGeneratingBrush = new ImmutableSolidColorBrush(Avalonia.Media.Color.FromRgb(0x21, 0x96, 0xF3));
+    private static readonly IBrush s_proxyStaleBrush = new ImmutableSolidColorBrush(Avalonia.Media.Color.FromRgb(0xFF, 0xB3, 0x00));
+    private static readonly IBrush s_proxyFailedBrush = new ImmutableSolidColorBrush(Avalonia.Media.Color.FromRgb(0xF4, 0x43, 0x36));
+    private static readonly IBrush s_proxyNoneBrush = new ImmutableSolidColorBrush(Avalonia.Media.Color.FromRgb(0x9E, 0x9E, 0x9E));
+
+    private bool PreferProxyForThumbnails => Scene.PreviewSourceMode == PreviewSourceMode.PreferProxy;
+
+    private IAsyncEnumerable<(int Index, int Count, Beutl.Media.Bitmap Thumbnail)> GetVideoThumbnailStrip(
+        IThumbnailsProvider provider, int width, int height, CancellationToken ct, int start, int end)
+    {
+        return provider is Beutl.Graphics.SourceVideo video
+            ? video.GetThumbnailStripAsync(width, height, _thumbnailCacheService, ct, start, end, PreferProxyForThumbnails)
+            : provider.GetThumbnailStripAsync(width, height, _thumbnailCacheService, ct, start, end);
+    }
+
+    private VideoSource? FindVideoSource()
+    {
+        foreach (var child in Model.Objects)
+        {
+            if (child is Beutl.Graphics.SourceVideo sourceVideo)
+                return sourceVideo.Source.CurrentValue;
+        }
+
+        return null;
+    }
+
+    private ProxyFingerprint? ResolveProxyFingerprint(bool invalidateCache = false)
+    {
+        VideoSource? source = FindVideoSource();
+        Uri? uri = source is { HasUri: true } && source.Uri is { IsFile: true } fileUri ? fileUri : null;
+
+        return ResolveCachedFingerprint(
+            uri,
+            invalidateCache,
+            ref _proxySourceUri,
+            ref _proxyFingerprint,
+            static u => ProxyFingerprint.TryFromFile(u.LocalPath, out ProxyFingerprint fingerprint)
+                ? fingerprint
+                : null);
+    }
+
+    // Keyed on the URI so high-frequency store/queue refreshes never re-stat the file; an in-place
+    // overwrite keeps the URI, so those callers pass invalidateCache to force one re-stat.
+    internal static ProxyFingerprint? ResolveCachedFingerprint(
+        Uri? currentUri,
+        bool invalidateCache,
+        ref Uri? cachedUri,
+        ref ProxyFingerprint? cachedFingerprint,
+        Func<Uri, ProxyFingerprint?> stat)
+    {
+        if (currentUri is null)
+        {
+            cachedUri = null;
+            cachedFingerprint = null;
+        }
+        else if (invalidateCache || !Equals(currentUri, cachedUri))
+        {
+            cachedUri = currentUri;
+            cachedFingerprint = stat(currentUri);
+        }
+
+        return cachedFingerprint;
+    }
+
+    private void OnProxyStateInvalidated()
+    {
+        if (!Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(OnProxyStateInvalidated);
+            return;
+        }
+
+        RefreshProxyState();
+    }
+
+    private void RefreshProxyState(bool invalidateFingerprintCache = false)
+    {
+        if (_proxyStore is not { } store || ResolveProxyFingerprint(invalidateFingerprintCache) is not { } fingerprint)
+        {
+            ShowProxyIndicator.Value = false;
+            ProxyIndicatorState.Value = ProxyState.None;
+            return;
+        }
+
+        ProxyIndicatorState.Value = ResolveProxyState(store, _proxyJobQueue, fingerprint);
+        ShowProxyIndicator.Value = true;
+    }
+
+    internal static ProxyState ResolveProxyState(IProxyStore store, IProxyJobQueue? queue, ProxyFingerprint fingerprint)
+    {
+        ArgumentNullException.ThrowIfNull(store);
+
+        if (queue != null)
+        {
+            foreach (ProxyJob job in queue.Pending())
+            {
+                if (string.Equals(job.Source.AbsolutePath, fingerprint.AbsolutePath, StringComparison.Ordinal))
+                    return ProxyState.Generating;
+            }
+        }
+
+        ProxyState? best = null;
+        foreach (ProxyEntry entry in store.Enumerate())
+        {
+            if (!string.Equals(entry.Source.AbsolutePath, fingerprint.AbsolutePath, StringComparison.Ordinal))
+                continue;
+
+            ProxyState effective = entry.Source == fingerprint ? entry.State : ProxyState.Stale;
+            best = best is { } current && ProxyStateRank(current) >= ProxyStateRank(effective)
+                ? current
+                : effective;
+        }
+
+        return best ?? ProxyState.None;
+    }
+
+    private static int ProxyStateRank(ProxyState state) => state switch
+    {
+        ProxyState.Ready => 5,
+        ProxyState.Generating => 4,
+        ProxyState.Stale => 3,
+        ProxyState.Partial => 2,
+        ProxyState.Failed => 1,
+        _ => 0,
+    };
+
+    private static IBrush GetProxyStateBrush(ProxyState state) => state switch
+    {
+        ProxyState.Ready => s_proxyReadyBrush,
+        ProxyState.Generating => s_proxyGeneratingBrush,
+        ProxyState.Stale or ProxyState.Partial => s_proxyStaleBrush,
+        ProxyState.Failed => s_proxyFailedBrush,
+        _ => s_proxyNoneBrush,
+    };
+
+    private static string GetProxyStateText(ProxyState state) => state switch
+    {
+        ProxyState.Ready => Strings.ProxyReady,
+        ProxyState.Generating => Strings.ProxyGenerating,
+        ProxyState.Stale => Strings.ProxyStale,
+        ProxyState.Partial => Strings.ProxyPartial,
+        ProxyState.Failed => Strings.ProxyFailed,
+        _ => Strings.ProxyMissing,
+    };
+
     public void OnVisibleRangeChanged(int start, int end)
     {
         _lastVisibleStart = start;
@@ -789,8 +992,8 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             if (width <= 0)
                 return;
 
-            await foreach (var (index, count, thumbnail) in provider.GetThumbnailStripAsync(
-                (int)width, MaxThumbnailHeight, _thumbnailCacheService, ct, start, end))
+            await foreach (var (index, count, thumbnail) in GetVideoThumbnailStrip(
+                provider, (int)width, MaxThumbnailHeight, ct, start, end))
             {
                 if (ct.IsCancellationRequested)
                 {
@@ -843,7 +1046,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         int startIndex = _lastVisibleStart >= 0 ? _lastVisibleStart : 0;
         int endIndex = _lastVisibleEnd >= 0 ? _lastVisibleEnd : -1;
 
-        await foreach (var (index, count, thumbnail) in provider.GetThumbnailStripAsync((int)width, MaxThumbnailHeight, _thumbnailCacheService, ct, startIndex, endIndex))
+        await foreach (var (index, count, thumbnail) in GetVideoThumbnailStrip(provider, (int)width, MaxThumbnailHeight, ct, startIndex, endIndex))
         {
             if (ct.IsCancellationRequested)
             {

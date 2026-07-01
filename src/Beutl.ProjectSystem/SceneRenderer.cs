@@ -12,9 +12,23 @@ public sealed class SceneRenderer : Renderer
         float renderScale = 1f,
         bool disableResourceShare = false,
         float maxWorkingScale = float.PositiveInfinity)
+        : this(scene, renderScale, disableResourceShare, maxWorkingScale, forceOriginalSource: false)
+    {
+    }
+
+    public SceneRenderer(
+        Scene scene,
+        float renderScale,
+        bool disableResourceShare,
+        float maxWorkingScale,
+        bool forceOriginalSource)
         : base(scene.FrameSize.Width, scene.FrameSize.Height, renderScale, maxWorkingScale)
     {
-        _compositor = new SceneCompositor(scene) { DisableResourceShare = disableResourceShare };
+        _compositor = new SceneCompositor(scene)
+        {
+            DisableResourceShare = disableResourceShare,
+            ForceOriginalSource = forceOriginalSource,
+        };
     }
 
     public SceneCompositor Compositor => _compositor;

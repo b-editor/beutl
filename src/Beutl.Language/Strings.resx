@@ -1294,4 +1294,148 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="RenderScale_FitToPreviewer" xml:space="preserve">
     <value>Fit to previewer</value>
   </data>
+  <data name="Proxies" xml:space="preserve">
+    <value>Proxies</value>
+  </data>
+  <data name="ProxyPresetHalf" xml:space="preserve">
+    <value>Half proxy (1/2)</value>
+  </data>
+  <data name="ProxyQuality" xml:space="preserve">
+    <value>Proxy quality</value>
+  </data>
+  <data name="PreviewSource" xml:space="preserve">
+    <value>Preview source</value>
+  </data>
+  <data name="PreviewSourcePreferProxy" xml:space="preserve">
+    <value>Proxy</value>
+  </data>
+  <data name="PreviewSourceForceOriginal" xml:space="preserve">
+    <value>Original</value>
+  </data>
+  <data name="ProxyPresetQuarter" xml:space="preserve">
+    <value>Quarter proxy (1/4)</value>
+  </data>
+  <data name="ProxyPresetEighth" xml:space="preserve">
+    <value>Eighth proxy (1/8)</value>
+  </data>
+  <data name="ProxyStoreUsage" xml:space="preserve">
+    <value>Store</value>
+  </data>
+  <data name="ProxyStoreCap" xml:space="preserve">
+    <value>Cap</value>
+  </data>
+  <data name="ProxyClips" xml:space="preserve">
+    <value>Clips</value>
+  </data>
+  <data name="ProxyQueue" xml:space="preserve">
+    <value>Queue</value>
+  </data>
+  <data name="ProxyGenerate" xml:space="preserve">
+    <value>Generate</value>
+  </data>
+  <data name="ProxyGenerateSelected" xml:space="preserve">
+    <value>Generate selected</value>
+  </data>
+  <data name="ProxyGenerateAll" xml:space="preserve">
+    <value>Generate all</value>
+  </data>
+  <data name="ProxyRegenerate" xml:space="preserve">
+    <value>Regenerate</value>
+  </data>
+  <data name="ProxyRegenerateSelected" xml:space="preserve">
+    <value>Regenerate selected</value>
+  </data>
+  <data name="ProxyDeleteSelected" xml:space="preserve">
+    <value>Delete selected</value>
+  </data>
+  <data name="ProxyDeleteProjectProxies" xml:space="preserve">
+    <value>Delete project proxies</value>
+  </data>
+  <data name="ProxyDeleteProjectProxiesConfirmationFormat" xml:space="preserve">
+    <value>Proxies are stored in a machine-wide shared cache. Deleting the {0} proxy file(s) used by this project also removes them for every other project that references the same source files, and they will have to be regenerated. Continue?</value>
+  </data>
+  <data name="ProxyReady" xml:space="preserve">
+    <value>Ready</value>
+  </data>
+  <data name="ProxyGenerating" xml:space="preserve">
+    <value>Generating</value>
+  </data>
+  <data name="ProxyStale" xml:space="preserve">
+    <value>Stale</value>
+  </data>
+  <data name="ProxyFailed" xml:space="preserve">
+    <value>Failed</value>
+  </data>
+  <data name="ProxyMissing" xml:space="preserve">
+    <value>Missing</value>
+  </data>
+  <data name="ProxyPartial" xml:space="preserve">
+    <value>Partial</value>
+  </data>
+  <data name="ProxyUnavailable" xml:space="preserve">
+    <value>Unavailable</value>
+  </data>
+  <data name="ProxyStoreUnavailable" xml:space="preserve">
+    <value>Proxy store is not available.</value>
+  </data>
+  <data name="ProxyQueueUnavailable" xml:space="preserve">
+    <value>Proxy queue is not available.</value>
+  </data>
+  <data name="ProxyBulkNoEligibleClips" xml:space="preserve">
+    <value>No clips met the bulk-generation threshold; use per-clip generate.</value>
+  </data>
+  <data name="ProxyQueueIdle" xml:space="preserve">
+    <value>Queue idle</value>
+  </data>
+  <data name="ProxyQueuedJobSingular" xml:space="preserve">
+    <value>1 queued job</value>
+  </data>
+  <data name="ProxyQueuedJobPlural" xml:space="preserve">
+    <value>{0} queued jobs</value>
+  </data>
+  <data name="ProxyClipSummaryFormat" xml:space="preserve">
+    <value>{0} clips / {1} ready / {2} stale / {3} failed / {4} missing</value>
+  </data>
+  <data name="ProxySelectedSingular" xml:space="preserve">
+    <value>1 selected</value>
+  </data>
+  <data name="ProxySelectedPlural" xml:space="preserve">
+    <value>{0} selected</value>
+  </data>
+  <data name="ProxyStoreSummaryFormat" xml:space="preserve">
+    <value>Project {0} / Store {1} / Cap {2}</value>
+  </data>
+  <data name="ProxySourceInfoFormat" xml:space="preserve">
+    <value>Source {0} / {1}</value>
+  </data>
+  <data name="ProxyInfoFormat" xml:space="preserve">
+    <value>Proxy {0} -> {1} / {2}</value>
+  </data>
+  <data name="ProxyMissingForSelectedPreset" xml:space="preserve">
+    <value>Proxy missing for selected preset</value>
+  </data>
+  <data name="ProxyLastUsedFormat" xml:space="preserve">
+    <value>Used {0}</value>
+  </data>
+  <data name="ProxyJobStatusQueued" xml:space="preserve">
+    <value>Queued</value>
+  </data>
+  <data name="ProxyJobStatusRunning" xml:space="preserve">
+    <value>Running</value>
+  </data>
+  <data name="ProxyJobStatusSucceeded" xml:space="preserve">
+    <value>Succeeded</value>
+  </data>
+  <data name="ProxyJobStatusFailed" xml:space="preserve">
+    <value>Failed</value>
+  </data>
+  <data name="ProxyJobStatusCanceled" xml:space="preserve">
+    <value>Canceled</value>
+  </data>
+  <data name="ProxyJobStatusSkipped" xml:space="preserve">
+    <value>Skipped</value>
+  </data>
+  <data name="ProxyJobStatusWithMessageFormat" xml:space="preserve">
+    <value>{0}: {1}</value>
+  </data>
 </root>

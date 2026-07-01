@@ -4,11 +4,13 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Beutl.Api;
 using Beutl.Api.Services;
 using Beutl.Helpers;
+using Beutl.Logging;
 using Beutl.Services;
 using Beutl.Services.StartupTasks;
 using Beutl.ViewModels.ExtensionsPages;
 using DynamicData;
 using DynamicData.Binding;
+using Microsoft.Extensions.Logging;
 using NuGet.Packaging.Core;
 using Reactive.Bindings;
 
@@ -21,6 +23,7 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
     private readonly ProjectService _projectService;
     private readonly EditorService _editorService;
     private readonly ExtensionProvider _extensionProvider;
+    private readonly ILogger _logger = Log.CreateLogger<MainViewModel>();
 
     public MainViewModel()
     {
@@ -145,6 +148,15 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
 
     private void OnExit(object? sender, ControlledApplicationLifetimeExitEventArgs e)
     {
+        try
+        {
+            ProxyMediaServices.Current?.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Proxy media services failed to dispose during shutdown.");
+        }
+
         PackageChangesQueue queue = _beutlClients.GetResource<PackageChangesQueue>();
         PackageIdentity[] installs = queue.GetInstalls().ToArray();
         PackageIdentity[] uninstalls = queue.GetUninstalls().ToArray();

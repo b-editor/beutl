@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel;
 using System.Numerics;
+using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Security;
 using System.Text.Json;
@@ -12,6 +13,7 @@ using Beutl.Graphics.Rendering.Cache;
 using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Media;
+using Beutl.Media.Proxy;
 using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -53,6 +55,8 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
     private Services.Adapters.PropertyEditorFactoryAdapter? _propertyEditorFactory;
     private Services.Adapters.PropertiesEditorFactoryImpl? _propertiesEditorFactory;
     private volatile bool _viewStateSaveSuppressed;
+    private readonly HashSet<string> _pendingProxyInvalidations = new(StringComparer.Ordinal);
+    private bool _proxyInvalidationScheduled;
 
     public EditViewModel(Scene scene, Beutl.Api.Services.ExtensionProvider extensionProvider, EditorService editorService)
     {
@@ -108,6 +112,21 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
             .DisposePreviousValue()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables)!;
+        scene.GetObservable(Scene.PreviewSourceModeProperty)
+            .Skip(1)
+            .Subscribe(_ => FrameCacheManager.Value.Clear())
+            .DisposeWith(_disposables);
+        GlobalConfiguration.Instance.ProxyStoreConfig.GetObservable(ProxyStoreConfig.DefaultPresetProperty)
+            .Skip(1)
+            .Subscribe(_ => FrameCacheManager.Value.Clear())
+            .DisposeWith(_disposables);
+
+        if (ProxyMediaServices.Current?.Store is { } proxyStore)
+        {
+            proxyStore.Changed += OnProxyStoreChanged;
+            Disposable.Create(() => proxyStore.Changed -= OnProxyStoreChanged)
+                .DisposeWith(_disposables);
+        }
 
         config.PropertyChanged += OnEditorConfigPropertyChanged;
 
@@ -183,6 +202,102 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
                 Renderer.Value.CacheOptions = RenderCacheOptions.CreateFromGlobalConfiguration();
             }
         }
+    }
+
+    private void OnProxyStoreChanged(object? sender, ProxyStoreChangedEventArgs e)
+    {
+        if (e.Kind is not (ProxyStoreChangeKind.Registered
+            or ProxyStoreChangeKind.StateChanged
+            or ProxyStoreChangeKind.Deleted))
+        {
+            return;
+        }
+
+        // e.Source.AbsolutePath is already the fingerprint's normalized path.
+        bool schedule;
+        lock (_pendingProxyInvalidations)
+        {
+            _pendingProxyInvalidations.Add(e.Source.AbsolutePath);
+            schedule = !_proxyInvalidationScheduled;
+            _proxyInvalidationScheduled = true;
+        }
+
+        // A bulk generate (FR-008 / US2 AC4) fires one store event per proxy state change.
+        // Coalesce the burst into a single UI-thread scene walk per tick instead of one
+        // walk per event, so the timeline stays smooth while proxies are generated.
+        if (schedule)
+        {
+            Dispatcher.UIThread.Post(FlushPendingProxyInvalidations);
+        }
+    }
+
+    private void FlushPendingProxyInvalidations()
+    {
+        HashSet<string> changedSources;
+        lock (_pendingProxyInvalidations)
+        {
+            _proxyInvalidationScheduled = false;
+            if (_pendingProxyInvalidations.Count == 0)
+            {
+                return;
+            }
+
+            changedSources = new HashSet<string>(_pendingProxyInvalidations, StringComparer.Ordinal);
+            _pendingProxyInvalidations.Clear();
+        }
+
+        // Invalidate only frames of clips that use a changed source, not the whole
+        // timeline cache (FR-023; unrelated clips stay editable during a bulk generate).
+        // FrameCacheManager only invalidates by frame range, so each changed source is
+        // mapped to the ranges of the elements that reference it.
+        FrameCacheManager cache = FrameCacheManager.Value;
+        if (cache.IsDisposed)
+        {
+            return;
+        }
+
+        List<TimeRange> affectedRanges = [];
+        foreach (Element element in Scene.Children)
+        {
+            if (ElementUsesAnySource(element, changedSources))
+            {
+                affectedRanges.Add(element.Range);
+            }
+        }
+
+        if (affectedRanges.Count == 0)
+        {
+            return;
+        }
+
+        int rate = Player.GetFrameRate();
+        cache.DeleteAndUpdateBlocks(affectedRanges
+            .Select(range => (Start: (int)range.Start.ToFrameNumber(rate),
+                End: (int)Math.Ceiling(range.End.ToFrameNumber(rate)))));
+    }
+
+    private static bool ElementUsesAnySource(Element element, IReadOnlySet<string> changedSources)
+    {
+        foreach (Beutl.Graphics.SourceVideo video in element.EnumerateAllChildren<Beutl.Graphics.SourceVideo>())
+        {
+            Beutl.Media.Source.VideoSource? source = video.Source.CurrentValue;
+            if (source is not { HasUri: true })
+            {
+                continue;
+            }
+
+            // Normalize the element's URI in-process rather than re-running a
+            // symlink-resolving FileInfo stat per element on the UI thread; the changed
+            // source path is already a normalized fingerprint path. The reader-level reload
+            // path (VideoSource + GetSourceVersion) still guarantees eventual correctness.
+            string elementPath = ProxyFingerprint.NormalizeAbsolutePath(source.Uri.LocalPath);
+            if (changedSources.Contains(elementPath))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private void OnChangeOperations(IList<ChangeOperation> list)
@@ -792,6 +907,18 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
 
         if (serviceType.IsAssignableTo(typeof(IPropertiesEditorFactory)))
             return _propertiesEditorFactory ??= new Services.Adapters.PropertiesEditorFactoryImpl(ExtensionProvider);
+
+        if (serviceType.IsAssignableTo(typeof(IProxyStore)))
+            return ProxyMediaServices.Current?.Store;
+
+        if (serviceType.IsAssignableTo(typeof(IProxyResolver)))
+            return ProxyMediaServices.Current?.Resolver;
+
+        if (serviceType.IsAssignableTo(typeof(IProxyJobQueue)))
+            return ProxyMediaServices.Current?.Queue;
+
+        if (serviceType == typeof(ProxyEvictionService))
+            return ProxyMediaServices.Current?.EvictionService;
 
         return null;
     }

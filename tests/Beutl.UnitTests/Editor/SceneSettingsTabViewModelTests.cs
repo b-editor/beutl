@@ -14,6 +14,8 @@ using Beutl.Services;
 
 using Reactive.Bindings;
 
+using ProxyPreviewSourceMode = Beutl.Media.Proxy.PreviewSourceMode;
+
 namespace Beutl.UnitTests.Editor;
 
 [TestFixture]
@@ -76,6 +78,10 @@ public class SceneSettingsTabViewModelTests
             {
                 Value = TimeSpan.FromSeconds(10).ToString()
             },
+            PreviewSourceMode =
+            {
+                Value = ProxyPreviewSourceMode.ForceOriginal
+            },
         };
 
         Task applyTask = viewModel.Apply.ExecuteAsync();
@@ -98,6 +104,7 @@ public class SceneSettingsTabViewModelTests
             Assert.That(sceneSettingsService.FrameSize, Is.EqualTo(latestFrameSize));
             Assert.That(sceneSettingsService.Start, Is.EqualTo(latestStart));
             Assert.That(sceneSettingsService.Duration, Is.EqualTo(latestDuration));
+            Assert.That(sceneSettingsService.PreviewSourceMode, Is.EqualTo(ProxyPreviewSourceMode.ForceOriginal));
         });
     }
 
@@ -276,12 +283,20 @@ public class SceneSettingsTabViewModelTests
 
         public TimeSpan Duration { get; private set; }
 
-        public bool Apply(Scene scene, PixelSize frameSize, TimeSpan start, TimeSpan duration)
+        public ProxyPreviewSourceMode PreviewSourceMode { get; private set; }
+
+        public bool Apply(
+            Scene scene,
+            PixelSize frameSize,
+            TimeSpan start,
+            TimeSpan duration,
+            ProxyPreviewSourceMode previewSourceMode)
         {
             CallCount++;
             FrameSize = frameSize;
             Start = start;
             Duration = duration;
+            PreviewSourceMode = previewSourceMode;
             return true;
         }
     }

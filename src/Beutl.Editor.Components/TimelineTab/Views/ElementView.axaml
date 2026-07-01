@@ -171,6 +171,17 @@
                      HorizontalAlignment="Stretch"
                      IsVisible="False"
                      Text="{Binding Name.Value}" />
+
+            <Border x:Name="proxyIndicator"
+                    Width="8"
+                    Height="8"
+                    Margin="0,2,3,0"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    Background="{Binding ProxyIndicatorBrush.Value}"
+                    CornerRadius="4"
+                    IsVisible="{Binding ShowProxyIndicator.Value}"
+                    ToolTip.Tip="{Binding ProxyIndicatorTooltip.Value}" />
         </Panel>
     </Border>
 

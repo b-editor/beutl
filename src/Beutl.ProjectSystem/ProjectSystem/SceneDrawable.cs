@@ -88,6 +88,7 @@ public sealed partial class SceneDrawable : Drawable
         partial void PostUpdate(SceneDrawable obj, CompositionContext context)
         {
             bool changed = false;
+            bool forceOriginalSource = context.ForceOriginalSource || !context.PreferProxy;
             if (_start != obj.Start)
             {
                 _start = obj.Start;
@@ -95,7 +96,8 @@ public sealed partial class SceneDrawable : Drawable
             }
 
             if (_compositor?.Scene != ReferencedScene
-                || _compositor?.DisableResourceShare != context.DisableResourceShare)
+                || _compositor?.DisableResourceShare != context.DisableResourceShare
+                || _compositor?.ForceOriginalSource != forceOriginalSource)
             {
                 _compositor?.Dispose();
                 _compositor = null;
@@ -106,6 +108,7 @@ public sealed partial class SceneDrawable : Drawable
                 _compositor = new SceneCompositor(ReferencedScene)
                 {
                     DisableResourceShare = context.DisableResourceShare,
+                    ForceOriginalSource = forceOriginalSource,
                 };
             }
 
