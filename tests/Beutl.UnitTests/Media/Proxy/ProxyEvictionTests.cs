@@ -52,6 +52,159 @@ public class ProxyEvictionTests
         });
     }
 
+    [Test]
+    public void Sweep_ProtectsOpenProjectEntries_EvictingUnrelatedFirst()
+    {
+        string root = CreateRoot();
+        var store = new ProxyStore(root);
+        // The open-project proxy is the OLDEST, so pure LRU would reap it first.
+        ProxyEntry openProject = Register(store, root, "open.mp4", DateTime.UtcNow.AddMinutes(-10), 7);
+        ProxyEntry unrelated = Register(store, root, "other.mp4", DateTime.UtcNow, 7);
+        var service = new ProxyEvictionService(
+            store,
+            resolver: null,
+            maxTotalBytes: 7,
+            openProjectSourceProvider: () => new HashSet<string> { openProject.Source.AbsolutePath });
+
+        ProxyEvictionResult result = service.Sweep();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.RemovedCount, Is.EqualTo(1));
+            Assert.That(store.TryGet(openProject.Source, openProject.Preset), Is.Not.Null);
+            Assert.That(store.TryGet(unrelated.Source, unrelated.Preset), Is.Null);
+        });
+    }
+
+    [Test]
+    public void Sweep_EvictsOpenProjectEntries_AsLastResort()
+    {
+        string root = CreateRoot();
+        var store = new ProxyStore(root);
+        ProxyEntry olderOpen = Register(store, root, "older.mp4", DateTime.UtcNow.AddMinutes(-10), 7);
+        ProxyEntry newerOpen = Register(store, root, "newer.mp4", DateTime.UtcNow, 7);
+        var protectedSet = new HashSet<string>
+        {
+            olderOpen.Source.AbsolutePath,
+            newerOpen.Source.AbsolutePath,
+        };
+        var service = new ProxyEvictionService(
+            store,
+            resolver: null,
+            maxTotalBytes: 7,
+            openProjectSourceProvider: () => protectedSet);
+
+        ProxyEvictionResult result = service.Sweep();
+
+        // Everything is protected, but the cap must still be met: the LRU protected one goes.
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.RemovedCount, Is.EqualTo(1));
+            Assert.That(store.TryGet(olderOpen.Source, olderOpen.Preset), Is.Null);
+            Assert.That(store.TryGet(newerOpen.Source, newerOpen.Preset), Is.Not.Null);
+        });
+    }
+
+    [Test]
+    public void SweepForDiskPressure_EvictsWhenHostFreeSpaceLow()
+    {
+        string root = CreateRoot();
+        var store = new ProxyStore(root);
+        ProxyEntry oldEntry = Register(store, root, "old.mp4", DateTime.UtcNow.AddMinutes(-10), 20);
+        ProxyEntry newEntry = Register(store, root, "new.mp4", DateTime.UtcNow, 20);
+        var service = new ProxyEvictionService(
+            store,
+            resolver: null,
+            // Cap is generous, so only host free-space pressure can drive eviction.
+            maxTotalBytes: 1_000_000,
+            minFreeDiskBytes: 100,
+            availableFreeSpaceProvider: _ => 90);
+
+        ProxyEvictionResult result = service.SweepForDiskPressure();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.RemovedCount, Is.EqualTo(1));
+            Assert.That(store.TryGet(oldEntry.Source, oldEntry.Preset), Is.Null);
+            Assert.That(store.TryGet(newEntry.Source, newEntry.Preset), Is.Not.Null);
+        });
+    }
+
+    [Test]
+    public void SweepForDiskPressure_DoesNotEvictWhenEvictionCannotFreeEnough()
+    {
+        string root = CreateRoot();
+        var store = new ProxyStore(root);
+        ProxyEntry a = Register(store, root, "a.mp4", DateTime.UtcNow.AddMinutes(-10), 5);
+        ProxyEntry b = Register(store, root, "b.mp4", DateTime.UtcNow, 5);
+        var service = new ProxyEvictionService(
+            store,
+            resolver: null,
+            maxTotalBytes: 1_000_000,
+            // Shortfall (1000 - 100 = 900) far exceeds the 10 bytes that could be reclaimed.
+            minFreeDiskBytes: 1000,
+            availableFreeSpaceProvider: _ => 100);
+
+        ProxyEvictionResult result = service.SweepForDiskPressure();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.RemovedCount, Is.EqualTo(0));
+            Assert.That(store.TryGet(a.Source, a.Preset), Is.Not.Null);
+            Assert.That(store.TryGet(b.Source, b.Preset), Is.Not.Null);
+        });
+    }
+
+    [Test]
+    public void SweepForDiskPressure_NoEvictionWhenHeadroomSatisfied()
+    {
+        string root = CreateRoot();
+        var store = new ProxyStore(root);
+        ProxyEntry a = Register(store, root, "a.mp4", DateTime.UtcNow.AddMinutes(-10), 20);
+        ProxyEntry b = Register(store, root, "b.mp4", DateTime.UtcNow, 20);
+        var service = new ProxyEvictionService(
+            store,
+            resolver: null,
+            maxTotalBytes: 1_000_000,
+            minFreeDiskBytes: 100,
+            availableFreeSpaceProvider: _ => 500);
+
+        ProxyEvictionResult result = service.SweepForDiskPressure();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.RemovedCount, Is.EqualTo(0));
+            Assert.That(store.TryGet(a.Source, a.Preset), Is.Not.Null);
+            Assert.That(store.TryGet(b.Source, b.Preset), Is.Not.Null);
+        });
+    }
+
+    [Test]
+    public void SweepForDiskPressure_StillEnforcesCapWhenDiskGoalUnreachable()
+    {
+        string root = CreateRoot();
+        var store = new ProxyStore(root);
+        ProxyEntry oldEntry = Register(store, root, "old.mp4", DateTime.UtcNow.AddMinutes(-10), 7);
+        ProxyEntry newEntry = Register(store, root, "new.mp4", DateTime.UtcNow, 7);
+        var service = new ProxyEvictionService(
+            store,
+            resolver: null,
+            // Over cap by 7 bytes; the disk goal (1000) is unreachable, so only the
+            // cap overage should be reclaimed rather than over-evicting.
+            maxTotalBytes: 7,
+            minFreeDiskBytes: 1000,
+            availableFreeSpaceProvider: _ => 0);
+
+        ProxyEvictionResult result = service.SweepForDiskPressure();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.RemovedCount, Is.EqualTo(1));
+            Assert.That(store.TryGet(oldEntry.Source, oldEntry.Preset), Is.Null);
+            Assert.That(store.TryGet(newEntry.Source, newEntry.Preset), Is.Not.Null);
+        });
+    }
+
     private static string CreateRoot()
     {
         string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
