@@ -1292,7 +1292,10 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>プロキシ</value>
   </data>
   <data name="ProxyPresetHalf" xml:space="preserve">
-    <value>1/2</value>
+    <value>プロキシ 1/2</value>
+  </data>
+  <data name="ProxyQuality" xml:space="preserve">
+    <value>プロキシ品質</value>
   </data>
   <data name="PreviewSource" xml:space="preserve">
     <value>プレビューソース</value>
@@ -1304,10 +1307,10 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>オリジナル</value>
   </data>
   <data name="ProxyPresetQuarter" xml:space="preserve">
-    <value>1/4</value>
+    <value>プロキシ 1/4</value>
   </data>
   <data name="ProxyPresetEighth" xml:space="preserve">
-    <value>1/8</value>
+    <value>プロキシ 1/8</value>
   </data>
   <data name="ProxyStoreUsage" xml:space="preserve">
     <value>ストア</value>
