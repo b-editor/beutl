@@ -77,19 +77,33 @@ public partial class SourceVideo : IThumbnailsProvider
         return Convert.ToHexString(hash);
     }
 
+    public IAsyncEnumerable<(int Index, int Count, Bitmap Thumbnail)> GetThumbnailStripAsync(
+        int maxWidth,
+        int maxHeight,
+        IThumbnailCacheService? cacheService = null,
+        CancellationToken cancellationToken = default,
+        int startIndex = 0,
+        int endIndex = -1)
+        => GetThumbnailStripAsync(maxWidth, maxHeight, cacheService, cancellationToken, startIndex, endIndex,
+            preferProxy: false);
+
+    // preferProxy false must keep the original decode path byte-identical (shared Default context).
     public async IAsyncEnumerable<(int Index, int Count, Bitmap Thumbnail)> GetThumbnailStripAsync(
         int maxWidth,
         int maxHeight,
         IThumbnailCacheService? cacheService,
-        [EnumeratorCancellation] CancellationToken cancellationToken = default,
-        int startIndex = 0,
-        int endIndex = -1)
+        [EnumeratorCancellation] CancellationToken cancellationToken,
+        int startIndex,
+        int endIndex,
+        bool preferProxy)
     {
         Resource? resource = null;
         DrawableRenderNode? node = null;
         try
         {
-            resource = ToResource(CompositionContext.Default);
+            resource = ToResource(preferProxy
+                ? new CompositionContext(TimeSpan.Zero) { PreferProxy = true }
+                : CompositionContext.Default);
 
             if (resource.Source is not { } source)
                 yield break;
@@ -137,7 +151,7 @@ public partial class SourceVideo : IThumbnailsProvider
                     if (cancellationToken.IsCancellationRequested)
                         return null;
 
-                    var ctx = new CompositionContext(time + TimeRange.Start);
+                    var ctx = new CompositionContext(time + TimeRange.Start) { PreferProxy = preferProxy };
                     bool updateOnly = false;
                     resource.Update(this, ctx, ref updateOnly);
 
