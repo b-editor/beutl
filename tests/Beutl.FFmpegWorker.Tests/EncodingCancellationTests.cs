@@ -60,6 +60,7 @@ public class EncodingCancellationTests
     {
         if (!s_ffmpegAvailable.Value)
         {
+            TestContext.WriteLine("FFmpeg native libraries are not available; skipping FFmpeg-native cancellation test.");
             Assert.Ignore("FFmpeg native libraries are not available; skipping FFmpeg-native cancellation test.");
         }
 
