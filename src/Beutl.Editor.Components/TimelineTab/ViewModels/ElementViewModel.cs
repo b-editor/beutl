@@ -189,10 +189,11 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         }
 
         // Source edits raise ThumbnailsInvalidated; re-resolve the badge when the backing file changes.
+        // An in-place overwrite keeps the same URI, so the fingerprint cache must be busted to re-stat.
         _thumbnailsInvalidatedSubject
             .Throttle(TimeSpan.FromMilliseconds(500))
             .ObserveOnUIDispatcher()
-            .Subscribe(_ => RefreshProxyState())
+            .Subscribe(_ => RefreshProxyState(invalidateFingerprintCache: true))
             .AddTo(_disposables);
 
         RefreshProxyState();
@@ -838,25 +839,42 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         return null;
     }
 
-    private ProxyFingerprint? ResolveProxyFingerprint()
+    private ProxyFingerprint? ResolveProxyFingerprint(bool invalidateCache = false)
     {
         VideoSource? source = FindVideoSource();
-        if (source is not { HasUri: true } || source.Uri is not { IsFile: true } uri)
-        {
-            _proxySourceUri = null;
-            _proxyFingerprint = null;
-            return null;
-        }
+        Uri? uri = source is { HasUri: true } && source.Uri is { IsFile: true } fileUri ? fileUri : null;
 
-        if (!Equals(uri, _proxySourceUri))
-        {
-            _proxySourceUri = uri;
-            _proxyFingerprint = ProxyFingerprint.TryFromFile(uri.LocalPath, out ProxyFingerprint fingerprint)
+        return ResolveCachedFingerprint(
+            uri,
+            invalidateCache,
+            ref _proxySourceUri,
+            ref _proxyFingerprint,
+            static u => ProxyFingerprint.TryFromFile(u.LocalPath, out ProxyFingerprint fingerprint)
                 ? fingerprint
-                : null;
+                : null);
+    }
+
+    // Keyed on the URI so high-frequency store/queue refreshes never re-stat the file; an in-place
+    // overwrite keeps the URI, so those callers pass invalidateCache to force one re-stat.
+    internal static ProxyFingerprint? ResolveCachedFingerprint(
+        Uri? currentUri,
+        bool invalidateCache,
+        ref Uri? cachedUri,
+        ref ProxyFingerprint? cachedFingerprint,
+        Func<Uri, ProxyFingerprint?> stat)
+    {
+        if (currentUri is null)
+        {
+            cachedUri = null;
+            cachedFingerprint = null;
+        }
+        else if (invalidateCache || !Equals(currentUri, cachedUri))
+        {
+            cachedUri = currentUri;
+            cachedFingerprint = stat(currentUri);
         }
 
-        return _proxyFingerprint;
+        return cachedFingerprint;
     }
 
     private void OnProxyStateInvalidated()
@@ -870,9 +888,9 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         RefreshProxyState();
     }
 
-    private void RefreshProxyState()
+    private void RefreshProxyState(bool invalidateFingerprintCache = false)
     {
-        if (_proxyStore is not { } store || ResolveProxyFingerprint() is not { } fingerprint)
+        if (_proxyStore is not { } store || ResolveProxyFingerprint(invalidateFingerprintCache) is not { } fingerprint)
         {
             ShowProxyIndicator.Value = false;
             ProxyIndicatorState.Value = ProxyState.None;
@@ -883,7 +901,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         ShowProxyIndicator.Value = true;
     }
 
-    public static ProxyState ResolveProxyState(IProxyStore store, IProxyJobQueue? queue, ProxyFingerprint fingerprint)
+    internal static ProxyState ResolveProxyState(IProxyStore store, IProxyJobQueue? queue, ProxyFingerprint fingerprint)
     {
         ArgumentNullException.ThrowIfNull(store);
 
