@@ -52,6 +52,10 @@ public sealed class PlanOriginalScaffoldTests
                 allowHardCuts: false,
                 allowRectDominance: false,
                 relaxAesthetics: false,
+                allowStillness: false,
+                allowDenseText: false,
+                allowMultiObjectElements: false,
+                allowMonochrome: false,
                 evaluateMotion: false,
                 cancellationToken: CancellationToken.None);
 
