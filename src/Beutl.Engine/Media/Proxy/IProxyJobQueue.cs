@@ -9,6 +9,19 @@ public interface IProxyJobQueue : IAsyncDisposable
         ProxyPreset preset,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Enqueues a proxy job at the given <paramref name="priority"/>: higher-priority jobs are
+    /// dispatched ahead of lower-priority ones, and equal priorities keep arrival (FIFO) order. The
+    /// default implementation ignores priority and forwards to the arrival-order overload, so an
+    /// implementation only overrides this when it can honor priority.
+    /// </summary>
+    ValueTask<ProxyJob> EnqueueAsync(
+        ProxyFingerprint source,
+        ProxyPreset preset,
+        int priority,
+        CancellationToken cancellationToken = default)
+        => EnqueueAsync(source, preset, cancellationToken);
+
     IReadOnlyList<ProxyJob> Pending();
 
     void Cancel(Guid jobId);

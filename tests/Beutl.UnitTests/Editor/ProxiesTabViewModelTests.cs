@@ -487,6 +487,64 @@ public sealed class ProxiesTabViewModelTests
             Is.EquivalentTo(new[] { heavyFingerprint, lightFingerprint }));
     }
 
+    [Test]
+    public async Task GenerateAsync_UserInitiatedJumpsAheadOfEarlierBulkEnqueue()
+    {
+        string root = CreateRoot();
+        string heavyPath = CreateSourceFile(root, "heavy.mov", 4096);
+        string foregroundPath = CreateSourceFile(root, "foreground.mov", 4096);
+        var store = new ProxyStore(Path.Combine(root, "proxies"));
+        ProxyFingerprint heavyFingerprint = ProxyFingerprint.FromFile(heavyPath);
+        DateTime now = DateTime.UtcNow;
+        RegisterProxyEntry(store, new ProxyEntry(
+            heavyFingerprint,
+            ProxyPreset.Quarter,
+            ProxyState.Ready,
+            "hash/heavy.mp4",
+            1024,
+            new PixelSize(3840, 2160),
+            new PixelSize(960, 540),
+            now,
+            now,
+            null));
+        ProxyFingerprint foregroundFingerprint = ProxyFingerprint.FromFile(foregroundPath);
+        var queue = new TestProxyJobQueue();
+
+        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, queue, heavyPath, foregroundPath));
+
+        await viewModel.GenerateAllCommand.ExecuteAsync();
+        ProxyClipViewModel foregroundClip = viewModel.Clips.Single(static c => c.FileName == "foreground.mov");
+        await viewModel.GenerateAsync(foregroundClip);
+
+        ProxyJob bulkJob = queue.Pending().Single(job => job.Source.AbsolutePath == heavyFingerprint.AbsolutePath);
+        ProxyJob foregroundJob = queue.Pending().Single(job => job.Source.AbsolutePath == foregroundFingerprint.AbsolutePath);
+        Assert.That(
+            foregroundJob.Priority,
+            Is.GreaterThan(bulkJob.Priority),
+            "the user-initiated clip must enqueue ahead of the earlier bulk sweep");
+    }
+
+    [Test]
+    public async Task GenerateAll_AllLightProject_ReportsNoEligibleClipsAndEnqueuesNothing()
+    {
+        string root = CreateRoot();
+        string firstPath = CreateSourceFile(root, "light-a.mov", 4096);
+        string secondPath = CreateSourceFile(root, "light-b.mov", 4096);
+        var store = new ProxyStore(Path.Combine(root, "proxies"));
+        var queue = new TestProxyJobQueue();
+
+        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, queue, firstPath, secondPath));
+
+        await viewModel.GenerateAllCommand.ExecuteAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.Clips, Has.Count.EqualTo(2));
+            Assert.That(viewModel.StatusMessage.Value, Is.EqualTo(Strings.ProxyBulkNoEligibleClips));
+            Assert.That(queue.Pending(), Is.Empty);
+        });
+    }
+
     private static TestEditorContext CreateContext(string root, ProxyStore store, params string[] sourcePaths)
         => CreateContext(root, store, queue: null, sourcePaths);
 
@@ -691,8 +749,15 @@ public sealed class ProxiesTabViewModelTests
             ProxyFingerprint source,
             ProxyPreset preset,
             CancellationToken cancellationToken = default)
+            => EnqueueAsync(source, preset, priority: 0, cancellationToken);
+
+        public ValueTask<ProxyJob> EnqueueAsync(
+            ProxyFingerprint source,
+            ProxyPreset preset,
+            int priority,
+            CancellationToken cancellationToken = default)
         {
-            var job = new ProxyJob(source, preset);
+            var job = new ProxyJob(source, preset, priority: priority);
             _pendingJobs.Add(job);
             JobChanged?.Invoke(this, new ProxyJobChangedEventArgs
             {

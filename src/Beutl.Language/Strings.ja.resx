@@ -1375,6 +1375,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="ProxyQueueUnavailable" xml:space="preserve">
     <value>プロキシキューを利用できません。</value>
   </data>
+  <data name="ProxyBulkNoEligibleClips" xml:space="preserve">
+    <value>一括生成のしきい値を満たすクリップがありません。個別に生成してください。</value>
+  </data>
   <data name="ProxyQueueIdle" xml:space="preserve">
     <value>キューは空です</value>
   </data>

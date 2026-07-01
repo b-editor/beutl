@@ -261,6 +261,43 @@ public class ProxyJobQueueTests
     }
 
     [Test]
+    public async Task EnqueueAsync_PriorityReachableThroughInterfaceType()
+    {
+        var generator = new ControlledBlockingGenerator();
+        await using var queue = new ProxyJobQueue(generator);
+        IProxyJobQueue sut = queue;
+        ProxyFingerprint running = CreateFingerprint("running.mov");
+        ProxyFingerprint bulk = CreateFingerprint("bulk.mov");
+        ProxyFingerprint urgent = CreateFingerprint("urgent.mov");
+
+        ProxyJob runningJob = await sut.EnqueueAsync(running, ProxyPreset.Quarter);
+        await generator.WaitForStartedCountAsync(1);
+
+        await sut.EnqueueAsync(bulk, ProxyPreset.Quarter);
+        ProxyJob urgentJob = await sut.EnqueueAsync(urgent, ProxyPreset.Quarter, priority: 10);
+
+        generator.ReleaseOne();
+        await generator.WaitForStartedCountAsync(2);
+        generator.ReleaseOne();
+        await generator.WaitForStartedCountAsync(3);
+        generator.ReleaseAll();
+
+        await WaitForTerminalAsync(runningJob);
+        await WaitForTerminalAsync(urgentJob);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(urgentJob.Priority, Is.EqualTo(10));
+            Assert.That(generator.StartedSources[0], Is.EqualTo(running));
+            Assert.That(
+                generator.StartedSources[1],
+                Is.EqualTo(urgent),
+                "priority set via IProxyJobQueue must jump the earlier-queued bulk");
+            Assert.That(generator.StartedSources[2], Is.EqualTo(bulk));
+        });
+    }
+
+    [Test]
     public async Task RegisterFailure_WhenStoreRegisterThrows_SurfacesSecondaryErrorNotSilently()
     {
         var store = new ThrowingRegisterStore();
