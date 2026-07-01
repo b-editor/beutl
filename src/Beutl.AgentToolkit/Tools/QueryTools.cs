@@ -54,6 +54,11 @@ public sealed record GetEffectRecipeResponse(
     EffectRecipe Recipe,
     string UsageHint);
 
+public sealed record OriginalScaffoldResponse(
+    string SchemaVersion,
+    OriginalScaffold Scaffold,
+    string UsageHint);
+
 public sealed record ValidateShaderResponse(
     string SchemaVersion,
     string EffectType,
@@ -218,6 +223,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 "Call read_document_summary to inspect progress without the full document.",
                 "Call measure_object_bounds before positioning text, backing plates, or centered objects; default Drawable alignment is centered, so TranslateTransform(0, 0) means the object's center is at the frame center.",
                 "For original creative briefs, call list_creative_directions, synthesize an original pitch from at least two inspiration seeds, read_document, and get_schema only for the drawable/effect types you need, then author a custom declarative patch instead of cloning a starter.",
+                "For a one-call original starting point, call plan_original_scaffold to get a gate-clean skeleton patch (background role, headline/subtitle, placeholder foreground) with a generated palette and seed-varied layout, then customize every placeholder and apply it with apply_edit. This is an original skeleton, not a named template like apply_composition.",
                 "Call list_effects and list_effect_recipes to discover Beutl's visual effect palette before choosing a repeated look; for organic heat/ink/glass/noise fields, consider an SKSLScriptEffect shader recipe instead of stacking only blurred gradients.",
                 "For SKSL/GLSL/CSharp script effects, read the default script and uniform list from get_schema(type=<effect>), then call validate_shader to compile-check an edited script before apply_edit; for SKSL, a compile error makes the effect a no-op and the source passes through unchanged.",
                 "For no-context motion graphics, avoid overused orbit/radar/map/signal/dashboard motifs unless the user asks for them.",
@@ -414,6 +420,32 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 DateTimeOffset.UtcNow));
             return new RecordCreativeDirectionResponse(true, sessions.GetRecentCreativeFingerprints());
         });
+    }
+
+    [McpServerTool(Name = "plan_original_scaffold")]
+    [Description("Returns a one-call ORIGINAL starting scaffold: a declarative patch (scaffold.patch) with a background role, a headline and subtitle, and a placeholder decorative foreground, using a procedurally GENERATED palette and seed-varied layout. This is a customizable skeleton the agent then rewrites, NOT a named composition template: unlike apply_composition (which requires an explicit template name for explicit template/starter requests), this synthesizes a fresh original skeleton for authoring from scratch. The patch is gate-clean by construction (one EngineObject per Element, short mixed-case copy, luma-separated non teal/cyan/magenta palette, soft multi-stop background, named foreground role + motion intent). Two different seeds produce structurally different scaffolds.")]
+    public ToolResult<OriginalScaffoldResponse> PlanOriginalScaffold(string? brief = null, string? seed = null)
+    {
+        return Execute(() =>
+        {
+            (int width, int height, double durationSeconds) = ResolveScaffoldFrame();
+            string[] inspirationSeedNames = CreateInspirationSeeds().Select(item => item.Name).ToArray();
+            OriginalScaffold scaffold = _compositionCatalog.Scaffold(seed, brief, inspirationSeedNames, width, height, durationSeconds);
+            return new OriginalScaffoldResponse(
+                SchemaVersion.Current,
+                scaffold,
+                "Rewrite the placeholder copy, palette, and decorative foreground from your synthesized pitch, then pass scaffold.patch to apply_edit with schemaVersion=1. This is an original skeleton, not a template; do not ship it unchanged. Call record_creative_direction once the concept is locked.");
+        });
+    }
+
+    private (int Width, int Height, double DurationSeconds) ResolveScaffoldFrame()
+    {
+        if (sessions.CurrentSession is { Root: Scene scene })
+        {
+            return (scene.FrameSize.Width, scene.FrameSize.Height, Math.Max(0.1, scene.Duration.TotalSeconds));
+        }
+
+        return (1920, 1080, 8);
     }
 
     [McpServerTool(Name = "get_schema")]

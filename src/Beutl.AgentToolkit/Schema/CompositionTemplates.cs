@@ -83,6 +83,21 @@ public sealed record CompositionRender(
     IReadOnlyList<CompositionTransitionDescriptor> Transitions,
     JsonObject Patch);
 
+public sealed record ScaffoldPaletteRole(
+    string Role,
+    string Color,
+    string Note);
+
+public sealed record OriginalScaffold(
+    string Seed,
+    string? Brief,
+    string StructuralSignature,
+    IReadOnlyList<string> InspirationSeedsReferenced,
+    IReadOnlyList<ScaffoldPaletteRole> PaletteRoles,
+    IReadOnlyList<string> CustomizeHints,
+    CompositionMetadata Metadata,
+    JsonObject Patch);
+
 public sealed class CompositionTemplateCatalog
 {
     private static readonly Lazy<CompositionTemplateSpec[]> s_templates = new(CreateTemplates);
@@ -118,6 +133,204 @@ public sealed class CompositionTemplateCatalog
             .ToArray();
 
         return new CompositionTemplateList(resolvedSeed, Deprioritize(Shuffle(summaries, resolvedSeed), deprioritizedNames));
+    }
+
+    // Must NOT reuse the fixed CreateTemplates() specs: the result is an original customizable
+    // skeleton, not a named template. Output must stay gate-clean by construction (one EngineObject
+    // per Element, short mixed-case copy, luma-separated non teal/cyan/magenta palette, soft
+    // multi-stop background, named foreground role + motion intent).
+    public OriginalScaffold Scaffold(
+        string? seed,
+        string? brief,
+        IReadOnlyList<string> inspirationSeedNames,
+        int width,
+        int height,
+        double durationSeconds)
+    {
+        string resolvedSeed = ResolveSeed(seed);
+        string normalizedBrief = string.IsNullOrWhiteSpace(brief) ? "no-brief" : brief.Trim();
+        var random = new SeededValues($"{resolvedSeed}:{normalizedBrief}:original-scaffold");
+
+        var props = new JsonObject
+        {
+            ["width"] = width,
+            ["height"] = height,
+            ["fps"] = 30,
+            ["durationSeconds"] = durationSeconds
+        };
+        CompositionMetadata metadata = CalculateMetadata("original-scaffold", props);
+        TimeSpan fullLength = TimeSpan.FromSeconds(metadata.DurationSeconds);
+
+        ScaffoldPalette palette = GenerateScaffoldPalette(random);
+
+        int anchorVariant = random.NextInt(3);
+        int accentCount = 1 + random.NextInt(2);
+        float anchorX = anchorVariant switch
+        {
+            1 => 0 + random.Range(-40, 40),
+            2 => 360 + random.Range(-60, 60),
+            _ => -360 + random.Range(-60, 60)
+        };
+        float headlineY = -60 + random.Range(-30, 30);
+        float subtitleY = headlineY + 118 + random.Range(-14, 14);
+
+        IReadOnlyList<string> referencedSeeds = PickReferencedSeeds(inspirationSeedNames, random);
+
+        List<Element> elements =
+        [
+            CreateElement(
+                "Background surface — customize me [role:background]",
+                0,
+                fullLength,
+                new RectShape
+                {
+                    Name = "Scaffold background surface [role:background]",
+                    Width = { CurrentValue = metadata.Width },
+                    Height = { CurrentValue = metadata.Height },
+                    Fill = { CurrentValue = CreateSoftLinearGradient(palette.BackgroundA, palette.BackgroundMid, palette.BackgroundB) }
+                })
+        ];
+
+        for (int i = 0; i < accentCount; i++)
+        {
+            float ringSize = 300 + (i * 120) + random.Range(-40, 60);
+            float ringX = -anchorX * 0.4f + random.Range(-140, 140);
+            float ringY = random.Range(-160, 160);
+            Element accent = CreateElement(
+                $"Accent ring stroke {i + 1} — customize me [role:decorative] drift",
+                4 + i,
+                fullLength,
+                new EllipseShape
+                {
+                    Name = $"Placeholder accent ring stroke {i + 1} [role:decorative]",
+                    Width = { CurrentValue = ringSize },
+                    Height = { CurrentValue = ringSize },
+                    Fill = { CurrentValue = null },
+                    Pen = { CurrentValue = CreatePen(i % 2 == 0 ? palette.Accent : palette.SecondaryAccent, 3 + random.Range(0, 3)) },
+                    Transform =
+                    {
+                        CurrentValue = new TransformGroup
+                        {
+                            Children = { new TranslateTransform(ringX, ringY) }
+                        }
+                    }
+                });
+
+            JsonObject accentJson = SerializeElement(accent);
+            JsonObject accentObject = GetFirstObjectJson(accentJson);
+            AddFloatAnimation(
+                accentObject,
+                nameof(Drawable.Opacity),
+                (0, 0, typeof(CubicEaseOut)),
+                (0.6 + (i * 0.15), 55, typeof(CubicEaseOut)),
+                (metadata.DurationSeconds, 40, typeof(SineEaseInOut)));
+            AddFloatAnimation(
+                GetTransformChildJson(accentObject, typeof(TranslateTransform)),
+                nameof(TranslateTransform.Y),
+                (0, ringY - 24, typeof(CubicEaseOut)),
+                (metadata.DurationSeconds, ringY + 24, typeof(SineEaseInOut)));
+            elements.Add(DeserializeElement(accentJson));
+        }
+
+        Element headlineElement = CreateElement(
+            "Headline — customize me",
+            20,
+            fullLength,
+            new TextBlock
+            {
+                Name = "Scaffold headline",
+                Text = { CurrentValue = "Your headline" },
+                Size = { CurrentValue = 96 + random.Range(-8, 10) },
+                Spacing = { CurrentValue = 4 + random.Range(0, 4) },
+                Fill = { CurrentValue = new SolidColorBrush(Color.Parse(palette.Foreground)) },
+                Transform =
+                {
+                    CurrentValue = new TransformGroup
+                    {
+                        Children = { new TranslateTransform(anchorX, headlineY) }
+                    }
+                },
+                FilterEffect =
+                {
+                    CurrentValue = new FilterEffectGroup
+                    {
+                        Children = { CreateDropShadow(6, 10, 10, "#88000000") }
+                    }
+                }
+            });
+        JsonObject headlineJson = SerializeElement(headlineElement);
+        JsonObject headlineObject = GetFirstObjectJson(headlineJson);
+        AddFloatAnimation(
+            headlineObject,
+            nameof(Drawable.Opacity),
+            (0, 0, typeof(CubicEaseOut)),
+            (0.7, 100, typeof(CubicEaseOut)),
+            (metadata.DurationSeconds, 100, typeof(SineEaseInOut)));
+        elements.Add(DeserializeElement(headlineJson));
+
+        Element subtitleElement = CreateElement(
+            "Subtitle — customize me",
+            21,
+            fullLength,
+            new TextBlock
+            {
+                Name = "Scaffold subtitle",
+                Text = { CurrentValue = "Supporting line" },
+                Size = { CurrentValue = 40 + random.Range(-4, 6) },
+                Spacing = { CurrentValue = 2 + random.Range(0, 3) },
+                Fill = { CurrentValue = new SolidColorBrush(Color.Parse(palette.Foreground)) },
+                Transform =
+                {
+                    CurrentValue = new TransformGroup
+                    {
+                        Children = { new TranslateTransform(anchorX, subtitleY) }
+                    }
+                }
+            });
+        JsonObject subtitleJson = SerializeElement(subtitleElement);
+        JsonObject subtitleObject = GetFirstObjectJson(subtitleJson);
+        AddFloatAnimation(
+            subtitleObject,
+            nameof(Drawable.Opacity),
+            (0, 0, typeof(CubicEaseOut)),
+            (1.0, 100, typeof(CubicEaseOut)),
+            (metadata.DurationSeconds, 100, typeof(SineEaseInOut)));
+        elements.Add(DeserializeElement(subtitleJson));
+
+        var patch = new JsonObject
+        {
+            ["Duration"] = metadata.Duration,
+            ["Elements"] = new JsonArray(elements.Select(SerializeElement).ToArray<JsonNode?>())
+        };
+
+        string structuralSignature = $"anchor:{anchorVariant}|accents:{accentCount}|hue:{(int)MathF.Round(palette.BaseHue)}";
+        var paletteRoles = new List<ScaffoldPaletteRole>
+        {
+            new("background", palette.BackgroundA, "Dark base — replace with your own backdrop treatment."),
+            new("backgroundMid", palette.BackgroundMid, "Soft mid stop so the background is not a hard two-stop falloff."),
+            new("backgroundEdge", palette.BackgroundB, "Lighter edge of the seed-varied backdrop."),
+            new("accent", palette.Accent, "Single saturated accent — keep only one saturated color dominant."),
+            new("secondaryAccent", palette.SecondaryAccent, "Muted support color for a second accent stroke."),
+            new("foreground", palette.Foreground, "High-luma text color chosen for contrast against the dark base.")
+        };
+
+        return new OriginalScaffold(
+            resolvedSeed,
+            string.IsNullOrWhiteSpace(brief) ? null : brief.Trim(),
+            structuralSignature,
+            referencedSeeds,
+            paletteRoles,
+            [
+                "This is an ORIGINAL skeleton, not one of the named composition templates; customize every placeholder instead of shipping it as-is.",
+                "Replace the placeholder copy 'Your headline' and 'Supporting line' with your authored message hierarchy.",
+                "Swap the generated palette roles for your own; they are a seed-varied starting point, not a fixed template palette.",
+                "Replace or extend the [role:decorative] accent ring stroke with a concrete foreground system (strokes, particles, letter fragments, masks, media, or procedural texture).",
+                "Author real motion phases (reveal, development, resolution) across more than one property family; the placeholder only fades in.",
+                $"Diverge from these inspiration seeds rather than implementing them literally: {string.Join(", ", referencedSeeds)}.",
+                "Rename the Elements/Objects from your synthesized pitch before rendering; keep one EngineObject per ordinary Element."
+            ],
+            metadata,
+            patch);
     }
 
     public CompositionTemplateDetail Get(string name)
@@ -1676,6 +1889,65 @@ public sealed class CompositionTemplateCatalog
         };
     }
 
+    private static LinearGradientBrush CreateSoftLinearGradient(string startColor, string midColor, string endColor)
+    {
+        return new LinearGradientBrush
+        {
+            StartPoint = { CurrentValue = new RelativePoint(0.1f, 0f, RelativeUnit.Relative) },
+            EndPoint = { CurrentValue = new RelativePoint(0.9f, 1f, RelativeUnit.Relative) },
+            GradientStops =
+            {
+                new GradientStop(Color.Parse(startColor), 0),
+                new GradientStop(Color.Parse(midColor), 0.55f),
+                new GradientStop(Color.Parse(endColor), 1)
+            }
+        };
+    }
+
+    private static ScaffoldPalette GenerateScaffoldPalette(SeededValues random)
+    {
+        float baseHue = random.Range(0, 360);
+
+        // Steer the dominant accent away from the cyan/teal band (175-210) that the palette
+        // guidance flags as overused; the check is advisory, but the scaffold honors it.
+        if (baseHue is >= 165 and <= 215)
+        {
+            baseHue = baseHue < 190 ? baseHue - 55 : baseHue + 55;
+        }
+
+        baseHue = ((baseHue % 360) + 360) % 360;
+        float complementHue = ((baseHue + random.Range(150, 210)) % 360 + 360) % 360;
+
+        string backgroundA = HsvHex(baseHue, random.Range(12, 18), random.Range(9, 14));
+        string backgroundMid = HsvHex(baseHue, random.Range(10, 16), random.Range(15, 20));
+        string backgroundB = HsvHex(baseHue, random.Range(8, 14), random.Range(22, 28));
+        string accent = HsvHex(baseHue, random.Range(58, 72), random.Range(66, 80));
+        string secondaryAccent = HsvHex(complementHue, random.Range(28, 42), random.Range(52, 66));
+        string foreground = HsvHex(baseHue, random.Range(3, 8), random.Range(95, 99));
+
+        return new ScaffoldPalette(baseHue, backgroundA, backgroundMid, backgroundB, accent, secondaryAccent, foreground);
+    }
+
+    private static string HsvHex(float hue, float saturation, float value)
+    {
+        Color color = new Hsv(hue, saturation, value, 255).ToColor();
+        return $"#ff{color.R:x2}{color.G:x2}{color.B:x2}";
+    }
+
+    private static IReadOnlyList<string> PickReferencedSeeds(IReadOnlyList<string> seedNames, SeededValues random)
+    {
+        if (seedNames.Count == 0)
+        {
+            return [];
+        }
+
+        int first = random.NextInt(seedNames.Count);
+        int second = seedNames.Count == 1 ? first : (first + 1 + random.NextInt(seedNames.Count - 1)) % seedNames.Count;
+        return first == second
+            ? [seedNames[first]]
+            : [seedNames[first], seedNames[second]];
+    }
+
     private static RadialGradientBrush CreateRadialGradient(string innerColor, string outerColor)
     {
         return new RadialGradientBrush
@@ -1930,6 +2202,15 @@ public sealed class CompositionTemplateCatalog
 
     internal sealed record Palette(
         string BackgroundA,
+        string BackgroundB,
+        string Accent,
+        string SecondaryAccent,
+        string Foreground);
+
+    private sealed record ScaffoldPalette(
+        float BaseHue,
+        string BackgroundA,
+        string BackgroundMid,
         string BackgroundB,
         string Accent,
         string SecondaryAccent,
