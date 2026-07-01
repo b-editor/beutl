@@ -720,12 +720,14 @@ public sealed class SchemaGenerator
                     CreateBrightness(103))),
             CreateEffectRecipe(
                 "restrained-warm-grade",
-                "Warm color separation for calmer palettes without neon saturation.",
+                "Restrained photographic warmth for calmer palettes without neon saturation.",
                 ["color", "grade", "warm", "palette", "restrained"],
                 CreateFilterEffectGroup(
-                    CreateSaturate(108),
-                    CreateHueRotate(-4),
-                    CreateBrightness(104))),
+                    CreateColorGrading(
+                        temperature: 15,
+                        saturation: 6,
+                        contrast: 4,
+                        vibrance: 4))),
             CreateEffectRecipe(
                 "fine-film-grain-field",
                 "Fine monochrome film-grain overlay for texture when flat vector plates feel sterile.",
@@ -2038,6 +2040,22 @@ public sealed class SchemaGenerator
         var hueRotate = new HueRotate();
         hueRotate.Angle.CurrentValue = angle;
         return hueRotate;
+    }
+
+    private static ColorGrading CreateColorGrading(
+        float temperature,
+        float saturation = 0,
+        float contrast = 0,
+        float vibrance = 0,
+        float tint = 0)
+    {
+        var colorGrading = new ColorGrading();
+        colorGrading.Temperature.CurrentValue = temperature;
+        colorGrading.Saturation.CurrentValue = saturation;
+        colorGrading.Contrast.CurrentValue = contrast;
+        colorGrading.Vibrance.CurrentValue = vibrance;
+        colorGrading.Tint.CurrentValue = tint;
+        return colorGrading;
     }
 
     private static HighContrast CreateHighContrast(float contrast)

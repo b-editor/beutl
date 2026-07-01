@@ -274,6 +274,25 @@ public sealed class SchemaGenerationTests
     }
 
     [Test]
+    public void Restrained_warm_grade_uses_positive_temperature_color_grading()
+    {
+        var generator = new SchemaGenerator();
+        EffectRecipe warm = generator.GetEffectRecipe("restrained-warm-grade");
+        string warmJson = warm.Patch.ToJsonString();
+        string editorialJson = generator.GetEffectRecipe("editorial-color-grade").Patch.ToJsonString();
+        float temperature = FindRequiredFloatProperty(warm.Patch, nameof(ColorGrading.Temperature));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(warmJson, Does.Contain(nameof(ColorGrading)));
+            Assert.That(warmJson, Does.Contain(nameof(ColorGrading.Temperature)));
+            Assert.That(warmJson, Does.Not.Contain(nameof(HueRotate)));
+            Assert.That(temperature, Is.GreaterThan(0));
+            Assert.That(warmJson, Is.Not.EqualTo(editorialJson));
+        });
+    }
+
+    [Test]
     public void Starter_examples_do_not_ship_long_all_caps_display_text()
     {
         var generator = new SchemaGenerator();
@@ -442,6 +461,26 @@ public sealed class SchemaGenerationTests
 
         Assert.That(result, Is.Not.Null, $"Property '{propertyName}' was not found.");
         return result!;
+    }
+
+    private static float FindRequiredFloatProperty(JsonObject node, string propertyName)
+    {
+        float? result = null;
+        Visit(node, current =>
+        {
+            if (result is not null
+                || current is not JsonObject obj
+                || obj[propertyName] is not JsonValue value
+                || !value.TryGetValue(out float number))
+            {
+                return;
+            }
+
+            result = number;
+        });
+
+        Assert.That(result, Is.Not.Null, $"Property '{propertyName}' was not found.");
+        return result!.Value;
     }
 
     private static SKSLShader CompileSkslOrSkip(string script)
