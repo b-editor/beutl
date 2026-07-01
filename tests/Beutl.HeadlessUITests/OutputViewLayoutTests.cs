@@ -72,7 +72,9 @@ public class OutputViewLayoutTests
             window.Show();
             HeadlessTestHelpers.Render();
 
-            TextBox destination = view.GetLogicalDescendants().OfType<TextBox>().Single();
+            TextBox destination = view.GetLogicalDescendants()
+                .OfType<TextBox>()
+                .First(x => x.Name == "DestinationInputTextBox");
             double narrow = destination.Bounds.Width;
 
             window.Width = 1100;
