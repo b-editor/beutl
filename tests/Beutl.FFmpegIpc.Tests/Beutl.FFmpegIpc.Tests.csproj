@@ -24,12 +24,21 @@
     <ProjectReference Include="..\..\src\Beutl.Extensions.FFmpeg\Beutl.Extensions.FFmpeg.csproj" />
   </ItemGroup>
 
+  <!-- Order the GPL worker's build before the copy below so the copy is deterministic even on a clean
+       or parallel build, where the solution may not have produced the worker output yet. This is an
+       ordering-only <MSBuild> invocation, NOT a <ProjectReference>: the worker assembly never enters
+       this MIT project's compile closure, so the GPL/MIT boundary stays intact. -->
+  <Target Name="BuildWorkerForCopy" BeforeTargets="CopyWorkerBinary">
+    <MSBuild Projects="..\..\src\Beutl.FFmpegWorker\Beutl.FFmpegWorker.csproj"
+             Targets="Build"
+             Properties="Configuration=$(Configuration);TargetFramework=$(TargetFramework)" />
+  </Target>
+
   <!-- Make the built GPL worker BINARY available at test runtime WITHOUT a compile-closure
        reference to it, mirroring tests/Beutl.FFmpegBenchmarks' precedent. The worker is copied
        (not referenced or link-compiled), so the GPL/MIT boundary stays intact: the audio-only
-       ReadVideo contract test spawns this binary as a separate process via IPC. When the worker
-       has not been built (or its output is absent), nothing is copied and the process-level test
-       self-skips via Assert.Ignore. -->
+       ReadVideo contract test spawns this binary as a separate process via IPC. If the worker build
+       still yields no output, nothing is copied and the process-level test self-skips via Assert.Ignore. -->
   <Target Name="CopyWorkerBinary" AfterTargets="Build">
     <PropertyGroup>
       <WorkerOutputDir>..\..\src\Beutl.FFmpegWorker\bin\$(Configuration)\$(TargetFramework)\</WorkerOutputDir>
