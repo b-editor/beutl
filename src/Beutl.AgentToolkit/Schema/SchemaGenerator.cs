@@ -1122,8 +1122,12 @@ public sealed class SchemaGenerator
                    float wave = sin(uv.x * 14.0 + time * 1.2) * 0.5 + 0.5;
                    float plume = sin((uv.x + uv.y) * 9.0 - time * 0.9) * 0.5 + 0.5;
                    half4 base = src.eval(fragCoord);
-                   half3 field = half3(0.95 * wave, 0.26 + 0.45 * plume, 0.12 + 0.25 * (1.0 - wave));
-                   return half4(mix(base.rgb, field, 0.35), base.a);
+                   half luminance = dot(base.rgb, half3(0.2126, 0.7152, 0.0722));
+                   half contrast = half(0.90 + wave * 0.22);
+                   half lift = half((plume - 0.5) * 0.10);
+                   half3 modulated = (base.rgb - half3(luminance)) * contrast + half3(luminance + lift);
+                   half3 field = clamp(modulated * half3(1.05, 1.0, 0.95), half3(0.0), half3(1.0));
+                   return half4(mix(base.rgb, field, 0.2), base.a);
                }
                """;
     }
