@@ -57,7 +57,7 @@ public class NumberEditor<TValue> : StringEditor
         {
             if (SetAndRaise(ValueProperty, ref _value, value))
             {
-                Text = value.ToString(NumberFormat ?? "G", CultureInfo.CurrentUICulture);
+                Text = value.ToString(NumberFormat ?? "G", CultureInfo.CurrentCulture);
             }
         }
     }
@@ -175,9 +175,9 @@ public class NumberEditor<TValue> : StringEditor
     protected override void OnTextBoxTextChanged(string newValue, string oldValue)
     {
         if (InnerTextBox?.IsKeyboardFocusWithin == true
-            && TValue.TryParse(newValue, CultureInfo.CurrentUICulture, out TValue newValue2))
+            && TValue.TryParse(newValue, CultureInfo.CurrentCulture, out TValue newValue2))
         {
-            bool invalidOldValue = !TValue.TryParse(oldValue, CultureInfo.CurrentUICulture, out TValue oldValue2);
+            bool invalidOldValue = !TValue.TryParse(oldValue, CultureInfo.CurrentCulture, out TValue oldValue2);
             if (invalidOldValue)
             {
                 oldValue2 = newValue2;
@@ -195,7 +195,7 @@ public class NumberEditor<TValue> : StringEditor
 
     private void UpdateErrors()
     {
-        if (TValue.TryParse(InnerTextBox.Text, CultureInfo.CurrentUICulture, out _))
+        if (TValue.TryParse(InnerTextBox.Text, CultureInfo.CurrentCulture, out _))
         {
             DataValidationErrors.ClearErrors(InnerTextBox);
         }
@@ -209,7 +209,7 @@ public class NumberEditor<TValue> : StringEditor
     {
         if (!DataValidationErrors.GetHasErrors(InnerTextBox)
             && InnerTextBox.IsKeyboardFocusWithin
-            && TValue.TryParse(InnerTextBox.Text, CultureInfo.CurrentUICulture, out TValue value))
+            && TValue.TryParse(InnerTextBox.Text, CultureInfo.CurrentCulture, out TValue value))
         {
             TValue delta = LargeChange;
             double wheelDelta = e.Delta.Y;

@@ -35,7 +35,7 @@ public sealed class ParsableEditorViewModel<T> : BaseEditorViewModel<T>, IParsab
 
     public void SetValueString(string? s)
     {
-        if (T.TryParse(s, CultureInfo.CurrentUICulture, out T? newValue))
+        if (T.TryParse(s, CultureInfo.CurrentCulture, out T? newValue))
         {
             SetValue(newValue);
         }
@@ -43,7 +43,7 @@ public sealed class ParsableEditorViewModel<T> : BaseEditorViewModel<T>, IParsab
 
     public void SetCurrentValueString(string? s)
     {
-        if (T.TryParse(s, CultureInfo.CurrentUICulture, out T? newValue))
+        if (T.TryParse(s, CultureInfo.CurrentCulture, out T? newValue))
         {
             SetCurrentValueAndGetCoerced(newValue);
         }
