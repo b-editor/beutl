@@ -317,6 +317,31 @@ public sealed class QualityAnalyzerTests
     }
 
     [Test]
+    public async Task Relaxing_aesthetics_suppresses_high_tempo_hold_advisory_but_keeps_sparse_events()
+    {
+        Scene scene = CreateScene(durationSeconds: 30);
+        AddRect(scene, "Background plate", zIndex: 0, width: 1920, height: 1080, color: Color.Parse("#ff20242b"));
+        AddText(scene, "Launch notes", zIndex: 10, size: 72);
+
+        QualityReviewResponse relaxed = await AnalyzeAsync(
+            scene,
+            evaluateMotion: false,
+            styleProfile: "high-tempo-promo 130bpm",
+            relaxAesthetics: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(relaxed.Issues, Has.None.Matches<QualityIssue>(issue =>
+                issue.Category == "tempoRhythm"
+                && issue.Message.Contains("held too long", StringComparison.OrdinalIgnoreCase)));
+            Assert.That(relaxed.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "tempoRhythm"
+                && issue.Message.Contains("too sparse", StringComparison.OrdinalIgnoreCase)));
+            Assert.That(relaxed.PassesQualityGate, Is.True);
+        });
+    }
+
+    [Test]
     public async Task High_tempo_profile_reports_sparse_foreground_boundaries_and_long_gaps()
     {
         Scene scene = CreateScene(durationSeconds: 30);
@@ -382,6 +407,40 @@ public sealed class QualityAnalyzerTests
             Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
                 issue.Category == "materialUiLook" && issue.Severity == "minor"));
             Assert.That(result.PassesQualityGate, Is.True);
+        });
+    }
+
+    [Test]
+    public async Task Relaxing_aesthetics_suppresses_shape_and_card_advisories()
+    {
+        Scene scene = CreateScene(durationSeconds: 3);
+        Element decorative = AddEllipse(
+            scene,
+            "[role:decorative] glass glint ellipse intro sweep",
+            zIndex: 8,
+            width: 760,
+            height: 260,
+            x: 0,
+            y: 0,
+            color: Color.Parse("#88ffcc66"));
+        var ellipse = (EllipseShape)decorative.Objects[0];
+        var transform = (TransformGroup)ellipse.Transform.CurrentValue!;
+        ((TranslateTransform)transform.Children[0]).X.Animation = CreateFloatAnimation();
+        AddCard(scene, "Card A", zIndex: 4, x: -260);
+        AddCard(scene, "Card B", zIndex: 5, x: 260);
+
+        QualityReviewResponse strict = await AnalyzeAsync(scene, evaluateMotion: false);
+        QualityReviewResponse relaxed = await AnalyzeAsync(scene, evaluateMotion: false, relaxAesthetics: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(strict.Issues, Has.Some.Matches<QualityIssue>(issue => issue.Category == "decorativeShapeClarity"));
+            Assert.That(strict.Issues, Has.Some.Matches<QualityIssue>(issue => issue.Category == "materialUiLook"));
+
+            Assert.That(relaxed.Issues, Has.None.Matches<QualityIssue>(issue => issue.Category == "decorativeShapeClarity"));
+            Assert.That(relaxed.Issues, Has.None.Matches<QualityIssue>(issue => issue.Category == "materialUiLook"));
+            Assert.That(relaxed.PassesQualityGate, Is.True);
+            Assert.That(relaxed.Metrics.ShapeDiversity.AmbiguousDecorativeShapeCount, Is.EqualTo(1));
         });
     }
 
@@ -564,7 +623,8 @@ public sealed class QualityAnalyzerTests
     private static ValueTask<QualityReviewResponse> AnalyzeAsync(
         Scene scene,
         bool evaluateMotion = true,
-        string? styleProfile = null)
+        string? styleProfile = null,
+        bool relaxAesthetics = false)
         => new QualityAnalyzer(new MotionVariationAnalyzer(new StillRenderer())).AnalyzeAsync(
             scene,
             timeSeconds: null,
@@ -574,6 +634,7 @@ public sealed class QualityAnalyzerTests
             allowAllCaps: false,
             allowHardCuts: false,
             allowRectDominance: false,
+            relaxAesthetics: relaxAesthetics,
             evaluateMotion: evaluateMotion,
             cancellationToken: CancellationToken.None);
 
