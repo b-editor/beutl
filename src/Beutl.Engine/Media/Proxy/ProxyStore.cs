@@ -1,11 +1,19 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Serialization;
 
+using Beutl.Logging;
+
+using Microsoft.Extensions.Logging;
+
 namespace Beutl.Media.Proxy;
 
 public sealed class ProxyStore : IProxyStore
 {
+    private const int DefaultLockAcquireMaxAttempts = 200;
+
     private static readonly TimeSpan s_generatedTempCleanupMinAge = TimeSpan.FromHours(1);
+
+    private static readonly ILogger s_logger = Log.CreateLogger<ProxyStore>();
 
     private static readonly JsonSerializerOptions s_jsonOptions = new()
     {
@@ -17,22 +25,47 @@ public sealed class ProxyStore : IProxyStore
     private readonly Lock _lock = new();
     private readonly Dictionary<(ProxyFingerprint Source, ProxyPreset Preset), ProxyEntry> _entries = [];
     private readonly HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> _touchDirtyKeys = [];
+
+    // Changes whose durable write was skipped under lock contention; re-applied on the
+    // next successful flush so a briefly-contended lock never permanently loses them.
+    private readonly HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> _pendingPersistKeys = [];
+    private readonly HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> _pendingRemoveKeys = [];
     private readonly string _indexPath;
     private readonly string _indexLockPath;
+    private readonly int _lockAcquireMaxAttempts;
     private int _touchFlushScheduled;
     private bool _touchDirty;
+    private bool _persistenceDegraded;
 
     public ProxyStore(string storeRootPath)
+        : this(storeRootPath, DefaultLockAcquireMaxAttempts)
+    {
+    }
+
+    internal ProxyStore(string storeRootPath, int lockAcquireMaxAttempts)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(storeRootPath);
+        ArgumentOutOfRangeException.ThrowIfNegative(lockAcquireMaxAttempts);
         StoreRootPath = Path.GetFullPath(storeRootPath);
         _indexPath = Path.Combine(StoreRootPath, "index.json");
         _indexLockPath = Path.Combine(StoreRootPath, "index.lock");
+        _lockAcquireMaxAttempts = lockAcquireMaxAttempts;
         Directory.CreateDirectory(StoreRootPath);
         LoadIndex();
     }
 
     public string StoreRootPath { get; }
+
+    internal bool IsPersistenceDegraded
+    {
+        get
+        {
+            lock (_lock)
+            {
+                return _persistenceDegraded;
+            }
+        }
+    }
 
     public event EventHandler<ProxyStoreChangedEventArgs>? Changed;
 
@@ -49,6 +82,17 @@ public sealed class ProxyStore : IProxyStore
         lock (_lock)
         {
             return [.. _entries.Values];
+        }
+    }
+
+    // Entries whose recorded source file is no longer present at its path — candidates for
+    // relink (the source may have merely moved) or purge. This never mutates the store or
+    // transitions the entries; the caller decides what to do with each.
+    public IReadOnlyList<ProxyEntry> EnumerateEntriesWithMissingSource()
+    {
+        lock (_lock)
+        {
+            return [.. _entries.Values.Where(static e => !SourceFileExists(e.Source))];
         }
     }
 
@@ -118,6 +162,65 @@ public sealed class ProxyStore : IProxyStore
         RemoveMetadataEntry(removed);
 
         OnChanged(source, preset, ProxyStoreChangeKind.Deleted);
+        return true;
+    }
+
+    // Re-key every entry of a moved/renamed source from its old fingerprint to a new one,
+    // so the existing proxy files are adopted without regeneration. The proxy files are left
+    // in place; only the index and sidecar metadata are rewritten. Presets that already exist
+    // under the new fingerprint are left untouched (no file is clobbered). Returns true if at
+    // least one entry was relinked.
+    public bool Relink(ProxyFingerprint oldSource, ProxyFingerprint newSource)
+    {
+        if (string.IsNullOrEmpty(oldSource.AbsolutePath) || string.IsNullOrEmpty(newSource.AbsolutePath))
+            return false;
+
+        if (oldSource == newSource)
+            return false;
+
+        List<ProxyEntry> relinked = [];
+        List<(ProxyFingerprint Source, ProxyPreset Preset)> vacated = [];
+        lock (_lock)
+        {
+            List<KeyValuePair<(ProxyFingerprint Source, ProxyPreset Preset), ProxyEntry>> candidates =
+            [
+                .. _entries.Where(pair => pair.Key.Source == oldSource)
+            ];
+
+            HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> changedKeys = [];
+            HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> removedKeys = [];
+            foreach (KeyValuePair<(ProxyFingerprint Source, ProxyPreset Preset), ProxyEntry> pair in candidates)
+            {
+                var newKey = (newSource, pair.Key.Preset);
+                if (_entries.ContainsKey(newKey))
+                    continue;
+
+                ProxyEntry updated = pair.Value with { Source = newSource };
+                _entries.Remove(pair.Key);
+                _entries[newKey] = updated;
+                changedKeys.Add(newKey);
+                removedKeys.Add(pair.Key);
+                relinked.Add(updated);
+                vacated.Add(pair.Key);
+            }
+
+            if (relinked.Count == 0)
+                return false;
+
+            RewriteRelinkedMetadata(relinked, newSource);
+            FlushCore(changedKeys, removedKeys);
+        }
+
+        foreach ((ProxyFingerprint Source, ProxyPreset Preset) key in vacated)
+        {
+            OnChanged(key.Source, key.Preset, ProxyStoreChangeKind.Deleted);
+        }
+
+        foreach (ProxyEntry entry in relinked)
+        {
+            OnChanged(entry.Source, entry.Preset, ProxyStoreChangeKind.Registered);
+        }
+
         return true;
     }
 
@@ -260,6 +363,8 @@ public sealed class ProxyStore : IProxyStore
                     ];
                     FlushCore(changedKeys, removedKeys);
                 }
+
+                ReclaimOrphanProxyFilesCore(cancellationToken);
             }
 
             foreach (ProxyEntry entry in missing)
@@ -354,6 +459,40 @@ public sealed class ProxyStore : IProxyStore
         return adoptedKeys;
     }
 
+    private void ReclaimOrphanProxyFilesCore(CancellationToken cancellationToken)
+    {
+        HashSet<string> tracked = [];
+        foreach (ProxyEntry entry in _entries.Values)
+        {
+            try
+            {
+                tracked.Add(ProxyFingerprint.NormalizeAbsolutePath(GetAbsolutePath(entry)));
+            }
+            catch
+            {
+            }
+        }
+
+        foreach (string file in Directory.EnumerateFiles(StoreRootPath, "*.mp4", SearchOption.AllDirectories))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (ProxyPathUtilities.IsGeneratedProxyTempPath(StoreRootPath, file))
+                continue;
+
+            if (tracked.Contains(ProxyFingerprint.NormalizeAbsolutePath(file)))
+                continue;
+
+            // A just-generated proxy is moved into place before its index/sidecar entry is
+            // written; skipping recent files avoids racing that window. Genuine orphans are
+            // reclaimed once they age past the same threshold used for temp cleanup.
+            if (!IsOldEnoughToCleanGeneratedTemp(file))
+                continue;
+
+            TryDelete(file);
+        }
+    }
+
     private static IEnumerable<ProxyEntry> ReadMetadataEntries(string metadataPath)
     {
         string json;
@@ -407,35 +546,103 @@ public sealed class ProxyStore : IProxyStore
         IReadOnlySet<(ProxyFingerprint Source, ProxyPreset Preset)>? removedKeys = null)
     {
         Directory.CreateDirectory(StoreRootPath);
-        using FileStream indexLock = AcquireIndexLock();
-
-        Dictionary<(ProxyFingerprint Source, ProxyPreset Preset), ProxyEntry> merged = [];
-        foreach (ProxyEntry entry in ReadIndexEntriesFromDisk())
+        FileStream? indexLock = AcquireIndexLock();
+        if (indexLock is null)
         {
-            var key = GetKey(entry);
-            if (removedKeys?.Contains(key) == true)
-                continue;
-
-            merged[key] = entry;
+            DegradePersistence(changedKeys, removedKeys);
+            return;
         }
 
-        HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> touchedKeys = [.. _touchDirtyKeys];
-        foreach (var key in touchedKeys)
+        using (indexLock)
         {
-            if (removedKeys?.Contains(key) == true)
-                continue;
+            HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> effectiveRemoved = [.. _pendingRemoveKeys];
+            if (removedKeys != null)
+                effectiveRemoved.UnionWith(removedKeys);
 
-            if (merged.TryGetValue(key, out ProxyEntry? diskEntry)
-                && _entries.TryGetValue(key, out ProxyEntry? localEntry))
+            HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> effectiveChanged = [.. _pendingPersistKeys];
+            if (changedKeys != null)
+                effectiveChanged.UnionWith(changedKeys);
+            effectiveChanged.ExceptWith(effectiveRemoved);
+
+            Dictionary<(ProxyFingerprint Source, ProxyPreset Preset), ProxyEntry> merged = [];
+            foreach (ProxyEntry entry in ReadIndexEntriesFromDisk())
             {
-                DateTime lastUsedUtc = diskEntry.LastUsedUtc >= localEntry.LastUsedUtc
-                    ? diskEntry.LastUsedUtc
-                    : localEntry.LastUsedUtc;
-                merged[key] = diskEntry with { LastUsedUtc = lastUsedUtc };
+                var key = GetKey(entry);
+                if (effectiveRemoved.Contains(key))
+                    continue;
+
+                merged[key] = entry;
             }
-            else
+
+            HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> touchedKeys = [.. _touchDirtyKeys];
+            foreach (var key in touchedKeys)
             {
-                _entries.Remove(key);
+                if (effectiveRemoved.Contains(key))
+                    continue;
+
+                if (merged.TryGetValue(key, out ProxyEntry? diskEntry)
+                    && _entries.TryGetValue(key, out ProxyEntry? localEntry))
+                {
+                    DateTime lastUsedUtc = diskEntry.LastUsedUtc >= localEntry.LastUsedUtc
+                        ? diskEntry.LastUsedUtc
+                        : localEntry.LastUsedUtc;
+                    merged[key] = diskEntry with { LastUsedUtc = lastUsedUtc };
+                }
+                else
+                {
+                    _entries.Remove(key);
+                }
+            }
+
+            foreach (var key in effectiveChanged)
+            {
+                if (_entries.TryGetValue(key, out ProxyEntry? entry))
+                    merged[key] = entry;
+            }
+
+            _entries.Clear();
+            foreach (ProxyEntry entry in merged.Values)
+            {
+                _entries[GetKey(entry)] = entry;
+            }
+
+            var index = new ProxyStoreIndex { Entries = [.. merged.Values] };
+            string json = JsonSerializer.Serialize(index, s_jsonOptions);
+            string tmp = Path.Combine(
+                StoreRootPath,
+                $"{Path.GetFileName(_indexPath)}.{Guid.NewGuid():N}.tmp");
+            try
+            {
+                File.WriteAllText(tmp, json);
+                File.Move(tmp, _indexPath, overwrite: true);
+                foreach (var key in touchedKeys)
+                {
+                    _touchDirtyKeys.Remove(key);
+                }
+
+                _touchDirty = _touchDirtyKeys.Count > 0;
+                _pendingPersistKeys.Clear();
+                _pendingRemoveKeys.Clear();
+                _persistenceDegraded = false;
+            }
+            finally
+            {
+                TryDelete(tmp);
+            }
+        }
+    }
+
+    private void DegradePersistence(
+        IReadOnlySet<(ProxyFingerprint Source, ProxyPreset Preset)>? changedKeys,
+        IReadOnlySet<(ProxyFingerprint Source, ProxyPreset Preset)>? removedKeys)
+    {
+        _persistenceDegraded = true;
+        if (removedKeys != null)
+        {
+            foreach (var key in removedKeys)
+            {
+                _pendingRemoveKeys.Add(key);
+                _pendingPersistKeys.Remove(key);
             }
         }
 
@@ -443,40 +650,14 @@ public sealed class ProxyStore : IProxyStore
         {
             foreach (var key in changedKeys)
             {
-                if (removedKeys?.Contains(key) == true)
-                    continue;
-
-                if (_entries.TryGetValue(key, out ProxyEntry? entry))
-                    merged[key] = entry;
+                if (!_pendingRemoveKeys.Contains(key))
+                    _pendingPersistKeys.Add(key);
             }
         }
 
-        _entries.Clear();
-        foreach (ProxyEntry entry in merged.Values)
-        {
-            _entries[GetKey(entry)] = entry;
-        }
-
-        var index = new ProxyStoreIndex { Entries = [.. merged.Values] };
-        string json = JsonSerializer.Serialize(index, s_jsonOptions);
-        string tmp = Path.Combine(
-            StoreRootPath,
-            $"{Path.GetFileName(_indexPath)}.{Guid.NewGuid():N}.tmp");
-        try
-        {
-            File.WriteAllText(tmp, json);
-            File.Move(tmp, _indexPath, overwrite: true);
-            foreach (var key in touchedKeys)
-            {
-                _touchDirtyKeys.Remove(key);
-            }
-
-            _touchDirty = _touchDirtyKeys.Count > 0;
-        }
-        finally
-        {
-            TryDelete(tmp);
-        }
+        s_logger.LogWarning(
+            "Proxy index lock at '{LockPath}' is contended; skipping durable persistence and serving in-memory state (read-only degradation).",
+            _indexLockPath);
     }
 
     private async Task FlushTouchesAsync()
@@ -510,6 +691,53 @@ public sealed class ProxyStore : IProxyStore
     {
         if (Interlocked.Exchange(ref _touchFlushScheduled, 1) == 0)
             _ = FlushTouchesAsync();
+    }
+
+    private void RewriteRelinkedMetadata(IReadOnlyList<ProxyEntry> relinked, ProxyFingerprint newSource)
+    {
+        foreach (IGrouping<string, ProxyEntry> group in relinked
+                     .Select(entry => (Entry: entry, Directory: TryGetMetadataDirectory(entry)))
+                     .Where(pair => pair.Directory != null)
+                     .GroupBy(pair => pair.Directory!, pair => pair.Entry))
+        {
+            string metadataPath = Path.Combine(group.Key, "meta.json");
+            try
+            {
+                var metadata = new ProxySourceMetadata
+                {
+                    Source = newSource,
+                    Entries = [.. group],
+                };
+                File.WriteAllText(metadataPath, JsonSerializer.Serialize(metadata, s_jsonOptions));
+            }
+            catch
+            {
+            }
+        }
+    }
+
+    private string? TryGetMetadataDirectory(ProxyEntry entry)
+    {
+        try
+        {
+            return Path.GetDirectoryName(GetAbsolutePath(entry));
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static bool SourceFileExists(ProxyFingerprint source)
+    {
+        try
+        {
+            return !string.IsNullOrEmpty(source.AbsolutePath) && File.Exists(source.AbsolutePath);
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private void RemoveMetadataEntry(ProxyEntry removed)
@@ -569,9 +797,8 @@ public sealed class ProxyStore : IProxyStore
         }
     }
 
-    private FileStream AcquireIndexLock()
+    private FileStream? AcquireIndexLock()
     {
-        const int maxAttempts = 200;
         for (int attempt = 0; ; attempt++)
         {
             try
@@ -582,9 +809,13 @@ public sealed class ProxyStore : IProxyStore
                     FileAccess.ReadWrite,
                     FileShare.None);
             }
-            catch (IOException) when (attempt < maxAttempts)
+            catch (IOException) when (attempt < _lockAcquireMaxAttempts)
             {
                 Thread.Sleep(10);
+            }
+            catch (IOException)
+            {
+                return null;
             }
         }
     }

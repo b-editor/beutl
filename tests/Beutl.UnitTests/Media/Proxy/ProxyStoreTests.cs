@@ -357,6 +357,143 @@ public sealed class ProxyStoreTests
         Assert.That(File.Exists(metadataPath), Is.False);
     }
 
+    [Test]
+    public void Register_DegradesGracefullyWhenIndexLockContendedAndReplaysOnceReleased()
+    {
+        string root = CreateRoot();
+        ProxyEntry entry = CreateEntry(root, "hash/quarter.mp4");
+        string lockPath = Path.Combine(root, "index.lock");
+        var store = new ProxyStore(root, lockAcquireMaxAttempts: 0);
+
+        using (new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None))
+        {
+            Assert.DoesNotThrow(() => store.Register(entry));
+            Assert.Multiple(() =>
+            {
+                Assert.That(store.TryGet(entry.Source, entry.Preset), Is.EqualTo(entry));
+                Assert.That(store.IsPersistenceDegraded, Is.True);
+                Assert.That(File.Exists(Path.Combine(root, "index.json")), Is.False);
+            });
+        }
+
+        store.FlushAsync(CancellationToken.None).GetAwaiter().GetResult();
+
+        var reloaded = new ProxyStore(root);
+        Assert.Multiple(() =>
+        {
+            Assert.That(store.IsPersistenceDegraded, Is.False);
+            Assert.That(reloaded.TryGet(entry.Source, entry.Preset), Is.EqualTo(entry));
+        });
+    }
+
+    [Test]
+    public async Task ReconcileAsync_ReclaimsOldOrphanProxyAndPreservesTrackedFreshAndInFlightFiles()
+    {
+        string root = CreateRoot();
+        var store = new ProxyStore(root);
+        ProxyEntry tracked = CreateEntry(root, $"{new string('a', 64)}/quarter.mp4");
+        store.Register(tracked);
+
+        ProxyEntry generating = CreateEntry(root, $"{new string('d', 64)}/quarter.mp4") with
+        {
+            State = ProxyState.Generating,
+        };
+        store.Register(generating);
+        string generatingPath = Path.Combine(root, generating.ProxyFileRelative);
+        File.SetLastWriteTimeUtc(generatingPath, DateTime.UtcNow.AddHours(-2));
+
+        string orphanDir = Path.Combine(root, new string('b', 64));
+        Directory.CreateDirectory(orphanDir);
+        string oldOrphan = Path.Combine(orphanDir, "quarter.mp4");
+        File.WriteAllBytes(oldOrphan, [1, 2, 3]);
+        File.SetLastWriteTimeUtc(oldOrphan, DateTime.UtcNow.AddHours(-2));
+
+        string freshDir = Path.Combine(root, new string('c', 64));
+        Directory.CreateDirectory(freshDir);
+        string freshOrphan = Path.Combine(freshDir, "quarter.mp4");
+        File.WriteAllBytes(freshOrphan, [4, 5, 6]);
+
+        await store.ReconcileAsync(CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.Exists(Path.Combine(root, tracked.ProxyFileRelative)), Is.True);
+            Assert.That(File.Exists(generatingPath), Is.True);
+            Assert.That(File.Exists(oldOrphan), Is.False);
+            Assert.That(File.Exists(freshOrphan), Is.True);
+        });
+    }
+
+    [Test]
+    public void Relink_ReKeysEntryToMovedSourceAndPreservesProxyFileDurably()
+    {
+        string root = CreateRoot();
+        var store = new ProxyStore(root);
+        ProxyEntry entry = CreateEntry(root, "hash/quarter.mp4");
+        store.Register(entry);
+        string movedPath = Path.Combine(root, $"{Guid.NewGuid():N}_moved.mov");
+        File.WriteAllBytes(movedPath, [1, 2, 3, 4, 5]);
+        ProxyFingerprint newSource = ProxyFingerprint.FromFile(movedPath);
+
+        bool relinked = store.Relink(entry.Source, newSource);
+
+        ProxyEntry? moved = store.TryGet(newSource, entry.Preset);
+        var reloaded = new ProxyStore(root);
+        Assert.Multiple(() =>
+        {
+            Assert.That(relinked, Is.True);
+            Assert.That(store.TryGet(entry.Source, entry.Preset), Is.Null);
+            Assert.That(moved, Is.Not.Null);
+            Assert.That(moved!.Source, Is.EqualTo(newSource));
+            Assert.That(moved.ProxyFileRelative, Is.EqualTo(entry.ProxyFileRelative));
+            Assert.That(File.Exists(Path.Combine(root, entry.ProxyFileRelative)), Is.True);
+            Assert.That(reloaded.TryGet(newSource, entry.Preset)?.Source, Is.EqualTo(newSource));
+            Assert.That(reloaded.TryGet(entry.Source, entry.Preset), Is.Null);
+        });
+    }
+
+    [Test]
+    public void Relink_DoesNotClobberExistingEntryUnderNewSource()
+    {
+        string root = CreateRoot();
+        var store = new ProxyStore(root);
+        ProxyEntry moving = CreateEntry(root, "old/quarter.mp4");
+        ProxyEntry existing = CreateEntry(root, "new/quarter.mp4");
+        store.Register(moving);
+        store.Register(existing);
+
+        bool relinked = store.Relink(moving.Source, existing.Source);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(relinked, Is.False);
+            Assert.That(store.TryGet(moving.Source, moving.Preset), Is.EqualTo(moving));
+            Assert.That(store.TryGet(existing.Source, existing.Preset), Is.EqualTo(existing));
+        });
+    }
+
+    [Test]
+    public void EnumerateEntriesWithMissingSource_ReturnsVanishedSourcesWithoutMutating()
+    {
+        string root = CreateRoot();
+        var store = new ProxyStore(root);
+        ProxyEntry present = CreateEntry(root, "present/quarter.mp4");
+        ProxyEntry missing = CreateEntry(root, "missing/quarter.mp4");
+        store.Register(present);
+        store.Register(missing);
+        File.Delete(missing.Source.AbsolutePath);
+
+        IReadOnlyList<ProxyEntry> candidates = store.EnumerateEntriesWithMissingSource();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(candidates, Has.Count.EqualTo(1));
+            Assert.That(candidates[0].Source, Is.EqualTo(missing.Source));
+            Assert.That(store.TryGet(missing.Source, missing.Preset)?.State, Is.EqualTo(ProxyState.Ready));
+            Assert.That(store.TryGet(present.Source, present.Preset), Is.EqualTo(present));
+        });
+    }
+
     private static string CreateRoot()
     {
         string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
