@@ -43,6 +43,10 @@ public enum PlaybackDirection
 public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 {
     private static readonly TimeSpan s_second = TimeSpan.FromSeconds(1);
+    // Upper bound on how long Pause() waits for the playback loop to stop. If the loop is stuck
+    // in a blocking OS audio/COM call, an unbounded await would hold the history-mutation gate
+    // (and the UI thread awaiting it) indefinitely, so we time out and abandon the task instead.
+    private static readonly TimeSpan s_pauseTimeout = TimeSpan.FromSeconds(5);
     private static readonly float[] s_fastSpeeds = [1.0f, 2.0f, 4.0f, 8.0f, 16.0f, 32.0f];
     private static readonly float[] s_slowSpeeds = [1.0f, 0.5f, 0.25f];
     private readonly ILogger _logger = Log.CreateLogger<PlayerViewModel>();
@@ -1370,12 +1374,23 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         }
 
         // Await even when already stopped so an overlapping pause blocks until the prior
-        // drain finishes. Catch a faulted task and drop it, so it neither surfaces as a
-        // history-operation failure nor replays on later pauses.
+        // drain finishes. Bound the wait: if the playback loop is stuck in a blocking OS
+        // audio/COM call, awaiting it unbounded would pin the history-mutation gate (and the
+        // UI thread awaiting Pause) indefinitely, so time out, log, and abandon the task.
+        // Catch a faulted task and drop it, so it neither surfaces as a history-operation
+        // failure nor replays on later pauses.
         Task playbackTask = _playbackTask;
         try
         {
-            await playbackTask;
+            if (!await WaitForPlaybackStopAsync(playbackTask, s_pauseTimeout, _logger, _editViewModel.SceneId))
+            {
+                // Timed out: drop the hung task so it neither replays on later pauses nor keeps
+                // the gate held. The abandoned task keeps observing _stopRequested / the cts.
+                if (_playbackTask == playbackTask)
+                {
+                    _playbackTask = Task.CompletedTask;
+                }
+            }
         }
         catch (Exception ex)
         {
@@ -1385,6 +1400,36 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 _playbackTask = Task.CompletedTask;
             }
         }
+    }
+
+    // Wait for the playback task to finish, but never longer than <paramref name="timeout"/>.
+    // Returns true when the task completed (its fault, if any, is re-thrown to the caller);
+    // false when the wait timed out. A timeout is logged and the task is left running but kept
+    // observed via a continuation, so a playback loop blocked in a native audio/COM call cannot
+    // pin the caller (and the history-mutation gate it runs under) indefinitely.
+    internal static async Task<bool> WaitForPlaybackStopAsync(
+        Task playbackTask, TimeSpan timeout, ILogger logger, string sceneId)
+    {
+        Task finished = await Task.WhenAny(playbackTask, Task.Delay(timeout)).ConfigureAwait(false);
+        if (finished == playbackTask)
+        {
+            // Completed within the timeout — propagate any fault so the caller can observe it.
+            await playbackTask.ConfigureAwait(false);
+            return true;
+        }
+
+        logger.LogError(
+            "Playback task did not stop within {Timeout} on pause; abandoning it to release the history gate. ({SceneId})",
+            timeout, sceneId);
+        // Observe a late fault so abandoning the task does not raise an unobserved-exception event.
+        _ = playbackTask.ContinueWith(
+            static (t, s) => ((ILogger)s!).LogError(
+                t.Exception, "Abandoned playback task faulted after a pause timeout."),
+            logger,
+            CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
+        return false;
     }
 
     private void UpdateImage(Ref<Bitmap> source)
