@@ -186,4 +186,58 @@ public sealed class MergePatchTests
             Assert.That(values[0]!.GetValue<int>(), Is.EqualTo(4));
         });
     }
+
+    [Test]
+    public void Replace_sentinel_rebuilds_id_bearing_array_instead_of_merging()
+    {
+        Guid a = Guid.NewGuid();
+        Guid b = Guid.NewGuid();
+        Guid c = Guid.NewGuid();
+        JsonNode result = MergePatchApplier.Apply(
+            JsonNode.Parse($$"""{"Children":[{"Id":"{{a}}","$type":"Blur"},{"Id":"{{b}}","$type":"Blur"},{"Id":"{{c}}","$type":"Blur"}]}""")!,
+            JsonNode.Parse("""{"Children":[{"$replace":true},{"$type":"DropShadow"}]}""")!)!;
+
+        JsonArray children = (JsonArray)result["Children"]!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(children, Has.Count.EqualTo(1));
+            Assert.That(children[0]!["$type"]!.GetValue<string>(), Is.EqualTo("DropShadow"));
+            Assert.That(children[0]!["Id"], Is.Null);
+        });
+    }
+
+    [Test]
+    public void Replace_sentinel_with_empty_body_clears_array()
+    {
+        Guid a = Guid.NewGuid();
+        JsonNode result = MergePatchApplier.Apply(
+            JsonNode.Parse($$"""{"Children":[{"Id":"{{a}}","$type":"Blur"}]}""")!,
+            JsonNode.Parse("""{"Children":[{"$replace":true}]}""")!)!;
+
+        Assert.That((JsonArray)result["Children"]!, Is.Empty);
+    }
+
+    [Test]
+    public void Replace_sentinel_must_be_first_and_standalone()
+    {
+        JsonNode target = JsonNode.Parse("""{"Children":[{"$type":"Blur"}]}""")!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(Assert.Throws<ReconcileException>(() => MergePatchApplier.Apply(
+                target,
+                JsonNode.Parse("""{"Children":[{"$type":"Blur"},{"$replace":true}]}""")!))!.Error.Code,
+                Is.EqualTo(ErrorCode.ValidationRejected));
+
+            Assert.That(Assert.Throws<ReconcileException>(() => MergePatchApplier.Apply(
+                target,
+                JsonNode.Parse("""{"Children":[{"$replace":true},{"$type":"Blur","$delete":true}]}""")!))!.Error.Code,
+                Is.EqualTo(ErrorCode.ValidationRejected));
+
+            Assert.That(Assert.Throws<ReconcileException>(() => MergePatchApplier.Apply(
+                target,
+                JsonNode.Parse("""{"Children":[{"$replace":true,"$type":"Blur"}]}""")!))!.Error.Code,
+                Is.EqualTo(ErrorCode.ValidationRejected));
+        });
+    }
 }

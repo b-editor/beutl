@@ -11,6 +11,8 @@ public static class MergePatch
 
     private static readonly string[] s_directives = ["$index", "$after", "$before"];
 
+    private const string ReplaceDirective = "$replace";
+
     public static JsonNode? Apply(JsonNode? target, JsonNode? patch)
     {
         return Apply(target, patch, "$");
@@ -48,6 +50,11 @@ public static class MergePatch
 
         if (patch is JsonArray patchArray)
         {
+            if (TryTakeReplacement(patchArray, path, out JsonArray replacement))
+            {
+                return replacement;
+            }
+
             if (ShouldUseIdentityMerge(target as JsonArray, patchArray))
             {
                 return ApplyIdentityArray(target as JsonArray ?? [], patchArray, path);
@@ -148,6 +155,63 @@ public static class MergePatch
         }
 
         return target is not null && HasIdentitySyntax(target) || HasIdentitySyntax(patch);
+    }
+
+    private static bool TryTakeReplacement(JsonArray patch, string path, out JsonArray replacement)
+    {
+        replacement = [];
+
+        bool anyReplace = patch.OfType<JsonObject>().Any(item => item.ContainsKey(ReplaceDirective));
+        if (!anyReplace)
+        {
+            return false;
+        }
+
+        if (patch.Count == 0 || patch[0] is not JsonObject sentinel || !sentinel.ContainsKey(ReplaceDirective))
+        {
+            throw new ReconcileException(new ToolError(
+                ErrorCode.ValidationRejected,
+                $"$replace must be the first element of the array at '{path}'."));
+        }
+
+        bool sentinelTrue = sentinel[ReplaceDirective] is JsonValue value
+                            && value.TryGetValue(out bool flag)
+                            && flag;
+        if (!sentinelTrue)
+        {
+            throw new ReconcileException(new ToolError(
+                ErrorCode.ValidationRejected,
+                $"The $replace sentinel at '{path}' must be true."));
+        }
+
+        if (sentinel.Count != 1)
+        {
+            throw new ReconcileException(new ToolError(
+                ErrorCode.ValidationRejected,
+                $"The $replace sentinel at '{path}' must not carry other keys; put the replacement members in the following array elements."));
+        }
+
+        for (int i = 1; i < patch.Count; i++)
+        {
+            if (patch[i] is JsonObject item
+                && (item.ContainsKey(ReplaceDirective)
+                    || item.ContainsKey("$delete")
+                    || s_directives.Any(item.ContainsKey)))
+            {
+                throw new ReconcileException(new ToolError(
+                    ErrorCode.ValidationRejected,
+                    $"Elements after a $replace sentinel at '{path}' cannot carry $replace, $delete, or $index/$after/$before; the array is rebuilt from them in order."));
+            }
+        }
+
+        JsonArray result = [];
+        for (int i = 1; i < patch.Count; i++)
+        {
+            result.Add(patch[i]?.DeepClone());
+        }
+
+        replacement = result;
+        return true;
     }
 
     private static void ValidateDirectives(JsonObject item)

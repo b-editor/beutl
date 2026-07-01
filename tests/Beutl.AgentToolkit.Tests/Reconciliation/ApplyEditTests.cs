@@ -248,6 +248,65 @@ public sealed class ApplyEditTests
     }
 
     [Test]
+    public void Apply_edit_replace_sentinel_swaps_effect_children_and_keeps_group_id()
+    {
+        Scene scene = CreateSceneWithElement(out Element element);
+        var group = new FilterEffectGroup
+        {
+            Children = { new Blur(), new Blur(), new Blur() }
+        };
+        Guid groupId = group.Id;
+        var rect = new RectShape
+        {
+            Name = "Filtered rect",
+            Width = { CurrentValue = 200 },
+            Height = { CurrentValue = 100 },
+            FilterEffect = { CurrentValue = group }
+        };
+        element.AddObject(rect);
+        using var session = new AgentToolkitTestSession(scene);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var tools = new EditTools(manager);
+
+        ToolResult<ApplyEditResponse> replace = tools.ApplyEdit(
+            patch: new JsonObject
+            {
+                ["Elements"] = new JsonArray(new JsonObject
+                {
+                    [nameof(CoreObject.Id)] = element.Id.ToString(),
+                    [nameof(Element.Objects)] = new JsonArray(new JsonObject
+                    {
+                        [nameof(CoreObject.Id)] = rect.Id.ToString(),
+                        [nameof(Drawable.FilterEffect)] = new JsonObject
+                        {
+                            [nameof(CoreObject.Id)] = groupId.ToString(),
+                            ["$type"] = IdentityHelper.WriteDiscriminator(typeof(FilterEffectGroup)),
+                            [nameof(FilterEffectGroup.Children)] = new JsonArray(
+                                new JsonObject { ["$replace"] = true },
+                                new JsonObject
+                                {
+                                    ["$type"] = IdentityHelper.WriteDiscriminator(typeof(Brightness)),
+                                    [nameof(Brightness.Amount)] = 120
+                                })
+                        }
+                    })
+                })
+            },
+            schemaVersion: SchemaVersion.Current);
+
+        var effects = (FilterEffectGroup)rect.FilterEffect.CurrentValue!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(replace.IsSuccess, Is.True, replace.Error?.Message);
+            Assert.That(effects.Id, Is.EqualTo(groupId));
+            Assert.That(effects.Children, Has.Count.EqualTo(1));
+            Assert.That(effects.Children[0], Is.InstanceOf<Brightness>());
+        });
+    }
+
+    [Test]
     public void Apply_edit_accepts_enum_member_names()
     {
         Scene scene = CreateSceneWithElement(out Element element);
