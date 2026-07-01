@@ -228,6 +228,24 @@ public sealed class SchemaGenerationTests
     }
 
     [Test]
+    public void Additive_bloom_recipe_sets_plus_blend_opacity_and_guides_duplicate_object()
+    {
+        var generator = new SchemaGenerator();
+        EffectRecipe bloom = generator.GetEffectRecipe("additive-bloom");
+        string bloomJson = bloom.Patch.ToJsonString();
+        string glowJson = generator.GetEffectRecipe("glow-depth").Patch.ToJsonString();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(bloomJson, Is.Not.EqualTo(glowJson));
+            Assert.That(bloomJson, Does.Contain("\"BlendMode\":12"));
+            Assert.That(bloomJson, Does.Contain("\"Opacity\":60"));
+            Assert.That(bloomJson, Does.Contain("Blur"));
+            Assert.That(bloom.Notes.Any(note => note.Contains("duplicate_object", StringComparison.Ordinal)), Is.True);
+        });
+    }
+
+    [Test]
     public void Starter_examples_do_not_ship_long_all_caps_display_text()
     {
         var generator = new SchemaGenerator();
