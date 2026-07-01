@@ -54,7 +54,6 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
         string finalPath = Path.Combine(store.StoreRootPath, relative.Replace('/', Path.DirectorySeparatorChar));
         string tempPath = CreateTempPathForOutput(finalPath);
         Directory.CreateDirectory(Path.GetDirectoryName(finalPath)!);
-        bool finalFileMoved = false;
 
         try
         {
@@ -69,39 +68,60 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
             await controller.Encode(frameProvider, sampleProvider, job.CancellationToken);
 
             File.Move(tempPath, finalPath, overwrite: true);
-            finalFileMoved = true;
-            long fileSize = new FileInfo(finalPath).Length;
-            var now = DateTime.UtcNow;
-            var entry = new ProxyEntry(
-                job.Source,
-                job.Preset,
-                ProxyState.Ready,
-                relative,
-                fileSize,
-                originalSize,
-                proxySize,
-                now,
-                now,
-                null);
-
-            WriteMetadata(finalPath, entry);
-            store.Register(entry);
         }
         catch (FFmpegLibrariesNotFoundException ex)
         {
             TryDelete(tempPath);
-            if (finalFileMoved)
-                TryDelete(finalPath);
-
             throw CreateUnavailableException(ex);
         }
         catch
         {
             TryDelete(tempPath);
-            if (finalFileMoved)
-                TryDelete(finalPath);
-
             throw;
+        }
+
+        // The encoded proxy is now on disk at finalPath and is valid. A failure in the metadata /
+        // registration step below must never delete it — the artifact is re-registerable, so a
+        // recoverable failure is surfaced instead of destroying it.
+        long fileSize = new FileInfo(finalPath).Length;
+        var now = DateTime.UtcNow;
+        var entry = new ProxyEntry(
+            job.Source,
+            job.Preset,
+            ProxyState.Ready,
+            relative,
+            fileSize,
+            originalSize,
+            proxySize,
+            now,
+            now,
+            null);
+
+        await FinalizeAsync(finalPath, entry);
+    }
+
+    internal async Task FinalizeAsync(string finalPath, ProxyEntry entry)
+    {
+        WriteMetadata(finalPath, entry);
+        await RegisterWithRetryAsync(entry);
+    }
+
+    private async Task RegisterWithRetryAsync(ProxyEntry entry)
+    {
+        const int maxAttempts = 3;
+        for (int attempt = 1; ; attempt++)
+        {
+            try
+            {
+                store.Register(entry);
+                return;
+            }
+            catch when (attempt < maxAttempts)
+            {
+                // Transient contention (e.g. index-lock) on a valid, already-moved artifact: back off
+                // briefly and retry rather than failing the whole job.
+                await Task.Delay(TimeSpan.FromMilliseconds(25 * attempt));
+            }
         }
     }
 
@@ -125,7 +145,7 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
         videoSettings.Options.Add(new AdditionalOption("level", "4.0"));
     }
 
-    private static PixelSize CalculateProxySize(PixelSize original, ProxyPreset preset)
+    internal static PixelSize CalculateProxySize(PixelSize original, ProxyPreset preset)
     {
         ProxyEncodeParameters parameters = ProxyPresetDefinitions.Get(preset);
         float scale = parameters.Scale;
@@ -135,9 +155,21 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
             scale = clamp / (float)longEdge;
         }
 
-        int width = MakeEven(Math.Max(2, (int)Math.Round(original.Width * scale)));
-        int height = MakeEven(Math.Max(2, (int)Math.Round(original.Height * scale)));
-        return new PixelSize(width, height);
+        // Round the long edge from the single scale, then derive the short edge from the *realized*
+        // long edge so both axes share one scale and the proxy aspect ratio tracks the source. The
+        // even-dimension constraint still leaves an unavoidable sub-pixel AR deviation.
+        if (original.Width >= original.Height)
+        {
+            int width = MakeEven(original.Width * scale);
+            int height = MakeEven(width * (double)original.Height / original.Width);
+            return new PixelSize(width, height);
+        }
+        else
+        {
+            int height = MakeEven(original.Height * scale);
+            int width = MakeEven(height * (double)original.Width / original.Height);
+            return new PixelSize(width, height);
+        }
     }
 
     private static MediaReader OpenSourceReader(string sourcePath)
@@ -154,9 +186,10 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
         }
     }
 
-    private static int MakeEven(int value)
+    private static int MakeEven(double value)
     {
-        return value % 2 == 0 ? value : Math.Max(2, value - 1);
+        int rounded = (int)Math.Round(value / 2.0, MidpointRounding.AwayFromZero) * 2;
+        return Math.Max(2, rounded);
     }
 
     private static bool IsStillImage(string path)

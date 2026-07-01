@@ -157,7 +157,7 @@ public class ProxyJobQueueTests
     }
 
     [Test]
-    public async Task UnavailableGenerator_KeepsRemainingJobsQueuedUntilAvailabilityReturns()
+    public async Task UnavailableGenerator_KeepsAllJobsQueuedUntilAvailabilityReturns()
     {
         string root = CreateRoot();
         var store = new ProxyStore(root);
@@ -168,25 +168,118 @@ public class ProxyJobQueueTests
 
         ProxyJob first = await queue.EnqueueAsync(firstSource, ProxyPreset.Quarter);
         ProxyJob second = await queue.EnqueueAsync(secondSource, ProxyPreset.Quarter);
-        await WaitForTerminalAsync(first);
+        await generator.UnavailableHit.WaitAsync(TimeSpan.FromSeconds(5));
         await Task.Delay(100);
 
+        // An unavailable generator must not fail queued work; both jobs stay Queued and no Failed
+        // entry is recorded, so nothing is lost while FFmpeg is unavailable.
         Assert.Multiple(() =>
         {
-            Assert.That(first.Status, Is.EqualTo(ProxyJobStatus.Failed));
+            Assert.That(first.Status, Is.Not.EqualTo(ProxyJobStatus.Failed));
             Assert.That(second.Status, Is.EqualTo(ProxyJobStatus.Queued));
-            Assert.That(queue.Pending(), Is.EqualTo(new[] { second }));
-            Assert.That(store.TryGet(firstSource, ProxyPreset.Quarter)?.State, Is.EqualTo(ProxyState.Failed));
+            Assert.That(queue.Pending(), Does.Contain(second));
+            Assert.That(store.TryGet(firstSource, ProxyPreset.Quarter), Is.Null);
             Assert.That(store.TryGet(secondSource, ProxyPreset.Quarter), Is.Null);
         });
 
         generator.SetAvailable();
+        await WaitForTerminalAsync(first);
         await WaitForTerminalAsync(second);
 
         Assert.Multiple(() =>
         {
+            Assert.That(first.Status, Is.EqualTo(ProxyJobStatus.Succeeded));
             Assert.That(second.Status, Is.EqualTo(ProxyJobStatus.Succeeded));
-            Assert.That(generator.SucceededSources, Is.EqualTo(new[] { secondSource }));
+            Assert.That(generator.SucceededSources, Is.EquivalentTo(new[] { firstSource, secondSource }));
+        });
+    }
+
+    [Test]
+    public async Task UnavailableGenerator_SelfRecoversViaBackoffWithoutAvailabilityEvent()
+    {
+        string root = CreateRoot();
+        var store = new ProxyStore(root);
+        var generator = new ManualRecoveryGenerator();
+        await using var queue = new ProxyJobQueue(
+            generator,
+            store,
+            capacity: 256,
+            minUnavailableBackoff: TimeSpan.FromMilliseconds(20),
+            maxUnavailableBackoff: TimeSpan.FromMilliseconds(40));
+        ProxyFingerprint source = CreateFingerprint("recover.mov");
+
+        ProxyJob job = await queue.EnqueueAsync(source, ProxyPreset.Quarter);
+        await generator.FirstUnavailable.WaitAsync(TimeSpan.FromSeconds(5));
+
+        // Restore availability WITHOUT firing AvailabilityChanged: only the backoff re-probe can
+        // discover it. This is the transient-recovery-without-the-install-wizard path.
+        generator.MakeAvailableSilently();
+        await WaitForTerminalAsync(job);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Succeeded));
+            Assert.That(generator.SucceededSources, Is.EqualTo(new[] { source }));
+        });
+    }
+
+    [Test]
+    public async Task EnqueueAsync_HigherPriorityJumpsAheadOfEarlierQueuedBulk()
+    {
+        var generator = new ControlledBlockingGenerator();
+        await using var queue = new ProxyJobQueue(generator);
+        ProxyFingerprint running = CreateFingerprint("running.mov");
+        ProxyFingerprint bulkA = CreateFingerprint("bulk-a.mov");
+        ProxyFingerprint bulkB = CreateFingerprint("bulk-b.mov");
+        ProxyFingerprint urgent = CreateFingerprint("urgent.mov");
+
+        // Occupy the single worker so the rest sit Queued behind it.
+        ProxyJob runningJob = await queue.EnqueueAsync(running, ProxyPreset.Quarter);
+        await generator.WaitForStartedCountAsync(1);
+
+        await queue.EnqueueAsync(bulkA, ProxyPreset.Quarter);
+        await queue.EnqueueAsync(bulkB, ProxyPreset.Quarter);
+        ProxyJob urgentJob = await queue.EnqueueAsync(urgent, ProxyPreset.Quarter, priority: 10);
+
+        generator.ReleaseOne();
+        await generator.WaitForStartedCountAsync(2);
+        generator.ReleaseOne();
+        await generator.WaitForStartedCountAsync(3);
+        generator.ReleaseOne();
+        await generator.WaitForStartedCountAsync(4);
+        generator.ReleaseAll();
+
+        await WaitForTerminalAsync(runningJob);
+        await WaitForTerminalAsync(urgentJob);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(generator.StartedSources[0], Is.EqualTo(running));
+            Assert.That(generator.StartedSources[1], Is.EqualTo(urgent), "the high-priority job must jump the earlier-queued bulk");
+            Assert.That(generator.StartedSources.Skip(2), Is.EqualTo(new[] { bulkA, bulkB }));
+        });
+    }
+
+    [Test]
+    public async Task RegisterFailure_WhenStoreRegisterThrows_SurfacesSecondaryErrorNotSilently()
+    {
+        var store = new ThrowingRegisterStore();
+        await using var queue = new ProxyJobQueue(new FailingGenerator(), store);
+        ProxyFingerprint source = CreateFingerprint("bookkeeping.mov");
+        var failed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        queue.JobChanged += (_, e) =>
+        {
+            if (e.Kind == ProxyJobChangeKind.Failed)
+                failed.TrySetResult();
+        };
+
+        ProxyJob job = await queue.EnqueueAsync(source, ProxyPreset.Quarter);
+        await failed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Failed));
+            Assert.That(job.BookkeepingError, Is.InstanceOf<InvalidOperationException>());
         });
     }
 
@@ -333,9 +426,12 @@ public class ProxyJobQueueTests
     private sealed class ToggleAvailabilityGenerator : IProxyGenerator, IProxyGeneratorAvailability
     {
         private readonly List<ProxyFingerprint> _succeededSources = [];
-        private bool _available;
+        private readonly TaskCompletionSource _unavailableHit = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private volatile bool _available;
 
         public bool IsAvailable => _available;
+
+        public Task UnavailableHit => _unavailableHit.Task;
 
         public IReadOnlyList<ProxyFingerprint> SucceededSources
         {
@@ -353,7 +449,10 @@ public class ProxyJobQueueTests
         public ValueTask GenerateAsync(ProxyJob job)
         {
             if (!IsAvailable)
+            {
+                _unavailableHit.TrySetResult();
                 throw new ProxyGeneratorUnavailableException("missing ffmpeg");
+            }
 
             lock (_succeededSources)
             {
@@ -370,12 +469,99 @@ public class ProxyJobQueueTests
         }
     }
 
+    private sealed class ManualRecoveryGenerator : IProxyGenerator, IProxyGeneratorAvailability
+    {
+        private readonly List<ProxyFingerprint> _succeededSources = [];
+        private readonly TaskCompletionSource _firstUnavailable = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private volatile bool _available;
+
+        public bool IsAvailable => _available;
+
+        public Task FirstUnavailable => _firstUnavailable.Task;
+
+        public IReadOnlyList<ProxyFingerprint> SucceededSources
+        {
+            get
+            {
+                lock (_succeededSources)
+                {
+                    return [.. _succeededSources];
+                }
+            }
+        }
+
+#pragma warning disable CS0067 // Deliberately never raised: the queue must recover via backoff, not this event.
+        public event EventHandler? AvailabilityChanged;
+#pragma warning restore CS0067
+
+        public ValueTask GenerateAsync(ProxyJob job)
+        {
+            if (!_available)
+            {
+                _firstUnavailable.TrySetResult();
+                throw new ProxyGeneratorUnavailableException("transiently unavailable");
+            }
+
+            lock (_succeededSources)
+            {
+                _succeededSources.Add(job.Source);
+            }
+
+            return ValueTask.CompletedTask;
+        }
+
+        public void MakeAvailableSilently() => _available = true;
+    }
+
+    private sealed class ThrowingRegisterStore : IProxyStore
+    {
+        public string StoreRootPath => Path.Combine(TestContext.CurrentContext.WorkDirectory, "throwing-store");
+
+        public ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset) => null;
+
+        public IReadOnlyList<ProxyEntry> Enumerate() => [];
+
+        public void Register(ProxyEntry entry) => throw new InvalidOperationException("index locked");
+
+        public bool TryTransition(ProxyFingerprint source, ProxyPreset preset, ProxyState newState, string? failureReason = null) => false;
+
+        public bool Delete(ProxyFingerprint source, ProxyPreset preset) => false;
+
+        public void Touch(ProxyFingerprint source, ProxyPreset preset, DateTime nowUtc)
+        {
+        }
+
+        public long GetTotalBytes() => 0;
+
+        public long GetTotalBytes(IReadOnlySet<string> sourceAbsolutePaths) => 0;
+
+        public Task FlushAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task ReconcileAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+#pragma warning disable CS0067 // Not exercised by these tests.
+        public event EventHandler<ProxyStoreChangedEventArgs>? Changed;
+#pragma warning restore CS0067
+    }
+
     private sealed class ControlledBlockingGenerator : IProxyGenerator
     {
         private readonly Lock _lock = new();
         private readonly Queue<TaskCompletionSource> _releases = [];
+        private readonly List<ProxyFingerprint> _startedSources = [];
         private TaskCompletionSource _startedChanged = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private int _startedCount;
+
+        public IReadOnlyList<ProxyFingerprint> StartedSources
+        {
+            get
+            {
+                lock (_lock)
+                {
+                    return [.. _startedSources];
+                }
+            }
+        }
 
         public async ValueTask GenerateAsync(ProxyJob job)
         {
@@ -383,6 +569,7 @@ public class ProxyJobQueueTests
             lock (_lock)
             {
                 _releases.Enqueue(release);
+                _startedSources.Add(job.Source);
                 _startedCount++;
                 _startedChanged.TrySetResult();
                 _startedChanged = new(TaskCreationOptions.RunContinuationsAsynchronously);

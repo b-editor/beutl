@@ -13,6 +13,14 @@ internal static class FFmpegInstallNotifier
 
     public static bool IsLibrariesMissing => FFmpegLibraryState.IsLibrariesMissing;
 
+    internal static long MissingSinceTicks => FFmpegLibraryState.MissingSinceTicks;
+
+    internal static event EventHandler? AvailabilityChanged
+    {
+        add => FFmpegLibraryState.AvailabilityChanged += value;
+        remove => FFmpegLibraryState.AvailabilityChanged -= value;
+    }
+
     public static void HookLibraryState()
     {
         if (Interlocked.Exchange(ref s_hooked, 1) != 0)
@@ -21,11 +29,9 @@ internal static class FFmpegInstallNotifier
         FFmpegLibraryState.LibrariesMissing += (_, _) => NotifyMissing();
     }
 
-    internal static event EventHandler? AvailabilityChanged;
-
     public static void NotifyMissing()
     {
-        SetLibrariesMissing(true);
+        FFmpegLibraryState.MarkMissing();
         if (!TryAcquireNotifySlot(Environment.TickCount64))
             return;
 
@@ -50,34 +56,20 @@ internal static class FFmpegInstallNotifier
 
     public static void MarkInstalled()
     {
-        SetLibrariesMissing(false, notifyWhenUnchanged: true);
+        FFmpegLibraryState.MarkInstalled();
         Interlocked.Exchange(ref s_lastNotifiedTicks, 0);
     }
 
-    public static void MarkMissing()
-    {
-        SetLibrariesMissing(true);
-    }
+    public static void MarkMissing() => FFmpegLibraryState.MarkMissing();
+
+    internal static void NotifyWorkerStarted() => FFmpegLibraryState.NotifyWorkerStarted();
+
+    internal static bool ShouldSkipStartProbe(long now) => FFmpegLibraryState.ShouldSkipStartProbe(now);
 
     internal static void MarkVerificationStarted()
     {
-        SetLibrariesMissing(false, notify: false);
+        FFmpegLibraryState.MarkVerificationStarted();
         Interlocked.Exchange(ref s_lastNotifiedTicks, 0);
-    }
-
-    private static void SetLibrariesMissing(bool value, bool notify = true, bool notifyWhenUnchanged = false)
-    {
-        bool changed = FFmpegLibraryState.IsLibrariesMissing != value;
-        if (!changed && !notifyWhenUnchanged)
-            return;
-
-        if (value)
-            FFmpegLibraryState.MarkMissing();
-        else
-            FFmpegLibraryState.MarkInstalled();
-
-        if (notify)
-            AvailabilityChanged?.Invoke(null, EventArgs.Empty);
     }
 
     private static void ShowInstallDialog()

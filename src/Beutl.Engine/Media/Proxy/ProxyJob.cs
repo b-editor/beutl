@@ -6,12 +6,14 @@ public sealed class ProxyJob
         ProxyFingerprint source,
         ProxyPreset preset,
         IProgress<ProxyJobProgress>? progress = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        int priority = 0)
     {
         Source = source;
         Preset = preset;
         Progress = progress;
         CancellationToken = cancellationToken;
+        Priority = priority;
     }
 
     public Guid JobId { get; } = Guid.NewGuid();
@@ -24,6 +26,9 @@ public sealed class ProxyJob
 
     public CancellationToken CancellationToken { get; }
 
+    // Higher values are dispatched first; jobs with equal priority keep arrival (FIFO) order.
+    public int Priority { get; }
+
     public ProxyJobStatus Status { get; internal set; } = ProxyJobStatus.Queued;
 
     public ProxyJobProgress? LatestProgress { get; internal set; }
@@ -31,6 +36,9 @@ public sealed class ProxyJob
     public Exception? Error { get; internal set; }
 
     public string? StatusMessage { get; internal set; }
+
+    // Non-null when recording the Failed proxy entry itself threw; distinct from the primary Error.
+    public Exception? BookkeepingError { get; internal set; }
 }
 
 public readonly record struct ProxyJobProgress(double FractionComplete, TimeSpan? Eta);
