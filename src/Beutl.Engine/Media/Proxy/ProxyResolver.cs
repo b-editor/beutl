@@ -15,11 +15,12 @@ public sealed class ProxyResolver : IProxyResolver
         _store.Changed += OnStoreChanged;
     }
 
-    public long GetSourceVersion(string sourceAbsolutePath)
+    public long GetSourceVersion(ProxyFingerprint source)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(sourceAbsolutePath);
-        string key = ProxyFingerprint.NormalizeAbsolutePath(sourceAbsolutePath);
-        return _sourceVersions.TryGetValue(key, out long version) ? version : 0;
+        string absolutePath = source.AbsolutePath;
+        return !string.IsNullOrEmpty(absolutePath) && _sourceVersions.TryGetValue(absolutePath, out long version)
+            ? version
+            : 0;
     }
 
     public ProxyResolution? Resolve(Uri sourceUri, ProxyPreset preferredPreset)
@@ -31,7 +32,9 @@ public sealed class ProxyResolver : IProxyResolver
         if (!ProxyFingerprint.TryFromFile(sourceUri.LocalPath, out ProxyFingerprint fingerprint))
             return null;
 
-        foreach (ProxyPreset preset in EnumeratePresetsByPreference(preferredPreset))
+        // preferredPreset is only a generation-time floor (which fidelity to encode), not a
+        // resolve-time selection cap: resolution always picks the densest Ready proxy.
+        foreach (ProxyPreset preset in EnumeratePresetsByDensity())
         {
             if (TryResolve(fingerprint, preset) is { } resolution)
                 return resolution;
@@ -40,19 +43,11 @@ public sealed class ProxyResolver : IProxyResolver
         return null;
     }
 
-    // Prefer the densest (highest-fidelity) Ready proxy at or above the requested
-    // fidelity, then fall back to the densest available below it. A deliberately
-    // generated higher-fidelity per-clip proxy therefore wins over the global default
-    // instead of being silently downgraded to it.
-    private static IEnumerable<ProxyPreset> EnumeratePresetsByPreference(ProxyPreset preferredPreset)
+    // Densest first, so a deliberately generated denser per-clip proxy wins over the
+    // global default instead of being downgraded to it.
+    private static IEnumerable<ProxyPreset> EnumeratePresetsByDensity()
     {
-        // An undefined preferredPreset degrades to plain densest-first (requestedScale 0).
-        float requestedScale = ProxyPresetDefinitions.All.TryGetValue(preferredPreset, out ProxyEncodeParameters parameters)
-            ? parameters.Scale
-            : 0f;
-        return ProxyPresetDefinitions.All.Keys
-            .OrderByDescending(preset => ScaleOf(preset) >= requestedScale)
-            .ThenByDescending(ScaleOf);
+        return ProxyPresetDefinitions.All.Keys.OrderByDescending(ScaleOf);
     }
 
     private static float ScaleOf(ProxyPreset preset)

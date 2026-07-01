@@ -55,6 +55,8 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
     private Services.Adapters.PropertyEditorFactoryAdapter? _propertyEditorFactory;
     private Services.Adapters.PropertiesEditorFactoryImpl? _propertiesEditorFactory;
     private volatile bool _viewStateSaveSuppressed;
+    private readonly HashSet<string> _pendingProxyInvalidations = new(StringComparer.Ordinal);
+    private bool _proxyInvalidationScheduled;
 
     public EditViewModel(Scene scene, Beutl.Api.Services.ExtensionProvider extensionProvider, EditorService editorService)
     {
@@ -211,16 +213,43 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
             return;
         }
 
-        // Invalidate only frames of clips that use the changed source, not the whole
-        // timeline cache (FR-023; unrelated clips stay editable during a bulk generate,
-        // FR-008 / US2 AC4). FrameCacheManager only invalidates by frame range, so the
-        // source is mapped to the ranges of the elements that reference it.
-        string changedSourcePath = e.Source.AbsolutePath;
-        Dispatcher.UIThread.Post(() => InvalidateFrameCacheForSource(changedSourcePath));
+        // e.Source.AbsolutePath is already the fingerprint's normalized path.
+        bool schedule;
+        lock (_pendingProxyInvalidations)
+        {
+            _pendingProxyInvalidations.Add(e.Source.AbsolutePath);
+            schedule = !_proxyInvalidationScheduled;
+            _proxyInvalidationScheduled = true;
+        }
+
+        // A bulk generate (FR-008 / US2 AC4) fires one store event per proxy state change.
+        // Coalesce the burst into a single UI-thread scene walk per tick instead of one
+        // walk per event, so the timeline stays smooth while proxies are generated.
+        if (schedule)
+        {
+            Dispatcher.UIThread.Post(FlushPendingProxyInvalidations);
+        }
     }
 
-    private void InvalidateFrameCacheForSource(string changedSourcePath)
+    private void FlushPendingProxyInvalidations()
     {
+        HashSet<string> changedSources;
+        lock (_pendingProxyInvalidations)
+        {
+            _proxyInvalidationScheduled = false;
+            if (_pendingProxyInvalidations.Count == 0)
+            {
+                return;
+            }
+
+            changedSources = new HashSet<string>(_pendingProxyInvalidations, StringComparer.Ordinal);
+            _pendingProxyInvalidations.Clear();
+        }
+
+        // Invalidate only frames of clips that use a changed source, not the whole
+        // timeline cache (FR-023; unrelated clips stay editable during a bulk generate).
+        // FrameCacheManager only invalidates by frame range, so each changed source is
+        // mapped to the ranges of the elements that reference it.
         FrameCacheManager cache = FrameCacheManager.Value;
         if (cache.IsDisposed)
         {
@@ -230,7 +259,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         List<TimeRange> affectedRanges = [];
         foreach (Element element in Scene.Children)
         {
-            if (ElementUsesSource(element, changedSourcePath))
+            if (ElementUsesAnySource(element, changedSources))
             {
                 affectedRanges.Add(element.Range);
             }
@@ -247,14 +276,22 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
                 End: (int)Math.Ceiling(range.End.ToFrameNumber(rate)))));
     }
 
-    private static bool ElementUsesSource(Element element, string changedSourcePath)
+    private static bool ElementUsesAnySource(Element element, IReadOnlySet<string> changedSources)
     {
         foreach (Beutl.Graphics.SourceVideo video in element.EnumerateAllChildren<Beutl.Graphics.SourceVideo>())
         {
             Beutl.Media.Source.VideoSource? source = video.Source.CurrentValue;
-            if (source is { HasUri: true }
-                && ProxyFingerprint.TryFromFile(source.Uri.LocalPath, out ProxyFingerprint fingerprint)
-                && string.Equals(fingerprint.AbsolutePath, changedSourcePath, StringComparison.Ordinal))
+            if (source is not { HasUri: true })
+            {
+                continue;
+            }
+
+            // Normalize the element's URI in-process rather than re-running a
+            // symlink-resolving FileInfo stat per element on the UI thread; the changed
+            // source path is already a normalized fingerprint path. The reader-level reload
+            // path (VideoSource + GetSourceVersion) still guarantees eventual correctness.
+            string elementPath = ProxyFingerprint.NormalizeAbsolutePath(source.Uri.LocalPath);
+            if (changedSources.Contains(elementPath))
             {
                 return true;
             }

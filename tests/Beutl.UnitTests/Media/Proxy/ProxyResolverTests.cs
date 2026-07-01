@@ -108,26 +108,26 @@ public class ProxyResolverTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(_resolver.GetSourceVersion(fingerprintA.AbsolutePath), Is.EqualTo(0));
-            Assert.That(_resolver.GetSourceVersion(fingerprintB.AbsolutePath), Is.EqualTo(0));
+            Assert.That(_resolver.GetSourceVersion(fingerprintA), Is.EqualTo(0));
+            Assert.That(_resolver.GetSourceVersion(fingerprintB), Is.EqualTo(0));
         });
 
         RegisterProxy(sourceA, ProxyPreset.Quarter, new PixelSize(100, 80), new PixelSize(25, 20));
 
-        long versionA = _resolver.GetSourceVersion(fingerprintA.AbsolutePath);
+        long versionA = _resolver.GetSourceVersion(fingerprintA);
         Assert.Multiple(() =>
         {
             Assert.That(versionA, Is.GreaterThan(0));
-            Assert.That(_resolver.GetSourceVersion(fingerprintB.AbsolutePath), Is.EqualTo(0));
+            Assert.That(_resolver.GetSourceVersion(fingerprintB), Is.EqualTo(0));
         });
 
         // A real state change to A must keep advancing A's version (SC-003) ...
         _store.TryTransition(fingerprintA, ProxyPreset.Quarter, ProxyState.Stale);
         Assert.Multiple(() =>
         {
-            Assert.That(_resolver.GetSourceVersion(fingerprintA.AbsolutePath), Is.GreaterThan(versionA));
+            Assert.That(_resolver.GetSourceVersion(fingerprintA), Is.GreaterThan(versionA));
             // ... without ever touching B.
-            Assert.That(_resolver.GetSourceVersion(fingerprintB.AbsolutePath), Is.EqualTo(0));
+            Assert.That(_resolver.GetSourceVersion(fingerprintB), Is.EqualTo(0));
         });
     }
 
