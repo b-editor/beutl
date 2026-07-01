@@ -42,7 +42,7 @@ public class FFmpegReaderProxyReadVideoContractTests
             if (_audioOnlyPath != null && File.Exists(_audioOnlyPath))
                 File.Delete(_audioOnlyPath);
         }
-        catch (IOException)
+        catch (Exception)
         {
             // Best-effort cleanup of the temp fixture; a leftover file must not fail the run.
         }
