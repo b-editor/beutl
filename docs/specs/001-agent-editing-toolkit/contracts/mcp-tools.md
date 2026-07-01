@@ -114,7 +114,7 @@ Dry-run a Remotion-style composition without returning a huge patch.
 
 ### `apply_edit`
 Commit a declarative change atomically and undoably (FR-007/FR-012/FR-015/FR-028/FR-029).
-- **Input**: an envelope `{ "schemaVersion"?: string, "desired"?: <full document>, "patch"?: <merge-patch>, "includeDocument"?: bool }` — supply exactly one of `desired`/`patch`. The `patch` is **RFC 7396 for objects + id-keyed merge for `Id`-bearing arrays**, with optional member directives `$delete` / `$index` / `$after` / `$before` (mutually exclusive); the full rules are in [contracts/declarative-document.md](./declarative-document.md) §2 and are surfaced in the tool's input description. `schemaVersion` is required for `patch`; for `desired`, either pass it separately or include `schemaVersion` in the document. The edit targets the current session's active Scene.
+- **Input**: an envelope `{ "schemaVersion"?: string, "desired"?: <full document>, "patch"?: <merge-patch>, "includeDocument"?: bool }` — supply exactly one of `desired`/`patch`. The `patch` is **RFC 7396 for objects + id-keyed merge for `Id`-bearing arrays**, with optional member directives `$delete` / `$index` / `$after` / `$before` (the ordering three are mutually exclusive) and a leading `{ "$replace": true }` sentinel to wholesale-rebuild an id-keyed array; the full rules are in [contracts/declarative-document.md](./declarative-document.md) §2 and are surfaced in the tool's input description. `schemaVersion` is required for `patch`; for `desired`, either pass it separately or include `schemaVersion` in the document. The edit targets the current session's active Scene.
 - **Output**: `{ "valid": bool, "changes": [ ... ], "validation": [ ... ], "appliedChangeSet": [ ... ], "createdIds": [ { id, path, type?, name? } ], "document"?: <updated declarative JSON> }`. `document` is returned only when `includeDocument=true`; otherwise agents should use `createdIds`, `read_document_summary`, or `read_document` before follow-up edits that need newly minted `Id` values.
 - **Errors**: `no_active_editor_session`, `validation_rejected` (whole batch rolled back), `stale_handle`, `schema_version_mismatch`.
 - **Backed by**: reconcile on the live root inside `HistoryManager.ExecuteInTransaction` (commits on success, **rolls back on any mid-reconcile exception** — a bare `Commit` would leave partial live mutations, breaking FR-012).
@@ -141,11 +141,11 @@ Render one frame to an image without the GUI (FR-016).
 
 ### `render_storyboard`
 Render a storyboard (絵コンテ) contact sheet — one static still per shot — without any motion analysis. Use in the storyboard phase to verify the static layout of every shot before adding effects or motion.
-- **Input**: `{ "shots"?: [ { "name": string, "timeSeconds": number } ], "outputDirectory"?: string, "basename"?: string, "renderScale"?: number, "confirmOverwrite"?: bool }` (write — **guarded**). When `shots` is omitted, one representative time is auto-derived per timeline `Element` (the midpoint of its `[Start, Start+Length)`), deduplicated and ordered. Stills and the contact sheet are written under `agent-output/` by default.
-- **Output**: `{ "contactSheetPath": string, "shots": [ { "name": string, "timeSeconds": number, "stillPath": string, "visibilityAnalysis": { ... } } ] }`. The contact sheet is a grid PNG of every shot still, each cell labeled with the shot name and time.
-- **Use when**: Phase 1 (static storyboard). Pair with `preview_quality_risks` and `evaluate_edit_quality` with `staticLayout=true`; do not run the motion gates on a motionless storyboard.
+- **Input**: `{ "shots"?: [ { "name": string, "timeSeconds": number } ], "outputDirectory"?: string, "basename"?: string, "renderScale"?: number, "confirmOverwrite"?: bool, "background"?: bool }` (write — **guarded**). When `shots` is omitted, one representative time is auto-derived per timeline `Element` (the midpoint of its `[Start, Start+Length)`), deduplicated and ordered. Stills and the contact sheet are written under `agent-output/` by default.
+- **Output**: `{ "status": "completed"|"running", "jobId": string|null, "result": { "contactSheetPath": string, "shots": [ { "name": string, "timeSeconds": number, "stillPath": string, "visibilityAnalysis": { ... } } ] } | null }`. Synchronous calls return `status="completed"` with the payload under `result`. With `background=true`, fast validation (paths, overwrite, at least one shot) runs synchronously and the tool returns `status="running"` + `jobId` immediately; poll `read_render_job(jobId)` for the completed payload. The contact sheet is a grid PNG of every shot still, each cell labeled with the shot name and time.
+- **Use when**: Phase 1 (static storyboard). Pair with `preview_quality_risks` and `evaluate_edit_quality` with `staticLayout=true`; do not run the motion gates on a motionless storyboard. Prefer `background=true` when a many-Element scene risks exceeding the MCP client request timeout; do not issue `apply_edit` while a background render is running.
 - **Errors**: `no_active_editor_session`, `validation_rejected` (no explicit shots and no timeline Element), `workspace_boundary`, `destructive_intent`, `rendering_unavailable`.
-- **Backed by**: per-shot `StillRenderer` + a `StoryboardRenderer` SkiaSharp grid compositor.
+- **Backed by**: per-shot `StillRenderer` + a `StoryboardRenderer` SkiaSharp grid compositor; background jobs run through a single-flight `RenderJobManager`.
 
 ### `evaluate_edit_quality`
 Review the current scene for deterministic AI-editing quality risks before final export.
@@ -178,10 +178,24 @@ Run the standard final verification bundle before `export_video`.
 
 ### `export_video`
 Export a range/timeline to a video file (FR-017).
-- **Input**: `{ "outputPath": string, "frameRateNumerator"?: number, "frameRateDenominator"?: number, "sampleRate"?: number, "renderScale"?: number, "confirmOverwrite"?: bool }` (write — **guarded**). Bare filenames are written under `agent-output/`; explicit relative directories and absolute in-workspace paths are preserved.
-- **Output**: `{ "videoPath": string, "frames": number, "duration": string }`.
-- **Errors**: `no_active_editor_session`, `workspace_boundary`, `destructive_intent`, `validation_rejected`, `codec_unavailable` (FFmpeg native libs / worker missing, FR-018), `rendering_unavailable`.
-- **Backed by**: `EncodingController.Encode(frameProvider, sampleProvider, ct)` with the concrete encoder from the MIT non-UI `Beutl.Extensions.FFmpeg.Core` (or a headlessly-registered installed encoder) — reaching the FFmpeg worker only via `Beutl.FFmpegIpc` (no GPL `ProjectReference`, and no compile-time reference to the Avalonia-coupled `Beutl.Extensions.FFmpeg`; Constitution I).
+- **Input**: `{ "outputPath": string, "frameRateNumerator"?: number, "frameRateDenominator"?: number, "sampleRate"?: number, "renderScale"?: number, "crf"?: number, "bitrate"?: number, "confirmOverwrite"?: bool, "background"?: bool }` (write — **guarded**). Bare filenames are written under `agent-output/`; explicit relative directories and absolute in-workspace paths are preserved. `crf` (0-51, higher = smaller/lower quality) and `bitrate` (bits/s, ABR) are **mutually exclusive** video-quality knobs; when neither is given the encoder default (crf 22) applies. Raise `crf` for hard-to-compress content such as full-frame procedural grain.
+- **Output**: `{ "status": "completed"|"running", "jobId": string|null, "result": { "outputPath": string, "frames": number, "samples": number, "duration": string } | null }`. Synchronous calls return `status="completed"` with the payload under `result`; `background=true` returns `status="running"` + `jobId` (poll `read_render_job(jobId)`).
+- **Errors**: `no_active_editor_session`, `workspace_boundary`, `destructive_intent`, `validation_rejected` (bad frame rate, `crf` outside 0-51, non-positive `bitrate`, or both `crf` and `bitrate` supplied), `codec_unavailable` (FFmpeg native libs / worker missing, FR-018), `rendering_unavailable`.
+- **Backed by**: `EncodingController.Encode(frameProvider, sampleProvider, ct)` with the concrete encoder from the MIT non-UI `Beutl.Extensions.FFmpeg.Core` (or a headlessly-registered installed encoder) — reaching the FFmpeg worker only via `Beutl.FFmpegIpc` (no GPL `ProjectReference`, and no compile-time reference to the Avalonia-coupled `Beutl.Extensions.FFmpeg`; Constitution I). `crf`/`bitrate` are applied to the FFmpeg encoder settings (the `crf` `AdditionalOption` / `Bitrate`) on the MIT proxy side before encoding.
+
+### `read_render_job`
+Report the status of a background `render_storyboard`/`export_video` job.
+- **Input**: `{ "jobId": string }`.
+- **Output**: `{ "jobId": string, "kind": "storyboard"|"export", "state": "running"|"completed"|"failed"|"cancelled", "result": <render_storyboard/export_video payload> | null, "error": { "code": string, "message": string, ... } | null, "startedAt": string, "completedAt": string|null }`. `result` is populated only when `state="completed"`; `error` carries the same `ToolError` shape (and code) the synchronous path would have returned when `state="failed"`.
+- **Use when**: polling after a `background=true` render/export call. Poll until `state` leaves `running`.
+- **Errors**: `stale_handle` (unknown `jobId`).
+- **Backed by**: a process-singleton `RenderJobManager` (registered in both hosts) that serializes background jobs single-flight because all stills share the one `RenderThread`.
+
+### `cancel_render_job`
+Request cancellation of a running background render/export job.
+- **Input**: `{ "jobId": string }`.
+- **Output**: same snapshot shape as `read_render_job`. A still-running job transitions to `cancelled` once it observes the request (the per-job `CancellationToken` is plumbed through `StillRenderer`/`VideoExporter`).
+- **Errors**: `stale_handle` (unknown `jobId`).
 
 ## Cross-cutting contract rules
 
