@@ -228,6 +228,34 @@ public sealed class SchemaGenerationTests
     }
 
     [Test]
+    public void Single_sksl_effect_recipe_uses_neutral_pass_through_scaffold()
+    {
+        var generator = new SchemaGenerator();
+        EffectRecipe scaffoldRecipe = generator.GetEffectRecipe("effect-sksl-script-effect");
+        string scaffold = scaffoldRecipe.Patch.ToJsonString();
+        string organic = generator.GetEffectRecipe("organic-shader-field").Patch.ToJsonString();
+        string script = FindRequiredStringProperty(scaffoldRecipe.Patch, nameof(SKSLScriptEffect.Script));
+
+        using SKSLShader shader = CompileSkslOrSkip(script);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(scaffold, Is.Not.EqualTo(organic));
+            Assert.That(scaffold, Does.Not.Contain("sin(uv.x * 14.0"));
+            Assert.That(script, Does.Contain("src.eval(fragCoord)"));
+            Assert.That(script, Does.Not.Contain("sin(uv.x * 14.0"));
+            Assert.That(shader.Effect.Children.Contains("src"), Is.True);
+            Assert.That(scaffoldRecipe.Description, Does.Contain("blank pass-through scaffold"));
+            Assert.That(scaffoldRecipe.Description, Does.Contain("organic-shader-field"));
+            Assert.That(scaffoldRecipe.Description, Does.Contain("fine-film-grain-field"));
+            Assert.That(scaffoldRecipe.Notes, Has.Some.Contains("blank pass-through SKSL scaffold"));
+            Assert.That(scaffoldRecipe.Notes, Has.Some.Contains("compile error makes the effect a no-op"));
+            Assert.That(scaffoldRecipe.IntentTags, Does.Not.Contain("organic"));
+            Assert.That(generator.GetEffectRecipe(intent: "organic shader").Name, Is.EqualTo("organic-shader-field"));
+        });
+    }
+
+    [Test]
     public void Additive_bloom_recipe_sets_plus_blend_opacity_and_guides_duplicate_object()
     {
         var generator = new SchemaGenerator();
@@ -394,6 +422,51 @@ public sealed class SchemaGenerationTests
 
         Assert.Fail($"Object '{objectName}' was not found.");
         return 0;
+    }
+
+    private static string FindRequiredStringProperty(JsonObject node, string propertyName)
+    {
+        string? result = null;
+        Visit(node, current =>
+        {
+            if (result is not null
+                || current is not JsonObject obj
+                || obj[propertyName] is not JsonValue value
+                || !value.TryGetValue(out string? text))
+            {
+                return;
+            }
+
+            result = text;
+        });
+
+        Assert.That(result, Is.Not.Null, $"Property '{propertyName}' was not found.");
+        return result!;
+    }
+
+    private static SKSLShader CompileSkslOrSkip(string script)
+    {
+        if (SKSLShader.TryCreate(script, out SKSLShader? shader, out string? errorText))
+        {
+            return shader!;
+        }
+
+        if (IsNativeSkiaUnavailable(errorText))
+        {
+            Assert.Ignore($"SKSL compilation is unavailable in this environment: {errorText}");
+        }
+
+        Assert.Fail($"Neutral SKSL scaffold should compile: {errorText}");
+        return null!;
+    }
+
+    private static bool IsNativeSkiaUnavailable(string? errorText)
+    {
+        return !string.IsNullOrWhiteSpace(errorText)
+               && (errorText.Contains("Unable to load shared library", StringComparison.OrdinalIgnoreCase)
+                   || errorText.Contains("DllNotFoundException", StringComparison.OrdinalIgnoreCase)
+                   || errorText.Contains("libSkiaSharp", StringComparison.OrdinalIgnoreCase)
+                   || errorText.Contains("dlopen", StringComparison.OrdinalIgnoreCase));
     }
 
     private static void Visit(JsonNode? node, Action<JsonNode> visitor)

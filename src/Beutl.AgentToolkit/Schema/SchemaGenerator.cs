@@ -832,11 +832,27 @@ public sealed class SchemaGenerator
         EffectMetadata metadata = GetEffectMetadata(type);
         string displayName = TypeNameToWords(type.Name);
         string name = $"effect-{ToKebabCase(type.Name)}";
-        string[] tags = metadata.IntentTags
+        IEnumerable<string> recipeTags = metadata.IntentTags;
+        if (type == typeof(SKSLScriptEffect))
+        {
+            recipeTags = recipeTags
+                .Where(tag => !string.Equals(tag, "organic", StringComparison.OrdinalIgnoreCase))
+                .Concat(["blank", "scaffold"]);
+        }
+
+        string[] tags = recipeTags
             .Append("single-effect")
             .Distinct(StringComparer.Ordinal)
             .ToArray();
-        string[] notes = metadata.Notes.ToArray();
+        string[] notes = type == typeof(SKSLScriptEffect)
+            ? metadata.Notes
+                .Append("This recipe is a blank pass-through SKSL scaffold for authoring your own shader; use organic-shader-field for a ready-made organic field and fine-film-grain-field for grain.")
+                .Distinct(StringComparer.Ordinal)
+                .ToArray()
+            : metadata.Notes.ToArray();
+        string description = type == typeof(SKSLScriptEffect)
+            ? "Single-effect recipe for SKSL script effect. This is a blank pass-through scaffold for authoring your own shader; use organic-shader-field for a ready-made organic field or fine-film-grain-field for grain."
+            : $"Single-effect recipe for {displayName}. Use this when you want to intentionally exercise the {type.Name} filter.";
         JsonObject patch = type == typeof(FilterEffectGroup)
             ? CreateEffectPatch((FilterEffectGroup)effect)
             : CreateEffectPatch(CreateFilterEffectGroup(effect));
@@ -844,7 +860,7 @@ public sealed class SchemaGenerator
         return new EffectRecipeSpec(
             new EffectRecipeSummary(
                 name,
-                $"Single-effect recipe for {displayName}. Use this when you want to intentionally exercise the {type.Name} filter.",
+                description,
                 tags,
                 [type.Name],
                 notes),
@@ -1007,7 +1023,7 @@ public sealed class SchemaGenerator
                 pixelSort.ThresholdMax.CurrentValue = 82;
                 break;
             case SKSLScriptEffect sksl:
-                sksl.Script.CurrentValue = CreateOrganicShaderScript();
+                sksl.Script.CurrentValue = CreateNeutralShaderScript();
                 break;
         }
     }
@@ -1079,6 +1095,17 @@ public sealed class SchemaGenerator
                    half4 base = src.eval(fragCoord);
                    half3 field = half3(0.95 * wave, 0.26 + 0.45 * plume, 0.12 + 0.25 * (1.0 - wave));
                    return half4(mix(base.rgb, field, 0.35), base.a);
+               }
+               """;
+    }
+
+    private static string CreateNeutralShaderScript()
+    {
+        return """
+               uniform shader src;
+
+               half4 main(float2 fragCoord) {
+                   return src.eval(fragCoord);
                }
                """;
     }
@@ -1173,7 +1200,7 @@ public sealed class SchemaGenerator
             [typeof(DelayAnimationEffect)] = Metadata(["motion", "trail", "delay"], []),
             [typeof(PixelSortEffect)] = Metadata(["glitch", "pixel", "scanline", "gpu"], ["Runs on the Vulkan shader backend, which falls back to the bundled SwiftShader software rasterizer when no hardware GPU is present, so it stays active; the software path is slower."]),
             [typeof(CSharpScriptEffect)] = Metadata(["advanced", "script", "programmable"], ["Prefer built-in effects for low-context agents unless script code is explicitly requested."]),
-            [typeof(SKSLScriptEffect)] = Metadata(["advanced", "shader", "programmable", "organic", "procedural"], ["Requires shader source. Prefer for organic heat, ink, glass, smoke, grain, caustic, or procedural fields when blurred gradients look flat; call validate_shader to compile-check the script before apply_edit, since a compile error makes the effect render nothing."]),
+            [typeof(SKSLScriptEffect)] = Metadata(["advanced", "shader", "programmable", "organic", "procedural"], ["Requires shader source. Prefer for organic heat, ink, glass, smoke, grain, caustic, or procedural fields when blurred gradients look flat; call validate_shader to compile-check the script before apply_edit, since a compile error makes the effect a no-op: the source passes through unchanged."]),
             [typeof(GLSLScriptEffect)] = Metadata(["advanced", "shader", "gpu"], ["Needs GLSL shader source; runs on the Vulkan shader backend (hardware GPU, MoltenVK, or the bundled SwiftShader software fallback), so it does not require a dedicated GPU."]),
             [typeof(NodeGraphFilterEffect)] = Metadata(["advanced", "nodegraph", "programmable"], ["Requires a node graph resource to be useful."])
         };
