@@ -4,16 +4,9 @@ namespace Beutl.Media.Proxy;
 
 public sealed class ProxyResolver : IProxyResolver
 {
-    private static readonly ProxyPreset[] s_fallbackOrder =
-    [
-        ProxyPreset.Half,
-        ProxyPreset.Quarter,
-        ProxyPreset.Eighth,
-    ];
-
     private readonly IProxyStore _store;
     private readonly ConcurrentDictionary<string, int> _pins = new(StringComparer.Ordinal);
-    private long _version;
+    private readonly ConcurrentDictionary<string, long> _sourceVersions = new(StringComparer.Ordinal);
 
     public ProxyResolver(IProxyStore store)
     {
@@ -22,7 +15,12 @@ public sealed class ProxyResolver : IProxyResolver
         _store.Changed += OnStoreChanged;
     }
 
-    public long Version => Interlocked.Read(ref _version);
+    public long GetSourceVersion(string sourceAbsolutePath)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sourceAbsolutePath);
+        string key = ProxyFingerprint.NormalizeAbsolutePath(sourceAbsolutePath);
+        return _sourceVersions.TryGetValue(key, out long version) ? version : 0;
+    }
 
     public ProxyResolution? Resolve(Uri sourceUri, ProxyPreset preferredPreset)
     {
@@ -33,21 +31,42 @@ public sealed class ProxyResolver : IProxyResolver
         if (!ProxyFingerprint.TryFromFile(sourceUri.LocalPath, out ProxyFingerprint fingerprint))
             return null;
 
-        if (TryResolve(fingerprint, preferredPreset) is { } exact)
-            return exact;
-
-        foreach (ProxyPreset preset in s_fallbackOrder)
+        foreach (ProxyPreset preset in EnumeratePresetsByPreference(preferredPreset))
         {
-            if (preset == preferredPreset)
-                continue;
-
-            if (TryResolve(fingerprint, preset) is { } fallback)
-                return fallback;
+            if (TryResolve(fingerprint, preset) is { } resolution)
+                return resolution;
         }
 
         return null;
     }
 
+    // Prefer the densest (highest-fidelity) Ready proxy at or above the requested
+    // fidelity, then fall back to the densest available below it. A deliberately
+    // generated higher-fidelity per-clip proxy therefore wins over the global default
+    // instead of being silently downgraded to it.
+    private static IEnumerable<ProxyPreset> EnumeratePresetsByPreference(ProxyPreset preferredPreset)
+    {
+        // An undefined preferredPreset degrades to plain densest-first (requestedScale 0).
+        float requestedScale = ProxyPresetDefinitions.All.TryGetValue(preferredPreset, out ProxyEncodeParameters parameters)
+            ? parameters.Scale
+            : 0f;
+        return ProxyPresetDefinitions.All.Keys
+            .OrderByDescending(preset => ScaleOf(preset) >= requestedScale)
+            .ThenByDescending(ScaleOf);
+    }
+
+    private static float ScaleOf(ProxyPreset preset)
+    {
+        return ProxyPresetDefinitions.Get(preset).Scale;
+    }
+
+    /// <summary>
+    /// Takes a transient, reference-counted decode-lifetime safety pin on a resolved
+    /// proxy file so eviction cannot delete it while a MediaReader is decoding it.
+    /// Dispose the returned handle to release the reference.
+    /// This is NOT the future user-facing "do-not-evict" pin (FR-018a); that is a
+    /// separate, persistent, user-driven concept — do not conflate the two.
+    /// </summary>
     public IDisposable Pin(ProxyResolution resolution)
     {
         ArgumentNullException.ThrowIfNull(resolution);
@@ -56,6 +75,10 @@ public sealed class ProxyResolver : IProxyResolver
         return new PinHandle(this, path);
     }
 
+    /// <summary>
+    /// True while at least one transient decode-lifetime safety pin (see <see cref="Pin"/>)
+    /// is held for the proxy file. Unrelated to FR-018a's future persistent user pin.
+    /// </summary>
     public bool IsPinned(string absoluteProxyFilePath)
     {
         return _pins.TryGetValue(Path.GetFullPath(absoluteProxyFilePath), out int count) && count > 0;
@@ -126,7 +149,9 @@ public sealed class ProxyResolver : IProxyResolver
             or ProxyStoreChangeKind.StateChanged
             or ProxyStoreChangeKind.Deleted)
         {
-            Interlocked.Increment(ref _version);
+            // Bump only the changed source's version (e.Source is already normalized)
+            // so unrelated proxied sources are not invalidated.
+            _sourceVersions.AddOrUpdate(e.Source.AbsolutePath, 1, static (_, version) => version + 1);
         }
     }
 
@@ -141,6 +166,8 @@ public sealed class ProxyResolver : IProxyResolver
             _pins.TryRemove(path, out _);
     }
 
+    // Disposable release token for a transient decode-lifetime safety pin (see Pin).
+    // Not related to FR-018a's future persistent user pin.
     private sealed class PinHandle(ProxyResolver resolver, string path) : IDisposable
     {
         private int _disposed;
