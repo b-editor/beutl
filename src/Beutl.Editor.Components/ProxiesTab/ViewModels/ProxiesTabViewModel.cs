@@ -37,6 +37,12 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
     private const long MinBulkSourcePixelCount = 1920L * 1080L;
     private const long MinBulkSourceFileBytes = 32L * 1024L * 1024L;
 
+    // Explicit per-clip / per-selection generate & regenerate is foreground work: a clip the editor
+    // needs now must jump ahead of the background "Generate all" sweep, which stays at the queue
+    // default so equal-priority bulk jobs keep arrival order.
+    private const int ForegroundGenerationPriority = 1;
+    private const int BulkGenerationPriority = 0;
+
     private readonly CompositeDisposable _disposables = [];
     private readonly Scene _scene;
     private readonly IProxyStore? _store;
@@ -159,7 +165,7 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
             return;
         }
 
-        await _queue.EnqueueAsync(clip.Source, clip.Preset.Value);
+        await _queue.EnqueueAsync(clip.Source, clip.Preset.Value, ForegroundGenerationPriority);
         RefreshJobs();
     }
 
@@ -250,9 +256,20 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
             return;
         }
 
-        foreach (ProxyClipViewModel clip in Clips.Where(IsEligibleForBulkGeneration).ToArray())
+        ProxyClipViewModel[] eligible = [.. Clips.Where(IsEligibleForBulkGeneration)];
+        if (eligible.Length == 0)
         {
-            await _queue.EnqueueAsync(clip.Source, clip.Preset.Value);
+            // An all-light project would otherwise no-op silently on an explicit action; tell the
+            // user nothing met the heaviness floor and point them at per-clip generate.
+            if (Clips.Count > 0)
+                StatusMessage.Value = Strings.ProxyBulkNoEligibleClips;
+
+            return;
+        }
+
+        foreach (ProxyClipViewModel clip in eligible)
+        {
+            await _queue.EnqueueAsync(clip.Source, clip.Preset.Value, BulkGenerationPriority);
         }
 
         RefreshJobs();
@@ -294,7 +311,7 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
 
         foreach (ProxyClipViewModel clip in Clips.Where(static c => c.IsSelected.Value).ToArray())
         {
-            await _queue.EnqueueAsync(clip.Source, clip.Preset.Value);
+            await _queue.EnqueueAsync(clip.Source, clip.Preset.Value, ForegroundGenerationPriority);
         }
 
         RefreshJobs();
@@ -310,7 +327,7 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
 
         foreach (ProxyClipViewModel clip in Clips.Where(static c => c.IsSelected.Value).ToArray())
         {
-            await _queue.EnqueueAsync(clip.Source, clip.Preset.Value);
+            await _queue.EnqueueAsync(clip.Source, clip.Preset.Value, ForegroundGenerationPriority);
         }
 
         Refresh();
