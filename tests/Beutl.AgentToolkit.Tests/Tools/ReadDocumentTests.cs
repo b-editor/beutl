@@ -351,7 +351,9 @@ public sealed class ReadDocumentTests
             Assert.That(shaderRecipe.IsSuccess, Is.True, shaderRecipe.Error?.Message);
             Assert.That(shaderRecipe.Value!.Recipe.EffectNames, Does.Contain("SKSLScriptEffect"));
             Assert.That(shaderRecipe.Value.Recipe.Patch.ToJsonString(), Does.Contain("uniform shader src"));
-            Assert.That(shaderRecipe.Value.Recipe.Notes, Has.Some.Contains("validate_shader"));
+            Assert.That(shaderRecipe.Value.Recipe.Notes.Any(note =>
+                note.Contains("Requires shader source", StringComparison.OrdinalIgnoreCase)
+                || note.Contains("validate_shader", StringComparison.OrdinalIgnoreCase)), Is.False);
         });
     }
 

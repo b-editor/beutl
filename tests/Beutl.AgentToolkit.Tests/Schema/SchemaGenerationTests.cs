@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.Globalization;
 using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Schema;
@@ -279,6 +280,33 @@ public sealed class SchemaGenerationTests
     }
 
     [Test]
+    public void Effect_recipe_polish_defaults_and_notes_are_agent_safe()
+    {
+        var generator = new SchemaGenerator();
+        EffectRecipe dropShadowRecipe = generator.GetEffectRecipe("effect-drop-shadow");
+        JsonObject dropShadowEffect = FindRequiredEffectObject(dropShadowRecipe.Patch, typeof(DropShadow));
+        (float shadowX, float shadowY) = FindRequiredPointProperty(dropShadowEffect, nameof(DropShadow.Position));
+        EffectRecipe invertRecipe = generator.GetEffectRecipe("effect-invert");
+        float invertAmount = FindRequiredFloatProperty(invertRecipe.Patch, nameof(Invert.Amount));
+        EffectRecipe outlineRecipe = generator.GetEffectRecipe("graphic-outline");
+        EffectRecipe filmGrainRecipe = generator.GetEffectRecipe("fine-film-grain-field");
+        EffectRecipe organicRecipe = generator.GetEffectRecipe("organic-shader-field");
+        EffectRecipe scaffoldRecipe = generator.GetEffectRecipe("effect-sksl-script-effect");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(Math.Abs(shadowX) + Math.Abs(shadowY), Is.GreaterThan(0f));
+            Assert.That(invertAmount, Is.EqualTo(80f));
+            Assert.That(outlineRecipe.Notes.Any(note =>
+                note.Contains("stylized accent", StringComparison.OrdinalIgnoreCase)
+                && note.Contains("override", StringComparison.OrdinalIgnoreCase)), Is.True);
+            Assert.That(filmGrainRecipe.Notes.Any(ContainsShaderSourceGuidance), Is.False);
+            Assert.That(organicRecipe.Notes.Any(ContainsShaderSourceGuidance), Is.False);
+            Assert.That(scaffoldRecipe.Notes.Any(ContainsShaderSourceGuidance), Is.True);
+        });
+    }
+
+    [Test]
     public void Additive_bloom_recipe_sets_plus_blend_opacity_and_guides_duplicate_object()
     {
         var generator = new SchemaGenerator();
@@ -488,6 +516,71 @@ public sealed class SchemaGenerationTests
         });
 
         return result;
+    }
+
+    private static JsonObject FindRequiredEffectObject(JsonObject node, Type effectType)
+    {
+        string discriminator = IdentityHelper.WriteDiscriminator(effectType);
+        JsonObject? result = null;
+        Visit(node, current =>
+        {
+            if (result is not null
+                || current is not JsonObject obj
+                || obj["$type"] is not JsonValue typeNode
+                || !typeNode.TryGetValue(out string? currentDiscriminator)
+                || !string.Equals(currentDiscriminator, discriminator, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            result = obj;
+        });
+
+        Assert.That(result, Is.Not.Null, $"Effect '{effectType.Name}' was not found.");
+        return result!;
+    }
+
+    private static (float X, float Y) FindRequiredPointProperty(JsonObject node, string propertyName)
+    {
+        JsonNode? value = node[propertyName];
+        Assert.That(value, Is.Not.Null, $"Point property '{propertyName}' was not found.");
+        JsonNode? pointNode = value is JsonObject ? value : JsonNode.Parse(value!.ToJsonString());
+        switch (pointNode)
+        {
+            case JsonObject point:
+                return (
+                    FindRequiredFloatProperty(point, nameof(Point.X)),
+                    FindRequiredFloatProperty(point, nameof(Point.Y)));
+            case JsonArray pointArray when pointArray.Count >= 2:
+                return (
+                    pointArray[0]!.GetValue<float>(),
+                    pointArray[1]!.GetValue<float>());
+            case JsonValue pointValue when pointValue.TryGetValue(out string? text):
+                return ParsePointText(text, propertyName);
+        }
+
+        Assert.Fail($"Point property '{propertyName}' had unsupported JSON '{value!.ToJsonString()}'.");
+        return default;
+    }
+
+    private static (float X, float Y) ParsePointText(string text, string propertyName)
+    {
+        string[] parts = text.Split([',', ' '], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (parts.Length >= 2
+            && float.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out float x)
+            && float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out float y))
+        {
+            return (x, y);
+        }
+
+        Assert.Fail($"Point property '{propertyName}' had unsupported value '{text}'.");
+        return default;
+    }
+
+    private static bool ContainsShaderSourceGuidance(string note)
+    {
+        return note.Contains("Requires shader source", StringComparison.OrdinalIgnoreCase)
+               || note.Contains("validate_shader", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool ContainsLongAllCapsText(string json)
