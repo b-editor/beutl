@@ -96,7 +96,7 @@ Phase 0 resolves the open items left after `/speckit-clarify` so that Phase 1 (c
 
 **Alternatives considered**: covered in clarification Q2; not re-litigated here.
 
-**Implementation note**: `AbsolutePath` is normalized via `Path.GetFullPath` and case-normalized on Windows / macOS to avoid spurious mismatches. Symlinks are followed at fingerprint time so that a project moving between drives with a stable symlink works; this is documented as a known nuance.
+**Implementation note**: `AbsolutePath` is normalized via `Path.GetFullPath` and case-folded (`ToUpperInvariant`) on Windows / macOS — their default volumes are case-insensitive — to avoid spurious mismatches; Linux stays case-sensitive. Accepted MVP nuance: the fold is by string case, not per-volume detection, so on a case-sensitive APFS volume the fold can rarely over-merge distinct paths (see data-model.md path-normalization note). Symlinks are followed at fingerprint time so that a project moving between drives with a stable symlink works; this is documented as a known nuance.
 
 ---
 

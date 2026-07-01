@@ -23,7 +23,7 @@ Invariants:
 - `MtimeUtc.Kind == DateTimeKind.Utc`.
 - Equality is structural over all three components.
 
-Path normalization note: `AbsolutePath` is normalized via `Path.GetFullPath` and case-folded on Windows and macOS (case-insensitive filesystems by default). On Linux (case-sensitive filesystems), no case folding is applied — two references to the same file under different casing produce different fingerprints by design. Symlinks are resolved at fingerprint time (the resolved real path is stored).
+Path normalization note: `AbsolutePath` is normalized via `Path.GetFullPath`, then upper-cased (`ToUpperInvariant`) when `OperatingSystem.IsWindows()` **or** `OperatingSystem.IsMacOS()` — i.e. the case-folded platforms are exactly Windows and macOS, matching their default case-insensitive volumes, so two references to the same file differing only in case share one proxy (FR-011). On Linux (case-sensitive filesystems), no case folding is applied — references differing only in case produce different fingerprints by design. Accepted MVP caveat: case-sensitivity is a per-volume property (a case-sensitive APFS volume can exist on macOS, and Windows per-directory case sensitivity can be enabled), and Beutl folds by string case rather than probing the volume; on such a case-sensitive volume the string fold can (rarely) over-merge two genuinely distinct paths into one fingerprint. This is a deliberate MVP trade-off — we do not detect per-volume case-sensitivity. Symlinks are resolved at fingerprint time (the resolved real path is stored).
 
 Helpers:
 - `static ProxyFingerprint FromFile(string path)` — `FileInfo`-driven.
@@ -207,6 +207,8 @@ Design (to be pinned in `/speckit-tasks`): the original logical `FrameSize` and 
 - the render node's `Bounds` (and the source's logical size) use the **original** `FrameSize` — the proxy does not move or resize content (FR-021);
 - the op reports `EffectiveScale.At(SupplyDensity)`, where `SupplyDensity` is computed from the actual `ProxyDecodedFrameSize / OriginalLogicalFrameSize` and may differ from a preset's nominal factor because of long-edge clamps and integer rounding (FR-022);
 - the decoded proxy bitmap is drawn scaled into the original-footprint logical destination rect (the 003 FR-024 dest-rect seam — use the dest-rect draw path, not the native 1:1 `DrawBitmap` blit).
+
+Aspect-ratio note: proxy pixel dimensions are rounded per-axis and forced even by the H.264 encoder, so the realized proxy aspect ratio can differ from the source by a sub-pixel amount. Because the bitmap is drawn into the original-footprint destination rect (above), that difference shows up as a very slight non-uniform stretch onto the original bounds — **not** a letterbox and **not** a positional shift. This is expected encoding behavior, not a footprint bug.
 
 When the backing decode is the original (no proxy, or `PreferProxy = false`, or export), the original `FrameSize` **is** the decoded `FrameSize`, the ratio is `1.0`, and behavior is byte-identical to 003 — so this seam is purely additive and introduces no change on the original path. This is exactly the "stable intrinsic-logical-size channel" 003 deferred (`003/data-model.md` "003 scope note", 003 FR-023/FR-024, US3 / SC-007).
 

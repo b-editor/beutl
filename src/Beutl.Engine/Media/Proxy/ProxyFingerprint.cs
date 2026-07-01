@@ -58,7 +58,8 @@ public readonly record struct ProxyFingerprint
     internal static string NormalizeAbsolutePath(string path)
     {
         string fullPath = Path.GetFullPath(path);
-        if (OperatingSystem.IsWindows())
+        // Windows and the default macOS volume are case-insensitive; Linux is not.
+        if (OperatingSystem.IsWindows() || OperatingSystem.IsMacOS())
         {
             fullPath = fullPath.ToUpperInvariant();
         }
