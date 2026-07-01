@@ -322,6 +322,7 @@ public sealed class DuplicateObjectTests
             allowAllCaps: false,
             allowHardCuts: false,
             allowRectDominance: false,
+            relaxAesthetics: false,
             evaluateMotion: false,
             cancellationToken: CancellationToken.None);
 }

@@ -112,29 +112,36 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         bool allowAllCaps,
         bool allowHardCuts,
         bool allowRectDominance,
+        bool relaxAesthetics,
         bool evaluateMotion,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(scene);
 
+        // relaxAesthetics only suppresses non-blocking aesthetic/pacing advisories; the
+        // blocking checks (read time, element structure, motion) still run regardless.
+        bool relaxRectDominance = allowRectDominance || relaxAesthetics;
+        bool relaxHardCuts = allowHardCuts || relaxAesthetics;
+
         SceneObjectInfo[] objects = EnumerateObjects(scene).ToArray();
         List<QualityIssue> issues = [];
         TypographyMetrics typography = AnalyzeTypography(objects, allowAllCaps, issues);
-        ShapeDiversityMetrics shapeDiversity = AnalyzeShapeDiversity(scene, objects, allowRectDominance, issues);
+        ShapeDiversityMetrics shapeDiversity = AnalyzeShapeDiversity(scene, objects, relaxRectDominance, relaxAesthetics, issues);
         StructureMetrics structure = AnalyzeStructure(scene, objects, issues);
         int textPlateMismatchCount = AnalyzeTextBackgroundFit(scene, objects, issues);
         typography = typography with { TextPlateMismatchCount = textPlateMismatchCount };
         PaletteMetrics palette = AnalyzePalette(scene, objects, issues);
-        AnalyzeMaterialUiLook(objects, issues);
+        AnalyzeMaterialUiLook(objects, relaxAesthetics, issues);
         AnalyzeDesignStructure(scene, objects, styleProfile, issues);
-        TempoMetrics tempo = AnalyzeTempo(scene, objects, styleProfile, issues);
+        TempoMetrics tempo = AnalyzeTempo(scene, objects, styleProfile, relaxAesthetics, issues);
         MotionContinuityMetrics motion = await AnalyzeMotionAsync(
             scene,
             objects,
             timeSeconds,
             sampleCount,
             renderScale,
-            allowHardCuts,
+            relaxHardCuts,
+            relaxAesthetics,
             evaluateMotion,
             issues,
             cancellationToken).ConfigureAwait(false);
@@ -370,6 +377,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         Scene scene,
         IReadOnlyList<SceneObjectInfo> objects,
         string? styleProfile,
+        bool relaxLongHolds,
         List<QualityIssue> issues)
     {
         bool highTempoProfile = IsHighTempoProfile(styleProfile);
@@ -461,7 +469,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
                 objects.Select(item => item.Object.Id.ToString()).ToArray()));
         }
 
-        if (slowHoldObjects.Length > 0)
+        if (!relaxLongHolds && slowHoldObjects.Length > 0)
         {
             issues.Add(new QualityIssue(
                 "tempoRhythm",
@@ -494,6 +502,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         Scene scene,
         IReadOnlyList<SceneObjectInfo> objects,
         bool allowRectDominance,
+        bool relaxDecorativeShapes,
         List<QualityIssue> issues)
     {
         SceneObjectInfo[] rects = objects.Where(item => item.Object is RectShape).ToArray();
@@ -525,7 +534,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
                 rects.Select(item => item.Object.Id.ToString()).ToArray()));
         }
 
-        if (ambiguousDecorativeShapes.Length > 0)
+        if (!relaxDecorativeShapes && ambiguousDecorativeShapes.Length > 0)
         {
             issues.Add(new QualityIssue(
                 "decorativeShapeClarity",
@@ -692,8 +701,14 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
 
     private static void AnalyzeMaterialUiLook(
         IReadOnlyList<SceneObjectInfo> objects,
+        bool relaxAesthetics,
         List<QualityIssue> issues)
     {
+        if (relaxAesthetics)
+        {
+            return;
+        }
+
         SceneObjectInfo[] cardLikeObjects = objects
             .Where(item => item.Object is RectShape or RoundedRectShape)
             .Where(item => HasHeavyCardEffects(item.Object))
@@ -722,6 +737,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         int sampleCount,
         float renderScale,
         bool allowHardCuts,
+        bool relaxShortSegments,
         bool evaluateMotion,
         List<QualityIssue> issues,
         CancellationToken cancellationToken)
@@ -743,7 +759,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
                 []));
         }
 
-        if (shortSegmentCount >= 3)
+        if (!relaxShortSegments && shortSegmentCount >= 3)
         {
             issues.Add(new QualityIssue(
                 "cutRhythm",

@@ -189,6 +189,8 @@ public sealed class RenderTools(
         bool allowHardCuts = false,
         [Description("When true, non-background RectShape dominance is not treated as a major quality issue.")]
         bool allowRectDominance = false,
+        [Description("When true, relax the non-blocking aesthetic and pacing advisories in one switch (ambiguous decorative shapes, Material-UI card look, RectShape dominance, hard cuts, and high-tempo long-hold/short-segment pacing), so expressive shape-rich or kinetic-typography briefs are not nudged toward a plainer look. Blocking checks (read time, element structure, motion) are unaffected.")]
+        bool relaxAesthetics = false,
         [Description("When true, treats the scene as a static layout and skips rendered motion checks.")]
         bool staticLayout = false,
         CancellationToken cancellationToken = default)
@@ -211,6 +213,7 @@ public sealed class RenderTools(
                 allowAllCaps,
                 allowHardCuts,
                 allowRectDominance,
+                relaxAesthetics,
                 evaluateMotion: !staticLayout,
                 cancellationToken).ConfigureAwait(false);
         });
@@ -227,6 +230,8 @@ public sealed class RenderTools(
         bool allowHardCuts = false,
         [Description("When true, non-background RectShape dominance is not treated as a major quality issue.")]
         bool allowRectDominance = false,
+        [Description("When true, relax the non-blocking aesthetic and pacing advisories in one switch (ambiguous decorative shapes, Material-UI card look, RectShape dominance, hard cuts, and high-tempo long-hold/short-segment pacing), so expressive shape-rich or kinetic-typography briefs are not nudged toward a plainer look. Blocking checks (read time, element structure, motion) are unaffected.")]
+        bool relaxAesthetics = false,
         CancellationToken cancellationToken = default)
     {
         return ExecuteAsync(async () =>
@@ -241,6 +246,7 @@ public sealed class RenderTools(
                 allowAllCaps,
                 allowHardCuts,
                 allowRectDominance,
+                relaxAesthetics,
                 evaluateMotion: false,
                 cancellationToken).ConfigureAwait(false);
         });
@@ -267,6 +273,8 @@ public sealed class RenderTools(
         bool allowHardCuts = false,
         [Description("When true, non-background RectShape dominance is not treated as a major quality issue.")]
         bool allowRectDominance = false,
+        [Description("When true, relax the non-blocking aesthetic and pacing advisories in one switch (ambiguous decorative shapes, Material-UI card look, RectShape dominance, hard cuts, and high-tempo long-hold/short-segment pacing), so expressive shape-rich or kinetic-typography briefs are not nudged toward a plainer look. Blocking checks (read time, element structure, motion) are unaffected.")]
+        bool relaxAesthetics = false,
         CancellationToken cancellationToken = default)
     {
         return ExecuteAsync(async () =>
@@ -284,6 +292,7 @@ public sealed class RenderTools(
                 allowAllCaps,
                 allowHardCuts,
                 allowRectDominance,
+                relaxAesthetics,
                 includeMotion,
                 cancellationToken).ConfigureAwait(false);
 
@@ -321,6 +330,8 @@ public sealed class RenderTools(
         bool allowHardCuts = false,
         [Description("When true, non-background RectShape dominance is not treated as a major quality issue.")]
         bool allowRectDominance = false,
+        [Description("When true, relax the non-blocking aesthetic and pacing advisories in one switch (ambiguous decorative shapes, Material-UI card look, RectShape dominance, hard cuts, and high-tempo long-hold/short-segment pacing), so expressive shape-rich or kinetic-typography briefs are not nudged toward a plainer look. Blocking checks (read time, element structure, motion) are unaffected.")]
+        bool relaxAesthetics = false,
         [Description("When true, treats the scene as a static storyboard layout and skips motion blockers.")]
         bool staticLayout = false,
         [Description("Required when a generated still output path already exists.")]
@@ -378,6 +389,7 @@ public sealed class RenderTools(
                 allowAllCaps,
                 allowHardCuts,
                 allowRectDominance,
+                relaxAesthetics,
                 evaluateMotion: !staticLayout,
                 cancellationToken).ConfigureAwait(false);
 
