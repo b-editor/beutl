@@ -195,6 +195,39 @@ public sealed class SchemaGenerationTests
     }
 
     [Test]
+    public void Animatable_property_usage_hint_shows_concrete_angle_bracket_keyframe_discriminator()
+    {
+        var generator = new SchemaGenerator();
+        CapabilitySchema schema = generator.Generate(typeFilter: nameof(TextBlock));
+        TypeDescriptor textBlock = schema.Types.Single(type => type.Type == typeof(TextBlock).FullName);
+        PropertyDescriptor size = textBlock.Properties.Single(property => property.Name == nameof(TextBlock.Size));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(size.Animatable, Is.True);
+            Assert.That(size.UsageHint, Does.Contain("KeyFrameAnimation<"));
+            Assert.That(size.UsageHint, Does.Contain("KeyFrame<"));
+            Assert.That(size.UsageHint, Does.Not.Contain("KeyFrameAnimation`1"));
+        });
+    }
+
+    [Test]
+    public void Grain_and_organic_effect_recipes_use_distinct_shader_scripts()
+    {
+        var generator = new SchemaGenerator();
+        string grain = generator.GetEffectRecipe("fine-film-grain-field").Patch.ToJsonString();
+        string organic = generator.GetEffectRecipe("organic-shader-field").Patch.ToJsonString();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(grain, Is.Not.EqualTo(organic));
+            Assert.That(grain, Does.Contain("43758.5453"));
+            Assert.That(grain, Does.Not.Contain("sin(uv.x * 14.0"));
+            Assert.That(organic, Does.Contain("sin(uv.x * 14.0"));
+        });
+    }
+
+    [Test]
     public void Starter_examples_do_not_ship_long_all_caps_display_text()
     {
         var generator = new SchemaGenerator();
