@@ -23,6 +23,27 @@ public class ProxyFingerprintTests
     }
 
     [Test]
+    public void Normalization_CaseFolding_FollowsFilesystemCaseSensitivity()
+    {
+        var mtime = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc);
+        var lower = new ProxyFingerprint(CreatePath("case.mov"), 123, mtime);
+        var upper = new ProxyFingerprint(CreatePath("CASE.MOV"), 123, mtime);
+
+        if (OperatingSystem.IsMacOS())
+        {
+            Assert.That(upper, Is.EqualTo(lower));
+        }
+        else if (OperatingSystem.IsWindows())
+        {
+            Assert.That(upper, Is.EqualTo(lower));
+        }
+        else
+        {
+            Assert.That(upper, Is.Not.EqualTo(lower));
+        }
+    }
+
+    [Test]
     public void TryFromFile_MissingFile_ReturnsFalse()
     {
         string missing = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid() + ".mov");

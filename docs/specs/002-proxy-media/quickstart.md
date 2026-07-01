@@ -49,6 +49,8 @@ End-to-end developer/manual-test walkthrough for the proxy media feature. The he
 1. Add a verbose log or use the debug overlay to confirm that `DecoderRegistry.OpenMediaFile` returned a `ProxyMediaReader` opened against `<store-root>/<hash>/quarter.mp4` for this clip.
 2. **Confirm**: scrubbing the timeline on `$SRC_SMALL` is visibly snappier than it was in step 1 (or measurably so via the perf overlay — meet SC-001 on `$SRC` later in step 7).
 
+> **SC-005 (discoverability) verification**: steps 3–4 on the lightweight `$SRC_SMALL` are the official manual path for SC-005. Time only the interaction/onboarding portion — finding the Generate control, starting generation, and reading the state badge — against the 2-minute bound; the background encode wall-clock (unbounded per FR-007) is excluded, which is why `$SRC_SMALL`, not the heavy `$SRC`, is used here.
+
 ## 4a. Verify the proxy preserves the logical footprint (post-003 — FR-021 / FR-022)
 
 > This step exists because of the 003 integration. Under 003 a source's logical footprint is derived from its decoded `FrameSize`; a naive smaller-proxy-file swap would shrink the clip on the canvas. The logical-size seam must prevent that.
