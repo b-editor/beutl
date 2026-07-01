@@ -621,7 +621,12 @@ public sealed class SchemaGenerator
                 CreateBrushAndEffectExample(),
                 ExampleCategories(KnownLibraryItemFormats.Drawable, KnownLibraryItemFormats.EngineObject, KnownLibraryItemFormats.Brush, KnownLibraryItemFormats.FilterEffect),
                 ExampleTypes(typeof(LinearGradientBrush), typeof(GradientStop), typeof(FilterEffectGroup), typeof(Blur), typeof(Brightness)),
-                ExampleTags("targeted", "gradient", "effect"))
+                ExampleTags("targeted", "gradient", "effect")),
+            new ExampleSpec(
+                CreateGeometryShapePathExample(),
+                ExampleCategories(KnownLibraryItemFormats.Drawable, KnownLibraryItemFormats.EngineObject, KnownLibraryItemFormats.Brush),
+                ExampleTypes(typeof(GeometryShape), typeof(PathGeometry), typeof(PathFigure), typeof(LineSegment), typeof(SolidColorBrush)),
+                ExampleTags("targeted", "geometry", "path", "vector", "shape"))
         ];
         specs.AddRange(CreateCompositionTemplateExampleSpecs());
         return specs
@@ -1351,6 +1356,62 @@ public sealed class SchemaGenerator
                         ["$type"] = textType,
                         [nameof(CoreObject.Name)] = "new-text",
                         [nameof(TextBlock.Text)] = "Title"
+                    })
+                })
+            });
+    }
+
+    private static DeclarativeExample CreateGeometryShapePathExample()
+    {
+        string elementType = IdentityHelper.WriteDiscriminator(typeof(Element));
+        string geometryShapeType = IdentityHelper.WriteDiscriminator(typeof(GeometryShape));
+        string pathGeometryType = IdentityHelper.WriteDiscriminator(typeof(PathGeometry));
+        string pathFigureType = IdentityHelper.WriteDiscriminator(typeof(PathFigure));
+        string lineSegmentType = IdentityHelper.WriteDiscriminator(typeof(LineSegment));
+        string solidBrushType = IdentityHelper.WriteDiscriminator(typeof(SolidColorBrush));
+
+        return new DeclarativeExample(
+            "insert-new-geometry-shape-path",
+            "Minimal patch for a bespoke vector GeometryShape built from a typed PathGeometry. Reach for GeometryShape instead of RectShape/EllipseShape when you need arrows, chevrons, brackets, crop marks, icons, or letter fragments. Paths are authored as typed segment objects, NOT an SVG path string: a PathGeometry holds Figures, each PathFigure has a StartPoint plus Segments of LineSegment/CubicBezierSegment/QuadraticBezierSegment/ConicSegment/ArcSegment; Point values serialize as 'x, y'. GeometryShape sizes to its geometry bounds (no Width/Height). This example draws a closed right-pointing play/arrow triangle; add more Figures, set IsClosed=false for open strokes with a Pen, or swap LineSegment for CubicBezierSegment (ControlPoint1/ControlPoint2/EndPoint) to get curves. New Elements and Objects omit Id.",
+            new JsonObject
+            {
+                ["Elements"] = new JsonArray(new JsonObject
+                {
+                    ["$type"] = elementType,
+                    [nameof(CoreObject.Name)] = "geometry-arrow-element",
+                    [nameof(Element.Start)] = TimeSpan.Zero.ToString("c"),
+                    [nameof(Element.Length)] = TimeSpan.FromSeconds(2).ToString("c"),
+                    [nameof(Element.ZIndex)] = 15,
+                    [nameof(Element.Objects)] = new JsonArray(new JsonObject
+                    {
+                        ["$type"] = geometryShapeType,
+                        [nameof(CoreObject.Name)] = "geometry-arrow",
+                        [nameof(Shape.Fill)] = new JsonObject
+                        {
+                            ["$type"] = solidBrushType,
+                            [nameof(SolidColorBrush.Color)] = "#ff3f34f0"
+                        },
+                        [nameof(GeometryShape.Data)] = new JsonObject
+                        {
+                            ["$type"] = pathGeometryType,
+                            [nameof(PathGeometry.Figures)] = new JsonArray(new JsonObject
+                            {
+                                ["$type"] = pathFigureType,
+                                [nameof(PathFigure.StartPoint)] = "-40, -55",
+                                [nameof(PathFigure.IsClosed)] = true,
+                                [nameof(PathFigure.Segments)] = new JsonArray(
+                                    new JsonObject
+                                    {
+                                        ["$type"] = lineSegmentType,
+                                        [nameof(LineSegment.Point)] = "60, 0"
+                                    },
+                                    new JsonObject
+                                    {
+                                        ["$type"] = lineSegmentType,
+                                        [nameof(LineSegment.Point)] = "-40, 55"
+                                    })
+                            })
+                        }
                     })
                 })
             });
@@ -2277,6 +2338,10 @@ public sealed class SchemaGenerator
         else if (type == typeof(Pen))
         {
             hints.Add("Pen is a typed EngineObject value. Use the Pen shape returned by get_schema/read_document, including its '$type' discriminator and PascalCase properties such as Brush and Thickness, or omit Pen when no stroke is needed.");
+        }
+        else if (typeof(Geometry).IsAssignableFrom(type))
+        {
+            hints.Add("Geometry is authored with typed segment objects, not an SVG path string. Use a PathGeometry ($type discriminator) whose Figures hold PathFigure objects, each with a StartPoint ('x, y') plus Segments of LineSegment/CubicBezierSegment/QuadraticBezierSegment/ConicSegment/ArcSegment; set IsClosed=true for filled shapes. Call get_examples for 'insert-new-geometry-shape-path' to copy a working GeometryShape+PathGeometry patch. RectGeometry/EllipseGeometry/RoundedRectGeometry are simpler alternatives for basic shapes.");
         }
         else if (typeof(EngineObject).IsAssignableFrom(type))
         {
