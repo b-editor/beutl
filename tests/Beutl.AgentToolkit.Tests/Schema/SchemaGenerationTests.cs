@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Nodes;
+using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Schema;
 using Beutl.Animation.Easings;
 using Beutl.Audio.Effects;
@@ -274,6 +275,26 @@ public sealed class SchemaGenerationTests
     }
 
     [Test]
+    public void Glow_depth_recipe_uses_drop_shadow_glow_without_source_blur()
+    {
+        var generator = new SchemaGenerator();
+        EffectRecipe glow = generator.GetEffectRecipe("glow-depth");
+        string glowJson = glow.Patch.ToJsonString();
+        string blurDiscriminator = IdentityHelper.WriteDiscriminator(typeof(Blur));
+        string dropShadowDiscriminator = IdentityHelper.WriteDiscriminator(typeof(DropShadow));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ContainsDiscriminator(glow.Patch, blurDiscriminator), Is.False);
+            Assert.That(glowJson, Does.Not.Contain("#66496a74"));
+            Assert.That(ContainsDiscriminator(glow.Patch, dropShadowDiscriminator), Is.True);
+            Assert.That(glow.Description, Does.Contain("keeps the source sharp"));
+            Assert.That(glow.Description, Does.Contain("palette-neutral default glow color"));
+            Assert.That(glow.Description, Does.Contain("additive-bloom"));
+        });
+    }
+
+    [Test]
     public void New_curated_effect_recipes_cover_screen_multiply_and_lite_chromatic_gaps()
     {
         var generator = new SchemaGenerator();
@@ -426,6 +447,25 @@ public sealed class SchemaGenerationTests
             }
         });
         return valid;
+    }
+
+    private static bool ContainsDiscriminator(JsonObject node, string discriminator)
+    {
+        bool result = false;
+        Visit(node, current =>
+        {
+            if (result
+                || current is not JsonObject obj
+                || obj["$type"] is not JsonValue typeNode
+                || !typeNode.TryGetValue(out string? currentDiscriminator))
+            {
+                return;
+            }
+
+            result = string.Equals(currentDiscriminator, discriminator, StringComparison.Ordinal);
+        });
+
+        return result;
     }
 
     private static bool ContainsLongAllCapsText(string json)

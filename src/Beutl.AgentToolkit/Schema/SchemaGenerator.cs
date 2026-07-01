@@ -693,11 +693,10 @@ public sealed class SchemaGenerator
         [
             CreateEffectRecipe(
                 "glow-depth",
-                "Reusable glow/depth chain for text, nodes, panels, and highlight shapes.",
+                "Cheap single-target inline luminous glow for text, nodes, panels, and highlight shapes; keeps the source sharp while a palette-neutral default glow color can be tinted to the accent. Use additive-bloom for a premium duplicated emissive bloom.",
                 ["glow", "depth", "title", "node"],
                 CreateFilterEffectGroup(
-                    CreateBlur(5),
-                    CreateDropShadow(0, 0, 14, "#66496a74"),
+                    CreateDropShadow(0, 0, 16, "#b0ffffff"),
                     CreateBrightness(106))),
             CreateEffectRecipe(
                 "additive-bloom",
