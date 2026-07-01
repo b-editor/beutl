@@ -1,4 +1,6 @@
-﻿using Beutl.AgentToolkit.Sessions;
+﻿using System.Text.Json;
+
+using Beutl.AgentToolkit.Sessions;
 
 namespace Beutl.AgentToolkit.Tests.Sessions;
 
@@ -6,6 +8,9 @@ public sealed class CreativeMemoryStoreTests
 {
     private static string TempRoot()
         => Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+
+    private static string GlobalFile(string globalRoot)
+        => Path.Combine(globalRoot, "agent-output", "creative-memory.json");
 
     [Test]
     public void Creative_memory_round_trips_deduplicates_and_caps_recent_fingerprints()
@@ -107,5 +112,60 @@ public sealed class CreativeMemoryStoreTests
             Assert.That(shared, Has.Count.EqualTo(1), "shared direction must be deduped across the union");
             Assert.That(shared[0].MotionVerbs, Is.EqualTo(new[] { "settle" }), "the freshest occurrence wins");
         });
+    }
+
+    [Test]
+    public void Concurrent_records_against_the_shared_global_layer_never_tear_or_drop_entries()
+    {
+        // Two stores anchored to different workspaces but the SAME global root: exactly the
+        // cross-instance shared-file case a per-instance lock cannot serialize.
+        string global = TempRoot();
+        string workspaceA = TempRoot();
+        string workspaceB = TempRoot();
+        string globalFile = GlobalFile(global);
+
+        // Repeat so a torn/last-writer-wins regression is caught reliably, not by luck of scheduling.
+        for (int iteration = 0; iteration < 8; iteration++)
+        {
+            if (File.Exists(globalFile))
+            {
+                File.Delete(globalFile);
+            }
+
+            const int perStore = 24;
+            const int total = perStore * 2;
+            // Capacity >= total, so a correct implementation retains every distinct fingerprint.
+            var storeA = new CreativeMemoryStore(workspaceA, capacity: total, globalRoot: global);
+            var storeB = new CreativeMemoryStore(workspaceB, capacity: total, globalRoot: global);
+
+            var expected = new string[total];
+            var tasks = new Task[total];
+            for (int i = 0; i < total; i++)
+            {
+                int index = i;
+                string label = $"iter{iteration}-dir{index}";
+                expected[index] = label;
+                CreativeMemoryStore store = index < perStore ? storeA : storeB;
+                tasks[index] = Task.Run(() => store.Record(new CreativeDirectionFingerprint(
+                    label,
+                    ["paper"],
+                    ["fold"],
+                    label,
+                    DateTimeOffset.UtcNow)));
+            }
+
+            Task.WaitAll(tasks);
+
+            // (a) The global file is complete, parseable JSON — no atomic-replace ever left it torn.
+            Assert.That(File.Exists(globalFile), Is.True);
+            CreativeDirectionFingerprint[]? parsed = JsonSerializer.Deserialize<CreativeDirectionFingerprint[]>(
+                File.ReadAllText(globalFile));
+            Assert.That(parsed, Is.Not.Null, $"global JSON must be parseable (iteration {iteration})");
+
+            // (b) Every recorded fingerprint survived — none silently lost to last-writer-wins.
+            var recordedLabels = parsed!.Select(item => item.ConceptLabel).ToHashSet();
+            Assert.That(recordedLabels, Is.SupersetOf(expected),
+                $"no recorded fingerprint may be dropped by a concurrent write (iteration {iteration})");
+        }
     }
 }
