@@ -13,6 +13,18 @@
 | `beutl-gpu-crash-reproducer` | Reproducing a Linux/SwiftShader GPU **native** crash that doesn't repro on macOS | sonnet | Runs the arm64-native Docker repro (build + loop-until-crash + gdb/eu-stack) in isolation and returns just the native stack, keeping the multi-GB cores and log noise out of the caller's context. Driven by the `beutl-gpu-crash-repro` skill; captures evidence, does not fix. |
 | `beutl-board-task-runner` | Dispatched per tick by `/beutl-loop` to implement one Project #9 item | opus | Runs with **`isolation: worktree`**; executes the `beutl-board-task` flow for one item (verify → branch → implement → test → **draft**) and returns a compact structured result (draft branch + risk signals + `baseline_test_green` + `speckit_required`). **Always hands back a draft** (never opens the PR itself); the orchestrator runs the pre-PR review round. **Does not merge**, does not resolve reviews. |
 
+### MCP-driving subagents (`beutl-agent-*`)
+
+`beutl-agent-timeline-builder`, `beutl-agent-look-applier`, and `beutl-agent-quality-reviewer` drive
+the **Agent Editing Toolkit MCP** surface (`mcp__beutl-live__*` in-app, or `mcp__beutl-agent__*` via
+the stdio host). Because the connected server name is runtime-determined, these three agents **omit
+the `tools:` frontmatter line entirely** so they inherit the parent session's full toolset — including
+whatever MCP server is connected and `ToolSearch` to load deferred MCP tools. (An explicit `tools:`
+list grants only those tools, which is why the earlier `tools: Read, Grep, Glob, Bash` form left them
+unable to reach the MCP surface.) If the runtime does not expose the MCP tools, each agent's body tells
+it to stop and report rather than guess. These three `.md` files are also embedded resources shipped to
+installed users, so the frontmatter edit updates both this repo and the installer output.
+
 ### Related skill: `beutl-gpu-crash-repro`
 
 The agent is the isolated runner; the [`beutl-gpu-crash-repro`](../../.claude/skills/beutl-gpu-crash-repro/SKILL.md) skill is the full playbook: why to reproduce **arm64-native** rather than under qemu, kernel-core capture, gdb/eu-stack native stacks, the managed-call-site **file-trace** for when SOS can't bind the net10 DAC, intermittent-crash looping, and fix verification. It bundles the Dockerfile + `build` / `loop-core` / `analyze-core` / `verify-fix` scripts and delegates the noisy build+loop to the agent above.
