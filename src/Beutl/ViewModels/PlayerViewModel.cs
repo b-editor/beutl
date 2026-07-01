@@ -60,6 +60,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     private Size _maxFrameSize;
     private Task _playbackTask = Task.CompletedTask;
     private bool _isShuttling;
+    private readonly PlaybackSessionGuard _sessionGuard = new();
 
     // Set by Pause(), cleared by Play(). Cancels a loop re-arm when a pause lands in the
     // brief IsPlaying=false window at a loop boundary that gating on IsPlaying would miss.
@@ -494,6 +495,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         // (before PlayInternal runs) signals the loop to stop instead of awaiting forever.
         _stopRequested = false;
         IsPlaying.Value = true;
+        int generation = _sessionGuard.Claim();
 
         _playbackTask = Task.Run(async () =>
         {
@@ -503,10 +505,11 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             bool restart;
             do
             {
-                restart = await PlayInternal();
-                // A boundary-window pause set _stopRequested without flipping IsPlaying;
-                // honor it so the loop does not restart and leave Pause()'s awaiter hanging.
-                if (restart && _stopRequested)
+                restart = await PlayInternal(generation);
+                // Stop restarting on a boundary-window pause (_stopRequested set without flipping
+                // IsPlaying), or when a Pause() timeout disowned this task and a newer session took
+                // over — a stale task must not re-arm and stomp the session that replaced it.
+                if (restart && (_stopRequested || !_sessionGuard.Owns(generation)))
                 {
                     restart = false;
                 }
@@ -520,7 +523,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         });
     }
 
-    private async Task<bool> PlayInternal()
+    private async Task<bool> PlayInternal(int generation)
     {
         if (!_isEnabled.Value || Scene == null)
         {
@@ -532,6 +535,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         FrameCacheManager frameCacheManager = EditViewModel.FrameCacheManager.Value;
         Scene.Edited -= OnSceneEdited;
         _currentFrameSubscription?.Dispose();
+        _currentFrameSubscription = null;
 
         int rate = GetFrameRate();
 
@@ -659,22 +663,13 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         }
         finally
         {
-            // Restore the scene/frame subscriptions PlayInternal detached on entry, even if
-            // playback faulted mid-run. A leaked detach would leave the editor unsubscribed,
-            // and Pause() swallows the fault, so a guarded history mutation could otherwise
-            // run against a detached editor.
-            IsPlaying.Value = false;
-            bufferStatus.StartTime.Value = TimeSpan.Zero;
-            bufferStatus.EndTime.Value = TimeSpan.Zero;
-            frameCacheManager.Options = frameCacheManager.Options with
+            // Restore the stopped state (IsPlaying, buffer/cache, and the preview subscriptions this
+            // task detached on entry) only while this task still owns the session. If a Pause()
+            // timeout disowned it and a newer session took over, restoring here would stomp that
+            // session, so the new owner — or Pause()'s timeout path — restores it instead.
+            if (_sessionGuard.Owns(generation))
             {
-                DeletionStrategy = FrameCacheDeletionStrategy.Old
-            };
-
-            _currentFrameSubscription = CurrentFrame.Subscribe(UpdateCurrentFrame);
-            if (Scene != null)
-            {
-                Scene.Edited += OnSceneEdited;
+                RestoreStoppedPreviewState();
             }
 
             _logger.LogInformation("End the playback. ({SceneId})", _editViewModel.SceneId);
@@ -689,6 +684,31 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         }
 
         return false;
+    }
+
+    // Return the editor to a consistent stopped state: clear IsPlaying, reset the playback-only
+    // buffer/frame-cache state, and re-attach the preview subscriptions a playback task detached on
+    // entry. Idempotent (dispose-then-resubscribe, remove-then-add) so it stays correct even when
+    // PlayInternal's finally and Pause()'s timeout path both run it around an abandoned task.
+    private void RestoreStoppedPreviewState()
+    {
+        IsPlaying.Value = false;
+        BufferStatusViewModel bufferStatus = EditViewModel.BufferStatus;
+        bufferStatus.StartTime.Value = TimeSpan.Zero;
+        bufferStatus.EndTime.Value = TimeSpan.Zero;
+        FrameCacheManager frameCacheManager = EditViewModel.FrameCacheManager.Value;
+        frameCacheManager.Options = frameCacheManager.Options with
+        {
+            DeletionStrategy = FrameCacheDeletionStrategy.Old
+        };
+
+        _currentFrameSubscription?.Dispose();
+        _currentFrameSubscription = CurrentFrame.Subscribe(UpdateCurrentFrame);
+        if (Scene != null)
+        {
+            Scene.Edited -= OnSceneEdited;
+            Scene.Edited += OnSceneEdited;
+        }
     }
 
     public int GetFrameRate()
@@ -884,6 +904,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         _stopRequested = false;
         _isShuttling = true;
         IsPlaying.Value = true;
+        int generation = _sessionGuard.Claim();
 
         _playbackTask = Task.Run(async () =>
         {
@@ -959,13 +980,19 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             }
             finally
             {
-                _isShuttling = false;
-                IsPlaying.Value = false;
-                PlaybackDirection.Value = ViewModels.PlaybackDirection.Stopped;
-                PlaybackSpeed.Value = 1.0f;
-                if (Scene != null)
+                // Only restore shared state while this shuttle still owns the session; a Pause()
+                // timeout that disowned it must not let this late finally stomp a newer session.
+                if (_sessionGuard.Owns(generation))
                 {
-                    Scene.Edited += OnSceneEdited;
+                    _isShuttling = false;
+                    IsPlaying.Value = false;
+                    PlaybackDirection.Value = ViewModels.PlaybackDirection.Stopped;
+                    PlaybackSpeed.Value = 1.0f;
+                    if (Scene != null)
+                    {
+                        Scene.Edited -= OnSceneEdited;
+                        Scene.Edited += OnSceneEdited;
+                    }
                 }
             }
         });
@@ -1389,6 +1416,12 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 if (_playbackTask == playbackTask)
                 {
                     _playbackTask = Task.CompletedTask;
+                    // Disown the abandoned task so its late finally can't restore/stomp a future
+                    // session, then restore the stopped state here: the task detached the preview
+                    // subscriptions on entry and, now disowned, will skip re-attaching them, so
+                    // otherwise the editor would stay detached until (if ever) the task unblocks.
+                    _sessionGuard.Disown();
+                    RestoreStoppedPreviewState();
                 }
             }
         }
