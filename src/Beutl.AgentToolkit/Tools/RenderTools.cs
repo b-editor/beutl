@@ -1,4 +1,6 @@
 ﻿using System.ComponentModel;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Rendering;
@@ -18,8 +20,11 @@ public sealed class RenderTools(
     StoryboardRenderer storyboardRenderer,
     MotionVariationAnalyzer motionVariationAnalyzer,
     QualityAnalyzer qualityAnalyzer,
-    VideoExporter videoExporter) : ToolBase
+    VideoExporter videoExporter,
+    RenderJobManager renderJobs) : ToolBase
 {
+    private static readonly JsonSerializerOptions s_jobResultOptions = new(JsonSerializerDefaults.Web);
+
     [McpServerTool(Name = "render_still")]
     [Description("Renders a still PNG from the current scene to a workspace-relative output path and returns visibility warnings for blank or near-black frames. Bare filenames are written under agent-output/.")]
     public ValueTask<ToolResult<RenderStillResponse>> RenderStill(
@@ -48,8 +53,8 @@ public sealed class RenderTools(
     }
 
     [McpServerTool(Name = "render_storyboard")]
-    [Description("Renders a storyboard contact sheet from explicit shots or one auto-derived midpoint per timeline Element. Writes individual still PNGs and the contact sheet inside BEUTL_WORKSPACE.")]
-    public ValueTask<ToolResult<RenderStoryboardResponse>> RenderStoryboard(
+    [Description("Renders a storyboard contact sheet from explicit shots or one auto-derived midpoint per timeline Element. Writes individual still PNGs and the contact sheet inside BEUTL_WORKSPACE. For scenes with many Elements this can exceed the MCP client request timeout; pass background:true to run it as a job and poll read_render_job(jobId) instead.")]
+    public ValueTask<ToolResult<RenderStoryboardResult>> RenderStoryboard(
         [Description("Optional explicit storyboard shots. When omitted, one midpoint is derived per timeline Element.")]
         StoryboardShotInput[]? shots = null,
         [Description("Workspace-relative or in-workspace absolute output directory. Existing files require confirmOverwrite.")]
@@ -60,17 +65,18 @@ public sealed class RenderTools(
         float renderScale = 1,
         [Description("Required when generated output paths already exist.")]
         bool confirmOverwrite = false,
+        [Description("When true, run the render as a background job and return {status:running, jobId} immediately; poll read_render_job(jobId) for completion. Do not issue apply_edit while a background render is running.")]
+        bool background = false,
         CancellationToken cancellationToken = default)
     {
-        return ExecuteAsync(async () =>
+        return ExecuteAsync<RenderStoryboardResult>(async () =>
         {
             Scene scene = RequireScene();
             IReadOnlyList<ResolvedStoryboardShot> resolvedShots = ResolveStoryboardShots(scene, shots);
             string normalizedDirectory = NormalizeStoryboardDirectory(outputDirectory);
             string safeBasename = NormalizeStoryboardBasename(basename);
-            var renderedShots = new List<RenderStoryboardShot>(resolvedShots.Count);
-            var contactSheetFrames = new List<StoryboardContactSheetFrame>(resolvedShots.Count);
 
+            var plannedShots = new List<(ResolvedStoryboardShot Shot, string ResolvedPath)>(resolvedShots.Count);
             for (int i = 0; i < resolvedShots.Count; i++)
             {
                 ResolvedStoryboardShot shot = resolvedShots[i];
@@ -79,29 +85,52 @@ public sealed class RenderTools(
                     $"{safeBasename}-shot-{i:D2}-{Math.Max(0, (long)Math.Round(shot.Time.TotalMilliseconds)):D8}ms.png");
                 string resolvedPath = workspace.ResolveForWrite(stillPath);
                 destructiveGuard.EnsureOverwriteAllowed(resolvedPath, confirmOverwrite);
-                RenderStillResponse still = await stillRenderer.RenderAsync(
-                    scene,
-                    shot.Time,
-                    resolvedPath,
-                    renderScale,
-                    cancellationToken).ConfigureAwait(false);
-                renderedShots.Add(new RenderStoryboardShot(
-                    shot.Name,
-                    shot.Time.TotalSeconds,
-                    still.OutputPath,
-                    still.VisibilityAnalysis));
-                contactSheetFrames.Add(new StoryboardContactSheetFrame(
-                    shot.Name,
-                    shot.Time.TotalSeconds,
-                    still.OutputPath));
+                plannedShots.Add((shot, resolvedPath));
             }
 
             string contactSheetPath = Path.Combine(normalizedDirectory, $"{safeBasename}-contact-sheet.png");
             string resolvedContactSheetPath = workspace.ResolveForWrite(contactSheetPath);
             destructiveGuard.EnsureOverwriteAllowed(resolvedContactSheetPath, confirmOverwrite);
-            storyboardRenderer.RenderContactSheet(contactSheetFrames, resolvedContactSheetPath);
 
-            return new RenderStoryboardResponse(resolvedContactSheetPath, renderedShots);
+            async Task<RenderStoryboardResponse> RunStoryboardAsync(CancellationToken token)
+            {
+                var renderedShots = new List<RenderStoryboardShot>(plannedShots.Count);
+                var contactSheetFrames = new List<StoryboardContactSheetFrame>(plannedShots.Count);
+                foreach ((ResolvedStoryboardShot shot, string resolvedPath) in plannedShots)
+                {
+                    RenderStillResponse still = await stillRenderer.RenderAsync(
+                        scene,
+                        shot.Time,
+                        resolvedPath,
+                        renderScale,
+                        token).ConfigureAwait(false);
+                    renderedShots.Add(new RenderStoryboardShot(
+                        shot.Name,
+                        shot.Time.TotalSeconds,
+                        still.OutputPath,
+                        still.VisibilityAnalysis));
+                    contactSheetFrames.Add(new StoryboardContactSheetFrame(
+                        shot.Name,
+                        shot.Time.TotalSeconds,
+                        still.OutputPath));
+                }
+
+                storyboardRenderer.RenderContactSheet(contactSheetFrames, resolvedContactSheetPath);
+                return new RenderStoryboardResponse(resolvedContactSheetPath, renderedShots);
+            }
+
+            if (background)
+            {
+                string jobId = renderJobs.Enqueue(
+                    "storyboard",
+                    async token => JsonSerializer.SerializeToNode(
+                        await RunStoryboardAsync(token).ConfigureAwait(false),
+                        s_jobResultOptions)!);
+                return new RenderStoryboardResult("running", jobId, null);
+            }
+
+            RenderStoryboardResponse response = await RunStoryboardAsync(cancellationToken).ConfigureAwait(false);
+            return new RenderStoryboardResult("completed", null, response);
         });
     }
 
@@ -388,8 +417,8 @@ public sealed class RenderTools(
     }
 
     [McpServerTool(Name = "export_video")]
-    [Description("Exports the current scene through a registered headless encoder to a workspace-relative output path. Bare filenames are written under agent-output/.")]
-    public ValueTask<ToolResult<ExportVideoResponse>> ExportVideo(
+    [Description("Exports the current scene through a registered headless encoder to a workspace-relative output path. Bare filenames are written under agent-output/. Control size/quality with crf or bitrate. Pass background:true to run as a job and poll read_render_job(jobId).")]
+    public ValueTask<ToolResult<ExportVideoResult>> ExportVideo(
         [Description("Workspace-relative or in-workspace absolute output path. Bare filenames are written under agent-output/. Existing files require confirmOverwrite.")]
         string outputPath,
         [Description("Frame-rate numerator.")]
@@ -400,11 +429,17 @@ public sealed class RenderTools(
         int sampleRate = 44100,
         [Description("Supersampling render scale. Values <= 0 use 1.")]
         float renderScale = 1,
+        [Description("Constant Rate Factor for the H.264/x265 encoder (0-51, lower is higher quality/larger file; libx264 default is 23). Mutually exclusive with bitrate. Raise it (e.g. 28-30) to shrink hard-to-compress content such as full-frame grain.")]
+        int? crf = null,
+        [Description("Target average video bitrate in bits per second (e.g. 4000000). Mutually exclusive with crf; forces ABR by dropping the crf option.")]
+        int? bitrate = null,
         [Description("Required when outputPath already exists.")]
         bool confirmOverwrite = false,
+        [Description("When true, run the export as a background job and return {status:running, jobId} immediately; poll read_render_job(jobId) for completion. Do not issue apply_edit while a background export is running.")]
+        bool background = false,
         CancellationToken cancellationToken = default)
     {
-        return ExecuteAsync(async () =>
+        return ExecuteAsync<ExportVideoResult>(async () =>
         {
             if (frameRateNumerator <= 0 || frameRateDenominator <= 0)
             {
@@ -413,19 +448,90 @@ public sealed class RenderTools(
                     "Frame-rate numerator and denominator must be positive."));
             }
 
+            if (crf is int crfValue && (crfValue < 0 || crfValue > 51))
+            {
+                throw new ReconcileException(new ToolError(
+                    ErrorCode.ValidationRejected,
+                    "crf must be between 0 and 51."));
+            }
+
+            if (bitrate is int bitrateValue && bitrateValue <= 0)
+            {
+                throw new ReconcileException(new ToolError(
+                    ErrorCode.ValidationRejected,
+                    "bitrate must be positive."));
+            }
+
+            if (crf.HasValue && bitrate.HasValue)
+            {
+                throw new ReconcileException(new ToolError(
+                    ErrorCode.ValidationRejected,
+                    "Provide either crf or bitrate, not both."));
+            }
+
             Scene scene = RequireScene();
             string resolvedPath = workspace.ResolveForWrite(NormalizeOutputPath(outputPath));
             destructiveGuard.EnsureOverwriteAllowed(resolvedPath, confirmOverwrite);
-            ExportVideoResponse response = await videoExporter.ExportAsync(
-                scene,
-                resolvedPath,
-                new Rational(frameRateNumerator, frameRateDenominator),
-                sampleRate,
-                renderScale,
-                cancellationToken).ConfigureAwait(false);
-            sessions.RecordCreativeDirection(CreateExportCreativeFingerprint(scene, resolvedPath));
-            return response;
+
+            async Task<ExportVideoResponse> RunExportAsync(CancellationToken token)
+            {
+                ExportVideoResponse exported = await videoExporter.ExportAsync(
+                    scene,
+                    resolvedPath,
+                    new Rational(frameRateNumerator, frameRateDenominator),
+                    sampleRate,
+                    renderScale,
+                    token,
+                    crf,
+                    bitrate).ConfigureAwait(false);
+                sessions.RecordCreativeDirection(CreateExportCreativeFingerprint(scene, resolvedPath));
+                return exported;
+            }
+
+            if (background)
+            {
+                string jobId = renderJobs.Enqueue(
+                    "export",
+                    async token => JsonSerializer.SerializeToNode(
+                        await RunExportAsync(token).ConfigureAwait(false),
+                        s_jobResultOptions)!);
+                return new ExportVideoResult("running", jobId, null);
+            }
+
+            ExportVideoResponse response = await RunExportAsync(cancellationToken).ConfigureAwait(false);
+            return new ExportVideoResult("completed", null, response);
         });
+    }
+
+    [McpServerTool(Name = "read_render_job")]
+    [Description("Reports the status of a background render/export job started with background:true on render_storyboard or export_video. Poll until state is 'completed' (result holds the render_storyboard/export_video payload), 'failed' (error explains why), or 'cancelled'.")]
+    public ToolResult<RenderJobSnapshot> ReadRenderJob(
+        [Description("Job id returned by a background render_storyboard/export_video call.")]
+        string jobId)
+    {
+        return Execute(() => RequireRenderJob(jobId));
+    }
+
+    [McpServerTool(Name = "cancel_render_job")]
+    [Description("Requests cancellation of a running background render/export job. Returns the job snapshot; a still-running job transitions to 'cancelled' once it observes the request.")]
+    public ToolResult<RenderJobSnapshot> CancelRenderJob(
+        [Description("Job id to cancel.")]
+        string jobId)
+    {
+        return Execute(() =>
+        {
+            renderJobs.Cancel(jobId);
+            return RequireRenderJob(jobId);
+        });
+    }
+
+    private RenderJobSnapshot RequireRenderJob(string jobId)
+    {
+        return renderJobs.Get(jobId)
+               ?? throw new ReconcileException(new ToolError(
+                   ErrorCode.StaleHandle,
+                   $"No render job with id '{jobId}' exists.",
+                   jobId));
     }
 
     private static CreativeDirectionFingerprint CreateExportCreativeFingerprint(Scene scene, string outputPath)

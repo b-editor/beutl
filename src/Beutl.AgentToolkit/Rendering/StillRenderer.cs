@@ -60,6 +60,11 @@ public sealed record StoryboardShotInput(
     string Name,
     double TimeSeconds);
 
+public sealed record RenderStoryboardResult(
+    string Status,
+    string? JobId,
+    RenderStoryboardResponse? Result);
+
 public sealed class StillRenderer
 {
     public async ValueTask<RenderStillResponse> RenderAsync(

@@ -152,7 +152,8 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             .AddSingleton<MotionVariationAnalyzer>()
             .AddSingleton<QualityAnalyzer>()
             .AddSingleton<EncoderRegistration>()
-            .AddSingleton<VideoExporter>();
+            .AddSingleton<VideoExporter>()
+            .AddSingleton<RenderJobManager>();
 
         builder.Services
             .AddMcpServer()

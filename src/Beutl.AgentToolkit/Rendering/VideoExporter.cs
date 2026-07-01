@@ -1,14 +1,23 @@
-﻿using System.Reactive.Subjects;
+﻿using System.Globalization;
+using System.Reactive.Subjects;
+using Beutl.Collections;
 using Beutl.Extensibility;
+using Beutl.Extensions.FFmpeg.Encoding;
 using Beutl.FFmpegIpc;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
+using Beutl.Media.Encoding;
 using Beutl.Models;
 using Beutl.ProjectSystem;
 
 namespace Beutl.AgentToolkit.Rendering;
 
 public sealed record ExportVideoResponse(string OutputPath, long Frames, long Samples, string Duration);
+
+public sealed record ExportVideoResult(
+    string Status,
+    string? JobId,
+    ExportVideoResponse? Result);
 
 public sealed class VideoExporter(EncoderRegistration encoders)
 {
@@ -18,7 +27,9 @@ public sealed class VideoExporter(EncoderRegistration encoders)
         Rational frameRate,
         int sampleRate,
         float renderScale,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        int? crf = null,
+        int? bitrate = null)
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentException.ThrowIfNullOrWhiteSpace(outputPath);
@@ -44,6 +55,7 @@ public sealed class VideoExporter(EncoderRegistration encoders)
             controller.VideoSettings.FrameRate = frameRate;
             controller.AudioSettings.SampleRate = normalizedSampleRate;
             controller.AudioSettings.Channels = 2;
+            ApplyQualitySettings(controller.VideoSettings, crf, bitrate);
 
             using var renderer = new SceneRenderer(scene, normalizedScale, disableResourceShare: true);
             renderer.CacheOptions = RenderCacheOptions.Disabled;
@@ -68,6 +80,53 @@ public sealed class VideoExporter(EncoderRegistration encoders)
         catch (FFmpegWorkerException ex)
         {
             throw new CodecUnavailableException(ex.Message, ex);
+        }
+    }
+
+    internal static void ApplyQualitySettings(VideoEncoderSettings settings, int? crf, int? bitrate)
+    {
+        if (settings is FFmpegVideoEncoderSettings ffmpeg)
+        {
+            if (crf is int crfValue)
+            {
+                SetOption(ffmpeg.Options, "crf", crfValue.ToString(CultureInfo.InvariantCulture));
+            }
+
+            if (bitrate is int bitrateValue)
+            {
+                settings.Bitrate = bitrateValue;
+                // libx264 ignores the target bitrate while a crf option is present, so drop crf for ABR.
+                RemoveOption(ffmpeg.Options, "crf");
+            }
+        }
+        else if (bitrate is int bitrateValue)
+        {
+            settings.Bitrate = bitrateValue;
+        }
+    }
+
+    private static void SetOption(CoreList<AdditionalOption> options, string name, string value)
+    {
+        foreach (AdditionalOption option in options)
+        {
+            if (string.Equals(option.Name, name, StringComparison.OrdinalIgnoreCase))
+            {
+                option.Value = value;
+                return;
+            }
+        }
+
+        options.Add(new AdditionalOption(name, value));
+    }
+
+    private static void RemoveOption(CoreList<AdditionalOption> options, string name)
+    {
+        for (int i = options.Count - 1; i >= 0; i--)
+        {
+            if (string.Equals(options[i].Name, name, StringComparison.OrdinalIgnoreCase))
+            {
+                options.RemoveAt(i);
+            }
         }
     }
 }
