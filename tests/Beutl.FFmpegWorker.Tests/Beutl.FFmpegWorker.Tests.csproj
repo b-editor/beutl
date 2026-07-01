@@ -1,0 +1,54 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    GPL-side, non-distributed NUnit test project. It reaches the GPL worker's FFmpeg-calling
+    encoding types by SOURCE-LINKING them (never a ProjectReference to Beutl.FFmpegWorker), the
+    same firewall-preserving pattern Beutl.FFmpegBenchmarks uses for the decoding side: the linked
+    files compile under BEUTL_FFMPEG_WORKER into this test assembly, which is IsPackable=false and
+    never ships, so the MIT compile closure stays free of the GPL worker. The FFmpeg-native tests
+    self-skip (Assert.Ignore) when the FFmpeg shared libraries are not present.
+  -->
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <TargetFrameworks>net10.0</TargetFrameworks>
+    <DefineConstants>$(DefineConstants);BEUTL_FFMPEG_WORKER;FFMPEG_BUILD_IN</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="NUnit" />
+    <PackageReference Include="NUnit3TestAdapter" />
+    <PackageReference Include="FFmpeg.AutoGen.Bindings.DynamicallyLoaded" />
+    <PackageReference Include="FFmpeg4Sharp" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="NUnit.Framework" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Beutl.Core\Beutl.Core.csproj" />
+    <ProjectReference Include="..\..\src\Beutl.Engine\Beutl.Engine.csproj" />
+    <ProjectReference Include="..\..\src\Beutl.Extensibility\Beutl.Extensibility.csproj" />
+    <ProjectReference Include="..\..\src\Beutl.FFmpegIpc\Beutl.FFmpegIpc.csproj" />
+  </ItemGroup>
+
+  <!-- Worker-side FFmpeg-calling encoding types (direct in-process, GPL originals). -->
+  <ItemGroup>
+    <Compile Include="..\..\src\Beutl.FFmpegWorker\Encoding\FFmpegEncodingController.cs" Link="Linked\FFmpegEncodingController.cs" />
+    <Compile Include="..\..\src\Beutl.FFmpegWorker\ColorSpaceHelper.cs" Link="Linked\ColorSpaceHelper.cs" />
+    <Compile Include="..\..\src\Beutl.FFmpegWorker\FFmpegLoaderWorker.cs" Link="Linked\FFmpegLoaderWorker.cs" />
+    <Compile Include="..\..\src\Beutl.FFmpegWorker\WorkerLog.cs" Link="Linked\WorkerLog.cs" />
+  </ItemGroup>
+
+  <!-- Settings/record types shared with the MIT extension (compiled here under BEUTL_FFMPEG_WORKER). -->
+  <ItemGroup>
+    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\Encoding\CodecRecord.cs" Link="Linked\CodecRecord.cs" />
+    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\Encoding\FFmpegEncodingSettings.cs" Link="Linked\FFmpegEncodingSettings.cs" />
+    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\Encoding\FFmpegVideoEncoderSettings.cs" Link="Linked\FFmpegVideoEncoderSettings.cs" />
+    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\Encoding\FFmpegAudioEncoderSettings.cs" Link="Linked\FFmpegAudioEncoderSettings.cs" />
+  </ItemGroup>
+
+</Project>

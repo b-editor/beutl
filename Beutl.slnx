@@ -31,6 +31,7 @@
     <Project Path="tests\Beutl.Extensions.MediaFoundation.Tests\Beutl.Extensions.MediaFoundation.Tests.csproj" />
     <Project Path="tests\Beutl.FFmpegBenchmarks\Beutl.FFmpegBenchmarks.csproj" />
     <Project Path="tests\Beutl.FFmpegIpc.Tests\Beutl.FFmpegIpc.Tests.csproj" />
+    <Project Path="tests\Beutl.FFmpegWorker.Tests\Beutl.FFmpegWorker.Tests.csproj" />
     <Project Path="tests\Beutl.UnitTests\Beutl.UnitTests.csproj" />
     <Project Path="tests\Beutl.E2ETests\Beutl.E2ETests.csproj" />
     <Project Path="tests\Beutl.HeadlessUITests\Beutl.HeadlessUITests.csproj" />

@@ -18,7 +18,9 @@
 # <Compile Include>, is forbidden.
 # Also exempts tests/Beutl.FFmpegBenchmarks — a BenchmarkDotNet project that
 # intentionally link-compiles worker source files for direct-call benchmarking
-# (not shipped in the MIT app).
+# (not shipped in the MIT app) — and tests/Beutl.FFmpegWorker.Tests, a
+# non-distributed (IsPackable=false) GPL-side NUnit project that source-links the
+# worker's FFmpeg encoding types under BEUTL_FFMPEG_WORKER for the same reason.
 #
 # Used by: beutl-pre-pr (step 2, --files mode), beutl-loop (step 2.5a, two-ref mode).
 set -euo pipefail
@@ -88,6 +90,11 @@ for f in $CHANGED; do
   case "$f" in
     */Beutl.FFmpegWorker/*|*/Beutl.FFmpegWorker.csproj) continue ;;
     */Beutl.FFmpegBenchmarks/*|*/Beutl.FFmpegBenchmarks.csproj) continue ;;
+    # tests/Beutl.FFmpegWorker.Tests is a non-distributed (IsPackable=false) GPL-side NUnit
+    # test project that source-links the worker's FFmpeg encoding types under BEUTL_FFMPEG_WORKER
+    # — the same firewall pattern as Beutl.FFmpegBenchmarks (no ProjectReference to the worker; the
+    # GPL code stays confined to this never-shipped test assembly), so the boundary is not crossed.
+    */Beutl.FFmpegWorker.Tests/*|*/Beutl.FFmpegWorker.Tests.csproj) continue ;;
   esac
 
   # Flatten the file so multi-line MSBuild elements are caught.
