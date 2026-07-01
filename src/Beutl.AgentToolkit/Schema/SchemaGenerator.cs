@@ -716,10 +716,10 @@ public sealed class SchemaGenerator
                     CreateBrightness(104))),
             CreateEffectRecipe(
                 "fine-film-grain-field",
-                "Fine organic surface recipe for texture when flat vector plates feel sterile.",
+                "Fine monochrome film-grain overlay for texture when flat vector plates feel sterile.",
                 ["grain", "texture", "organic", "field", "subtle"],
                 CreateFilterEffectGroup(
-                    CreateOrganicShaderEffect(),
+                    CreateFilmGrainEffect(),
                     CreateBrightness(102))),
             CreateEffectRecipe(
                 "editorial-color-grade",
@@ -1028,6 +1028,31 @@ public sealed class SchemaGenerator
                    half4 base = src.eval(fragCoord);
                    half3 field = half3(0.95 * wave, 0.26 + 0.45 * plume, 0.12 + 0.25 * (1.0 - wave));
                    return half4(mix(base.rgb, field, 0.35), base.a);
+               }
+               """;
+    }
+
+    private static SKSLScriptEffect CreateFilmGrainEffect()
+    {
+        var effect = new SKSLScriptEffect();
+        effect.Script.CurrentValue = CreateFilmGrainScript();
+        return effect;
+    }
+
+    private static string CreateFilmGrainScript()
+    {
+        // Must stay distinct from CreateOrganicShaderScript: monochrome low-amplitude grain, not the colored field.
+        return """
+               uniform shader src;
+               uniform float time;
+               uniform float progress;
+               uniform float2 iResolution;
+
+               half4 main(float2 fragCoord) {
+                   half4 base = src.eval(fragCoord);
+                   float grain = fract(sin(dot(fragCoord, float2(12.9898, 78.233)) + time * 1.7) * 43758.5453);
+                   float amt = (grain - 0.5) * 0.035;
+                   return half4(base.rgb + half3(amt, amt, amt), base.a);
                }
                """;
     }
@@ -2113,7 +2138,14 @@ public sealed class SchemaGenerator
 
         if (animatable)
         {
-            hints.Add("Animate through Animations.<Property>.KeyFrames using schema-returned animation/keyframe discriminators; UseGlobalClock=false uses Element-local KeyTime values, and UseGlobalClock=true uses scene timeline KeyTime values.");
+            string animationDiscriminator = IdentityHelper.WriteDiscriminator(typeof(KeyFrameAnimation<float>));
+            string keyFrameDiscriminator = IdentityHelper.WriteDiscriminator(typeof(KeyFrame<float>));
+            hints.Add(
+                "Animate through Animations.<Property>.KeyFrames. Use the angle-bracket $type form shown here, NOT the reflection 'Name`1[[...]]' form: for a float property, Animations.<Property> = { \"$type\": \""
+                + animationDiscriminator
+                + "\", \"KeyFrames\": [ { \"$type\": \""
+                + keyFrameDiscriminator
+                + "\", \"KeyTime\": \"00:00:00\", \"Value\": 0, \"Easing\": \"[Beutl.Engine]Beutl.Animation.Easings:CubicEaseOut\" } ] }. Substitute this property's value type for the <...> generic argument. UseGlobalClock=false uses Element-local KeyTime values, and UseGlobalClock=true uses scene timeline KeyTime values.");
         }
 
         return hints.Count == 0 ? null : string.Join(" ", hints);
