@@ -792,7 +792,10 @@ public sealed class SchemaGenerator
                 ["outline", "graphic", "poster", "depth"],
                 CreateFilterEffectGroup(
                     CreateStroke("#ff36f0ff", 6),
-                    CreateFlatShadow(138, 34, "#aa05121f"))),
+                    CreateFlatShadow(138, 34, "#aa05121f")),
+                blendMode: null,
+                opacity: null,
+                "The neon cyan stroke (#ff36f0ff) is a STYLIZED ACCENT default; tint or override it to match the palette's accent."),
             CreateEffectRecipe(
                 "pixel-sort-distortion",
                 "Vulkan-backed pixel-sort chain for harsher scanline and data-corruption looks; runs via the bundled SwiftShader software fallback when no hardware GPU is present.",
@@ -824,8 +827,10 @@ public sealed class SchemaGenerator
         string[] effectNames = effects.Children
             .Select(effect => effect.GetType().Name)
             .ToArray();
+        bool containsPrebuiltSkslScript = ContainsPrebuiltSkslScript(effects);
         string[] notes = effectNames
             .SelectMany(name => GetEffectMetadataByName(name).Notes)
+            .Where(note => !containsPrebuiltSkslScript || !IsShaderSourceRequirementNote(note))
             .Distinct(StringComparer.Ordinal)
             .ToArray();
         return new EffectRecipeSpec(
@@ -845,14 +850,29 @@ public sealed class SchemaGenerator
         string[] effectNames = effects.Children
             .Select(effect => effect.GetType().Name)
             .ToArray();
+        bool containsPrebuiltSkslScript = ContainsPrebuiltSkslScript(effects);
         string[] notes = effectNames
             .SelectMany(effectName => GetEffectMetadataByName(effectName).Notes)
+            .Where(note => !containsPrebuiltSkslScript || !IsShaderSourceRequirementNote(note))
             .Concat(extraNotes)
             .Distinct(StringComparer.Ordinal)
             .ToArray();
         return new EffectRecipeSpec(
             new EffectRecipeSummary(name, description, tags.ToArray(), effectNames, notes),
             CreateEffectPatch(effects, blendMode, opacity));
+    }
+
+    private static bool ContainsPrebuiltSkslScript(FilterEffectGroup effects)
+    {
+        return effects.Children
+            .OfType<SKSLScriptEffect>()
+            .Any(effect => !string.IsNullOrWhiteSpace(effect.Script.CurrentValue));
+    }
+
+    private static bool IsShaderSourceRequirementNote(string note)
+    {
+        return note.Contains("Requires shader source", StringComparison.OrdinalIgnoreCase)
+               || note.Contains("validate_shader", StringComparison.OrdinalIgnoreCase);
     }
 
     private static EffectRecipeSpec CreateSingleEffectRecipe(Type type)
@@ -919,7 +939,7 @@ public sealed class SchemaGenerator
                 blur.Sigma.CurrentValue = new Size(8, 8);
                 break;
             case DropShadow dropShadow:
-                dropShadow.Position.CurrentValue = new Point(0, 0);
+                dropShadow.Position.CurrentValue = new Point(8, 10);
                 dropShadow.Sigma.CurrentValue = new Size(18, 18);
                 dropShadow.Color.CurrentValue = Color.Parse("#aa36f0ff");
                 break;
@@ -983,7 +1003,7 @@ public sealed class SchemaGenerator
                 colorGrading.Vibrance.CurrentValue = 20;
                 break;
             case Invert invert:
-                invert.Amount.CurrentValue = 32;
+                invert.Amount.CurrentValue = 80;
                 invert.ExcludeAlphaChannel.CurrentValue = true;
                 break;
             case BlendEffect blend:
