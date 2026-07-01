@@ -1,5 +1,4 @@
 ﻿using Beutl.Configuration;
-using Beutl.Editor;
 using Beutl.Logging;
 #if FFMPEG_BUILD_IN
 using Beutl.Extensions.FFmpeg.Proxy;
@@ -18,6 +17,7 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
     private static readonly ILogger s_logger = Log.CreateLogger<ProxyMediaServices>();
     private static readonly IReadOnlySet<string> s_noOpenProjectSources = new HashSet<string>();
     private bool _disposed;
+    private int _diskPressureSweepActive;
 
     private ProxyMediaServices(
         ProxyStore store,
@@ -109,9 +109,30 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
             // next one has a chance. The sweep self-gates on real cap/disk pressure.
             case ProxyJobChangeKind.Enqueued:
             case ProxyJobChangeKind.Failed:
-                _ = Task.Run(() => SweepForDiskPressureBestEffort(EvictionService));
+                TrySweepForDiskPressure();
                 break;
         }
+    }
+
+    private void TrySweepForDiskPressure()
+    {
+        // Each sweep is a full project-graph traversal plus a full store enumeration, and a
+        // burst (one job per clip when opening a project) fires this per Enqueued/Failed;
+        // collapse concurrent triggers into a single in-flight sweep.
+        if (Interlocked.CompareExchange(ref _diskPressureSweepActive, 1, 0) != 0)
+            return;
+
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                SweepForDiskPressureBestEffort(EvictionService);
+            }
+            finally
+            {
+                Volatile.Write(ref _diskPressureSweepActive, 0);
+            }
+        });
     }
 
     private static async Task ReconcileAndSweepAsync(ProxyStore store, ProxyEvictionService eviction)
@@ -143,7 +164,9 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
     {
         try
         {
-            eviction.SweepForDiskPressure();
+            // Routine pre-job headroom sweep: evict silently. Cap-overage notifications
+            // are surfaced by the post-Succeeded/startup Sweep instead.
+            eviction.SweepForDiskPressure(notify: false);
         }
         catch (Exception ex)
         {
@@ -158,22 +181,10 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
             if (BeutlApplication.Current.Project is not { } project)
                 return s_noOpenProjectSources;
 
-            if (project.Uri is not { IsFile: true } projectUri)
-                return s_noOpenProjectSources;
-
-            string? projectDir = Path.GetDirectoryName(projectUri.LocalPath);
-            if (string.IsNullOrEmpty(projectDir))
-                return s_noOpenProjectSources;
-
-            ExternalResourceCollector collector = ExternalResourceCollector.Collect(project, projectDir);
-            var sources = new HashSet<string>(StringComparer.Ordinal);
-            foreach ((_, _, Uri originalUri) in collector.FileSources)
-            {
-                if (originalUri.IsFile)
-                    sources.Add(originalUri.LocalPath);
-            }
-
-            return sources;
+            // Every IFileSource the project references, in- or out-of-project. Affinity must
+            // cover media stored under the project folder too; ExternalResourceCollector would
+            // filter those out, leaving in-project workflows on plain LRU.
+            return ProxyEvictionService.CollectProjectFileSources(project);
         }
         catch
         {

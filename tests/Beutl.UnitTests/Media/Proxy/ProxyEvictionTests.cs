@@ -1,4 +1,6 @@
-﻿using Beutl.Media;
+﻿using Beutl.Engine;
+using Beutl.IO;
+using Beutl.Media;
 using Beutl.Media.Proxy;
 
 namespace Beutl.UnitTests.Media.Proxy;
@@ -72,6 +74,44 @@ public class ProxyEvictionTests
         {
             Assert.That(result.RemovedCount, Is.EqualTo(1));
             Assert.That(store.TryGet(openProject.Source, openProject.Preset), Is.Not.Null);
+            Assert.That(store.TryGet(unrelated.Source, unrelated.Preset), Is.Null);
+        });
+    }
+
+    [Test]
+    public void Sweep_ProtectsInProjectSource_CollectedFromProjectGraph()
+    {
+        string root = CreateRoot();
+        // Media stored INSIDE the project directory: ExternalResourceCollector would have
+        // filtered this out, so its proxy would have fallen back to plain LRU.
+        string projectDir = Path.Combine(root, "project");
+        Directory.CreateDirectory(projectDir);
+        string inProjectSource = Path.Combine(projectDir, "clip.mov");
+        File.WriteAllBytes(inProjectSource, [1]);
+
+        var store = new ProxyStore(root);
+        // The in-project proxy is the OLDEST, so pure LRU would reap it first.
+        ProxyEntry inProject = RegisterForSource(store, root, inProjectSource, "in.mp4", DateTime.UtcNow.AddMinutes(-10), 7);
+        ProxyEntry unrelated = Register(store, root, "other.mp4", DateTime.UtcNow, 7);
+
+        // Drive the real collection path CollectOpenProjectSources uses.
+        var graph = new TestHierarchical();
+        graph.AddChild(new TestEngineObjectWithFileSource(new TestFileSource(new Uri(inProjectSource))));
+        IReadOnlySet<string> collected = ProxyEvictionService.CollectProjectFileSources(graph);
+
+        var service = new ProxyEvictionService(
+            store,
+            resolver: null,
+            maxTotalBytes: 7,
+            openProjectSourceProvider: () => collected);
+
+        ProxyEvictionResult result = service.Sweep();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(collected, Has.Count.EqualTo(1));
+            Assert.That(result.RemovedCount, Is.EqualTo(1));
+            Assert.That(store.TryGet(inProject.Source, inProject.Preset), Is.Not.Null);
             Assert.That(store.TryGet(unrelated.Source, unrelated.Preset), Is.Null);
         });
     }
@@ -216,6 +256,12 @@ public class ProxyEvictionTests
     {
         string sourcePath = Path.Combine(root, $"{Guid.NewGuid():N}.mov");
         File.WriteAllBytes(sourcePath, [1]);
+        return RegisterForSource(store, root, sourcePath, fileName, lastUsed, bytes);
+    }
+
+    private static ProxyEntry RegisterForSource(
+        ProxyStore store, string root, string sourcePath, string fileName, DateTime lastUsed, int bytes)
+    {
         string proxyPath = Path.Combine(root, fileName);
         File.WriteAllBytes(proxyPath, Enumerable.Repeat((byte)1, bytes).ToArray());
         var source = ProxyFingerprint.FromFile(sourcePath);
@@ -232,5 +278,35 @@ public class ProxyEvictionTests
             null);
         store.Register(entry);
         return entry;
+    }
+
+    private sealed class TestHierarchical : Hierarchical
+    {
+        public void AddChild(IHierarchical child)
+        {
+            HierarchicalChildren.Add(child);
+        }
+    }
+
+    private sealed class TestFileSource(Uri? uri) : IFileSource
+    {
+        public Uri Uri { get; private set; } = uri!;
+
+        public void ReadFrom(Uri uri)
+        {
+            Uri = uri;
+        }
+    }
+
+    [SuppressResourceClassGeneration]
+    private sealed class TestEngineObjectWithFileSource : EngineObject
+    {
+        public TestEngineObjectWithFileSource(IFileSource? fileSource)
+        {
+            ScanProperties<TestEngineObjectWithFileSource>();
+            FileSource.CurrentValue = fileSource;
+        }
+
+        public IProperty<IFileSource?> FileSource { get; } = Property.Create<IFileSource?>();
     }
 }
