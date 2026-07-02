@@ -1,9 +1,12 @@
 ﻿using Beutl.Extensibility;
 using Beutl.FFmpegIpc;
 using Beutl.FFmpegWorker.Encoding;
+using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
+using FFmpeg.AutoGen.Abstractions;
+using FFmpegSharp;
 
 namespace Beutl.FFmpegWorker.Tests;
 
@@ -21,7 +24,16 @@ public class EncodingCancellationTests
         try
         {
             FFmpegLoaderWorker.Initialize();
-            return true;
+
+            // Loading the libraries is not enough: the .mp4 cancellation path drives
+            // MediaCodec.FindEncoder for the container's default video+audio codecs, so a build that
+            // loads the libs but lacks those encoders would fail during stream setup instead of
+            // exercising cancellation. Require the same codecs GuessFormat(".mp4") selects.
+            OutputFormat outFormat = OutputFormat.GuessFormat(null, "probe.mp4", null);
+            return (outFormat.VideoCodec == AVCodecID.AV_CODEC_ID_NONE
+                    || MediaCodec.FindEncoder(outFormat.VideoCodec) != null)
+                && (outFormat.AudioCodec == AVCodecID.AV_CODEC_ID_NONE
+                    || MediaCodec.FindEncoder(outFormat.AudioCodec) != null);
         }
         catch (FFmpegLibrariesNotFoundException)
         {
@@ -36,6 +48,16 @@ public class EncodingCancellationTests
     });
 
     private string _workDir = string.Empty;
+
+    [OneTimeSetUp]
+    public void OneTimeSetUp()
+    {
+        // FFmpegEncodingController's field initializer calls Log.CreateLogger<T>(), which only falls
+        // back to a temporary factory under #if DEBUG; a Release build dereferences the never-set
+        // s_loggerFactory and throws. The real worker sets this in Program.Main; the in-process test
+        // does not, so seed a no-op factory (the setter is idempotent, so this is safe if already set).
+        Log.LoggerFactory = Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance;
+    }
 
     [SetUp]
     public void SetUp()
