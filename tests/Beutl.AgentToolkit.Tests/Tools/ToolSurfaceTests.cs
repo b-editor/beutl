@@ -9,6 +9,7 @@ public sealed class ToolSurfaceTests
     private static readonly Type[] s_sharedPublicToolTypes =
     [
         typeof(QueryTools),
+        typeof(DesignTools),
         typeof(SessionTools),
         typeof(EditTools),
         typeof(RenderTools)
@@ -26,6 +27,8 @@ public sealed class ToolSurfaceTests
                 "get_started",
                 "list_creative_directions",
                 "record_creative_direction",
+                "derive_palette",
+                "get_background_grammar",
                 "plan_original_scaffold",
                 "get_schema",
                 "list_effects",

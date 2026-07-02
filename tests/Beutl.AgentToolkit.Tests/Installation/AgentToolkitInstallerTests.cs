@@ -30,11 +30,12 @@ public sealed class AgentToolkitInstallerTests
     {
         IReadOnlyList<AgentToolkitAsset> assets = BundledAgentToolkitAssets.Load();
 
-        Assert.That(assets, Has.Count.EqualTo(6));
-        Assert.That(assets.Count(x => x.Kind == AgentToolkitAssetKind.Skill), Is.EqualTo(3));
+        Assert.That(assets, Has.Count.EqualTo(7));
+        Assert.That(assets.Count(x => x.Kind == AgentToolkitAssetKind.Skill), Is.EqualTo(4));
         Assert.That(assets.Count(x => x.Kind == AgentToolkitAssetKind.Subagent), Is.EqualTo(3));
         Assert.That(assets.Select(x => x.RelativePath), Does.Contain("beutl-agent-timeline-from-shotlist/SKILL.md"));
         Assert.That(assets.Select(x => x.RelativePath), Does.Contain("beutl-agent-source-grounding/SKILL.md"));
+        Assert.That(assets.Select(x => x.RelativePath), Does.Contain("beutl-agent-visual-review/SKILL.md"));
         Assert.That(
             assets.Single(x => x.RelativePath == "beutl-agent-timeline-from-shotlist/SKILL.md").Content,
             Does.Contain("evaluate_motion_variation"));
@@ -42,8 +43,23 @@ public sealed class AgentToolkitInstallerTests
             assets.Single(x => x.RelativePath == "beutl-agent-timeline-from-shotlist/SKILL.md").Content,
             Does.Contain("insert-new-animated-text-keyframes"));
         Assert.That(
+            assets.Single(x => x.RelativePath == "beutl-agent-timeline-from-shotlist/SKILL.md").Content,
+            Does.Contain("derive_palette"));
+        Assert.That(
+            assets.Single(x => x.RelativePath == "beutl-agent-timeline-from-shotlist/SKILL.md").Content,
+            Does.Contain("Contrast Exemplars - derive, don't copy"));
+        Assert.That(
+            assets.Single(x => x.RelativePath == "beutl-agent-look-effect-chain/SKILL.md").Content,
+            Does.Contain("get_background_grammar"));
+        Assert.That(
+            assets.Single(x => x.RelativePath == "beutl-agent-look-effect-chain/SKILL.md").Content,
+            Does.Contain("Unjustified choices are disallowed"));
+        Assert.That(
             assets.Single(x => x.RelativePath == "beutl-agent-source-grounding/SKILL.md").Content,
             Does.Contain("measure_object_bounds"));
+        Assert.That(
+            assets.Single(x => x.RelativePath == "beutl-agent-visual-review/SKILL.md").Content,
+            Does.Contain("paletteHarmony"));
         Assert.That(
             assets.Single(x => x.RelativePath == "beutl-agent-timeline-builder.md").Content,
             Does.Contain("evaluate_motion_variation"));

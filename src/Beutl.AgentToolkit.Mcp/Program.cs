@@ -36,6 +36,7 @@ builder.Services
     .WithStdioServerTransport()
     .WithTools<SessionTools>()
     .WithTools<QueryTools>()
+    .WithTools<DesignTools>()
     .WithTools<EditTools>()
     .WithTools<RenderTools>();
 
