@@ -327,6 +327,8 @@ public sealed class DuplicateObjectTests
             allowDenseText: false,
             allowMultiObjectElements: false,
             allowMonochrome: false,
+            allowMinimalDensity: false,
+            plannedForegroundElementsPerShot: 0,
             evaluateMotion: false,
             cancellationToken: CancellationToken.None);
 }

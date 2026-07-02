@@ -1497,8 +1497,7 @@ public sealed class CompositionTemplateCatalog
     // capped at five near-identical warm-grey schemes. Determinism comes from the seeded
     // xorshift PRNG (SeededValues), so the same seed+offset always yields the same palette.
     //
-    // The generator's OUTPUT SPACE is gate-clean by construction against QualityAnalyzer's
-    // paletteHarmony Major rules:
+    // The generator's OUTPUT SPACE avoids QualityAnalyzer's paletteHarmony advisory rules:
     //   * low-contrast (lumaRange < 0.18): backgrounds stay dark and the foreground stays near
     //     white, so the background-to-foreground luma spread is always well above the threshold.
     //   * oversaturation (avgSat >= 68 && maxSat >= 88): no role's saturation is allowed above

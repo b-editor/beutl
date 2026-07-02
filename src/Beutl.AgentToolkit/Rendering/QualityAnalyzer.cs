@@ -1,4 +1,5 @@
-﻿using Beutl.Animation;
+﻿using Beutl.AgentToolkit.Design;
+using Beutl.Animation;
 using Beutl.Collections;
 using Beutl.Engine;
 using Beutl.Graphics;
@@ -33,6 +34,8 @@ public sealed record QualityMetrics(
     PaletteMetrics Palette,
     StructureMetrics Structure,
     TempoMetrics Tempo,
+    BackgroundRichnessMetrics BackgroundRichness,
+    LayerDensityMetrics LayerDensity,
     MotionContinuityMetrics MotionContinuity);
 
 public sealed record TypographyMetrics(
@@ -59,7 +62,18 @@ public sealed record PaletteMetrics(
     bool HasOversaturatedPalette,
     bool HasLowContrastPalette,
     int HardGradientObjectCount,
-    int HardGradientTransitionCount);
+    int HardGradientTransitionCount,
+    double HarmonyScore,
+    string HarmonyScheme,
+    double HueRelationshipScore,
+    double SaturationBalanceScore,
+    double LumaBalanceScore,
+    bool HasLowHarmonyScore);
+
+public sealed record BackgroundRichnessMetrics(
+    int FullFrameBackgroundLayerCount,
+    int FlatSingleLayerBackgroundCount,
+    int RichBackgroundLayerCount);
 
 public sealed record StructureMetrics(
     int ElementCount,
@@ -84,6 +98,35 @@ public sealed record TempoMetrics(
     int SlowHoldCount,
     double LongestForegroundHoldSeconds);
 
+public sealed record LayerDensityMetrics(
+    bool MotionGraphicsIntent,
+    int TimeBandCount,
+    double TimeBandSeconds,
+    double AverageVisibleLayerCount,
+    int MinimumVisibleLayerCount,
+    int MaximumVisibleLayerCount,
+    double AverageForegroundLayerCount,
+    int MinimumForegroundLayerCount,
+    int MaximumForegroundLayerCount,
+    int BandsWithBackground,
+    int BandsWithMidground,
+    int BandsWithForeground,
+    int BandsWithAllDepthBands,
+    int BandsBelowHalfPlannedForegroundLayerCount,
+    double PlannedForegroundElementsPerShot,
+    double PlanHalfFloor,
+    bool DensityPlanViolation,
+    IReadOnlyList<LayerDensityBandMetrics> Bands);
+
+public sealed record LayerDensityBandMetrics(
+    double StartSeconds,
+    double EndSeconds,
+    int VisibleLayerCount,
+    int ForegroundLayerCount,
+    bool HasBackground,
+    bool HasMidground,
+    bool HasForeground);
+
 public sealed record MotionContinuityMetrics(
     bool MotionEvaluated,
     string? MotionVerdict,
@@ -103,6 +146,11 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
     // opinions use this so they surface as guidance without blocking export.
     private const string Advisory = Minor;
 
+    // Gate policy: typographyReadTime, elementStructure, and motionContinuity are
+    // the standing deterministic blockers. layerDensity can also block only when a
+    // motion-graphics caller supplies a quantitative plan and authored foreground
+    // density falls below half of that plan; palette/background aesthetics remain advisory.
+
     // A deviation the brief explicitly opted into is guidance, not an accident: Advisory
     // instead of a gate-failing Major. An unsignalled deviation still blocks.
     private static string IntentSeverity(bool intentPresent) => intentPresent ? Advisory : Major;
@@ -121,6 +169,8 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         bool allowDenseText,
         bool allowMultiObjectElements,
         bool allowMonochrome,
+        bool allowMinimalDensity,
+        double plannedForegroundElementsPerShot,
         bool evaluateMotion,
         CancellationToken cancellationToken)
     {
@@ -139,9 +189,17 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         int textPlateMismatchCount = AnalyzeTextBackgroundFit(scene, objects, issues);
         typography = typography with { TextPlateMismatchCount = textPlateMismatchCount };
         PaletteMetrics palette = AnalyzePalette(scene, objects, allowMonochrome, issues);
+        BackgroundRichnessMetrics backgroundRichness = AnalyzeBackgroundRichness(scene, objects, issues);
         AnalyzeMaterialUiLook(objects, relaxAesthetics, issues);
         AnalyzeDesignStructure(scene, objects, styleProfile, allowDenseText, issues);
         TempoMetrics tempo = AnalyzeTempo(scene, objects, styleProfile, relaxAesthetics, issues);
+        LayerDensityMetrics layerDensity = AnalyzeLayerDensity(
+            scene,
+            objects,
+            styleProfile,
+            allowMinimalDensity,
+            plannedForegroundElementsPerShot,
+            issues);
         MotionContinuityMetrics motion = await AnalyzeMotionAsync(
             scene,
             objects,
@@ -179,7 +237,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
             !hasBlockingIssue,
             verdict,
             issues,
-            new QualityMetrics(typography, shapeDiversity, palette, structure, tempo, motion),
+            new QualityMetrics(typography, shapeDiversity, palette, structure, tempo, backgroundRichness, layerDensity, motion),
             notes);
     }
 
@@ -666,10 +724,26 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         if (colors.Length == 0)
         {
             (int emptyHardObjects, int emptyHardTransitions) = AnalyzeGradientFalloff(scene, objects, issues);
-            return new PaletteMetrics(0, 0, 0, 0, false, false, false, emptyHardObjects, emptyHardTransitions);
+            return new PaletteMetrics(
+                0,
+                0,
+                0,
+                0,
+                false,
+                false,
+                false,
+                emptyHardObjects,
+                emptyHardTransitions,
+                1,
+                "monochromatic",
+                1,
+                1,
+                1,
+                false);
         }
 
         Hsv[] hsv = colors.Select(color => color.ToHsv()).ToArray();
+        PaletteHarmonyEvaluation harmony = ColorHarmonyEngine.EvaluatePalette(colors.Select(ToHexArgb));
         double averageSaturation = hsv.Average(item => item.S);
         double maxSaturation = hsv.Max(item => item.S);
         double minLuma = colors.Min(RelativeLuma);
@@ -721,6 +795,20 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
                 []));
         }
 
+        bool lowHarmony = !harmony.IsHarmonious && !monochromeIntent;
+        if (lowHarmony)
+        {
+            issues.Add(new QualityIssue(
+                "paletteHarmony",
+                Advisory,
+                "The palette does not land cleanly on a recognized hue-wheel relationship.",
+                $"Harmony score {harmony.Score:F2} ({harmony.BestScheme}); hue {harmony.HueRelationshipScore:F2}, saturation {harmony.SaturationBalanceScore:F2}, luma {harmony.LumaBalanceScore:F2}.",
+                "Re-derive the palette from a clear base hue using analogous, complementary, split-complementary, triadic, tetradic, or monochromatic roles; keep one saturated accent and preserve text/background luma separation.",
+                null,
+                [],
+                []));
+        }
+
         (int hardGradientObjectCount, int hardGradientTransitionCount) = AnalyzeGradientFalloff(scene, objects, issues);
 
         return new PaletteMetrics(
@@ -732,7 +820,166 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
             oversaturated,
             lowContrast,
             hardGradientObjectCount,
-            hardGradientTransitionCount);
+            hardGradientTransitionCount,
+            harmony.Score,
+            harmony.BestScheme,
+            harmony.HueRelationshipScore,
+            harmony.SaturationBalanceScore,
+            harmony.LumaBalanceScore,
+            lowHarmony);
+    }
+
+    private static BackgroundRichnessMetrics AnalyzeBackgroundRichness(
+        Scene scene,
+        IReadOnlyList<SceneObjectInfo> objects,
+        List<QualityIssue> issues)
+    {
+        SceneObjectInfo[] fullFrameBackgrounds = objects
+            .Where(item => IsFullFrameBackground(scene, item))
+            .ToArray();
+        if (fullFrameBackgrounds.Length == 0)
+        {
+            return new BackgroundRichnessMetrics(0, 0, 0);
+        }
+
+        SceneObjectInfo[] flatSingleLayerBackgrounds = fullFrameBackgrounds
+            .GroupBy(item => item.Element)
+            .Where(group => group.Count() == 1)
+            .Select(group => group.Single())
+            .Where(item => CountGradientStops(item.Object) <= 2)
+            .Where(item => CountAnimatedProperties(item.Object) == 0)
+            .Where(item => !HasProceduralBackgroundTexture(item.Object))
+            .ToArray();
+        if (fullFrameBackgrounds.Length == 1 && flatSingleLayerBackgrounds.Length == 1)
+        {
+            SceneObjectInfo info = flatSingleLayerBackgrounds[0];
+            int stops = CountGradientStops(info.Object);
+            issues.Add(new QualityIssue(
+                "backgroundRichness",
+                Advisory,
+                "The full-frame background is a flat single layer.",
+                $"One full-frame background layer uses {stops} gradient stops and has no animated background property or procedural texture.",
+                "Add at least one derived depth layer, use a 3+ stop gradient or shader texture, and animate subtle drift/parallax unless the brief explicitly calls for a still minimal field.",
+                null,
+                [info.Element.Id.ToString()],
+                [info.Object.Id.ToString()]));
+        }
+
+        int richCount = fullFrameBackgrounds.Length - flatSingleLayerBackgrounds.Length;
+        return new BackgroundRichnessMetrics(
+            fullFrameBackgrounds.Length,
+            flatSingleLayerBackgrounds.Length,
+            richCount);
+    }
+
+    private static LayerDensityMetrics AnalyzeLayerDensity(
+        Scene scene,
+        IReadOnlyList<SceneObjectInfo> objects,
+        string? styleProfile,
+        bool allowMinimalDensity,
+        double plannedForegroundElementsPerShot,
+        List<QualityIssue> issues)
+    {
+        bool motionGraphicsIntent = HasMotionGraphicsIntent(scene, objects, styleProfile);
+        double durationSeconds = Math.Max(0.001, scene.Duration.TotalSeconds);
+        int bandCount = Math.Clamp((int)Math.Ceiling(durationSeconds / 1.5), 1, 12);
+        double bandSeconds = durationSeconds / bandCount;
+        var bands = new List<LayerDensityBandMetrics>(bandCount);
+        for (int index = 0; index < bandCount; index++)
+        {
+            double startSeconds = index * bandSeconds;
+            double endSeconds = index == bandCount - 1 ? durationSeconds : startSeconds + bandSeconds;
+            TimeSpan start = TimeSpan.FromSeconds(startSeconds);
+            TimeSpan end = TimeSpan.FromSeconds(endSeconds);
+            SceneObjectInfo[] active = objects
+                .Where(item => IsVisibleDuring(item, start, end))
+                .Where(item => IsLayerDensityObject(item.Object))
+                .ToArray();
+            int visibleLayerCount = active.Length;
+            int foregroundLayerCount = active.Count(item => ClassifyDepthBand(scene, item) == DepthBand.Foreground);
+            bool hasBackground = active.Any(item => ClassifyDepthBand(scene, item) == DepthBand.Background);
+            bool hasMidground = active.Any(item => ClassifyDepthBand(scene, item) == DepthBand.Midground);
+            bool hasForeground = foregroundLayerCount > 0;
+            bands.Add(new LayerDensityBandMetrics(
+                Math.Round(startSeconds, 3, MidpointRounding.AwayFromZero),
+                Math.Round(endSeconds, 3, MidpointRounding.AwayFromZero),
+                visibleLayerCount,
+                foregroundLayerCount,
+                hasBackground,
+                hasMidground,
+                hasForeground));
+        }
+
+        double averageVisibleLayers = bands.Average(band => band.VisibleLayerCount);
+        int minimumVisibleLayers = bands.Min(band => band.VisibleLayerCount);
+        int maximumVisibleLayers = bands.Max(band => band.VisibleLayerCount);
+        double averageForegroundLayers = bands.Average(band => band.ForegroundLayerCount);
+        int minimumForegroundLayers = bands.Min(band => band.ForegroundLayerCount);
+        int maximumForegroundLayers = bands.Max(band => band.ForegroundLayerCount);
+        int bandsWithBackground = bands.Count(band => band.HasBackground);
+        int bandsWithMidground = bands.Count(band => band.HasMidground);
+        int bandsWithForeground = bands.Count(band => band.HasForeground);
+        int bandsWithAllDepthBands = bands.Count(band => band.HasBackground && band.HasMidground && band.HasForeground);
+        double plannedForeground = Math.Max(0, plannedForegroundElementsPerShot);
+        double halfFloor = plannedForeground > 0 ? plannedForeground / 2d : 0;
+        int bandsBelowHalfPlan = halfFloor > 0
+            ? bands.Count(band => band.ForegroundLayerCount + 0.0001 < halfFloor)
+            : 0;
+        bool densityPlanViolation = motionGraphicsIntent && bandsBelowHalfPlan > 0;
+        bool minimalIntent = allowMinimalDensity || IsMinimalProfile(styleProfile) || AnyMinimalDensityIntent(objects);
+
+        if (motionGraphicsIntent
+            && (averageVisibleLayers < 3
+                || bandsWithAllDepthBands == 0
+                || bandsWithForeground < bandCount))
+        {
+            issues.Add(new QualityIssue(
+                "layerDensity",
+                Advisory,
+                "The motion-graphics scene has thin layer density or incomplete depth coverage.",
+                $"Average visible layers {averageVisibleLayers:F1}; all three depth bands present in {bandsWithAllDepthBands}/{bandCount} time bands; foreground present in {bandsWithForeground}/{bandCount}.",
+                minimalIntent
+                    ? "Intentional minimal density is allowed; verify the negative space is part of the brief and not an omitted layer stack."
+                    : "Add visible background, midground, and foreground layers per shot, such as surface texture, depth accents, typography, particles, strokes, or concrete UI/editor marks.",
+                null,
+                scene.Children.Select(element => element.Id.ToString()).ToArray(),
+                objects.Select(item => item.Object.Id.ToString()).ToArray()));
+        }
+
+        if (densityPlanViolation)
+        {
+            issues.Add(new QualityIssue(
+                "layerDensity",
+                IntentSeverity(minimalIntent),
+                "Authored foreground density falls below half of the quantitative plan.",
+                $"{bandsBelowHalfPlan}/{bandCount} time bands have fewer than {halfFloor:F1} foreground layers; planned foreground elements per shot {plannedForeground:F1}, minimum authored foreground layers {minimumForegroundLayers}.",
+                minimalIntent
+                    ? "Intentional sparse/minimal density is allowed; record why the authored result intentionally departs from the quantitativePlanSheet before export."
+                    : "Add the missing foreground layers or revise the quantitativePlanSheet. Do not export a motion-graphics scene whose authored density shrank below half of the plan.",
+                null,
+                scene.Children.Select(element => element.Id.ToString()).ToArray(),
+                objects.Select(item => item.Object.Id.ToString()).ToArray()));
+        }
+
+        return new LayerDensityMetrics(
+            motionGraphicsIntent,
+            bandCount,
+            Math.Round(bandSeconds, 3, MidpointRounding.AwayFromZero),
+            Math.Round(averageVisibleLayers, 3, MidpointRounding.AwayFromZero),
+            minimumVisibleLayers,
+            maximumVisibleLayers,
+            Math.Round(averageForegroundLayers, 3, MidpointRounding.AwayFromZero),
+            minimumForegroundLayers,
+            maximumForegroundLayers,
+            bandsWithBackground,
+            bandsWithMidground,
+            bandsWithForeground,
+            bandsWithAllDepthBands,
+            bandsBelowHalfPlan,
+            Math.Round(plannedForeground, 3, MidpointRounding.AwayFromZero),
+            Math.Round(halfFloor, 3, MidpointRounding.AwayFromZero),
+            densityPlanViolation,
+            bands);
     }
 
     private static void AnalyzeMaterialUiLook(
@@ -981,6 +1228,136 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
                || info.Element.ZIndex <= 1
                || ContainsAny(info.Element.Name, "background", "field", "backdrop", "surface")
                || ContainsAny(info.Object.Name, "background", "field", "backdrop", "surface");
+    }
+
+    private static bool IsFullFrameBackground(Scene scene, SceneObjectInfo info)
+    {
+        if (!IsBackgroundObject(scene, info))
+        {
+            return false;
+        }
+
+        ObjectBounds bounds = GetBounds(scene, info);
+        double sceneArea = Math.Max(1, scene.FrameSize.Width * scene.FrameSize.Height);
+        double objectArea = bounds.Width * bounds.Height;
+        return objectArea >= sceneArea * 0.85
+               || (bounds.Width >= scene.FrameSize.Width * 0.90
+                   && bounds.Height >= scene.FrameSize.Height * 0.90);
+    }
+
+    private static int CountGradientStops(EngineObject obj)
+    {
+        return obj switch
+        {
+            Shape shape when shape.Fill.CurrentValue is GradientBrush gradient => gradient.GradientStops.Count,
+            TextBlock text when text.Fill.CurrentValue is GradientBrush gradient => gradient.GradientStops.Count,
+            _ => 0
+        };
+    }
+
+    private static bool HasProceduralBackgroundTexture(EngineObject obj)
+    {
+        return obj is Drawable drawable
+               && FlattenEffects(drawable.FilterEffect.CurrentValue).Any(effect => effect is SKSLScriptEffect);
+    }
+
+    private static bool HasMotionGraphicsIntent(
+        Scene scene,
+        IReadOnlyList<SceneObjectInfo> objects,
+        string? styleProfile)
+    {
+        if (ContainsAny(
+                styleProfile,
+                "motion",
+                "motion-graphics",
+                "motion graphics",
+                "kinetic",
+                "promo",
+                "title",
+                "logo reveal",
+                "infographic",
+                "opener"))
+        {
+            return true;
+        }
+
+        if (ContainsAny(scene.Name, "motion", "kinetic", "promo", "title", "logo reveal", "infographic"))
+        {
+            return true;
+        }
+
+        return objects.Any(item => ContainsAny(
+            $"{item.Element.Name} {item.Object.Name}",
+            "motion",
+            "kinetic",
+            "promo",
+            "title sequence",
+            "logo reveal",
+            "infographic"));
+    }
+
+    private static bool IsMinimalProfile(string? styleProfile)
+    {
+        return ContainsAny(
+            styleProfile,
+            "minimal",
+            "minimalism",
+            "sparse",
+            "negative-space",
+            "negative space",
+            "poster",
+            "quiet");
+    }
+
+    private static bool AnyMinimalDensityIntent(IReadOnlyList<SceneObjectInfo> objects)
+        => objects.Any(HasMinimalDensityIntent);
+
+    private static bool HasMinimalDensityIntent(SceneObjectInfo info)
+    {
+        return HasRole(info, "minimal", "minimalism", "sparse", "negative-space", "poster", "quiet")
+               || ContainsAny(info.Element.Name, "minimal", "minimalism", "sparse", "negative space", "negative-space", "poster field", "quiet field")
+               || ContainsAny(info.Object.Name, "minimal", "minimalism", "sparse", "negative space", "negative-space", "poster field", "quiet field");
+    }
+
+    private static bool IsVisibleDuring(SceneObjectInfo info, TimeSpan start, TimeSpan end)
+    {
+        if (info.Element.Length <= TimeSpan.Zero)
+        {
+            return false;
+        }
+
+        if (info.Element.Start >= end || info.Element.Start + info.Element.Length <= start)
+        {
+            return false;
+        }
+
+        return info.Object is not Drawable drawable
+               || drawable.Opacity.CurrentValue > 0.01;
+    }
+
+    private static bool IsLayerDensityObject(EngineObject obj)
+    {
+        return obj is not PortalObject
+               && obj is Drawable;
+    }
+
+    private static DepthBand ClassifyDepthBand(Scene scene, SceneObjectInfo info)
+    {
+        if (IsBackgroundObject(scene, info))
+        {
+            return DepthBand.Background;
+        }
+
+        string name = $"{info.Element.Name} {info.Object.Name}";
+        if (HasRole(info, "foreground", "hero", "focal", "primary", "text", "accent")
+            || info.Object is TextBlock
+            || info.Element.ZIndex >= 8
+            || ContainsAny(name, "foreground", "hero", "focal", "primary", "title", "logo", "caption", "label", "accent hit"))
+        {
+            return DepthBand.Foreground;
+        }
+
+        return DepthBand.Midground;
     }
 
     private static bool HasShapeIntent(SceneObjectInfo info)
@@ -1821,6 +2198,9 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
     private static double RelativeLuma(Color color)
         => ((0.2126 * color.R) + (0.7152 * color.G) + (0.0722 * color.B)) / 255d;
 
+    private static string ToHexArgb(Color color)
+        => FormattableString.Invariant($"#{color.A:x2}{color.R:x2}{color.G:x2}{color.B:x2}");
+
     private static string Shorten(string text)
     {
         string normalized = text.ReplaceLineEndings(" ").Trim();
@@ -1850,4 +2230,11 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
     private readonly record struct SceneObjectInfo(Element Element, EngineObject Object);
 
     private readonly record struct ObjectBounds(double CenterX, double CenterY, double Width, double Height);
+
+    private enum DepthBand
+    {
+        Background,
+        Midground,
+        Foreground
+    }
 }
