@@ -589,6 +589,17 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 if (Interlocked.Exchange(ref processing, 1) != 0) return;
                 try
                 {
+                    // A Pause() timeout may have disowned this task while it is still blocked in the
+                    // WhenAll below; once a newer session has claimed, stop the loop instead of
+                    // dequeuing frames or writing shared preview state (PreviewImage / CurrentTime /
+                    // IsPlaying) over the session that replaced it. The generation guard on the
+                    // finally alone runs too late — the timer keeps firing until PlayInternal returns.
+                    if (!_sessionGuard.Owns(generation))
+                    {
+                        tcs.TrySetResult(true);
+                        return;
+                    }
+
                     var expectFrame = ComputeExpectFrame();
                     if (_stopRequested || !IsPlaying.Value || expectFrame >= endFrame)
                     {
