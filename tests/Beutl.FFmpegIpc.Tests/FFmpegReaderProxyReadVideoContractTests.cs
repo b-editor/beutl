@@ -97,8 +97,8 @@ public class FFmpegReaderProxyReadVideoContractTests
             "ReadVideo on an audio-only reader must surface the worker's CreateError as a thrown FFmpegWorkerException, not a silent false");
     }
 
-    // The CopyWorkerBinary target lays the worker's output flat into the test bin dir. Nuke publishes
-    // isolate it under an FFmpegWorker/ subdir, so probe both — mirroring FFmpegWorkerProcess.ResolveWorkerCommand.
+    // CopyWorkerBinary lays the worker flat into the test bin dir, but Nuke publish isolates it under an
+    // FFmpegWorker/ subdir, so probe both — mirroring FFmpegWorkerProcess.ResolveWorkerCommand.
     private static bool WorkerBinaryPresent()
     {
         string baseDir = AppContext.BaseDirectory;
