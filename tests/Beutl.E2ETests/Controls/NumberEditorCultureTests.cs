@@ -7,11 +7,8 @@ using Beutl.Controls.PropertyEditors;
 
 namespace Beutl.E2ETests.Controls;
 
-// Regression coverage for the CurrentUICulture-vs-CurrentCulture bug: the numeric property editors
-// must format and parse values with the regional CurrentCulture, not the UI-language
-// CurrentUICulture. These tests model a machine whose UI language is English (en-US) but whose
-// regional format is German (de-DE, comma decimal separator) — a split the earlier tests never
-// exercised because they used a single culture for both the editor and the expected string.
+// Numeric property editors format and parse with the regional CurrentCulture, not the UI-language
+// CurrentUICulture. These tests split the two: UI language en-US, regional format de-DE (comma decimal).
 [TestFixture]
 public class NumberEditorCultureTests
 {
