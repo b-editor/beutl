@@ -7,13 +7,9 @@ using Beutl.Media.Music.Samples;
 
 namespace Beutl.FFmpegWorker.Tests;
 
-// A cancelled Encode must throw OperationCanceledException (both callers already catch it). This
-// pins the shared contract on the FFmpeg-native backend: FFmpegEncodingController got the identical
-// cancellationToken.ThrowIfCancellationRequested() fix as AVFEncodingController (PR #1894) but had
-// no test of its own. Unlike AVFoundation (macOS-only), FFmpeg runs wherever its native libraries
-// are present, so this fixture guards on native availability (Assert.Ignore) rather than a fixed
-// [Platform]: it exercises the real cancellation path where FFmpeg is installed and self-skips
-// where it is not.
+// A cancelled Encode must throw OperationCanceledException. FFmpeg runs wherever its native
+// libraries are present, so this fixture guards on native availability (Assert.Ignore) rather than
+// a fixed [Platform].
 [TestFixture]
 public class EncodingCancellationTests
 {
@@ -93,7 +89,6 @@ public class EncodingCancellationTests
             Throws.InstanceOf<OperationCanceledException>());
     }
 
-    // Cancels the token right after the first frame, so the loop's next iteration sees cancellation.
     private sealed class CancelAfterFirstFrameProvider(
         CancellationTokenSource cts, long frameCount, Rational frameRate, int width, int height)
         : IFrameProvider
