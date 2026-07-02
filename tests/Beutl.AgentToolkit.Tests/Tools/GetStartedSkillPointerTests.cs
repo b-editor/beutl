@@ -48,6 +48,21 @@ public sealed class GetStartedSkillPointerTests
     }
 
     [Test]
+    public void Get_started_recommends_subdivided_storyboard_review_after_motion_authoring()
+    {
+        var queryTools = new QueryTools(new AgentSessionManager());
+
+        GettingStartedResponse response = queryTools.GetStarted().Value!;
+
+        Assert.That(
+            response.RecommendedCalls.Any(call =>
+                call.Contains("subdivisionLevel:1", StringComparison.Ordinal)
+                && call.Contains("subdivisionLevel:2", StringComparison.Ordinal)
+                && call.Contains("bridge animations", StringComparison.Ordinal)),
+            Is.True);
+    }
+
+    [Test]
     public void Get_started_skill_names_match_the_bundled_skill_set()
     {
         var queryTools = new QueryTools(new AgentSessionManager());

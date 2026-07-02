@@ -69,6 +69,30 @@ public sealed class StoryboardRendererTests
     }
 
     [Test]
+    public void Render_contact_sheet_png_labels_inbetween_frames_with_subdivision_marker()
+    {
+        string workspace = CreateWorkspace();
+        var frame = new StoryboardContactSheetFrame(
+            "between:intro~detail@L2:1/4",
+            0.75,
+            WriteFrame(workspace, "between.png", 200, 100, SKColors.MediumPurple),
+            "inbetween",
+            2);
+
+        StoryboardContactSheetPng result = new StoryboardRenderer().RenderContactSheetPng([frame]);
+        using SKBitmap bitmap = Decode(result.Bytes);
+        int captionTop = StoryboardRenderer.Padding + result.Layout.ImageHeight;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                StoryboardRenderer.CreateLabel(frame),
+                Is.EqualTo("00:00:00.750  inbetween L2  between:intro~detail@L2:1/4"));
+            Assert.That(ContainsDarkPixel(bitmap, captionTop, captionTop + StoryboardRenderer.LabelHeight), Is.True);
+        });
+    }
+
+    [Test]
     public void Render_contact_sheet_png_is_deterministic_for_same_inputs()
     {
         string workspace = CreateWorkspace();

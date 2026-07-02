@@ -153,7 +153,10 @@ public sealed class StoryboardRenderer
 
     internal static string CreateLabel(StoryboardContactSheetFrame frame)
     {
-        return $"{FormatTimecode(frame.TimeSeconds)}  {frame.Name}";
+        string prefix = string.Equals(frame.Kind, "inbetween", StringComparison.Ordinal)
+            ? $"inbetween L{frame.SubdivisionLevel}  "
+            : string.Empty;
+        return $"{FormatTimecode(frame.TimeSeconds)}  {prefix}{frame.Name}";
     }
 
     private static string FormatTimecode(double timeSeconds)
@@ -183,7 +186,9 @@ public sealed class StoryboardRenderer
 public sealed record StoryboardContactSheetFrame(
     string Name,
     double TimeSeconds,
-    string StillPath);
+    string StillPath,
+    string Kind = "shot",
+    int SubdivisionLevel = 0);
 
 internal sealed record StoryboardContactSheetPng(
     byte[] Bytes,

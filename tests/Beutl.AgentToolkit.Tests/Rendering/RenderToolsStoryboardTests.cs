@@ -22,6 +22,101 @@ public sealed class RenderToolsStoryboardTests
     private static readonly JsonSerializerOptions s_jsonOptions = new(JsonSerializerDefaults.Web);
 
     [Test]
+    public void Resolve_storyboard_frames_subdivides_explicit_shots_at_binary_points()
+    {
+        var scene = new Scene(16, 9, "subdivision") { Duration = TimeSpan.FromSeconds(1) };
+        StoryboardShotInput[] shots =
+        [
+            new("left", 0),
+            new("right", 1)
+        ];
+
+        RenderTools.ResolvedStoryboardFrame[] level1 = RenderTools.ResolveStoryboardFrames(scene, shots, 1).ToArray();
+        RenderTools.ResolvedStoryboardFrame[] level2 = RenderTools.ResolveStoryboardFrames(scene, shots, 2).ToArray();
+        RenderTools.ResolvedStoryboardFrame[] level3 = RenderTools.ResolveStoryboardFrames(scene, shots, 3).ToArray();
+
+        Assert.Multiple(() =>
+        {
+            AssertTimes(level1, [0, 0.5, 1]);
+            AssertTimes(level2, [0, 0.25, 0.5, 0.75, 1]);
+            AssertTimes(level3, [0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1]);
+            Assert.That(level2.Select(frame => frame.Kind), Is.EqualTo(new[]
+            {
+                "shot",
+                "inbetween",
+                "inbetween",
+                "inbetween",
+                "shot"
+            }));
+            Assert.That(level2.Select(frame => frame.SubdivisionLevel), Is.EqualTo(new[] { 0, 2, 1, 2, 0 }));
+            Assert.That(level2[1].Name, Is.EqualTo("between:left~right@L2:1/4"));
+            Assert.That(level2[2].Name, Is.EqualTo("between:left~right@L1:1/2"));
+            Assert.That(level2[3].Name, Is.EqualTo("between:left~right@L2:3/4"));
+        });
+    }
+
+    [Test]
+    public void Resolve_storyboard_frames_clamps_level_deduplicates_with_half_frame_tolerance_and_keeps_order()
+    {
+        var scene = new Scene(16, 9, "subdivision") { Duration = TimeSpan.FromSeconds(1) };
+        StoryboardShotInput[] nearDuplicateShots =
+        [
+            new("left", 0),
+            new("near-left", 0.010),
+            new("right", 1)
+        ];
+
+        RenderTools.ResolvedStoryboardFrame[] levelMinus = RenderTools.ResolveStoryboardFrames(scene, nearDuplicateShots, -10).ToArray();
+        RenderTools.ResolvedStoryboardFrame[] levelOne = RenderTools.ResolveStoryboardFrames(scene, nearDuplicateShots, 1).ToArray();
+        RenderTools.ResolvedStoryboardFrame[] levelLarge = RenderTools.ResolveStoryboardFrames(scene, [new("left", 0), new("right", 1)], 99).ToArray();
+
+        Assert.Multiple(() =>
+        {
+            AssertTimes(levelMinus, [0, 0.010, 1]);
+            Assert.That(levelMinus.Select(frame => frame.Name), Is.EqualTo(new[] { "left", "near-left", "right" }));
+            AssertTimes(levelOne, [0, 0.5, 1]);
+            Assert.That(levelOne.Select(frame => frame.Name), Is.EqualTo(new[]
+            {
+                "left",
+                "between:left~right@L1:1/2",
+                "right"
+            }));
+            AssertTimes(levelLarge, [0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1]);
+            Assert.That(levelLarge.Max(frame => frame.SubdivisionLevel), Is.EqualTo(3));
+        });
+    }
+
+    [Test]
+    public void Resolve_storyboard_frames_subdivides_auto_derived_element_midpoints()
+    {
+        string workspace = CreateWorkspace();
+        Scene scene = CreateStaticStoryboardScene(workspace);
+
+        RenderTools.ResolvedStoryboardFrame[] frames = RenderTools.ResolveStoryboardFrames(scene, null, 1).ToArray();
+
+        Assert.Multiple(() =>
+        {
+            AssertTimes(frames, [0.5, 1.0, 1.5, 2.0, 2.5]);
+            Assert.That(frames.Select(frame => frame.Name), Is.EqualTo(new[]
+            {
+                "opening",
+                "between:opening~middle@L1:1/2",
+                "middle",
+                "between:middle~closing@L1:1/2",
+                "closing"
+            }));
+            Assert.That(frames.Select(frame => frame.Kind), Is.EqualTo(new[]
+            {
+                "shot",
+                "inbetween",
+                "shot",
+                "inbetween",
+                "shot"
+            }));
+        });
+    }
+
+    [Test]
     public async Task Render_storyboard_explicit_shots_writes_contact_sheet_and_visibility_analysis_without_motion_output()
     {
         string workspace = CreateWorkspace();
@@ -47,11 +142,88 @@ public sealed class RenderToolsStoryboardTests
             Assert.That(result.Value!.Status, Is.EqualTo("completed"));
             Assert.That(result.Value.JobId, Is.Null);
             Assert.That(result.Value.Result!.Shots, Has.Count.EqualTo(2));
+            Assert.That(result.Value.Result.Shots.Select(shot => shot.Kind), Has.All.EqualTo("shot"));
+            Assert.That(result.Value.Result.Shots.Select(shot => shot.SubdivisionLevel), Has.All.EqualTo(0));
             Assert.That(File.Exists(result.Value.Result.ContactSheetPath), Is.True);
             Assert.That(result.Value.Result.Shots.Select(shot => shot.StillPath), Has.All.Matches<string>(File.Exists));
             Assert.That(result.Value.Result.Shots.Select(shot => shot.VisibilityAnalysis), Has.All.Not.Null);
             Assert.That(typeof(RenderStoryboardResponse).GetProperties().Select(property => property.Name), Has.None.Contains("Motion"));
             Assert.That(result.Error, Is.Null);
+        });
+    }
+
+    [Test]
+    public async Task Render_storyboard_subdivision_response_contains_inbetween_shape_and_deterministic_names()
+    {
+        string workspace = CreateWorkspace();
+        Scene scene = CreateStaticStoryboardScene(workspace);
+        using var session = new AgentToolkitTestSession(scene);
+        RenderTools tools = CreateTools(workspace, session);
+
+        CallToolResult call = await tools.RenderStoryboard(
+            [
+                new StoryboardShotInput("opening", 0.5),
+                new StoryboardShotInput("detail", 1.5)
+            ],
+            outputDirectory: "storyboards",
+            basename: "subdivided",
+            subdivisionLevel: 2,
+            cancellationToken: CancellationToken.None);
+        ToolResult<RenderStoryboardResult> result = ReadToolResult<RenderStoryboardResult>(call);
+
+        RenderStoryboardShot[] renderedShots = result.Value!.Result!.Shots.ToArray();
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+            Assert.That(renderedShots.Select(shot => shot.TimeSeconds), Is.EqualTo(new[] { 0.5, 0.75, 1.0, 1.25, 1.5 }).Within(0.000001));
+            Assert.That(renderedShots.Select(shot => shot.Kind), Is.EqualTo(new[]
+            {
+                "shot",
+                "inbetween",
+                "inbetween",
+                "inbetween",
+                "shot"
+            }));
+            Assert.That(renderedShots.Select(shot => shot.SubdivisionLevel), Is.EqualTo(new[] { 0, 2, 1, 2, 0 }));
+            Assert.That(renderedShots.Select(shot => shot.Name), Is.EqualTo(new[]
+            {
+                "opening",
+                "between:opening~detail@L2:1/4",
+                "between:opening~detail@L1:1/2",
+                "between:opening~detail@L2:3/4",
+                "detail"
+            }));
+            Assert.That(renderedShots.Select(shot => shot.StillPath), Has.All.Matches<string>(File.Exists));
+            Assert.That(File.Exists(result.Value.Result.ContactSheetPath), Is.True);
+        });
+    }
+
+    [Test]
+    public async Task Render_storyboard_rejects_requests_above_frame_count_cap()
+    {
+        string workspace = CreateWorkspace();
+        var scene = new Scene(16, 9, "too-many") { Duration = TimeSpan.FromSeconds(60) };
+        using var session = new AgentToolkitTestSession(scene);
+        RenderTools tools = CreateTools(workspace, session);
+
+        StoryboardShotInput[] shots = Enumerable.Range(0, 49)
+            .Select(index => new StoryboardShotInput($"shot-{index}", index))
+            .ToArray();
+        CallToolResult call = await tools.RenderStoryboard(
+            shots,
+            outputDirectory: "storyboards",
+            basename: "too-many",
+            cancellationToken: CancellationToken.None);
+        ToolResult<RenderStoryboardResult> result = ReadToolResult<RenderStoryboardResult>(call);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(result.Error.Target, Is.EqualTo("subdivisionLevel"));
+            Assert.That(result.Error.Message, Does.Contain("48"));
+            Assert.That(result.Error.Message, Does.Contain("Lower subdivisionLevel"));
+            Assert.That(Directory.Exists(Path.Combine(workspace, "storyboards")), Is.False);
         });
     }
 
@@ -75,6 +247,8 @@ public sealed class RenderToolsStoryboardTests
             Assert.That(result.Value!.Status, Is.EqualTo("completed"));
             Assert.That(result.Value.Result!.Shots, Has.Count.EqualTo(scene.Children.Count));
             Assert.That(result.Value.Result.Shots.Select(shot => shot.Name), Is.EquivalentTo(scene.Children.Select(element => element.Name)));
+            Assert.That(result.Value.Result.Shots.Select(shot => shot.Kind), Has.All.EqualTo("shot"));
+            Assert.That(result.Value.Result.Shots.Select(shot => shot.SubdivisionLevel), Has.All.EqualTo(0));
             Assert.That(File.Exists(result.Value.Result.ContactSheetPath), Is.True);
         });
     }
@@ -460,6 +634,20 @@ public sealed class RenderToolsStoryboardTests
         TextContentBlock text = result.Content.OfType<TextContentBlock>().Single();
         return JsonSerializer.Deserialize<ToolResult<T>>(text.Text, s_jsonOptions)
                ?? throw new InvalidOperationException("Tool result JSON could not be deserialized.");
+    }
+
+    private static void AssertTimes(
+        IReadOnlyList<RenderTools.ResolvedStoryboardFrame> frames,
+        IReadOnlyList<double> expectedSeconds)
+    {
+        Assert.That(
+            frames.Select(frame => frame.Time.TotalSeconds).ToArray(),
+            Is.EqualTo(expectedSeconds.ToArray()).Within(0.000001));
+        Assert.That(
+            frames.Select(frame => frame.Time.TotalSeconds).SequenceEqual(
+                frames.Select(frame => frame.Time.TotalSeconds).OrderBy(time => time)),
+            Is.True,
+            "storyboard frames must stay chronological");
     }
 
     private static SKBitmap Decode(ImageContentBlock image)

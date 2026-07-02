@@ -10,7 +10,7 @@ Use this skill after a Beutl Agent Editing Toolkit scene has rendered stills or 
 ## Inputs
 
 - Rendered still PNGs from `render_still`, preferably with `returnImageContent=true` when the MCP client supports image blocks.
-- A storyboard contact sheet from `render_storyboard`, preferably with `returnImageContent=true` on a synchronous call.
+- A storyboard contact sheet from `render_storyboard`, preferably with `returnImageContent=true` on a synchronous call. For motion-phase review, prefer a subdivided storyboard (`subdivisionLevel:1`, or `2` for suspicious gaps) so in-between frames expose cut continuity.
 - The user brief, target duration, mood, and any accepted creative constraints.
 - Existing deterministic results from `preview_quality_risks`, `evaluate_motion_variation`, `evaluate_edit_quality`, or `final_preflight` when available.
 
@@ -33,7 +33,7 @@ Axes:
 - `compositionWhitespace`: alignment, safe areas, focal point clarity, balance, cropping, and purposeful negative space.
 - `layerDensityDepth`: visible background, midground, foreground, accents, texture, and depth without clutter.
 - `backgroundRichness`: backdrop material, gradients, shaders, texture, and detail that avoid a flat low-effort surface.
-- `motionArc`: opening, development, transition energy, easing feel, staging, and final resolve as inferred from the contact sheet or video.
+- `motionArc`: opening, development, transition energy, easing feel, staging, shot-to-shot continuity, and final resolve as inferred from the contact sheet or video. When subdivided storyboard frames are available, score shot-to-shot continuity from `kind: "inbetween"` frames, not just anchor shots.
 
 ## Finding Rule
 
@@ -56,7 +56,7 @@ Bad:
 1. Confirm deterministic hard blockers first. `typographyReadTime`, `elementStructure`, `motionContinuity`, supplied-plan `layerDensity` violations, still visibility warnings, and missing explicit animation for motion graphics remain the only hard-blocking gate family unless the coordinator has documented an intentional exception. A `layerDensity` issue is hard-blocking only when authored motion-graphics foreground density is below half of the supplied `quantitativePlanSheet` target; minimal/negative-space briefs must use `allowMinimalDensity` or an equivalent role tag to keep it advisory.
 2. Inspect the rendered images directly. Use the image content block when present; otherwise read the PNG paths.
 3. Score all six axes. Include a one-sentence evidence note per score tied to a visible frame or contact-sheet region.
-4. Produce concrete edit directives for scores 1-3. A score of 4 may include optional polish. A score of 5 should not request edits.
+4. Produce concrete edit directives for scores 1-3. A score of 4 may include optional polish. A score of 5 should not request edits. For `motionArc`, convert weak in-between frames into bridge-animation directives: carry an element across the cut, add a sweep or wipe, preserve shared background motion, or overlap transform/opacity ramps. If in-betweens look identical to anchors except for a hard swap, call out the slideshow cut and name the adjacent shot pair.
 5. Group directives into the smallest coherent revision pass. Prefer edits that can be made through `apply_edit`, `duplicate_object`, role tags, effect recipes, or timing changes.
 6. Re-render the affected stills or storyboard after a revision and repeat the rubric.
 7. Stop after at most 2 revise passes. If the third review would still request aesthetic changes, hand off to the human with the advisory, the latest contact sheet path, and the remaining concrete directives.

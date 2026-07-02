@@ -49,6 +49,12 @@ public sealed class AgentToolkitInstallerTests
             assets.Single(x => x.RelativePath == "beutl-agent-timeline-from-shotlist/SKILL.md").Content,
             Does.Contain("Contrast Exemplars - derive, don't copy"));
         Assert.That(
+            assets.Single(x => x.RelativePath == "beutl-agent-timeline-from-shotlist/SKILL.md").Content,
+            Does.Contain("subdivisionLevel: 1"));
+        Assert.That(
+            assets.Single(x => x.RelativePath == "beutl-agent-timeline-from-shotlist/SKILL.md").Content,
+            Does.Contain("cutContinuityActuals"));
+        Assert.That(
             assets.Single(x => x.RelativePath == "beutl-agent-look-effect-chain/SKILL.md").Content,
             Does.Contain("get_background_grammar"));
         Assert.That(
@@ -61,13 +67,20 @@ public sealed class AgentToolkitInstallerTests
             assets.Single(x => x.RelativePath == "beutl-agent-visual-review/SKILL.md").Content,
             Does.Contain("paletteHarmony"));
         Assert.That(
+            assets.Single(x => x.RelativePath == "beutl-agent-visual-review/SKILL.md").Content,
+            Does.Contain("subdivisionLevel:1"));
+        Assert.That(
             assets.Single(x => x.RelativePath == "beutl-agent-timeline-builder.md").Content,
             Does.Contain("evaluate_motion_variation"));
         Assert.That(
             assets.Single(x => x.RelativePath == "beutl-agent-timeline-builder.md").Content,
             Does.Contain("animate-float-property-keyframes"));
+        Assert.That(
+            assets.Single(x => x.RelativePath == "beutl-agent-timeline-builder.md").Content,
+            Does.Contain("subdivisionLevel:1"));
         Assert.That(assets.Single(x => x.RelativePath == "beutl-agent-look-applier.md").Content, Does.Contain("render_still"));
         Assert.That(assets.Single(x => x.RelativePath == "beutl-agent-quality-reviewer.md").Content, Does.Contain("final_preflight"));
+        Assert.That(assets.Single(x => x.RelativePath == "beutl-agent-quality-reviewer.md").Content, Does.Contain("subdivisionLevel:1"));
     }
 
     [Test]

@@ -54,7 +54,9 @@ public sealed record RenderStoryboardShot(
     string Name,
     double TimeSeconds,
     string StillPath,
-    StillFrameVisibilityAnalysis? VisibilityAnalysis);
+    StillFrameVisibilityAnalysis? VisibilityAnalysis,
+    string Kind = "shot",
+    int SubdivisionLevel = 0);
 
 public sealed record StoryboardShotInput(
     string Name,

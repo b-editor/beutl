@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Beutl;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Rendering;
@@ -26,6 +27,11 @@ public sealed class RenderTools(
 {
     private static readonly JsonSerializerOptions s_jobResultOptions = new(JsonSerializerDefaults.Web);
     private static readonly JsonSerializerOptions s_toolResultOptions = new(JsonSerializerDefaults.Web);
+    private const int DefaultSceneFrameRate = 30;
+    private const int MaxStoryboardFrameCount = 48;
+    private const int MaxStoryboardSubdivisionLevel = 3;
+    private const string StoryboardFrameKindShot = "shot";
+    private const string StoryboardFrameKindInbetween = "inbetween";
 
     [McpServerTool(Name = "render_still")]
     [Description("Renders a still PNG from the current scene to a workspace-relative output path and returns visibility warnings for blank or near-black frames. Bare filenames are written under agent-output/. By default the tool returns the same JSON text payload as before; pass returnImageContent:true to append a downscaled image/png content block for multimodal review.")]
@@ -63,7 +69,7 @@ public sealed class RenderTools(
     }
 
     [McpServerTool(Name = "render_storyboard")]
-    [Description("Renders a storyboard contact sheet from explicit shots or one auto-derived midpoint per timeline Element. Writes individual still PNGs and the contact sheet inside BEUTL_WORKSPACE. For scenes with many Elements this can exceed the MCP client request timeout; pass background:true to run it as a job and poll read_render_job(jobId) instead. By default the tool returns the same JSON text payload as before; pass returnImageContent:true on a synchronous call to append one downscaled image/png contact-sheet content block.")]
+    [Description("Renders a storyboard contact sheet from explicit shots or one auto-derived midpoint per timeline Element. Writes individual still PNGs and the contact sheet inside BEUTL_WORKSPACE. Pass subdivisionLevel:1..3 to insert binary in-between frames between adjacent shots for transition review. For scenes with many Elements this can exceed the MCP client request timeout; pass background:true to run it as a job and poll read_render_job(jobId) instead. By default the tool returns the same JSON text payload as before; pass returnImageContent:true on a synchronous call to append one downscaled image/png contact-sheet content block.")]
     public ValueTask<CallToolResult> RenderStoryboard(
         [Description("Optional explicit storyboard shots. When omitted, one midpoint is derived per timeline Element.")]
         StoryboardShotInput[]? shots = null,
@@ -79,6 +85,8 @@ public sealed class RenderTools(
         bool background = false,
         [Description("When true on a synchronous call, append a downscaled image/png MCP content block of the storyboard contact sheet. Cannot be combined with background:true because the image is not available until the job completes.")]
         bool returnImageContent = false,
+        [Description("Binary subdivision depth for in-between frames between adjacent shots. 0 keeps the current one-frame-per-shot behavior; 1 adds midpoints, 2 adds quarter points, 3 adds eighth points. Values are clamped to 0..3.")]
+        int subdivisionLevel = 0,
         CancellationToken cancellationToken = default)
     {
         return ExecuteMcpAsync<RenderStoryboardResult>(async () =>
@@ -91,14 +99,19 @@ public sealed class RenderTools(
             }
 
             Scene scene = RequireScene();
-            IReadOnlyList<ResolvedStoryboardShot> resolvedShots = ResolveStoryboardShots(scene, shots);
+            int normalizedSubdivisionLevel = NormalizeStoryboardSubdivisionLevel(subdivisionLevel);
+            IReadOnlyList<ResolvedStoryboardFrame> resolvedShots = ResolveStoryboardFrames(
+                scene,
+                shots,
+                normalizedSubdivisionLevel);
+            ValidateStoryboardFrameCount(resolvedShots.Count, normalizedSubdivisionLevel);
             string normalizedDirectory = NormalizeStoryboardDirectory(outputDirectory);
             string safeBasename = NormalizeStoryboardBasename(basename);
 
-            var plannedShots = new List<(ResolvedStoryboardShot Shot, string ResolvedPath)>(resolvedShots.Count);
+            var plannedShots = new List<(ResolvedStoryboardFrame Shot, string ResolvedPath)>(resolvedShots.Count);
             for (int i = 0; i < resolvedShots.Count; i++)
             {
-                ResolvedStoryboardShot shot = resolvedShots[i];
+                ResolvedStoryboardFrame shot = resolvedShots[i];
                 string stillPath = Path.Combine(
                     normalizedDirectory,
                     $"{safeBasename}-shot-{i:D2}-{Math.Max(0, (long)Math.Round(shot.Time.TotalMilliseconds)):D8}ms.png");
@@ -115,7 +128,7 @@ public sealed class RenderTools(
             {
                 var renderedShots = new List<RenderStoryboardShot>(plannedShots.Count);
                 var contactSheetFrames = new List<StoryboardContactSheetFrame>(plannedShots.Count);
-                foreach ((ResolvedStoryboardShot shot, string resolvedPath) in plannedShots)
+                foreach ((ResolvedStoryboardFrame shot, string resolvedPath) in plannedShots)
                 {
                     RenderStillResponse still = await stillRenderer.RenderAsync(
                         scene,
@@ -127,11 +140,15 @@ public sealed class RenderTools(
                         shot.Name,
                         shot.Time.TotalSeconds,
                         still.OutputPath,
-                        still.VisibilityAnalysis));
+                        still.VisibilityAnalysis,
+                        shot.Kind,
+                        shot.SubdivisionLevel));
                     contactSheetFrames.Add(new StoryboardContactSheetFrame(
                         shot.Name,
                         shot.Time.TotalSeconds,
-                        still.OutputPath));
+                        still.OutputPath,
+                        shot.Kind,
+                        shot.SubdivisionLevel));
                 }
 
                 storyboardRenderer.RenderContactSheet(contactSheetFrames, resolvedContactSheetPath);
@@ -153,7 +170,12 @@ public sealed class RenderTools(
                 ? ImageContentBlock.FromBytes(
                     storyboardRenderer.RenderContactSheetPng(
                         response.Shots
-                            .Select(shot => new StoryboardContactSheetFrame(shot.Name, shot.TimeSeconds, shot.StillPath))
+                            .Select(shot => new StoryboardContactSheetFrame(
+                                shot.Name,
+                                shot.TimeSeconds,
+                                shot.StillPath,
+                                shot.Kind,
+                                shot.SubdivisionLevel))
                             .ToArray(),
                         ImagePreviewEncoder.DefaultMaxLongEdge).Bytes,
                     "image/png")
@@ -852,6 +874,179 @@ public sealed class RenderTools(
             "render_storyboard requires explicit shots or at least one timeline Element."));
     }
 
+    internal static IReadOnlyList<ResolvedStoryboardFrame> ResolveStoryboardFrames(
+        Scene scene,
+        StoryboardShotInput[]? shots,
+        int subdivisionLevel)
+    {
+        IReadOnlyList<ResolvedStoryboardShot> anchors = ResolveStoryboardShots(scene, shots);
+        int normalizedSubdivisionLevel = NormalizeStoryboardSubdivisionLevel(subdivisionLevel);
+        if (normalizedSubdivisionLevel == 0)
+        {
+            return anchors
+                .Select(shot => new ResolvedStoryboardFrame(
+                    shot.Name,
+                    shot.Time,
+                    StoryboardFrameKindShot,
+                    0))
+                .ToArray();
+        }
+
+        TimeSpan dedupeTolerance = GetStoryboardDedupeTolerance(scene);
+        ResolvedStoryboardShot[] dedupedAnchors = DeduplicateStoryboardAnchors(anchors, dedupeTolerance);
+        if (dedupedAnchors.Length == 0)
+        {
+            return [];
+        }
+
+        int denominator = 1 << normalizedSubdivisionLevel;
+        var frames = new List<ResolvedStoryboardFrame>(dedupedAnchors.Length * denominator);
+        for (int i = 0; i < dedupedAnchors.Length; i++)
+        {
+            ResolvedStoryboardShot left = dedupedAnchors[i];
+            frames.Add(new ResolvedStoryboardFrame(
+                left.Name,
+                left.Time,
+                StoryboardFrameKindShot,
+                0));
+
+            if (i == dedupedAnchors.Length - 1)
+            {
+                continue;
+            }
+
+            ResolvedStoryboardShot right = dedupedAnchors[i + 1];
+            TimeSpan gap = right.Time - left.Time;
+            if (gap <= dedupeTolerance)
+            {
+                continue;
+            }
+
+            for (int numerator = 1; numerator < denominator; numerator++)
+            {
+                TimeSpan time = Interpolate(left.Time, right.Time, numerator, denominator);
+                if (IsDuplicateStoryboardTime(time, left.Time, dedupeTolerance)
+                    || IsDuplicateStoryboardTime(time, right.Time, dedupeTolerance)
+                    || (frames.Count > 0 && IsDuplicateStoryboardTime(time, frames[^1].Time, dedupeTolerance)))
+                {
+                    continue;
+                }
+
+                (int reducedNumerator, int reducedDenominator, int frameSubdivisionLevel) =
+                    ReduceBinaryFraction(numerator, denominator);
+                frames.Add(new ResolvedStoryboardFrame(
+                    CreateInbetweenName(
+                        left.Name,
+                        right.Name,
+                        frameSubdivisionLevel,
+                        reducedNumerator,
+                        reducedDenominator),
+                    time,
+                    StoryboardFrameKindInbetween,
+                    frameSubdivisionLevel));
+            }
+        }
+
+        return frames;
+    }
+
+    internal static int NormalizeStoryboardSubdivisionLevel(int subdivisionLevel)
+    {
+        return Math.Clamp(subdivisionLevel, 0, MaxStoryboardSubdivisionLevel);
+    }
+
+    private static void ValidateStoryboardFrameCount(int frameCount, int subdivisionLevel)
+    {
+        if (frameCount <= MaxStoryboardFrameCount)
+        {
+            return;
+        }
+
+        throw new ReconcileException(new ToolError(
+            ErrorCode.ValidationRejected,
+            $"render_storyboard would render {frameCount} frames, above the limit of {MaxStoryboardFrameCount}. Lower subdivisionLevel or narrow the shots before rendering.",
+            "subdivisionLevel",
+            subdivisionLevel > 0
+                ? "Lower subdivisionLevel, pass fewer shots, or split the storyboard review into narrower shot ranges."
+                : "Pass fewer shots or split the storyboard review into narrower shot ranges."));
+    }
+
+    private static ResolvedStoryboardShot[] DeduplicateStoryboardAnchors(
+        IReadOnlyList<ResolvedStoryboardShot> anchors,
+        TimeSpan tolerance)
+    {
+        var result = new List<ResolvedStoryboardShot>(anchors.Count);
+        foreach (ResolvedStoryboardShot anchor in anchors)
+        {
+            if (result.Count == 0
+                || !IsDuplicateStoryboardTime(anchor.Time, result[^1].Time, tolerance))
+            {
+                result.Add(anchor);
+            }
+        }
+
+        return [.. result];
+    }
+
+    private static TimeSpan GetStoryboardDedupeTolerance(Scene scene)
+    {
+        int frameRate = GetSceneFrameRate(scene);
+        return TimeSpan.FromSeconds(0.5d / frameRate);
+    }
+
+    private static int GetSceneFrameRate(Scene scene)
+    {
+        Project? project = scene.FindHierarchicalParent<Project>();
+        if (project?.Variables.TryGetValue(ProjectVariableKeys.FrameRate, out string? value) == true
+            && int.TryParse(value, out int rate)
+            && rate > 0)
+        {
+            return rate;
+        }
+
+        return DefaultSceneFrameRate;
+    }
+
+    private static bool IsDuplicateStoryboardTime(TimeSpan left, TimeSpan right, TimeSpan tolerance)
+    {
+        return (left - right).Duration() <= tolerance;
+    }
+
+    private static TimeSpan Interpolate(TimeSpan left, TimeSpan right, int numerator, int denominator)
+    {
+        long ticks = left.Ticks + (long)Math.Round((right.Ticks - left.Ticks) * (numerator / (double)denominator));
+        return TimeSpan.FromTicks(Math.Max(0, ticks));
+    }
+
+    private static (int Numerator, int Denominator, int SubdivisionLevel) ReduceBinaryFraction(
+        int numerator,
+        int denominator)
+    {
+        while (numerator % 2 == 0 && denominator % 2 == 0)
+        {
+            numerator /= 2;
+            denominator /= 2;
+        }
+
+        int level = 0;
+        for (int value = denominator; value > 1; value >>= 1)
+        {
+            level++;
+        }
+
+        return (numerator, denominator, level);
+    }
+
+    private static string CreateInbetweenName(
+        string leftName,
+        string rightName,
+        int subdivisionLevel,
+        int numerator,
+        int denominator)
+    {
+        return $"between:{leftName}~{rightName}@L{subdivisionLevel}:{numerator}/{denominator}";
+    }
+
     private static string NormalizeStoryboardDirectory(string outputDirectory)
     {
         return string.IsNullOrWhiteSpace(outputDirectory)
@@ -981,7 +1176,13 @@ public sealed class RenderTools(
             "The current editing session is not attached to a scene."));
     }
 
-    private sealed record ResolvedStoryboardShot(
+    internal sealed record ResolvedStoryboardFrame(
+        string Name,
+        TimeSpan Time,
+        string Kind,
+        int SubdivisionLevel);
+
+    internal sealed record ResolvedStoryboardShot(
         string Name,
         TimeSpan Time);
 }

@@ -264,6 +264,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 "Use render_composition_patch only when the client explicitly needs the generated template patch JSON.",
                 "Call list_examples/get_examples for small schema snippets or as a fallback when a user asks for an example; full-scene starters are hidden by default.",
                 "Call final_preflight before export_video when available; otherwise call render_still for representative frames, record planned-element visibility/readability plus layer density/contrast, run evaluate_motion_variation, then run evaluate_edit_quality and resolve critical/major issues before export_video.",
+                "After authoring motion, re-render the storyboard with subdivisionLevel:1; raise to subdivisionLevel:2 for suspicious gaps. Review the in-between frames for cut continuity, and add bridge animations when hard cuts have no shared motion, sweep, overlap, opacity ramp, or background continuity.",
                 "For visual review in multimodal clients, call render_still or render_storyboard with returnImageContent=true, then apply the beutl-agent-visual-review rubric for advisory concrete edit directives."
             ],
             [
