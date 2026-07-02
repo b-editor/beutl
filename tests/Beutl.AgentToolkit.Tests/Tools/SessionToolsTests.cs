@@ -1,4 +1,4 @@
-using Beutl.AgentToolkit.Common;
+﻿using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;

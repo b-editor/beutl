@@ -568,24 +568,24 @@ public sealed class Reconciler
             case CoreObject coreObject:
                 return FindFirstNewFallbackCore(coreObject, path, existingFallbackIds, visited);
             case IEnumerable enumerable when value is not string:
-            {
-                int index = 0;
-                foreach (object? item in enumerable)
                 {
-                    if (FindFirstNewFallbackInValue(
-                            item,
-                            $"{path}[{index}]",
-                            existingFallbackIds,
-                            visited) is { } occurrence)
+                    int index = 0;
+                    foreach (object? item in enumerable)
                     {
-                        return occurrence;
+                        if (FindFirstNewFallbackInValue(
+                                item,
+                                $"{path}[{index}]",
+                                existingFallbackIds,
+                                visited) is { } occurrence)
+                        {
+                            return occurrence;
+                        }
+
+                        index++;
                     }
 
-                    index++;
+                    break;
                 }
-
-                break;
-            }
         }
 
         return null;
