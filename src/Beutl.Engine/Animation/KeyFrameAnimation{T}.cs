@@ -30,9 +30,14 @@ public class KeyFrameAnimation<T> : KeyFrameAnimation, IAnimation<T>
 
     public T? GetAnimatedValue(TimeSpan time)
     {
-        if (_parent != null && !UseGlobalClock)
+        if (!UseGlobalClock)
         {
-            return Interpolate(time - _parent.TimeRange.Start);
+            EngineObject? parent = this.FindHierarchicalParent<EngineObject>();
+            _parent = parent;
+            if (parent != null)
+            {
+                return Interpolate(time - parent.TimeRange.Start);
+            }
         }
 
         return Interpolate(time);
