@@ -7,7 +7,7 @@ namespace Beutl.AgentToolkit.Tests.Tools;
 public sealed class GetStartedSkillPointerTests
 {
     [Test]
-    public void Get_started_recommends_the_three_composition_planning_skills()
+    public void Get_started_recommends_the_bundled_agent_skills()
     {
         var queryTools = new QueryTools(new AgentSessionManager());
 
@@ -20,7 +20,8 @@ public sealed class GetStartedSkillPointerTests
             {
                 "beutl-agent-timeline-from-shotlist",
                 "beutl-agent-look-effect-chain",
-                "beutl-agent-source-grounding"
+                "beutl-agent-source-grounding",
+                "beutl-agent-visual-review"
             }));
             Assert.That(
                 response.RecommendedSkills.All(s =>

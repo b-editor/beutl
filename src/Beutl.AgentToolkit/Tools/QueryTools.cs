@@ -260,7 +260,8 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 "When using a composition template, call list_compositions, choose a specific returned name that matches the user's request, then pass that name to plan_composition and apply_composition with the returned planId.",
                 "Use render_composition_patch only when the client explicitly needs the generated template patch JSON.",
                 "Call list_examples/get_examples for small schema snippets or as a fallback when a user asks for an example; full-scene starters are hidden by default.",
-                "Call final_preflight before export_video when available; otherwise call render_still for representative frames, record planned-element visibility/readability plus layer density/contrast, run evaluate_motion_variation, then run evaluate_edit_quality and resolve critical/major issues before export_video."
+                "Call final_preflight before export_video when available; otherwise call render_still for representative frames, record planned-element visibility/readability plus layer density/contrast, run evaluate_motion_variation, then run evaluate_edit_quality and resolve critical/major issues before export_video.",
+                "For visual review in multimodal clients, call render_still or render_storyboard with returnImageContent=true, then apply the beutl-agent-visual-review rubric for advisory concrete edit directives."
             ],
             [
                 new RecommendedSkill(
@@ -274,6 +275,10 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 new RecommendedSkill(
                     "beutl-agent-source-grounding",
                     "Before authoring anything involving coordinates or origin, TranslateTransform/TransformOrigin, object bounds, text measurement, render/export scale, effect-parameter units, reconciliation, or live-session semantics.",
+                    "Load it through your agent's skill mechanism (e.g. the Skill tool) or read the installed SKILL.md placed next to this toolkit by Beutl's AI agent settings."),
+                new RecommendedSkill(
+                    "beutl-agent-visual-review",
+                    "After rendering stills or a storyboard contact sheet when an agent or reviewer needs a six-axis visual-quality pass with concrete edit directives. This is advisory unless the caller makes it policy.",
                     "Load it through your agent's skill mechanism (e.g. the Skill tool) or read the installed SKILL.md placed next to this toolkit by Beutl's AI agent settings."),
             ],
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
@@ -290,7 +295,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 ["stroke"] = "Pen",
                 ["ease"] = "Easing"
             },
-            "Raw HTTP MCP responses are Server-Sent Events. Read the JSON from the data: line, then decode result.content[0].text as the tool JSON payload. notifications/initialized may return no body."));
+            "Raw HTTP MCP responses are Server-Sent Events. Read the JSON from the data: line, then decode result.content[0].text as the tool JSON payload. When returnImageContent=true, subsequent content blocks may include image/png data for visual review. notifications/initialized may return no body."));
     }
 
     [McpServerTool(Name = "list_creative_directions")]
