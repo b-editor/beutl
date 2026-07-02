@@ -154,7 +154,8 @@ public sealed class ReadDocumentTests
     public void Creative_directions_use_seeded_shuffle_and_surface_recent_fingerprints()
     {
         string workspace = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        var memory = new CreativeMemoryStore(workspace);
+        string global = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        var memory = new CreativeMemoryStore(workspace, globalRoot: global);
         memory.Record(new CreativeDirectionFingerprint(
             "Paper archive resolve",
             ["paper base", "warning accent"],
