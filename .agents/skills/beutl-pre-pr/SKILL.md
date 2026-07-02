@@ -77,7 +77,7 @@ Report the first 5 unique CS-codes plus `file:line` on failure.
 
 ### 4. (full only) Targeted tests
 
-Map each touched `src/` project to its test project (see `tests/AGENTS.md`). Run the union:
+Map each touched `src/` project to its test project (see `tests/CLAUDE.md`). Run the union:
 
 ```bash
 dotnet test Beutl.slnx -f net10.0 --settings coverlet.runsettings \
