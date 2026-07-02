@@ -1,4 +1,5 @@
-﻿using Beutl.AgentToolkit.Sessions;
+﻿using Beutl.AgentToolkit.Installation;
+using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tools;
 
 namespace Beutl.AgentToolkit.Tests.Tools;
@@ -43,5 +44,23 @@ public sealed class GetStartedSkillPointerTests
                 && c.Contains("beutl-agent-timeline-from-shotlist", StringComparison.Ordinal)),
             Is.True,
             "RecommendedCalls should carry a lead pointer to the skills for clients that ignore the structured field");
+    }
+
+    [Test]
+    public void Get_started_skill_names_match_the_bundled_skill_set()
+    {
+        var queryTools = new QueryTools(new AgentSessionManager());
+        string[] recommended = queryTools.GetStarted().Value!
+            .RecommendedSkills.Select(s => s.Name).ToArray();
+
+        string[] bundled = BundledAgentToolkitAssets.Load()
+            .Where(a => a.Kind == AgentToolkitAssetKind.Skill)
+            .Select(a => a.RelativePath.Split('/')[0])
+            .ToArray();
+
+        Assert.That(
+            recommended,
+            Is.EquivalentTo(bundled),
+            "get_started's recommendedSkills must stay in sync with the bundled skill set; update GetStarted() when a skill is added, removed, or renamed in BundledAgentToolkitAssets");
     }
 }
