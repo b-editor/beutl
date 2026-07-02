@@ -229,7 +229,10 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 "Call attach_active_editor for an open editor scene; if it fails or no editor is available, call create_project or open_project for a file-backed session instead of writing a one-off generator.",
                 "Call read_document_summary to inspect progress without the full document.",
                 "Call measure_object_bounds before positioning text, backing plates, or centered objects; default Drawable alignment is centered, so TranslateTransform(0, 0) means the object's center is at the frame center.",
-                "For original creative briefs, call list_creative_directions, synthesize an original pitch from at least two inspiration seeds, read_document, and get_schema only for the drawable/effect types you need, then author a custom declarative patch instead of cloning a starter.",
+                "For original creative briefs, call list_creative_directions, synthesize an original pitch from at least two inspiration seeds, record why the subject leads to the hue/tone/motion vocabulary, then call derive_palette and get_background_grammar before authoring colors or backgrounds.",
+                "Call derive_palette with the recorded base hue, tonal seed, harmony scheme, derivation reason, and structural signature. Resolve any hue-band or structural repeat warnings before apply_edit unless the repeat is intentional and recorded.",
+                "Call get_background_grammar before creating a motion-graphics background. Instantiate one base layer, one required depth layer, optional second depth layer, and one motion slot with at least background/midground/foreground depth bands.",
+                "After deriving palette and background grammar, read_document and get_schema only for the drawable/effect types you need, then author a custom declarative patch instead of cloning a starter.",
                 "For a one-call original starting point, call plan_original_scaffold to get a gate-clean skeleton patch (background role, headline/subtitle, placeholder foreground) with a generated palette and seed-varied layout, then customize every placeholder and apply it with apply_edit. This is an original skeleton, not a named template like apply_composition.",
                 "Call list_effects and list_effect_recipes to discover Beutl's visual effect palette before choosing a repeated look; for organic heat/ink/glass/noise fields, consider an SKSLScriptEffect shader recipe instead of stacking only blurred gradients.",
                 "For SKSL/GLSL/CSharp script effects, read the default script and uniform list from get_schema(type=<effect>), then call validate_shader to compile-check an edited script before apply_edit; for SKSL, a compile error makes the effect a no-op and the source passes through unchanged.",
@@ -320,7 +323,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 appliedOffset,
                 seedMaterial,
                 inspirationSeeds.Select(seed => seed.Name).ToArray(),
-                "Record the authored concept label, palette roles, motion verbs, structural signature, stimulus names used, and recentToAvoid comparison in notes.md before editing.");
+                "Record the authored concept label, palette roles, motion verbs, structural signature, brief-to-hue/tone/motion reason, derive_palette result, background grammar choices, and recentToAvoid comparison in notes.md before editing.");
 
             return new CreativeDirectionResponse(
                 SchemaVersion.Current,
@@ -337,8 +340,10 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 [
                     "Author the concept, palette roles, type system, motion vocabulary, and shot structure yourself before writing any patch.",
                     "Use returned seeds only as divergent stimulus after the original direction exists.",
-                    "Write a one-line direction contract that names objective, audience, emotional temperature, message hierarchy, brand posture, and delivery surface.",
+                    "Write a one-line direction contract that names objective, audience, emotional temperature, message hierarchy, brand posture, delivery surface, and the brief-derived reason for hue, tone, and motion vocabulary.",
                     "Change structural language from recentToAvoid: layout logic, dominant material, motion verbs, palette role balance, and final resolve behavior.",
+                    "Call derive_palette from the authored hue/tone seed and structural signature; handle any recent-memory repeat warnings before authoring.",
+                    "Call get_background_grammar and instantiate concrete background slots from the brief instead of copying a finished recipe.",
                     "Write your own element/object names from the authored pitch; do not reuse returned seed names as scene names.",
                     "If the user supplied constraints, keep the constraints literal and treat the seeds as optional ways to make the result less generic."
                 ],
@@ -367,7 +372,9 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 ],
                 [
                     "Do not pick a returned seed as the concept. Author the direction first, then compare stimulus against recentToAvoid.",
-                    "Record the seed names/categories, authored pitch, and recentToAvoid divergence in notes before creating elements.",
+                    "Record the seed names/categories, authored pitch, the reason for hue/tone/motion vocabulary, and recentToAvoid divergence in notes before creating elements.",
+                    "Call derive_palette with derivationReason and structuralSignature before choosing concrete colors; if it reports a hue-band or structural repeat, revise or record why the repeat is intentional.",
+                    "Call get_background_grammar, then instantiate the base/depth/motion slots with brief-derived values and at least background/midground/foreground depth bands.",
                     "Call record_creative_direction once the concept is locked.",
                     "Map your synthesized pitch to named Element/Object entries before writing a patch.",
                     "Map BPM requests to beat-grid durations before writing a patch; for 120-140 BPM, use 1-2 beat foreground events and avoid long unbroken foreground holds.",
@@ -399,7 +406,8 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                     "When placing a backing plate behind text, create a named text/backing pair with matching Start/Length, centered transforms, and clear padding."
                 ],
                 [
-                    "Assign explicit roles before authoring: background, text, accent, support, and shadow.",
+                    "Assign explicit roles before authoring: bg-base, bg-accent, foreground, text-primary, accent, support, and shadow.",
+                    "Use derive_palette instead of hand-selecting fixed palettes; it guarantees text-primary contrast of at least 4.5:1 against bg-base/bg-accent and object contrast of at least 3.0:1 against bg-base.",
                     "Use a neutral or muted base plus one saturated accent; avoid dark teal with cyan and magenta unless the user asks for that specific look.",
                     "Keep text and backing plates separated by luma, not just hue, and treat readable text contrast as a hard delivery requirement.",
                     "If three or more colors are highly saturated, mute at least one support color before exporting."
