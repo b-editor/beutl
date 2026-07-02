@@ -75,9 +75,15 @@ public sealed record RenderCompositionPatchResponse(
     CompositionRender Composition,
     string UsageHint);
 
+public sealed record RecommendedSkill(
+    string Name,
+    string WhenToUse,
+    string HowToLoad);
+
 public sealed record GettingStartedResponse(
     string SchemaVersion,
     IReadOnlyList<string> RecommendedCalls,
+    IReadOnlyList<RecommendedSkill> RecommendedSkills,
     IReadOnlyDictionary<string, string> CategoryAliases,
     string RawHttpNote);
 
@@ -219,6 +225,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
         return Execute(() => new GettingStartedResponse(
             SchemaVersion.Current,
             [
+                "Before planning a composition, load the matching skill from recommendedSkills and follow it — especially beutl-agent-timeline-from-shotlist for any shot, timeline, or storyboard planning.",
                 "Call attach_active_editor for an open editor scene; if it fails or no editor is available, call create_project or open_project for a file-backed session instead of writing a one-off generator.",
                 "Call read_document_summary to inspect progress without the full document.",
                 "Call measure_object_bounds before positioning text, backing plates, or centered objects; default Drawable alignment is centered, so TranslateTransform(0, 0) means the object's center is at the frame center.",
@@ -254,6 +261,20 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 "Use render_composition_patch only when the client explicitly needs the generated template patch JSON.",
                 "Call list_examples/get_examples for small schema snippets or as a fallback when a user asks for an example; full-scene starters are hidden by default.",
                 "Call final_preflight before export_video when available; otherwise call render_still for representative frames, record planned-element visibility/readability plus layer density/contrast, run evaluate_motion_variation, then run evaluate_edit_quality and resolve critical/major issues before export_video."
+            ],
+            [
+                new RecommendedSkill(
+                    "beutl-agent-timeline-from-shotlist",
+                    "Before planning a video's composition or timeline: turning a brief, shot list, or storyboard into shots, beat grids, layout, motion phases, and quality preflight. Load this at the start of composition planning.",
+                    "Load it through your agent's skill mechanism (e.g. the Skill tool) or read the installed SKILL.md placed next to this toolkit by Beutl's AI agent settings."),
+                new RecommendedSkill(
+                    "beutl-agent-look-effect-chain",
+                    "When applying a consistent look or effect chain across elements or shots (color, blur, shadow, stylization, cross-shot consistency).",
+                    "Load it through your agent's skill mechanism (e.g. the Skill tool) or read the installed SKILL.md placed next to this toolkit by Beutl's AI agent settings."),
+                new RecommendedSkill(
+                    "beutl-agent-source-grounding",
+                    "Before authoring anything involving coordinates or origin, TranslateTransform/TransformOrigin, object bounds, text measurement, render/export scale, effect-parameter units, reconciliation, or live-session semantics.",
+                    "Load it through your agent's skill mechanism (e.g. the Skill tool) or read the installed SKILL.md placed next to this toolkit by Beutl's AI agent settings."),
             ],
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
