@@ -61,6 +61,9 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     private Task _playbackTask = Task.CompletedTask;
     private bool _isShuttling;
     private readonly PlaybackSessionGuard _sessionGuard = new();
+    // Serializes RestoreStoppedPreviewState so PlayInternal's finally and Pause()'s timeout path
+    // cannot interleave the dispose/resubscribe and Scene.Edited unhook/hook steps across threads.
+    private readonly object _restoreLock = new();
 
     // Set by Pause(), cleared by Play(). Cancels a loop re-arm when a pause lands in the
     // brief IsPlaying=false window at a loop boundary that gating on IsPlaying would miss.
@@ -562,7 +565,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             playerImpl.Start();
 
             var clock = new AudioPlaybackClock();
-            var audioTask = PlayAudio(Scene, clock, startTime);
+            var audioTask = PlayAudio(Scene, clock, startTime, generation);
 
             // 音声バッファの準備に1フレーム以上かかると、映像だけが先に進んでしまい、
             // その後音声がアンカーされた瞬間に「映像が先行した状態」で止まってしまう。
@@ -688,7 +691,9 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
         // ループが有効でユーザーによる停止ではない場合、ループ先頭に戻して再開を要求。
         // loopStart は購読で最新化されているため、再生中の In/Out 変更にも追従する。
-        if (IsLoopEnabled.Value && reachedNaturalEnd && Scene != null)
+        // A task disowned by a Pause() timeout must not rewind the playhead of a stopped editor or
+        // the session that replaced it, so gate the shared CurrentTime write on ownership too.
+        if (IsLoopEnabled.Value && reachedNaturalEnd && Scene != null && _sessionGuard.Owns(generation))
         {
             _editorClock.CurrentTime.Value = Scene.Start;
             return true;
@@ -703,22 +708,25 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     // PlayInternal's finally and Pause()'s timeout path both run it around an abandoned task.
     private void RestoreStoppedPreviewState()
     {
-        IsPlaying.Value = false;
-        BufferStatusViewModel bufferStatus = EditViewModel.BufferStatus;
-        bufferStatus.StartTime.Value = TimeSpan.Zero;
-        bufferStatus.EndTime.Value = TimeSpan.Zero;
-        FrameCacheManager frameCacheManager = EditViewModel.FrameCacheManager.Value;
-        frameCacheManager.Options = frameCacheManager.Options with
+        lock (_restoreLock)
         {
-            DeletionStrategy = FrameCacheDeletionStrategy.Old
-        };
+            IsPlaying.Value = false;
+            BufferStatusViewModel bufferStatus = EditViewModel.BufferStatus;
+            bufferStatus.StartTime.Value = TimeSpan.Zero;
+            bufferStatus.EndTime.Value = TimeSpan.Zero;
+            FrameCacheManager frameCacheManager = EditViewModel.FrameCacheManager.Value;
+            frameCacheManager.Options = frameCacheManager.Options with
+            {
+                DeletionStrategy = FrameCacheDeletionStrategy.Old
+            };
 
-        _currentFrameSubscription?.Dispose();
-        _currentFrameSubscription = CurrentFrame.Subscribe(UpdateCurrentFrame);
-        if (Scene != null)
-        {
-            Scene.Edited -= OnSceneEdited;
-            Scene.Edited += OnSceneEdited;
+            _currentFrameSubscription?.Dispose();
+            _currentFrameSubscription = CurrentFrame.Subscribe(UpdateCurrentFrame);
+            if (Scene != null)
+            {
+                Scene.Edited -= OnSceneEdited;
+                Scene.Edited += OnSceneEdited;
+            }
         }
     }
 
@@ -1009,7 +1017,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         });
     }
 
-    private async Task PlayAudio(Scene scene, AudioPlaybackClock clock, TimeSpan startTime)
+    private async Task PlayAudio(Scene scene, AudioPlaybackClock clock, TimeSpan startTime, int generation)
     {
         try
         {
@@ -1032,7 +1040,12 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             NotificationService.ShowError(MessageStrings.UnexpectedError,
                 MessageStrings.AudioPlaybackException);
             _logger.LogError(ex, "An exception occurred during audio playback.");
-            IsPlaying.Value = false;
+            // Only stop the session this task owns: a fault from an audio backend abandoned by a
+            // Pause() timeout must not clear IsPlaying on the session that replaced it.
+            if (_sessionGuard.Owns(generation))
+            {
+                IsPlaying.Value = false;
+            }
         }
         finally
         {
