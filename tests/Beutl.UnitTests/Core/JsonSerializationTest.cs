@@ -130,12 +130,8 @@ public class JsonSerializationTest
         Assert.That(elm1, Is.Not.Null);
     }
 
-    // 参照オブジェクト(Uri付きCoreObject)を SaveObjectToFile 経由で保存する際、
-    // その親ディレクトリが未作成でも例外を出さずに保存できることを確認する（回帰テスト）。
-    // 修正前は File.Create が DirectoryNotFoundException を投げていた。
-    // 子要素を持たない Scene を新規サブディレクトリに保存することで、
-    // 子の StoreToUri がディレクトリを先に作ってしまう経路を避け、
-    // SaveObjectToFile 自身のディレクトリ作成責務を検証する。
+    // 子要素を持たない Scene を使うこと。子があると子の StoreToUri が先にディレクトリを
+    // 作ってしまい、SaveObjectToFile 自身のディレクトリ作成責務を検証できなくなる。
     [Test]
     public void SaveReferencedObjects_CreatesMissingParentDirectories()
     {
