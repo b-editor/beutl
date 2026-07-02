@@ -172,14 +172,23 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         bool allowMinimalDensity,
         double plannedForegroundElementsPerShot,
         bool evaluateMotion,
-        CancellationToken cancellationToken)
+        string? videoType = null,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(scene);
+
+        VideoTypeProfile? videoProfile = string.IsNullOrWhiteSpace(videoType)
+            ? null
+            : VideoTypeCatalog.Resolve(videoType);
+        VideoTypeGateProfile gateProfile = videoProfile?.GateProfile ?? VideoTypeGateProfile.None;
 
         // relaxAesthetics only suppresses non-blocking aesthetic/pacing advisories; the
         // blocking checks (read time, element structure, motion) still run regardless.
         bool relaxRectDominance = allowRectDominance || relaxAesthetics;
         bool relaxHardCuts = allowHardCuts || relaxAesthetics;
+        bool resolvedAllowStillness = allowStillness || gateProfile.ImpliedAllowStillness;
+        bool resolvedAllowMinimalDensity = allowMinimalDensity || gateProfile.ImpliedAllowMinimalDensity;
+        string? tempoStyleProfile = ResolveTempoStyleProfile(styleProfile, gateProfile);
 
         SceneObjectInfo[] objects = EnumerateObjects(scene).ToArray();
         List<QualityIssue> issues = [];
@@ -189,17 +198,30 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         int textPlateMismatchCount = AnalyzeTextBackgroundFit(scene, objects, issues);
         typography = typography with { TextPlateMismatchCount = textPlateMismatchCount };
         PaletteMetrics palette = AnalyzePalette(scene, objects, allowMonochrome, issues);
-        BackgroundRichnessMetrics backgroundRichness = AnalyzeBackgroundRichness(scene, objects, issues);
+        BackgroundRichnessMetrics backgroundRichness = AnalyzeBackgroundRichness(
+            scene,
+            objects,
+            gateProfile.SuppressBackgroundRichness,
+            issues);
         AnalyzeMaterialUiLook(objects, relaxAesthetics, issues);
-        AnalyzeDesignStructure(scene, objects, styleProfile, allowDenseText, issues);
-        TempoMetrics tempo = AnalyzeTempo(scene, objects, styleProfile, relaxAesthetics, issues);
+        AnalyzeDesignStructure(
+            scene,
+            objects,
+            styleProfile,
+            allowDenseText,
+            gateProfile.SuppressCaptionRoleHierarchy,
+            issues);
+        TempoMetrics tempo = AnalyzeTempo(scene, objects, tempoStyleProfile, relaxAesthetics, issues);
         LayerDensityMetrics layerDensity = AnalyzeLayerDensity(
             scene,
             objects,
             styleProfile,
-            allowMinimalDensity,
+            resolvedAllowMinimalDensity,
+            gateProfile.ForceMotionGraphicsIntentOff,
+            gateProfile.SuppressLayerDensityPlanGate,
             plannedForegroundElementsPerShot,
             issues);
+        AnalyzeTimelineCoverage(scene, objects, gateProfile.RunTimelineCoverage, issues);
         MotionContinuityMetrics motion = await AnalyzeMotionAsync(
             scene,
             objects,
@@ -208,8 +230,10 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
             renderScale,
             relaxHardCuts,
             relaxAesthetics,
-            allowStillness,
+            resolvedAllowStillness,
             evaluateMotion,
+            gateProfile.SuppressCutRhythm,
+            gateProfile.RewordCutRhythmForTransitions,
             issues,
             cancellationToken).ConfigureAwait(false);
 
@@ -231,6 +255,11 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         if (!string.IsNullOrWhiteSpace(styleProfile))
         {
             notes.Add($"Style profile: {styleProfile.Trim()}.");
+        }
+
+        if (videoProfile is not null)
+        {
+            notes.Add($"Video type: {videoProfile.Name} (implied: {string.Join("; ", gateProfile.DescribeAdjustments())}).");
         }
 
         return new QualityReviewResponse(
@@ -297,6 +326,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         IReadOnlyList<SceneObjectInfo> objects,
         string? styleProfile,
         bool allowDenseText,
+        bool suppressCaptionRoleHierarchy,
         List<QualityIssue> issues)
     {
         bool highTempoProfile = IsHighTempoProfile(styleProfile);
@@ -306,7 +336,8 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
             .ToArray();
 
         SceneObjectInfo[] concurrentDominantTextObjects = FindMaxConcurrentDominantText(dominantTextObjects);
-        if (concurrentDominantTextObjects.Length >= 4)
+        if (concurrentDominantTextObjects.Length >= 4
+            && (!suppressCaptionRoleHierarchy || !concurrentDominantTextObjects.All(IsCaptionRoleText)))
         {
             issues.Add(new QualityIssue(
                 "visualHierarchy",
@@ -832,6 +863,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
     private static BackgroundRichnessMetrics AnalyzeBackgroundRichness(
         Scene scene,
         IReadOnlyList<SceneObjectInfo> objects,
+        bool suppressIssue,
         List<QualityIssue> issues)
     {
         SceneObjectInfo[] fullFrameBackgrounds = objects
@@ -850,7 +882,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
             .Where(item => CountAnimatedProperties(item.Object) == 0)
             .Where(item => !HasProceduralBackgroundTexture(item.Object))
             .ToArray();
-        if (fullFrameBackgrounds.Length == 1 && flatSingleLayerBackgrounds.Length == 1)
+        if (!suppressIssue && fullFrameBackgrounds.Length == 1 && flatSingleLayerBackgrounds.Length == 1)
         {
             SceneObjectInfo info = flatSingleLayerBackgrounds[0];
             int stops = CountGradientStops(info.Object);
@@ -877,10 +909,13 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         IReadOnlyList<SceneObjectInfo> objects,
         string? styleProfile,
         bool allowMinimalDensity,
+        bool forceMotionGraphicsIntentOff,
+        bool suppressPlanGate,
         double plannedForegroundElementsPerShot,
         List<QualityIssue> issues)
     {
-        bool motionGraphicsIntent = HasMotionGraphicsIntent(scene, objects, styleProfile);
+        bool motionGraphicsIntent = !forceMotionGraphicsIntentOff
+                                    && HasMotionGraphicsIntent(scene, objects, styleProfile);
         double durationSeconds = Math.Max(0.001, scene.Duration.TotalSeconds);
         int bandCount = Math.Clamp((int)Math.Ceiling(durationSeconds / 1.5), 1, 12);
         double bandSeconds = durationSeconds / bandCount;
@@ -925,7 +960,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         int bandsBelowHalfPlan = halfFloor > 0
             ? bands.Count(band => band.ForegroundLayerCount + 0.0001 < halfFloor)
             : 0;
-        bool densityPlanViolation = motionGraphicsIntent && bandsBelowHalfPlan > 0;
+        bool densityPlanViolation = motionGraphicsIntent && !suppressPlanGate && bandsBelowHalfPlan > 0;
         bool minimalIntent = allowMinimalDensity || IsMinimalProfile(styleProfile) || AnyMinimalDensityIntent(objects);
 
         if (motionGraphicsIntent
@@ -982,6 +1017,70 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
             bands);
     }
 
+    private static void AnalyzeTimelineCoverage(
+        Scene scene,
+        IReadOnlyList<SceneObjectInfo> objects,
+        bool enabled,
+        List<QualityIssue> issues)
+    {
+        if (!enabled)
+        {
+            return;
+        }
+
+        double durationSeconds = Math.Max(0, scene.Duration.TotalSeconds);
+        if (durationSeconds <= 0)
+        {
+            return;
+        }
+
+        (double Start, double End)[] intervals = scene.Children
+            .Where(element => element.Length > TimeSpan.Zero)
+            .Where(element => objects.Any(info => info.Element == element && IsVisibleTimelineObject(info.Object)))
+            .Select(element => (
+                Start: Math.Clamp(element.Start.TotalSeconds, 0, durationSeconds),
+                End: Math.Clamp((element.Start + element.Length).TotalSeconds, 0, durationSeconds)))
+            .Where(interval => interval.End > interval.Start)
+            .OrderBy(interval => interval.Start)
+            .ThenBy(interval => interval.End)
+            .ToArray();
+
+        var gaps = new List<(double Start, double End)>();
+        double cursor = 0;
+        foreach ((double start, double end) in intervals)
+        {
+            if (start - cursor > 0.5)
+            {
+                gaps.Add((cursor, start));
+            }
+
+            cursor = Math.Max(cursor, end);
+        }
+
+        if (durationSeconds - cursor > 0.5)
+        {
+            gaps.Add((cursor, durationSeconds));
+        }
+
+        if (gaps.Count == 0)
+        {
+            return;
+        }
+
+        string ranges = string.Join(
+            ", ",
+            gaps.Select(gap => $"{FormatSeconds(gap.Start)}-{FormatSeconds(gap.End)}"));
+        issues.Add(new QualityIssue(
+            "timelineCoverage",
+            Advisory,
+            "The timeline has visible-element gaps longer than 0.5 seconds.",
+            $"Empty visible ranges: {ranges}.",
+            "Close unintended blank ranges by extending adjacent clips/photos, adding a visible transition plate, or recording the silence/black gap as intentional.",
+            null,
+            [],
+            []));
+    }
+
     private static void AnalyzeMaterialUiLook(
         IReadOnlyList<SceneObjectInfo> objects,
         bool relaxAesthetics,
@@ -1023,6 +1122,8 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         bool relaxShortSegments,
         bool allowStillness,
         bool evaluateMotion,
+        bool suppressCutRhythm,
+        bool rewordCutRhythmForTransitions,
         List<QualityIssue> issues,
         CancellationToken cancellationToken)
     {
@@ -1030,27 +1131,35 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         int shortSegmentCount = scene.Children.Count(element =>
             element.Length > TimeSpan.Zero && element.Length < TimeSpan.FromSeconds(0.45));
         int hardCutCount = CountHardCutLikeBoundaries(scene);
-        if (!allowHardCuts && hardCutCount >= 2)
+        if (!suppressCutRhythm && !allowHardCuts && hardCutCount >= 2)
         {
             issues.Add(new QualityIssue(
                 "cutRhythm",
                 Advisory,
-                "The timeline has repeated hard-cut-like element boundaries without enough bridging animation.",
+                rewordCutRhythmForTransitions
+                    ? "Slideshow transitions repeat hard boundaries without enough consistency or bridge motion."
+                    : "The timeline has repeated hard-cut-like element boundaries without enough bridging animation.",
                 $"{hardCutCount} interior boundaries start or end visible elements with no detected opacity/transform animation.",
-                "Bridge cuts with short overlap, opacity animation, transform continuation, or an intentional rhythm note in the brief.",
+                rewordCutRhythmForTransitions
+                    ? "Use a consistent transition vocabulary with short overlaps, opacity ramps, transform continuation, or a documented clean-cut photo change."
+                    : "Bridge cuts with short overlap, opacity animation, transform continuation, or an intentional rhythm note in the brief.",
                 null,
                 scene.Children.Select(element => element.Id.ToString()).ToArray(),
                 []));
         }
 
-        if (!relaxShortSegments && shortSegmentCount >= 3)
+        if (!suppressCutRhythm && !relaxShortSegments && shortSegmentCount >= 3)
         {
             issues.Add(new QualityIssue(
                 "cutRhythm",
                 Advisory,
-                "Several timeline segments are very short, which can produce a chopped-up edit.",
+                rewordCutRhythmForTransitions
+                    ? "Several slideshow segments are very short, which can make transition timing feel inconsistent."
+                    : "Several timeline segments are very short, which can produce a chopped-up edit.",
                 $"{shortSegmentCount} elements are shorter than 0.45 seconds.",
-                "Group micro-beats into a clearer phrase, or add visible transition continuity between them.",
+                rewordCutRhythmForTransitions
+                    ? "Lengthen outlier photo segments or align them to the chosen transition vocabulary."
+                    : "Group micro-beats into a clearer phrase, or add visible transition continuity between them.",
                 null,
                 scene.Children
                     .Where(element => element.Length > TimeSpan.Zero && element.Length < TimeSpan.FromSeconds(0.45))
@@ -1341,6 +1450,12 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
                && obj is Drawable;
     }
 
+    private static bool IsVisibleTimelineObject(EngineObject obj)
+    {
+        return obj is not PortalObject
+               && (obj is not Drawable drawable || drawable.Opacity.CurrentValue > 0.01);
+    }
+
     private static DepthBand ClassifyDepthBand(Scene scene, SceneObjectInfo info)
     {
         if (IsBackgroundObject(scene, info))
@@ -1400,6 +1515,14 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         return HasRole(info, "reading", "long-read", "dense-copy", "body-copy", "manifesto", "credits", "legal", "paragraph")
                || ContainsAny(info.Element.Name, "manifesto", "credits", "legal", "long read", "long-read", "dense copy", "reading block", "paragraph")
                || ContainsAny(info.Object.Name, "manifesto", "credits", "legal", "long read", "long-read", "dense copy", "reading block", "paragraph");
+    }
+
+    private static bool IsCaptionRoleText(SceneObjectInfo info)
+    {
+        return info.Object is TextBlock
+               && (HasRole(info, "caption", "captions", "subtitle", "subtitles", "lyric", "lyrics", "line", "echo", "secondary", "credit")
+                   || ContainsAny(info.Element.Name, "caption", "subtitle", "lyric", "line", "echo", "secondary", "credit")
+                   || ContainsAny(info.Object.Name, "caption", "subtitle", "lyric", "line", "echo", "secondary", "credit"));
     }
 
     private static bool HasCompositeIntent(Element element)
@@ -2186,6 +2309,31 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         return ContainsAny(styleProfile, "kinetic", "high-tempo", "fast", "quick", "promo", "1.5", "120", "140")
                || ExtractBpm(styleProfile) is >= 120 and <= 140;
     }
+
+    private static bool IsExplicitHighTempoProfile(string? styleProfile)
+    {
+        return ContainsAny(styleProfile, "kinetic", "high-tempo", "fast", "quick", "1.5", "120", "140", "bpm")
+               || ExtractBpm(styleProfile) is >= 120 and <= 140;
+    }
+
+    private static string? ResolveTempoStyleProfile(string? styleProfile, VideoTypeGateProfile gateProfile)
+    {
+        if (gateProfile.SuppressTempoAnalysis)
+        {
+            return null;
+        }
+
+        if (gateProfile.SuppressTempoUnlessExplicitHighTempo
+            && !IsExplicitHighTempoProfile(styleProfile))
+        {
+            return null;
+        }
+
+        return styleProfile;
+    }
+
+    private static string FormatSeconds(double seconds)
+        => TimeSpan.FromSeconds(Math.Max(0, seconds)).ToString("c");
 
     private static bool HueIn(Color color, double start, double end)
     {

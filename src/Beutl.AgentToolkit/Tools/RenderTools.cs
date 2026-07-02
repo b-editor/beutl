@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl;
 using Beutl.AgentToolkit.Common;
+using Beutl.AgentToolkit.Design;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Rendering;
 using Beutl.AgentToolkit.Sessions;
@@ -223,8 +224,10 @@ public sealed class RenderTools(
     }
 
     [McpServerTool(Name = "evaluate_edit_quality")]
-    [Description("Reviews the current scene for deterministic AI-editing quality risks: all-caps typography, visual hierarchy overload, short text read time, RectShape overuse, ambiguous decorative light shapes, hard gradient falloff, flat background richness, unclear foreground shapes, missing motion intent, invalid multi-object Element structure, layer density/depth coverage, high-tempo rhythm density/gaps, text backing alignment, palette harmony, arbitrary dense effect stacks, dated card/shadow styling, low motion continuity, and chopped-up cut rhythm. Run after render_still and evaluate_motion_variation; resolve critical/major issues before export_video. Only four checks can fail the gate: short read time, multi-object Element structure, low motion continuity, and motion-graphics layer density below half of a supplied quantitative plan. A deliberate, brief-justified deviation is allowed and downgraded to advisory via its intent flag (allowStillness, allowDenseText, allowMultiObjectElements, allowMonochrome, allowMinimalDensity) or an equivalent [role:...] tag on the element, so the gate blocks likely accidents, not intentional creative choices.")]
+    [Description("Reviews the current scene for deterministic AI-editing quality risks: all-caps typography, visual hierarchy overload, short text read time, RectShape overuse, ambiguous decorative light shapes, hard gradient falloff, flat background richness, unclear foreground shapes, missing motion intent, invalid multi-object Element structure, layer density/depth coverage, high-tempo rhythm density/gaps, text backing alignment, palette harmony, arbitrary dense effect stacks, dated card/shadow styling, low motion continuity, chopped-up cut rhythm, and video-type timeline coverage. Run after render_still and evaluate_motion_variation; resolve critical/major issues before export_video. Only four checks can fail the gate: short read time, multi-object Element structure, low motion continuity, and motion-graphics layer density below half of a supplied quantitative plan. A deliberate, brief-justified deviation is allowed and downgraded to advisory via its intent flag (allowStillness, allowDenseText, allowMultiObjectElements, allowMonochrome, allowMinimalDensity), videoType profile, or an equivalent [role:...] tag on the element, so the gate blocks likely accidents, not intentional creative choices.")]
     public ValueTask<ToolResult<QualityReviewResponse>> EvaluateEditQuality(
+        [Description("Optional video workflow profile. Supported values: motion-graphics, footage-cut, slideshow, lyric-captions, logo-intro. Omit for exactly the legacy motion-graphics behavior.")]
+        string? videoType = null,
         [Description("Optional explicit scene times in seconds for rendered motion checks. When omitted, samples evenly across the scene duration.")]
         double[]? timeSeconds = null,
         [Description("Number of evenly spaced samples when timeSeconds is omitted. Clamped to 2..8.")]
@@ -259,6 +262,7 @@ public sealed class RenderTools(
     {
         return ExecuteAsync(async () =>
         {
+            ValidateVideoType(videoType);
             Scene scene = RequireScene();
             IReadOnlyList<TimeSpan>? sampleTimes = timeSeconds is { Length: > 0 }
                 ? timeSeconds
@@ -283,13 +287,16 @@ public sealed class RenderTools(
                 allowMinimalDensity,
                 plannedForegroundElementsPerShot,
                 evaluateMotion: !staticLayout,
+                videoType,
                 cancellationToken).ConfigureAwait(false);
         });
     }
 
     [McpServerTool(Name = "preview_quality_risks")]
-    [Description("Runs document-only deterministic quality risk checks without rendering. Use before or immediately after authoring a large apply_edit patch to catch text-density, RectShape, ambiguous decorative light shapes, hard gradient falloff, flat background richness, unclear-shape, missing-motion-intent, layer-density/depth, multi-object Element, high-tempo rhythm/gaps, backing-plate, palette, effect-stack, and timeline-structure risks early.")]
+    [Description("Runs document-only deterministic quality risk checks without rendering. Use before or immediately after authoring a large apply_edit patch to catch text-density, RectShape, ambiguous decorative light shapes, hard gradient falloff, flat background richness, unclear-shape, missing-motion-intent, layer-density/depth, multi-object Element, high-tempo rhythm/gaps, backing-plate, palette, effect-stack, video-type timeline coverage, and timeline-structure risks early.")]
     public ValueTask<ToolResult<QualityReviewResponse>> PreviewQualityRisks(
+        [Description("Optional video workflow profile. Supported values: motion-graphics, footage-cut, slideshow, lyric-captions, logo-intro. Omit for exactly the legacy motion-graphics behavior.")]
+        string? videoType = null,
         [Description("Optional profile label recorded in the review notes, such as kinetic-type, high-tempo-promo, editorial, or minimal.")]
         string? styleProfile = "preview-risks",
         [Description("When true, tailors the intentional all-caps suggested fix. All-caps typography is already advisory (it never blocks the gate); this flag adjusts guidance, not severity.")]
@@ -316,6 +323,7 @@ public sealed class RenderTools(
     {
         return ExecuteAsync(async () =>
         {
+            ValidateVideoType(videoType);
             Scene scene = RequireScene();
             return await qualityAnalyzer.AnalyzeAsync(
                 scene,
@@ -334,6 +342,7 @@ public sealed class RenderTools(
                 allowMinimalDensity,
                 plannedForegroundElementsPerShot,
                 evaluateMotion: false,
+                videoType,
                 cancellationToken).ConfigureAwait(false);
         });
     }
@@ -341,6 +350,8 @@ public sealed class RenderTools(
     [McpServerTool(Name = "suggest_quality_fixes")]
     [Description("Groups current quality issues into minimal, patch-oriented fix suggestions. Use after preview_quality_risks or evaluate_edit_quality when an agent needs the smallest repair plan instead of raw issue rows.")]
     public ValueTask<ToolResult<QualityFixSuggestionsResponse>> SuggestQualityFixes(
+        [Description("Optional video workflow profile. Supported values: motion-graphics, footage-cut, slideshow, lyric-captions, logo-intro. Omit for exactly the legacy motion-graphics behavior.")]
+        string? videoType = null,
         [Description("When true, include rendered motion checks; otherwise the tool stays document-only and faster.")]
         bool includeMotion = false,
         [Description("Optional explicit scene times in seconds for rendered motion checks when includeMotion is true.")]
@@ -377,6 +388,7 @@ public sealed class RenderTools(
     {
         return ExecuteAsync(async () =>
         {
+            ValidateVideoType(videoType);
             Scene scene = RequireScene();
             IReadOnlyList<TimeSpan>? sampleTimes = includeMotion
                 ? ResolveSampleTimes(scene, timeSeconds, sampleCount)
@@ -398,6 +410,7 @@ public sealed class RenderTools(
                 allowMinimalDensity,
                 plannedForegroundElementsPerShot,
                 includeMotion,
+                videoType,
                 cancellationToken).ConfigureAwait(false);
 
             IReadOnlyList<QualityFixSuggestion> suggestions = BuildFixSuggestions(review, requireAnimatedProperties);
@@ -416,6 +429,8 @@ public sealed class RenderTools(
     [McpServerTool(Name = "final_preflight")]
     [Description("Runs the normal final verification bundle before export_video: representative render_still files, evaluate_motion_variation, and evaluate_edit_quality. Returns ReadyForExport plus blockers and still paths.")]
     public ValueTask<ToolResult<FinalPreflightResponse>> FinalPreflight(
+        [Description("Optional video workflow profile. Supported values: motion-graphics, footage-cut, slideshow, lyric-captions, logo-intro. Omit for exactly the legacy motion-graphics behavior.")]
+        string? videoType = null,
         [Description("Output prefix for still frames. Bare prefixes are written under agent-output/.")]
         string outputPrefix = "preflight",
         [Description("Optional explicit scene times in seconds. When omitted, samples are evenly spaced across the scene duration.")]
@@ -456,6 +471,7 @@ public sealed class RenderTools(
     {
         return ExecuteAsync(async () =>
         {
+            ValidateVideoType(videoType);
             Scene scene = RequireScene();
             IReadOnlyList<TimeSpan> sampleTimes = ResolveSampleTimes(scene, timeSeconds, sampleCount);
             var stills = new List<PreflightStillFrame>(sampleTimes.Count);
@@ -513,6 +529,7 @@ public sealed class RenderTools(
                 allowMinimalDensity,
                 plannedForegroundElementsPerShot,
                 evaluateMotion: !staticLayout,
+                videoType,
                 cancellationToken).ConfigureAwait(false);
 
             List<string> blockers = [];
@@ -666,6 +683,14 @@ public sealed class RenderTools(
                    ErrorCode.StaleHandle,
                    $"No render job with id '{jobId}' exists.",
                    jobId));
+    }
+
+    private static void ValidateVideoType(string? videoType)
+    {
+        if (!string.IsNullOrWhiteSpace(videoType))
+        {
+            VideoTypeCatalog.Resolve(videoType);
+        }
     }
 
     private static async ValueTask<CallToolResult> ExecuteMcpAsync<T>(
@@ -1159,6 +1184,7 @@ public sealed class RenderTools(
             "effectIntent" => "Remove repeated decorative effect stacks or rename and keep only chains with one job: texture, hierarchy, transition energy, grade, or legibility.",
             "motionContinuity" => "Add bridged opacity/transform/spacing/brush/effect keyframes across cut boundaries and keep animatedPropertyCount above zero for motion graphics.",
             "cutRhythm" => "Bridge adjacent Elements with short overlaps, opacity fades, or transform continuation instead of pure hard boundaries.",
+            "timelineCoverage" => "Close visible timeline gaps by extending adjacent clips/photos or adding a deliberate transition/black-gap Element.",
             _ => fallback
         };
     }

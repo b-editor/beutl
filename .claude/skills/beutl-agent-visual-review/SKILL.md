@@ -35,6 +35,8 @@ Axes:
 - `backgroundRichness`: backdrop material, gradients, shaders, texture, and detail that avoid a flat low-effort surface.
 - `motionArc`: opening, development, transition energy, easing feel, staging, shot-to-shot continuity, and final resolve as inferred from the contact sheet or video. When subdivided storyboard frames are available, score shot-to-shot continuity from `kind: "inbetween"` frames, not just anchor shots.
 
+Per-type emphasis shifts the weight, not the axes: `slideshow` emphasizes transition consistency and read time; `footage-cut` emphasizes cut rhythm, visible coverage, and overlay restraint; `lyric-captions` emphasizes readability, contrast, and sync feel; `logo-intro` emphasizes motion arc, easing, final hold, and detail finish; `motion-graphics` uses the default balance across all six axes.
+
 ## Finding Rule
 
 Every finding must become a concrete edit directive. Do not write vague taste notes.

@@ -980,6 +980,138 @@ public sealed class QualityAnalyzerTests
         });
     }
 
+    [Test]
+    public async Task Slideshow_video_type_implies_stillness_and_minimal_density()
+    {
+        Scene scene = CreateScene(durationSeconds: 3);
+        AddRect(scene, "Photo 01 still frame [role:foreground]", zIndex: 5, width: 1600, height: 900, color: Color.Parse("#ffedf0e8"));
+
+        QualityReviewResponse defaultResult = await AnalyzeAsync(
+            scene,
+            styleProfile: "motion-graphics promo",
+            plannedForegroundElementsPerShot: 4);
+        QualityReviewResponse slideshowResult = await AnalyzeAsync(
+            scene,
+            styleProfile: "motion-graphics promo",
+            plannedForegroundElementsPerShot: 4,
+            videoType: "slideshow");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(defaultResult.PassesQualityGate, Is.False);
+            Assert.That(defaultResult.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "motionContinuity" && issue.Severity == "major"));
+            Assert.That(defaultResult.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "layerDensity" && issue.Severity == "major"));
+
+            Assert.That(slideshowResult.PassesQualityGate, Is.True);
+            Assert.That(slideshowResult.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "motionContinuity" && issue.Severity == "minor"));
+            Assert.That(slideshowResult.Issues, Has.None.Matches<QualityIssue>(issue =>
+                issue.Category == "layerDensity"));
+            Assert.That(slideshowResult.Issues, Has.None.Matches<QualityIssue>(issue =>
+                issue.Category == "tempoRhythm"));
+            Assert.That(slideshowResult.ReviewNotes, Has.Some.Contains("Video type: slideshow"));
+            Assert.That(slideshowResult.ReviewNotes, Has.Some.Contains("allowStillness"));
+            Assert.That(slideshowResult.ReviewNotes, Has.Some.Contains("allowMinimalDensity"));
+        });
+    }
+
+    [Test]
+    public async Task Footage_cut_video_type_suppresses_motion_graphics_density_and_background_richness()
+    {
+        Scene scene = CreateScene(durationSeconds: 4);
+        AddRect(scene, "[role:background] flat field", zIndex: 0, width: 1920, height: 1080, color: Color.Parse("#ff10141e"));
+        AddText(scene, "Interview", zIndex: 10, size: 72);
+
+        QualityReviewResponse defaultResult = await AnalyzeAsync(
+            scene,
+            evaluateMotion: false,
+            styleProfile: "motion-graphics promo",
+            plannedForegroundElementsPerShot: 4);
+        QualityReviewResponse footageResult = await AnalyzeAsync(
+            scene,
+            evaluateMotion: false,
+            styleProfile: "motion-graphics promo",
+            plannedForegroundElementsPerShot: 4,
+            videoType: "footage-cut");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(defaultResult.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "layerDensity"));
+            Assert.That(defaultResult.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "backgroundRichness"));
+
+            Assert.That(footageResult.PassesQualityGate, Is.True);
+            Assert.That(footageResult.Issues, Has.None.Matches<QualityIssue>(issue =>
+                issue.Category == "layerDensity"));
+            Assert.That(footageResult.Issues, Has.None.Matches<QualityIssue>(issue =>
+                issue.Category == "backgroundRichness"));
+            Assert.That(footageResult.Metrics.LayerDensity.MotionGraphicsIntent, Is.False);
+            Assert.That(footageResult.ReviewNotes, Has.Some.Contains("Video type: footage-cut"));
+            Assert.That(footageResult.ReviewNotes, Has.Some.Contains("motionGraphicsIntent off"));
+        });
+    }
+
+    [Test]
+    public async Task Timeline_coverage_reports_footage_cut_gaps_and_is_absent_for_motion_graphics()
+    {
+        Scene scene = CreateScene(durationSeconds: 4);
+        Element first = AddRect(scene, "Clip A", zIndex: 5, width: 1920, height: 1080, color: Color.Parse("#ff20242b"));
+        first.Start = TimeSpan.Zero;
+        first.Length = TimeSpan.FromSeconds(1);
+        Element second = AddRect(scene, "Clip B", zIndex: 5, width: 1920, height: 1080, color: Color.Parse("#ff303640"));
+        second.Start = TimeSpan.FromSeconds(2);
+        second.Length = TimeSpan.FromSeconds(2);
+
+        QualityReviewResponse footageResult = await AnalyzeAsync(scene, evaluateMotion: false, videoType: "footage-cut");
+        QualityReviewResponse defaultResult = await AnalyzeAsync(scene, evaluateMotion: false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(footageResult.PassesQualityGate, Is.True);
+            Assert.That(footageResult.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "timelineCoverage"
+                && issue.Severity == "minor"
+                && issue.Evidence.Contains("00:00:01", StringComparison.Ordinal)
+                && issue.Evidence.Contains("00:00:02", StringComparison.Ordinal)));
+            Assert.That(defaultResult.Issues, Has.None.Matches<QualityIssue>(issue =>
+                issue.Category == "timelineCoverage"));
+        });
+    }
+
+    [Test]
+    public async Task Omitted_video_type_keeps_motion_graphics_issue_set_at_pre_change_baseline()
+    {
+        Scene scene = CreateScene(durationSeconds: 4);
+        AddRect(scene, "[role:background] flat field", zIndex: 0, width: 1920, height: 1080, color: Color.Parse("#ff10141e"));
+        AddText(scene, "Launch", zIndex: 10, size: 72);
+
+        QualityReviewResponse result = await AnalyzeAsync(
+            scene,
+            evaluateMotion: false,
+            styleProfile: "motion-graphics promo",
+            plannedForegroundElementsPerShot: 4);
+
+        string[] expected =
+        [
+            "backgroundRichness:minor:The full-frame background is a flat single layer.",
+            "layerDensity:major:Authored foreground density falls below half of the quantitative plan.",
+            "layerDensity:minor:The motion-graphics scene has thin layer density or incomplete depth coverage.",
+            "tempoRhythm:minor:Foreground event gaps are too long for a high-tempo brief.",
+            "tempoRhythm:minor:Foreground scene changes are too sparse for the requested BPM.",
+            "tempoRhythm:minor:High-tempo foreground beats are held too long.",
+            "tempoRhythm:minor:The timeline is too sparse for a high-tempo motion-graphics brief."
+        ];
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(IssueSet(result), Is.EqualTo(expected));
+            Assert.That(result.ReviewNotes, Has.None.Contains("Video type:"));
+        });
+    }
+
     private static ValueTask<QualityReviewResponse> AnalyzeAsync(
         Scene scene,
         bool evaluateMotion = true,
@@ -990,7 +1122,8 @@ public sealed class QualityAnalyzerTests
         bool allowMultiObjectElements = false,
         bool allowMonochrome = false,
         bool allowMinimalDensity = false,
-        double plannedForegroundElementsPerShot = 0)
+        double plannedForegroundElementsPerShot = 0,
+        string? videoType = null)
         => new QualityAnalyzer(new MotionVariationAnalyzer(new StillRenderer())).AnalyzeAsync(
             scene,
             timeSeconds: null,
@@ -1008,7 +1141,14 @@ public sealed class QualityAnalyzerTests
             allowMinimalDensity: allowMinimalDensity,
             plannedForegroundElementsPerShot: plannedForegroundElementsPerShot,
             evaluateMotion: evaluateMotion,
-            cancellationToken: CancellationToken.None);
+            cancellationToken: CancellationToken.None,
+            videoType: videoType);
+
+    private static string[] IssueSet(QualityReviewResponse response)
+        => response.Issues
+            .Select(issue => $"{issue.Category}:{issue.Severity}:{issue.Message}")
+            .Order(StringComparer.Ordinal)
+            .ToArray();
 
     private static Scene CreateScene(double durationSeconds = 1)
     {

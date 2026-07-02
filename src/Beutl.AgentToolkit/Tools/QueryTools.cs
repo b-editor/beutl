@@ -2,6 +2,7 @@
 using System.ComponentModel;
 using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
+using Beutl.AgentToolkit.Design;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Schema;
 using Beutl.AgentToolkit.Sessions;
@@ -85,7 +86,9 @@ public sealed record GettingStartedResponse(
     IReadOnlyList<string> RecommendedCalls,
     IReadOnlyList<RecommendedSkill> RecommendedSkills,
     IReadOnlyDictionary<string, string> CategoryAliases,
-    string RawHttpNote);
+    string RawHttpNote,
+    IReadOnlyList<VideoTypeSummary>? VideoTypes = null,
+    VideoTypeSummary? SelectedVideoType = null);
 
 public sealed record CreativeDirectionResponse(
     string SchemaVersion,
@@ -215,16 +218,91 @@ public sealed record ObjectTransformMatrix(
 [McpServerToolType]
 public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
 {
+    private const string RawHttpNote = "Raw HTTP MCP responses are Server-Sent Events. Read the JSON from the data: line, then decode result.content[0].text as the tool JSON payload. When returnImageContent=true, subsequent content blocks may include image/png data for visual review. notifications/initialized may return no body.";
+
     private readonly SchemaGenerator _schemaGenerator = new();
     private readonly CompositionTemplateCatalog _compositionCatalog = new();
 
+    private static GettingStartedResponse CreateVideoTypeGettingStartedResponse(VideoTypeProfile profile)
+        => new(
+            SchemaVersion.Current,
+            CreateVideoTypeWorkflow(profile),
+            CreateRecommendedSkills(),
+            CreateCategoryAliases(),
+            RawHttpNote,
+            null,
+            profile.ToSummary());
+
+    private static IReadOnlyList<string> CreateVideoTypeWorkflow(VideoTypeProfile profile)
+    {
+        string[] commonCore =
+        [
+            "Call attach_active_editor for an open editor scene, or create_project/open_project for a file-backed session before authoring.",
+            "Call read_document_summary to inspect the current scene and confirm duration, element count, and source before planning edits.",
+            "Call measure_object_bounds before positioning text, captions, backing plates, logos, or centered objects.",
+            "Call apply_edit with schemaVersion=1 and staged declarative patches that match the selected workflow plan.",
+            "Call save_project after each major successful apply_edit in file-backed sessions so partial progress is durable.",
+            "Call render_storyboard with subdivisionLevel:1, or 2 for suspicious transitions, and review the storyboard subdivision before final preflight.",
+            $"Call final_preflight with videoType:\"{profile.Name}\" before export_video."
+        ];
+
+        return commonCore.Concat(profile.WorkflowSteps).ToArray();
+    }
+
+    private static IReadOnlyList<RecommendedSkill> CreateRecommendedSkills()
+        =>
+        [
+            new RecommendedSkill(
+                "beutl-agent-timeline-from-shotlist",
+                "Before planning a video's composition or timeline: turning a brief, shot list, or storyboard into shots, beat grids, layout, motion phases, and quality preflight. Load this at the start of composition planning.",
+                "Load it through your agent's skill mechanism (e.g. the Skill tool) or read the installed SKILL.md placed next to this toolkit by Beutl's AI agent settings."),
+            new RecommendedSkill(
+                "beutl-agent-look-effect-chain",
+                "When applying a consistent look or effect chain across elements or shots (color, blur, shadow, stylization, cross-shot consistency).",
+                "Load it through your agent's skill mechanism (e.g. the Skill tool) or read the installed SKILL.md placed next to this toolkit by Beutl's AI agent settings."),
+            new RecommendedSkill(
+                "beutl-agent-source-grounding",
+                "Before authoring anything involving coordinates or origin, TranslateTransform/TransformOrigin, object bounds, text measurement, render/export scale, effect-parameter units, reconciliation, or live-session semantics.",
+                "Load it through your agent's skill mechanism (e.g. the Skill tool) or read the installed SKILL.md placed next to this toolkit by Beutl's AI agent settings."),
+            new RecommendedSkill(
+                "beutl-agent-visual-review",
+                "After rendering stills or a storyboard contact sheet when an agent or reviewer needs a six-axis visual-quality pass with concrete edit directives. This is advisory unless the caller makes it policy.",
+                "Load it through your agent's skill mechanism (e.g. the Skill tool) or read the installed SKILL.md placed next to this toolkit by Beutl's AI agent settings.")
+        ];
+
+    private static IReadOnlyDictionary<string, string> CreateCategoryAliases()
+        => new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["visualEffect"] = "FilterEffect",
+            ["effect"] = "FilterEffect",
+            ["filter"] = "FilterEffect",
+            ["videoEffect"] = "FilterEffect",
+            ["text"] = "TextBlock",
+            ["typography"] = "TextBlock",
+            ["label"] = "TextBlock",
+            ["fill"] = "Brush",
+            ["gradient"] = "Brush",
+            ["stroke"] = "Pen",
+            ["ease"] = "Easing"
+        };
+
     [McpServerTool(Name = "get_started")]
     [Description("Returns a compact, low-context guide for using the Beutl Agent Editing Toolkit. Use this first when an agent only has the MCP endpoint URL.")]
-    public ToolResult<GettingStartedResponse> GetStarted()
+    public ToolResult<GettingStartedResponse> GetStarted(
+        [Description("Optional video workflow profile. Supported values: motion-graphics, footage-cut, slideshow, lyric-captions, logo-intro. Omit to receive the classification-first default guide.")]
+        string? videoType = null)
     {
-        return Execute(() => new GettingStartedResponse(
+        return Execute(() =>
+        {
+            if (!string.IsNullOrWhiteSpace(videoType))
+            {
+                return CreateVideoTypeGettingStartedResponse(VideoTypeCatalog.Resolve(videoType));
+            }
+
+            return new GettingStartedResponse(
             SchemaVersion.Current,
             [
+                "Classify the brief against videoTypes first, then call get_started again with the chosen videoType before planning the timeline.",
                 "Before planning a composition, load the matching skill from recommendedSkills and follow it — especially beutl-agent-timeline-from-shotlist for any shot, timeline, or storyboard planning.",
                 "Call attach_active_editor for an open editor scene; if it fails or no editor is available, call create_project or open_project for a file-backed session instead of writing a one-off generator.",
                 "Call read_document_summary to inspect progress without the full document.",
@@ -267,39 +345,12 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 "After authoring motion, re-render the storyboard with subdivisionLevel:1; raise to subdivisionLevel:2 for suspicious gaps. Review the in-between frames for cut continuity, and add bridge animations when hard cuts have no shared motion, sweep, overlap, opacity ramp, or background continuity.",
                 "For visual review in multimodal clients, call render_still or render_storyboard with returnImageContent=true, then apply the beutl-agent-visual-review rubric for advisory concrete edit directives."
             ],
-            [
-                new RecommendedSkill(
-                    "beutl-agent-timeline-from-shotlist",
-                    "Before planning a video's composition or timeline: turning a brief, shot list, or storyboard into shots, beat grids, layout, motion phases, and quality preflight. Load this at the start of composition planning.",
-                    "Load it through your agent's skill mechanism (e.g. the Skill tool) or read the installed SKILL.md placed next to this toolkit by Beutl's AI agent settings."),
-                new RecommendedSkill(
-                    "beutl-agent-look-effect-chain",
-                    "When applying a consistent look or effect chain across elements or shots (color, blur, shadow, stylization, cross-shot consistency).",
-                    "Load it through your agent's skill mechanism (e.g. the Skill tool) or read the installed SKILL.md placed next to this toolkit by Beutl's AI agent settings."),
-                new RecommendedSkill(
-                    "beutl-agent-source-grounding",
-                    "Before authoring anything involving coordinates or origin, TranslateTransform/TransformOrigin, object bounds, text measurement, render/export scale, effect-parameter units, reconciliation, or live-session semantics.",
-                    "Load it through your agent's skill mechanism (e.g. the Skill tool) or read the installed SKILL.md placed next to this toolkit by Beutl's AI agent settings."),
-                new RecommendedSkill(
-                    "beutl-agent-visual-review",
-                    "After rendering stills or a storyboard contact sheet when an agent or reviewer needs a six-axis visual-quality pass with concrete edit directives. This is advisory unless the caller makes it policy.",
-                    "Load it through your agent's skill mechanism (e.g. the Skill tool) or read the installed SKILL.md placed next to this toolkit by Beutl's AI agent settings."),
-            ],
-            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-            {
-                ["visualEffect"] = "FilterEffect",
-                ["effect"] = "FilterEffect",
-                ["filter"] = "FilterEffect",
-                ["videoEffect"] = "FilterEffect",
-                ["text"] = "TextBlock",
-                ["typography"] = "TextBlock",
-                ["label"] = "TextBlock",
-                ["fill"] = "Brush",
-                ["gradient"] = "Brush",
-                ["stroke"] = "Pen",
-                ["ease"] = "Easing"
-            },
-            "Raw HTTP MCP responses are Server-Sent Events. Read the JSON from the data: line, then decode result.content[0].text as the tool JSON payload. When returnImageContent=true, subsequent content blocks may include image/png data for visual review. notifications/initialized may return no body."));
+            CreateRecommendedSkills(),
+            CreateCategoryAliases(),
+            RawHttpNote,
+            VideoTypeCatalog.Summaries,
+            null);
+        });
     }
 
     [McpServerTool(Name = "list_creative_directions")]

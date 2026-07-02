@@ -48,6 +48,68 @@ public sealed class GetStartedSkillPointerTests
     }
 
     [Test]
+    public void Get_started_without_video_type_includes_video_types_and_classification_step()
+    {
+        var queryTools = new QueryTools(new AgentSessionManager());
+
+        GettingStartedResponse response = queryTools.GetStarted().Value!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(response.VideoTypes, Is.Not.Null);
+            Assert.That(response.VideoTypes!, Has.Count.EqualTo(5));
+            Assert.That(response.SelectedVideoType, Is.Null);
+            Assert.That(response.RecommendedCalls[0], Does.Contain("Classify the brief"));
+            Assert.That(response.RecommendedCalls, Has.Some.Contains("derive_palette"));
+            Assert.That(response.VideoTypes!.Select(item => item.Name), Is.EquivalentTo(new[]
+            {
+                "motion-graphics",
+                "footage-cut",
+                "slideshow",
+                "lyric-captions",
+                "logo-intro"
+            }));
+        });
+    }
+
+    [Test]
+    public void Get_started_with_slideshow_uses_selected_type_workflow()
+    {
+        var queryTools = new QueryTools(new AgentSessionManager());
+
+        GettingStartedResponse response = queryTools.GetStarted("SlIdEsHoW").Value!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(response.SelectedVideoType, Is.Not.Null);
+            Assert.That(response.SelectedVideoType!.Name, Is.EqualTo("slideshow"));
+            Assert.That(response.VideoTypes, Is.Null);
+            Assert.That(response.RecommendedCalls, Has.Some.Contains("per-photo duration grid"));
+            Assert.That(response.RecommendedCalls, Has.Some.Contains("Ken Burns"));
+            Assert.That(response.RecommendedCalls, Has.Some.Contains("videoType:\"slideshow\""));
+            Assert.That(response.RecommendedCalls, Has.None.Contains("BPM"));
+            Assert.That(response.RecommendedCalls, Has.None.Contains("beat grid"));
+        });
+    }
+
+    [Test]
+    public void Get_started_with_unknown_video_type_returns_validation_error()
+    {
+        var queryTools = new QueryTools(new AgentSessionManager());
+
+        var result = queryTools.GetStarted("tutorial");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Value, Is.Null);
+            Assert.That(result.Error, Is.Not.Null);
+            Assert.That(result.Error!.Code, Is.EqualTo("validation_rejected"));
+            Assert.That(result.Error.Message, Does.Contain("motion-graphics"));
+            Assert.That(result.Error.Message, Does.Contain("logo-intro"));
+        });
+    }
+
+    [Test]
     public void Get_started_recommends_subdivided_storyboard_review_after_motion_authoring()
     {
         var queryTools = new QueryTools(new AgentSessionManager());
