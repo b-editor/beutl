@@ -57,8 +57,8 @@ public class GenerativePaletteTests
         Assert.That(trips, Is.Zero, $"{trips} generated palettes tripped a paletteHarmony rule.");
     }
 
-    // Mirrors the paletteHarmony Major thresholds in QualityAnalyzer.AnalyzePalette so the test
-    // fails if the generator's output space ever drifts into a gate-tripping region.
+    // Mirrors the paletteHarmony advisory thresholds in QualityAnalyzer.AnalyzePalette so the test
+    // fails if the generator's output space ever drifts into a warned region.
     private static bool TripsPaletteHarmony(Color[] colors)
     {
         double averageSaturation = colors.Average(c => c.ToHsv().S);

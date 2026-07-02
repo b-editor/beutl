@@ -288,6 +288,43 @@ public sealed class QualityAnalyzerTests
     }
 
     [Test]
+    public async Task Flat_single_layer_background_is_advisory_but_rich_background_passes_richness_check()
+    {
+        Scene flat = CreateScene(durationSeconds: 3);
+        AddRect(flat, "[role:background] flat field", zIndex: 0, width: 1920, height: 1080, color: Color.Parse("#ff20242b"));
+
+        QualityReviewResponse flatResult = await AnalyzeAsync(flat, evaluateMotion: false);
+
+        Scene rich = CreateScene(durationSeconds: 3);
+        AddGradientRect(
+            rich,
+            "[role:background] three-stop spectral field",
+            zIndex: 0,
+            width: 1920,
+            height: 1080,
+            [
+                (Color.Parse("#ff10141e"), 0d),
+                (Color.Parse("#ff1d3552"), 0.54d),
+                (Color.Parse("#ff4c6f8f"), 1d)
+            ]);
+
+        QualityReviewResponse richResult = await AnalyzeAsync(rich, evaluateMotion: false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(flatResult.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "backgroundRichness"
+                && issue.Severity == "minor"));
+            Assert.That(flatResult.PassesQualityGate, Is.True);
+            Assert.That(flatResult.Metrics.BackgroundRichness.FlatSingleLayerBackgroundCount, Is.EqualTo(1));
+
+            Assert.That(richResult.Issues, Has.None.Matches<QualityIssue>(issue => issue.Category == "backgroundRichness"));
+            Assert.That(richResult.Metrics.BackgroundRichness.FlatSingleLayerBackgroundCount, Is.EqualTo(0));
+            Assert.That(richResult.PassesQualityGate, Is.True);
+        });
+    }
+
+    [Test]
     public async Task High_tempo_profile_flags_sparse_event_density_and_slow_holds_as_advisory()
     {
         Scene scene = CreateScene(durationSeconds: 30);
@@ -313,6 +350,110 @@ public sealed class QualityAnalyzerTests
             Assert.That(result.Metrics.Tempo.HighTempoProfile, Is.True);
             Assert.That(result.Metrics.Tempo.TargetBpm, Is.EqualTo(130));
             Assert.That(result.Metrics.Tempo.SlowHoldCount, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task Motion_graphics_density_metrics_distinguish_sparse_and_layered_scenes()
+    {
+        Scene sparse = CreateScene(durationSeconds: 6);
+        AddRect(sparse, "[role:background] flat field", zIndex: 0, width: 1920, height: 1080, color: Color.Parse("#ff10141e"));
+        AddText(sparse, "Launch", zIndex: 10, size: 72);
+
+        QualityReviewResponse sparseResult = await AnalyzeAsync(
+            sparse,
+            evaluateMotion: false,
+            styleProfile: "motion-graphics promo");
+
+        Scene layered = CreateScene(durationSeconds: 6);
+        AddGradientRect(
+            layered,
+            "[role:background] three-stop field",
+            zIndex: 0,
+            width: 1920,
+            height: 1080,
+            [
+                (Color.Parse("#ff10141e"), 0d),
+                (Color.Parse("#ff24334f"), 0.6d),
+                (Color.Parse("#ff526d9d"), 1d)
+            ]);
+        AddEllipse(layered, "[role:decorative] midground particle drift", zIndex: 4, width: 240, height: 160, x: -360, y: -120, color: Color.Parse("#6640a6ff"));
+        AddRoundedRect(layered, "[role:decorative] midground scan plate", zIndex: 5, width: 520, height: 90, x: 220, y: 170, color: Color.Parse("#6650e0c0"));
+        AddText(layered, "Launch", zIndex: 10, size: 72);
+        AddEllipse(layered, "[role:accent] foreground beat spark", zIndex: 11, width: 120, height: 120, x: 420, y: -160, color: Color.Parse("#ffffbf66"));
+
+        QualityReviewResponse layeredResult = await AnalyzeAsync(
+            layered,
+            evaluateMotion: false,
+            styleProfile: "motion-graphics promo");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(sparseResult.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "layerDensity"
+                && issue.Severity == "minor"));
+            Assert.That(sparseResult.Metrics.LayerDensity.MotionGraphicsIntent, Is.True);
+            Assert.That(sparseResult.Metrics.LayerDensity.AverageVisibleLayerCount, Is.LessThan(3));
+            Assert.That(sparseResult.Metrics.LayerDensity.BandsWithAllDepthBands, Is.EqualTo(0));
+
+            Assert.That(layeredResult.Issues, Has.None.Matches<QualityIssue>(issue =>
+                issue.Category == "layerDensity"));
+            Assert.That(layeredResult.Metrics.LayerDensity.AverageVisibleLayerCount, Is.GreaterThan(sparseResult.Metrics.LayerDensity.AverageVisibleLayerCount));
+            Assert.That(layeredResult.Metrics.LayerDensity.BandsWithAllDepthBands, Is.EqualTo(layeredResult.Metrics.LayerDensity.TimeBandCount));
+            Assert.That(layeredResult.PassesQualityGate, Is.True);
+        });
+    }
+
+    [Test]
+    public async Task Density_plan_violation_blocks_when_authored_density_falls_below_half_of_plan()
+    {
+        Scene scene = CreateScene(durationSeconds: 4);
+        AddRect(scene, "[role:background] flat field", zIndex: 0, width: 1920, height: 1080, color: Color.Parse("#ff10141e"));
+        AddText(scene, "Launch", zIndex: 10, size: 72);
+
+        QualityReviewResponse result = await AnalyzeAsync(
+            scene,
+            evaluateMotion: false,
+            styleProfile: "motion-graphics promo",
+            plannedForegroundElementsPerShot: 4);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.PassesQualityGate, Is.False);
+            Assert.That(result.Metrics.LayerDensity.DensityPlanViolation, Is.True);
+            Assert.That(result.Metrics.LayerDensity.BandsBelowHalfPlannedForegroundLayerCount, Is.EqualTo(result.Metrics.LayerDensity.TimeBandCount));
+            Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "layerDensity"
+                && issue.Severity == "major"
+                && issue.Message.Contains("quantitative plan", StringComparison.OrdinalIgnoreCase)));
+        });
+    }
+
+    [Test]
+    public async Task Minimal_density_intent_downgrades_density_plan_violation_to_advisory()
+    {
+        Scene scene = CreateScene(durationSeconds: 4);
+        AddRect(scene, "[role:background] flat field", zIndex: 0, width: 1920, height: 1080, color: Color.Parse("#ff10141e"));
+        AddText(scene, "Launch", zIndex: 10, size: 72);
+
+        QualityReviewResponse result = await AnalyzeAsync(
+            scene,
+            evaluateMotion: false,
+            styleProfile: "minimal motion-graphics promo",
+            allowMinimalDensity: true,
+            plannedForegroundElementsPerShot: 4);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.PassesQualityGate, Is.True);
+            Assert.That(result.Metrics.LayerDensity.DensityPlanViolation, Is.True);
+            Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "layerDensity"
+                && issue.Severity == "minor"
+                && issue.Message.Contains("quantitative plan", StringComparison.OrdinalIgnoreCase)));
+            Assert.That(result.Issues, Has.None.Matches<QualityIssue>(issue =>
+                issue.Category == "layerDensity"
+                && issue.Severity == "major"));
         });
     }
 
@@ -389,6 +530,43 @@ public sealed class QualityAnalyzerTests
                 issue.Category == "paletteHarmony" && issue.Severity == "minor"));
             Assert.That(result.PassesQualityGate, Is.True);
             Assert.That(result.Metrics.Palette.HasDarkTealCyanMagentaPalette, Is.True);
+        });
+    }
+
+    [Test]
+    public async Task Palette_harmony_scores_harmonious_and_clashing_hand_picked_palettes()
+    {
+        Scene harmonious = CreateScene();
+        AddRect(harmonious, "Deep azure background", zIndex: 0, width: 1920, height: 1080, color: Color.Parse("#ff0c1626"));
+        AddRoundedRect(harmonious, "Analogous cyan panel", zIndex: 5, width: 460, height: 130, x: -220, color: Color.Parse("#ff1a7fb0"));
+        AddText(harmonious, "Launch notes", zIndex: 10, fill: Color.Parse("#fff3f8ff"));
+        AddEllipse(harmonious, "[role:accent] blue signal", zIndex: 9, width: 120, height: 120, x: 360, y: -120, color: Color.Parse("#ff46c7d8"));
+
+        QualityReviewResponse harmoniousResult = await AnalyzeAsync(harmonious, evaluateMotion: false);
+
+        Scene clashing = CreateScene();
+        AddRect(clashing, "Dark background", zIndex: 0, width: 1920, height: 1080, color: Color.Parse("#ff101010"));
+        AddRoundedRect(clashing, "Red block", zIndex: 5, width: 320, height: 120, x: -420, color: Color.Parse("#ffff2020"));
+        AddRoundedRect(clashing, "Orange block", zIndex: 6, width: 320, height: 120, x: -120, color: Color.Parse("#ffff8a00"));
+        AddRoundedRect(clashing, "Yellow block", zIndex: 7, width: 320, height: 120, x: 180, color: Color.Parse("#ffffff00"));
+        AddRoundedRect(clashing, "Green block", zIndex: 8, width: 260, height: 100, x: 480, y: 160, color: Color.Parse("#ff00ff35"));
+        AddRoundedRect(clashing, "Cyan block", zIndex: 9, width: 260, height: 100, x: -500, y: 170, color: Color.Parse("#ff00ffff"));
+        AddText(clashing, "Launch notes", zIndex: 10, fill: Color.Parse("#ffff00ff"));
+
+        QualityReviewResponse clashingResult = await AnalyzeAsync(clashing, evaluateMotion: false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(harmoniousResult.Metrics.Palette.HasLowHarmonyScore, Is.False);
+            Assert.That(harmoniousResult.Metrics.Palette.HarmonyScore, Is.GreaterThanOrEqualTo(0.68));
+
+            Assert.That(clashingResult.Metrics.Palette.HasLowHarmonyScore, Is.True);
+            Assert.That(clashingResult.Metrics.Palette.HarmonyScore, Is.LessThan(0.68));
+            Assert.That(clashingResult.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "paletteHarmony"
+                && issue.Severity == "minor"
+                && issue.Message.Contains("hue-wheel", StringComparison.OrdinalIgnoreCase)));
+            Assert.That(clashingResult.PassesQualityGate, Is.True);
         });
     }
 
@@ -668,6 +846,45 @@ public sealed class QualityAnalyzerTests
     }
 
     [Test]
+    public async Task Existing_gate_blockers_remain_typography_structure_and_motion()
+    {
+        Scene denseCopy = CreateScene(durationSeconds: 4);
+        Element denseText = AddText(
+            denseCopy,
+            "Design motion graphics faster with precise timeline editing",
+            zIndex: 10,
+            size: 64);
+        denseText.Length = TimeSpan.FromSeconds(1.2);
+
+        Scene multiObject = CreateScene();
+        Element element = AddText(multiObject, "Launch notes", zIndex: 10);
+        element.AddObject(new EllipseShape { Name = "Extra accent" });
+
+        Scene still = CreateScene(durationSeconds: 3);
+        AddRect(still, "Static field", zIndex: 0, width: 1920, height: 1080, color: Colors.Black);
+        AddText(still, "Launch notes", zIndex: 10);
+
+        QualityReviewResponse denseCopyResult = await AnalyzeAsync(denseCopy, evaluateMotion: false);
+        QualityReviewResponse multiObjectResult = await AnalyzeAsync(multiObject, evaluateMotion: false);
+        QualityReviewResponse stillResult = await AnalyzeAsync(still);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(denseCopyResult.PassesQualityGate, Is.False);
+            Assert.That(denseCopyResult.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "typographyReadTime" && issue.Severity == "major"));
+
+            Assert.That(multiObjectResult.PassesQualityGate, Is.False);
+            Assert.That(multiObjectResult.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "elementStructure" && issue.Severity == "major"));
+
+            Assert.That(stillResult.PassesQualityGate, Is.False);
+            Assert.That(stillResult.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "motionContinuity" && issue.Severity == "major"));
+        });
+    }
+
+    [Test]
     public async Task Dense_text_intent_flag_downgrades_read_time_blocker_to_advisory()
     {
         Scene scene = CreateScene(durationSeconds: 4);
@@ -771,7 +988,9 @@ public sealed class QualityAnalyzerTests
         bool allowStillness = false,
         bool allowDenseText = false,
         bool allowMultiObjectElements = false,
-        bool allowMonochrome = false)
+        bool allowMonochrome = false,
+        bool allowMinimalDensity = false,
+        double plannedForegroundElementsPerShot = 0)
         => new QualityAnalyzer(new MotionVariationAnalyzer(new StillRenderer())).AnalyzeAsync(
             scene,
             timeSeconds: null,
@@ -786,6 +1005,8 @@ public sealed class QualityAnalyzerTests
             allowDenseText: allowDenseText,
             allowMultiObjectElements: allowMultiObjectElements,
             allowMonochrome: allowMonochrome,
+            allowMinimalDensity: allowMinimalDensity,
+            plannedForegroundElementsPerShot: plannedForegroundElementsPerShot,
             evaluateMotion: evaluateMotion,
             cancellationToken: CancellationToken.None);
 
@@ -845,6 +1066,37 @@ public sealed class QualityAnalyzerTests
                 CurrentValue = new TransformGroup
                 {
                     Children = { new TranslateTransform(x, y) }
+                }
+            }
+        };
+        return AddObject(scene, $"{name} element", zIndex, rect);
+    }
+
+    private static Element AddGradientRect(
+        Scene scene,
+        string name,
+        int zIndex,
+        float width,
+        float height,
+        IReadOnlyList<(Color Color, double Offset)> stops)
+    {
+        var brush = new LinearGradientBrush();
+        foreach ((Color color, double offset) in stops)
+        {
+            brush.GradientStops.Add(new GradientStop(color, (float)offset));
+        }
+
+        var rect = new RectShape
+        {
+            Name = name,
+            Width = { CurrentValue = width },
+            Height = { CurrentValue = height },
+            Fill = { CurrentValue = brush },
+            Transform =
+            {
+                CurrentValue = new TransformGroup
+                {
+                    Children = { new TranslateTransform(0, 0) }
                 }
             }
         };
