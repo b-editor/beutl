@@ -1,4 +1,5 @@
-﻿using Beutl.AgentToolkit.Common;
+﻿using System.Text.Json;
+using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Rendering;
 using Beutl.AgentToolkit.Sessions;
@@ -11,11 +12,15 @@ using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.ProjectSystem;
+using ModelContextProtocol.Protocol;
+using SkiaSharp;
 
 namespace Beutl.AgentToolkit.Tests.Rendering;
 
 public sealed class RenderToolsStoryboardTests
 {
+    private static readonly JsonSerializerOptions s_jsonOptions = new(JsonSerializerDefaults.Web);
+
     [Test]
     public async Task Render_storyboard_explicit_shots_writes_contact_sheet_and_visibility_analysis_without_motion_output()
     {
@@ -24,7 +29,7 @@ public sealed class RenderToolsStoryboardTests
         using var session = new AgentToolkitTestSession(scene);
         RenderTools tools = CreateTools(workspace, session);
 
-        ToolResult<RenderStoryboardResult> result = await tools.RenderStoryboard(
+        CallToolResult call = await tools.RenderStoryboard(
             [
                 new StoryboardShotInput("opening", 0.5),
                 new StoryboardShotInput("detail", 1.5)
@@ -32,9 +37,12 @@ public sealed class RenderToolsStoryboardTests
             outputDirectory: "storyboards",
             basename: "explicit",
             cancellationToken: CancellationToken.None);
+        ToolResult<RenderStoryboardResult> result = ReadToolResult<RenderStoryboardResult>(call);
 
         Assert.Multiple(() =>
         {
+            Assert.That(call.Content, Has.Count.EqualTo(1));
+            Assert.That(call.Content[0], Is.TypeOf<TextContentBlock>());
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
             Assert.That(result.Value!.Status, Is.EqualTo("completed"));
             Assert.That(result.Value.JobId, Is.Null);
@@ -55,10 +63,11 @@ public sealed class RenderToolsStoryboardTests
         using var session = new AgentToolkitTestSession(scene);
         RenderTools tools = CreateTools(workspace, session);
 
-        ToolResult<RenderStoryboardResult> result = await tools.RenderStoryboard(
+        CallToolResult call = await tools.RenderStoryboard(
             outputDirectory: "storyboards",
             basename: "auto",
             cancellationToken: CancellationToken.None);
+        ToolResult<RenderStoryboardResult> result = ReadToolResult<RenderStoryboardResult>(call);
 
         Assert.Multiple(() =>
         {
@@ -80,11 +89,12 @@ public sealed class RenderToolsStoryboardTests
         using var session = new AgentToolkitTestSession(scene);
         RenderTools tools = CreateTools(workspace, session);
 
-        ToolResult<RenderStoryboardResult> started = await tools.RenderStoryboard(
+        CallToolResult call = await tools.RenderStoryboard(
             outputDirectory: "storyboards",
             basename: "bg",
             background: true,
             cancellationToken: CancellationToken.None);
+        ToolResult<RenderStoryboardResult> started = ReadToolResult<RenderStoryboardResult>(call);
 
         Assert.That(started.IsSuccess, Is.True, started.Error?.Message);
         Assert.That(started.Value!.Status, Is.EqualTo("running"));
@@ -99,6 +109,94 @@ public sealed class RenderToolsStoryboardTests
             Assert.That(snapshot.State, Is.EqualTo("completed"), snapshot.Error?.Message);
             Assert.That(snapshot.Result, Is.Not.Null);
             Assert.That(snapshot.CompletedAt, Is.Not.Null);
+        });
+    }
+
+    [Test]
+    public async Task Render_storyboard_return_image_content_appends_downscaled_contact_sheet()
+    {
+        string workspace = CreateWorkspace();
+        Scene scene = CreateStaticStoryboardScene(workspace);
+        using var session = new AgentToolkitTestSession(scene);
+        RenderTools tools = CreateTools(workspace, session);
+
+        CallToolResult call = await tools.RenderStoryboard(
+            [
+                new StoryboardShotInput("opening", 0.5),
+                new StoryboardShotInput("detail", 1.5),
+                new StoryboardShotInput("closing", 2.5)
+            ],
+            outputDirectory: "storyboards",
+            basename: "with-image",
+            returnImageContent: true,
+            cancellationToken: CancellationToken.None);
+        ToolResult<RenderStoryboardResult> result = ReadToolResult<RenderStoryboardResult>(call);
+        ImageContentBlock image = call.Content.OfType<ImageContentBlock>().Single();
+        using SKBitmap bitmap = Decode(image);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+            Assert.That(call.Content.OfType<TextContentBlock>(), Has.Exactly(1).Items);
+            Assert.That(image.MimeType, Is.EqualTo("image/png"));
+            Assert.That(Math.Max(bitmap.Width, bitmap.Height), Is.LessThanOrEqualTo(ImagePreviewEncoder.DefaultMaxLongEdge));
+            Assert.That(File.Exists(result.Value!.Result!.ContactSheetPath), Is.True);
+        });
+    }
+
+    [Test]
+    public async Task Render_still_return_image_content_appends_downscaled_png()
+    {
+        string workspace = CreateWorkspace();
+        var scene = new Scene(1600, 900, "large-still")
+        {
+            Duration = TimeSpan.FromSeconds(1),
+            Uri = new Uri(Path.Combine(workspace, "Scene.scene"))
+        };
+        AddColorRectElement(scene, workspace, "large background", TimeSpan.Zero, TimeSpan.FromSeconds(1), 1600, 900, Colors.Red);
+        using var session = new AgentToolkitTestSession(scene);
+        RenderTools tools = CreateTools(workspace, session);
+
+        CallToolResult call = await tools.RenderStill(
+            "large-still.png",
+            returnImageContent: true,
+            cancellationToken: CancellationToken.None);
+        ToolResult<RenderStillResponse> result = ReadToolResult<RenderStillResponse>(call);
+        ImageContentBlock image = call.Content.OfType<ImageContentBlock>().Single();
+        using SKBitmap bitmap = Decode(image);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+            Assert.That(result.Value!.Width, Is.EqualTo(1600));
+            Assert.That(result.Value.Height, Is.EqualTo(900));
+            Assert.That(call.Content.OfType<TextContentBlock>(), Has.Exactly(1).Items);
+            Assert.That(image.MimeType, Is.EqualTo("image/png"));
+            Assert.That(Math.Max(bitmap.Width, bitmap.Height), Is.EqualTo(ImagePreviewEncoder.DefaultMaxLongEdge));
+        });
+    }
+
+    [Test]
+    public async Task Render_storyboard_rejects_image_content_for_background_job()
+    {
+        string workspace = CreateWorkspace();
+        Scene scene = CreateStaticStoryboardScene(workspace);
+        using var session = new AgentToolkitTestSession(scene);
+        RenderTools tools = CreateTools(workspace, session);
+
+        CallToolResult call = await tools.RenderStoryboard(
+            outputDirectory: "storyboards",
+            basename: "bg-with-image",
+            background: true,
+            returnImageContent: true,
+            cancellationToken: CancellationToken.None);
+        ToolResult<RenderStoryboardResult> result = ReadToolResult<RenderStoryboardResult>(call);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(call.Content.OfType<ImageContentBlock>(), Is.Empty);
         });
     }
 
@@ -355,5 +453,18 @@ public sealed class RenderToolsStoryboardTests
         string path = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(path);
         return path;
+    }
+
+    private static ToolResult<T> ReadToolResult<T>(CallToolResult result)
+    {
+        TextContentBlock text = result.Content.OfType<TextContentBlock>().Single();
+        return JsonSerializer.Deserialize<ToolResult<T>>(text.Text, s_jsonOptions)
+               ?? throw new InvalidOperationException("Tool result JSON could not be deserialized.");
+    }
+
+    private static SKBitmap Decode(ImageContentBlock image)
+    {
+        return SKBitmap.Decode(image.DecodedData.ToArray())
+               ?? throw new InvalidOperationException("Image content block was not a decodable PNG.");
     }
 }

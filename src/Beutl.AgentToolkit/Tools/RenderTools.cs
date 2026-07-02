@@ -7,6 +7,7 @@ using Beutl.AgentToolkit.Rendering;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Workspace;
 using Beutl.ProjectSystem;
+using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 
 namespace Beutl.AgentToolkit.Tools;
@@ -24,10 +25,11 @@ public sealed class RenderTools(
     RenderJobManager renderJobs) : ToolBase
 {
     private static readonly JsonSerializerOptions s_jobResultOptions = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions s_toolResultOptions = new(JsonSerializerDefaults.Web);
 
     [McpServerTool(Name = "render_still")]
-    [Description("Renders a still PNG from the current scene to a workspace-relative output path and returns visibility warnings for blank or near-black frames. Bare filenames are written under agent-output/.")]
-    public ValueTask<ToolResult<RenderStillResponse>> RenderStill(
+    [Description("Renders a still PNG from the current scene to a workspace-relative output path and returns visibility warnings for blank or near-black frames. Bare filenames are written under agent-output/. By default the tool returns the same JSON text payload as before; pass returnImageContent:true to append a downscaled image/png content block for multimodal review.")]
+    public ValueTask<CallToolResult> RenderStill(
         [Description("Workspace-relative or in-workspace absolute output path. Bare filenames are written under agent-output/. Existing files require confirmOverwrite.")]
         string outputPath,
         [Description("Scene time in seconds.")]
@@ -36,25 +38,33 @@ public sealed class RenderTools(
         float renderScale = 1,
         [Description("Required when outputPath already exists.")]
         bool confirmOverwrite = false,
+        [Description("When true, append a downscaled image/png MCP content block with a long edge of about 768 px. Default false preserves the path-only JSON response.")]
+        bool returnImageContent = false,
         CancellationToken cancellationToken = default)
     {
-        return ExecuteAsync(async () =>
+        return ExecuteMcpAsync<RenderStillResponse>(async () =>
         {
             Scene scene = RequireScene();
             string resolvedPath = workspace.ResolveForWrite(NormalizeOutputPath(outputPath));
             destructiveGuard.EnsureOverwriteAllowed(resolvedPath, confirmOverwrite);
-            return await stillRenderer.RenderAsync(
+            RenderStillResponse response = await stillRenderer.RenderAsync(
                 scene,
                 TimeSpan.FromSeconds(Math.Max(0, timeSeconds)),
                 resolvedPath,
                 renderScale,
                 cancellationToken).ConfigureAwait(false);
+            ImageContentBlock? image = returnImageContent
+                ? ImageContentBlock.FromBytes(
+                    ImagePreviewEncoder.EncodePngFile(response.OutputPath),
+                    "image/png")
+                : null;
+            return (response, image);
         });
     }
 
     [McpServerTool(Name = "render_storyboard")]
-    [Description("Renders a storyboard contact sheet from explicit shots or one auto-derived midpoint per timeline Element. Writes individual still PNGs and the contact sheet inside BEUTL_WORKSPACE. For scenes with many Elements this can exceed the MCP client request timeout; pass background:true to run it as a job and poll read_render_job(jobId) instead.")]
-    public ValueTask<ToolResult<RenderStoryboardResult>> RenderStoryboard(
+    [Description("Renders a storyboard contact sheet from explicit shots or one auto-derived midpoint per timeline Element. Writes individual still PNGs and the contact sheet inside BEUTL_WORKSPACE. For scenes with many Elements this can exceed the MCP client request timeout; pass background:true to run it as a job and poll read_render_job(jobId) instead. By default the tool returns the same JSON text payload as before; pass returnImageContent:true on a synchronous call to append one downscaled image/png contact-sheet content block.")]
+    public ValueTask<CallToolResult> RenderStoryboard(
         [Description("Optional explicit storyboard shots. When omitted, one midpoint is derived per timeline Element.")]
         StoryboardShotInput[]? shots = null,
         [Description("Workspace-relative or in-workspace absolute output directory. Existing files require confirmOverwrite.")]
@@ -67,10 +77,19 @@ public sealed class RenderTools(
         bool confirmOverwrite = false,
         [Description("When true, run the render as a background job and return {status:running, jobId} immediately; poll read_render_job(jobId) for completion. Do not issue apply_edit while a background render is running.")]
         bool background = false,
+        [Description("When true on a synchronous call, append a downscaled image/png MCP content block of the storyboard contact sheet. Cannot be combined with background:true because the image is not available until the job completes.")]
+        bool returnImageContent = false,
         CancellationToken cancellationToken = default)
     {
-        return ExecuteAsync<RenderStoryboardResult>(async () =>
+        return ExecuteMcpAsync<RenderStoryboardResult>(async () =>
         {
+            if (background && returnImageContent)
+            {
+                throw new ReconcileException(new ToolError(
+                    ErrorCode.ValidationRejected,
+                    "returnImageContent cannot be combined with background:true; run render_storyboard synchronously when the contact-sheet image block is needed."));
+            }
+
             Scene scene = RequireScene();
             IReadOnlyList<ResolvedStoryboardShot> resolvedShots = ResolveStoryboardShots(scene, shots);
             string normalizedDirectory = NormalizeStoryboardDirectory(outputDirectory);
@@ -126,11 +145,20 @@ public sealed class RenderTools(
                     async token => JsonSerializer.SerializeToNode(
                         await RunStoryboardAsync(token).ConfigureAwait(false),
                         s_jobResultOptions)!);
-                return new RenderStoryboardResult("running", jobId, null);
+                return (new RenderStoryboardResult("running", jobId, null), (ImageContentBlock?)null);
             }
 
             RenderStoryboardResponse response = await RunStoryboardAsync(cancellationToken).ConfigureAwait(false);
-            return new RenderStoryboardResult("completed", null, response);
+            ImageContentBlock? image = returnImageContent
+                ? ImageContentBlock.FromBytes(
+                    storyboardRenderer.RenderContactSheetPng(
+                        response.Shots
+                            .Select(shot => new StoryboardContactSheetFrame(shot.Name, shot.TimeSeconds, shot.StillPath))
+                            .ToArray(),
+                        ImagePreviewEncoder.DefaultMaxLongEdge).Bytes,
+                    "image/png")
+                : null;
+            return (new RenderStoryboardResult("completed", null, response), image);
         });
     }
 
@@ -592,6 +620,42 @@ public sealed class RenderTools(
                    ErrorCode.StaleHandle,
                    $"No render job with id '{jobId}' exists.",
                    jobId));
+    }
+
+    private static async ValueTask<CallToolResult> ExecuteMcpAsync<T>(
+        Func<ValueTask<(T Value, ImageContentBlock? Image)>> action)
+    {
+        try
+        {
+            (T value, ImageContentBlock? image) = await action().ConfigureAwait(false);
+            return ToCallToolResult(ToolResult<T>.Success(value), image);
+        }
+        catch (Exception ex)
+        {
+            ToolError error = ToolErrorMapper.Map(ex);
+            return ToCallToolResult(ToolResult<T>.Failure(error.Code, error.Message, error.Target, error.Hint));
+        }
+    }
+
+    private static CallToolResult ToCallToolResult<T>(ToolResult<T> result, ImageContentBlock? image = null)
+    {
+        var content = new List<ContentBlock>
+        {
+            new TextContentBlock
+            {
+                Text = JsonSerializer.Serialize(result, s_toolResultOptions)
+            }
+        };
+        if (result.IsSuccess && image is not null)
+        {
+            content.Add(image);
+        }
+
+        return new CallToolResult
+        {
+            Content = content,
+            IsError = false
+        };
     }
 
     private static CreativeDirectionFingerprint CreateExportCreativeFingerprint(Scene scene, string outputPath)
