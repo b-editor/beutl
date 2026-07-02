@@ -161,6 +161,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             .WithTools<AgentHostTools>()
             .WithTools<SessionTools>()
             .WithTools<QueryTools>()
+            .WithTools<DesignTools>()
             .WithTools<EditTools>()
             .WithTools<RenderTools>();
 

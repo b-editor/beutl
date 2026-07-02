@@ -6,6 +6,7 @@ using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.Api.Services;
 using Beutl.Services;
+using ModelContextProtocol.Client;
 
 namespace Beutl.HeadlessUITests;
 
@@ -104,6 +105,47 @@ public sealed class AgentHostEndpointTests
     }
 
     [AvaloniaTest]
+    public async Task Endpoint_tools_list_includes_live_host_and_design_tools()
+    {
+        await TestReset.ResetShellAsync();
+        var endpoint = new AgentHostEndpoint(
+            new EditorService(new ExtensionProvider()),
+            GetAvailableLoopbackPort(),
+            "test-token");
+
+        try
+        {
+            await endpoint.StartAsync();
+
+            var transport = new HttpClientTransport(new HttpClientTransportOptions
+            {
+                Endpoint = endpoint.EndpointUri!,
+                TransportMode = HttpTransportMode.StreamableHttp,
+                AdditionalHeaders = new Dictionary<string, string>
+                {
+                    ["X-Beutl-Agent-Token"] = endpoint.Token
+                }
+            });
+            await using McpClient client = await McpClient.CreateAsync(transport);
+
+            string[] toolNames = [.. (await client.ListToolsAsync()).Select(tool => tool.Name)];
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(toolNames, Does.Contain("derive_palette"));
+                Assert.That(toolNames, Does.Contain("get_background_grammar"));
+                Assert.That(toolNames, Does.Contain("attach_active_editor"));
+                Assert.That(toolNames, Does.Contain("apply_edit"));
+                Assert.That(toolNames, Does.Contain("render_still"));
+            });
+        }
+        finally
+        {
+            await endpoint.StopAsync();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task AttachActiveEditor_without_open_editor_returns_typed_error()
     {
         await TestReset.ResetShellAsync();
@@ -140,6 +182,13 @@ public sealed class AgentHostEndpointTests
 
         Assert.Inconclusive("Could not reserve a loopback port with an available successor.");
         throw new InvalidOperationException();
+    }
+
+    private static int GetAvailableLoopbackPort()
+    {
+        using TcpListener listener = new(IPAddress.Loopback, 0);
+        listener.Start();
+        return ((IPEndPoint)listener.LocalEndpoint).Port;
     }
 
     private static bool CanBindLoopbackPort(int port)
