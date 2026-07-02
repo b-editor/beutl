@@ -95,8 +95,7 @@ internal sealed class IpcSampleProvider : ISampleProvider
         var result2 = new Pcm<Stereo32BitFloat>((int)SampleRate, (int)length);
         try
         {
-            // Test-only probe (inert in production): capture the freshly-allocated split buffer so a
-            // disposal test can assert it is freed, not leaked, when the second chunk load throws below.
+            // Test-only probe, inert in production (see CrossChunkSplitAllocatedForTest).
             CrossChunkSplitAllocatedForTest?.Invoke(result2);
 
             int start = (int)(offset - _currentChunkOffset);
@@ -114,9 +113,8 @@ internal sealed class IpcSampleProvider : ISampleProvider
         }
         catch
         {
-            // EnsureChunkLoaded can throw (IPC error / cancellation) after result2 is allocated, as can
-            // a DataSpan copy; dispose the native buffer so it is not leaked on the failed split, then
-            // rethrow. The success path above returns result2 undisposed to the caller.
+            // EnsureChunkLoaded can throw (IPC error / cancellation) after result2 is allocated; dispose
+            // its native buffer so a failed split does not leak it. The success path returns it undisposed.
             result2.Dispose();
             throw;
         }
