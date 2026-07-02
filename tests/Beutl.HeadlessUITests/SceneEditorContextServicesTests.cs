@@ -10,17 +10,14 @@ using Beutl.ViewModels;
 
 namespace Beutl.HeadlessUITests;
 
-// Guards that the editor-context abstraction is honored by type, not by a concrete downcast.
-// SceneEditorExtension.TryCreateContext used to gate on `services is EditorContextServices`, so any
-// other IEditorContextServices implementation (a test fake, a plugin's own) silently returned false
-// and the extension could not be unit-tested. The fix routes host-service lookup through
-// IEditorContextServices.TryGetService<T>, which a hand-written fake can satisfy.
+// Guards that SceneEditorExtension.TryCreateContext resolves host services by type through
+// IEditorContextServices, so any implementation (including a test fake) is accepted, not only the
+// host's concrete EditorContextServices.
 [TestFixture]
 public class SceneEditorContextServicesTests
 {
-    // A hand-written IEditorContextServices that is deliberately NOT the host's concrete
-    // EditorContextServices. Before the fix, TryCreateContext downcast to that concrete type and
-    // rejected this implementation; after the fix it resolves services purely through TryGetService.
+    // An IEditorContextServices that is deliberately NOT the host's concrete EditorContextServices,
+    // so the test exercises the by-type TryGetService path instead of a concrete downcast.
     private sealed class FakeEditorContextServices(EditorService editorService, ExtensionProvider extensionProvider)
         : IEditorContextServices
     {
@@ -34,8 +31,6 @@ public class SceneEditorContextServicesTests
         }
     }
 
-    // Focused resolution test for the host's concrete implementation: it must expose the
-    // host-internal EditorService and both the concrete and interface extension-provider shapes.
     [Test]
     public void EditorContextServices_TryGetService_resolves_by_type()
     {
@@ -54,7 +49,6 @@ public class SceneEditorContextServicesTests
             Assert.That(services.TryGetService<IExtensionProvider>(out IExtensionProvider? resolvedInterface), Is.True);
             Assert.That(resolvedInterface, Is.SameAs(extensionProvider));
 
-            // An unrelated reference type resolves to nothing (and reports false / null).
             Assert.That(services.TryGetService<string>(out string? missing), Is.False);
             Assert.That(missing, Is.Null);
         });

@@ -4,11 +4,9 @@ using Beutl.Extensibility;
 
 namespace Beutl.Services;
 
-// Host services handed to EditorExtension.TryCreateContext so a created editor context can
-// receive the services it needs. Extensions resolve host capabilities through the abstract
-// IEditorContextServices.TryGetService<T> lookup (including the host-internal EditorService,
-// which is downstream of Beutl.Extensibility and so cannot be a typed interface member) rather
-// than downcasting to this concrete type — that keeps the abstraction testable with a fake.
+// Host services handed to EditorExtension.TryCreateContext. The host-internal EditorService is
+// downstream of Beutl.Extensibility and so cannot be a typed interface member; extensions reach it
+// through the IEditorContextServices.TryGetService<T> lookup rather than downcasting to this type.
 internal sealed class EditorContextServices(EditorService editorService, ExtensionProvider extensionProvider)
     : IEditorContextServices
 {

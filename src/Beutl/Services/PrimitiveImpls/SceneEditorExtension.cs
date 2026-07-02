@@ -120,10 +120,8 @@ public sealed class SceneEditorExtension : EditorExtension
     public override bool TryCreateContext(
         CoreObject obj, IEditorContextServices services, [NotNullWhen(true)] out IEditorContext? context)
     {
-        // TryCreate* must not throw: only build the context when the host actually supplies the
-        // services EditViewModel needs. Resolve them through the IEditorContextServices abstraction
-        // (not a concrete downcast) so any implementation — including a test fake — is accepted;
-        // otherwise fail (return false) rather than pushing nulls into EditViewModel.
+        // TryCreate* must not throw: when the host does not supply the services EditViewModel needs,
+        // fail (return false) rather than pushing nulls into EditViewModel.
         if (obj is Scene scene
             && services.TryGetService<EditorService>(out EditorService? editorService)
             && services.TryGetService<ExtensionProvider>(out ExtensionProvider? extensionProvider))
