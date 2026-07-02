@@ -130,6 +130,38 @@ public class JsonSerializationTest
         Assert.That(elm1, Is.Not.Null);
     }
 
+    // 子要素を持たない Scene を使うこと。子があると子の StoreToUri が先にディレクトリを
+    // 作ってしまい、SaveObjectToFile 自身のディレクトリ作成責務を検証できなくなる。
+    [Test]
+    public void SaveReferencedObjects_CreatesMissingParentDirectories()
+    {
+        var baseDir = Path.Combine(Path.GetTempPath(), $"beutl-serialize-mkdir_{Guid.NewGuid():N}");
+        try
+        {
+            var projPath = Path.Combine(baseDir, "project.bproj");
+            // scene0 サブディレクトリは事前に作成しない。
+            var scenePath = Path.Combine(baseDir, "scene0", "scene0.scene");
+
+            BeutlApplication app = BeutlApplication.Current;
+            var proj = new Project { Uri = UriHelper.CreateFromPath(projPath) };
+            var scene = new Scene { Uri = UriHelper.CreateFromPath(scenePath) };
+            proj.Items.Add(scene);
+            app.Project = proj;
+
+            CoreSerializer.StoreToUri(proj, proj.Uri, CoreSerializationMode.Write | CoreSerializationMode.SaveReferencedObjects);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(File.Exists(projPath), Is.True);
+                Assert.That(File.Exists(scenePath), Is.True);
+            });
+        }
+        finally
+        {
+            if (Directory.Exists(baseDir)) Directory.Delete(baseDir, recursive: true);
+        }
+    }
+
     // EmbedReferencedObjectsのテスト
     [Test]
     public void SerializeWithEmbedReferencedObjects()

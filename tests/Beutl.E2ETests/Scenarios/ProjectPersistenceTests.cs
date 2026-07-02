@@ -29,9 +29,6 @@ public class ProjectPersistenceTests
         var projectUri = new Uri(Path.Combine(_baseDir, "demo.bproj"));
         var sceneUri = new Uri(Path.Combine(_baseDir, "scene0", "scene0.scene"));
         var elementUri = new Uri(Path.Combine(_baseDir, "scene0", "clip.belm"));
-        // The recursive reference save writes each referenced file without creating its parent
-        // directory, so the scene subdirectory has to exist before StoreToUri.
-        Directory.CreateDirectory(Path.Combine(_baseDir, "scene0"));
 
         var project = new Project { Uri = projectUri };
         project.Variables[ProjectVariableKeys.FrameRate] = "30";
@@ -99,10 +96,6 @@ public class ProjectPersistenceTests
         {
             Uri = new Uri(Path.Combine(_baseDir, "b", "b.scene")),
         };
-        // The recursive reference save writes each scene file directly without creating its
-        // directory, mirroring how the app lays the project tree out on disk before saving.
-        Directory.CreateDirectory(Path.Combine(_baseDir, "a"));
-        Directory.CreateDirectory(Path.Combine(_baseDir, "b"));
         project.Items.Add(first);
         project.Items.Add(second);
 
@@ -128,7 +121,6 @@ public class ProjectPersistenceTests
         var projectUri = new Uri(Path.Combine(_baseDir, "resave.bproj"));
         var sceneUri = new Uri(Path.Combine(_baseDir, "s", "s.scene"));
         var elementUri = new Uri(Path.Combine(_baseDir, "s", "e.belm"));
-        Directory.CreateDirectory(Path.Combine(_baseDir, "s"));
 
         var project = new Project { Uri = projectUri };
         var scene = new Scene(1024, 768, "s") { Uri = sceneUri };

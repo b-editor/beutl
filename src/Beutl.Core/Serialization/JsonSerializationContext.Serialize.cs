@@ -159,7 +159,14 @@ public partial class JsonSerializationContext
             value,
             new CoreSerializerOptions { BaseUri = value.Uri });
 
-        using var stream = File.Create(value.Uri!.LocalPath);
+        string path = value.Uri!.LocalPath;
+        string? directory = Path.GetDirectoryName(path);
+        if (!string.IsNullOrEmpty(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        using var stream = File.Create(path);
         using var writer = new Utf8JsonWriter(stream, JsonHelper.WriterOptions);
         node.WriteTo(writer);
     }
