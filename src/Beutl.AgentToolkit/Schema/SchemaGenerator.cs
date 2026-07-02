@@ -2341,7 +2341,7 @@ public sealed class SchemaGenerator
         }
         else if (typeof(Geometry).IsAssignableFrom(type))
         {
-            hints.Add("Geometry is authored with typed segment objects, not an SVG path string. Use a PathGeometry ($type discriminator) whose Figures hold PathFigure objects, each with a StartPoint ('x, y') plus Segments of LineSegment/CubicBezierSegment/QuadraticBezierSegment/ConicSegment/ArcSegment; set IsClosed=true for filled shapes. Call get_examples for 'insert-new-geometry-shape-path' to copy a working GeometryShape+PathGeometry patch. RectGeometry/EllipseGeometry/RoundedRectGeometry are simpler alternatives for basic shapes.");
+            hints.Add("Geometry is authored with typed segment objects, not an SVG path string. Use a PathGeometry ($type discriminator) whose Figures hold PathFigure objects, each with a StartPoint ('x, y') plus Segments of LineSegment/CubicBezierSegment/QuadraticBezierSegment/ConicSegment/ArcSegment; set IsClosed=true for filled shapes. Call get_examples for 'insert-new-geometry-shape-path' to copy a working GeometryShape+PathGeometry patch. RectGeometry/EllipseGeometry/RoundedRectGeometry are simpler alternatives for basic shapes. A GeometryShape draws its path at the geometry's own coordinates offset by the path bounds' Position (it is NOT re-centered on its origin), so author paths centered around (0, 0) or call measure_object_bounds and compensate with a TranslateTransform; RectShape/EllipseShape are unaffected because their geometry bounds start at the origin.");
         }
         else if (typeof(EngineObject).IsAssignableFrom(type))
         {

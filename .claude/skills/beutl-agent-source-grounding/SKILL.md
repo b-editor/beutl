@@ -30,6 +30,7 @@ If the user explicitly forbids source-code reading, do not use this skill. Recor
 | Drawable placement and default alignment | `src/Beutl.Engine/Graphics/Drawable.cs` | `AlignmentX`/`AlignmentY` defaults, `TransformOrigin`, `GetTransformMatrix`, and `CalculateTranslate`. |
 | Text drawing and render bounds | `src/Beutl.Engine/Graphics/Shapes/TextBlock.cs`, `src/Beutl.Engine/Graphics/Rendering/TextRenderNode.cs` | Line layout, draw origin, and rendered glyph bounds; use `measure_object_bounds` for authoritative scene-space size. |
 | Shape sizing and local drawing | `src/Beutl.Engine/Graphics/Shapes/Shape.cs`, `RectShape.cs`, `RoundedRectShape.cs`, `EllipseShape.cs` | Bounds size, stroke inflation, and draw origin. |
+| GeometryShape geometry positioning | `src/Beutl.Engine/Graphics/Shapes/Shape.cs` (`OnDraw`, `MeasureCore`) | The `-shapeBounds.Position` normalization is commented out and `MeasureCore` returns only `geometry.Bounds.Size`, so a path is drawn offset by `geometry.Bounds.Position`. Author paths around `(0,0)` or `measure_object_bounds` + compensate. |
 | Transform numeric meaning | `src/Beutl.Engine/Graphics/Transformation/TranslateTransform.cs`, `TransformGroup.cs`, `CanonicalTransformLayout.cs` | Whether values are absolute positions, offsets, or ordered transform children. |
 | Render-node transform and bounds behavior | `src/Beutl.Engine/Graphics/Rendering/TransformRenderNode.cs`, `src/Beutl.Engine/Graphics/Rendering/RenderNodeProcessor.cs`, `src/Beutl.Engine/Graphics/Rendering/RenderNodeContext.cs` | Operation bounds aggregation, bounds transformation, hit-test inversion, and density rescale. |
 | Toolkit examples and generated snippets | `src/Beutl.AgentToolkit/Schema/SchemaGenerator.cs`, `CompositionTemplates.cs` | How toolkit examples choose translate values, animation discriminators, and reusable object shapes. |
@@ -57,6 +58,22 @@ Practical MCP authoring rule:
 - If true top-left anchoring is intended, set `AlignmentX=Left` and `AlignmentY=Top` deliberately, then verify the transform and backing plates with rendered stills.
 
 Use the same coordinate rule for a text/backing-plate pair: share the same intended center offset, size the plate around the text, then call `measure_object_bounds` to confirm both objects have the intended render-node center and padding before rendering.
+
+## Verified Runtime Behaviors And The Stale-Editor Caveat
+
+**Suspect a stale running editor before turning a rendered anomaly into a rule.** When a LiveEditor MCP edit renders wrong, the running app may lag repo HEAD. A whole class of apparent toolkit "gotchas" was traced to a **stale build**, not current code — for example:
+
+- `UseGlobalClock=false` keyframes on a non-zero-`Start` element rendering the final value / invisible: **fixed at commit `21db38d08`** (`KeyFrameAnimation{T}.GetAnimatedValue` now resolves the logical parent at evaluation time). Do not adopt "always use `UseGlobalClock=true` + absolute KeyTimes" as a rule; local KeyTimes are correct in current code.
+- `TransformGroup` appearing to drop a `Scale` for `[Scale, Translate]` order: `TransformGroup.CreateMatrix` composes both orders correctly.
+- `TransformEffect(ApplyToTarget=false)` before `LayerEffect` producing blur/mosaic when scaling a group up: `TransformEffect.ApplyTo` uses `context.Transform(...)` (resolution-independent) for `ApplyToTarget=false`, and `LayerEffect.ApplyTo` bakes the CTM scale from the target density in `ctx.Open` — so scaling before the LayerEffect is the intended crisp path.
+
+Before authoring a workaround for an animation/transform/effect anomaly, rebuild the editor and confirm against `KeyFrameAnimation{T}.GetAnimatedValue`, `TransformGroup.CreateMatrix`, `TransformEffect.ApplyTo`, and `LayerEffect.ApplyTo`.
+
+**Genuine current-code behaviors (source-verified):**
+
+- **`GeometryShape` is not normalized to its geometry origin.** `Shape.OnDraw` leaves `//-shapeBounds.Position` commented out, so a `GeometryShape` whose `PathGeometry` bounds do not start at `(0,0)` renders **offset by `geometry.Bounds.Position`** (scaled by its transforms): a path starting at x=5 is ~5px right at 1x, ~47px at ~9.5x; open stroked curves shift toward a corner. `RectShape`/`EllipseShape` are unaffected. Rule: **author `GeometryShape` paths centered around `(0,0)`**, or `measure_object_bounds` the shape and add a compensating `TranslateTransform`. For a multi-part vector mark (e.g. a two-color logo), build all parts in one origin-centered coordinate frame and verify the composite center with `measure_object_bounds`.
+- **`measure_object_bounds` measures only direct `Element.Objects`.** A `Drawable` nested inside a `DrawableGroup` cannot be measured ("unsupported improvement area"). Measure the group as a whole, or temporarily lift the child into its own Element to measure it.
+- **`LayerEffect` on a `DrawableGroup` flattens the children into one layer** before the group's Opacity applies — use it when overlapping children would otherwise show the back child through the front during a group-opacity fade.
 
 ## Source Inspector Output
 
