@@ -59,7 +59,8 @@
 
             <GridSplitter Grid.Column="1" Background="Transparent" />
 
-            <TextBox Grid.Column="2"
+            <TextBox x:Name="DestinationInputTextBox"
+                     Grid.Column="2"
                      MinWidth="120"
                      Margin="0,4"
                      Text="{Binding DestinationFile.Value, Mode=TwoWay}"
