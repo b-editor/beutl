@@ -563,6 +563,83 @@ public class AudioLatencyCompensationTests
             "A sound ending exactly at the window boundary must have its limiter tail flushed into the next window's start.");
     }
 
+    // Guard path 1: a non-contiguous window (seek/scrub/restart) must suppress the ended-sound flush.
+    // Same setup as the boundary test, but window 2 jumps forward so it no longer abuts window 1; the
+    // cached limiter reset on the discontinuity anyway, so flushing it would inject a stale tail at the
+    // wrong time. This pins the IsContiguous early-return in AppendEndedSoundTails.
+    [Test]
+    public void Composer_DoesNotFlushEndedSoundTail_AfterNonContiguousSeek()
+    {
+        const float lookaheadMs = 5f;
+        int L = LookaheadSamples(lookaheadMs);
+        var oneSecond = TimeSpan.FromSeconds(1);
+
+        var sound = new LimiterTailSound
+        {
+            LookaheadMs = lookaheadMs,
+            TimeRange = new TimeRange(TimeSpan.Zero, oneSecond),
+        };
+        var resource = sound.ToResource(CompositionContext.Default);
+
+        using var composer = new Composer { SampleRate = SampleRate };
+
+        var window1 = new TimeRange(TimeSpan.Zero, oneSecond);
+        var frame1 = new CompositionFrame(ImmutableArray.Create<EngineObject.Resource>(resource), window1, default);
+        using var buffer1 = composer.Compose(window1, frame1);
+
+        // A forward jump far past the previous window end — not contiguous.
+        var window2 = new TimeRange(TimeSpan.FromSeconds(3), oneSecond);
+        var frame2 = new CompositionFrame(ImmutableArray<EngineObject.Resource>.Empty, window2, default);
+        using var buffer2 = composer.Compose(window2, frame2);
+
+        Assert.That(buffer2, Is.Not.Null);
+        var tail = buffer2!.GetChannelData(0);
+        for (int k = 0; k < L; k++)
+        {
+            Assert.That(MathF.Abs(tail[k]), Is.LessThanOrEqualTo(1e-5f),
+                $"A discontinuous window must not inject the previous clip's stale limiter tail (sample {k}).");
+        }
+    }
+
+    // Guard path 2: InvalidateCache must clear the recorded previous window so a subsequent contiguous
+    // window does not flush a stale tail. Identical to the boundary test (contiguous window 2 that
+    // normally recovers the tail) except for the InvalidateCache call, which must suppress the flush.
+    [Test]
+    public void Composer_InvalidateCache_SuppressesEndedSoundTailFlush()
+    {
+        const float lookaheadMs = 5f;
+        int L = LookaheadSamples(lookaheadMs);
+        var oneSecond = TimeSpan.FromSeconds(1);
+
+        var sound = new LimiterTailSound
+        {
+            LookaheadMs = lookaheadMs,
+            TimeRange = new TimeRange(TimeSpan.Zero, oneSecond),
+        };
+        var resource = sound.ToResource(CompositionContext.Default);
+
+        using var composer = new Composer { SampleRate = SampleRate };
+
+        var window1 = new TimeRange(TimeSpan.Zero, oneSecond);
+        var frame1 = new CompositionFrame(ImmutableArray.Create<EngineObject.Resource>(resource), window1, default);
+        using var buffer1 = composer.Compose(window1, frame1);
+
+        composer.InvalidateCache();
+
+        // Contiguous with window 1 — without InvalidateCache this window recovers the tail (boundary test).
+        var window2 = new TimeRange(oneSecond, oneSecond);
+        var frame2 = new CompositionFrame(ImmutableArray<EngineObject.Resource>.Empty, window2, default);
+        using var buffer2 = composer.Compose(window2, frame2);
+
+        Assert.That(buffer2, Is.Not.Null);
+        var tail = buffer2!.GetChannelData(0);
+        for (int k = 0; k < L; k++)
+        {
+            Assert.That(MathF.Abs(tail[k]), Is.LessThanOrEqualTo(1e-5f),
+                $"InvalidateCache must drop the recorded previous window so no stale tail is flushed (sample {k}).");
+        }
+    }
+
     // The three nodes refactored to delegate Process to ProcessTail must still drain correctly on the
     // base Flush path (draining: true). Each guards buffer ownership and shape, not a specific tail value.
     [Test]
