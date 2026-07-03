@@ -8,6 +8,8 @@ using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Rendering;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Workspace;
+using Beutl.Graphics;
+using Beutl.Media;
 using Beutl.ProjectSystem;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
@@ -140,31 +142,49 @@ public sealed class RenderTools(
             {
                 var renderedShots = new List<RenderStoryboardShot>(plannedShots.Count);
                 var contactSheetFrames = new List<StoryboardContactSheetFrame>(plannedShots.Count);
+                var eyeTraceFrames = new List<StoryboardEyeTraceFrame>(plannedShots.Count);
                 foreach ((ResolvedStoryboardFrame shot, string resolvedPath) in plannedShots)
                 {
-                    RenderStillResponse still = await stillRenderer.RenderAsync(
+                    using RenderedFrameAnalysis frame = await stillRenderer.RenderFrameAnalysisAsync(
                         scene,
                         shot.Time,
-                        resolvedPath,
                         renderScale,
                         token).ConfigureAwait(false);
+                    SaveStoryboardStill(frame.Bitmap, resolvedPath);
+                    StillFrameVisibilityAnalysis visibility = StillRenderer.AnalyzeFrameVisibility(frame.Bitmap);
+                    NormalizedFocalPoint? focalPoint = string.Equals(shot.Kind, StoryboardFrameKindShot, StringComparison.Ordinal)
+                        ? StillRenderer.EstimateFocalPoint(scene, frame, visibility)
+                        : null;
                     renderedShots.Add(new RenderStoryboardShot(
                         shot.Name,
                         shot.Time.TotalSeconds,
-                        still.OutputPath,
-                        still.VisibilityAnalysis,
+                        resolvedPath,
+                        visibility,
                         shot.Kind,
                         shot.SubdivisionLevel));
                     contactSheetFrames.Add(new StoryboardContactSheetFrame(
                         shot.Name,
                         shot.Time.TotalSeconds,
-                        still.OutputPath,
+                        resolvedPath,
                         shot.Kind,
                         shot.SubdivisionLevel));
+                    if (focalPoint is not null)
+                    {
+                        eyeTraceFrames.Add(new StoryboardEyeTraceFrame(
+                            shot.Name,
+                            focalPoint));
+                    }
                 }
 
                 storyboardRenderer.RenderContactSheet(contactSheetFrames, resolvedContactSheetPath);
-                return new RenderStoryboardResponse(resolvedContactSheetPath, renderedShots);
+                CutEyeTrace[] cutEyeTrace = BuildCutEyeTrace(eyeTraceFrames);
+                List<string> reviewNotes = [];
+                if (cutEyeTrace.Any(item => item.ExceedsEyeTraceBudget))
+                {
+                    reviewNotes.Add("One or more adjacent anchor shots exceed the eye-trace budget. Murch's eye-trace criterion suggests adding a bridging element, sweep, or focal-point realignment so the viewer's attention lands near the next shot's point of interest.");
+                }
+
+                return new RenderStoryboardResponse(resolvedContactSheetPath, renderedShots, cutEyeTrace, reviewNotes);
             }
 
             if (background)
@@ -276,7 +296,7 @@ public sealed class RenderTools(
     }
 
     [McpServerTool(Name = "evaluate_edit_quality")]
-    [Description("Reviews the current scene for deterministic AI-editing quality risks: all-caps typography, visual hierarchy overload, short text read time, rendered text contrast, RectShape overuse, ambiguous decorative light shapes, hard gradient falloff, flat background richness, unclear foreground shapes, missing motion intent, invalid multi-object Element structure, layer density/depth coverage, high-tempo rhythm density/gaps, audio beat sync, text backing alignment, palette harmony, arbitrary dense effect stacks, dated card/shadow styling, low motion continuity, chopped-up cut rhythm, and video-type timeline coverage. Run after render_still and evaluate_motion_variation; resolve critical/major issues before export_video. Gate-failing checks are limited to the typography blocker family (short read time and rendered text contrast), multi-object Element structure, low motion continuity, and motion-graphics layer density below half of a supplied quantitative plan. A deliberate, brief-justified deviation is allowed and downgraded to advisory via its intent flag (allowStillness, allowDenseText, allowMultiObjectElements, allowMonochrome, allowMinimalDensity), videoType profile, or an equivalent [role:...] tag on the element, so the gate blocks likely accidents, not intentional creative choices.")]
+    [Description("Reviews the current scene for deterministic AI-editing quality risks: all-caps typography, visual hierarchy overload, short text read time, rendered text contrast, RectShape overuse, ambiguous decorative light shapes, hard gradient falloff, flat background richness, unclear foreground shapes, missing motion intent, invalid multi-object Element structure, layer density/depth coverage, high-tempo rhythm density/gaps, audio beat sync, text backing alignment, palette harmony, arbitrary dense effect stacks, dated card/shadow styling, all-linear easing monotony, uniform motion clusters, logo-intro motion-arc gaps, low motion continuity, chopped-up cut rhythm, and video-type timeline coverage. Run after render_still and evaluate_motion_variation; resolve critical/major issues before export_video. Gate-failing checks are limited to the typography blocker family (short read time and rendered text contrast), multi-object Element structure, low motion continuity, and motion-graphics layer density below half of a supplied quantitative plan. A deliberate, brief-justified deviation is allowed and downgraded to advisory via its intent flag (allowStillness, allowDenseText, allowMultiObjectElements, allowMonochrome, allowMinimalDensity), videoType profile, or an equivalent [role:...] tag on the element, so the gate blocks likely accidents, not intentional creative choices.")]
     public ValueTask<ToolResult<QualityReviewResponse>> EvaluateEditQuality(
         [Description("Optional video workflow profile. Supported values: motion-graphics, footage-cut, slideshow, lyric-captions, logo-intro. Omit for exactly the legacy motion-graphics behavior.")]
         string? videoType = null,
@@ -348,7 +368,7 @@ public sealed class RenderTools(
     }
 
     [McpServerTool(Name = "preview_quality_risks")]
-    [Description("Runs document-only deterministic quality risk checks without rendering. Use before or immediately after authoring a large apply_edit patch to catch text-density, RectShape, ambiguous decorative light shapes, hard gradient falloff, flat background richness, unclear-shape, missing-motion-intent, layer-density/depth, multi-object Element, high-tempo rhythm/gaps, backing-plate, palette, effect-stack, video-type timeline coverage, and timeline-structure risks early.")]
+    [Description("Runs document-only deterministic quality risk checks without rendering. Use before or immediately after authoring a large apply_edit patch to catch text-density, RectShape, ambiguous decorative light shapes, hard gradient falloff, flat background richness, unclear-shape, missing-motion-intent, layer-density/depth, multi-object Element, high-tempo rhythm/gaps, backing-plate, palette, effect-stack, easing/motion-uniformity, logo-intro motion-arc, video-type timeline coverage, and timeline-structure risks early.")]
     public ValueTask<ToolResult<QualityReviewResponse>> PreviewQualityRisks(
         [Description("Optional video workflow profile. Supported values: motion-graphics, footage-cut, slideshow, lyric-captions, logo-intro. Omit for exactly the legacy motion-graphics behavior.")]
         string? videoType = null,
@@ -912,6 +932,48 @@ public sealed class RenderTools(
             : Path.Combine(directory, fileName);
     }
 
+    private static void SaveStoryboardStill(Bitmap bitmap, string outputPath)
+    {
+        string? directory = Path.GetDirectoryName(outputPath);
+        if (!string.IsNullOrEmpty(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        if (!bitmap.Save(outputPath, EncodedImageFormat.Png))
+        {
+            throw new IOException($"Failed to write storyboard still image to '{outputPath}'.");
+        }
+    }
+
+    private static CutEyeTrace[] BuildCutEyeTrace(IReadOnlyList<StoryboardEyeTraceFrame> frames)
+    {
+        if (frames.Count < 2)
+        {
+            return [];
+        }
+
+        var result = new CutEyeTrace[frames.Count - 1];
+        for (int i = 1; i < frames.Count; i++)
+        {
+            StoryboardEyeTraceFrame left = frames[i - 1];
+            StoryboardEyeTraceFrame right = frames[i];
+            double dx = left.FocalPoint.X - right.FocalPoint.X;
+            double dy = left.FocalPoint.Y - right.FocalPoint.Y;
+            double displacement = Math.Sqrt((dx * dx) + (dy * dy)) / Math.Sqrt(2);
+            double roundedDisplacement = Math.Round(displacement, 4, MidpointRounding.AwayFromZero);
+            result[i - 1] = new CutEyeTrace(
+                left.Name,
+                right.Name,
+                left.FocalPoint,
+                right.FocalPoint,
+                roundedDisplacement,
+                roundedDisplacement > 0.33);
+        }
+
+        return result;
+    }
+
     private static IReadOnlyList<ResolvedStoryboardShot> ResolveStoryboardShots(
         Scene scene,
         StoryboardShotInput[]? shots)
@@ -1269,4 +1331,8 @@ public sealed class RenderTools(
     internal sealed record ResolvedStoryboardShot(
         string Name,
         TimeSpan Time);
+
+    private sealed record StoryboardEyeTraceFrame(
+        string Name,
+        NormalizedFocalPoint FocalPoint);
 }

@@ -1,5 +1,6 @@
 ﻿using Beutl.AgentToolkit.Rendering;
 using Beutl.Animation;
+using Beutl.Animation.Easings;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
@@ -210,6 +211,225 @@ public sealed class QualityAnalyzerTests
                 && issue.Severity == "minor"));
             Assert.That(result.PassesQualityGate, Is.True);
             Assert.That(result.Metrics.Structure.AnimatedShapeWithoutMotionIntentCount, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task Easing_diversity_flags_all_linear_six_transition_fixture()
+    {
+        Scene scene = CreateScene(durationSeconds: 2);
+        Element element = AddEllipse(
+            scene,
+            "[role:decorative] [role:motion] beat sweep",
+            zIndex: 5,
+            width: 160,
+            height: 120,
+            x: 0,
+            y: 0,
+            color: Color.Parse("#ff6ca8ff"));
+        TranslateTransform translate = GetTranslate(element);
+        translate.X.Animation = CreateFloatAnimation([0, 20, 45, 70, 95, 110, 120]);
+
+        QualityReviewResponse result = await AnalyzeAsync(scene, evaluateMotion: false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.PassesQualityGate, Is.True);
+            Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "easingDiversity"
+                && issue.Severity == "minor"
+                && issue.Message.Contains("linear easing", StringComparison.OrdinalIgnoreCase)));
+            Assert.That(result.Metrics.MotionCraft.EasingDiversity.AnimatedTransitionCount, Is.EqualTo(6));
+            Assert.That(result.Metrics.MotionCraft.EasingDiversity.LinearTransitionShare, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task Easing_diversity_allows_mixed_easing_fixture()
+    {
+        Scene scene = CreateScene(durationSeconds: 2);
+        Element element = AddEllipse(
+            scene,
+            "[role:decorative] [role:motion] eased sweep",
+            zIndex: 5,
+            width: 160,
+            height: 120,
+            x: 0,
+            y: 0,
+            color: Color.Parse("#ff6ca8ff"));
+        TranslateTransform translate = GetTranslate(element);
+        translate.X.Animation = CreateFloatAnimation(
+            [0, 20, 45, 70, 95, 110, 120],
+            [new LinearEasing(), new CubicEaseOut(), new QuinticEaseOut(), new LinearEasing(), new CubicEaseInOut(), new SineEaseOut()]);
+
+        QualityReviewResponse result = await AnalyzeAsync(scene, evaluateMotion: false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Issues, Has.None.Matches<QualityIssue>(issue => issue.Category == "easingDiversity"));
+            Assert.That(result.Metrics.MotionCraft.EasingDiversity.AnimatedTransitionCount, Is.EqualTo(6));
+            Assert.That(result.Metrics.MotionCraft.EasingDiversity.LinearTransitionShare, Is.LessThan(0.90));
+        });
+    }
+
+    [Test]
+    public async Task Easing_diversity_ignores_fewer_than_six_transitions()
+    {
+        Scene scene = CreateScene(durationSeconds: 2);
+        Element element = AddEllipse(
+            scene,
+            "[role:decorative] [role:motion] short sweep",
+            zIndex: 5,
+            width: 160,
+            height: 120,
+            x: 0,
+            y: 0,
+            color: Color.Parse("#ff6ca8ff"));
+        TranslateTransform translate = GetTranslate(element);
+        translate.X.Animation = CreateFloatAnimation([0, 20, 45, 70, 95, 120]);
+
+        QualityReviewResponse result = await AnalyzeAsync(scene, evaluateMotion: false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Issues, Has.None.Matches<QualityIssue>(issue => issue.Category == "easingDiversity"));
+            Assert.That(result.Metrics.MotionCraft.EasingDiversity.AnimatedTransitionCount, Is.EqualTo(5));
+        });
+    }
+
+    [Test]
+    public async Task Motion_uniformity_flags_three_elements_with_same_start_duration_and_direction()
+    {
+        Scene scene = CreateScene(durationSeconds: 2);
+        AddAnimatedTranslateEllipse(scene, "[role:decorative] [role:motion] sweep a", start: 0, length: 1, y: -160);
+        AddAnimatedTranslateEllipse(scene, "[role:decorative] [role:motion] sweep b", start: 0, length: 1, y: 0);
+        AddAnimatedTranslateEllipse(scene, "[role:decorative] [role:motion] sweep c", start: 0, length: 1, y: 160);
+
+        QualityReviewResponse result = await AnalyzeAsync(scene, evaluateMotion: false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.PassesQualityGate, Is.True);
+            Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "motionUniformity"
+                && issue.Severity == "minor"
+                && issue.SuggestedFix.Contains("Stagger starts", StringComparison.Ordinal)));
+            Assert.That(result.Metrics.MotionCraft.MotionUniformity.AnimatedElementCount, Is.EqualTo(3));
+            Assert.That(result.Metrics.MotionCraft.MotionUniformity.LargestClusterElementCount, Is.EqualTo(3));
+            Assert.That(result.Metrics.MotionCraft.MotionUniformity.LargestClusterDirection, Is.EqualTo("E"));
+        });
+    }
+
+    [Test]
+    public async Task Motion_uniformity_allows_staggered_elements()
+    {
+        Scene scene = CreateScene(durationSeconds: 2);
+        AddAnimatedTranslateEllipse(scene, "[role:decorative] [role:motion] sweep a", start: 0, length: 1, y: -160);
+        AddAnimatedTranslateEllipse(scene, "[role:decorative] [role:motion] sweep b", start: 0.2, length: 1, y: 0);
+        AddAnimatedTranslateEllipse(scene, "[role:decorative] [role:motion] sweep c", start: 0.5, length: 1.25, y: 160);
+
+        QualityReviewResponse result = await AnalyzeAsync(scene, evaluateMotion: false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Issues, Has.None.Matches<QualityIssue>(issue => issue.Category == "motionUniformity"));
+            Assert.That(result.Metrics.MotionCraft.MotionUniformity.AnimatedElementCount, Is.EqualTo(3));
+            Assert.That(result.Metrics.MotionCraft.MotionUniformity.LargestClusterElementCount, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task Logo_intro_motion_arc_flags_missing_settle()
+    {
+        Scene scene = CreateScene(durationSeconds: 4);
+        Element element = AddEllipse(
+            scene,
+            "[role:decorative] [role:motion] logo reveal",
+            zIndex: 10,
+            width: 220,
+            height: 160,
+            x: 0,
+            y: 0,
+            color: Color.Parse("#fff4f0e8"));
+        element.Length = TimeSpan.FromSeconds(4);
+        TranslateTransform translate = GetTranslate(element);
+        translate.X.Animation = CreateFloatAnimation(
+            [-20, -28, 0],
+            [new CubicEaseOut(), new LinearEasing()],
+            [0, 0.4, 3.4]);
+
+        QualityReviewResponse result = await AnalyzeAsync(scene, evaluateMotion: false, videoType: "logo-intro");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.PassesQualityGate, Is.True);
+            Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "motionArc"
+                && issue.Severity == "minor"
+                && issue.Message.Contains("settle", StringComparison.OrdinalIgnoreCase)));
+            Assert.That(result.Metrics.MotionCraft.MotionArc.Evaluated, Is.True);
+            Assert.That(result.Metrics.MotionCraft.MotionArc.HasAnticipation, Is.True);
+            Assert.That(result.Metrics.MotionCraft.MotionArc.HasSettle, Is.False);
+        });
+    }
+
+    [Test]
+    public async Task Logo_intro_motion_arc_accepts_complete_arc()
+    {
+        Scene scene = CreateScene(durationSeconds: 4);
+        Element element = AddEllipse(
+            scene,
+            "[role:decorative] [role:motion] logo reveal settle",
+            zIndex: 10,
+            width: 220,
+            height: 160,
+            x: 0,
+            y: 0,
+            color: Color.Parse("#fff4f0e8"));
+        element.Length = TimeSpan.FromSeconds(4);
+        TranslateTransform translate = GetTranslate(element);
+        translate.X.Animation = CreateFloatAnimation(
+            [-8, -14, 0, 8, 0],
+            [new CubicEaseOut(), new CubicEaseOut(), new CubicEaseOut(), new BackEaseOut()],
+            [0, 0.3, 1.1, 1.5, 1.9]);
+
+        QualityReviewResponse result = await AnalyzeAsync(scene, evaluateMotion: false, videoType: "logo-intro");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Issues, Has.None.Matches<QualityIssue>(issue => issue.Category == "motionArc"));
+            Assert.That(result.Metrics.MotionCraft.MotionArc.Evaluated, Is.True);
+            Assert.That(result.Metrics.MotionCraft.MotionArc.HasAnticipation, Is.True);
+            Assert.That(result.Metrics.MotionCraft.MotionArc.HasSettle, Is.True);
+            Assert.That(result.Metrics.MotionCraft.MotionArc.HoldSeconds, Is.GreaterThanOrEqualTo(2.0));
+        });
+    }
+
+    [Test]
+    public async Task Non_logo_intro_video_type_does_not_report_motion_arc()
+    {
+        Scene scene = CreateScene(durationSeconds: 4);
+        Element element = AddEllipse(
+            scene,
+            "[role:decorative] [role:motion] logo reveal",
+            zIndex: 10,
+            width: 220,
+            height: 160,
+            x: 0,
+            y: 0,
+            color: Color.Parse("#fff4f0e8"));
+        TranslateTransform translate = GetTranslate(element);
+        translate.X.Animation = CreateFloatAnimation(
+            [-20, -28, 0],
+            [new CubicEaseOut(), new LinearEasing()],
+            [0, 0.4, 3.4]);
+
+        QualityReviewResponse result = await AnalyzeAsync(scene, evaluateMotion: false, videoType: "motion-graphics");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Issues, Has.None.Matches<QualityIssue>(issue => issue.Category == "motionArc"));
+            Assert.That(result.Metrics.MotionCraft.MotionArc.Evaluated, Is.False);
         });
     }
 
@@ -1517,6 +1737,39 @@ public sealed class QualityAnalyzerTests
         AddObject(scene, $"{name} element", zIndex, ellipse);
     }
 
+    private static Element AddAnimatedTranslateEllipse(
+        Scene scene,
+        string name,
+        double start,
+        double length,
+        float y)
+    {
+        Element element = AddEllipse(
+            scene,
+            name,
+            zIndex: 6,
+            width: 120,
+            height: 80,
+            x: -240,
+            y: y,
+            color: Color.Parse("#ff6ca8ff"));
+        element.Start = TimeSpan.FromSeconds(start);
+        element.Length = TimeSpan.FromSeconds(length);
+        TranslateTransform translate = GetTranslate(element);
+        translate.X.Animation = CreateFloatAnimation(
+            [-240, 240],
+            [new CubicEaseOut()],
+            [0, length]);
+        return element;
+    }
+
+    private static TranslateTransform GetTranslate(Element element)
+    {
+        var drawable = (Drawable)element.Objects[0];
+        var transform = (TransformGroup)drawable.Transform.CurrentValue!;
+        return (TranslateTransform)transform.Children[0];
+    }
+
     private static KeyFrameAnimation<float> CreateFloatAnimation()
     {
         var animation = new KeyFrameAnimation<float>();
@@ -1534,6 +1787,33 @@ public sealed class QualityAnalyzerTests
                 Value = 120
             },
             out _);
+        return animation;
+    }
+
+    private static KeyFrameAnimation<float> CreateFloatAnimation(
+        IReadOnlyList<float> values,
+        IReadOnlyList<Easing>? easings = null,
+        IReadOnlyList<double>? timesSeconds = null)
+    {
+        var animation = new KeyFrameAnimation<float>();
+        for (int i = 0; i < values.Count; i++)
+        {
+            double seconds = timesSeconds is { Count: > 0 }
+                ? timesSeconds[Math.Min(i, timesSeconds.Count - 1)]
+                : i * 0.2;
+            var keyFrame = new KeyFrame<float>
+            {
+                KeyTime = TimeSpan.FromSeconds(seconds),
+                Value = values[i]
+            };
+            if (i > 0 && easings is not null && i - 1 < easings.Count)
+            {
+                keyFrame.Easing = easings[i - 1];
+            }
+
+            animation.KeyFrames.Add(keyFrame, out _);
+        }
+
         return animation;
     }
 

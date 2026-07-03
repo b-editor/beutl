@@ -76,7 +76,9 @@ public sealed class RenderedFrameAnalysis : IDisposable
 
 public sealed record RenderStoryboardResponse(
     string ContactSheetPath,
-    IReadOnlyList<RenderStoryboardShot> Shots);
+    IReadOnlyList<RenderStoryboardShot> Shots,
+    IReadOnlyList<CutEyeTrace> CutEyeTrace,
+    IReadOnlyList<string> ReviewNotes);
 
 public sealed record RenderStoryboardShot(
     string Name,
@@ -89,6 +91,18 @@ public sealed record RenderStoryboardShot(
 public sealed record StoryboardShotInput(
     string Name,
     double TimeSeconds);
+
+public sealed record NormalizedFocalPoint(
+    double X,
+    double Y);
+
+public sealed record CutEyeTrace(
+    string LeftFrame,
+    string RightFrame,
+    NormalizedFocalPoint LeftFocalPoint,
+    NormalizedFocalPoint RightFocalPoint,
+    double DisplacementRatio,
+    bool ExceedsEyeTraceBudget);
 
 public sealed record RenderStoryboardResult(
     string Status,
@@ -202,7 +216,7 @@ public sealed class StillRenderer
             ct: cancellationToken).ConfigureAwait(false);
     }
 
-    private static StillFrameVisibilityAnalysis AnalyzeFrameVisibility(Bitmap bitmap)
+    internal static StillFrameVisibilityAnalysis AnalyzeFrameVisibility(Bitmap bitmap)
     {
         const int nearBlackThreshold = 8;
         const int maxForegroundDeltaThreshold = 12;
@@ -399,6 +413,195 @@ public sealed class StillRenderer
             visibilityThreshold,
             foregroundDeltaThreshold,
             [warning]);
+    }
+
+    internal static NormalizedFocalPoint EstimateFocalPoint(
+        Scene scene,
+        RenderedFrameAnalysis frame,
+        StillFrameVisibilityAnalysis visibility)
+    {
+        if (TryEstimateTextFocalPoint(scene, frame.TextBounds, out NormalizedFocalPoint textFocalPoint))
+        {
+            return textFocalPoint;
+        }
+
+        return EstimateForegroundFocalPoint(frame.Bitmap, visibility);
+    }
+
+    private static bool TryEstimateTextFocalPoint(
+        Scene scene,
+        IReadOnlyList<RenderedTextBounds> textBounds,
+        out NormalizedFocalPoint focalPoint)
+    {
+        RenderedTextBounds? best = textBounds
+            .Where(item => item.TextBlock.IsEnabled)
+            .Where(item => !string.IsNullOrWhiteSpace(item.TextBlock.Text.CurrentValue))
+            .Where(item => item.Bounds.Width >= 4 && item.Bounds.Height >= 4)
+            .OrderByDescending(item => item.Element.ZIndex)
+            .ThenByDescending(item => item.Bounds.Width * item.Bounds.Height)
+            .FirstOrDefault();
+        if (best is null)
+        {
+            focalPoint = new NormalizedFocalPoint(0.5, 0.5);
+            return false;
+        }
+
+        double width = scene.FrameSize.Width > 0 ? scene.FrameSize.Width : best.Bounds.Right;
+        double height = scene.FrameSize.Height > 0 ? scene.FrameSize.Height : best.Bounds.Bottom;
+        focalPoint = new NormalizedFocalPoint(
+            NormalizeUnit(best.Bounds.Center.X, width),
+            NormalizeUnit(best.Bounds.Center.Y, height));
+        return true;
+    }
+
+    private static NormalizedFocalPoint EstimateForegroundFocalPoint(
+        Bitmap bitmap,
+        StillFrameVisibilityAnalysis visibility)
+    {
+        if (bitmap.Width <= 0 || bitmap.Height <= 0 || visibility.ForegroundPixels <= 0)
+        {
+            return new NormalizedFocalPoint(0.5, 0.5);
+        }
+
+        int colorByteCount = GetColorByteCount(bitmap.ColorType, bitmap.BytesPerPixel);
+        if (colorByteCount <= 0)
+        {
+            return FocalFromVisibilityBounds(bitmap, visibility);
+        }
+
+        int totalPixels = bitmap.Width * bitmap.Height;
+        var state = new byte[totalPixels];
+        var lumaByPixel = new byte[totalPixels];
+        double globalWeight = 0;
+        double globalX = 0;
+        double globalY = 0;
+
+        for (int y = 0; y < bitmap.Height; y++)
+        {
+            Span<byte> row = bitmap.GetRow(y);
+            for (int x = 0; x < bitmap.Width; x++)
+            {
+                int index = (y * bitmap.Width) + x;
+                int offset = x * bitmap.BytesPerPixel;
+                int luma = 0;
+                for (int channel = 0; channel < colorByteCount; channel++)
+                {
+                    luma += row[offset + channel];
+                }
+
+                luma /= colorByteCount;
+                lumaByPixel[index] = (byte)Math.Clamp(luma, 0, byte.MaxValue);
+                double delta = Math.Abs(luma - visibility.BackgroundLuma);
+                if (delta <= visibility.ForegroundDeltaThreshold)
+                {
+                    continue;
+                }
+
+                state[index] = 1;
+                double weight = Math.Max(1, delta);
+                globalWeight += weight;
+                globalX += (x + 0.5) * weight;
+                globalY += (y + 0.5) * weight;
+            }
+        }
+
+        if (globalWeight <= 0)
+        {
+            return FocalFromVisibilityBounds(bitmap, visibility);
+        }
+
+        double globalCentroidX = globalX / globalWeight;
+        double globalCentroidY = globalY / globalWeight;
+        double bestWeight = 0;
+        double bestX = 0;
+        double bestY = 0;
+        var stack = new List<int>();
+        for (int index = 0; index < state.Length; index++)
+        {
+            if (state[index] != 1)
+            {
+                continue;
+            }
+
+            double componentWeight = 0;
+            double componentX = 0;
+            double componentY = 0;
+            stack.Clear();
+            stack.Add(index);
+            state[index] = 2;
+            while (stack.Count > 0)
+            {
+                int current = stack[^1];
+                stack.RemoveAt(stack.Count - 1);
+                int x = current % bitmap.Width;
+                int y = current / bitmap.Width;
+                double weight = Math.Max(1, Math.Abs(lumaByPixel[current] - visibility.BackgroundLuma));
+                componentWeight += weight;
+                componentX += (x + 0.5) * weight;
+                componentY += (y + 0.5) * weight;
+
+                AddForegroundNeighbor(x - 1, y);
+                AddForegroundNeighbor(x + 1, y);
+                AddForegroundNeighbor(x, y - 1);
+                AddForegroundNeighbor(x, y + 1);
+            }
+
+            if (componentWeight > bestWeight)
+            {
+                bestWeight = componentWeight;
+                bestX = componentX / componentWeight;
+                bestY = componentY / componentWeight;
+            }
+        }
+
+        double focalX = bestWeight > 0 ? (globalCentroidX * 0.35) + (bestX * 0.65) : globalCentroidX;
+        double focalY = bestWeight > 0 ? (globalCentroidY * 0.35) + (bestY * 0.65) : globalCentroidY;
+        return new NormalizedFocalPoint(
+            NormalizeUnit(focalX, bitmap.Width),
+            NormalizeUnit(focalY, bitmap.Height));
+
+        void AddForegroundNeighbor(int x, int y)
+        {
+            if (x < 0 || y < 0 || x >= bitmap.Width || y >= bitmap.Height)
+            {
+                return;
+            }
+
+            int neighbor = (y * bitmap.Width) + x;
+            if (state[neighbor] != 1)
+            {
+                return;
+            }
+
+            state[neighbor] = 2;
+            stack.Add(neighbor);
+        }
+    }
+
+    private static NormalizedFocalPoint FocalFromVisibilityBounds(
+        Bitmap bitmap,
+        StillFrameVisibilityAnalysis visibility)
+    {
+        if (visibility.Right <= visibility.Left || visibility.Bottom <= visibility.Top)
+        {
+            return new NormalizedFocalPoint(0.5, 0.5);
+        }
+
+        double x = (visibility.Left + visibility.Right + 1) / 2d;
+        double y = (visibility.Top + visibility.Bottom + 1) / 2d;
+        return new NormalizedFocalPoint(
+            NormalizeUnit(x, bitmap.Width),
+            NormalizeUnit(y, bitmap.Height));
+    }
+
+    private static double NormalizeUnit(double value, double denominator)
+    {
+        if (!double.IsFinite(value) || !double.IsFinite(denominator) || denominator <= 0)
+        {
+            return 0.5;
+        }
+
+        return Math.Round(Math.Clamp(value / denominator, 0, 1), 4, MidpointRounding.AwayFromZero);
     }
 
     private static bool IsBorderPixel(int width, int height, int x, int y)

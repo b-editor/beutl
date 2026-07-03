@@ -32,7 +32,8 @@ public sealed record VideoTypeGateProfile(
     bool SuppressCaptionRoleHierarchy = false,
     bool SuppressCutRhythm = false,
     bool RewordCutRhythmForTransitions = false,
-    bool RunTimelineCoverage = false)
+    bool RunTimelineCoverage = false,
+    bool RunLogoIntroMotionArc = false)
 {
     public static VideoTypeGateProfile None { get; } = new();
 
@@ -90,6 +91,11 @@ public sealed record VideoTypeGateProfile(
         if (RunTimelineCoverage)
         {
             adjustments.Add("timelineCoverage advisory enabled");
+        }
+
+        if (RunLogoIntroMotionArc)
+        {
+            adjustments.Add("logo-intro motionArc advisory enabled");
         }
 
         return adjustments.Count == 0 ? ["none"] : adjustments;
@@ -227,7 +233,8 @@ public static class VideoTypeCatalog
             new VideoTypeGateProfile(
                 ImpliedAllowMinimalDensity: true,
                 SuppressTempoAnalysis: true,
-                SuppressCutRhythm: true))
+                SuppressCutRhythm: true,
+                RunLogoIntroMotionArc: true))
     ];
 
     public static IReadOnlyList<VideoTypeProfile> Profiles => s_profiles;

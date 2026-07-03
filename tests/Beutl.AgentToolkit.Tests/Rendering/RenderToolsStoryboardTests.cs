@@ -153,6 +153,91 @@ public sealed class RenderToolsStoryboardTests
     }
 
     [Test]
+    public async Task Render_storyboard_cut_eye_trace_flags_corner_to_corner_jump()
+    {
+        string workspace = CreateWorkspace();
+        Scene scene = CreateEyeTraceScene(workspace, jumpAcrossCut: true);
+        using var session = new AgentToolkitTestSession(scene);
+        RenderTools tools = CreateTools(workspace, session);
+
+        CallToolResult call = await tools.RenderStoryboard(
+            [
+                new StoryboardShotInput("left-focal", 0.5),
+                new StoryboardShotInput("right-focal", 1.5)
+            ],
+            outputDirectory: "storyboards",
+            basename: "eye-trace-jump",
+            cancellationToken: CancellationToken.None);
+        ToolResult<RenderStoryboardResult> result = ReadToolResult<RenderStoryboardResult>(call);
+
+        CutEyeTrace trace = result.Value!.Result!.CutEyeTrace.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+            Assert.That(trace.LeftFrame, Is.EqualTo("left-focal"));
+            Assert.That(trace.RightFrame, Is.EqualTo("right-focal"));
+            Assert.That(trace.ExceedsEyeTraceBudget, Is.True);
+            Assert.That(trace.DisplacementRatio, Is.GreaterThan(0.33));
+            Assert.That(trace.LeftFocalPoint.X, Is.LessThan(0.30));
+            Assert.That(trace.LeftFocalPoint.Y, Is.LessThan(0.30));
+            Assert.That(trace.RightFocalPoint.X, Is.GreaterThan(0.70));
+            Assert.That(trace.RightFocalPoint.Y, Is.GreaterThan(0.70));
+            Assert.That(result.Value.Result.ReviewNotes, Has.Some.Contains("Murch"));
+        });
+    }
+
+    [Test]
+    public async Task Render_storyboard_cut_eye_trace_allows_aligned_focal_points()
+    {
+        string workspace = CreateWorkspace();
+        Scene scene = CreateEyeTraceScene(workspace, jumpAcrossCut: false);
+        using var session = new AgentToolkitTestSession(scene);
+        RenderTools tools = CreateTools(workspace, session);
+
+        CallToolResult call = await tools.RenderStoryboard(
+            [
+                new StoryboardShotInput("left-focal", 0.5),
+                new StoryboardShotInput("aligned-focal", 1.5)
+            ],
+            outputDirectory: "storyboards",
+            basename: "eye-trace-aligned",
+            cancellationToken: CancellationToken.None);
+        ToolResult<RenderStoryboardResult> result = ReadToolResult<RenderStoryboardResult>(call);
+
+        CutEyeTrace trace = result.Value!.Result!.CutEyeTrace.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+            Assert.That(trace.ExceedsEyeTraceBudget, Is.False);
+            Assert.That(trace.DisplacementRatio, Is.LessThanOrEqualTo(0.33));
+            Assert.That(result.Value.Result.ReviewNotes, Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task Render_storyboard_single_shot_returns_empty_cut_eye_trace()
+    {
+        string workspace = CreateWorkspace();
+        Scene scene = CreateEyeTraceScene(workspace, jumpAcrossCut: true);
+        using var session = new AgentToolkitTestSession(scene);
+        RenderTools tools = CreateTools(workspace, session);
+
+        CallToolResult call = await tools.RenderStoryboard(
+            [new StoryboardShotInput("only-shot", 0.5)],
+            outputDirectory: "storyboards",
+            basename: "eye-trace-single",
+            cancellationToken: CancellationToken.None);
+        ToolResult<RenderStoryboardResult> result = ReadToolResult<RenderStoryboardResult>(call);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+            Assert.That(result.Value!.Result!.CutEyeTrace, Is.Empty);
+            Assert.That(result.Value.Result.ReviewNotes, Is.Empty);
+        });
+    }
+
+    [Test]
     public async Task Render_storyboard_subdivision_response_contains_inbetween_shape_and_deterministic_names()
     {
         string workspace = CreateWorkspace();
@@ -530,6 +615,26 @@ public sealed class RenderToolsStoryboardTests
         return scene;
     }
 
+    private static Scene CreateEyeTraceScene(string workspace, bool jumpAcrossCut)
+    {
+        var scene = new Scene(320, 180, "eye-trace")
+        {
+            Duration = TimeSpan.FromSeconds(2),
+            Uri = new Uri(Path.Combine(workspace, "Scene.scene"))
+        };
+        AddColorRectElement(scene, workspace, "black background", TimeSpan.Zero, TimeSpan.FromSeconds(2), 320, 180, Colors.Black);
+        AddFocalRectElement(scene, workspace, "first focal", TimeSpan.Zero, TimeSpan.FromSeconds(1), -120, -60);
+        AddFocalRectElement(
+            scene,
+            workspace,
+            "second focal",
+            TimeSpan.FromSeconds(1),
+            TimeSpan.FromSeconds(1),
+            jumpAcrossCut ? 120 : -120,
+            jumpAcrossCut ? 60 : -60);
+        return scene;
+    }
+
     private static void AddColorRectElement(
         Scene scene,
         string workspace,
@@ -548,6 +653,32 @@ public sealed class RenderToolsStoryboardTests
             Fill = { CurrentValue = new SolidColorBrush(color) }
         };
         AddElement(scene, workspace, name, start, length, scene.Children.Count, rect);
+    }
+
+    private static void AddFocalRectElement(
+        Scene scene,
+        string workspace,
+        string name,
+        TimeSpan start,
+        TimeSpan length,
+        float x,
+        float y)
+    {
+        var rect = new RectShape
+        {
+            Name = name,
+            Width = { CurrentValue = 48 },
+            Height = { CurrentValue = 48 },
+            Fill = { CurrentValue = new SolidColorBrush(Colors.White) },
+            Transform =
+            {
+                CurrentValue = new TransformGroup
+                {
+                    Children = { new TranslateTransform(x, y) }
+                }
+            }
+        };
+        AddElement(scene, workspace, name, start, length, 10, rect);
     }
 
     private static void AddColorRoundedRectElement(

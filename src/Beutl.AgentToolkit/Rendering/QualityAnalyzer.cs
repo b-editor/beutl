@@ -1,6 +1,8 @@
 ﻿using Beutl.AgentToolkit.Design;
 using Beutl.Animation;
+using Beutl.Animation.Easings;
 using Beutl.Collections;
+using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
@@ -36,6 +38,7 @@ public sealed record QualityMetrics(
     TempoMetrics Tempo,
     BackgroundRichnessMetrics BackgroundRichness,
     LayerDensityMetrics LayerDensity,
+    MotionCraftMetrics MotionCraft,
     MotionContinuityMetrics MotionContinuity);
 
 public sealed record TypographyMetrics(
@@ -151,6 +154,31 @@ public sealed record MotionContinuityMetrics(
     int ShortSegmentCount,
     int AnimatedPropertyCount);
 
+public sealed record MotionCraftMetrics(
+    EasingDiversityMetrics EasingDiversity,
+    MotionUniformityMetrics MotionUniformity,
+    MotionArcMetrics MotionArc);
+
+public sealed record EasingDiversityMetrics(
+    int AnimatedTransitionCount,
+    int LinearTransitionCount,
+    double LinearTransitionShare);
+
+public sealed record MotionUniformityMetrics(
+    int AnimatedElementCount,
+    int LargestClusterElementCount,
+    double LargestClusterShare,
+    double? LargestClusterStartSeconds,
+    double? LargestClusterDurationSeconds,
+    string? LargestClusterDirection);
+
+public sealed record MotionArcMetrics(
+    bool Evaluated,
+    int DominantAnimatedElementCount,
+    bool HasAnticipation,
+    bool HasSettle,
+    double HoldSeconds);
+
 public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnalyzer, StillRenderer stillRenderer)
 {
     private const string Critical = "critical";
@@ -243,6 +271,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
             plannedForegroundElementsPerShot,
             issues);
         AnalyzeTimelineCoverage(scene, objects, gateProfile.RunTimelineCoverage, issues);
+        MotionCraftMetrics motionCraft = AnalyzeMotionCraft(scene, objects, gateProfile, issues);
         IReadOnlyList<RenderedFrameAnalysis>? renderedFrames = null;
         try
         {
@@ -312,7 +341,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
                 !hasBlockingIssue,
                 verdict,
                 issues,
-                new QualityMetrics(typography, shapeDiversity, palette, structure, tempo, backgroundRichness, layerDensity, motion),
+                new QualityMetrics(typography, shapeDiversity, palette, structure, tempo, backgroundRichness, layerDensity, motionCraft, motion),
                 notes);
         }
         finally
@@ -1191,6 +1220,649 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
                 .ToArray(),
             []));
     }
+
+    private static MotionCraftMetrics AnalyzeMotionCraft(
+        Scene scene,
+        IReadOnlyList<SceneObjectInfo> objects,
+        VideoTypeGateProfile gateProfile,
+        List<QualityIssue> issues)
+    {
+        EasingDiversityMetrics easingDiversity = AnalyzeEasingDiversity(scene, objects, issues);
+        MotionUniformityMetrics motionUniformity = AnalyzeMotionUniformity(scene, objects, issues);
+        MotionArcMetrics motionArc = AnalyzeLogoIntroMotionArc(
+            scene,
+            objects,
+            gateProfile.RunLogoIntroMotionArc,
+            issues);
+        return new MotionCraftMetrics(easingDiversity, motionUniformity, motionArc);
+    }
+
+    private static EasingDiversityMetrics AnalyzeEasingDiversity(
+        Scene scene,
+        IReadOnlyList<SceneObjectInfo> objects,
+        List<QualityIssue> issues)
+    {
+        AnimatedPropertyInfo[] animatedProperties = objects
+            .Where(item => IsVisibleForegroundObject(scene, item))
+            .SelectMany(EnumerateAnimatedProperties)
+            .ToArray();
+        KeyFrameTransitionInfo[] transitions = animatedProperties
+            .SelectMany(CreateKeyFrameTransitions)
+            .ToArray();
+        int transitionCount = transitions.Length;
+        int linearCount = transitions.Count(item => IsLinearEasing(item.Easing));
+        double linearShare = transitionCount == 0 ? 0 : linearCount / (double)transitionCount;
+
+        if (transitionCount >= 6 && linearShare >= 0.90)
+        {
+            issues.Add(new QualityIssue(
+                "easingDiversity",
+                Advisory,
+                "Most animated keyframe transitions use linear easing, which makes motion read mechanical.",
+                $"{linearCount}/{transitionCount} keyframe transitions are linear ({linearShare:P0}).",
+                "Mix slow-in/slow-out easing from Disney's 12 principles: use cubic or quintic ease-out for entrances, ease-in-out for moves, and reserve linear easing for intentional mechanical or constant-speed motion.",
+                null,
+                transitions
+                    .Select(item => item.Info.Element.Id.ToString())
+                    .Distinct(StringComparer.Ordinal)
+                    .ToArray(),
+                transitions
+                    .Select(item => item.Info.Object.Id.ToString())
+                    .Distinct(StringComparer.Ordinal)
+                    .ToArray()));
+        }
+
+        return new EasingDiversityMetrics(
+            transitionCount,
+            linearCount,
+            Math.Round(linearShare, 4, MidpointRounding.AwayFromZero));
+    }
+
+    private static MotionUniformityMetrics AnalyzeMotionUniformity(
+        Scene scene,
+        IReadOnlyList<SceneObjectInfo> objects,
+        List<QualityIssue> issues)
+    {
+        Dictionary<Element, SceneObjectInfo[]> foregroundByElement = objects
+            .Where(item => IsVisibleForegroundObject(scene, item))
+            .GroupBy(item => item.Element)
+            .ToDictionary(group => group.Key, group => group.ToArray());
+        AnimatedElementMotion[] animatedElements = scene.Children
+            .Select(element => AnalyzeElementMotion(element, foregroundByElement))
+            .Where(item => item is not null)
+            .Select(item => item!)
+            .ToArray();
+
+        if (animatedElements.Length == 0)
+        {
+            return new MotionUniformityMetrics(0, 0, 0, null, null, null);
+        }
+
+        var largestCluster = animatedElements
+            .GroupBy(item => item.ClusterKey)
+            .Select(group => new
+            {
+                Key = group.Key,
+                Items = group.ToArray()
+            })
+            .OrderByDescending(group => group.Items.Length)
+            .ThenBy(group => group.Key.StartBucket)
+            .ThenBy(group => group.Key.DurationBucket)
+            .ThenBy(group => group.Key.Direction, StringComparer.Ordinal)
+            .First();
+        int largestCount = largestCluster.Items.Length;
+        double largestShare = largestCount / (double)animatedElements.Length;
+
+        if (largestCount >= 3 && largestShare >= 0.80)
+        {
+            issues.Add(new QualityIssue(
+                "motionUniformity",
+                Advisory,
+                "Most animated elements start, last, and move in the same way, reducing follow-through and overlapping action.",
+                $"{largestCount}/{animatedElements.Length} animated elements cluster at start {largestCluster.Key.StartBucket:F1}s, duration {largestCluster.Key.DurationBucket:F1}s, direction {largestCluster.Key.Direction}.",
+                "Stagger starts by 0.1-0.3 seconds and vary durations or translate directions so follow-through and overlapping action are visible.",
+                null,
+                largestCluster.Items
+                    .Select(item => item.Element.Id.ToString())
+                    .Distinct(StringComparer.Ordinal)
+                    .ToArray(),
+                largestCluster.Items
+                    .SelectMany(item => item.ObjectIds)
+                    .Distinct(StringComparer.Ordinal)
+                    .ToArray()));
+        }
+
+        return new MotionUniformityMetrics(
+            animatedElements.Length,
+            largestCount,
+            Math.Round(largestShare, 4, MidpointRounding.AwayFromZero),
+            largestCluster.Key.StartBucket,
+            largestCluster.Key.DurationBucket,
+            largestCluster.Key.Direction);
+    }
+
+    private static MotionArcMetrics AnalyzeLogoIntroMotionArc(
+        Scene scene,
+        IReadOnlyList<SceneObjectInfo> objects,
+        bool enabled,
+        List<QualityIssue> issues)
+    {
+        if (!enabled)
+        {
+            return new MotionArcMetrics(false, 0, false, false, 0);
+        }
+
+        MotionArcSegment[] allSegments = objects
+            .Where(item => IsVisibleForegroundObject(scene, item))
+            .SelectMany(CreateMotionArcSegments)
+            .OrderBy(item => item.StartSeconds)
+            .ThenBy(item => item.EndSeconds)
+            .ToArray();
+        MotionArcSegment[] movingSegments = allSegments
+            .Where(item => item.Magnitude > 0.01)
+            .ToArray();
+        if (movingSegments.Length == 0)
+        {
+            return new MotionArcMetrics(true, 0, false, false, 0);
+        }
+
+        MotionArcSegment largest = movingSegments.MaxBy(item => item.Magnitude)!;
+        MotionArcSegment[] dominantSegments = allSegments
+            .Where(item => item.Info.Element == largest.Info.Element && item.Info.Object == largest.Info.Object)
+            .OrderBy(item => item.StartSeconds)
+            .ThenBy(item => item.EndSeconds)
+            .ToArray();
+        MotionArcSegment[] dominantMovingSegments = dominantSegments
+            .Where(item => item.Magnitude > 0.01)
+            .ToArray();
+        int dominantElementCount = movingSegments
+            .Where(item => item.Magnitude >= largest.Magnitude * 0.80)
+            .Select(item => item.Info.Element)
+            .Distinct()
+            .Count();
+
+        bool hasAnticipation = dominantSegments.Any(segment =>
+            segment.EndSeconds <= largest.StartSeconds + 0.001
+            && segment.DurationSeconds >= 0.10
+            && (segment.Magnitude <= largest.Magnitude * 0.55
+                || IsCounterMove(segment, largest)));
+
+        MotionArcSegment finalSegment = dominantMovingSegments
+            .OrderBy(item => item.EndSeconds)
+            .Last();
+        double sceneEnd = scene.Duration > TimeSpan.Zero ? scene.Duration.TotalSeconds : finalSegment.EndSeconds;
+        double elementEnd = finalSegment.Info.Element.Length > TimeSpan.Zero
+            ? (finalSegment.Info.Element.Start + finalSegment.Info.Element.Length).TotalSeconds
+            : sceneEnd;
+        double holdEnd = Math.Min(sceneEnd, elementEnd);
+        double holdSeconds = Math.Max(0, holdEnd - finalSegment.EndSeconds);
+        bool hasSettle = holdSeconds >= 1.0
+                         && (IsEaseOutLike(finalSegment.Easing)
+                             || HasOvershootReturn(dominantMovingSegments, finalSegment));
+
+        if (!hasAnticipation)
+        {
+            issues.Add(CreateMotionArcIssue(
+                "The logo-intro motion arc is missing a detectable anticipation phase before the main reveal.",
+                $"Largest {largest.PropertyPath} change runs {FormatSeconds(largest.StartSeconds)}-{FormatSeconds(largest.EndSeconds)} with no earlier smaller counter-move or hold segment.",
+                "Add a brief anticipation before the reveal: a smaller counter-move, compression, opacity breath, or held pre-beat before the largest transform/opacity change.",
+                largest));
+        }
+
+        if (!hasSettle)
+        {
+            issues.Add(CreateMotionArcIssue(
+                "The logo-intro motion arc is missing a clear settle into the final hold.",
+                $"Final {finalSegment.PropertyPath} segment ends at {FormatSeconds(finalSegment.EndSeconds)} with {holdSeconds:F2}s of hold and easing {finalSegment.Easing.GetType().Name}.",
+                "End with a non-linear ease-out or overshoot-then-return settle, then keep the final keyframe stable for at least 1 second before the element or scene ends.",
+                finalSegment));
+        }
+
+        return new MotionArcMetrics(
+            true,
+            dominantElementCount,
+            hasAnticipation,
+            hasSettle,
+            Math.Round(holdSeconds, 3, MidpointRounding.AwayFromZero));
+    }
+
+    private static QualityIssue CreateMotionArcIssue(
+        string message,
+        string evidence,
+        string suggestedFix,
+        MotionArcSegment segment)
+    {
+        return new QualityIssue(
+            "motionArc",
+            Advisory,
+            message,
+            evidence,
+            suggestedFix,
+            null,
+            [segment.Info.Element.Id.ToString()],
+            [segment.Info.Object.Id.ToString()]);
+    }
+
+    private static AnimatedElementMotion? AnalyzeElementMotion(
+        Element element,
+        IReadOnlyDictionary<Element, SceneObjectInfo[]> foregroundByElement)
+    {
+        if (!foregroundByElement.TryGetValue(element, out SceneObjectInfo[]? objects)
+            || objects.Length == 0
+            || !objects.Any(item => HasTransformOrOpacityAnimation(item.Object)))
+        {
+            return null;
+        }
+
+        double deltaX = 0;
+        double deltaY = 0;
+        bool hasTranslate = false;
+        foreach (SceneObjectInfo info in objects)
+        {
+            if (info.Object is Drawable drawable)
+            {
+                (double x, double y, bool found) = GetAnimatedTranslateDelta(drawable.Transform.CurrentValue);
+                deltaX += x;
+                deltaY += y;
+                hasTranslate |= found;
+            }
+        }
+
+        string direction = hasTranslate && Distance(0, 0, deltaX, deltaY) >= 1
+            ? BucketDirection(deltaX, deltaY)
+            : "none";
+        double start = RoundToTenth(element.Start.TotalSeconds);
+        double duration = RoundToTenth(element.Length.TotalSeconds);
+        return new AnimatedElementMotion(
+            element,
+            objects.Select(item => item.Object.Id.ToString()).ToArray(),
+            new MotionUniformityClusterKey(start, duration, direction));
+    }
+
+    private static bool IsVisibleForegroundObject(Scene scene, SceneObjectInfo info)
+    {
+        return info.Object is not PortalObject
+               && (info.Object is not Drawable drawable
+                   || drawable.Opacity.CurrentValue > 0.01
+                   || drawable.Opacity.Animation is not null)
+               && !IsBackgroundObject(scene, info);
+    }
+
+    private static IEnumerable<AnimatedPropertyInfo> EnumerateAnimatedProperties(SceneObjectInfo info)
+    {
+        var visited = new HashSet<EngineObject>();
+        foreach (AnimatedPropertyInfo animated in EnumerateAnimatedProperties(info, info.Object, info.Object.GetType().Name, visited))
+        {
+            yield return animated;
+        }
+    }
+
+    private static IEnumerable<AnimatedPropertyInfo> EnumerateAnimatedProperties(
+        SceneObjectInfo info,
+        EngineObject obj,
+        string path,
+        HashSet<EngineObject> visited)
+    {
+        if (!visited.Add(obj))
+        {
+            yield break;
+        }
+
+        foreach (IProperty property in obj.Properties)
+        {
+            string propertyPath = $"{path}.{property.Name}";
+            if (property.Animation is IKeyFrameAnimation animation)
+            {
+                yield return new AnimatedPropertyInfo(info, property, animation, propertyPath);
+            }
+
+            foreach (EngineObject nested in EnumerateNestedEngineObjects(property))
+            {
+                foreach (AnimatedPropertyInfo animated in EnumerateAnimatedProperties(
+                             info,
+                             nested,
+                             $"{propertyPath}.{nested.GetType().Name}",
+                             visited))
+                {
+                    yield return animated;
+                }
+            }
+        }
+    }
+
+    private static IEnumerable<EngineObject> EnumerateNestedEngineObjects(IProperty property)
+    {
+        if (property.CurrentValue is EngineObject nested)
+        {
+            yield return nested;
+        }
+
+        if (property.CurrentValue is ICoreList currentList)
+        {
+            foreach (object? item in currentList)
+            {
+                if (item is EngineObject nestedItem)
+                {
+                    yield return nestedItem;
+                }
+            }
+        }
+
+        if (property is ICoreList propertyList)
+        {
+            foreach (object? item in propertyList)
+            {
+                if (item is EngineObject nestedItem)
+                {
+                    yield return nestedItem;
+                }
+            }
+        }
+    }
+
+    private static IEnumerable<KeyFrameTransitionInfo> CreateKeyFrameTransitions(AnimatedPropertyInfo animated)
+    {
+        IKeyFrame[] keyFrames = animated.Animation.KeyFrames
+            .OrderBy(item => item.KeyTime)
+            .ToArray();
+        for (int i = 1; i < keyFrames.Length; i++)
+        {
+            IKeyFrame previous = keyFrames[i - 1];
+            IKeyFrame next = keyFrames[i];
+            if (next.KeyTime <= previous.KeyTime)
+            {
+                continue;
+            }
+
+            yield return new KeyFrameTransitionInfo(animated.Info, animated.PropertyPath, next.Easing);
+        }
+    }
+
+    private static bool HasTransformOrOpacityAnimation(EngineObject obj)
+    {
+        if (obj is Drawable drawable)
+        {
+            if (drawable.Opacity.Animation is IKeyFrameAnimation { KeyFrames.Count: >= 2 }
+                || drawable.Transform.Animation is not null
+                || HasAnimatedTransform(drawable.Transform.CurrentValue))
+            {
+                return true;
+            }
+        }
+
+        foreach (IProperty property in obj.Properties)
+        {
+            foreach (EngineObject nested in EnumerateNestedEngineObjects(property))
+            {
+                if (HasTransformOrOpacityAnimation(nested))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static bool HasAnimatedTransform(Transform? transform)
+    {
+        if (transform is null)
+        {
+            return false;
+        }
+
+        foreach (IProperty property in transform.Properties)
+        {
+            if (property.Animation is not null)
+            {
+                return true;
+            }
+
+            foreach (EngineObject nested in EnumerateNestedEngineObjects(property))
+            {
+                if (nested is Transform nestedTransform && HasAnimatedTransform(nestedTransform))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static (double X, double Y, bool HasTranslate) GetAnimatedTranslateDelta(Transform? transform)
+    {
+        switch (transform)
+        {
+            case TranslateTransform translate:
+                {
+                    (double x, bool hasX) = GetFloatAnimationDelta(translate.X);
+                    (double y, bool hasY) = GetFloatAnimationDelta(translate.Y);
+                    return (x, y, hasX || hasY);
+                }
+            case TransformGroup group:
+                {
+                    double x = 0;
+                    double y = 0;
+                    bool found = false;
+                    foreach (Transform child in group.Children)
+                    {
+                        (double childX, double childY, bool childFound) = GetAnimatedTranslateDelta(child);
+                        x += childX;
+                        y += childY;
+                        found |= childFound;
+                    }
+
+                    return (x, y, found);
+                }
+            default:
+                return (0, 0, false);
+        }
+    }
+
+    private static (double Delta, bool HasAnimation) GetFloatAnimationDelta(IProperty<float> property)
+    {
+        if (property.Animation is not IKeyFrameAnimation animation)
+        {
+            return (0, false);
+        }
+
+        IKeyFrame[] keyFrames = animation.KeyFrames
+            .OrderBy(item => item.KeyTime)
+            .ToArray();
+        if (keyFrames.Length < 2
+            || !TryGetDouble(keyFrames[0].Value, out double first)
+            || !TryGetDouble(keyFrames[^1].Value, out double last))
+        {
+            return (0, false);
+        }
+
+        return (last - first, true);
+    }
+
+    private static IEnumerable<MotionArcSegment> CreateMotionArcSegments(SceneObjectInfo info)
+    {
+        if (info.Object is Drawable drawable)
+        {
+            foreach (MotionArcSegment segment in CreateNumericMotionSegments(
+                         info,
+                         drawable.Opacity,
+                         $"{drawable.GetType().Name}.{nameof(Drawable.Opacity)}"))
+            {
+                yield return segment;
+            }
+
+            foreach (MotionArcSegment segment in CreateTranslateMotionSegments(
+                         info,
+                         drawable.Transform.CurrentValue,
+                         $"{drawable.GetType().Name}.{nameof(Drawable.Transform)}"))
+            {
+                yield return segment;
+            }
+        }
+
+        foreach (IProperty property in info.Object.Properties)
+        {
+            foreach (EngineObject nested in EnumerateNestedEngineObjects(property))
+            {
+                foreach (MotionArcSegment segment in CreateMotionArcSegments(new SceneObjectInfo(info.Element, nested)))
+                {
+                    yield return segment;
+                }
+            }
+        }
+    }
+
+    private static IEnumerable<MotionArcSegment> CreateTranslateMotionSegments(
+        SceneObjectInfo info,
+        Transform? transform,
+        string path)
+    {
+        switch (transform)
+        {
+            case TranslateTransform translate:
+                foreach (MotionArcSegment segment in CreateNumericMotionSegments(info, translate.X, $"{path}.X"))
+                {
+                    yield return segment;
+                }
+
+                foreach (MotionArcSegment segment in CreateNumericMotionSegments(info, translate.Y, $"{path}.Y"))
+                {
+                    yield return segment;
+                }
+
+                break;
+            case TransformGroup group:
+                for (int i = 0; i < group.Children.Count; i++)
+                {
+                    foreach (MotionArcSegment segment in CreateTranslateMotionSegments(
+                                 info,
+                                 group.Children[i],
+                                 $"{path}.Children[{i}]"))
+                    {
+                        yield return segment;
+                    }
+                }
+
+                break;
+        }
+    }
+
+    private static IEnumerable<MotionArcSegment> CreateNumericMotionSegments(
+        SceneObjectInfo info,
+        IProperty<float> property,
+        string path)
+    {
+        if (property.Animation is not IKeyFrameAnimation animation)
+        {
+            yield break;
+        }
+
+        IKeyFrame[] keyFrames = animation.KeyFrames
+            .OrderBy(item => item.KeyTime)
+            .ToArray();
+        for (int i = 1; i < keyFrames.Length; i++)
+        {
+            IKeyFrame previous = keyFrames[i - 1];
+            IKeyFrame next = keyFrames[i];
+            if (next.KeyTime <= previous.KeyTime
+                || !TryGetDouble(previous.Value, out double previousValue)
+                || !TryGetDouble(next.Value, out double nextValue))
+            {
+                continue;
+            }
+
+            double start = ResolveKeyFrameTime(info.Element, animation, previous).TotalSeconds;
+            double end = ResolveKeyFrameTime(info.Element, animation, next).TotalSeconds;
+            if (end <= start)
+            {
+                continue;
+            }
+
+            yield return new MotionArcSegment(
+                info,
+                path,
+                start,
+                end,
+                previousValue,
+                nextValue,
+                next.Easing);
+        }
+    }
+
+    private static TimeSpan ResolveKeyFrameTime(Element element, IKeyFrameAnimation animation, IKeyFrame keyFrame)
+        => animation.UseGlobalClock ? keyFrame.KeyTime : element.Start + keyFrame.KeyTime;
+
+    private static bool TryGetDouble(object? value, out double result)
+    {
+        switch (value)
+        {
+            case float floatValue when float.IsFinite(floatValue):
+                result = floatValue;
+                return true;
+            case double doubleValue when double.IsFinite(doubleValue):
+                result = doubleValue;
+                return true;
+            case int intValue:
+                result = intValue;
+                return true;
+            case byte byteValue:
+                result = byteValue;
+                return true;
+            default:
+                result = 0;
+                return false;
+        }
+    }
+
+    private static bool IsLinearEasing(Easing easing) => easing is LinearEasing;
+
+    private static bool IsEaseOutLike(Easing easing)
+    {
+        if (easing is LinearEasing or HoldEasing)
+        {
+            return false;
+        }
+
+        string typeName = easing.GetType().Name;
+        return typeName.Contains("EaseOut", StringComparison.Ordinal)
+               || typeName.Contains("EaseInOut", StringComparison.Ordinal);
+    }
+
+    private static bool IsCounterMove(MotionArcSegment segment, MotionArcSegment largest)
+    {
+        if (segment.Magnitude <= 0.01 || largest.Magnitude <= 0.01)
+        {
+            return false;
+        }
+
+        return Math.Sign(segment.Delta) != Math.Sign(largest.Delta)
+               && segment.Magnitude <= largest.Magnitude * 0.75;
+    }
+
+    private static bool HasOvershootReturn(
+        IReadOnlyList<MotionArcSegment> movingSegments,
+        MotionArcSegment finalSegment)
+    {
+        MotionArcSegment? previous = movingSegments
+            .Where(item => item.EndSeconds <= finalSegment.StartSeconds + 0.001)
+            .OrderBy(item => item.EndSeconds)
+            .LastOrDefault();
+        return previous is not null
+               && Math.Sign(previous.Delta) != Math.Sign(finalSegment.Delta);
+    }
+
+    private static string BucketDirection(double x, double y)
+    {
+        string[] buckets = ["E", "SE", "S", "SW", "W", "NW", "N", "NE"];
+        double angle = Math.Atan2(y, x);
+        int index = (int)Math.Round(angle / (Math.PI / 4), MidpointRounding.AwayFromZero);
+        index = ((index % 8) + 8) % 8;
+        return buckets[index];
+    }
+
+    private static double RoundToTenth(double value)
+        => Math.Round(value * 10d, MidpointRounding.AwayFromZero) / 10d;
 
     private async ValueTask<IReadOnlyList<RenderedFrameAnalysis>> RenderAnalysisFramesAsync(
         Scene scene,
@@ -2781,6 +3453,43 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
             time,
             [info.Element.Id.ToString()],
             [info.Object.Id.ToString()]);
+    }
+
+    private sealed record AnimatedPropertyInfo(
+        SceneObjectInfo Info,
+        IProperty Property,
+        IKeyFrameAnimation Animation,
+        string PropertyPath);
+
+    private sealed record KeyFrameTransitionInfo(
+        SceneObjectInfo Info,
+        string PropertyPath,
+        Easing Easing);
+
+    private sealed record AnimatedElementMotion(
+        Element Element,
+        IReadOnlyList<string> ObjectIds,
+        MotionUniformityClusterKey ClusterKey);
+
+    private readonly record struct MotionUniformityClusterKey(
+        double StartBucket,
+        double DurationBucket,
+        string Direction);
+
+    private sealed record MotionArcSegment(
+        SceneObjectInfo Info,
+        string PropertyPath,
+        double StartSeconds,
+        double EndSeconds,
+        double StartValue,
+        double EndValue,
+        Easing Easing)
+    {
+        public double Delta => EndValue - StartValue;
+
+        public double Magnitude => Math.Abs(Delta);
+
+        public double DurationSeconds => EndSeconds - StartSeconds;
     }
 
     private readonly record struct SceneObjectInfo(Element Element, EngineObject Object);
