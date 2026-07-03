@@ -18,6 +18,7 @@ public sealed class GetStartedSkillPointerTests
         {
             Assert.That(names, Is.EquivalentTo(new[]
             {
+                "beutl-agent-brief-expansion",
                 "beutl-agent-timeline-from-shotlist",
                 "beutl-agent-look-effect-chain",
                 "beutl-agent-asset-sourcing",

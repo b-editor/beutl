@@ -62,7 +62,18 @@ Bad:
 4. Produce concrete edit directives for scores 1-3. A score of 4 may include optional polish. A score of 5 should not request edits. For `motionArc`, convert weak in-between frames or exceeded `cutEyeTrace` displacement into bridge-animation directives: carry an element across the cut, add a sweep or wipe, preserve shared background motion, realign the focal point, or overlap transform/opacity ramps. If in-betweens look identical to anchors except for a hard swap, call out the slideshow cut and name the adjacent shot pair.
 5. Group directives into the smallest coherent revision pass. Prefer edits that can be made through `apply_edit`, `duplicate_object`, role tags, effect recipes, or timing changes.
 6. Re-render the affected stills or storyboard after a revision and repeat the rubric. After a revision pass, run `compare_revisions` when a cached rendered quality baseline exists; a fix that regresses another axis by more than one severity step is itself a rework finding, so include the introduced issue and paired still evidence in the next directive set.
-7. Stop after at most 2 revise passes. If the third review would still request aesthetic changes, hand off to the human with the advisory, the latest contact sheet path, and the remaining concrete directives.
+7. Stop after at most 2 revise passes in advisory mode. If the third review would still request aesthetic changes, hand off to the human with the advisory, the latest contact sheet path, and the remaining concrete directives. Convergence loop mode (below) overrides this budget.
+
+## Convergence Loop Mode
+
+Use this mode when the run started from `beutl-agent-brief-expansion` (low-effort mode) or when the coordinator explicitly requests convergence. It turns the advisory pass into a bounded improvement loop:
+
+- **Loop**: score all six axes → concrete directives → smallest coherent revision pass via `apply_edit` → re-render the affected stills/storyboard → `compare_revisions` → rescore. Continue while any axis scores below 3 and passes remain.
+- **Pass budget**: `maxPasses` defaults to 3 revision passes. The coordinator may raise it explicitly; never raise it yourself.
+- **Exit**: every axis ≥ 3 → `export_allowed_by_visual_review`. Budget exhausted with an axis still below 3 → `human_advisory` with the full delta ledger; never export silently from an unconverged loop.
+- **Anti-genericization**: every directive must be phrased in the piece's own concept vocabulary from the expanded brief / `directionContract` — name which brief field the edit serves. Adding stock particles, glow, grain, or extra layers purely to raise a score is forbidden; if the only fix you can articulate would change the authored concept, escalate that axis to `human_advisory` instead of applying it.
+- **Anti-oscillation**: an axis already at ≥ 4 must not be edited by later passes except to repair a regression that `compare_revisions` attributes to your own revision. Keep a per-pass delta ledger: axis scores before/after, issues resolved, issues introduced, `regression` flag.
+- Deterministic gates remain the hard gate family. The loop governs only the advisory visual layer; a deterministic blocker discovered mid-loop is fixed under the existing quality-gate policy before the loop continues.
 
 ## Blocking Policy
 
@@ -77,7 +88,8 @@ Return:
 - `hardBlockers`: deterministic blockers only, or an empty list.
 - `advisoryFindings`: visual findings, each with axis, score, evidence, and concrete edit directive.
 - `revisionDelta`: `compare_revisions` resolved/introduced issue summary when available.
-- `revisionPass`: 0, 1, or 2.
+- `revisionPass`: 0, 1, or 2 in advisory mode; 0..`maxPasses` in convergence loop mode.
+- `convergence`: loop mode only — per-pass axis-score trajectory and whether the exit criterion (all axes ≥ 3) was met.
 - `nextAction`: one of `apply_concrete_edits`, `rerender_and_review`, `human_advisory`, or `export_allowed_by_visual_review`.
 
-Use `human_advisory` after the second revision pass if visual problems remain.
+Use `human_advisory` after the second revision pass in advisory mode, or after the loop budget is exhausted in convergence loop mode, if visual problems remain.

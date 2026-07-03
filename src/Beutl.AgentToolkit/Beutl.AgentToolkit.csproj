@@ -11,6 +11,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="..\..\.claude\skills\beutl-agent-brief-expansion\SKILL.md"
+                      LogicalName="Beutl.AgentToolkit.Installation.Assets.skills.beutl-agent-brief-expansion.SKILL.md" />
     <EmbeddedResource Include="..\..\.claude\skills\beutl-agent-timeline-from-shotlist\SKILL.md"
                       LogicalName="Beutl.AgentToolkit.Installation.Assets.skills.beutl-agent-timeline-from-shotlist.SKILL.md" />
     <EmbeddedResource Include="..\..\.claude\skills\beutl-agent-look-effect-chain\SKILL.md"

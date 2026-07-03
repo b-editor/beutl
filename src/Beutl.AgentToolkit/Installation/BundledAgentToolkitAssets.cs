@@ -8,6 +8,10 @@ public static class BundledAgentToolkitAssets
     [
         new(
             AgentToolkitAssetKind.Skill,
+            "beutl-agent-brief-expansion/SKILL.md",
+            "Beutl.AgentToolkit.Installation.Assets.skills.beutl-agent-brief-expansion.SKILL.md"),
+        new(
+            AgentToolkitAssetKind.Skill,
             "beutl-agent-timeline-from-shotlist/SKILL.md",
             "Beutl.AgentToolkit.Installation.Assets.skills.beutl-agent-timeline-from-shotlist.SKILL.md"),
         new(

@@ -253,6 +253,10 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
         =>
         [
             new RecommendedSkill(
+                "beutl-agent-brief-expansion",
+                "When the incoming request is a terse one-line prompt missing duration, mood, style, or asset details, or when the user supplies reference images/video/URLs for the intended look: expand it into a full production brief (and extract direction-only attributes from references) before timeline planning.",
+                "Load it through your agent's skill mechanism (e.g. the Skill tool) or read the installed SKILL.md placed next to this toolkit by Beutl's AI agent settings."),
+            new RecommendedSkill(
                 "beutl-agent-timeline-from-shotlist",
                 "Before planning a video's composition or timeline: turning a brief, shot list, or storyboard into shots, beat grids, layout, motion phases, and quality preflight. Load this at the start of composition planning.",
                 "Load it through your agent's skill mechanism (e.g. the Skill tool) or read the installed SKILL.md placed next to this toolkit by Beutl's AI agent settings."),
@@ -308,6 +312,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
             [
                 "Classify the brief against videoTypes first, then call get_started again with the chosen videoType before planning the timeline.",
                 "Before planning a composition, load the matching skill from recommendedSkills and follow it — especially beutl-agent-timeline-from-shotlist for any shot, timeline, or storyboard planning.",
+                "For a terse one-line request missing duration/mood/style/asset details, or when the user supplied reference images/video/URLs for the intended look, load beutl-agent-brief-expansion first and expand the request into a full brief before classification.",
                 "Call attach_active_editor for an open editor scene; if it fails or no editor is available, call create_project or open_project for a file-backed session instead of writing a one-off generator.",
                 "Call read_document_summary to inspect progress without the full document.",
                 "Call measure_object_bounds before positioning text, backing plates, or centered objects; default Drawable alignment is centered, so TranslateTransform(0, 0) means the object's center is at the frame center.",

@@ -30,9 +30,10 @@ public sealed class AgentToolkitInstallerTests
     {
         IReadOnlyList<AgentToolkitAsset> assets = BundledAgentToolkitAssets.Load();
 
-        Assert.That(assets, Has.Count.EqualTo(8));
-        Assert.That(assets.Count(x => x.Kind == AgentToolkitAssetKind.Skill), Is.EqualTo(5));
+        Assert.That(assets, Has.Count.EqualTo(9));
+        Assert.That(assets.Count(x => x.Kind == AgentToolkitAssetKind.Skill), Is.EqualTo(6));
         Assert.That(assets.Count(x => x.Kind == AgentToolkitAssetKind.Subagent), Is.EqualTo(3));
+        Assert.That(assets.Select(x => x.RelativePath), Does.Contain("beutl-agent-brief-expansion/SKILL.md"));
         Assert.That(assets.Select(x => x.RelativePath), Does.Contain("beutl-agent-timeline-from-shotlist/SKILL.md"));
         Assert.That(assets.Select(x => x.RelativePath), Does.Contain("beutl-agent-asset-sourcing/SKILL.md"));
         Assert.That(assets.Select(x => x.RelativePath), Does.Contain("beutl-agent-source-grounding/SKILL.md"));
@@ -76,6 +77,18 @@ public sealed class AgentToolkitInstallerTests
         Assert.That(
             assets.Single(x => x.RelativePath == "beutl-agent-visual-review/SKILL.md").Content,
             Does.Contain("subdivisionLevel:1"));
+        Assert.That(
+            assets.Single(x => x.RelativePath == "beutl-agent-visual-review/SKILL.md").Content,
+            Does.Contain("Convergence Loop Mode"));
+        Assert.That(
+            assets.Single(x => x.RelativePath == "beutl-agent-brief-expansion/SKILL.md").Content,
+            Does.Contain("expandedBrief"));
+        Assert.That(
+            assets.Single(x => x.RelativePath == "beutl-agent-brief-expansion/SKILL.md").Content,
+            Does.Contain("direction-only"));
+        Assert.That(
+            assets.Single(x => x.RelativePath == "beutl-agent-brief-expansion/SKILL.md").Content,
+            Does.Contain("recentToAvoid"));
         Assert.That(
             assets.Single(x => x.RelativePath == "beutl-agent-timeline-builder.md").Content,
             Does.Contain("evaluate_motion_variation"));
