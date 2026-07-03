@@ -7,6 +7,9 @@ namespace Beutl.AgentToolkit.Sessions;
 public sealed class FileEditingSession : IEditingSession, IEditingSessionDispatcher, IDisposable
 {
     private readonly RecordingPipeline _recording;
+    // Attach-driven engine invariants (TimeRange/ZIndex mirroring, animation parent
+    // capture) require an IHierarchicalRoot, which headless sessions otherwise lack.
+    private readonly BeutlApplication _hierarchyRoot = new();
     private DateTime _projectLastWriteUtc;
 
     internal FileEditingSession(string sessionId, Project project, Scene scene, DateTime projectLastWriteUtc)
@@ -14,6 +17,7 @@ public sealed class FileEditingSession : IEditingSession, IEditingSessionDispatc
         SessionId = sessionId;
         Project = project;
         Scene = scene;
+        _hierarchyRoot.Project = project;
         _projectLastWriteUtc = projectLastWriteUtc;
         _recording = RecordingPipeline.Create(scene);
     }
@@ -98,5 +102,6 @@ public sealed class FileEditingSession : IEditingSession, IEditingSessionDispatc
     public void Dispose()
     {
         _recording.Dispose();
+        _hierarchyRoot.Project = null;
     }
 }
