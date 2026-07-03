@@ -16,6 +16,10 @@ public static class BundledAgentToolkitAssets
             "Beutl.AgentToolkit.Installation.Assets.skills.beutl-agent-look-effect-chain.SKILL.md"),
         new(
             AgentToolkitAssetKind.Skill,
+            "beutl-agent-asset-sourcing/SKILL.md",
+            "Beutl.AgentToolkit.Installation.Assets.skills.beutl-agent-asset-sourcing.SKILL.md"),
+        new(
+            AgentToolkitAssetKind.Skill,
             "beutl-agent-source-grounding/SKILL.md",
             "Beutl.AgentToolkit.Installation.Assets.skills.beutl-agent-source-grounding.SKILL.md"),
         new(

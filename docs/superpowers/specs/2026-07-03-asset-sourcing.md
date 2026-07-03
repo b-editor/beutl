@@ -76,7 +76,7 @@ service's terms.
   "sourceUrl": "https://... (direct file URL)",
   "license": "Pexels License",
   "licenseUrl": "https://...",
-  "attribution": "Photographer Name" ,
+  "attribution": "Photographer Name",
   "retrievedAt": "2026-07-03T12:00:00Z",
   "purpose": "shot 4 background plate"
 }

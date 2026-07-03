@@ -151,6 +151,7 @@ public static class VideoTypeCatalog
             ],
             [
                 "Inventory media under the workspace before planning, then record clip names, duration notes, and usable ranges before apply_edit.",
+                "When the workspace lacks needed clips, load beutl-agent-asset-sourcing and record provenance in assets/manifest.json before placing sourced media.",
                 "Call get_schema for video, audio, and image source object types instead of guessing media property names.",
                 "Build a cut list in notes with clip, in/out, order, target Element Start, and target Element Length before apply_edit.",
                 "Use apply_edit to trim with Element Start/Length plus the media source start-offset property discovered from get_schema.",
@@ -179,6 +180,7 @@ public static class VideoTypeCatalog
             ],
             [
                 "Collect and order images with a rationale such as chronology, theme, or emotional progression before apply_edit.",
+                "When photos are not supplied, load beutl-agent-asset-sourcing to source or generate the image collection and record provenance before apply_edit.",
                 "Define a per-photo duration grid in notes, typically 2.5-4 seconds per image unless the brief requires otherwise.",
                 "Choose one transition vocabulary and reuse it consistently; verify it later with render_storyboard subdivision frames.",
                 "Call get_schema for image source and transform properties before authoring Ken Burns motion.",
@@ -209,6 +211,7 @@ public static class VideoTypeCatalog
             ],
             [
                 "Obtain or estimate per-line timestamps first, then record the sync table in notes before apply_edit.",
+                "When a music bed must be acquired, load beutl-agent-asset-sourcing, record provenance in assets/manifest.json, then call analyze_audio_rhythm.",
                 "Call derive_palette for contrast roles used by text, backing plates, and the simple background loop.",
                 "Design one text role system in notes: hero line, echo or secondary line, and credit/caption support.",
                 "Call get_schema for TextBlock, backing shapes, brushes, and any needed text animation properties before authoring.",

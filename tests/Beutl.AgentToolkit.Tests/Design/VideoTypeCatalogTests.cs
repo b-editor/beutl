@@ -42,4 +42,14 @@ public sealed class VideoTypeCatalogTests
             }
         });
     }
+
+    [TestCase("footage-cut")]
+    [TestCase("slideshow")]
+    [TestCase("lyric-captions")]
+    public void Media_dependent_workflow_steps_reference_asset_sourcing(string name)
+    {
+        VideoTypeProfile profile = VideoTypeCatalog.Resolve(name);
+
+        Assert.That(profile.WorkflowSteps, Has.Some.Contains("beutl-agent-asset-sourcing"));
+    }
 }

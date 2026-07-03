@@ -20,6 +20,7 @@ public sealed class GetStartedSkillPointerTests
             {
                 "beutl-agent-timeline-from-shotlist",
                 "beutl-agent-look-effect-chain",
+                "beutl-agent-asset-sourcing",
                 "beutl-agent-source-grounding",
                 "beutl-agent-visual-review"
             }));
@@ -87,9 +88,22 @@ public sealed class GetStartedSkillPointerTests
             Assert.That(response.RecommendedCalls, Has.Some.Contains("per-photo duration grid"));
             Assert.That(response.RecommendedCalls, Has.Some.Contains("Ken Burns"));
             Assert.That(response.RecommendedCalls, Has.Some.Contains("videoType:\"slideshow\""));
+            Assert.That(response.RecommendedCalls, Has.Some.Contains("beutl-agent-asset-sourcing"));
             Assert.That(response.RecommendedCalls, Has.None.Contains("BPM"));
             Assert.That(response.RecommendedCalls, Has.None.Contains("beat grid"));
         });
+    }
+
+    [TestCase("footage-cut")]
+    [TestCase("slideshow")]
+    [TestCase("lyric-captions")]
+    public void Get_started_with_media_dependent_video_type_mentions_asset_sourcing(string videoType)
+    {
+        var queryTools = new QueryTools(new AgentSessionManager());
+
+        GettingStartedResponse response = queryTools.GetStarted(videoType).Value!;
+
+        Assert.That(response.RecommendedCalls, Has.Some.Contains("beutl-agent-asset-sourcing"));
     }
 
     [Test]

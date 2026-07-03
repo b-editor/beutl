@@ -261,6 +261,10 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 "When applying a consistent look or effect chain across elements or shots (color, blur, shadow, stylization, cross-shot consistency).",
                 "Load it through your agent's skill mechanism (e.g. the Skill tool) or read the installed SKILL.md placed next to this toolkit by Beutl's AI agent settings."),
             new RecommendedSkill(
+                "beutl-agent-asset-sourcing",
+                "When footage, photos, music, SFX, or fonts must be acquired or generated for a brief: make source-or-generate decisions, enforce the license allowlist, and record provenance in assets/manifest.json before placing media.",
+                "Load it through your agent's skill mechanism (e.g. the Skill tool) or read the installed SKILL.md placed next to this toolkit by Beutl's AI agent settings."),
+            new RecommendedSkill(
                 "beutl-agent-source-grounding",
                 "Before authoring anything involving coordinates or origin, TranslateTransform/TransformOrigin, object bounds, text measurement, render/export scale, effect-parameter units, reconciliation, or live-session semantics.",
                 "Load it through your agent's skill mechanism (e.g. the Skill tool) or read the installed SKILL.md placed next to this toolkit by Beutl's AI agent settings."),
