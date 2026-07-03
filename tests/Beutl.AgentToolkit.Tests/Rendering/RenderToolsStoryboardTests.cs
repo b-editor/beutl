@@ -117,6 +117,97 @@ public sealed class RenderToolsStoryboardTests
     }
 
     [Test]
+    public void Resolve_storyboard_frames_time_seconds_override_auto_detection_and_subdivide()
+    {
+        string workspace = CreateWorkspace();
+        var scene = new Scene(320, 180, "single-shot")
+        {
+            Duration = TimeSpan.FromSeconds(6),
+            Uri = new Uri(Path.Combine(workspace, "Scene.scene"))
+        };
+        AddColorRectElement(scene, workspace, "continuous", TimeSpan.Zero, TimeSpan.FromSeconds(6), 320, 180, Colors.Red);
+
+        RenderTools.ResolvedStoryboardFrame[] frames = RenderTools.ResolveStoryboardFrames(
+            scene,
+            shots: null,
+            timeSeconds: [0.2, 2.7, 5.9],
+            subdivisionLevel: 1).ToArray();
+
+        Assert.Multiple(() =>
+        {
+            AssertTimes(frames, [0.2, 1.45, 2.7, 4.3, 5.9]);
+            Assert.That(frames.Select(frame => frame.Name), Is.EqualTo(new[]
+            {
+                "t:0.2",
+                "between:t:0.2~t:2.7@L1:1/2",
+                "t:2.7",
+                "between:t:2.7~t:5.9@L1:1/2",
+                "t:5.9"
+            }));
+            Assert.That(frames.Select(frame => frame.Kind), Is.EqualTo(new[]
+            {
+                "shot",
+                "inbetween",
+                "shot",
+                "inbetween",
+                "shot"
+            }));
+        });
+    }
+
+    [TestCaseSource(nameof(InvalidStoryboardTimeCases))]
+    public async Task Render_storyboard_rejects_invalid_time_seconds(double[] timeSeconds, string expectedMessage)
+    {
+        string workspace = CreateWorkspace();
+        Scene scene = CreateStaticStoryboardScene(workspace);
+        using var session = new AgentToolkitTestSession(scene);
+        RenderTools tools = CreateTools(workspace, session);
+
+        CallToolResult call = await tools.RenderStoryboard(
+            timeSeconds: timeSeconds,
+            outputDirectory: "storyboards",
+            basename: "invalid-times",
+            cancellationToken: CancellationToken.None);
+        ToolResult<RenderStoryboardResult> result = ReadToolResult<RenderStoryboardResult>(call);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(result.Error.Target, Is.EqualTo("timeSeconds"));
+            Assert.That(result.Error.Message, Does.Contain(expectedMessage));
+            Assert.That(Directory.Exists(Path.Combine(workspace, "storyboards")), Is.False);
+        });
+    }
+
+    [Test]
+    public async Task Render_storyboard_rejects_time_seconds_above_frame_count_cap()
+    {
+        string workspace = CreateWorkspace();
+        var scene = new Scene(16, 9, "too-many-times") { Duration = TimeSpan.FromSeconds(60) };
+        using var session = new AgentToolkitTestSession(scene);
+        RenderTools tools = CreateTools(workspace, session);
+
+        double[] timeSeconds = Enumerable.Range(0, 49).Select(index => (double)index).ToArray();
+        CallToolResult call = await tools.RenderStoryboard(
+            timeSeconds: timeSeconds,
+            outputDirectory: "storyboards",
+            basename: "too-many-times",
+            cancellationToken: CancellationToken.None);
+        ToolResult<RenderStoryboardResult> result = ReadToolResult<RenderStoryboardResult>(call);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(result.Error.Target, Is.EqualTo("timeSeconds"));
+            Assert.That(result.Error.Message, Does.Contain("48"));
+            Assert.That(result.Error.Hint, Does.Contain("fewer timeSeconds"));
+            Assert.That(Directory.Exists(Path.Combine(workspace, "storyboards")), Is.False);
+        });
+    }
+
+    [Test]
     public async Task Render_storyboard_explicit_shots_writes_contact_sheet_and_visibility_analysis_without_motion_output()
     {
         string workspace = CreateWorkspace();
@@ -339,6 +430,36 @@ public sealed class RenderToolsStoryboardTests
     }
 
     [Test]
+    public async Task Render_storyboard_default_basename_includes_session_id_to_avoid_collisions()
+    {
+        string workspace = CreateWorkspace();
+        Scene firstScene = CreateStaticStoryboardScene(workspace);
+        Scene secondScene = CreateStaticStoryboardScene(workspace);
+        using var firstSession = new AgentToolkitTestSession(firstScene);
+        using var secondSession = new AgentToolkitTestSession(secondScene);
+        RenderTools firstTools = CreateTools(workspace, firstSession);
+        RenderTools secondTools = CreateTools(workspace, secondSession);
+
+        ToolResult<RenderStoryboardResult> first = ReadToolResult<RenderStoryboardResult>(
+            await firstTools.RenderStoryboard(cancellationToken: CancellationToken.None));
+        ToolResult<RenderStoryboardResult> second = ReadToolResult<RenderStoryboardResult>(
+            await secondTools.RenderStoryboard(cancellationToken: CancellationToken.None));
+
+        string firstFile = Path.GetFileName(first.Value!.Result!.ContactSheetPath);
+        string secondFile = Path.GetFileName(second.Value!.Result!.ContactSheetPath);
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.IsSuccess, Is.True, first.Error?.Message);
+            Assert.That(second.IsSuccess, Is.True, second.Error?.Message);
+            Assert.That(first.Value.Result.ContactSheetPath, Is.Not.EqualTo(second.Value.Result.ContactSheetPath));
+            Assert.That(firstFile, Does.Contain(firstSession.SessionId));
+            Assert.That(secondFile, Does.Contain(secondSession.SessionId));
+            Assert.That(firstFile, Is.Not.EqualTo("storyboard-contact-sheet.png"));
+            Assert.That(secondFile, Is.Not.EqualTo("storyboard-contact-sheet.png"));
+        });
+    }
+
+    [Test]
     public async Task Render_storyboard_background_returns_running_job_then_completes()
     {
         AgentToolkitGpuTestEnvironment.EnsureAvailable();
@@ -459,6 +580,15 @@ public sealed class RenderToolsStoryboardTests
         });
     }
 
+    private static IEnumerable<TestCaseData> InvalidStoryboardTimeCases()
+    {
+        yield return new TestCaseData(Array.Empty<double>(), "at least one");
+        yield return new TestCaseData(new[] { double.NaN }, "finite");
+        yield return new TestCaseData(new[] { -0.1 }, "outside the scene range");
+        yield return new TestCaseData(new[] { 3.1 }, "outside the scene range");
+        yield return new TestCaseData(new[] { 1.0, 1.0 }, "duplicate");
+    }
+
     private static async Task<RenderJobSnapshot> PollUntilTerminalAsync(RenderTools tools, string jobId)
     {
         for (int attempt = 0; attempt < 300; attempt++)
@@ -566,6 +696,38 @@ public sealed class RenderToolsStoryboardTests
             Assert.That(result.Value.Motion, Is.Not.Null);
             Assert.That(result.Value.Blockers, Has.Some.Contains("Motion variation did not pass"));
             Assert.That(result.Value.Blockers, Has.Some.Contains("animatedPropertyCount is 0"));
+        });
+    }
+
+    [Test]
+    public async Task Final_preflight_default_output_prefix_includes_session_id_to_avoid_collisions()
+    {
+        string workspace = CreateWorkspace();
+        using var firstSession = new AgentToolkitTestSession(CreateStaticQualityScene(workspace));
+        using var secondSession = new AgentToolkitTestSession(CreateStaticQualityScene(workspace));
+        RenderTools firstTools = CreateTools(workspace, firstSession);
+        RenderTools secondTools = CreateTools(workspace, secondSession);
+
+        ToolResult<FinalPreflightResponse> first = await firstTools.FinalPreflight(
+            sampleCount: 2,
+            staticLayout: true,
+            cancellationToken: CancellationToken.None);
+        ToolResult<FinalPreflightResponse> second = await secondTools.FinalPreflight(
+            sampleCount: 2,
+            staticLayout: true,
+            cancellationToken: CancellationToken.None);
+
+        string firstFile = Path.GetFileName(first.Value!.StillFrames[0].OutputPath);
+        string secondFile = Path.GetFileName(second.Value!.StillFrames[0].OutputPath);
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.IsSuccess, Is.True, first.Error?.Message);
+            Assert.That(second.IsSuccess, Is.True, second.Error?.Message);
+            Assert.That(first.Value.StillFrames[0].OutputPath, Is.Not.EqualTo(second.Value.StillFrames[0].OutputPath));
+            Assert.That(firstFile, Does.Contain(firstSession.SessionId));
+            Assert.That(secondFile, Does.Contain(secondSession.SessionId));
+            Assert.That(firstFile, Does.Not.StartWith("preflight-still-"));
+            Assert.That(secondFile, Does.Not.StartWith("preflight-still-"));
         });
     }
 

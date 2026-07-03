@@ -69,6 +69,7 @@ public sealed class SessionTools(
     [McpServerTool(Name = "create_project")]
     [Description("Creates and saves a new file-backed Beutl .bep project with one scene. Paths without an extension are saved as .bep; .beutl is reserved for project packages. The output path is restricted to BEUTL_WORKSPACE.")]
     public ToolResult<CreateProjectResponse> CreateProject(
+        [Description("Workspace-relative project file path; project files use path, while render/export outputs use outputPath/outputDirectory.")]
         string path,
         int width,
         int height,
@@ -121,20 +122,25 @@ public sealed class SessionTools(
     [McpServerTool(Name = "save_project")]
     [Description("Saves the current file-backed .bep project. Call after each major successful apply_edit in file-backed sessions so partial progress is durable, and again after final revisions. Optional paths without an extension are saved as .bep; .beutl is reserved for project packages. Optional path is restricted to BEUTL_WORKSPACE.")]
     public ToolResult<SaveProjectResponse> SaveProject(
-        string session,
+        string? session = null,
         string? path = null,
         bool confirmOverwrite = false)
     {
         return Execute(() =>
         {
+            IEditingSession activeSession = sessions.RequireSession();
+            string sessionId = string.IsNullOrWhiteSpace(session)
+                ? activeSession.SessionId
+                : session;
+
             if (sessions.CurrentSession is { Source: EditingSessionSource.LiveEditor } liveSession)
             {
-                if (!string.Equals(liveSession.SessionId, session, StringComparison.Ordinal))
+                if (!string.Equals(liveSession.SessionId, sessionId, StringComparison.Ordinal))
                 {
                     throw new ReconcileException(new ToolError(
                         ErrorCode.StaleHandle,
-                        $"Session '{session}' is not active.",
-                        session));
+                        $"Session '{sessionId}' is not active.",
+                        sessionId));
                 }
 
                 return new SaveProjectResponse(string.Empty)
@@ -146,7 +152,7 @@ public sealed class SessionTools(
                 };
             }
 
-            FileEditingSession fileSession = RequireFileSession(session);
+            FileEditingSession fileSession = RequireFileSession(sessionId);
             bool skipConflictCheck = false;
             if (!string.IsNullOrWhiteSpace(path))
             {

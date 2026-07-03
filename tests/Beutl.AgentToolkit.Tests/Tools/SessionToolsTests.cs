@@ -133,6 +133,36 @@ public sealed class SessionToolsTests
     }
 
     [Test]
+    public void Save_project_uses_current_file_session_when_session_is_omitted()
+    {
+        string root = CreateWorkspace();
+        using var source = new FileSessionSource();
+        var manager = new AgentSessionManager();
+        var sessionTools = new SessionTools(
+            source,
+            manager,
+            new WorkspaceGuard(root),
+            new DestructiveGuard());
+        ToolResult<CreateProjectResponse> created = sessionTools.CreateProject(
+            "sessionless-save.bep",
+            width: 640,
+            height: 360,
+            frameRate: 30,
+            duration: "00:00:04");
+
+        ToolResult<SaveProjectResponse> saved = sessionTools.SaveProject();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(created.IsSuccess, Is.True, created.Error?.Message);
+            Assert.That(saved.IsSuccess, Is.True, saved.Error?.Message);
+            Assert.That(saved.Value!.Session, Is.EqualTo(created.Value!.Session));
+            Assert.That(saved.Value.SavedPath, Is.EqualTo(created.Value.SavedPath));
+            Assert.That(File.Exists(created.Value.SavedPath), Is.True);
+        });
+    }
+
+    [Test]
     public void Save_project_reports_live_editor_sessions_as_not_required()
     {
         string root = CreateWorkspace();

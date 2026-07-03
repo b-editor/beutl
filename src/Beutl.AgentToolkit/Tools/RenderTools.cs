@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel;
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl;
@@ -42,6 +43,7 @@ public sealed class RenderTools(
 {
     private static readonly JsonSerializerOptions s_jobResultOptions = new(JsonSerializerDefaults.Web);
     private static readonly JsonSerializerOptions s_toolResultOptions = new(JsonSerializerDefaults.Web);
+    private static readonly string s_processOutputToken = CreateProcessOutputToken();
     private const int DefaultSceneFrameRate = 30;
     private const int MaxStoryboardFrameCount = 48;
     private const int MaxStoryboardSubdivisionLevel = 3;
@@ -53,7 +55,7 @@ public sealed class RenderTools(
     public ValueTask<CallToolResult> RenderStill(
         [Description("Workspace-relative or in-workspace absolute output path. Bare filenames are written under agent-output/. Existing files require confirmOverwrite.")]
         string outputPath,
-        [Description("Scene time in seconds.")]
+        [Description("Scene time in seconds. Use this exact parameter name; time is not a render_still parameter.")]
         double timeSeconds = 0,
         [Description("Supersampling render scale. Values <= 0 use 1.")]
         float renderScale = 1,
@@ -84,14 +86,16 @@ public sealed class RenderTools(
     }
 
     [McpServerTool(Name = "render_storyboard")]
-    [Description("Renders a storyboard contact sheet from explicit shots or one auto-derived midpoint per timeline Element. Writes individual still PNGs and the contact sheet inside BEUTL_WORKSPACE. Pass subdivisionLevel:1..3 to insert binary in-between frames between adjacent shots for transition review. For scenes with many Elements this can exceed the MCP client request timeout; pass background:true to run it as a job and poll read_render_job(jobId) instead. By default the tool returns the same JSON text payload as before; pass returnImageContent:true on a synchronous call to append one downscaled image/png contact-sheet content block.")]
+    [Description("Renders a storyboard contact sheet from explicit sample times, explicit shots, or one auto-derived midpoint per timeline Element. Writes individual still PNGs and the contact sheet inside BEUTL_WORKSPACE. Pass timeSeconds for continuous single-shot pieces where Element-boundary shot detection would collapse the arc. Pass subdivisionLevel:1..3 to insert binary in-between frames between adjacent anchors for transition review. For scenes with many Elements this can exceed the MCP client request timeout; pass background:true to run it as a job and poll read_render_job(jobId) instead. By default the tool returns the same JSON text payload as before; pass returnImageContent:true on a synchronous call to append one downscaled image/png contact-sheet content block.")]
     public ValueTask<CallToolResult> RenderStoryboard(
         [Description("Optional explicit storyboard shots. When omitted, one midpoint is derived per timeline Element.")]
         StoryboardShotInput[]? shots = null,
+        [Description("Optional explicit scene times in seconds. When supplied, this overrides shots and auto shot detection entirely; each value becomes an anchor frame named t:<seconds>. Values must be finite, within the scene duration, non-empty, and stay within the 48-frame cap after subdivision.")]
+        double[]? timeSeconds = null,
         [Description("Workspace-relative or in-workspace absolute output directory. Existing files require confirmOverwrite.")]
         string outputDirectory = "agent-output",
-        [Description("Basename used for generated still PNGs and the contact sheet.")]
-        string basename = "storyboard",
+        [Description("Basename used for generated still PNGs and the contact sheet. Omit for a collision-free default containing the active session id; explicit values preserve exact filenames.")]
+        string? basename = null,
         [Description("Supersampling render scale. Values <= 0 use 1.")]
         float renderScale = 1,
         [Description("Required when generated output paths already exist.")]
@@ -118,10 +122,14 @@ public sealed class RenderTools(
             IReadOnlyList<ResolvedStoryboardFrame> resolvedShots = ResolveStoryboardFrames(
                 scene,
                 shots,
+                timeSeconds,
                 normalizedSubdivisionLevel);
-            ValidateStoryboardFrameCount(resolvedShots.Count, normalizedSubdivisionLevel);
+            ValidateStoryboardFrameCount(
+                resolvedShots.Count,
+                normalizedSubdivisionLevel,
+                timeSeconds is null ? "subdivisionLevel" : "timeSeconds");
             string normalizedDirectory = NormalizeStoryboardDirectory(outputDirectory);
-            string safeBasename = NormalizeStoryboardBasename(basename);
+            string safeBasename = NormalizeStoryboardBasename(basename ?? CreateDefaultOutputBasename("storyboard"));
 
             var plannedShots = new List<(ResolvedStoryboardFrame Shot, string ResolvedPath)>(resolvedShots.Count);
             for (int i = 0; i < resolvedShots.Count; i++)
@@ -536,8 +544,8 @@ public sealed class RenderTools(
     public ValueTask<ToolResult<FinalPreflightResponse>> FinalPreflight(
         [Description("Optional video workflow profile. Supported values: motion-graphics, footage-cut, slideshow, lyric-captions, logo-intro. Omit for exactly the legacy motion-graphics behavior.")]
         string? videoType = null,
-        [Description("Output prefix for still frames. Bare prefixes are written under agent-output/.")]
-        string outputPrefix = "preflight",
+        [Description("Output prefix for still frames. Bare prefixes are written under agent-output/. Omit for a collision-free default containing the active session id; explicit values preserve exact filenames.")]
+        string? outputPrefix = null,
         [Description("Optional explicit scene times in seconds. When omitted, samples are evenly spaced across the scene duration.")]
         double[]? timeSeconds = null,
         [Description("Number of evenly spaced samples when timeSeconds is omitted. Clamped to 2..8.")]
@@ -585,7 +593,7 @@ public sealed class RenderTools(
             PaletteRoleColor[]? parsedPaletteRoleColors = ParsePaletteRoleColors(paletteRoleColors);
             IReadOnlyList<TimeSpan> sampleTimes = ResolveSampleTimes(scene, timeSeconds, sampleCount);
             var stills = new List<PreflightStillFrame>(sampleTimes.Count);
-            string normalizedPrefix = NormalizeOutputPath(outputPrefix);
+            string normalizedPrefix = NormalizeOutputPath(outputPrefix ?? CreateDefaultOutputBasename("preflight"));
 
             for (int i = 0; i < sampleTimes.Count; i++)
             {
@@ -771,7 +779,7 @@ public sealed class RenderTools(
     [McpServerTool(Name = "export_video")]
     [Description("Exports the current scene through a registered headless encoder to a workspace-relative output path. Bare filenames are written under agent-output/. Control size/quality with crf or bitrate. Pass background:true to run as a job and poll read_render_job(jobId).")]
     public ValueTask<ToolResult<ExportVideoResult>> ExportVideo(
-        [Description("Workspace-relative or in-workspace absolute output path. Bare filenames are written under agent-output/. Existing files require confirmOverwrite.")]
+        [Description("Workspace-relative or in-workspace absolute output path. Render outputs use outputPath/outputDirectory; project file tools use path. Bare filenames are written under agent-output/. Existing files require confirmOverwrite.")]
         string outputPath,
         [Description("Frame-rate numerator.")]
         int frameRateNumerator = 30,
@@ -1419,6 +1427,31 @@ public sealed class RenderTools(
         return Path.Combine("agent-output", outputPath);
     }
 
+    private string CreateDefaultOutputBasename(string stem)
+        => $"{stem}-{ResolveOutputToken()}";
+
+    private string ResolveOutputToken()
+    {
+        string? sessionId = sessions.CurrentSession?.SessionId;
+        return SanitizeFileToken(string.IsNullOrWhiteSpace(sessionId)
+            ? s_processOutputToken
+            : sessionId);
+    }
+
+    private static string CreateProcessOutputToken()
+        => $"process-{Environment.ProcessId}-{Guid.NewGuid().ToString("N")[..8]}";
+
+    private static string SanitizeFileToken(string token)
+    {
+        string trimmed = token.Trim();
+        foreach (char invalid in Path.GetInvalidFileNameChars())
+        {
+            trimmed = trimmed.Replace(invalid, '-');
+        }
+
+        return string.IsNullOrWhiteSpace(trimmed) ? s_processOutputToken : trimmed;
+    }
+
     private static IReadOnlyList<TimeSpan> ResolveSampleTimes(Scene scene, double[]? timeSeconds, int sampleCount)
     {
         if (timeSeconds is { Length: > 0 })
@@ -1563,8 +1596,16 @@ public sealed class RenderTools(
         Scene scene,
         StoryboardShotInput[]? shots,
         int subdivisionLevel)
+        => ResolveStoryboardFrames(scene, shots, null, subdivisionLevel);
+
+    internal static IReadOnlyList<ResolvedStoryboardFrame> ResolveStoryboardFrames(
+        Scene scene,
+        StoryboardShotInput[]? shots,
+        double[]? timeSeconds,
+        int subdivisionLevel)
     {
-        IReadOnlyList<ResolvedStoryboardShot> anchors = ResolveStoryboardShots(scene, shots);
+        IReadOnlyList<ResolvedStoryboardShot> anchors = ResolveExplicitStoryboardTimes(scene, timeSeconds)
+                                                        ?? ResolveStoryboardShots(scene, shots);
         int normalizedSubdivisionLevel = NormalizeStoryboardSubdivisionLevel(subdivisionLevel);
         if (normalizedSubdivisionLevel == 0)
         {
@@ -1578,7 +1619,9 @@ public sealed class RenderTools(
         }
 
         TimeSpan dedupeTolerance = GetStoryboardDedupeTolerance(scene);
-        ResolvedStoryboardShot[] dedupedAnchors = DeduplicateStoryboardAnchors(anchors, dedupeTolerance);
+        ResolvedStoryboardShot[] dedupedAnchors = timeSeconds is null
+            ? DeduplicateStoryboardAnchors(anchors, dedupeTolerance)
+            : anchors.ToArray();
         if (dedupedAnchors.Length == 0)
         {
             return [];
@@ -1635,12 +1678,70 @@ public sealed class RenderTools(
         return frames;
     }
 
+    private static IReadOnlyList<ResolvedStoryboardShot>? ResolveExplicitStoryboardTimes(
+        Scene scene,
+        double[]? timeSeconds)
+    {
+        if (timeSeconds is null)
+        {
+            return null;
+        }
+
+        if (timeSeconds.Length == 0)
+        {
+            throw CreateStoryboardTimeValidationError("render_storyboard timeSeconds must contain at least one scene time.");
+        }
+
+        TimeSpan duration = scene.Duration > TimeSpan.Zero ? scene.Duration : TimeSpan.FromSeconds(1);
+        var seen = new HashSet<TimeSpan>();
+        var result = new List<ResolvedStoryboardShot>(timeSeconds.Length);
+        for (int i = 0; i < timeSeconds.Length; i++)
+        {
+            double seconds = timeSeconds[i];
+            if (!double.IsFinite(seconds))
+            {
+                throw CreateStoryboardTimeValidationError($"render_storyboard timeSeconds[{i}] must be finite.");
+            }
+
+            if (seconds < 0 || seconds > duration.TotalSeconds)
+            {
+                throw CreateStoryboardTimeValidationError(
+                    $"render_storyboard timeSeconds[{i}]={seconds.ToString(CultureInfo.InvariantCulture)} is outside the scene range 0..{duration.TotalSeconds.ToString(CultureInfo.InvariantCulture)} seconds.");
+            }
+
+            TimeSpan time = TimeSpan.FromSeconds(seconds);
+            if (!seen.Add(time))
+            {
+                throw CreateStoryboardTimeValidationError(
+                    $"render_storyboard timeSeconds contains duplicate time {seconds.ToString(CultureInfo.InvariantCulture)}.");
+            }
+
+            result.Add(new ResolvedStoryboardShot(CreateExplicitStoryboardTimeName(seconds), time));
+        }
+
+        return result
+            .OrderBy(shot => shot.Time)
+            .ToArray();
+    }
+
+    private static string CreateExplicitStoryboardTimeName(double seconds)
+        => $"t:{seconds.ToString("0.####", CultureInfo.InvariantCulture)}";
+
+    private static ReconcileException CreateStoryboardTimeValidationError(string message)
+    {
+        return new ReconcileException(new ToolError(
+            ErrorCode.ValidationRejected,
+            message,
+            "timeSeconds",
+            "Pass finite scene times in seconds within the scene duration, or omit timeSeconds to use explicit shots or auto Element midpoint detection."));
+    }
+
     internal static int NormalizeStoryboardSubdivisionLevel(int subdivisionLevel)
     {
         return Math.Clamp(subdivisionLevel, 0, MaxStoryboardSubdivisionLevel);
     }
 
-    private static void ValidateStoryboardFrameCount(int frameCount, int subdivisionLevel)
+    private static void ValidateStoryboardFrameCount(int frameCount, int subdivisionLevel, string target = "subdivisionLevel")
     {
         if (frameCount <= MaxStoryboardFrameCount)
         {
@@ -1650,10 +1751,12 @@ public sealed class RenderTools(
         throw new ReconcileException(new ToolError(
             ErrorCode.ValidationRejected,
             $"render_storyboard would render {frameCount} frames, above the limit of {MaxStoryboardFrameCount}. Lower subdivisionLevel or narrow the shots before rendering.",
-            "subdivisionLevel",
-            subdivisionLevel > 0
-                ? "Lower subdivisionLevel, pass fewer shots, or split the storyboard review into narrower shot ranges."
-                : "Pass fewer shots or split the storyboard review into narrower shot ranges."));
+            target,
+            target == "timeSeconds"
+                ? "Lower subdivisionLevel, pass fewer timeSeconds, or split the storyboard review into narrower time ranges."
+                : subdivisionLevel > 0
+                    ? "Lower subdivisionLevel, pass fewer shots, or split the storyboard review into narrower shot ranges."
+                    : "Pass fewer shots or split the storyboard review into narrower shot ranges."));
     }
 
     private static ResolvedStoryboardShot[] DeduplicateStoryboardAnchors(

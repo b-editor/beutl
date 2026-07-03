@@ -126,6 +126,62 @@ public sealed class McpToolBindingTests
         });
     }
 
+    [Test]
+    public async Task Unknown_tool_argument_returns_typed_validation_error_with_accepted_parameters()
+    {
+        string workspace = CreateWorkspace();
+        await using InProcessMcpServer server = await InProcessMcpServer.StartAsync(workspace);
+        await using McpClient client = await McpClient.CreateAsync(server.ClientTransport);
+
+        CallToolResult result = await client.CallToolAsync(
+            "render_still",
+            new Dictionary<string, object?>
+            {
+                ["outputPath"] = "still.png",
+                ["time"] = 1.25
+            });
+        string text = ReadText(result);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(text, Does.Not.Contain("An error occurred invoking 'render_still'"));
+            AssertToolResultError(result, ErrorCode.ValidationRejected);
+            Assert.That(text, Does.Contain("Unknown argument"));
+            Assert.That(text, Does.Contain("time"));
+            Assert.That(text, Does.Contain("timeSeconds"));
+            Assert.That(text, Does.Contain("outputPath"));
+        });
+    }
+
+    [Test]
+    public async Task Save_project_uses_current_session_when_session_is_omitted()
+    {
+        string workspace = CreateWorkspace();
+        await using InProcessMcpServer server = await InProcessMcpServer.StartAsync(workspace);
+        await using McpClient client = await McpClient.CreateAsync(server.ClientTransport);
+
+        CallToolResult create = await client.CallToolAsync(
+            "create_project",
+            new Dictionary<string, object?>
+            {
+                ["path"] = "sessionless-save.bep",
+                ["width"] = 320,
+                ["height"] = 180,
+                ["frameRate"] = 30,
+                ["duration"] = "00:00:03"
+            });
+        AssertMcpCallSucceeded(create, "create_project");
+
+        CallToolResult result = await client.CallToolAsync("save_project", new Dictionary<string, object?>());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ReadText(result), Does.Not.Contain("An error occurred invoking 'save_project'"));
+            AssertToolResultSuccess(result);
+            Assert.That(File.Exists(Path.Combine(workspace, "sessionless-save.bep")), Is.True);
+        });
+    }
+
     private static void AssertToolResultSuccess(CallToolResult result)
     {
         string text = ReadText(result);
