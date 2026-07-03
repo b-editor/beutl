@@ -152,8 +152,7 @@ public sealed class AVFReader : MediaReader
         // end-of-stream with silence, and reports no per-read decoded count. This is the zero-filled
         // EOF shape permitted by the ReadAudio contract: NumSamples is always == length here, so callers
         // must detect EOF by cross-checking `start + length` against the stream duration rather than by
-        // a short read. Returning a precise decoded count would require extending the C ABI and
-        // rebuilding the .dylib; tracked as a follow-up.
+        // a short read.
         var buffer = new Pcm<Stereo32BitFloat>(AudioInfo.SampleRate, length);
         try
         {

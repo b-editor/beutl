@@ -93,7 +93,6 @@ public class SampleProviderReaderTests
     [Test]
     public void ReadStereo_PartialReadNearEof_ReturnsShortBuffer()
     {
-        // Only 300 frames available but 500 requested: the result must be a short read of 300.
         var provider = new FakeSampleProvider(totalFrames: 300);
 
         using var result = SampleProviderReader.ReadStereo(provider, SampleRate, length: 500);
