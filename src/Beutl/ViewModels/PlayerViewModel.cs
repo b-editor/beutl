@@ -673,7 +673,13 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
             await Task.WhenAll(tcs.Task, audioTask);
 
-            frameCacheManager.UpdateBlocks();
+            // Committing the recorded cache blocks is a shared write, so gate it on ownership like the
+            // finally/rewind paths below: a task disowned by a Pause() timeout that unblocks after a
+            // newer session started must not stomp that session's frame-cache bookkeeping.
+            if (_sessionGuard.Owns(generation))
+            {
+                frameCacheManager.UpdateBlocks();
+            }
         }
         finally
         {
