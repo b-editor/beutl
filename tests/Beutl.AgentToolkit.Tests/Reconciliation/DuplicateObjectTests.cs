@@ -313,7 +313,9 @@ public sealed class DuplicateObjectTests
     }
 
     private static ValueTask<QualityReviewResponse> AnalyzeAsync(Scene scene)
-        => new QualityAnalyzer(new MotionVariationAnalyzer(new StillRenderer())).AnalyzeAsync(
+    {
+        var stillRenderer = new StillRenderer();
+        return new QualityAnalyzer(new MotionVariationAnalyzer(stillRenderer), stillRenderer).AnalyzeAsync(
             scene,
             timeSeconds: null,
             sampleCount: 3,
@@ -331,4 +333,5 @@ public sealed class DuplicateObjectTests
             plannedForegroundElementsPerShot: 0,
             evaluateMotion: false,
             cancellationToken: CancellationToken.None);
+    }
 }

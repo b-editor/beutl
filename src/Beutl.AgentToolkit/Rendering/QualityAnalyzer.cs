@@ -42,7 +42,22 @@ public sealed record TypographyMetrics(
     int TextObjectCount,
     int AllCapsTextCount,
     int ExcessiveSpacingCount,
-    int TextPlateMismatchCount);
+    int TextPlateMismatchCount,
+    int LowContrastTextCount,
+    IReadOnlyList<TypographyContrastMetric> Contrast);
+
+public sealed record TypographyContrastMetric(
+    string ElementId,
+    string ObjectId,
+    string Text,
+    double WorstContrastRatio,
+    string WorstTime,
+    bool DecorativeIntent,
+    IReadOnlyList<TypographyContrastSample> Samples);
+
+public sealed record TypographyContrastSample(
+    string Time,
+    double ContrastRatio);
 
 public sealed record ShapeDiversityMetrics(
     int RectShapeCount,
@@ -136,20 +151,24 @@ public sealed record MotionContinuityMetrics(
     int ShortSegmentCount,
     int AnimatedPropertyCount);
 
-public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnalyzer)
+public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnalyzer, StillRenderer stillRenderer)
 {
     private const string Critical = "critical";
     private const string Major = "major";
     private const string Minor = "minor";
+    private const double TypographyContrastFloor = 3.0;
+    private const double TextColorDistanceThreshold = 36;
+    private const int TextBackgroundSamplePaddingPixels = 4;
 
     // Advisory issues never fail the quality gate; only Critical/Major do. Aesthetic
     // opinions use this so they surface as guidance without blocking export.
     private const string Advisory = Minor;
 
-    // Gate policy: typographyReadTime, elementStructure, and motionContinuity are
-    // the standing deterministic blockers. layerDensity can also block only when a
-    // motion-graphics caller supplies a quantitative plan and authored foreground
-    // density falls below half of that plan; palette/background aesthetics remain advisory.
+    // Gate policy: typographyReadTime and rendered typographyContrast, elementStructure,
+    // and motionContinuity are the standing deterministic blockers. layerDensity can
+    // also block only when a motion-graphics caller supplies a quantitative plan and
+    // authored foreground density falls below half of that plan; palette/background
+    // aesthetics remain advisory.
 
     // A deviation the brief explicitly opted into is guidance, not an accident: Advisory
     // instead of a gate-failing Major. An unsignalled deviation still blocks.
@@ -173,6 +192,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         double plannedForegroundElementsPerShot,
         bool evaluateMotion,
         string? videoType = null,
+        IReadOnlyList<double>? beatTimesSeconds = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(scene);
@@ -212,6 +232,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
             gateProfile.SuppressCaptionRoleHierarchy,
             issues);
         TempoMetrics tempo = AnalyzeTempo(scene, objects, tempoStyleProfile, relaxAesthetics, issues);
+        AnalyzeAudioSync(scene, beatTimesSeconds, issues);
         LayerDensityMetrics layerDensity = AnalyzeLayerDensity(
             scene,
             objects,
@@ -222,52 +243,88 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
             plannedForegroundElementsPerShot,
             issues);
         AnalyzeTimelineCoverage(scene, objects, gateProfile.RunTimelineCoverage, issues);
-        MotionContinuityMetrics motion = await AnalyzeMotionAsync(
-            scene,
-            objects,
-            timeSeconds,
-            sampleCount,
-            renderScale,
-            relaxHardCuts,
-            relaxAesthetics,
-            resolvedAllowStillness,
-            evaluateMotion,
-            gateProfile.SuppressCutRhythm,
-            gateProfile.RewordCutRhythmForTransitions,
-            issues,
-            cancellationToken).ConfigureAwait(false);
-
-        bool hasBlockingIssue = issues.Any(issue => issue.Severity is Critical or Major);
-        string verdict = hasBlockingIssue
-            ? "quality-issues-found"
-            : string.Equals(styleProfile, "draft", StringComparison.OrdinalIgnoreCase)
-                ? "quality-ok-draft"
-                : "quality-ok";
-
-        List<string> notes =
-        [
-            hasBlockingIssue
-                ? "Resolve all critical and major quality issues before exporting a final preview."
-                : "No critical or major deterministic quality issues were found.",
-            "This review uses deterministic document, color, geometry, and rendered-motion heuristics; it does not use OCR or generative image judging."
-        ];
-
-        if (!string.IsNullOrWhiteSpace(styleProfile))
+        IReadOnlyList<RenderedFrameAnalysis>? renderedFrames = null;
+        try
         {
-            notes.Add($"Style profile: {styleProfile.Trim()}.");
-        }
+            if (evaluateMotion)
+            {
+                IReadOnlyList<TimeSpan> sampleTimes = ResolveSampleTimes(scene, timeSeconds, sampleCount);
+                renderedFrames = await RenderAnalysisFramesAsync(
+                    scene,
+                    sampleTimes,
+                    renderScale,
+                    cancellationToken).ConfigureAwait(false);
+                IReadOnlyList<TypographyContrastMetric> contrast = AnalyzeRenderedTypographyContrast(
+                    scene,
+                    objects,
+                    renderedFrames,
+                    allowMonochrome,
+                    issues);
+                typography = typography with
+                {
+                    LowContrastTextCount = contrast.Count(item => item.WorstContrastRatio < TypographyContrastFloor),
+                    Contrast = contrast
+                };
+            }
 
-        if (videoProfile is not null)
+            MotionContinuityMetrics motion = await AnalyzeMotionAsync(
+                scene,
+                objects,
+                timeSeconds,
+                sampleCount,
+                renderScale,
+                renderedFrames,
+                relaxHardCuts,
+                relaxAesthetics,
+                resolvedAllowStillness,
+                evaluateMotion,
+                gateProfile.SuppressCutRhythm,
+                gateProfile.RewordCutRhythmForTransitions,
+                issues,
+                cancellationToken).ConfigureAwait(false);
+
+            bool hasBlockingIssue = issues.Any(issue => issue.Severity is Critical or Major);
+            string verdict = hasBlockingIssue
+                ? "quality-issues-found"
+                : string.Equals(styleProfile, "draft", StringComparison.OrdinalIgnoreCase)
+                    ? "quality-ok-draft"
+                    : "quality-ok";
+
+            List<string> notes =
+            [
+                hasBlockingIssue
+                    ? "Resolve all critical and major quality issues before exporting a final preview."
+                    : "No critical or major deterministic quality issues were found.",
+                "This review uses deterministic document, color, geometry, and rendered-motion heuristics; it does not use OCR or generative image judging."
+            ];
+
+            if (!string.IsNullOrWhiteSpace(styleProfile))
+            {
+                notes.Add($"Style profile: {styleProfile.Trim()}.");
+            }
+
+            if (videoProfile is not null)
+            {
+                notes.Add($"Video type: {videoProfile.Name} (implied: {string.Join("; ", gateProfile.DescribeAdjustments())}).");
+            }
+
+            return new QualityReviewResponse(
+                !hasBlockingIssue,
+                verdict,
+                issues,
+                new QualityMetrics(typography, shapeDiversity, palette, structure, tempo, backgroundRichness, layerDensity, motion),
+                notes);
+        }
+        finally
         {
-            notes.Add($"Video type: {videoProfile.Name} (implied: {string.Join("; ", gateProfile.DescribeAdjustments())}).");
+            if (renderedFrames is not null)
+            {
+                foreach (RenderedFrameAnalysis frame in renderedFrames)
+                {
+                    frame.Dispose();
+                }
+            }
         }
-
-        return new QualityReviewResponse(
-            !hasBlockingIssue,
-            verdict,
-            issues,
-            new QualityMetrics(typography, shapeDiversity, palette, structure, tempo, backgroundRichness, layerDensity, motion),
-            notes);
     }
 
     private static TypographyMetrics AnalyzeTypography(
@@ -318,7 +375,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
             }
         }
 
-        return new TypographyMetrics(textCount, allCapsCount, spacingCount, 0);
+        return new TypographyMetrics(textCount, allCapsCount, spacingCount, 0, 0, []);
     }
 
     private static void AnalyzeDesignStructure(
@@ -1081,6 +1138,310 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
             []));
     }
 
+    private static void AnalyzeAudioSync(
+        Scene scene,
+        IReadOnlyList<double>? beatTimesSeconds,
+        List<QualityIssue> issues)
+    {
+        double[] beats = beatTimesSeconds?
+            .Where(double.IsFinite)
+            .Where(seconds => seconds >= 0)
+            .Distinct()
+            .Order()
+            .ToArray() ?? [];
+        if (beats.Length == 0)
+        {
+            return;
+        }
+
+        CutBoundary[] lateBoundaries = FindInteriorCutBoundaries(scene)
+            .Select(boundary =>
+            {
+                double boundarySeconds = boundary.Time.TotalSeconds;
+                double nearestBeat = beats.MinBy(beat => Math.Abs(beat - boundarySeconds));
+                double distance = Math.Abs(nearestBeat - boundarySeconds);
+                return boundary with
+                {
+                    NearestBeatSeconds = nearestBeat,
+                    NearestBeatDistanceSeconds = distance
+                };
+            })
+            .Where(boundary => boundary.NearestBeatDistanceSeconds is >= 0.04 and <= 0.12)
+            .ToArray();
+        if (lateBoundaries.Length == 0)
+        {
+            return;
+        }
+
+        string evidence = string.Join(
+            "; ",
+            lateBoundaries.Select(boundary =>
+                $"{FormatSeconds(boundary.Time.TotalSeconds)} is {boundary.NearestBeatDistanceSeconds * 1000:F0} ms from beat {FormatSeconds(boundary.NearestBeatSeconds)}"));
+        issues.Add(new QualityIssue(
+            "audioSync",
+            Advisory,
+            "Visible cut boundaries land just off the supplied beat grid.",
+            evidence,
+            "Snap visible Element starts/ends or accent keyframes onto nearby beatTimesSeconds, or move them more than 120 ms away when an intentionally off-grid cut is desired.",
+            null,
+            lateBoundaries
+                .SelectMany(boundary => boundary.Elements)
+                .Select(element => element.Id.ToString())
+                .Distinct(StringComparer.Ordinal)
+                .ToArray(),
+            []));
+    }
+
+    private async ValueTask<IReadOnlyList<RenderedFrameAnalysis>> RenderAnalysisFramesAsync(
+        Scene scene,
+        IReadOnlyList<TimeSpan> sampleTimes,
+        float renderScale,
+        CancellationToken cancellationToken)
+    {
+        var frames = new List<RenderedFrameAnalysis>(sampleTimes.Count);
+        try
+        {
+            foreach (TimeSpan time in sampleTimes)
+            {
+                frames.Add(await stillRenderer.RenderFrameAnalysisAsync(
+                    scene,
+                    time,
+                    renderScale,
+                    cancellationToken).ConfigureAwait(false));
+            }
+
+            return frames;
+        }
+        catch
+        {
+            foreach (RenderedFrameAnalysis frame in frames)
+            {
+                frame.Dispose();
+            }
+
+            throw;
+        }
+    }
+
+    private static IReadOnlyList<TypographyContrastMetric> AnalyzeRenderedTypographyContrast(
+        Scene scene,
+        IReadOnlyList<SceneObjectInfo> objects,
+        IReadOnlyList<RenderedFrameAnalysis> frames,
+        bool allowMonochrome,
+        List<QualityIssue> issues)
+    {
+        var objectInfo = objects
+            .Where(item => item.Object is TextBlock)
+            .ToDictionary(item => item.Object, item => item);
+        var samplesByText = new Dictionary<TextBlock, List<TypographyContrastSample>>();
+
+        foreach (RenderedFrameAnalysis frame in frames)
+        {
+            using Bitmap bitmap = frame.Bitmap.Convert(
+                BitmapColorType.Bgra8888,
+                BitmapAlphaType.Unpremul,
+                BitmapColorSpace.Srgb);
+            foreach (RenderedTextBounds textBounds in frame.TextBounds)
+            {
+                if (!objectInfo.ContainsKey(textBounds.TextBlock)
+                    || !TryGetTextFillColor(textBounds.TextBlock, out Color fill)
+                    || fill.A == 0)
+                {
+                    continue;
+                }
+
+                double? contrast = MeasureTextContrast(
+                    scene,
+                    bitmap,
+                    textBounds.Bounds,
+                    fill);
+                if (contrast is null)
+                {
+                    continue;
+                }
+
+                if (!samplesByText.TryGetValue(textBounds.TextBlock, out List<TypographyContrastSample>? samples))
+                {
+                    samples = [];
+                    samplesByText[textBounds.TextBlock] = samples;
+                }
+
+                samples.Add(new TypographyContrastSample(
+                    frame.Time.ToString("c"),
+                    Math.Round(contrast.Value, 2, MidpointRounding.AwayFromZero)));
+            }
+        }
+
+        var metrics = new List<TypographyContrastMetric>(samplesByText.Count);
+        foreach ((TextBlock textBlock, List<TypographyContrastSample> samples) in samplesByText)
+        {
+            if (samples.Count == 0 || !objectInfo.TryGetValue(textBlock, out SceneObjectInfo info))
+            {
+                continue;
+            }
+
+            TypographyContrastSample worst = samples.MinBy(sample => sample.ContrastRatio)!;
+            bool decorativeIntent = allowMonochrome || HasRole(info, "decorative");
+            var metric = new TypographyContrastMetric(
+                info.Element.Id.ToString(),
+                textBlock.Id.ToString(),
+                Shorten(textBlock.Text.CurrentValue ?? string.Empty),
+                worst.ContrastRatio,
+                worst.Time,
+                decorativeIntent,
+                samples);
+            metrics.Add(metric);
+
+            if (worst.ContrastRatio >= TypographyContrastFloor)
+            {
+                continue;
+            }
+
+            issues.Add(CreateIssue(
+                "typographyContrast",
+                IntentSeverity(decorativeIntent),
+                "Rendered text contrast falls below the 3.0:1 large-text floor.",
+                $"Text '{metric.Text}' measured worst contrast {worst.ContrastRatio:F2}:1 at {worst.Time}.",
+                decorativeIntent
+                    ? "Decorative or monochrome text contrast is allowed; confirm the text is not carrying required information."
+                    : "Increase text/background luma separation, add or align a named [role:text-backing] plate, or move the text away from the low-contrast background region.",
+                info,
+                worst.Time));
+        }
+
+        return metrics;
+    }
+
+    private static double? MeasureTextContrast(
+        Scene scene,
+        Bitmap bitmap,
+        Rect logicalBounds,
+        Color textFill)
+    {
+        if (!TryResolvePixelBounds(scene, bitmap, logicalBounds, out int left, out int top, out int right, out int bottom))
+        {
+            return null;
+        }
+
+        double maxDistance = 0;
+        int opaquePixels = 0;
+        for (int y = top; y < bottom; y++)
+        {
+            Span<byte> row = bitmap.GetRow(y);
+            for (int x = left; x < right; x++)
+            {
+                int offset = x * bitmap.BytesPerPixel;
+                byte b = row[offset];
+                byte g = row[offset + 1];
+                byte r = row[offset + 2];
+                byte a = bitmap.BytesPerPixel > 3 ? row[offset + 3] : byte.MaxValue;
+                if (a == 0)
+                {
+                    continue;
+                }
+
+                maxDistance = Math.Max(maxDistance, ColorDistance(r, g, b, textFill));
+                opaquePixels++;
+            }
+        }
+
+        if (opaquePixels == 0)
+        {
+            return null;
+        }
+
+        if (maxDistance <= TextColorDistanceThreshold)
+        {
+            return 1;
+        }
+
+        double textLuminance = WcagRelativeLuminance(textFill.R, textFill.G, textFill.B);
+        double minContrast = double.PositiveInfinity;
+        int sampledPixels = 0;
+        double backgroundDistanceThreshold = Math.Max(TextColorDistanceThreshold, maxDistance * 0.60);
+        for (int y = top; y < bottom; y++)
+        {
+            Span<byte> row = bitmap.GetRow(y);
+            for (int x = left; x < right; x++)
+            {
+                int offset = x * bitmap.BytesPerPixel;
+                byte b = row[offset];
+                byte g = row[offset + 1];
+                byte r = row[offset + 2];
+                byte a = bitmap.BytesPerPixel > 3 ? row[offset + 3] : byte.MaxValue;
+                if (a == 0 || ColorDistance(r, g, b, textFill) < backgroundDistanceThreshold)
+                {
+                    continue;
+                }
+
+                minContrast = Math.Min(minContrast, ContrastRatio(textLuminance, WcagRelativeLuminance(r, g, b)));
+                sampledPixels++;
+            }
+        }
+
+        return sampledPixels == 0 || double.IsPositiveInfinity(minContrast)
+            ? 1
+            : minContrast;
+    }
+
+    private static bool TryResolvePixelBounds(
+        Scene scene,
+        Bitmap bitmap,
+        Rect logicalBounds,
+        out int left,
+        out int top,
+        out int right,
+        out int bottom)
+    {
+        double scaleX = scene.FrameSize.Width <= 0 ? 1 : bitmap.Width / (double)scene.FrameSize.Width;
+        double scaleY = scene.FrameSize.Height <= 0 ? 1 : bitmap.Height / (double)scene.FrameSize.Height;
+        left = Math.Clamp((int)Math.Floor(logicalBounds.Left * scaleX) - TextBackgroundSamplePaddingPixels, 0, bitmap.Width);
+        top = Math.Clamp((int)Math.Floor(logicalBounds.Top * scaleY) - TextBackgroundSamplePaddingPixels, 0, bitmap.Height);
+        right = Math.Clamp((int)Math.Ceiling(logicalBounds.Right * scaleX) + TextBackgroundSamplePaddingPixels, 0, bitmap.Width);
+        bottom = Math.Clamp((int)Math.Ceiling(logicalBounds.Bottom * scaleY) + TextBackgroundSamplePaddingPixels, 0, bitmap.Height);
+        return right > left && bottom > top;
+    }
+
+    private static bool TryGetTextFillColor(TextBlock textBlock, out Color color)
+    {
+        if (textBlock.Fill.CurrentValue is SolidColorBrush solid)
+        {
+            color = solid.Color.CurrentValue;
+            return true;
+        }
+
+        color = default;
+        return false;
+    }
+
+    private static double ColorDistance(byte r, byte g, byte b, Color textFill)
+    {
+        int dr = r - textFill.R;
+        int dg = g - textFill.G;
+        int db = b - textFill.B;
+        return Math.Sqrt((dr * dr) + (dg * dg) + (db * db));
+    }
+
+    private static double ContrastRatio(double firstLuminance, double secondLuminance)
+    {
+        double lighter = Math.Max(firstLuminance, secondLuminance);
+        double darker = Math.Min(firstLuminance, secondLuminance);
+        return (lighter + 0.05) / (darker + 0.05);
+    }
+
+    private static double WcagRelativeLuminance(byte r, byte g, byte b)
+    {
+        static double Linearize(byte channel)
+        {
+            double value = channel / 255d;
+            return value <= 0.03928
+                ? value / 12.92
+                : Math.Pow((value + 0.055) / 1.055, 2.4);
+        }
+
+        return (0.2126 * Linearize(r)) + (0.7152 * Linearize(g)) + (0.0722 * Linearize(b));
+    }
+
     private static void AnalyzeMaterialUiLook(
         IReadOnlyList<SceneObjectInfo> objects,
         bool relaxAesthetics,
@@ -1118,6 +1479,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         IReadOnlyList<TimeSpan>? timeSeconds,
         int sampleCount,
         float renderScale,
+        IReadOnlyList<RenderedFrameAnalysis>? renderedFrames,
         bool allowHardCuts,
         bool relaxShortSegments,
         bool allowStillness,
@@ -1173,17 +1535,31 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
             return new MotionContinuityMetrics(false, null, 0, 0, hardCutCount, shortSegmentCount, animatedPropertyCount);
         }
 
-        IReadOnlyList<TimeSpan> sampleTimes = ResolveSampleTimes(scene, timeSeconds, sampleCount);
-        MotionVariationResponse motion = await motionVariationAnalyzer.AnalyzeAsync(
-            scene,
-            sampleTimes,
-            renderScale,
-            0.02,
-            48,
-            0.35,
-            0.90,
-            24,
-            cancellationToken).ConfigureAwait(false);
+        MotionVariationResponse motion;
+        if (renderedFrames is { Count: >= 2 })
+        {
+            motion = MotionVariationAnalyzer.AnalyzeFrames(
+                renderedFrames.Select(frame => (frame.Time, frame.Bitmap)).ToArray(),
+                0.02,
+                48,
+                0.35,
+                0.90,
+                24);
+        }
+        else
+        {
+            IReadOnlyList<TimeSpan> sampleTimes = ResolveSampleTimes(scene, timeSeconds, sampleCount);
+            motion = await motionVariationAnalyzer.AnalyzeAsync(
+                scene,
+                sampleTimes,
+                renderScale,
+                0.02,
+                48,
+                0.35,
+                0.90,
+                24,
+                cancellationToken).ConfigureAwait(false);
+        }
 
         if (!motion.PassesMinimumMotion)
         {
@@ -2146,32 +2522,64 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
 
     private static int CountHardCutLikeBoundaries(Scene scene)
     {
-        TimeSpan duration = scene.Duration > TimeSpan.Zero ? scene.Duration : TimeSpan.FromSeconds(1);
-        TimeSpan[] boundaries = scene.Children
-            .SelectMany(element => new[] { element.Start, element.Start + element.Length })
-            .Where(time => time > TimeSpan.Zero && time < duration)
-            .Distinct()
-            .OrderBy(time => time)
-            .ToArray();
-
         int count = 0;
-        foreach (TimeSpan boundary in boundaries)
+        foreach (CutBoundary cutBoundary in FindInteriorCutBoundaries(scene))
         {
-            bool hasBoundaryChange = scene.Children.Any(element =>
-                Math.Abs((element.Start - boundary).TotalSeconds) <= 0.04
-                || Math.Abs((element.Start + element.Length - boundary).TotalSeconds) <= 0.04);
+            TimeSpan boundary = cutBoundary.Time;
             bool hasBridgeAnimation = scene.Children
                 .Where(element => element.Range.Contains(boundary - TimeSpan.FromMilliseconds(20))
                                   || element.Range.Contains(boundary + TimeSpan.FromMilliseconds(20)))
                 .SelectMany(element => element.Objects)
                 .Any(HasBridgeAnimation);
-            if (hasBoundaryChange && !hasBridgeAnimation)
+            if (!hasBridgeAnimation)
             {
                 count++;
             }
         }
 
         return count;
+    }
+
+    private static CutBoundary[] FindInteriorCutBoundaries(Scene scene)
+    {
+        TimeSpan duration = scene.Duration > TimeSpan.Zero ? scene.Duration : TimeSpan.FromSeconds(1);
+        var boundaries = new SortedDictionary<long, List<Element>>();
+        foreach (Element element in scene.Children)
+        {
+            if (!element.IsEnabled
+                || element.Length <= TimeSpan.Zero
+                || !element.Objects.Any(IsVisibleTimelineObject))
+            {
+                continue;
+            }
+
+            AddBoundary(element.Start, element);
+            AddBoundary(element.Start + element.Length, element);
+        }
+
+        return boundaries
+            .Select(item => new CutBoundary(
+                TimeSpan.FromTicks(item.Key),
+                item.Value,
+                0,
+                0))
+            .ToArray();
+
+        void AddBoundary(TimeSpan time, Element element)
+        {
+            if (time <= TimeSpan.Zero || time >= duration)
+            {
+                return;
+            }
+
+            if (!boundaries.TryGetValue(time.Ticks, out List<Element>? elements))
+            {
+                elements = [];
+                boundaries[time.Ticks] = elements;
+            }
+
+            elements.Add(element);
+        }
     }
 
     private static bool HasBridgeAnimation(EngineObject obj)
@@ -2378,6 +2786,12 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
     private readonly record struct SceneObjectInfo(Element Element, EngineObject Object);
 
     private readonly record struct ObjectBounds(double CenterX, double CenterY, double Width, double Height);
+
+    private readonly record struct CutBoundary(
+        TimeSpan Time,
+        IReadOnlyList<Element> Elements,
+        double NearestBeatSeconds,
+        double NearestBeatDistanceSeconds);
 
     private enum DepthBand
     {

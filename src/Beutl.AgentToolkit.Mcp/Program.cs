@@ -23,6 +23,7 @@ builder.Services
     .AddSingleton<StillRenderer>()
     .AddSingleton<StoryboardRenderer>()
     .AddSingleton<MotionVariationAnalyzer>()
+    .AddSingleton<AudioRhythmAnalyzer>()
     .AddSingleton<QualityAnalyzer>()
     .AddSingleton<EncoderRegistration>()
     .AddSingleton<VideoExporter>()

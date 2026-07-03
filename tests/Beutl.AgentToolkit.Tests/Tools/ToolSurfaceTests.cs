@@ -55,6 +55,7 @@ public sealed class ToolSurfaceTests
                 "render_still",
                 "render_storyboard",
                 "evaluate_motion_variation",
+                "analyze_audio_rhythm",
                 "evaluate_edit_quality",
                 "preview_quality_risks",
                 "suggest_quality_fixes",

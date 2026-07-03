@@ -819,7 +819,7 @@ public sealed class QualityAnalyzerTests
             Assert.That(blocked.Issues, Has.Some.Matches<QualityIssue>(issue =>
                 issue.Category == "motionContinuity" && issue.Severity == "major"));
 
-            Assert.That(allowed.PassesQualityGate, Is.True);
+            Assert.That(allowed.PassesQualityGate, Is.True, QualityDebug(allowed));
             Assert.That(allowed.Issues, Has.Some.Matches<QualityIssue>(issue =>
                 issue.Category == "motionContinuity" && issue.Severity == "minor"));
             Assert.That(allowed.Issues, Has.None.Matches<QualityIssue>(issue =>
@@ -839,7 +839,7 @@ public sealed class QualityAnalyzerTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(result.PassesQualityGate, Is.True);
+            Assert.That(result.PassesQualityGate, Is.True, QualityDebug(result));
             Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
                 issue.Category == "motionContinuity" && issue.Severity == "minor"));
         });
@@ -1112,6 +1112,110 @@ public sealed class QualityAnalyzerTests
         });
     }
 
+    [Test]
+    public async Task Audio_sync_advisory_flags_only_supplied_late_cut_boundaries()
+    {
+        Scene onBeat = CreateScene(durationSeconds: 2);
+        AddRect(onBeat, "[role:background] field", zIndex: 0, width: 1920, height: 1080, color: Color.Parse("#ff20242b"));
+        Element onBeatFirst = AddText(onBeat, "One", zIndex: 10);
+        onBeatFirst.Start = TimeSpan.Zero;
+        onBeatFirst.Length = TimeSpan.FromSeconds(1);
+        Element onBeatSecond = AddText(onBeat, "Two", zIndex: 10);
+        onBeatSecond.Start = TimeSpan.FromSeconds(1);
+        onBeatSecond.Length = TimeSpan.FromSeconds(1);
+
+        QualityReviewResponse clean = await AnalyzeAsync(
+            onBeat,
+            evaluateMotion: false,
+            beatTimesSeconds: [0, 1, 2]);
+
+        Scene late = CreateScene(durationSeconds: 2);
+        AddRect(late, "[role:background] field", zIndex: 0, width: 1920, height: 1080, color: Color.Parse("#ff20242b"));
+        Element lateFirst = AddText(late, "One", zIndex: 10);
+        lateFirst.Start = TimeSpan.Zero;
+        lateFirst.Length = TimeSpan.FromSeconds(1.08);
+        Element lateSecond = AddText(late, "Two", zIndex: 10);
+        lateSecond.Start = TimeSpan.FromSeconds(1.08);
+        lateSecond.Length = TimeSpan.FromSeconds(0.92);
+
+        QualityReviewResponse flagged = await AnalyzeAsync(
+            late,
+            evaluateMotion: false,
+            beatTimesSeconds: [0, 1, 2]);
+        QualityReviewResponse noBeats = await AnalyzeAsync(late, evaluateMotion: false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(clean.Issues, Has.None.Matches<QualityIssue>(issue => issue.Category == "audioSync"));
+            Assert.That(noBeats.Issues, Has.None.Matches<QualityIssue>(issue => issue.Category == "audioSync"));
+            Assert.That(flagged.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "audioSync"
+                && issue.Severity == "minor"
+                && issue.Evidence.Contains("80 ms", StringComparison.Ordinal)));
+            Assert.That(flagged.PassesQualityGate, Is.True);
+        });
+    }
+
+    [Test]
+    public async Task Rendered_typography_contrast_flags_white_text_over_animated_white_to_black_background()
+    {
+        Scene scene = CreateScene(width: 320, height: 180, durationSeconds: 2);
+        AddAnimatedBackground(scene, Colors.White, Colors.Black);
+        AddText(scene, "Launch", zIndex: 10, size: 42, fill: Colors.White);
+
+        QualityReviewResponse result = await AnalyzeAsync(scene, allowStillness: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.PassesQualityGate, Is.False);
+            Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "typographyContrast"
+                && issue.Severity == "major"
+                && issue.Message.Contains("3.0:1", StringComparison.Ordinal)));
+            Assert.That(result.Metrics.Typography.LowContrastTextCount, Is.EqualTo(1));
+            Assert.That(result.Metrics.Typography.Contrast.Single().WorstContrastRatio, Is.LessThan(3.0));
+        });
+    }
+
+    [Test]
+    public async Task Rendered_typography_contrast_allows_dark_text_on_light_plate()
+    {
+        Scene scene = CreateScene(width: 320, height: 180, durationSeconds: 2);
+        AddRect(scene, "[role:background] light field", zIndex: 0, width: 320, height: 180, color: Color.Parse("#fff4f0e8"));
+        AddText(scene, "Launch", zIndex: 10, size: 42, fill: Color.Parse("#ff151515"));
+
+        QualityReviewResponse result = await AnalyzeAsync(scene, allowStillness: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Issues, Has.None.Matches<QualityIssue>(issue => issue.Category == "typographyContrast"));
+            Assert.That(result.Metrics.Typography.LowContrastTextCount, Is.EqualTo(0));
+            Assert.That(result.Metrics.Typography.Contrast.Single().WorstContrastRatio, Is.GreaterThanOrEqualTo(3.0));
+        });
+    }
+
+    [Test]
+    public async Task Decorative_text_downgrades_rendered_typography_contrast_to_advisory()
+    {
+        Scene scene = CreateScene(width: 320, height: 180, durationSeconds: 2);
+        AddRect(scene, "[role:background] white field", zIndex: 0, width: 320, height: 180, color: Colors.White);
+        Element decorative = AddText(scene, "[role:decorative] Ghost", zIndex: 10, size: 42, fill: Colors.White);
+        decorative.Name = "[role:decorative] ghost label";
+
+        QualityReviewResponse result = await AnalyzeAsync(scene, allowStillness: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.PassesQualityGate, Is.True);
+            Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "typographyContrast"
+                && issue.Severity == "minor"));
+            Assert.That(result.Issues, Has.None.Matches<QualityIssue>(issue =>
+                issue.Category == "typographyContrast"
+                && issue.Severity == "major"));
+        });
+    }
+
     private static ValueTask<QualityReviewResponse> AnalyzeAsync(
         Scene scene,
         bool evaluateMotion = true,
@@ -1123,8 +1227,11 @@ public sealed class QualityAnalyzerTests
         bool allowMonochrome = false,
         bool allowMinimalDensity = false,
         double plannedForegroundElementsPerShot = 0,
-        string? videoType = null)
-        => new QualityAnalyzer(new MotionVariationAnalyzer(new StillRenderer())).AnalyzeAsync(
+        string? videoType = null,
+        IReadOnlyList<double>? beatTimesSeconds = null)
+    {
+        var stillRenderer = new StillRenderer();
+        return new QualityAnalyzer(new MotionVariationAnalyzer(stillRenderer), stillRenderer).AnalyzeAsync(
             scene,
             timeSeconds: null,
             sampleCount: 3,
@@ -1142,7 +1249,9 @@ public sealed class QualityAnalyzerTests
             plannedForegroundElementsPerShot: plannedForegroundElementsPerShot,
             evaluateMotion: evaluateMotion,
             cancellationToken: CancellationToken.None,
-            videoType: videoType);
+            videoType: videoType,
+            beatTimesSeconds: beatTimesSeconds);
+    }
 
     private static string[] IssueSet(QualityReviewResponse response)
         => response.Issues
@@ -1150,9 +1259,26 @@ public sealed class QualityAnalyzerTests
             .Order(StringComparer.Ordinal)
             .ToArray();
 
-    private static Scene CreateScene(double durationSeconds = 1)
+    private static string QualityDebug(QualityReviewResponse response)
     {
-        return new Scene(1920, 1080, "quality")
+        string issues = string.Join(
+            Environment.NewLine,
+            response.Issues
+                .Select(issue => $"{issue.Category}:{issue.Severity}:{issue.Message} Evidence={issue.Evidence}")
+                .Order(StringComparer.Ordinal));
+        string contrast = string.Join(
+            Environment.NewLine,
+            response.Metrics.Typography.Contrast.Select(metric =>
+                $"contrast:{metric.Text}:{metric.WorstContrastRatio:F2}:{metric.WorstTime}:{metric.Samples.Count}"));
+        return string.Join(Environment.NewLine, [issues, contrast]);
+    }
+
+    private static Scene CreateScene(double durationSeconds = 1)
+        => CreateScene(1920, 1080, durationSeconds);
+
+    private static Scene CreateScene(int width, int height, double durationSeconds = 1)
+    {
+        return new Scene(width, height, "quality")
         {
             Duration = TimeSpan.FromSeconds(durationSeconds),
             Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"), "Scene.scene"))
@@ -1241,6 +1367,29 @@ public sealed class QualityAnalyzerTests
             }
         };
         return AddObject(scene, $"{name} element", zIndex, rect);
+    }
+
+    private static Element AddAnimatedBackground(Scene scene, Color start, Color end)
+    {
+        var brush = new SolidColorBrush(start)
+        {
+            Color = { Animation = CreateColorAnimation(start, end, scene.Duration) }
+        };
+        var rect = new RectShape
+        {
+            Name = "[role:background] animated contrast field",
+            Width = { CurrentValue = scene.FrameSize.Width },
+            Height = { CurrentValue = scene.FrameSize.Height },
+            Fill = { CurrentValue = brush },
+            Transform =
+            {
+                CurrentValue = new TransformGroup
+                {
+                    Children = { new TranslateTransform(0, 0) }
+                }
+            }
+        };
+        return AddObject(scene, "[role:background] animated contrast field element", 0, rect);
     }
 
     private static Element AddRoundedRect(
@@ -1383,6 +1532,26 @@ public sealed class QualityAnalyzerTests
             {
                 KeyTime = TimeSpan.FromSeconds(1),
                 Value = 120
+            },
+            out _);
+        return animation;
+    }
+
+    private static KeyFrameAnimation<Color> CreateColorAnimation(Color start, Color end, TimeSpan duration)
+    {
+        var animation = new KeyFrameAnimation<Color>();
+        animation.KeyFrames.Add(
+            new KeyFrame<Color>
+            {
+                KeyTime = TimeSpan.Zero,
+                Value = start
+            },
+            out _);
+        animation.KeyFrames.Add(
+            new KeyFrame<Color>
+            {
+                KeyTime = duration,
+                Value = end
             },
             out _);
         return animation;

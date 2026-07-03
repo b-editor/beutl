@@ -7,6 +7,7 @@ using Beutl.AgentToolkit.Sessions;
 using Beutl.Api.Services;
 using Beutl.Services;
 using ModelContextProtocol.Client;
+using ModelContextProtocol.Protocol;
 
 namespace Beutl.HeadlessUITests;
 
@@ -138,6 +139,46 @@ public sealed class AgentHostEndpointTests
                 Assert.That(toolNames, Does.Contain("apply_edit"));
                 Assert.That(toolNames, Does.Contain("render_still"));
             });
+        }
+        finally
+        {
+            await endpoint.StopAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Endpoint_constructs_render_tools_for_tool_calls()
+    {
+        // tools/list alone never constructs tool classes, so only a call catches a DI registration missing from this host.
+        await TestReset.ResetShellAsync();
+        var endpoint = new AgentHostEndpoint(
+            new EditorService(new ExtensionProvider()),
+            GetAvailableLoopbackPort(),
+            "test-token");
+
+        try
+        {
+            await endpoint.StartAsync();
+
+            var transport = new HttpClientTransport(new HttpClientTransportOptions
+            {
+                Endpoint = endpoint.EndpointUri!,
+                TransportMode = HttpTransportMode.StreamableHttp,
+                AdditionalHeaders = new Dictionary<string, string>
+                {
+                    ["X-Beutl-Agent-Token"] = endpoint.Token
+                }
+            });
+            await using McpClient client = await McpClient.CreateAsync(transport);
+
+            CallToolResult result = await client.CallToolAsync(
+                "analyze_audio_rhythm",
+                new Dictionary<string, object?> { ["path"] = "does-not-exist.wav" });
+
+            string text = string.Join(
+                "\n",
+                result.Content.OfType<TextContentBlock>().Select(block => block.Text));
+            Assert.That(text, Does.Contain("media_not_found"));
         }
         finally
         {

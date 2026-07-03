@@ -497,7 +497,8 @@ public sealed class RenderToolsStoryboardTests
             stillRenderer,
             new StoryboardRenderer(),
             motionVariationAnalyzer,
-            new QualityAnalyzer(motionVariationAnalyzer),
+            new AudioRhythmAnalyzer(),
+            new QualityAnalyzer(motionVariationAnalyzer, stillRenderer),
             new VideoExporter(new EncoderRegistration()),
             new RenderJobManager());
     }

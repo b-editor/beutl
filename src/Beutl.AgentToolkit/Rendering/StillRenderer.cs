@@ -1,7 +1,9 @@
-﻿using Beutl.Graphics;
+﻿using Beutl.Engine;
+using Beutl.Graphics;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
+using Beutl.Graphics.Shapes;
 using Beutl.Graphics3D;
 using Beutl.Media;
 using Beutl.ProjectSystem;
@@ -45,6 +47,32 @@ public sealed record RenderStillActiveElement(
     string Length,
     int ZIndex,
     int ObjectCount);
+
+public sealed record RenderedTextBounds(
+    Element Element,
+    TextBlock TextBlock,
+    Rect Bounds);
+
+public sealed class RenderedFrameAnalysis : IDisposable
+{
+    public RenderedFrameAnalysis(TimeSpan time, Bitmap bitmap, IReadOnlyList<RenderedTextBounds> textBounds)
+    {
+        Time = time;
+        Bitmap = bitmap;
+        TextBounds = textBounds;
+    }
+
+    public TimeSpan Time { get; }
+
+    public Bitmap Bitmap { get; }
+
+    public IReadOnlyList<RenderedTextBounds> TextBounds { get; }
+
+    public void Dispose()
+    {
+        Bitmap.Dispose();
+    }
+}
 
 public sealed record RenderStoryboardResponse(
     string ContactSheetPath,
@@ -131,6 +159,33 @@ public sealed class StillRenderer
             var frame = renderer.Compositor.EvaluateGraphics(time + scene.Start);
             renderer.Render(frame);
             return renderer.Snapshot();
+        }, ct: cancellationToken).ConfigureAwait(false);
+    }
+
+    public async ValueTask<RenderedFrameAnalysis> RenderFrameAnalysisAsync(
+        Scene scene,
+        TimeSpan time,
+        float renderScale,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(scene);
+        if (ContainsGpuOnlyContent(scene)
+            && !await Has3DGraphicsContextAsync(cancellationToken).ConfigureAwait(false))
+        {
+            throw new RenderingUnavailableException(
+                "The scene contains 3D content, but no GPU context with 3D rendering support is available.");
+        }
+
+        float normalizedScale = float.IsFinite(renderScale) && renderScale > 0f ? renderScale : 1f;
+        return await RenderThread.Dispatcher.InvokeAsync(() =>
+        {
+            using var renderer = new SceneRenderer(scene, normalizedScale, disableResourceShare: true);
+            renderer.CacheOptions = RenderCacheOptions.Disabled;
+
+            var frame = renderer.Compositor.EvaluateGraphics(time + scene.Start);
+            renderer.Render(frame);
+            IReadOnlyList<RenderedTextBounds> textBounds = CreateRenderedTextBounds(scene, renderer, time);
+            return new RenderedFrameAnalysis(time, renderer.Snapshot(), textBounds);
         }, ct: cancellationToken).ConfigureAwait(false);
     }
 
@@ -368,6 +423,38 @@ public sealed class StillRenderer
                 element.ZIndex,
                 element.Objects.Count))
             .ToArray();
+    }
+
+    private static IReadOnlyList<RenderedTextBounds> CreateRenderedTextBounds(
+        Scene scene,
+        SceneRenderer renderer,
+        TimeSpan time)
+    {
+        var result = new List<RenderedTextBounds>();
+        foreach (Element element in scene.Children)
+        {
+            if (!element.IsEnabled || !element.Range.Contains(time))
+            {
+                continue;
+            }
+
+            foreach (EngineObject obj in element.Objects)
+            {
+                if (obj is not TextBlock textBlock || !textBlock.IsEnabled)
+                {
+                    continue;
+                }
+
+                if (renderer.GetBoundary(textBlock) is { } bounds
+                    && bounds.Width > 0
+                    && bounds.Height > 0)
+                {
+                    result.Add(new RenderedTextBounds(element, textBlock, bounds));
+                }
+            }
+        }
+
+        return result;
     }
 
     private static int GetColorByteCount(BitmapColorType colorType, int bytesPerPixel)

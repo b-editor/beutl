@@ -41,7 +41,8 @@ public sealed class PlanOriginalScaffoldTests
         Assert.That(scene.Children, Has.Count.GreaterThanOrEqualTo(4));
         Assert.That(scene.Children.All(element => element.Objects.Count == 1), Is.True);
 
-        QualityReviewResponse review = await new QualityAnalyzer(new MotionVariationAnalyzer(new StillRenderer()))
+        var stillRenderer = new StillRenderer();
+        QualityReviewResponse review = await new QualityAnalyzer(new MotionVariationAnalyzer(stillRenderer), stillRenderer)
             .AnalyzeAsync(
                 scene,
                 timeSeconds: null,

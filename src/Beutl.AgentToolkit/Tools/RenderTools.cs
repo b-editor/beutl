@@ -14,6 +14,16 @@ using ModelContextProtocol.Server;
 
 namespace Beutl.AgentToolkit.Tools;
 
+public sealed record AnalyzeAudioRhythmResponse(
+    string SchemaVersion,
+    int SampleRate,
+    AudioRhythmWindow AnalyzedWindow,
+    double EstimatedBpm,
+    double Confidence,
+    IReadOnlyList<double> BeatTimesSeconds,
+    IReadOnlyList<double> StrongOnsetTimesSeconds,
+    IReadOnlyList<string> Guidance);
+
 [McpServerToolType]
 public sealed class RenderTools(
     AgentSessionManager sessions,
@@ -22,6 +32,7 @@ public sealed class RenderTools(
     StillRenderer stillRenderer,
     StoryboardRenderer storyboardRenderer,
     MotionVariationAnalyzer motionVariationAnalyzer,
+    AudioRhythmAnalyzer audioRhythmAnalyzer,
     QualityAnalyzer qualityAnalyzer,
     VideoExporter videoExporter,
     RenderJobManager renderJobs) : ToolBase
@@ -223,8 +234,49 @@ public sealed class RenderTools(
         });
     }
 
+    [McpServerTool(Name = "analyze_audio_rhythm")]
+    [Description("Decodes an audio/music-bed file through Beutl's audio source path and returns measured BPM, beat times, and strong onset times for timeline planning. Reads are unrestricted; nonexistent paths return media_not_found. Use beatTimesSeconds to anchor Element boundaries/accent keyframes and pass the same array to evaluate_edit_quality/final_preflight for audioSync advisories.")]
+    public ValueTask<ToolResult<AnalyzeAudioRhythmResponse>> AnalyzeAudioRhythm(
+        [Description("Readable audio file path. Relative paths are resolved against the current process directory; reads are not workspace-guarded.")]
+        string path,
+        [Description("Optional start time in seconds for the analysis window. Defaults to 0.")]
+        double? startSeconds = null,
+        [Description("Optional positive duration in seconds for the analysis window. Defaults to the remaining decoded audio.")]
+        double? durationSeconds = null,
+        [Description("Optional lower BPM constraint. The estimator always stays inside the supported 60-200 BPM range.")]
+        double? expectedBpmMin = null,
+        [Description("Optional upper BPM constraint. The estimator always stays inside the supported 60-200 BPM range.")]
+        double? expectedBpmMax = null,
+        CancellationToken cancellationToken = default)
+    {
+        return ExecuteAsync(async () =>
+        {
+            AudioRhythmAnalysis analysis = await audioRhythmAnalyzer.AnalyzeFileAsync(
+                path,
+                startSeconds,
+                durationSeconds,
+                expectedBpmMin,
+                expectedBpmMax,
+                cancellationToken).ConfigureAwait(false);
+
+            return new AnalyzeAudioRhythmResponse(
+                SchemaVersion.Current,
+                analysis.SampleRate,
+                analysis.AnalyzedWindow,
+                analysis.EstimatedBpm,
+                analysis.Confidence,
+                analysis.BeatTimesSeconds,
+                analysis.StrongOnsetTimesSeconds,
+                [
+                    "Anchor visible Element start/end boundaries and accent keyframes to beatTimesSeconds when the edit should fuse with the music bed.",
+                    "Use strongOnsetTimesSeconds for downbeats, impacts, lyric starts, or other accent events.",
+                    "Pass beatTimesSeconds unchanged to evaluate_edit_quality or final_preflight so audioSync can flag cuts that are 40-120 ms off-grid."
+                ]);
+        });
+    }
+
     [McpServerTool(Name = "evaluate_edit_quality")]
-    [Description("Reviews the current scene for deterministic AI-editing quality risks: all-caps typography, visual hierarchy overload, short text read time, RectShape overuse, ambiguous decorative light shapes, hard gradient falloff, flat background richness, unclear foreground shapes, missing motion intent, invalid multi-object Element structure, layer density/depth coverage, high-tempo rhythm density/gaps, text backing alignment, palette harmony, arbitrary dense effect stacks, dated card/shadow styling, low motion continuity, chopped-up cut rhythm, and video-type timeline coverage. Run after render_still and evaluate_motion_variation; resolve critical/major issues before export_video. Only four checks can fail the gate: short read time, multi-object Element structure, low motion continuity, and motion-graphics layer density below half of a supplied quantitative plan. A deliberate, brief-justified deviation is allowed and downgraded to advisory via its intent flag (allowStillness, allowDenseText, allowMultiObjectElements, allowMonochrome, allowMinimalDensity), videoType profile, or an equivalent [role:...] tag on the element, so the gate blocks likely accidents, not intentional creative choices.")]
+    [Description("Reviews the current scene for deterministic AI-editing quality risks: all-caps typography, visual hierarchy overload, short text read time, rendered text contrast, RectShape overuse, ambiguous decorative light shapes, hard gradient falloff, flat background richness, unclear foreground shapes, missing motion intent, invalid multi-object Element structure, layer density/depth coverage, high-tempo rhythm density/gaps, audio beat sync, text backing alignment, palette harmony, arbitrary dense effect stacks, dated card/shadow styling, low motion continuity, chopped-up cut rhythm, and video-type timeline coverage. Run after render_still and evaluate_motion_variation; resolve critical/major issues before export_video. Gate-failing checks are limited to the typography blocker family (short read time and rendered text contrast), multi-object Element structure, low motion continuity, and motion-graphics layer density below half of a supplied quantitative plan. A deliberate, brief-justified deviation is allowed and downgraded to advisory via its intent flag (allowStillness, allowDenseText, allowMultiObjectElements, allowMonochrome, allowMinimalDensity), videoType profile, or an equivalent [role:...] tag on the element, so the gate blocks likely accidents, not intentional creative choices.")]
     public ValueTask<ToolResult<QualityReviewResponse>> EvaluateEditQuality(
         [Description("Optional video workflow profile. Supported values: motion-graphics, footage-cut, slideshow, lyric-captions, logo-intro. Omit for exactly the legacy motion-graphics behavior.")]
         string? videoType = null,
@@ -256,6 +308,8 @@ public sealed class RenderTools(
         bool allowMinimalDensity = false,
         [Description("Optional quantitativePlanSheet target for planned foreground elements per shot. When > 0 and a motion-graphics scene authors fewer than half this foreground layer count in any measured time band, layerDensity can fail the gate unless allowMinimalDensity or a minimal role tag is present.")]
         double plannedForegroundElementsPerShot = 0,
+        [Description("Optional beat grid from analyze_audio_rhythm. When supplied, audioSync reports advisory-only visible cut boundaries 40-120 ms from the nearest beat.")]
+        double[]? beatTimesSeconds = null,
         [Description("When true, treats the scene as a static layout and skips rendered motion checks.")]
         bool staticLayout = false,
         CancellationToken cancellationToken = default)
@@ -287,8 +341,9 @@ public sealed class RenderTools(
                 allowMinimalDensity,
                 plannedForegroundElementsPerShot,
                 evaluateMotion: !staticLayout,
-                videoType,
-                cancellationToken).ConfigureAwait(false);
+                videoType: videoType,
+                beatTimesSeconds: beatTimesSeconds,
+                cancellationToken: cancellationToken).ConfigureAwait(false);
         });
     }
 
@@ -342,8 +397,8 @@ public sealed class RenderTools(
                 allowMinimalDensity,
                 plannedForegroundElementsPerShot,
                 evaluateMotion: false,
-                videoType,
-                cancellationToken).ConfigureAwait(false);
+                videoType: videoType,
+                cancellationToken: cancellationToken).ConfigureAwait(false);
         });
     }
 
@@ -410,8 +465,8 @@ public sealed class RenderTools(
                 allowMinimalDensity,
                 plannedForegroundElementsPerShot,
                 includeMotion,
-                videoType,
-                cancellationToken).ConfigureAwait(false);
+                videoType: videoType,
+                cancellationToken: cancellationToken).ConfigureAwait(false);
 
             IReadOnlyList<QualityFixSuggestion> suggestions = BuildFixSuggestions(review, requireAnimatedProperties);
             bool passes = review.PassesQualityGate
@@ -463,6 +518,8 @@ public sealed class RenderTools(
         bool allowMinimalDensity = false,
         [Description("Optional quantitativePlanSheet target for planned foreground elements per shot. When > 0 and a motion-graphics scene authors fewer than half this foreground layer count in any measured time band, layerDensity can fail the gate unless allowMinimalDensity or a minimal role tag is present.")]
         double plannedForegroundElementsPerShot = 0,
+        [Description("Optional beat grid from analyze_audio_rhythm. When supplied, audioSync reports advisory-only visible cut boundaries 40-120 ms from the nearest beat.")]
+        double[]? beatTimesSeconds = null,
         [Description("When true, treats the scene as a static storyboard layout and skips motion blockers.")]
         bool staticLayout = false,
         [Description("Required when a generated still output path already exists.")]
@@ -529,8 +586,9 @@ public sealed class RenderTools(
                 allowMinimalDensity,
                 plannedForegroundElementsPerShot,
                 evaluateMotion: !staticLayout,
-                videoType,
-                cancellationToken).ConfigureAwait(false);
+                videoType: videoType,
+                beatTimesSeconds: beatTimesSeconds,
+                cancellationToken: cancellationToken).ConfigureAwait(false);
 
             List<string> blockers = [];
             if (!staticLayout && motion is not null && !motion.PassesMinimumMotion)
