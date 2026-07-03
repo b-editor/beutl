@@ -15,14 +15,22 @@ public static class CollectionReconciler
         return array.OfType<JsonObject>().Any(item => item.ContainsKey(nameof(CoreObject.Id)));
     }
 
-    public static HashSet<Guid> MintMissingIds(JsonNode? node)
+    public static HashSet<Guid> MintMissingIds(JsonNode? node, IReadOnlySet<Guid>? reservedIds = null)
     {
         var minted = new HashSet<Guid>();
-        MintMissingIds(node, minted, "$");
+        // A colliding mint lands in newIds, bypasses the stale-handle check, and
+        // persists a second object with the same id, corrupting the document.
+        var reserved = reservedIds is null ? new HashSet<Guid>() : new HashSet<Guid>(reservedIds);
+        foreach ((Guid id, _) in EnumerateIds(node))
+        {
+            reserved.Add(id);
+        }
+
+        MintMissingIds(node, minted, reserved, "$");
         return minted;
     }
 
-    private static void MintMissingIds(JsonNode? node, HashSet<Guid> minted, string path)
+    private static void MintMissingIds(JsonNode? node, HashSet<Guid> minted, HashSet<Guid> reserved, string path)
     {
         if (node is JsonObject obj)
         {
@@ -30,14 +38,20 @@ public static class CollectionReconciler
             if (obj.ContainsKey("$type") && !obj.ContainsKey(nameof(CoreObject.Id)))
             {
                 Guid id = CreateDeterministicId(path, obj);
+                for (int salt = 2; reserved.Contains(id); salt++)
+                {
+                    id = CreateDeterministicId($"{path}#{salt}", obj);
+                }
+
                 obj[nameof(CoreObject.Id)] = id.ToString();
                 minted.Add(id);
+                reserved.Add(id);
                 isNewSubtree = true;
             }
 
             foreach (KeyValuePair<string, JsonNode?> pair in obj.ToArray())
             {
-                MintMissingIds(pair.Value, minted, $"{path}/{pair.Key}");
+                MintMissingIds(pair.Value, minted, reserved, $"{path}/{pair.Key}");
             }
 
             if (isNewSubtree)
@@ -52,9 +66,82 @@ public static class CollectionReconciler
         {
             for (int i = 0; i < array.Count; i++)
             {
-                MintMissingIds(array[i], minted, $"{path}[{i}]");
+                MintMissingIds(array[i], minted, reserved, $"{path}[{i}]");
             }
         }
+    }
+
+    public static HashSet<Guid> CollectIds(JsonNode? node)
+    {
+        var ids = new HashSet<Guid>();
+        foreach ((Guid id, _) in EnumerateIds(node))
+        {
+            ids.Add(id);
+        }
+
+        return ids;
+    }
+
+    public static HashSet<Guid> CollectDuplicatedIds(JsonNode? node)
+    {
+        var seen = new HashSet<Guid>();
+        var duplicated = new HashSet<Guid>();
+        foreach ((Guid id, _) in EnumerateIds(node))
+        {
+            if (!seen.Add(id))
+            {
+                duplicated.Add(id);
+            }
+        }
+
+        return duplicated;
+    }
+
+    public static ToolError? ValidateNoDuplicateIdsInIdentityArrays(
+        JsonNode? node,
+        IReadOnlySet<Guid>? toleratedIds = null)
+        => ValidateNoDuplicateIdsInIdentityArrays(node, toleratedIds, "$");
+
+    private static ToolError? ValidateNoDuplicateIdsInIdentityArrays(
+        JsonNode? node,
+        IReadOnlySet<Guid>? toleratedIds,
+        string path)
+    {
+        if (node is JsonObject obj)
+        {
+            foreach (KeyValuePair<string, JsonNode?> pair in obj.ToArray())
+            {
+                if (ValidateNoDuplicateIdsInIdentityArrays(pair.Value, toleratedIds, $"{path}/{pair.Key}") is { } error)
+                {
+                    return error;
+                }
+            }
+        }
+        else if (node is JsonArray array)
+        {
+            var seen = new HashSet<Guid>();
+            for (int i = 0; i < array.Count; i++)
+            {
+                if (array[i] is JsonObject item
+                    && TryGetId(item, out Guid id)
+                    && !seen.Add(id)
+                    && toleratedIds?.Contains(id) != true)
+                {
+                    return new ToolError(
+                        ErrorCode.ValidationRejected,
+                        $"Array '{path}' contains Id '{id}' more than once.",
+                        id.ToString(),
+                        "Each Id may appear at most once per array. Remove the duplicate entry, or omit Id so a fresh object is created.");
+                }
+
+                if (ValidateNoDuplicateIdsInIdentityArrays(array[i], toleratedIds, $"{path}[{i}]") is { } error)
+                {
+                    return error;
+                }
+            }
+        }
+
+        return null;
     }
 
     internal static Guid CreateDeterministicId(string path, JsonObject obj)
@@ -114,10 +201,15 @@ public static class CollectionReconciler
         {
             if (IsIdentityArray(currentArray) || IsIdentityArray(desiredArray))
             {
-                Dictionary<Guid, JsonObject> currentById = currentArray
-                    .OfType<JsonObject>()
-                    .Where(item => TryGetId(item, out _))
-                    .ToDictionary(item => ReadId(item), item => item);
+                // First-wins: documents corrupted with duplicate ids must stay editable.
+                var currentById = new Dictionary<Guid, JsonObject>();
+                foreach (JsonObject item in currentArray.OfType<JsonObject>())
+                {
+                    if (TryGetId(item, out Guid itemId))
+                    {
+                        currentById.TryAdd(itemId, item);
+                    }
+                }
 
                 foreach (JsonObject desiredItem in desiredArray.OfType<JsonObject>())
                 {

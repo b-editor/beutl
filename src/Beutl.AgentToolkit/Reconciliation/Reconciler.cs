@@ -60,10 +60,21 @@ public sealed class Reconciler
             throw new ReconcileException(propertyError);
         }
 
-        HashSet<Guid> newIds = CollectionReconciler.MintMissingIds(desiredDocument);
+        HashSet<Guid> newIds = CollectionReconciler.MintMissingIds(
+            desiredDocument,
+            CollectionReconciler.CollectIds(currentDocument));
         if (knownNewIds is not null)
         {
             newIds.UnionWith(knownNewIds);
+        }
+
+        // Ids already duplicated in the current document are tolerated so a
+        // previously corrupted project stays editable and repairable.
+        if (CollectionReconciler.ValidateNoDuplicateIdsInIdentityArrays(
+                desiredDocument,
+                CollectionReconciler.CollectDuplicatedIds(currentDocument)) is { } duplicateError)
+        {
+            throw new ReconcileException(duplicateError);
         }
 
         if (CollectionReconciler.ValidateIdentityReferences(currentDocument, desiredDocument, newIds) is { } error)
