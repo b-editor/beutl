@@ -140,9 +140,9 @@ public class RationalEditor : StringEditor
     protected override void OnTextBoxTextChanged(string newValue, string oldValue)
     {
         if (InnerTextBox?.IsKeyboardFocusWithin == true
-            && Rational.TryParse(newValue, CultureInfo.CurrentUICulture, out Rational newValue2))
+            && Rational.TryParse(newValue, CultureInfo.CurrentCulture, out Rational newValue2))
         {
-            bool invalidOldValue = !Rational.TryParse(oldValue, CultureInfo.CurrentUICulture, out Rational oldValue2);
+            bool invalidOldValue = !Rational.TryParse(oldValue, CultureInfo.CurrentCulture, out Rational oldValue2);
             if (invalidOldValue)
             {
                 oldValue2 = newValue2;
@@ -160,7 +160,7 @@ public class RationalEditor : StringEditor
 
     private void UpdateErrors()
     {
-        if (Rational.TryParse(InnerTextBox.Text, CultureInfo.CurrentUICulture, out _))
+        if (Rational.TryParse(InnerTextBox.Text, CultureInfo.CurrentCulture, out _))
         {
             DataValidationErrors.ClearErrors(InnerTextBox);
         }
@@ -174,7 +174,7 @@ public class RationalEditor : StringEditor
     {
         if (!DataValidationErrors.GetHasErrors(InnerTextBox)
             && InnerTextBox.IsKeyboardFocusWithin
-            && Rational.TryParse(InnerTextBox.Text, CultureInfo.CurrentUICulture, out Rational value))
+            && Rational.TryParse(InnerTextBox.Text, CultureInfo.CurrentCulture, out Rational value))
         {
             var delta = new Rational(10);
             double wheelDelta = e.Delta.Y;

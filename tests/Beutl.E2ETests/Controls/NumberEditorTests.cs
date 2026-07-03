@@ -31,7 +31,7 @@ public class NumberEditorTests
         using var host = new EditorTestHost<NumberEditor<float>>(editor);
 
         TextBox box = host.Require<TextBox>("PART_InnerTextBox");
-        host.TypeInto(box, 2.5f.ToString(CultureInfo.CurrentUICulture));
+        host.TypeInto(box, 2.5f.ToString(CultureInfo.CurrentCulture));
 
         Assert.That(editor.Value, Is.EqualTo(2.5f));
     }
@@ -62,7 +62,7 @@ public class NumberEditorTests
         editor.ValueConfirmed += (_, e) => confirmed.Add(((PropertyEditorValueChangedEventArgs<double>)e).NewValue);
 
         TextBox box = host.Require<TextBox>("PART_InnerTextBox");
-        host.TypeInto(box, 7.25d.ToString(CultureInfo.CurrentUICulture));
+        host.TypeInto(box, 7.25d.ToString(CultureInfo.CurrentCulture));
         host.MoveFocusToSink();
 
         Assert.That(confirmed, Is.EqualTo(new[] { 7.25 }));

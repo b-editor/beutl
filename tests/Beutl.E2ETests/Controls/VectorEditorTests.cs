@@ -62,9 +62,9 @@ public class VectorEditorTests
         var editor = new Vector3Editor<float> { Header = "XYZ" };
         using var host = new EditorTestHost<Vector3Editor<float>>(editor);
 
-        host.TypeInto(host.Require<TextBox>("PART_InnerFirstTextBox"), 1.5f.ToString(CultureInfo.CurrentUICulture));
-        host.TypeInto(host.Require<TextBox>("PART_InnerSecondTextBox"), 2.5f.ToString(CultureInfo.CurrentUICulture));
-        host.TypeInto(host.Require<TextBox>("PART_InnerThirdTextBox"), 3.5f.ToString(CultureInfo.CurrentUICulture));
+        host.TypeInto(host.Require<TextBox>("PART_InnerFirstTextBox"), 1.5f.ToString(CultureInfo.CurrentCulture));
+        host.TypeInto(host.Require<TextBox>("PART_InnerSecondTextBox"), 2.5f.ToString(CultureInfo.CurrentCulture));
+        host.TypeInto(host.Require<TextBox>("PART_InnerThirdTextBox"), 3.5f.ToString(CultureInfo.CurrentCulture));
 
         Assert.That(editor.FirstValue, Is.EqualTo(1.5f));
         Assert.That(editor.SecondValue, Is.EqualTo(2.5f));
