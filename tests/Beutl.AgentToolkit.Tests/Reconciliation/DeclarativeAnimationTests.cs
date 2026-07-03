@@ -1,6 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
+using Beutl.AgentToolkit.Rendering;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
@@ -10,6 +11,7 @@ using Beutl.Animation.Easings;
 using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
+using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -331,6 +333,79 @@ public sealed class DeclarativeAnimationTests
         });
     }
 
+    [Test]
+    public async Task Apply_edit_file_session_still_render_evaluates_nested_relative_keyframes_against_element_local_time()
+    {
+        string workspace = CreateWorkspace();
+        var manager = new AgentSessionManager();
+        using var source = new FileSessionSource();
+        var sessionTools = new SessionTools(source, manager, new WorkspaceGuard(workspace), new DestructiveGuard());
+        var editTools = new EditTools(manager);
+        ToolResult<CreateProjectResponse> created = sessionTools.CreateProject(
+            "nested-local-keyframes.bep",
+            width: 320,
+            height: 180,
+            frameRate: 30,
+            duration: "00:00:05");
+        Assert.That(created.IsSuccess, Is.True, created.Error?.Message);
+
+        JsonObject patch = new()
+        {
+            ["Elements"] = new JsonArray(new JsonObject
+            {
+                ["$type"] = IdentityHelper.WriteDiscriminator(typeof(Element)),
+                [nameof(CoreObject.Name)] = "delayed-nested-local-animation",
+                [nameof(Element.Start)] = TimeSpan.FromSeconds(2).ToString("c"),
+                [nameof(Element.Length)] = TimeSpan.FromSeconds(1.5).ToString("c"),
+                [nameof(Element.Objects)] = new JsonArray(new JsonObject
+                {
+                    ["$type"] = IdentityHelper.WriteDiscriminator(typeof(RectShape)),
+                    [nameof(CoreObject.Name)] = "moving-fading-rect",
+                    [nameof(RectShape.Width)] = 120,
+                    [nameof(RectShape.Height)] = 80,
+                    [nameof(Shape.Fill)] = CoreSerializer.SerializeToJsonObject(new SolidColorBrush(Colors.White)),
+                    [nameof(Drawable.Transform)] = CreateTransformGroupWithAnimatedTranslateYDocument(),
+                    ["Animations"] = new JsonObject
+                    {
+                        [nameof(Drawable.Opacity)] = CreateLinearFloatAnimationDocument(0, 100)
+                    }
+                })
+            })
+        };
+
+        ToolResult<ApplyEditResponse> apply = editTools.ApplyEdit(
+            patch: patch,
+            schemaVersion: SchemaVersion.Current);
+        Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
+
+        Scene scene = source.CurrentFileSession!.Scene;
+        Element element = scene.Children.Single();
+        var rect = (RectShape)element.Objects.Single();
+        var transform = (TransformGroup)rect.Transform.CurrentValue!;
+        var translate = (TranslateTransform)transform.Children.Single();
+        string outputPath = Path.Combine(workspace, "nested-local-keyframes.png");
+        var renderer = new StillRenderer();
+
+        RenderStillResponse render = await renderer.RenderAsync(
+            scene,
+            TimeSpan.FromSeconds(2.5),
+            outputPath,
+            renderScale: 1,
+            CancellationToken.None);
+        float opacity = rect.Opacity.GetValue(new CompositionContext(TimeSpan.FromSeconds(2.5)));
+        float translateY = translate.Y.GetValue(new CompositionContext(TimeSpan.FromSeconds(2.5)));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(render.VisibilityAnalysis!.VisiblePixelRatio, Is.GreaterThan(0));
+            Assert.That(element.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(((KeyFrameAnimation<float>)rect.Opacity.Animation!).UseGlobalClock, Is.False);
+            Assert.That(((KeyFrameAnimation<float>)translate.Y.Animation!).UseGlobalClock, Is.False);
+            Assert.That(opacity, Is.EqualTo(50f).Within(0.001f));
+            Assert.That(translateY, Is.EqualTo(50f).Within(0.001f));
+        });
+    }
+
     private static JsonObject PatchTextObject(Element element, TextBlock text, JsonObject textPatch)
     {
         textPatch[nameof(CoreObject.Id)] = text.Id.ToString();
@@ -379,6 +454,9 @@ public sealed class DeclarativeAnimationTests
     }
 
     private static JsonObject CreateLinearOpacityAnimationDocument(float firstValue, float secondValue)
+        => CreateLinearFloatAnimationDocument(firstValue, secondValue);
+
+    private static JsonObject CreateLinearFloatAnimationDocument(float firstValue, float secondValue)
     {
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(
@@ -407,6 +485,69 @@ public sealed class DeclarativeAnimationTests
         }
 
         return animationJson;
+    }
+
+    private static JsonObject CreateTransformGroupWithAnimatedTranslateYDocument()
+    {
+        var transform = new TransformGroup
+        {
+            Children =
+            {
+                new TranslateTransform
+                {
+                    Y =
+                    {
+                        Animation = CreateLinearFloatAnimation(0, 100)
+                    }
+                }
+            }
+        };
+
+        JsonObject transformJson = CoreSerializer.SerializeToJsonObject(transform);
+        RemoveIds(transformJson);
+        return transformJson;
+    }
+
+    private static KeyFrameAnimation<float> CreateLinearFloatAnimation(float firstValue, float secondValue)
+    {
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(
+            new KeyFrame<float>
+            {
+                KeyTime = TimeSpan.Zero,
+                Value = firstValue,
+                Easing = new LinearEasing()
+            },
+            out _);
+        animation.KeyFrames.Add(
+            new KeyFrame<float>
+            {
+                KeyTime = TimeSpan.FromSeconds(1),
+                Value = secondValue,
+                Easing = new LinearEasing()
+            },
+            out _);
+
+        return animation;
+    }
+
+    private static void RemoveIds(JsonNode? node)
+    {
+        if (node is JsonObject obj)
+        {
+            obj.Remove(nameof(CoreObject.Id));
+            foreach (JsonNode? child in obj.Select(pair => pair.Value).ToArray())
+            {
+                RemoveIds(child);
+            }
+        }
+        else if (node is JsonArray array)
+        {
+            foreach (JsonNode? child in array.ToArray())
+            {
+                RemoveIds(child);
+            }
+        }
     }
 
     private static Scene CreateSceneWithText(out Element element, out TextBlock text)

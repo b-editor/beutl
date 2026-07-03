@@ -35,6 +35,7 @@ builder.Services
 builder.Services
     .AddMcpServer()
     .WithStdioServerTransport()
+    .WithRequestFilters(filters => filters.AddToolkitCallToolErrorFilter())
     .WithTools<SessionTools>()
     .WithTools<QueryTools>()
     .WithTools<DesignTools>()

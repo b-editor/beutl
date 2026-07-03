@@ -32,7 +32,7 @@ public class KeyFrameAnimation<T> : KeyFrameAnimation, IAnimation<T>
     {
         if (!UseGlobalClock)
         {
-            EngineObject? parent = this.FindHierarchicalParent<EngineObject>();
+            EngineObject? parent = FindLocalClockAnchor();
             _parent = parent;
             if (parent != null)
             {
@@ -41,6 +41,23 @@ public class KeyFrameAnimation<T> : KeyFrameAnimation, IAnimation<T>
         }
 
         return Interpolate(time);
+    }
+
+    private EngineObject? FindLocalClockAnchor()
+    {
+        EngineObject? parent = this.FindHierarchicalParent<EngineObject>();
+        EngineObject? current = parent;
+        while (current != null)
+        {
+            if (current.IsTimeAnchor)
+            {
+                return current;
+            }
+
+            current = current.FindHierarchicalParent<EngineObject>();
+        }
+
+        return parent;
     }
 
     public T? Interpolate(TimeSpan timeSpan)

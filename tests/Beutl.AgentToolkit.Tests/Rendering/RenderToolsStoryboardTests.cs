@@ -581,7 +581,7 @@ public sealed class RenderToolsStoryboardTests
             timeSeconds: [0.5, 1.5],
             sampleCount: 2,
             allowStillness: true,
-            paletteRoleColors: CreateRevisionPaletteRoles(),
+            paletteRoleColors: CreateRevisionPaletteRolesJson(),
             cancellationToken: CancellationToken.None);
         SetRevisionTextColor(scene, Colors.White);
         AddRevisionAccentFlood(scene, workspace);
@@ -635,7 +635,7 @@ public sealed class RenderToolsStoryboardTests
             timeSeconds: [0.5, 1.5],
             sampleCount: 2,
             allowStillness: true,
-            paletteRoleColors: CreateRevisionPaletteRoles(),
+            paletteRoleColors: CreateRevisionPaletteRolesJson(),
             cancellationToken: CancellationToken.None);
         SetRevisionTextColor(scene, Colors.White);
         AddRevisionAccentFlood(scene, workspace);
@@ -729,6 +729,11 @@ public sealed class RenderToolsStoryboardTests
             new PaletteRoleColor("bg-base", "#102030"),
             new PaletteRoleColor("accent", "#ff3030")
         ];
+    }
+
+    private static JsonElement CreateRevisionPaletteRolesJson()
+    {
+        return JsonSerializer.SerializeToElement(CreateRevisionPaletteRoles(), s_jsonOptions);
     }
 
     private static Scene CreateStaticStoryboardScene(string workspace)

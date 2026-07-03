@@ -331,8 +331,8 @@ public sealed class RenderTools(
         double plannedForegroundElementsPerShot = 0,
         [Description("Optional beat grid from analyze_audio_rhythm. When supplied, audioSync reports advisory-only visible cut boundaries 40-120 ms from the nearest beat.")]
         double[]? beatTimesSeconds = null,
-        [Description("Optional colors from derive_palette as role/color pairs, for rendered 60-30-10 palette-balance metrics. Each item is { role: string, color: \"#RRGGBB\" }. Skipped for footage-cut.")]
-        PaletteRoleColor[]? paletteRoleColors = null,
+        [Description("Optional colors from derive_palette as a JSON array of role/color pairs or a JSON string containing that array, for rendered 60-30-10 palette-balance metrics. Each item is { role: string, color: \"#RRGGBB\" }. Skipped for footage-cut.")]
+        JsonElement? paletteRoleColors = null,
         [Description("When true, treats the scene as a static layout and skips rendered motion checks.")]
         bool staticLayout = false,
         CancellationToken cancellationToken = default)
@@ -341,6 +341,7 @@ public sealed class RenderTools(
         {
             ValidateVideoType(videoType);
             Scene scene = RequireScene();
+            PaletteRoleColor[]? parsedPaletteRoleColors = ParsePaletteRoleColors(paletteRoleColors);
             IReadOnlyList<TimeSpan>? sampleTimes = staticLayout
                 ? NormalizeQualitySampleTimesOrNull(timeSeconds)
                 : ResolveQualitySampleTimes(scene, timeSeconds, sampleCount);
@@ -359,7 +360,7 @@ public sealed class RenderTools(
                 allowMinimalDensity,
                 plannedForegroundElementsPerShot,
                 beatTimesSeconds,
-                paletteRoleColors);
+                parsedPaletteRoleColors);
             QualityReviewResponse review = await qualityAnalyzer.AnalyzeAsync(
                 scene,
                 sampleTimes,
@@ -569,8 +570,8 @@ public sealed class RenderTools(
         double plannedForegroundElementsPerShot = 0,
         [Description("Optional beat grid from analyze_audio_rhythm. When supplied, audioSync reports advisory-only visible cut boundaries 40-120 ms from the nearest beat.")]
         double[]? beatTimesSeconds = null,
-        [Description("Optional colors from derive_palette as role/color pairs, for rendered 60-30-10 palette-balance metrics. Each item is { role: string, color: \"#RRGGBB\" }. Skipped for footage-cut.")]
-        PaletteRoleColor[]? paletteRoleColors = null,
+        [Description("Optional colors from derive_palette as a JSON array of role/color pairs or a JSON string containing that array, for rendered 60-30-10 palette-balance metrics. Each item is { role: string, color: \"#RRGGBB\" }. Skipped for footage-cut.")]
+        JsonElement? paletteRoleColors = null,
         [Description("When true, treats the scene as a static storyboard layout and skips motion blockers.")]
         bool staticLayout = false,
         [Description("Required when a generated still output path already exists.")]
@@ -581,6 +582,7 @@ public sealed class RenderTools(
         {
             ValidateVideoType(videoType);
             Scene scene = RequireScene();
+            PaletteRoleColor[]? parsedPaletteRoleColors = ParsePaletteRoleColors(paletteRoleColors);
             IReadOnlyList<TimeSpan> sampleTimes = ResolveSampleTimes(scene, timeSeconds, sampleCount);
             var stills = new List<PreflightStillFrame>(sampleTimes.Count);
             string normalizedPrefix = NormalizeOutputPath(outputPrefix);
@@ -639,7 +641,7 @@ public sealed class RenderTools(
                 evaluateMotion: !staticLayout,
                 videoType: videoType,
                 beatTimesSeconds: beatTimesSeconds,
-                paletteRoleColors: paletteRoleColors,
+                paletteRoleColors: parsedPaletteRoleColors,
                 cancellationToken: cancellationToken).ConfigureAwait(false);
 
             if (!staticLayout)
@@ -661,7 +663,7 @@ public sealed class RenderTools(
                         allowMinimalDensity,
                         plannedForegroundElementsPerShot,
                         beatTimesSeconds,
-                        paletteRoleColors),
+                        parsedPaletteRoleColors),
                     quality,
                     stills.Select(still => still.OutputPath).ToArray());
             }
@@ -980,6 +982,124 @@ public sealed class RenderTools(
             .Range(0, count)
             .Select(index => TimeSpan.FromSeconds(durationSeconds * (index + 0.5) / count))
             .ToArray();
+    }
+
+    private static PaletteRoleColor[]? ParsePaletteRoleColors(JsonElement? paletteRoleColors)
+    {
+        if (paletteRoleColors is null)
+        {
+            return null;
+        }
+
+        JsonElement element = paletteRoleColors.Value;
+        if (element.ValueKind is JsonValueKind.Undefined or JsonValueKind.Null)
+        {
+            return null;
+        }
+
+        if (element.ValueKind == JsonValueKind.String)
+        {
+            string? json = element.GetString();
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                return null;
+            }
+
+            try
+            {
+                using JsonDocument document = JsonDocument.Parse(json);
+                return ParsePaletteRoleColorArray(document.RootElement);
+            }
+            catch (JsonException)
+            {
+                throw PaletteRoleColorsValidationError("paletteRoleColors must be a JSON array string containing { role, color } objects.");
+            }
+        }
+
+        return ParsePaletteRoleColorArray(element);
+    }
+
+    private static PaletteRoleColor[] ParsePaletteRoleColorArray(JsonElement element)
+    {
+        if (element.ValueKind != JsonValueKind.Array)
+        {
+            throw PaletteRoleColorsValidationError("paletteRoleColors must be an array of { role, color } objects or a JSON string containing that array.");
+        }
+
+        var result = new List<PaletteRoleColor>();
+        int index = 0;
+        foreach (JsonElement item in element.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.Object)
+            {
+                throw PaletteRoleColorsValidationError($"paletteRoleColors[{index}] must be an object with role and color string properties.");
+            }
+
+            string? role = GetStringProperty(item, "role");
+            string? color = GetStringProperty(item, "color");
+            if (string.IsNullOrWhiteSpace(role))
+            {
+                throw PaletteRoleColorsValidationError($"paletteRoleColors[{index}].role must be a non-empty string.");
+            }
+
+            if (!IsRgbHexColor(color))
+            {
+                throw PaletteRoleColorsValidationError($"paletteRoleColors[{index}].color must be a #RRGGBB string.");
+            }
+
+            result.Add(new PaletteRoleColor(role, color!));
+            index++;
+        }
+
+        return result.ToArray();
+    }
+
+    private static string? GetStringProperty(JsonElement item, string name)
+    {
+        foreach (JsonProperty property in item.EnumerateObject())
+        {
+            if (string.Equals(property.Name, name, StringComparison.OrdinalIgnoreCase)
+                && property.Value.ValueKind == JsonValueKind.String)
+            {
+                return property.Value.GetString();
+            }
+        }
+
+        return null;
+    }
+
+    private static bool IsRgbHexColor(string? value)
+    {
+        if (value is not { Length: 7 } || value[0] != '#')
+        {
+            return false;
+        }
+
+        foreach (char c in value.AsSpan(1))
+        {
+            if (!IsHexDigit(c))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool IsHexDigit(char value)
+    {
+        return value is >= '0' and <= '9'
+               or >= 'a' and <= 'f'
+               or >= 'A' and <= 'F';
+    }
+
+    private static ReconcileException PaletteRoleColorsValidationError(string message)
+    {
+        return new ReconcileException(new ToolError(
+            ErrorCode.ValidationRejected,
+            message,
+            "paletteRoleColors",
+            "Pass paletteRoleColors as [{\"role\":\"bg-base\",\"color\":\"#102030\"}] or as a JSON string containing that array."));
     }
 
     private static QualityAnalysisOptions CreateQualityAnalysisOptions(

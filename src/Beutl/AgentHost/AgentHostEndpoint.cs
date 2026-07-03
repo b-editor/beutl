@@ -159,6 +159,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         builder.Services
             .AddMcpServer()
             .WithHttpTransport(options => options.Stateless = true)
+            .WithRequestFilters(filters => filters.AddToolkitCallToolErrorFilter())
             .WithTools<AgentHostTools>()
             .WithTools<SessionTools>()
             .WithTools<QueryTools>()
