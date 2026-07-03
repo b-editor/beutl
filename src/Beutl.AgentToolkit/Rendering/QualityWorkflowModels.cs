@@ -33,3 +33,25 @@ public sealed record PreflightStillFrame(
     IReadOnlyList<string> Warnings,
     StillFrameVisibilityAnalysis? VisibilityAnalysis,
     IReadOnlyList<RenderStillActiveElement>? ActiveElements);
+
+public sealed record CompareRevisionsResponse(
+    string SchemaVersion,
+    IReadOnlyList<QualityMetricDelta> MetricDeltas,
+    IReadOnlyList<QualityIssue> IssuesResolved,
+    IReadOnlyList<QualityIssue> IssuesIntroduced,
+    bool Regression,
+    IReadOnlyList<RevisionStillPair> StillPairs,
+    QualityReviewResponse PreviousReview,
+    QualityReviewResponse CurrentReview);
+
+public sealed record QualityMetricDelta(
+    string Metric,
+    double Previous,
+    double Current,
+    double Delta);
+
+public sealed record RevisionStillPair(
+    int Index,
+    double TimeSeconds,
+    string PreviousPath,
+    string CurrentPath);

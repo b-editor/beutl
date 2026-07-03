@@ -2,6 +2,7 @@
 using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
+using Beutl.AgentToolkit.Rendering;
 
 namespace Beutl.AgentToolkit.Sessions;
 
@@ -9,6 +10,7 @@ public sealed class AgentSessionManager(CreativeMemoryStore? creativeMemory = nu
 {
     private readonly string _hostCompositionSeed = CreateCompositionSeed("host");
     private readonly Dictionary<string, CompositionPlanState> _compositionPlans = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, QualityReviewBaseline> _qualityReviewBaselines = new(StringComparer.Ordinal);
     private readonly Dictionary<string, List<string>> _recentCompositions = new(StringComparer.Ordinal);
     private readonly List<string> _hostRecentCompositions = [];
     private readonly List<string> _preAttachPreviewedCompositions = [];
@@ -20,6 +22,8 @@ public sealed class AgentSessionManager(CreativeMemoryStore? creativeMemory = nu
     public IEditingSession? CurrentSession => _currentSource?.CurrentSession;
 
     public bool HasActiveSession => CurrentSession is not null;
+
+    public string CurrentSessionKey => GetCompositionSessionKey();
 
     public void UseSource(ISessionSource source)
     {
@@ -183,6 +187,36 @@ public sealed class AgentSessionManager(CreativeMemoryStore? creativeMemory = nu
         _compositionPlans.Remove(planId);
     }
 
+    public void StoreQualityReviewBaseline(QualityReviewBaseline baseline)
+    {
+        ArgumentNullException.ThrowIfNull(baseline);
+        _qualityReviewBaselines[GetCompositionSessionKey()] = baseline;
+    }
+
+    public QualityReviewBaseline GetQualityReviewBaseline()
+    {
+        string currentKey = GetCompositionSessionKey();
+        if (!_qualityReviewBaselines.TryGetValue(currentKey, out QualityReviewBaseline? baseline))
+        {
+            throw new ReconcileException(new ToolError(
+                ErrorCode.StaleHandle,
+                "No cached quality baseline exists for the current editing session.",
+                "qualityBaseline",
+                "Run evaluate_edit_quality or final_preflight with rendered sampling before compare_revisions."));
+        }
+
+        if (!StringComparer.Ordinal.Equals(baseline.SessionKey, currentKey))
+        {
+            throw new ReconcileException(new ToolError(
+                ErrorCode.StaleHandle,
+                "The cached quality baseline belongs to a different editing session.",
+                "qualityBaseline",
+                "Run evaluate_edit_quality or final_preflight again in the active session."));
+        }
+
+        return baseline;
+    }
+
     private string GetCompositionSessionKey()
     {
         IEditingSession? session = CurrentSession;
@@ -207,6 +241,31 @@ public sealed record CompositionPlanState(
     JsonArray ExpectedChangeSet,
     IReadOnlyList<Guid> KnownNewIds,
     DateTimeOffset CreatedAt);
+
+public sealed record QualityReviewBaseline(
+    string SessionKey,
+    DateTimeOffset CreatedAt,
+    IReadOnlyList<TimeSpan> SampleTimes,
+    QualityAnalysisOptions Options,
+    QualityReviewResponse Review,
+    IReadOnlyList<string> StillPaths);
+
+public sealed record QualityAnalysisOptions(
+    string? VideoType,
+    string? StyleProfile,
+    float RenderScale,
+    bool AllowAllCaps,
+    bool AllowHardCuts,
+    bool AllowRectDominance,
+    bool RelaxAesthetics,
+    bool AllowStillness,
+    bool AllowDenseText,
+    bool AllowMultiObjectElements,
+    bool AllowMonochrome,
+    bool AllowMinimalDensity,
+    double PlannedForegroundElementsPerShot,
+    IReadOnlyList<double>? BeatTimesSeconds,
+    IReadOnlyList<PaletteRoleColor>? PaletteRoleColors);
 
 public sealed class SessionUnavailableException : Exception
 {

@@ -377,6 +377,39 @@ public sealed class SchemaGenerationTests
     }
 
     [Test]
+    public void Transition_recipe_catalog_lists_semantic_transition_templates()
+    {
+        var generator = new SchemaGenerator();
+        IReadOnlyList<EffectRecipeSummary> recipes = generator.ListEffectRecipes("transition");
+        string[] names =
+        [
+            "transition-overlap-dissolve-transform-continuation",
+            "transition-directional-sweep-wipe",
+            "transition-mask-reveal",
+            "transition-dip-to-color",
+            "transition-match-move-cut"
+        ];
+
+        Assert.Multiple(() =>
+        {
+            foreach (string name in names)
+            {
+                Assert.That(recipes.Select(recipe => recipe.Name), Does.Contain(name));
+                EffectRecipe recipe = generator.GetEffectRecipe(name);
+                Assert.That(recipe.Semantic, Is.Not.Null.And.Not.Empty);
+                Assert.That(recipe.IntentTags, Does.Contain("transition"));
+                Assert.That(recipe.Patch["Elements"], Is.Not.Null);
+            }
+
+            Assert.That(generator.GetEffectRecipe("transition-overlap-dissolve-transform-continuation").Semantic, Is.EqualTo("time passage / soft topic shift"));
+            Assert.That(generator.GetEffectRecipe("transition-directional-sweep-wipe").Semantic, Is.EqualTo("location or topic change"));
+            Assert.That(generator.GetEffectRecipe("transition-mask-reveal").Semantic, Is.EqualTo("introduction / unveiling"));
+            Assert.That(generator.GetEffectRecipe("transition-dip-to-color").Semantic, Is.EqualTo("chapter break"));
+            Assert.That(generator.GetEffectRecipe("transition-match-move-cut").Semantic, Is.EqualTo("conceptual rhyme"));
+        });
+    }
+
+    [Test]
     public void Restrained_warm_grade_uses_positive_temperature_color_grading()
     {
         var generator = new SchemaGenerator();

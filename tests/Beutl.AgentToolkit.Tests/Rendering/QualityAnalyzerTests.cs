@@ -1377,6 +1377,129 @@ public sealed class QualityAnalyzerTests
     }
 
     [Test]
+    public async Task Transition_vocabulary_classifies_dissolve_sweep_dip_and_hard_cut_boundaries()
+    {
+        QualityReviewResponse dissolve = await AnalyzeAsync(CreateDissolveTransitionScene(), evaluateMotion: false, videoType: "slideshow");
+        QualityReviewResponse sweep = await AnalyzeAsync(CreateSweepTransitionScene(), evaluateMotion: false, videoType: "slideshow");
+        QualityReviewResponse dip = await AnalyzeAsync(CreateDipTransitionScene(), evaluateMotion: false, videoType: "slideshow");
+        QualityReviewResponse hard = await AnalyzeAsync(CreateHardCutTransitionScene(), evaluateMotion: false, videoType: "slideshow");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(dissolve.Metrics.TransitionVocabulary!.Histogram["dissolve"], Is.GreaterThanOrEqualTo(1));
+            Assert.That(sweep.Metrics.TransitionVocabulary!.Boundaries, Has.Some.Matches<TransitionBoundaryClassification>(boundary =>
+                boundary.Type == "sweep" && Math.Abs(boundary.TimeSeconds - 1) < 0.001));
+            Assert.That(dip.Metrics.TransitionVocabulary!.Boundaries, Has.Some.Matches<TransitionBoundaryClassification>(boundary =>
+                boundary.Type == "dip-to-color" && Math.Abs(boundary.TimeSeconds - 1) < 0.001));
+            Assert.That(hard.Metrics.TransitionVocabulary!.Histogram["hard-cut"], Is.GreaterThanOrEqualTo(1));
+            Assert.That(dissolve.PassesQualityGate, Is.True);
+            Assert.That(sweep.PassesQualityGate, Is.True);
+            Assert.That(dip.PassesQualityGate, Is.True);
+            Assert.That(hard.PassesQualityGate, Is.True);
+        });
+    }
+
+    [Test]
+    public async Task Mixed_transition_vocabulary_slideshow_is_advisory_but_single_vocabulary_is_clean()
+    {
+        QualityReviewResponse mixed = await AnalyzeAsync(CreateMixedTransitionScene(), evaluateMotion: false, videoType: "slideshow");
+        QualityReviewResponse singleVocabulary = await AnalyzeAsync(CreateDissolveTransitionScene(), evaluateMotion: false, videoType: "slideshow");
+        QualityReviewResponse allowedHardCuts = await AnalyzeAsync(
+            CreateMixedTransitionScene(),
+            evaluateMotion: false,
+            videoType: "slideshow",
+            allowHardCuts: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(mixed.PassesQualityGate, Is.True);
+            Assert.That(mixed.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "transitionVocabulary"
+                && issue.Severity == "minor"
+                && issue.Message.Contains("transition types", StringComparison.OrdinalIgnoreCase)));
+            Assert.That(singleVocabulary.Issues, Has.None.Matches<QualityIssue>(issue => issue.Category == "transitionVocabulary"));
+            Assert.That(allowedHardCuts.Issues, Has.None.Matches<QualityIssue>(issue => issue.Category == "transitionVocabulary"));
+        });
+    }
+
+    [Test]
+    public async Task Motion_graphics_video_type_does_not_report_transition_vocabulary_metrics()
+    {
+        QualityReviewResponse result = await AnalyzeAsync(CreateMixedTransitionScene(), evaluateMotion: false, videoType: "motion-graphics");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Metrics.TransitionVocabulary, Is.Null);
+            Assert.That(result.Issues, Has.None.Matches<QualityIssue>(issue => issue.Category == "transitionVocabulary"));
+        });
+    }
+
+    [Test]
+    public async Task Palette_balance_flags_accent_flooded_rendered_area()
+    {
+        Scene scene = CreatePaletteBalanceScene(accentWidth: 80);
+
+        QualityReviewResponse result = await AnalyzeAsync(
+            scene,
+            allowStillness: true,
+            paletteRoleColors: CreatePaletteRoles());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Metrics.PaletteBalance, Is.Not.Null);
+            Assert.That(result.Metrics.PaletteBalance!.AccentFlooded, Is.True);
+            Assert.That(result.Metrics.PaletteBalance.DominantBelowFloor, Is.True);
+            Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "paletteBalance"
+                && issue.Severity == "minor"
+                && issue.Message.Contains("60-30-10", StringComparison.Ordinal)));
+            Assert.That(result.PassesQualityGate, Is.True, QualityDebug(result));
+        });
+    }
+
+    [Test]
+    public async Task Palette_balance_accepts_balanced_rendered_area()
+    {
+        Scene scene = CreatePaletteBalanceScene(accentWidth: 18);
+
+        QualityReviewResponse result = await AnalyzeAsync(
+            scene,
+            allowStillness: true,
+            paletteRoleColors: CreatePaletteRoles());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Metrics.PaletteBalance, Is.Not.Null);
+            Assert.That(result.Metrics.PaletteBalance!.AccentFlooded, Is.False);
+            Assert.That(result.Metrics.PaletteBalance.DominantBelowFloor, Is.False);
+            Assert.That(result.Issues, Has.None.Matches<QualityIssue>(issue => issue.Category == "paletteBalance"));
+        });
+    }
+
+    [Test]
+    public async Task Palette_balance_is_skipped_for_footage_cut_or_missing_role_parameter()
+    {
+        Scene scene = CreatePaletteBalanceScene(accentWidth: 80);
+
+        QualityReviewResponse footageCut = await AnalyzeAsync(
+            scene,
+            allowStillness: true,
+            videoType: "footage-cut",
+            paletteRoleColors: CreatePaletteRoles());
+        QualityReviewResponse noParameter = await AnalyzeAsync(
+            scene,
+            allowStillness: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(footageCut.Metrics.PaletteBalance, Is.Null);
+            Assert.That(footageCut.Issues, Has.None.Matches<QualityIssue>(issue => issue.Category == "paletteBalance"));
+            Assert.That(noParameter.Metrics.PaletteBalance, Is.Null);
+            Assert.That(noParameter.Issues, Has.None.Matches<QualityIssue>(issue => issue.Category == "paletteBalance"));
+        });
+    }
+
+    [Test]
     public async Task Rendered_typography_contrast_flags_white_text_over_animated_white_to_black_background()
     {
         Scene scene = CreateScene(width: 320, height: 180, durationSeconds: 2);
@@ -1441,6 +1564,7 @@ public sealed class QualityAnalyzerTests
         bool evaluateMotion = true,
         string? styleProfile = null,
         bool relaxAesthetics = false,
+        bool allowHardCuts = false,
         bool allowStillness = false,
         bool allowDenseText = false,
         bool allowMultiObjectElements = false,
@@ -1448,7 +1572,8 @@ public sealed class QualityAnalyzerTests
         bool allowMinimalDensity = false,
         double plannedForegroundElementsPerShot = 0,
         string? videoType = null,
-        IReadOnlyList<double>? beatTimesSeconds = null)
+        IReadOnlyList<double>? beatTimesSeconds = null,
+        IReadOnlyList<PaletteRoleColor>? paletteRoleColors = null)
     {
         var stillRenderer = new StillRenderer();
         return new QualityAnalyzer(new MotionVariationAnalyzer(stillRenderer), stillRenderer).AnalyzeAsync(
@@ -1458,7 +1583,7 @@ public sealed class QualityAnalyzerTests
             renderScale: 1,
             styleProfile,
             allowAllCaps: false,
-            allowHardCuts: false,
+            allowHardCuts: allowHardCuts,
             allowRectDominance: false,
             relaxAesthetics: relaxAesthetics,
             allowStillness: allowStillness,
@@ -1470,7 +1595,121 @@ public sealed class QualityAnalyzerTests
             evaluateMotion: evaluateMotion,
             cancellationToken: CancellationToken.None,
             videoType: videoType,
-            beatTimesSeconds: beatTimesSeconds);
+            beatTimesSeconds: beatTimesSeconds,
+            paletteRoleColors: paletteRoleColors);
+    }
+
+    private static Scene CreateHardCutTransitionScene()
+    {
+        Scene scene = CreateScene(durationSeconds: 2);
+        Element first = AddRect(scene, "Shot A", zIndex: 2, width: 1920, height: 1080, color: Color.Parse("#ff20242b"));
+        first.Start = TimeSpan.Zero;
+        first.Length = TimeSpan.FromSeconds(1);
+        Element second = AddRect(scene, "Shot B", zIndex: 2, width: 1920, height: 1080, color: Color.Parse("#ff384052"));
+        second.Start = TimeSpan.FromSeconds(1);
+        second.Length = TimeSpan.FromSeconds(1);
+        return scene;
+    }
+
+    private static Scene CreateDissolveTransitionScene()
+    {
+        Scene scene = CreateScene(durationSeconds: 2);
+        Element outgoing = AddRect(scene, "Outgoing dissolve shot", zIndex: 2, width: 1920, height: 1080, color: Color.Parse("#ff20242b"));
+        outgoing.Start = TimeSpan.Zero;
+        outgoing.Length = TimeSpan.FromSeconds(1.2);
+        ((Drawable)outgoing.Objects[0]).Opacity.Animation = CreateFloatAnimation(
+            [100, 0],
+            timesSeconds: [0, 1.2]);
+
+        Element incoming = AddRect(scene, "Incoming dissolve shot", zIndex: 3, width: 1920, height: 1080, color: Color.Parse("#ff465064"));
+        incoming.Start = TimeSpan.FromSeconds(0.8);
+        incoming.Length = TimeSpan.FromSeconds(1.2);
+        ((Drawable)incoming.Objects[0]).Opacity.Animation = CreateFloatAnimation(
+            [0, 100],
+            timesSeconds: [0, 1.2]);
+        return scene;
+    }
+
+    private static Scene CreateSweepTransitionScene()
+    {
+        Scene scene = CreateHardCutTransitionScene();
+        Element sweep = AddRect(scene, "[role:decorative] [role:motion] directional transition sweep", zIndex: 10, width: 420, height: 1080, x: -420, color: Color.Parse("#ffeee8d8"));
+        sweep.Start = TimeSpan.FromSeconds(0.8);
+        sweep.Length = TimeSpan.FromSeconds(0.4);
+        GetTranslate(sweep).X.Animation = CreateFloatAnimation(
+            [-420, 420],
+            timesSeconds: [0, 0.4]);
+        return scene;
+    }
+
+    private static Scene CreateDipTransitionScene()
+    {
+        Scene scene = CreateHardCutTransitionScene();
+        Element dip = AddRect(scene, "[role:background] dip-to-color transition plate", zIndex: 20, width: 1920, height: 1080, color: Color.Parse("#fff4f0e8"));
+        dip.Start = TimeSpan.FromSeconds(0.8);
+        dip.Length = TimeSpan.FromSeconds(0.4);
+        ((Drawable)dip.Objects[0]).Opacity.Animation = CreateFloatAnimation(
+            [0, 100, 0],
+            timesSeconds: [0, 0.2, 0.4]);
+        return scene;
+    }
+
+    private static Scene CreateMixedTransitionScene()
+    {
+        Scene scene = CreateScene(durationSeconds: 5);
+        for (int i = 0; i < 5; i++)
+        {
+            Element shot = AddRect(
+                scene,
+                $"Shot {i + 1}",
+                zIndex: 2,
+                width: 1920,
+                height: 1080,
+                color: Color.Parse(i % 2 == 0 ? "#ff20242b" : "#ff384052"));
+            shot.Start = TimeSpan.FromSeconds(i);
+            shot.Length = TimeSpan.FromSeconds(1);
+        }
+
+        Element dissolveOut = scene.Children[1];
+        ((Drawable)dissolveOut.Objects[0]).Opacity.Animation = CreateFloatAnimation(
+            [100, 0],
+            timesSeconds: [0, 1]);
+        Element dissolveIn = scene.Children[2];
+        ((Drawable)dissolveIn.Objects[0]).Opacity.Animation = CreateFloatAnimation(
+            [0, 100],
+            timesSeconds: [0, 1]);
+
+        Element sweep = AddRect(scene, "[role:decorative] [role:motion] topic sweep", zIndex: 10, width: 420, height: 1080, x: -420, color: Color.Parse("#ffeee8d8"));
+        sweep.Start = TimeSpan.FromSeconds(2.8);
+        sweep.Length = TimeSpan.FromSeconds(0.4);
+        GetTranslate(sweep).X.Animation = CreateFloatAnimation(
+            [-420, 420],
+            timesSeconds: [0, 0.4]);
+
+        Element dip = AddRect(scene, "[role:background] chapter dip plate", zIndex: 20, width: 1920, height: 1080, color: Color.Parse("#fff4f0e8"));
+        dip.Start = TimeSpan.FromSeconds(3.8);
+        dip.Length = TimeSpan.FromSeconds(0.4);
+        ((Drawable)dip.Objects[0]).Opacity.Animation = CreateFloatAnimation(
+            [0, 100, 0],
+            timesSeconds: [0, 0.2, 0.4]);
+        return scene;
+    }
+
+    private static Scene CreatePaletteBalanceScene(float accentWidth)
+    {
+        Scene scene = CreateScene(100, 100, durationSeconds: 2);
+        AddRect(scene, "[role:background] bg-base", zIndex: 0, width: 100, height: 100, color: Color.Parse("#ff102030"));
+        AddRect(scene, "[role:accent] accent area", zIndex: 5, width: accentWidth, height: 100, x: (accentWidth - 100) / 2, color: Color.Parse("#ffff3030"));
+        return scene;
+    }
+
+    private static PaletteRoleColor[] CreatePaletteRoles()
+    {
+        return
+        [
+            new PaletteRoleColor("bg-base", "#102030"),
+            new PaletteRoleColor("accent", "#ff3030")
+        ];
     }
 
     private static string[] IssueSet(QualityReviewResponse response)

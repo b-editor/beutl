@@ -13,6 +13,7 @@ Use this skill after a Beutl Agent Editing Toolkit scene has rendered stills or 
 - A storyboard contact sheet from `render_storyboard`, preferably with `returnImageContent=true` on a synchronous call. For motion-phase review, prefer a subdivided storyboard (`subdivisionLevel:1`, or `2` for suspicious gaps) so in-between frames expose cut continuity.
 - The user brief, target duration, mood, and any accepted creative constraints.
 - Existing deterministic results from `preview_quality_risks`, `evaluate_motion_variation`, `evaluate_edit_quality`, or `final_preflight` when available.
+- `compare_revisions` results after revision passes when a cached rendered quality baseline exists.
 
 If image content blocks are unavailable, read the PNG files from the returned paths. Do not score from JSON alone.
 
@@ -60,7 +61,7 @@ Bad:
 3. Score all six axes. Include a one-sentence evidence note per score tied to a visible frame or contact-sheet region.
 4. Produce concrete edit directives for scores 1-3. A score of 4 may include optional polish. A score of 5 should not request edits. For `motionArc`, convert weak in-between frames or exceeded `cutEyeTrace` displacement into bridge-animation directives: carry an element across the cut, add a sweep or wipe, preserve shared background motion, realign the focal point, or overlap transform/opacity ramps. If in-betweens look identical to anchors except for a hard swap, call out the slideshow cut and name the adjacent shot pair.
 5. Group directives into the smallest coherent revision pass. Prefer edits that can be made through `apply_edit`, `duplicate_object`, role tags, effect recipes, or timing changes.
-6. Re-render the affected stills or storyboard after a revision and repeat the rubric.
+6. Re-render the affected stills or storyboard after a revision and repeat the rubric. After a revision pass, run `compare_revisions` when a cached rendered quality baseline exists; a fix that regresses another axis by more than one severity step is itself a rework finding, so include the introduced issue and paired still evidence in the next directive set.
 7. Stop after at most 2 revise passes. If the third review would still request aesthetic changes, hand off to the human with the advisory, the latest contact sheet path, and the remaining concrete directives.
 
 ## Blocking Policy
@@ -75,6 +76,7 @@ Return:
 - `scores`: the six axis scores with brief visual evidence.
 - `hardBlockers`: deterministic blockers only, or an empty list.
 - `advisoryFindings`: visual findings, each with axis, score, evidence, and concrete edit directive.
+- `revisionDelta`: `compare_revisions` resolved/introduced issue summary when available.
 - `revisionPass`: 0, 1, or 2.
 - `nextAction`: one of `apply_concrete_edits`, `rerender_and_review`, `human_advisory`, or `export_allowed_by_visual_review`.
 

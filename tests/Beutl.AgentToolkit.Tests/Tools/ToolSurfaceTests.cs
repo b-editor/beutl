@@ -60,6 +60,7 @@ public sealed class ToolSurfaceTests
                 "preview_quality_risks",
                 "suggest_quality_fixes",
                 "final_preflight",
+                "compare_revisions",
                 "export_video",
                 "read_render_job",
                 "cancel_render_job"

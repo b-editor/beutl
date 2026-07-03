@@ -569,6 +569,93 @@ public sealed class RenderToolsStoryboardTests
         });
     }
 
+    [Test]
+    public async Task Compare_revisions_reports_introduced_resolved_issues_regression_and_image_pairs()
+    {
+        string workspace = CreateWorkspace();
+        Scene scene = CreateRevisionCompareScene(workspace);
+        using var session = new AgentToolkitTestSession(scene);
+        RenderTools tools = CreateTools(workspace, session);
+
+        ToolResult<QualityReviewResponse> baseline = await tools.EvaluateEditQuality(
+            timeSeconds: [0.5, 1.5],
+            sampleCount: 2,
+            allowStillness: true,
+            paletteRoleColors: CreateRevisionPaletteRoles(),
+            cancellationToken: CancellationToken.None);
+        SetRevisionTextColor(scene, Colors.White);
+        AddRevisionAccentFlood(scene, workspace);
+
+        CallToolResult call = await tools.CompareRevisions(returnImageContent: true, cancellationToken: CancellationToken.None);
+        ToolResult<CompareRevisionsResponse> result = ReadToolResult<CompareRevisionsResponse>(call);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(baseline.IsSuccess, Is.True, baseline.Error?.Message);
+            Assert.That(baseline.Value!.Issues, Has.Some.Matches<QualityIssue>(issue => issue.Category == "typographyContrast"));
+            Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+            Assert.That(result.Value!.IssuesResolved, Has.Some.Matches<QualityIssue>(issue => issue.Category == "typographyContrast"));
+            Assert.That(result.Value.IssuesIntroduced, Has.Some.Matches<QualityIssue>(issue => issue.Category == "paletteBalance"));
+            Assert.That(result.Value.Regression, Is.True);
+            Assert.That(result.Value.MetricDeltas.Select(delta => delta.Metric), Does.Contain("paletteBalance.roleShare.accent"));
+            Assert.That(result.Value.StillPairs, Has.Count.EqualTo(2));
+            Assert.That(result.Value.StillPairs.Select(pair => pair.PreviousPath), Has.All.Matches<string>(File.Exists));
+            Assert.That(result.Value.StillPairs.Select(pair => pair.CurrentPath), Has.All.Matches<string>(File.Exists));
+            Assert.That(call.Content.OfType<ImageContentBlock>().Count(), Is.EqualTo(4));
+        });
+    }
+
+    [Test]
+    public async Task Compare_revisions_returns_typed_error_without_cached_baseline()
+    {
+        string workspace = CreateWorkspace();
+        using var session = new AgentToolkitTestSession(CreateRevisionCompareScene(workspace));
+        RenderTools tools = CreateTools(workspace, session);
+
+        CallToolResult call = await tools.CompareRevisions(cancellationToken: CancellationToken.None);
+        ToolResult<CompareRevisionsResponse> result = ReadToolResult<CompareRevisionsResponse>(call);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error!.Code, Is.EqualTo(ErrorCode.StaleHandle));
+            Assert.That(result.Error.Message, Does.Contain("cached quality baseline"));
+        });
+    }
+
+    [Test]
+    public async Task Compare_revisions_updates_cache_to_current_report_after_compare()
+    {
+        string workspace = CreateWorkspace();
+        Scene scene = CreateRevisionCompareScene(workspace);
+        using var session = new AgentToolkitTestSession(scene);
+        RenderTools tools = CreateTools(workspace, session);
+
+        ToolResult<QualityReviewResponse> baseline = await tools.EvaluateEditQuality(
+            timeSeconds: [0.5, 1.5],
+            sampleCount: 2,
+            allowStillness: true,
+            paletteRoleColors: CreateRevisionPaletteRoles(),
+            cancellationToken: CancellationToken.None);
+        SetRevisionTextColor(scene, Colors.White);
+        AddRevisionAccentFlood(scene, workspace);
+        ToolResult<CompareRevisionsResponse> first = ReadToolResult<CompareRevisionsResponse>(
+            await tools.CompareRevisions(cancellationToken: CancellationToken.None));
+        ToolResult<CompareRevisionsResponse> second = ReadToolResult<CompareRevisionsResponse>(
+            await tools.CompareRevisions(cancellationToken: CancellationToken.None));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(baseline.IsSuccess, Is.True, baseline.Error?.Message);
+            Assert.That(first.IsSuccess, Is.True, first.Error?.Message);
+            Assert.That(first.Value!.IssuesIntroduced, Is.Not.Empty);
+            Assert.That(second.IsSuccess, Is.True, second.Error?.Message);
+            Assert.That(second.Value!.IssuesIntroduced, Is.Empty);
+            Assert.That(second.Value.IssuesResolved, Is.Empty);
+            Assert.That(second.Value.Regression, Is.False);
+        });
+    }
+
     private static RenderTools CreateTools(string workspace, AgentToolkitTestSession session)
     {
         var manager = new AgentSessionManager();
@@ -586,6 +673,62 @@ public sealed class RenderToolsStoryboardTests
             new QualityAnalyzer(motionVariationAnalyzer, stillRenderer),
             new VideoExporter(new EncoderRegistration()),
             new RenderJobManager());
+    }
+
+    private static Scene CreateRevisionCompareScene(string workspace)
+    {
+        var scene = new Scene(160, 90, "revision-compare")
+        {
+            Duration = TimeSpan.FromSeconds(2),
+            Uri = new Uri(Path.Combine(workspace, "Scene.scene"))
+        };
+        AddColorRectElement(scene, workspace, "[role:background] bg-base", TimeSpan.Zero, TimeSpan.FromSeconds(2), 160, 90, Color.Parse("#ff102030"));
+        var block = new TextBlock
+        {
+            Name = "Launch",
+            Text = { CurrentValue = "Launch" },
+            Size = { CurrentValue = 28 },
+            Fill = { CurrentValue = new SolidColorBrush(Color.Parse("#ff1a2028")) }
+        };
+        AddElement(scene, workspace, "revision text", TimeSpan.Zero, TimeSpan.FromSeconds(2), 10, block);
+        return scene;
+    }
+
+    private static void SetRevisionTextColor(Scene scene, Color color)
+    {
+        TextBlock text = scene.Children
+            .SelectMany(element => element.Objects)
+            .OfType<TextBlock>()
+            .Single();
+        text.Fill.CurrentValue = new SolidColorBrush(color);
+    }
+
+    private static void AddRevisionAccentFlood(Scene scene, string workspace)
+    {
+        var rect = new RectShape
+        {
+            Name = "[role:accent] flooded accent field",
+            Width = { CurrentValue = 130 },
+            Height = { CurrentValue = 90 },
+            Fill = { CurrentValue = new SolidColorBrush(Color.Parse("#ffff3030")) },
+            Transform =
+            {
+                CurrentValue = new TransformGroup
+                {
+                    Children = { new TranslateTransform(-15, 0) }
+                }
+            }
+        };
+        AddElement(scene, workspace, "accent flood", TimeSpan.Zero, TimeSpan.FromSeconds(2), 5, rect);
+    }
+
+    private static PaletteRoleColor[] CreateRevisionPaletteRoles()
+    {
+        return
+        [
+            new PaletteRoleColor("bg-base", "#102030"),
+            new PaletteRoleColor("accent", "#ff3030")
+        ];
     }
 
     private static Scene CreateStaticStoryboardScene(string workspace)

@@ -39,7 +39,9 @@ public sealed record QualityMetrics(
     BackgroundRichnessMetrics BackgroundRichness,
     LayerDensityMetrics LayerDensity,
     MotionCraftMetrics MotionCraft,
-    MotionContinuityMetrics MotionContinuity);
+    MotionContinuityMetrics MotionContinuity,
+    TransitionVocabularyMetrics? TransitionVocabulary = null,
+    PaletteBalanceMetrics? PaletteBalance = null);
 
 public sealed record TypographyMetrics(
     int TextObjectCount,
@@ -179,6 +181,32 @@ public sealed record MotionArcMetrics(
     bool HasSettle,
     double HoldSeconds);
 
+public sealed record TransitionVocabularyMetrics(
+    IReadOnlyDictionary<string, int> Histogram,
+    IReadOnlyList<TransitionBoundaryClassification> Boundaries);
+
+public sealed record TransitionBoundaryClassification(
+    double TimeSeconds,
+    string Type,
+    string Evidence,
+    IReadOnlyList<string> ElementIds);
+
+public sealed record PaletteRoleColor(
+    string Role,
+    string Color);
+
+public sealed record PaletteBalanceMetrics(
+    int SampledPixelCount,
+    IReadOnlyList<PaletteRoleShare> RoleShares,
+    double NeutralShare,
+    bool AccentFlooded,
+    bool DominantBelowFloor);
+
+public sealed record PaletteRoleShare(
+    string Role,
+    string Color,
+    double Share);
+
 public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnalyzer, StillRenderer stillRenderer)
 {
     private const string Critical = "critical";
@@ -221,6 +249,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         bool evaluateMotion,
         string? videoType = null,
         IReadOnlyList<double>? beatTimesSeconds = null,
+        IReadOnlyList<PaletteRoleColor>? paletteRoleColors = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(scene);
@@ -261,6 +290,13 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
             issues);
         TempoMetrics tempo = AnalyzeTempo(scene, objects, tempoStyleProfile, relaxAesthetics, issues);
         AnalyzeAudioSync(scene, beatTimesSeconds, issues);
+        TransitionVocabularyMetrics? transitionVocabulary = AnalyzeTransitionVocabulary(
+            scene,
+            objects,
+            gateProfile,
+            relaxHardCuts,
+            relaxAesthetics,
+            issues);
         LayerDensityMetrics layerDensity = AnalyzeLayerDensity(
             scene,
             objects,
@@ -273,6 +309,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         AnalyzeTimelineCoverage(scene, objects, gateProfile.RunTimelineCoverage, issues);
         MotionCraftMetrics motionCraft = AnalyzeMotionCraft(scene, objects, gateProfile, issues);
         IReadOnlyList<RenderedFrameAnalysis>? renderedFrames = null;
+        PaletteBalanceMetrics? paletteBalance = null;
         try
         {
             if (evaluateMotion)
@@ -294,6 +331,11 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
                     LowContrastTextCount = contrast.Count(item => item.WorstContrastRatio < TypographyContrastFloor),
                     Contrast = contrast
                 };
+                paletteBalance = AnalyzePaletteBalance(
+                    renderedFrames,
+                    paletteRoleColors,
+                    gateProfile,
+                    issues);
             }
 
             MotionContinuityMetrics motion = await AnalyzeMotionAsync(
@@ -341,7 +383,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
                 !hasBlockingIssue,
                 verdict,
                 issues,
-                new QualityMetrics(typography, shapeDiversity, palette, structure, tempo, backgroundRichness, layerDensity, motionCraft, motion),
+                new QualityMetrics(typography, shapeDiversity, palette, structure, tempo, backgroundRichness, layerDensity, motionCraft, motion, transitionVocabulary, paletteBalance),
                 notes);
         }
         finally
@@ -1220,6 +1262,560 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
                 .ToArray(),
             []));
     }
+
+    private static TransitionVocabularyMetrics? AnalyzeTransitionVocabulary(
+        Scene scene,
+        IReadOnlyList<SceneObjectInfo> objects,
+        VideoTypeGateProfile gateProfile,
+        bool allowHardCuts,
+        bool relaxAesthetics,
+        List<QualityIssue> issues)
+    {
+        if (!gateProfile.RunTransitionVocabulary)
+        {
+            return null;
+        }
+
+        TransitionBoundaryClassification[] boundaries = FindInteriorCutBoundaries(scene)
+            .Select(boundary => ClassifyTransitionBoundary(scene, objects, boundary))
+            .ToArray();
+        IReadOnlyDictionary<string, int> histogram = boundaries
+            .GroupBy(boundary => boundary.Type, StringComparer.Ordinal)
+            .OrderBy(group => group.Key, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.Count(), StringComparer.Ordinal);
+
+        if (boundaries.Length > 0
+            && !allowHardCuts
+            && !relaxAesthetics
+            && HasInconsistentTransitionVocabulary(histogram))
+        {
+            string evidence = string.Join(", ", histogram.Select(item => $"{item.Key}:{item.Value}"));
+            issues.Add(new QualityIssue(
+                "transitionVocabulary",
+                Advisory,
+                "The edit mixes transition types without a clear majority vocabulary.",
+                $"Transition histogram: {evidence}.",
+                "Consolidate to one continuity vocabulary, such as repeated dissolves for time passage, a directional sweep for location/topic changes, or documented hard cuts where clean cuts are intentional.",
+                null,
+                boundaries
+                    .SelectMany(boundary => boundary.ElementIds)
+                    .Distinct(StringComparer.Ordinal)
+                    .ToArray(),
+                []));
+        }
+
+        return new TransitionVocabularyMetrics(histogram, boundaries);
+    }
+
+    private static TransitionBoundaryClassification ClassifyTransitionBoundary(
+        Scene scene,
+        IReadOnlyList<SceneObjectInfo> objects,
+        CutBoundary boundary)
+    {
+        TimeSpan pre = boundary.Time - TimeSpan.FromMilliseconds(20);
+        TimeSpan post = boundary.Time + TimeSpan.FromMilliseconds(20);
+        SceneObjectInfo[] activeBefore = objects
+            .Where(info => IsElementActiveAt(info.Element, pre))
+            .ToArray();
+        SceneObjectInfo[] activeAfter = objects
+            .Where(info => IsElementActiveAt(info.Element, post))
+            .ToArray();
+        SceneObjectInfo[] bridgeObjects = objects
+            .Where(info => IsElementActiveAt(info.Element, pre) && IsElementActiveAt(info.Element, post))
+            .ToArray();
+
+        SceneObjectInfo[] outgoingOpacity = activeBefore
+            .Where(info => HasOpacityTrend(info, boundary.Time, decreasing: true))
+            .ToArray();
+        SceneObjectInfo[] incomingOpacity = activeAfter
+            .Where(info => HasOpacityTrend(info, boundary.Time, decreasing: false))
+            .ToArray();
+        if (outgoingOpacity.Length > 0 && incomingOpacity.Length > 0)
+        {
+            return CreateTransitionClassification(
+                boundary,
+                "dissolve",
+                "Opacity ramps overlap across the boundary.",
+                outgoingOpacity.Concat(incomingOpacity));
+        }
+
+        SceneObjectInfo[] dipPlates = bridgeObjects
+            .Where(info => IsFullFrameBackground(scene, info))
+            .Where(info => HasOpacityPeakAtBoundary(info, boundary.Time))
+            .ToArray();
+        if (dipPlates.Length > 0)
+        {
+            return CreateTransitionClassification(
+                boundary,
+                "dip-to-color",
+                "A full-frame plate opacity peaks at the boundary.",
+                dipPlates);
+        }
+
+        SceneObjectInfo[] sweepBridges = bridgeObjects
+            .Where(HasTransformAnimation)
+            .ToArray();
+        if (sweepBridges.Length > 0)
+        {
+            return CreateTransitionClassification(
+                boundary,
+                "sweep",
+                "A transform-animated element remains visible on both sides of the boundary.",
+                sweepBridges);
+        }
+
+        return CreateTransitionClassification(
+            boundary,
+            "hard-cut",
+            "No overlap dissolve, transform bridge, or dip plate was detected.",
+            boundary.Elements.SelectMany(element => objects.Where(info => info.Element == element)));
+    }
+
+    private static TransitionBoundaryClassification CreateTransitionClassification(
+        CutBoundary boundary,
+        string type,
+        string evidence,
+        IEnumerable<SceneObjectInfo> objects)
+    {
+        string[] elementIds = objects
+            .Select(info => info.Element.Id.ToString())
+            .Concat(boundary.Elements.Select(element => element.Id.ToString()))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        return new TransitionBoundaryClassification(
+            Math.Round(boundary.Time.TotalSeconds, 4, MidpointRounding.AwayFromZero),
+            type,
+            evidence,
+            elementIds);
+    }
+
+    private static bool HasInconsistentTransitionVocabulary(IReadOnlyDictionary<string, int> histogram)
+    {
+        int nonHardTypes = histogram
+            .Where(item => !string.Equals(item.Key, "hard-cut", StringComparison.Ordinal))
+            .Count(item => item.Value > 0);
+        if (nonHardTypes > 2)
+        {
+            return true;
+        }
+
+        int total = histogram.Values.Sum();
+        if (total < 3
+            || !histogram.TryGetValue("hard-cut", out int hardCuts)
+            || hardCuts == 0)
+        {
+            return false;
+        }
+
+        int styledCuts = total - hardCuts;
+        if (styledCuts == 0)
+        {
+            return false;
+        }
+
+        int majority = histogram.Values.Max();
+        return majority <= total / 2d;
+    }
+
+    private static bool HasOpacityTrend(SceneObjectInfo info, TimeSpan boundary, bool decreasing)
+    {
+        foreach (AnimatedPropertyInfo animated in EnumerateAnimatedProperties(info))
+        {
+            if (!string.Equals(animated.Property.Name, nameof(Drawable.Opacity), StringComparison.Ordinal)
+                || !TryGetAnimatedFloatTrend(animated.Animation, info.Element, boundary, out double delta))
+            {
+                continue;
+            }
+
+            if (decreasing ? delta < -5 : delta > 5)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool HasOpacityPeakAtBoundary(SceneObjectInfo info, TimeSpan boundary)
+    {
+        foreach (AnimatedPropertyInfo animated in EnumerateAnimatedProperties(info))
+        {
+            if (!string.Equals(animated.Property.Name, nameof(Drawable.Opacity), StringComparison.Ordinal)
+                || !TryGetAnimationTime(animated.Animation, info.Element, boundary, out TimeSpan animationTime))
+            {
+                continue;
+            }
+
+            IKeyFrame[] keyFrames = animated.Animation.KeyFrames
+                .OrderBy(item => item.KeyTime)
+                .ToArray();
+            if (keyFrames.Length < 3)
+            {
+                continue;
+            }
+
+            int nearestIndex = Enumerable.Range(0, keyFrames.Length)
+                .OrderBy(index => Math.Abs((keyFrames[index].KeyTime - animationTime).TotalSeconds))
+                .First();
+            IKeyFrame nearest = keyFrames[nearestIndex];
+            if (Math.Abs((nearest.KeyTime - animationTime).TotalSeconds) > 0.16
+                || !TryGetFrameDoubleValue(nearest, out double peak)
+                || peak < 70)
+            {
+                continue;
+            }
+
+            double previous = nearestIndex > 0 && TryGetFrameDoubleValue(keyFrames[nearestIndex - 1], out double prev)
+                ? prev
+                : peak;
+            double next = nearestIndex + 1 < keyFrames.Length && TryGetFrameDoubleValue(keyFrames[nearestIndex + 1], out double nxt)
+                ? nxt
+                : peak;
+            if (previous <= peak - 20 && next <= peak - 20)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool HasTransformAnimation(SceneObjectInfo info)
+    {
+        return EnumerateAnimatedProperties(info)
+            .Any(animated => animated.PropertyPath.Contains("Transform", StringComparison.Ordinal)
+                             || animated.PropertyPath.Contains("Translate", StringComparison.Ordinal)
+                             || animated.PropertyPath.Contains("Rotation", StringComparison.Ordinal)
+                             || animated.PropertyPath.Contains("Scale", StringComparison.Ordinal)
+                             || animated.PropertyPath.Contains("Skew", StringComparison.Ordinal));
+    }
+
+    private static bool TryGetAnimatedFloatTrend(
+        IKeyFrameAnimation animation,
+        Element element,
+        TimeSpan boundary,
+        out double delta)
+    {
+        delta = 0;
+        if (!TryGetAnimationTime(animation, element, boundary, out TimeSpan animationTime))
+        {
+            return false;
+        }
+
+        IKeyFrame[] keyFrames = animation.KeyFrames
+            .OrderBy(item => item.KeyTime)
+            .ToArray();
+        if (keyFrames.Length < 2)
+        {
+            return false;
+        }
+
+        IKeyFrame previous = keyFrames[0];
+        IKeyFrame next = keyFrames[1];
+        for (int i = 1; i < keyFrames.Length; i++)
+        {
+            if (animationTime <= keyFrames[i].KeyTime)
+            {
+                previous = keyFrames[i - 1];
+                next = keyFrames[i];
+                break;
+            }
+
+            previous = keyFrames[i - 1];
+            next = keyFrames[i];
+        }
+
+        if (!TryGetFrameDoubleValue(previous, out double previousValue)
+            || !TryGetFrameDoubleValue(next, out double nextValue)
+            || next.KeyTime <= previous.KeyTime)
+        {
+            return false;
+        }
+
+        delta = nextValue - previousValue;
+        return true;
+    }
+
+    private static bool TryGetAnimationTime(
+        IKeyFrameAnimation animation,
+        Element element,
+        TimeSpan boundary,
+        out TimeSpan animationTime)
+    {
+        bool useGlobalClock = animation is KeyFrameAnimation keyFrameAnimation && keyFrameAnimation.UseGlobalClock;
+        animationTime = useGlobalClock ? boundary : boundary - element.Start;
+        return animationTime >= TimeSpan.Zero;
+    }
+
+    private static bool TryGetFrameDoubleValue(IKeyFrame frame, out double value)
+    {
+        value = 0;
+        switch (frame.Value)
+        {
+            case float floatValue:
+                value = floatValue;
+                return true;
+            case double doubleValue:
+                value = doubleValue;
+                return true;
+            case int intValue:
+                value = intValue;
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private static bool IsElementActiveAt(Element element, TimeSpan time)
+        => time >= TimeSpan.Zero
+           && element.IsEnabled
+           && element.Length > TimeSpan.Zero
+           && element.Range.Contains(time);
+
+    private static PaletteBalanceMetrics? AnalyzePaletteBalance(
+        IReadOnlyList<RenderedFrameAnalysis> frames,
+        IReadOnlyList<PaletteRoleColor>? paletteRoleColors,
+        VideoTypeGateProfile gateProfile,
+        List<QualityIssue> issues)
+    {
+        if (gateProfile.SuppressPaletteBalance || paletteRoleColors is not { Count: > 0 } || frames.Count == 0)
+        {
+            return null;
+        }
+
+        PaletteRoleColorSpec[] roles = paletteRoleColors
+            .Select(TryCreateRoleColorSpec)
+            .OfType<PaletteRoleColorSpec>()
+            .ToArray();
+        if (roles.Length == 0)
+        {
+            return null;
+        }
+
+        long[] counts = new long[roles.Length];
+        long neutralCount = 0;
+        long sampledPixels = 0;
+        foreach (RenderedFrameAnalysis frame in frames)
+        {
+            using Bitmap bitmap = frame.Bitmap.Convert(
+                BitmapColorType.Bgra8888,
+                BitmapAlphaType.Unpremul,
+                BitmapColorSpace.Srgb);
+            sampledPixels += AccumulatePaletteBalance(bitmap, roles, counts, ref neutralCount);
+        }
+
+        if (sampledPixels == 0)
+        {
+            return new PaletteBalanceMetrics(0, [], 0, false, false);
+        }
+
+        PaletteRoleShare[] shares = roles
+            .Select((role, index) => new PaletteRoleShare(
+                role.Role,
+                role.Color,
+                Math.Round(counts[index] / (double)sampledPixels, 4, MidpointRounding.AwayFromZero)))
+            .ToArray();
+        double neutralShare = Math.Round(neutralCount / (double)sampledPixels, 4, MidpointRounding.AwayFromZero);
+        double accentShare = shares
+            .Where(share => IsAccentRole(share.Role))
+            .Sum(share => share.Share);
+        double dominantShare = shares
+            .Where(share => IsDominantBackgroundRole(share.Role))
+            .Sum(share => share.Share);
+        bool accentFlooded = accentShare > 0.20;
+        bool dominantBelowFloor = shares.Any(share => IsDominantBackgroundRole(share.Role)) && dominantShare < 0.40;
+
+        if (accentFlooded || dominantBelowFloor)
+        {
+            issues.Add(new QualityIssue(
+                "paletteBalance",
+                Advisory,
+                "Rendered palette role areas drift away from a stable 60-30-10 balance.",
+                $"Accent share {accentShare:P0}; dominant/background share {dominantShare:P0}; neutral share {neutralShare:P0}.",
+                "Use the 60-30-10 rule and Itten's contrast of extension: keep accent color near a small emphasis role, restore the bg-base/background dominant area above about 40%, and move large support areas into secondary or neutral roles.",
+                null,
+                [],
+                []));
+        }
+
+        return new PaletteBalanceMetrics(
+            (int)Math.Min(int.MaxValue, sampledPixels),
+            shares,
+            neutralShare,
+            accentFlooded,
+            dominantBelowFloor);
+    }
+
+    private static int AccumulatePaletteBalance(
+        Bitmap bitmap,
+        IReadOnlyList<PaletteRoleColorSpec> roles,
+        long[] counts,
+        ref long neutralCount)
+    {
+        int stride = Math.Max(1, (int)Math.Sqrt(bitmap.Width * bitmap.Height / 20000d));
+        int sampled = 0;
+        for (int y = 0; y < bitmap.Height; y += stride)
+        {
+            Span<byte> row = bitmap.GetRow(y);
+            for (int x = 0; x < bitmap.Width; x += stride)
+            {
+                if (!TryReadRgb(row, x, bitmap.BytesPerPixel, bitmap.ColorType, out byte r, out byte g, out byte b, out byte a)
+                    || a < 8)
+                {
+                    continue;
+                }
+
+                sampled++;
+                if (IsNearNeutral(r, g, b))
+                {
+                    neutralCount++;
+                }
+
+                int nearestIndex = 0;
+                int nearestDistance = int.MaxValue;
+                for (int i = 0; i < roles.Count; i++)
+                {
+                    int distance = ColorDistanceSquared(r, g, b, roles[i].R, roles[i].G, roles[i].B);
+                    if (distance < nearestDistance)
+                    {
+                        nearestDistance = distance;
+                        nearestIndex = i;
+                    }
+                }
+
+                counts[nearestIndex]++;
+            }
+        }
+
+        return sampled;
+    }
+
+    private static bool TryReadRgb(
+        Span<byte> row,
+        int x,
+        int bytesPerPixel,
+        BitmapColorType colorType,
+        out byte r,
+        out byte g,
+        out byte b,
+        out byte a)
+    {
+        r = 0;
+        g = 0;
+        b = 0;
+        a = 0;
+        int offset = x * bytesPerPixel;
+        if (offset < 0 || offset + bytesPerPixel > row.Length)
+        {
+            return false;
+        }
+
+        switch (colorType)
+        {
+            case BitmapColorType.Bgra8888:
+                b = row[offset];
+                g = row[offset + 1];
+                r = row[offset + 2];
+                a = row[offset + 3];
+                return true;
+            case BitmapColorType.Rgba8888:
+            case BitmapColorType.Srgba8888:
+                r = row[offset];
+                g = row[offset + 1];
+                b = row[offset + 2];
+                a = row[offset + 3];
+                return true;
+            case BitmapColorType.Rgb888x:
+                r = row[offset];
+                g = row[offset + 1];
+                b = row[offset + 2];
+                a = 255;
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private static PaletteRoleColorSpec? TryCreateRoleColorSpec(PaletteRoleColor role)
+    {
+        if (string.IsNullOrWhiteSpace(role.Role)
+            || !TryParseRgbHex(role.Color, out byte r, out byte g, out byte b))
+        {
+            return null;
+        }
+
+        return new PaletteRoleColorSpec(role.Role.Trim(), NormalizeHexColor(r, g, b), r, g, b);
+    }
+
+    private static bool TryParseRgbHex(string? value, out byte r, out byte g, out byte b)
+    {
+        r = 0;
+        g = 0;
+        b = 0;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        string hex = value.Trim();
+        if (hex.StartsWith('#'))
+        {
+            hex = hex[1..];
+        }
+
+        if (hex.Length == 8)
+        {
+            hex = hex[2..];
+        }
+
+        if (hex.Length != 6)
+        {
+            return false;
+        }
+
+        return byte.TryParse(hex[..2], System.Globalization.NumberStyles.HexNumber, null, out r)
+               && byte.TryParse(hex[2..4], System.Globalization.NumberStyles.HexNumber, null, out g)
+               && byte.TryParse(hex[4..6], System.Globalization.NumberStyles.HexNumber, null, out b);
+    }
+
+    private static string NormalizeHexColor(byte r, byte g, byte b)
+        => $"#{r:x2}{g:x2}{b:x2}";
+
+    private static bool IsNearNeutral(byte r, byte g, byte b)
+    {
+        int max = Math.Max(r, Math.Max(g, b));
+        int min = Math.Min(r, Math.Min(g, b));
+        return max - min <= 14;
+    }
+
+    private static int ColorDistanceSquared(byte ar, byte ag, byte ab, byte br, byte bg, byte bb)
+    {
+        int dr = ar - br;
+        int dg = ag - bg;
+        int db = ab - bb;
+        return (dr * dr) + (dg * dg) + (db * db);
+    }
+
+    private static bool IsAccentRole(string role)
+    {
+        string normalized = NormalizeRoleName(role);
+        return string.Equals(normalized, "accent", StringComparison.Ordinal)
+               || string.Equals(normalized, "roleaccent", StringComparison.Ordinal);
+    }
+
+    private static bool IsDominantBackgroundRole(string role)
+    {
+        string normalized = NormalizeRoleName(role);
+        return string.Equals(normalized, "bgbase", StringComparison.Ordinal)
+               || normalized.Contains("background", StringComparison.Ordinal)
+               || normalized.Contains("dominant", StringComparison.Ordinal);
+    }
+
+    private static string NormalizeRoleName(string role)
+        => new(role
+            .Where(char.IsLetterOrDigit)
+            .Select(char.ToLowerInvariant)
+            .ToArray());
 
     private static MotionCraftMetrics AnalyzeMotionCraft(
         Scene scene,
@@ -3495,6 +4091,13 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
     private readonly record struct SceneObjectInfo(Element Element, EngineObject Object);
 
     private readonly record struct ObjectBounds(double CenterX, double CenterY, double Width, double Height);
+
+    private sealed record PaletteRoleColorSpec(
+        string Role,
+        string Color,
+        byte R,
+        byte G,
+        byte B);
 
     private readonly record struct CutBoundary(
         TimeSpan Time,

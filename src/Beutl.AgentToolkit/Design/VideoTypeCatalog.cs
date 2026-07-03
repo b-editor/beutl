@@ -28,10 +28,12 @@ public sealed record VideoTypeGateProfile(
     bool SuppressTempoAnalysis = false,
     bool SuppressTempoUnlessExplicitHighTempo = false,
     bool SuppressBackgroundRichness = false,
+    bool SuppressPaletteBalance = false,
     bool SuppressLayerDensityPlanGate = false,
     bool SuppressCaptionRoleHierarchy = false,
     bool SuppressCutRhythm = false,
     bool RewordCutRhythmForTransitions = false,
+    bool RunTransitionVocabulary = false,
     bool RunTimelineCoverage = false,
     bool RunLogoIntroMotionArc = false)
 {
@@ -69,6 +71,11 @@ public sealed record VideoTypeGateProfile(
             adjustments.Add("background-richness advisories skipped");
         }
 
+        if (SuppressPaletteBalance)
+        {
+            adjustments.Add("paletteBalance advisory skipped");
+        }
+
         if (SuppressLayerDensityPlanGate)
         {
             adjustments.Add("motion-graphics layer-density plan gate skipped");
@@ -86,6 +93,11 @@ public sealed record VideoTypeGateProfile(
         else if (RewordCutRhythmForTransitions)
         {
             adjustments.Add("cut-rhythm advisories framed as transition consistency");
+        }
+
+        if (RunTransitionVocabulary)
+        {
+            adjustments.Add("transitionVocabulary advisory enabled");
         }
 
         if (RunTimelineCoverage)
@@ -153,6 +165,8 @@ public static class VideoTypeCatalog
                 ForceMotionGraphicsIntentOff: true,
                 SuppressTempoUnlessExplicitHighTempo: true,
                 SuppressBackgroundRichness: true,
+                SuppressPaletteBalance: true,
+                RunTransitionVocabulary: true,
                 RunTimelineCoverage: true)),
         new(
             "slideshow",
@@ -182,6 +196,7 @@ public static class VideoTypeCatalog
                 SuppressTempoAnalysis: true,
                 SuppressLayerDensityPlanGate: true,
                 RewordCutRhythmForTransitions: true,
+                RunTransitionVocabulary: true,
                 RunTimelineCoverage: true)),
         new(
             "lyric-captions",

@@ -35,7 +35,8 @@ public sealed record EffectRecipeSummary(
     string Description,
     IReadOnlyList<string> IntentTags,
     IReadOnlyList<string> EffectNames,
-    IReadOnlyList<string> Notes);
+    IReadOnlyList<string> Notes,
+    string? Semantic = null);
 
 public sealed record EffectRecipe(
     string Name,
@@ -43,7 +44,8 @@ public sealed record EffectRecipe(
     IReadOnlyList<string> IntentTags,
     IReadOnlyList<string> EffectNames,
     IReadOnlyList<string> Notes,
-    JsonObject Patch);
+    JsonObject Patch,
+    string? Semantic = null);
 
 public sealed record TypeDescriptor(
     string Type,

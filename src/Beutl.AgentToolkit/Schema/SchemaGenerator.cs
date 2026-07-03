@@ -269,7 +269,8 @@ public sealed class SchemaGenerator
             spec.Summary.IntentTags.ToArray(),
             spec.Summary.EffectNames.ToArray(),
             spec.Summary.Notes.ToArray(),
-            (JsonObject)spec.Patch.DeepClone());
+            (JsonObject)spec.Patch.DeepClone(),
+            spec.Summary.Semantic);
     }
 
     private static EffectSummary CreateEffectSummary(Type type, bool includePropertyNames)
@@ -373,7 +374,9 @@ public sealed class SchemaGenerator
             intent,
             summary.IntentTags,
             [summary.Name, summary.Description],
-            summary.EffectNames.Concat(summary.Notes));
+            summary.EffectNames
+                .Concat(summary.Notes)
+                .Append(summary.Semantic ?? string.Empty));
     }
 
     private static int ScoreSearch(
@@ -807,7 +810,52 @@ public sealed class SchemaGenerator
                 ["glitch", "pixel", "scanline", "gpu"],
                 CreateFilterEffectGroup(
                     CreatePixelSort(),
-                    CreateColorShift(8, 0, -8, 0)))
+                    CreateColorShift(8, 0, -8, 0))),
+            CreateTransitionRecipe(
+                "transition-overlap-dissolve-transform-continuation",
+                "Overlap dissolve template with outgoing/incoming opacity ramps plus a shared slow transform continuation across the boundary.",
+                "time passage / soft topic shift",
+                ["transition", "dissolve", "opacity", "continuity", "time-passage", "soft-topic-shift"],
+                ["OpacityKeyframes", nameof(TranslateTransform)],
+                CreateOverlapDissolveTransitionPatch(),
+                "Overlap outgoing and incoming Elements by about 8-16 frames; fade one down while the other fades up.",
+                "Keep one background or subject transform drifting through the overlap so the dissolve reads as continuity instead of a simple crossfade."),
+            CreateTransitionRecipe(
+                "transition-directional-sweep-wipe",
+                "Directional sweep or wipe template using a transform-animated bridge plate that crosses the cut boundary.",
+                "location or topic change",
+                ["transition", "sweep", "wipe", "directional", "topic-change", "location-change"],
+                [nameof(RectShape), nameof(TranslateTransform), "OpacityKeyframes"],
+                CreateDirectionalSweepTransitionPatch(),
+                "Place the sweep Element over both adjacent shots and animate its TranslateTransform along the chosen screen direction.",
+                "Use one direction consistently for a sequence unless the brief records a deliberate directional grammar."),
+            CreateTransitionRecipe(
+                "transition-mask-reveal",
+                "Mask-reveal template for introducing or unveiling a new subject with a moving reveal plate or clipping edge.",
+                "introduction / unveiling",
+                ["transition", "mask", "reveal", "introduction", "unveiling"],
+                [nameof(RectShape), nameof(TranslateTransform), "OpacityKeyframes"],
+                CreateMaskRevealTransitionPatch(),
+                "Use this when the incoming subject should feel discovered, introduced, or unveiled rather than simply cut in.",
+                "Pair the reveal with a named mask/reveal Element and align its Start/Length to the incoming shot."),
+            CreateTransitionRecipe(
+                "transition-dip-to-color",
+                "Dip-to-color template using a full-frame plate whose opacity peaks at the cut boundary.",
+                "chapter break",
+                ["transition", "dip", "dip-to-color", "chapter-break", "full-frame-plate"],
+                [nameof(RectShape), "OpacityKeyframes"],
+                CreateDipToColorTransitionPatch(),
+                "Use a neutral, brand, or palette-derived color plate and keep the peak brief: usually 2-6 frames at full opacity.",
+                "Best for chapter breaks, section dividers, or intentional breath points; avoid mixing it randomly with dissolves and wipes."),
+            CreateTransitionRecipe(
+                "transition-match-move-cut",
+                "Match-move cut template that aligns outgoing and incoming focal elements by position, scale, or motion direction at the boundary.",
+                "conceptual rhyme",
+                ["transition", "match-cut", "match-move", "conceptual-rhyme", "continuity"],
+                [nameof(TranslateTransform), nameof(ScaleTransform)],
+                CreateMatchMoveCutTransitionPatch(),
+                "Align the outgoing and incoming objects' focal position and motion vector at the boundary, then let the incoming object continue the move.",
+                "Use this for visual rhymes, object-to-object associations, or conceptual continuity between shots.")
         ];
 
         EffectRecipeSpec[] individual = EnumerateRegisteredTypes()
@@ -865,6 +913,142 @@ public sealed class SchemaGenerator
         return new EffectRecipeSpec(
             new EffectRecipeSummary(name, description, tags.ToArray(), effectNames, notes),
             CreateEffectPatch(effects, blendMode, opacity));
+    }
+
+    private static EffectRecipeSpec CreateTransitionRecipe(
+        string name,
+        string description,
+        string semantic,
+        IReadOnlyList<string> tags,
+        IReadOnlyList<string> effectNames,
+        JsonObject patch,
+        params string[] notes)
+    {
+        return new EffectRecipeSpec(
+            new EffectRecipeSummary(
+                name,
+                description,
+                tags
+                    .Append("transition")
+                    .Distinct(StringComparer.Ordinal)
+                    .ToArray(),
+                effectNames.ToArray(),
+                notes.Distinct(StringComparer.Ordinal).ToArray(),
+                semantic),
+            patch);
+    }
+
+    private static JsonObject CreateOverlapDissolveTransitionPatch()
+    {
+        return CreateTransitionPatch(
+            new JsonObject
+            {
+                [nameof(CoreObject.Id)] = "<outgoing-drawable-id>",
+                ["Animations"] = new JsonObject
+                {
+                    [nameof(Drawable.Opacity)] = CreateFloatAnimationWithLocalClock(
+                        (0, 100, typeof(SineEaseInOut)),
+                        (0.28, 0, typeof(SineEaseInOut)))
+                }
+            },
+            new JsonObject
+            {
+                [nameof(CoreObject.Id)] = "<incoming-drawable-id>",
+                ["Animations"] = new JsonObject
+                {
+                    [nameof(Drawable.Opacity)] = CreateFloatAnimationWithLocalClock(
+                        (0, 0, typeof(SineEaseInOut)),
+                        (0.28, 100, typeof(SineEaseInOut)))
+                }
+            });
+    }
+
+    private static JsonObject CreateDirectionalSweepTransitionPatch()
+    {
+        return CreateTransitionPatch(new JsonObject
+        {
+            [nameof(CoreObject.Id)] = "<sweep-plate-or-mask-id>",
+            ["Name"] = "[role:decorative] [role:motion] directional transition sweep",
+            ["Animations"] = new JsonObject
+            {
+                [nameof(Drawable.Opacity)] = CreateFloatAnimationWithLocalClock(
+                    (0, 0, typeof(CubicEaseOut)),
+                    (0.10, 100, typeof(CubicEaseOut)),
+                    (0.34, 100, typeof(SineEaseInOut)),
+                    (0.44, 0, typeof(SineEaseInOut)))
+            },
+            ["PlacementGuidance"] = "Animate the object's TranslateTransform from just outside the outgoing frame to just outside the incoming frame across the cut."
+        });
+    }
+
+    private static JsonObject CreateMaskRevealTransitionPatch()
+    {
+        return CreateTransitionPatch(new JsonObject
+        {
+            [nameof(CoreObject.Id)] = "<incoming-reveal-mask-or-plate-id>",
+            ["Name"] = "[role:decorative] [role:motion] mask reveal transition",
+            ["Animations"] = new JsonObject
+            {
+                [nameof(Drawable.Opacity)] = CreateFloatAnimationWithLocalClock(
+                    (0, 0, typeof(CubicEaseOut)),
+                    (0.16, 100, typeof(CubicEaseOut)),
+                    (0.44, 100, typeof(SineEaseInOut)))
+            },
+            ["PlacementGuidance"] = "Move a clipping edge, mask plate, or reveal shape across the incoming subject while the incoming Element begins."
+        });
+    }
+
+    private static JsonObject CreateDipToColorTransitionPatch()
+    {
+        return CreateTransitionPatch(new JsonObject
+        {
+            [nameof(CoreObject.Id)] = "<full-frame-dip-plate-id>",
+            ["Name"] = "[role:background] dip-to-color transition plate",
+            ["Animations"] = new JsonObject
+            {
+                [nameof(Drawable.Opacity)] = CreateFloatAnimationWithLocalClock(
+                    (0, 0, typeof(SineEaseInOut)),
+                    (0.16, 100, typeof(SineEaseInOut)),
+                    (0.32, 0, typeof(SineEaseInOut)))
+            },
+            ["PlacementGuidance"] = "Make this a full-frame RectShape spanning both adjacent shots, centered so opacity peaks exactly on the boundary."
+        });
+    }
+
+    private static JsonObject CreateMatchMoveCutTransitionPatch()
+    {
+        return CreateTransitionPatch(
+            new JsonObject
+            {
+                [nameof(CoreObject.Id)] = "<outgoing-focal-drawable-id>",
+                ["PlacementGuidance"] = "End this object's transform at the same screen position, scale, and direction as the incoming focal object."
+            },
+            new JsonObject
+            {
+                [nameof(CoreObject.Id)] = "<incoming-focal-drawable-id>",
+                ["PlacementGuidance"] = "Start this object's transform at the outgoing object's boundary pose, then continue the motion vector after the cut."
+            });
+    }
+
+    private static JsonObject CreateTransitionPatch(params JsonObject[] objects)
+    {
+        return new JsonObject
+        {
+            ["Elements"] = new JsonArray(objects
+                .Select((obj, index) => new JsonObject
+                {
+                    [nameof(CoreObject.Id)] = $"<transition-element-id-{index + 1}>",
+                    [nameof(Element.Objects)] = new JsonArray(obj)
+                })
+                .ToArray<JsonNode?>())
+        };
+    }
+
+    private static JsonObject CreateFloatAnimationWithLocalClock(params (double Seconds, float Value, Type Easing)[] keyframes)
+    {
+        JsonObject animation = CreateFloatAnimation(keyframes);
+        animation[nameof(KeyFrameAnimation.UseGlobalClock)] = false;
+        return animation;
     }
 
     private static bool ContainsPrebuiltSkslScript(FilterEffectGroup effects)
