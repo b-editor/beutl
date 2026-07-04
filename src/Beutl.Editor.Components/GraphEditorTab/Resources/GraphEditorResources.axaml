@@ -1,7 +1,7 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:view="using:Beutl.Editor.Components.GraphEditorTab.Views"
-                    xmlns:icons="using:FluentIcons.FluentAvalonia"
+                    xmlns:icons="using:FluentIcons.Avalonia.Fluent"
                     xmlns:lang="using:Beutl.Language"
                     xmlns:viewModel="using:Beutl.Editor.Components.GraphEditorTab.ViewModels">
     <ResourceDictionary.ThemeDictionaries>

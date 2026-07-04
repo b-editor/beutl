@@ -169,7 +169,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
     public ReadOnlyReactiveProperty<bool> HasExpression { get; }
 
-    public ReactivePropertySlim<bool> IsSymbolIconFilled { get; } = new();
+    public ReactivePropertySlim<FluentIcons.Common.IconVariant> SymbolIconVariant { get; } = new();
 
     public ReactivePropertySlim<IKeyFrame?> EditingKeyFrame { get; } = new();
 
@@ -252,11 +252,13 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
                                 TimeSpan keyTime = animation.UseGlobalClock ? globalkeyTime : localKeyTime;
                                 keyTime = keyTime.RoundToRate(rate);
 
-                                IsSymbolIconFilled.Value = t.Second?.Any(obj => obj.KeyTime == keyTime) ?? false;
+                                SymbolIconVariant.Value = t.Second?.Any(obj => obj.KeyTime == keyTime) ?? false
+                                    ? FluentIcons.Common.IconVariant.Filled
+                                    : FluentIcons.Common.IconVariant.Regular;
                                 if (t.Second != null)
                                 {
                                     float kfIndex = t.Second.IndexAtOrCount(keyTime);
-                                    if (!IsSymbolIconFilled.Value)
+                                    if (SymbolIconVariant.Value != FluentIcons.Common.IconVariant.Filled)
                                         kfIndex -= 0.5f;
 
                                     _skipKeyFrameIndexSubscription = KeyFrameIndex.Value != kfIndex;

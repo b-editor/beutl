@@ -27,7 +27,7 @@
     <PackageReference Include="Xaml.Behaviors.Interactivity" />
     <PackageReference Include="DynamicData" />
     <PackageReference Include="FluentAvaloniaUI" />
-    <PackageReference Include="FluentIcons.FluentAvalonia" />
+    <PackageReference Include="FluentIcons.Avalonia.Fluent" />
     <PackageReference Include="Microsoft.Extensions.FileSystemGlobbing" />
   </ItemGroup>
 

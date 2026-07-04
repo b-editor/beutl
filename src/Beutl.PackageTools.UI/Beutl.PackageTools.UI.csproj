@@ -20,7 +20,7 @@
     <PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" />
     <PackageReference Include="DynamicData" />
     <PackageReference Include="FluentAvaloniaUI" />
-    <PackageReference Include="FluentIcons.FluentAvalonia" />
+    <PackageReference Include="FluentIcons.Avalonia.Fluent" />
     <PackageReference Include="AsyncImageLoader.Avalonia" />
     <PackageReference Include="OpenTelemetry" />
     <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />

@@ -2,7 +2,7 @@
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
@@ -70,7 +70,7 @@
         <icons:SymbolIcon x:Name="symbolIcon"
                           Classes.hasAnimation="{Binding HasAnimation.Value}"
                           Classes.hasExpression="{Binding HasExpression.Value}"
-                          IsFilled="{Binding IsSymbolIconFilled.Value}">
+                          IconVariant="{Binding SymbolIconVariant.Value}">
             <icons:SymbolIcon.Styles>
                 <Style Selector="icons|SymbolIcon">
                     <Setter Property="Symbol" Value="MoreVertical" />

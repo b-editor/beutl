@@ -9,8 +9,8 @@ using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.NodeGraphTab.ViewModels;
 using Beutl.NodeGraph;
+using FluentIcons.Avalonia.Fluent;
 using FluentIcons.Common;
-using FluentIcons.FluentAvalonia;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 

@@ -5,7 +5,7 @@
              xmlns:asyncImageLoader="using:AsyncImageLoader"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:extensionsPage="using:Beutl.ViewModels.ExtensionsPages"
-             xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:panelx="using:PanelExtension"

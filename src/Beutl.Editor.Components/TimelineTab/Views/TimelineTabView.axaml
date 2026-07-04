@@ -4,7 +4,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:ecv="using:Beutl.Editor.Components.Views"
              xmlns:h="using:Beutl.Editor.Components.Helpers"
-             xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
              xmlns:local="using:Beutl.Editor.Components.TimelineTab.Views"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"

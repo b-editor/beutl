@@ -1,6 +1,6 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                    xmlns:icons="using:FluentIcons.FluentAvalonia"
+                    xmlns:icons="using:FluentIcons.Avalonia.Fluent"
                     xmlns:local="using:Beutl.Controls.PropertyEditors"
                     xmlns:ui="using:FluentAvalonia.UI.Controls">
     <Design.PreviewWith>
@@ -55,7 +55,7 @@
                                 <ComboBox.ItemTemplate>
                                     <DataTemplate x:DataType="local:EnumItem">
                                         <TextBlock ToolTip.Tip="{Binding Description}"
-                                                   Text="{Binding DisplayName}" 
+                                                   Text="{Binding DisplayName}"
                                                    Background="Transparent" />
                                     </DataTemplate>
                                 </ComboBox.ItemTemplate>
@@ -161,7 +161,7 @@
                                 <ComboBox.ItemTemplate>
                                     <DataTemplate x:DataType="local:EnumItem">
                                         <TextBlock ToolTip.Tip="{Binding Description}"
-                                                   Text="{Binding DisplayName}" 
+                                                   Text="{Binding DisplayName}"
                                                    Background="Transparent" />
                                     </DataTemplate>
                                 </ComboBox.ItemTemplate>
@@ -206,7 +206,7 @@
                                 <ComboBox.ItemTemplate>
                                     <DataTemplate x:DataType="local:EnumItem">
                                         <TextBlock ToolTip.Tip="{Binding Description}"
-                                                   Text="{Binding DisplayName}" 
+                                                   Text="{Binding DisplayName}"
                                                    Background="Transparent" />
                                     </DataTemplate>
                                 </ComboBox.ItemTemplate>

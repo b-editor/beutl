@@ -1,7 +1,7 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:i="using:Avalonia.Xaml.Interactions.Core"
-                    xmlns:icons="using:FluentIcons.FluentAvalonia"
+                    xmlns:icons="using:FluentIcons.Avalonia.Fluent"
                     xmlns:intv="using:Avalonia.Xaml.Interactivity"
                     xmlns:local="using:Beutl.Controls.Styling.PropertyEditors"
                     xmlns:pe="using:Beutl.Controls.PropertyEditors"

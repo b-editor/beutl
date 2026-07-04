@@ -2,7 +2,7 @@
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
              xmlns:local="using:Beutl.Editor.Components.FileBrowserTab.Views"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -174,7 +174,7 @@
                         <Panel>
                             <icons:SymbolIcon FontSize="16"
                                               IsVisible="{Binding ViewMode.Value, Converter={x:Static vm:FileBrowserViewModeConverters.IsList}}"
-                                              Symbol="TextBulletListLtr" />
+                                              Symbol="TextBulletList" />
                             <icons:SymbolIcon FontSize="16"
                                               IsVisible="{Binding ViewMode.Value, Converter={x:Static vm:FileBrowserViewModeConverters.IsTree}}"
                                               Symbol="TextBulletListTree" />
@@ -234,7 +234,7 @@
                                                           Symbol="Grid" />
                                         <icons:SymbolIcon FontSize="14"
                                                           IsVisible="{Binding !IsFavoritesIconView.Value}"
-                                                          Symbol="TextBulletListLtr" />
+                                                          Symbol="TextBulletList" />
                                     </Panel>
                                 </ToggleButton>
                             </ToggleButton.Tag>
@@ -301,7 +301,7 @@
                                                           Symbol="Grid" />
                                         <icons:SymbolIcon FontSize="14"
                                                           IsVisible="{Binding !IsProjectDirIconView.Value}"
-                                                          Symbol="TextBulletListLtr" />
+                                                          Symbol="TextBulletList" />
                                     </Panel>
                                 </ToggleButton>
                             </ToggleButton.Tag>
@@ -363,7 +363,7 @@
                                                           Symbol="Grid" />
                                         <icons:SymbolIcon FontSize="14"
                                                           IsVisible="{Binding !IsMediaFilesIconView.Value}"
-                                                          Symbol="TextBulletListLtr" />
+                                                          Symbol="TextBulletList" />
                                     </Panel>
                                 </ToggleButton>
                             </ToggleButton.Tag>
