@@ -525,6 +525,29 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         }
     }
 
+    private static Rect? GetGeometryLocalBounds(GeometryShape shape)
+    {
+        if (shape.Data.CurrentValue is null)
+        {
+            return null;
+        }
+
+        using var resource = (GeometryShape.Resource)shape.ToResource(CompositionContext.Default);
+        return resource.Data?.Bounds;
+    }
+
+    private static bool HasCompensatingTranslate(Drawable drawable, Rect geometryBounds)
+    {
+        Matrix matrix = drawable.Transform.CurrentValue?.CreateMatrix(CompositionContext.Default) ?? Matrix.Identity;
+        if (!matrix.TryDecomposeTransform(out Vector translate, out _, out _, out _))
+        {
+            return false;
+        }
+
+        return Math.Abs(translate.X + geometryBounds.X) <= 1
+               && Math.Abs(translate.Y + geometryBounds.Y) <= 1;
+    }
+
     private static StructureMetrics AnalyzeStructure(
         Scene scene,
         IReadOnlyList<SceneObjectInfo> objects,
@@ -550,6 +573,40 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
 
         AddElementStructureIssue(accidentalMultiObjectElements, Major, issues);
         AddElementStructureIssue(intendedMultiObjectElements, Advisory, issues);
+
+        var offsetGeometryShapes = new List<(SceneObjectInfo Info, Rect Bounds)>();
+        foreach (SceneObjectInfo item in objects)
+        {
+            if (item.Object is not GeometryShape geometryShape)
+            {
+                continue;
+            }
+
+            if (GetGeometryLocalBounds(geometryShape) is not { } geometryBounds
+                || (Math.Abs(geometryBounds.X) <= 0.5f && Math.Abs(geometryBounds.Y) <= 0.5f)
+                || HasCompensatingTranslate(geometryShape, geometryBounds))
+            {
+                continue;
+            }
+
+            offsetGeometryShapes.Add((item, geometryBounds));
+        }
+
+        if (offsetGeometryShapes.Count > 0)
+        {
+            string offsets = string.Join("; ", offsetGeometryShapes
+                .Take(3)
+                .Select(item => $"'{item.Info.Object.Name}' path bounds start at ({item.Bounds.X:0.##}, {item.Bounds.Y:0.##})"));
+            issues.Add(new QualityIssue(
+                "geometryPathOffset",
+                Advisory,
+                "GeometryShape paths whose bounds do not start at (0, 0) render offset from their aligned position.",
+                $"{offsetGeometryShapes.Count} GeometryShape objects have non-zero path-bounds origins without a compensating translate: {offsets}. The drawn center lands at the alignment-resolved center plus the path bounds origin.",
+                "Author PathGeometry coordinates so the artwork's top-left is at (0, 0) (all coordinates non-negative), or add TranslateTransform(-boundsX, -boundsY) as a static transform. Paths centered on (0, 0) shift up-left by half their size.",
+                null,
+                offsetGeometryShapes.Select(item => item.Info.Element.Id.ToString()).ToArray(),
+                offsetGeometryShapes.Select(item => item.Info.Object.Id.ToString()).ToArray()));
+        }
 
         SceneObjectInfo[] unclearShapes = objects
             .Where(item => item.Object is Shape)

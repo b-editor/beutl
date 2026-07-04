@@ -11,6 +11,7 @@ using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.ProjectSystem;
@@ -192,7 +193,8 @@ public sealed record ObjectBoundsMeasurement(
     ObjectBoundsPoint Center,
     ObjectBoundsPoint? UserTranslate,
     ObjectTransformMatrix UserTransformMatrix,
-    string? Note = null);
+    string? Note = null,
+    ObjectBoundsPoint? GeometryBoundsOrigin = null);
 
 public sealed record ObjectBoundsRect(
     double Left,
@@ -330,7 +332,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 "Design every shot around one primary focal point; use grouping, alignment, scale contrast, color contrast, and repetition to make supporting layers scan below it.",
                 "Keep only one hero-scale text role per beat; make captions, labels, and texture text visibly quieter so evaluate_edit_quality does not report overloaded hierarchy.",
                 "Use RectShape mostly for full-frame/background plates; prefer EllipseShape, RoundedRectShape, GeometryShape, media, strokes, or procedural texture for foreground accents. Name intent with tags like [role:background], [role:text-backing], or [role:decorative] so quality tools can classify plates correctly.",
-                "Do not default to RectShape/EllipseShape for every figure. For bespoke vector shapes (arrows, chevrons, brackets, crop marks, icons, letter fragments) use GeometryShape; call get_examples for 'insert-new-geometry-shape-path' to copy the typed PathGeometry/PathFigure/segment shape (paths are typed segment objects, not SVG strings, and GeometryShape sizes to its geometry bounds).",
+                "Do not default to RectShape/EllipseShape for every figure. For bespoke vector shapes (arrows, chevrons, brackets, crop marks, icons, letter fragments) use GeometryShape; call get_examples for 'insert-new-geometry-shape-path' to copy the typed PathGeometry/PathFigure/segment shape (paths are typed segment objects, not SVG strings, and GeometryShape sizes to its geometry bounds). Author path coordinates with the artwork's top-left at (0, 0): the drawn center lands at the alignment-resolved center plus the path bounds origin, so paths centered on (0, 0) shift up-left by half their size.",
                 "Keep ordinary timeline Elements to one EngineObject. Multiple Objects in one Element are allowed only when the Element contains an IFlowOperator such as DrawableGroup, DrawableDecorator, SoundGroup, or Scene3D.",
                 "Every large or animated foreground shape needs a clear role/purpose and motion intent in its Element/Object name; avoid unnamed decorative blobs or arbitrary moving shapes.",
                 "Avoid abstract glint/glow/aperture ellipses as foreground decoration. Use parseable systems such as strokes, particles, letter fragments, editor/timeline marks, masks, media, or procedural texture.",
@@ -1393,6 +1395,21 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
             ? "Measured through DrawableRenderNode and RenderNodeProcessor.PullToRoot(). LocalBounds is normalized from render-node extents for size only."
             : $"{renderNodeBounds.Note} LocalBounds is normalized from render-node extents for size only.";
 
+        ObjectBoundsPoint? geometryBoundsOrigin = null;
+        if (drawable is Shape shapeDrawable)
+        {
+            using var shapeResource = (Shape.Resource)shapeDrawable.ToResource(context);
+            if (shapeResource.GetGeometry() is { } geometryResource)
+            {
+                Rect geometryBounds = geometryResource.Bounds;
+                geometryBoundsOrigin = new ObjectBoundsPoint(geometryBounds.X, geometryBounds.Y);
+                if (Math.Abs(geometryBounds.X) > 0.5f || Math.Abs(geometryBounds.Y) > 0.5f)
+                {
+                    note += $" Geometry path bounds start at ({geometryBounds.X:0.##}, {geometryBounds.Y:0.##}) instead of (0, 0), so the drawn path is offset from the alignment-resolved box by exactly that amount. Author path coordinates with the artwork's top-left at (0, 0), or add TranslateTransform({-geometryBounds.X:0.##}, {-geometryBounds.Y:0.##}).";
+                }
+            }
+        }
+
         return new ObjectBoundsMeasurement(
             element.Id.ToString(),
             element.Name,
@@ -1411,7 +1428,8 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
             ToBoundsPoint(transformedBounds.Center),
             userTranslate,
             ToTransformMatrix(userTransform),
-            note);
+            note,
+            geometryBoundsOrigin);
     }
 
     private static RenderNodeBounds MeasureDrawableRenderNodeBounds(

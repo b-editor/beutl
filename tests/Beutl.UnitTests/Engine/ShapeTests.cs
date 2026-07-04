@@ -249,4 +249,5 @@ public class ShapeTests
 
         Assert.That(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"{alignment}_{fillType}.png"), EncodedImageFormat.Png), Is.True);
     }
+
 }

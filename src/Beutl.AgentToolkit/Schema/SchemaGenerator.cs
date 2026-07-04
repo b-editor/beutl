@@ -1556,7 +1556,7 @@ public sealed class SchemaGenerator
 
         return new DeclarativeExample(
             "insert-new-geometry-shape-path",
-            "Minimal patch for a bespoke vector GeometryShape built from a typed PathGeometry. Reach for GeometryShape instead of RectShape/EllipseShape when you need arrows, chevrons, brackets, crop marks, icons, or letter fragments. Paths are authored as typed segment objects, NOT an SVG path string: a PathGeometry holds Figures, each PathFigure has a StartPoint plus Segments of LineSegment/CubicBezierSegment/QuadraticBezierSegment/ConicSegment/ArcSegment; Point values serialize as 'x, y'. GeometryShape sizes to its geometry bounds (no Width/Height). This example draws a closed right-pointing play/arrow triangle; add more Figures, set IsClosed=false for open strokes with a Pen, or swap LineSegment for CubicBezierSegment (ControlPoint1/ControlPoint2/EndPoint) to get curves. New Elements and Objects omit Id.",
+            "Minimal patch for a bespoke vector GeometryShape built from a typed PathGeometry. Reach for GeometryShape instead of RectShape/EllipseShape when you need arrows, chevrons, brackets, crop marks, icons, or letter fragments. Paths are authored as typed segment objects, NOT an SVG path string: a PathGeometry holds Figures, each PathFigure has a StartPoint plus Segments of LineSegment/CubicBezierSegment/QuadraticBezierSegment/ConicSegment/ArcSegment; Point values serialize as 'x, y'. GeometryShape sizes to its geometry bounds (no Width/Height), and the drawn center lands at the alignment-resolved center plus the path bounds origin — author coordinates with the artwork's top-left at (0, 0) as this example does, never centered on (0, 0). This example draws a closed right-pointing play/arrow triangle; add more Figures, set IsClosed=false for open strokes with a Pen, or swap LineSegment for CubicBezierSegment (ControlPoint1/ControlPoint2/EndPoint) to get curves. New Elements and Objects omit Id.",
             new JsonObject
             {
                 ["Elements"] = new JsonArray(new JsonObject
@@ -1581,18 +1581,18 @@ public sealed class SchemaGenerator
                             [nameof(PathGeometry.Figures)] = new JsonArray(new JsonObject
                             {
                                 ["$type"] = pathFigureType,
-                                [nameof(PathFigure.StartPoint)] = "-40, -55",
+                                [nameof(PathFigure.StartPoint)] = "0, 0",
                                 [nameof(PathFigure.IsClosed)] = true,
                                 [nameof(PathFigure.Segments)] = new JsonArray(
                                     new JsonObject
                                     {
                                         ["$type"] = lineSegmentType,
-                                        [nameof(LineSegment.Point)] = "60, 0"
+                                        [nameof(LineSegment.Point)] = "100, 55"
                                     },
                                     new JsonObject
                                     {
                                         ["$type"] = lineSegmentType,
-                                        [nameof(LineSegment.Point)] = "-40, 55"
+                                        [nameof(LineSegment.Point)] = "0, 110"
                                     })
                             })
                         }
@@ -2525,7 +2525,7 @@ public sealed class SchemaGenerator
         }
         else if (typeof(Geometry).IsAssignableFrom(type))
         {
-            hints.Add("Geometry is authored with typed segment objects, not an SVG path string. Use a PathGeometry ($type discriminator) whose Figures hold PathFigure objects, each with a StartPoint ('x, y') plus Segments of LineSegment/CubicBezierSegment/QuadraticBezierSegment/ConicSegment/ArcSegment; set IsClosed=true for filled shapes. Call get_examples for 'insert-new-geometry-shape-path' to copy a working GeometryShape+PathGeometry patch. RectGeometry/EllipseGeometry/RoundedRectGeometry are simpler alternatives for basic shapes. A GeometryShape draws its path at the geometry's own coordinates offset by the path bounds' Position (it is NOT re-centered on its origin), so author paths centered around (0, 0) or call measure_object_bounds and compensate with a TranslateTransform; RectShape/EllipseShape are unaffected because their geometry bounds start at the origin.");
+            hints.Add("Geometry is authored with typed segment objects, not an SVG path string. Use a PathGeometry ($type discriminator) whose Figures hold PathFigure objects, each with a StartPoint ('x, y') plus Segments of LineSegment/CubicBezierSegment/QuadraticBezierSegment/ConicSegment/ArcSegment; set IsClosed=true for filled shapes. Call get_examples for 'insert-new-geometry-shape-path' to copy a working GeometryShape+PathGeometry patch. RectGeometry/EllipseGeometry/RoundedRectGeometry are simpler alternatives for basic shapes. A GeometryShape's drawn center lands at the alignment-resolved center PLUS the path bounds origin, so author path coordinates with the artwork's top-left at (0, 0) (all coordinates non-negative); paths centered on (0, 0) shift up-left by half their size, and scene-absolute coordinates shift by their full offset. If coordinates cannot be normalized, add TranslateTransform(-boundsX, -boundsY) or check measure_object_bounds' geometryBoundsOrigin. RectShape/EllipseShape are unaffected because their geometry bounds start at the origin.");
         }
         else if (typeof(EngineObject).IsAssignableFrom(type))
         {

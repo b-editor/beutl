@@ -1732,6 +1732,52 @@ public sealed class QualityAnalyzerTests
         return string.Join(Environment.NewLine, [issues, contrast]);
     }
 
+    [Test]
+    public async Task Analyze_flags_geometry_shape_paths_with_offset_bounds_origin()
+    {
+        Scene scene = CreateScene();
+        AddObject(scene, "offset mark element", 10, CreateTriangleGeometryShape("offset mark", -40, -55));
+
+        QualityReviewResponse result = await AnalyzeAsync(scene, evaluateMotion: false);
+
+        QualityIssue issue = result.Issues.Single(item => item.Category == "geometryPathOffset");
+        Assert.Multiple(() =>
+        {
+            Assert.That(issue.Severity, Is.EqualTo("minor"));
+            Assert.That(issue.Evidence, Does.Contain("-40"));
+            Assert.That(issue.SuggestedFix, Does.Contain("top-left is at (0, 0)"));
+        });
+    }
+
+    [Test]
+    public async Task Analyze_accepts_zero_origin_and_compensated_geometry_paths()
+    {
+        Scene scene = CreateScene();
+        AddObject(scene, "zero origin element", 10, CreateTriangleGeometryShape("zero origin", 0, 0));
+        GeometryShape compensated = CreateTriangleGeometryShape("compensated", -40, -55);
+        compensated.Transform.CurrentValue = new TranslateTransform(40, 55);
+        AddObject(scene, "compensated element", 11, compensated);
+
+        QualityReviewResponse result = await AnalyzeAsync(scene, evaluateMotion: false);
+
+        Assert.That(result.Issues.Select(item => item.Category), Does.Not.Contain("geometryPathOffset"));
+    }
+
+    private static GeometryShape CreateTriangleGeometryShape(string name, float originX, float originY)
+    {
+        var figure = new PathFigure();
+        figure.StartPoint.CurrentValue = new Point(originX, originY);
+        figure.Segments.Add(new LineSegment(new Point(originX + 100, originY + 55)));
+        figure.Segments.Add(new LineSegment(new Point(originX, originY + 110)));
+        figure.IsClosed.CurrentValue = true;
+        return new GeometryShape
+        {
+            Name = name,
+            Data = { CurrentValue = new PathGeometry { Figures = { figure } } },
+            Fill = { CurrentValue = new SolidColorBrush(Colors.White) }
+        };
+    }
+
     private static Scene CreateScene(double durationSeconds = 1)
         => CreateScene(1920, 1080, durationSeconds);
 
