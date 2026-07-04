@@ -42,16 +42,16 @@ public sealed record OperationStatusResponse(
 
 [McpServerToolType]
 public sealed class SessionTools(
-    FileSessionSource fileSessions,
+    IProjectSessionGateway projects,
     AgentSessionManager sessions,
     IWorkspaceGuard workspace,
     DestructiveGuard destructiveGuard) : ToolBase
 {
     [McpServerTool(Name = "open_project")]
-    [Description("Opens a Beutl .bep project from any readable local path and makes it the active file-backed editing session.")]
-    public ToolResult<OpenProjectResponse> OpenProject(string path)
+    [Description("Opens a Beutl .bep project from any readable local path and makes it the active editing session. In the in-app host this opens the project in the Beutl editor (the editor holds a single open project; the session is LiveEditor and edits show live); in the stdio host it opens a file-backed session.")]
+    public ValueTask<ToolResult<OpenProjectResponse>> OpenProject(string path, CancellationToken cancellationToken = default)
     {
-        return Execute(() =>
+        return ExecuteAsync(async () =>
         {
             string fullPath = Path.GetFullPath(path);
             ValidateProjectFileExtension(fullPath, nameof(path));
@@ -60,62 +60,68 @@ public sealed class SessionTools(
                 return Throw<OpenProjectResponse>(ErrorCode.MediaNotFound, $"Project file not found: {fullPath}", fullPath);
             }
 
-            FileEditingSession session = fileSessions.OpenProject(fullPath);
-            sessions.UseSource(fileSessions);
-            return new OpenProjectResponse(session.SessionId, session.Source.ToString(), CreateSummary(session.Project));
+            ProjectSessionResult result = await projects.OpenProjectAsync(fullPath, cancellationToken).ConfigureAwait(false);
+            return new OpenProjectResponse(result.Session.SessionId, result.Session.Source.ToString(), CreateSummary(result.Project));
         });
     }
 
     [McpServerTool(Name = "create_project")]
-    [Description("Creates and saves a new file-backed Beutl .bep project with one scene. Paths without an extension are saved as .bep; .beutl is reserved for project packages. The output path is restricted to BEUTL_WORKSPACE.")]
-    public ToolResult<CreateProjectResponse> CreateProject(
+    [Description("Creates and saves a new Beutl .bep project with one scene, then makes it the active editing session. In the in-app host the project opens in the Beutl editor (single open project, LiveEditor session); in the stdio host it becomes a file-backed session. Paths without an extension are saved as .bep; .beutl is reserved for project packages. The output path is restricted to BEUTL_WORKSPACE.")]
+    public ValueTask<ToolResult<CreateProjectResponse>> CreateProject(
         [Description("Workspace-relative project file path; project files use path, while render/export outputs use outputPath/outputDirectory.")]
         string path,
         int width,
         int height,
         int frameRate,
         string duration,
-        bool confirmOverwrite = false)
+        bool confirmOverwrite = false,
+        CancellationToken cancellationToken = default)
     {
-        return Execute(() =>
+        return ExecuteAsync(async () =>
         {
             ValidateProjectSettings(width, height, frameRate);
             string writePath = NormalizeProjectPath(workspace.ResolveForWrite(path), nameof(path));
             destructiveGuard.EnsureOverwriteAllowed(writePath, confirmOverwrite);
 
-            FileEditingSession session = fileSessions.CreateProject(new ProjectCreateOptions(
-                writePath,
-                width,
-                height,
-                frameRate,
-                ParseTimeSpan(duration)));
-            sessions.UseSource(fileSessions);
-            session.Save(skipConflictCheck: true);
-            return new CreateProjectResponse(session.SessionId, session.Project.Uri!.LocalPath, CreateSummary(session.Project));
+            ProjectSessionResult result = await projects.CreateProjectAsync(
+                new ProjectCreateOptions(
+                    writePath,
+                    width,
+                    height,
+                    frameRate,
+                    ParseTimeSpan(duration)),
+                cancellationToken).ConfigureAwait(false);
+            return new CreateProjectResponse(
+                result.Session.SessionId,
+                result.Project.Uri!.LocalPath,
+                CreateSummary(result.Project));
         });
     }
 
     [McpServerTool(Name = "add_scene")]
-    [Description("Adds a scene to the current file-backed project. Persist with save_project.")]
-    public ToolResult<AddSceneResponse> AddScene(
+    [Description("Adds a scene to the current project. File-backed sessions persist it with save_project; in the in-app host the scene is saved and shown in the editor immediately.")]
+    public ValueTask<ToolResult<AddSceneResponse>> AddScene(
         string session,
         int width,
         int height,
         string start,
         string duration,
-        string? name = null)
+        string? name = null,
+        CancellationToken cancellationToken = default)
     {
-        return Execute(() =>
+        return ExecuteAsync(async () =>
         {
-            FileEditingSession fileSession = RequireFileSession(session);
+            RequireActiveSession(session);
             ValidateProjectSettings(width, height, frameRate: 1);
-            Scene scene = fileSessions.AddScene(new SceneCreateOptions(
-                width,
-                height,
-                ParseTimeSpan(start),
-                ParseTimeSpan(duration),
-                name));
-            return new AddSceneResponse(scene.Id.ToString(), CreateSummary(fileSession.Project));
+            ProjectSceneResult result = await projects.AddSceneAsync(
+                new SceneCreateOptions(
+                    width,
+                    height,
+                    ParseTimeSpan(start),
+                    ParseTimeSpan(duration),
+                    name),
+                cancellationToken).ConfigureAwait(false);
+            return new AddSceneResponse(result.Scene.Id.ToString(), CreateSummary(result.Project));
         });
     }
 
@@ -212,11 +218,17 @@ public sealed class SessionTools(
 
     private FileEditingSession RequireFileSession(string sessionId)
     {
-        if (fileSessions.CurrentFileSession is not { } session)
+        if (RequireActiveSession(sessionId) is not FileEditingSession session)
         {
             throw new SessionUnavailableException();
         }
 
+        return session;
+    }
+
+    private IEditingSession RequireActiveSession(string sessionId)
+    {
+        IEditingSession session = sessions.RequireSession();
         if (!string.Equals(session.SessionId, sessionId, StringComparison.Ordinal))
         {
             throw new ReconcileException(new ToolError(
@@ -225,7 +237,6 @@ public sealed class SessionTools(
                 sessionId));
         }
 
-        sessions.UseSource(fileSessions);
         return session;
     }
 

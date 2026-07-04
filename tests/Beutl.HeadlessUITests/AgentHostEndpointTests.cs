@@ -22,7 +22,7 @@ public sealed class AgentHostEndpointTests
             Assert.Inconclusive($"Default port {AgentHostEndpoint.DefaultPort} is already in use.");
         }
 
-        var endpoint = new AgentHostEndpoint(new EditorService(new ExtensionProvider()));
+        var endpoint = new AgentHostEndpoint(new ProjectService(), new EditorService(new ExtensionProvider()));
 
         try
         {
@@ -66,6 +66,7 @@ public sealed class AgentHostEndpointTests
         using TcpListener occupiedPort = ReserveLoopbackPortWithAvailableSuccessor();
         int preferredPort = ((IPEndPoint)occupiedPort.LocalEndpoint).Port;
         var endpoint = new AgentHostEndpoint(
+            new ProjectService(),
             new EditorService(new ExtensionProvider()),
             preferredPort,
             AgentHostEndpoint.DefaultToken);
@@ -91,7 +92,7 @@ public sealed class AgentHostEndpointTests
     public async Task RequestStop_marks_endpoint_stopped_without_awaiting_host_shutdown()
     {
         await TestReset.ResetShellAsync();
-        var endpoint = new AgentHostEndpoint(new EditorService(new ExtensionProvider()));
+        var endpoint = new AgentHostEndpoint(new ProjectService(), new EditorService(new ExtensionProvider()));
 
         await endpoint.StartAsync();
         endpoint.RequestStop();
@@ -110,6 +111,7 @@ public sealed class AgentHostEndpointTests
     {
         await TestReset.ResetShellAsync();
         var endpoint = new AgentHostEndpoint(
+            new ProjectService(),
             new EditorService(new ExtensionProvider()),
             GetAvailableLoopbackPort(),
             "test-token");
@@ -152,6 +154,7 @@ public sealed class AgentHostEndpointTests
         // tools/list alone never constructs tool classes, so only a call catches a DI registration missing from this host.
         await TestReset.ResetShellAsync();
         var endpoint = new AgentHostEndpoint(
+            new ProjectService(),
             new EditorService(new ExtensionProvider()),
             GetAvailableLoopbackPort(),
             "test-token");

@@ -10,15 +10,15 @@ namespace Beutl.AgentToolkit.Tests.Tools;
 public sealed class SessionToolsTests
 {
     [Test]
-    public void Create_project_starts_file_backed_session_for_document_tools()
+    public async Task Create_project_starts_file_backed_session_for_document_tools()
     {
         string root = CreateWorkspace();
         var manager = new AgentSessionManager();
         using var source = new FileSessionSource();
-        var sessionTools = new SessionTools(source, manager, new WorkspaceGuard(root), new DestructiveGuard());
+        SessionTools sessionTools = CreateSessionTools(source, manager, root);
         var queryTools = new QueryTools(manager);
 
-        ToolResult<CreateProjectResponse> created = sessionTools.CreateProject(
+        ToolResult<CreateProjectResponse> created = await sessionTools.CreateProject(
             "motion.bep",
             width: 640,
             height: 360,
@@ -44,19 +44,15 @@ public sealed class SessionToolsTests
     }
 
     [Test]
-    public void Create_project_existing_path_requires_confirmation()
+    public async Task Create_project_existing_path_requires_confirmation()
     {
         string root = CreateWorkspace();
         string path = Path.Combine(root, "exists.bep");
         File.WriteAllText(path, "{}");
         using var source = new FileSessionSource();
-        var sessionTools = new SessionTools(
-            source,
-            new AgentSessionManager(),
-            new WorkspaceGuard(root),
-            new DestructiveGuard());
+        SessionTools sessionTools = CreateSessionTools(source, new AgentSessionManager(), root);
 
-        ToolResult<CreateProjectResponse> result = sessionTools.CreateProject(
+        ToolResult<CreateProjectResponse> result = await sessionTools.CreateProject(
             "exists.bep",
             width: 640,
             height: 360,
@@ -71,23 +67,19 @@ public sealed class SessionToolsTests
     }
 
     [Test]
-    public void Create_project_rejects_package_extension_and_appends_missing_project_extension()
+    public async Task Create_project_rejects_package_extension_and_appends_missing_project_extension()
     {
         string root = CreateWorkspace();
         using var source = new FileSessionSource();
-        var sessionTools = new SessionTools(
-            source,
-            new AgentSessionManager(),
-            new WorkspaceGuard(root),
-            new DestructiveGuard());
+        SessionTools sessionTools = CreateSessionTools(source, new AgentSessionManager(), root);
 
-        ToolResult<CreateProjectResponse> rejected = sessionTools.CreateProject(
+        ToolResult<CreateProjectResponse> rejected = await sessionTools.CreateProject(
             "wrong.beutl",
             width: 640,
             height: 360,
             frameRate: 30,
             duration: "00:00:04");
-        ToolResult<CreateProjectResponse> normalized = sessionTools.CreateProject(
+        ToolResult<CreateProjectResponse> normalized = await sessionTools.CreateProject(
             "motion",
             width: 640,
             height: 360,
@@ -106,16 +98,12 @@ public sealed class SessionToolsTests
     }
 
     [Test]
-    public void Save_project_rejects_package_extension()
+    public async Task Save_project_rejects_package_extension()
     {
         string root = CreateWorkspace();
         using var source = new FileSessionSource();
-        var sessionTools = new SessionTools(
-            source,
-            new AgentSessionManager(),
-            new WorkspaceGuard(root),
-            new DestructiveGuard());
-        ToolResult<CreateProjectResponse> created = sessionTools.CreateProject(
+        SessionTools sessionTools = CreateSessionTools(source, new AgentSessionManager(), root);
+        ToolResult<CreateProjectResponse> created = await sessionTools.CreateProject(
             "motion.bep",
             width: 640,
             height: 360,
@@ -133,17 +121,13 @@ public sealed class SessionToolsTests
     }
 
     [Test]
-    public void Save_project_uses_current_file_session_when_session_is_omitted()
+    public async Task Save_project_uses_current_file_session_when_session_is_omitted()
     {
         string root = CreateWorkspace();
         using var source = new FileSessionSource();
         var manager = new AgentSessionManager();
-        var sessionTools = new SessionTools(
-            source,
-            manager,
-            new WorkspaceGuard(root),
-            new DestructiveGuard());
-        ToolResult<CreateProjectResponse> created = sessionTools.CreateProject(
+        SessionTools sessionTools = CreateSessionTools(source, manager, root);
+        ToolResult<CreateProjectResponse> created = await sessionTools.CreateProject(
             "sessionless-save.bep",
             width: 640,
             height: 360,
@@ -170,11 +154,7 @@ public sealed class SessionToolsTests
         var manager = new AgentSessionManager();
         manager.UseSource(new AgentToolkitTestSessionSource(liveSession));
         using var fileSource = new FileSessionSource();
-        var sessionTools = new SessionTools(
-            fileSource,
-            manager,
-            new WorkspaceGuard(root),
-            new DestructiveGuard());
+        SessionTools sessionTools = CreateSessionTools(fileSource, manager, root);
 
         ToolResult<SaveProjectResponse> saved = sessionTools.SaveProject(liveSession.SessionId);
         ToolResult<OperationStatusResponse> status = sessionTools.ReadOperationStatus();
@@ -189,6 +169,15 @@ public sealed class SessionToolsTests
             Assert.That(status.Value!.SaveProjectSupported, Is.False);
             Assert.That(status.Value.Source, Is.EqualTo(nameof(EditingSessionSource.LiveEditor)));
         });
+    }
+
+    private static SessionTools CreateSessionTools(FileSessionSource source, AgentSessionManager manager, string root)
+    {
+        return new SessionTools(
+            new FileProjectSessionGateway(source, manager),
+            manager,
+            new WorkspaceGuard(root),
+            new DestructiveGuard());
     }
 
     private static string CreateWorkspace()

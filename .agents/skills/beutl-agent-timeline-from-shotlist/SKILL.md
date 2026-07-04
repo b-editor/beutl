@@ -103,7 +103,7 @@ Build the static layout of **every enumerated shot** with NO keyframes and NO ef
 
 5. Create or attach a session:
    - Stdio/headless: `create_project` or `open_project` with a `.bep` project path. Paths without an extension are normalized to `.bep`; `.beutl` is reserved for exported project packages.
-   - Live editor: `attach_active_editor`.
+   - Live editor: `attach_active_editor`. In the in-app host, `open_project`/`create_project` open the project in the running Beutl editor itself (the editor holds a single open project) and return a LiveEditor session — opening a project different from the one already open is rejected; attach or have the user close it first.
 6. If live attach fails and the task allows headless output, switch to the stdio/headless `create_project` route rather than creating a custom generator.
 7. When an output directory is requested, create/update `notes.md` there before the first edit and after every `apply_edit`, `save_project`, `render_storyboard`, `preview_quality_risks`, `suggest_quality_fixes`, `render_still`, `evaluate_motion_variation`, `evaluate_edit_quality`, `compare_revisions`, `final_preflight`, and `export_video` result. Record success/failure, change count or verdict/path, and the next action. While drafting a large patch before the next tool call, append a short heartbeat note every few minutes with the current stage and blocker risk.
 8. Call `read_document` and keep the returned `schemaVersion`.

@@ -22,16 +22,17 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
     internal const string DefaultToken = "424555544C4147454E54484F53543031";
 
     private static readonly TimeSpan s_shutdownTimeout = TimeSpan.FromSeconds(2);
+    private readonly ProjectService _projectService;
     private readonly EditorService _editorService;
     private readonly int _preferredPort;
     private WebApplication? _application;
 
-    public AgentHostEndpoint(EditorService editorService)
-        : this(editorService, DefaultPort, DefaultToken)
+    public AgentHostEndpoint(ProjectService projectService, EditorService editorService)
+        : this(projectService, editorService, DefaultPort, DefaultToken)
     {
     }
 
-    internal AgentHostEndpoint(EditorService editorService, int preferredPort, string token)
+    internal AgentHostEndpoint(ProjectService projectService, EditorService editorService, int preferredPort, string token)
     {
         if (preferredPort is < 1 or > IPEndPoint.MaxPort)
         {
@@ -43,6 +44,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             throw new ArgumentException("Token must not be empty.", nameof(token));
         }
 
+        _projectService = projectService;
         _editorService = editorService;
         _preferredPort = preferredPort;
         Token = token;
@@ -140,9 +142,10 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
                                ?? Directory.GetCurrentDirectory();
 
         builder.Services
+            .AddSingleton(_projectService)
             .AddSingleton(_editorService)
             .AddSingleton<LiveSessionSource>()
-            .AddSingleton<FileSessionSource>()
+            .AddSingleton<IProjectSessionGateway, EditorProjectSessionGateway>()
             .AddSingleton(_ => new CreativeMemoryStore(workspaceRoot))
             .AddSingleton<AgentSessionManager>()
             .AddSingleton<IWorkspaceGuard>(_ => new WorkspaceGuard(workspaceRoot))

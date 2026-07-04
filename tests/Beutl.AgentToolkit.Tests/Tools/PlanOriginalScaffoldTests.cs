@@ -16,11 +16,11 @@ public sealed class PlanOriginalScaffoldTests
         string root = CreateWorkspace();
         var manager = new AgentSessionManager();
         using var source = new FileSessionSource();
-        var sessionTools = new SessionTools(source, manager, new WorkspaceGuard(root), new DestructiveGuard());
+        var sessionTools = new SessionTools(new FileProjectSessionGateway(source, manager), manager, new WorkspaceGuard(root), new DestructiveGuard());
         var queryTools = new QueryTools(manager);
         var editTools = new EditTools(manager);
 
-        ToolResult<CreateProjectResponse> created = sessionTools.CreateProject(
+        ToolResult<CreateProjectResponse> created = await sessionTools.CreateProject(
             "scaffold.bep",
             width: 1920,
             height: 1080,

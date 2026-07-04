@@ -279,6 +279,7 @@ public sealed class McpToolBindingTests
                 .AddSingleton<VideoExporter>()
                 .AddSingleton<RenderJobManager>()
                 .AddSingleton<FileSessionSource>()
+                .AddSingleton<IProjectSessionGateway, FileProjectSessionGateway>()
                 .AddSingleton(_ => new CreativeMemoryStore(workspace))
                 .AddSingleton<AgentSessionManager>();
 

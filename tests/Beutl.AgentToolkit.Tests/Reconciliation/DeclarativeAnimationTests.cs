@@ -275,14 +275,14 @@ public sealed class DeclarativeAnimationTests
     }
 
     [Test]
-    public void Apply_edit_file_session_evaluates_relative_keyframes_against_element_local_time()
+    public async Task Apply_edit_file_session_evaluates_relative_keyframes_against_element_local_time()
     {
         string workspace = CreateWorkspace();
         var manager = new AgentSessionManager();
         using var source = new FileSessionSource();
-        var sessionTools = new SessionTools(source, manager, new WorkspaceGuard(workspace), new DestructiveGuard());
+        var sessionTools = new SessionTools(new FileProjectSessionGateway(source, manager), manager, new WorkspaceGuard(workspace), new DestructiveGuard());
         var editTools = new EditTools(manager);
-        ToolResult<CreateProjectResponse> created = sessionTools.CreateProject(
+        ToolResult<CreateProjectResponse> created = await sessionTools.CreateProject(
             "local-keyframes.bep",
             width: 320,
             height: 180,
@@ -339,9 +339,9 @@ public sealed class DeclarativeAnimationTests
         string workspace = CreateWorkspace();
         var manager = new AgentSessionManager();
         using var source = new FileSessionSource();
-        var sessionTools = new SessionTools(source, manager, new WorkspaceGuard(workspace), new DestructiveGuard());
+        var sessionTools = new SessionTools(new FileProjectSessionGateway(source, manager), manager, new WorkspaceGuard(workspace), new DestructiveGuard());
         var editTools = new EditTools(manager);
-        ToolResult<CreateProjectResponse> created = sessionTools.CreateProject(
+        ToolResult<CreateProjectResponse> created = await sessionTools.CreateProject(
             "nested-local-keyframes.bep",
             width: 320,
             height: 180,

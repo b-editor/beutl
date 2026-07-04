@@ -15,7 +15,7 @@ public sealed record AgentHostSceneSummary(string SceneId, string Name, int Widt
 public sealed record AttachActiveEditorResponse(string Session, string Source, AgentHostSceneSummary Summary)
 {
     public string Persistence =>
-        "LiveEditor sessions edit the open scene. Persist live edits with the Beutl editor UI; create_project, open_project, and save_project create or persist a file-backed session.";
+        "LiveEditor sessions edit the open scene; persist live edits with the Beutl editor UI. In this in-app host, open_project/create_project also open the project in the editor (single open project) and return a LiveEditor session, so save_project is not required.";
 
     public IReadOnlyList<string> NextSteps { get; } =
     [
@@ -50,7 +50,7 @@ public sealed class AgentHostTools(
                     ErrorCode.NoActiveEditorSession,
                     "No active Beutl editor scene is available.",
                     null,
-                    "Open or create a project/scene in the Beutl editor and call attach_active_editor again, or call create_project/open_project to start a file-backed session."));
+                    "Open or create a project/scene in the Beutl editor and call attach_active_editor again, or call create_project/open_project — in this host they open the project in the editor and return a live session."));
             }
 
             LiveEditingSession session = liveSessions.Attach(new EditViewModelLiveBinding(editViewModel));
