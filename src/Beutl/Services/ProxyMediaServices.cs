@@ -55,7 +55,7 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
         ProxyStoreConfig config = configuration.ProxyStoreConfig;
         var store = new ProxyStore(config.StoreRootPath);
         var resolver = new ProxyResolver(store);
-        var queue = new ProxyJobQueue(CreateGenerator(store), store);
+        ProxyJobQueue queue = null!;
         var eviction = new ProxyEvictionService(
             store,
             resolver,
@@ -64,7 +64,17 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
                 "Proxy media",
                 $"Evicted {result.RemovedCount} proxy file(s), reclaimed {FormatBytes(result.ReclaimedBytes)}."),
             minFreeDiskBytes: DefaultMinFreeDiskBytes,
-            openProjectSourceProvider: CollectOpenProjectSources);
+            openProjectSourceProvider: CollectOpenProjectSources,
+            activeGenerationProvider: () => CollectActiveGenerations(queue));
+
+        IProxyGenerator generator = CreateGenerator(store);
+        // Free disk headroom in the dispatch path (right before the encoder writes) rather than only
+        // as a fire-and-forget task on Enqueue, so a low-disk store does not fail the first job that
+        // eviction could have made room for. Only wrap availability-aware generators so the queue
+        // still sees the real IsAvailable signal.
+        if (generator is IProxyGeneratorAvailability)
+            generator = new DiskHeadroomProxyGenerator(generator, eviction);
+        queue = new ProxyJobQueue(generator, store);
 
         var services = new ProxyMediaServices(store, resolver, queue, eviction);
         Current = services;
@@ -177,6 +187,15 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
         }
     }
 
+    private static IReadOnlySet<(ProxyFingerprint Source, ProxyPreset Preset)> CollectActiveGenerations(ProxyJobQueue queue)
+    {
+        var active = new HashSet<(ProxyFingerprint, ProxyPreset)>();
+        foreach (ProxyJob job in queue.Pending())
+            active.Add((job.Source, job.Preset));
+
+        return active;
+    }
+
     private static IReadOnlySet<string> CollectOpenProjectSources()
     {
         try
@@ -233,6 +252,28 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
         public ValueTask GenerateAsync(ProxyJob job)
         {
             throw new ProxyGeneratorUnavailableException("FFmpeg proxy generation is not available in this build.");
+        }
+    }
+
+    // Runs a disk-pressure sweep synchronously in the queue's dispatch path, right before the inner
+    // generator writes, and forwards the inner generator's availability signal unchanged.
+    private sealed class DiskHeadroomProxyGenerator(IProxyGenerator inner, ProxyEvictionService eviction)
+        : IProxyGenerator, IProxyGeneratorAvailability
+    {
+        private readonly IProxyGeneratorAvailability _availability = (IProxyGeneratorAvailability)inner;
+
+        public bool IsAvailable => _availability.IsAvailable;
+
+        public event EventHandler? AvailabilityChanged
+        {
+            add => _availability.AvailabilityChanged += value;
+            remove => _availability.AvailabilityChanged -= value;
+        }
+
+        public ValueTask GenerateAsync(ProxyJob job)
+        {
+            SweepForDiskPressureBestEffort(eviction);
+            return inner.GenerateAsync(job);
         }
     }
 }

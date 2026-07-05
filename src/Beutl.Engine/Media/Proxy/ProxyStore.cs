@@ -229,6 +229,7 @@ public sealed class ProxyStore : IProxyStore
             List<ProxyEntry> missing = [];
             List<ProxyEntry> changed = [];
             HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> changedKeys = [];
+            HashSet<string> trackedProxyPaths = [];
             lock (_lock)
             {
                 changedKeys.UnionWith(AdoptSidecarsCore(cancellationToken));
@@ -294,8 +295,14 @@ public sealed class ProxyStore : IProxyStore
                     FlushCore(changedKeys, removedKeys);
                 }
 
-                ReclaimOrphanProxyFilesCore(cancellationToken);
+                trackedProxyPaths = CollectTrackedProxyPaths();
             }
+
+            // Scan and delete orphaned proxy files outside the store lock: this walks the whole store
+            // root and stats/deletes files, which would otherwise block UI paths (TryGet/Touch/
+            // Enumerate) behind startup reconciliation. A just-generated proxy is younger than the
+            // age threshold, so the snapshot going slightly stale cannot reclaim a live file.
+            ReclaimOrphanProxyFiles(trackedProxyPaths, cancellationToken);
 
             foreach (ProxyEntry entry in missing)
             {
@@ -389,7 +396,7 @@ public sealed class ProxyStore : IProxyStore
         return adoptedKeys;
     }
 
-    private void ReclaimOrphanProxyFilesCore(CancellationToken cancellationToken)
+    private HashSet<string> CollectTrackedProxyPaths()
     {
         HashSet<string> tracked = [];
         foreach (ProxyEntry entry in _entries.Values)
@@ -403,6 +410,11 @@ public sealed class ProxyStore : IProxyStore
             }
         }
 
+        return tracked;
+    }
+
+    private void ReclaimOrphanProxyFiles(HashSet<string> tracked, CancellationToken cancellationToken)
+    {
         foreach (string file in Directory.EnumerateFiles(StoreRootPath, "*.mp4", SearchOption.AllDirectories))
         {
             cancellationToken.ThrowIfCancellationRequested();

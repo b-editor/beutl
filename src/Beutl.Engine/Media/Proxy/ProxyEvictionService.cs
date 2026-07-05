@@ -8,6 +8,9 @@ public sealed class ProxyEvictionService
 {
     private static readonly IReadOnlySet<string> s_noProtectedSources = new HashSet<string>();
 
+    private static readonly IReadOnlySet<(ProxyFingerprint Source, ProxyPreset Preset)> s_noActiveGenerations =
+        new HashSet<(ProxyFingerprint, ProxyPreset)>();
+
     private readonly IProxyStore _store;
     private readonly ProxyResolver? _resolver;
     private readonly long _maxTotalBytes;
@@ -15,6 +18,7 @@ public sealed class ProxyEvictionService
     private readonly Action<ProxyEvictionResult>? _notify;
     private readonly Func<IReadOnlySet<string>>? _openProjectSourceProvider;
     private readonly Func<string, long?>? _availableFreeSpaceProvider;
+    private readonly Func<IReadOnlySet<(ProxyFingerprint Source, ProxyPreset Preset)>>? _activeGenerationProvider;
 
     public ProxyEvictionService(
         IProxyStore store,
@@ -23,7 +27,8 @@ public sealed class ProxyEvictionService
         Action<ProxyEvictionResult>? notify = null,
         long minFreeDiskBytes = 0,
         Func<IReadOnlySet<string>>? openProjectSourceProvider = null,
-        Func<string, long?>? availableFreeSpaceProvider = null)
+        Func<string, long?>? availableFreeSpaceProvider = null,
+        Func<IReadOnlySet<(ProxyFingerprint Source, ProxyPreset Preset)>>? activeGenerationProvider = null)
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentOutOfRangeException.ThrowIfNegative(minFreeDiskBytes);
@@ -35,6 +40,7 @@ public sealed class ProxyEvictionService
         _notify = notify;
         _openProjectSourceProvider = openProjectSourceProvider;
         _availableFreeSpaceProvider = availableFreeSpaceProvider;
+        _activeGenerationProvider = activeGenerationProvider;
     }
 
     /// <summary>
@@ -100,6 +106,8 @@ public sealed class ProxyEvictionService
             return default;
 
         IReadOnlySet<string> protectedSources = ResolveProtectedSources();
+        IReadOnlySet<(ProxyFingerprint Source, ProxyPreset Preset)> activeGenerations =
+            _activeGenerationProvider?.Invoke() ?? s_noActiveGenerations;
 
         List<Candidate> candidates = [];
         foreach (ProxyEntry entry in _store.Enumerate()
@@ -111,9 +119,15 @@ public sealed class ProxyEvictionService
             if (_resolver?.IsPinned(absolutePath) == true)
                 continue;
 
-            long bytes = File.Exists(absolutePath)
-                ? new FileInfo(absolutePath).Length
-                : entry.ProxyFileSizeBytes;
+            // A proxy queued for regeneration must not be deleted before its replacement is
+            // registered; if that generation is later canceled or fails the user would lose the
+            // still-usable proxy for nothing.
+            if (activeGenerations.Contains((entry.Source, entry.Preset)))
+                continue;
+
+            // A shared-store peer can delete the file between the existence check and the stat; fall
+            // back to the recorded size rather than letting the whole sweep abort on that race.
+            long bytes = TryGetFileLength(absolutePath) ?? entry.ProxyFileSizeBytes;
 
             bool isProtected = protectedSources.Contains(entry.Source.AbsolutePath);
             candidates.Add(new Candidate(entry, bytes, isProtected));
@@ -189,6 +203,19 @@ public sealed class ProxyEvictionService
         }
 
         return normalized;
+    }
+
+    private static long? TryGetFileLength(string path)
+    {
+        try
+        {
+            var info = new FileInfo(path);
+            return info.Exists ? info.Length : null;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private static string ResolveComparablePath(string path)

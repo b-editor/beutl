@@ -199,7 +199,11 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
     {
         if (_proxyStore != null)
         {
-            EventHandler<ProxyStoreChangedEventArgs> storeHandler = (_, _) => OnProxyStateInvalidated();
+            EventHandler<ProxyStoreChangedEventArgs> storeHandler = (_, e) =>
+            {
+                OnProxyStateInvalidated();
+                OnProxyStoreChangedForThumbnails(e);
+            };
             _proxyStore.Changed += storeHandler;
             Disposable.Create(() => _proxyStore.Changed -= storeHandler).AddTo(_disposables);
         }
@@ -962,6 +966,35 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         }
 
         RefreshProxyState();
+    }
+
+    private void OnProxyStoreChangedForThumbnails(ProxyStoreChangedEventArgs e)
+    {
+        // Filmstrip thumbnails are cached without proxy availability in the key, so a proxy
+        // registered/deleted/changed for this element's source (in prefer-proxy mode) leaves the
+        // strip decoded from the previous path until an unrelated edit; drop the cache and re-render.
+        if (!PreferProxyForThumbnails
+            || e.Kind is not (ProxyStoreChangeKind.Registered or ProxyStoreChangeKind.StateChanged or ProxyStoreChangeKind.Deleted))
+        {
+            return;
+        }
+
+        if (!Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => OnProxyStoreChangedForThumbnails(e));
+            return;
+        }
+
+        if (ResolveProxyFingerprint() is not { } fingerprint
+            || !string.Equals(fingerprint.AbsolutePath, e.Source.AbsolutePath, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        if (_lastThumbnailsCacheKey != null)
+            _thumbnailCacheService.Invalidate(_lastThumbnailsCacheKey);
+
+        UpdateThumbnailsAsync();
     }
 
     private void RefreshProxyState(bool invalidateFingerprintCache = false)

@@ -140,6 +140,34 @@ public class ProxyEvictionTests
     }
 
     [Test]
+    public void Sweep_SkipsEntriesWithActiveGeneration()
+    {
+        string root = CreateRoot();
+        var store = new ProxyStore(root);
+        ProxyEntry generating = Register(store, root, "generating.mp4", DateTime.UtcNow.AddMinutes(-10), 7);
+        ProxyEntry idle = Register(store, root, "idle.mp4", DateTime.UtcNow, 7);
+        var service = new ProxyEvictionService(
+            store,
+            resolver: null,
+            maxTotalBytes: 7,
+            activeGenerationProvider: () => new HashSet<(ProxyFingerprint, ProxyPreset)>
+            {
+                (generating.Source, generating.Preset),
+            });
+
+        ProxyEvictionResult result = service.Sweep();
+
+        // The LRU candidate is being regenerated, so deleting it now could lose the usable proxy if
+        // that generation fails; eviction must fall through to the idle entry instead.
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.RemovedCount, Is.EqualTo(1));
+            Assert.That(store.TryGet(generating.Source, generating.Preset), Is.Not.Null);
+            Assert.That(store.TryGet(idle.Source, idle.Preset), Is.Null);
+        });
+    }
+
+    [Test]
     public void Sweep_EvictsOpenProjectEntries_AsLastResort()
     {
         string root = CreateRoot();

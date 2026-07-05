@@ -455,16 +455,37 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
     private IEnumerable<(string Path, ProxyFingerprint Fingerprint)> EnumerateProjectVideoSources()
     {
         HashSet<string> seenPaths = new(StringComparer.Ordinal);
-        HashSet<Scene> seenScenes = new(ReferenceEqualityComparer.Instance) { _scene };
+        HashSet<Scene> seenScenes = new(ReferenceEqualityComparer.Instance);
         ProxyEntry[] storeEntries = [.. _store?.Enumerate() ?? []];
 
-        foreach (Element element in _scene.Children)
+        // The totals and the delete action are labelled project-wide, so scan every scene in the
+        // open project (not just the edited one); a clip used only by another scene must count too.
+        foreach (Scene scene in EnumerateProjectScenes())
         {
-            foreach (VideoSource source in ProxySourceEnumerator.EnumerateVideoSources(element, seenScenes))
+            if (!seenScenes.Add(scene))
+                continue;
+
+            foreach (Element element in scene.Children)
             {
-                if (TryGetVideoSource(source, storeEntries, seenPaths, out var item))
-                    yield return item;
+                foreach (VideoSource source in ProxySourceEnumerator.EnumerateVideoSources(element, seenScenes))
+                {
+                    if (TryGetVideoSource(source, storeEntries, seenPaths, out var item))
+                        yield return item;
+                }
             }
+        }
+    }
+
+    private IEnumerable<Scene> EnumerateProjectScenes()
+    {
+        if (_scene.FindHierarchicalParent<Project>() is { } project)
+        {
+            foreach (Scene scene in project.Items.OfType<Scene>())
+                yield return scene;
+        }
+        else
+        {
+            yield return _scene;
         }
     }
 
@@ -597,6 +618,11 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
     private void OnStoreChanged(object? sender, ProxyStoreChangedEventArgs e)
     {
         if (_isDisposed)
+            return;
+
+        // A Touched event (preview resolving a proxy) only bumps LastUsedUtc; rebuilding the clip
+        // list on it would silently clear the user's bulk-action selection during normal playback.
+        if (e.Kind == ProxyStoreChangeKind.Touched)
             return;
 
         Refresh();

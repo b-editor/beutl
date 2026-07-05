@@ -312,6 +312,62 @@ public sealed class ProxiesTabViewModelTests
     }
 
     [Test]
+    public void Refresh_IncludesSourcesFromAllProjectScenes()
+    {
+        string root = CreateRoot();
+        string path1 = CreateSourceFile(root, "scene1.mov", 1024);
+        string path2 = CreateSourceFile(root, "scene2.mov", 1024);
+        var store = new ProxyStore(Path.Combine(root, "proxies"));
+        Scene scene1 = CreateScene(root, "scene1.scene");
+        AddSourceVideo(scene1, root, path1);
+        Scene scene2 = CreateScene(root, "scene2.scene");
+        AddSourceVideo(scene2, root, path2);
+        var project = new Project();
+        project.Items.Add(scene1);
+        project.Items.Add(scene2);
+
+        using var viewModel = new ProxiesTabViewModel(CreateContext(scene1, store));
+
+        Assert.That(
+            viewModel.Clips.Select(static clip => clip.FileName),
+            Is.EquivalentTo(new[] { "scene1.mov", "scene2.mov" }));
+    }
+
+    [Test]
+    public void OnStoreChanged_TouchEvent_PreservesClipSelection()
+    {
+        string root = CreateRoot();
+        string sourcePath = CreateSourceFile(root, "clip.mov", 1024);
+        var store = new ProxyStore(Path.Combine(root, "proxies"));
+        ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(sourcePath);
+        DateTime now = DateTime.UtcNow;
+        RegisterProxyEntry(store, new ProxyEntry(
+            fingerprint,
+            ProxyPreset.Quarter,
+            ProxyState.Ready,
+            "hash/quarter.mp4",
+            512,
+            new PixelSize(1920, 1080),
+            new PixelSize(480, 270),
+            now,
+            now,
+            null));
+
+        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
+        ProxyClipViewModel clip = viewModel.Clips.Single();
+        clip.ToggleSelection();
+
+        // A Touch event (preview resolving a proxy) must not rebuild the clip list and drop selection.
+        store.Touch(fingerprint, ProxyPreset.Quarter, DateTime.UtcNow);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.Clips.Single(), Is.SameAs(clip));
+            Assert.That(clip.IsSelected.Value, Is.True);
+        });
+    }
+
+    [Test]
     public void ToggleSelection_InvertsClipSelection()
     {
         string root = CreateRoot();

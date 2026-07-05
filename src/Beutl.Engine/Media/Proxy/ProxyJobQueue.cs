@@ -385,6 +385,9 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         {
             CompleteCanceled(item);
             Remove(item);
+            // The drain loop discards this item's channel permit and re-selects from _items, so it
+            // never reaches ProcessOneAsync to be disposed; dispose here to release its linked CTS.
+            item.Dispose();
             return;
         }
 
