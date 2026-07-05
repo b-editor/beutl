@@ -22,9 +22,9 @@ public sealed class McpCliCommandsTests
             Assert.That(command!.Executable, Is.EqualTo("claude"));
             Assert.That(command.Arguments, Is.EqualTo(new[]
             {
-                "mcp", "add", "--scope", "user",
+                "mcp", "add", "--scope", "user", "beutl-agent",
                 "--env", "BEUTL_WORKSPACE=/videos",
-                "beutl-agent", "--", "beutl-mcp", "--stdio",
+                "--", "beutl-mcp", "--stdio",
             }));
         });
     }
@@ -40,11 +40,13 @@ public sealed class McpCliCommandsTests
             new Dictionary<string, string> { ["Authorization"] = "Bearer abc" });
 
         Assert.That(command, Is.Not.Null);
+        // Name and URL precede --header: the flag is variadic in the Claude
+        // CLI and would otherwise swallow them.
         Assert.That(command!.Arguments, Is.EqualTo(new[]
         {
             "mcp", "add", "--scope", "user", "--transport", "http",
-            "--header", "Authorization: Bearer abc",
             "beutl-live", "http://127.0.0.1:5008/mcp",
+            "--header", "Authorization: Bearer abc",
         }));
     }
 
@@ -60,7 +62,7 @@ public sealed class McpCliCommandsTests
             Assert.That(command!.Executable, Is.EqualTo("codex"));
             Assert.That(command.Arguments, Is.EqualTo(new[]
             {
-                "mcp", "add", "--env", "BEUTL_WORKSPACE=/videos", "beutl-agent", "--", "beutl-mcp",
+                "mcp", "add", "beutl-agent", "--env", "BEUTL_WORKSPACE=/videos", "--", "beutl-mcp",
             }));
         });
     }

@@ -37,6 +37,9 @@ public static class AgentMcpCliCommands
         return (agentId, scope) is ("claude-code", AgentInstallScope.Global);
     }
 
+    // `--env` / `--header` are variadic in the Claude CLI and swallow every
+    // following argument, so the server name (and URL) must come first and
+    // variadic options must be terminated by `--` or the end of the line.
     public static McpCliCommand? BuildStdio(
         string agentId,
         AgentInstallScope scope,
@@ -49,10 +52,10 @@ public static class AgentMcpCliCommands
         {
             ("claude-code", AgentInstallScope.Global) => new McpCliCommand(
                 "claude",
-                ["mcp", "add", "--scope", "user", .. EnvFlags(environment), serverName, "--", command, .. arguments]),
+                ["mcp", "add", "--scope", "user", serverName, .. EnvFlags(environment), "--", command, .. arguments]),
             ("codex", AgentInstallScope.Global) => new McpCliCommand(
                 "codex",
-                ["mcp", "add", .. EnvFlags(environment), serverName, "--", command, .. arguments]),
+                ["mcp", "add", serverName, .. EnvFlags(environment), "--", command, .. arguments]),
             _ => null,
         };
     }
@@ -70,7 +73,7 @@ public static class AgentMcpCliCommands
                 "claude",
                 [
                     "mcp", "add", "--scope", "user", "--transport", "http",
-                    .. HeaderFlags(headers), serverName, url.ToString(),
+                    serverName, url.ToString(), .. HeaderFlags(headers),
                 ]),
             _ => null,
         };
