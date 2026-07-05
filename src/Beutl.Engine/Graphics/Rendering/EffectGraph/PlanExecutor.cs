@@ -180,7 +180,10 @@ internal static class PlanExecutor
         }
         else
         {
-            outBounds = pass.OutputBounds.IsInvalid ? op.Bounds : pass.OutputBounds;
+            // Bake window and placement must be the exact rect ResolveResources sized the buffer from.
+            outBounds = resolution.OutputRoi.IsInvalid
+                ? (pass.OutputBounds.IsInvalid ? op.Bounds : pass.OutputBounds)
+                : resolution.OutputRoi;
             width = resolution.Width;
             height = resolution.Height;
             w = resolution.WorkingScale;

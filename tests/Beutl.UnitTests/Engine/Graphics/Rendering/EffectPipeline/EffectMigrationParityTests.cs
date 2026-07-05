@@ -64,6 +64,24 @@ public class EffectMigrationParityTests
             return e;
         });
         yield return Case("LumaColor", () => new LumaColor());
+
+        // Spatial migrations. RenderChain requests s_bounds, so a bounds-inflating filter resolves an ROI smaller
+        // than its OutputBounds — these cases pin that the SkiaFilterPass bakes and places the ROI window.
+        yield return Case("Blur", () => new Blur { Sigma = { CurrentValue = new Size(6, 6) } });
+        yield return Case("DropShadow", () => new DropShadow
+        {
+            Position = { CurrentValue = new Point(8, 8) },
+            Sigma = { CurrentValue = new Size(6, 6) },
+            Color = { CurrentValue = Colors.Black },
+        });
+        yield return Case("Dilate", () => new Dilate { RadiusX = { CurrentValue = 3 }, RadiusY = { CurrentValue = 3 } });
+        yield return Case("Erode", () => new Erode { RadiusX = { CurrentValue = 3 }, RadiusY = { CurrentValue = 3 } });
+        yield return Case("InnerShadow", () => new InnerShadow
+        {
+            Position = { CurrentValue = new Point(10, 10) },
+            Sigma = { CurrentValue = new Size(6, 6) },
+            Color = { CurrentValue = Colors.Black },
+        });
     }
 
     [TestCaseSource(nameof(MigratedEffects))]
@@ -87,15 +105,24 @@ public class EffectMigrationParityTests
         ]);
     }
 
-    // Drives the mixed-plan executor (an opaque bridged segment between fused runs) on semitransparent content. A
-    // still-bridged effect (ColorShift) is the opaque segment: it runs through the identical retained activator on
-    // both paths, so the whole chain's fused-vs-legacy equality holds within the golden thresholds. (Blur and
-    // DropShadow left the bridge in step 5b, so they no longer form the opaque segment; the exact Blur..LUT chain
-    // is now covered by the authoritative chain-MixedChain frozen-reference gate. A migrated Skia-filter effect is
-    // deliberately NOT compared against the retained LegacyBridgeExecutor, whose sub-pixel flush quirk — absent from
-    // the frozen references the fused path matches — would spuriously fail a direct equality.)
+    // The O3 MixedChain shape (Skia-filter passes interleaved with fused color runs) on semitransparent content.
     [Test]
     public void MixedChain_FusedMatchesLegacyOnSemitransparentInput()
+    {
+        AssertChainParity(
+        [
+            new Blur { Sigma = { CurrentValue = new Size(6, 6) } },
+            new Gamma { Amount = { CurrentValue = 1.4f } },
+            new Invert { Amount = { CurrentValue = 1f } },
+            new DropShadow { Position = { CurrentValue = new Point(8, 8) }, Sigma = { CurrentValue = new Size(6, 6) }, Color = { CurrentValue = Colors.Black } },
+            new LutEffect { Source = { CurrentValue = SceneFixtures.CreateInvertLutSource() } },
+        ]);
+    }
+
+    // Drives the mixed-plan executor (an opaque bridged segment between fused runs): ColorShift is still bridged
+    // in step 5b, so this remains the only chain exercising OpaqueLegacyPass threading between descriptor passes.
+    [Test]
+    public void BridgedSegmentChain_FusedMatchesLegacyOnSemitransparentInput()
     {
         AssertChainParity(
         [
