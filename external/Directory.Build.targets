@@ -1,0 +1,2 @@
+<!-- Stops Beutl's root Directory.Build.targets from applying to the vendored submodules. -->
+<Project />

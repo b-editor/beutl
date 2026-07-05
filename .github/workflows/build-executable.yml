@@ -37,6 +37,9 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          persist-credentials: false
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v5

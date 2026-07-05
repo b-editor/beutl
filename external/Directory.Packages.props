@@ -1,0 +1,7 @@
+<!-- The vendored submodules pin their own package versions; keep Beutl's central
+     package management from rejecting their versioned PackageReferences. -->
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+</Project>
