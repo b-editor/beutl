@@ -294,6 +294,61 @@ public sealed partial class PixelSortEffect : FilterEffect
         context.CustomEffect(data, static (d, ctx) => OnApplyTo(d, ctx), static (_, b) => b);
     }
 
+    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
+    {
+        var r = (Resource)resource;
+        var data = new EffectData(r.Direction, r.SortKey, r.ThresholdMin / 100f, r.ThresholdMax / 100f, r.Ascending);
+        // Three coordinate-invariant-in-bounds compute passes (prepare -> rank -> gather+restore), pooled ping-pong
+        // color + one depth attachment. Without Vulkan the effect is inactive today, so the fallback is identity.
+        builder.Compute(ComputeNodeDescriptor.Create(
+            ctx => Dispatch(data, ctx),
+            passCount: 3,
+            ComputeFallback.Identity,
+            structuralToken: nameof(PixelSortEffect)));
+    }
+
+    private static void Dispatch(EffectData r, IComputeContext ctx)
+    {
+        EnsureShadersInitialized();
+        if (s_prepareShader == null || s_rankShader == null || s_gatherShader == null)
+            return;
+
+        int width = ctx.Width;
+        int height = ctx.Height;
+
+        ITexture2D prep = ctx.AcquireColorScratch();
+        ITexture2D rank = ctx.AcquireColorScratch();
+        ITexture2D depth = ctx.AcquireDepthScratch();
+
+        ctx.Run(s_prepareShader, ctx.Source, prep, depth,
+            new PreparePushConstants
+            {
+                ThresholdMin = r.ThresholdMin,
+                ThresholdMax = r.ThresholdMax,
+                SortKeyType = (int)r.SortKey,
+                SortDir = (int)r.Direction,
+                Width = width,
+                Height = height,
+            });
+
+        ctx.Run(s_rankShader, prep, rank, depth,
+            new RankPushConstants
+            {
+                SortDir = (int)r.Direction,
+                Width = width,
+                Height = height,
+            });
+
+        ctx.Run(s_gatherShader, rank, ctx.Source, ctx.Destination, depth,
+            new GatherPushConstants
+            {
+                SortDir = (int)r.Direction,
+                Ascending = r.Ascending ? 1 : 0,
+                Width = width,
+                Height = height,
+            });
+    }
+
     private static void OnApplyTo(EffectData r, CustomFilterEffectContext ctx)
     {
         EnsureShadersInitialized();
