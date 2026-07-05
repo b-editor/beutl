@@ -65,6 +65,20 @@ public sealed class EffectGraphBuilder
         return Append(new OpaqueLegacyNodeDescriptor(context));
     }
 
+    /// <summary>
+    /// Builds a sampler binding whose shader (a LUT, a curve texture) lives until the frame's plan has executed:
+    /// the graph disposes it in <see cref="EffectGraph.Dispose"/>, so it survives a skipped pass and is never
+    /// leaked. Sampler contents are a parameter (a swap re-binds without recompiling); the sampler name is
+    /// structural (A4).
+    /// </summary>
+    internal SamplerBinding Sampler(string name, SKShader shader)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        ArgumentNullException.ThrowIfNull(shader);
+        _disposables.Add(shader);
+        return new SamplerBinding(name, shader);
+    }
+
     private EffectGraphBuilder Append(EffectNodeDescriptor descriptor)
     {
         Rect input = Bounds;

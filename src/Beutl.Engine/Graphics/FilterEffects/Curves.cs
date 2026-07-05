@@ -105,6 +105,84 @@ public sealed partial class Curves : FilterEffect
         }
     }
 
+    // Fusable snippet form of the shader above; `c` is the premultiplied linear-light source pixel (contract A2).
+    // The nine curve lookups are extra texture samplers (their contents are parameters, A4).
+    private static readonly string s_snippet =
+        """
+        uniform shader masterCurve;
+        uniform shader redCurve;
+        uniform shader greenCurve;
+        uniform shader blueCurve;
+        uniform shader hueVsHue;
+        uniform shader hueVsSat;
+        uniform shader hueVsLuma;
+        uniform shader lumaVsSat;
+        uniform shader satVsSat;
+
+        const float3 LUMA = float3(0.2126, 0.7152, 0.0722);
+
+        float3 rgb_to_hsv(float3 c) {
+            float4 K = float4(0., -1./3., 2./3., -1.);
+            float4 p = mix(float4(c.bg, K.wz), float4(c.gb, K.xy), step(c.b, c.g));
+            float4 q = mix(float4(p.xyw, c.r), float4(c.r, p.yzx), step(p.x, c.r));
+
+            float d = q.x - min(q.w, q.y);
+            float e = 1e-10;
+            return float3(abs(q.z + (q.w - q.y) / (6. * d + e)), d / (q.x + e), q.x);
+        }
+
+        float3 hsv_to_rgb(float3 c) {
+            float4 K = float4(1., 2./3., 1./3., 3.);
+            float3 p = abs(fract(c.xxx + K.xyz) * 6. - K.www);
+            return c.z * mix(K.xxx, clamp(p - K.xxx, 0., 1.), c.y);
+        }
+
+        float3 linearToSrgb(float3 c) {
+            float3 lo = c * 12.92;
+            float3 hi = 1.055 * pow(c, float3(1.0/2.4)) - 0.055;
+            return mix(lo, hi, step(float3(0.0031308), c));
+        }
+
+        float3 srgbToLinear(float3 c) {
+            float3 lo = c / 12.92;
+            float3 hi = pow((c + 0.055) / 1.055, float3(2.4));
+            return mix(lo, hi, step(float3(0.04045), c));
+        }
+
+        half4 apply(half4 c) {
+            if (c.a <= 0.0001) return c;
+
+            float3 rgb = linearToSrgb(c.rgb / c.a);
+            float luma = dot(rgb, LUMA);
+            float3 hsv = rgb_to_hsv(rgb);
+
+            float hueShift = hueVsHue.eval(float2(hsv.x, 0.5)).a - 0.5;
+            hsv.x = fract(hsv.x + hueShift + 1.0);
+
+            hsv.y *= hueVsSat.eval(float2(hsv.x, 0.5)).a * 2.0;
+            hsv.z *= hueVsLuma.eval(float2(hsv.x, 0.5)).a * 2.0;
+
+            hsv.y *= lumaVsSat.eval(float2(luma, 0.5)).a * 2.0;
+            hsv.y = clamp(hsv.y, 0.0, 1.0);
+
+            hsv.y *= satVsSat.eval(float2(hsv.y, 0.5)).a * 2.0;
+            hsv.y = clamp(hsv.y, 0.0, 1.0);
+
+            rgb = hsv_to_rgb(hsv);
+
+            rgb.r = redCurve.eval(float2(rgb.r, 0.5)).a;
+            rgb.g = greenCurve.eval(float2(rgb.g, 0.5)).a;
+            rgb.b = blueCurve.eval(float2(rgb.b, 0.5)).a;
+
+            rgb.r = masterCurve.eval(float2(rgb.r, 0.5)).a;
+            rgb.g = masterCurve.eval(float2(rgb.g, 0.5)).a;
+            rgb.b = masterCurve.eval(float2(rgb.b, 0.5)).a;
+
+            float3 result = srgbToLinear(rgb);
+            return half4(half3(result * c.a), c.a);
+        }
+        """;
+
     public Curves()
     {
         ScanProperties<Curves>();
@@ -150,6 +228,25 @@ public sealed partial class Curves : FilterEffect
             (Resource: r, Dummy: 0),
             static (data, ctx) => OnApply(data.Resource, ctx),
             static (_, rect) => rect);
+    }
+
+    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
+    {
+        var r = (Resource)resource;
+        builder.Shader(ShaderNodeDescriptor.Snippet(
+            s_snippet,
+            samplers:
+            [
+                builder.Sampler("masterCurve", r.MasterCurve.ToShader()),
+                builder.Sampler("redCurve", r.RedCurve.ToShader()),
+                builder.Sampler("greenCurve", r.GreenCurve.ToShader()),
+                builder.Sampler("blueCurve", r.BlueCurve.ToShader()),
+                builder.Sampler("hueVsHue", r.HueVsHue.ToShader()),
+                builder.Sampler("hueVsSat", r.HueVsSaturation.ToShader()),
+                builder.Sampler("hueVsLuma", r.HueVsLuminance.ToShader()),
+                builder.Sampler("lumaVsSat", r.LuminanceVsSaturation.ToShader()),
+                builder.Sampler("satVsSat", r.SaturationVsSaturation.ToShader()),
+            ]));
     }
 
     private static void OnApply(Resource data, CustomFilterEffectContext context)
