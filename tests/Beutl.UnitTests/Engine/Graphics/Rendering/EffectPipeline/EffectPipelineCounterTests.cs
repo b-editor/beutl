@@ -27,58 +27,68 @@ public class EffectPipelineCounterTests
         Log.LoggerFactory = Microsoft.Extensions.Logging.LoggerFactory.Create(static _ => { });
     }
 
-    // ColorChain = Gamma, HueRotate, Saturate, Brightness, Invert.
-    // Gamma and Invert are custom-SKSL items (FEItem_Custom); HueRotate/Saturate/Brightness are Skia
-    // SKColorFilter items that accumulate into the builder without materializing.
-    // Walk of FilterEffectActivator.Apply over [Gamma(custom), Hue, Sat, Bright, Invert(custom)]:
-    //   Gamma  -> Flush(force) bakes the input node op:            +1 FFM, +1 GpuPass, +1 Alloc, +1 Sync
-    //             Gamma's ApplyToNewTarget (CreateTarget + Open):          +1 GpuPass, +1 Alloc, +1 Sync
-    //   Hue/Sat/Bright -> accumulate into the SKImageFilterBuilder (no materialization)
-    //   Invert -> Flush(force) bakes the accumulated color-filter chain: +1 FFM, +1 GpuPass, +1 Alloc, +1 Sync
-    //             Invert's ApplyToNewTarget (CreateTarget + Open):         +1 GpuPass, +1 Alloc, +1 Sync
-    // Totals: FullFrameMaterializations = 2 (one bake per custom item), GpuPasses = 4 (2 bakes + 2 SKSL
-    // passes), TargetAllocations = 4 (2 bake targets + 2 SKSL targets), FlushSyncs = 4 (one uncoordinated
-    // sync per drawn effect buffer). This is research §0's "≥ 1 materialization + ≥ 1 pass per custom item".
+    // ColorChain = Gamma, HueRotate, Saturate, Brightness, Invert — now all migrated and coordinate-invariant.
+    //
+    // SUPERSEDED legacy model (rollout step 1, now obsolete by design — the same fixture fuses): the flattened
+    // group ran five separate render nodes; the two custom SKSL effects (Gamma, Invert) each forced a Flush bake
+    // plus their own pass while the interleaved color filters deferred into those bakes. Totals were
+    // FullFrameMaterializations = 2, GpuPasses = 4, TargetAllocations = 4, FlushSyncs = 4 (research §0's
+    // "≥ 1 materialization + ≥ 1 pass per custom item").
+    //
+    // SC-001 fused model: the group is one render node, so all five effects are coordinate-invariant nodes in one
+    // graph and compile to a single FusedShaderPass. The executor bakes the input into one pooled target and draws
+    // the composed shader (two SKSL snippets wrapping three color filters) exactly once — no legacy Flush
+    // (FullFrameMaterializations == 0) and, being Skia-only, no backend-transition sync (FlushSyncs == 0, C4.2):
+    // GpuPasses == 1 over ≤ 1 intermediate.
     [Test]
-    public void ColorChain_PinsLegacyCostModel()
+    public void ColorChain_FusesToSinglePass()
     {
         PipelineDiagnosticsSnapshot counters = RenderAndSnapshot(
             SceneFixtures.ColorChain(SceneFixtures.ReferenceSize));
 
         Assert.Multiple(() =>
         {
-            Assert.That(counters.FullFrameMaterializations, Is.EqualTo(2), nameof(counters.FullFrameMaterializations));
-            Assert.That(counters.GpuPasses, Is.EqualTo(4), nameof(counters.GpuPasses));
-            Assert.That(counters.TargetAllocations, Is.EqualTo(4), nameof(counters.TargetAllocations));
-            Assert.That(counters.FlushSyncs, Is.EqualTo(4), nameof(counters.FlushSyncs));
+            Assert.That(counters.GpuPasses, Is.EqualTo(1), "SC-001: a run of invariant color effects is one GPU pass");
+            Assert.That(counters.TargetAllocations, Is.LessThanOrEqualTo(1), "SC-001: at most one intermediate");
+            Assert.That(counters.FullFrameMaterializations, Is.EqualTo(0), "no legacy Flush bake on the fused path");
+            Assert.That(counters.FlushSyncs, Is.EqualTo(0), "Skia-only plan has no backend-transition sync (C4.2)");
         });
     }
 
     // MixedChain = Blur, Gamma, Invert, DropShadow, LutEffect.
-    // Blur and DropShadow are Skia image-filter items; Gamma, Invert and LutEffect (3D cube) are custom-SKSL.
-    // Walk over [Blur, Gamma(custom), Invert(custom), DropShadow, Lut(custom)]:
-    //   Blur   -> accumulate into the builder
-    //   Gamma  -> Flush bakes the accumulated Blur chain:          +1 FFM, +1 GpuPass, +1 Alloc, +1 Sync
-    //             Gamma ApplyToNewTarget:                                  +1 GpuPass, +1 Alloc, +1 Sync
-    //   Invert -> Flush(force) bakes Gamma's output even with no pending Skia chain (adjacent custom items
-    //             each pay a bake, research §0):                   +1 FFM, +1 GpuPass, +1 Alloc, +1 Sync
-    //             Invert ApplyToNewTarget:                                 +1 GpuPass, +1 Alloc, +1 Sync
-    //   DropShadow -> accumulate into the builder
-    //   Lut    -> Flush bakes the accumulated DropShadow chain:    +1 FFM, +1 GpuPass, +1 Alloc, +1 Sync
-    //             Lut ApplyToNewTarget:                                    +1 GpuPass, +1 Alloc, +1 Sync
-    // Totals: FullFrameMaterializations = 3, GpuPasses = 6, TargetAllocations = 6, FlushSyncs = 6.
+    //
+    // SUPERSEDED legacy baseline (rollout step 1): the five effects ran as separate render nodes; the two Skia
+    // filters deferred but each of the three custom SKSL effects forced a Flush bake plus a pass. Totals were
+    // FullFrameMaterializations = 3, GpuPasses = 6, TargetAllocations = 6, FlushSyncs = 6.
+    //
+    // Mixed-plan model (W1 + W2): the group is one graph — [opaque Blur, fused Gamma+Invert, opaque DropShadow,
+    // fused LUT]. Each opaque segment runs the retained activator over the current op; Blur and DropShadow are
+    // Skia image filters, so the bridge returns a deferred-filter op without baking (0 cost each). Each fused pass
+    // bakes its deferred input into one pooled target and draws once:
+    //   Blur (opaque, deferred) ......... +0
+    //   Gamma+Invert (fused) ............ +1 GpuPass, +1 TargetAllocation
+    //   DropShadow (opaque, deferred) ... +0
+    //   LUT (fused) ..................... +1 GpuPass, +1 TargetAllocation
+    // Totals: GpuPasses = 2, TargetAllocations = 2, FullFrameMaterializations = 0, FlushSyncs = 0 — strictly below
+    // the 6 / 6 / 3 / 6 legacy baseline (US1-AS2).
     [Test]
-    public void MixedChain_PinsLegacyCostModel()
+    public void MixedChain_BelowLegacyBaseline()
     {
         PipelineDiagnosticsSnapshot counters = RenderAndSnapshot(
             SceneFixtures.MixedChain(SceneFixtures.ReferenceSize));
 
         Assert.Multiple(() =>
         {
-            Assert.That(counters.FullFrameMaterializations, Is.EqualTo(3), nameof(counters.FullFrameMaterializations));
-            Assert.That(counters.GpuPasses, Is.EqualTo(6), nameof(counters.GpuPasses));
-            Assert.That(counters.TargetAllocations, Is.EqualTo(6), nameof(counters.TargetAllocations));
-            Assert.That(counters.FlushSyncs, Is.EqualTo(6), nameof(counters.FlushSyncs));
+            Assert.That(counters.GpuPasses, Is.EqualTo(2), nameof(counters.GpuPasses));
+            Assert.That(counters.TargetAllocations, Is.EqualTo(2), nameof(counters.TargetAllocations));
+            Assert.That(counters.FullFrameMaterializations, Is.EqualTo(0), nameof(counters.FullFrameMaterializations));
+            Assert.That(counters.FlushSyncs, Is.EqualTo(0), nameof(counters.FlushSyncs));
+
+            // US1-AS2: strictly below the recorded legacy baseline (6 / 6 / 3 / 6).
+            Assert.That(counters.GpuPasses, Is.LessThan(6));
+            Assert.That(counters.TargetAllocations, Is.LessThan(6));
+            Assert.That(counters.FullFrameMaterializations, Is.LessThan(3));
+            Assert.That(counters.FlushSyncs, Is.LessThan(6));
         });
     }
 
@@ -117,14 +127,10 @@ public class EffectPipelineCounterTests
         });
     }
 
-    // T014: a structurally-constant scene rendered K times through one shared pool acquires its intermediates
-    // from the same four sites every frame (matching ColorChain's legacy allocation count of 4), but only
-    // frame 1 allocates — frames 2..K add ZERO fresh allocations / pool misses (all hits), the steady-state
-    // gate for US3 (SC-003).
-    //
-    // Frame 1 itself allocates fewer than 4 buffers (2 here): the pool reuses within a frame too — a bake
-    // target released mid-chain is reused by the next same-size acquire — so misses <= acquire sites. The
-    // gate that matters is the cross-frame delta, which is exactly zero.
+    // T014 (re-pinned to the fused plan): a structurally-constant scene rendered K times through one shared pool
+    // acquires the fused chain's single intermediate every frame, but only frame 1 allocates it — frames 2..K add
+    // ZERO fresh allocations / pool misses (all hits), the steady-state gate for US3 (SC-003). ColorChain now fuses
+    // to one pass, so there is exactly one acquire site (was four under the legacy per-effect model).
     //
     // The full golden + frozen-reference suites remain unchanged: they render through bare, pool-less
     // processors (GoldenImageHarness / EffectReferenceFreezeTests), so pooling cannot perturb their bytes.
@@ -137,18 +143,16 @@ public class EffectPipelineCounterTests
 
         Assert.Multiple(() =>
         {
-            // Four acquire sites per frame == ColorChain's legacy allocation count (pinned at 4 by
-            // ColorChain_PinsLegacyCostModel). Frame 1 allocates each miss exactly once.
-            Assert.That(perFrame[0].PoolAcquires, Is.EqualTo(4), "frame 1 acquire sites == legacy allocation count");
+            Assert.That(perFrame[0].PoolAcquires, Is.EqualTo(1), "frame 1: the single fused pass acquires one target");
             Assert.That(perFrame[0].TargetAllocations, Is.EqualTo(perFrame[0].PoolMisses), "each miss allocates once");
-            Assert.That(perFrame[0].PoolMisses, Is.GreaterThan(0).And.LessThanOrEqualTo(4), "frame 1 warms the pool");
+            Assert.That(perFrame[0].PoolMisses, Is.EqualTo(1), "frame 1 warms the pool with the one intermediate");
 
             for (int f = 1; f < frames; f++)
             {
                 Assert.That(perFrame[f].TargetAllocations, Is.EqualTo(0), $"frame {f + 1} adds no fresh allocations");
                 Assert.That(perFrame[f].PoolMisses, Is.EqualTo(0), $"frame {f + 1} has no pool misses");
-                Assert.That(perFrame[f].PoolAcquires, Is.EqualTo(4),
-                    $"frame {f + 1} acquires the same four buffers, now all hits");
+                Assert.That(perFrame[f].PoolAcquires, Is.EqualTo(1),
+                    $"frame {f + 1} acquires the same one buffer, now a hit");
             }
         });
     }
