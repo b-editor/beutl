@@ -182,6 +182,8 @@ public static class AgentToolkitInstaller
                ?? throw new InvalidDataException($"MCP config must be a JSON object: {path}");
     }
 
+    // A dotted name (e.g. Amp's "amp.mcpServers") addresses a nested object: amp:{ mcpServers:{} }.
+    // Writing it as one flat "amp.mcpServers" key would put the server where the agent never reads it.
     private static JsonObject GetOrCreateObject(JsonObject parent, string propertyName)
     {
         if (string.IsNullOrWhiteSpace(propertyName))
@@ -189,15 +191,23 @@ public static class AgentToolkitInstaller
             throw new ArgumentException("Property name cannot be empty.", nameof(propertyName));
         }
 
-        if (parent[propertyName] is null)
+        JsonObject current = parent;
+        foreach (string segment in propertyName.Split('.', StringSplitOptions.RemoveEmptyEntries))
         {
-            var obj = new JsonObject();
-            parent[propertyName] = obj;
-            return obj;
+            if (current[segment] is null)
+            {
+                var obj = new JsonObject();
+                current[segment] = obj;
+                current = obj;
+            }
+            else
+            {
+                current = current[segment] as JsonObject
+                          ?? throw new InvalidDataException($"MCP config property must be an object: {segment}");
+            }
         }
 
-        return parent[propertyName] as JsonObject
-               ?? throw new InvalidDataException($"MCP config property must be an object: {propertyName}");
+        return current;
     }
 
     private static string GetAssetTargetPath(

@@ -138,22 +138,29 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
             IEditingSession session = sessions.RequireSession();
             if (wrapInGroup)
             {
-                return DuplicateObjectIntoDrawableGroup(session, objectId, elementId);
+                // Locate/read/clone the source and mutate all on the session dispatcher so a
+                // LiveEditor wrap does not traverse the UI-owned scene on the MCP request thread.
+                return session.ReadOnSession(() => DuplicateObjectIntoDrawableGroup(session, objectId, elementId));
             }
 
-            JsonObject desired = session.Documents.Read(session.Root);
-            (JsonObject element, JsonArray objects, JsonObject source) = FindObjectInElements(desired, objectId, elementId);
-
-            var clone = (JsonObject)source.DeepClone();
-            RemoveIds(clone);
+            // Read the source document, clone, and plan/apply all inside the reconcile dispatch so a
+            // LiveEditor duplicate does not read the UI-owned scene on the MCP request thread.
+            string elementId2 = string.Empty;
             var newId = Guid.NewGuid();
-            clone[nameof(CoreObject.Id)] = newId.ToString();
-            objects.Add(clone);
+            ReconcileResult result = _reconciler.ApplyFromCurrent(session, desired =>
+            {
+                (JsonObject element, JsonArray objects, JsonObject source) = FindObjectInElements(desired, objectId, elementId);
+                var clone = (JsonObject)source.DeepClone();
+                RemoveIds(clone);
+                clone[nameof(CoreObject.Id)] = newId.ToString();
+                objects.Add(clone);
+                elementId2 = ReadId(element) ?? string.Empty;
+                return (desired, new HashSet<Guid> { newId });
+            });
 
-            ReconcileResult result = _reconciler.Apply(session, desired, new HashSet<Guid> { newId });
             return new DuplicateObjectResponse(
                 result.Plan.Valid,
-                ReadId(element) ?? string.Empty,
+                elementId2,
                 newId.ToString(),
                 CreateCreatedIdSummary(result.Plan));
         });
@@ -180,8 +187,14 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
                 sessions.ResolveCompositionSeed(seed),
                 avoidRecent ? sessions.GetAvoidedCompositions() : null,
                 EnforceFirstSelection(name, avoidRecent));
-            ResolvedEdit resolved = ResolvePatchDocument(session, composition.Patch, SchemaVersion.Current);
-            ReconcilePlan plan = _reconciler.Plan(session, resolved.Document, resolved.KnownNewIds);
+            // Resolve the patch and plan inside the session dispatch so a LiveEditor plan does not
+            // read the UI-owned scene on the MCP request thread.
+            ResolvedEdit resolved = null!;
+            ReconcilePlan plan = _reconciler.PlanFromCurrent(session, current =>
+            {
+                resolved = ResolvePatchEdit(current, composition.Patch, SchemaVersion.Current);
+                return (resolved.Document, resolved.KnownNewIds);
+            });
             CompositionPlanState state = sessions.StoreCompositionPlan(
                 composition.Name,
                 composition.Seed,
@@ -253,8 +266,12 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
                 sessions.ResolveCompositionSeed(seed),
                 avoidRecent ? sessions.GetAvoidedCompositions() : null,
                 EnforceFirstSelection(name, avoidRecent));
-            ResolvedEdit resolved = ResolvePatchDocument(session, composition.Patch, SchemaVersion.Current);
-            ReconcilePlan plan = _reconciler.Plan(session, resolved.Document, resolved.KnownNewIds);
+            ResolvedEdit resolved = null!;
+            ReconcilePlan plan = _reconciler.PlanFromCurrent(session, current =>
+            {
+                resolved = ResolvePatchEdit(current, composition.Patch, SchemaVersion.Current);
+                return (resolved.Document, resolved.KnownNewIds);
+            });
             JsonArray? normalizedExpectedChangeSet = NormalizeExpectedChangeSet(expectedChangeSet);
             if (normalizedExpectedChangeSet is not null && !ChangeSetMatches(plan, normalizedExpectedChangeSet))
             {
@@ -294,11 +311,6 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
         }
 
         return document;
-    }
-
-    private static ResolvedEdit ResolvePatchDocument(IEditingSession session, JsonObject patch, string? schemaVersion)
-    {
-        return ResolvePatchEdit(session.Documents.Read(session.Root), patch, schemaVersion);
     }
 
     private static ResolvedEdit ResolvePatchEdit(JsonObject current, JsonObject patch, string? schemaVersion)

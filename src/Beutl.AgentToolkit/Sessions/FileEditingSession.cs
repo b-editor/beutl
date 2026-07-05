@@ -105,15 +105,21 @@ public sealed class FileEditingSession : IEditingSession, IEditingSessionDispatc
         // directory unique to the new project (its file name); regenerating from the scene name
         // alone would collide with — and overwrite — the source project's .scene/.belm files when
         // both projects live in the same folder.
+        int index = 1;
         foreach (Scene scene in Project.Items.OfType<Scene>())
         {
-            string sceneName = string.IsNullOrWhiteSpace(scene.Name) ? "Scene" : scene.Name;
+            // A project loaded from disk can carry a scene name that was never validated (e.g.
+            // "../../outside"); fall back to a safe segment so the rehomed sidecar stays under the
+            // new project directory.
+            string sceneName = ProjectOperations.IsValidSceneName(scene.Name) ? scene.Name : $"Scene{index}";
             scene.Uri = new Uri(Path.Combine(
                 projectDirectory, projectName, sceneName, $"{sceneName}.{EditorConstants.SceneFileExtension}"));
             foreach (Element element in scene.Children)
             {
                 element.Uri = null;
             }
+
+            index++;
         }
 
         AcceptExternalStamp();

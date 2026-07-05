@@ -293,6 +293,26 @@ public sealed class AgentToolkitInstallerTests
     }
 
     [Test]
+    public async Task InstallAsync_NestsDottedMcpServersPropertyName()
+    {
+        await AgentToolkitInstaller.InstallAsync(
+            new AgentToolkitInstallOptions
+            {
+                AgentRoot = _tempRoot,
+                InstallSkills = false,
+                InstallSubagents = false,
+                McpServersPropertyName = "amp.mcpServers",
+                StdioMcpCommand = "beutl-agent",
+            },
+            []);
+
+        JsonObject root = ReadJson(Path.Combine(_tempRoot, ".mcp.json"));
+        Assert.That(root["amp.mcpServers"], Is.Null, "The dotted name must not be written as a single flat key.");
+        JsonObject amp = root["amp"]!.AsObject();
+        Assert.That(amp["mcpServers"]!.AsObject()["beutl-agent"], Is.Not.Null);
+    }
+
+    [Test]
     public void InstallAsync_RejectsAssetPathsOutsideAgentRoot()
     {
         Assert.ThrowsAsync<ArgumentException>(() => AgentToolkitInstaller.InstallAsync(

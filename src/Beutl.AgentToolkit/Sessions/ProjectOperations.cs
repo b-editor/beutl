@@ -69,12 +69,10 @@ public static class ProjectOperations
                                   ?? throw new InvalidOperationException("Project Uri must have a directory.");
         string sceneName = options.Name ?? $"Scene{project.Items.Count + 1}";
         ValidateSceneName(sceneName);
-        string sceneDirectory = Path.Combine(projectDirectory, sceneName);
-        string scenePath = Path.Combine(sceneDirectory, $"{sceneName}.{EditorConstants.SceneFileExtension}");
 
         var scene = new Scene(options.Width, options.Height, sceneName)
         {
-            Uri = CreateFileUri(scenePath),
+            Uri = DeriveUniqueSceneUri(project, projectDirectory, sceneName, exclude: null),
             Start = options.Start,
             Duration = options.Duration
         };
@@ -92,13 +90,45 @@ public static class ProjectOperations
             throw new InvalidOperationException("Project must have a Uri before it can be saved.");
         }
 
+        string projectDirectory = Path.GetDirectoryName(project.Uri.LocalPath)
+                                  ?? throw new InvalidOperationException("Project Uri must have a directory.");
+
         foreach (Scene scene in project.Items.OfType<Scene>())
         {
+            RehomeSidecarsOutsideProject(project, projectDirectory, scene);
             EnsureSceneUri(project, scene);
             EnsureElementUris(scene);
         }
 
         CoreSerializer.StoreToUri(project, project.Uri);
+    }
+
+    // A project loaded from disk can carry scene/element sidecar URIs pointing outside the project
+    // directory (hand-edited or malicious). StoreToUri writes each referenced sidecar to its own Uri,
+    // so drop any that escape the project tree and let the Ensure* helpers regenerate them inside it.
+    private static void RehomeSidecarsOutsideProject(Project project, string projectDirectory, Scene scene)
+    {
+        if (scene.Uri is not null && !IsInsideDirectory(projectDirectory, scene.Uri.LocalPath))
+        {
+            scene.Uri = null;
+        }
+
+        foreach (Element element in scene.Children)
+        {
+            if (element.Uri is not null && !IsInsideDirectory(projectDirectory, element.Uri.LocalPath))
+            {
+                element.Uri = null;
+            }
+        }
+    }
+
+    private static bool IsInsideDirectory(string directory, string candidate)
+    {
+        string root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(directory));
+        string full = Path.GetFullPath(candidate);
+        StringComparison comparison = PathComparison.ForCurrentPlatform;
+        return full.StartsWith(root + Path.DirectorySeparatorChar, comparison)
+               || string.Equals(full, root, comparison);
     }
 
     internal static void EnsureElementUris(Scene scene)
@@ -134,20 +164,42 @@ public static class ProjectOperations
                                   ?? throw new InvalidOperationException("Project Uri must have a directory.");
         string sceneName = string.IsNullOrWhiteSpace(scene.Name) ? $"Scene{project.Items.IndexOf(scene) + 1}" : scene.Name;
         ValidateSceneName(sceneName);
-        string sceneDirectory = Path.Combine(projectDirectory, sceneName);
-        scene.Uri = CreateFileUri(Path.Combine(sceneDirectory, $"{sceneName}.{EditorConstants.SceneFileExtension}"));
+        scene.Uri = DeriveUniqueSceneUri(project, projectDirectory, sceneName, exclude: scene);
+    }
+
+    // Two scenes with the same name would otherwise resolve to the same <name>/<name>.scene sidecar
+    // and overwrite each other on save; disambiguate the directory when it is already taken.
+    private static Uri DeriveUniqueSceneUri(Project project, string projectDirectory, string sceneName, Scene? exclude)
+    {
+        var used = project.Items.OfType<Scene>()
+            .Where(item => !ReferenceEquals(item, exclude) && item.Uri is not null)
+            .Select(item => Path.GetDirectoryName(item.Uri!.LocalPath))
+            .Where(dir => dir is not null)
+            .Select(dir => Path.GetFullPath(dir!))
+            .ToHashSet(StringComparer.FromComparison(PathComparison.ForCurrentPlatform));
+
+        string candidateDir = Path.GetFullPath(Path.Combine(projectDirectory, sceneName));
+        for (int suffix = 2; used.Contains(candidateDir); suffix++)
+        {
+            candidateDir = Path.GetFullPath(Path.Combine(projectDirectory, $"{sceneName}-{suffix}"));
+        }
+
+        return CreateFileUri(Path.Combine(candidateDir, $"{sceneName}.{EditorConstants.SceneFileExtension}"));
     }
 
     // The name becomes a directory/file segment under the project, so it must be a single path
     // component or the derived Uri could escape the project directory (and the workspace).
+    internal static bool IsValidSceneName(string name)
+        => !string.IsNullOrWhiteSpace(name)
+           && name is not ("." or "..")
+           && !Path.IsPathRooted(name)
+           && !name.Contains(Path.DirectorySeparatorChar)
+           && !name.Contains(Path.AltDirectorySeparatorChar)
+           && name.IndexOfAny(Path.GetInvalidFileNameChars()) < 0;
+
     private static void ValidateSceneName(string name)
     {
-        if (string.IsNullOrWhiteSpace(name)
-            || name is "." or ".."
-            || Path.IsPathRooted(name)
-            || name.Contains(Path.DirectorySeparatorChar)
-            || name.Contains(Path.AltDirectorySeparatorChar)
-            || name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+        if (!IsValidSceneName(name))
         {
             throw new ReconcileException(new ToolError(
                 ErrorCode.ValidationRejected,

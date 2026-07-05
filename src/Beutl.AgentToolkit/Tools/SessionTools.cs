@@ -55,7 +55,12 @@ public sealed class SessionTools(
     {
         return ExecuteAsync(async () =>
         {
-            string fullPath = Path.GetFullPath(path);
+            // Resolve a relative path against the workspace root, matching create_project/save_project,
+            // so the same path is not reported missing just because the MCP process cwd differs from
+            // BEUTL_WORKSPACE. Absolute paths are honored as-is (open_project reads anywhere).
+            string fullPath = Path.IsPathRooted(path)
+                ? Path.GetFullPath(path)
+                : Path.GetFullPath(Path.Combine(workspace.Root, path));
             ValidateProjectFileExtension(fullPath, nameof(path));
             if (!File.Exists(fullPath))
             {

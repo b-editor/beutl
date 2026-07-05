@@ -882,24 +882,29 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
         return Execute(() =>
         {
             IEditingSession session = sessions.RequireSession();
-            if (session.Root is not Scene scene)
+            // Read/traverse the live scene on the session dispatcher so a LiveEditor summary does not
+            // race UI-thread edits to scene.Children.
+            return session.ReadOnSession(() =>
             {
-                throw new ReconcileException(new ToolError(
-                    ErrorCode.ValidationRejected,
-                    $"Current root '{session.Root.GetType().FullName}' is not a Scene.",
-                    session.Root.Id.ToString()));
-            }
+                if (session.Root is not Scene scene)
+                {
+                    throw new ReconcileException(new ToolError(
+                        ErrorCode.ValidationRejected,
+                        $"Current root '{session.Root.GetType().FullName}' is not a Scene.",
+                        session.Root.Id.ToString()));
+                }
 
-            return new DocumentSummaryResponse(
-                session.SessionId,
-                session.Source.ToString(),
-                scene.Id.ToString(),
-                scene.Name,
-                scene.FrameSize.Width,
-                scene.FrameSize.Height,
-                scene.Duration.ToString("c"),
-                scene.Children.Count,
-                scene.Children.Select(CreateElementSummary).ToArray());
+                return new DocumentSummaryResponse(
+                    session.SessionId,
+                    session.Source.ToString(),
+                    scene.Id.ToString(),
+                    scene.Name,
+                    scene.FrameSize.Width,
+                    scene.FrameSize.Height,
+                    scene.Duration.ToString("c"),
+                    scene.Children.Count,
+                    scene.Children.Select(CreateElementSummary).ToArray());
+            });
         });
     }
 
@@ -913,124 +918,132 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
         return Execute(() =>
         {
             IEditingSession session = sessions.RequireSession();
-            if (session.Root is not Scene scene)
-            {
-                throw new ReconcileException(new ToolError(
-                    ErrorCode.ValidationRejected,
-                    $"Current root '{session.Root.GetType().FullName}' is not a Scene.",
-                    session.Root.Id.ToString()));
-            }
-
-            Guid? objectGuid = ParseOptionalGuid(objectId, nameof(objectId));
-            Guid? elementGuid = ParseOptionalGuid(elementId, nameof(elementId));
-            TimeSpan time = ParseMeasurementTime(timeSeconds);
-            bool timeFiltered = timeSeconds.HasValue;
-
-            Element? selectedElement = null;
-            if (elementGuid is { } elementGuidValue)
-            {
-                selectedElement = scene.Children.FirstOrDefault(item => item.Id == elementGuidValue);
-                if (selectedElement is null)
-                {
-                    throw new ReconcileException(new ToolError(
-                        ErrorCode.StaleHandle,
-                        $"No Element with Id '{elementId}' exists in the current scene.",
-                        elementId));
-                }
-            }
-
-            Drawable? selectedDrawable = null;
-            if (objectGuid is { } objectGuidValue)
-            {
-                var entity = IdentityHelper.FindById(scene, objectGuidValue);
-                if (entity is null)
-                {
-                    throw new ReconcileException(new ToolError(
-                        ErrorCode.StaleHandle,
-                        $"No object with Id '{objectId}' exists in the current scene.",
-                        objectId));
-                }
-
-                if (entity is not Drawable drawable)
-                {
-                    throw new ReconcileException(new ToolError(
-                        ErrorCode.ValidationRejected,
-                        $"Object '{objectId}' is a {entity.GetType().FullName}, not a Drawable.",
-                        objectId,
-                        "Pass a Drawable object Id from read_document_summary or omit objectId to measure all direct Drawable objects."));
-                }
-
-                selectedDrawable = drawable;
-            }
-
-            Size canvasSize = new(scene.FrameSize.Width, scene.FrameSize.Height);
-            var context = new CompositionContext(time);
-            var measurements = new List<ObjectBoundsMeasurement>();
-            foreach (Element element in scene.Children)
-            {
-                if (selectedElement is not null && element != selectedElement)
-                {
-                    continue;
-                }
-
-                if (timeFiltered && (!element.IsEnabled || !element.Range.Contains(time)))
-                {
-                    continue;
-                }
-
-                foreach (EngineObject obj in element.Objects)
-                {
-                    if (obj is not Drawable drawable)
-                    {
-                        continue;
-                    }
-
-                    if (selectedDrawable is not null && drawable != selectedDrawable)
-                    {
-                        continue;
-                    }
-
-                    if (timeFiltered && !drawable.IsEnabled)
-                    {
-                        continue;
-                    }
-
-                    measurements.Add(MeasureDrawable(element, drawable, canvasSize, context));
-                }
-            }
-
-            if (selectedElement is not null && selectedDrawable is not null && measurements.Count == 0)
-            {
-                throw new ReconcileException(new ToolError(
-                    ErrorCode.ValidationRejected,
-                    $"Drawable '{objectId}' is not a direct object of Element '{elementId}' at the requested time.",
-                    objectId,
-                    "Measure the object without elementId, or use the Element that directly contains the object."));
-            }
-
-            if (selectedDrawable is not null && measurements.Count == 0 && !timeFiltered)
-            {
-                throw new ReconcileException(new ToolError(
-                    ErrorCode.ValidationRejected,
-                    $"Drawable '{objectId}' is not a direct object of any Element in the current scene.",
-                    objectId,
-                    "measure_object_bounds currently measures direct Drawable objects in timeline Elements. Nested flow/group drawables are reported as an unsupported improvement area."));
-            }
-
-            return new ObjectBoundsMeasurementResponse(
-                SchemaVersion.Current,
-                session.SessionId,
-                session.Source.ToString(),
-                scene.Id.ToString(),
-                scene.FrameSize.Width,
-                scene.FrameSize.Height,
-                new ObjectBoundsPoint(scene.FrameSize.Width / 2d, scene.FrameSize.Height / 2d),
-                time.ToString("c"),
-                timeFiltered,
-                "Scene pixel coordinates. TransformedBounds are authoritative axis-aligned scene-space bounds measured from RenderNodeOperation.Bounds. LocalBounds are normalized from the render-node extents for size only and are not Drawable.MeasureCore results.",
-                "Default Drawable AlignmentX/AlignmentY is Center, so a pure TranslateTransform(x, y) moves the object relative to the alignment-resolved position. For a centered object in a 1920x1080 scene, TranslateTransform(0, 0) centers it at (960, 540). Bounds are measured through DrawableRenderNode and RenderNodeProcessor rather than per-type Drawable.Measure/FilterEffect.TransformBounds estimates.",
-                measurements);
+            // Walk the live scene on the session dispatcher: this positioning tool runs while the
+            // Avalonia editor may be mutating scene.Children / drawables on the UI thread.
+            return session.ReadOnSession(() => MeasureObjectBoundsCore(session, objectId, elementId, timeSeconds));
         });
+    }
+
+    private ObjectBoundsMeasurementResponse MeasureObjectBoundsCore(
+        IEditingSession session, string? objectId, string? elementId, double? timeSeconds)
+    {
+        if (session.Root is not Scene scene)
+        {
+            throw new ReconcileException(new ToolError(
+                ErrorCode.ValidationRejected,
+                $"Current root '{session.Root.GetType().FullName}' is not a Scene.",
+                session.Root.Id.ToString()));
+        }
+
+        Guid? objectGuid = ParseOptionalGuid(objectId, nameof(objectId));
+        Guid? elementGuid = ParseOptionalGuid(elementId, nameof(elementId));
+        TimeSpan time = ParseMeasurementTime(timeSeconds);
+        bool timeFiltered = timeSeconds.HasValue;
+
+        Element? selectedElement = null;
+        if (elementGuid is { } elementGuidValue)
+        {
+            selectedElement = scene.Children.FirstOrDefault(item => item.Id == elementGuidValue);
+            if (selectedElement is null)
+            {
+                throw new ReconcileException(new ToolError(
+                    ErrorCode.StaleHandle,
+                    $"No Element with Id '{elementId}' exists in the current scene.",
+                    elementId));
+            }
+        }
+
+        Drawable? selectedDrawable = null;
+        if (objectGuid is { } objectGuidValue)
+        {
+            var entity = IdentityHelper.FindById(scene, objectGuidValue);
+            if (entity is null)
+            {
+                throw new ReconcileException(new ToolError(
+                    ErrorCode.StaleHandle,
+                    $"No object with Id '{objectId}' exists in the current scene.",
+                    objectId));
+            }
+
+            if (entity is not Drawable drawable)
+            {
+                throw new ReconcileException(new ToolError(
+                    ErrorCode.ValidationRejected,
+                    $"Object '{objectId}' is a {entity.GetType().FullName}, not a Drawable.",
+                    objectId,
+                    "Pass a Drawable object Id from read_document_summary or omit objectId to measure all direct Drawable objects."));
+            }
+
+            selectedDrawable = drawable;
+        }
+
+        Size canvasSize = new(scene.FrameSize.Width, scene.FrameSize.Height);
+        var context = new CompositionContext(time);
+        var measurements = new List<ObjectBoundsMeasurement>();
+        foreach (Element element in scene.Children)
+        {
+            if (selectedElement is not null && element != selectedElement)
+            {
+                continue;
+            }
+
+            if (timeFiltered && (!element.IsEnabled || !element.Range.Contains(time)))
+            {
+                continue;
+            }
+
+            foreach (EngineObject obj in element.Objects)
+            {
+                if (obj is not Drawable drawable)
+                {
+                    continue;
+                }
+
+                if (selectedDrawable is not null && drawable != selectedDrawable)
+                {
+                    continue;
+                }
+
+                if (timeFiltered && !drawable.IsEnabled)
+                {
+                    continue;
+                }
+
+                measurements.Add(MeasureDrawable(element, drawable, canvasSize, context));
+            }
+        }
+
+        if (selectedElement is not null && selectedDrawable is not null && measurements.Count == 0)
+        {
+            throw new ReconcileException(new ToolError(
+                ErrorCode.ValidationRejected,
+                $"Drawable '{objectId}' is not a direct object of Element '{elementId}' at the requested time.",
+                objectId,
+                "Measure the object without elementId, or use the Element that directly contains the object."));
+        }
+
+        if (selectedDrawable is not null && measurements.Count == 0 && !timeFiltered)
+        {
+            throw new ReconcileException(new ToolError(
+                ErrorCode.ValidationRejected,
+                $"Drawable '{objectId}' is not a direct object of any Element in the current scene.",
+                objectId,
+                "measure_object_bounds currently measures direct Drawable objects in timeline Elements. Nested flow/group drawables are reported as an unsupported improvement area."));
+        }
+
+        return new ObjectBoundsMeasurementResponse(
+            SchemaVersion.Current,
+            session.SessionId,
+            session.Source.ToString(),
+            scene.Id.ToString(),
+            scene.FrameSize.Width,
+            scene.FrameSize.Height,
+            new ObjectBoundsPoint(scene.FrameSize.Width / 2d, scene.FrameSize.Height / 2d),
+            time.ToString("c"),
+            timeFiltered,
+            "Scene pixel coordinates. TransformedBounds are authoritative axis-aligned scene-space bounds measured from RenderNodeOperation.Bounds. LocalBounds are normalized from the render-node extents for size only and are not Drawable.MeasureCore results.",
+            "Default Drawable AlignmentX/AlignmentY is Center, so a pure TranslateTransform(x, y) moves the object relative to the alignment-resolved position. For a centered object in a 1920x1080 scene, TranslateTransform(0, 0) centers it at (960, 540). Bounds are measured through DrawableRenderNode and RenderNodeProcessor rather than per-type Drawable.Measure/FilterEffect.TransformBounds estimates.",
+            measurements);
     }
 
     [McpServerTool(Name = "read_document")]

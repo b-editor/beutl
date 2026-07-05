@@ -320,15 +320,31 @@ public sealed class Reconciler
         return new ReconcileResult(plan, session.Documents.Read(session.Root));
     }
 
+    // Build the plan on the editor's dispatcher: PlanPrepared reads session.Documents/Root, so off
+    // the MCP request thread it would race the live scene the editor mutates on the UI thread.
+    public ReconcilePlan PlanFromCurrent(
+        IEditingSession session,
+        Func<JsonObject, (JsonObject Desired, IReadOnlySet<Guid>? KnownNewIds)> resolve)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        ArgumentNullException.ThrowIfNull(resolve);
+
+        return Dispatch(session, () =>
+        {
+            (JsonObject desired, IReadOnlySet<Guid>? knownNewIds) = resolve(session.Documents.Read(session.Root));
+            return PlanPrepared(session, PrepareDesired(session, desired), knownNewIds);
+        });
+    }
+
     // Plan and mutate on the editor's dispatcher: reading session.Root/Documents off the MCP request
     // thread would race the live scene the editor mutates on the UI thread. File sessions run inline.
-    private static ReconcileResult Dispatch(IEditingSession session, Func<ReconcileResult> core)
+    private static T Dispatch<T>(IEditingSession session, Func<T> core)
     {
         if (session is IEditingSessionDispatcher dispatcher)
         {
-            ReconcileResult? result = null;
+            T result = default!;
             dispatcher.Invoke(() => result = core());
-            return result!;
+            return result;
         }
 
         return core();
