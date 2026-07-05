@@ -212,6 +212,40 @@ public sealed class AgentToolkitInstallerTests
     }
 
     [Test]
+    public async Task InstallAsync_ConvertsSubagentsToCodexToml()
+    {
+        const string markdown = """
+            ---
+            name: beutl-agent-demo
+            description: Demo subagent.
+            ---
+            Body line.
+            """;
+
+        AgentToolkitInstallResult result = await AgentToolkitInstaller.InstallAsync(
+            new AgentToolkitInstallOptions
+            {
+                AgentRoot = _tempRoot,
+                SubagentsDirectory = Path.Combine(".codex", "agents"),
+                SubagentFormat = SubagentFileFormat.CodexToml,
+                InstallSkills = false,
+                InstallStdioMcp = false,
+            },
+            [new AgentToolkitAsset(AgentToolkitAssetKind.Subagent, "beutl-agent-demo.md", markdown)]);
+
+        string tomlPath = Path.Combine(_tempRoot, ".codex", "agents", "beutl-agent-demo.toml");
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.InstalledFiles, Is.EqualTo(new[] { tomlPath }));
+            string toml = File.ReadAllText(tomlPath);
+            Assert.That(toml, Does.StartWith("name = \"beutl-agent-demo\""));
+            Assert.That(toml, Does.Contain("description = \"Demo subagent.\""));
+            Assert.That(toml, Does.Contain("developer_instructions = '''"));
+            Assert.That(toml, Does.Contain("Body line."));
+        });
+    }
+
+    [Test]
     public async Task InstallAsync_UsesCustomAssetDirectories()
     {
         await AgentToolkitInstaller.InstallAsync(

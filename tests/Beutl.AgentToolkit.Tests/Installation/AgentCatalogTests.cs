@@ -125,7 +125,7 @@ public sealed class AgentCatalogTests
     }
 
     [Test]
-    public void Codex_uses_the_dot_agents_skills_convention_in_both_scopes()
+    public void Codex_uses_dot_agents_skills_and_toml_subagents()
     {
         AgentDefinition agent = AgentCatalog.Find("codex")!;
 
@@ -137,9 +137,10 @@ public sealed class AgentCatalogTests
             Assert.That(
                 agent.SkillsDirectory(AgentInstallScope.Global),
                 Is.EqualTo(Path.Combine(".agents", "skills")));
-            // Codex subagents are TOML (.codex/agents), incompatible with the
-            // markdown subagents this toolkit ships.
-            Assert.That(agent.SubagentsDirectory(AgentInstallScope.Project), Is.Null);
+            Assert.That(
+                agent.SubagentsDirectory(AgentInstallScope.Global),
+                Is.EqualTo(Path.Combine(".codex", "agents")));
+            Assert.That(agent.SubagentFormat, Is.EqualTo(SubagentFileFormat.CodexToml));
         });
     }
 

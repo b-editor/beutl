@@ -158,11 +158,14 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
         string Root,
         string SkillsDirectory,
         string? SubagentsDirectory,
+        SubagentFileFormat SubagentFormat,
         string? McpConfigFileName,
         string McpServersPropertyName,
         string? StdioTypeValue,
         string? LiveUrlPropertyName,
-        string? LiveTypeValue);
+        string? LiveTypeValue,
+        bool UseCliForMcp,
+        bool CliSupportsRemote);
 
     private ResolvedTargets Resolve()
     {
@@ -196,8 +199,31 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
         string? liveUrlProperty = mcp is null ? "url" : mcp.RemoteUrlPropertyName;
         string? liveType = mcp is null ? "http" : mcp.RemoteTypeValue;
 
+        bool useCli = mcpFile is null
+                      && AgentMcpCliCommands.SupportsStdio(SelectedAgent.Value.Id, scope);
+        bool cliRemote = useCli
+                         && AgentMcpCliCommands.SupportsRemote(SelectedAgent.Value.Id, scope);
+
         return new ResolvedTargets(
-            root, skills, subagents, mcpFile, mcpProperty, stdioType, liveUrlProperty, liveType);
+            root, skills, subagents, agent?.SubagentFormat ?? SubagentFileFormat.Markdown,
+            mcpFile, mcpProperty, stdioType, liveUrlProperty, liveType, useCli, cliRemote);
+    }
+
+    private McpCliCommand? BuildCliStdioCommand()
+    {
+        var environment = new Dictionary<string, string>();
+        if (!string.IsNullOrWhiteSpace(WorkspaceRoot.Value))
+        {
+            environment["BEUTL_WORKSPACE"] = Path.GetFullPath(WorkspaceRoot.Value);
+        }
+
+        return AgentMcpCliCommands.BuildStdio(
+            SelectedAgent.Value.Id,
+            SelectedScope.Value.Scope,
+            AgentToolkitInstallOptions.DefaultStdioServerName,
+            McpCommand.Value,
+            ParseArguments(McpArguments.Value),
+            environment);
     }
 
     private void SubscribeRecompute()
@@ -209,6 +235,9 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
         SubagentsDirectory.Skip(1).Subscribe(_ => RecomputeTargets()).DisposeWith(_disposables);
         McpConfigFileName.Skip(1).Subscribe(_ => RecomputeTargets()).DisposeWith(_disposables);
         McpServersPropertyName.Skip(1).Subscribe(_ => RecomputeTargets()).DisposeWith(_disposables);
+        McpCommand.Skip(1).Subscribe(_ => RecomputeTargets()).DisposeWith(_disposables);
+        McpArguments.Skip(1).Subscribe(_ => RecomputeTargets()).DisposeWith(_disposables);
+        WorkspaceRoot.Skip(1).Subscribe(_ => RecomputeTargets()).DisposeWith(_disposables);
     }
 
     private void RecomputeTargets()
@@ -220,18 +249,20 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
         IsScopeSelectable.Value = !custom;
         IsProjectFolderVisible.Value = custom || SelectedScope.Value.Scope == AgentInstallScope.Project;
         CanInstallSubagents.Value = targets.SubagentsDirectory is not null;
-        CanInstallMcp.Value = targets.McpConfigFileName is not null;
-        CanInstallLiveMcp.Value = CanInstallMcp.Value
-                                  && targets.LiveUrlPropertyName is not null
-                                  && IsLiveMcpAvailable.Value;
+        CanInstallMcp.Value = targets.McpConfigFileName is not null || targets.UseCliForMcp;
+        CanInstallLiveMcp.Value = IsLiveMcpAvailable.Value
+                                  && ((targets.McpConfigFileName is not null && targets.LiveUrlPropertyName is not null)
+                                      || targets.CliSupportsRemote);
 
         ResolvedSkillsPath.Value = DisplayPath(targets.Root, targets.SkillsDirectory);
         ResolvedSubagentsPath.Value = targets.SubagentsDirectory is null
             ? SettingsStrings.AiAgents_NotSupported
             : DisplayPath(targets.Root, targets.SubagentsDirectory);
-        ResolvedMcpConfigPath.Value = targets.McpConfigFileName is null
-            ? SettingsStrings.AiAgents_NotSupported
-            : DisplayPath(targets.Root, targets.McpConfigFileName);
+        ResolvedMcpConfigPath.Value = targets.McpConfigFileName is not null
+            ? DisplayPath(targets.Root, targets.McpConfigFileName)
+            : targets.UseCliForMcp && BuildCliStdioCommand() is { } cliCommand
+                ? "$ " + cliCommand.ToDisplayString()
+                : SettingsStrings.AiAgents_NotSupported;
     }
 
     private static string DisplayPath(string root, string relativePath)
@@ -287,6 +318,7 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
                     AgentRoot = targets.Root,
                     SkillsDirectory = targets.SkillsDirectory,
                     SubagentsDirectory = targets.SubagentsDirectory ?? "agents",
+                    SubagentFormat = targets.SubagentFormat,
                     InstallSkills = InstallSkills.Value,
                     InstallSubagents = InstallSubagents.Value && targets.SubagentsDirectory is not null,
                     InstallStdioMcp = installStdioMcp,
@@ -308,8 +340,20 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
                 InstalledFiles.Add(file);
             }
 
+            var cliErrors = new List<string>();
+            if (targets.UseCliForMcp)
+            {
+                await RegisterMcpThroughCliAsync(targets, liveMcpUri, cliErrors).ConfigureAwait(true);
+            }
+
             HasInstalledFiles.Value = InstalledFiles.Count > 0;
-            Status.Value = string.Format(SettingsStrings.AiAgents_InstallCompleted, result.InstalledFiles.Count);
+            Status.Value = string.Format(SettingsStrings.AiAgents_InstallCompleted, InstalledFiles.Count);
+            if (cliErrors.Count > 0)
+            {
+                Status.Value += Environment.NewLine + string.Format(
+                    SettingsStrings.AiAgents_CliFailed,
+                    string.Join(Environment.NewLine, cliErrors));
+            }
         }
         catch (Exception ex)
         {
@@ -318,6 +362,54 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
         finally
         {
             IsInstalling.Value = false;
+        }
+    }
+
+    private async Task RegisterMcpThroughCliAsync(
+        ResolvedTargets targets,
+        Uri? liveMcpUri,
+        List<string> errors)
+    {
+        string agentId = SelectedAgent.Value.Id;
+        AgentInstallScope scope = SelectedScope.Value.Scope;
+
+        if (InstallStdioMcp.Value && BuildCliStdioCommand() is { } stdioCommand)
+        {
+            await RunCliRegistrationAsync(
+                agentId, scope, AgentToolkitInstallOptions.DefaultStdioServerName, stdioCommand, errors)
+                .ConfigureAwait(true);
+        }
+
+        if (InstallLiveMcp.Value
+            && targets.CliSupportsRemote
+            && liveMcpUri is not null
+            && AgentMcpCliCommands.BuildRemote(
+                agentId, scope, AgentToolkitInstallOptions.DefaultLiveServerName, liveMcpUri) is { } remoteCommand)
+        {
+            await RunCliRegistrationAsync(
+                agentId, scope, AgentToolkitInstallOptions.DefaultLiveServerName, remoteCommand, errors)
+                .ConfigureAwait(true);
+        }
+    }
+
+    private static async Task RunCliRegistrationAsync(
+        string agentId,
+        AgentInstallScope scope,
+        string serverName,
+        McpCliCommand addCommand,
+        List<string> errors)
+    {
+        // Best-effort remove keeps re-installs idempotent; `mcp add` fails on
+        // an existing server name.
+        if (AgentMcpCliCommands.BuildRemove(agentId, scope, serverName) is { } removeCommand)
+        {
+            await McpCliRunner.RunAsync(removeCommand).ConfigureAwait(true);
+        }
+
+        McpCliResult result = await McpCliRunner.RunAsync(addCommand).ConfigureAwait(true);
+        if (!result.Success)
+        {
+            errors.Add($"{addCommand.ToDisplayString()}: {result.Output}");
         }
     }
 

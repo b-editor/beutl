@@ -571,4 +571,9 @@
     <value>This agent's MCP configuration cannot be written automatically. Register the MCP server manually in the agent's own settings.</value>
     <comment/>
   </data>
+  <data name="AiAgents_CliFailed" xml:space="preserve">
+    <value>MCP registration through the agent's CLI failed. Run the command manually:
+{0}</value>
+    <comment/>
+  </data>
 </root>

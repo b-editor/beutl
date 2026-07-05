@@ -6,6 +6,12 @@ public enum AgentToolkitAssetKind
     Subagent,
 }
 
+public enum SubagentFileFormat
+{
+    Markdown,
+    CodexToml,
+}
+
 public sealed record AgentToolkitAsset(
     AgentToolkitAssetKind Kind,
     string RelativePath,
@@ -18,6 +24,8 @@ public sealed record AgentToolkitInstallOptions
     public string SkillsDirectory { get; init; } = "skills";
 
     public string SubagentsDirectory { get; init; } = "agents";
+
+    public SubagentFileFormat SubagentFormat { get; init; } = SubagentFileFormat.Markdown;
 
     public bool InstallSkills { get; init; } = true;
 
@@ -39,9 +47,13 @@ public sealed record AgentToolkitInstallOptions
     // null omits the "type" key on the live (remote) entry.
     public string? LiveMcpTypeValue { get; init; } = "http";
 
-    public string StdioMcpServerName { get; init; } = "beutl-agent";
+    public const string DefaultStdioServerName = "beutl-agent";
 
-    public string LiveMcpServerName { get; init; } = "beutl-live";
+    public const string DefaultLiveServerName = "beutl-live";
+
+    public string StdioMcpServerName { get; init; } = DefaultStdioServerName;
+
+    public string LiveMcpServerName { get; init; } = DefaultLiveServerName;
 
     public string? WorkspaceRoot { get; init; }
 

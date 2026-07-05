@@ -34,14 +34,14 @@ public sealed class AiAgentSettingsPageViewModelTests
             Assert.That(viewModel.SelectedScope.Value.Scope, Is.EqualTo(AgentInstallScope.Global));
             Assert.That(viewModel.IsProjectFolderVisible.Value, Is.False);
             Assert.That(viewModel.CanInstallSubagents.Value, Is.True);
-            // ~/.claude.json is app-managed, so global MCP is manual for Claude Code.
-            Assert.That(viewModel.CanInstallMcp.Value, Is.False);
+            // ~/.claude.json is app-managed, so global MCP goes through `claude mcp add`.
+            Assert.That(viewModel.CanInstallMcp.Value, Is.True);
             Assert.That(
                 viewModel.ResolvedSkillsPath.Value,
                 Is.EqualTo(Path.Combine(home, ".claude", "skills")));
             Assert.That(
                 viewModel.ResolvedMcpConfigPath.Value,
-                Is.EqualTo(Beutl.Language.SettingsStrings.AiAgents_NotSupported));
+                Does.StartWith("$ claude mcp add --scope user"));
             Assert.That(viewModel.WorkspaceRoot.Value, Is.Not.Empty);
             Assert.That(viewModel.McpCommand.Value, Is.Not.Empty);
         });
@@ -66,7 +66,7 @@ public sealed class AiAgentSettingsPageViewModelTests
     }
 
     [AvaloniaTest]
-    public void Agent_without_mcp_support_disables_mcp_and_reports_unsupported_paths()
+    public void Codex_registers_mcp_through_its_cli_and_converts_subagents()
     {
         using AiAgentSettingsPageViewModel viewModel = CreateViewModel(new AiAgentConfig());
 
@@ -74,13 +74,34 @@ public sealed class AiAgentSettingsPageViewModelTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(viewModel.CanInstallMcp.Value, Is.False);
-            Assert.That(viewModel.CanInstallSubagents.Value, Is.False);
-            Assert.That(viewModel.ResolvedSubagentsPath.Value, Is.Not.Empty);
-            Assert.That(viewModel.ResolvedMcpConfigPath.Value, Is.Not.Empty);
+            Assert.That(viewModel.CanInstallMcp.Value, Is.True);
+            Assert.That(viewModel.ResolvedMcpConfigPath.Value, Does.StartWith("$ codex mcp add"));
+            // Live MCP needs a remote entry, which `codex mcp add` does not cover.
+            Assert.That(viewModel.CanInstallLiveMcp.Value, Is.False);
+            Assert.That(viewModel.CanInstallSubagents.Value, Is.True);
+            Assert.That(
+                viewModel.ResolvedSubagentsPath.Value,
+                Does.EndWith(Path.Combine(".codex", "agents")));
             Assert.That(
                 viewModel.ResolvedSkillsPath.Value,
                 Does.EndWith(Path.Combine(".agents", "skills")));
+        });
+    }
+
+    [AvaloniaTest]
+    public void Agent_without_mcp_support_disables_mcp()
+    {
+        using AiAgentSettingsPageViewModel viewModel = CreateViewModel(new AiAgentConfig());
+
+        viewModel.SelectedAgent.Value = Choice(viewModel, "goose");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.CanInstallMcp.Value, Is.False);
+            Assert.That(viewModel.CanInstallSubagents.Value, Is.False);
+            Assert.That(
+                viewModel.ResolvedMcpConfigPath.Value,
+                Is.EqualTo(Beutl.Language.SettingsStrings.AiAgents_NotSupported));
         });
     }
 

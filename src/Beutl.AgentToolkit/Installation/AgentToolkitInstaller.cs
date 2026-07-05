@@ -33,9 +33,20 @@ public static class AgentToolkitInstaller
                 continue;
             }
 
-            string targetPath = GetAssetTargetPath(agentRoot, options, asset);
+            string relativePath = asset.RelativePath;
+            string content = asset.Content;
+            if (asset.Kind == AgentToolkitAssetKind.Subagent
+                && options.SubagentFormat == SubagentFileFormat.CodexToml)
+            {
+                relativePath = Path.ChangeExtension(relativePath, ".toml");
+                content = CodexSubagentConverter.Convert(
+                    asset.Content,
+                    Path.GetFileNameWithoutExtension(asset.RelativePath));
+            }
+
+            string targetPath = GetAssetTargetPath(agentRoot, options, asset.Kind, relativePath);
             Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
-            await File.WriteAllTextAsync(targetPath, asset.Content, cancellationToken).ConfigureAwait(false);
+            await File.WriteAllTextAsync(targetPath, content, cancellationToken).ConfigureAwait(false);
             installedFiles.Add(targetPath);
         }
 
@@ -176,16 +187,17 @@ public static class AgentToolkitInstaller
     private static string GetAssetTargetPath(
         string agentRoot,
         AgentToolkitInstallOptions options,
-        AgentToolkitAsset asset)
+        AgentToolkitAssetKind kind,
+        string relativePath)
     {
-        string baseRelativePath = asset.Kind switch
+        string baseRelativePath = kind switch
         {
             AgentToolkitAssetKind.Skill => options.SkillsDirectory,
             AgentToolkitAssetKind.Subagent => options.SubagentsDirectory,
-            _ => throw new ArgumentOutOfRangeException(nameof(asset)),
+            _ => throw new ArgumentOutOfRangeException(nameof(kind)),
         };
 
-        return GetSafeTargetPath(agentRoot, Path.Combine(baseRelativePath, asset.RelativePath));
+        return GetSafeTargetPath(agentRoot, Path.Combine(baseRelativePath, relativePath));
     }
 
     private static string EnsureDirectory(string path)

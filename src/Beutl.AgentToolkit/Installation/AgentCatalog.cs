@@ -43,7 +43,8 @@ public sealed record AgentDefinition(
     string? ProjectSubagentsDirectory = null,
     string? GlobalSubagentsDirectory = null,
     AgentMcpLocation? ProjectMcp = null,
-    AgentMcpLocation? GlobalMcp = null)
+    AgentMcpLocation? GlobalMcp = null,
+    SubagentFileFormat SubagentFormat = SubagentFileFormat.Markdown)
 {
     public string SkillsDirectory(AgentInstallScope scope)
         => scope == AgentInstallScope.Project ? ProjectSkillsDirectory : GlobalSkillsDirectory;
@@ -70,12 +71,15 @@ public static class AgentCatalog
             ProjectSubagentsDirectory: Path.Combine(".claude", "agents"),
             GlobalSubagentsDirectory: Path.Combine(".claude", "agents"),
             ProjectMcp: s_repoRootMcpJson),
-        // Codex subagents exist (.codex/agents) but are TOML, not the markdown
-        // this toolkit ships; MCP config is TOML (~/.codex/config.toml). Both
-        // therefore stay manual.
+        // Codex MCP config is TOML (~/.codex/config.toml) — registration goes
+        // through `codex mcp add` (AgentMcpCliCommands) instead of a file merge.
+        // Subagents are TOML and get converted at install time.
         new("codex", "Codex",
             ProjectSkillsDirectory: Path.Combine(".agents", "skills"),
-            GlobalSkillsDirectory: Path.Combine(".agents", "skills")),
+            GlobalSkillsDirectory: Path.Combine(".agents", "skills"),
+            ProjectSubagentsDirectory: Path.Combine(".codex", "agents"),
+            GlobalSubagentsDirectory: Path.Combine(".codex", "agents"),
+            SubagentFormat: SubagentFileFormat.CodexToml),
         new("opencode", "OpenCode",
             ProjectSkillsDirectory: Path.Combine(".agents", "skills"),
             GlobalSkillsDirectory: Path.Combine(".config", "opencode", "skills")),

@@ -567,4 +567,9 @@
     <value>このエージェントの MCP 設定は自動書き込みに対応していません。エージェント側の設定で MCP サーバーを手動登録してください。</value>
     <comment/>
   </data>
+  <data name="AiAgents_CliFailed" xml:space="preserve">
+    <value>エージェントの CLI による MCP 登録に失敗しました。次のコマンドを手動で実行してください:
+{0}</value>
+    <comment/>
+  </data>
 </root>
