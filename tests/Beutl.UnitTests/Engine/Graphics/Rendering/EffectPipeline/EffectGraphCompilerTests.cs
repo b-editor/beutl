@@ -1,0 +1,335 @@
+﻿using System.Collections.Immutable;
+using Beutl.Graphics;
+using Beutl.Graphics.Effects;
+using Beutl.Graphics.Rendering;
+using Beutl.Media;
+using Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
+using SkiaSharp;
+
+namespace Beutl.UnitTests.Engine.Graphics.Rendering.EffectPipeline;
+
+/// <summary>
+/// Covers the declarative effect-graph compiler, its per-frame resource resolution, and the fused shader
+/// executor (feature 004, T029). Uses synthetic test-authored descriptors via the public builder surface;
+/// the fused-execution cases run on the raster backend (no Vulkan) so they are GPU-less-CI-safe.
+/// </summary>
+[TestFixture]
+public class EffectGraphCompilerTests
+{
+    // A coordinate-invariant snippet that scales premultiplied rgb by a uniform. Distinct uniform name per role
+    // keeps the snippet merger's whole-word prefixing unambiguous.
+    private const string ScaleSnippet =
+        """
+        uniform float scaleAmount;
+        half4 apply(half4 c) {
+            return half4(c.rgb * scaleAmount, c.a);
+        }
+        """;
+
+    private static ShaderNodeDescriptor Scale(float amount)
+        => ShaderNodeDescriptor.Snippet(ScaleSnippet, u => u.Float("scaleAmount", amount));
+
+    private static EffectGraphBuilder NewBuilder(Rect bounds, float workingScale = 1f)
+        => new(bounds, outputScale: 1f, workingScale: workingScale);
+
+    private static CompiledPlan Compile(EffectGraphBuilder builder)
+    {
+        using EffectGraph graph = builder.Build();
+        return EffectGraphCompiler.Compile(graph, diagnostics: null);
+    }
+
+    // ---- Fusion grouping --------------------------------------------------------------------------------
+
+    [Test]
+    public void Compile_MaximalInvariantRun_CollapsesToOneFusedPass()
+    {
+        var bounds = new Rect(0, 0, 100, 80);
+        EffectGraphBuilder builder = NewBuilder(bounds)
+            .Shader(Scale(0.9f))
+            .Shader(Scale(0.8f))
+            .ColorFilter(ColorFilterNodeDescriptor.Create(() => SKColorFilter.CreateLumaColor(), "Luma"))
+            .Shader(Scale(1.1f));
+
+        CompiledPlan plan = Compile(builder);
+
+        Assert.That(plan.Passes, Has.Length.EqualTo(1));
+        Assert.That(plan.Passes[0], Is.TypeOf<FusedShaderPass>());
+        Assert.That(((FusedShaderPass)plan.Passes[0]).Stages, Has.Length.EqualTo(4),
+            "all four adjacent invariant nodes fuse into one pass (maximality)");
+    }
+
+    [Test]
+    public void Compile_ExceedingStageBudget_SplitsIntoConsecutiveFusedPasses()
+    {
+        var bounds = new Rect(0, 0, 100, 80);
+        EffectGraphBuilder builder = NewBuilder(bounds);
+        int nodeCount = EffectGraphCompiler.MaxFusionStages + 1;
+        for (int i = 0; i < nodeCount; i++)
+            builder.Shader(Scale(1f));
+
+        CompiledPlan plan = Compile(builder);
+
+        Assert.That(plan.Passes, Has.Length.EqualTo(2), "17 invariant nodes split at the 16-stage budget");
+        Assert.That(((FusedShaderPass)plan.Passes[0]).Stages, Has.Length.EqualTo(EffectGraphCompiler.MaxFusionStages));
+        Assert.That(((FusedShaderPass)plan.Passes[1]).Stages, Has.Length.EqualTo(1));
+    }
+
+    [Test]
+    public void Compile_FusionNeverCrossesASkiaFilter()
+    {
+        var bounds = new Rect(0, 0, 100, 80);
+        EffectGraphBuilder builder = NewBuilder(bounds)
+            .Shader(Scale(1f))
+            .Blur(new Size(4, 4))
+            .Shader(Scale(1f));
+
+        CompiledPlan plan = Compile(builder);
+
+        Assert.That(plan.Passes.Select(p => p.GetType()),
+            Is.EqualTo(new[] { typeof(FusedShaderPass), typeof(SkiaFilterPass), typeof(FusedShaderPass) }));
+    }
+
+    // ---- Structural key vs parameters -------------------------------------------------------------------
+
+    [Test]
+    public void StructuralKey_ParameterOnlyChange_IsEqual_ButSizesReResolve()
+    {
+        var bounds = new Rect(0, 0, 200, 150);
+
+        CompiledPlan planSmall = Compile(NewBuilder(bounds).Shader(Scale(0.5f)).Blur(new Size(5, 5)));
+        CompiledPlan planLarge = Compile(NewBuilder(bounds).Shader(Scale(0.9f)).Blur(new Size(20, 20)));
+
+        Assert.That(planSmall.Key, Is.EqualTo(planLarge.Key),
+            "a uniform value and an animated blur sigma are parameters — the structural key must match so a cache hits");
+
+        FrameResources small = EffectGraphCompiler.ResolveResources(planSmall, Rect.Invalid, workingScale: 1f);
+        FrameResources large = EffectGraphCompiler.ResolveResources(planLarge, Rect.Invalid, workingScale: 1f);
+
+        // The blur pass (index 1) inflates by sigma×3, so its resolved buffer grows with sigma — recompiled? no,
+        // re-resolved: the plans differ only in per-frame sizes, proving bounds are not part of the key.
+        Assert.That(large.Passes[1].Width, Is.GreaterThan(small.Passes[1].Width));
+        Assert.That(large.Passes[1].Height, Is.GreaterThan(small.Passes[1].Height));
+    }
+
+    [Test]
+    public void StructuralKey_DifferentEffectKind_Differs()
+    {
+        var bounds = new Rect(0, 0, 100, 100);
+        CompiledPlan blur = Compile(NewBuilder(bounds).Blur(new Size(5, 5)));
+        CompiledPlan dilate = Compile(NewBuilder(bounds).Dilate(5, 5));
+
+        Assert.That(blur.Key, Is.Not.EqualTo(dilate.Key));
+    }
+
+    // ---- Resource plan (peak-live) ----------------------------------------------------------------------
+
+    [Test]
+    public void ResourcePlan_LinearChain_PeakLiveIsTwo_IndependentOfLength()
+    {
+        var bounds = new Rect(0, 0, 100, 100);
+
+        CompiledPlan four = Compile(NewBuilder(bounds)
+            .Shader(Scale(1f)).Blur(new Size(2, 2)).Shader(Scale(1f)).Blur(new Size(2, 2)));
+        CompiledPlan eight = Compile(NewBuilder(bounds)
+            .Shader(Scale(1f)).Blur(new Size(2, 2)).Shader(Scale(1f)).Blur(new Size(2, 2))
+            .Shader(Scale(1f)).Blur(new Size(2, 2)).Shader(Scale(1f)).Blur(new Size(2, 2)));
+
+        Assert.That(four.Passes, Has.Length.EqualTo(4));
+        Assert.That(eight.Passes, Has.Length.EqualTo(8));
+        Assert.That(four.Resources.PeakLiveCount, Is.EqualTo(2));
+        Assert.That(eight.Resources.PeakLiveCount, Is.EqualTo(2),
+            "double-buffer bound: a longer linear chain does not raise peak-live intermediates (FR-007)");
+
+        // Intervals: pass i writes decl i, consumed by pass i+1 (the tail's output is the frame result).
+        ImmutableArray<IntermediateDecl> decls = eight.Resources.Intermediates;
+        for (int i = 0; i < decls.Length; i++)
+        {
+            Assert.That(decls[i].FirstUse, Is.EqualTo(i));
+            Assert.That(decls[i].LastUse, Is.EqualTo(i < decls.Length - 1 ? i + 1 : i));
+        }
+    }
+
+    // ---- ROI backward propagation -----------------------------------------------------------------------
+
+    [Test]
+    public void ResolveResources_BackwardRoi_InflatesUpstreamFromRequestedRegion()
+    {
+        var bounds = new Rect(0, 0, 400, 400);
+        // Fused (identity) pass, then a Skia pass whose backward inflates the required input by 20 on each side.
+        var inflatingSkia = SkiaFilterNodeDescriptor.Create(
+            static inner => inner,
+            BoundsContract.Create(static r => r, static r => r.Inflate(20)),
+            structuralToken: "InflateBackward");
+        CompiledPlan plan = Compile(NewBuilder(bounds).Shader(Scale(1f)).SkiaFilter(inflatingSkia));
+
+        var requested = new Rect(150, 150, 100, 100);
+        FrameResources res = EffectGraphCompiler.ResolveResources(plan, requested, workingScale: 1f);
+
+        // Skia pass ROI == requested; fused pass ROI == requested inflated by 20 (clamped to the fused bounds).
+        Assert.That(res.Passes[1].OutputRoi, Is.EqualTo(requested));
+        Assert.That(res.Passes[0].Width, Is.EqualTo(140), "100 + 2×20 backward inflation");
+        Assert.That(res.Passes[0].Height, Is.EqualTo(140));
+    }
+
+    [Test]
+    public void ResolveResources_RenderTimePass_FallsBackToFullInputBounds()
+    {
+        var bounds = new Rect(0, 0, 300, 200);
+        var renderTime = ShaderNodeDescriptor.WholeSource(
+            "uniform shader src; half4 main(float2 coord){ return src.eval(coord); }",
+            BoundsContract.Create(static r => r, static r => r, isRenderTimeResolved: true));
+        CompiledPlan plan = Compile(NewBuilder(bounds).Shader(renderTime));
+
+        // A small requested region cannot narrow a render-time pass: it uses the full input bounds.
+        FrameResources res = EffectGraphCompiler.ResolveResources(plan, new Rect(10, 10, 20, 20), workingScale: 1f);
+
+        Assert.That(res.Passes[0].Width, Is.EqualTo(300));
+        Assert.That(res.Passes[0].Height, Is.EqualTo(200));
+    }
+
+    [Test]
+    public void ResolveResources_EmptyRoi_FlagsPassSkip()
+    {
+        var bounds = new Rect(0, 0, 100, 100);
+        CompiledPlan plan = Compile(NewBuilder(bounds).Shader(Scale(1f)));
+
+        // A requested region disjoint from the effect bounds resolves to an empty ROI -> runtime skip.
+        FrameResources res = EffectGraphCompiler.ResolveResources(plan, new Rect(500, 500, 50, 50), workingScale: 1f);
+
+        Assert.That(res.Passes[0].SkipEmpty, Is.True);
+    }
+
+    // ---- Working-scale carry + 16384 clamp --------------------------------------------------------------
+
+    [Test]
+    public void ResolveResources_NoClampNeeded_KeepsWorkingScale()
+    {
+        var bounds = new Rect(0, 0, 100, 100);
+        var identitySkia = SkiaFilterNodeDescriptor.Create(
+            static inner => inner, BoundsContract.Create(static r => r, static r => r), "Identity");
+        CompiledPlan plan = Compile(NewBuilder(bounds).Shader(Scale(1f)).SkiaFilter(identitySkia));
+
+        FrameResources res = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale: 2f);
+
+        Assert.That(res.Passes, Has.Length.EqualTo(2));
+        Assert.That(res.Passes[0].WorkingScale, Is.EqualTo(2f));
+        Assert.That(res.Passes[1].WorkingScale, Is.EqualTo(2f));
+    }
+
+    [Test]
+    public void ResolveResources_OversizedChain_ClampsAndCarriesWorkingScaleMonotonically()
+    {
+        // 10000 px axis at w=2 -> 20000 px buffer, over the 16384 axis budget: the clamp fires and carries.
+        var bounds = new Rect(0, 0, 10000, 10000);
+        var identitySkia = SkiaFilterNodeDescriptor.Create(
+            static inner => inner, BoundsContract.Create(static r => r, static r => r), "Identity");
+        CompiledPlan plan = Compile(NewBuilder(bounds).SkiaFilter(identitySkia).Shader(Scale(1f)));
+
+        FrameResources res = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale: 2f);
+
+        float expected = RenderNodeContext.ClampWorkingScaleToBufferBudget(bounds, 2f);
+        Assert.That(expected, Is.LessThan(2f), "sanity: this chain must trigger the clamp");
+        Assert.That(res.Passes[0].WorkingScale, Is.EqualTo(expected));
+        Assert.That(res.Passes[1].WorkingScale, Is.LessThanOrEqualTo(res.Passes[0].WorkingScale),
+            "the reduced working scale carries monotonically to downstream passes (legacy Flush parity)");
+        Assert.That(res.Passes[0].Width, Is.LessThanOrEqualTo(RenderNodeContext.MaxBufferDimension));
+    }
+
+    // ---- End-to-end fused execution (raster, GPU-less) --------------------------------------------------
+
+    [Test]
+    public void FusedChain_ThreeInvariantSnippets_OneGpuPassOneIntermediate_MatchesUnfused()
+    {
+        var bounds = new Rect(0, 0, 96, 64);
+        ShaderNodeDescriptor[] chain = [Scale(0.85f), Scale(1.15f), Scale(0.7f)];
+
+        var diagnostics = new PipelineDiagnostics();
+        using var pool = new RenderTargetPool();
+
+        using Bitmap fused = RenderChain(chain, bounds, fuse: true, diagnostics, pool);
+        using Bitmap unfused = RenderChain(chain, bounds, fuse: false, diagnostics: null, pool: null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(diagnostics.GpuPasses, Is.EqualTo(1), "a fused run of 3 invariant snippets is one GPU pass");
+            Assert.That(diagnostics.PoolAcquires, Is.LessThanOrEqualTo(1), "at most one intermediate target");
+            Assert.That(diagnostics.ProgramCreations, Is.EqualTo(1), "the 3 snippets merge into one program");
+
+            double ssim = ImageMetrics.Ssim(unfused, fused);
+            double mae = ImageMetrics.MeanAbsoluteError(unfused, fused);
+            Assert.That(ssim, Is.GreaterThanOrEqualTo(GoldenThresholds.ExactSsimMin), $"SSIM {ssim}");
+            Assert.That(mae, Is.LessThanOrEqualTo(GoldenThresholds.ExactMaeMax), $"MAE {mae}");
+        });
+    }
+
+    // Renders a snippet chain over a fixed synthetic input. When fused, the whole chain compiles to one plan;
+    // when unfused, each snippet is its own single-node plan run in sequence (the pre-fusion equivalent).
+    private static Bitmap RenderChain(
+        ShaderNodeDescriptor[] snippets, Rect bounds, bool fuse,
+        PipelineDiagnostics? diagnostics, RenderTargetPool? pool)
+    {
+        RenderNodeOperation[] current = [MakeInput(bounds)];
+        if (fuse)
+        {
+            EffectGraphBuilder builder = new(bounds, 1f, 1f);
+            foreach (ShaderNodeDescriptor snippet in snippets)
+                builder.Shader(snippet);
+            current = Execute(builder, bounds, current, diagnostics, pool);
+        }
+        else
+        {
+            foreach (ShaderNodeDescriptor snippet in snippets)
+            {
+                var builder = new EffectGraphBuilder(bounds, 1f, 1f);
+                builder.Shader(snippet);
+                current = Execute(builder, bounds, current, diagnostics, pool);
+            }
+        }
+
+        Bitmap result = Rasterize(current[0], bounds);
+        current[0].Dispose();
+        return result;
+    }
+
+    private static RenderNodeOperation[] Execute(
+        EffectGraphBuilder builder, Rect bounds, RenderNodeOperation[] inputs,
+        PipelineDiagnostics? diagnostics, RenderTargetPool? pool)
+    {
+        using EffectGraph graph = builder.Build();
+        CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics);
+        FrameResources res = EffectGraphCompiler.ResolveResources(plan, bounds, workingScale: 1f);
+        return PlanExecutor.Execute(
+            plan, res, inputs, bounds, outputScale: 1f, workingScale: 1f,
+            maxWorkingScale: float.PositiveInfinity, diagnostics, pool);
+    }
+
+    private static RenderNodeOperation MakeInput(Rect bounds)
+    {
+        return RenderNodeOperation.CreateLambda(
+            bounds,
+            canvas =>
+            {
+                canvas.DrawRectangle(bounds, Brushes.Resource.White, null);
+                canvas.DrawRectangle(new Rect(bounds.X, bounds.Y, bounds.Width / 2, bounds.Height), Brushes.Resource.Red, null);
+                canvas.DrawRectangle(new Rect(bounds.X, bounds.Y + bounds.Height / 2, bounds.Width, bounds.Height / 2), Brushes.Resource.Blue, null);
+            },
+            hitTest: bounds.Contains);
+    }
+
+    private static Bitmap Rasterize(RenderNodeOperation op, Rect bounds)
+    {
+        var size = PixelRect.FromRect(bounds);
+        using RenderTarget target = RenderTarget.Create(size.Width, size.Height)
+            ?? throw new InvalidOperationException("RenderTarget.Create returned null (raster surface unavailable).");
+        using (var canvas = new ImmediateCanvas(target, 1f, logicalSize: bounds.Size))
+        {
+            canvas.Clear();
+            using (canvas.PushTransform(Matrix.CreateTranslation(-bounds.X, -bounds.Y)))
+            {
+                op.Render(canvas);
+            }
+        }
+
+        return target.Snapshot();
+    }
+}
