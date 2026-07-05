@@ -26,14 +26,15 @@ public class PrimitivePassTests
         Log.LoggerFactory = Microsoft.Extensions.Logging.LoggerFactory.Create(static _ => { });
     }
 
-    // SplitTree = SplitEffect(3x3) -> Saturate (fused) -> LayerEffect (still bridged). Rendered pool-less through
-    // the real pull path, so the counts are structure-determined. Derivation:
-    //   Split:      input bake (+1 FullFrameMaterialization) + 9 tile draws (+9 GpuPasses)
-    //   Saturate:   one fused draw per tile (+9 GpuPasses)
-    //   LayerEffect: the bridge flushes + opens one target per tile (+9 GpuPasses, +9 FullFrameMaterializations,
-    //               +9 FlushSyncs via the legacy CustomFilterEffectContext.Open) plus one trailing bake
-    // Totals: GpuPasses = 28, FullFrameMaterializations = FlushSyncs = 10, one compile. The mix of split, geometry
-    // (bridged layer) and fused color passes is far below a naive per-effect-per-tile materialization model.
+    // SplitTree = SplitEffect(3x3) -> Saturate (fused) -> LayerEffect. LayerEffect left the bridge in step 5b and is
+    // now a CompositeNode (fan-in), so the counters were re-derived (they strictly improve vs the 5a-era
+    // 28/10/10 bridged numbers). Rendered pool-less through the real pull path, so the counts are
+    // structure-determined. Derivation:
+    //   Split:       input bake (+1 FullFrameMaterialization) + 9 tile draws (+9 GpuPasses)
+    //   Saturate:    one fused draw per tile (+9 GpuPasses)
+    //   LayerEffect: one composite draw folding all 9 tiles into one output (+1 GpuPasses; no bake, no sync)
+    // Totals: GpuPasses = 19, FullFrameMaterializations = 1, FlushSyncs = 0 (all Skia — no backend transition),
+    // one compile. Migrating the layer to a fused composite removed the bridge's 9 per-tile bakes and 9 Opens.
     [Test]
     public void SplitTree_CounterDerivation()
     {
@@ -43,10 +44,10 @@ public class PrimitivePassTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(c.PlanCompilations, Is.EqualTo(1), "one compile for the mixed split/fused/bridged plan");
-            Assert.That(c.GpuPasses, Is.EqualTo(28), "9 tile draws + 9 fused Saturate draws + 9 layer + 1 bake");
-            Assert.That(c.FullFrameMaterializations, Is.EqualTo(10), "split input bake + 9 bridged layer bakes");
-            Assert.That(c.FlushSyncs, Is.EqualTo(10), "the bridged LayerEffect's per-tile Opens, plus the layer bake");
+            Assert.That(c.PlanCompilations, Is.EqualTo(1), "one compile for the split/fused/composite plan");
+            Assert.That(c.GpuPasses, Is.EqualTo(19), "9 tile draws + 9 fused Saturate draws + 1 composite fan-in");
+            Assert.That(c.FullFrameMaterializations, Is.EqualTo(1), "only the split input bake — the composite draws directly");
+            Assert.That(c.FlushSyncs, Is.EqualTo(0), "the whole plan is Skia; no backend transition");
         });
     }
 

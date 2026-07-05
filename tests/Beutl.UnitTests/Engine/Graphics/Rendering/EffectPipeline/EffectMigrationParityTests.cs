@@ -87,17 +87,22 @@ public class EffectMigrationParityTests
         ]);
     }
 
-    // Blur and DropShadow are still unmigrated, so this drives the mixed-plan executor (opaque segments around
-    // fused runs) on semitransparent content.
+    // Drives the mixed-plan executor (an opaque bridged segment between fused runs) on semitransparent content. A
+    // still-bridged effect (ColorShift) is the opaque segment: it runs through the identical retained activator on
+    // both paths, so the whole chain's fused-vs-legacy equality holds within the golden thresholds. (Blur and
+    // DropShadow left the bridge in step 5b, so they no longer form the opaque segment; the exact Blur..LUT chain
+    // is now covered by the authoritative chain-MixedChain frozen-reference gate. A migrated Skia-filter effect is
+    // deliberately NOT compared against the retained LegacyBridgeExecutor, whose sub-pixel flush quirk — absent from
+    // the frozen references the fused path matches — would spuriously fail a direct equality.)
     [Test]
     public void MixedChain_FusedMatchesLegacyOnSemitransparentInput()
     {
         AssertChainParity(
         [
-            new Blur { Sigma = { CurrentValue = new Size(6, 6) } },
             new Gamma { Amount = { CurrentValue = 1.4f } },
             new Invert { Amount = { CurrentValue = 1f } },
-            new DropShadow { Position = { CurrentValue = new Point(8, 8) }, Sigma = { CurrentValue = new Size(6, 6) }, Color = { CurrentValue = Colors.Black } },
+            new ColorShift { RedOffset = { CurrentValue = new PixelPoint(4, 0) }, BlueOffset = { CurrentValue = new PixelPoint(-4, 0) } },
+            new Saturate { Amount = { CurrentValue = 1.3f } },
             new LutEffect { Source = { CurrentValue = SceneFixtures.CreateInvertLutSource() } },
         ]);
     }

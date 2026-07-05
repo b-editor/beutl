@@ -63,16 +63,18 @@ public class EffectPipelineCounterTests
     // filters deferred but each of the three custom SKSL effects forced a Flush bake plus a pass. Totals were
     // FullFrameMaterializations = 3, GpuPasses = 6, TargetAllocations = 6, FlushSyncs = 6.
     //
-    // Mixed-plan model (W1 + W2): the group is one graph — [opaque Blur, fused Gamma+Invert, opaque DropShadow,
-    // fused LUT]. Each opaque segment runs the retained activator over the current op; Blur and DropShadow are
-    // Skia image filters, so the bridge returns a deferred-filter op without baking (0 cost each). Each fused pass
-    // bakes its deferred input into one pooled target and draws once:
-    //   Blur (opaque, deferred) ......... +0
+    // Re-derived for step 5b: Blur and DropShadow left the bridge, so the plan is now fully declarative —
+    // [SkiaFilter Blur, fused Gamma+Invert, SkiaFilter DropShadow, fused LUT]. Fusion never crosses the Skia
+    // filters (C2 groups only *adjacent* Skia filters, and these are separated by fused color runs), so each of the
+    // four passes bakes its input into one pooled target and draws once:
+    //   Blur (SkiaFilter) ............... +1 GpuPass, +1 TargetAllocation
     //   Gamma+Invert (fused) ............ +1 GpuPass, +1 TargetAllocation
-    //   DropShadow (opaque, deferred) ... +0
+    //   DropShadow (SkiaFilter) ......... +1 GpuPass, +1 TargetAllocation
     //   LUT (fused) ..................... +1 GpuPass, +1 TargetAllocation
-    // Totals: GpuPasses = 2, TargetAllocations = 2, FullFrameMaterializations = 0, FlushSyncs = 0 — strictly below
-    // the 6 / 6 / 3 / 6 legacy baseline (US1-AS2).
+    // Totals: GpuPasses = 4, TargetAllocations = 4, FullFrameMaterializations = 0, FlushSyncs = 0. This is higher
+    // than the transitional bridge's 2/2 (the bridge folded each deferred Skia filter into the next fused bake for
+    // free), but that fold is a bridge artifact; the honest declarative passes are cacheable and still far below the
+    // 6 / 6 / 3 / 6 pre-redesign legacy baseline (US1-AS2), which is the invariant this gate enforces.
     [Test]
     public void MixedChain_BelowLegacyBaseline()
     {
@@ -81,8 +83,8 @@ public class EffectPipelineCounterTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(counters.GpuPasses, Is.EqualTo(2), nameof(counters.GpuPasses));
-            Assert.That(counters.TargetAllocations, Is.EqualTo(2), nameof(counters.TargetAllocations));
+            Assert.That(counters.GpuPasses, Is.EqualTo(4), nameof(counters.GpuPasses));
+            Assert.That(counters.TargetAllocations, Is.EqualTo(4), nameof(counters.TargetAllocations));
             Assert.That(counters.FullFrameMaterializations, Is.EqualTo(0), nameof(counters.FullFrameMaterializations));
             Assert.That(counters.FlushSyncs, Is.EqualTo(0), nameof(counters.FlushSyncs));
 
