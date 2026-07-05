@@ -58,11 +58,12 @@ public sealed class EffectGraphBuilder
         return Append(descriptor);
     }
 
-    internal EffectGraphBuilder AppendOpaqueLegacy(FilterEffectContext context)
+    internal EffectGraphBuilder AppendOpaqueLegacy(FilterEffectContext context, object structuralToken)
     {
         ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(structuralToken);
         _disposables.Add(context);
-        return Append(new OpaqueLegacyNodeDescriptor(context));
+        return Append(new OpaqueLegacyNodeDescriptor(context, structuralToken));
     }
 
     /// <summary>

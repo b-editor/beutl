@@ -7,7 +7,8 @@
 /// renders through the retained (internal-only) activator machinery — byte-identically — before the spatial,
 /// compute and geometry primitives migrate. It is deleted with the bridge in step 6, never shipped as a shim.
 /// </summary>
-internal sealed record OpaqueLegacyNodeDescriptor(FilterEffectContext Context) : EffectNodeDescriptor
+internal sealed record OpaqueLegacyNodeDescriptor(FilterEffectContext Context, object StructuralToken)
+    : EffectNodeDescriptor
 {
     // The legacy machinery resolves its own bounds/ROIs at execution; the compiler must not try to lay it out.
     public override BoundsContract Bounds => BoundsContract.RenderTime;

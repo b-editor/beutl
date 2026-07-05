@@ -10,8 +10,8 @@ namespace Beutl.Graphics.Rendering;
 /// factory identity, structural ints (pass/branch counts — none in step 3a's linear chains), coordinate-invariance
 /// flags, and the bounds-contract identity of non-invariant nodes. It deliberately <b>excludes</b> uniform values,
 /// colors, matrices and sampler texture contents: two graphs that differ only in parameters produce equal keys, so
-/// an animated blur sigma re-resolves sizes without a recompile (the equality the plan cache relies on in a later
-/// step; this step compiles every frame). Equality compares a canonical signature string, so it is collision-free.
+/// an animated blur sigma re-resolves sizes without a recompile (the equality <see cref="PlanCache"/> keys on).
+/// Equality compares a canonical signature string, so it is collision-free.
 /// </summary>
 public readonly struct StructuralKey : IEquatable<StructuralKey>
 {
@@ -59,8 +59,11 @@ public readonly struct StructuralKey : IEquatable<StructuralKey>
                 break;
 
             case OpaqueLegacyNodeDescriptor opaque:
-                // Opaque nodes never fuse and (this step) never hit a plan cache, so item count is a stable-enough token.
-                sb.Append("legacy:").Append(opaque.Context.CountItems());
+                // The token is the effect TYPE, not the recorded item count: a count varies with an animated
+                // parameter (a bridged chain would then never cache-hit) and collides across distinct effect kinds
+                // of equal count (a false hit on a real topology change). Type is stable per animation, distinct
+                // per kind.
+                sb.Append("legacy:").Append(opaque.StructuralToken);
                 break;
 
             default:

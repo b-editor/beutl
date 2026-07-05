@@ -33,6 +33,19 @@ internal static class EffectGraphCompiler
         if (diagnostics != null)
             diagnostics.PlanCompilations++;
 
+        ImmutableArray<CompiledPass> compiled = BuildPasses(graph);
+        return new CompiledPlan(StructuralKey.Compute(graph), compiled, BuildResourcePlan(compiled));
+    }
+
+    /// <summary>
+    /// Groups the graph's nodes into the ordered pass schedule (fusion runs, Skia-filter runs, opaque/whole-source
+    /// singletons), carrying each pass's per-frame bounds. Shared by <see cref="Compile"/> (cache miss) and
+    /// <see cref="ParameterBlock.Extract"/> (cache hit): it performs no compilation accounting — neither the
+    /// <see cref="PipelineDiagnostics.PlanCompilations"/> increment nor program creation happens here — so a hit
+    /// rebuilds the schedule with the frame's fresh parameters/bounds without a recompile.
+    /// </summary>
+    internal static ImmutableArray<CompiledPass> BuildPasses(EffectGraph graph)
+    {
         IReadOnlyList<EffectNode> nodes = graph.Nodes;
         var passes = ImmutableArray.CreateBuilder<CompiledPass>();
 
@@ -76,8 +89,7 @@ internal static class EffectGraphCompiler
             }
         }
 
-        ImmutableArray<CompiledPass> compiled = passes.ToImmutable();
-        return new CompiledPlan(StructuralKey.Compute(graph), compiled, BuildResourcePlan(compiled));
+        return passes.ToImmutable();
     }
 
     private static bool IsFusable(EffectNodeDescriptor descriptor) => descriptor switch

@@ -29,7 +29,9 @@ public abstract partial class FilterEffect : EngineObject
     {
         var context = new FilterEffectContext(builder.Bounds, builder.OutputScale, builder.WorkingScale);
         ApplyTo(context, resource);
-        builder.AppendOpaqueLegacy(context);
+        // The concrete effect type is the bridged node's structural identity: stable across a parameter animation
+        // (so a chain containing this effect keeps hitting the plan cache) and distinct across effect kinds.
+        builder.AppendOpaqueLegacy(context, resource.GetOriginal().GetType());
     }
 
     public abstract partial class Resource
