@@ -2,6 +2,7 @@
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using Beutl.AgentHost;
+using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Installation;
 using Beutl.Configuration;
 using Beutl.Language;
@@ -49,9 +50,14 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
         SubagentsDirectory = new ReactivePropertySlim<string>(_config.SubagentsDirectory).DisposeWith(_disposables);
         McpConfigFileName = new ReactivePropertySlim<string>(_config.McpConfigFileName).DisposeWith(_disposables);
         McpServersPropertyName = new ReactivePropertySlim<string>(_config.McpServersPropertyName).DisposeWith(_disposables);
-        McpCommand = new ReactivePropertySlim<string>(command?.Command ?? "").DisposeWith(_disposables);
+        // Prefer the user's saved override; fall back to the detected launcher so a fresh view model
+        // (reopen, or the reinstall update-prompt path) does not silently revert a customized command.
+        McpCommand = new ReactivePropertySlim<string>(
+            FirstNonEmpty(_config.StdioCommand, command?.Command ?? "")).DisposeWith(_disposables);
         McpArguments = new ReactivePropertySlim<string>(
-            command is null ? "" : string.Join(Environment.NewLine, command.Arguments))
+            FirstNonEmpty(
+                _config.StdioArguments,
+                command is null ? "" : string.Join(Environment.NewLine, command.Arguments)))
             .DisposeWith(_disposables);
         InstallSkills = new ReactivePropertySlim<bool>(_config.InstallSkills).DisposeWith(_disposables);
         InstallSubagents = new ReactivePropertySlim<bool>(_config.InstallSubagents).DisposeWith(_disposables);
@@ -329,6 +335,8 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
         InstallSubagents.Skip(1).Subscribe(v => _config.InstallSubagents = v).DisposeWith(_disposables);
         InstallStdioMcp.Skip(1).Subscribe(v => _config.InstallStdioMcp = v).DisposeWith(_disposables);
         InstallLiveMcp.Skip(1).Subscribe(v => _config.InstallLiveMcp = v).DisposeWith(_disposables);
+        McpCommand.Skip(1).Subscribe(v => _config.StdioCommand = v).DisposeWith(_disposables);
+        McpArguments.Skip(1).Subscribe(v => _config.StdioArguments = v).DisposeWith(_disposables);
     }
 
     public async Task InstallAsync()
@@ -474,8 +482,12 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
 
     private static bool IsUnder(string path, string root)
     {
-        string fullRoot = Path.GetFullPath(root);
-        return Path.GetFullPath(path).StartsWith(
+        // Resolve both through symlinks before comparing: a lexical check would treat a recorded path
+        // under a since-retargeted symlink as in-scope, and RemoveStaleFiles would then delete the
+        // link's outside target.
+        string fullRoot = PathBoundary.ResolveDeepestExistingTarget(Path.GetFullPath(root));
+        string fullPath = PathBoundary.ResolveDeepestExistingTarget(Path.GetFullPath(path));
+        return fullPath.StartsWith(
             fullRoot.EndsWith(Path.DirectorySeparatorChar) ? fullRoot : fullRoot + Path.DirectorySeparatorChar,
             OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
     }

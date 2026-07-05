@@ -268,4 +268,30 @@ public sealed class AiAgentSettingsPageViewModelTests
                 Is.EqualTo(Path.Combine("/repo", "custom-mcp.json")));
         });
     }
+
+    [AvaloniaTest]
+    public void Customized_stdio_command_survives_reopening()
+    {
+        var config = new AiAgentConfig();
+        using (AiAgentSettingsPageViewModel viewModel = CreateViewModel(config))
+        {
+            viewModel.McpCommand.Value = "/custom/beutl-agent";
+            viewModel.McpArguments.Value = "mcp\n--flag";
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(config.StdioCommand, Is.EqualTo("/custom/beutl-agent"));
+            Assert.That(config.StdioArguments, Is.EqualTo("mcp\n--flag"));
+        });
+
+        // A fresh view model (reopen, or the reinstall update-prompt path) must keep the override
+        // instead of reverting to the detected launcher.
+        using AiAgentSettingsPageViewModel restored = CreateViewModel(config);
+        Assert.Multiple(() =>
+        {
+            Assert.That(restored.McpCommand.Value, Is.EqualTo("/custom/beutl-agent"));
+            Assert.That(restored.McpArguments.Value, Is.EqualTo("mcp\n--flag"));
+        });
+    }
 }

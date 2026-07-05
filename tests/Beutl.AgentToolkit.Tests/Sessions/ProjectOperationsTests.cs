@@ -79,6 +79,44 @@ public sealed class ProjectOperationsTests
         Assert.That(File.Exists(outside), Is.False, "The out-of-project sidecar must not be written.");
     }
 
+    [Test]
+    public void Save_RehomesSceneSidecarThroughInProjectSymlink_RegeneratesInsideProject()
+    {
+        Project project = ProjectOperations.CreateProject(new ProjectCreateOptions(
+            Path.Combine(_tempRoot, "proj.bep"),
+            Width: 1920,
+            Height: 1080,
+            FrameRate: 30,
+            Duration: TimeSpan.FromSeconds(10)));
+
+        string projectDir = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+        string outsideDir = Path.Combine(Path.GetTempPath(), "po-escape-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(outsideDir);
+        try
+        {
+            string link = Path.Combine(projectDir, "link");
+            CreateDirectorySymlinkOrIgnore(link, outsideDir);
+
+            Scene scene = project.Items.OfType<Scene>().First();
+            // A textual boundary check would accept this in-project path; the symlink actually redirects
+            // the write outside the project tree.
+            scene.Uri = new Uri(Path.Combine(link, "escape.scene"));
+
+            ProjectOperations.Save(project);
+
+            string regenerated = PathBoundary.ResolveDeepestExistingTarget(scene.Uri!.LocalPath);
+            Assert.That(
+                regenerated.StartsWith(projectDir, PathComparison.ForCurrentPlatform),
+                Is.True,
+                $"Scene sidecar must be regenerated inside the project directory, got: {regenerated}");
+            Assert.That(Directory.EnumerateFileSystemEntries(outsideDir), Is.Empty);
+        }
+        finally
+        {
+            Directory.Delete(outsideDir, true);
+        }
+    }
+
     [TestCase("..")]
     [TestCase(".")]
     [TestCase("a/b")]
@@ -87,6 +125,18 @@ public sealed class ProjectOperationsTests
     public void IsValidSceneName_RejectsTraversalAndSeparators(string name)
     {
         Assert.That(ProjectOperations.IsValidSceneName(name), Is.False);
+    }
+
+    private static void CreateDirectorySymlinkOrIgnore(string link, string target)
+    {
+        try
+        {
+            Directory.CreateSymbolicLink(link, target);
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or PlatformNotSupportedException)
+        {
+            Assert.Ignore($"Symbolic links are not creatable in this environment: {ex.Message}");
+        }
     }
 
     [TestCase("Intro")]

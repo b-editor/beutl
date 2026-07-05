@@ -124,8 +124,12 @@ public static class ProjectOperations
 
     private static bool IsInsideDirectory(string directory, string candidate)
     {
-        string root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(directory));
-        string full = Path.GetFullPath(candidate);
+        // Resolve both sides through symlinks: a purely textual check would accept an in-project
+        // sidecar Uri that names a symlink whose target is outside, letting StoreToUri write through
+        // the link and preserve the boundary escape.
+        string root = Path.TrimEndingDirectorySeparator(
+            PathBoundary.ResolveDeepestExistingTarget(Path.GetFullPath(directory)));
+        string full = PathBoundary.ResolveDeepestExistingTarget(Path.GetFullPath(candidate));
         StringComparison comparison = PathComparison.ForCurrentPlatform;
         return full.StartsWith(root + Path.DirectorySeparatorChar, comparison)
                || string.Equals(full, root, comparison);

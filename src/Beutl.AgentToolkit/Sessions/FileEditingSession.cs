@@ -1,4 +1,5 @@
-﻿using Beutl.AgentToolkit.Documents;
+﻿using Beutl.AgentToolkit.Common;
+using Beutl.AgentToolkit.Documents;
 using Beutl.Editor;
 using Beutl.ProjectSystem;
 
@@ -105,6 +106,7 @@ public sealed class FileEditingSession : IEditingSession, IEditingSessionDispatc
         // directory unique to the new project (its file name); regenerating from the scene name
         // alone would collide with — and overwrite — the source project's .scene/.belm files when
         // both projects live in the same folder.
+        var usedDirs = new HashSet<string>(StringComparer.FromComparison(PathComparison.ForCurrentPlatform));
         int index = 1;
         foreach (Scene scene in Project.Items.OfType<Scene>())
         {
@@ -112,8 +114,16 @@ public sealed class FileEditingSession : IEditingSession, IEditingSessionDispatc
             // "../../outside"); fall back to a safe segment so the rehomed sidecar stays under the
             // new project directory.
             string sceneName = ProjectOperations.IsValidSceneName(scene.Name) ? scene.Name : $"Scene{index}";
-            scene.Uri = new Uri(Path.Combine(
-                projectDirectory, projectName, sceneName, $"{sceneName}.{EditorConstants.SceneFileExtension}"));
+
+            // Two scenes sharing a valid name would otherwise resolve to the same <name>/<name>.scene
+            // sidecar and overwrite each other; disambiguate the directory when it is already taken.
+            string sceneDir = Path.GetFullPath(Path.Combine(projectDirectory, projectName, sceneName));
+            for (int suffix = 2; !usedDirs.Add(sceneDir); suffix++)
+            {
+                sceneDir = Path.GetFullPath(Path.Combine(projectDirectory, projectName, $"{sceneName}-{suffix}"));
+            }
+
+            scene.Uri = new Uri(Path.Combine(sceneDir, $"{sceneName}.{EditorConstants.SceneFileExtension}"));
             foreach (Element element in scene.Children)
             {
                 element.Uri = null;

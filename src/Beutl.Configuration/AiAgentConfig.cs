@@ -16,6 +16,8 @@ public sealed class AiAgentConfig : ConfigurationBase
     public static readonly CoreProperty<bool> InstallLiveMcpProperty;
     public static readonly CoreProperty<string> McpConfigFileNameProperty;
     public static readonly CoreProperty<string> McpServersPropertyNameProperty;
+    public static readonly CoreProperty<string> StdioCommandProperty;
+    public static readonly CoreProperty<string> StdioArgumentsProperty;
 
     static AiAgentConfig()
     {
@@ -66,6 +68,16 @@ public sealed class AiAgentConfig : ConfigurationBase
             .Register();
 
         McpServersPropertyNameProperty = ConfigureProperty<string, AiAgentConfig>(nameof(McpServersPropertyName))
+            .DefaultValue("")
+            .Register();
+
+        // Empty means "use the detected stdio launcher"; a non-empty value is the user's override,
+        // which must survive reopening the settings page.
+        StdioCommandProperty = ConfigureProperty<string, AiAgentConfig>(nameof(StdioCommand))
+            .DefaultValue("")
+            .Register();
+
+        StdioArgumentsProperty = ConfigureProperty<string, AiAgentConfig>(nameof(StdioArguments))
             .DefaultValue("")
             .Register();
     }
@@ -142,6 +154,18 @@ public sealed class AiAgentConfig : ConfigurationBase
     {
         get => GetValue(McpServersPropertyNameProperty);
         set => SetValue(McpServersPropertyNameProperty, value);
+    }
+
+    public string StdioCommand
+    {
+        get => GetValue(StdioCommandProperty);
+        set => SetValue(StdioCommandProperty, value);
+    }
+
+    public string StdioArguments
+    {
+        get => GetValue(StdioArgumentsProperty);
+        set => SetValue(StdioArgumentsProperty, value);
     }
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)

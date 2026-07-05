@@ -297,6 +297,31 @@ public sealed class Reconciler
         });
     }
 
+    // Resolve, change-set-validate, and mutate in ONE dispatch, so a concurrent UI edit cannot change
+    // the live scene between the check and the write — the validated plan is built from the read Apply
+    // then consumes.
+    public ReconcileResult ApplyValidated(
+        IEditingSession session,
+        Func<JsonObject, (JsonObject Desired, IReadOnlySet<Guid>? KnownNewIds)> resolve,
+        Func<ReconcilePlan, ToolError?> validate)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        ArgumentNullException.ThrowIfNull(resolve);
+        ArgumentNullException.ThrowIfNull(validate);
+
+        return Dispatch(session, () =>
+        {
+            (JsonObject desired, IReadOnlySet<Guid>? knownNewIds) = resolve(session.Documents.Read(session.Root));
+            ReconcilePlan plan = PlanPrepared(session, PrepareDesired(session, desired), knownNewIds);
+            if (validate(plan) is { } error)
+            {
+                throw new ReconcileException(error);
+            }
+
+            return ApplyCore(session, desired, knownNewIds);
+        });
+    }
+
     private ReconcileResult ApplyCore(IEditingSession session, JsonObject desired, IReadOnlySet<Guid>? knownNewIds)
     {
         JsonObject desiredDocument = PrepareDesired(session, desired);

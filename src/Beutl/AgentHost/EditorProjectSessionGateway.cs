@@ -2,6 +2,7 @@
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Sessions;
+using Beutl.AgentToolkit.Workspace;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.ViewModels;
@@ -12,7 +13,8 @@ public sealed class EditorProjectSessionGateway(
     ProjectService projectService,
     EditorService editorService,
     LiveSessionSource liveSessions,
-    AgentSessionManager sessions) : IProjectSessionGateway
+    AgentSessionManager sessions,
+    IWorkspaceGuard workspace) : IProjectSessionGateway
 {
     public async ValueTask<ProjectSessionResult> OpenProjectAsync(string fullPath, CancellationToken cancellationToken = default)
     {
@@ -77,6 +79,10 @@ public sealed class EditorProjectSessionGateway(
             }
 
             Scene scene = ProjectOperations.AddScene(project, options);
+            // The editor may hold a project opened from outside the workspace (open_project reads
+            // anywhere); saving its sidecars there would let a live MCP client write outside the
+            // configured root. Enforce the boundary before persisting.
+            workspace.ResolveForWrite(project.Uri!.LocalPath);
             ProjectOperations.Save(project);
             // add_scene activates the new scene's tab, so rebind the live session to it; otherwise
             // read_document/apply_edit would keep operating on the previously attached EditViewModel.

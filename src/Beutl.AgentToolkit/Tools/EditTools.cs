@@ -229,23 +229,16 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
             if (!string.IsNullOrWhiteSpace(planId))
             {
                 CompositionPlanState state = sessions.GetCompositionPlan(planId.Trim());
-                ReconcilePlan storedPlan = _reconciler.Plan(
+                ReconcileResult storedResult = _reconciler.ApplyValidated(
                     session,
-                    (JsonObject)state.DesiredDocument.DeepClone(),
-                    state.KnownNewIds.ToHashSet());
-                if (!ChangeSetMatches(storedPlan, state.ExpectedChangeSet))
-                {
-                    throw new ReconcileException(new ToolError(
-                        ErrorCode.ValidationRejected,
-                        "The live composition change set differs from the stored planId.",
-                        planId,
-                        "Run plan_composition again and pass the new planId."));
-                }
-
-                ReconcileResult storedResult = _reconciler.Apply(
-                    session,
-                    (JsonObject)state.DesiredDocument.DeepClone(),
-                    state.KnownNewIds.ToHashSet());
+                    _ => ((JsonObject)state.DesiredDocument.DeepClone(), state.KnownNewIds.ToHashSet()),
+                    plan => ChangeSetMatches(plan, state.ExpectedChangeSet)
+                        ? null
+                        : new ToolError(
+                            ErrorCode.ValidationRejected,
+                            "The live composition change set differs from the stored planId.",
+                            planId,
+                            "Run plan_composition again and pass the new planId."));
                 sessions.RecordCompositionUse(state.CompositionName);
                 sessions.RemoveCompositionPlan(state.Id);
                 return new ApplyCompositionResponse(
@@ -266,23 +259,21 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
                 sessions.ResolveCompositionSeed(seed),
                 avoidRecent ? sessions.GetAvoidedCompositions() : null,
                 EnforceFirstSelection(name, avoidRecent));
-            ResolvedEdit resolved = null!;
-            ReconcilePlan plan = _reconciler.PlanFromCurrent(session, current =>
-            {
-                resolved = ResolvePatchEdit(current, composition.Patch, SchemaVersion.Current);
-                return (resolved.Document, resolved.KnownNewIds);
-            });
             JsonArray? normalizedExpectedChangeSet = NormalizeExpectedChangeSet(expectedChangeSet);
-            if (normalizedExpectedChangeSet is not null && !ChangeSetMatches(plan, normalizedExpectedChangeSet))
-            {
-                throw new ReconcileException(new ToolError(
-                    ErrorCode.ValidationRejected,
-                    "The live composition change set differs from expectedChangeSet.",
-                    null,
-                    "Run plan_composition again and submit the updated expectedChangeSet."));
-            }
-
-            ReconcileResult result = _reconciler.Apply(session, resolved.Document, resolved.KnownNewIds);
+            ReconcileResult result = _reconciler.ApplyValidated(
+                session,
+                current =>
+                {
+                    ResolvedEdit resolved = ResolvePatchEdit(current, composition.Patch, SchemaVersion.Current);
+                    return (resolved.Document, resolved.KnownNewIds);
+                },
+                plan => normalizedExpectedChangeSet is null || ChangeSetMatches(plan, normalizedExpectedChangeSet)
+                    ? null
+                    : new ToolError(
+                        ErrorCode.ValidationRejected,
+                        "The live composition change set differs from expectedChangeSet.",
+                        null,
+                        "Run plan_composition again and submit the updated expectedChangeSet."));
             sessions.RecordCompositionUse(composition.Name);
             return new ApplyCompositionResponse(
                 SchemaVersion.Current,

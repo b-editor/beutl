@@ -3,6 +3,7 @@ using Beutl.AgentHost;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Sessions;
+using Beutl.AgentToolkit.Workspace;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
@@ -19,14 +20,16 @@ public class EditorProjectSessionGatewayTests
         return location;
     }
 
-    private static (EditorProjectSessionGateway Gateway, AgentSessionManager Sessions) CreateGateway()
+    private static (EditorProjectSessionGateway Gateway, AgentSessionManager Sessions) CreateGateway(
+        string? workspaceRoot = null)
     {
         var sessions = new AgentSessionManager();
         var gateway = new EditorProjectSessionGateway(
             TestShell.Project,
             TestShell.Editor,
             new LiveSessionSource(),
-            sessions);
+            sessions,
+            new WorkspaceGuard(workspaceRoot ?? BeutlHomeIsolation.CurrentHome!));
         return (gateway, sessions);
     }
 
@@ -205,5 +208,43 @@ public class EditorProjectSessionGatewayTests
             // The live session must be rebound to the newly activated scene, not left on the first.
             Assert.That(added.Session.Root, Is.SameAs(added.Scene));
         });
+    }
+
+    [AvaloniaTest]
+    public async Task AddScene_rejects_saving_a_project_opened_outside_the_workspace()
+    {
+        await TestReset.ResetShellAsync();
+        // open_project reads anywhere, so the editor can hold a project outside the workspace; add_scene
+        // must not persist its sidecars there.
+        string outsideDir = Path.Combine(Path.GetTempPath(), "beutl-outside-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(outsideDir);
+        try
+        {
+            string outsideProject = Path.Combine(outsideDir, "outside.bep");
+            Project project = ProjectOperations.CreateProject(new ProjectCreateOptions(
+                outsideProject, 640, 360, 30, TimeSpan.FromSeconds(4)));
+            ProjectOperations.Save(project);
+            (EditorProjectSessionGateway gateway, _) = CreateGateway();
+            await gateway.OpenProjectAsync(outsideProject);
+            HeadlessTestHelpers.Settle();
+
+            WorkspaceBoundaryException? rejection = null;
+            try
+            {
+                await gateway.AddSceneAsync(new SceneCreateOptions(
+                    320, 180, TimeSpan.Zero, TimeSpan.FromSeconds(2), "second-scene"));
+                Assert.Fail("Expected a workspace-boundary rejection.");
+            }
+            catch (WorkspaceBoundaryException ex)
+            {
+                rejection = ex;
+            }
+
+            Assert.That(rejection, Is.Not.Null);
+        }
+        finally
+        {
+            Directory.Delete(outsideDir, true);
+        }
     }
 }
