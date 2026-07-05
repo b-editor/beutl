@@ -1,6 +1,7 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using Beutl.Language;
 using Beutl.ViewModels.SettingsPages;
 
 namespace Beutl.Pages.SettingsPages;
@@ -14,7 +15,7 @@ public sealed partial class AiAgentSettingsPage : UserControl
 
     private async void BrowseAgentRoot_Click(object? sender, RoutedEventArgs e)
     {
-        await PickFolderAsync("Select AI agent root", path =>
+        await PickFolderAsync(SettingsStrings.AiAgents_SelectAgentRoot, path =>
         {
             if (DataContext is AiAgentSettingsPageViewModel vm)
             {
@@ -25,7 +26,7 @@ public sealed partial class AiAgentSettingsPage : UserControl
 
     private async void BrowseWorkspaceRoot_Click(object? sender, RoutedEventArgs e)
     {
-        await PickFolderAsync("Select Beutl workspace root", path =>
+        await PickFolderAsync(SettingsStrings.AiAgents_SelectWorkspaceRoot, path =>
         {
             if (DataContext is AiAgentSettingsPageViewModel vm)
             {
@@ -39,6 +40,16 @@ public sealed partial class AiAgentSettingsPage : UserControl
         if (DataContext is AiAgentSettingsPageViewModel vm)
         {
             vm.RefreshLiveMcp.Execute();
+        }
+    }
+
+    private async void CopyLiveMcpUrl_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is AiAgentSettingsPageViewModel vm
+            && vm.LiveMcpUrl.Value is { Length: > 0 } url
+            && TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard)
+        {
+            await clipboard.SetTextAsync(url);
         }
     }
 

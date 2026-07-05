@@ -126,7 +126,7 @@ public sealed partial class SettingsDialog : AppWindow
             },
             new NavigationViewItem()
             {
-                Content = "AI Agents",
+                Content = SettingsStrings.AiAgents,
                 Tag = typeof(AiAgentSettingsPage),
                 IconSource = new FluentIcons.Avalonia.Fluent.SymbolIconSource()
                 {

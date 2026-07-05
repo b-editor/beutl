@@ -1,173 +1,230 @@
 <UserControl x:Class="Beutl.Pages.SettingsPages.AiAgentSettingsPage"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:Beutl.ViewModels.SettingsPages"
+             x:Name="root"
              d:DesignHeight="700"
              d:DesignWidth="800"
              x:CompileBindings="True"
              x:DataType="vm:AiAgentSettingsPageViewModel"
              mc:Ignorable="d">
-    <ScrollViewer Padding="18">
-        <StackPanel Margin="10,0"
-                    VerticalAlignment="Stretch"
-                    Orientation="Vertical"
-                    Spacing="12">
-            <TextBlock Text="AI Agents" Theme="{StaticResource SimpleLargeBreadcrumbBarTextBlock}" />
+    <Grid Margin="18" RowDefinitions="Auto,*">
 
-            <TextBlock Margin="0,8,0,0"
-                       Text="Target"
-                       Theme="{StaticResource BodyStrongTextBlockStyle}" />
+        <TextBlock Margin="10,8"
+                   Text="{x:Static lang:SettingsStrings.AiAgents}"
+                   Theme="{StaticResource SimpleLargeBreadcrumbBarTextBlock}" />
 
-            <Grid ColumnDefinitions="160,*,Auto"
-                  RowDefinitions="Auto,Auto,Auto,Auto,Auto"
-                  RowSpacing="8"
-                  ColumnSpacing="8">
-                <TextBlock VerticalAlignment="Center" Text="Agent root" />
-                <TextBox Grid.Column="1"
-                         MinWidth="360"
-                         Text="{Binding AgentRoot.Value}" />
-                <Button Grid.Column="2"
-                        Click="BrowseAgentRoot_Click"
-                        Content="Browse" />
+        <ScrollViewer Grid.Row="1">
+            <StackPanel Margin="10,16,10,0"
+                        VerticalAlignment="Stretch"
+                        Orientation="Vertical"
+                        Spacing="4">
+                <SelectableTextBlock Text="{x:Static lang:SettingsStrings.AiAgents_PageDescription}" TextWrapping="Wrap" />
 
-                <TextBlock Grid.Row="1"
-                           VerticalAlignment="Center"
-                           Text="Layout" />
-                <ComboBox Grid.Row="1"
-                          Grid.Column="1"
-                          MinWidth="260"
-                          HorizontalAlignment="Left"
-                          ItemsSource="{Binding Layouts}"
-                          SelectedItem="{Binding SelectedLayout.Value}">
-                    <ComboBox.ItemTemplate>
-                        <DataTemplate x:DataType="vm:AgentInstallLayoutItem">
-                            <TextBlock Text="{Binding DisplayName}" />
-                        </DataTemplate>
-                    </ComboBox.ItemTemplate>
-                </ComboBox>
+                <TextBlock Margin="0,16,0,0"
+                           Text="{x:Static lang:SettingsStrings.AiAgents_Target}"
+                           Theme="{StaticResource BodyStrongTextBlockStyle}" />
 
-                <TextBlock Grid.Row="2"
-                           VerticalAlignment="Center"
-                           Text="Workspace root" />
-                <TextBox Grid.Row="2"
-                         Grid.Column="1"
-                         MinWidth="360"
-                         Text="{Binding WorkspaceRoot.Value}" />
-                <Button Grid.Row="2"
-                        Grid.Column="2"
-                        Click="BrowseWorkspaceRoot_Click"
-                        Content="Browse" />
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.AiAgents_AgentRoot_Description}" Header="{x:Static lang:SettingsStrings.AiAgents_AgentRoot}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBox MinWidth="280" Text="{Binding AgentRoot.Value}" />
+                            <Button Click="BrowseAgentRoot_Click" Content="..." />
+                        </StackPanel>
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
 
-                <TextBlock Grid.Row="3"
-                           VerticalAlignment="Center"
-                           Text="Skills folder" />
-                <TextBox Grid.Row="3"
-                         Grid.Column="1"
-                         MaxWidth="360"
-                         HorizontalAlignment="Left"
-                         Text="{Binding SkillsDirectory.Value}" />
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.AiAgents_Layout_Description}" Header="{x:Static lang:SettingsStrings.AiAgents_Layout}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <ComboBox MinWidth="250"
+                                  ItemsSource="{Binding Layouts}"
+                                  SelectedItem="{Binding SelectedLayout.Value}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:AgentInstallLayoutItem">
+                                    <TextBlock Text="{Binding DisplayName}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
 
-                <TextBlock Grid.Row="4"
-                           VerticalAlignment="Center"
-                           Text="Subagents folder" />
-                <TextBox Grid.Row="4"
-                         Grid.Column="1"
-                         MaxWidth="360"
-                         HorizontalAlignment="Left"
-                         Text="{Binding SubagentsDirectory.Value}" />
-            </Grid>
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.AiAgents_WorkspaceRoot_Description}" Header="{x:Static lang:SettingsStrings.AiAgents_WorkspaceRoot}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBox MinWidth="280" Text="{Binding WorkspaceRoot.Value}" />
+                            <Button Click="BrowseWorkspaceRoot_Click" Content="..." />
+                        </StackPanel>
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
 
-            <TextBlock Margin="0,8,0,0"
-                       Text="Components"
-                       Theme="{StaticResource BodyStrongTextBlockStyle}" />
+                <TextBlock Margin="0,16,0,0"
+                           Text="{x:Static lang:SettingsStrings.AiAgents_Components}"
+                           Theme="{StaticResource BodyStrongTextBlockStyle}" />
 
-            <WrapPanel>
-                <CheckBox Margin="0,0,16,0"
-                          Content="Skills"
-                          IsChecked="{Binding InstallSkills.Value}" />
-                <CheckBox Margin="0,0,16,0"
-                          Content="Subagents"
-                          IsChecked="{Binding InstallSubagents.Value}" />
-                <CheckBox Margin="0,0,16,0"
-                          Content="Stdio MCP"
-                          IsChecked="{Binding InstallStdioMcp.Value}" />
-                <CheckBox Content="Live MCP"
-                          IsChecked="{Binding InstallLiveMcp.Value}" />
-            </WrapPanel>
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.AiAgents_Skills_Description}" Header="{x:Static lang:SettingsStrings.AiAgents_Skills}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <ToggleSwitch Classes="left"
+                                      IsChecked="{Binding InstallSkills.Value}"
+                                      Theme="{StaticResource CompactToggleSwitchStyle}" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
 
-            <TextBlock Margin="0,8,0,0"
-                       Text="MCP"
-                       Theme="{StaticResource BodyStrongTextBlockStyle}" />
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.AiAgents_Subagents_Description}" Header="{x:Static lang:SettingsStrings.AiAgents_Subagents}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <ToggleSwitch Classes="left"
+                                      IsChecked="{Binding InstallSubagents.Value}"
+                                      Theme="{StaticResource CompactToggleSwitchStyle}" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
 
-            <Grid ColumnDefinitions="160,*"
-                  RowDefinitions="Auto,Auto,Auto,Auto,Auto"
-                  RowSpacing="8"
-                  ColumnSpacing="8">
-                <TextBlock VerticalAlignment="Center" Text="Config file" />
-                <TextBox Grid.Column="1"
-                         MaxWidth="360"
-                         HorizontalAlignment="Left"
-                         Text="{Binding McpConfigFileName.Value}" />
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.AiAgents_StdioMcp_Description}" Header="{x:Static lang:SettingsStrings.AiAgents_StdioMcp}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <ToggleSwitch Classes="left"
+                                      IsChecked="{Binding InstallStdioMcp.Value}"
+                                      Theme="{StaticResource CompactToggleSwitchStyle}" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
 
-                <TextBlock Grid.Row="1"
-                           VerticalAlignment="Center"
-                           Text="Servers property" />
-                <TextBox Grid.Row="1"
-                         Grid.Column="1"
-                         MaxWidth="360"
-                         HorizontalAlignment="Left"
-                         Text="{Binding McpServersPropertyName.Value}" />
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.AiAgents_LiveMcp_Description}"
+                                          Header="{x:Static lang:SettingsStrings.AiAgents_LiveMcp}"
+                                          IsEnabled="{Binding IsLiveMcpAvailable.Value}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <ToggleSwitch Classes="left"
+                                      IsChecked="{Binding InstallLiveMcp.Value}"
+                                      Theme="{StaticResource CompactToggleSwitchStyle}" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
 
-                <TextBlock Grid.Row="2"
-                           VerticalAlignment="Center"
-                           Text="Command" />
-                <TextBox Grid.Row="2"
-                         Grid.Column="1"
-                         MinWidth="360"
-                         Text="{Binding McpCommand.Value}" />
+                <ui:InfoBar IsClosable="False"
+                            IsOpen="{Binding !IsLiveMcpAvailable.Value}"
+                            Message="{x:Static lang:SettingsStrings.AiAgents_LiveMcp_NotRunning}"
+                            Severity="Warning" />
 
-                <TextBlock Grid.Row="3"
-                           VerticalAlignment="Top"
-                           Text="Arguments" />
-                <TextBox Grid.Row="3"
-                         Grid.Column="1"
-                         MinHeight="96"
-                         MinWidth="360"
-                         AcceptsReturn="True"
-                         FontFamily="Cascadia Code,Consolas,Menlo,Monospace"
-                         Text="{Binding McpArguments.Value}"
-                         TextWrapping="NoWrap" />
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.AiAgents_LiveMcpUrl_Description}"
+                                          Expands="True"
+                                          Header="{x:Static lang:SettingsStrings.AiAgents_LiveMcpUrl}"
+                                          IsVisible="{Binding IsLiveMcpAvailable.Value}">
+                    <ctrls:OptionsDisplayItem.Content>
+                        <DockPanel Margin="40,0,40,8">
+                            <StackPanel Margin="8,0,0,0"
+                                        DockPanel.Dock="Right"
+                                        Orientation="Horizontal"
+                                        Spacing="8">
+                                <Button Click="CopyLiveMcpUrl_Click" Content="{x:Static lang:Strings.Copy}" />
+                                <Button Click="RefreshLiveMcp_Click" Content="{x:Static lang:Strings.Refresh}" />
+                            </StackPanel>
+                            <TextBox IsReadOnly="True" Text="{Binding LiveMcpUrl.Value}" />
+                        </DockPanel>
+                    </ctrls:OptionsDisplayItem.Content>
+                </ctrls:OptionsDisplayItem>
 
-                <TextBlock Grid.Row="4"
-                           VerticalAlignment="Center"
-                           Text="Live URL" />
-                <DockPanel Grid.Row="4" Grid.Column="1">
-                    <Button Margin="8,0,0,0"
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.AiAgents_Advanced_Description}"
+                                          Expands="True"
+                                          Header="{x:Static lang:SettingsStrings.AiAgents_Advanced}">
+                    <ctrls:OptionsDisplayItem.Content>
+                        <Grid Margin="40,0,40,8"
+                              ColumnDefinitions="180,*"
+                              ColumnSpacing="8"
+                              RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto"
+                              RowSpacing="8">
+                            <TextBlock VerticalAlignment="Center" Text="{x:Static lang:SettingsStrings.AiAgents_SkillsDirectory}" />
+                            <TextBox Grid.Column="1"
+                                     MaxWidth="360"
+                                     HorizontalAlignment="Left"
+                                     MinWidth="240"
+                                     Text="{Binding SkillsDirectory.Value}" />
+
+                            <TextBlock Grid.Row="1"
+                                       VerticalAlignment="Center"
+                                       Text="{x:Static lang:SettingsStrings.AiAgents_SubagentsDirectory}" />
+                            <TextBox Grid.Row="1"
+                                     Grid.Column="1"
+                                     MaxWidth="360"
+                                     MinWidth="240"
+                                     HorizontalAlignment="Left"
+                                     Text="{Binding SubagentsDirectory.Value}" />
+
+                            <TextBlock Grid.Row="2"
+                                       VerticalAlignment="Center"
+                                       Text="{x:Static lang:SettingsStrings.AiAgents_McpConfigFileName}" />
+                            <TextBox Grid.Row="2"
+                                     Grid.Column="1"
+                                     MaxWidth="360"
+                                     MinWidth="240"
+                                     HorizontalAlignment="Left"
+                                     Text="{Binding McpConfigFileName.Value}" />
+
+                            <TextBlock Grid.Row="3"
+                                       VerticalAlignment="Center"
+                                       Text="{x:Static lang:SettingsStrings.AiAgents_McpServersPropertyName}" />
+                            <TextBox Grid.Row="3"
+                                     Grid.Column="1"
+                                     MaxWidth="360"
+                                     MinWidth="240"
+                                     HorizontalAlignment="Left"
+                                     Text="{Binding McpServersPropertyName.Value}" />
+
+                            <TextBlock Grid.Row="4"
+                                       VerticalAlignment="Center"
+                                       Text="{x:Static lang:SettingsStrings.AiAgents_McpCommand}" />
+                            <TextBox Grid.Row="4"
+                                     Grid.Column="1"
+                                     MinWidth="360"
+                                     Text="{Binding McpCommand.Value}" />
+
+                            <TextBlock Grid.Row="5"
+                                       VerticalAlignment="Top"
+                                       Text="{x:Static lang:SettingsStrings.AiAgents_McpArguments}" />
+                            <TextBox Grid.Row="5"
+                                     Grid.Column="1"
+                                     MinHeight="96"
+                                     MinWidth="360"
+                                     AcceptsReturn="True"
+                                     FontFamily="Cascadia Code,Consolas,Menlo,Monospace"
+                                     Text="{Binding McpArguments.Value}"
+                                     TextWrapping="NoWrap" />
+                        </Grid>
+                    </ctrls:OptionsDisplayItem.Content>
+                </ctrls:OptionsDisplayItem>
+
+                <StackPanel Margin="0,16,0,0"
                             HorizontalAlignment="Right"
-                            Click="RefreshLiveMcp_Click"
-                            Content="Refresh"
-                            DockPanel.Dock="Right" />
-                    <TextBox MinWidth="360"
-                             IsReadOnly="True"
-                             Text="{Binding LiveMcpUrl.Value}" />
-                </DockPanel>
-            </Grid>
+                            Orientation="Horizontal"
+                            Spacing="8">
+                    <ui:ProgressRing Width="24"
+                                     Height="24"
+                                     IsVisible="{Binding IsInstalling.Value}" />
+                    <Button MinWidth="120"
+                            Classes="accent"
+                            Command="{Binding Install}"
+                            Content="{x:Static lang:SettingsStrings.AiAgents_Install}" />
+                </StackPanel>
 
-            <StackPanel Margin="0,8,0,0"
-                        HorizontalAlignment="Right"
-                        Orientation="Horizontal"
-                        Spacing="8">
-                <Button MinWidth="120"
-                        Command="{Binding Install}"
-                        Content="Install" />
+                <SelectableTextBlock MinHeight="24"
+                                     Text="{Binding Status.Value}"
+                                     TextWrapping="Wrap" />
+
+                <ctrls:OptionsDisplayItem Expands="True"
+                                          Header="{x:Static lang:SettingsStrings.AiAgents_InstalledFiles}"
+                                          IsVisible="{Binding HasInstalledFiles.Value}">
+                    <ctrls:OptionsDisplayItem.Content>
+                        <ItemsControl Margin="40,0,40,8" ItemsSource="{Binding InstalledFiles}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="x:String">
+                                    <SelectableTextBlock FontFamily="Cascadia Code,Consolas,Menlo,Monospace"
+                                                         FontSize="12"
+                                                         Text="{Binding}" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ctrls:OptionsDisplayItem.Content>
+                </ctrls:OptionsDisplayItem>
             </StackPanel>
-
-            <SelectableTextBlock MinHeight="24"
-                                 FontFamily="Cascadia Code,Consolas,Menlo,Monospace"
-                                 Text="{Binding Status.Value}"
-                                 TextWrapping="Wrap" />
-        </StackPanel>
-    </ScrollViewer>
+        </ScrollViewer>
+    </Grid>
 </UserControl>

@@ -395,4 +395,148 @@
     <value>Use HDR rendering for the preview player (mouse operations, etc., will be restricted)</value>
     <comment/>
   </data>
+  <data name="AiAgents" xml:space="preserve">
+    <value>AI Agents</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_PageDescription" xml:space="preserve">
+    <value>Set up AI coding agents (such as Claude Code) to edit Beutl projects: install skills, subagents, and MCP server entries into the agent's folders.</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Target" xml:space="preserve">
+    <value>Installation target</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_AgentRoot" xml:space="preserve">
+    <value>Agent root</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_AgentRoot_Description" xml:space="preserve">
+    <value>Folder the AI agent reads its configuration from (your home folder or a repository root)</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Layout" xml:space="preserve">
+    <value>Folder layout</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Layout_Description" xml:space="preserve">
+    <value>Where skills and subagents are placed under the agent root</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Layout_Generic" xml:space="preserve">
+    <value>Generic (skills / agents)</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Layout_ClaudeCode" xml:space="preserve">
+    <value>Claude Code (.claude)</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_WorkspaceRoot" xml:space="preserve">
+    <value>Workspace root</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_WorkspaceRoot_Description" xml:space="preserve">
+    <value>Folder the MCP server is allowed to create and edit projects in</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Components" xml:space="preserve">
+    <value>Components</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Skills" xml:space="preserve">
+    <value>Skills</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Skills_Description" xml:space="preserve">
+    <value>Beutl editing know-how the agent loads on demand</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Subagents" xml:space="preserve">
+    <value>Subagents</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Subagents_Description" xml:space="preserve">
+    <value>Specialized agent definitions for timeline, look, and quality-review tasks</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_StdioMcp" xml:space="preserve">
+    <value>Stdio MCP server</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_StdioMcp_Description" xml:space="preserve">
+    <value>Headless server that edits project files without the GUI</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_LiveMcp" xml:space="preserve">
+    <value>Live MCP server</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_LiveMcp_Description" xml:space="preserve">
+    <value>Connects agents to this running editor; edits appear live in the preview and undo history</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_LiveMcp_NotRunning" xml:space="preserve">
+    <value>The live MCP endpoint is not running</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_LiveMcpUrl" xml:space="preserve">
+    <value>Live MCP URL</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_LiveMcpUrl_Description" xml:space="preserve">
+    <value>Connection URL for MCP clients. It contains an access token — treat it like a password</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Advanced" xml:space="preserve">
+    <value>Advanced</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Advanced_Description" xml:space="preserve">
+    <value>Folder names, MCP config file, and the stdio server command line</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_SkillsDirectory" xml:space="preserve">
+    <value>Skills folder</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_SubagentsDirectory" xml:space="preserve">
+    <value>Subagents folder</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_McpConfigFileName" xml:space="preserve">
+    <value>MCP config file</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_McpServersPropertyName" xml:space="preserve">
+    <value>Servers property</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_McpCommand" xml:space="preserve">
+    <value>Command</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_McpArguments" xml:space="preserve">
+    <value>Arguments (one per line)</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Install" xml:space="preserve">
+    <value>Install</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_InstallCompleted" xml:space="preserve">
+    <value>Installed {0} file(s).</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_InstalledFiles" xml:space="preserve">
+    <value>Installed files</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_SelectAgentRoot" xml:space="preserve">
+    <value>Select the agent root</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_SelectWorkspaceRoot" xml:space="preserve">
+    <value>Select the workspace root</value>
+    <comment/>
+  </data>
 </root>
