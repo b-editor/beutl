@@ -22,6 +22,9 @@ All changes land as `refactor!:` / `feat!:` Conventional Commits with a `BREAKIN
 
 - Rendered output of migrated shader effects may differ within the golden thresholds (SSIM ≥ 0.99 / MAE ≤ 0.02, linear light) — floating-point rounding of fused programs. Byte-identity is not claimed (spec Assumptions).
 - Per-effect intermediate targets, per-effect flushes, and full-frame snapshots between custom effects disappear; any out-of-tree code that observed them (timing, memory) sees different numbers.
+- **Allocation-failure behavior is normalized** (FR-015): preview drops the failed pass output and continues; delivery throws. The legacy surface was path-dependent (`Flush` drop-or-throw vs `CreateTarget` returning an empty target whose `Open` threw unconditionally); that divergence is intentionally not reproduced.
+
+> Internal-only removals (`IFEItem`, `FEItem_*`, activator internals — data-model §7) need no plugin migration; this table maps only the public surface.
 
 ## Unchanged (explicit non-breaks)
 

@@ -61,8 +61,8 @@
 
 **Independent Test**: golden suite unchanged (behavior-identical); frames 2..K of a static-structure scene show zero new target allocations
 
-- [ ] T011 [US3] Implement RenderTargetPool (exact-size (w,h,format) buckets for RGBA16F + Depth32Float, Acquire/Release/Trim, N≈8-frame idle eviction + byte soft-cap LRU, cleared-on-acquire, render-thread affinity, preview-drop/export-throw failure semantics, PoolAcquires/PoolMisses counters) in src/Beutl.Engine/Graphics/Rendering/RenderTargetPool.cs
-- [ ] T012 [US3] Add pool unit tests (hit/miss, eviction by idle frames and byte cap, clear-on-acquire, leak assertion, failure semantics parity with FR-015) in tests/Beutl.UnitTests/Engine/Graphics/Rendering/EffectPipeline/RenderTargetPoolTests.cs
+- [ ] T011 [US3] Implement RenderTargetPool (exact-size (w,h,format) buckets for RGBA16F + Depth32Float, Acquire/Release/Trim, N≈8-frame idle eviction + byte soft-cap LRU, cleared-on-acquire, render-thread affinity, normalized preview-drop/export-throw failure semantics, PoolAcquires/PoolMisses counters) with lease ownership inside RenderTarget: a pool-aware last-release deallocator replacing SKSurfaceCounter's dispose-on-zero, plus a generation tag so no stale shallow copy can observe a reissued target, in src/Beutl.Engine/Graphics/Rendering/RenderTargetPool.cs and src/Beutl.Engine/Graphics/Rendering/RenderTarget.cs
+- [ ] T012 [US3] Add pool unit tests (hit/miss, eviction by idle frames and byte cap, clear-on-acquire, leak assertion, generation-tag reissue safety under live shallow copies, normalized FR-015 failure semantics under forced allocation failure) in tests/Beutl.UnitTests/Engine/Graphics/Rendering/EffectPipeline/RenderTargetPoolTests.cs
 - [ ] T013 [US3] Route legacy intermediate allocation through the pool with lease ownership: FilterEffectActivator.Flush and CustomFilterEffectContext.CreateTarget acquire from the pool, and return-to-pool hooks into RenderTarget's final ref-count release (SKSurfaceCounter) — never an individual EffectTarget.Dispose while shallow copies live — in src/Beutl.Engine/Graphics/FilterEffects/FilterEffectActivator.cs, src/Beutl.Engine/Graphics/FilterEffects/CustomFilterEffectContext.cs, and src/Beutl.Engine/Graphics/Rendering/RenderTarget.cs
 - [ ] T014 [US3] Add steady-state counter test (static-structure scene, frames 2..K ⇒ TargetAllocations delta == 0) and verify the full golden suite is unchanged, in tests/Beutl.UnitTests/Engine/Graphics/Rendering/EffectPipeline/EffectPipelineCounterTests.cs
 
@@ -72,7 +72,7 @@
 
 ## Phase 5: User Story 1 — Color chains execute as one GPU pass (Priority: P1, rollout steps 3–4a) 🎯 MVP CORE
 
-**Goal**: Declarative graph model + compiler + executor; the ~16 coordinate-invariant color effects migrate; fusion produces one draw per invariant run with parity
+**Goal**: Declarative graph model + compiler + executor; the 15 coordinate-invariant color-effect classes (plus color-matrix builder conveniences) migrate; fusion produces one draw per invariant run with parity
 
 **Independent Test**: N ≥ 3 invariant color chain ⇒ GpuPasses == 1, intermediates ≤ 1, golden parity vs frozen references; mixed chain counts strictly below baseline
 
@@ -82,14 +82,14 @@
 - [ ] T016 [P] [US1] Implement ShaderNodeDescriptor (snippet `half4 apply(half4 c)` + whole-source forms, IsCoordinateInvariant, uniform/sampler/child bindings) and ColorFilterNodeDescriptor in src/Beutl.Engine/Graphics/FilterEffects/Nodes/ShaderNodeDescriptor.cs and src/Beutl.Engine/Graphics/FilterEffects/Nodes/ColorFilterNodeDescriptor.cs
 - [ ] T017 [P] [US1] Implement SkiaFilterNodeDescriptor (SKImageFilter factory + bounds functions) in src/Beutl.Engine/Graphics/FilterEffects/Nodes/SkiaFilterNodeDescriptor.cs
 - [ ] T018 [US1] Implement EffectGraphBuilder (append primitives, bounds threading, convenience methods matching today's vocabulary, describe-time validation, Build()) and EffectGraph DAG in src/Beutl.Engine/Graphics/FilterEffects/EffectGraphBuilder.cs and src/Beutl.Engine/Graphics/Rendering/EffectGraph/EffectGraph.cs
-- [ ] T019 [US1] Add virtual FilterEffect.Describe(EffectGraphBuilder, Resource) with a transition bridge that wraps legacy ApplyTo items as opaque plan passes (bridge is in-feature scaffolding, deleted in Phase 8 — not a shipped shim) in src/Beutl.Engine/Graphics/FilterEffects/FilterEffect.cs
+- [ ] T019 [US1] Add virtual FilterEffect.Describe(EffectGraphBuilder, Resource) with a transition bridge that wraps an unmigrated effect's legacy ApplyTo item list as a single OpaqueLegacyPass **executed via the retained legacy activator machinery (internal-only)** — so custom/geometry-style effects run correctly before GeometryPass/ComputePass exist (T037/T040); bridge + retained machinery are in-feature scaffolding, deleted in Phase 8, not a shipped shim — in src/Beutl.Engine/Graphics/FilterEffects/FilterEffect.cs
 
 ### Compiler + executor (internal)
 
 - [ ] T020 [US1] Implement StructuralKey hashing (kinds/topology/source identity/structural ints; uniform values excluded) in src/Beutl.Engine/Graphics/Rendering/EffectGraph/StructuralKey.cs
 - [ ] T021 [US1] Implement the graph compiler and per-frame resource resolution: fusion grouping (contracts/execution-plan.md C1, budget split at 16 stages), Skia filter grouping (C2), ResourcePlan structural shape (format + FirstUse/LastUse intervals), and the per-frame resolution pass — backward ROI with render-time fallback, concrete sizes from current bounds with the monotonic working-scale carry (C3.2), runtime empty-ROI skip — in src/Beutl.Engine/Graphics/Rendering/EffectGraph/EffectGraphCompiler.cs
 - [ ] T022 [US1] Implement CompiledPlan/CompiledPass records (FusedShaderPass composition recipe, SkiaFilterPass, CompositePass, Backend + SyncBefore flags) in src/Beutl.Engine/Graphics/Rendering/EffectGraph/CompiledPlan.cs
-- [ ] T023 [US1] Implement PlanExecutor for Skia passes: fused shader composition execution (image shader → WithColorFilter wraps → SKRuntimeEffect child nesting, one draw per fused pass), SkiaFilterPass draws, pool acquire/release by resource plan, sync only on SyncBefore, counter emission per C8, in src/Beutl.Engine/Graphics/Rendering/EffectGraph/PlanExecutor.cs
+- [ ] T023 [US1] Implement PlanExecutor for Skia passes: fused shader composition execution (image shader → WithColorFilter wraps → SKRuntimeEffect child nesting, one draw per fused pass; premultiplied linear-light representation preserved between stages), SkiaFilterPass draws, OpaqueLegacyPass execution via the retained activator (T019 bridge), pool acquire/release by resource plan, sync only on SyncBefore, counter emission per C8, in src/Beutl.Engine/Graphics/Rendering/EffectGraph/PlanExecutor.cs
 - [ ] T024 [US1] Implement SKSL snippet merging codegen (fe{N}_ uniform prefixing, chained apply main; order-preserving) in src/Beutl.Engine/Graphics/Rendering/EffectGraph/SkslSnippetMerger.cs
 - [ ] T025 [US1] Rewire FilterEffectRenderNode.Process to resolve working scale exactly as today (FR-012), then describe → compile → execute via the new path, with the T019 bridge covering unmigrated effects, in src/Beutl.Engine/Graphics/Rendering/FilterEffectRenderNode.cs
 
@@ -103,7 +103,7 @@
 
 - [ ] T029 [US1] Add compiler unit tests (fusion grouping maximality, group split at budget, ROI backward propagation incl. render-time fallback and runtime empty-ROI skip, resource-plan peak-live intervals, per-frame size re-resolution under parameter-driven bounds without recompiling, working-scale carry parity incl. a 16384px-clamp-triggering chain) in tests/Beutl.UnitTests/Engine/Graphics/Rendering/EffectPipeline/EffectGraphCompilerTests.cs
 - [ ] T030 [US1] Add SC-001 counter tests (N ≥ 3 invariant chain ⇒ GpuPasses == 1, intermediates ≤ 1; MixedChain strictly below recorded baseline; FlushSyncs == backend transitions) in tests/Beutl.UnitTests/Engine/Graphics/Rendering/EffectPipeline/EffectPipelineCounterTests.cs
-- [ ] T031 [US1] Add migration parity tests for the 16 color effects + ColorChain/MixedChain vs frozen references (SSIM ≥ 0.99 / MAE ≤ 0.02) in tests/Beutl.UnitTests/Engine/Graphics/Rendering/EffectPipeline/EffectMigrationParityTests.cs
+- [ ] T031 [US1] Add migration parity tests for the 15 color-effect classes (T026–T028) + ColorChain/MixedChain vs frozen references (SSIM ≥ 0.99 / MAE ≤ 0.02), including semitransparent-content variants exercising the premultiplied-alpha contract, in tests/Beutl.UnitTests/Engine/Graphics/Rendering/EffectPipeline/EffectMigrationParityTests.cs
 - [ ] T032 [US1] Run beutl-source-generator-impact over the FilterEffect signature change and confirm tests/SourceGeneratorTest/ stays green (constitution VI gate; fix fallout if any)
 
 **Checkpoint**: fused color chains at parity — PR(s) for rollout steps 3–4a
@@ -129,13 +129,13 @@
 
 **Goal**: Every remaining built-in, script, and node-graph effect describes itself; compute/geometry/split/composite primitives complete; plugin authoring validated
 
-**Independent Test**: one representative effect per node kind authored against public API only renders correctly, reports correct ROI, and (invariant shader) fuses between built-ins; all 41 effects pass parity
+**Independent Test**: one representative effect per node kind authored against public API only renders correctly, reports correct ROI, and (invariant shader) fuses between built-ins; the full 42-effect census (research §0) passes parity
 
 ### Remaining primitives
 
 - [ ] T037 [P] [US4] Implement GeometryNodeDescriptor + GeometrySession + EffectInput (executor-bracketed canvas, read-only inputs, scales; no target creation/flush) in src/Beutl.Engine/Graphics/FilterEffects/Nodes/GeometryNodeDescriptor.cs, src/Beutl.Engine/Graphics/FilterEffects/Nodes/GeometrySession.cs, src/Beutl.Engine/Graphics/FilterEffects/Nodes/EffectInput.cs
 - [ ] T038 [P] [US4] Implement ComputeNodeDescriptor (GLSL pass set, structural pass count, ping-pong/depth declaration, push-constant writer, declared no-Vulkan fallback) in src/Beutl.Engine/Graphics/FilterEffects/Nodes/ComputeNodeDescriptor.cs
-- [ ] T039 [P] [US4] Implement SplitNodeDescriptor/CompositeNodeDescriptor and compiler/executor branch scheduling (fusion never crosses; per-branch resource intervals) in src/Beutl.Engine/Graphics/FilterEffects/Nodes/SplitCompositeDescriptors.cs and src/Beutl.Engine/Graphics/Rendering/EffectGraph/EffectGraphCompiler.cs
+- [ ] T039 [P] [US4] Implement SplitNodeDescriptor/CompositeNodeDescriptor and compiler/executor branch scheduling (fusion never crosses; per-branch resource intervals; branch/division counts structural per C3.6; dynamic-outputs pass support per C3.5 for execution-time-resolved counts) in src/Beutl.Engine/Graphics/FilterEffects/Nodes/SplitCompositeDescriptors.cs and src/Beutl.Engine/Graphics/Rendering/EffectGraph/EffectGraphCompiler.cs
 - [ ] T040 [US4] Extend PlanExecutor with ComputePass (Vulkan pipeline via GLSLFilterPipeline, pooled ping-pong + depth textures, C4 sync at backend transitions) and GeometryPass session lifecycle in src/Beutl.Engine/Graphics/Rendering/EffectGraph/PlanExecutor.cs
 
 ### Effect migration (per research D7 map)
@@ -143,16 +143,16 @@
 - [ ] T041 [P] [US4] Migrate SkiaFilterNode effects: Blur, DropShadow(Only), Dilate, Erode, InnerShadow(Only), TransformEffect(matrix path) in src/Beutl.Engine/Graphics/FilterEffects/ (their existing files); the MatrixConvolution/Transform context conveniences become EffectGraphBuilder conveniences (covered by T018)
 - [ ] T042 [P] [US4] Migrate non-invariant whole-source shader effects: MosaicEffect, ColorShift, DisplacementMapTransform in src/Beutl.Engine/Graphics/FilterEffects/ (their existing files)
 - [ ] T043 [P] [US4] Migrate GeometryNode effects: FlatShadow, StrokeEffect, Clipping, LayerEffect, DelayAnimationEffect, ShakeEffect, PathFollowEffect, DisplacementMapEffect, TransformEffect(custom path), BlendEffect (brush-based via BrushConstructor; lower to ColorFilterNode when the brush is structurally a solid color) in src/Beutl.Engine/Graphics/FilterEffects/ (their existing files)
-- [ ] T044 [P] [US4] Migrate split/composite effects: SplitEffect, PartsSplitEffect in src/Beutl.Engine/Graphics/FilterEffects/SplitEffect.cs and src/Beutl.Engine/Graphics/FilterEffects/PartsSplitEffect.cs
+- [ ] T044 [P] [US4] Migrate split/composite effects: SplitEffect (division counts structural — animating them recompiles per change) and PartsSplitEffect (dynamic-outputs contract — contour-discovered target count allocated by the executor at execution time) in src/Beutl.Engine/Graphics/FilterEffects/SplitEffect.cs and src/Beutl.Engine/Graphics/FilterEffects/PartsSplitEffect.cs
 - [ ] T045 [US4] Migrate ComputeNode effects: PixelSortEffect (3-shader multi-pass, pooled ping-pong) and GLSLScriptEffect in src/Beutl.Engine/Graphics/FilterEffects/PixelSortEffect.cs and src/Beutl.Engine/Graphics/FilterEffects/GLSLScriptEffect.cs
 - [ ] T046 [US4] Migrate script/meta effects: SKSLScriptEffect (whole-source + CoordinateInvariant opt-in), CSharpScriptEffect (script globals on GeometrySession — breaking; legacy scripts fail at script compile time with a migration diagnostic, per contracts/breaking-changes.md), FilterEffectGroup (child concatenation), FilterEffectPresenter (delegating describe), FallbackFilterEffect (identity) in src/Beutl.Engine/Graphics/FilterEffects/ (their existing files)
-- [ ] T047 [US4] Migrate NodeGraphFilterEffect + its render node to describe the evaluated chain in src/Beutl.NodeGraph/NodeGraphFilterEffect.cs
+- [ ] T047 [US4] Keep NodeGraphFilterEffect as a render-node boundary on the 003 CreateRenderNode seam (its legacy ApplyTo already throws): update NodeGraphFilterEffectRenderNode so inner effects execute through the new pipeline and drop the ApplyTo override with the removal, verifying parity, in src/Beutl.NodeGraph/NodeGraphFilterEffect.cs and src/Beutl.NodeGraph/NodeGraphFilterEffectRenderNode.cs
 
 ### US4 gates
 
 - [ ] T048 [US4] Extend parity tests to the full research §0 census (42 effects) + SplitTree/HeavySource chains vs frozen references; confirm existing 003 golden suites remain green, in tests/Beutl.UnitTests/Engine/Graphics/Rendering/EffectPipeline/EffectMigrationParityTests.cs
 - [ ] T049 [P] [US4] Add plugin-style authoring test: one effect per descriptor kind (all seven realizing the spec's five primitives — research D7 taxonomy) implemented against public API only; invariant shader node fuses between two built-ins (SC-006); declared-ROI vs sampled-region debug assertion for a convolution-style node (A3) in tests/Beutl.UnitTests/Engine/Graphics/Rendering/EffectPipeline/EffectAuthoringTests.cs
-- [ ] T050 [P] [US4] Add FR-007 peak-intermediates test (10-effect chain peak-live ≤ same-shape 3-effect chain) and no-Vulkan fallback tests (Skia-only context executes fused plans; ComputeNode declared fallback applies — FR-014) in tests/Beutl.UnitTests/Engine/Graphics/Rendering/EffectPipeline/EffectPipelineCounterTests.cs
+- [ ] T050 [P] [US4] Add FR-007 peak-intermediates test (10-effect chain peak-live ≤ same-shape 3-effect chain; dynamic-outputs passes counted and leak-checked but exempt from the static bound), structural-threshold test (animating SplitEffect divisions ⇒ one recompile per topology change), allocation-failure normalization tests (forced pool failure on fused/geometry/compute paths ⇒ preview drop, delivery throw — C7), and no-Vulkan fallback tests (Skia-only context executes fused plans; ComputeNode declared fallback applies — FR-014) in tests/Beutl.UnitTests/Engine/Graphics/Rendering/EffectPipeline/EffectPipelineCounterTests.cs
 
 **Checkpoint**: legacy path unreachable in production — PR for rollout step 5
 

@@ -20,6 +20,8 @@ Adjacent `SkiaFilterNode`s compose into a single `SkiaFilterPass` (one filtered 
 2. Device sizes obey the 003 budget with **legacy carry parity** (FR-012): the working scale is resolved once at the effect boundary (`ResolveWorkingScale`); resource resolution then re-clamps per buffer (`ClampWorkingScaleToBufferBudget`, 16 384 px/axis) in schedule order with a **monotonically non-increasing `w` carried along each chain** — a clamped materializing pass propagates its reduced `w` to downstream passes (today's `FilterEffectActivator.Flush` mutates the activator's `WorkingScale`), while intra-pass allocations (ping-pong, geometry-session targets) re-clamp locally without affecting the carry (today's `CustomFilterEffectContext.CreateTarget`). Same functions, same resulting densities as the pre-redesign pipeline.
 3. Ping-pong iteration uses exactly 2 declared color targets (+1 depth if required) regardless of iteration count.
 4. Empty resolved ROI ⇒ the executor skips the pass and its exclusive upstream at runtime (spec edge case "zero-size targets"); the plan itself is unchanged.
+5. **Dynamic outputs**: a pass declared `IsDynamicOutputs` (execution-time-resolved output count, e.g. contour-based part splitting) has no static output decls; the executor allocates its outputs from the pool at execution time, releases them within the frame (leak-asserted), and counts them. The FR-007 static peak-live bound covers declared intermediates only.
+6. **Topology is structural**: split division counts, compute pass counts, and branch counts are part of the `StructuralKey` — changing them recompiles exactly once (FR-010); they are never treated as size-only parameters.
 
 ## C4. Scheduling & synchronization
 
@@ -29,7 +31,7 @@ Adjacent `SkiaFilterNode`s compose into a single `SkiaFilterPass` (one filtered 
 
 ## C5. Plan cache invalidation (exhaustive list)
 
-A cached plan is reused iff **both** hold: equal `StructuralKey`, same graphics context (not device-lost). Anything else ⇒ recompile exactly once, old plan's pooled resources released. **Bounds, ROIs, buffer sizes, and the resolved working scale are per-frame resource-resolution inputs, never invalidation triggers** — a parameter change that inflates bounds (blur sigma, stroke pen, split count within the same structural branch count) MUST hit the cache and only re-resolve sizes. Parameter-only changes MUST hit the cache (SC-002: `PlanCompilations == 1` over 100 animated frames — including bounds-animating parameters; `ProgramCreations == 0` after frame 1 given warm `ProgramCache`).
+A cached plan is reused iff **both** hold: equal `StructuralKey`, same graphics context (not device-lost). Anything else ⇒ recompile exactly once, old plan's pooled resources released. **Bounds, ROIs, buffer sizes, and the resolved working scale are per-frame resource-resolution inputs, never invalidation triggers** — a parameter change that inflates bounds (blur sigma, stroke pen) MUST hit the cache and only re-resolve sizes. A value that changes topology (split division count, compute pass count, branch count) is structural and MUST miss the cache exactly once (C3.6). Parameter-only changes MUST hit the cache (SC-002: `PlanCompilations == 1` over 100 animated frames — including bounds-animating parameters; `ProgramCreations == 0` after frame 1 given warm `ProgramCache`).
 
 ## C6. Fallback execution (no Vulkan)
 
@@ -37,7 +39,9 @@ Plans containing only Skia-backend passes execute unchanged on raster/SwiftShade
 
 ## C7. Failure semantics
 
-Pool exhaustion / allocation failure during execution: preview (`MaxWorkingScale` finite) → drop the pass output, continue, log; delivery (export) → throw `InvalidOperationException` (message parity with today's `ThrowIfDeliveryAllocationFailure`). A thrown pass releases all acquired resources (no pool leaks; leak-asserted in tests).
+Pool exhaustion / allocation failure during execution, uniformly for every pass kind: preview (`MaxWorkingScale` finite) → drop the pass output, continue, log; delivery (export) → throw `InvalidOperationException` (message parity with today's `ThrowIfDeliveryAllocationFailure`). A thrown pass releases all acquired resources (no pool leaks; leak-asserted in tests).
+
+This is a deliberate **normalization** of path-dependent legacy behavior — today `Flush` drops/throws, but `CustomFilterEffectContext.CreateTarget` returns an *empty* target whose `Open` then throws unconditionally even in preview. Tests MUST cover the replacement of each legacy path (fused, geometry-session, compute) under forced allocation failure.
 
 ## C8. Counter semantics (normative definitions)
 

@@ -35,7 +35,7 @@ Common shape — every descriptor carries:
 
 Per kind:
 
-- **`ShaderNodeDescriptor`**: `SkslSource source` (snippet or whole-source; identity-hashable), `bool IsCoordinateInvariant`, `UniformBinding[] Uniforms`, `SamplerBinding[] Samplers` (extra textures, e.g. LUT), `ChildBinding[] Children`. Snippet form must define `half4 apply(half4 c)`; whole-source form must define `half4 main(float2 coord)` with a `src` child (today's `SKSLShader` convention).
+- **`ShaderNodeDescriptor`**: `SkslSource source` (snippet or whole-source; identity-hashable), `bool IsCoordinateInvariant`, `UniformBinding[] Uniforms`, `SamplerBinding[] Samplers` (extra textures, e.g. LUT), `ChildBinding[] Children`. Snippet form must define `half4 apply(half4 c)`; whole-source form must define `half4 main(float2 coord)` with a `src` child (today's `SKSLShader` convention). **Color/alpha contract**: shaders receive and return **premultiplied-alpha, linear-light** `half4` (the working surface is RGBA16F / `SrgbLinear` / `Premul`); a snippet needing straight alpha unpremultiplies and re-premultiplies internally, exactly as today's `Gamma`/`Curves`/`LutEffect` SKSL does. Fused composition never changes representation between stages.
 - **`ColorFilterNodeDescriptor`**: `Func<SKColorFilter>`-style factory + captured data record; always coordinate-invariant.
 - **`SkiaFilterNodeDescriptor`**: `SKImageFilter` factory + captured data record; forward/backward bounds functions (backward defaults to forward's inverse-inflation; may return Unbounded).
 - **`ComputeNodeDescriptor`**: GLSL source set (or precompiled pipeline handle), `int PassCount` (**structural**), ping-pong flag, depth-texture requirement, push-constant writer, declared fallback behavior when `Supports3DRendering == false` (`Identity` | `Skip` | `CpuCallback`).
@@ -81,7 +81,7 @@ Hash accumulated over: node kinds + topology (branch structure), shader-source i
 
 | Field | Type | Notes |
 |---|---|---|
-| `Key` | `StructuralKey` + graphics-context identity | cache identity (D3). Bounds, ROIs, buffer sizes, and the resolved working scale are **per-frame resolution inputs, not key parts** — parameter-driven bounds (animated blur sigma, stroke pen, split counts) change sizes without recompiling |
+| `Key` | `StructuralKey` + graphics-context identity | cache identity (D3). Bounds, ROIs, buffer sizes, and the resolved working scale are **per-frame resolution inputs, not key parts** — parameter-driven bounds (animated blur sigma, stroke pen) change sizes without recompiling. Topology-changing values (split division counts, compute pass counts, branch counts) are **structural** and always in the key |
 | `Passes` | `CompiledPass[]` | topologically ordered schedule |
 | `Resources` | `ResourcePlan` | structural shape of intermediates (formats, lifetime intervals) |
 | `ParameterSlots` | `ParameterSlot[]` | where each frame's uniform/filter values go |
@@ -93,13 +93,16 @@ Hash accumulated over: node kinds + topology (branch structure), shader-source i
 - **`ComputePass`**: Vulkan pipeline ref, ping-pong/depth resource refs, push-constant slot, iteration count.
 - **`GeometryPass`**: session callback ref, inputs, output, ROI.
 - **`CompositePass` / split edges**: composite op + input refs.
-- Common: `Backend` (Skia | Vulkan), `SyncBefore` flags (computed at schedule time: set only at backend transitions — D5).
+- **`OpaqueLegacyPass`** (transition-only, rollout steps 3–5): wraps an unmigrated effect's legacy item list and executes it via the retained (internal-only) activator machinery; deleted with the bridge in step 6.
+- Common: `Backend` (Skia | Vulkan), `SyncBefore` flags (computed at schedule time: set only at backend transitions — D5), `IsDynamicOutputs` (execution-time-resolved output count; executor-owned pooled allocation, exempt from the static peak-live bound, counted and leak-checked).
 
 ### `ResourcePlan` (structural shape) + per-frame resource resolution
 
 `ResourcePlan` is the structural half: `IntermediateDecl { Id, Format (RGBA16F | Depth32Float), FirstUse, LastUse }`. Peak-live count = max overlap of `[FirstUse, LastUse]` intervals — the FR-007 bound asserted in tests. Ping-pong pairs are two decls with alternating lifetimes.
 
 Concrete `DevicePixelSize` per decl and per-pass ROIs are computed **every frame** by the **resource resolution** pass: pure `Rect` math over the freshly described bounds, applying the working-scale carry (§6 note) and the 003 per-axis clamp, feeding the pool's `Acquire` sizes. This runs on cache hits and misses alike; it never creates programs or passes.
+
+Passes flagged `IsDynamicOutputs` (contour-based part splitting) have no static decls for their outputs: the executor allocates them from the pool at execution time, tracks them for release within the frame, and counts them — the static peak-live bound (FR-007) applies to declared intermediates only.
 
 ### `PlanCache` (per `FilterEffectRenderNode`)
 
@@ -116,7 +119,7 @@ Single-entry (current key → plan) — a render node has one structure at a tim
 | Member | Semantics |
 |---|---|
 | `Acquire(int w, int h, TextureFormat fmt)` | exact-size bucket pop or fresh allocation (counted as miss) |
-| `Release(target)` | return to bucket; contents undefined afterwards. **Lease model**: consumers hold ref-counted `ShallowCopy` handles, so the actual return is hooked into the underlying `RenderTarget`'s last ref-count release (`SKSurfaceCounter`) — a wrapper's `Dispose` alone never returns a surface other copies still reference |
+| `Release(target)` | return to bucket; contents undefined afterwards. **Lease model**: consumers hold ref-counted `ShallowCopy` handles, so the actual return is hooked into the underlying `RenderTarget`'s last ref-count release — a wrapper's `Dispose` alone never returns a surface other copies still reference. Concretely: today's private `SKSurfaceCounter` *disposes* on last release; a pooled target instead carries a pool-aware deallocator that returns surface+texture to the bucket atomically, plus a generation tag so a stale shallow copy can never observe a reissued target (tested) |
 | `Trim(frameIndex)` | dispose targets unused ≥ N frames; enforce byte soft-cap LRU |
 | Failure | propagate current semantics: preview → drop/degrade; delivery → throw (FR-015) |
 

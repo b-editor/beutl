@@ -13,7 +13,7 @@ This contract defines what an effect author (built-in, plugin, or script) may re
 
 | Kind | Author provides | Engine guarantees |
 |---|---|---|
-| `ShaderNode` (snippet) | SKSL `half4 apply(half4 c)` + uniforms/samplers, `IsCoordinateInvariant = true` | participates in fusion; executes exactly once per output pixel of the fused pass ROI |
+| `ShaderNode` (snippet) | SKSL `half4 apply(half4 c)` + uniforms/samplers, `IsCoordinateInvariant = true` | participates in fusion; executes exactly once per output pixel of the fused pass ROI. `c` is **premultiplied-alpha, linear-light** (the RGBA16F/`SrgbLinear`/`Premul` working format) and the return value must be too — unpremultiply/re-premultiply internally if you need straight alpha (as today's `Gamma`/`Curves`/LUT SKSL does) |
 | `ShaderNode` (whole-source) | SKSL `main` with `src` child | own pass (or fusion input boundary); `src` is the upstream result |
 | `ColorFilterNode` | `SKColorFilter` factory | fused with adjacent invariant nodes into the same draw |
 | `SkiaFilterNode` | `SKImageFilter` factory + `BoundsContract` | grouped with adjacent Skia filter nodes into one filtered draw |
@@ -47,5 +47,5 @@ This contract defines what an effect author (built-in, plugin, or script) may re
 
 ## A7. Failure semantics visible to authors
 
-- Pool/allocation failure inside a pass: preview → the pass's output is dropped (effect chain degrades exactly as today's `Flush` failure); export → `InvalidOperationException` propagates. Authors MUST NOT catch-and-continue inside `GeometrySession`.
+- Pool/allocation failure inside a pass: preview → the pass's output is dropped; export → `InvalidOperationException` propagates. This is uniform across pass kinds (a deliberate normalization — the legacy surface diverged per path, see execution-plan C7). Authors MUST NOT catch-and-continue inside `GeometrySession`.
 - `ComputeNode` on a context without Vulkan support: the declared fallback (`Identity`/`Skip`/`CpuCallback`) applies; authors MUST declare one.

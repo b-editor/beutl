@@ -22,6 +22,8 @@ Names, increment rules, and threading are fixed by [execution-plan.md §C8](./ex
 | Mixed chain | Blur→Gamma→Invert→DropShadow→LUT ⇒ pass/allocation counts strictly below the recorded legacy baseline (US1-AS2) |
 | Animated bounds | blur-sigma animation over 100 frames ⇒ `PlanCompilations == 1`, sizes re-resolved per frame (C5) |
 | Clamp carry parity | a chain whose inflated bounds trigger the 16 384 px clamp renders with legacy-parity densities (monotonic `w` carry — C3.2, FR-012) |
+| Structural threshold | animating SplitEffect division counts ⇒ one recompile per topology change, no stale reuse (C3.6/C5) |
+| Allocation failure | forced pool failure on fused / geometry-session / compute paths ⇒ preview drops + continues, delivery throws (C7 normalization) |
 
 ## O3. Benchmark suite (`tests/Beutl.Benchmarks/Rendering/EffectPipelineBenchmarks.cs`)
 
@@ -31,6 +33,6 @@ Names, increment rules, and threading are fixed by [execution-plan.md §C8](./ex
 
 ## O4. Parity gates (golden suite reuse)
 
-- Every migrated effect: single-effect golden test at output scale 1.0 vs a **frozen pre-redesign reference render** (generated at step 1 and stored with the existing harness conventions), thresholds `ExactSsimMin = 0.99` / `ExactMaeMax = 0.02` (linear RGBA16F).
+- Every migrated effect: single-effect golden test at output scale 1.0 vs a **frozen pre-redesign reference render** (generated at step 1 and stored with the existing harness conventions), thresholds `ExactSsimMin = 0.99` / `ExactMaeMax = 0.02` (linear RGBA16F). Parity scenes MUST include semitransparent content so premultiplied-alpha handling of fused shader/color-filter interleavings is exercised (data-model color/alpha contract).
 - Representative chains (the O3 scenes minus HeavySource) get the same treatment.
 - The existing 003 golden suites must stay green untouched throughout the rollout (FR-019, SC-004).

@@ -106,6 +106,6 @@ tests/
 
 ## Phase execution summary
 
-- **Phase 0 (research)** — complete: [research.md](./research.md) resolves all deferred choices (fusion via Skia shader composition + SKSL merging, per-frame describe + structural-key plan cache, exact-size pooled targets, plan-driven sync, two-function ROI contract, six-primitive node taxonomy with the full 41-effect migration map, counters-first rollout, removal strategy). No NEEDS CLARIFICATION remain.
+- **Phase 0 (research)** — complete: [research.md](./research.md) resolves all deferred choices (fusion via Skia shader composition + SKSL merging, per-frame describe + structural-key plan cache, exact-size pooled targets, plan-driven sync, two-function ROI contract, the seven-descriptor / five-primitive node taxonomy with the full 42-effect migration map, counters-first rollout, removal strategy). No NEEDS CLARIFICATION remain.
 - **Phase 1 (design & contracts)** — complete: [data-model.md](./data-model.md) (entities, validation, cache-invalidation rules, state flow), [contracts/](./contracts/) (authoring A1–A7, execution C1–C8 with normative counter definitions, observability O1–O4, breaking-changes map), [quickstart.md](./quickstart.md). Agent context (`CLAUDE.md` SPECKIT block) updated to point at this plan.
 - **Phase 2 (tasks)** — next: `/speckit-tasks` decomposes the six-step rollout (FR-020) into PR-sized tasks with the O2/O4 gates attached per step.
