@@ -10,7 +10,9 @@ namespace Beutl.Editor.Components.TerminalTab.Views;
 public partial class TerminalTabView : UserControl
 {
     private TerminalTabViewModel? _viewModel;
+    private bool _launching;
     private bool _launched;
+    private bool _disposed;
 
     public TerminalTabView()
     {
@@ -42,19 +44,64 @@ public partial class TerminalTabView : UserControl
 
     private async void TryLaunch()
     {
-        if (_launched || _viewModel == null || !IsLoaded)
+        if (_launched || _launching || _viewModel == null || !IsLoaded)
         {
             return;
         }
 
-        _launched = true;
+        _launching = true;
+
+        string? previousLang = null;
+        bool langOverridden = false;
         if (_viewModel.LangFallback is { } lang)
         {
             // The PTY inherits this process' environment; there is no per-launch override.
+            // Set LANG only around the spawn and restore it afterwards so the terminal-only
+            // locale does not leak into later child processes (e.g. the FFmpeg worker).
+            previousLang = Environment.GetEnvironmentVariable("LANG");
             Environment.SetEnvironmentVariable("LANG", lang);
+            langOverridden = true;
         }
 
-        await Terminal.LaunchProcess(_viewModel.WorkingDirectory, _viewModel.ShellPath, _viewModel.ShellArgs);
+        try
+        {
+            await Terminal.LaunchProcess(_viewModel.WorkingDirectory, _viewModel.ShellPath, _viewModel.ShellArgs);
+        }
+        catch
+        {
+            // async void: an unhandled launch failure would terminate the app. Leaving
+            // _launched false lets the restart UI retry.
+            _viewModel.IsProcessExited.Value = true;
+            return;
+        }
+        finally
+        {
+            if (langOverridden)
+            {
+                Environment.SetEnvironmentVariable("LANG", previousLang);
+            }
+
+            _launching = false;
+        }
+
+        // Set only after a successful spawn so OnViewModelDisposed knows a PTY exists to kill.
+        _launched = true;
+
+        if (_disposed)
+        {
+            // Torn down mid-launch: OnViewModelDisposed ran before the PTY existed, so kill
+            // it here rather than reattaching a session with no live tab.
+            try
+            {
+                Terminal.Kill();
+            }
+            catch
+            {
+                // The PTY may already be gone; tearing down must not throw.
+            }
+
+            return;
+        }
 
         // Keep the PTY session alive while the tab is re-docked; the process is
         // killed explicitly when the view-model (i.e. the tab) is disposed.
@@ -84,6 +131,7 @@ public partial class TerminalTabView : UserControl
 
     private void OnViewModelDisposed(object? sender, EventArgs e)
     {
+        _disposed = true;
         Terminal.EndReparent();
         if (_launched)
         {

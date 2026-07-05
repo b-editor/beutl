@@ -106,6 +106,9 @@ public sealed class TerminalTabViewModel : IToolContext
     {
         Disposed?.Invoke(this, EventArgs.Empty);
         Disposed = null;
+        IsSelected.Dispose();
+        IsProcessExited.Dispose();
+        ExitCode.Dispose();
     }
 
     public void ReadFromJson(JsonObject json)
