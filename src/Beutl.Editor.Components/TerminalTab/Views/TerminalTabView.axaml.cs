@@ -42,18 +42,37 @@ public partial class TerminalTabView : UserControl
         TryLaunch();
     }
 
-    private async void TryLaunch()
+    private void TryLaunch()
     {
         if (_launched || _launching || _viewModel == null || !IsLoaded)
         {
             return;
         }
 
+        // The first launch resolves the shell/args/working directory from the view-model.
+        _ = LaunchAsync(reuseConfiguredProcess: false);
+    }
+
+    private void OnRestartClick(object? sender, RoutedEventArgs e)
+    {
+        if (_launching || _viewModel == null)
+        {
+            return;
+        }
+
+        // Restart reuses the shell/args/working directory the first launch already configured.
+        _ = LaunchAsync(reuseConfiguredProcess: true);
+    }
+
+    private async Task LaunchAsync(bool reuseConfiguredProcess)
+    {
+        TerminalTabViewModel viewModel = _viewModel!;
         _launching = true;
+        viewModel.IsProcessExited.Value = false;
 
         string? previousLang = null;
         bool langOverridden = false;
-        if (_viewModel.LangFallback is { } lang)
+        if (viewModel.LangFallback is { } lang)
         {
             // The PTY inherits this process' environment; there is no per-launch override.
             // Set LANG only around the spawn and restore it afterwards so the terminal-only
@@ -65,14 +84,14 @@ public partial class TerminalTabView : UserControl
 
         try
         {
-            await Terminal.LaunchProcess(_viewModel.WorkingDirectory, _viewModel.ShellPath, _viewModel.ShellArgs);
-        }
-        catch
-        {
-            // async void: an unhandled launch failure would terminate the app. Leaving
-            // _launched false lets the restart UI retry.
-            _viewModel.IsProcessExited.Value = true;
-            return;
+            if (reuseConfiguredProcess)
+            {
+                await Terminal.LaunchProcess();
+            }
+            else
+            {
+                await Terminal.LaunchProcess(viewModel.WorkingDirectory, viewModel.ShellPath, viewModel.ShellArgs);
+            }
         }
         finally
         {
@@ -84,13 +103,22 @@ public partial class TerminalTabView : UserControl
             _launching = false;
         }
 
-        // Set only after a successful spawn so OnViewModelDisposed knows a PTY exists to kill.
+        if (!Terminal.HasProcess)
+        {
+            // The terminal control swallows spawn failures (e.g. a missing SHELL/COMSPEC), so no
+            // PTY exists. Surface it through the restart UI and leave the tab relaunchable.
+            _launched = false;
+            viewModel.IsProcessExited.Value = true;
+            return;
+        }
+
+        // Set only after a confirmed live PTY so OnViewModelDisposed knows there is one to kill.
         _launched = true;
 
         if (_disposed)
         {
-            // Torn down mid-launch: OnViewModelDisposed ran before the PTY existed, so kill
-            // it here rather than reattaching a session with no live tab.
+            // Torn down mid-launch: OnViewModelDisposed ran before the PTY existed, so kill it
+            // here rather than reattaching a session with no live tab.
             try
             {
                 Terminal.Kill();
@@ -108,21 +136,9 @@ public partial class TerminalTabView : UserControl
         Terminal.BeginReparent();
     }
 
-    private async void OnRestartClick(object? sender, RoutedEventArgs e)
-    {
-        if (_viewModel == null)
-        {
-            return;
-        }
-
-        _viewModel.IsProcessExited.Value = false;
-        await Terminal.LaunchProcess();
-        Terminal.BeginReparent();
-    }
-
     private void OnProcessExited(object? sender, ProcessExitedEventArgs e)
     {
-        if (_viewModel != null)
+        if (_viewModel != null && !_disposed)
         {
             _viewModel.ExitCode.Value = e.ExitCode;
             _viewModel.IsProcessExited.Value = true;
