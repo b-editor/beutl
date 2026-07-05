@@ -70,7 +70,7 @@ public partial class MainWindow : AppWindow
         {
             subheaderRoot.IsVisible = true;
             iconHost.IsVisible = true;
-            iconSourceElement.IconSource = new FluentIcons.FluentAvalonia.SymbolIconSource
+            iconSourceElement.IconSource = new FluentIcons.Avalonia.Fluent.SymbolIconSource
             {
                 Symbol = iconSymbol,
             };

@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:convert="using:Beutl.Converters"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
              xmlns:local="using:Beutl.Editor.Components.GraphEditorTab.Views"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"

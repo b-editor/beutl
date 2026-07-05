@@ -15,7 +15,7 @@ using Beutl.Utilities;
 using FluentAvalonia.UI.Controls;
 
 using Symbol = FluentIcons.Common.Symbol;
-using SymbolIcon = FluentIcons.FluentAvalonia.SymbolIcon;
+using SymbolIcon = FluentIcons.Avalonia.Fluent.SymbolIcon;
 
 namespace Beutl.Editor.Components.LibraryTab.Views;
 

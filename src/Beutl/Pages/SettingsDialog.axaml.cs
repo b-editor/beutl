@@ -119,7 +119,7 @@ public sealed partial class SettingsDialog : AppWindow
             {
                 Content = Strings.Extensions,
                 Tag = typeof(ExtensionsSettingsPage),
-                IconSource = new FluentIcons.FluentAvalonia.SymbolIconSource()
+                IconSource = new FluentIcons.Avalonia.Fluent.SymbolIconSource()
                 {
                     Symbol = FluentIcons.Common.Symbol.PuzzlePiece
                 }
@@ -128,7 +128,7 @@ public sealed partial class SettingsDialog : AppWindow
             {
                 Content = Strings.Info,
                 Tag = typeof(InformationPage),
-                IconSource = new FluentIcons.FluentAvalonia.SymbolIconSource()
+                IconSource = new FluentIcons.Avalonia.Fluent.SymbolIconSource()
                 {
                     Symbol = FluentIcons.Common.Symbol.Info
                 }

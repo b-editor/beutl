@@ -7,7 +7,7 @@ using Beutl.ViewModels;
 using Beutl.Views;
 using FluentAvalonia.UI.Controls;
 using Symbol = FluentIcons.Common.Symbol;
-using SymbolIconSource = FluentIcons.FluentAvalonia.SymbolIconSource;
+using SymbolIconSource = FluentIcons.Avalonia.Fluent.SymbolIconSource;
 
 namespace Beutl.Services.PrimitiveImpls;
 
