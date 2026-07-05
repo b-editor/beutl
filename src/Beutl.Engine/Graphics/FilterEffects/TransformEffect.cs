@@ -32,10 +32,11 @@ public sealed partial class TransformEffect : FilterEffect
         if (r.Transform == null)
             return;
 
+        Matrix mat = r.Transform.Matrix;
+        RelativePoint originPoint = r.TransformOrigin;
+
         if (!r.ApplyToTarget)
         {
-            var mat = r.Transform.Matrix;
-            RelativePoint originPoint = r.TransformOrigin;
             Vector origin = originPoint.ToPixels(builder.Bounds.Size) + builder.Bounds.Position;
             Matrix offset = Matrix.CreateTranslation(origin);
             Matrix transform = (-offset) * mat * offset;
@@ -43,13 +44,26 @@ public sealed partial class TransformEffect : FilterEffect
             return;
         }
 
-        // The ApplyToTarget path is a per-target logical-space redraw pivoting around each operation's own centre
-        // (not a single matrix filter). It reshapes the operation set with logical draws no existing GeometryNode
-        // template covers, so it stays on the parity-safe legacy bridge here; the bridge lowers to a GeometryNode
-        // wrapping the same redraw when the imperative surface is removed (step 6).
-        var bridge = new FilterEffectContext(builder.Bounds, builder.OutputScale, builder.WorkingScale);
-        ApplyTo(bridge, resource);
-        builder.AppendOpaqueLegacy(bridge, nameof(TransformEffect));
+        // The ApplyToTarget path pivots each operation around its own centre (not the shared bounds centre a single
+        // matrix filter would use), so it is a per-operation geometry redraw. In the linear single-input pipeline the
+        // op's bounds equal the builder's; a fanned-out set (upstream split) still pivots each branch on its own rect.
+        builder.Geometry(GeometryNodeDescriptor.Create(
+            session =>
+            {
+                Rect inRect = session.Inputs[0].Bounds;
+                Vector origin = originPoint.ToPixels(inRect.Size);
+                Matrix offset = Matrix.CreateTranslation(origin);
+                TransformGeometry.Render(session, (-offset) * mat * offset);
+            },
+            BoundsContract.Create(rect => ApplyToTargetBounds(rect, mat, originPoint), static r => r),
+            structuralToken: nameof(TransformEffect) + ".ApplyToTarget"));
+    }
+
+    private static Rect ApplyToTargetBounds(Rect rect, Matrix mat, RelativePoint originPoint)
+    {
+        Vector origin = originPoint.ToPixels(rect.Size) + rect.Position;
+        Matrix offset = Matrix.CreateTranslation(origin);
+        return rect.TransformToAABB((-offset) * mat * offset);
     }
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)

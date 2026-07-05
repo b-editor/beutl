@@ -224,7 +224,10 @@ internal static class EffectGraphCompiler
     private static FusedStage ToStage(EffectNodeDescriptor descriptor) => descriptor switch
     {
         ShaderNodeDescriptor shader => new RuntimeShaderStage(
-            shader.Source, shader.Uniforms, shader.Samplers, shader.Children),
+            shader.Source, shader.Uniforms, shader.Samplers, shader.Children)
+        {
+            SrcTileMode = shader.SrcTileMode,
+        },
         ColorFilterNodeDescriptor colorFilter => new ColorFilterStage(colorFilter.Factory),
         _ => throw new NotSupportedException($"'{descriptor.GetType().Name}' is not a fused stage."),
     };

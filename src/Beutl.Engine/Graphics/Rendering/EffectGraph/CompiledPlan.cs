@@ -54,7 +54,16 @@ public sealed record RuntimeShaderStage(
     SkslSource Source,
     ImmutableArray<UniformBinding> Uniforms,
     ImmutableArray<SamplerBinding> Samplers,
-    ImmutableArray<ChildBinding> Children) : FusedStage;
+    ImmutableArray<ChildBinding> Children) : FusedStage
+{
+    /// <summary>
+    /// The tile mode for the implicit <c>src</c> child of a whole-source stage (feature 004, D7): a whole-source
+    /// shader samples <c>src</c> at arbitrary coordinates, so out-of-bounds reads must reproduce the legacy custom
+    /// effect's tiling (<see cref="SKShaderTileMode.Clamp"/>/<see cref="SKShaderTileMode.Decal"/>). Irrelevant to a
+    /// coordinate-invariant snippet run (it only samples the current pixel); left at the <c>Decal</c> default there.
+    /// </summary>
+    public SKShaderTileMode SrcTileMode { get; init; } = SKShaderTileMode.Decal;
+}
 
 /// <summary>A color-filter stage: wraps the accumulated shader with <c>SKShader.WithColorFilter</c>.</summary>
 public sealed record ColorFilterStage(Func<SKColorFilter?> Factory) : FusedStage;

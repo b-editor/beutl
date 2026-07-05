@@ -50,7 +50,8 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
         workingScale = RenderNodeContext.ClampWorkingScaleToBufferBudget(bounds, workingScale);
 
         FilterEffect.Resource resource = FilterEffect.Value.Resource;
-        var graphBuilder = new EffectGraphBuilder(bounds, context.OutputScale, workingScale);
+        var graphBuilder = new EffectGraphBuilder(
+            bounds, context.OutputScale, workingScale, context.MaxWorkingScale);
         resource.GetOriginal().Describe(graphBuilder, resource);
         using EffectGraph graph = graphBuilder.Build();
 

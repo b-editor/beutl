@@ -1,4 +1,5 @@
 ﻿using System.Collections.Immutable;
+using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
@@ -22,7 +23,8 @@ public sealed record ShaderNodeDescriptor : EffectNodeDescriptor
         BoundsContract bounds,
         ImmutableArray<UniformBinding> uniforms,
         ImmutableArray<SamplerBinding> samplers,
-        ImmutableArray<ChildBinding> children)
+        ImmutableArray<ChildBinding> children,
+        SKShaderTileMode srcTileMode)
     {
         Source = source;
         IsCoordinateInvariant = isCoordinateInvariant;
@@ -30,6 +32,7 @@ public sealed record ShaderNodeDescriptor : EffectNodeDescriptor
         Uniforms = uniforms;
         Samplers = samplers;
         Children = children;
+        SrcTileMode = srcTileMode;
     }
 
     /// <summary>The identity-hashable SKSL source (snippet or whole-source).</summary>
@@ -50,6 +53,9 @@ public sealed record ShaderNodeDescriptor : EffectNodeDescriptor
     /// <summary>Extra child shaders bound by name (whole-source only, beyond the implicit <c>src</c>).</summary>
     public ImmutableArray<ChildBinding> Children { get; }
 
+    /// <summary>Tile mode for the implicit <c>src</c> child (whole-source only); <c>Decal</c> for snippet nodes.</summary>
+    public SKShaderTileMode SrcTileMode { get; }
+
     /// <summary>
     /// Builds a fusable coordinate-invariant snippet node from a <c>half4 apply(half4 c)</c> source. Bounds are
     /// identity by construction (A3). Optionally binds uniforms and samplers.
@@ -65,7 +71,8 @@ public sealed record ShaderNodeDescriptor : EffectNodeDescriptor
             BoundsContract.Identity,
             UniformBindingBuilder.Collect(uniforms).ToImmutableArray(),
             (samplers ?? []).ToImmutableArray(),
-            children: []);
+            children: [],
+            SKShaderTileMode.Decal);
     }
 
     /// <summary>
@@ -80,7 +87,8 @@ public sealed record ShaderNodeDescriptor : EffectNodeDescriptor
         BoundsContract bounds,
         Action<UniformBindingBuilder>? uniforms = null,
         IEnumerable<SamplerBinding>? samplers = null,
-        IEnumerable<ChildBinding>? children = null)
+        IEnumerable<ChildBinding>? children = null,
+        SKShaderTileMode srcTileMode = SKShaderTileMode.Decal)
     {
         return new ShaderNodeDescriptor(
             SkslSource.WholeSource(source),
@@ -88,7 +96,8 @@ public sealed record ShaderNodeDescriptor : EffectNodeDescriptor
             bounds,
             UniformBindingBuilder.Collect(uniforms).ToImmutableArray(),
             (samplers ?? []).ToImmutableArray(),
-            (children ?? []).ToImmutableArray());
+            (children ?? []).ToImmutableArray(),
+            srcTileMode);
     }
 
     /// <summary>
@@ -100,7 +109,8 @@ public sealed record ShaderNodeDescriptor : EffectNodeDescriptor
         string source,
         Action<UniformBindingBuilder>? uniforms = null,
         IEnumerable<SamplerBinding>? samplers = null,
-        IEnumerable<ChildBinding>? children = null)
+        IEnumerable<ChildBinding>? children = null,
+        SKShaderTileMode srcTileMode = SKShaderTileMode.Decal)
     {
         return new ShaderNodeDescriptor(
             SkslSource.WholeSource(source),
@@ -108,6 +118,7 @@ public sealed record ShaderNodeDescriptor : EffectNodeDescriptor
             BoundsContract.Identity,
             UniformBindingBuilder.Collect(uniforms).ToImmutableArray(),
             (samplers ?? []).ToImmutableArray(),
-            (children ?? []).ToImmutableArray());
+            (children ?? []).ToImmutableArray(),
+            srcTileMode);
     }
 }

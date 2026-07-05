@@ -17,12 +17,14 @@ public sealed class EffectGraphBuilder
     private readonly List<EffectNode> _nodes = [];
     private readonly List<IDisposable> _disposables = [];
 
-    internal EffectGraphBuilder(Rect bounds, float outputScale, float workingScale)
+    internal EffectGraphBuilder(
+        Rect bounds, float outputScale, float workingScale, float maxWorkingScale = float.PositiveInfinity)
     {
         OriginalBounds = bounds;
         Bounds = bounds;
         OutputScale = outputScale;
         WorkingScale = workingScale;
+        MaxWorkingScale = maxWorkingScale;
     }
 
     /// <summary>The current logical bounds, advanced by each appended node's forward bounds.</summary>
@@ -36,6 +38,9 @@ public sealed class EffectGraphBuilder
 
     /// <summary>The working density <c>w</c> the render node resolved for this boundary (FR-012); read-only to authors.</summary>
     public float WorkingScale { get; }
+
+    /// <summary>The working-scale ceiling for brushes constructed at describe time; <c>+Inf</c> = no ceiling (delivery).</summary>
+    public float MaxWorkingScale { get; }
 
     /// <summary>Appends a shader node (snippet or whole-source).</summary>
     public EffectGraphBuilder Shader(ShaderNodeDescriptor descriptor)
@@ -106,6 +111,27 @@ public sealed class EffectGraphBuilder
         ArgumentNullException.ThrowIfNull(shader);
         _disposables.Add(shader);
         return new SamplerBinding(name, shader);
+    }
+
+    /// <summary>
+    /// Builds a child-shader binding (a whole-source shader's extra input, e.g. a displacement map) whose shader is a
+    /// per-frame resource: the graph disposes it in <see cref="EffectGraph.Dispose"/>, so it survives a skipped pass
+    /// and is never leaked. The child name is structural; the shader instance is a parameter (A4).
+    /// </summary>
+    internal ChildBinding Child(string name, SKShader shader)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        ArgumentNullException.ThrowIfNull(shader);
+        _disposables.Add(shader);
+        return new ChildBinding(name, shader);
+    }
+
+    /// <summary>Registers an intermediate per-frame shader (e.g. the pre-local-matrix base of a child) for frame-end disposal.</summary>
+    internal SKShader Track(SKShader shader)
+    {
+        ArgumentNullException.ThrowIfNull(shader);
+        _disposables.Add(shader);
+        return shader;
     }
 
     private EffectGraphBuilder Append(EffectNodeDescriptor descriptor)

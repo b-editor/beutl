@@ -45,6 +45,23 @@ public partial class ShakeEffect : FilterEffect
         }
     }
 
+    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
+    {
+        var r = (Resource)resource;
+        // i == 0 for the single-input pipeline (the legacy per-target index only differed across an intra-effect
+        // target list, which the declarative model expresses as a split fan-out).
+        float a = r.Time * r.Speed / 100 + _offset;
+        float b = _offset;
+        float randomX = (_random.Perlin(a, b) - 0.5F) * 2F * r.StrengthX;
+        float randomY = (_random.Perlin(b, a) - 0.5F) * 2F * r.StrengthY;
+
+        var translate = new Vector(randomX, randomY);
+        builder.Geometry(GeometryNodeDescriptor.Create(
+            session => TransformGeometry.Render(session, Matrix.CreateTranslation(translate)),
+            BoundsContract.Create(rect => rect.Translate(translate), static r => r),
+            structuralToken: nameof(ShakeEffect)));
+    }
+
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;

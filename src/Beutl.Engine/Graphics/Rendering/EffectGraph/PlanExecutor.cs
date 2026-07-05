@@ -266,8 +266,13 @@ internal static class PlanExecutor
     {
         BakeSource(target, w, outBounds, source, maxWorkingScale, paint: null);
 
+        // A whole-source stage samples src at arbitrary coordinates, so its declared tile mode governs out-of-bounds
+        // reads (matching the legacy custom effect); a fused snippet run only samples the current pixel, so Decal.
+        SKShaderTileMode srcTile = pass.Stages is [RuntimeShaderStage { Source.Kind: SkslSourceKind.WholeSource } ws]
+            ? ws.SrcTileMode
+            : SKShaderTileMode.Decal;
         using SKImage srcImage = target.Value.Snapshot();
-        using SKShader srcShader = srcImage.ToShader(SKShaderTileMode.Decal, SKShaderTileMode.Decal);
+        using SKShader srcShader = srcImage.ToShader(srcTile, srcTile);
 
         var disposables = new List<IDisposable>();
         try

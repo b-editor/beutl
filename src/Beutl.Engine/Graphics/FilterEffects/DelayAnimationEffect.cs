@@ -22,6 +22,17 @@ public partial class DelayAnimationEffect : FilterEffect
     [Display(Name = nameof(GraphicsStrings.DelayAnimationEffect_Effect), ResourceType = typeof(GraphicsStrings))]
     public IProperty<FilterEffect?> Effect { get; } = Property.Create<FilterEffect?>();
 
+    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
+    {
+        var r = (Resource)resource;
+        if (r.Effect is not { } child) return;
+
+        // Describe the child effect's graph at the per-input delayed clock (nested describe, research D8). The single
+        // input uses delay*0 — the current clock, i.e. the child at its already-resolved resource — so the delay only
+        // shifts the child across a fan-out (a split), which the declarative model expresses as multiple branches.
+        child.GetOriginal().Describe(builder, child);
+    }
+
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
