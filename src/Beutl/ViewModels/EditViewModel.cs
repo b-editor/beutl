@@ -290,11 +290,9 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
                 continue;
             }
 
-            // Normalize the element's URI in-process rather than re-running a symlink-resolving
-            // FileInfo stat per element on the UI thread; the changed source path is already a
-            // normalized fingerprint path. The reader-level reload path (VideoSource +
-            // GetSourceVersion) still guarantees eventual correctness.
-            string elementPath = ProxyFingerprint.NormalizeAbsolutePath(uri.LocalPath);
+            // Resolve the element's path the same way store change events are keyed (symlink target
+            // resolved before folding), so a source referenced via a symlink still matches.
+            string elementPath = ProxyFingerprint.ResolveComparableKey(uri.LocalPath);
             if (changedSources.Contains(elementPath))
             {
                 return true;

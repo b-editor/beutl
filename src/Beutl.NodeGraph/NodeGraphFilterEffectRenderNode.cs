@@ -31,6 +31,7 @@ internal class NodeGraphFilterEffectRenderNode(NodeGraphFilterEffect.Resource re
         _compositionContext.ForceOriginalSource = GraphResource.ForceOriginalSource;
         _compositionContext.PreferProxy = GraphResource.PreferProxy;
         _compositionContext.PreferredProxyPreset = GraphResource.PreferredProxyPreset;
+        _compositionContext.DisableResourceShare = GraphResource.DisableResourceShare;
         GraphResource.Snapshot.Evaluate(CompositionTarget.Graphics, _compositionContext);
 
         // 4. OutputNode から出力 RenderNode を収集

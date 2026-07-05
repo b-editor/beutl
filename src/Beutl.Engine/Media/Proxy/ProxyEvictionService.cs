@@ -1,4 +1,5 @@
-﻿using Beutl.Engine;
+﻿using Beutl.Animation;
+using Beutl.Engine;
 using Beutl.IO;
 
 namespace Beutl.Media.Proxy;
@@ -191,17 +192,7 @@ public sealed class ProxyEvictionService
     }
 
     private static string ResolveComparablePath(string path)
-    {
-        // Store entries key their source through ProxyFingerprint.FromFile, which resolves the
-        // final symlink target before normalizing. Protected paths must take the same route or a
-        // source referenced via a symlink will not match its own entry and stays unprotected.
-        if (ProxyFingerprint.TryFromFile(path, out ProxyFingerprint fingerprint))
-            return fingerprint.AbsolutePath;
-
-        // Source missing on disk (e.g. offline media): fall back to plain normalization so
-        // non-symlinked entries still match.
-        return ProxyFingerprint.NormalizeAbsolutePath(path);
-    }
+        => ProxyFingerprint.ResolveComparableKey(path);
 
     /// <summary>
     /// Collects the file-system paths of every <see cref="IFileSource"/> referenced anywhere in
@@ -231,6 +222,18 @@ public sealed class ProxyEvictionService
             {
                 if (property.CurrentValue is IFileSource fileSource)
                     AddFileSourcePath(fileSource.Uri, paths);
+
+                // Rendering (and the proxy scanner) consume animated file-source values too, so media
+                // referenced only from keyframes must be protected — otherwise its in-project proxy is
+                // treated as unprotected and can be evicted before unrelated closed-project proxies.
+                if (property.Animation is KeyFrameAnimation keyFrameAnimation)
+                {
+                    foreach (IKeyFrame keyFrame in keyFrameAnimation.KeyFrames)
+                    {
+                        if (keyFrame.Value is IFileSource keyFrameSource)
+                            AddFileSourcePath(keyFrameSource.Uri, paths);
+                    }
+                }
             }
         }
 

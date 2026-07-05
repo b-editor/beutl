@@ -184,6 +184,13 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
         {
             throw CreateUnavailableException(ex);
         }
+        catch (Exception ex) when (FFmpegInstallNotifier.IsLibrariesMissing)
+        {
+            // The FFmpeg decoder recorded the libraries missing while opening and no fallback decoder
+            // could open this source; treat it as unavailable so the queue pauses rather than draining
+            // the batch as ordinary per-file failures.
+            throw CreateUnavailableException(ex);
+        }
     }
 
     private static int MakeEven(double value)
@@ -204,7 +211,7 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
             or ".tiff";
     }
 
-    private static ProxyGeneratorUnavailableException CreateUnavailableException(FFmpegLibrariesNotFoundException ex)
+    private static ProxyGeneratorUnavailableException CreateUnavailableException(Exception ex)
     {
         FFmpegInstallNotifier.NotifyMissing();
         return new ProxyGeneratorUnavailableException(ex.Message);

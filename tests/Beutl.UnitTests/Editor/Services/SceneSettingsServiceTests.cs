@@ -117,7 +117,7 @@ public class SceneSettingsServiceTests
     }
 
     [Test]
-    public void Apply_AfterUndo_RestoresAllThreeFields()
+    public void Apply_AfterUndo_RestoresAllFields()
     {
         PixelSize originalSize = _scene.FrameSize;
         TimeSpan originalStart = _scene.Start;

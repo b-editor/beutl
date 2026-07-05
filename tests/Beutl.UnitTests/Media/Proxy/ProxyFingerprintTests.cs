@@ -157,6 +157,39 @@ public class ProxyFingerprintTests
         });
     }
 
+    [Test]
+    public void ResolveComparableKey_SymlinkResolvesToSameKeyAsTarget()
+    {
+        string dir = TestContext.CurrentContext.WorkDirectory;
+        string target = Path.Combine(dir, Guid.NewGuid() + ".mov");
+        string link = Path.Combine(dir, Guid.NewGuid() + ".mov");
+        File.WriteAllBytes(target, [1, 2, 3]);
+        try
+        {
+            File.CreateSymbolicLink(link, target);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or PlatformNotSupportedException)
+        {
+            Assert.Ignore("Symbolic links are not supported in this environment.");
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ProxyFingerprint.ResolveComparableKey(link), Is.EqualTo(ProxyFingerprint.ResolveComparableKey(target)));
+            Assert.That(ProxyFingerprint.ResolveComparableKey(link), Is.EqualTo(ProxyFingerprint.FromFile(target).AbsolutePath));
+        });
+    }
+
+    [Test]
+    public void ResolveComparableKey_OfflineFile_FallsBackToNormalization()
+    {
+        string missing = CreatePath(Guid.NewGuid() + ".mov");
+
+        Assert.That(
+            ProxyFingerprint.ResolveComparableKey(missing),
+            Is.EqualTo(ProxyFingerprint.NormalizeAbsolutePath(missing)));
+    }
+
     private static string CreatePath(string fileName)
     {
         return Path.Combine(TestContext.CurrentContext.WorkDirectory, fileName);

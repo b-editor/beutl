@@ -112,7 +112,10 @@ public partial class SourceVideo : IThumbnailsProvider
                 yield break;
             var duration = TimeRange.Duration;
 
-            var frameSize = source.FrameSize;
+            // Rendering draws the video into LogicalFrameSize; sizing the strip from the (possibly
+            // smaller) proxy decode size would clip the frame. LogicalFrameSize equals FrameSize when
+            // no proxy is active, so the non-proxy path stays byte-identical.
+            var frameSize = source.LogicalFrameSize;
             int count = GetVideoThumbnailCount(frameSize, maxWidth, maxHeight);
             // A degenerate frame size (e.g. corrupt metadata with Height == 0) makes the division below
             // produce Infinity, which then overflows TimeSpan.FromSeconds. Bail out instead.

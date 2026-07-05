@@ -89,17 +89,20 @@ public class NodeGraphFilterEffectRenderNodeTests
             PreferProxy = true,
             ForceOriginalSource = true,
             PreferredProxyPreset = ProxyPreset.Eighth,
+            DisableResourceShare = true,
         };
 
         using var resource = (NodeGraphFilterEffect.Resource)effect.ToResource(context);
 
         // The render node replays the graph with a fresh context; without these captured flags a
-        // VideoSourceNode inside the graph would always evaluate with PreferProxy=false.
+        // VideoSourceNode inside the graph evaluates with PreferProxy=false and loses export-time
+        // reader isolation (DisableResourceShare=false).
         Assert.Multiple(() =>
         {
             Assert.That(resource.PreferProxy, Is.True);
             Assert.That(resource.ForceOriginalSource, Is.True);
             Assert.That(resource.PreferredProxyPreset, Is.EqualTo(ProxyPreset.Eighth));
+            Assert.That(resource.DisableResourceShare, Is.True);
         });
     }
 

@@ -117,6 +117,29 @@ public class ProxyEvictionTests
     }
 
     [Test]
+    public void CollectProjectFileSources_IncludesAnimatedKeyframeSources()
+    {
+        string animatedPath = Path.Combine(TestContext.CurrentContext.WorkDirectory, "animated-source.mov");
+        var keyframeSource = new Beutl.Media.Source.VideoSource();
+        keyframeSource.ReadFrom(new Uri(animatedPath));
+        var animation = new Beutl.Animation.KeyFrameAnimation<Beutl.Media.Source.VideoSource?>();
+        animation.KeyFrames.Add(new Beutl.Animation.KeyFrame<Beutl.Media.Source.VideoSource?>
+        {
+            KeyTime = TimeSpan.FromSeconds(1),
+            Value = keyframeSource,
+        });
+        var drawable = new Beutl.Graphics.SourceVideo();
+        drawable.Source.Animation = animation;
+
+        var graph = new TestHierarchical();
+        graph.AddChild(drawable);
+
+        IReadOnlySet<string> collected = ProxyEvictionService.CollectProjectFileSources(graph);
+
+        Assert.That(collected, Does.Contain(new Uri(animatedPath).LocalPath));
+    }
+
+    [Test]
     public void Sweep_EvictsOpenProjectEntries_AsLastResort()
     {
         string root = CreateRoot();

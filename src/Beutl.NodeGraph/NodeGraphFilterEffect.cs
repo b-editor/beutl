@@ -46,14 +46,17 @@ public sealed partial class NodeGraphFilterEffect : FilterEffect
 
         public TimeSpan? LastTime { get; private set; }
 
-        // Proxy preferences captured from the composition context at build time; the render node
-        // replays the graph with a fresh context and must restore them, otherwise graph video inputs
-        // always evaluate with PreferProxy=false even in a "prefer proxy" preview.
+        // Composition flags captured from the build-time context; the render node replays the graph
+        // with a fresh context and must restore them. Otherwise graph video inputs always evaluate
+        // with PreferProxy=false (wrong in a "prefer proxy" preview) and DisableResourceShare=false
+        // (loses reader isolation during an export/full-scale render).
         public bool ForceOriginalSource { get; private set; }
 
         public bool PreferProxy { get; private set; }
 
         public ProxyPreset PreferredProxyPreset { get; private set; } = ProxyPreset.Quarter;
+
+        public bool DisableResourceShare { get; private set; }
 
         public override FilterEffectRenderNode CreateRenderNode()
         {
@@ -88,6 +91,7 @@ public sealed partial class NodeGraphFilterEffect : FilterEffect
                     ForceOriginalSource = context.ForceOriginalSource;
                     PreferProxy = context.PreferProxy;
                     PreferredProxyPreset = context.PreferredProxyPreset;
+                    DisableResourceShare = context.DisableResourceShare;
                     Snapshot.Build(Model, context);
                     Version++;
                     updateOnly = true;

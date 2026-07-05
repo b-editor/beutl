@@ -2,6 +2,7 @@
 using Beutl.Editor.Components.ProxiesTab;
 using Beutl.Engine;
 using Beutl.Graphics;
+using Beutl.Graphics.Effects;
 using Beutl.Media.Source;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
@@ -39,6 +40,21 @@ public class ProxySourceEnumeratorTests
         Element element = ElementWith(drawable);
 
         Assert.That(FileNames(element), Is.EquivalentTo(new[] { "node.mov" }));
+    }
+
+    [Test]
+    public void EnumerateVideoSources_IncludesNodeGraphFilterEffectInputs()
+    {
+        var node = new VideoSourceNode();
+        node.Source.Property!.SetValue(CreateVideoSource("fx-node.mov"));
+        var graphEffect = new NodeGraphFilterEffect();
+        graphEffect.Model.CurrentValue!.Nodes.Add(node);
+
+        var drawable = new SourceVideo();
+        ((FilterEffectGroup)drawable.FilterEffect.CurrentValue!).Children.Add(graphEffect);
+        Element element = ElementWith(drawable);
+
+        Assert.That(FileNames(element), Does.Contain("fx-node.mov"));
     }
 
     [Test]

@@ -46,12 +46,14 @@ public sealed class FFmpegDecoderInfo(FFmpegDecodingSettings settings) : IDecode
 
             return new FFmpegReaderProxy(connection, response.ReaderId, response);
         }
-        catch (FFmpegLibrariesNotFoundException)
+        catch (FFmpegLibrariesNotFoundException ex)
         {
-            // A missing FFmpeg environment is not a "this decoder can't read this file" signal (which
-            // null conveys, letting the registry fall through to the next decoder). Surface it so
-            // callers such as proxy generation can pause the queue instead of failing per-file.
-            throw;
+            // Record the missing-libraries condition (proxy generation reads it to translate a
+            // fallback-less open failure into "unavailable") but still return null, so a regular open
+            // can fall through to another decoder — e.g. MediaFoundation can open an MP4 without FFmpeg.
+            FFmpegInstallNotifier.MarkMissing();
+            _logger.LogError(ex, "Failed to open media file '{File}'", file);
+            return null;
         }
         catch (Exception ex)
         {

@@ -11,6 +11,7 @@ using Avalonia.Media.Immutable;
 using Beutl.Animation;
 using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.ProxiesTab;
 using Beutl.Editor.Components.TimelineTab.Services;
 using Beutl.Editor.Services;
 using Beutl.Engine;
@@ -893,13 +894,10 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     private VideoSource? FindVideoSource()
     {
-        foreach (var child in Model.Objects)
-        {
-            if (child is Beutl.Graphics.SourceVideo sourceVideo)
-                return sourceVideo.Source.CurrentValue;
-        }
-
-        return null;
+        // Cover every proxy-aware holder (VideoSourceNode graph inputs, referenced scenes, animated
+        // values) so an element that uses video only through those paths still shows the badge, not
+        // just a top-level SourceVideo's current value.
+        return ProxySourceEnumerator.EnumerateVideoSources(Model).FirstOrDefault();
     }
 
     private ProxyFingerprint? ResolveProxyFingerprint(bool invalidateCache = false)

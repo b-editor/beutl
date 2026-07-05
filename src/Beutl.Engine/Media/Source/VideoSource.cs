@@ -161,9 +161,9 @@ public sealed class VideoSource : MediaSource
                         };
                         var reader = MediaReader.Open(videoSource.Uri.LocalPath, options);
                         _counter = new Counter<MediaReader>(reader, null);
-                        // DisableResourceShare 時は WeakReference を書き換えない。
-                        // 他 Renderer（プレビュー側）の共有カウンタを
-                        // エンコード専用カウンタで汚染してしまうため。
+                        // DisableResourceShare 時、またはプロキシ優先だがプロキシ解決に至らなかった場合は
+                        // WeakReference を書き換えない。他 Renderer（プレビュー側）の共有カウンタを
+                        // エンコード専用／原本フォールバックのカウンタで汚染してしまうため。
                         if (!context.DisableResourceShare
                             && (!context.PreferProxy || reader.ProxyResolution != null))
                         {

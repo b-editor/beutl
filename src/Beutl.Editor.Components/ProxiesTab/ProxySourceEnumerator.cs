@@ -2,6 +2,7 @@
 using Beutl.Engine;
 using Beutl.Extensibility;
 using Beutl.Graphics;
+using Beutl.Graphics.Effects;
 using Beutl.Media.Source;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
@@ -51,6 +52,14 @@ public static class ProxySourceEnumerator
             }
         }
 
+        // A VideoSourceNode can also live inside a NodeGraphFilterEffect on any drawable's filter
+        // chain; the render path evaluates those with proxy flags, so they must be scanned too.
+        foreach (Drawable drawable in element.Objects.OfType<Drawable>())
+        {
+            foreach (VideoSource source in EnumerateFilterEffectGraphSources(drawable.FilterEffect.CurrentValue))
+                yield return source;
+        }
+
         foreach (SceneDrawable sceneDrawable in element.Objects.OfType<SceneDrawable>())
         {
             if (sceneDrawable.ReferencedScene.CurrentValue is not { } referencedScene)
@@ -65,6 +74,33 @@ public static class ProxySourceEnumerator
             {
                 foreach (VideoSource source in Enumerate(child, visitedScenes))
                     yield return source;
+            }
+        }
+    }
+
+    private static IEnumerable<VideoSource> EnumerateFilterEffectGraphSources(FilterEffect? effect)
+    {
+        if (effect is FilterEffectGroup group)
+        {
+            foreach (FilterEffect child in group.Children)
+            {
+                foreach (VideoSource source in EnumerateFilterEffectGraphSources(child))
+                    yield return source;
+            }
+        }
+        else if (effect is NodeGraphFilterEffect graphEffect
+                 && graphEffect.Model.CurrentValue is { } model)
+        {
+            foreach (VideoSourceNode node in model.Nodes.OfType<VideoSourceNode>())
+            {
+                if (node.Source.Property == null)
+                    continue;
+
+                foreach (VideoSource? source in EnumerateValues(node.Source.Property))
+                {
+                    if (source != null)
+                        yield return source;
+                }
             }
         }
     }
