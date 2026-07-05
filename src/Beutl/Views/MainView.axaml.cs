@@ -2,6 +2,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Beutl.AgentToolkit.Installation;
 using Beutl.Configuration;
 using Beutl.Language;
 using Beutl.Logging;
@@ -14,6 +15,7 @@ using Beutl.Threading;
 using Beutl.Utilities;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
+using Beutl.ViewModels.SettingsPages;
 using Beutl.Views.Dialogs;
 using Beutl.Views.Tutorial;
 using DynamicData;
@@ -120,8 +122,50 @@ public sealed partial class MainView : UserControl
 
         await ShowTelemetryDialog();
         await CheckDifferentVersion();
+        await CheckAgentToolkitUpdateAsync();
 
         _logger.LogInformation("Window opened.");
+    }
+
+    private async Task CheckAgentToolkitUpdateAsync()
+    {
+        if (DataContext is not MainViewModel viewModel)
+        {
+            return;
+        }
+
+        try
+        {
+            (AgentToolkitInstallManifest? manifest, IReadOnlyList<AgentToolkitAsset> assets) = await Task.Run(() =>
+                (AgentToolkitInstallManifestStore.Load(AgentToolkitInstallManifestStore.GetDefaultPath()),
+                    (IReadOnlyList<AgentToolkitAsset>)BundledAgentToolkitAssets.Load()));
+
+            if (!AgentToolkitInstallManifestStore.IsUpdateAvailable(manifest, assets))
+            {
+                return;
+            }
+
+            var dialog = new ContentDialog
+            {
+                Title = SettingsStrings.AiAgents_UpdateAvailable_Title,
+                Content = SettingsStrings.AiAgents_UpdateAvailable_Content,
+                PrimaryButtonText = SettingsStrings.AiAgents_Reinstall,
+                CloseButtonText = SettingsStrings.AiAgents_Later,
+                DefaultButton = ContentDialogButton.Primary,
+            };
+            if (await dialog.ShowAsync() != ContentDialogResult.Primary)
+            {
+                return;
+            }
+
+            using var settingsViewModel = new AiAgentSettingsPageViewModel(viewModel.AgentHostEndpoint);
+            await settingsViewModel.InstallAsync();
+            NotificationService.ShowInformation(SettingsStrings.AiAgents, settingsViewModel.Status.Value);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Agent toolkit update check failed.");
+        }
     }
 
     private static async Task CheckDifferentVersion()

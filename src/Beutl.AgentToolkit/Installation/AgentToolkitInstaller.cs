@@ -22,6 +22,7 @@ public static class AgentToolkitInstaller
 
         string agentRoot = EnsureDirectory(options.AgentRoot);
         var installedFiles = new List<string>();
+        var assetFileRecords = new List<InstalledFileRecord>();
 
         foreach (AgentToolkitAsset asset in assets)
         {
@@ -48,6 +49,8 @@ public static class AgentToolkitInstaller
             Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
             await File.WriteAllTextAsync(targetPath, content, cancellationToken).ConfigureAwait(false);
             installedFiles.Add(targetPath);
+            assetFileRecords.Add(new InstalledFileRecord(
+                targetPath, AgentToolkitInstallManifestStore.ComputeContentHash(content)));
         }
 
         string? mcpConfigPath = null;
@@ -62,7 +65,8 @@ public static class AgentToolkitInstaller
             installedFiles,
             mcpConfigPath,
             options.InstallStdioMcp,
-            options.InstallLiveMcp);
+            options.InstallLiveMcp,
+            assetFileRecords);
     }
 
     private static async Task WriteMcpConfigAsync(

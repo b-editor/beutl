@@ -584,4 +584,20 @@
     <value>Authentication header</value>
     <comment/>
   </data>
+  <data name="AiAgents_UpdateAvailable_Title" xml:space="preserve">
+    <value>AI agent assets were updated</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_UpdateAvailable_Content" xml:space="preserve">
+    <value>This version of Beutl bundles newer skills and subagents than the ones you installed. Reinstall them now with your saved settings? Files you edited by hand in the destination will be overwritten.</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Reinstall" xml:space="preserve">
+    <value>Reinstall</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Later" xml:space="preserve">
+    <value>Later</value>
+    <comment/>
+  </data>
 </root>

@@ -331,7 +331,7 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
         InstallLiveMcp.Skip(1).Subscribe(v => _config.InstallLiveMcp = v).DisposeWith(_disposables);
     }
 
-    private async Task InstallAsync()
+    public async Task InstallAsync()
     {
         try
         {
@@ -359,6 +359,8 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
                                   && targets.LiveUrlPropertyName is not null
                                   && liveMcpUri is not null;
 
+            IReadOnlyList<AgentToolkitAsset> assets = BundledAgentToolkitAssets.Load();
+            bool installSubagents = InstallSubagents.Value && targets.SubagentsDirectory is not null;
             AgentToolkitInstallResult result = await AgentToolkitInstaller.InstallAsync(
                 new AgentToolkitInstallOptions
                 {
@@ -367,7 +369,7 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
                     SubagentsDirectory = targets.SubagentsDirectory ?? "agents",
                     SubagentFormat = targets.SubagentFormat,
                     InstallSkills = InstallSkills.Value,
-                    InstallSubagents = InstallSubagents.Value && targets.SubagentsDirectory is not null,
+                    InstallSubagents = installSubagents,
                     InstallStdioMcp = installStdioMcp,
                     InstallLiveMcp = installLiveMcp,
                     McpConfigFileName = targets.McpConfigFileName ?? ".mcp.json",
@@ -381,11 +383,16 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
                     LiveMcpUri = installLiveMcp ? liveMcpUri : null,
                     LiveMcpHeaders = BuildLiveMcpHeaders(),
                 },
-                BundledAgentToolkitAssets.Load());
+                assets);
 
             foreach (string file in result.InstalledFiles)
             {
                 InstalledFiles.Add(file);
+            }
+
+            foreach (string file in UpdateInstallManifest(targets, result, assets, installSubagents))
+            {
+                InstalledFiles.Add("removed: " + file);
             }
 
             var cliErrors = new List<string>();
@@ -411,6 +418,66 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
         {
             IsInstalling.Value = false;
         }
+    }
+
+    // Prunes files a previous install wrote that the new bundle no longer
+    // ships — but only under the component roots actually installed this run,
+    // so toggling a component off or switching agents never deletes an
+    // existing installation. Records outside the pruned scope are carried
+    // over so a later reinstall can still clean them up.
+    private IReadOnlyList<string> UpdateInstallManifest(
+        ResolvedTargets targets,
+        AgentToolkitInstallResult result,
+        IReadOnlyList<AgentToolkitAsset> assets,
+        bool installedSubagents)
+    {
+        string manifestPath = AgentToolkitInstallManifestStore.GetDefaultPath();
+        AgentToolkitInstallManifest? previous = AgentToolkitInstallManifestStore.Load(manifestPath);
+
+        HashSet<string> currentPaths = result.AssetFileRecords
+            .Select(r => r.Path)
+            .ToHashSet(AgentToolkitInstallManifestStore.PathComparer);
+
+        IReadOnlyList<string> removed = [];
+        var carriedOver = new List<InstalledFileRecord>();
+        if (previous is not null)
+        {
+            var pruneRoots = new List<string>();
+            string root = Path.GetFullPath(targets.Root);
+            if (InstallSkills.Value)
+            {
+                pruneRoots.Add(Path.Combine(root, targets.SkillsDirectory));
+            }
+
+            if (installedSubagents)
+            {
+                pruneRoots.Add(Path.Combine(root, targets.SubagentsDirectory!));
+            }
+
+            InstalledFileRecord[] inScope = previous.Files
+                .Where(f => pruneRoots.Any(r => IsUnder(f.Path, r)))
+                .ToArray();
+            removed = AgentToolkitInstallManifestStore.RemoveStaleFiles(inScope, currentPaths);
+
+            var removedSet = removed.ToHashSet(AgentToolkitInstallManifestStore.PathComparer);
+            carriedOver.AddRange(previous.Files.Where(f =>
+                !currentPaths.Contains(f.Path)
+                && !removedSet.Contains(f.Path)
+                && File.Exists(f.Path)));
+        }
+
+        AgentToolkitInstallManifestStore.Save(manifestPath, new AgentToolkitInstallManifest(
+            AgentToolkitInstallManifestStore.ComputeAssetsHash(assets),
+            [.. result.AssetFileRecords, .. carriedOver]));
+        return removed;
+    }
+
+    private static bool IsUnder(string path, string root)
+    {
+        string fullRoot = Path.GetFullPath(root);
+        return Path.GetFullPath(path).StartsWith(
+            fullRoot.EndsWith(Path.DirectorySeparatorChar) ? fullRoot : fullRoot + Path.DirectorySeparatorChar,
+            OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
     }
 
     private async Task RegisterMcpThroughCliAsync(

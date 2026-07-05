@@ -76,7 +76,8 @@ public sealed record AgentToolkitInstallResult(
     IReadOnlyList<string> InstalledFiles,
     string? McpConfigPath,
     bool InstalledStdioMcp,
-    bool InstalledLiveMcp);
+    bool InstalledLiveMcp,
+    IReadOnlyList<InstalledFileRecord> AssetFileRecords);
 
 public sealed record AgentToolkitMcpServerCommand(
     string Command,

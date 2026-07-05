@@ -4,6 +4,7 @@ using Beutl.AgentToolkit.Installation;
 using Beutl.Api.Services;
 using Beutl.Configuration;
 using Beutl.Services;
+using Beutl.Testing.Headless;
 using Beutl.ViewModels.SettingsPages;
 
 namespace Beutl.HeadlessUITests;
@@ -164,6 +165,56 @@ public sealed class AiAgentSettingsPageViewModelTests
             Assert.That(
                 viewModel.ResolvedSkillsPath.Value,
                 Is.EqualTo(Path.Combine("/anywhere", "my-skills")));
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task Install_writes_a_manifest_and_prunes_stale_unmodified_files()
+    {
+        string root = Path.Combine(BeutlHomeIsolation.CurrentHome!, "agent-install-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        var config = new AiAgentConfig();
+        using AiAgentSettingsPageViewModel viewModel = CreateViewModel(config);
+        viewModel.SelectedAgent.Value = Choice(viewModel, AiAgentSettingsPageViewModel.CustomAgentId);
+        viewModel.ProjectRoot.Value = root;
+        viewModel.WorkspaceRoot.Value = root;
+        viewModel.InstallStdioMcp.Value = false;
+        viewModel.InstallLiveMcp.Value = false;
+
+        await viewModel.InstallAsync();
+
+        string manifestPath = AgentToolkitInstallManifestStore.GetDefaultPath();
+        AgentToolkitInstallManifest? manifest = AgentToolkitInstallManifestStore.Load(manifestPath);
+        Assert.That(manifest, Is.Not.Null, viewModel.Status.Value);
+        Assert.That(manifest!.Files, Is.Not.Empty);
+
+        // Simulate a skill the previous app version installed but the new
+        // bundle no longer ships: unmodified → pruned on reinstall.
+        string stalePath = Path.Combine(root, "skills", "beutl-agent-legacy", "SKILL.md");
+        Directory.CreateDirectory(Path.GetDirectoryName(stalePath)!);
+        File.WriteAllText(stalePath, "legacy");
+        string editedPath = Path.Combine(root, "skills", "beutl-agent-edited", "SKILL.md");
+        Directory.CreateDirectory(Path.GetDirectoryName(editedPath)!);
+        File.WriteAllText(editedPath, "user edits");
+        AgentToolkitInstallManifestStore.Save(manifestPath, manifest with
+        {
+            Files =
+            [
+                .. manifest.Files,
+                new InstalledFileRecord(stalePath, AgentToolkitInstallManifestStore.ComputeContentHash("legacy")),
+                new InstalledFileRecord(editedPath, AgentToolkitInstallManifestStore.ComputeContentHash("shipped")),
+            ],
+        });
+
+        await viewModel.InstallAsync();
+
+        AgentToolkitInstallManifest? updated = AgentToolkitInstallManifestStore.Load(manifestPath);
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.Exists(stalePath), Is.False);
+            Assert.That(File.Exists(editedPath), Is.True);
+            Assert.That(viewModel.InstalledFiles, Does.Contain("removed: " + stalePath));
+            Assert.That(updated!.Files.Select(f => f.Path), Does.Not.Contain(stalePath));
         });
     }
 

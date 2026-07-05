@@ -580,4 +580,20 @@
     <value>認証ヘッダー</value>
     <comment/>
   </data>
+  <data name="AiAgents_UpdateAvailable_Title" xml:space="preserve">
+    <value>AI エージェント用アセットの更新</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_UpdateAvailable_Content" xml:space="preserve">
+    <value>このバージョンの Beutl には、インストール済みのものより新しいスキル／サブエージェントが同梱されています。保存済みの設定で今すぐ再インストールしますか？（配布先で手動編集したファイルは上書きされます）</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Reinstall" xml:space="preserve">
+    <value>再インストール</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Later" xml:space="preserve">
+    <value>後で</value>
+    <comment/>
+  </data>
 </root>
