@@ -102,7 +102,17 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
 
     internal async Task FinalizeAsync(string finalPath, ProxyEntry entry)
     {
-        WriteMetadata(finalPath, entry);
+        // The proxy is already encoded and moved to finalPath; a sidecar-write failure (e.g. a
+        // transient lock/permission error) must not skip the index registration, or the ready proxy
+        // would be neither indexed nor recoverable from a sidecar and would later look like an orphan.
+        try
+        {
+            WriteMetadata(finalPath, entry);
+        }
+        catch
+        {
+        }
+
         await RegisterWithRetryAsync(entry);
     }
 

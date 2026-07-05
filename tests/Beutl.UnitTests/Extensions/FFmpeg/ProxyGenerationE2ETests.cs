@@ -183,6 +183,27 @@ public sealed class ProxyGenerationE2ETests
     }
 
     [Test]
+    public async Task FinalizeAsync_WhenSidecarWriteFails_StillRegistersEntry()
+    {
+        string root = CreateRoot();
+        var store = new CountingStore(root, failuresBeforeSuccess: 0);
+        var generator = new FFmpegProxyGenerator(store);
+        (string finalPath, ProxyEntry entry) = SeedFinalizedArtifact(root);
+
+        // Occupy the sidecar path with a directory so WriteMetadata's File.WriteAllText throws; the
+        // ready artifact must still be indexed rather than left orphaned.
+        Directory.CreateDirectory(Path.Combine(Path.GetDirectoryName(finalPath)!, "meta.json"));
+
+        await generator.FinalizeAsync(finalPath, entry);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(store.LastRegistered, Is.EqualTo(entry));
+            Assert.That(File.Exists(finalPath), Is.True);
+        });
+    }
+
+    [Test]
     [TestCase(1920, 1080)]
     [TestCase(1998, 1080)]
     [TestCase(1280, 720)]

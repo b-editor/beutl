@@ -176,13 +176,21 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
 
     public void Delete(ProxyClipViewModel clip)
     {
-        CancelMatchingJobs(clip.Source, clip.Preset.Value);
+        CancelMatchingJobs(clip);
         _store?.Delete(clip.EntrySource ?? clip.Source, clip.Preset.Value);
         Refresh();
     }
 
-    // A queued/running generation for this (source, preset) would Register the proxy again on success
-    // and silently undo the delete; cancel it first.
+    // A queued/running generation would Register the proxy again on success and silently undo the
+    // delete; cancel it first. A stale row's job may be keyed on the old EntrySource fingerprint while
+    // the current Source differs (the media file changed), so cancel both.
+    private void CancelMatchingJobs(ProxyClipViewModel clip)
+    {
+        CancelMatchingJobs(clip.Source, clip.Preset.Value);
+        if (clip.EntrySource is { } entrySource && entrySource != clip.Source)
+            CancelMatchingJobs(entrySource, clip.Preset.Value);
+    }
+
     private void CancelMatchingJobs(ProxyFingerprint source, ProxyPreset preset)
     {
         if (_queue == null)
@@ -352,7 +360,7 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
     {
         foreach (ProxyClipViewModel clip in Clips.Where(static c => c.IsSelected.Value).ToArray())
         {
-            CancelMatchingJobs(clip.Source, clip.Preset.Value);
+            CancelMatchingJobs(clip);
             _store?.Delete(clip.EntrySource ?? clip.Source, clip.Preset.Value);
         }
 

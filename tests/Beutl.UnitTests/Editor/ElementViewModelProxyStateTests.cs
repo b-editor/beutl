@@ -85,13 +85,13 @@ public sealed class ElementViewModelProxyStateTests
         Assert.That(ElementViewModel.ResolveProxyState(store, queue, fp), Is.EqualTo(ProxyState.Generating));
     }
 
-    // Fix 1: the badge caches the fingerprint keyed on the source URI. A high-frequency store/queue
-    // refresh (invalidateCache: false) must not re-stat, so an in-place overwrite (same URI) is not
-    // observed until a ThumbnailsInvalidated refresh busts the cache (invalidateCache: true).
+    // Fix 1: the badge caches fingerprints keyed on the ordered set of source URIs. A high-frequency
+    // store/queue refresh (invalidateCache: false) must not re-stat, so an in-place overwrite (same
+    // URIs) is not observed until a ThumbnailsInvalidated refresh busts the cache (invalidateCache: true).
     [Test]
-    public void ResolveCachedFingerprint_SameUriWithoutInvalidate_ReturnsCachedWithoutRestat()
+    public void ResolveCachedFingerprints_SameUrisWithoutInvalidate_ReturnsCachedWithoutRestat()
     {
-        var uri = new Uri(s_path);
+        var uris = new[] { new Uri(s_path) };
         ProxyFingerprint before = Fingerprint(size: 1000);
         ProxyFingerprint after = Fingerprint(size: 2000);
         ProxyFingerprint current = before;
@@ -102,39 +102,57 @@ public sealed class ElementViewModelProxyStateTests
             return current;
         };
 
-        Uri? cachedUri = null;
-        ProxyFingerprint? cachedFingerprint = null;
+        string? cachedKey = null;
+        IReadOnlyList<ProxyFingerprint> cached = [];
 
-        ElementViewModel.ResolveCachedFingerprint(uri, false, ref cachedUri, ref cachedFingerprint, stat);
+        ElementViewModel.ResolveCachedFingerprints(uris, false, ref cachedKey, ref cached, stat);
         current = after;
-        ProxyFingerprint? resolved =
-            ElementViewModel.ResolveCachedFingerprint(uri, false, ref cachedUri, ref cachedFingerprint, stat);
+        IReadOnlyList<ProxyFingerprint> resolved =
+            ElementViewModel.ResolveCachedFingerprints(uris, false, ref cachedKey, ref cached, stat);
 
         Assert.Multiple(() =>
         {
-            Assert.That(resolved, Is.EqualTo(before));
+            Assert.That(resolved, Is.EqualTo(new[] { before }));
             Assert.That(statCalls, Is.EqualTo(1));
         });
     }
 
     [Test]
-    public void ResolveCachedFingerprint_InvalidateCache_ReStatsSameUri()
+    public void ResolveCachedFingerprints_InvalidateCache_ReStatsSameUris()
     {
-        var uri = new Uri(s_path);
+        var uris = new[] { new Uri(s_path) };
         ProxyFingerprint before = Fingerprint(size: 1000);
         ProxyFingerprint after = Fingerprint(size: 2000);
         ProxyFingerprint current = before;
         Func<Uri, ProxyFingerprint?> stat = _ => current;
 
-        Uri? cachedUri = null;
-        ProxyFingerprint? cachedFingerprint = null;
+        string? cachedKey = null;
+        IReadOnlyList<ProxyFingerprint> cached = [];
 
-        ElementViewModel.ResolveCachedFingerprint(uri, false, ref cachedUri, ref cachedFingerprint, stat);
+        ElementViewModel.ResolveCachedFingerprints(uris, false, ref cachedKey, ref cached, stat);
         current = after;
-        ProxyFingerprint? resolved =
-            ElementViewModel.ResolveCachedFingerprint(uri, true, ref cachedUri, ref cachedFingerprint, stat);
+        IReadOnlyList<ProxyFingerprint> resolved =
+            ElementViewModel.ResolveCachedFingerprints(uris, true, ref cachedKey, ref cached, stat);
 
-        Assert.That(resolved, Is.EqualTo(after));
+        Assert.That(resolved, Is.EqualTo(new[] { after }));
+    }
+
+    [Test]
+    public void ResolveCachedFingerprints_ChangedUriSet_ReStatsWithoutInvalidate()
+    {
+        string otherPath = Path.Combine(Path.GetTempPath(), "proxy-badge-clip-2.mov");
+        ProxyFingerprint first = Fingerprint(size: 1000);
+        Func<Uri, ProxyFingerprint?> stat = u =>
+            u.LocalPath == s_path ? first : new ProxyFingerprint(otherPath, 500, DateTime.UtcNow);
+
+        string? cachedKey = null;
+        IReadOnlyList<ProxyFingerprint> cached = [];
+
+        ElementViewModel.ResolveCachedFingerprints([new Uri(s_path)], false, ref cachedKey, ref cached, stat);
+        IReadOnlyList<ProxyFingerprint> resolved = ElementViewModel.ResolveCachedFingerprints(
+            [new Uri(s_path), new Uri(otherPath)], false, ref cachedKey, ref cached, stat);
+
+        Assert.That(resolved, Has.Count.EqualTo(2));
     }
 
     [Test]
@@ -143,29 +161,70 @@ public sealed class ElementViewModelProxyStateTests
         // A fresh Ready proxy exists for the overwritten file (new fingerprint). Before the cache-bust
         // the badge compares the store entry against the stale fingerprint and reads Stale; after the
         // bust the fingerprint matches the entry and reads Ready.
-        var uri = new Uri(s_path);
+        var uris = new[] { new Uri(s_path) };
         ProxyFingerprint before = Fingerprint(size: 1000);
         ProxyFingerprint after = Fingerprint(size: 2000);
         ProxyFingerprint current = before;
         Func<Uri, ProxyFingerprint?> stat = _ => current;
         var store = new FakeProxyStore(Entry(after, ProxyState.Ready));
 
-        Uri? cachedUri = null;
-        ProxyFingerprint? cachedFingerprint = null;
+        string? cachedKey = null;
+        IReadOnlyList<ProxyFingerprint> cached = [];
 
-        ElementViewModel.ResolveCachedFingerprint(uri, false, ref cachedUri, ref cachedFingerprint, stat);
+        ElementViewModel.ResolveCachedFingerprints(uris, false, ref cachedKey, ref cached, stat);
         current = after;
 
         ProxyFingerprint stale =
-            ElementViewModel.ResolveCachedFingerprint(uri, false, ref cachedUri, ref cachedFingerprint, stat)!.Value;
+            ElementViewModel.ResolveCachedFingerprints(uris, false, ref cachedKey, ref cached, stat)[0];
         ProxyFingerprint fresh =
-            ElementViewModel.ResolveCachedFingerprint(uri, true, ref cachedUri, ref cachedFingerprint, stat)!.Value;
+            ElementViewModel.ResolveCachedFingerprints(uris, true, ref cachedKey, ref cached, stat)[0];
 
         Assert.Multiple(() =>
         {
             Assert.That(ElementViewModel.ResolveProxyState(store, null, stale), Is.EqualTo(ProxyState.Stale));
             Assert.That(ElementViewModel.ResolveProxyState(store, null, fresh), Is.EqualTo(ProxyState.Ready));
         });
+    }
+
+    // Fix 3: an element backing onto several sources must aggregate every source's state, not read
+    // one FirstOrDefault. Active generation dominates; otherwise a readiness disagreement is Partial.
+    [Test]
+    public void AggregateProxyState_AllReady_IsReady()
+    {
+        ProxyFingerprint a = Fingerprint(size: 1000);
+        ProxyFingerprint b = new(Path.Combine(Path.GetTempPath(), "clip-b.mov"), 2000, DateTime.UtcNow);
+        var store = new FakeProxyStore(Entry(a, ProxyState.Ready), Entry(b, ProxyState.Ready));
+
+        Assert.That(ElementViewModel.AggregateProxyState(store, null, [a, b]), Is.EqualTo(ProxyState.Ready));
+    }
+
+    [Test]
+    public void AggregateProxyState_ReadyAndMissing_IsPartial()
+    {
+        ProxyFingerprint a = Fingerprint(size: 1000);
+        ProxyFingerprint b = new(Path.Combine(Path.GetTempPath(), "clip-b.mov"), 2000, DateTime.UtcNow);
+        var store = new FakeProxyStore(Entry(a, ProxyState.Ready));
+
+        Assert.That(ElementViewModel.AggregateProxyState(store, null, [a, b]), Is.EqualTo(ProxyState.Partial));
+    }
+
+    [Test]
+    public void AggregateProxyState_AnyGenerating_IsGenerating()
+    {
+        ProxyFingerprint a = Fingerprint(size: 1000);
+        ProxyFingerprint b = new(Path.Combine(Path.GetTempPath(), "clip-b.mov"), 2000, DateTime.UtcNow);
+        var store = new FakeProxyStore(Entry(a, ProxyState.Ready));
+        var queue = new FakeProxyJobQueue(new ProxyJob(b, ProxyPreset.Quarter));
+
+        Assert.That(ElementViewModel.AggregateProxyState(store, queue, [a, b]), Is.EqualTo(ProxyState.Generating));
+    }
+
+    [Test]
+    public void AggregateProxyState_NoFingerprints_IsNone()
+    {
+        var store = new FakeProxyStore();
+
+        Assert.That(ElementViewModel.AggregateProxyState(store, null, []), Is.EqualTo(ProxyState.None));
     }
 
     private sealed class FakeProxyStore(params ProxyEntry[] entries) : IProxyStore

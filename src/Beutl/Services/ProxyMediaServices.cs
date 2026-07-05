@@ -22,11 +22,11 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
     private static readonly ILogger s_logger = Log.CreateLogger<ProxyMediaServices>();
     private static readonly IReadOnlySet<string> s_noOpenProjectSources = new HashSet<string>();
 
-    // Set while the pre-generate headroom sweep runs on the drain thread. There, collecting sources
-    // must not block on the UI thread: application exit awaits the queue drain while the drain would
-    // await the UI thread -> deadlock. Background sweeps leave this false and marshal to the UI thread.
-    [ThreadStatic]
-    private static bool t_inDrainPathSweep;
+    // Set once shutdown starts. Only then must source collection skip the UI-thread marshal: app exit
+    // awaits the queue drain while the drain-path sweep would await the UI thread -> deadlock. During
+    // normal generation the UI thread is not blocked on the drain, so marshaling is safe (and keeps a
+    // consistent snapshot), so this stays false there.
+    private static volatile bool s_disposing;
 
     private bool _disposed;
     private int _diskPressureSweepActive;
@@ -86,6 +86,7 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
         queue = new ProxyJobQueue(generator, store);
 
         var services = new ProxyMediaServices(store, resolver, queue, eviction);
+        s_disposing = false;
         Current = services;
         DecoderRegistry.ProxyResolver = resolver;
 
@@ -100,6 +101,9 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
             return;
 
         _disposed = true;
+        // Signal the drain-path sweep to stop marshaling source collection to the UI thread before we
+        // await the queue drain below, so shutdown cannot deadlock on the UI thread.
+        s_disposing = true;
         Queue.JobChanged -= OnJobChanged;
         if (ReferenceEquals(DecoderRegistry.ProxyResolver, Resolver))
             DecoderRegistry.ProxyResolver = null;
@@ -211,7 +215,7 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
         // state that the UI thread mutates. Read it on the UI thread so the collected set is a
         // consistent snapshot rather than a torn read that could fall back to global LRU — except in
         // the drain-path sweep, where blocking on the UI thread would deadlock shutdown (see the flag).
-        if (!t_inDrainPathSweep && !Dispatcher.UIThread.CheckAccess())
+        if (!s_disposing && !Dispatcher.UIThread.CheckAccess())
         {
             try
             {
@@ -297,18 +301,7 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
 
         public ValueTask GenerateAsync(ProxyJob job)
         {
-            // Runs on the drain thread; flag it so the headroom sweep's source collection reads
-            // best-effort here instead of synchronously invoking the UI thread (shutdown deadlock).
-            t_inDrainPathSweep = true;
-            try
-            {
-                SweepForDiskPressureBestEffort(eviction);
-            }
-            finally
-            {
-                t_inDrainPathSweep = false;
-            }
-
+            SweepForDiskPressureBestEffort(eviction);
             return inner.GenerateAsync(job);
         }
     }

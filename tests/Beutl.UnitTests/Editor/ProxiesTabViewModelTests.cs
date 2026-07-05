@@ -417,6 +417,48 @@ public sealed class ProxiesTabViewModelTests
     }
 
     [Test]
+    public void Delete_CancelsJobKeyedOnStaleEntrySource()
+    {
+        string root = CreateRoot();
+        string sourcePath = CreateSourceFile(root, "clip.mov", 1024);
+        var store = new ProxyStore(Path.Combine(root, "proxies"));
+
+        // A store entry left over from a prior version of the file: same path, older size/mtime, so it
+        // matches the current clip by AbsolutePath but is a distinct fingerprint (the clip's EntrySource).
+        ProxyFingerprint current = ProxyFingerprint.FromFile(sourcePath);
+        ProxyFingerprint stale = current with
+        {
+            FileSizeBytes = current.FileSizeBytes + 4096,
+            MtimeUtc = current.MtimeUtc.AddMinutes(-5),
+        };
+        DateTime now = DateTime.UtcNow;
+        RegisterProxyEntry(store, new ProxyEntry(
+            stale,
+            ProxyPreset.Quarter,
+            ProxyState.Ready,
+            "hash/quarter.mp4",
+            512,
+            new PixelSize(1920, 1080),
+            new PixelSize(480, 270),
+            now,
+            now,
+            null));
+
+        var job = new ProxyJob(stale, ProxyPreset.Quarter);
+        var queue = new TestProxyJobQueue(job);
+        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, queue, sourcePath));
+        ProxyClipViewModel clip = viewModel.Clips.Single();
+        Assume.That(clip.EntrySource, Is.EqualTo(stale));
+        Assume.That(clip.Source, Is.Not.EqualTo(stale));
+
+        viewModel.Delete(clip);
+
+        // A job keyed on the stale EntrySource (not the current Source) must still be cancelled, or it
+        // would re-register the deleted proxy on success.
+        Assert.That(queue.CanceledJobIds, Does.Contain(job.JobId));
+    }
+
+    [Test]
     public void ToggleSelection_InvertsClipSelection()
     {
         string root = CreateRoot();

@@ -47,8 +47,8 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
     private readonly Subject<(int Start, int End)> _visibleRangeSubject = new();
     private readonly IProxyStore? _proxyStore;
     private readonly IProxyJobQueue? _proxyJobQueue;
-    private Uri? _proxySourceUri;
-    private ProxyFingerprint? _proxyFingerprint;
+    private string? _proxySourceKey;
+    private IReadOnlyList<ProxyFingerprint> _proxyFingerprints = [];
 
     public Func<int, int, List<int>>? GetMissingThumbnailIndices;
 
@@ -911,50 +911,57 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             : provider.GetThumbnailStripAsync(width, height, _thumbnailCacheService, ct, start, end);
     }
 
-    private VideoSource? FindVideoSource()
+    private IReadOnlyList<ProxyFingerprint> ResolveProxyFingerprints(bool invalidateCache)
     {
         // Cover every proxy-aware holder (VideoSourceNode graph inputs, referenced scenes, animated
-        // values) so an element that uses video only through those paths still shows the badge, not
-        // just a top-level SourceVideo's current value.
-        return ProxySourceEnumerator.EnumerateVideoSources(Model).FirstOrDefault();
-    }
+        // values) so an element that uses video through any of those paths contributes to the badge,
+        // not just a top-level SourceVideo's current value. Dedup file URIs in a stable order.
+        List<Uri> uris = [];
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (VideoSource source in ProxySourceEnumerator.EnumerateVideoSources(Model))
+        {
+            if (source is { HasUri: true }
+                && source.Uri is { IsFile: true } uri
+                && seen.Add(uri.LocalPath))
+            {
+                uris.Add(uri);
+            }
+        }
 
-    private ProxyFingerprint? ResolveProxyFingerprint(bool invalidateCache = false)
-    {
-        VideoSource? source = FindVideoSource();
-        Uri? uri = source is { HasUri: true } && source.Uri is { IsFile: true } fileUri ? fileUri : null;
-
-        return ResolveCachedFingerprint(
-            uri,
+        return ResolveCachedFingerprints(
+            uris,
             invalidateCache,
-            ref _proxySourceUri,
-            ref _proxyFingerprint,
+            ref _proxySourceKey,
+            ref _proxyFingerprints,
             static u => ProxyFingerprint.TryFromFile(u.LocalPath, out ProxyFingerprint fingerprint)
                 ? fingerprint
                 : null);
     }
 
-    // Keyed on the URI so high-frequency store/queue refreshes never re-stat the file; an in-place
-    // overwrite keeps the URI, so those callers pass invalidateCache to force one re-stat.
-    internal static ProxyFingerprint? ResolveCachedFingerprint(
-        Uri? currentUri,
+    // Keyed on the ordered set of source URIs so high-frequency store/queue refreshes never re-stat
+    // the files; an in-place overwrite keeps the same URIs, so those callers pass invalidateCache to
+    // force one re-stat.
+    internal static IReadOnlyList<ProxyFingerprint> ResolveCachedFingerprints(
+        IReadOnlyList<Uri> currentUris,
         bool invalidateCache,
-        ref Uri? cachedUri,
-        ref ProxyFingerprint? cachedFingerprint,
+        ref string? cachedKey,
+        ref IReadOnlyList<ProxyFingerprint> cachedFingerprints,
         Func<Uri, ProxyFingerprint?> stat)
     {
-        if (currentUri is null)
+        string key = string.Join("\n", currentUris.Select(static u => u.LocalPath));
+        if (!invalidateCache && string.Equals(key, cachedKey, StringComparison.Ordinal))
+            return cachedFingerprints;
+
+        var fingerprints = new List<ProxyFingerprint>(currentUris.Count);
+        foreach (Uri uri in currentUris)
         {
-            cachedUri = null;
-            cachedFingerprint = null;
-        }
-        else if (invalidateCache || !Equals(currentUri, cachedUri))
-        {
-            cachedUri = currentUri;
-            cachedFingerprint = stat(currentUri);
+            if (stat(uri) is { } fingerprint)
+                fingerprints.Add(fingerprint);
         }
 
-        return cachedFingerprint;
+        cachedKey = key;
+        cachedFingerprints = fingerprints;
+        return fingerprints;
     }
 
     private void OnProxyStateInvalidated()
@@ -1017,15 +1024,42 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     private void RefreshProxyState(bool invalidateFingerprintCache = false)
     {
-        if (_proxyStore is not { } store || ResolveProxyFingerprint(invalidateFingerprintCache) is not { } fingerprint)
+        IReadOnlyList<ProxyFingerprint> fingerprints = ResolveProxyFingerprints(invalidateFingerprintCache);
+        if (_proxyStore is not { } store || fingerprints.Count == 0)
         {
             ShowProxyIndicator.Value = false;
             ProxyIndicatorState.Value = ProxyState.None;
             return;
         }
 
-        ProxyIndicatorState.Value = ResolveProxyState(store, _proxyJobQueue, fingerprint);
+        ProxyIndicatorState.Value = AggregateProxyState(store, _proxyJobQueue, fingerprints);
         ShowProxyIndicator.Value = true;
+    }
+
+    internal static ProxyState AggregateProxyState(
+        IProxyStore store, IProxyJobQueue? queue, IReadOnlyList<ProxyFingerprint> fingerprints)
+    {
+        ProxyState? aggregate = null;
+        foreach (ProxyFingerprint fingerprint in fingerprints)
+        {
+            ProxyState state = ResolveProxyState(store, queue, fingerprint);
+            aggregate = aggregate is { } current ? CombineProxyStates(current, state) : state;
+        }
+
+        return aggregate ?? ProxyState.None;
+    }
+
+    // A clip can back onto several sources (a graph with multiple inputs, a referenced scene). Active
+    // generation dominates so the badge reflects in-flight work; otherwise any disagreement in
+    // readiness collapses to Partial rather than a single source's state hiding the others.
+    private static ProxyState CombineProxyStates(ProxyState a, ProxyState b)
+    {
+        if (a == b)
+            return a;
+        if (a == ProxyState.Generating || b == ProxyState.Generating)
+            return ProxyState.Generating;
+
+        return ProxyState.Partial;
     }
 
     internal static ProxyState ResolveProxyState(IProxyStore store, IProxyJobQueue? queue, ProxyFingerprint fingerprint)
