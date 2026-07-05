@@ -197,9 +197,10 @@ public class AVFEncodingController : EncodingController
         };
     }
 
-    // Enum-to-tag mappings are 1:1 (the AVFVideoEncoderSettings enums use the same numeric
-    // values as BitmapColorTransfer/BitmapColorPrimaries/BeutlYCbCrMatrix) but the helpers
-    // below clamp to Unknown if a user adds a value that hasn't been wired through.
+    // AVFVideoEncoderSettings exposes a subset of BitmapColorTransfer/BitmapColorPrimaries
+    // (shared numeric values for the members AVF exposes); members with no AVF equivalent
+    // (e.g. BitmapColorTransfer.Rec2020/TwoDotTwo/Gamma28/Smpte428) are unreachable here, and
+    // any not-yet-wired AVF value clamps to Unknown via the default arm.
     private static BitmapColorTransfer MapTransfer(AVFVideoEncoderSettings.ColorTransferCharacteristic t) => t switch
     {
         AVFVideoEncoderSettings.ColorTransferCharacteristic.Srgb => BitmapColorTransfer.Srgb,

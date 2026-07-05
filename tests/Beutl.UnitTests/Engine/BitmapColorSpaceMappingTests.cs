@@ -137,10 +137,10 @@ public class BitmapColorSpaceMappingTests
     }
 
     [Test]
-    public void BuildHdrColorSpace_IsDeterministicAcrossCalls()
+    public void BuildHdrColorSpace_IsPureAcrossCalls()
     {
-        // Every backend delegates here, so two independent calls with the same tags must agree —
-        // this is what guarantees the FFmpeg and AVFoundation paths produce an identical result.
+        // Asserts purity only; cross-backend parity (FFmpeg vs AVFoundation) can't be checked
+        // here — it follows from both backends delegating to this same method.
         var a = BitmapColorSpaceMapping.BuildHdrColorSpace(
             BitmapColorTransfer.Pq, BitmapColorPrimaries.Rec2020);
         var b = BitmapColorSpaceMapping.BuildHdrColorSpace(
