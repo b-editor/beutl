@@ -296,13 +296,18 @@ internal static class PlanExecutor
         PipelineDiagnostics? diagnostics, List<IDisposable> disposables)
     {
         bool wholeSource = run.Count == 1 && run[0].Source.Kind == SkslSourceKind.WholeSource;
-        string source = wholeSource ? run[0].Source.Source : SkslSnippetMerger.Merge(run.Select(s => s.Source).ToList());
         string childName = wholeSource ? "src" : SkslSnippetMerger.SourceChildName;
 
-        SKRuntimeEffect effect = CreateEffect(source, diagnostics);
-        disposables.Add(effect);
-        var builder = new SKRuntimeShaderBuilder(effect);
-        disposables.Add(builder);
+        // The program (merged/whole SKSL parse) is structural, so it is cached process-wide by a source-identity
+        // signature: a warm run neither re-merges nor re-parses, keeping ProgramCreations at zero (SC-002). The
+        // cached builder (which owns its SKRuntimeEffect) is reused, its per-frame uniforms/children overwritten and
+        // Build() re-run below; it is NOT disposed here — disposing it would free the shared effect (the cache
+        // disposes it on eviction). Its built shader is independent and IS disposed per frame.
+        string signature = ProgramSignature(run, wholeSource);
+        SKRuntimeShaderBuilder builder = ProgramCache.GetOrCreate(
+            signature,
+            () => wholeSource ? run[0].Source.Source : SkslSnippetMerger.Merge(run.Select(s => s.Source).ToList()),
+            diagnostics);
         builder.Children[childName] = srcChild;
 
         for (int k = 0; k < run.Count; k++)
@@ -321,19 +326,22 @@ internal static class PlanExecutor
         return Track(builder.Build(), disposables);
     }
 
-    private static SKRuntimeEffect CreateEffect(string source, PipelineDiagnostics? diagnostics)
+    // The program-cache key: the ordered source identities of a runtime run. A whole-source stage keys on its one
+    // source; a merged snippet run keys on the sequence of snippet hashes, which fully determines the merged text.
+    private static string ProgramSignature(List<RuntimeShaderStage> run, bool wholeSource)
     {
-        SKRuntimeEffect? effect = SKRuntimeEffect.CreateShader(source, out string? error);
-        if (effect == null || error != null)
+        if (wholeSource)
+            return "w:" + run[0].Source.IdentityHash;
+
+        var sb = new System.Text.StringBuilder("m:");
+        for (int i = 0; i < run.Count; i++)
         {
-            effect?.Dispose();
-            throw new InvalidOperationException($"Failed to compile fused SKSL program: {error}");
+            if (i > 0)
+                sb.Append(',');
+            sb.Append(run[i].Source.IdentityHash);
         }
 
-        if (diagnostics != null)
-            diagnostics.ProgramCreations++;
-
-        return effect;
+        return sb.ToString();
     }
 
     private static SKShader Track(SKShader shader, List<IDisposable> disposables)
