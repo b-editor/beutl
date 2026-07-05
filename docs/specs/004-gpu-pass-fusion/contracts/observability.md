@@ -19,7 +19,9 @@ Names, increment rules, and threading are fixed by [execution-plan.md §C8](./ex
 | Pool steady state | frames 2..K of a static-structure scene ⇒ `TargetAllocations` delta == 0 (SC-003) |
 | Peak intermediates | 10-effect chain peak-live ≤ same-shape 3-effect chain (SC-003/FR-007) |
 | Sync minimality | `FlushSyncs` == count of backend transitions in the schedule (C4.2) |
-| Mixed chain | Blur→Gamma→Invert→DropShadow→LUT ⇒ pass/allocation counts strictly below per-effect baseline (US1-AS2) |
+| Mixed chain | Blur→Gamma→Invert→DropShadow→LUT ⇒ pass/allocation counts strictly below the recorded legacy baseline (US1-AS2) |
+| Animated bounds | blur-sigma animation over 100 frames ⇒ `PlanCompilations == 1`, sizes re-resolved per frame (C5) |
+| Clamp carry parity | a chain whose inflated bounds trigger the 16 384 px clamp renders with legacy-parity densities (monotonic `w` carry — C3.2, FR-012) |
 
 ## O3. Benchmark suite (`tests/Beutl.Benchmarks/Rendering/EffectPipelineBenchmarks.cs`)
 

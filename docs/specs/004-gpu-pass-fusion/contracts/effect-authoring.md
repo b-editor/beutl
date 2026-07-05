@@ -31,6 +31,7 @@ This contract defines what an effect author (built-in, plugin, or script) may re
 
 - Descriptor fields marked **structural** (shader source identity, pass counts, branch counts, invariance flags, bounds-contract identity) MUST only change when the effect meaningfully restructures; the engine recompiles on any structural change (exactly once, FR-010).
 - Everything else (uniform values, colors, matrices, LUT texture *contents*) is a **parameter**: changing it MUST NOT change the compiled plan. Authors MUST NOT encode parameters into shader source strings (that would defeat the program cache and force recompiles).
+- Bounds MAY depend on parameters (an animated blur radius inflating `TransformBounds` is normal): bounds, ROIs, and buffer sizes are re-resolved every frame and are **not** structural — only the graph's *shape* is. A parameter that changes the *number or kind* of nodes/passes/branches is structural and must be declared as such.
 
 ## A5. Scale semantics (003 carry-over)
 
@@ -42,7 +43,7 @@ This contract defines what an effect author (built-in, plugin, or script) may re
 
 - `SKSLScriptEffect`: script SKSL is a whole-source `ShaderNode`; an explicit `CoordinateInvariant` opt-in property makes it a fusable snippet (author asserts A3's single-pixel rule).
 - `GLSLScriptEffect`: unchanged authoring semantics, now a `ComputeNode`.
-- `CSharpScriptEffect`: script globals expose the `GeometrySession` surface (breaking for existing user scripts; migration table in [breaking-changes.md](./breaking-changes.md)).
+- `CSharpScriptEffect`: script globals expose the `GeometrySession` surface (breaking for existing user scripts, maintainer-approved 2026-07-05). A legacy script written against the removed imperative surface MUST fail at script compile time with a clear diagnostic pointing at the migration guide — it never silently renders wrong output. Migration table in [breaking-changes.md](./breaking-changes.md).
 
 ## A7. Failure semantics visible to authors
 

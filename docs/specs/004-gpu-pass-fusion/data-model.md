@@ -4,6 +4,8 @@
 
 Namespaces: new types live in `Beutl.Graphics.Effects` (authoring surface) and `Beutl.Graphics.Rendering` (compilation/execution), matching the current layout. Names below are the plan-level contract; exact accessibility follows the "public authoring surface, internal machinery" rule stated per entity.
 
+Taxonomy (canonical, research D7): **seven concrete descriptor kinds realize the spec's five primitives** — shader → `ShaderNodeDescriptor` + `ColorFilterNodeDescriptor`; geometry → `SkiaFilterNodeDescriptor` + `GeometryNodeDescriptor`; compute → `ComputeNodeDescriptor`; split → `SplitNodeDescriptor`; composite → `CompositeNodeDescriptor`.
+
 ## 1. Authoring layer (public)
 
 ### `FilterEffect` (existing, changed)
@@ -79,9 +81,9 @@ Hash accumulated over: node kinds + topology (branch structure), shader-source i
 
 | Field | Type | Notes |
 |---|---|---|
-| `Key` | `StructuralKey` + resolved working scale + input-bounds signature | cache identity (D3) |
+| `Key` | `StructuralKey` + graphics-context identity | cache identity (D3). Bounds, ROIs, buffer sizes, and the resolved working scale are **per-frame resolution inputs, not key parts** — parameter-driven bounds (animated blur sigma, stroke pen, split counts) change sizes without recompiling |
 | `Passes` | `CompiledPass[]` | topologically ordered schedule |
-| `Resources` | `ResourcePlan` | intermediate declarations |
+| `Resources` | `ResourcePlan` | structural shape of intermediates (formats, lifetime intervals) |
 | `ParameterSlots` | `ParameterSlot[]` | where each frame's uniform/filter values go |
 
 ### `CompiledPass` (one of)
@@ -93,13 +95,15 @@ Hash accumulated over: node kinds + topology (branch structure), shader-source i
 - **`CompositePass` / split edges**: composite op + input refs.
 - Common: `Backend` (Skia | Vulkan), `SyncBefore` flags (computed at schedule time: set only at backend transitions — D5).
 
-### `ResourcePlan`
+### `ResourcePlan` (structural shape) + per-frame resource resolution
 
-List of `IntermediateDecl { Id, DevicePixelSize, Format (RGBA16F | Depth32Float), FirstUse, LastUse }`. Peak-live count = max overlap of `[FirstUse, LastUse]` intervals — the FR-007 bound asserted in tests. Ping-pong pairs are two decls with alternating lifetimes.
+`ResourcePlan` is the structural half: `IntermediateDecl { Id, Format (RGBA16F | Depth32Float), FirstUse, LastUse }`. Peak-live count = max overlap of `[FirstUse, LastUse]` intervals — the FR-007 bound asserted in tests. Ping-pong pairs are two decls with alternating lifetimes.
+
+Concrete `DevicePixelSize` per decl and per-pass ROIs are computed **every frame** by the **resource resolution** pass: pure `Rect` math over the freshly described bounds, applying the working-scale carry (§6 note) and the 003 per-axis clamp, feeding the pool's `Acquire` sizes. This runs on cache hits and misses alike; it never creates programs or passes.
 
 ### `PlanCache` (per `FilterEffectRenderNode`)
 
-Single-entry (current key → plan) — a render node has one structure at a time; history beyond 1 buys nothing. Invalidation: key mismatch on describe, context device-lost, or node dispose (returns pooled resources).
+Single-entry (current key → plan) — a render node has one structure at a time; history beyond 1 buys nothing. Invalidation: key mismatch on describe, context device-lost, or node dispose (returns pooled resources). **Bounds/size/working-scale changes are NOT invalidations** — they flow through the per-frame resource resolution.
 
 ### `ProgramCache` (per graphics context, global across plans)
 
@@ -112,7 +116,7 @@ Single-entry (current key → plan) — a render node has one structure at a tim
 | Member | Semantics |
 |---|---|
 | `Acquire(int w, int h, TextureFormat fmt)` | exact-size bucket pop or fresh allocation (counted as miss) |
-| `Release(target)` | return to bucket; contents undefined afterwards |
+| `Release(target)` | return to bucket; contents undefined afterwards. **Lease model**: consumers hold ref-counted `ShallowCopy` handles, so the actual return is hooked into the underlying `RenderTarget`'s last ref-count release (`SKSurfaceCounter`) — a wrapper's `Dispose` alone never returns a surface other copies still reference |
 | `Trim(frameIndex)` | dispose targets unused ≥ N frames; enforce byte soft-cap LRU |
 | Failure | propagate current semantics: preview → drop/degrade; delivery → throw (FR-015) |
 
@@ -139,15 +143,17 @@ FilterEffect.Resource (per frame, existing capture)
         │ Describe(builder, resource)          [cheap, every frame]
         ▼
    EffectGraph ──► StructuralKey ──► PlanCache hit? ──yes──► ParameterBlock update
-        │                                │ no                      │
-        ▼                                ▼                         ▼
-   (discarded)                    Compile → CompiledPlan     PlanExecutor.Run
+        │                                │ no                 + resource resolution
+        ▼                                ▼                    (sizes/ROIs/w carry)
+   (discarded)                    Compile → CompiledPlan            │
+                                         │                          ▼
+                                         └──────────────────► PlanExecutor.Run
                                          │                        │
                                          └────────────────────────┘
                                     targets ⇄ RenderTargetPool, programs ⇄ ProgramCache
 ```
 
-Working-scale resolution (`ResolveWorkingScale` → `ClampWorkingScaleToBufferBudget`) happens in `FilterEffectRenderNode.Process` **before** describe, exactly as today (FR-012); its result feeds both the builder and the plan key.
+Working-scale resolution (`ResolveWorkingScale` → `ClampWorkingScaleToBufferBudget`) happens in `FilterEffectRenderNode.Process` **before** describe, exactly as today (FR-012); its result feeds the builder and the per-frame resource resolution (not the plan key). During resource resolution the clamp is re-applied with **legacy carry parity**: a monotonically non-increasing `w` carried along each chain (today's `Flush` mutates the activator's `WorkingScale` downward across targets), while intra-pass allocations re-clamp locally without carrying (today's `CustomFilterEffectContext.CreateTarget` behavior).
 
 ## 7. Removed types (FR-016)
 

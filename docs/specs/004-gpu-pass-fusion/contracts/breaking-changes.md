@@ -16,7 +16,7 @@ All changes land as `refactor!:` / `feat!:` Conventional Commits with a `BREAKIN
 | `SKImageFilterBuilder` (public) | internal compiler detail of `SkiaFilterPass` | |
 | `SKSLShader.ApplyToNewTarget(CustomFilterEffectContext, …)` | `ShaderNodeDescriptor` (whole-source or snippet) | `SKSLShader` survives as source/uniform holder only if still needed |
 | `GLSLShader.Apply/ApplyMultiPass(CustomFilterEffectContext, …)` | `ComputeNodeDescriptor` | pipeline creation/ping-pong is executor-owned |
-| `CSharpScriptEffect` script globals typed on `CustomFilterEffectContext` | globals typed on `GeometrySession` | **breaks user scripts**; release notes carry a before/after script sample |
+| `CSharpScriptEffect` script globals typed on `CustomFilterEffectContext` | globals typed on `GeometrySession` | **breaks user scripts** (maintainer-approved): legacy scripts fail at script compile time with a diagnostic referencing this guide — never silently wrong output; release notes carry a before/after script sample |
 
 ## Behavioral changes (allowed by spec)
 

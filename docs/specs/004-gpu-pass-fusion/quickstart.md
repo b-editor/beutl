@@ -4,7 +4,7 @@
 
 ## The one-paragraph idea
 
-Effects stop *executing* and start *describing*: `FilterEffect.Describe(EffectGraphBuilder, Resource)` appends node descriptors (shader / color-filter / Skia-filter / compute / geometry / split / composite). A compiler turns the graph into a cached `CompiledPlan` — adjacent coordinate-invariant color nodes collapse into **one draw** via Skia shader composition — and a `PlanExecutor` runs it with pooled render targets and sync only at Skia↔Vulkan boundaries. Structure is the cache key; animated values only rewrite uniforms.
+Effects stop *executing* and start *describing*: `FilterEffect.Describe(EffectGraphBuilder, Resource)` appends node descriptors (seven kinds — shader / color-filter / Skia-filter / compute / geometry / split / composite — realizing the spec's five primitives). A compiler turns the graph into a cached `CompiledPlan` — adjacent coordinate-invariant color nodes collapse into **one draw** via Skia shader composition — and a `PlanExecutor` runs it with pooled render targets and sync only at Skia↔Vulkan boundaries. Structure is the cache key; animated values rewrite uniforms, and bounds/ROIs/buffer sizes are re-resolved every frame (an animated blur radius never recompiles the plan).
 
 ## Authoring an effect (after the redesign)
 

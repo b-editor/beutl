@@ -26,7 +26,7 @@ Replace the imperative filter-effect pipeline (`FilterEffectContext` recording +
 
 **Constraints**: 003 scale semantics frozen (FR-012); golden parity SSIM ≥ 0.99 / MAE ≤ 0.02 at scale 1.0; preview-degrade / export-throw allocation semantics preserved (FR-015); GPL/MIT boundary untouched; no `[Obsolete]` shims; rollout order binding (FR-020)
 
-**Scale/Scope**: 41 `FilterEffect` subclasses (+3 script effects, `NodeGraphFilterEffect`, `FilterEffectGroup`) migrate; ~2 new public authoring type clusters, ~6 internal machinery types; public-API breaking change for plugin/script authors
+**Scale/Scope**: 42 `FilterEffect` subclasses migrate — 41 in `Beutl.Engine` (incl. the 3 script effects, `FilterEffectGroup`, `FallbackFilterEffect`, `FilterEffectPresenter`) plus `NodeGraphFilterEffect` (research §0 census); ~2 new public authoring type clusters, ~6 internal machinery types; public-API breaking change for plugin/script authors
 
 ## Constitution Check
 
@@ -78,7 +78,7 @@ src/Beutl.Engine/Graphics/
 │   │                                   #       SkiaFilterNodeDescriptor, ComputeNodeDescriptor,
 │   │                                   #       GeometryNodeDescriptor, Split/CompositeNodeDescriptor,
 │   │                                   #       BoundsContract, GeometrySession, EffectInput
-│   ├── <41 effect classes>.cs          # migrated per research D7 map
+│   ├── <41 effect classes>.cs          # migrated per research D7 map (+ NodeGraphFilterEffect in src/Beutl.NodeGraph/)
 │   ├── SKSLShader.cs / GLSLShader.cs   # reduced to source/uniform holders (or absorbed)
 │   ├── FilterEffectContext.cs          # REMOVED at step 6 (with Activator, CustomFilterEffectContext,
 │   │                                   #   EffectTarget(s), SKImageFilterBuilder, FEImpl.cs)

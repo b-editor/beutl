@@ -16,10 +16,10 @@ Adjacent `SkiaFilterNode`s compose into a single `SkiaFilterPass` (one filtered 
 
 ## C3. Resource planning
 
-1. Every intermediate is declared (`Id`, device size from ROI × working scale, format, `[FirstUse, LastUse]`). Peak-live = interval overlap; the executor MUST NOT exceed it (FR-007 test hook).
-2. Device sizes obey the 003 budget: working scale is resolved once per effect boundary (`ResolveWorkingScale`) and re-clamped per buffer (`ClampWorkingScaleToBufferBudget`, 16 384 px/axis) — same functions, same results as the pre-redesign pipeline (FR-012).
+1. The compiled `ResourcePlan` declares the **structural shape** of every intermediate (`Id`, format, `[FirstUse, LastUse]`). Peak-live = interval overlap; the executor MUST NOT exceed it (FR-007 test hook). Concrete device sizes and per-pass ROIs are computed **every frame** by the resource-resolution pass (pure `Rect` math over the freshly described bounds) — parameter-driven bounds (animated blur sigma, stroke pen, split geometry) MUST flow through without recompilation.
+2. Device sizes obey the 003 budget with **legacy carry parity** (FR-012): the working scale is resolved once at the effect boundary (`ResolveWorkingScale`); resource resolution then re-clamps per buffer (`ClampWorkingScaleToBufferBudget`, 16 384 px/axis) in schedule order with a **monotonically non-increasing `w` carried along each chain** — a clamped materializing pass propagates its reduced `w` to downstream passes (today's `FilterEffectActivator.Flush` mutates the activator's `WorkingScale`), while intra-pass allocations (ping-pong, geometry-session targets) re-clamp locally without affecting the carry (today's `CustomFilterEffectContext.CreateTarget`). Same functions, same resulting densities as the pre-redesign pipeline.
 3. Ping-pong iteration uses exactly 2 declared color targets (+1 depth if required) regardless of iteration count.
-4. Empty ROI ⇒ the pass and its exclusive upstream are elided (spec edge case "zero-size targets").
+4. Empty resolved ROI ⇒ the executor skips the pass and its exclusive upstream at runtime (spec edge case "zero-size targets"); the plan itself is unchanged.
 
 ## C4. Scheduling & synchronization
 
@@ -29,7 +29,7 @@ Adjacent `SkiaFilterNode`s compose into a single `SkiaFilterPass` (one filtered 
 
 ## C5. Plan cache invalidation (exhaustive list)
 
-A cached plan is reused iff **all** hold: equal `StructuralKey`, equal resolved working scale, equal input-bounds signature (sizes that determine intermediate declarations), same graphics context (not device-lost). Anything else ⇒ recompile exactly once, old plan's pooled resources released. Parameter-only changes MUST hit the cache (SC-002: `PlanCompilations == 1` over 100 animated frames; `ProgramCreations == 0` after frame 1 given warm `ProgramCache`).
+A cached plan is reused iff **both** hold: equal `StructuralKey`, same graphics context (not device-lost). Anything else ⇒ recompile exactly once, old plan's pooled resources released. **Bounds, ROIs, buffer sizes, and the resolved working scale are per-frame resource-resolution inputs, never invalidation triggers** — a parameter change that inflates bounds (blur sigma, stroke pen, split count within the same structural branch count) MUST hit the cache and only re-resolve sizes. Parameter-only changes MUST hit the cache (SC-002: `PlanCompilations == 1` over 100 animated frames — including bounds-animating parameters; `ProgramCreations == 0` after frame 1 given warm `ProgramCache`).
 
 ## C6. Fallback execution (no Vulkan)
 
