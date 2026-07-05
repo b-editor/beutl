@@ -189,11 +189,28 @@ public class EffectReferenceFreezeTests
             return e;
         }
         );
-        yield return ("Curves", () => new Curves());
+        yield return ("Curves", () =>
+        {
+            // Default curves are all linear, i.e. identity output — the reference would be blind to a no-op.
+            var e = new Curves();
+            e.MasterCurve.CurrentValue = new CurveMap(
+                [new CurveControlPoint(0, 0), new CurveControlPoint(0.5f, 0.72f), new CurveControlPoint(1, 1)]);
+            e.RedCurve.CurrentValue = new CurveMap(
+                [new CurveControlPoint(0, 0.1f), new CurveControlPoint(1, 0.9f)]);
+            return e;
+        }
+        );
         yield return ("Negaposi", () => { var e = new Negaposi(); e.Strength.CurrentValue = 1f; return e; });
         yield return ("ChromaKey", () => { var e = new ChromaKey(); e.Color.CurrentValue = Colors.Lime; return e; });
         yield return ("ColorKey", () => { var e = new ColorKey(); e.Color.CurrentValue = Colors.Lime; return e; });
-        yield return ("LutEffect", () => new LutEffect());
+        // A source-less LutEffect renders identity; the fixed inverting cube makes the reference non-vacuous.
+        yield return ("LutEffect", () =>
+        {
+            var e = new LutEffect();
+            e.Source.CurrentValue = SceneFixtures.CreateInvertLutSource();
+            return e;
+        }
+        );
         yield return ("Saturate", () => { var e = new Saturate(); e.Amount.CurrentValue = 1.5f; return e; });
         yield return ("HueRotate", () => { var e = new HueRotate(); e.Angle.CurrentValue = 90f; return e; });
         yield return ("Brightness", () => { var e = new Brightness(); e.Amount.CurrentValue = 1.2f; return e; });

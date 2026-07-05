@@ -84,8 +84,10 @@ internal static class SceneFixtures
         dropShadow.Sigma.CurrentValue = new Size(6, 6);
         dropShadow.Color.CurrentValue = Colors.Black;
         group.Children.Add(dropShadow);
-        // LutEffect with no CubeSource is an identity node; it still exercises the sampler-bearing node kind.
-        group.Children.Add(new LutEffect());
+        // Without a CubeSource the LUT renders identity, making the frozen reference blind to a no-op regression.
+        var lut = new LutEffect();
+        lut.Source.CurrentValue = CreateInvertLutSource();
+        group.Children.Add(lut);
 
         return GradientShape(size, group);
     }
@@ -130,6 +132,32 @@ internal static class SceneFixtures
         image.Source.CurrentValue = imageSource;
         image.FilterEffect.CurrentValue = group;
         return image.ToResource(CompositionContext.Default);
+    }
+
+    /// <summary>
+    /// A fixed 2×2×2 channel-inverting .cube LUT (output = 1 − input), delivered as a data URI.
+    /// Guarantees a LutEffect reference is visibly non-identity so the parity gate catches a no-op regression.
+    /// </summary>
+    public static CubeSource CreateInvertLutSource()
+    {
+        const string cubeText =
+            """
+            TITLE "004 invert"
+            LUT_3D_SIZE 2
+            DOMAIN_MIN 0 0 0
+            DOMAIN_MAX 1 1 1
+            1 1 1
+            0 1 1
+            1 0 1
+            0 0 1
+            1 1 0
+            0 1 0
+            1 0 0
+            0 0 0
+            """;
+        var source = new CubeSource();
+        source.ReadFrom(UriHelper.CreateBase64DataUri("text/plain", System.Text.Encoding.ASCII.GetBytes(cubeText)));
+        return source;
     }
 
     private static Drawable.Resource GradientShape(PixelSize size, FilterEffect effect)
