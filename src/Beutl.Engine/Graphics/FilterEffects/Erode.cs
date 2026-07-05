@@ -23,4 +23,10 @@ public sealed partial class Erode : FilterEffect
         var r = (Resource)resource;
         context.Erode(r.RadiusX, r.RadiusY);
     }
+
+    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
+    {
+        var r = (Resource)resource;
+        builder.Erode(r.RadiusX, r.RadiusY);
+    }
 }

@@ -26,6 +26,32 @@ public sealed partial class TransformEffect : FilterEffect
 
     public IProperty<bool> ApplyToTarget { get; } = Property.CreateAnimatable(true);
 
+    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
+    {
+        var r = (Resource)resource;
+        if (r.Transform == null)
+            return;
+
+        if (!r.ApplyToTarget)
+        {
+            var mat = r.Transform.Matrix;
+            RelativePoint originPoint = r.TransformOrigin;
+            Vector origin = originPoint.ToPixels(builder.Bounds.Size) + builder.Bounds.Position;
+            Matrix offset = Matrix.CreateTranslation(origin);
+            Matrix transform = (-offset) * mat * offset;
+            builder.Transform(transform, r.BitmapInterpolationMode);
+            return;
+        }
+
+        // The ApplyToTarget path is a per-target logical-space redraw pivoting around each operation's own centre
+        // (not a single matrix filter). It reshapes the operation set with logical draws no existing GeometryNode
+        // template covers, so it stays on the parity-safe legacy bridge here; the bridge lowers to a GeometryNode
+        // wrapping the same redraw when the imperative surface is removed (step 6).
+        var bridge = new FilterEffectContext(builder.Bounds, builder.OutputScale, builder.WorkingScale);
+        ApplyTo(bridge, resource);
+        builder.AppendOpaqueLegacy(bridge, nameof(TransformEffect));
+    }
+
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;

@@ -23,4 +23,10 @@ public sealed partial class Dilate : FilterEffect
         var r = (Resource)resource;
         context.Dilate(r.RadiusX, r.RadiusY);
     }
+
+    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
+    {
+        var r = (Resource)resource;
+        builder.Dilate(r.RadiusX, r.RadiusY);
+    }
 }

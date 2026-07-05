@@ -21,4 +21,10 @@ public sealed partial class Blur : FilterEffect
         var r = (Resource)resource;
         context.Blur(r.Sigma);
     }
+
+    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
+    {
+        var r = (Resource)resource;
+        builder.Blur(r.Sigma);
+    }
 }

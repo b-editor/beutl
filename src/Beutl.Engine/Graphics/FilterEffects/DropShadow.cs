@@ -38,4 +38,17 @@ public sealed partial class DropShadow : FilterEffect
             context.DropShadow(r.Position, r.Sigma, r.Color);
         }
     }
+
+    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
+    {
+        var r = (Resource)resource;
+        if (r.ShadowOnly)
+        {
+            builder.DropShadowOnly(r.Position, r.Sigma, r.Color);
+        }
+        else
+        {
+            builder.DropShadow(r.Position, r.Sigma, r.Color);
+        }
+    }
 }
