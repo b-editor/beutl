@@ -65,15 +65,17 @@ public sealed class EditorProjectSessionGateway(
 
             Scene scene = ProjectOperations.AddScene(project, options);
             ProjectOperations.Save(project);
-            editorService.ActivateTabItem(scene);
-            return new ProjectSceneResult(scene, project);
+            // add_scene activates the new scene's tab, so rebind the live session to it; otherwise
+            // read_document/apply_edit would keep operating on the previously attached EditViewModel.
+            LiveEditingSession session = AttachScene(scene);
+            return new ProjectSceneResult(scene, project, session);
         });
     }
 
     private static void RequireSameProject(Project current, string requestedFullPath)
     {
         string currentPath = Path.GetFullPath(current.Uri!.LocalPath);
-        if (!string.Equals(currentPath, requestedFullPath, StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(currentPath, requestedFullPath, PathComparison.ForCurrentPlatform))
         {
             throw new ReconcileException(new ToolError(
                 ErrorCode.ValidationRejected,
@@ -91,6 +93,11 @@ public sealed class EditorProjectSessionGateway(
                           "The project does not contain a scene.",
                           project.Uri?.LocalPath));
 
+        return new ProjectSessionResult(AttachScene(scene), project);
+    }
+
+    private LiveEditingSession AttachScene(Scene scene)
+    {
         editorService.ActivateTabItem(scene);
         if (editorService.SelectedTabItem.Value?.Context.Value is not EditViewModel editViewModel)
         {
@@ -102,6 +109,6 @@ public sealed class EditorProjectSessionGateway(
 
         LiveEditingSession session = liveSessions.Attach(new EditViewModelLiveBinding(editViewModel));
         sessions.UseSource(liveSessions);
-        return new ProjectSessionResult(session, project);
+        return session;
     }
 }

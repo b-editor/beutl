@@ -149,6 +149,15 @@ public sealed class RenderTools(
 
             async Task<RenderStoryboardResponse> RunStoryboardAsync(CancellationToken token)
             {
+                // Re-verify the overwrite guards at write time: background jobs are serialized, so a
+                // preceding job may have created these files after the pre-flight check passed.
+                foreach ((_, string plannedPath) in plannedShots)
+                {
+                    destructiveGuard.EnsureOverwriteAllowed(plannedPath, confirmOverwrite);
+                }
+
+                destructiveGuard.EnsureOverwriteAllowed(resolvedContactSheetPath, confirmOverwrite);
+
                 var renderedShots = new List<RenderStoryboardShot>(plannedShots.Count);
                 var contactSheetFrames = new List<StoryboardContactSheetFrame>(plannedShots.Count);
                 var eyeTraceFrames = new List<StoryboardEyeTraceFrame>(plannedShots.Count);
@@ -835,6 +844,9 @@ public sealed class RenderTools(
 
             async Task<ExportVideoResponse> RunExportAsync(CancellationToken token)
             {
+                // Re-verify at write time: background jobs are serialized, so a preceding job may
+                // have created this file after the pre-flight overwrite check passed.
+                destructiveGuard.EnsureOverwriteAllowed(resolvedPath, confirmOverwrite);
                 ExportVideoResponse exported = await videoExporter.ExportAsync(
                     scene,
                     resolvedPath,

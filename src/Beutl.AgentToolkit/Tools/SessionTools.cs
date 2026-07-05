@@ -2,6 +2,7 @@
 using System.Globalization;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
+using Beutl.AgentToolkit.Rendering;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Workspace;
 using Beutl.Editor;
@@ -18,7 +19,7 @@ public sealed record OpenProjectResponse(string Session, string Source, SessionS
 
 public sealed record CreateProjectResponse(string Session, string SavedPath, SessionSummary Summary);
 
-public sealed record AddSceneResponse(string SceneId, SessionSummary Summary);
+public sealed record AddSceneResponse(string SceneId, string Session, SessionSummary Summary);
 
 public sealed record SaveProjectResponse(string SavedPath)
 {
@@ -45,7 +46,8 @@ public sealed class SessionTools(
     IProjectSessionGateway projects,
     AgentSessionManager sessions,
     IWorkspaceGuard workspace,
-    DestructiveGuard destructiveGuard) : ToolBase
+    DestructiveGuard destructiveGuard,
+    RenderJobManager renderJobs) : ToolBase
 {
     [McpServerTool(Name = "open_project")]
     [Description("Opens a Beutl .bep project from any readable local path and makes it the active editing session. In the in-app host this opens the project in the Beutl editor (the editor holds a single open project; the session is LiveEditor and edits show live); in the stdio host it opens a file-backed session.")]
@@ -80,7 +82,7 @@ public sealed class SessionTools(
         return ExecuteAsync(async () =>
         {
             ValidateProjectSettings(width, height, frameRate);
-            string writePath = NormalizeProjectPath(workspace.ResolveForWrite(path), nameof(path));
+            string writePath = NormalizeProjectPath(workspace, path, nameof(path));
             destructiveGuard.EnsureOverwriteAllowed(writePath, confirmOverwrite);
 
             ProjectSessionResult result = await projects.CreateProjectAsync(
@@ -121,7 +123,7 @@ public sealed class SessionTools(
                     ParseTimeSpan(duration),
                     name),
                 cancellationToken).ConfigureAwait(false);
-            return new AddSceneResponse(result.Scene.Id.ToString(), CreateSummary(result.Project));
+            return new AddSceneResponse(result.Scene.Id.ToString(), result.Session.SessionId, CreateSummary(result.Project));
         });
     }
 
@@ -162,9 +164,9 @@ public sealed class SessionTools(
             bool skipConflictCheck = false;
             if (!string.IsNullOrWhiteSpace(path))
             {
-                string writePath = NormalizeProjectPath(workspace.ResolveForWrite(path), nameof(path));
+                string writePath = NormalizeProjectPath(workspace, path, nameof(path));
                 string currentPath = fileSession.Project.Uri?.LocalPath ?? string.Empty;
-                if (!string.Equals(Path.GetFullPath(currentPath), Path.GetFullPath(writePath), StringComparison.OrdinalIgnoreCase))
+                if (!string.Equals(Path.GetFullPath(currentPath), Path.GetFullPath(writePath), PathComparison.ForCurrentPlatform))
                 {
                     destructiveGuard.EnsureOverwriteAllowed(writePath, confirmOverwrite);
                     fileSession.SetProjectPath(writePath);
@@ -198,7 +200,7 @@ public sealed class SessionTools(
                     Source: null,
                     IsDirty: null,
                     SaveProjectSupported: false,
-                    HasLongRunningOperation: false,
+                    HasLongRunningOperation: renderJobs.HasRunningJobs,
                     Message: "No active editing session is available. Call attach_active_editor for an open editor scene, or create_project/open_project for a file-backed session.");
             }
 
@@ -209,7 +211,7 @@ public sealed class SessionTools(
                 Source: session.Source.ToString(),
                 IsDirty: session.IsDirty,
                 SaveProjectSupported: fileBacked,
-                HasLongRunningOperation: false,
+                HasLongRunningOperation: renderJobs.HasRunningJobs,
                 Message: fileBacked
                     ? "Active file-backed session. MCP tool calls are synchronous; call save_project after major successful apply_edit stages."
                     : "Active LiveEditor session. MCP tool calls are synchronous; edits are already applied to the open editor and save_project is not required or supported.");
@@ -270,17 +272,24 @@ public sealed class SessionTools(
         }
     }
 
-    internal static string NormalizeProjectPath(string path, string target)
+    internal static string NormalizeProjectPath(IWorkspaceGuard workspace, string requestedPath, string target)
     {
-        string fullPath = Path.GetFullPath(path);
-        string extension = Path.GetExtension(fullPath);
+        string candidate = requestedPath;
+        string extension = Path.GetExtension(requestedPath);
         if (string.IsNullOrEmpty(extension))
         {
-            return $"{fullPath}.{EditorConstants.ProjectFileExtension}";
+            candidate = $"{requestedPath}.{EditorConstants.ProjectFileExtension}";
+        }
+        else
+        {
+            ValidateProjectFileExtension(candidate, target);
         }
 
-        ValidateProjectFileExtension(fullPath, target);
-        return fullPath;
+        // Resolve the final file (extension already appended) through the workspace guard so the
+        // path actually written — following any symlink — is the one boundary-checked.
+        string resolved = workspace.ResolveForWrite(candidate);
+        ValidateProjectFileExtension(resolved, target);
+        return resolved;
     }
 
     private static void ValidateProjectFileExtension(string path, string target)

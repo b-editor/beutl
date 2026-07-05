@@ -16,7 +16,8 @@ public sealed class PlanOriginalScaffoldTests
         string root = CreateWorkspace();
         var manager = new AgentSessionManager();
         using var source = new FileSessionSource();
-        var sessionTools = new SessionTools(new FileProjectSessionGateway(source, manager), manager, new WorkspaceGuard(root), new DestructiveGuard());
+        var workspaceGuard = new WorkspaceGuard(root);
+        var sessionTools = new SessionTools(new FileProjectSessionGateway(source, manager, workspaceGuard), manager, workspaceGuard, new DestructiveGuard(), new RenderJobManager());
         var queryTools = new QueryTools(manager);
         var editTools = new EditTools(manager);
 

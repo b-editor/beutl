@@ -27,11 +27,20 @@ public sealed class ScriptEditorViewModel : ValueEditorViewModel<string?>
             .Select(script => Observable.Start(() => ValidateScript(script)))
             .Switch()
             .ObserveOnUIDispatcher()
-            .Subscribe(error => CompileError.Value = error)
+            .Subscribe(result =>
+            {
+                CompileError.Value = result.Status == ScriptCompilationStatus.Failed ? result.Error : null;
+                ValidationNotice.Value = result.Status == ScriptCompilationStatus.Unavailable
+                    ? "Validation is unavailable here (no graphics context); the script was not checked."
+                    : null;
+            })
             .DisposeWith(Disposables);
     }
 
     public ReactivePropertySlim<string?> CompileError { get; } = new();
+
+    // Distinct from CompileError: "could not check" must not read as a failure or a success.
+    public ReactivePropertySlim<string?> ValidationNotice { get; } = new();
 
     public ScriptType DetectedScriptType { get; }
 
@@ -44,12 +53,11 @@ public sealed class ScriptEditorViewModel : ValueEditorViewModel<string?>
         return ScriptType.CSharp;
     }
 
-    private string? ValidateScript(string? script)
+    private ScriptCompilationResult ValidateScript(string? script)
     {
         if (string.IsNullOrWhiteSpace(script) || _validator is null)
-            return null;
+            return ScriptCompilationResult.Compiled;
 
-        ScriptCompilationResult result = _validator.ValidateScript(script);
-        return result.Status == ScriptCompilationStatus.Failed ? result.Error : null;
+        return _validator.ValidateScript(script);
     }
 }

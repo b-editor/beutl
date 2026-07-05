@@ -14,6 +14,13 @@ public sealed class EncoderRegistration
         return Encoders.FirstOrDefault(encoder => encoder.IsSupported(outputPath));
     }
 
+    // Every encoder that supports the container, in registration order, so a caller can fall back
+    // to the next one when the preferred encoder's runtime (e.g. FFmpeg's native libs) is missing.
+    public IReadOnlyList<ControllableEncodingExtension> FindAllForOutput(string outputPath)
+    {
+        return Encoders.Where(encoder => encoder.IsSupported(outputPath)).ToArray();
+    }
+
     private static IReadOnlyList<ControllableEncodingExtension> Register()
     {
         var encoders = new List<ControllableEncodingExtension>

@@ -34,9 +34,12 @@ public sealed class VideoExporter(EncoderRegistration encoders)
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentException.ThrowIfNullOrWhiteSpace(outputPath);
 
-        ControllableEncodingExtension encoder = encoders.FindForOutput(outputPath)
-                                                 ?? throw new CodecUnavailableException(
-                                                     $"No encoder is registered for '{Path.GetExtension(outputPath)}'.");
+        IReadOnlyList<ControllableEncodingExtension> candidates = encoders.FindAllForOutput(outputPath);
+        if (candidates.Count == 0)
+        {
+            throw new CodecUnavailableException(
+                $"No encoder is registered for '{Path.GetExtension(outputPath)}'.");
+        }
 
         string? directory = Path.GetDirectoryName(outputPath);
         if (!string.IsNullOrEmpty(directory))
@@ -47,7 +50,7 @@ public sealed class VideoExporter(EncoderRegistration encoders)
         float normalizedScale = float.IsFinite(renderScale) && renderScale > 0f ? renderScale : 1f;
         int normalizedSampleRate = sampleRate > 0 ? sampleRate : 44100;
 
-        try
+        async Task<ExportVideoResponse> EncodeWithAsync(ControllableEncodingExtension encoder)
         {
             EncodingController controller = encoder.CreateController(outputPath);
             controller.VideoSettings.SourceSize = scene.FrameSize;
@@ -73,14 +76,27 @@ public sealed class VideoExporter(EncoderRegistration encoders)
                 sampleProvider.SampleCount,
                 scene.Duration.ToString("c"));
         }
-        catch (FFmpegLibrariesNotFoundException ex)
+
+        // FFmpeg registers first, but its native libraries may be absent; fall through to the next
+        // encoder that supports this container (e.g. AVFoundation on macOS) before giving up.
+        FFmpegLibrariesNotFoundException? ffmpegMissing = null;
+        for (int i = 0; i < candidates.Count; i++)
         {
-            throw new CodecUnavailableException("FFmpeg libraries are not available.", ex);
+            try
+            {
+                return await EncodeWithAsync(candidates[i]).ConfigureAwait(false);
+            }
+            catch (FFmpegLibrariesNotFoundException ex)
+            {
+                ffmpegMissing = ex;
+            }
+            catch (FFmpegWorkerException ex)
+            {
+                throw new CodecUnavailableException(ex.Message, ex);
+            }
         }
-        catch (FFmpegWorkerException ex)
-        {
-            throw new CodecUnavailableException(ex.Message, ex);
-        }
+
+        throw new CodecUnavailableException("FFmpeg libraries are not available.", ffmpegMissing);
     }
 
     internal static void ApplyQualitySettings(VideoEncoderSettings settings, int? crf, int? bitrate)

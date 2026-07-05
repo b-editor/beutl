@@ -32,6 +32,9 @@ public class KeyFrameAnimation<T> : KeyFrameAnimation, IAnimation<T>
     {
         if (!UseGlobalClock)
         {
+            // Walk every evaluation, not the attach-time _parent: OnAttachedToHierarchy only fires
+            // under an IHierarchicalRoot, but a rootless graph can still expose a logical parent
+            // whose TimeRange must anchor the local clock.
             EngineObject? parent = this.FindHierarchicalParent<EngineObject>();
             _parent = parent;
             if (parent != null)

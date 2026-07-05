@@ -277,10 +277,10 @@ public sealed class Reconciler
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(desired);
 
-        JsonObject desiredDocument = PrepareDesired(session, desired);
-        ReconcilePlan plan = PlanPrepared(session, desiredDocument, knownNewIds);
-        void Mutate()
+        ReconcileResult ApplyCore()
         {
+            JsonObject desiredDocument = PrepareDesired(session, desired);
+            ReconcilePlan plan = PlanPrepared(session, desiredDocument, knownNewIds);
             session.History.ExecuteInTransaction(
                 () =>
                 {
@@ -291,23 +291,25 @@ public sealed class Reconciler
                     }
                 },
                 "Agent edit");
+
+            if (session is FileEditingSession fileSession)
+            {
+                fileSession.MarkDirty();
+            }
+
+            return new ReconcileResult(plan, session.Documents.Read(session.Root));
         }
 
         if (session is IEditingSessionDispatcher dispatcher)
         {
-            dispatcher.Invoke(Mutate);
-        }
-        else
-        {
-            Mutate();
-        }
-
-        if (session is FileEditingSession fileSession)
-        {
-            fileSession.MarkDirty();
+            // Plan and mutate on the editor's dispatcher: reading session.Root/Documents off the MCP
+            // request thread would race the live scene the editor mutates on the UI thread.
+            ReconcileResult? result = null;
+            dispatcher.Invoke(() => result = ApplyCore());
+            return result!;
         }
 
-        return new ReconcileResult(plan, session.Documents.Read(session.Root));
+        return ApplyCore();
     }
 
     private static ToolError? ValidateNewTypedObjectDiscriminators(JsonNode? node, string path)

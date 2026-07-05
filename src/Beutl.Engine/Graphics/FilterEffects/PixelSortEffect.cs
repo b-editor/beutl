@@ -355,13 +355,25 @@ public sealed partial class PixelSortEffect : FilterEffect
                     target.Dispose();
                     ctx.Targets[i] = newTarget;
                 }
-                catch
+                catch (Exception ex)
                 {
                     newTarget.Dispose();
+                    if (ex is OperationCanceledException)
+                    {
+                        throw;
+                    }
+
+                    s_logger.LogDebug(ex, "PixelSort gather pass failed for target {Index}; keeping the source pixels.", i);
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                if (ex is OperationCanceledException)
+                {
+                    throw;
+                }
+
+                s_logger.LogDebug(ex, "PixelSort pass failed for target {Index}; leaving it unsorted.", i);
                 continue;
             }
         }

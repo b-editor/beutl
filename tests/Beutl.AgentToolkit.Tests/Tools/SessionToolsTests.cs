@@ -1,4 +1,5 @@
 ﻿using Beutl.AgentToolkit.Common;
+using Beutl.AgentToolkit.Rendering;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
@@ -173,11 +174,13 @@ public sealed class SessionToolsTests
 
     private static SessionTools CreateSessionTools(FileSessionSource source, AgentSessionManager manager, string root)
     {
+        var workspace = new WorkspaceGuard(root);
         return new SessionTools(
-            new FileProjectSessionGateway(source, manager),
+            new FileProjectSessionGateway(source, manager, workspace),
             manager,
-            new WorkspaceGuard(root),
-            new DestructiveGuard());
+            workspace,
+            new DestructiveGuard(),
+            new RenderJobManager());
     }
 
     private static string CreateWorkspace()

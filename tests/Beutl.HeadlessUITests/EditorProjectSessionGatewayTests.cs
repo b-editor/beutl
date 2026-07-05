@@ -180,6 +180,8 @@ public class EditorProjectSessionGatewayTests
             Assert.That(File.Exists(added.Scene.Uri!.LocalPath), Is.True);
             var editViewModel = TestShell.Editor.SelectedTabItem.Value?.Context.Value as EditViewModel;
             Assert.That(editViewModel?.Scene, Is.SameAs(added.Scene));
+            // The live session must be rebound to the newly activated scene, not left on the first.
+            Assert.That(added.Session.Root, Is.SameAs(added.Scene));
         });
     }
 }

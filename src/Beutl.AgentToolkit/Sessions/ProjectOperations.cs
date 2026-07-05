@@ -1,4 +1,6 @@
-﻿using Beutl.Editor;
+﻿using Beutl.AgentToolkit.Common;
+using Beutl.AgentToolkit.Reconciliation;
+using Beutl.Editor;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 
@@ -66,6 +68,7 @@ public static class ProjectOperations
         string projectDirectory = Path.GetDirectoryName(project.Uri.LocalPath)
                                   ?? throw new InvalidOperationException("Project Uri must have a directory.");
         string sceneName = options.Name ?? $"Scene{project.Items.Count + 1}";
+        ValidateSceneName(sceneName);
         string sceneDirectory = Path.Combine(projectDirectory, sceneName);
         string scenePath = Path.Combine(sceneDirectory, $"{sceneName}.{EditorConstants.SceneFileExtension}");
 
@@ -130,8 +133,27 @@ public static class ProjectOperations
         string projectDirectory = Path.GetDirectoryName(project.Uri!.LocalPath)
                                   ?? throw new InvalidOperationException("Project Uri must have a directory.");
         string sceneName = string.IsNullOrWhiteSpace(scene.Name) ? $"Scene{project.Items.IndexOf(scene) + 1}" : scene.Name;
+        ValidateSceneName(sceneName);
         string sceneDirectory = Path.Combine(projectDirectory, sceneName);
         scene.Uri = CreateFileUri(Path.Combine(sceneDirectory, $"{sceneName}.{EditorConstants.SceneFileExtension}"));
+    }
+
+    // The name becomes a directory/file segment under the project, so it must be a single path
+    // component or the derived Uri could escape the project directory (and the workspace).
+    private static void ValidateSceneName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)
+            || name is "." or ".."
+            || Path.IsPathRooted(name)
+            || name.Contains(Path.DirectorySeparatorChar)
+            || name.Contains(Path.AltDirectorySeparatorChar)
+            || name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+        {
+            throw new ReconcileException(new ToolError(
+                ErrorCode.ValidationRejected,
+                $"Invalid scene name '{name}'. Scene names must be a single path segment without separators or traversal.",
+                name));
+        }
     }
 
     private static string GenerateUniquePath(string directory, string extension)

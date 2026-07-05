@@ -77,10 +77,11 @@ public sealed class FileEditingSession : IEditingSession, IEditingSessionDispatc
 
     internal void AcceptExternalStamp()
     {
-        if (Project.Uri is { } uri && File.Exists(uri.LocalPath))
-        {
-            _projectLastWriteUtc = File.GetLastWriteTimeUtc(uri.LocalPath);
-        }
+        // A not-yet-written target has no prior stamp; leaving the previous file's stamp here would
+        // make the next Save see a spurious conflict (MinValue on disk vs the old timestamp).
+        _projectLastWriteUtc = Project.Uri is { } uri && File.Exists(uri.LocalPath)
+            ? File.GetLastWriteTimeUtc(uri.LocalPath)
+            : DateTime.MinValue;
     }
 
     public void SetProjectPath(string projectPath)

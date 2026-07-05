@@ -36,7 +36,7 @@ public sealed class AgentHostEndpointTests
                 Assert.That(endpoint.EndpointUri!.Host, Is.EqualTo("127.0.0.1"));
                 Assert.That(endpoint.EndpointUri.AbsolutePath, Is.EqualTo("/mcp"));
                 Assert.That(endpoint.EndpointUri.Port, Is.EqualTo(AgentHostEndpoint.DefaultPort));
-                Assert.That(endpoint.Token, Is.EqualTo(AgentHostEndpoint.DefaultToken));
+                Assert.That(endpoint.Token, Has.Length.EqualTo(32));
             });
 
             using var client = new HttpClient();
@@ -66,6 +66,21 @@ public sealed class AgentHostEndpointTests
     }
 
     [AvaloniaTest]
+    public async Task Default_constructor_generates_a_unique_random_token()
+    {
+        await TestReset.ResetShellAsync();
+
+        var first = new AgentHostEndpoint(new ProjectService(), new EditorService(new ExtensionProvider()));
+        var second = new AgentHostEndpoint(new ProjectService(), new EditorService(new ExtensionProvider()));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.Token, Does.Match("^[0-9A-F]{32}$"));
+            Assert.That(first.Token, Is.Not.EqualTo(second.Token));
+        });
+    }
+
+    [AvaloniaTest]
     public async Task Endpoint_increments_port_when_preferred_port_is_in_use()
     {
         await TestReset.ResetShellAsync();
@@ -75,7 +90,7 @@ public sealed class AgentHostEndpointTests
             new ProjectService(),
             new EditorService(new ExtensionProvider()),
             preferredPort,
-            AgentHostEndpoint.DefaultToken);
+            "test-token");
 
         try
         {

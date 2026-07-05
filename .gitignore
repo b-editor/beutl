@@ -377,7 +377,7 @@ coverage_report/
 
 telemetry-data.json
 
-# Claude Code personal settings and hook output (team-shared files live in .claude/settings.json)
+# Claude Code / agent-mirror personal settings and hook output (team-shared files live in .claude/settings.json)
 .claude/settings.local.json
 .claude/logs/
 .claude/.DS_Store

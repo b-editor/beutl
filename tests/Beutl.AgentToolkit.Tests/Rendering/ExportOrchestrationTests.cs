@@ -1,5 +1,7 @@
 ﻿using Beutl.AgentToolkit.Rendering;
+using Beutl.Extensibility;
 using Beutl.Extensions.FFmpeg;
+using Beutl.Extensions.FFmpeg.Encoding;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 
@@ -44,10 +46,12 @@ public sealed class ExportOrchestrationTests
 
         try
         {
+            // .mkv is FFmpeg-only (AVFoundation does not support it), so there is no fallback
+            // encoder and the missing-libraries failure surfaces as CodecUnavailable on every OS.
             Assert.ThrowsAsync<CodecUnavailableException>(async () =>
                 await exporter.ExportAsync(
                     scene,
-                    Path.Combine(CreateWorkspace(), "movie.mp4"),
+                    Path.Combine(CreateWorkspace(), "movie.mkv"),
                     new Rational(30, 1),
                     44100,
                     1,
@@ -57,6 +61,27 @@ public sealed class ExportOrchestrationTests
         {
             FFmpegLibraryState.MarkInstalled();
         }
+    }
+
+    [Test]
+    public void Shared_container_falls_back_to_avfoundation_after_ffmpeg_on_macos()
+    {
+        if (!OperatingSystem.IsMacOS())
+        {
+            Assert.Ignore("AVFoundation is only registered on macOS.");
+        }
+
+        IReadOnlyList<ControllableEncodingExtension> candidates =
+            new EncoderRegistration().FindAllForOutput("movie.mp4");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(candidates, Has.Count.GreaterThanOrEqualTo(2));
+            Assert.That(candidates[0], Is.InstanceOf<FFmpegHeadlessEncodingExtension>());
+            Assert.That(
+                candidates.Any(encoder => encoder is Beutl.Extensions.AVFoundation.Encoding.AVFEncodingExtension),
+                Is.True);
+        });
     }
 
     private static string CreateWorkspace()

@@ -1,5 +1,6 @@
 ﻿using System.Net;
 using System.Net.Sockets;
+using System.Security.Cryptography;
 using Beutl.AgentToolkit.Rendering;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tools;
@@ -19,7 +20,6 @@ namespace Beutl.AgentHost;
 public sealed class AgentHostEndpoint : IAsyncDisposable
 {
     internal const int DefaultPort = 59737;
-    internal const string DefaultToken = "424555544C4147454E54484F53543031";
 
     private static readonly TimeSpan s_shutdownTimeout = TimeSpan.FromSeconds(2);
     private readonly ProjectService _projectService;
@@ -28,8 +28,15 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
     private WebApplication? _application;
 
     public AgentHostEndpoint(ProjectService projectService, EditorService editorService)
-        : this(projectService, editorService, DefaultPort, DefaultToken)
+        : this(projectService, editorService, DefaultPort, GenerateToken())
     {
+    }
+
+    // A fresh 128-bit secret per app run; a shared constant would let any local process that
+    // knows it drive the loopback editing endpoint.
+    internal static string GenerateToken()
+    {
+        return Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
     }
 
     internal AgentHostEndpoint(ProjectService projectService, EditorService editorService, int preferredPort, string token)
