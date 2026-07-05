@@ -1,4 +1,5 @@
 ﻿using Avalonia.Headless.NUnit;
+using Beutl.Editor.Components.TerminalTab;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels;
 
@@ -19,6 +20,15 @@ public class MainViewModelExtensionTests
 
         Assert.That(vm.ToolTabExtensions, Is.Not.Empty);
         Assert.That(vm.ToolTabExtensions, Does.Contain(TimelineTabExtension.Instance));
+    }
+
+    [AvaloniaTest]
+    public async Task ToolTabExtensions_include_the_built_in_terminal_tab()
+    {
+        await ResetProjectAsync();
+        MainViewModel vm = SharedMainViewModel;
+
+        Assert.That(vm.ToolTabExtensions, Does.Contain(TerminalTabExtension.Instance));
     }
 
     [AvaloniaTest]
