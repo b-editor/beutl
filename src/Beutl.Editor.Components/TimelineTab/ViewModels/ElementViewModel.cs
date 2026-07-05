@@ -267,6 +267,21 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             .ObserveOnUIDispatcher()
             .Subscribe(range => _ = UpdateVisibleThumbnailsAsync(range.Start, range.End))
             .AddTo(_disposables);
+
+        // Switching PreviewSourceMode changes the decode path (proxy vs original), so an already
+        // rendered filmstrip is stale until an unrelated invalidation; drop its cache and re-render.
+        Scene.GetObservable(Scene.PreviewSourceModeProperty)
+            .Skip(1)
+            .DistinctUntilChanged()
+            .ObserveOnUIDispatcher()
+            .Subscribe(_ =>
+            {
+                if (_lastThumbnailsCacheKey != null)
+                    _thumbnailCacheService.Invalidate(_lastThumbnailsCacheKey);
+
+                UpdateThumbnailsAsync();
+            })
+            .AddTo(_disposables);
     }
 
     private void InitializeElementGroup()

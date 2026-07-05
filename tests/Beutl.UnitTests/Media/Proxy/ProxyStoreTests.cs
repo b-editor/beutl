@@ -154,6 +154,25 @@ public sealed class ProxyStoreTests
     }
 
     [Test]
+    public async Task ReconcileAsync_AdoptsLegacySingleEntrySidecar()
+    {
+        string root = CreateRoot();
+        ProxyEntry entry = CreateEntry(root, "hash/quarter.mp4");
+        string metadataPath = Path.Combine(root, "hash", "meta.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(metadataPath)!);
+        // A legacy sidecar is a bare ProxyEntry (no ProxySourceMetadata wrapper). It still
+        // deserializes as ProxySourceMetadata with the default version and empty entries, so recovery
+        // must fall through to the legacy parser and adopt it.
+        File.WriteAllText(metadataPath, JsonSerializer.Serialize(entry, s_jsonOptions));
+        File.WriteAllText(Path.Combine(root, "index.json"), "{not valid json");
+
+        var store = new ProxyStore(root);
+        await store.ReconcileAsync(CancellationToken.None);
+
+        Assert.That(store.TryGet(entry.Source, entry.Preset), Is.EqualTo(entry));
+    }
+
+    [Test]
     public void LoadIndex_IgnoresPreviousStoreVersion()
     {
         string root = CreateRoot();

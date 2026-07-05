@@ -450,7 +450,10 @@ public sealed class ProxyStore : IProxyStore
         {
         }
 
-        if (metadata != null)
+        // A legacy single-ProxyEntry sidecar also deserializes as ProxySourceMetadata (Version and
+        // Entries take their defaults), so only treat it as a wrapper when it actually carries
+        // entries — otherwise fall through to the legacy ProxyEntry parse so recovery still adopts it.
+        if (metadata is { Entries.Count: > 0 })
         {
             if (metadata.Version == ProxySourceMetadata.CurrentVersion)
             {
