@@ -1,0 +1,51 @@
+﻿namespace Beutl.Graphics.Effects;
+
+/// <summary>
+/// An imperative canvas-drawing node (feature 004, data-model §1, contract A2, research D7/D8): the honest
+/// representation of composite geometry work (stroke, flat shadow, clip, layer) that cannot be a shader.
+/// It is the sole descriptor kind that carries a rendering callback — a <see cref="Action{GeometrySession}"/>
+/// the executor invokes with a bracketed canvas over a pooled output target. Never fused, always its own pass.
+/// The <see cref="Bounds"/> contract is <b>mandatory</b> (there is no sensible default for coordinate-changing
+/// geometry); the <see cref="StructuralToken"/> identifies the geometry kind for the structural key without
+/// pinning the animated parameters the callback closes over (A4).
+/// </summary>
+public sealed record GeometryNodeDescriptor : EffectNodeDescriptor
+{
+    private GeometryNodeDescriptor(
+        Action<GeometrySession> render, BoundsContract bounds, int inputCount, object structuralToken)
+    {
+        Render = render;
+        Bounds = bounds;
+        InputCount = inputCount;
+        StructuralToken = structuralToken;
+    }
+
+    /// <summary>The rendering callback the executor invokes with a session over the pass's output buffer.</summary>
+    public Action<GeometrySession> Render { get; }
+
+    /// <inheritdoc/>
+    public override BoundsContract Bounds { get; }
+
+    /// <inheritdoc/>
+    public override bool IsCoordinateInvariant => false;
+
+    /// <summary>How many upstream operations this node consumes (materialized as <see cref="GeometrySession.Inputs"/>).</summary>
+    public int InputCount { get; }
+
+    /// <summary>Identity of the geometry <em>kind</em> for the structural key; equal tokens share a plan shape.</summary>
+    public object StructuralToken { get; }
+
+    /// <summary>
+    /// Builds a geometry node from a render callback and its mandatory bounds contract. Both bounds functions must
+    /// be non-null (an author who cannot lay out until execution passes <see cref="BoundsContract.RenderTime"/>).
+    /// <paramref name="structuralToken"/> defaults to the callback's method identity, so callbacks built at the
+    /// same call site (differing only in parameters) share a structural identity and never force a recompile.
+    /// </summary>
+    public static GeometryNodeDescriptor Create(
+        Action<GeometrySession> render, BoundsContract bounds, int inputCount = 1, object? structuralToken = null)
+    {
+        ArgumentNullException.ThrowIfNull(render);
+        ArgumentOutOfRangeException.ThrowIfLessThan(inputCount, 1);
+        return new GeometryNodeDescriptor(render, bounds, inputCount, structuralToken ?? render.Method.MethodHandle.Value);
+    }
+}

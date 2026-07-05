@@ -72,6 +72,49 @@ internal static class EffectGraphCompiler
                 });
                 i++;
             }
+            else if (node.Descriptor is GeometryNodeDescriptor geometry)
+            {
+                passes.Add(new GeometryPass(geometry.Render, geometry.InputCount)
+                {
+                    InputBounds = node.InputBounds,
+                    OutputBounds = node.OutputBounds,
+                    BackwardBounds = geometry.Bounds.GetRequiredInputBounds,
+                    IsRenderTimeResolved = geometry.Bounds.IsRenderTimeResolved,
+                });
+                i++;
+            }
+            else if (node.Descriptor is ComputeNodeDescriptor compute)
+            {
+                passes.Add(new ComputePass(
+                    compute.Dispatch, compute.PassCount, compute.RequiresDepth, compute.Fallback, compute.CpuCallback)
+                {
+                    InputBounds = node.InputBounds,
+                    OutputBounds = node.OutputBounds,
+                    BackwardBounds = static r => r,
+                });
+                i++;
+            }
+            else if (node.Descriptor is SplitNodeDescriptor split)
+            {
+                passes.Add(new SplitPass(split.Render, split.BranchCount)
+                {
+                    InputBounds = node.InputBounds,
+                    OutputBounds = node.OutputBounds,
+                    IsRenderTimeResolved = true,
+                    IsDynamicOutputs = split.IsDynamicOutputs,
+                });
+                i++;
+            }
+            else if (node.Descriptor is CompositeNodeDescriptor composite)
+            {
+                passes.Add(new CompositePass(composite.BlendMode, composite.InputOffsets)
+                {
+                    InputBounds = node.InputBounds,
+                    OutputBounds = node.OutputBounds,
+                    IsRenderTimeResolved = true,
+                });
+                i++;
+            }
             else if (node.Descriptor is OpaqueLegacyNodeDescriptor opaque)
             {
                 passes.Add(new OpaqueLegacyPass(opaque.Context)
@@ -85,11 +128,33 @@ internal static class EffectGraphCompiler
             else
             {
                 throw new NotSupportedException(
-                    $"Effect node descriptor '{node.Descriptor.GetType().Name}' is not supported by the step-3a compiler.");
+                    $"Effect node descriptor '{node.Descriptor.GetType().Name}' is not supported by the compiler.");
             }
         }
 
-        return passes.ToImmutable();
+        return ApplySyncBefore(passes.ToImmutable());
+    }
+
+    // Sets SyncBefore at every backend transition (C4.2). The plan's input is a Skia-drawn (baked) buffer, so the
+    // virtual backend before pass 0 is Skia: a leading Vulkan pass syncs, and FlushSyncs equals the number of
+    // backend transitions in the schedule. Backends are structural (fixed by pass kinds), so a cache-hit rebuild
+    // reproduces the same flags.
+    private static ImmutableArray<CompiledPass> ApplySyncBefore(ImmutableArray<CompiledPass> passes)
+    {
+        if (passes.IsDefaultOrEmpty)
+            return passes;
+
+        var builder = passes.ToBuilder();
+        PassBackend previous = PassBackend.Skia;
+        for (int k = 0; k < builder.Count; k++)
+        {
+            bool sync = builder[k].Backend != previous;
+            if (sync != builder[k].SyncBefore)
+                builder[k] = builder[k] with { SyncBefore = sync };
+            previous = builder[k].Backend;
+        }
+
+        return builder.ToImmutable();
     }
 
     private static bool IsFusable(EffectNodeDescriptor descriptor) => descriptor switch

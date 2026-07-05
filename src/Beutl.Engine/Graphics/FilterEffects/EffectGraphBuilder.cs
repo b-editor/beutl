@@ -58,6 +58,34 @@ public sealed class EffectGraphBuilder
         return Append(descriptor);
     }
 
+    /// <summary>Appends an imperative geometry node (canvas-drawing session, mandatory bounds contract).</summary>
+    public EffectGraphBuilder Geometry(GeometryNodeDescriptor descriptor)
+    {
+        ArgumentNullException.ThrowIfNull(descriptor);
+        return Append(descriptor);
+    }
+
+    /// <summary>Appends a Vulkan compute node (GLSL pass set, ping-pong/depth, declared no-Vulkan fallback).</summary>
+    public EffectGraphBuilder Compute(ComputeNodeDescriptor descriptor)
+    {
+        ArgumentNullException.ThrowIfNull(descriptor);
+        return Append(descriptor);
+    }
+
+    /// <summary>Appends a fan-out split node: one input becomes N (or a dynamic count of) branch outputs.</summary>
+    public EffectGraphBuilder Split(SplitNodeDescriptor descriptor)
+    {
+        ArgumentNullException.ThrowIfNull(descriptor);
+        return Append(descriptor);
+    }
+
+    /// <summary>Appends a fan-in composite node: the current branch set is composited back into one output.</summary>
+    public EffectGraphBuilder Composite(CompositeNodeDescriptor descriptor)
+    {
+        ArgumentNullException.ThrowIfNull(descriptor);
+        return Append(descriptor);
+    }
+
     internal EffectGraphBuilder AppendOpaqueLegacy(FilterEffectContext context, object structuralToken)
     {
         ArgumentNullException.ThrowIfNull(context);

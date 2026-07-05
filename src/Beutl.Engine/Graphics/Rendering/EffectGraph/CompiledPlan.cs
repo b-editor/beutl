@@ -83,8 +83,47 @@ public sealed record SkiaFilterPass(ImmutableArray<Func<SKImageFilter?, SKImageF
 }
 
 /// <summary>
-/// A fan-in composite pass (feature 004, data-model §3). Defined for plan-shape completeness; the compiler does
-/// not emit one until the split/composite primitives migrate in a later step.
+/// An imperative geometry pass (feature 004, data-model §3, T040): the executor bakes the node's inputs, opens a
+/// bracketed canvas over a pooled output target, and invokes <see cref="Render"/> with a <see cref="GeometrySession"/>.
+/// One draw = one output; never fused.
+/// </summary>
+public sealed record GeometryPass(Action<GeometrySession> Render, int InputCount) : CompiledPass
+{
+    /// <inheritdoc/>
+    public override PassBackend Backend => PassBackend.Skia;
+}
+
+/// <summary>
+/// A Vulkan compute pass (feature 004, data-model §3, T040): the executor materializes the input texture, hands
+/// the node pooled ping-pong/depth textures, and runs <see cref="Dispatch"/>. <see cref="PassCount"/> dispatches
+/// = <see cref="PassCount"/> <c>GpuPasses</c> (C8). On a context without Vulkan the declared <see cref="Fallback"/>
+/// applies.
+/// </summary>
+public sealed record ComputePass(
+    Action<IComputeContext> Dispatch,
+    int PassCount,
+    bool RequiresDepth,
+    ComputeFallback Fallback,
+    Action<GeometrySession>? CpuCallback) : CompiledPass
+{
+    /// <inheritdoc/>
+    public override PassBackend Backend => PassBackend.Vulkan;
+}
+
+/// <summary>
+/// A fan-out split pass (feature 004, data-model §3, T039): one input becomes N branch outputs the executor
+/// allocates from the pool. <see cref="BranchCount"/> is the structural static count (0 for a dynamic split,
+/// which sets <see cref="CompiledPass.IsDynamicOutputs"/>). Fusion never crosses a split.
+/// </summary>
+public sealed record SplitPass(Action<ISplitEmitter> Render, int BranchCount) : CompiledPass
+{
+    /// <inheritdoc/>
+    public override PassBackend Backend => PassBackend.Skia;
+}
+
+/// <summary>
+/// A fan-in composite pass (feature 004, data-model §3, T039): the current branch set is composited back into one
+/// output under <see cref="BlendMode"/> with per-branch <see cref="InputOffsets"/>. Fusion never crosses a composite.
 /// </summary>
 public sealed record CompositePass(BlendMode BlendMode, ImmutableArray<Point> InputOffsets) : CompiledPass
 {

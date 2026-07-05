@@ -58,6 +58,35 @@ public readonly struct StructuralKey : IEquatable<StructuralKey>
                     .Append(',').Append(skiaFilter.Bounds.StructuralIdentity.ToString(CultureInfo.InvariantCulture));
                 break;
 
+            case GeometryNodeDescriptor geometry:
+                sb.Append("geometry:")
+                    .Append(geometry.StructuralToken)
+                    .Append(',').Append(geometry.InputCount)
+                    .Append(',').Append(geometry.Bounds.StructuralIdentity.ToString(CultureInfo.InvariantCulture));
+                break;
+
+            case ComputeNodeDescriptor compute:
+                // PassCount is topology (C3.6): it is in the key, so animating it recompiles exactly once.
+                sb.Append("compute:")
+                    .Append(compute.StructuralToken)
+                    .Append(',').Append(compute.PassCount)
+                    .Append(',').Append((int)compute.Fallback);
+                break;
+
+            case SplitNodeDescriptor split:
+                // Branch count is topology (C3.6); a dynamic split keys on its dynamic flag, not a runtime count.
+                sb.Append("split:")
+                    .Append(split.StructuralToken)
+                    .Append(',').Append(split.IsDynamicOutputs ? "dyn" : split.BranchCount.ToString(CultureInfo.InvariantCulture));
+                break;
+
+            case CompositeNodeDescriptor composite:
+                sb.Append("composite:")
+                    .Append(composite.StructuralToken)
+                    .Append(',').Append((int)composite.BlendMode)
+                    .Append(',').Append(composite.InputOffsets.Length);
+                break;
+
             case OpaqueLegacyNodeDescriptor opaque:
                 // The token is the effect TYPE, not the recorded item count: a count varies with an animated
                 // parameter (a bridged chain would then never cache-hit) and collides across distinct effect kinds
