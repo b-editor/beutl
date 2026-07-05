@@ -147,4 +147,14 @@ public class BitmapColorSpaceMappingTests
             BitmapColorTransfer.Pq, BitmapColorPrimaries.Rec2020);
         Assert.That(a, Is.EqualTo(b));
     }
+
+    [TestCase(BitmapColorTransfer.Pq)]
+    [TestCase(BitmapColorTransfer.Hlg)]
+    public void BuildHdrColorSpace_UnknownPrimariesDefaultsToRec2020(BitmapColorTransfer transfer)
+    {
+        var explicitCs = BitmapColorSpaceMapping.BuildHdrColorSpace(transfer, BitmapColorPrimaries.Rec2020);
+        var unknownCs = BitmapColorSpaceMapping.BuildHdrColorSpace(transfer, BitmapColorPrimaries.Unknown);
+
+        Assert.That(unknownCs, Is.EqualTo(explicitCs));
+    }
 }

@@ -90,6 +90,10 @@ public static class BitmapColorSpaceMapping
     /// </summary>
     public static BitmapColorSpace BuildHdrColorSpace(BitmapColorTransfer transfer, BitmapColorPrimaries primaries)
     {
+        // BT.2100 requires Rec.2020 primaries for HDR; default there when a stream leaves them unspecified.
+        if (IsHdrTransfer(transfer) && primaries == BitmapColorPrimaries.Unknown)
+            primaries = BitmapColorPrimaries.Rec2020;
+
         var transferFn = GetTransferFunction(transfer);
         var gamut = GetPrimaries(primaries);
 
