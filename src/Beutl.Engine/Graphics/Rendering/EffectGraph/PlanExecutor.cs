@@ -1,6 +1,9 @@
 ﻿using System.Collections.Immutable;
 using System.Runtime.InteropServices;
+using Beutl.Graphics.Backend;
 using Beutl.Graphics.Effects;
+using Beutl.Logging;
+using Microsoft.Extensions.Logging;
 using SkiaSharp;
 
 namespace Beutl.Graphics.Rendering;
@@ -27,6 +30,8 @@ namespace Beutl.Graphics.Rendering;
 /// </summary>
 internal static class PlanExecutor
 {
+    private static readonly ILogger s_logger = Log.CreateLogger("PlanExecutor");
+
     public static RenderNodeOperation[] Execute(
         CompiledPlan plan,
         FrameResources resources,
@@ -54,15 +59,32 @@ internal static class PlanExecutor
             for (int k = 0; k < plan.Passes.Length; k++)
             {
                 CompiledPass pass = plan.Passes[k];
-                if (pass is OpaqueLegacyPass opaque)
+
+                // A backend transition is the only place the executor syncs (C4.2); count one FlushSyncs per
+                // transition so the counter equals the number of Skia<->Vulkan boundaries in the schedule. The
+                // actual GPU barrier happens inside the materialize/dispatch path this pass drives.
+                if (pass.SyncBefore && diagnostics != null)
+                    diagnostics.FlushSyncs++;
+
+                switch (pass)
                 {
-                    ExecuteOpaqueSegment(
-                        opaque, current, bounds, outputScale, workingScale, maxWorkingScale, diagnostics, pool);
-                }
-                else
-                {
-                    MapDescriptorPass(
-                        pass, resources.Passes[k], current, workingScale, maxWorkingScale, diagnostics, pool);
+                    case OpaqueLegacyPass opaque:
+                        ExecuteOpaqueSegment(
+                            opaque, current, bounds, outputScale, workingScale, maxWorkingScale, diagnostics, pool);
+                        break;
+                    case SplitPass split:
+                        ExecuteSplit(
+                            split, current, outputScale, workingScale, maxWorkingScale, diagnostics, pool);
+                        break;
+                    case CompositePass composite:
+                        ExecuteComposite(
+                            composite, current, workingScale, maxWorkingScale, diagnostics, pool);
+                        break;
+                    default:
+                        MapDescriptorPass(
+                            pass, resources.Passes[k], current, outputScale, workingScale, maxWorkingScale,
+                            diagnostics, pool);
+                        break;
                 }
             }
 
@@ -95,7 +117,8 @@ internal static class PlanExecutor
     // operation's output bounds equal its input bounds.
     private static void MapDescriptorPass(
         CompiledPass pass, PassResolution resolution, List<RenderNodeOperation> current,
-        float workingScale, float maxWorkingScale, PipelineDiagnostics? diagnostics, RenderTargetPool? pool)
+        float outputScale, float workingScale, float maxWorkingScale, PipelineDiagnostics? diagnostics,
+        RenderTargetPool? pool)
     {
         bool linear = current.Count == 1;
         var outputs = new List<RenderNodeOperation>(current.Count);
@@ -105,8 +128,12 @@ internal static class PlanExecutor
             {
                 RenderNodeOperation op = current[i];
                 current[i] = null!;
-                outputs.Add(MapOneOperation(
-                    pass, resolution, linear, op, workingScale, maxWorkingScale, diagnostics, pool));
+                // A null result is a preview allocation-failure drop (C7): the pass output is discarded and the
+                // frame continues; delivery renders throw instead of returning null.
+                RenderNodeOperation? mapped = MapOneOperation(
+                    pass, resolution, linear, op, outputScale, workingScale, maxWorkingScale, diagnostics, pool);
+                if (mapped != null)
+                    outputs.Add(mapped);
             }
         }
         catch
@@ -119,10 +146,24 @@ internal static class PlanExecutor
         current.AddRange(outputs);
     }
 
-    private static RenderNodeOperation MapOneOperation(
+    private static RenderNodeOperation? MapOneOperation(
         CompiledPass pass, PassResolution resolution, bool linear, RenderNodeOperation op,
-        float workingScale, float maxWorkingScale, PipelineDiagnostics? diagnostics, RenderTargetPool? pool)
+        float outputScale, float workingScale, float maxWorkingScale, PipelineDiagnostics? diagnostics,
+        RenderTargetPool? pool)
     {
+        // A compute pass on a context without Vulkan takes its declared fallback before any allocation (C6/A7).
+        if (pass is ComputePass compute && !SupportsCompute())
+        {
+            switch (compute.Fallback)
+            {
+                case ComputeFallback.Identity:
+                    return op;
+                case ComputeFallback.Skip:
+                    op.Dispose();
+                    return null;
+            }
+        }
+
         // A coordinate-invariant fused pass is identity: its output bounds are the operation's own bounds. Sizing
         // from the operation (rather than the pass's described output bounds) both survives an upstream opaque
         // node that did not advance the builder's logical bounds and sizes each fan-out branch correctly.
@@ -151,17 +192,26 @@ internal static class PlanExecutor
             return op;
         }
 
-        RenderTarget target;
-        try
+        // Geometry and compute passes sample their input as a texture, so they materialize it and manage their own
+        // input/output targets (with uniform C7 drop/throw on any failed acquire). Fused/Skia bake the source op
+        // straight into the output buffer.
+        switch (pass)
         {
-            target = RenderTargetPool.Acquire(pool, width, height, diagnostics)
-                ?? throw new InvalidOperationException(
-                    $"Effect pass buffer allocation failed ({width}x{height} px, w {w}, bounds {outBounds}).");
+            case GeometryPass geometry:
+                return ExecuteGeometry(
+                    geometry, width, height, w, outBounds, op, outputScale, workingScale, maxWorkingScale,
+                    diagnostics, pool);
+            case ComputePass computePass:
+                return ExecuteCompute(
+                    computePass, width, height, w, outBounds, op, outputScale, workingScale, maxWorkingScale,
+                    diagnostics, pool);
         }
-        catch
+
+        RenderTarget? target = RenderTargetPool.Acquire(pool, width, height, diagnostics);
+        if (target == null)
         {
-            op.Dispose();
-            throw;
+            return DropOrThrow(op, maxWorkingScale,
+                $"Effect pass buffer allocation failed ({width}x{height} px, w {w}, bounds {outBounds}).");
         }
 
         try
@@ -192,6 +242,19 @@ internal static class PlanExecutor
         op.Dispose();
         return RenderNodeOperation.CreateFromRenderTarget(
             outBounds, outBounds.Position, target, EffectiveScale.At(w));
+    }
+
+    // The C7 allocation-failure normalization for a per-operation pass: delivery (MaxWorkingScale == +Inf) throws
+    // with the same message shape as the legacy ThrowIfDeliveryAllocationFailure; preview drops the pass output
+    // (returns null) and logs. Either way the consumed input is released.
+    private static RenderNodeOperation? DropOrThrow(RenderNodeOperation op, float maxWorkingScale, string message)
+    {
+        op.Dispose();
+        if (float.IsPositiveInfinity(maxWorkingScale))
+            throw new InvalidOperationException(message);
+
+        s_logger.LogWarning("{Message} Preview drops this pass output.", message);
+        return null;
     }
 
     private static void ExecuteFused(
@@ -348,5 +411,422 @@ internal static class PlanExecutor
     {
         disposables.Add(shader);
         return shader;
+    }
+
+    private static bool SupportsCompute()
+    {
+        IGraphicsContext? gfx = GraphicsContextFactory.SharedContext;
+        return gfx is { Supports3DRendering: true };
+    }
+
+    // Bakes an operation into a freshly acquired pooled buffer sized to its bounds at density w, so a geometry /
+    // compute / split pass can sample it as a texture. Counts one FullFrameMaterializations (C8). Returns null when
+    // the pool cannot allocate (the caller applies the C7 drop/throw); an empty-size input is handled by the caller.
+    private static RenderTarget? MaterializeInput(
+        RenderNodeOperation op, float w, float maxWorkingScale, PipelineDiagnostics? diagnostics, RenderTargetPool? pool)
+    {
+        (int bw, int bh) = CustomFilterEffectContext.DeviceBufferSize(op.Bounds, w);
+        RenderTarget? target = RenderTargetPool.Acquire(pool, bw, bh, diagnostics);
+        if (target == null)
+            return null;
+
+        try
+        {
+            BakeSource(target, w, op.Bounds, op, maxWorkingScale, paint: null);
+        }
+        catch
+        {
+            target.Dispose();
+            throw;
+        }
+
+        if (diagnostics != null)
+            diagnostics.FullFrameMaterializations++;
+        return target;
+    }
+
+    private static RenderNodeOperation? ExecuteGeometry(
+        GeometryPass pass, int width, int height, float w, Rect outBounds, RenderNodeOperation op,
+        float outputScale, float workingScale, float maxWorkingScale, PipelineDiagnostics? diagnostics,
+        RenderTargetPool? pool)
+    {
+        float inW = RenderNodeContext.ClampWorkingScaleToBufferBudget(op.Bounds, workingScale);
+        (int inBw, int inBh) = CustomFilterEffectContext.DeviceBufferSize(op.Bounds, inW);
+        if (inBw <= 0 || inBh <= 0)
+            return op;
+
+        RenderTarget? inputTarget = MaterializeInput(op, inW, maxWorkingScale, diagnostics, pool);
+        if (inputTarget == null)
+            return DropOrThrow(op, maxWorkingScale, $"Geometry input materialization failed ({inBw}x{inBh} px).");
+
+        RenderTarget? outputTarget = RenderTargetPool.Acquire(pool, width, height, diagnostics);
+        if (outputTarget == null)
+        {
+            inputTarget.Dispose();
+            return DropOrThrow(op, maxWorkingScale,
+                $"Geometry output allocation failed ({width}x{height} px, w {w}, bounds {outBounds}).");
+        }
+
+        try
+        {
+            var input = new EffectInput(inputTarget, op.Bounds, EffectiveScale.At(inW));
+            using var canvas = new ImmediateCanvas(outputTarget, w, maxWorkingScale, logicalSize: outBounds.Size);
+            canvas.Clear();
+            var session = new GeometrySession(canvas, [input], outBounds, outputScale, inW, maxWorkingScale);
+            pass.Render(session);
+        }
+        catch
+        {
+            outputTarget.Dispose();
+            inputTarget.Dispose();
+            op.Dispose();
+            throw;
+        }
+
+        inputTarget.Dispose();
+        op.Dispose();
+        if (diagnostics != null)
+            diagnostics.GpuPasses++;
+        return RenderNodeOperation.CreateFromRenderTarget(
+            outBounds, outBounds.Position, outputTarget, EffectiveScale.At(w));
+    }
+
+    private static RenderNodeOperation? ExecuteCompute(
+        ComputePass pass, int width, int height, float w, Rect outBounds, RenderNodeOperation op,
+        float outputScale, float workingScale, float maxWorkingScale, PipelineDiagnostics? diagnostics,
+        RenderTargetPool? pool)
+    {
+        IGraphicsContext? gfx = GraphicsContextFactory.SharedContext;
+        if (gfx is not { Supports3DRendering: true })
+        {
+            // Identity/Skip already returned in MapOneOperation; only CpuCallback reaches here without Vulkan.
+            return ExecuteComputeCpuFallback(
+                pass, width, height, w, outBounds, op, outputScale, workingScale, maxWorkingScale, diagnostics, pool);
+        }
+
+        float inW = RenderNodeContext.ClampWorkingScaleToBufferBudget(op.Bounds, workingScale);
+        (int inBw, int inBh) = CustomFilterEffectContext.DeviceBufferSize(op.Bounds, inW);
+        if (inBw <= 0 || inBh <= 0)
+            return op;
+
+        RenderTarget? inputTarget = MaterializeInput(op, inW, maxWorkingScale, diagnostics, pool);
+        if (inputTarget == null)
+            return DropOrThrow(op, maxWorkingScale, $"Compute input materialization failed ({inBw}x{inBh} px).");
+
+        inputTarget.PrepareForSampling();
+        ITexture2D? sourceTexture = inputTarget.Texture;
+
+        RenderTarget? outputTarget = sourceTexture != null
+            ? RenderTargetPool.Acquire(pool, width, height, diagnostics)
+            : null;
+        ITexture2D? destTexture = outputTarget?.Texture;
+        if (sourceTexture == null || destTexture == null)
+        {
+            // No shared texture (raster surface behind a compute-capable context is not expected): fall back to
+            // identity so the content survives rather than vanishing.
+            outputTarget?.Dispose();
+            inputTarget.Dispose();
+            return op;
+        }
+
+        var scratch = new List<RenderTarget>();
+        var depthScratch = new List<ITexture2D>();
+        try
+        {
+            var ctx = new ComputeContext(
+                gfx, sourceTexture, destTexture, width, height, scratch, depthScratch, diagnostics, pool);
+            pass.Dispatch(ctx);
+        }
+        catch
+        {
+            ReleaseComputeScratch(scratch, depthScratch);
+            outputTarget.Dispose();
+            inputTarget.Dispose();
+            op.Dispose();
+            throw;
+        }
+
+        ReleaseComputeScratch(scratch, depthScratch);
+        inputTarget.Dispose();
+        op.Dispose();
+        return RenderNodeOperation.CreateFromRenderTarget(
+            outBounds, outBounds.Position, outputTarget, EffectiveScale.At(w));
+    }
+
+    private static RenderNodeOperation? ExecuteComputeCpuFallback(
+        ComputePass pass, int width, int height, float w, Rect outBounds, RenderNodeOperation op,
+        float outputScale, float workingScale, float maxWorkingScale, PipelineDiagnostics? diagnostics,
+        RenderTargetPool? pool)
+    {
+        if (pass.CpuCallback is not { } cpu)
+            return op;
+
+        float inW = RenderNodeContext.ClampWorkingScaleToBufferBudget(op.Bounds, workingScale);
+        RenderTarget? inputTarget = MaterializeInput(op, inW, maxWorkingScale, diagnostics, pool);
+        if (inputTarget == null)
+            return DropOrThrow(op, maxWorkingScale, "Compute CPU-fallback input materialization failed.");
+
+        RenderTarget? outputTarget = RenderTargetPool.Acquire(pool, width, height, diagnostics);
+        if (outputTarget == null)
+        {
+            inputTarget.Dispose();
+            return DropOrThrow(op, maxWorkingScale, "Compute CPU-fallback output allocation failed.");
+        }
+
+        try
+        {
+            var input = new EffectInput(inputTarget, op.Bounds, EffectiveScale.At(inW));
+            using var canvas = new ImmediateCanvas(outputTarget, w, maxWorkingScale, logicalSize: outBounds.Size);
+            canvas.Clear();
+            var session = new GeometrySession(canvas, [input], outBounds, outputScale, inW, maxWorkingScale);
+            cpu(session);
+        }
+        catch
+        {
+            outputTarget.Dispose();
+            inputTarget.Dispose();
+            op.Dispose();
+            throw;
+        }
+
+        inputTarget.Dispose();
+        op.Dispose();
+        if (diagnostics != null)
+            diagnostics.GpuPasses++;
+        return RenderNodeOperation.CreateFromRenderTarget(
+            outBounds, outBounds.Position, outputTarget, EffectiveScale.At(w));
+    }
+
+    private static void ReleaseComputeScratch(List<RenderTarget> scratch, List<ITexture2D> depthScratch)
+    {
+        foreach (RenderTarget t in scratch)
+            t.Dispose();
+        foreach (ITexture2D d in depthScratch)
+            d.Dispose();
+    }
+
+    // Fan-out: each current op is materialized once and split into the branches its callback emits (a static count
+    // or, for dynamic outputs, an execution-time-resolved count the executor allocates, counts and releases).
+    private static void ExecuteSplit(
+        SplitPass pass, List<RenderNodeOperation> current, float outputScale, float workingScale,
+        float maxWorkingScale, PipelineDiagnostics? diagnostics, RenderTargetPool? pool)
+    {
+        var outputs = new List<RenderNodeOperation>(current.Count);
+        try
+        {
+            for (int i = 0; i < current.Count; i++)
+            {
+                RenderNodeOperation op = current[i];
+                current[i] = null!;
+
+                float inW = RenderNodeContext.ClampWorkingScaleToBufferBudget(op.Bounds, workingScale);
+                (int bw, int bh) = CustomFilterEffectContext.DeviceBufferSize(op.Bounds, inW);
+                if (bw <= 0 || bh <= 0)
+                {
+                    outputs.Add(op);
+                    continue;
+                }
+
+                RenderTarget? inputTarget = MaterializeInput(op, inW, maxWorkingScale, diagnostics, pool);
+                if (inputTarget == null)
+                {
+                    RenderNodeOperation? dropped = DropOrThrow(
+                        op, maxWorkingScale, $"Split input materialization failed ({bw}x{bh} px).");
+                    _ = dropped;
+                    continue;
+                }
+
+                try
+                {
+                    var input = new EffectInput(inputTarget, op.Bounds, EffectiveScale.At(inW));
+                    var emitter = new SplitEmitter(
+                        input, inW, outputScale, maxWorkingScale, diagnostics, pool, outputs);
+                    pass.Render(emitter);
+                }
+                finally
+                {
+                    inputTarget.Dispose();
+                    op.Dispose();
+                }
+            }
+        }
+        catch
+        {
+            RenderNodeOperation.DisposeAll(CollectionsMarshal.AsSpan(outputs));
+            throw;
+        }
+
+        current.Clear();
+        current.AddRange(outputs);
+    }
+
+    // Fan-in: composite the whole current branch set into one output under the blend mode, applying each branch's
+    // per-input offset. Draws each branch once onto a single pooled target.
+    private static void ExecuteComposite(
+        CompositePass pass, List<RenderNodeOperation> current, float workingScale, float maxWorkingScale,
+        PipelineDiagnostics? diagnostics, RenderTargetPool? pool)
+    {
+        if (current.Count == 0)
+            return;
+
+        Rect union = default;
+        for (int i = 0; i < current.Count; i++)
+        {
+            Point offset = i < pass.InputOffsets.Length ? pass.InputOffsets[i] : default;
+            union = union.Union(current[i].Bounds.Translate(offset));
+        }
+
+        float w = RenderNodeContext.ClampWorkingScaleToBufferBudget(union, workingScale);
+        (int bw, int bh) = CustomFilterEffectContext.DeviceBufferSize(union, w);
+        if (bw <= 0 || bh <= 0)
+        {
+            RenderNodeOperation.DisposeAll(CollectionsMarshal.AsSpan(current));
+            current.Clear();
+            return;
+        }
+
+        RenderTarget? target = RenderTargetPool.Acquire(pool, bw, bh, diagnostics);
+        if (target == null)
+        {
+            RenderNodeOperation.DisposeAll(CollectionsMarshal.AsSpan(current));
+            current.Clear();
+            if (float.IsPositiveInfinity(maxWorkingScale))
+                throw new InvalidOperationException($"Composite output allocation failed ({bw}x{bh} px, w {w}).");
+
+            s_logger.LogWarning("Composite output allocation failed ({Width}x{Height} px). Preview drops it.", bw, bh);
+            return;
+        }
+
+        try
+        {
+            using var canvas = new ImmediateCanvas(target, w, maxWorkingScale, logicalSize: union.Size);
+            canvas.Clear();
+            using (canvas.PushTransform(Matrix.CreateTranslation(-union.X, -union.Y)))
+            {
+                for (int i = 0; i < current.Count; i++)
+                {
+                    Point offset = i < pass.InputOffsets.Length ? pass.InputOffsets[i] : default;
+                    using (canvas.PushBlendMode(pass.BlendMode))
+                    using (canvas.PushTransform(Matrix.CreateTranslation(offset.X, offset.Y)))
+                    {
+                        current[i].Render(canvas);
+                    }
+                }
+            }
+        }
+        catch
+        {
+            target.Dispose();
+            RenderNodeOperation.DisposeAll(CollectionsMarshal.AsSpan(current));
+            current.Clear();
+            throw;
+        }
+
+        RenderNodeOperation.DisposeAll(CollectionsMarshal.AsSpan(current));
+        current.Clear();
+        if (diagnostics != null)
+            diagnostics.GpuPasses++;
+        current.Add(RenderNodeOperation.CreateFromRenderTarget(union, union.Position, target, EffectiveScale.At(w)));
+    }
+
+    // The executor-owned resources handed to a compute node's dispatch callback: the materialized source and the
+    // pass output texture, plus pooled color and executor-scoped depth scratch released when the pass ends.
+    private sealed class ComputeContext(
+        IGraphicsContext gfx, ITexture2D source, ITexture2D destination, int width, int height,
+        List<RenderTarget> colorScratch, List<ITexture2D> depthScratch, PipelineDiagnostics? diagnostics,
+        RenderTargetPool? pool) : IComputeContext
+    {
+        public ITexture2D Source => source;
+
+        public ITexture2D Destination => destination;
+
+        public int Width => width;
+
+        public int Height => height;
+
+        public ITexture2D AcquireColorScratch()
+        {
+            RenderTarget target = RenderTargetPool.Acquire(pool, width, height, diagnostics)
+                ?? throw new InvalidOperationException(
+                    $"Compute ping-pong scratch allocation failed ({width}x{height} px).");
+            colorScratch.Add(target);
+            return target.Texture
+                ?? throw new InvalidOperationException("Pooled compute scratch has no Vulkan texture.");
+        }
+
+        public ITexture2D AcquireDepthScratch()
+        {
+            ITexture2D depth = gfx.CreateTexture2D(width, height, TextureFormat.Depth32Float);
+            depthScratch.Add(depth);
+            return depth;
+        }
+
+        public void Run<T>(GLSLShader shader, ITexture2D src, ITexture2D dst, ITexture2D depth, T pushConstants)
+            where T : unmanaged
+        {
+            shader.ExecuteSingleTarget(src, dst, depth, pushConstants);
+            if (diagnostics != null)
+                diagnostics.GpuPasses++;
+        }
+
+        public void Run<T>(
+            GLSLShader shader, ITexture2D src, ITexture2D mask, ITexture2D dst, ITexture2D depth, T pushConstants)
+            where T : unmanaged
+        {
+            shader.ExecuteSingleTargetWithMask(src, mask, dst, depth, pushConstants);
+            if (diagnostics != null)
+                diagnostics.GpuPasses++;
+        }
+    }
+
+    // The fan-out sink a split callback drives. Each Emit allocates one pooled branch target, opens a bracketed
+    // session over it, runs the branch draw, and appends the branch op — counting one GpuPasses per branch and
+    // applying the C7 drop/throw on a failed allocation.
+    private sealed class SplitEmitter(
+        EffectInput input, float workingScale, float outputScale, float maxWorkingScale,
+        PipelineDiagnostics? diagnostics, RenderTargetPool? pool, List<RenderNodeOperation> outputs) : ISplitEmitter
+    {
+        public EffectInput Input => input;
+
+        public float WorkingScale => workingScale;
+
+        public void Emit(Rect logicalBounds, Action<GeometrySession> render)
+        {
+            ArgumentNullException.ThrowIfNull(render);
+
+            float w = RenderNodeContext.ClampWorkingScaleToBufferBudget(logicalBounds, workingScale);
+            (int bw, int bh) = CustomFilterEffectContext.DeviceBufferSize(logicalBounds, w);
+            if (bw <= 0 || bh <= 0)
+                return;
+
+            RenderTarget? target = RenderTargetPool.Acquire(pool, bw, bh, diagnostics);
+            if (target == null)
+            {
+                if (float.IsPositiveInfinity(maxWorkingScale))
+                    throw new InvalidOperationException($"Split branch allocation failed ({bw}x{bh} px, w {w}).");
+
+                s_logger.LogWarning("Split branch allocation failed ({Width}x{Height} px). Preview drops it.", bw, bh);
+                return;
+            }
+
+            try
+            {
+                using var canvas = new ImmediateCanvas(target, w, maxWorkingScale, logicalSize: logicalBounds.Size);
+                canvas.Clear();
+                var session = new GeometrySession(
+                    canvas, [input], logicalBounds, outputScale, workingScale, maxWorkingScale);
+                render(session);
+            }
+            catch
+            {
+                target.Dispose();
+                throw;
+            }
+
+            if (diagnostics != null)
+                diagnostics.GpuPasses++;
+            outputs.Add(RenderNodeOperation.CreateFromRenderTarget(
+                logicalBounds, logicalBounds.Position, target, EffectiveScale.At(w)));
+        }
     }
 }
