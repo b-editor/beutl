@@ -32,12 +32,12 @@ public partial class TerminalTabView : UserControl
         _viewModel = DataContext as TerminalTabViewModel;
         if (_viewModel != null)
         {
-            if (_viewModel.LangFallback is { } lang)
-            {
-                // Pass the locale per spawn so it never mutates the shared process environment
-                // (which would race across concurrent terminals and leak into other subprocesses).
-                Terminal.EnvironmentOverrides = new Dictionary<string, string> { ["LANG"] = lang };
-            }
+            // Pass the locale per spawn so it never mutates the shared process environment
+            // (which would race across concurrent terminals and leak into other subprocesses).
+            // Cleared when the fallback is absent so a recycled view drops a prior view-model's LANG.
+            Terminal.EnvironmentOverrides = _viewModel.LangFallback is { } lang
+                ? new Dictionary<string, string> { ["LANG"] = lang }
+                : null;
 
             _viewModel.Disposed += OnViewModelDisposed;
             TryLaunch();
@@ -95,6 +95,25 @@ public partial class TerminalTabView : UserControl
             _launching = false;
         }
 
+        if (_disposed)
+        {
+            // Torn down mid-launch: OnViewModelDisposed already ran (before any PTY existed), so it
+            // could not kill one. Kill a PTY that did spawn and never touch the disposed view-model.
+            if (Terminal.HasProcess)
+            {
+                try
+                {
+                    Terminal.Kill();
+                }
+                catch
+                {
+                    // The PTY may already be gone; tearing down must not throw.
+                }
+            }
+
+            return;
+        }
+
         if (!Terminal.HasProcess)
         {
             // The terminal control swallows spawn failures (e.g. a missing SHELL/COMSPEC), so no
@@ -106,22 +125,6 @@ public partial class TerminalTabView : UserControl
 
         // Set only after a confirmed live PTY so OnViewModelDisposed knows there is one to kill.
         _launched = true;
-
-        if (_disposed)
-        {
-            // Torn down mid-launch: OnViewModelDisposed ran before the PTY existed, so kill it
-            // here rather than reattaching a session with no live tab.
-            try
-            {
-                Terminal.Kill();
-            }
-            catch
-            {
-                // The PTY may already be gone; tearing down must not throw.
-            }
-
-            return;
-        }
 
         // Keep the PTY session alive while the tab is re-docked; the process is
         // killed explicitly when the view-model (i.e. the tab) is disposed.

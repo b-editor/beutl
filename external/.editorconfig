@@ -1,0 +1,8 @@
+# Vendored submodules (XTerm.NET, Iciclecreek.Avalonia.Terminal).
+# root = true stops these from inheriting Beutl's repo-root .editorconfig, and
+# generated_code = true excludes them from `dotnet format` so their upstream
+# style is preserved instead of being reformatted to Beutl's conventions.
+root = true
+
+[*]
+generated_code = true
