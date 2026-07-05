@@ -10,4 +10,9 @@ public sealed partial class LumaColor : FilterEffect
     {
         context.LumaColor();
     }
+
+    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
+    {
+        builder.LumaColor();
+    }
 }

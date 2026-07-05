@@ -24,4 +24,10 @@ public sealed partial class Lighting : FilterEffect
         var r = (Resource)resource;
         context.Lighting(r.Multiply, r.Add);
     }
+
+    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
+    {
+        var r = (Resource)resource;
+        builder.Lighting(r.Multiply, r.Add);
+    }
 }

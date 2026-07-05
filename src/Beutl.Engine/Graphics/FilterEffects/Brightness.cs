@@ -24,4 +24,10 @@ public sealed partial class Brightness : FilterEffect
 
         context.Brightness(amount);
     }
+
+    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
+    {
+        var r = (Resource)resource;
+        builder.Brightness(r.Amount / 100f);
+    }
 }

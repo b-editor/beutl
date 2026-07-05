@@ -21,4 +21,10 @@ public sealed partial class Saturate : FilterEffect
         var r = (Resource)resource;
         context.Saturate(r.Amount / 100f);
     }
+
+    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
+    {
+        var r = (Resource)resource;
+        builder.Saturate(r.Amount / 100f);
+    }
 }

@@ -26,4 +26,10 @@ public sealed partial class HighContrast : FilterEffect
         var r = (Resource)resource;
         context.HighContrast(r.Grayscale, r.InvertStyle, r.Contrast / 100f);
     }
+
+    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
+    {
+        var r = (Resource)resource;
+        builder.HighContrast(r.Grayscale, r.InvertStyle, r.Contrast / 100f);
+    }
 }

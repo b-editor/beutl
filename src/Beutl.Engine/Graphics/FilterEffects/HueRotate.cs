@@ -21,4 +21,10 @@ public sealed partial class HueRotate : FilterEffect
         var r = (Resource)resource;
         context.HueRotate(r.Angle);
     }
+
+    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
+    {
+        var r = (Resource)resource;
+        builder.HueRotate(r.Angle);
+    }
 }
