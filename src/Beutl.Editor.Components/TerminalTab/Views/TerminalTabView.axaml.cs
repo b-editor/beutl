@@ -25,12 +25,6 @@ public partial class TerminalTabView : UserControl
     {
         base.OnDataContextChanged(e);
 
-        TerminalTabViewModel? previous = _viewModel;
-        if (previous != null)
-        {
-            previous.Disposed -= OnViewModelDisposed;
-        }
-
         _viewModel = DataContext as TerminalTabViewModel;
         if (_viewModel != null)
         {
@@ -38,7 +32,7 @@ public partial class TerminalTabView : UserControl
             {
                 // Reset the lifecycle flags only when a recycled view is bound to a DIFFERENT
                 // view-model than the one it launched a PTY for. Comparing against the launched
-                // view-model (not the previous DataContext) also preserves the session across a
+                // view-model (not the current DataContext) also preserves the session across a
                 // VM -> null -> same-VM re-fire, where the DataContext momentarily goes null during
                 // a dock/reparent.
                 _launched = false;
@@ -53,7 +47,6 @@ public partial class TerminalTabView : UserControl
                 ? new Dictionary<string, string> { ["LANG"] = lang }
                 : null;
 
-            _viewModel.Disposed += OnViewModelDisposed;
             TryLaunch();
         }
     }
@@ -89,9 +82,9 @@ public partial class TerminalTabView : UserControl
     {
         TerminalTabViewModel viewModel = _viewModel!;
         _launching = true;
-        // Remember which view-model this PTY serves so a later same-VM rebind (even through null)
-        // is recognized and does not reset the flags and respawn.
-        _launchedViewModel = viewModel;
+        // Bind the dispose subscription to the view-model this PTY serves so it survives a same-VM
+        // rebind through null and still tears the PTY down when that view-model is disposed.
+        SetLaunchedViewModel(viewModel);
         viewModel.IsProcessExited.Value = false;
 
         // Suppress detach-cleanup before spawning so switching away mid-launch re-docks the tab
@@ -102,46 +95,82 @@ public partial class TerminalTabView : UserControl
 
         try
         {
-            if (reuseConfiguredProcess)
+            try
             {
-                await Terminal.LaunchProcess();
+                if (reuseConfiguredProcess)
+                {
+                    await Terminal.LaunchProcess();
+                }
+                else
+                {
+                    await Terminal.LaunchProcess(viewModel.WorkingDirectory, viewModel.ShellPath, viewModel.ShellArgs);
+                }
+            }
+            finally
+            {
+                _launching = false;
+            }
+
+            if (_disposed)
+            {
+                // Torn down mid-launch: tear down any PTY that did spawn and never touch the disposed
+                // view-model. Shutdown is idempotent with the teardown OnViewModelDisposed already ran.
+                Terminal.Shutdown();
+                return;
+            }
+
+            if (!Terminal.HasPtyConnection)
+            {
+                // The terminal control swallows spawn failures (e.g. a missing SHELL/COMSPEC), so no
+                // PTY exists. Surface it through the restart UI and leave the tab relaunchable.
+                _launched = false;
+                viewModel.IsProcessExited.Value = true;
+                return;
+            }
+
+            _launched = true;
+        }
+        catch
+        {
+            // LaunchAsync is fire-and-forget, and LaunchProcess throws if the template is not applied.
+            // Contain any fault so it never becomes an unobserved task exception; surface it through
+            // the restart UI when the tab is live, or tear down when it is already disposed.
+            _launched = false;
+            if (_disposed)
+            {
+                Terminal.Shutdown();
             }
             else
             {
-                await Terminal.LaunchProcess(viewModel.WorkingDirectory, viewModel.ShellPath, viewModel.ShellArgs);
+                viewModel.IsProcessExited.Value = true;
             }
         }
-        finally
-        {
-            _launching = false;
-        }
+    }
 
-        if (_disposed)
+    private void SetLaunchedViewModel(TerminalTabViewModel viewModel)
+    {
+        if (ReferenceEquals(_launchedViewModel, viewModel))
         {
-            // Torn down mid-launch: tear down any PTY that did spawn and never touch the disposed
-            // view-model. Shutdown is idempotent with the teardown OnViewModelDisposed already ran.
-            Terminal.Shutdown();
             return;
         }
 
-        if (!Terminal.HasPtyConnection)
+        if (_launchedViewModel != null)
         {
-            // The terminal control swallows spawn failures (e.g. a missing SHELL/COMSPEC), so no
-            // PTY exists. Surface it through the restart UI and leave the tab relaunchable.
-            _launched = false;
-            viewModel.IsProcessExited.Value = true;
-            return;
+            _launchedViewModel.Disposed -= OnViewModelDisposed;
         }
 
-        _launched = true;
+        _launchedViewModel = viewModel;
+        _launchedViewModel.Disposed += OnViewModelDisposed;
     }
 
     private void OnProcessExited(object? sender, ProcessExitedEventArgs e)
     {
-        if (_viewModel != null && !_disposed)
+        // Report on the view-model that owns the PTY, not the current DataContext, so a process exit
+        // while the view is transiently unbound still reaches the right view-model.
+        if (_launchedViewModel != null && !_disposed)
         {
-            _viewModel.ExitCode.Value = e.ExitCode;
-            _viewModel.IsProcessExited.Value = true;
+            _launchedViewModel.ExitCode.Value = e.ExitCode;
+            _launchedViewModel.IsProcessExited.Value = true;
         }
     }
 
