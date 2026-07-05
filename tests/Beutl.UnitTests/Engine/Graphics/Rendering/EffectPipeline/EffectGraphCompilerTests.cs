@@ -172,6 +172,60 @@ public class EffectGraphCompilerTests
     }
 
     [Test]
+    public void ResolveResources_DropShadowBackward_CoversSourceAndShadowRegion()
+    {
+        var bounds = new Rect(0, 0, 400, 400);
+        // DropShadow at position (30, 0), sigma 0: output region r needs input r ∪ (r − position).
+        CompiledPlan plan = Compile(NewBuilder(bounds)
+            .Shader(Scale(1f))
+            .DropShadow(new Point(30, 0), new Size(0, 0), Colors.Black));
+
+        var requested = new Rect(150, 150, 100, 100);
+        FrameResources res = EffectGraphCompiler.ResolveResources(plan, requested, workingScale: 1f);
+
+        // Upstream ROI = (150..250) ∪ (120..220) on x = (120, 150, 130, 100); identity backward would clip
+        // the shadow's source pixels at x ∈ [120, 150).
+        Assert.That(res.Passes[0].OutputRoi, Is.EqualTo(new Rect(120, 150, 130, 100)));
+        Assert.That(res.Passes[0].Width, Is.EqualTo(130));
+        Assert.That(res.Passes[0].Height, Is.EqualTo(100));
+    }
+
+    [Test]
+    public void ResolveResources_TransformBackward_MapsRoiThroughInverseMatrix()
+    {
+        var bounds = new Rect(0, 0, 400, 400);
+        CompiledPlan plan = Compile(NewBuilder(bounds)
+            .Shader(Scale(1f))
+            .Transform(Matrix.CreateScale(2f, 2f), BitmapInterpolationMode.Default));
+
+        var requested = new Rect(200, 200, 200, 200);
+        FrameResources res = EffectGraphCompiler.ResolveResources(plan, requested, workingScale: 1f);
+
+        // The requested 200×200 output region under a 2× scale reads only a 100×100 input region; identity
+        // backward would over-request (and mis-place) the upstream crop.
+        Assert.That(res.Passes[1].OutputRoi, Is.EqualTo(requested));
+        Assert.That(res.Passes[0].OutputRoi, Is.EqualTo(new Rect(100, 100, 100, 100)));
+        Assert.That(res.Passes[0].Width, Is.EqualTo(100));
+    }
+
+    [Test]
+    public void ResolveResources_NonInvertibleTransform_FallsBackToFullUpstreamBounds()
+    {
+        var bounds = new Rect(0, 0, 400, 400);
+        CompiledPlan plan = Compile(NewBuilder(bounds)
+            .Shader(Scale(1f))
+            .Transform(Matrix.CreateScale(0f, 0f), BitmapInterpolationMode.Default));
+
+        FrameResources res = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale: 1f);
+
+        // A singular matrix has no inverse: backward returns Rect.Invalid and the upstream pass resolves to
+        // its full bounds (safe fallback); the degenerate transform output itself is skipped as empty.
+        Assert.That(res.Passes[0].Width, Is.EqualTo(400));
+        Assert.That(res.Passes[0].Height, Is.EqualTo(400));
+        Assert.That(res.Passes[1].SkipEmpty, Is.True);
+    }
+
+    [Test]
     public void ResolveResources_RenderTimePass_FallsBackToFullInputBounds()
     {
         var bounds = new Rect(0, 0, 300, 200);
