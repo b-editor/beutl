@@ -32,6 +32,12 @@ public partial class TerminalTabView : UserControl
         _viewModel = DataContext as TerminalTabViewModel;
         if (_viewModel != null)
         {
+            // Reset the lifecycle flags so a recycled view bound to a fresh view-model relaunches
+            // rather than staying suppressed by the previous binding's state.
+            _launched = false;
+            _launching = false;
+            _disposed = false;
+
             // Pass the locale per spawn so it never mutates the shared process environment
             // (which would race across concurrent terminals and leak into other subprocesses).
             // Cleared when the fallback is absent so a recycled view drops a prior view-model's LANG.
@@ -51,7 +57,7 @@ public partial class TerminalTabView : UserControl
 
     private void TryLaunch()
     {
-        if (_launched || _launching || _viewModel == null || !IsLoaded)
+        if (_launched || _launching || _disposed || _viewModel == null || !IsLoaded)
         {
             return;
         }
@@ -62,7 +68,7 @@ public partial class TerminalTabView : UserControl
 
     private void OnRestartClick(object? sender, RoutedEventArgs e)
     {
-        if (_launching || _viewModel == null)
+        if (_launching || _disposed || _viewModel == null)
         {
             return;
         }
@@ -77,8 +83,12 @@ public partial class TerminalTabView : UserControl
         _launching = true;
         viewModel.IsProcessExited.Value = false;
 
-        // The locale fallback is applied per spawn via Terminal.EnvironmentOverrides (set when the
-        // view-model is attached), so no process-wide environment mutation happens here.
+        // Suppress detach-cleanup before spawning so switching away mid-launch re-docks the tab
+        // instead of killing the just-spawned PTY. Kept on for the tab's life; disposal calls
+        // EndReparent + Shutdown. The locale fallback is applied per spawn via
+        // Terminal.EnvironmentOverrides, so no process-wide environment mutation happens here.
+        Terminal.BeginReparent();
+
         try
         {
             if (reuseConfiguredProcess)
@@ -97,24 +107,13 @@ public partial class TerminalTabView : UserControl
 
         if (_disposed)
         {
-            // Torn down mid-launch: OnViewModelDisposed already ran (before any PTY existed), so it
-            // could not kill one. Kill a PTY that did spawn and never touch the disposed view-model.
-            if (Terminal.HasProcess)
-            {
-                try
-                {
-                    Terminal.Kill();
-                }
-                catch
-                {
-                    // The PTY may already be gone; tearing down must not throw.
-                }
-            }
-
+            // Torn down mid-launch: tear down any PTY that did spawn and never touch the disposed
+            // view-model. Shutdown is idempotent with the teardown OnViewModelDisposed already ran.
+            Terminal.Shutdown();
             return;
         }
 
-        if (!Terminal.HasProcess)
+        if (!Terminal.HasPtyConnection)
         {
             // The terminal control swallows spawn failures (e.g. a missing SHELL/COMSPEC), so no
             // PTY exists. Surface it through the restart UI and leave the tab relaunchable.
@@ -123,12 +122,7 @@ public partial class TerminalTabView : UserControl
             return;
         }
 
-        // Set only after a confirmed live PTY so OnViewModelDisposed knows there is one to kill.
         _launched = true;
-
-        // Keep the PTY session alive while the tab is re-docked; the process is
-        // killed explicitly when the view-model (i.e. the tab) is disposed.
-        Terminal.BeginReparent();
     }
 
     private void OnProcessExited(object? sender, ProcessExitedEventArgs e)
@@ -143,17 +137,16 @@ public partial class TerminalTabView : UserControl
     private void OnViewModelDisposed(object? sender, EventArgs e)
     {
         _disposed = true;
+        // Shutdown (not just Kill) so the connection and read-cancellation source are disposed even
+        // when no later detach runs the cleanup — an inactive tab is already detached when closed.
         Terminal.EndReparent();
-        if (_launched)
+        try
         {
-            try
-            {
-                Terminal.Kill();
-            }
-            catch
-            {
-                // The PTY may already be gone; tearing down the tab must not throw.
-            }
+            Terminal.Shutdown();
+        }
+        catch
+        {
+            // The PTY may already be gone; tearing down the tab must not throw.
         }
     }
 }

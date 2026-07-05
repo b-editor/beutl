@@ -78,8 +78,13 @@ public sealed class TerminalTabViewModel : IToolContext
 
         // GUI-launched macOS/Linux apps carry no locale in their environment, which drops
         // shells and TUI apps into the C locale and garbles multi-byte output.
-        return cultureName.Contains('-')
-            ? cultureName.Replace('-', '_') + ".UTF-8"
+        // POSIX locale names are language[_TERRITORY]; keep the language and the ISO-3166 territory
+        // (a two-letter uppercase subtag), skipping any script subtag such as "Hant" in zh-Hant-TW,
+        // which would otherwise produce an invalid locale like zh_Hant_TW.UTF-8.
+        string[] parts = cultureName.Split('-');
+        string? region = Array.FindLast(parts, static p => p.Length == 2 && p.All(char.IsAsciiLetterUpper));
+        return parts.Length > 0 && !string.IsNullOrEmpty(parts[0]) && region is not null
+            ? $"{parts[0]}_{region}.UTF-8"
             : "en_US.UTF-8";
     }
 

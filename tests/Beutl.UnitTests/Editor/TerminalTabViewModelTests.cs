@@ -96,6 +96,10 @@ public class TerminalTabViewModelTests
     [TestCase("ja-JP", "ja_JP.UTF-8")]
     [TestCase("en-US", "en_US.UTF-8")]
     [TestCase("", "en_US.UTF-8")]
+    [TestCase("zh-Hant-TW", "zh_TW.UTF-8")]
+    [TestCase("zh-Hans-CN", "zh_CN.UTF-8")]
+    [TestCase("sr-Latn-RS", "sr_RS.UTF-8")]
+    [TestCase("en", "en_US.UTF-8")]
     public void ResolveLangFallback_BuildsUtf8Locale_WhenEnvironmentHasNoLocale(
         string cultureName, string expected)
     {
