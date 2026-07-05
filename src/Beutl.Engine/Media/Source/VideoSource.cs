@@ -12,6 +12,10 @@ namespace Beutl.Media.Source;
 public sealed class VideoSource : MediaSource
 {
     private WeakReference<Counter<MediaReader>>? _mediaReaderRef;
+    // The proxy version/preset the shared reader above was opened with. A fresh Resource compares the
+    // current context against THESE (not its own default-valued loaded fields) to decide reuse.
+    private long _sharedReaderProxyVersion;
+    private ProxyPreset _sharedReaderProxyPreset;
 
     public VideoSource()
     {
@@ -121,8 +125,8 @@ public sealed class VideoSource : MediaSource
                 Counter<MediaReader>? shared = null;
                 bool canReuseShared = !context.DisableResourceShare
                     && (!context.PreferProxy
-                        || (_loadedProxyResolverVersion == proxyResolverVersion
-                            && _loadedPreferredProxyPreset == context.PreferredProxyPreset));
+                        || (Volatile.Read(ref videoSource._sharedReaderProxyVersion) == proxyResolverVersion
+                            && videoSource._sharedReaderProxyPreset == context.PreferredProxyPreset));
                 if (canReuseShared)
                 {
                     var localRef = Volatile.Read(ref videoSource._mediaReaderRef);
@@ -167,6 +171,10 @@ public sealed class VideoSource : MediaSource
                         if (!context.DisableResourceShare
                             && (!context.PreferProxy || reader.ProxyResolution != null))
                         {
+                            // Record the version/preset this shared reader was opened with, before
+                            // publishing it, so a later fresh Resource can validate reuse against it.
+                            videoSource._sharedReaderProxyPreset = context.PreferredProxyPreset;
+                            Volatile.Write(ref videoSource._sharedReaderProxyVersion, proxyResolverVersion);
                             Volatile.Write(ref videoSource._mediaReaderRef, new(_counter));
                         }
                     }

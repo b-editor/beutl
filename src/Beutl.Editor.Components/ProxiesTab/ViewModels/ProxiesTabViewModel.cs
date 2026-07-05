@@ -419,13 +419,21 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
         Dictionary<string, ProxyPreset> selectedPresets = Clips.ToDictionary(
             static clip => clip.Path,
             static clip => clip.Preset.Value);
+        // Carry the selection across the rebuild too: a background proxy finishing (Registered/
+        // StateChanged) or terminal job triggers Refresh, and losing the selection would silently
+        // drop clips the user had picked for a bulk generate/delete.
+        HashSet<string> selectedPaths =
+            [.. Clips.Where(static clip => clip.IsSelected.Value).Select(static clip => clip.Path)];
 
         ClearClips();
         foreach ((string path, ProxyFingerprint fingerprint) in EnumerateProjectVideoSources())
         {
             ProxyPreset preset = selectedPresets.GetValueOrDefault(path, FindDefaultPreset(fingerprint));
             ProxyEntry? entry = FindEntry(fingerprint, preset);
-            Clips.Add(new ProxyClipViewModel(this, path, fingerprint, preset, entry));
+            var clip = new ProxyClipViewModel(this, path, fingerprint, preset, entry);
+            if (selectedPaths.Contains(path))
+                clip.IsSelected.Value = true;
+            Clips.Add(clip);
         }
 
         RefreshJobs();

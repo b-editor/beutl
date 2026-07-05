@@ -368,6 +368,37 @@ public sealed class ProxiesTabViewModelTests
     }
 
     [Test]
+    public void OnStoreChanged_RegisteredEvent_PreservesClipSelection()
+    {
+        string root = CreateRoot();
+        string sourcePath = CreateSourceFile(root, "clip.mov", 1024);
+        var store = new ProxyStore(Path.Combine(root, "proxies"));
+
+        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
+        ProxyClipViewModel clip = viewModel.Clips.Single();
+        clip.ToggleSelection();
+        string selectedPath = clip.Path;
+
+        // A background proxy finishing raises Registered, which rebuilds the clip list; the user's
+        // selection must survive the rebuild, not just the selected preset.
+        ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(sourcePath);
+        DateTime now = DateTime.UtcNow;
+        RegisterProxyEntry(store, new ProxyEntry(
+            fingerprint,
+            ProxyPreset.Quarter,
+            ProxyState.Ready,
+            "hash/quarter.mp4",
+            512,
+            new PixelSize(1920, 1080),
+            new PixelSize(480, 270),
+            now,
+            now,
+            null));
+
+        Assert.That(viewModel.Clips.Single(c => c.Path == selectedPath).IsSelected.Value, Is.True);
+    }
+
+    [Test]
     public async Task Delete_CancelsMatchingQueuedGeneration()
     {
         string root = CreateRoot();

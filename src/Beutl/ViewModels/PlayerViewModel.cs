@@ -1561,6 +1561,10 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         }
     }
 
+    // Re-render the current frame into the viewport. Used when something outside the normal edit /
+    // playback path (e.g. a PreviewSourceMode switch) invalidates the shown frame while paused.
+    public void QueuePreviewRender() => QueueRender();
+
     private void QueueRender()
     {
         if (EditViewModel.Renderer.Value.IsGraphicsRendering)

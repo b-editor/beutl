@@ -21,6 +21,13 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
 
     private static readonly ILogger s_logger = Log.CreateLogger<ProxyMediaServices>();
     private static readonly IReadOnlySet<string> s_noOpenProjectSources = new HashSet<string>();
+
+    // Set while the pre-generate headroom sweep runs on the drain thread. There, collecting sources
+    // must not block on the UI thread: application exit awaits the queue drain while the drain would
+    // await the UI thread -> deadlock. Background sweeps leave this false and marshal to the UI thread.
+    [ThreadStatic]
+    private static bool t_inDrainPathSweep;
+
     private bool _disposed;
     private int _diskPressureSweepActive;
 
@@ -202,8 +209,9 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
     {
         // Eviction sweeps run on background threads, but this walks project / element / node-graph
         // state that the UI thread mutates. Read it on the UI thread so the collected set is a
-        // consistent snapshot rather than a torn read that could fall back to global LRU.
-        if (!Dispatcher.UIThread.CheckAccess())
+        // consistent snapshot rather than a torn read that could fall back to global LRU — except in
+        // the drain-path sweep, where blocking on the UI thread would deadlock shutdown (see the flag).
+        if (!t_inDrainPathSweep && !Dispatcher.UIThread.CheckAccess())
         {
             try
             {
@@ -289,7 +297,18 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
 
         public ValueTask GenerateAsync(ProxyJob job)
         {
-            SweepForDiskPressureBestEffort(eviction);
+            // Runs on the drain thread; flag it so the headroom sweep's source collection reads
+            // best-effort here instead of synchronously invoking the UI thread (shutdown deadlock).
+            t_inDrainPathSweep = true;
+            try
+            {
+                SweepForDiskPressureBestEffort(eviction);
+            }
+            finally
+            {
+                t_inDrainPathSweep = false;
+            }
+
             return inner.GenerateAsync(job);
         }
     }

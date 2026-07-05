@@ -985,8 +985,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             return;
         }
 
-        if (ResolveProxyFingerprint() is not { } fingerprint
-            || !string.Equals(fingerprint.AbsolutePath, e.Source.AbsolutePath, StringComparison.Ordinal))
+        if (!ElementUsesChangedSource(e.Source.AbsolutePath))
         {
             return;
         }
@@ -995,6 +994,25 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             _thumbnailCacheService.Invalidate(_lastThumbnailsCacheKey);
 
         UpdateThumbnailsAsync();
+    }
+
+    private bool ElementUsesChangedSource(string changedSourceKey)
+    {
+        // Match against every proxy-aware source (not just the first), so a store event for a source
+        // reached only through an animated value / graph input / referenced scene still invalidates
+        // the filmstrip. Resolve via FromFile so a symlinked source matches its own event key.
+        foreach (VideoSource source in ProxySourceEnumerator.EnumerateVideoSources(Model))
+        {
+            if (source is { HasUri: true }
+                && source.Uri is { IsFile: true } uri
+                && ProxyFingerprint.TryFromFile(uri.LocalPath, out ProxyFingerprint fingerprint)
+                && string.Equals(fingerprint.AbsolutePath, changedSourceKey, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private void RefreshProxyState(bool invalidateFingerprintCache = false)

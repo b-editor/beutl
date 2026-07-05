@@ -117,7 +117,13 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
             .DisposeWith(_disposables)!;
         scene.GetObservable(Scene.PreviewSourceModeProperty)
             .Skip(1)
-            .Subscribe(_ => FrameCacheManager.Value.Clear())
+            .Subscribe(_ =>
+            {
+                FrameCacheManager.Value.Clear();
+                // Clearing the cache alone leaves a paused viewport showing the old decode path until
+                // an unrelated edit/scrub; queue a render so the switch is visible immediately.
+                Player.QueuePreviewRender();
+            })
             .DisposeWith(_disposables);
         GlobalConfiguration.Instance.ProxyStoreConfig.GetObservable(ProxyStoreConfig.DefaultPresetProperty)
             .Skip(1)

@@ -60,6 +60,31 @@ public class SourceVideoThumbnailProxyTests
         Assert.That(resolver.ResolveCallCount, Is.Zero);
     }
 
+    [Test]
+    public void PreferProxy_SecondFreshResource_ReusesSharedReaderWithoutReopening()
+    {
+        using var scope = ProxyScope.Create(new PixelSize(100, 100), new PixelSize(50, 50));
+        var resolver = new SpyProxyResolver(new ProxyResolver(scope.Store));
+        DecoderRegistry.ProxyResolver = resolver;
+
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(scope.OriginalPath));
+        var context = new CompositionContext(TimeSpan.Zero) { PreferProxy = true };
+
+        using var first = source.ToResource(context);
+        int resolvesAfterFirst = resolver.ResolveCallCount;
+
+        using var second = source.ToResource(context);
+
+        // A fresh Resource must reuse the source's shared proxy reader rather than opening (and
+        // resolving) a second one; before the fix its default-valued loaded fields blocked reuse.
+        Assert.Multiple(() =>
+        {
+            Assert.That(resolvesAfterFirst, Is.GreaterThan(0), "the first resource should open a proxy reader");
+            Assert.That(resolver.ResolveCallCount, Is.EqualTo(resolvesAfterFirst));
+        });
+    }
+
     // startIndex > endIndex skips the per-frame rasterization loop (which needs a GPU), so only the
     // media-open seam runs — enough to observe whether the proxy resolver was consulted GPU-free.
     private static async Task ConsumeThumbnailProbeAsync(string originalPath, bool preferProxy)
