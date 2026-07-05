@@ -539,8 +539,11 @@ public sealed class ProxyStore : IProxyStore
                         : localEntry.LastUsedUtc;
                     merged[key] = diskEntry with { LastUsedUtc = lastUsedUtc };
                 }
-                else
+                else if (!effectiveChanged.Contains(key))
                 {
+                    // A touched key that is not yet on disk but is pending persistence (e.g. a
+                    // registration degraded by transient lock contention) must survive this replay;
+                    // the effectiveChanged pass below writes it. Only drop keys with no pending change.
                     _entries.Remove(key);
                 }
             }

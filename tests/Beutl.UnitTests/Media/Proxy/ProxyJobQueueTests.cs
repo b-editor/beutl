@@ -428,6 +428,58 @@ public class ProxyJobQueueTests
         });
     }
 
+    [Test]
+    public async Task UnavailableGenerator_WithoutAvailabilitySignal_SkipsInsteadOfRequeueingForever()
+    {
+        await using var queue = new ProxyJobQueue(new PermanentlyUnavailableGenerator());
+        ProxyFingerprint first = CreateFingerprint("a.mov");
+        ProxyFingerprint second = CreateFingerprint("b.mov");
+
+        ProxyJob firstJob = await queue.EnqueueAsync(first, ProxyPreset.Quarter);
+        ProxyJob secondJob = await queue.EnqueueAsync(second, ProxyPreset.Quarter);
+        await WaitForTerminalAsync(firstJob);
+        await WaitForTerminalAsync(secondJob);
+
+        // No availability signal means the queue can never learn the generator recovered; the jobs
+        // must reach a terminal Skipped state instead of requeueing forever and blocking the queue.
+        Assert.Multiple(() =>
+        {
+            Assert.That(firstJob.Status, Is.EqualTo(ProxyJobStatus.Skipped));
+            Assert.That(secondJob.Status, Is.EqualTo(ProxyJobStatus.Skipped));
+            Assert.That(queue.Pending(), Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task Cancel_ParkedUnavailableJob_WakesDrainLoopWithoutWaitingBackoff()
+    {
+        ProxyFingerprint parked = CreateFingerprint("parked.mov");
+        ProxyFingerprint follower = CreateFingerprint("follower.mov");
+        var generator = new SourceScopedUnavailableGenerator(parked);
+        await using var queue = new ProxyJobQueue(
+            generator,
+            store: null,
+            capacity: 256,
+            minUnavailableBackoff: TimeSpan.FromSeconds(30),
+            maxUnavailableBackoff: TimeSpan.FromSeconds(30));
+
+        ProxyJob parkedJob = await queue.EnqueueAsync(parked, ProxyPreset.Quarter);
+        await generator.FirstUnavailable.WaitAsync(TimeSpan.FromSeconds(5));
+        ProxyJob followerJob = await queue.EnqueueAsync(follower, ProxyPreset.Quarter);
+
+        queue.Cancel(parkedJob.JobId);
+
+        // Canceling the parked job must wake the single drain loop so the follower runs; without it
+        // the loop would sleep the full 30s backoff and this wait would time out.
+        await WaitForTerminalAsync(followerJob);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(parkedJob.Status, Is.EqualTo(ProxyJobStatus.Canceled));
+            Assert.That(followerJob.Status, Is.EqualTo(ProxyJobStatus.Succeeded));
+        });
+    }
+
     private static async Task WaitForTerminalAsync(ProxyJob job)
     {
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
@@ -534,6 +586,44 @@ public class ProxyJobQueueTests
         public ValueTask GenerateAsync(ProxyJob job)
         {
             throw new InvalidOperationException("encode failed");
+        }
+    }
+
+    // Throws unavailable but exposes no IProxyGeneratorAvailability, so the queue can never learn it
+    // recovered (mirrors a build without FFmpeg).
+    private sealed class PermanentlyUnavailableGenerator : IProxyGenerator
+    {
+        public ValueTask GenerateAsync(ProxyJob job)
+        {
+            throw new ProxyGeneratorUnavailableException("permanently unavailable");
+        }
+    }
+
+    // Reports availability but throws unavailable for one specific source (which therefore parks on
+    // backoff) while succeeding for any other source. IsAvailable stays false so the parked job keeps
+    // waiting until something wakes the drain loop; no availability event is ever raised.
+    private sealed class SourceScopedUnavailableGenerator(ProxyFingerprint unavailableSource)
+        : IProxyGenerator, IProxyGeneratorAvailability
+    {
+        private readonly TaskCompletionSource _firstUnavailable = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public bool IsAvailable => false;
+
+        public Task FirstUnavailable => _firstUnavailable.Task;
+
+#pragma warning disable CS0067 // Never raised: this test drives recovery via cancellation, not the event.
+        public event EventHandler? AvailabilityChanged;
+#pragma warning restore CS0067
+
+        public ValueTask GenerateAsync(ProxyJob job)
+        {
+            if (job.Source == unavailableSource)
+            {
+                _firstUnavailable.TrySetResult();
+                throw new ProxyGeneratorUnavailableException("scoped unavailable");
+            }
+
+            return ValueTask.CompletedTask;
         }
     }
 

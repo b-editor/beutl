@@ -258,14 +258,26 @@ public sealed class ProxyJobQueue : IProxyJobQueue
             {
                 CompleteCanceled(item);
             }
-            catch (ProxyGeneratorUnavailableException)
+            catch (ProxyGeneratorUnavailableException ex)
             {
-                // Unavailability is environmental, not the job's fault: keep the job Queued and
-                // re-probe after a bounded backoff, so a transient failure self-recovers and a
-                // genuinely-missing install keeps the job (and its install prompt) alive.
-                requeued = RequeueForRetry(item);
-                if (!requeued)
-                    CompleteCanceled(item);
+                if (_generatorAvailability == null)
+                {
+                    // With no availability signal the queue can never learn the generator recovered,
+                    // so requeuing would occupy the serial queue forever (e.g. a build without FFmpeg).
+                    // Treat it as a terminal skip instead.
+                    item.Job.Status = ProxyJobStatus.Skipped;
+                    item.Job.StatusMessage = ex.Message;
+                    OnJobChanged(item.Job, ProxyJobChangeKind.Skipped);
+                }
+                else
+                {
+                    // Unavailability is environmental, not the job's fault: keep the job Queued and
+                    // re-probe after a bounded backoff, so a transient failure self-recovers and a
+                    // genuinely-missing install keeps the job (and its install prompt) alive.
+                    requeued = RequeueForRetry(item);
+                    if (!requeued)
+                        CompleteCanceled(item);
+                }
             }
             catch (Exception ex)
             {
@@ -282,7 +294,7 @@ public sealed class ProxyJobQueue : IProxyJobQueue
                 return;
             }
 
-            await WaitForGeneratorResumeOrDisposeAsync().ConfigureAwait(false);
+            await WaitForGeneratorResumeOrDisposeAsync(item.Token).ConfigureAwait(false);
             if (_disposeCts.IsCancellationRequested)
                 return;
         }
@@ -297,7 +309,7 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         return true;
     }
 
-    private async Task WaitForGeneratorResumeOrDisposeAsync()
+    private async Task WaitForGeneratorResumeOrDisposeAsync(CancellationToken jobCancellation)
     {
         Task resumeTask;
         lock (_lock)
@@ -312,9 +324,12 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         }
 
         TimeSpan backoff = NextUnavailableBackoff();
+        // Wake on the parked job's own cancellation too: otherwise canceling it leaves the single
+        // drain loop asleep for up to the backoff (30s), blocking every later job behind it.
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(_disposeCts.Token, jobCancellation);
         try
         {
-            await resumeTask.WaitAsync(backoff, _disposeCts.Token).ConfigureAwait(false);
+            await resumeTask.WaitAsync(backoff, linked.Token).ConfigureAwait(false);
         }
         catch (TimeoutException)
         {
@@ -467,6 +482,10 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         public ProxyJob Job { get; } = job;
 
         public CancellationTokenSource Cancellation { get; } = cancellation;
+
+        // Captured up front so a waiter can observe cancellation even after the source is disposed
+        // (reading Cancellation.Token after Dispose throws); the token value stays valid.
+        public CancellationToken Token { get; } = cancellation.Token;
 
         public bool TryStart()
         {

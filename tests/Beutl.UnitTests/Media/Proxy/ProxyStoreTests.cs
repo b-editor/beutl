@@ -173,6 +173,37 @@ public sealed class ProxyStoreTests
     }
 
     [Test]
+    public void FlushCore_DegradedRegistrationSurvivesTouchReplay()
+    {
+        string root = CreateRoot();
+        var store = new ProxyStore(root, lockAcquireMaxAttempts: 0);
+        ProxyEntry entry = CreateEntry(root, "hash/quarter.mp4");
+
+        // Hold the index lock so Register degrades: the entry stays only in memory + pending
+        // persistence. A Touch while degraded then marks the same key touch-dirty.
+        string lockPath = Path.Combine(root, "index.lock");
+        using (new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None))
+        {
+            store.Register(entry);
+            Assert.That(store.IsPersistenceDegraded, Is.True);
+            store.Touch(entry.Source, entry.Preset, DateTime.UtcNow);
+        }
+
+        // Lock released: the replay flush must persist the pending registration, not drop it via the
+        // touch-replay branch.
+        store.FlushAsync(CancellationToken.None).GetAwaiter().GetResult();
+
+        var reloaded = new ProxyStore(root);
+        ProxyEntry? persisted = reloaded.TryGet(entry.Source, entry.Preset);
+        Assert.Multiple(() =>
+        {
+            Assert.That(persisted, Is.Not.Null);
+            Assert.That(persisted!.State, Is.EqualTo(ProxyState.Ready));
+            Assert.That(persisted.ProxyFileRelative, Is.EqualTo(entry.ProxyFileRelative));
+        });
+    }
+
+    [Test]
     public void LoadIndex_IgnoresPreviousStoreVersion()
     {
         string root = CreateRoot();
