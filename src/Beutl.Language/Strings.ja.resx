@@ -1319,10 +1319,10 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>プレビューソース</value>
   </data>
   <data name="PreviewSourcePreferProxy" xml:space="preserve">
-    <value>プロキシ</value>
+    <value>プロキシ優先</value>
   </data>
   <data name="PreviewSourceForceOriginal" xml:space="preserve">
-    <value>オリジナル</value>
+    <value>オリジナル強制</value>
   </data>
   <data name="ProxyPresetQuarter" xml:space="preserve">
     <value>プロキシ 1/4</value>

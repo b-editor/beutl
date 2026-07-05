@@ -6,14 +6,16 @@ using Beutl.Graphics.Effects;
 using Beutl.Media.Source;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
+using Beutl.NodeGraph.Nodes.Group;
 using Beutl.ProjectSystem;
 
 namespace Beutl.Editor.Components.ProxiesTab;
 
 // Single source of truth for "which VideoSource values does an element (transitively) use?". Proxy
 // resolution reaches SourceVideo drawables, VideoSourceNode graph inputs, and referenced scenes, and
-// each holder can carry animated (keyframed) values as well as its current value. Any caller that
-// decides proxy usage (project summary, frame-cache invalidation) must cover all of them.
+// each holder can carry animated (keyframed) values as well as its current value. The walk mirrors
+// the render path, so it descends into DrawableGroup children and node-graph GroupNode subgraphs too.
+// Any caller that decides proxy usage (project summary, frame-cache invalidation) must cover all of them.
 public static class ProxySourceEnumerator
 {
     public static IEnumerable<VideoSource> EnumerateVideoSources(Element element, HashSet<Scene>? visitedScenes = null)
@@ -24,56 +26,82 @@ public static class ProxySourceEnumerator
 
     private static IEnumerable<VideoSource> Enumerate(Element element, HashSet<Scene> visitedScenes)
     {
-        foreach (SourceVideo video in element.Objects.OfType<SourceVideo>())
+        foreach (Drawable drawable in element.Objects.OfType<Drawable>())
         {
-            foreach (VideoSource? source in EnumerateValues(video.Source))
-            {
-                if (source != null)
-                    yield return source;
-            }
+            foreach (VideoSource source in EnumerateDrawable(drawable, visitedScenes))
+                yield return source;
         }
+    }
 
-        foreach (NodeGraphDrawable graphDrawable in element.Objects.OfType<NodeGraphDrawable>())
+    private static IEnumerable<VideoSource> EnumerateDrawable(Drawable drawable, HashSet<Scene> visitedScenes)
+    {
+        switch (drawable)
         {
-            GraphModel? model = graphDrawable.Model.CurrentValue;
-            if (model == null)
-                continue;
-
-            foreach (VideoSourceNode node in model.Nodes.OfType<VideoSourceNode>())
-            {
-                if (node.Source.Property == null)
-                    continue;
-
-                foreach (VideoSource? source in EnumerateValues(node.Source.Property))
+            case SourceVideo video:
+                foreach (VideoSource? source in EnumerateValues(video.Source))
                 {
                     if (source != null)
                         yield return source;
                 }
-            }
+
+                break;
+
+            case NodeGraphDrawable graphDrawable when graphDrawable.Model.CurrentValue is { } model:
+                foreach (VideoSource source in EnumerateGraphSources(model))
+                    yield return source;
+
+                break;
+
+            case SceneDrawable sceneDrawable when sceneDrawable.ReferencedScene.CurrentValue is { } referencedScene:
+                // Scene references are user-constructible and can cycle; the visited set makes the walk
+                // terminate (render-time Enter/Exit is the only other guard).
+                if (visitedScenes.Add(referencedScene))
+                {
+                    foreach (Element child in referencedScene.Children)
+                    {
+                        foreach (VideoSource source in Enumerate(child, visitedScenes))
+                            yield return source;
+                    }
+                }
+
+                break;
+
+            case DrawableGroup group:
+                foreach (Drawable child in group.Children)
+                {
+                    foreach (VideoSource source in EnumerateDrawable(child, visitedScenes))
+                        yield return source;
+                }
+
+                break;
         }
 
         // A VideoSourceNode can also live inside a NodeGraphFilterEffect on any drawable's filter
         // chain; the render path evaluates those with proxy flags, so they must be scanned too.
-        foreach (Drawable drawable in element.Objects.OfType<Drawable>())
+        foreach (VideoSource source in EnumerateFilterEffectGraphSources(drawable.FilterEffect.CurrentValue))
+            yield return source;
+    }
+
+    private static IEnumerable<VideoSource> EnumerateGraphSources(GraphModel model)
+    {
+        foreach (GraphNode node in model.Nodes)
         {
-            foreach (VideoSource source in EnumerateFilterEffectGraphSources(drawable.FilterEffect.CurrentValue))
-                yield return source;
-        }
-
-        foreach (SceneDrawable sceneDrawable in element.Objects.OfType<SceneDrawable>())
-        {
-            if (sceneDrawable.ReferencedScene.CurrentValue is not { } referencedScene)
-                continue;
-
-            // Scene references are user-constructible and can cycle; the visited set makes the walk
-            // terminate (render-time Enter/Exit is the only other guard).
-            if (!visitedScenes.Add(referencedScene))
-                continue;
-
-            foreach (Element child in referencedScene.Children)
+            switch (node)
             {
-                foreach (VideoSource source in Enumerate(child, visitedScenes))
-                    yield return source;
+                case VideoSourceNode { Source.Property: { } property }:
+                    foreach (VideoSource? source in EnumerateValues(property))
+                    {
+                        if (source != null)
+                            yield return source;
+                    }
+
+                    break;
+
+                case GroupNode groupNode:
+                    foreach (VideoSource source in EnumerateGraphSources(groupNode.Group))
+                        yield return source;
+
+                    break;
             }
         }
     }
@@ -91,17 +119,8 @@ public static class ProxySourceEnumerator
         else if (effect is NodeGraphFilterEffect graphEffect
                  && graphEffect.Model.CurrentValue is { } model)
         {
-            foreach (VideoSourceNode node in model.Nodes.OfType<VideoSourceNode>())
-            {
-                if (node.Source.Property == null)
-                    continue;
-
-                foreach (VideoSource? source in EnumerateValues(node.Source.Property))
-                {
-                    if (source != null)
-                        yield return source;
-                }
-            }
+            foreach (VideoSource source in EnumerateGraphSources(model))
+                yield return source;
         }
     }
 

@@ -6,6 +6,7 @@ using Beutl.Graphics.Effects;
 using Beutl.Media.Source;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
+using Beutl.NodeGraph.Nodes.Group;
 using Beutl.ProjectSystem;
 
 namespace Beutl.UnitTests.Editor;
@@ -70,6 +71,32 @@ public class ProxySourceEnumeratorTests
         Element element = ElementWith(sceneDrawable);
 
         Assert.That(FileNames(element), Is.EquivalentTo(new[] { "nested.mov" }));
+    }
+
+    [Test]
+    public void EnumerateVideoSources_RecursesIntoDrawableGroupChildren()
+    {
+        var nested = new SourceVideo();
+        nested.Source.CurrentValue = CreateVideoSource("grouped.mov");
+        var group = new DrawableGroup();
+        group.Children.Add(nested);
+        Element element = ElementWith(group);
+
+        Assert.That(FileNames(element), Does.Contain("grouped.mov"));
+    }
+
+    [Test]
+    public void EnumerateVideoSources_RecursesIntoGroupNodeSubgraph()
+    {
+        var node = new VideoSourceNode();
+        node.Source.Property!.SetValue(CreateVideoSource("group-node.mov"));
+        var groupNode = new GroupNode();
+        groupNode.Group.Nodes.Add(node);
+        var drawable = new NodeGraphDrawable();
+        drawable.Model.CurrentValue!.Nodes.Add(groupNode);
+        Element element = ElementWith(drawable);
+
+        Assert.That(FileNames(element), Does.Contain("group-node.mov"));
     }
 
     private static IEnumerable<string> FileNames(Element element)
