@@ -30,26 +30,44 @@
                            Text="{x:Static lang:SettingsStrings.AiAgents_Target}"
                            Theme="{StaticResource BodyStrongTextBlockStyle}" />
 
-                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.AiAgents_AgentRoot_Description}" Header="{x:Static lang:SettingsStrings.AiAgents_AgentRoot}">
-                    <ctrls:OptionsDisplayItem.ActionButton>
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <TextBox MinWidth="280" Text="{Binding AgentRoot.Value}" />
-                            <Button Click="BrowseAgentRoot_Click" Content="..." />
-                        </StackPanel>
-                    </ctrls:OptionsDisplayItem.ActionButton>
-                </ctrls:OptionsDisplayItem>
-
-                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.AiAgents_Layout_Description}" Header="{x:Static lang:SettingsStrings.AiAgents_Layout}">
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.AiAgents_Agent_Description}" Header="{x:Static lang:SettingsStrings.AiAgents_Agent}">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <ComboBox MinWidth="250"
-                                  ItemsSource="{Binding Layouts}"
-                                  SelectedItem="{Binding SelectedLayout.Value}">
+                                  ItemsSource="{Binding AgentChoices}"
+                                  SelectedItem="{Binding SelectedAgent.Value}">
                             <ComboBox.ItemTemplate>
-                                <DataTemplate x:DataType="vm:AgentInstallLayoutItem">
+                                <DataTemplate x:DataType="vm:AgentChoiceItem">
                                     <TextBlock Text="{Binding DisplayName}" />
                                 </DataTemplate>
                             </ComboBox.ItemTemplate>
                         </ComboBox>
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.AiAgents_Scope_Description}"
+                                          Header="{x:Static lang:SettingsStrings.AiAgents_Scope}"
+                                          IsEnabled="{Binding IsScopeSelectable.Value}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <ComboBox MinWidth="250"
+                                  ItemsSource="{Binding ScopeChoices}"
+                                  SelectedItem="{Binding SelectedScope.Value}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:InstallScopeItem">
+                                    <TextBlock Text="{Binding DisplayName}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.AiAgents_ProjectFolder_Description}"
+                                          Header="{x:Static lang:SettingsStrings.AiAgents_ProjectFolder}"
+                                          IsVisible="{Binding IsProjectFolderVisible.Value}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBox MinWidth="280" Text="{Binding ProjectRoot.Value}" />
+                            <Button Click="BrowseProjectRoot_Click" Content="..." />
+                        </StackPanel>
                     </ctrls:OptionsDisplayItem.ActionButton>
                 </ctrls:OptionsDisplayItem>
 
@@ -60,6 +78,41 @@
                             <Button Click="BrowseWorkspaceRoot_Click" Content="..." />
                         </StackPanel>
                     </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.AiAgents_Destinations_Description}"
+                                          Expands="True"
+                                          Header="{x:Static lang:SettingsStrings.AiAgents_Destinations}">
+                    <ctrls:OptionsDisplayItem.Content>
+                        <Grid Margin="40,0,40,8"
+                              ColumnDefinitions="180,*"
+                              ColumnSpacing="8"
+                              RowDefinitions="Auto,Auto,Auto"
+                              RowSpacing="4">
+                            <TextBlock Text="{x:Static lang:SettingsStrings.AiAgents_Skills}" />
+                            <SelectableTextBlock Grid.Column="1"
+                                                 FontFamily="Cascadia Code,Consolas,Menlo,Monospace"
+                                                 FontSize="12"
+                                                 Text="{Binding ResolvedSkillsPath.Value}"
+                                                 TextWrapping="Wrap" />
+
+                            <TextBlock Grid.Row="1" Text="{x:Static lang:SettingsStrings.AiAgents_Subagents}" />
+                            <SelectableTextBlock Grid.Row="1"
+                                                 Grid.Column="1"
+                                                 FontFamily="Cascadia Code,Consolas,Menlo,Monospace"
+                                                 FontSize="12"
+                                                 Text="{Binding ResolvedSubagentsPath.Value}"
+                                                 TextWrapping="Wrap" />
+
+                            <TextBlock Grid.Row="2" Text="{x:Static lang:SettingsStrings.AiAgents_McpConfigFileName}" />
+                            <SelectableTextBlock Grid.Row="2"
+                                                 Grid.Column="1"
+                                                 FontFamily="Cascadia Code,Consolas,Menlo,Monospace"
+                                                 FontSize="12"
+                                                 Text="{Binding ResolvedMcpConfigPath.Value}"
+                                                 TextWrapping="Wrap" />
+                        </Grid>
+                    </ctrls:OptionsDisplayItem.Content>
                 </ctrls:OptionsDisplayItem>
 
                 <TextBlock Margin="0,16,0,0"
@@ -74,7 +127,9 @@
                     </ctrls:OptionsDisplayItem.ActionButton>
                 </ctrls:OptionsDisplayItem>
 
-                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.AiAgents_Subagents_Description}" Header="{x:Static lang:SettingsStrings.AiAgents_Subagents}">
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.AiAgents_Subagents_Description}"
+                                          Header="{x:Static lang:SettingsStrings.AiAgents_Subagents}"
+                                          IsEnabled="{Binding CanInstallSubagents.Value}">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <ToggleSwitch Classes="left"
                                       IsChecked="{Binding InstallSubagents.Value}"
@@ -82,7 +137,9 @@
                     </ctrls:OptionsDisplayItem.ActionButton>
                 </ctrls:OptionsDisplayItem>
 
-                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.AiAgents_StdioMcp_Description}" Header="{x:Static lang:SettingsStrings.AiAgents_StdioMcp}">
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.AiAgents_StdioMcp_Description}"
+                                          Header="{x:Static lang:SettingsStrings.AiAgents_StdioMcp}"
+                                          IsEnabled="{Binding CanInstallMcp.Value}">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <ToggleSwitch Classes="left"
                                       IsChecked="{Binding InstallStdioMcp.Value}"
@@ -92,13 +149,18 @@
 
                 <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.AiAgents_LiveMcp_Description}"
                                           Header="{x:Static lang:SettingsStrings.AiAgents_LiveMcp}"
-                                          IsEnabled="{Binding IsLiveMcpAvailable.Value}">
+                                          IsEnabled="{Binding CanInstallLiveMcp.Value}">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <ToggleSwitch Classes="left"
                                       IsChecked="{Binding InstallLiveMcp.Value}"
                                       Theme="{StaticResource CompactToggleSwitchStyle}" />
                     </ctrls:OptionsDisplayItem.ActionButton>
                 </ctrls:OptionsDisplayItem>
+
+                <ui:InfoBar IsClosable="False"
+                            IsOpen="{Binding !CanInstallMcp.Value}"
+                            Message="{x:Static lang:SettingsStrings.AiAgents_McpManual}"
+                            Severity="Informational" />
 
                 <ui:InfoBar IsClosable="False"
                             IsOpen="{Binding !IsLiveMcpAvailable.Value}"

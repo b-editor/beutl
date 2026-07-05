@@ -403,30 +403,6 @@
     <value>インストール先</value>
     <comment/>
   </data>
-  <data name="AiAgents_AgentRoot" xml:space="preserve">
-    <value>エージェントルート</value>
-    <comment/>
-  </data>
-  <data name="AiAgents_AgentRoot_Description" xml:space="preserve">
-    <value>AI エージェントが設定を読み込むフォルダー（ホームフォルダーまたはリポジトリのルート）</value>
-    <comment/>
-  </data>
-  <data name="AiAgents_Layout" xml:space="preserve">
-    <value>フォルダーレイアウト</value>
-    <comment/>
-  </data>
-  <data name="AiAgents_Layout_Description" xml:space="preserve">
-    <value>エージェントルート配下でのスキル・サブエージェントの配置先</value>
-    <comment/>
-  </data>
-  <data name="AiAgents_Layout_Generic" xml:space="preserve">
-    <value>汎用（skills / agents）</value>
-    <comment/>
-  </data>
-  <data name="AiAgents_Layout_ClaudeCode" xml:space="preserve">
-    <value>Claude Code（.claude）</value>
-    <comment/>
-  </data>
   <data name="AiAgents_WorkspaceRoot" xml:space="preserve">
     <value>ワークスペースルート</value>
     <comment/>
@@ -488,7 +464,7 @@
     <comment/>
   </data>
   <data name="AiAgents_Advanced_Description" xml:space="preserve">
-    <value>フォルダー名・MCP 設定ファイル・stdio サーバーのコマンドライン</value>
+    <value>フォルダー名や MCP 設定ファイルの上書きと、stdio サーバーのコマンドライン。空欄の項目は選択中エージェントの既定値が使われます</value>
     <comment/>
   </data>
   <data name="AiAgents_SkillsDirectory" xml:space="preserve">
@@ -527,12 +503,68 @@
     <value>インストールされたファイル</value>
     <comment/>
   </data>
-  <data name="AiAgents_SelectAgentRoot" xml:space="preserve">
-    <value>エージェントルートを選択</value>
-    <comment/>
-  </data>
   <data name="AiAgents_SelectWorkspaceRoot" xml:space="preserve">
     <value>ワークスペースルートを選択</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Agent" xml:space="preserve">
+    <value>エージェント</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Agent_Description" xml:space="preserve">
+    <value>ツールキットのインストール先となる AI コーディングエージェント（フォルダー規約はエージェントごとに追従します）</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Agent_Custom" xml:space="preserve">
+    <value>カスタム（パスを手動指定）</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Scope" xml:space="preserve">
+    <value>インストール範囲</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Scope_Description" xml:space="preserve">
+    <value>「プロジェクト」はプロジェクトフォルダーへ、「グローバル」はユーザープロファイルへインストールします</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Scope_Project" xml:space="preserve">
+    <value>プロジェクト</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Scope_Global" xml:space="preserve">
+    <value>グローバル（ユーザープロファイル）</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_ProjectFolder" xml:space="preserve">
+    <value>プロジェクトフォルダー</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_ProjectFolder_Description" xml:space="preserve">
+    <value>エージェントを実行するリポジトリ／プロジェクトのフォルダー</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_SelectProjectFolder" xml:space="preserve">
+    <value>プロジェクトフォルダーを選択</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_ProjectFolderMissing" xml:space="preserve">
+    <value>先にプロジェクトフォルダーを選択してください。</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Destinations" xml:space="preserve">
+    <value>インストール先パス</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Destinations_Description" xml:space="preserve">
+    <value>選択中のエージェントと範囲での各コンポーネントの配置先</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_NotSupported" xml:space="preserve">
+    <value>このエージェントでは未対応</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_McpManual" xml:space="preserve">
+    <value>このエージェントの MCP 設定は自動書き込みに対応していません。エージェント側の設定で MCP サーバーを手動登録してください。</value>
     <comment/>
   </data>
 </root>

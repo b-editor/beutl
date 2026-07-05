@@ -407,30 +407,6 @@
     <value>Installation target</value>
     <comment/>
   </data>
-  <data name="AiAgents_AgentRoot" xml:space="preserve">
-    <value>Agent root</value>
-    <comment/>
-  </data>
-  <data name="AiAgents_AgentRoot_Description" xml:space="preserve">
-    <value>Folder the AI agent reads its configuration from (your home folder or a repository root)</value>
-    <comment/>
-  </data>
-  <data name="AiAgents_Layout" xml:space="preserve">
-    <value>Folder layout</value>
-    <comment/>
-  </data>
-  <data name="AiAgents_Layout_Description" xml:space="preserve">
-    <value>Where skills and subagents are placed under the agent root</value>
-    <comment/>
-  </data>
-  <data name="AiAgents_Layout_Generic" xml:space="preserve">
-    <value>Generic (skills / agents)</value>
-    <comment/>
-  </data>
-  <data name="AiAgents_Layout_ClaudeCode" xml:space="preserve">
-    <value>Claude Code (.claude)</value>
-    <comment/>
-  </data>
   <data name="AiAgents_WorkspaceRoot" xml:space="preserve">
     <value>Workspace root</value>
     <comment/>
@@ -492,7 +468,7 @@
     <comment/>
   </data>
   <data name="AiAgents_Advanced_Description" xml:space="preserve">
-    <value>Folder names, MCP config file, and the stdio server command line</value>
+    <value>Overrides for folder names and the MCP config file, and the stdio server command line. Empty fields use the selected agent's defaults</value>
     <comment/>
   </data>
   <data name="AiAgents_SkillsDirectory" xml:space="preserve">
@@ -531,12 +507,68 @@
     <value>Installed files</value>
     <comment/>
   </data>
-  <data name="AiAgents_SelectAgentRoot" xml:space="preserve">
-    <value>Select the agent root</value>
-    <comment/>
-  </data>
   <data name="AiAgents_SelectWorkspaceRoot" xml:space="preserve">
     <value>Select the workspace root</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Agent" xml:space="preserve">
+    <value>Agent</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Agent_Description" xml:space="preserve">
+    <value>The AI coding agent to install the toolkit for (folder conventions follow each agent)</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Agent_Custom" xml:space="preserve">
+    <value>Custom (manual paths)</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Scope" xml:space="preserve">
+    <value>Install scope</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Scope_Description" xml:space="preserve">
+    <value>Project installs into a project folder; Global installs into your user profile</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Scope_Project" xml:space="preserve">
+    <value>Project</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Scope_Global" xml:space="preserve">
+    <value>Global (user profile)</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_ProjectFolder" xml:space="preserve">
+    <value>Project folder</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_ProjectFolder_Description" xml:space="preserve">
+    <value>Repository or project folder the agent runs in</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_SelectProjectFolder" xml:space="preserve">
+    <value>Select the project folder</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_ProjectFolderMissing" xml:space="preserve">
+    <value>Select a project folder first.</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Destinations" xml:space="preserve">
+    <value>Install destinations</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Destinations_Description" xml:space="preserve">
+    <value>Where the selected agent and scope place each component</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_NotSupported" xml:space="preserve">
+    <value>Not supported by this agent</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_McpManual" xml:space="preserve">
+    <value>This agent's MCP configuration cannot be written automatically. Register the MCP server manually in the agent's own settings.</value>
     <comment/>
   </data>
 </root>

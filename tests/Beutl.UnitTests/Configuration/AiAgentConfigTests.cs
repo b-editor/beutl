@@ -14,17 +14,18 @@ public class AiAgentConfigTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(config.AgentRoot, Is.Empty);
+            Assert.That(config.AgentId, Is.Empty);
+            Assert.That(config.InstallScope, Is.Empty);
+            Assert.That(config.ProjectRoot, Is.Empty);
             Assert.That(config.WorkspaceRoot, Is.Empty);
-            Assert.That(config.InstallLayout, Is.Empty);
             Assert.That(config.SkillsDirectory, Is.Empty);
             Assert.That(config.SubagentsDirectory, Is.Empty);
             Assert.That(config.InstallSkills, Is.True);
             Assert.That(config.InstallSubagents, Is.True);
             Assert.That(config.InstallStdioMcp, Is.True);
             Assert.That(config.InstallLiveMcp, Is.False);
-            Assert.That(config.McpConfigFileName, Is.EqualTo(".mcp.json"));
-            Assert.That(config.McpServersPropertyName, Is.EqualTo("servers"));
+            Assert.That(config.McpConfigFileName, Is.Empty);
+            Assert.That(config.McpServersPropertyName, Is.Empty);
         });
     }
 
@@ -33,9 +34,10 @@ public class AiAgentConfigTests
     {
         var source = new AiAgentConfig
         {
-            AgentRoot = "/repo",
+            AgentId = "codex",
+            InstallScope = "Global",
+            ProjectRoot = "/repo",
             WorkspaceRoot = "/videos",
-            InstallLayout = "ClaudeCode",
             SkillsDirectory = ".claude/skills",
             SubagentsDirectory = ".claude/agents",
             InstallSkills = false,
@@ -52,9 +54,10 @@ public class AiAgentConfigTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(restored.AgentRoot, Is.EqualTo(source.AgentRoot));
+            Assert.That(restored.AgentId, Is.EqualTo(source.AgentId));
+            Assert.That(restored.InstallScope, Is.EqualTo(source.InstallScope));
+            Assert.That(restored.ProjectRoot, Is.EqualTo(source.ProjectRoot));
             Assert.That(restored.WorkspaceRoot, Is.EqualTo(source.WorkspaceRoot));
-            Assert.That(restored.InstallLayout, Is.EqualTo(source.InstallLayout));
             Assert.That(restored.SkillsDirectory, Is.EqualTo(source.SkillsDirectory));
             Assert.That(restored.SubagentsDirectory, Is.EqualTo(source.SubagentsDirectory));
             Assert.That(restored.InstallSkills, Is.EqualTo(source.InstallSkills));
@@ -73,7 +76,7 @@ public class AiAgentConfigTests
         int raised = 0;
         config.ConfigurationChanged += (_, _) => raised++;
 
-        config.AgentRoot = "/repo";
+        config.AgentId = "claude-code";
 
         Assert.That(raised, Is.EqualTo(1));
     }

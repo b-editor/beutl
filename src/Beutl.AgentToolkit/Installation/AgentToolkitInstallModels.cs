@@ -6,12 +6,6 @@ public enum AgentToolkitAssetKind
     Subagent,
 }
 
-public enum AgentToolkitInstallLayout
-{
-    Generic,
-    ClaudeCode,
-}
-
 public sealed record AgentToolkitAsset(
     AgentToolkitAssetKind Kind,
     string RelativePath,
@@ -21,11 +15,9 @@ public sealed record AgentToolkitInstallOptions
 {
     public required string AgentRoot { get; init; }
 
-    public AgentToolkitInstallLayout Layout { get; init; }
+    public string SkillsDirectory { get; init; } = "skills";
 
-    public string? SkillsDirectory { get; init; }
-
-    public string? SubagentsDirectory { get; init; }
+    public string SubagentsDirectory { get; init; } = "agents";
 
     public bool InstallSkills { get; init; } = true;
 

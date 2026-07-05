@@ -17,21 +17,93 @@ public sealed class AiAgentSettingsPageViewModelTests
         return new AiAgentSettingsPageViewModel(endpoint, config);
     }
 
+    private static AgentChoiceItem Choice(AiAgentSettingsPageViewModel viewModel, string id)
+    {
+        return viewModel.AgentChoices.Single(a => a.Id == id);
+    }
+
     [AvaloniaTest]
-    public void Empty_config_falls_back_to_host_defaults()
+    public void Empty_config_defaults_to_first_catalog_agent_and_global_scope()
     {
         using AiAgentSettingsPageViewModel viewModel = CreateViewModel(new AiAgentConfig());
 
+        string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         Assert.Multiple(() =>
         {
-            Assert.That(viewModel.AgentRoot.Value, Is.Not.Empty);
+            Assert.That(viewModel.SelectedAgent.Value.Id, Is.EqualTo("claude-code"));
+            Assert.That(viewModel.SelectedScope.Value.Scope, Is.EqualTo(AgentInstallScope.Global));
+            Assert.That(viewModel.IsProjectFolderVisible.Value, Is.False);
+            Assert.That(viewModel.CanInstallSubagents.Value, Is.True);
+            Assert.That(viewModel.CanInstallMcp.Value, Is.True);
+            Assert.That(
+                viewModel.ResolvedSkillsPath.Value,
+                Is.EqualTo(Path.Combine(home, ".claude", "skills")));
+            Assert.That(
+                viewModel.ResolvedMcpConfigPath.Value,
+                Is.EqualTo(Path.Combine(home, ".claude.json")));
             Assert.That(viewModel.WorkspaceRoot.Value, Is.Not.Empty);
-            Assert.That(viewModel.SelectedLayout.Value.Layout, Is.EqualTo(AgentToolkitInstallLayout.Generic));
-            Assert.That(viewModel.SkillsDirectory.Value, Is.EqualTo("skills"));
-            Assert.That(viewModel.SubagentsDirectory.Value, Is.EqualTo("agents"));
-            Assert.That(viewModel.McpConfigFileName.Value, Is.EqualTo(".mcp.json"));
-            Assert.That(viewModel.McpServersPropertyName.Value, Is.EqualTo("servers"));
             Assert.That(viewModel.McpCommand.Value, Is.Not.Empty);
+        });
+    }
+
+    [AvaloniaTest]
+    public void Agent_without_mcp_support_disables_mcp_and_reports_unsupported_paths()
+    {
+        using AiAgentSettingsPageViewModel viewModel = CreateViewModel(new AiAgentConfig());
+
+        viewModel.SelectedAgent.Value = Choice(viewModel, "codex");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.CanInstallMcp.Value, Is.False);
+            Assert.That(viewModel.CanInstallSubagents.Value, Is.False);
+            Assert.That(viewModel.ResolvedSubagentsPath.Value, Is.Not.Empty);
+            Assert.That(viewModel.ResolvedMcpConfigPath.Value, Is.Not.Empty);
+            Assert.That(
+                viewModel.ResolvedSkillsPath.Value,
+                Does.EndWith(Path.Combine(".codex", "skills")));
+        });
+    }
+
+    [AvaloniaTest]
+    public void Scope_change_switches_between_home_and_project_paths()
+    {
+        var config = new AiAgentConfig();
+        using AiAgentSettingsPageViewModel viewModel = CreateViewModel(config);
+        viewModel.SelectedAgent.Value = Choice(viewModel, "codex");
+        viewModel.ProjectRoot.Value = "/repo";
+
+        viewModel.SelectedScope.Value = viewModel.ScopeChoices.Single(
+            s => s.Scope == AgentInstallScope.Project);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.IsProjectFolderVisible.Value, Is.True);
+            Assert.That(
+                viewModel.ResolvedSkillsPath.Value,
+                Is.EqualTo(Path.Combine("/repo", ".agents", "skills")));
+        });
+    }
+
+    [AvaloniaTest]
+    public void Custom_agent_uses_manual_paths_and_hides_scope()
+    {
+        using AiAgentSettingsPageViewModel viewModel = CreateViewModel(new AiAgentConfig());
+
+        viewModel.SelectedAgent.Value = Choice(viewModel, AiAgentSettingsPageViewModel.CustomAgentId);
+        viewModel.ProjectRoot.Value = "/anywhere";
+        viewModel.SkillsDirectory.Value = "my-skills";
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.IsCustomAgent.Value, Is.True);
+            Assert.That(viewModel.IsScopeSelectable.Value, Is.False);
+            Assert.That(viewModel.IsProjectFolderVisible.Value, Is.True);
+            Assert.That(viewModel.CanInstallSubagents.Value, Is.True);
+            Assert.That(viewModel.CanInstallMcp.Value, Is.True);
+            Assert.That(
+                viewModel.ResolvedSkillsPath.Value,
+                Is.EqualTo(Path.Combine("/anywhere", "my-skills")));
         });
     }
 
@@ -43,6 +115,7 @@ public sealed class AiAgentSettingsPageViewModelTests
         Assert.Multiple(() =>
         {
             Assert.That(viewModel.IsLiveMcpAvailable.Value, Is.False);
+            Assert.That(viewModel.CanInstallLiveMcp.Value, Is.False);
             Assert.That(viewModel.LiveMcpUrl.Value, Is.Empty);
         });
     }
@@ -53,48 +126,35 @@ public sealed class AiAgentSettingsPageViewModelTests
         var config = new AiAgentConfig();
         using (AiAgentSettingsPageViewModel viewModel = CreateViewModel(config))
         {
-            viewModel.AgentRoot.Value = "/repo";
+            viewModel.SelectedAgent.Value = Choice(viewModel, "cursor");
+            viewModel.SelectedScope.Value = viewModel.ScopeChoices.Single(
+                s => s.Scope == AgentInstallScope.Project);
+            viewModel.ProjectRoot.Value = "/repo";
             viewModel.WorkspaceRoot.Value = "/videos";
-            viewModel.SelectedLayout.Value = viewModel.Layouts.Single(
-                i => i.Layout == AgentToolkitInstallLayout.ClaudeCode);
             viewModel.InstallStdioMcp.Value = false;
-            viewModel.McpConfigFileName.Value = "mcp.json";
+            viewModel.McpConfigFileName.Value = "custom-mcp.json";
         }
 
         Assert.Multiple(() =>
         {
-            Assert.That(config.AgentRoot, Is.EqualTo("/repo"));
+            Assert.That(config.AgentId, Is.EqualTo("cursor"));
+            Assert.That(config.InstallScope, Is.EqualTo(nameof(AgentInstallScope.Project)));
+            Assert.That(config.ProjectRoot, Is.EqualTo("/repo"));
             Assert.That(config.WorkspaceRoot, Is.EqualTo("/videos"));
-            Assert.That(config.InstallLayout, Is.EqualTo(nameof(AgentToolkitInstallLayout.ClaudeCode)));
-            Assert.That(config.SkillsDirectory, Is.EqualTo(Path.Combine(".claude", "skills")));
             Assert.That(config.InstallStdioMcp, Is.False);
-            Assert.That(config.McpConfigFileName, Is.EqualTo("mcp.json"));
+            Assert.That(config.McpConfigFileName, Is.EqualTo("custom-mcp.json"));
         });
 
         using AiAgentSettingsPageViewModel restored = CreateViewModel(config);
         Assert.Multiple(() =>
         {
-            Assert.That(restored.AgentRoot.Value, Is.EqualTo("/repo"));
-            Assert.That(restored.WorkspaceRoot.Value, Is.EqualTo("/videos"));
-            Assert.That(restored.SelectedLayout.Value.Layout, Is.EqualTo(AgentToolkitInstallLayout.ClaudeCode));
-            Assert.That(restored.SkillsDirectory.Value, Is.EqualTo(Path.Combine(".claude", "skills")));
+            Assert.That(restored.SelectedAgent.Value.Id, Is.EqualTo("cursor"));
+            Assert.That(restored.SelectedScope.Value.Scope, Is.EqualTo(AgentInstallScope.Project));
+            Assert.That(restored.ProjectRoot.Value, Is.EqualTo("/repo"));
             Assert.That(restored.InstallStdioMcp.Value, Is.False);
-            Assert.That(restored.McpConfigFileName.Value, Is.EqualTo("mcp.json"));
-        });
-    }
-
-    [AvaloniaTest]
-    public void Layout_change_updates_preset_directories()
-    {
-        using AiAgentSettingsPageViewModel viewModel = CreateViewModel(new AiAgentConfig());
-
-        viewModel.SelectedLayout.Value = viewModel.Layouts.Single(
-            i => i.Layout == AgentToolkitInstallLayout.ClaudeCode);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(viewModel.SkillsDirectory.Value, Is.EqualTo(Path.Combine(".claude", "skills")));
-            Assert.That(viewModel.SubagentsDirectory.Value, Is.EqualTo(Path.Combine(".claude", "agents")));
+            Assert.That(
+                restored.ResolvedMcpConfigPath.Value,
+                Is.EqualTo(Path.Combine("/repo", "custom-mcp.json")));
         });
     }
 }

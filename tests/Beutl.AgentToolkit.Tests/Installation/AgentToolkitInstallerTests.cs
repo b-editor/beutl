@@ -104,7 +104,7 @@ public sealed class AgentToolkitInstallerTests
     }
 
     [Test]
-    public async Task InstallAsync_WritesGenericLayoutAndMergesMcpConfig()
+    public async Task InstallAsync_WritesDefaultDirectoriesAndMergesMcpConfig()
     {
         string configPath = Path.Combine(_tempRoot, ".mcp.json");
         await File.WriteAllTextAsync(
@@ -123,7 +123,6 @@ public sealed class AgentToolkitInstallerTests
             new AgentToolkitInstallOptions
             {
                 AgentRoot = _tempRoot,
-                Layout = AgentToolkitInstallLayout.Generic,
                 WorkspaceRoot = Path.Combine(_tempRoot, "workspace"),
                 StdioMcpCommand = "dotnet",
                 StdioMcpArguments = ["run", "--project", "server.csproj"],
@@ -152,15 +151,17 @@ public sealed class AgentToolkitInstallerTests
     }
 
     [Test]
-    public async Task InstallAsync_WritesClaudeLayoutAndLiveMcpConfig()
+    public async Task InstallAsync_WritesCatalogDirectoriesAndLiveMcpConfig()
     {
         Uri liveUri = new("http://127.0.0.1:12345/mcp?token=secret");
+        AgentDefinition claudeCode = AgentCatalog.Find("claude-code")!;
 
         await AgentToolkitInstaller.InstallAsync(
             new AgentToolkitInstallOptions
             {
                 AgentRoot = _tempRoot,
-                Layout = AgentToolkitInstallLayout.ClaudeCode,
+                SkillsDirectory = claudeCode.SkillsDirectory(AgentInstallScope.Project),
+                SubagentsDirectory = claudeCode.SubagentsDirectory(AgentInstallScope.Project)!,
                 InstallStdioMcp = false,
                 InstallLiveMcp = true,
                 LiveMcpUri = liveUri,

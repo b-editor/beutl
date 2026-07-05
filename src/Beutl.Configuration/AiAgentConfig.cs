@@ -4,9 +4,10 @@ namespace Beutl.Configuration;
 
 public sealed class AiAgentConfig : ConfigurationBase
 {
-    public static readonly CoreProperty<string> AgentRootProperty;
+    public static readonly CoreProperty<string> AgentIdProperty;
+    public static readonly CoreProperty<string> InstallScopeProperty;
+    public static readonly CoreProperty<string> ProjectRootProperty;
     public static readonly CoreProperty<string> WorkspaceRootProperty;
-    public static readonly CoreProperty<string> InstallLayoutProperty;
     public static readonly CoreProperty<string> SkillsDirectoryProperty;
     public static readonly CoreProperty<string> SubagentsDirectoryProperty;
     public static readonly CoreProperty<bool> InstallSkillsProperty;
@@ -18,15 +19,19 @@ public sealed class AiAgentConfig : ConfigurationBase
 
     static AiAgentConfig()
     {
-        AgentRootProperty = ConfigureProperty<string, AiAgentConfig>(nameof(AgentRoot))
+        AgentIdProperty = ConfigureProperty<string, AiAgentConfig>(nameof(AgentId))
+            .DefaultValue("")
+            .Register();
+
+        InstallScopeProperty = ConfigureProperty<string, AiAgentConfig>(nameof(InstallScope))
+            .DefaultValue("")
+            .Register();
+
+        ProjectRootProperty = ConfigureProperty<string, AiAgentConfig>(nameof(ProjectRoot))
             .DefaultValue("")
             .Register();
 
         WorkspaceRootProperty = ConfigureProperty<string, AiAgentConfig>(nameof(WorkspaceRoot))
-            .DefaultValue("")
-            .Register();
-
-        InstallLayoutProperty = ConfigureProperty<string, AiAgentConfig>(nameof(InstallLayout))
             .DefaultValue("")
             .Register();
 
@@ -55,31 +60,38 @@ public sealed class AiAgentConfig : ConfigurationBase
             .Register();
 
         McpConfigFileNameProperty = ConfigureProperty<string, AiAgentConfig>(nameof(McpConfigFileName))
-            .DefaultValue(".mcp.json")
+            .DefaultValue("")
             .Register();
 
         McpServersPropertyNameProperty = ConfigureProperty<string, AiAgentConfig>(nameof(McpServersPropertyName))
-            .DefaultValue("servers")
+            .DefaultValue("")
             .Register();
     }
 
-    // Empty means "use the host-computed default" (user profile / documents / layout preset).
-    public string AgentRoot
+    // Empty means "use the host-computed default" (first catalog agent, project
+    // scope, documents folder, or the selected agent's own conventions).
+    public string AgentId
     {
-        get => GetValue(AgentRootProperty);
-        set => SetValue(AgentRootProperty, value);
+        get => GetValue(AgentIdProperty);
+        set => SetValue(AgentIdProperty, value);
+    }
+
+    public string InstallScope
+    {
+        get => GetValue(InstallScopeProperty);
+        set => SetValue(InstallScopeProperty, value);
+    }
+
+    public string ProjectRoot
+    {
+        get => GetValue(ProjectRootProperty);
+        set => SetValue(ProjectRootProperty, value);
     }
 
     public string WorkspaceRoot
     {
         get => GetValue(WorkspaceRootProperty);
         set => SetValue(WorkspaceRootProperty, value);
-    }
-
-    public string InstallLayout
-    {
-        get => GetValue(InstallLayoutProperty);
-        set => SetValue(InstallLayoutProperty, value);
     }
 
     public string SkillsDirectory

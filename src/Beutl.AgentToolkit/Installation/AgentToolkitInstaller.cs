@@ -175,28 +175,12 @@ public static class AgentToolkitInstaller
     {
         string baseRelativePath = asset.Kind switch
         {
-            AgentToolkitAssetKind.Skill => string.IsNullOrWhiteSpace(options.SkillsDirectory)
-                ? GetDefaultAssetDirectory(options.Layout, AgentToolkitAssetKind.Skill)
-                : options.SkillsDirectory,
-            AgentToolkitAssetKind.Subagent => string.IsNullOrWhiteSpace(options.SubagentsDirectory)
-                ? GetDefaultAssetDirectory(options.Layout, AgentToolkitAssetKind.Subagent)
-                : options.SubagentsDirectory,
+            AgentToolkitAssetKind.Skill => options.SkillsDirectory,
+            AgentToolkitAssetKind.Subagent => options.SubagentsDirectory,
             _ => throw new ArgumentOutOfRangeException(nameof(asset)),
         };
 
         return GetSafeTargetPath(agentRoot, Path.Combine(baseRelativePath, asset.RelativePath));
-    }
-
-    private static string GetDefaultAssetDirectory(AgentToolkitInstallLayout layout, AgentToolkitAssetKind kind)
-    {
-        return (kind, layout) switch
-        {
-            (AgentToolkitAssetKind.Skill, AgentToolkitInstallLayout.ClaudeCode) => Path.Combine(".claude", "skills"),
-            (AgentToolkitAssetKind.Subagent, AgentToolkitInstallLayout.ClaudeCode) => Path.Combine(".claude", "agents"),
-            (AgentToolkitAssetKind.Skill, _) => "skills",
-            (AgentToolkitAssetKind.Subagent, _) => "agents",
-            _ => throw new ArgumentOutOfRangeException(nameof(kind)),
-        };
     }
 
     private static string EnsureDirectory(string path)

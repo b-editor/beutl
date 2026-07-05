@@ -13,13 +13,13 @@ public sealed partial class AiAgentSettingsPage : UserControl
         InitializeComponent();
     }
 
-    private async void BrowseAgentRoot_Click(object? sender, RoutedEventArgs e)
+    private async void BrowseProjectRoot_Click(object? sender, RoutedEventArgs e)
     {
-        await PickFolderAsync(SettingsStrings.AiAgents_SelectAgentRoot, path =>
+        await PickFolderAsync(SettingsStrings.AiAgents_SelectProjectFolder, path =>
         {
             if (DataContext is AiAgentSettingsPageViewModel vm)
             {
-                vm.AgentRoot.Value = path;
+                vm.ProjectRoot.Value = path;
             }
         });
     }
