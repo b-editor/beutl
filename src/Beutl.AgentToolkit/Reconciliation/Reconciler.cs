@@ -277,39 +277,61 @@ public sealed class Reconciler
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(desired);
 
-        ReconcileResult ApplyCore()
+        return Dispatch(session, () => ApplyCore(session, desired, knownNewIds));
+    }
+
+    // Resolve the desired document from the current one INSIDE the mutation dispatch, so a patch's
+    // read + merge + plan + mutate is one atomic operation on the editor thread — no torn read of the
+    // live scene, and a single dispatch (not one for the read and another for the write).
+    public ReconcileResult ApplyFromCurrent(
+        IEditingSession session,
+        Func<JsonObject, (JsonObject Desired, IReadOnlySet<Guid>? KnownNewIds)> resolve)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        ArgumentNullException.ThrowIfNull(resolve);
+
+        return Dispatch(session, () =>
         {
-            JsonObject desiredDocument = PrepareDesired(session, desired);
-            ReconcilePlan plan = PlanPrepared(session, desiredDocument, knownNewIds);
-            session.History.ExecuteInTransaction(
-                () =>
-                {
-                    session.Documents.Write(session.Root, desiredDocument);
-                    if (session.Root is Scene scene)
-                    {
-                        ProjectOperations.EnsureElementUris(scene);
-                    }
-                },
-                "Agent edit");
+            (JsonObject desired, IReadOnlySet<Guid>? knownNewIds) = resolve(session.Documents.Read(session.Root));
+            return ApplyCore(session, desired, knownNewIds);
+        });
+    }
 
-            if (session is FileEditingSession fileSession)
+    private ReconcileResult ApplyCore(IEditingSession session, JsonObject desired, IReadOnlySet<Guid>? knownNewIds)
+    {
+        JsonObject desiredDocument = PrepareDesired(session, desired);
+        ReconcilePlan plan = PlanPrepared(session, desiredDocument, knownNewIds);
+        session.History.ExecuteInTransaction(
+            () =>
             {
-                fileSession.MarkDirty();
-            }
+                session.Documents.Write(session.Root, desiredDocument);
+                if (session.Root is Scene scene)
+                {
+                    ProjectOperations.EnsureElementUris(scene);
+                }
+            },
+            "Agent edit");
 
-            return new ReconcileResult(plan, session.Documents.Read(session.Root));
+        if (session is FileEditingSession fileSession)
+        {
+            fileSession.MarkDirty();
         }
 
+        return new ReconcileResult(plan, session.Documents.Read(session.Root));
+    }
+
+    // Plan and mutate on the editor's dispatcher: reading session.Root/Documents off the MCP request
+    // thread would race the live scene the editor mutates on the UI thread. File sessions run inline.
+    private static ReconcileResult Dispatch(IEditingSession session, Func<ReconcileResult> core)
+    {
         if (session is IEditingSessionDispatcher dispatcher)
         {
-            // Plan and mutate on the editor's dispatcher: reading session.Root/Documents off the MCP
-            // request thread would race the live scene the editor mutates on the UI thread.
             ReconcileResult? result = null;
-            dispatcher.Invoke(() => result = ApplyCore());
+            dispatcher.Invoke(() => result = core());
             return result!;
         }
 
-        return ApplyCore();
+        return core();
     }
 
     private static ToolError? ValidateNewTypedObjectDiscriminators(JsonNode? node, string path)

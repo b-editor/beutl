@@ -25,7 +25,7 @@ public sealed class WorkspaceGuard : IWorkspaceGuard
         Root = Path.GetFullPath(root);
         Directory.CreateDirectory(Root);
         _comparison = OperatingSystem.IsLinux() ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
-        _canonicalRoot = ResolveExistingPath(Root);
+        _canonicalRoot = PathBoundary.ResolveExistingPath(Root);
         _canonicalRootWithSeparator = EnsureTrailingSeparator(_canonicalRoot);
     }
 
@@ -42,7 +42,7 @@ public sealed class WorkspaceGuard : IWorkspaceGuard
             ? Path.GetFullPath(requestedPath)
             : Path.GetFullPath(Path.Combine(Root, requestedPath));
 
-        string resolved = ResolveDeepestExistingAncestor(absolute);
+        string resolved = PathBoundary.ResolveDeepestExistingTarget(absolute);
         if (!IsInsideRoot(resolved))
         {
             throw new WorkspaceBoundaryException(requestedPath, resolved, "Write target is outside the configured workspace.");
@@ -63,48 +63,6 @@ public sealed class WorkspaceGuard : IWorkspaceGuard
         return Path.EndsInDirectorySeparator(path)
             ? path
             : path + Path.DirectorySeparatorChar;
-    }
-
-    private static string ResolveDeepestExistingAncestor(string absolute)
-    {
-        string? current = absolute;
-        var remainder = new Stack<string>();
-
-        while (!string.IsNullOrEmpty(current)
-               && !File.Exists(current)
-               && !Directory.Exists(current))
-        {
-            string? name = Path.GetFileName(current);
-            if (!string.IsNullOrEmpty(name))
-            {
-                remainder.Push(name);
-            }
-
-            current = Path.GetDirectoryName(current);
-        }
-
-        if (string.IsNullOrEmpty(current))
-        {
-            return absolute;
-        }
-
-        string resolved = ResolveExistingPath(current);
-        while (remainder.Count > 0)
-        {
-            resolved = Path.Combine(resolved, remainder.Pop());
-        }
-
-        return Path.GetFullPath(resolved);
-    }
-
-    private static string ResolveExistingPath(string path)
-    {
-        FileSystemInfo info = Directory.Exists(path)
-            ? new DirectoryInfo(path)
-            : new FileInfo(path);
-
-        FileSystemInfo? target = info.ResolveLinkTarget(returnFinalTarget: true);
-        return Path.GetFullPath(target?.FullName ?? info.FullName);
     }
 }
 

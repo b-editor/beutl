@@ -4,6 +4,7 @@ using Beutl.AgentToolkit.Rendering;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tools;
 using Beutl.AgentToolkit.Workspace;
+using Beutl.ProjectSystem;
 
 namespace Beutl.AgentToolkit.Tests.Tools;
 
@@ -121,6 +122,60 @@ public sealed class SessionSecurityTests
         {
             gate.SetResult();
         }
+    }
+
+    [Test]
+    public async Task Save_as_relocates_scene_sidecars_under_the_new_project()
+    {
+        string root = CreateWorkspace();
+        var manager = new AgentSessionManager();
+        using var source = new FileSessionSource();
+        SessionTools sessionTools = CreateSessionTools(source, manager, root);
+
+        ToolResult<CreateProjectResponse> created = await sessionTools.CreateProject(
+            "original.bep", width: 320, height: 180, frameRate: 30, duration: "00:00:02");
+        Assert.That(created.IsSuccess, Is.True, created.Error?.Message);
+        string originalSceneDir = Path.GetDirectoryName(((Scene)manager.RequireSession().Root).Uri!.LocalPath)!;
+
+        ToolResult<SaveProjectResponse> savedAs = sessionTools.SaveProject(created.Value!.Session, "copy.bep");
+        Assert.That(savedAs.IsSuccess, Is.True, savedAs.Error?.Message);
+
+        var scene = (Scene)manager.RequireSession().Root;
+        string projectDir = Path.GetDirectoryName(savedAs.Value!.SavedPath)!;
+
+        Assert.Multiple(() =>
+        {
+            // The copy's scene sidecar lives under a directory named for the new project, not the
+            // source project's scene directory (which would corrupt the original on save).
+            Assert.That(scene.Uri!.LocalPath, Does.StartWith(Path.Combine(projectDir, "copy")));
+            Assert.That(scene.Uri.LocalPath, Does.Not.StartWith(originalSceneDir));
+            Assert.That(File.Exists(scene.Uri.LocalPath), Is.True);
+        });
+    }
+
+    [Test]
+    public async Task Add_scene_switches_the_file_session_to_the_new_scene()
+    {
+        string root = CreateWorkspace();
+        var manager = new AgentSessionManager();
+        using var source = new FileSessionSource();
+        SessionTools sessionTools = CreateSessionTools(source, manager, root);
+
+        ToolResult<CreateProjectResponse> created = await sessionTools.CreateProject(
+            "switch.bep", width: 320, height: 180, frameRate: 30, duration: "00:00:04");
+        Assert.That(created.IsSuccess, Is.True, created.Error?.Message);
+
+        ToolResult<AddSceneResponse> added = await sessionTools.AddScene(
+            created.Value!.Session, width: 320, height: 180, start: "00:00:00", duration: "00:00:02", name: "second");
+        Assert.That(added.IsSuccess, Is.True, added.Error?.Message);
+
+        var active = (Scene)manager.RequireSession().Root;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(active.Id.ToString(), Is.EqualTo(added.Value!.SceneId));
+            Assert.That(active.Name, Is.EqualTo("second"));
+        });
     }
 
     private static SessionTools CreateSessionTools(FileSessionSource source, AgentSessionManager manager, string root)

@@ -48,6 +48,9 @@ public sealed class FileProjectSessionGateway(
     {
         Scene scene = fileSessions.AddScene(options);
         FileEditingSession session = fileSessions.CurrentFileSession!;
+        // Switch the session to the scene just added, so a following read_document/apply_edit/render
+        // on the returned session targets it rather than the previously active scene.
+        session.SetActiveScene(scene);
         return ValueTask.FromResult(new ProjectSceneResult(scene, session.Project, session));
     }
 }

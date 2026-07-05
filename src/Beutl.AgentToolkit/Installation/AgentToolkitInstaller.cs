@@ -1,6 +1,7 @@
 ﻿using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Beutl.AgentToolkit.Common;
 
 namespace Beutl.AgentToolkit.Installation;
 
@@ -244,14 +245,17 @@ public static class AgentToolkitInstaller
             throw new ArgumentException($"Path cannot contain parent directory traversal: {relativePath}", nameof(relativePath));
         }
 
-        string fullRoot = Path.GetFullPath(root);
+        string fullRoot = PathBoundary.ResolveExistingPath(Path.GetFullPath(root));
         string fullPath = Path.GetFullPath(Path.Combine(fullRoot, relativePath));
         string rootWithSeparator = fullRoot.EndsWith(Path.DirectorySeparatorChar)
             ? fullRoot
             : fullRoot + Path.DirectorySeparatorChar;
 
-        if (!fullPath.Equals(fullRoot, PathComparison)
-            && !fullPath.StartsWith(rootWithSeparator, PathComparison))
+        // Resolve through symlinks: a purely textual check would let an existing symlink/junction
+        // under the root redirect the write outside it.
+        string resolved = PathBoundary.ResolveDeepestExistingTarget(fullPath);
+        if (!resolved.Equals(fullRoot, PathComparison)
+            && !resolved.StartsWith(rootWithSeparator, PathComparison))
         {
             throw new ArgumentException($"Path escapes the agent root: {relativePath}", nameof(relativePath));
         }

@@ -203,6 +203,7 @@ public sealed class ElementTools(AgentSessionManager sessions) : ToolBase
             }
 
             session.History.ExecuteInTransaction(() => scene.Groups.Add(ids), "Agent group elements");
+            MarkFileSessionDirty(session);
             return new ReconcileResult(
                 new ReconcilePlan([new ChangeSetEntry("group-elements", "$/Groups", string.Join(",", ids))], []),
                 session.Documents.Read(session.Root));
@@ -234,10 +235,21 @@ public sealed class ElementTools(AgentSessionManager sessions) : ToolBase
                     }
                 },
                 "Agent ungroup elements");
+            MarkFileSessionDirty(session);
             return new ReconcileResult(
                 new ReconcilePlan([new ChangeSetEntry("ungroup-elements", "$/Groups", string.Join(",", ids))], []),
                 session.Documents.Read(session.Root));
         });
+    }
+
+    // group/ungroup mutate history directly instead of through Reconciler.Apply, so the file session
+    // would otherwise stay IsDirty:false and a client could skip save_project and lose the change.
+    private static void MarkFileSessionDirty(IEditingSession session)
+    {
+        if (session is FileEditingSession fileSession)
+        {
+            fileSession.MarkDirty();
+        }
     }
 
     private static JsonArray GetElements(JsonObject document)

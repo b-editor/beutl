@@ -104,8 +104,16 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
         return Execute(() =>
         {
             IEditingSession session = sessions.RequireSession();
-            ResolvedEdit resolved = ResolveDesiredDocument(session, desired, patch, schemaVersion);
-            ReconcileResult result = _reconciler.Apply(session, resolved.Document, resolved.KnownNewIds);
+            RequireExactlyOneEdit(desired, patch);
+            ReconcileResult result = desired is not null
+                ? _reconciler.Apply(session, ResolveDesiredEdit(desired, schemaVersion))
+                // Resolve the patch inside the reconcile dispatch so the read + merge is atomic with
+                // the mutation on a live session (see Reconciler.ApplyFromCurrent).
+                : _reconciler.ApplyFromCurrent(session, current =>
+                {
+                    ResolvedEdit resolved = ResolvePatchEdit(current, patch!, schemaVersion);
+                    return (resolved.Document, resolved.KnownNewIds);
+                });
             if (CompositionTemplateCatalog.TryInferTemplateName(patch ?? desired!) is { } inferredName)
             {
                 sessions.RecordCompositionUse(inferredName);
@@ -172,7 +180,7 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
                 sessions.ResolveCompositionSeed(seed),
                 avoidRecent ? sessions.GetAvoidedCompositions() : null,
                 EnforceFirstSelection(name, avoidRecent));
-            ResolvedEdit resolved = ResolveDesiredDocument(session, desired: null, patch: composition.Patch, schemaVersion: SchemaVersion.Current);
+            ResolvedEdit resolved = ResolvePatchDocument(session, composition.Patch, SchemaVersion.Current);
             ReconcilePlan plan = _reconciler.Plan(session, resolved.Document, resolved.KnownNewIds);
             CompositionPlanState state = sessions.StoreCompositionPlan(
                 composition.Name,
@@ -245,7 +253,7 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
                 sessions.ResolveCompositionSeed(seed),
                 avoidRecent ? sessions.GetAvoidedCompositions() : null,
                 EnforceFirstSelection(name, avoidRecent));
-            ResolvedEdit resolved = ResolveDesiredDocument(session, desired: null, patch: composition.Patch, schemaVersion: SchemaVersion.Current);
+            ResolvedEdit resolved = ResolvePatchDocument(session, composition.Patch, SchemaVersion.Current);
             ReconcilePlan plan = _reconciler.Plan(session, resolved.Document, resolved.KnownNewIds);
             JsonArray? normalizedExpectedChangeSet = NormalizeExpectedChangeSet(expectedChangeSet);
             if (normalizedExpectedChangeSet is not null && !ChangeSetMatches(plan, normalizedExpectedChangeSet))
@@ -267,11 +275,7 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
         });
     }
 
-    private static ResolvedEdit ResolveDesiredDocument(
-        IEditingSession session,
-        JsonObject? desired,
-        JsonObject? patch,
-        string? schemaVersion)
+    private static void RequireExactlyOneEdit(JsonObject? desired, JsonObject? patch)
     {
         if ((desired is null) == (patch is null))
         {
@@ -279,20 +283,27 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
                 ErrorCode.ValidationRejected,
                 "Supply exactly one of desired or patch."));
         }
+    }
 
-        if (desired is not null)
+    private static JsonObject ResolveDesiredEdit(JsonObject desired, string? schemaVersion)
+    {
+        JsonObject document = (JsonObject)desired.DeepClone();
+        if (schemaVersion is not null)
         {
-            JsonObject document = (JsonObject)desired.DeepClone();
-            if (schemaVersion is not null)
-            {
-                document[SchemaVersion.PropertyName] = schemaVersion;
-            }
-
-            return new ResolvedEdit(document, []);
+            document[SchemaVersion.PropertyName] = schemaVersion;
         }
 
+        return document;
+    }
+
+    private static ResolvedEdit ResolvePatchDocument(IEditingSession session, JsonObject patch, string? schemaVersion)
+    {
+        return ResolvePatchEdit(session.Documents.Read(session.Root), patch, schemaVersion);
+    }
+
+    private static ResolvedEdit ResolvePatchEdit(JsonObject current, JsonObject patch, string? schemaVersion)
+    {
         SchemaVersion.EnsureKnown(schemaVersion);
-        JsonObject current = session.Documents.Read(session.Root);
         JsonNode? merged = MergePatchApplier.Apply(current, patch);
         if (merged is not JsonObject mergedObject)
         {

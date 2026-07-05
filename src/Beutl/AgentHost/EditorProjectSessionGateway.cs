@@ -45,6 +45,19 @@ public sealed class EditorProjectSessionGateway(
         {
             if (projectService.CurrentProject.Value is { } current)
             {
+                // create_project cannot overwrite the project already open in the editor: saving over
+                // it would leave the live session on the stale in-memory scene while a new file sits on
+                // disk. A different path is likewise rejected (the in-app host edits one open project).
+                string currentPath = Path.GetFullPath(current.Uri!.LocalPath);
+                if (string.Equals(currentPath, fullPath, PathComparison.ForCurrentPlatform))
+                {
+                    throw new ReconcileException(new ToolError(
+                        ErrorCode.ValidationRejected,
+                        $"'{currentPath}' is already open in the Beutl editor; close it before recreating that project.",
+                        fullPath,
+                        "Close the open project first, or create the new project at a different path."));
+                }
+
                 RequireSameProject(current, fullPath);
             }
         });

@@ -5,6 +5,7 @@ using Beutl.AgentToolkit.Rendering;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tools;
 using Beutl.AgentToolkit.Workspace;
+using Beutl.Configuration;
 using Beutl.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Connections;
@@ -37,6 +38,20 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
     internal static string GenerateToken()
     {
         return Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
+    }
+
+    // Prefer the workspace the user chose on the AI Agents settings page (read at start, so a
+    // restart picks up a change) over BEUTL_WORKSPACE / the process directory.
+    private static string ResolveWorkspaceRoot()
+    {
+        string configured = GlobalConfiguration.Instance.AiAgentConfig.WorkspaceRoot;
+        if (!string.IsNullOrWhiteSpace(configured))
+        {
+            return configured;
+        }
+
+        string? env = Environment.GetEnvironmentVariable("BEUTL_WORKSPACE");
+        return string.IsNullOrWhiteSpace(env) ? Directory.GetCurrentDirectory() : env;
     }
 
     internal AgentHostEndpoint(ProjectService projectService, EditorService editorService, int preferredPort, string token)
@@ -145,8 +160,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             options.Listen(IPAddress.Loopback, port);
         });
 
-        string workspaceRoot = Environment.GetEnvironmentVariable("BEUTL_WORKSPACE")
-                               ?? Directory.GetCurrentDirectory();
+        string workspaceRoot = ResolveWorkspaceRoot();
 
         builder.Services
             .AddSingleton(_projectService)

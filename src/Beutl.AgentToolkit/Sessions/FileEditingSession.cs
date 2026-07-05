@@ -6,7 +6,7 @@ namespace Beutl.AgentToolkit.Sessions;
 
 public sealed class FileEditingSession : IEditingSession, IEditingSessionDispatcher, IDisposable
 {
-    private readonly RecordingPipeline _recording;
+    private RecordingPipeline _recording;
     // Attach-driven engine invariants (TimeRange/ZIndex mirroring, animation parent
     // capture) require an IHierarchicalRoot, which headless sessions otherwise lack.
     private readonly BeutlApplication _hierarchyRoot = new();
@@ -43,10 +43,21 @@ public sealed class FileEditingSession : IEditingSession, IEditingSessionDispatc
     public void SetActiveScene(Scene scene)
     {
         ArgumentNullException.ThrowIfNull(scene);
-        if (!ReferenceEquals(Scene, scene))
+        if (ReferenceEquals(Scene, scene))
         {
-            throw new NotSupportedException("Switching the active scene is not supported by this session yet.");
+            return;
         }
+
+        if (!Project.Items.Contains(scene))
+        {
+            throw new InvalidOperationException("The scene does not belong to this session's project.");
+        }
+
+        // A session's undo/redo pipeline is bound to one scene, so switching scenes rebuilds it for
+        // the new scene (each scene carries its own edit history).
+        _recording.Dispose();
+        Scene = scene;
+        _recording = RecordingPipeline.Create(scene);
     }
 
     public void Save()
@@ -86,7 +97,25 @@ public sealed class FileEditingSession : IEditingSession, IEditingSessionDispatc
 
     public void SetProjectPath(string projectPath)
     {
-        Project.Uri = new Uri(Path.GetFullPath(projectPath));
+        string fullPath = Path.GetFullPath(projectPath);
+        Project.Uri = new Uri(fullPath);
+        string projectDirectory = Path.GetDirectoryName(fullPath)!;
+        string projectName = Path.GetFileNameWithoutExtension(fullPath);
+        // Save As must produce an independent copy. Rehome the scene/element sidecars under a
+        // directory unique to the new project (its file name); regenerating from the scene name
+        // alone would collide with — and overwrite — the source project's .scene/.belm files when
+        // both projects live in the same folder.
+        foreach (Scene scene in Project.Items.OfType<Scene>())
+        {
+            string sceneName = string.IsNullOrWhiteSpace(scene.Name) ? "Scene" : scene.Name;
+            scene.Uri = new Uri(Path.Combine(
+                projectDirectory, projectName, sceneName, $"{sceneName}.{EditorConstants.SceneFileExtension}"));
+            foreach (Element element in scene.Children)
+            {
+                element.Uri = null;
+            }
+        }
+
         AcceptExternalStamp();
     }
 

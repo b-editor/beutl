@@ -1040,33 +1040,37 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
         return Execute(() =>
         {
             IEditingSession session = sessions.RequireSession();
-            JsonObject document;
-            if (string.IsNullOrWhiteSpace(rootId))
-            {
-                document = session.Documents.Read(session.Root);
-            }
-            else if (Guid.TryParse(rootId, out Guid id)
-                     && IdentityHelper.FindById(session.Root, id) is CoreObject subtree)
-            {
-                document = CoreSerializer.SerializeToJsonObject(
-                    subtree,
-                    new CoreSerializerOptions
-                    {
-                        BaseUri = subtree.Uri,
-                        Mode = CoreSerializationMode.EmbedReferencedObjects
-                    });
-                SchemaVersion.Stamp(document);
-            }
-            else
-            {
-                throw new ReconcileException(new ToolError(
-                    ErrorCode.StaleHandle,
-                    $"No entity with Id '{rootId}' exists in the current session.",
-                    rootId));
-            }
-
+            // Live sessions own their scene on the UI thread, so read and serialize on the dispatcher.
+            JsonObject document = session.ReadOnSession(() => ReadDocumentBody(session, rootId));
             return new ReadDocumentResponse(document, SchemaVersion.Current);
         });
+    }
+
+    private static JsonObject ReadDocumentBody(IEditingSession session, string? rootId)
+    {
+        if (string.IsNullOrWhiteSpace(rootId))
+        {
+            return session.Documents.Read(session.Root);
+        }
+
+        if (Guid.TryParse(rootId, out Guid id)
+            && IdentityHelper.FindById(session.Root, id) is CoreObject subtree)
+        {
+            JsonObject document = CoreSerializer.SerializeToJsonObject(
+                subtree,
+                new CoreSerializerOptions
+                {
+                    BaseUri = subtree.Uri,
+                    Mode = CoreSerializationMode.EmbedReferencedObjects
+                });
+            SchemaVersion.Stamp(document);
+            return document;
+        }
+
+        throw new ReconcileException(new ToolError(
+            ErrorCode.StaleHandle,
+            $"No entity with Id '{rootId}' exists in the current session.",
+            rootId));
     }
 
     private static IReadOnlyList<CreativeInspirationSeed> CreateInspirationSeeds()

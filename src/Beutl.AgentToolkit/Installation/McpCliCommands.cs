@@ -136,7 +136,17 @@ public static class McpCliRunner
 
             Task<string> stdout = process.StandardOutput.ReadToEndAsync(timeout.Token);
             Task<string> stderr = process.StandardError.ReadToEndAsync(timeout.Token);
-            await process.WaitForExitAsync(timeout.Token).ConfigureAwait(false);
+            try
+            {
+                await process.WaitForExitAsync(timeout.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                // Disposing Process only releases the handle; kill the tree so a hung CLI does not
+                // linger and hold agent-config locks after this returns failure.
+                KillProcessTree(process);
+                return new McpCliResult(false, -1, $"'{command.Executable}' timed out after 60s.");
+            }
 
             string output = string.Join(
                 Environment.NewLine,
@@ -147,6 +157,21 @@ public static class McpCliRunner
         catch (Exception ex)
         {
             return new McpCliResult(false, -1, ex.Message);
+        }
+    }
+
+    private static void KillProcessTree(Process process)
+    {
+        try
+        {
+            if (!process.HasExited)
+            {
+                process.Kill(entireProcessTree: true);
+            }
+        }
+        catch (Exception)
+        {
+            // The process already exited or cannot be signalled; nothing left to clean up.
         }
     }
 }

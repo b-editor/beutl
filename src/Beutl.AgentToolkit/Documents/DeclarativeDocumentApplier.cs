@@ -95,6 +95,9 @@ internal sealed class DeclarativeDocumentApplier
     {
         JsonObject payload = (JsonObject)desired.DeepClone();
         payload.Remove(nameof(Element.Objects));
+        // Storage URIs are toolkit-managed sidecar paths; never let a desired document redirect an
+        // existing element's .belm outside the workspace.
+        payload.Remove("Uri");
         NormalizeRegisteredPropertyValues(element, payload);
 
         CoreSerializer.PopulateFromJsonObject(element, element.GetType(), payload, CreateOptions(element));
@@ -115,6 +118,7 @@ internal sealed class DeclarativeDocumentApplier
         JsonObject payload = (JsonObject)desired.DeepClone();
         payload.Remove("Animations");
         payload.Remove("Expressions");
+        payload.Remove("Uri");
 
         foreach (IListProperty listProperty in target.Properties.OfType<IListProperty>())
         {
@@ -494,6 +498,23 @@ internal sealed class DeclarativeDocumentApplier
             if (!desiredIds.Contains(list[index].Id))
             {
                 list.RemoveAt(index);
+            }
+        }
+
+        SortKeyFramesByKeyTime(list);
+    }
+
+    // GetPreviousAndNextKeyFrame walks collection order, so a KeyTime edit on an existing frame that
+    // now crosses a neighbour must re-sort the list or interpolation picks the wrong prev/next frames.
+    private static void SortKeyFramesByKeyTime(KeyFrames list)
+    {
+        List<IKeyFrame> sorted = list.OrderBy(frame => frame.KeyTime).ToList();
+        for (int target = 0; target < sorted.Count; target++)
+        {
+            int current = list.IndexOf(sorted[target]);
+            if (current != target)
+            {
+                Move(list, current, target);
             }
         }
     }

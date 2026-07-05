@@ -162,6 +162,28 @@ public class EditorProjectSessionGatewayTests
     }
 
     [AvaloniaTest]
+    public async Task CreateProject_rejects_recreating_the_already_open_project()
+    {
+        await TestReset.ResetShellAsync();
+        string openPath = CreateProjectFilesOnDisk("gateway-create-samepath", TimeSpan.FromSeconds(4));
+        (EditorProjectSessionGateway gateway, _) = CreateGateway();
+        await gateway.OpenProjectAsync(openPath);
+        HeadlessTestHelpers.Settle();
+        Project openedProject = BeutlApplication.Current.Project!;
+
+        ReconcileException? rejection = await ExpectRejectionAsync(async () =>
+            await gateway.CreateProjectAsync(new ProjectCreateOptions(
+                openPath, 640, 360, 30, TimeSpan.FromSeconds(4))));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rejection!.Error.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            // The open project must not have been replaced on disk or in memory by the create.
+            Assert.That(BeutlApplication.Current.Project, Is.SameAs(openedProject));
+        });
+    }
+
+    [AvaloniaTest]
     public async Task AddScene_adds_saves_and_shows_the_scene()
     {
         await TestReset.ResetShellAsync();
