@@ -1,6 +1,5 @@
 ﻿using Beutl.Engine;
 using Beutl.Graphics.Effects;
-using SkiaSharp;
 
 namespace Beutl.Graphics.Rendering;
 
@@ -43,55 +42,16 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
         Rect bounds = context.CalculateBounds();
         workingScale = RenderNodeContext.ClampWorkingScaleToBufferBudget(bounds, workingScale);
 
-        using var feContext = new FilterEffectContext(bounds, context.OutputScale, workingScale);
-        FilterEffect.Value.Resource.GetOriginal().ApplyTo(feContext, FilterEffect.Value.Resource);
-        var effectTargets = new EffectTargets();
-        effectTargets.AddRange(context.Input.Select(i => new EffectTarget(i)));
+        FilterEffect.Resource resource = FilterEffect.Value.Resource;
+        var graphBuilder = new EffectGraphBuilder(bounds, context.OutputScale, workingScale);
+        resource.GetOriginal().Describe(graphBuilder, resource);
+        using EffectGraph graph = graphBuilder.Build();
 
-        using (var builder = new SKImageFilterBuilder())
-        using (var activator = new FilterEffectActivator(
-                   effectTargets, builder, context.OutputScale, workingScale, context.MaxWorkingScale,
-                   context.Diagnostics, context.Pool))
-        {
-            activator.Apply(feContext);
-
-            if (builder.HasFilter())
-            {
-                var imageFilter = builder.GetFilter();
-                return activator.CurrentTargets.Select(t =>
-                {
-                    var paint = new SKPaint();
-                    paint.ImageFilter = imageFilter;
-                    return RenderNodeOperation.CreateLambda(
-                        bounds: t.Bounds,
-                        render: canvas =>
-                        {
-                            using (canvas.PushBlendMode(BlendMode.SrcOver))
-                            using (canvas.PushTransform(Matrix.CreateTranslation(
-                                       t.Bounds.X - t.OriginalBounds.X,
-                                       t.Bounds.Y - t.OriginalBounds.Y)))
-                            using (canvas.PushPaint(paint))
-                            {
-                                t.Draw(canvas);
-                            }
-                        },
-                        hitTest: t.Bounds.Contains,
-                        onDispose: () =>
-                        {
-                            t.Dispose();
-                            paint.Dispose();
-                        },
-                        effectiveScale: t.Scale
-                    );
-                }).ToArray();
-            }
-            else
-            {
-                return activator.CurrentTargets.Select(i =>
-                    i.NodeOperation ??
-                    RenderNodeOperation.CreateFromRenderTarget(i.Bounds, i.Bounds.Position, i.RenderTarget!, i.Scale))
-                    .ToArray();
-            }
-        }
+        CompiledPlan plan = EffectGraphCompiler.Compile(graph, context.Diagnostics);
+        // The parent wants the effect's full output; Rect.Invalid requests every pass's full bounds (no ROI crop).
+        FrameResources resources = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale);
+        return PlanExecutor.Execute(
+            plan, resources, context.Input, bounds, context.OutputScale, workingScale, context.MaxWorkingScale,
+            context.Diagnostics, context.Pool);
     }
 }
