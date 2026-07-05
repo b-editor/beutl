@@ -23,6 +23,16 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
     [DataType(DataType.MultilineText)]
     public IProperty<string> Script { get; } = Property.Create(GetDefaultScript());
 
+    /// <summary>
+    /// Opt-in assertion (contract A6/A3) that the script samples only the current pixel
+    /// (<c>src.eval(fragCoord)</c> with no coordinate offset). When set, the node is described as
+    /// coordinate-invariant: it gets identity bounds by construction and may participate in fusion. Setting this on
+    /// a script that samples neighbours produces wrong output by contract — the single-pixel rule is the author's
+    /// responsibility. Left off, the script runs as a non-invariant whole-source pass.
+    /// </summary>
+    [Display(Name = "Coordinate invariant")]
+    public IProperty<bool> CoordinateInvariant { get; } = Property.Create(false);
+
     private static string GetDefaultScript()
     {
         return """
@@ -74,6 +84,48 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
                 compileError: r._compileError),
             OnApplyTo,
             static (_, r) => r);
+    }
+
+    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
+    {
+        var r = (Resource)resource;
+        if (r._shader == null)
+            return;
+
+        SKRuntimeEffect effect = r._shader.Effect;
+        string source = r._compiledScript!;
+
+        if (!effect.Children.Contains("src"))
+        {
+            // The fused whole-source path always binds a `src` child; a script without one cannot run through it, so
+            // it stays on the legacy bridge (byte-identical) until the imperative surface is removed.
+            var bridge = new FilterEffectContext(builder.Bounds, builder.OutputScale, builder.WorkingScale);
+            ApplyTo(bridge, resource);
+            builder.AppendOpaqueLegacy(bridge, nameof(SKSLScriptEffect));
+            return;
+        }
+
+        float progress = r.Progress;
+        float duration = r.Duration;
+        float time = r.Time;
+        float w = builder.WorkingScale;
+        (int devW, int devH) = CustomFilterEffectContext.DeviceBufferSize(builder.Bounds, w);
+
+        void BindUniforms(UniformBindingBuilder u)
+        {
+            if (effect.Uniforms.Contains("progress")) u.Float("progress", progress);
+            if (effect.Uniforms.Contains("duration")) u.Float("duration", duration);
+            if (effect.Uniforms.Contains("time")) u.Float("time", time);
+            if (effect.Uniforms.Contains("width")) u.Float("width", devW);
+            if (effect.Uniforms.Contains("height")) u.Float("height", devH);
+            if (effect.Uniforms.Contains("iResolution")) u.Float2("iResolution", devW, devH);
+            if (effect.Uniforms.Contains("iScale")) u.Float("iScale", w);
+            if (effect.Uniforms.Contains("iTime")) u.Float("iTime", time);
+        }
+
+        builder.Shader(r.CoordinateInvariant
+            ? ShaderNodeDescriptor.WholeSourceInvariant(source, BindUniforms)
+            : ShaderNodeDescriptor.WholeSource(source, BoundsContract.Identity, BindUniforms));
     }
 
     private static void OnApplyTo(

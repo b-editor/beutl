@@ -534,7 +534,7 @@ internal static class PlanExecutor
         try
         {
             var ctx = new ComputeContext(
-                gfx, sourceTexture, destTexture, width, height, scratch, depthScratch, diagnostics, pool);
+                gfx, sourceTexture, destTexture, width, height, w, scratch, depthScratch, diagnostics, pool);
             pass.Dispatch(ctx);
         }
         catch
@@ -731,7 +731,7 @@ internal static class PlanExecutor
     // The executor-owned resources handed to a compute node's dispatch callback: the materialized source and the
     // pass output texture, plus pooled color and depth scratch released when the pass ends.
     private sealed class ComputeContext(
-        IGraphicsContext gfx, ITexture2D source, ITexture2D destination, int width, int height,
+        IGraphicsContext gfx, ITexture2D source, ITexture2D destination, int width, int height, float workingScale,
         List<RenderTarget> colorScratch, List<IDisposable> depthScratch, PipelineDiagnostics? diagnostics,
         RenderTargetPool? pool) : IComputeContext
     {
@@ -742,6 +742,8 @@ internal static class PlanExecutor
         public int Width => width;
 
         public int Height => height;
+
+        public float WorkingScale => workingScale;
 
         public ITexture2D AcquireColorScratch()
         {

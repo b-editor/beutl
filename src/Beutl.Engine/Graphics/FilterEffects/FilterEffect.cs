@@ -4,7 +4,14 @@ using Beutl.Serialization;
 
 namespace Beutl.Graphics.Effects;
 
-public sealed partial class FallbackFilterEffect : FilterEffect, IFallback;
+public sealed partial class FallbackFilterEffect : FilterEffect, IFallback
+{
+    // An unresolved effect type renders as a passthrough. The generated ApplyTo throws (no legacy behavior to
+    // reproduce); Describe appends no node so the graph is the identity — the input flows through unchanged.
+    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
+    {
+    }
+}
 
 [FallbackType(typeof(FallbackFilterEffect))]
 [PresenterType(typeof(FilterEffectPresenter))]

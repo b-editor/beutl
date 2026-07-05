@@ -85,6 +85,38 @@ public sealed partial class GLSLScriptEffect : FilterEffect, IScriptCompilableEf
             static (_, r) => r);
     }
 
+    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
+    {
+        var r = (Resource)resource;
+        if (r._shader == null)
+            return;
+
+        GLSLShader shader = r._shader;
+        float progress = r.Progress;
+        float duration = r.Duration;
+        float time = r.Time;
+
+        // One coordinate-invariant-in-bounds GLSL pass over a pooled destination; without Vulkan the legacy path
+        // rendered nothing (a pass-through), so the fallback is identity.
+        builder.Compute(ComputeNodeDescriptor.Create(
+            ctx =>
+            {
+                ITexture2D depth = ctx.AcquireDepthScratch();
+                ctx.Run(shader, ctx.Source, ctx.Destination, depth, new PushConstants
+                {
+                    Progress = progress,
+                    Duration = duration,
+                    Time = time,
+                    Width = ctx.Width,
+                    Height = ctx.Height,
+                    Scale = ctx.WorkingScale,
+                });
+            },
+            passCount: 1,
+            ComputeFallback.Identity,
+            structuralToken: nameof(GLSLScriptEffect)));
+    }
+
     private static void OnApplyTo(
         (float progress, float duration, float time, GLSLShader shader, string? compileError) data,
         CustomFilterEffectContext c)

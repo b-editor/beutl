@@ -39,6 +39,9 @@ public interface IComputeContext
     /// <summary>The buffer height in device pixels.</summary>
     int Height { get; }
 
+    /// <summary>The working density <c>w</c> resolved for this pass (device px per logical unit); scale absolute-px push constants by it.</summary>
+    float WorkingScale { get; }
+
     /// <summary>Acquires a pooled RGBA16F ping-pong scratch texture; released by the executor at pass end.</summary>
     ITexture2D AcquireColorScratch();
 

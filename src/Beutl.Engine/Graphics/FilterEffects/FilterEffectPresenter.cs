@@ -22,4 +22,10 @@ public sealed partial class FilterEffectPresenter : FilterEffect, IPresenter<Fil
 
         r.Target?.GetOriginal().ApplyTo(context, r.Target);
     }
+
+    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
+    {
+        var r = (Resource)resource;
+        r.Target?.GetOriginal().Describe(builder, r.Target);
+    }
 }
