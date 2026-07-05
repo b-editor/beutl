@@ -10,6 +10,7 @@ namespace Beutl.Editor.Components.TerminalTab.Views;
 public partial class TerminalTabView : UserControl
 {
     private TerminalTabViewModel? _viewModel;
+    private TerminalTabViewModel? _launchedViewModel;
     private bool _launching;
     private bool _launched;
     private bool _disposed;
@@ -33,11 +34,13 @@ public partial class TerminalTabView : UserControl
         _viewModel = DataContext as TerminalTabViewModel;
         if (_viewModel != null)
         {
-            if (!ReferenceEquals(previous, _viewModel))
+            if (!ReferenceEquals(_launchedViewModel, _viewModel))
             {
                 // Reset the lifecycle flags only when a recycled view is bound to a DIFFERENT
-                // view-model. A same-view-model re-fire (e.g. DataContext cleared and restored
-                // during a dock/reparent) must not relaunch and kill the live PTY session.
+                // view-model than the one it launched a PTY for. Comparing against the launched
+                // view-model (not the previous DataContext) also preserves the session across a
+                // VM -> null -> same-VM re-fire, where the DataContext momentarily goes null during
+                // a dock/reparent.
                 _launched = false;
                 _launching = false;
                 _disposed = false;
@@ -86,6 +89,9 @@ public partial class TerminalTabView : UserControl
     {
         TerminalTabViewModel viewModel = _viewModel!;
         _launching = true;
+        // Remember which view-model this PTY serves so a later same-VM rebind (even through null)
+        // is recognized and does not reset the flags and respawn.
+        _launchedViewModel = viewModel;
         viewModel.IsProcessExited.Value = false;
 
         // Suppress detach-cleanup before spawning so switching away mid-launch re-docks the tab
