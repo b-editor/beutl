@@ -51,7 +51,7 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
         using (var builder = new SKImageFilterBuilder())
         using (var activator = new FilterEffectActivator(
                    effectTargets, builder, context.OutputScale, workingScale, context.MaxWorkingScale,
-                   context.Diagnostics))
+                   context.Diagnostics, context.Pool))
         {
             activator.Apply(feContext);
 

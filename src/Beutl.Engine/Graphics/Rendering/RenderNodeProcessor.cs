@@ -8,7 +8,8 @@ public class RenderNodeProcessor(
     bool useRenderCache,
     float outputScale = 1f,
     float maxWorkingScale = float.PositiveInfinity,
-    PipelineDiagnostics? diagnostics = null)
+    PipelineDiagnostics? diagnostics = null,
+    RenderTargetPool? pool = null)
 {
     public RenderNode Root { get; } = root;
 
@@ -24,6 +25,12 @@ public class RenderNodeProcessor(
     /// standalone processor owns a fresh one.
     /// </summary>
     public PipelineDiagnostics Diagnostics { get; } = diagnostics ?? new PipelineDiagnostics();
+
+    /// <summary>
+    /// Render-target pool seeded into every pulled <see cref="RenderNodeContext"/>, or <see langword="null"/>
+    /// to allocate effect intermediates directly (behavior-identical to the pre-pool pipeline).
+    /// </summary>
+    public RenderTargetPool? Pool { get; } = pool;
 
     /// <summary>
     /// Allocates the intermediate <see cref="RenderTarget"/> used to rasterize each operation.
@@ -274,7 +281,11 @@ public class RenderNodeProcessor(
             input = operations.ToArray();
         }
 
-        var context = new RenderNodeContext(input, OutputScale, MaxWorkingScale) { Diagnostics = Diagnostics };
+        var context = new RenderNodeContext(input, OutputScale, MaxWorkingScale)
+        {
+            Diagnostics = Diagnostics,
+            Pool = Pool,
+        };
         var result = node.Process(context);
         if (useRenderCache && !context.IsRenderCacheEnabled)
         {

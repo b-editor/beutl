@@ -20,6 +20,15 @@ public class Renderer : IRenderer
     /// <summary>Effect-pipeline counters shared by every processor this renderer creates.</summary>
     public PipelineDiagnostics Diagnostics { get; } = new();
 
+    /// <summary>
+    /// Render-target pool shared by the render-path processors this renderer creates. Per-renderer and
+    /// render-thread-affine (research D4 deviation documented on <see cref="RenderTargetPool"/>); trimmed at
+    /// each frame boundary and disposed with the renderer.
+    /// </summary>
+    private readonly RenderTargetPool _pool = RenderThread.Dispatcher.Invoke(static () => new RenderTargetPool());
+
+    private long _frameIndex;
+
     private class Entry(DrawableRenderNode node) : IDisposable
     {
         ~Entry()
@@ -87,6 +96,7 @@ public class Renderer : IRenderer
 
         _isDisposed = true;
         SafeStep(nameof(OnDispose), () => OnDispose(false));
+        SafeStep(nameof(_pool), () => _pool?.Dispose());
         SafeStep(nameof(_immediateCanvas), () => _immediateCanvas?.Dispose());
         SafeStep(nameof(_surface), () => _surface?.Dispose());
         SafeStep(nameof(ClearAllCaches), ClearAllCaches);
@@ -132,6 +142,7 @@ public class Renderer : IRenderer
         {
             _isDisposed = true;
             OnDispose(true);
+            _pool.Dispose();
             _immediateCanvas.Dispose();
             _surface.Dispose();
             ClearAllCaches();
@@ -155,6 +166,7 @@ public class Renderer : IRenderer
         {
             IsGraphicsRendering = true;
             Time = frame.Time.Start;
+            _pool.Trim(++_frameIndex);
             ClearFrame();
 
             using (_immediateCanvas.Push())
@@ -206,7 +218,8 @@ public class Renderer : IRenderer
         }
 
         RevalidateAll(entry.Node);
-        var processor = new RenderNodeProcessor(entry.Node, CacheOptions.IsEnabled, OutputScale, MaxWorkingScale, Diagnostics);
+        var processor = new RenderNodeProcessor(
+            entry.Node, CacheOptions.IsEnabled, OutputScale, MaxWorkingScale, Diagnostics, _pool);
         var ops = processor.PullToRoot();
         Rect bounds = Rect.Empty;
         int consumed = 0;

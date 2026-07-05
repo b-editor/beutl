@@ -8,7 +8,8 @@ namespace Beutl.Graphics.Effects;
 
 public sealed class FilterEffectActivator(
     EffectTargets targets, SKImageFilterBuilder builder, float outputScale = 1f, float workingScale = 1f,
-    float maxWorkingScale = float.PositiveInfinity, PipelineDiagnostics? diagnostics = null) : IDisposable
+    float maxWorkingScale = float.PositiveInfinity, PipelineDiagnostics? diagnostics = null,
+    RenderTargetPool? pool = null) : IDisposable
 {
     private static readonly ILogger s_logger = Log.CreateLogger("FilterEffectActivator");
 
@@ -18,6 +19,9 @@ public sealed class FilterEffectActivator(
 
     /// <summary>Effect-pipeline counters, or <see langword="null"/> when the render is not observed.</summary>
     public PipelineDiagnostics? Diagnostics { get; } = diagnostics;
+
+    /// <summary>Render-target pool for bake intermediates, or <see langword="null"/> for direct creation.</summary>
+    public RenderTargetPool? Pool { get; } = pool;
 
     /// <summary>The render request's output scale <c>s_out</c>. Sanitized to positive-finite.</summary>
     public float OutputScale { get; } = SanitizePositiveFinite(outputScale, nameof(outputScale));
@@ -113,7 +117,7 @@ public sealed class FilterEffectActivator(
                 float w = WorkingScale;
                 int bw = w == 1f ? (int)target.OriginalBounds.Width : (int)MathF.Ceiling(target.OriginalBounds.Width * w);
                 int bh = w == 1f ? (int)target.OriginalBounds.Height : (int)MathF.Ceiling(target.OriginalBounds.Height * w);
-                using RenderTarget? surface = RenderTarget.Create(bw, bh);
+                using RenderTarget? surface = RenderTargetPool.Acquire(Pool, bw, bh, Diagnostics);
 
                 if (surface != null)
                 {
@@ -133,7 +137,6 @@ public sealed class FilterEffectActivator(
                     {
                         diag.FullFrameMaterializations++;
                         diag.GpuPasses++;
-                        diag.TargetAllocations++;
                         diag.FlushSyncs++;
                     }
 
@@ -216,7 +219,7 @@ public sealed class FilterEffectActivator(
                         if (CurrentTargets.Count == 0) return;
 
                         var customContext = new CustomFilterEffectContext(
-                            CurrentTargets, OutputScale, WorkingScale, MaxWorkingScale, Diagnostics);
+                            CurrentTargets, OutputScale, WorkingScale, MaxWorkingScale, Diagnostics, Pool);
                         custom.Accepts(customContext);
 
                         foreach (EffectTarget t in CurrentTargets)
@@ -250,7 +253,7 @@ public sealed class FilterEffectActivator(
         using EffectTargets cloned = CurrentTargets.Clone();
         using var builder = new SKImageFilterBuilder();
         using var activator = new FilterEffectActivator(
-            cloned, builder, OutputScale, WorkingScale, MaxWorkingScale, Diagnostics);
+            cloned, builder, OutputScale, WorkingScale, MaxWorkingScale, Diagnostics, Pool);
 
         activator.Apply(context);
         activator.Flush(false);

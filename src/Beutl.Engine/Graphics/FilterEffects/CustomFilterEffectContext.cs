@@ -9,19 +9,24 @@ public class CustomFilterEffectContext
     private static readonly ILogger s_logger = Log.CreateLogger("CustomFilterEffectContext");
 
     internal CustomFilterEffectContext(EffectTargets targets, float outputScale = 1f, float workingScale = 1f,
-        float maxWorkingScale = float.PositiveInfinity, PipelineDiagnostics? diagnostics = null)
+        float maxWorkingScale = float.PositiveInfinity, PipelineDiagnostics? diagnostics = null,
+        RenderTargetPool? pool = null)
     {
         Targets = targets;
         OutputScale = outputScale;
         WorkingScale = workingScale;
         MaxWorkingScale = RenderNodeContext.SanitizeMaxWorkingScale(maxWorkingScale);
         Diagnostics = diagnostics;
+        Pool = pool;
     }
 
     public EffectTargets Targets { get; }
 
     /// <summary>Effect-pipeline counters, or <see langword="null"/> when the render is not observed.</summary>
     public PipelineDiagnostics? Diagnostics { get; }
+
+    /// <summary>Render-target pool for intermediate allocation, or <see langword="null"/> for direct creation.</summary>
+    public RenderTargetPool? Pool { get; }
 
     /// <summary>The render request's output scale <c>s_out</c>, not a ceiling on this effect's working scale.</summary>
     public float OutputScale { get; }
@@ -104,11 +109,9 @@ public class CustomFilterEffectContext
         }
 
         (int bw, int bh) = DeviceBufferSize(bounds, w);
-        using var renderTarget = RenderTarget.Create(bw, bh);
+        using RenderTarget? renderTarget = RenderTargetPool.Acquire(Pool, bw, bh, Diagnostics);
         if (renderTarget != null)
         {
-            if (Diagnostics is { } diag)
-                diag.TargetAllocations++;
             return new EffectTarget(renderTarget, bounds, EffectiveScale.At(w));
         }
         else
