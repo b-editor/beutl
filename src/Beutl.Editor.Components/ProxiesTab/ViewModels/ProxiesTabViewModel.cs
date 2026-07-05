@@ -176,8 +176,23 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
 
     public void Delete(ProxyClipViewModel clip)
     {
+        CancelMatchingJobs(clip.Source, clip.Preset.Value);
         _store?.Delete(clip.EntrySource ?? clip.Source, clip.Preset.Value);
         Refresh();
+    }
+
+    // A queued/running generation for this (source, preset) would Register the proxy again on success
+    // and silently undo the delete; cancel it first.
+    private void CancelMatchingJobs(ProxyFingerprint source, ProxyPreset preset)
+    {
+        if (_queue == null)
+            return;
+
+        foreach (ProxyJob job in _queue.Pending())
+        {
+            if (job.Source == source && job.Preset == preset)
+                _queue.Cancel(job.JobId);
+        }
     }
 
     public void CancelJob(Guid jobId)
@@ -337,6 +352,7 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
     {
         foreach (ProxyClipViewModel clip in Clips.Where(static c => c.IsSelected.Value).ToArray())
         {
+            CancelMatchingJobs(clip.Source, clip.Preset.Value);
             _store?.Delete(clip.EntrySource ?? clip.Source, clip.Preset.Value);
         }
 
@@ -361,6 +377,7 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
 
         foreach (ProxyEntry entry in entries)
         {
+            CancelMatchingJobs(entry.Source, entry.Preset);
             _store.Delete(entry.Source, entry.Preset);
         }
 

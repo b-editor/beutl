@@ -11,6 +11,29 @@ namespace Beutl.UnitTests.Extensions.FFmpeg;
 public sealed class FFmpegDecoderInfoTests
 {
     [Test]
+    public void MarkMissing_ArmsReprobeCooldownBeforeNotifyingListeners()
+    {
+        FFmpegInstallNotifier.MarkInstalled();
+        bool cooldownArmedWhenNotified = false;
+        EventHandler handler = (_, _) =>
+            cooldownArmedWhenNotified = FFmpegInstallNotifier.ShouldSkipStartProbe(Environment.TickCount64);
+        FFmpegInstallNotifier.AvailabilityChanged += handler;
+        try
+        {
+            FFmpegInstallNotifier.MarkMissing();
+
+            // A synchronous listener must already observe ShouldSkipStartProbe == true, otherwise it
+            // could re-probe the worker before the cooldown is in effect.
+            Assert.That(cooldownArmedWhenNotified, Is.True);
+        }
+        finally
+        {
+            FFmpegInstallNotifier.AvailabilityChanged -= handler;
+            FFmpegInstallNotifier.MarkInstalled();
+        }
+    }
+
+    [Test]
     public void Open_WhenLibrariesMissing_ReturnsNullSoRegistryCanFallBack()
     {
         // Force the "libraries missing" short-circuit so the worker start fails without launching a

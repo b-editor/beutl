@@ -368,6 +368,24 @@ public sealed class ProxiesTabViewModelTests
     }
 
     [Test]
+    public async Task Delete_CancelsMatchingQueuedGeneration()
+    {
+        string root = CreateRoot();
+        string sourcePath = CreateSourceFile(root, "clip.mov", 1024);
+        var store = new ProxyStore(Path.Combine(root, "proxies"));
+        var queue = new TestProxyJobQueue();
+
+        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, queue, sourcePath));
+        ProxyClipViewModel clip = viewModel.Clips.Single();
+        ProxyJob job = await queue.EnqueueAsync(clip.Source, clip.Preset.Value);
+
+        viewModel.Delete(clip);
+
+        // Otherwise the in-flight generation would re-register the proxy on success and undo the delete.
+        Assert.That(queue.CanceledJobIds, Does.Contain(job.JobId));
+    }
+
+    [Test]
     public void ToggleSelection_InvertsClipSelection()
     {
         string root = CreateRoot();

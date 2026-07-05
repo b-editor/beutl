@@ -59,6 +59,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
     private volatile bool _viewStateSaveSuppressed;
     private readonly HashSet<string> _pendingProxyInvalidations = new(StringComparer.Ordinal);
     private bool _proxyInvalidationScheduled;
+    private volatile bool _disposed;
 
     public EditViewModel(Scene scene, Beutl.Api.Services.ExtensionProvider extensionProvider, EditorService editorService)
     {
@@ -208,6 +209,11 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
 
     private void OnProxyStoreChanged(object? sender, ProxyStoreChangedEventArgs e)
     {
+        if (_disposed)
+        {
+            return;
+        }
+
         if (e.Kind is not (ProxyStoreChangeKind.Registered
             or ProxyStoreChangeKind.StateChanged
             or ProxyStoreChangeKind.Deleted))
@@ -239,8 +245,11 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         lock (_pendingProxyInvalidations)
         {
             _proxyInvalidationScheduled = false;
-            if (_pendingProxyInvalidations.Count == 0)
+            // Disposal may have run between the Post and this callback; Scene is nulled and the frame
+            // cache disposed by then, so drop the pending work and bail rather than touch them.
+            if (_disposed || _pendingProxyInvalidations.Count == 0)
             {
+                _pendingProxyInvalidations.Clear();
                 return;
             }
 
@@ -531,6 +540,9 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
     {
         _logger.LogInformation("Disposing EditViewModel ({SceneId}).", SceneId);
 
+        // Block any proxy-invalidation flush already posted to the UI thread from running after this
+        // nulls Scene / disposes FrameCacheManager below.
+        _disposed = true;
         GlobalConfiguration.Instance.EditorConfig.PropertyChanged -= OnEditorConfigPropertyChanged;
         SaveState();
         _editorSelection.SelectedObject.Value = null;

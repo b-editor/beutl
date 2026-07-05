@@ -140,6 +140,15 @@ public class ProxyEvictionTests
     }
 
     [Test]
+    public void Constructor_NegativeMaxTotalBytes_Throws()
+    {
+        var store = new ProxyStore(CreateRoot());
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new ProxyEvictionService(store, resolver: null, maxTotalBytes: -1));
+    }
+
+    [Test]
     public void Sweep_SkipsEntriesWithActiveGeneration()
     {
         string root = CreateRoot();

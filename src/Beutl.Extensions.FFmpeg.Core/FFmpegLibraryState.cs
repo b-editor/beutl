@@ -29,8 +29,11 @@ public static class FFmpegLibraryState
 
     public static void MarkMissing()
     {
-        SetLibrariesMissing(true);
+        // Arm the cooldown before notifying: SetLibrariesMissing raises AvailabilityChanged, and a
+        // listener that reacts synchronously must already see ShouldSkipStartProbe == true, otherwise
+        // it can immediately re-probe the worker before the cooldown is in effect.
         ArmReprobeCooldown();
+        SetLibrariesMissing(true);
     }
 
     // A worker process handshaked successfully, so FFmpeg loaded: clear any missing latch. This is

@@ -1,4 +1,6 @@
-﻿using Beutl.Configuration;
+﻿using Avalonia.Threading;
+
+using Beutl.Configuration;
 using Beutl.Editor.Components.ProxiesTab;
 using Beutl.Logging;
 #if FFMPEG_BUILD_IN
@@ -198,6 +200,21 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
 
     private static IReadOnlySet<string> CollectOpenProjectSources()
     {
+        // Eviction sweeps run on background threads, but this walks project / element / node-graph
+        // state that the UI thread mutates. Read it on the UI thread so the collected set is a
+        // consistent snapshot rather than a torn read that could fall back to global LRU.
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            try
+            {
+                return Dispatcher.UIThread.Invoke(CollectOpenProjectSources);
+            }
+            catch
+            {
+                return s_noOpenProjectSources;
+            }
+        }
+
         try
         {
             if (BeutlApplication.Current.Project is not { } project)

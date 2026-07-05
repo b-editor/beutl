@@ -31,6 +31,7 @@ public sealed class ProxyEvictionService
         Func<IReadOnlySet<(ProxyFingerprint Source, ProxyPreset Preset)>>? activeGenerationProvider = null)
     {
         ArgumentNullException.ThrowIfNull(store);
+        ArgumentOutOfRangeException.ThrowIfNegative(maxTotalBytes);
         ArgumentOutOfRangeException.ThrowIfNegative(minFreeDiskBytes);
 
         _store = store;
