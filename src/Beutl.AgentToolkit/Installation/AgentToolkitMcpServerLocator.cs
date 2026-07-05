@@ -2,7 +2,10 @@
 
 public static class AgentToolkitMcpServerLocator
 {
-    public static AgentToolkitMcpServerCommand ResolveDefault(string? baseDirectory = null)
+    // Returns null when neither a shipped binary nor a source checkout is
+    // found — installs must then surface "stdio unavailable" instead of
+    // writing a `dotnet run` command that cannot work on the user's machine.
+    public static AgentToolkitMcpServerCommand? ResolveDefault(string? baseDirectory = null)
     {
         string startDirectory = Path.GetFullPath(baseDirectory ?? AppContext.BaseDirectory);
 
@@ -22,10 +25,7 @@ public static class AgentToolkitMcpServerLocator
                 "source project");
         }
 
-        return new AgentToolkitMcpServerCommand(
-            "dotnet",
-            ["run", "--project", "src/Beutl.AgentToolkit.Mcp/Beutl.AgentToolkit.Mcp.csproj"],
-            "relative source project");
+        return null;
     }
 
     private static AgentToolkitMcpServerCommand? FindPublishedServer(string directory)

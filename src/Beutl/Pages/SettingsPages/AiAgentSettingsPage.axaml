@@ -137,16 +137,6 @@
                     </ctrls:OptionsDisplayItem.ActionButton>
                 </ctrls:OptionsDisplayItem>
 
-                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.AiAgents_StdioMcp_Description}"
-                                          Header="{x:Static lang:SettingsStrings.AiAgents_StdioMcp}"
-                                          IsEnabled="{Binding CanInstallMcp.Value}">
-                    <ctrls:OptionsDisplayItem.ActionButton>
-                        <ToggleSwitch Classes="left"
-                                      IsChecked="{Binding InstallStdioMcp.Value}"
-                                      Theme="{StaticResource CompactToggleSwitchStyle}" />
-                    </ctrls:OptionsDisplayItem.ActionButton>
-                </ctrls:OptionsDisplayItem>
-
                 <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.AiAgents_LiveMcp_Description}"
                                           Header="{x:Static lang:SettingsStrings.AiAgents_LiveMcp}"
                                           IsEnabled="{Binding CanInstallLiveMcp.Value}">
@@ -157,10 +147,25 @@
                     </ctrls:OptionsDisplayItem.ActionButton>
                 </ctrls:OptionsDisplayItem>
 
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.AiAgents_StdioMcp_Description}"
+                                          Header="{x:Static lang:SettingsStrings.AiAgents_StdioMcp}"
+                                          IsEnabled="{Binding CanInstallStdioMcp.Value}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <ToggleSwitch Classes="left"
+                                      IsChecked="{Binding InstallStdioMcp.Value}"
+                                      Theme="{StaticResource CompactToggleSwitchStyle}" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+
                 <ui:InfoBar IsClosable="False"
                             IsOpen="{Binding !CanInstallMcp.Value}"
                             Message="{x:Static lang:SettingsStrings.AiAgents_McpManual}"
                             Severity="Informational" />
+
+                <ui:InfoBar IsClosable="False"
+                            IsOpen="{Binding IsStdioCommandMissing.Value}"
+                            Message="{x:Static lang:SettingsStrings.AiAgents_StdioMissing}"
+                            Severity="Warning" />
 
                 <ui:InfoBar IsClosable="False"
                             IsOpen="{Binding !IsLiveMcpAvailable.Value}"

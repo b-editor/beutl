@@ -51,12 +51,14 @@ public sealed class AiAgentConfig : ConfigurationBase
             .DefaultValue(true)
             .Register();
 
+        // Live MCP (edit the running editor) is the primary integration; the
+        // headless stdio server is opt-in.
         InstallStdioMcpProperty = ConfigureProperty<bool, AiAgentConfig>(nameof(InstallStdioMcp))
-            .DefaultValue(true)
+            .DefaultValue(false)
             .Register();
 
         InstallLiveMcpProperty = ConfigureProperty<bool, AiAgentConfig>(nameof(InstallLiveMcp))
-            .DefaultValue(false)
+            .DefaultValue(true)
             .Register();
 
         McpConfigFileNameProperty = ConfigureProperty<string, AiAgentConfig>(nameof(McpConfigFileName))

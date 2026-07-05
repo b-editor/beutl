@@ -167,6 +167,27 @@ class Build : NukeBuild
             workerOutput.GlobFiles("**/*")
                 .Select(p => (Source: p, Target: mainOutput / workerOutput.GetRelativePathTo(p)))
                 .ForEach(t => t.Source.Copy(t.Target, ExistsPolicy.FileSkip));
+
+            // The stdio MCP server ships with the app so the AI-agents settings page resolves a
+            // real binary (AgentToolkitMcpServerLocator) instead of falling back to a source-tree
+            // `dotnet run`, which cannot work on end-user machines. Same flat FileSkip merge as
+            // the worker: the app's shared assemblies stay canonical, only the server's identity
+            // and its private MCP-SDK deps are added. BundleApp does the same for the macOS bundle.
+            AbsolutePath mcpServerOutput = OutputDirectory / "Beutl.AgentToolkit.Mcp";
+            mcpServerOutput.CreateOrCleanDirectory();
+            DotNetPublish(s => s
+                .When(_ => Runtime != null, s => s
+                    .SetRuntime(Runtime)
+                    .SetSelfContained(SelfContained))
+                .SetFramework(tfm)
+                .EnableNoRestore()
+                .SetConfiguration(Configuration)
+                .SetVersions(Version, AssemblyVersion, InformationalVersion)
+                .SetProject(SourceDirectory / "Beutl.AgentToolkit.Mcp" / "Beutl.AgentToolkit.Mcp.csproj")
+                .SetOutput(mcpServerOutput));
+            mcpServerOutput.GlobFiles("**/*")
+                .Select(p => (Source: p, Target: mainOutput / mcpServerOutput.GetRelativePathTo(p)))
+                .ForEach(t => t.Source.Copy(t.Target, ExistsPolicy.FileSkip));
         });
 
     Target Zip => _ => _

@@ -22,7 +22,7 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
         _agentHostEndpoint = agentHostEndpoint;
         _config = config ?? GlobalConfiguration.Instance.AiAgentConfig;
 
-        AgentToolkitMcpServerCommand command = AgentToolkitMcpServerLocator.ResolveDefault();
+        AgentToolkitMcpServerCommand? command = AgentToolkitMcpServerLocator.ResolveDefault();
 
         AgentChoices =
         [
@@ -49,8 +49,9 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
         SubagentsDirectory = new ReactivePropertySlim<string>(_config.SubagentsDirectory).DisposeWith(_disposables);
         McpConfigFileName = new ReactivePropertySlim<string>(_config.McpConfigFileName).DisposeWith(_disposables);
         McpServersPropertyName = new ReactivePropertySlim<string>(_config.McpServersPropertyName).DisposeWith(_disposables);
-        McpCommand = new ReactivePropertySlim<string>(command.Command).DisposeWith(_disposables);
-        McpArguments = new ReactivePropertySlim<string>(string.Join(Environment.NewLine, command.Arguments))
+        McpCommand = new ReactivePropertySlim<string>(command?.Command ?? "").DisposeWith(_disposables);
+        McpArguments = new ReactivePropertySlim<string>(
+            command is null ? "" : string.Join(Environment.NewLine, command.Arguments))
             .DisposeWith(_disposables);
         InstallSkills = new ReactivePropertySlim<bool>(_config.InstallSkills).DisposeWith(_disposables);
         InstallSubagents = new ReactivePropertySlim<bool>(_config.InstallSubagents).DisposeWith(_disposables);
@@ -63,7 +64,9 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
         IsProjectFolderVisible = new ReactivePropertySlim<bool>().DisposeWith(_disposables);
         CanInstallSubagents = new ReactivePropertySlim<bool>().DisposeWith(_disposables);
         CanInstallMcp = new ReactivePropertySlim<bool>().DisposeWith(_disposables);
+        CanInstallStdioMcp = new ReactivePropertySlim<bool>().DisposeWith(_disposables);
         CanInstallLiveMcp = new ReactivePropertySlim<bool>().DisposeWith(_disposables);
+        IsStdioCommandMissing = new ReactivePropertySlim<bool>().DisposeWith(_disposables);
         ResolvedSkillsPath = new ReactivePropertySlim<string>().DisposeWith(_disposables);
         ResolvedSubagentsPath = new ReactivePropertySlim<string>().DisposeWith(_disposables);
         ResolvedMcpConfigPath = new ReactivePropertySlim<string>().DisposeWith(_disposables);
@@ -134,7 +137,11 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
 
     public ReactivePropertySlim<bool> CanInstallMcp { get; }
 
+    public ReactivePropertySlim<bool> CanInstallStdioMcp { get; }
+
     public ReactivePropertySlim<bool> CanInstallLiveMcp { get; }
+
+    public ReactivePropertySlim<bool> IsStdioCommandMissing { get; }
 
     public ReactivePropertySlim<string> ResolvedSkillsPath { get; }
 
@@ -238,6 +245,8 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
         McpCommand.Skip(1).Subscribe(_ => RecomputeTargets()).DisposeWith(_disposables);
         McpArguments.Skip(1).Subscribe(_ => RecomputeTargets()).DisposeWith(_disposables);
         WorkspaceRoot.Skip(1).Subscribe(_ => RecomputeTargets()).DisposeWith(_disposables);
+        InstallStdioMcp.Skip(1).Subscribe(_ => RecomputeTargets()).DisposeWith(_disposables);
+        InstallLiveMcp.Skip(1).Subscribe(_ => RecomputeTargets()).DisposeWith(_disposables);
     }
 
     private void RecomputeTargets()
@@ -248,8 +257,11 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
         IsCustomAgent.Value = custom;
         IsScopeSelectable.Value = !custom;
         IsProjectFolderVisible.Value = custom || SelectedScope.Value.Scope == AgentInstallScope.Project;
+        bool stdioCommandAvailable = !string.IsNullOrWhiteSpace(McpCommand.Value);
         CanInstallSubagents.Value = targets.SubagentsDirectory is not null;
         CanInstallMcp.Value = targets.McpConfigFileName is not null || targets.UseCliForMcp;
+        CanInstallStdioMcp.Value = CanInstallMcp.Value && stdioCommandAvailable;
+        IsStdioCommandMissing.Value = !stdioCommandAvailable;
         CanInstallLiveMcp.Value = IsLiveMcpAvailable.Value
                                   && ((targets.McpConfigFileName is not null && targets.LiveUrlPropertyName is not null)
                                       || targets.CliSupportsRemote);
@@ -260,9 +272,38 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
             : DisplayPath(targets.Root, targets.SubagentsDirectory);
         ResolvedMcpConfigPath.Value = targets.McpConfigFileName is not null
             ? DisplayPath(targets.Root, targets.McpConfigFileName)
-            : targets.UseCliForMcp && BuildCliStdioCommand() is { } cliCommand
-                ? "$ " + cliCommand.ToDisplayString()
+            : targets.UseCliForMcp && BuildCliPreview(targets) is { } cliPreview
+                ? cliPreview
                 : SettingsStrings.AiAgents_NotSupported;
+    }
+
+    private string? BuildCliPreview(ResolvedTargets targets)
+    {
+        bool stdioCommandAvailable = !string.IsNullOrWhiteSpace(McpCommand.Value);
+        var lines = new List<string>();
+        if (InstallStdioMcp.Value && stdioCommandAvailable && BuildCliStdioCommand() is { } stdio)
+        {
+            lines.Add("$ " + stdio.ToDisplayString());
+        }
+
+        if (InstallLiveMcp.Value
+            && targets.CliSupportsRemote
+            && TryCreateLiveMcpUri() is { } liveUri
+            && AgentMcpCliCommands.BuildRemote(
+                SelectedAgent.Value.Id,
+                SelectedScope.Value.Scope,
+                AgentToolkitInstallOptions.DefaultLiveServerName,
+                liveUri) is { } remote)
+        {
+            lines.Add("$ " + remote.ToDisplayString());
+        }
+
+        if (lines.Count == 0 && stdioCommandAvailable && BuildCliStdioCommand() is { } fallback)
+        {
+            lines.Add("$ " + fallback.ToDisplayString());
+        }
+
+        return lines.Count == 0 ? null : string.Join(Environment.NewLine, lines);
     }
 
     private static string DisplayPath(string root, string relativePath)
@@ -306,7 +347,9 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
 
             Uri? liveMcpUri = TryCreateLiveMcpUri();
             bool canWriteMcp = targets.McpConfigFileName is not null;
-            bool installStdioMcp = InstallStdioMcp.Value && canWriteMcp;
+            bool installStdioMcp = InstallStdioMcp.Value
+                                   && canWriteMcp
+                                   && !string.IsNullOrWhiteSpace(McpCommand.Value);
             bool installLiveMcp = InstallLiveMcp.Value
                                   && canWriteMcp
                                   && targets.LiveUrlPropertyName is not null
@@ -373,7 +416,9 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
         string agentId = SelectedAgent.Value.Id;
         AgentInstallScope scope = SelectedScope.Value.Scope;
 
-        if (InstallStdioMcp.Value && BuildCliStdioCommand() is { } stdioCommand)
+        if (InstallStdioMcp.Value
+            && !string.IsNullOrWhiteSpace(McpCommand.Value)
+            && BuildCliStdioCommand() is { } stdioCommand)
         {
             await RunCliRegistrationAsync(
                 agentId, scope, AgentToolkitInstallOptions.DefaultStdioServerName, stdioCommand, errors)

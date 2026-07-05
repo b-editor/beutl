@@ -44,6 +44,26 @@ public sealed class AiAgentSettingsPageViewModelTests
                 Does.StartWith("$ claude mcp add --scope user"));
             Assert.That(viewModel.WorkspaceRoot.Value, Is.Not.Empty);
             Assert.That(viewModel.McpCommand.Value, Is.Not.Empty);
+            // Live MCP is the primary integration; stdio is opt-in.
+            Assert.That(viewModel.InstallLiveMcp.Value, Is.True);
+            Assert.That(viewModel.InstallStdioMcp.Value, Is.False);
+            Assert.That(viewModel.CanInstallStdioMcp.Value, Is.True);
+            Assert.That(viewModel.IsStdioCommandMissing.Value, Is.False);
+        });
+    }
+
+    [AvaloniaTest]
+    public void Missing_stdio_command_disables_the_stdio_toggle()
+    {
+        using AiAgentSettingsPageViewModel viewModel = CreateViewModel(new AiAgentConfig());
+
+        viewModel.McpCommand.Value = "";
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.CanInstallStdioMcp.Value, Is.False);
+            Assert.That(viewModel.IsStdioCommandMissing.Value, Is.True);
+            Assert.That(viewModel.CanInstallMcp.Value, Is.True);
         });
     }
 

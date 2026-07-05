@@ -440,7 +440,7 @@
     <comment/>
   </data>
   <data name="AiAgents_StdioMcp_Description" xml:space="preserve">
-    <value>Headless server that edits project files without the GUI</value>
+    <value>Optional headless server that edits project files without launching the GUI</value>
     <comment/>
   </data>
   <data name="AiAgents_LiveMcp" xml:space="preserve">
@@ -448,7 +448,7 @@
     <comment/>
   </data>
   <data name="AiAgents_LiveMcp_Description" xml:space="preserve">
-    <value>Connects agents to this running editor; edits appear live in the preview and undo history</value>
+    <value>Recommended: connects agents to this running editor; edits appear live in the preview and undo history</value>
     <comment/>
   </data>
   <data name="AiAgents_LiveMcp_NotRunning" xml:space="preserve">
@@ -574,6 +574,10 @@
   <data name="AiAgents_CliFailed" xml:space="preserve">
     <value>MCP registration through the agent's CLI failed. Run the command manually:
 {0}</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_StdioMissing" xml:space="preserve">
+    <value>The stdio MCP server binary was not found next to the app. Enter a command under Advanced, or reinstall Beutl.</value>
     <comment/>
   </data>
 </root>

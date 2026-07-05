@@ -436,7 +436,7 @@
     <comment/>
   </data>
   <data name="AiAgents_StdioMcp_Description" xml:space="preserve">
-    <value>GUI を使わずにプロジェクトファイルを編集するヘッドレスサーバー</value>
+    <value>（オプション）GUI を起動せずにプロジェクトファイルを編集するヘッドレスサーバー</value>
     <comment/>
   </data>
   <data name="AiAgents_LiveMcp" xml:space="preserve">
@@ -444,7 +444,7 @@
     <comment/>
   </data>
   <data name="AiAgents_LiveMcp_Description" xml:space="preserve">
-    <value>実行中のエディタに接続し、編集をプレビューやアンドゥ履歴へ即時反映します</value>
+    <value>（推奨）実行中のエディタに接続し、編集をプレビューやアンドゥ履歴へ即時反映します</value>
     <comment/>
   </data>
   <data name="AiAgents_LiveMcp_NotRunning" xml:space="preserve">
@@ -570,6 +570,10 @@
   <data name="AiAgents_CliFailed" xml:space="preserve">
     <value>エージェントの CLI による MCP 登録に失敗しました。次のコマンドを手動で実行してください:
 {0}</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_StdioMissing" xml:space="preserve">
+    <value>stdio MCP サーバーの実行ファイルがアプリと同じ場所に見つかりませんでした。詳細設定でコマンドを指定するか、Beutl を再インストールしてください。</value>
     <comment/>
   </data>
 </root>

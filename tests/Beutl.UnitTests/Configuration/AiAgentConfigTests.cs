@@ -8,7 +8,7 @@ namespace Beutl.UnitTests.Configuration;
 public class AiAgentConfigTests
 {
     [Test]
-    public void Defaults_are_install_everything_but_live_mcp()
+    public void Defaults_prefer_live_mcp_and_leave_stdio_opt_in()
     {
         var config = new AiAgentConfig();
 
@@ -22,8 +22,8 @@ public class AiAgentConfigTests
             Assert.That(config.SubagentsDirectory, Is.Empty);
             Assert.That(config.InstallSkills, Is.True);
             Assert.That(config.InstallSubagents, Is.True);
-            Assert.That(config.InstallStdioMcp, Is.True);
-            Assert.That(config.InstallLiveMcp, Is.False);
+            Assert.That(config.InstallStdioMcp, Is.False);
+            Assert.That(config.InstallLiveMcp, Is.True);
             Assert.That(config.McpConfigFileName, Is.Empty);
             Assert.That(config.McpServersPropertyName, Is.Empty);
         });
