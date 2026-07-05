@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl.Configuration;
 using Beutl.Editor;
+using Beutl.Editor.Components.ProxiesTab;
 using Beutl.Editor.Observers;
 using Beutl.Editor.Operations;
 using Beutl.Graphics.Rendering.Cache;
@@ -14,6 +15,7 @@ using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Proxy;
+using Beutl.Media.Source;
 using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -278,19 +280,21 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
 
     private static bool ElementUsesAnySource(Element element, IReadOnlySet<string> changedSources)
     {
-        foreach (Beutl.Graphics.SourceVideo video in element.EnumerateAllChildren<Beutl.Graphics.SourceVideo>())
+        // Cover every proxy-aware holder (SourceVideo, VideoSourceNode graph inputs, referenced
+        // scenes, and their animated values) so cached frames of a graph/referenced-scene clip are
+        // invalidated too, not just those of a top-level SourceVideo's current value.
+        foreach (VideoSource source in ProxySourceEnumerator.EnumerateVideoSources(element))
         {
-            Beutl.Media.Source.VideoSource? source = video.Source.CurrentValue;
-            if (source is not { HasUri: true })
+            if (source is not { HasUri: true } || source.Uri is not { IsFile: true } uri)
             {
                 continue;
             }
 
-            // Normalize the element's URI in-process rather than re-running a
-            // symlink-resolving FileInfo stat per element on the UI thread; the changed
-            // source path is already a normalized fingerprint path. The reader-level reload
-            // path (VideoSource + GetSourceVersion) still guarantees eventual correctness.
-            string elementPath = ProxyFingerprint.NormalizeAbsolutePath(source.Uri.LocalPath);
+            // Normalize the element's URI in-process rather than re-running a symlink-resolving
+            // FileInfo stat per element on the UI thread; the changed source path is already a
+            // normalized fingerprint path. The reader-level reload path (VideoSource +
+            // GetSourceVersion) still guarantees eventual correctness.
+            string elementPath = ProxyFingerprint.NormalizeAbsolutePath(uri.LocalPath);
             if (changedSources.Contains(elementPath))
             {
                 return true;

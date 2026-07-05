@@ -33,7 +33,7 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
     {
         ArgumentNullException.ThrowIfNull(job);
 
-        string sourcePath = job.Source.AbsolutePath;
+        string sourcePath = job.Source.SourcePath;
         if (!File.Exists(sourcePath))
             throw new FileNotFoundException(null, sourcePath);
 

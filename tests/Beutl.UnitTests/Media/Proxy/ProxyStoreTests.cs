@@ -90,6 +90,34 @@ public sealed class ProxyStoreTests
     }
 
     [Test]
+    public async Task ReconcileAsync_OrphanCleanup_DeletesOnlyProxyShapedFinalFiles()
+    {
+        string root = CreateRoot();
+        var store = new ProxyStore(root);
+        string hashDirectory = new('b', 64);
+        DateTime aged = DateTime.UtcNow.AddHours(-2);
+
+        string proxyOrphan = Path.Combine(root, hashDirectory, "quarter.mp4");
+        string unrelatedTopLevel = Path.Combine(root, "archive.mp4");
+        string wrongName = Path.Combine(root, hashDirectory, "render-final.mp4");
+        Directory.CreateDirectory(Path.GetDirectoryName(proxyOrphan)!);
+        foreach (string file in new[] { proxyOrphan, unrelatedTopLevel, wrongName })
+        {
+            File.WriteAllBytes(file, [1, 2, 3]);
+            File.SetLastWriteTimeUtc(file, aged);
+        }
+
+        await store.ReconcileAsync(CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.Exists(proxyOrphan), Is.False, "an aged untracked proxy-shaped file should be reclaimed");
+            Assert.That(File.Exists(unrelatedTopLevel), Is.True, "an unrelated *.mp4 under the store root must not be deleted");
+            Assert.That(File.Exists(wrongName), Is.True, "an *.mp4 not matching the proxy filename pattern must not be deleted");
+        });
+    }
+
+    [Test]
     public async Task ReconcileAsync_MarksReadyEntryStaleWhenSourceFingerprintChanges()
     {
         string root = CreateRoot();

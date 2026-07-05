@@ -2,13 +2,15 @@
 
 public readonly record struct ProxyFingerprint
 {
+    private readonly string? _sourcePath;
+
     public ProxyFingerprint(string absolutePath, long fileSizeBytes, DateTime mtimeUtc)
     {
         if (string.IsNullOrWhiteSpace(absolutePath))
             throw new ArgumentException("Path must be non-empty.", nameof(absolutePath));
 
-        string fullPath = NormalizeAbsolutePath(absolutePath);
-        if (!Path.IsPathFullyQualified(fullPath))
+        string originalPath = Path.GetFullPath(absolutePath);
+        if (!Path.IsPathFullyQualified(originalPath))
             throw new ArgumentException("Path must be absolute.", nameof(absolutePath));
 
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(fileSizeBytes, 0);
@@ -18,16 +20,38 @@ public readonly record struct ProxyFingerprint
             mtimeUtc = mtimeUtc.ToUniversalTime();
         }
 
-        AbsolutePath = fullPath;
+        AbsolutePath = NormalizeAbsolutePath(originalPath);
+        _sourcePath = originalPath;
         FileSizeBytes = fileSizeBytes;
         MtimeUtc = mtimeUtc;
     }
 
+    // Case-folded on Windows/macOS. This is the identity/dedup key (equality, hashing, hash-directory
+    // naming) — it is NOT safe for filesystem I/O on a case-sensitive volume; use SourcePath for that.
     public string AbsolutePath { get; init; }
+
+    // The original, case-preserving absolute path. Use this — not AbsolutePath — whenever opening or
+    // stat-ing the source media; on a case-sensitive volume the folded AbsolutePath will not resolve.
+    // Falls back to AbsolutePath for entries persisted before this field existed.
+    public string SourcePath
+    {
+        get => string.IsNullOrEmpty(_sourcePath) ? AbsolutePath : _sourcePath;
+        init => _sourcePath = value;
+    }
 
     public long FileSizeBytes { get; init; }
 
     public DateTime MtimeUtc { get; init; }
+
+    // Equality and hashing intentionally exclude SourcePath: two fingerprints for the same file must
+    // compare equal regardless of the casing recorded for I/O, and the folded AbsolutePath is the key.
+    public bool Equals(ProxyFingerprint other)
+        => string.Equals(AbsolutePath, other.AbsolutePath, StringComparison.Ordinal)
+            && FileSizeBytes == other.FileSizeBytes
+            && MtimeUtc == other.MtimeUtc;
+
+    public override int GetHashCode()
+        => HashCode.Combine(AbsolutePath, FileSizeBytes, MtimeUtc);
 
     public static ProxyFingerprint FromFile(string path)
     {

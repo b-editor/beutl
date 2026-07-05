@@ -1,4 +1,6 @@
-﻿using Beutl.Media.Proxy;
+﻿using System.Text.Json;
+
+using Beutl.Media.Proxy;
 
 namespace Beutl.UnitTests.Media.Proxy;
 
@@ -71,6 +73,87 @@ public class ProxyFingerprintTests
             Assert.That(Path.IsPathFullyQualified(fingerprint.AbsolutePath), Is.True);
             Assert.That(fingerprint.FileSizeBytes, Is.EqualTo(3));
             Assert.That(fingerprint.MtimeUtc.Kind, Is.EqualTo(DateTimeKind.Utc));
+        });
+    }
+
+    [Test]
+    public void SourcePath_PreservesOriginalCasing_ForFilesystemIo()
+    {
+        var mtime = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc);
+        string original = CreatePath("Case.MOV");
+        var fingerprint = new ProxyFingerprint(original, 123, mtime);
+
+        Assert.Multiple(() =>
+        {
+            // SourcePath must stay usable for I/O; on macOS/Windows AbsolutePath is folded, so a
+            // case-sensitive volume would fail to open it — SourcePath must NOT be folded.
+            Assert.That(fingerprint.SourcePath, Is.EqualTo(Path.GetFullPath(original)));
+            if (OperatingSystem.IsMacOS() || OperatingSystem.IsWindows())
+            {
+                Assert.That(fingerprint.AbsolutePath, Is.EqualTo(Path.GetFullPath(original).ToUpperInvariant()));
+                Assert.That(fingerprint.SourcePath, Is.Not.EqualTo(fingerprint.AbsolutePath));
+            }
+        });
+    }
+
+    [Test]
+    public void SourcePath_ExcludedFromEqualityAndHash()
+    {
+        var mtime = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc);
+        var lower = new ProxyFingerprint(CreatePath("clip.mov"), 123, mtime);
+        var mixed = new ProxyFingerprint(CreatePath("clip.mov"), 123, mtime) with { SourcePath = CreatePath("CLIP.MOV") };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(mixed, Is.EqualTo(lower));
+            Assert.That(mixed.GetHashCode(), Is.EqualTo(lower.GetHashCode()));
+            Assert.That(mixed.SourcePath, Is.Not.EqualTo(lower.SourcePath));
+        });
+    }
+
+    // Matches the store's serializer (ProxyStore.s_jsonOptions), which round-trips fingerprints.
+    private static readonly JsonSerializerOptions s_jsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+    };
+
+    [Test]
+    public void JsonRoundTrip_PreservesSourcePath()
+    {
+        var mtime = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc);
+        var fingerprint = new ProxyFingerprint(CreatePath("RoundTrip.MOV"), 123, mtime);
+
+        string json = JsonSerializer.Serialize(fingerprint, s_jsonOptions);
+        var restored = JsonSerializer.Deserialize<ProxyFingerprint>(json, s_jsonOptions);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(restored, Is.EqualTo(fingerprint));
+            Assert.That(restored.SourcePath, Is.EqualTo(fingerprint.SourcePath));
+            Assert.That(restored.AbsolutePath, Is.EqualTo(fingerprint.AbsolutePath));
+        });
+    }
+
+    [Test]
+    public void Deserialize_LegacyWithoutSourcePath_FallsBackToAbsolutePath()
+    {
+        var mtime = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc);
+        var reference = new ProxyFingerprint(CreatePath("legacy.mov"), 123, mtime);
+        string legacyJson = JsonSerializer.Serialize(
+            new
+            {
+                absolutePath = reference.AbsolutePath,
+                fileSizeBytes = reference.FileSizeBytes,
+                mtimeUtc = reference.MtimeUtc,
+            },
+            s_jsonOptions);
+
+        var restored = JsonSerializer.Deserialize<ProxyFingerprint>(legacyJson, s_jsonOptions);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(restored, Is.EqualTo(reference));
+            Assert.That(restored.SourcePath, Is.EqualTo(reference.AbsolutePath));
         });
     }
 

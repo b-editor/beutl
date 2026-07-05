@@ -27,7 +27,8 @@ public sealed class ProxyJob
     public CancellationToken CancellationToken { get; }
 
     // Higher values are dispatched first; jobs with equal priority keep arrival (FIFO) order.
-    public int Priority { get; }
+    // Settable so a duplicate enqueue can promote an already-queued job under the queue's lock.
+    public int Priority { get; internal set; }
 
     public ProxyJobStatus Status { get; internal set; } = ProxyJobStatus.Queued;
 

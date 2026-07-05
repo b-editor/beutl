@@ -81,34 +81,62 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         ObjectDisposedException.ThrowIf(_disposed, this);
 
         var key = (source, preset);
-        WorkItem item;
+        WorkItem? newItem = null;
+        ProxyJob? existingJob = null;
+        bool promoted = false;
         lock (_lock)
         {
-            if (_itemsByKey.TryGetValue(key, out WorkItem? existing)
-                && !IsTerminal(existing.Job.Status))
+            if (_itemsByKey.TryGetValue(key, out WorkItem? existing))
             {
-                return existing.Job;
+                if (!IsTerminal(existing.Job.Status))
+                {
+                    existingJob = existing.Job;
+                    if (priority > existingJob.Priority)
+                    {
+                        existingJob.Priority = priority;
+                        promoted = true;
+                    }
+                }
+                else
+                {
+                    // A terminal entry for this key stays parked in the map until its drain loop calls
+                    // Remove; drop it now so the replacement can take the key without Add throwing on
+                    // the duplicate. Remove's ReferenceEquals guard keeps that later call a no-op.
+                    _itemsByKey.Remove(key);
+                    _items.Remove(existing);
+                }
             }
 
-            var cts = CancellationTokenSource.CreateLinkedTokenSource(_disposeCts.Token);
-            ProxyJob? job = null;
-            var progress = new Progress<ProxyJobProgress>(value =>
+            if (existingJob == null)
             {
-                job!.LatestProgress = value;
-                OnJobChanged(job, ProxyJobChangeKind.Progressed);
-            });
-            job = new ProxyJob(
-                source,
-                preset,
-                progress,
-                cts.Token,
-                priority);
+                var cts = CancellationTokenSource.CreateLinkedTokenSource(_disposeCts.Token);
+                ProxyJob? job = null;
+                var progress = new Progress<ProxyJobProgress>(value =>
+                {
+                    job!.LatestProgress = value;
+                    OnJobChanged(job, ProxyJobChangeKind.Progressed);
+                });
+                job = new ProxyJob(
+                    source,
+                    preset,
+                    progress,
+                    cts.Token,
+                    priority);
 
-            item = new WorkItem(job, cts);
-            _itemsByKey.Add(key, item);
-            _items.Add(item);
+                newItem = new WorkItem(job, cts);
+                _itemsByKey.Add(key, newItem);
+                _items.Add(newItem);
+            }
         }
 
+        if (existingJob != null)
+        {
+            if (promoted)
+                OnJobChanged(existingJob, ProxyJobChangeKind.Enqueued);
+            return existingJob;
+        }
+
+        WorkItem item = newItem!;
         try
         {
             await _channel.Writer.WriteAsync(item, cancellationToken);

@@ -455,95 +455,16 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
     private IEnumerable<(string Path, ProxyFingerprint Fingerprint)> EnumerateProjectVideoSources()
     {
         HashSet<string> seenPaths = new(StringComparer.Ordinal);
-        HashSet<Scene> seenScenes = new(ReferenceEqualityComparer.Instance);
+        HashSet<Scene> seenScenes = new(ReferenceEqualityComparer.Instance) { _scene };
         ProxyEntry[] storeEntries = [.. _store?.Enumerate() ?? []];
-        return EnumerateProjectVideoSources(_scene, seenPaths, seenScenes, storeEntries);
-    }
 
-    private static IEnumerable<(string Path, ProxyFingerprint Fingerprint)> EnumerateProjectVideoSources(
-        Scene scene,
-        HashSet<string> seenPaths,
-        HashSet<Scene> seenScenes,
-        IReadOnlyList<ProxyEntry> storeEntries)
-    {
-        if (!seenScenes.Add(scene))
-            yield break;
-
-        foreach (Element element in scene.Children)
+        foreach (Element element in _scene.Children)
         {
-            foreach (SourceVideo video in element.Objects.OfType<SourceVideo>())
+            foreach (VideoSource source in ProxySourceEnumerator.EnumerateVideoSources(element, seenScenes))
             {
-                foreach (VideoSource? source in EnumerateVideoSourceValues(video.Source))
-                {
-                    if (TryGetVideoSource(source, storeEntries, seenPaths, out var item))
-                        yield return item;
-                }
-            }
-
-            foreach (NodeGraphDrawable graphDrawable in element.Objects.OfType<NodeGraphDrawable>())
-            {
-                GraphModel? model = graphDrawable.Model.CurrentValue;
-                if (model == null)
-                    continue;
-
-                foreach (VideoSourceNode node in model.Nodes.OfType<VideoSourceNode>())
-                {
-                    if (node.Source.Property == null)
-                        continue;
-
-                    foreach (VideoSource? source in EnumerateVideoSourceValues(node.Source.Property))
-                    {
-                        if (TryGetVideoSource(source, storeEntries, seenPaths, out var item))
-                            yield return item;
-                    }
-                }
-            }
-
-            foreach (SceneDrawable sceneDrawable in element.Objects.OfType<SceneDrawable>())
-            {
-                if (sceneDrawable.ReferencedScene.CurrentValue is not { } referencedScene)
-                    continue;
-
-                foreach (var item in EnumerateProjectVideoSources(referencedScene, seenPaths, seenScenes, storeEntries))
-                {
+                if (TryGetVideoSource(source, storeEntries, seenPaths, out var item))
                     yield return item;
-                }
             }
-        }
-    }
-
-    private static IEnumerable<VideoSource?> EnumerateVideoSourceValues(IProperty<VideoSource?> property)
-    {
-        yield return property.CurrentValue;
-
-        foreach (VideoSource? source in EnumerateAnimatedVideoSourceValues(property.Animation))
-        {
-            yield return source;
-        }
-    }
-
-    private static IEnumerable<VideoSource?> EnumerateVideoSourceValues(IPropertyAdapter<VideoSource?> property)
-    {
-        yield return property.GetValue();
-
-        if (property is IAnimatablePropertyAdapter<VideoSource?> animatable)
-        {
-            foreach (VideoSource? source in EnumerateAnimatedVideoSourceValues(animatable.Animation))
-            {
-                yield return source;
-            }
-        }
-    }
-
-    private static IEnumerable<VideoSource?> EnumerateAnimatedVideoSourceValues(IAnimation<VideoSource?>? animation)
-    {
-        if (animation is not KeyFrameAnimation<VideoSource?> keyFrameAnimation)
-            yield break;
-
-        foreach (IKeyFrame keyFrame in keyFrameAnimation.KeyFrames)
-        {
-            if (keyFrame.Value is VideoSource source)
-                yield return source;
         }
     }
 

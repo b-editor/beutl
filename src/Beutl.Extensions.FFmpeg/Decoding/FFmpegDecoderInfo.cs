@@ -1,4 +1,5 @@
-﻿using Beutl.FFmpegIpc.Protocol;
+﻿using Beutl.FFmpegIpc;
+using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Protocol.Messages;
 using Beutl.Logging;
 using Beutl.Media.Decoding;
@@ -44,6 +45,13 @@ public sealed class FFmpegDecoderInfo(FFmpegDecodingSettings settings) : IDecode
                 MessageType.OpenFile, MessageType.OpenFileResult, request).GetAwaiter().GetResult();
 
             return new FFmpegReaderProxy(connection, response.ReaderId, response);
+        }
+        catch (FFmpegLibrariesNotFoundException)
+        {
+            // A missing FFmpeg environment is not a "this decoder can't read this file" signal (which
+            // null conveys, letting the registry fall through to the next decoder). Surface it so
+            // callers such as proxy generation can pause the queue instead of failing per-file.
+            throw;
         }
         catch (Exception ex)
         {

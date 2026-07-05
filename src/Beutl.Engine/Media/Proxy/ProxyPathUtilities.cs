@@ -47,6 +47,34 @@ internal static class ProxyPathUtilities
 
     public static bool IsGeneratedProxyTempPath(string storeRootPath, string path)
     {
+        if (!TryGetProxyFileParts(storeRootPath, path, out string[] parts))
+            return false;
+
+        if (parts.Length != 3 || !parts[2].Equals("tmp", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        if (!Guid.TryParseExact(parts[1], "N", out _))
+            return false;
+
+        return Enum.GetNames<ProxyPreset>()
+            .Any(name => parts[0].Equals(name, StringComparison.OrdinalIgnoreCase));
+    }
+
+    public static bool IsGeneratedProxyFinalPath(string storeRootPath, string path)
+    {
+        if (!TryGetProxyFileParts(storeRootPath, path, out string[] parts))
+            return false;
+
+        if (parts.Length != 1)
+            return false;
+
+        return Enum.GetNames<ProxyPreset>()
+            .Any(name => parts[0].Equals(name, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool TryGetProxyFileParts(string storeRootPath, string path, out string[] parts)
+    {
+        parts = [];
         string fullPath = Path.GetFullPath(path);
         string root = Path.GetFullPath(storeRootPath);
         if (!IsUnderDirectory(fullPath, root))
@@ -65,16 +93,8 @@ internal static class ProxyPathUtilities
         if (!fileName.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase))
             return false;
 
-        string withoutExtension = Path.GetFileNameWithoutExtension(fileName);
-        string[] parts = withoutExtension.Split('.');
-        if (parts.Length != 3 || !parts[2].Equals("tmp", StringComparison.OrdinalIgnoreCase))
-            return false;
-
-        if (!Guid.TryParseExact(parts[1], "N", out _))
-            return false;
-
-        return Enum.GetNames<ProxyPreset>()
-            .Any(name => parts[0].Equals(name, StringComparison.OrdinalIgnoreCase));
+        parts = Path.GetFileNameWithoutExtension(fileName).Split('.');
+        return true;
     }
 
     private static bool IsRootedProxyPath(string path)

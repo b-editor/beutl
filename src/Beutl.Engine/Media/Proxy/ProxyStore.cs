@@ -263,8 +263,8 @@ public sealed class ProxyStore : IProxyStore
                     }
 
                     if (entry.State == ProxyState.Ready
-                        && File.Exists(entry.Source.AbsolutePath)
-                        && ProxyFingerprint.FromFile(entry.Source.AbsolutePath) != entry.Source)
+                        && File.Exists(entry.Source.SourcePath)
+                        && ProxyFingerprint.FromFile(entry.Source.SourcePath) != entry.Source)
                     {
                         changed.Add(entry);
                     }
@@ -408,6 +408,12 @@ public sealed class ProxyStore : IProxyStore
             cancellationToken.ThrowIfCancellationRequested();
 
             if (ProxyPathUtilities.IsGeneratedProxyTempPath(StoreRootPath, file))
+                continue;
+
+            // Only reclaim files that match the generated proxy naming scheme; a user who points the
+            // store root at an existing media folder must not have unrelated *.mp4 files deleted just
+            // because they are absent from index.json.
+            if (!ProxyPathUtilities.IsGeneratedProxyFinalPath(StoreRootPath, file))
                 continue;
 
             if (tracked.Contains(ProxyFingerprint.NormalizeAbsolutePath(file)))

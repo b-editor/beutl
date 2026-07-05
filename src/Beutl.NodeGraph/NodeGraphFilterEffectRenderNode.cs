@@ -28,6 +28,9 @@ internal class NodeGraphFilterEffectRenderNode(NodeGraphFilterEffect.Resource re
 
         // 3. グラフのノードを評価
         _compositionContext.Time = lastTime.Value;
+        _compositionContext.ForceOriginalSource = GraphResource.ForceOriginalSource;
+        _compositionContext.PreferProxy = GraphResource.PreferProxy;
+        _compositionContext.PreferredProxyPreset = GraphResource.PreferredProxyPreset;
         GraphResource.Snapshot.Evaluate(CompositionTarget.Graphics, _compositionContext);
 
         // 4. OutputNode から出力 RenderNode を収集

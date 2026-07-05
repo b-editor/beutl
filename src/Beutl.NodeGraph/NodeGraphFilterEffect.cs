@@ -5,6 +5,7 @@ using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Language;
+using Beutl.Media.Proxy;
 using Beutl.NodeGraph.Composition;
 using Beutl.NodeGraph.Nodes;
 
@@ -45,6 +46,15 @@ public sealed partial class NodeGraphFilterEffect : FilterEffect
 
         public TimeSpan? LastTime { get; private set; }
 
+        // Proxy preferences captured from the composition context at build time; the render node
+        // replays the graph with a fresh context and must restore them, otherwise graph video inputs
+        // always evaluate with PreferProxy=false even in a "prefer proxy" preview.
+        public bool ForceOriginalSource { get; private set; }
+
+        public bool PreferProxy { get; private set; }
+
+        public ProxyPreset PreferredProxyPreset { get; private set; } = ProxyPreset.Quarter;
+
         public override FilterEffectRenderNode CreateRenderNode()
         {
             return new NodeGraphFilterEffectRenderNode(this);
@@ -75,6 +85,9 @@ public sealed partial class NodeGraphFilterEffect : FilterEffect
                 if (Model != null)
                 {
                     LastTime = context.Time;
+                    ForceOriginalSource = context.ForceOriginalSource;
+                    PreferProxy = context.PreferProxy;
+                    PreferredProxyPreset = context.PreferredProxyPreset;
                     Snapshot.Build(Model, context);
                     Version++;
                     updateOnly = true;

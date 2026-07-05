@@ -351,6 +351,83 @@ public class ProxyJobQueueTests
         });
     }
 
+    [Test]
+    public async Task EnqueueAsync_DuplicateWithHigherPriority_PromotesQueuedJobAheadOfBulk()
+    {
+        var generator = new ControlledBlockingGenerator();
+        await using var queue = new ProxyJobQueue(generator);
+        ProxyFingerprint running = CreateFingerprint("running.mov");
+        ProxyFingerprint bulkA = CreateFingerprint("bulk-a.mov");
+        ProxyFingerprint bulkB = CreateFingerprint("bulk-b.mov");
+
+        ProxyJob runningJob = await queue.EnqueueAsync(running, ProxyPreset.Quarter);
+        await generator.WaitForStartedCountAsync(1);
+
+        ProxyJob bulkAJob = await queue.EnqueueAsync(bulkA, ProxyPreset.Quarter);
+        await queue.EnqueueAsync(bulkB, ProxyPreset.Quarter);
+        ProxyJob promoted = await queue.EnqueueAsync(bulkA, ProxyPreset.Quarter, priority: 10);
+
+        generator.ReleaseOne();
+        await generator.WaitForStartedCountAsync(2);
+        generator.ReleaseOne();
+        await generator.WaitForStartedCountAsync(3);
+        generator.ReleaseAll();
+
+        await WaitForTerminalAsync(runningJob);
+        await WaitForTerminalAsync(bulkAJob);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(promoted, Is.SameAs(bulkAJob), "a duplicate enqueue must reuse the queued job, not create a new one");
+            Assert.That(bulkAJob.Priority, Is.EqualTo(10), "the queued job's priority must be promoted by the higher-priority duplicate");
+            Assert.That(generator.StartedSources[0], Is.EqualTo(running));
+            Assert.That(generator.StartedSources[1], Is.EqualTo(bulkA), "the promoted duplicate must jump ahead of the earlier-queued bulk");
+            Assert.That(generator.StartedSources[2], Is.EqualTo(bulkB));
+        });
+    }
+
+    [Test]
+    public async Task EnqueueAsync_SameKeyDuringTerminalWindow_ReplacesWithoutThrowing()
+    {
+        var generator = new RecordingGenerator();
+        await using var queue = new ProxyJobQueue(generator);
+        ProxyFingerprint source = CreateFingerprint("terminal-window.mov");
+
+        ProxyJob? replacement = null;
+        Exception? reenqueueError = null;
+        var reenqueued = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        queue.JobChanged += (_, e) =>
+        {
+            if (e.Kind != ProxyJobChangeKind.Succeeded || replacement != null)
+                return;
+
+            try
+            {
+                // Re-enqueue the same key while the just-succeeded terminal entry is still parked in
+                // the queue's map (its drain loop has not run Remove yet): the duplicate-key window.
+                replacement = queue.EnqueueAsync(source, ProxyPreset.Quarter).AsTask().GetAwaiter().GetResult();
+            }
+            catch (Exception ex)
+            {
+                reenqueueError = ex;
+            }
+            finally
+            {
+                reenqueued.TrySetResult();
+            }
+        };
+
+        ProxyJob first = await queue.EnqueueAsync(source, ProxyPreset.Quarter);
+        await reenqueued.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(reenqueueError, Is.Null, "re-enqueue during the terminal window must not throw a duplicate-key error");
+            Assert.That(replacement, Is.Not.Null);
+            Assert.That(replacement, Is.Not.SameAs(first), "a terminal entry must be replaced by a fresh job, not returned");
+        });
+    }
+
     private static async Task WaitForTerminalAsync(ProxyJob job)
     {
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
