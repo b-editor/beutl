@@ -29,13 +29,14 @@ public sealed partial class CSharpScriptEffect : FilterEffect, IScriptCompilable
     {
         return """
                // Available variables:
-               // Context - FilterEffectContext
+               // Session - GeometrySession (OpenCanvas(), Inputs, WorkingScale)
                // Progress - 0.0 to 1.0
                // Duration - total duration in seconds
                // Time - current time in seconds
 
-               // Example: Apply a blur effect
-               // Context.Blur(new Size(10, 10));
+               // The canvas already holds the input; draw on top of it.
+               // var canvas = Session.OpenCanvas();
+               // canvas.Canvas.DrawCircle(0, 0, 20, new SkiaSharp.SKPaint());
                """;
     }
 
@@ -73,7 +74,8 @@ public sealed partial class CSharpScriptEffect : FilterEffect, IScriptCompilable
                 typeof(Console).Assembly,
                 typeof(Enumerable).Assembly,
                 typeof(CoreObject).Assembly,
-                typeof(FilterEffectContext).Assembly)
+                typeof(FilterEffectContext).Assembly,
+                typeof(SkiaSharp.SKCanvas).Assembly)
             .AddImports(
                 "System",
                 "System.Linq",
@@ -81,18 +83,47 @@ public sealed partial class CSharpScriptEffect : FilterEffect, IScriptCompilable
                 "Beutl.Engine",
                 "Beutl.Graphics",
                 "Beutl.Graphics.Rendering",
-                "Beutl.Graphics.Effects");
+                "Beutl.Graphics.Effects",
+                "SkiaSharp");
     }
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
-        var r = (Resource)resource;
+        // The imperative FilterEffectContext scripting surface was removed (breaking, contracts/breaking-changes.md).
+        // Scripts run through Describe's GeometrySession now; the legacy bridge never reaches this effect.
+        throw new NotSupportedException(
+            $"{nameof(CSharpScriptEffect)} no longer supports the imperative {nameof(ApplyTo)} path. "
+            + "Its script runs through the declarative Describe/GeometrySession pipeline.");
+    }
 
+    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
+    {
+        var r = (Resource)resource;
         if (r._scriptRunner == null)
             return;
 
-        var globals = new CSharpScriptEffectGlobals(context, r.Progress, r.Duration, r.Time);
-        r._scriptRunner(globals).GetAwaiter().GetResult();
+        ScriptRunner<object> runner = r._scriptRunner;
+        float progress = r.Progress;
+        float duration = r.Duration;
+        float time = r.Time;
+
+        // The executor clears the pass output, so the callback first draws the input as the passthrough baseline
+        // (a no-op script leaves the content unchanged), then runs the script to draw on top through the session.
+        builder.Geometry(GeometryNodeDescriptor.Create(
+            session =>
+            {
+                EffectInput input = session.Inputs[0];
+                ImmediateCanvas canvas = session.OpenCanvas();
+                using (canvas.PushDeviceSpace())
+                {
+                    input.Draw(canvas, default);
+                }
+
+                var globals = new CSharpScriptEffectGlobals(session, progress, duration, time);
+                runner(globals).GetAwaiter().GetResult();
+            },
+            BoundsContract.Identity,
+            structuralToken: nameof(CSharpScriptEffect)));
     }
 
     public new partial class Resource

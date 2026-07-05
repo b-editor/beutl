@@ -1,20 +1,38 @@
-﻿using System.Numerics;
+using System.Numerics;
 
 namespace Beutl.Graphics.Effects;
 
+/// <summary>
+/// The script globals a <see cref="CSharpScriptEffect"/> script runs against (feature 004, contract A6,
+/// contracts/breaking-changes.md). The imperative <see cref="FilterEffectContext"/> surface is gone: a script now
+/// draws through <see cref="Session"/> (a bounded <see cref="GeometrySession"/>) whose canvas the executor has
+/// pre-filled with the input. A legacy script that references <c>Context</c> fails to compile with a diagnostic
+/// pointing at the migration guide — never silently wrong output.
+/// </summary>
 public class CSharpScriptEffectGlobals
 {
-    private readonly FilterEffectContext _context;
+    internal const string MigrationDiagnostic =
+        "CSharpScriptEffect no longer exposes FilterEffectContext. Draw through 'Session' "
+        + "(GeometrySession: OpenCanvas(), Inputs, WorkingScale) instead. See the migration guide at "
+        + "docs/specs/004-gpu-pass-fusion/contracts/breaking-changes.md.";
 
-    public CSharpScriptEffectGlobals(FilterEffectContext context, float progress, float duration, float time)
+    public CSharpScriptEffectGlobals(GeometrySession session, float progress, float duration, float time)
     {
-        _context = context ?? throw new ArgumentNullException(nameof(context));
+        Session = session ?? throw new ArgumentNullException(nameof(session));
         Progress = progress;
         Duration = duration;
         Time = time;
     }
 
-    public FilterEffectContext Context => _context;
+    /// <summary>The bounded drawing session (canvas over the pass output, read-only inputs, resolved scales).</summary>
+    public GeometrySession Session { get; }
+
+    /// <summary>
+    /// Removed surface. Referencing it is a compile-time error naming the migration guide; it never runs.
+    /// </summary>
+    [Obsolete(MigrationDiagnostic, error: true)]
+    public FilterEffectContext Context =>
+        throw new NotSupportedException(MigrationDiagnostic);
 
     public float Time { get; }
 

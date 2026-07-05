@@ -55,10 +55,19 @@ public class EffectReferenceFreezeTests
                 "uniform shader src;\nhalf4 main(float2 fc) { half4 c = src.eval(fc); return half4(1.0 - c.rgb, c.a); }";
             return e;
         }, requiresCompute: false);
+        // CSharpScriptEffect's imperative FilterEffectContext surface was removed (breaking,
+        // contracts/breaking-changes.md); the pre-redesign `Context.Blur(...)` reference is intentionally
+        // invalidated. The census case now exercises the migrated GeometrySession surface — its reference
+        // re-freezes on the next Vulkan run.
         yield return Case("CSharpScriptEffect", () =>
         {
             var e = new CSharpScriptEffect();
-            e.Script.CurrentValue = "Context.Blur(new Beutl.Graphics.Size(4, 4));";
+            e.Script.CurrentValue =
+                "var canvas = Session.OpenCanvas();\n"
+                + "canvas.Clear();\n"
+                + "using (canvas.PushOpacity(0.5f))\n"
+                + "using (canvas.PushDeviceSpace())\n"
+                + "    Session.Inputs[0].Draw(canvas, default);";
             return e;
         }, requiresCompute: false);
 
