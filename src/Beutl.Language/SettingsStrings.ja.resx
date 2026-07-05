@@ -592,8 +592,4 @@
     <value>再インストール</value>
     <comment/>
   </data>
-  <data name="AiAgents_Later" xml:space="preserve">
-    <value>後で</value>
-    <comment/>
-  </data>
 </root>

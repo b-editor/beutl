@@ -145,26 +145,31 @@ public sealed partial class MainView : UserControl
                 return;
             }
 
-            var dialog = new ContentDialog
-            {
-                Title = SettingsStrings.AiAgents_UpdateAvailable_Title,
-                Content = SettingsStrings.AiAgents_UpdateAvailable_Content,
-                PrimaryButtonText = SettingsStrings.AiAgents_Reinstall,
-                CloseButtonText = SettingsStrings.AiAgents_Later,
-                DefaultButton = ContentDialogButton.Primary,
-            };
-            if (await dialog.ShowAsync() != ContentDialogResult.Primary)
-            {
-                return;
-            }
+            NotificationService.ShowInformation(
+                SettingsStrings.AiAgents_UpdateAvailable_Title,
+                SettingsStrings.AiAgents_UpdateAvailable_Content,
+                expiration: TimeSpan.FromSeconds(30),
+                onActionButtonClick: () => _ = ReinstallAgentToolkitAsync(viewModel),
+                actionButtonText: SettingsStrings.AiAgents_Reinstall);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Agent toolkit update check failed.");
+        }
+    }
 
+    private async Task ReinstallAgentToolkitAsync(MainViewModel viewModel)
+    {
+        try
+        {
             using var settingsViewModel = new AiAgentSettingsPageViewModel(viewModel.AgentHostEndpoint);
             await settingsViewModel.InstallAsync();
             NotificationService.ShowInformation(SettingsStrings.AiAgents, settingsViewModel.Status.Value);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Agent toolkit update check failed.");
+            _logger.LogError(ex, "Agent toolkit reinstall failed.");
+            NotificationService.ShowError(SettingsStrings.AiAgents, ex.Message);
         }
     }
 
