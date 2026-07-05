@@ -46,7 +46,10 @@ public class GraphicsContext2DTests
             drawable.Render(context, resource);
         }
 
-        ((FilterEffectGroup)drawable.FilterEffect.CurrentValue).Children.RemoveAt(0);
+        // A FilterEffectGroup is one render node (its whole child chain describes into a single graph, fed to
+        // fusion), so mutating its children re-describes the same node rather than untracking one. Removing the
+        // effect entirely is what untracks the FilterEffectRenderNode.
+        drawable.FilterEffect.CurrentValue = null;
         var updateOnly = false;
         resource.Update(drawable, CompositionContext.Default, ref updateOnly);
 

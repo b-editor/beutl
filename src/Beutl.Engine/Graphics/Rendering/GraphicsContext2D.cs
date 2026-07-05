@@ -526,19 +526,10 @@ public sealed class GraphicsContext2D(
         ArgumentNullException.ThrowIfNull(effect);
         ObjectDisposedException.ThrowIf(effect.IsDisposed, effect);
 
-        switch (effect)
-        {
-            case FilterEffectGroup.Resource group:
-                for (int i = group.Children.Count - 1; i >= 0; i--)
-                {
-                    FilterEffect.Resource item = group.Children[i];
-                    PushFilterEffect(item);
-                }
-
-                return new(this, _nodes.Count);
-            default:
-                return effect.Push(this);
-        }
+        // A group is one render node so its whole child chain describes into a single graph and fuses
+        // (research D7). Flattening it into a node per child would put each effect in its own graph, defeating
+        // fusion. FilterEffectGroup.Describe concatenates the children (mirroring its ApplyTo).
+        return effect.Push(this);
     }
 
     public PushedState PushOpacityMask(Brush.Resource mask, Rect bounds, bool invert = false)
