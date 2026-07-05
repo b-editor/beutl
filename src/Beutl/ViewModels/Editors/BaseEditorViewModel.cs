@@ -169,7 +169,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
     public ReadOnlyReactiveProperty<bool> HasExpression { get; }
 
-public ReactivePropertySlim<FluentIcons.Common.IconVariant> SymbolIconVariant { get; } = new(FluentIcons.Common.IconVariant.Regular);
+    public ReactivePropertySlim<FluentIcons.Common.IconVariant> SymbolIconVariant { get; } = new(FluentIcons.Common.IconVariant.Regular);
 
     public ReactivePropertySlim<IKeyFrame?> EditingKeyFrame { get; } = new();
 

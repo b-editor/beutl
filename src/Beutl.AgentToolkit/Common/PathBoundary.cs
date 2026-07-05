@@ -1,4 +1,4 @@
-namespace Beutl.AgentToolkit.Common;
+﻿namespace Beutl.AgentToolkit.Common;
 
 // Symlink-aware path resolution shared by the workspace guard and the installer so a textual
 // boundary check cannot be bypassed by a symlink/junction under the allowed root.

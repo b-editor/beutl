@@ -1,4 +1,4 @@
-namespace Beutl.AgentToolkit.Sessions;
+﻿namespace Beutl.AgentToolkit.Sessions;
 
 public static class EditingSessionExtensions
 {

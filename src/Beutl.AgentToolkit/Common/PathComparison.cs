@@ -1,4 +1,4 @@
-namespace Beutl.AgentToolkit.Common;
+﻿namespace Beutl.AgentToolkit.Common;
 
 public static class PathComparison
 {
