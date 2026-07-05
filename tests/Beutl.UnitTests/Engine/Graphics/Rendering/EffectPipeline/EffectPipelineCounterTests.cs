@@ -1,9 +1,11 @@
-﻿using Beutl.Graphics;
+﻿using Beutl.Composition;
+using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.UnitTests.Engine.Graphics.Backend;
+using Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.EffectPipeline;
 
@@ -233,5 +235,317 @@ public class EffectPipelineCounterTests
 
             return processor.Diagnostics.Snapshot();
         });
+    }
+
+    // ---- SC-002: animated parameters don't rebuild the pipeline (T036) ----------------------------------
+    //
+    // These drive ONE persistent FilterEffectRenderNode across frames (as the real render graph reuses a node via
+    // Update), so its single-entry PlanCache spans the animation. A parameter-only frame re-describes the graph and
+    // rebinds the frame's uniforms/factories/contexts + re-resolved bounds without recompiling: PlanCompilations
+    // stays at 1 and, given the warm process-wide ProgramCache, ProgramCreations is 0 after frame 1.
+
+    private static readonly Rect s_animBounds = new(0, 0, 128, 96);
+
+    // A structurally constant chain plus a per-frame setter over its own effect instances (so a fresh-compile
+    // control can reproduce any frame's values on an independent chain).
+    private sealed record Chain(FilterEffect Root, Action<int> SetFrame);
+
+    // SC-002 (1): 100 frames of a fusing ColorChain with an animated gamma ⇒ one compilation, zero program
+    // creations after frame 1, and the middle frame matches an independent fresh-compile render.
+    [Test]
+    public void ColorChain_AnimatedGamma_CompilesOnceAndReusesProgram()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            ProgramCache.Clear();
+            const int frames = 100;
+            const int probe = 50;
+
+            DriveResult drive = DriveAnimated(MakeAnimatedColorChain, frames, [probe]);
+            PipelineDiagnosticsSnapshot[] snaps = drive.Snapshots;
+            Bitmap?[] bmps = drive.Bitmaps;
+            using Bitmap? cachedMid = bmps[probe];
+            using Bitmap fresh = RenderFresh(MakeAnimatedColorChain, probe);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(snaps[0].PlanCompilations, Is.EqualTo(1), "frame 1 compiles the plan once");
+                Assert.That(snaps[0].ProgramCreations, Is.GreaterThanOrEqualTo(1), "frame 1 warms the program cache");
+                long recompiles = snaps.Skip(1).Sum(s => s.PlanCompilations);
+                long reprograms = snaps.Skip(1).Sum(s => s.ProgramCreations);
+                Assert.That(recompiles, Is.EqualTo(0), "no recompile across 99 animated frames (SC-002)");
+                Assert.That(reprograms, Is.EqualTo(0), "no program creation after frame 1 (SC-002)");
+                AssertMatches(fresh, cachedMid!, "cached middle frame vs fresh compile");
+            });
+        });
+    }
+
+    // SC-002 (2): a bounds-animating case — an UNMIGRATED Blur whose sigma animates, ahead of a fused Gamma. The
+    // opaque bridged context and the per-frame bounds both re-resolve on a cache hit, so the plan compiles once
+    // while the output (growing blur) tracks a fresh compile.
+    [Test]
+    public void MixedChain_AnimatedBlurSigma_CompilesOnceWithGrowingBounds()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            ProgramCache.Clear();
+            const int frames = 8;
+            int last = frames - 1;
+
+            DriveResult drive = DriveAnimated(MakeAnimatedBlurChain, frames, [1, last]);
+            PipelineDiagnosticsSnapshot[] snaps = drive.Snapshots;
+            Bitmap?[] bmps = drive.Bitmaps;
+            using Bitmap? early = bmps[1];
+            using Bitmap? wide = bmps[last];
+            using Bitmap freshWide = RenderFresh(MakeAnimatedBlurChain, last);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(snaps[0].PlanCompilations, Is.EqualTo(1), "frame 1 compiles once");
+                Assert.That(snaps.Skip(1).Sum(s => s.PlanCompilations), Is.EqualTo(0),
+                    "bounds-animating frames re-resolve sizes without recompiling (C5)");
+                AssertMatches(freshWide, wide!, "cached wide-sigma frame vs fresh compile");
+                Assert.That(early!.Width, Is.EqualTo(wide!.Width), "structure-constant chain keeps a fixed raster size");
+            });
+        });
+    }
+
+    // SC-002 (3): a structural change (insert an effect) between frames ⇒ exactly one ADDITIONAL recompile; the
+    // stable frames on either side hit.
+    [Test]
+    public void StructuralChange_InsertEffect_RecompilesExactlyOnce()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            ProgramCache.Clear();
+            // Frames 0..2 = [Gamma]; frames 3..5 = [Gamma, Invert] (a structural insert at frame 3).
+            var gamma = new Gamma { Amount = { CurrentValue = 120f } };
+            var group = new FilterEffectGroup();
+            group.Children.Add(gamma);
+            var chain = new Chain(group, f =>
+            {
+                bool wantInvert = f >= 3;
+                bool hasInvert = group.Children.Count > 1;
+                if (wantInvert && !hasInvert)
+                    group.Children.Add(new Invert { Amount = { CurrentValue = 1f } });
+            });
+
+            PipelineDiagnosticsSnapshot[] snaps = DriveAnimated(() => chain, frames: 6, capture: []).Snapshots;
+
+            long total = snaps.Sum(s => s.PlanCompilations);
+            Assert.Multiple(() =>
+            {
+                Assert.That(snaps[0].PlanCompilations, Is.EqualTo(1), "frame 0 compiles the initial structure");
+                Assert.That(snaps[3].PlanCompilations, Is.EqualTo(1), "the insert at frame 3 recompiles");
+                Assert.That(total, Is.EqualTo(2), "one initial compile + exactly one for the structural change");
+                Assert.That(snaps[1].PlanCompilations + snaps[2].PlanCompilations
+                    + snaps[4].PlanCompilations + snaps[5].PlanCompilations, Is.EqualTo(0),
+                    "stable frames on both sides hit the cache");
+            });
+        });
+    }
+
+    // SC-002 (4): a cached plan rendered at extreme parameter values equals a fresh compile at those values — the
+    // rebind writes the frame's uniforms with no recompile, whatever the magnitude.
+    [Test]
+    public void ParameterExtreme_CachedPlanEqualsFreshCompile()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            ProgramCache.Clear();
+            // Frame 0 warms the cache at a moderate gamma; frame 1 drives an extreme gamma on the same cached node.
+            DriveResult drive = DriveAnimated(MakeExtremeGammaChain, frames: 2, [1]);
+            PipelineDiagnosticsSnapshot[] snaps = drive.Snapshots;
+            Bitmap?[] bmps = drive.Bitmaps;
+            using Bitmap? cachedExtreme = bmps[1];
+            using Bitmap freshExtreme = RenderFresh(MakeExtremeGammaChain, 1);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(snaps[1].PlanCompilations, Is.EqualTo(0), "the extreme-value frame hits the cache");
+                AssertMatches(freshExtreme, cachedExtreme!, "cached extreme-parameter frame vs fresh compile");
+            });
+        });
+    }
+
+    // SC-002 (5) / T034 bridged-staleness regression: an animated parameter on an UNMIGRATED effect (DropShadow
+    // position) inside a structurally constant chain that also contains a fused node (Gamma) must render each frame
+    // identically to a fresh compile — proving the cache hit swaps the stale bridged context for the frame's — while
+    // PlanCompilations stays at 1. A stale-context bug would freeze the shadow after frame 0.
+    [Test]
+    public void BridgedEffectAnimation_StaysLiveWhilePlanCompilesOnce()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            ProgramCache.Clear();
+            const int frames = 3;
+
+            DriveResult drive = DriveAnimated(MakeAnimatedDropShadowChain, frames, [0, 1, 2]);
+            PipelineDiagnosticsSnapshot[] snaps = drive.Snapshots;
+            Bitmap?[] bmps = drive.Bitmaps;
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(snaps[0].PlanCompilations, Is.EqualTo(1), "frame 0 compiles once");
+                Assert.That(snaps.Skip(1).Sum(s => s.PlanCompilations), Is.EqualTo(0),
+                    "the animated bridged effect keeps hitting the cache (stable structural token)");
+
+                for (int f = 0; f < frames; f++)
+                {
+                    using Bitmap fresh = RenderFresh(MakeAnimatedDropShadowChain, f);
+                    AssertMatches(fresh, bmps[f]!, $"bridged frame {f} vs fresh compile");
+                }
+
+                // Proof the animation is live on cache hits, not vacuous: the bridged shadow's moving position
+                // re-resolves the output op's union bounds every frame, so they grow across the run. A frozen
+                // (stale-context) cache would replay frame 0's bounds unchanged.
+                Assert.That(drive.OutputBounds[2].Right, Is.GreaterThan(drive.OutputBounds[0].Right),
+                    "the moving drop-shadow expands the output bounds across frames");
+            });
+
+            foreach (Bitmap? b in bmps)
+                b?.Dispose();
+        });
+    }
+
+    // ---- SC-002 drivers -----------------------------------------------------------------------------------
+
+    private static Chain MakeAnimatedColorChain()
+    {
+        var gamma = new Gamma();
+        var group = new FilterEffectGroup();
+        group.Children.Add(gamma);
+        group.Children.Add(new HueRotate { Angle = { CurrentValue = 90f } });
+        group.Children.Add(new Saturate { Amount = { CurrentValue = 1.4f } });
+        group.Children.Add(new Brightness { Amount = { CurrentValue = 1.2f } });
+        group.Children.Add(new Invert { Amount = { CurrentValue = 1f } });
+        return new Chain(group, f => gamma.Amount.CurrentValue = 50f + 2f * f);
+    }
+
+    private static Chain MakeAnimatedBlurChain()
+    {
+        var blur = new Blur();
+        var group = new FilterEffectGroup();
+        group.Children.Add(blur);
+        group.Children.Add(new Gamma { Amount = { CurrentValue = 140f } });
+        return new Chain(group, f => blur.Sigma.CurrentValue = new Size(1 + f, 1 + f));
+    }
+
+    private static Chain MakeExtremeGammaChain()
+    {
+        var gamma = new Gamma();
+        var group = new FilterEffectGroup();
+        group.Children.Add(gamma);
+        group.Children.Add(new Invert { Amount = { CurrentValue = 1f } });
+        // Frame 0 = moderate; frame 1 = the clamp extreme (Gamma clamps Amount/100 to [0.01, 3]).
+        return new Chain(group, f => gamma.Amount.CurrentValue = f == 0 ? 120f : 300f);
+    }
+
+    private static Chain MakeAnimatedDropShadowChain()
+    {
+        var shadow = new DropShadow
+        {
+            Sigma = { CurrentValue = new Size(3, 3) },
+            Color = { CurrentValue = Colors.Black },
+        };
+        var group = new FilterEffectGroup();
+        group.Children.Add(new Gamma { Amount = { CurrentValue = 130f } });
+        group.Children.Add(shadow);
+        return new Chain(group, f => shadow.Position.CurrentValue = new Point(6 + 10 * f, 6 + 10 * f));
+    }
+
+    // Drives a persistent node across frames, resetting counters per frame and capturing a bitmap for the requested
+    // frames. The node (hence its PlanCache) and the pool persist for the whole run.
+    private sealed record DriveResult(PipelineDiagnosticsSnapshot[] Snapshots, Bitmap?[] Bitmaps, Rect[] OutputBounds);
+
+    private static DriveResult DriveAnimated(Func<Chain> makeChain, int frames, IReadOnlyCollection<int> capture)
+    {
+        Chain chain = makeChain();
+        var resource = (FilterEffect.Resource)chain.Root.ToResource(CompositionContext.Default);
+        using var node = new FilterEffectRenderNode(resource);
+        var diagnostics = new PipelineDiagnostics();
+        using var pool = new RenderTargetPool();
+        var snaps = new PipelineDiagnosticsSnapshot[frames];
+        var bmps = new Bitmap?[frames];
+        var bounds = new Rect[frames];
+
+        for (int f = 0; f < frames; f++)
+        {
+            pool.Trim(f);
+            chain.SetFrame(f);
+            bool updateOnly = false;
+            resource.Update(chain.Root, CompositionContext.Default, ref updateOnly);
+            node.Update(resource);
+
+            diagnostics.Reset();
+            var context = new RenderNodeContext([AnimInput()]) { Diagnostics = diagnostics, Pool = pool };
+            RenderNodeOperation[] ops = node.Process(context);
+            snaps[f] = diagnostics.Snapshot();
+            bounds[f] = ops.Aggregate<RenderNodeOperation, Rect>(default, (u, op) => u.Union(op.Bounds));
+
+            // Rasterize every frame (the output op is consumed and flushed as the real pull path does), keeping the
+            // bitmap only for requested frames.
+            Bitmap frame = Rasterize(ops);
+            if (capture.Contains(f))
+                bmps[f] = frame;
+            else
+                frame.Dispose();
+        }
+
+        return new DriveResult(snaps, bmps, bounds);
+    }
+
+    // Renders one frame's values through a brand-new node (cold PlanCache ⇒ a genuine fresh compile), the control
+    // every cache-hit render is compared against.
+    private static Bitmap RenderFresh(Func<Chain> makeChain, int frame)
+    {
+        Chain chain = makeChain();
+        chain.SetFrame(frame);
+        var resource = (FilterEffect.Resource)chain.Root.ToResource(CompositionContext.Default);
+        using var node = new FilterEffectRenderNode(resource);
+        var context = new RenderNodeContext([AnimInput()]);
+        RenderNodeOperation[] ops = node.Process(context);
+        return Rasterize(ops);
+    }
+
+    private static RenderNodeOperation AnimInput()
+    {
+        return RenderNodeOperation.CreateLambda(
+            s_animBounds,
+            canvas => canvas.DrawRectangle(s_animBounds.Deflate(24), Brushes.Resource.White, null),
+            hitTest: s_animBounds.Contains);
+    }
+
+    private static Bitmap Rasterize(RenderNodeOperation[] ops)
+    {
+        var size = PixelRect.FromRect(s_animBounds);
+        using RenderTarget target = RenderTarget.Create(size.Width, size.Height)
+            ?? throw new InvalidOperationException("RenderTarget.Create returned null.");
+        using (var canvas = new ImmediateCanvas(target, 1f, logicalSize: s_animBounds.Size))
+        {
+            canvas.Clear();
+            using (canvas.PushTransform(Matrix.CreateTranslation(-s_animBounds.X, -s_animBounds.Y)))
+            {
+                foreach (RenderNodeOperation op in ops)
+                    op.Render(canvas);
+            }
+        }
+
+        RenderNodeOperation.DisposeAll(ops);
+        return target.Snapshot();
+    }
+
+    private static void AssertMatches(Bitmap expected, Bitmap actual, string because)
+    {
+        double ssim = ImageMetrics.Ssim(expected, actual);
+        double mae = ImageMetrics.MeanAbsoluteError(expected, actual);
+        TestContext.WriteLine($"{because}: SSIM={ssim:F4} MAE={mae:F4}");
+        Assert.That(ssim, Is.GreaterThanOrEqualTo(GoldenThresholds.ExactSsimMin), $"SSIM ({because})");
+        Assert.That(mae, Is.LessThanOrEqualTo(GoldenThresholds.ExactMaeMax), $"MAE ({because})");
     }
 }
