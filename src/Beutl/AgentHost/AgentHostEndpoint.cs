@@ -29,15 +29,34 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
     private WebApplication? _application;
 
     public AgentHostEndpoint(ProjectService projectService, EditorService editorService)
-        : this(projectService, editorService, DefaultPort, GenerateToken())
+        : this(projectService, editorService, GlobalConfiguration.Instance.AiAgentConfig)
     {
     }
 
-    // A fresh 128-bit secret per app run; a shared constant would let any local process that
-    // knows it drive the loopback editing endpoint.
+    internal AgentHostEndpoint(ProjectService projectService, EditorService editorService, AiAgentConfig config)
+        : this(projectService, editorService, DefaultPort, ResolveToken(config))
+    {
+    }
+
+    // A fresh 128-bit local secret; a shared constant would let any local process that knows it drive
+    // the loopback editing endpoint.
     internal static string GenerateToken()
     {
         return Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
+    }
+
+    internal static string ResolveToken(AiAgentConfig config)
+    {
+        ArgumentNullException.ThrowIfNull(config);
+
+        if (!string.IsNullOrWhiteSpace(config.LiveMcpToken))
+        {
+            return config.LiveMcpToken;
+        }
+
+        string token = GenerateToken();
+        config.LiveMcpToken = token;
+        return token;
     }
 
     // Prefer the workspace the user chose on the AI Agents settings page (read at start, so a

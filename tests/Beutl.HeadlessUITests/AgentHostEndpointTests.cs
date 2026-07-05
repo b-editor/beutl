@@ -6,6 +6,7 @@ using Beutl.AgentHost;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.Api.Services;
+using Beutl.Configuration;
 using Beutl.Services;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
@@ -66,17 +67,19 @@ public sealed class AgentHostEndpointTests
     }
 
     [AvaloniaTest]
-    public async Task Default_constructor_generates_a_unique_random_token()
+    public async Task Default_constructor_generates_and_persists_a_random_token()
     {
         await TestReset.ResetShellAsync();
+        var config = new AiAgentConfig();
 
-        var first = new AgentHostEndpoint(new ProjectService(), new EditorService(new ExtensionProvider()));
-        var second = new AgentHostEndpoint(new ProjectService(), new EditorService(new ExtensionProvider()));
+        var first = new AgentHostEndpoint(new ProjectService(), new EditorService(new ExtensionProvider()), config);
+        var second = new AgentHostEndpoint(new ProjectService(), new EditorService(new ExtensionProvider()), config);
 
         Assert.Multiple(() =>
         {
             Assert.That(first.Token, Does.Match("^[0-9A-F]{32}$"));
-            Assert.That(first.Token, Is.Not.EqualTo(second.Token));
+            Assert.That(config.LiveMcpToken, Is.EqualTo(first.Token));
+            Assert.That(second.Token, Is.EqualTo(first.Token));
         });
     }
 

@@ -1,11 +1,13 @@
 ﻿using System.Text.Json;
 using Beutl.AgentToolkit.Common;
+using Beutl.AgentToolkit.Documents;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Rendering;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
 using Beutl.AgentToolkit.Workspace;
+using Beutl.Editor;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
@@ -20,6 +22,29 @@ namespace Beutl.AgentToolkit.Tests.Rendering;
 public sealed class RenderToolsStoryboardTests
 {
     private static readonly JsonSerializerOptions s_jsonOptions = new(JsonSerializerDefaults.Web);
+
+    [Test]
+    public void Live_scene_snapshot_is_created_on_session_dispatcher()
+    {
+        var scene = new Scene(320, 180, "live")
+        {
+            Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.scene")),
+            Duration = TimeSpan.FromSeconds(2)
+        };
+        using var session = new DispatchGuardedLiveSession(scene);
+
+        Assert.Throws<InvalidOperationException>(() => _ = session.Root);
+        Scene snapshot = RenderTools.CreateSceneSnapshot(session);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(session.DispatchCount, Is.EqualTo(1));
+            Assert.That(snapshot, Is.Not.SameAs(scene));
+            Assert.That(snapshot.FrameSize, Is.EqualTo(scene.FrameSize));
+            Assert.That(snapshot.Duration, Is.EqualTo(scene.Duration));
+            Assert.That(snapshot.Uri, Is.EqualTo(scene.Uri));
+        });
+    }
 
     [Test]
     public void Resolve_storyboard_frames_subdivides_explicit_shots_at_binary_points()
@@ -835,6 +860,63 @@ public sealed class RenderToolsStoryboardTests
             new QualityAnalyzer(motionVariationAnalyzer, stillRenderer),
             new VideoExporter(new EncoderRegistration()),
             new RenderJobManager());
+    }
+
+    private sealed class DispatchGuardedLiveSession : IEditingSession, IEditingSessionDispatcher, IDisposable
+    {
+        private readonly Scene _scene;
+        private readonly RecordingPipeline _recording;
+        private bool _insideDispatch;
+
+        public DispatchGuardedLiveSession(Scene scene)
+        {
+            _scene = scene;
+            _recording = RecordingPipeline.Create(scene);
+        }
+
+        public int DispatchCount { get; private set; }
+
+        public string SessionId { get; } = Guid.NewGuid().ToString("N");
+
+        public EditingSessionSource Source => EditingSessionSource.LiveEditor;
+
+        public CoreObject Root
+        {
+            get
+            {
+                if (!_insideDispatch)
+                {
+                    throw new InvalidOperationException("Live scene read escaped the session dispatcher.");
+                }
+
+                return _scene;
+            }
+        }
+
+        public HistoryManager History => _recording.History;
+
+        public DocumentAdapter Documents { get; } = new();
+
+        public bool IsDirty => false;
+
+        public void Invoke(Action action)
+        {
+            DispatchCount++;
+            _insideDispatch = true;
+            try
+            {
+                action();
+            }
+            finally
+            {
+                _insideDispatch = false;
+            }
+        }
+
+        public void Dispose()
+        {
+            _recording.Dispose();
+        }
     }
 
     private static Scene CreateRevisionCompareScene(string workspace)

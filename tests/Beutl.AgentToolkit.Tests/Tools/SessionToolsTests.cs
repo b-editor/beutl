@@ -68,6 +68,35 @@ public sealed class SessionToolsTests
     }
 
     [Test]
+    public async Task Create_project_does_not_overwrite_existing_default_scene_sidecar()
+    {
+        string root = CreateWorkspace();
+        string existingDir = Path.Combine(root, "demo");
+        Directory.CreateDirectory(existingDir);
+        string existingSidecar = Path.Combine(existingDir, "demo.scene");
+        File.WriteAllText(existingSidecar, "existing scene sidecar");
+        using var source = new FileSessionSource();
+        SessionTools sessionTools = CreateSessionTools(source, new AgentSessionManager(), root);
+
+        ToolResult<CreateProjectResponse> created = await sessionTools.CreateProject(
+            "demo.bep",
+            width: 640,
+            height: 360,
+            frameRate: 30,
+            duration: "00:00:04");
+
+        Scene scene = source.CurrentFileSession!.Project.Items.OfType<Scene>().Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(created.IsSuccess, Is.True, created.Error?.Message);
+            Assert.That(File.ReadAllText(existingSidecar), Is.EqualTo("existing scene sidecar"));
+            Assert.That(scene.Uri!.LocalPath, Is.Not.EqualTo(existingSidecar));
+            Assert.That(File.Exists(scene.Uri.LocalPath), Is.True);
+            Assert.That(Path.GetFileName(Path.GetDirectoryName(scene.Uri.LocalPath)!), Is.EqualTo("demo-2"));
+        });
+    }
+
+    [Test]
     public async Task Create_project_rejects_package_extension_and_appends_missing_project_extension()
     {
         string root = CreateWorkspace();

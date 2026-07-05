@@ -115,15 +115,11 @@ public sealed class FileEditingSession : IEditingSession, IEditingSessionDispatc
             // new project directory.
             string sceneName = ProjectOperations.IsValidSceneName(scene.Name) ? scene.Name : $"Scene{index}";
 
-            // Two scenes sharing a valid name would otherwise resolve to the same <name>/<name>.scene
-            // sidecar and overwrite each other; disambiguate the directory when it is already taken.
-            string sceneDir = Path.GetFullPath(Path.Combine(projectDirectory, projectName, sceneName));
-            for (int suffix = 2; !usedDirs.Add(sceneDir); suffix++)
-            {
-                sceneDir = Path.GetFullPath(Path.Combine(projectDirectory, projectName, $"{sceneName}-{suffix}"));
-            }
-
-            scene.Uri = new Uri(Path.Combine(sceneDir, $"{sceneName}.{EditorConstants.SceneFileExtension}"));
+            string scenePath = ProjectOperations.ReserveUniqueScenePath(
+                Path.Combine(projectDirectory, projectName),
+                sceneName,
+                usedDirs);
+            scene.Uri = new Uri(scenePath);
             foreach (Element element in scene.Children)
             {
                 element.Uri = null;

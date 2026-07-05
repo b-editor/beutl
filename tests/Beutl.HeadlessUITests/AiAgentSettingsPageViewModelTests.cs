@@ -14,7 +14,7 @@ public sealed class AiAgentSettingsPageViewModelTests
 {
     private static AiAgentSettingsPageViewModel CreateViewModel(AiAgentConfig config)
     {
-        var endpoint = new AgentHostEndpoint(new ProjectService(), new EditorService(new ExtensionProvider()));
+        var endpoint = new AgentHostEndpoint(new ProjectService(), new EditorService(new ExtensionProvider()), config);
         return new AiAgentSettingsPageViewModel(endpoint, config);
     }
 

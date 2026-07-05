@@ -64,6 +64,15 @@ internal sealed class DeclarativeDocumentApplier
             : scene.FrameSize.Height;
         scene.FrameSize = new PixelSize(width, height);
 
+        if (desired.TryGetPropertyValue("Elements", out JsonNode? elementsNode) && elementsNode is JsonArray elements)
+        {
+            ApplyIdentityList(scene.Children, typeof(Element), elements, scene);
+        }
+        else
+        {
+            scene.Children.Clear();
+        }
+
         if (desired.TryGetPropertyValue("Groups", out JsonNode? groupsNode))
         {
             scene.Groups.Clear();
@@ -79,15 +88,6 @@ internal sealed class DeclarativeDocumentApplier
                     scene.Groups.Add(ids.ToImmutableHashSet());
                 }
             }
-        }
-
-        if (desired.TryGetPropertyValue("Elements", out JsonNode? elementsNode) && elementsNode is JsonArray elements)
-        {
-            ApplyIdentityList(scene.Children, typeof(Element), elements, scene);
-        }
-        else
-        {
-            scene.Children.Clear();
         }
     }
 

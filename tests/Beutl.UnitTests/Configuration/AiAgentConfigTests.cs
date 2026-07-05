@@ -26,6 +26,7 @@ public class AiAgentConfigTests
             Assert.That(config.InstallLiveMcp, Is.True);
             Assert.That(config.McpConfigFileName, Is.Empty);
             Assert.That(config.McpServersPropertyName, Is.Empty);
+            Assert.That(config.LiveMcpToken, Is.Empty);
         });
     }
 
@@ -46,6 +47,7 @@ public class AiAgentConfigTests
             InstallLiveMcp = true,
             McpConfigFileName = "mcp.json",
             McpServersPropertyName = "mcpServers",
+            LiveMcpToken = "ABCDEF0123456789ABCDEF0123456789",
         };
 
         JsonObject json = CoreSerializer.SerializeToJsonObject(source);
@@ -66,6 +68,7 @@ public class AiAgentConfigTests
             Assert.That(restored.InstallLiveMcp, Is.EqualTo(source.InstallLiveMcp));
             Assert.That(restored.McpConfigFileName, Is.EqualTo(source.McpConfigFileName));
             Assert.That(restored.McpServersPropertyName, Is.EqualTo(source.McpServersPropertyName));
+            Assert.That(restored.LiveMcpToken, Is.EqualTo(source.LiveMcpToken));
         });
     }
 

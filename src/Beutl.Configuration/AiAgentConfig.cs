@@ -16,6 +16,7 @@ public sealed class AiAgentConfig : ConfigurationBase
     public static readonly CoreProperty<bool> InstallLiveMcpProperty;
     public static readonly CoreProperty<string> McpConfigFileNameProperty;
     public static readonly CoreProperty<string> McpServersPropertyNameProperty;
+    public static readonly CoreProperty<string> LiveMcpTokenProperty;
     public static readonly CoreProperty<string> StdioCommandProperty;
     public static readonly CoreProperty<string> StdioArgumentsProperty;
 
@@ -68,6 +69,11 @@ public sealed class AiAgentConfig : ConfigurationBase
             .Register();
 
         McpServersPropertyNameProperty = ConfigureProperty<string, AiAgentConfig>(nameof(McpServersPropertyName))
+            .DefaultValue("")
+            .Register();
+
+        // Empty means "generate a random local bearer token on first endpoint startup".
+        LiveMcpTokenProperty = ConfigureProperty<string, AiAgentConfig>(nameof(LiveMcpToken))
             .DefaultValue("")
             .Register();
 
@@ -154,6 +160,12 @@ public sealed class AiAgentConfig : ConfigurationBase
     {
         get => GetValue(McpServersPropertyNameProperty);
         set => SetValue(McpServersPropertyNameProperty, value);
+    }
+
+    public string LiveMcpToken
+    {
+        get => GetValue(LiveMcpTokenProperty);
+        set => SetValue(LiveMcpTokenProperty, value);
     }
 
     public string StdioCommand

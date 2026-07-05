@@ -60,6 +60,42 @@ public sealed class ApplierReviewFollowupTests
         });
     }
 
+    [Test]
+    public void Scene_groups_are_reconciled_after_element_mutations()
+    {
+        Scene scene = CreateSceneWithElement(out Element first);
+        var second = new Element
+        {
+            Start = TimeSpan.Zero,
+            Length = TimeSpan.FromSeconds(4),
+            Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "second.belm"))
+        };
+        second.AddObject(new TextBlock { Text = { CurrentValue = "Second" } });
+        scene.Children.Add(second);
+        scene.Groups.Add([first.Id, second.Id]);
+        using var session = new AgentToolkitTestSession(scene);
+
+        JsonObject document = session.Documents.Read(session.Root);
+        JsonArray elements = (JsonArray)document["Elements"]!;
+        JsonObject firstJson = FindById(document, first.Id)!;
+        var third = new Element { Start = TimeSpan.FromSeconds(1), Length = TimeSpan.FromSeconds(2) };
+        third.AddObject(new TextBlock { Text = { CurrentValue = "Third" } });
+        JsonObject thirdJson = CoreSerializer.SerializeToJsonObject(third);
+        elements.Clear();
+        elements.Add(firstJson.DeepClone());
+        elements.Add(thirdJson);
+        document["Groups"] = new JsonArray($"{first.Id}:{third.Id}");
+
+        session.Documents.Write(session.Root, document);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(scene.Children.Select(element => element.Id), Is.EqualTo(new[] { first.Id, third.Id }));
+            Assert.That(scene.Groups, Has.Count.EqualTo(1));
+            Assert.That(scene.Groups[0], Is.EquivalentTo(new[] { first.Id, third.Id }));
+        });
+    }
+
     private static EditTools CreateTools(AgentToolkitTestSession session)
     {
         var manager = new AgentSessionManager();

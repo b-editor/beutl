@@ -32,8 +32,10 @@ public static class ProjectOperations
         string projectName = options.Name ?? Path.GetFileNameWithoutExtension(projectPath);
         string projectDirectory = Path.GetDirectoryName(projectPath)
                                   ?? throw new InvalidOperationException("Project path must have a directory.");
-        string sceneDirectory = Path.Combine(projectDirectory, projectName);
-        string scenePath = Path.Combine(sceneDirectory, $"{projectName}.{EditorConstants.SceneFileExtension}");
+        string scenePath = ReserveUniqueScenePath(
+            projectDirectory,
+            projectName,
+            new HashSet<string>(StringComparer.FromComparison(PathComparison.ForCurrentPlatform)));
 
         var scene = new Scene(options.Width, options.Height, projectName)
         {
@@ -182,13 +184,47 @@ public static class ProjectOperations
             .Select(dir => Path.GetFullPath(dir!))
             .ToHashSet(StringComparer.FromComparison(PathComparison.ForCurrentPlatform));
 
-        string candidateDir = Path.GetFullPath(Path.Combine(projectDirectory, sceneName));
-        for (int suffix = 2; used.Contains(candidateDir); suffix++)
+        return CreateFileUri(ReserveUniqueScenePath(projectDirectory, sceneName, used));
+    }
+
+    internal static string ReserveUniqueScenePath(string sidecarRootDirectory, string sceneName, ISet<string> usedDirectories)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sidecarRootDirectory);
+        ArgumentException.ThrowIfNullOrWhiteSpace(sceneName);
+        ArgumentNullException.ThrowIfNull(usedDirectories);
+
+        string candidateDir = Path.GetFullPath(Path.Combine(sidecarRootDirectory, sceneName));
+        string? scenePath = null;
+        for (int suffix = 2; !TryReserveSceneDirectory(candidateDir, sceneName, usedDirectories, out scenePath); suffix++)
         {
-            candidateDir = Path.GetFullPath(Path.Combine(projectDirectory, $"{sceneName}-{suffix}"));
+            candidateDir = Path.GetFullPath(Path.Combine(sidecarRootDirectory, $"{sceneName}-{suffix}"));
         }
 
-        return CreateFileUri(Path.Combine(candidateDir, $"{sceneName}.{EditorConstants.SceneFileExtension}"));
+        return scenePath!;
+    }
+
+    private static bool TryReserveSceneDirectory(
+        string candidateDir,
+        string sceneName,
+        ISet<string> usedDirectories,
+        out string? scenePath)
+    {
+        scenePath = Path.Combine(candidateDir, $"{sceneName}.{EditorConstants.SceneFileExtension}");
+        if (usedDirectories.Contains(candidateDir)
+            || FileSystemEntryExists(candidateDir)
+            || FileSystemEntryExists(scenePath))
+        {
+            scenePath = null;
+            return false;
+        }
+
+        usedDirectories.Add(candidateDir);
+        return true;
+    }
+
+    private static bool FileSystemEntryExists(string path)
+    {
+        return Path.Exists(path) || new FileInfo(path).LinkTarget is not null;
     }
 
     // The name becomes a directory/file segment under the project, so it must be a single path

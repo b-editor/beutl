@@ -27,4 +27,30 @@ public sealed class FileEditingSessionTests
 
         Assert.That(sceneDirs, Is.Unique);
     }
+
+    [Test]
+    public void SetProjectPath_does_not_overwrite_existing_sidecar_file()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string existingDir = Path.Combine(root, "copy", "demo");
+        Directory.CreateDirectory(existingDir);
+        string existingSidecar = Path.Combine(existingDir, "demo.scene");
+        File.WriteAllText(existingSidecar, "existing sidecar");
+        using var source = new FileSessionSource();
+        FileEditingSession session = source.CreateProject(new ProjectCreateOptions(
+            Path.Combine(root, "demo.bep"), 640, 360, 30, TimeSpan.FromSeconds(2), Name: "demo"));
+
+        session.SetProjectPath(Path.Combine(root, "copy.bep"));
+        session.Save(skipConflictCheck: true);
+
+        Scene scene = session.Project.Items.OfType<Scene>().Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.ReadAllText(existingSidecar), Is.EqualTo("existing sidecar"));
+            Assert.That(scene.Uri!.LocalPath, Is.Not.EqualTo(existingSidecar));
+            Assert.That(File.Exists(scene.Uri.LocalPath), Is.True);
+            Assert.That(Path.GetFileName(Path.GetDirectoryName(scene.Uri.LocalPath)!), Is.EqualTo("demo-2"));
+        });
+    }
 }

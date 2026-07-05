@@ -12,6 +12,7 @@ using Beutl.AgentToolkit.Workspace;
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using PaletteRoleColor = Beutl.AgentToolkit.Rendering.PaletteRoleColor;
@@ -67,7 +68,7 @@ public sealed class RenderTools(
     {
         return ExecuteMcpAsync<RenderStillResponse>(async () =>
         {
-            Scene scene = RequireScene();
+            Scene scene = RequireSceneSnapshot();
             string resolvedPath = workspace.ResolveForWrite(NormalizeOutputPath(outputPath));
             destructiveGuard.EnsureOverwriteAllowed(resolvedPath, confirmOverwrite);
             RenderStillResponse response = await stillRenderer.RenderAsync(
@@ -117,7 +118,7 @@ public sealed class RenderTools(
                     "returnImageContent cannot be combined with background:true; run render_storyboard synchronously when the contact-sheet image block is needed."));
             }
 
-            Scene scene = RequireScene();
+            Scene scene = RequireSceneSnapshot();
             int normalizedSubdivisionLevel = NormalizeStoryboardSubdivisionLevel(subdivisionLevel);
             IReadOnlyList<ResolvedStoryboardFrame> resolvedShots = ResolveStoryboardFrames(
                 scene,
@@ -257,7 +258,7 @@ public sealed class RenderTools(
     {
         return ExecuteAsync(async () =>
         {
-            Scene scene = RequireScene();
+            Scene scene = RequireSceneSnapshot();
             IReadOnlyList<TimeSpan> sampleTimes = ResolveSampleTimes(scene, timeSeconds, sampleCount);
             return await motionVariationAnalyzer.AnalyzeAsync(
                 scene,
@@ -357,7 +358,7 @@ public sealed class RenderTools(
         return ExecuteAsync(async () =>
         {
             ValidateVideoType(videoType);
-            Scene scene = RequireScene();
+            Scene scene = RequireSceneSnapshot();
             PaletteRoleColor[]? parsedPaletteRoleColors = ParsePaletteRoleColors(paletteRoleColors);
             IReadOnlyList<TimeSpan>? sampleTimes = staticLayout
                 ? NormalizeQualitySampleTimesOrNull(timeSeconds)
@@ -446,7 +447,7 @@ public sealed class RenderTools(
         return ExecuteAsync(async () =>
         {
             ValidateVideoType(videoType);
-            Scene scene = RequireScene();
+            Scene scene = RequireSceneSnapshot();
             return await qualityAnalyzer.AnalyzeAsync(
                 scene,
                 timeSeconds: null,
@@ -511,7 +512,7 @@ public sealed class RenderTools(
         return ExecuteAsync(async () =>
         {
             ValidateVideoType(videoType);
-            Scene scene = RequireScene();
+            Scene scene = RequireSceneSnapshot();
             IReadOnlyList<TimeSpan>? sampleTimes = includeMotion
                 ? ResolveSampleTimes(scene, timeSeconds, sampleCount)
                 : null;
@@ -598,7 +599,7 @@ public sealed class RenderTools(
         return ExecuteAsync(async () =>
         {
             ValidateVideoType(videoType);
-            Scene scene = RequireScene();
+            Scene scene = RequireSceneSnapshot();
             PaletteRoleColor[]? parsedPaletteRoleColors = ParsePaletteRoleColors(paletteRoleColors);
             IReadOnlyList<TimeSpan> sampleTimes = ResolveSampleTimes(scene, timeSeconds, sampleCount);
             var stills = new List<PreflightStillFrame>(sampleTimes.Count);
@@ -730,7 +731,7 @@ public sealed class RenderTools(
         return ExecuteMcpManyAsync<CompareRevisionsResponse>(async () =>
         {
             QualityReviewBaseline baseline = sessions.GetQualityReviewBaseline();
-            Scene scene = RequireScene();
+            Scene scene = RequireSceneSnapshot();
             IReadOnlyList<string> currentStillPaths = await RenderBaselineStillsAsync(
                 scene,
                 baseline.SampleTimes,
@@ -838,7 +839,7 @@ public sealed class RenderTools(
                     "Provide either crf or bitrate, not both."));
             }
 
-            Scene scene = RequireScene();
+            Scene scene = RequireSceneSnapshot();
             string resolvedPath = workspace.ResolveForWrite(NormalizeOutputPath(outputPath));
             destructiveGuard.EnsureOverwriteAllowed(resolvedPath, confirmOverwrite);
 
@@ -1966,17 +1967,48 @@ public sealed class RenderTools(
         };
     }
 
-    private Scene RequireScene()
+    internal Scene RequireSceneSnapshot()
     {
         IEditingSession session = sessions.RequireSession();
-        if (session.Root is Scene scene)
-        {
-            return scene;
-        }
+        return CreateSceneSnapshot(session);
+    }
 
-        throw new ReconcileException(new ToolError(
-            ErrorCode.ValidationRejected,
-            "The current editing session is not attached to a scene."));
+    internal static Scene CreateSceneSnapshot(IEditingSession session)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+
+        return session.ReadOnSession(() =>
+        {
+            if (session.Root is not Scene scene)
+            {
+                throw new ReconcileException(new ToolError(
+                    ErrorCode.ValidationRejected,
+                    "The current editing session is not attached to a scene."));
+            }
+
+            if (session.Source != EditingSessionSource.LiveEditor)
+            {
+                return scene;
+            }
+
+            JsonObject snapshot = session.Documents.Read(scene);
+            snapshot.Remove(SchemaVersion.PropertyName);
+            if (scene.Uri is { } sceneUri)
+            {
+                snapshot["Uri"] = sceneUri.ToString();
+            }
+
+            var clone = (Scene)CoreSerializer.DeserializeFromJsonObject(
+                snapshot,
+                typeof(Scene),
+                new CoreSerializerOptions
+                {
+                    BaseUri = scene.Uri,
+                    Mode = CoreSerializationMode.Read | CoreSerializationMode.EmbedReferencedObjects
+                });
+            clone.Uri ??= scene.Uri;
+            return clone;
+        });
     }
 
     internal sealed record ResolvedStoryboardFrame(
