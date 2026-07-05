@@ -138,7 +138,14 @@ public partial class TerminalTabView : UserControl
             _launched = false;
             if (_disposed)
             {
-                Terminal.Shutdown();
+                try
+                {
+                    Terminal.Shutdown();
+                }
+                catch
+                {
+                    // Best-effort teardown; the fire-and-forget catch must not rethrow.
+                }
             }
             else
             {
