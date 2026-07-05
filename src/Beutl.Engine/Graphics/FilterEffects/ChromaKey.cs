@@ -96,6 +96,70 @@ public partial class ChromaKey : FilterEffect
         }
     }
 
+    // Fusable snippet form of the shader above; `c` is the premultiplied linear-light source pixel (contract A2).
+    // The merger prefixes the helper functions per stage, so two of these can fuse without a redefinition clash.
+    private static readonly string s_snippet =
+        """
+        uniform float4 color;
+        uniform float hueRange;
+        uniform float saturationRange;
+        uniform float boundary;
+
+        half3 rgb2hsv(half3 c) {
+            half r = c.r;
+            half g = c.g;
+            half b = c.b;
+            half maxc = max(r, max(g, b));
+            half minc = min(r, min(g, b));
+            half delta = maxc - minc;
+            half h = 0.0;
+
+            if (delta > 0.00001) {
+                if (maxc == r) {
+                    h = mod((g - b) / delta, 6.0);
+                } else if (maxc == g) {
+                    h = (b - r) / delta + 2.0;
+                } else {
+                    h = (r - g) / delta + 4.0;
+                }
+                h = h / 6.0;
+            }
+
+            half s = (maxc <= 0.0) ? 0.0 : (delta / maxc);
+            half v = maxc;
+            return half3(h, s, v);
+        }
+
+        half3 linearToSrgb(half3 c) {
+            half3 lo = c * 12.92;
+            half3 hi = 1.055 * pow(c, half3(1.0/2.4)) - 0.055;
+            return mix(lo, hi, step(half3(0.0031308), c));
+        }
+
+        half4 apply(half4 c) {
+            half alpha = c.a;
+            if (alpha <= 0.0001) return half4(0.0);
+            half3 rgb = c.rgb / alpha;
+
+            half3 srgbColor = linearToSrgb(rgb);
+
+            half3 hsv = rgb2hsv(srgbColor);
+            half3 keyHSV = rgb2hsv(color.rgb);
+
+            half hueDiff = abs(hsv.x - keyHSV.x);
+            hueDiff = min(hueDiff, 1.0 - hueDiff);
+
+            half satDiff = abs(hsv.y - keyHSV.y);
+
+            half maskHue = smoothstep(hueRange, hueRange + boundary, hueDiff);
+            half maskSat = smoothstep(saturationRange, saturationRange + boundary, satDiff);
+
+            half mask = max(maskHue, maskSat);
+
+            return c * mask;
+        }
+        """;
+
     public ChromaKey()
     {
         ScanProperties<ChromaKey>();
@@ -120,6 +184,18 @@ public partial class ChromaKey : FilterEffect
             (color: r.Color, hueRange: r.HueRange, satRange: r.SaturationRange, boundary: r.Boundary),
             OnApplyTo,
             static (_, r) => r);
+    }
+
+    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
+    {
+        var r = (Resource)resource;
+        Color color = r.Color;
+        builder.Shader(ShaderNodeDescriptor.Snippet(
+            s_snippet,
+            u => u.Raw("color", (b, name) => b.Uniforms[name] = color.ToSKColor())
+                .Float("hueRange", r.HueRange / 360f)
+                .Float("saturationRange", r.SaturationRange / 100f)
+                .Float("boundary", r.Boundary / 100f)));
     }
 
     private static void OnApplyTo((Color color, float hueRange, float satRange, float boundary) data, CustomFilterEffectContext c)

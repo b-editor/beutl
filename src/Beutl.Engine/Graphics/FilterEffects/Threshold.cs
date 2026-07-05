@@ -46,6 +46,29 @@ public sealed partial class Threshold : FilterEffect
         }
     }
 
+    // Fusable snippet form of the shader above; `c` is the premultiplied linear-light source pixel (contract A2).
+    // The original reads c.rgb directly (no unpremultiply) and returns half4(t); preserved exactly.
+    private static readonly string s_snippet =
+        """
+        uniform float threshold;
+        uniform float smoothness;
+        uniform float strength;
+
+        const float3 LUMA = float3(0.2126, 0.7152, 0.0722);
+
+        half4 apply(half4 c) {
+            float3 rgb = c.rgb;
+
+            float luma = dot(rgb, LUMA);
+            float lower = threshold - smoothness * 0.5;
+            float upper = threshold + smoothness * 0.5;
+            float t = smoothstep(lower, upper, luma);
+
+            t = mix(luma, t, strength);
+            return half4(t);
+        }
+        """;
+
     public Threshold()
     {
         ScanProperties<Threshold>();
@@ -75,6 +98,16 @@ public sealed partial class Threshold : FilterEffect
             (r, Unit.Default),
             (t, c) => OnApply(t.r, c),
             static (_, rect) => rect);
+    }
+
+    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
+    {
+        var r = (Resource)resource;
+        builder.Shader(ShaderNodeDescriptor.Snippet(
+            s_snippet,
+            u => u.Float("threshold", r.Value / 100f)
+                .Float("smoothness", r.Smoothness / 100f)
+                .Float("strength", r.Strength / 100f)));
     }
 
     private static void OnApply(Resource data, CustomFilterEffectContext context)

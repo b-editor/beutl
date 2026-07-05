@@ -46,6 +46,28 @@ public sealed partial class Invert : FilterEffect
         }
     }
 
+    // Fusable snippet form of the shader above; `c` is the premultiplied linear-light source pixel (contract A2).
+    private static readonly string s_snippet =
+        """
+        uniform float amount;
+        uniform int excludeAlpha;
+
+        half4 apply(half4 c) {
+            float alpha = c.a;
+            if (alpha <= 0.0001) return half4(0.0);
+            float3 rgb = c.rgb / alpha;
+
+            float3 inverted = 1.0 - rgb;
+            float3 result = mix(rgb, inverted, amount);
+
+            if (excludeAlpha == 0) {
+                float newAlpha = mix(alpha, 1.0 - alpha, amount);
+                return half4(half3(result * newAlpha), half(newAlpha));
+            }
+            return half4(half3(result * alpha), half(alpha));
+        }
+        """;
+
     public Invert()
     {
         ScanProperties<Invert>();
@@ -70,6 +92,14 @@ public sealed partial class Invert : FilterEffect
             (r, Unit.Default),
             (t, c) => OnApply(t.r, c),
             static (_, rect) => rect);
+    }
+
+    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
+    {
+        var r = (Resource)resource;
+        builder.Shader(ShaderNodeDescriptor.Snippet(
+            s_snippet,
+            u => u.Float("amount", r.Amount / 100f).Int("excludeAlpha", r.ExcludeAlphaChannel ? 1 : 0)));
     }
 
     private static void OnApply(Resource data, CustomFilterEffectContext context)

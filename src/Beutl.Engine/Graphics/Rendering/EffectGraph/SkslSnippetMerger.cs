@@ -13,9 +13,11 @@ namespace Beutl.Graphics.Rendering;
 /// </summary>
 /// <remarks>
 /// The executor binds stage <c>N</c>'s uniform <c>name</c> as <c>feN_name</c>, matching the prefix applied here,
-/// so the merger never needs the binding list. Uniform renaming is whole-word; a snippet whose uniform name
-/// collides with the <c>apply</c> parameter name is an authoring foot-gun (documented) — built-in snippets and
-/// the tests use distinct names.
+/// so the merger never needs the binding list. Every top-level declaration of a snippet — its uniforms, its file-
+/// scope <c>const</c>s, and its helper functions (including the <c>apply</c> entry) — is renamed whole-word so two
+/// snippets that share a name (two effects with a <c>linearToSrgb</c> helper, a <c>LUMA</c> const, or the same
+/// source appearing twice) merge without a redefinition. Function bodies keep their own local names, which are
+/// block-scoped in the merged program and cannot collide.
 /// </remarks>
 internal static partial class SkslSnippetMerger
 {
@@ -25,6 +27,16 @@ internal static partial class SkslSnippetMerger
     // The optional bracket group matches SKSL fixed-size array uniforms (`uniform float lut[4];`).
     [GeneratedRegex(@"uniform\s+[A-Za-z_][A-Za-z0-9_]*\s+([A-Za-z_][A-Za-z0-9_]*)\s*(?:\[\s*\d+\s*\])?\s*;")]
     private static partial Regex UniformDeclarationRegex();
+
+    // A file-scope const (`const float3 LUMA = ...`) — matched only at column 0 so function-local consts are left
+    // to their block scope.
+    [GeneratedRegex(@"(?m)^const\s+[A-Za-z_][A-Za-z0-9_]*\s+([A-Za-z_][A-Za-z0-9_]*)")]
+    private static partial Regex ConstDeclarationRegex();
+
+    // A top-level function definition (`float3 apply(...)`, `int modInt(...)`) — anchored at column 0, so nested
+    // calls and control statements (which are indented) are never mistaken for definitions.
+    [GeneratedRegex(@"(?m)^[A-Za-z_][A-Za-z0-9_]*\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(")]
+    private static partial Regex FunctionDefinitionRegex();
 
     /// <summary>
     /// Builds the merged whole-source program for <paramref name="snippets"/> (all must be
@@ -60,18 +72,24 @@ internal static partial class SkslSnippetMerger
         return sb.ToString();
     }
 
-    // Prefixes uniform declarations/references with feN_ and renames apply -> feN_apply for one snippet.
+    // Renames every top-level name a snippet introduces (uniforms, file-scope consts, helper functions incl.
+    // apply) to feN_ so no two snippets in a merged program can redefine the same global. Whole-word replacement
+    // keeps names that are prefixes of one another (lut vs lutSize, contrast vs contrastPivot) independent.
     private static string Prefix(string source, int index)
     {
         string prefix = $"fe{index}_";
-        string result = source;
-
+        var names = new HashSet<string>(StringComparer.Ordinal);
         foreach (Match match in UniformDeclarationRegex().Matches(source))
-        {
-            string name = match.Groups[1].Value;
-            result = Regex.Replace(result, $@"\b{Regex.Escape(name)}\b", prefix + name);
-        }
+            names.Add(match.Groups[1].Value);
+        foreach (Match match in ConstDeclarationRegex().Matches(source))
+            names.Add(match.Groups[1].Value);
+        foreach (Match match in FunctionDefinitionRegex().Matches(source))
+            names.Add(match.Groups[1].Value);
 
-        return Regex.Replace(result, @"\bapply\b", prefix + "apply");
+        string result = source;
+        foreach (string name in names)
+            result = Regex.Replace(result, $@"\b{Regex.Escape(name)}\b", prefix + name);
+
+        return result;
     }
 }

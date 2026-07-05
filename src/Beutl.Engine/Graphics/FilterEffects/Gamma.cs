@@ -42,6 +42,24 @@ public sealed partial class Gamma : FilterEffect
         }
     }
 
+    // Fusable snippet form of the shader above; `c` is the premultiplied linear-light source pixel (contract A2).
+    private static readonly string s_snippet =
+        """
+        uniform float gamma;
+        uniform float strength;
+
+        half4 apply(half4 c) {
+            float alpha = c.a;
+            if (alpha <= 0.0001) return half4(0.0);
+            float3 rgb = c.rgb / alpha;
+
+            float3 corrected = pow(max(rgb, float3(0.0)), float3(1.0 / gamma));
+            float3 result = mix(rgb, corrected, strength);
+
+            return half4(half3(result * alpha), half(alpha));
+        }
+        """;
+
     public Gamma()
     {
         ScanProperties<Gamma>();
@@ -67,6 +85,15 @@ public sealed partial class Gamma : FilterEffect
             (r, Unit.Default),
             (t, c) => OnApply(t.r, c),
             static (_, rect) => rect);
+    }
+
+    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
+    {
+        var r = (Resource)resource;
+        float gamma = Math.Clamp(r.Amount / 100f, 0.01f, 3f);
+        float strength = r.Strength / 100f;
+        builder.Shader(ShaderNodeDescriptor.Snippet(
+            s_snippet, u => u.Float("gamma", gamma).Float("strength", strength)));
     }
 
     private static void OnApply(Resource data, CustomFilterEffectContext context)
