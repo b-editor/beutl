@@ -32,6 +32,13 @@ public partial class TerminalTabView : UserControl
         _viewModel = DataContext as TerminalTabViewModel;
         if (_viewModel != null)
         {
+            if (_viewModel.LangFallback is { } lang)
+            {
+                // Pass the locale per spawn so it never mutates the shared process environment
+                // (which would race across concurrent terminals and leak into other subprocesses).
+                Terminal.EnvironmentOverrides = new Dictionary<string, string> { ["LANG"] = lang };
+            }
+
             _viewModel.Disposed += OnViewModelDisposed;
             TryLaunch();
         }
@@ -70,18 +77,8 @@ public partial class TerminalTabView : UserControl
         _launching = true;
         viewModel.IsProcessExited.Value = false;
 
-        string? previousLang = null;
-        bool langOverridden = false;
-        if (viewModel.LangFallback is { } lang)
-        {
-            // The PTY inherits this process' environment; there is no per-launch override.
-            // Set LANG only around the spawn and restore it afterwards so the terminal-only
-            // locale does not leak into later child processes (e.g. the FFmpeg worker).
-            previousLang = Environment.GetEnvironmentVariable("LANG");
-            Environment.SetEnvironmentVariable("LANG", lang);
-            langOverridden = true;
-        }
-
+        // The locale fallback is applied per spawn via Terminal.EnvironmentOverrides (set when the
+        // view-model is attached), so no process-wide environment mutation happens here.
         try
         {
             if (reuseConfiguredProcess)
@@ -95,11 +92,6 @@ public partial class TerminalTabView : UserControl
         }
         finally
         {
-            if (langOverridden)
-            {
-                Environment.SetEnvironmentVariable("LANG", previousLang);
-            }
-
             _launching = false;
         }
 
