@@ -117,6 +117,10 @@ public sealed class TimelineTabExtension : ToolTabExtension
             new ContextCommandKeyGesture("V"),
             new ContextCommandKeyGesture("Escape"),
         ]),
+        new ContextCommandDefinition("ToggleRippleMode", Strings.RippleEdit, "",
+        [
+            new ContextCommandKeyGesture("B"),
+        ]),
     ];
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)

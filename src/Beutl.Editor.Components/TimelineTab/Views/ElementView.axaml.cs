@@ -452,9 +452,11 @@ public sealed partial class ElementView : UserControl
                     viewModel.Timeline.SnapBarPosition.Value = null;
                     e.Handled = true;
 
+                    bool ripple = viewModel.Timeline.IsRippleEnabled.Value && _resizeType != AlignmentX.Center;
+
                     if (_resizeContexts.Length == 1)
                     {
-                        await viewModel.SubmitViewModelChanges();
+                        await viewModel.SubmitViewModelChanges(ripple);
                     }
                     else if (_resizeContexts.Length > 1)
                     {
@@ -477,7 +479,7 @@ public sealed partial class ElementView : UserControl
 
                         viewModel.Timeline.EditorContext
                             .GetRequiredService<IElementResizeService>()
-                            .Resize(viewModel.Scene, requests);
+                            .Resize(viewModel.Scene, requests, ripple);
 
                         foreach (var (item, context) in animations)
                         {

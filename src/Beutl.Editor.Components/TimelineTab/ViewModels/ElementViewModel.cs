@@ -426,7 +426,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         Width.Value = width;
     }
 
-    public async Task SubmitViewModelChanges()
+    public async Task SubmitViewModelChanges(bool ripple = false)
     {
         PrepareAnimationContext context = PrepareAnimation();
 
@@ -436,8 +436,9 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         TimeSpan length = Width.Value.PixelToTimeSpan(scale).RoundToRate(rate);
         int zindex = Timeline.ToLayerNumber(Margin.Value);
 
-        Scene.MoveChild(zindex, start, length, Model);
-        Timeline.EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.MoveElement);
+        var request = new ElementResizeRequest(Model, start, length, zindex);
+        Timeline.EditorContext.GetRequiredService<IElementResizeService>()
+            .Resize(Scene, [request], ripple);
 
         await AnimationRequest(context);
     }
@@ -474,13 +475,15 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
     private void OnExclude()
     {
         Element[] targets = GetGroupOrSelectedElements().Select(e => e.Model).ToArray();
-        Timeline.EditorContext.GetRequiredService<IElementStructureService>().Exclude(Scene, targets);
+        Timeline.EditorContext.GetRequiredService<IElementStructureService>()
+            .Exclude(Scene, targets, Timeline.IsRippleEnabled.Value);
     }
 
     private void OnDelete()
     {
         Element[] targets = GetGroupOrSelectedElements().Select(e => e.Model).ToArray();
-        Timeline.EditorContext.GetRequiredService<IElementStructureService>().Delete(Scene, targets);
+        Timeline.EditorContext.GetRequiredService<IElementStructureService>()
+            .Delete(Scene, targets, Timeline.IsRippleEnabled.Value);
     }
 
     private void OnBringAnimationToTop()
@@ -560,7 +563,8 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
     {
         Element[] models = GetGroupOrSelectedElements().Select(e => e.Model).ToArray();
         if (models.Length == 0) return;
-        await Timeline.EditorContext.GetRequiredService<IElementClipboardService>().CutAsync(Scene, models);
+        await Timeline.EditorContext.GetRequiredService<IElementClipboardService>()
+            .CutAsync(Scene, models, Timeline.IsRippleEnabled.Value);
     }
 
     public void SplitAt(TimeSpan timeSpan)

@@ -10,9 +10,9 @@ namespace Beutl.Editor.Services;
 /// </summary>
 public interface IElementStructureService
 {
-    void Exclude(Scene scene, IReadOnlyList<Element> elements);
+    void Exclude(Scene scene, IReadOnlyList<Element> elements, bool ripple = false);
 
-    void Delete(Scene scene, IReadOnlyList<Element> elements);
+    void Delete(Scene scene, IReadOnlyList<Element> elements, bool ripple = false);
 
     SplitOutcome Split(Scene scene, IReadOnlyList<Element> targets, TimeSpan at);
 

@@ -66,6 +66,7 @@ public sealed partial class EditorConfig : ConfigurationBase
     public static readonly CoreProperty<bool> SwapTimelineScrollDirectionProperty;
     public static readonly CoreProperty<bool> ClampResizeToOriginalLengthProperty;
     public static readonly CoreProperty<bool> IsTimelineSnapEnabledProperty;
+    public static readonly CoreProperty<bool> IsRippleEnabledProperty;
     public static readonly CoreProperty<TimelineAutoScrollMode> TimelineAutoScrollModeProperty;
     public static readonly CoreProperty<UIToneMappingOperator> ToneMappingModeProperty;
     public static readonly CoreProperty<float> ToneMappingExposureProperty;
@@ -135,6 +136,10 @@ public sealed partial class EditorConfig : ConfigurationBase
 
         IsTimelineSnapEnabledProperty = ConfigureProperty<bool, EditorConfig>(nameof(IsTimelineSnapEnabled))
             .DefaultValue(true)
+            .Register();
+
+        IsRippleEnabledProperty = ConfigureProperty<bool, EditorConfig>(nameof(IsRippleEnabled))
+            .DefaultValue(false)
             .Register();
 
         TimelineAutoScrollModeProperty = ConfigureProperty<TimelineAutoScrollMode, EditorConfig>(nameof(TimelineAutoScrollMode))
@@ -265,6 +270,12 @@ public sealed partial class EditorConfig : ConfigurationBase
     {
         get => GetValue(IsTimelineSnapEnabledProperty);
         set => SetValue(IsTimelineSnapEnabledProperty, value);
+    }
+
+    public bool IsRippleEnabled
+    {
+        get => GetValue(IsRippleEnabledProperty);
+        set => SetValue(IsRippleEnabledProperty, value);
     }
 
     public TimelineAutoScrollMode TimelineAutoScrollMode
