@@ -530,7 +530,7 @@ internal static class PlanExecutor
         }
 
         var scratch = new List<RenderTarget>();
-        var depthScratch = new List<ITexture2D>();
+        var depthScratch = new List<IDisposable>();
         try
         {
             var ctx = new ComputeContext(
@@ -597,11 +597,11 @@ internal static class PlanExecutor
             outBounds, outBounds.Position, outputTarget, EffectiveScale.At(w));
     }
 
-    private static void ReleaseComputeScratch(List<RenderTarget> scratch, List<ITexture2D> depthScratch)
+    private static void ReleaseComputeScratch(List<RenderTarget> scratch, List<IDisposable> depthScratch)
     {
         foreach (RenderTarget t in scratch)
             t.Dispose();
-        foreach (ITexture2D d in depthScratch)
+        foreach (IDisposable d in depthScratch)
             d.Dispose();
     }
 
@@ -729,10 +729,10 @@ internal static class PlanExecutor
     }
 
     // The executor-owned resources handed to a compute node's dispatch callback: the materialized source and the
-    // pass output texture, plus pooled color and executor-scoped depth scratch released when the pass ends.
+    // pass output texture, plus pooled color and depth scratch released when the pass ends.
     private sealed class ComputeContext(
         IGraphicsContext gfx, ITexture2D source, ITexture2D destination, int width, int height,
-        List<RenderTarget> colorScratch, List<ITexture2D> depthScratch, PipelineDiagnostics? diagnostics,
+        List<RenderTarget> colorScratch, List<IDisposable> depthScratch, PipelineDiagnostics? diagnostics,
         RenderTargetPool? pool) : IComputeContext
     {
         public ITexture2D Source => source;
@@ -755,7 +755,19 @@ internal static class PlanExecutor
 
         public ITexture2D AcquireDepthScratch()
         {
+            if (pool != null)
+            {
+                PooledTextureLease lease = pool.AcquireTexture(width, height, TextureFormat.Depth32Float, diagnostics)
+                    ?? throw new InvalidOperationException(
+                        $"Compute depth scratch allocation failed ({width}x{height} px).");
+                depthScratch.Add(lease);
+                return lease.Texture;
+            }
+
             ITexture2D depth = gfx.CreateTexture2D(width, height, TextureFormat.Depth32Float);
+            // C8: a fresh non-pooled GPU target creation still counts TargetAllocations.
+            if (diagnostics != null)
+                diagnostics.TargetAllocations++;
             depthScratch.Add(depth);
             return depth;
         }

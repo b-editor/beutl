@@ -55,6 +55,7 @@ public sealed class RenderTargetPool : IDisposable
     private readonly Dictionary<BucketKey, List<PooledSurface>> _buckets = [];
     private readonly long _maxIdleBytes;
     private Func<int, int, (SKSurface Surface, ITexture2D? Texture)?> _backingFactory = RenderTarget.CreateBackingSurface;
+    private Func<int, int, TextureFormat, ITexture2D?> _textureFactory = CreateBackingTexture;
     private long _idleBytes;
     private long _currentFrame;
     private bool _isDisposed;
@@ -82,8 +83,9 @@ public sealed class RenderTargetPool : IDisposable
         => Acquire(width, height, TextureFormat.RGBA16Float, diagnostics);
 
     /// <summary>
-    /// Acquire overload naming the buffer <paramref name="format"/> (RGBA16F today; the key admits
-    /// <see cref="TextureFormat.Depth32Float"/> so depth/ping-pong targets can pool later without a reshape).
+    /// Acquire overload naming the buffer <paramref name="format"/> (RGBA16F for Skia-drawable surfaces;
+    /// surface-less formats such as <see cref="TextureFormat.Depth32Float"/> pool through
+    /// <see cref="AcquireTexture"/> instead).
     /// </summary>
     public RenderTarget? Acquire(int width, int height, TextureFormat format, PipelineDiagnostics? diagnostics = null)
     {
@@ -114,6 +116,47 @@ public sealed class RenderTargetPool : IDisposable
         }
 
         return RenderTarget.WrapPooled(this, fresh);
+    }
+
+    /// <summary>
+    /// Acquires a pooled surface-less texture (a compute depth attachment) of exactly
+    /// <paramref name="width"/> × <paramref name="height"/> × <paramref name="format"/>: pops a matching idle
+    /// entry (a hit) or allocates a fresh <see cref="ITexture2D"/> (a miss), with the same counter semantics as
+    /// <see cref="Acquire(int, int, TextureFormat, PipelineDiagnostics?)"/> (FR-006/C8: every fresh GPU target
+    /// creation counts <see cref="PipelineDiagnostics.TargetAllocations"/>). Disposing the returned lease returns
+    /// the texture to its bucket. Returns <see langword="null"/> on allocation failure (no counter is touched).
+    /// Texture contents are undefined on acquire — a depth attachment is cleared by its render pass.
+    /// </summary>
+    public PooledTextureLease? AcquireTexture(
+        int width, int height, TextureFormat format, PipelineDiagnostics? diagnostics = null)
+    {
+        VerifyAccess();
+
+        var key = new BucketKey(width, height, format);
+        if (_buckets.TryGetValue(key, out List<PooledSurface>? list) && list.Count > 0)
+        {
+            PooledSurface pooled = list[^1];
+            list.RemoveAt(list.Count - 1);
+            pooled.IsPooled = false;
+            _idleBytes -= pooled.ByteSize;
+            if (diagnostics != null)
+                diagnostics.PoolAcquires++;
+            return new PooledTextureLease(this, pooled);
+        }
+
+        ITexture2D? texture = _textureFactory(width, height, format);
+        if (texture == null)
+            return null;
+
+        var fresh = new PooledSurface(surface: null, texture, width, height, format);
+        if (diagnostics != null)
+        {
+            diagnostics.TargetAllocations++;
+            diagnostics.PoolMisses++;
+            diagnostics.PoolAcquires++;
+        }
+
+        return new PooledTextureLease(this, fresh);
     }
 
     /// <summary>
@@ -221,6 +264,24 @@ public sealed class RenderTargetPool : IDisposable
     internal void SetBackingFactoryForTest(Func<int, int, (SKSurface Surface, ITexture2D? Texture)?> factory)
         => _backingFactory = factory;
 
+    /// <summary>Test seam: overrides the surface-less texture factory to simulate deterministic allocation failure.</summary>
+    internal void SetTextureFactoryForTest(Func<int, int, TextureFormat, ITexture2D?> factory)
+        => _textureFactory = factory;
+
+    // Must fail with null (never throw), matching CreateBackingSurface's failure shape.
+    private static ITexture2D? CreateBackingTexture(int width, int height, TextureFormat format)
+    {
+        try
+        {
+            IGraphicsContext? context = GraphicsContextFactory.SharedContext;
+            return context?.CreateTexture2D(width, height, format);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     public void Dispose()
     {
         if (_isDisposed)
@@ -295,8 +356,9 @@ public sealed class RenderTargetPool : IDisposable
     private static void ClearForReuse(PooledSurface pooled)
     {
         // A reused buffer must be byte-indistinguishable from a fresh one (frozen-reference suite asserts
-        // SSIM 1.0), so wipe residual content on acquire.
-        pooled.Surface.Canvas.Clear(SKColors.Transparent);
+        // SSIM 1.0), so wipe residual content on acquire. Surface-less entries (depth) are cleared by their
+        // render pass instead.
+        pooled.Surface?.Canvas.Clear(SKColors.Transparent);
     }
 
     private void VerifyAccess()
@@ -307,14 +369,16 @@ public sealed class RenderTargetPool : IDisposable
 }
 
 /// <summary>
-/// One reusable GPU buffer owned by a <see cref="RenderTargetPool"/>: the persistent RGBA16F surface (and its
-/// backing texture) plus the pooling bookkeeping (generation tag, last-used frame). The pool owns disposal;
-/// leases (<see cref="RenderTarget"/> handles) only borrow it.
+/// One reusable GPU buffer owned by a <see cref="RenderTargetPool"/> plus the pooling bookkeeping (generation
+/// tag, last-used frame). Two entry kinds share the bucket machinery: a Skia-drawable surface (RGBA16F, with its
+/// backing texture) leased as a <see cref="RenderTarget"/>, and a surface-less raw texture (a depth attachment,
+/// <see cref="Surface"/> <see langword="null"/>) leased as a <see cref="PooledTextureLease"/>. The pool owns
+/// disposal; leases only borrow it.
 /// </summary>
 internal sealed class PooledSurface(
-    SKSurface surface, ITexture2D? texture, int width, int height, TextureFormat format)
+    SKSurface? surface, ITexture2D? texture, int width, int height, TextureFormat format)
 {
-    public SKSurface Surface { get; } = surface;
+    public SKSurface? Surface { get; } = surface;
 
     public ITexture2D? Texture { get; } = texture;
 
@@ -345,7 +409,7 @@ internal sealed class PooledSurface(
             return;
 
         _backingDisposed = true;
-        Surface.Dispose();
+        Surface?.Dispose();
         Texture?.Dispose();
     }
 
@@ -363,3 +427,51 @@ internal sealed class PooledSurface(
 
 /// <summary>Exact-size bucket identity for <see cref="RenderTargetPool"/> (research D4).</summary>
 internal readonly record struct BucketKey(int Width, int Height, TextureFormat Format);
+
+/// <summary>
+/// A lease over a pooled surface-less texture (a compute depth attachment) issued by
+/// <see cref="RenderTargetPool.AcquireTexture"/>. <see cref="Dispose"/> returns the texture to its bucket;
+/// the captured generation rejects access through a lease whose buffer was already returned, mirroring the
+/// <see cref="RenderTarget"/> lease guard.
+/// </summary>
+public sealed class PooledTextureLease : IDisposable
+{
+    private readonly RenderTargetPool _pool;
+    private readonly PooledSurface _pooled;
+    private readonly int _generation;
+    private bool _disposed;
+
+    internal PooledTextureLease(RenderTargetPool pool, PooledSurface pooled)
+    {
+        _pool = pool;
+        _pooled = pooled;
+        _generation = pooled.Generation;
+    }
+
+    /// <summary>The leased texture; valid until <see cref="Dispose"/>.</summary>
+    public ITexture2D Texture
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (_pooled.Generation != _generation)
+            {
+                throw new ObjectDisposedException(
+                    nameof(PooledTextureLease),
+                    "This pooled texture lease has expired: the texture was returned to the pool and may have been reissued.");
+            }
+
+            return _pooled.Texture!;
+        }
+    }
+
+    /// <summary>Returns the texture to the pool. Idempotent.</summary>
+    public void Dispose()
+    {
+        if (_disposed)
+            return;
+
+        _disposed = true;
+        _pool.Return(_pooled);
+    }
+}

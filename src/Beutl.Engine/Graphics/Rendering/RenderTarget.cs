@@ -140,7 +140,13 @@ public class RenderTarget : IDisposable
     /// </summary>
     internal static RenderTarget WrapPooled(RenderTargetPool pool, PooledSurface pooled)
     {
-        var surfaceRef = new SKSurfaceCounter<SKSurface>(pooled.Surface, onLastRelease: () => pool.Return(pooled));
+        if (pooled.Surface is not { } surface)
+        {
+            throw new InvalidOperationException(
+                "Cannot wrap a surface-less pooled texture as a RenderTarget; lease it via AcquireTexture instead.");
+        }
+
+        var surfaceRef = new SKSurfaceCounter<SKSurface>(surface, onLastRelease: () => pool.Return(pooled));
         var textureRef = pooled.Texture != null
             ? new SKSurfaceCounter<ITexture2D>(pooled.Texture, onLastRelease: static () => { })
             : null;
