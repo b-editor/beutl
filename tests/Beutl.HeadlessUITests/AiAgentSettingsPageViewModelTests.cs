@@ -34,15 +34,34 @@ public sealed class AiAgentSettingsPageViewModelTests
             Assert.That(viewModel.SelectedScope.Value.Scope, Is.EqualTo(AgentInstallScope.Global));
             Assert.That(viewModel.IsProjectFolderVisible.Value, Is.False);
             Assert.That(viewModel.CanInstallSubagents.Value, Is.True);
-            Assert.That(viewModel.CanInstallMcp.Value, Is.True);
+            // ~/.claude.json is app-managed, so global MCP is manual for Claude Code.
+            Assert.That(viewModel.CanInstallMcp.Value, Is.False);
             Assert.That(
                 viewModel.ResolvedSkillsPath.Value,
                 Is.EqualTo(Path.Combine(home, ".claude", "skills")));
             Assert.That(
                 viewModel.ResolvedMcpConfigPath.Value,
-                Is.EqualTo(Path.Combine(home, ".claude.json")));
+                Is.EqualTo(Beutl.Language.SettingsStrings.AiAgents_NotSupported));
             Assert.That(viewModel.WorkspaceRoot.Value, Is.Not.Empty);
             Assert.That(viewModel.McpCommand.Value, Is.Not.Empty);
+        });
+    }
+
+    [AvaloniaTest]
+    public void Claude_code_project_scope_enables_mcp_at_the_repo_root()
+    {
+        using AiAgentSettingsPageViewModel viewModel = CreateViewModel(new AiAgentConfig());
+
+        viewModel.SelectedScope.Value = viewModel.ScopeChoices.Single(
+            s => s.Scope == AgentInstallScope.Project);
+        viewModel.ProjectRoot.Value = "/repo";
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.CanInstallMcp.Value, Is.True);
+            Assert.That(
+                viewModel.ResolvedMcpConfigPath.Value,
+                Is.EqualTo(Path.Combine("/repo", ".mcp.json")));
         });
     }
 
@@ -61,7 +80,7 @@ public sealed class AiAgentSettingsPageViewModelTests
             Assert.That(viewModel.ResolvedMcpConfigPath.Value, Is.Not.Empty);
             Assert.That(
                 viewModel.ResolvedSkillsPath.Value,
-                Does.EndWith(Path.Combine(".codex", "skills")));
+                Does.EndWith(Path.Combine(".agents", "skills")));
         });
     }
 

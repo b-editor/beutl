@@ -66,7 +66,8 @@ public sealed class AgentCatalogTests
                 Is.EqualTo(Path.Combine(".claude", "agents")));
             Assert.That(agent.Mcp(AgentInstallScope.Project)!.ConfigFileName, Is.EqualTo(".mcp.json"));
             Assert.That(agent.Mcp(AgentInstallScope.Project)!.ServersPropertyName, Is.EqualTo("mcpServers"));
-            Assert.That(agent.Mcp(AgentInstallScope.Global)!.ConfigFileName, Is.EqualTo(".claude.json"));
+            // ~/.claude.json is app-managed state; user scope goes through `claude mcp add`.
+            Assert.That(agent.Mcp(AgentInstallScope.Global), Is.Null);
         });
     }
 
@@ -80,6 +81,65 @@ public sealed class AgentCatalogTests
             Assert.That(AgentCatalog.Find("opencode")!.ProjectMcp, Is.Null);
             Assert.That(AgentCatalog.Find("goose")!.GlobalMcp, Is.Null);
             Assert.That(AgentCatalog.Find("continue")!.ProjectMcp, Is.Null);
+            Assert.That(AgentCatalog.Find("hermes-agent")!.GlobalMcp, Is.Null);
+            Assert.That(AgentCatalog.Find("trae")!.ProjectMcp, Is.Null);
+            Assert.That(AgentCatalog.Find("zed")!.GlobalMcp, Is.Null);
+            Assert.That(AgentCatalog.Find("cline")!.GlobalMcp, Is.Null);
+        });
+    }
+
+    [Test]
+    public void Verified_mcp_locations_match_vendor_documentation()
+    {
+        Assert.Multiple(() =>
+        {
+            AgentMcpLocation warp = AgentCatalog.Find("warp")!.GlobalMcp!;
+            Assert.That(warp.ConfigFileName, Is.EqualTo(Path.Combine(".warp", ".mcp.json")));
+            Assert.That(warp.ServersPropertyName, Is.EqualTo("mcpServers"));
+
+            AgentMcpLocation junie = AgentCatalog.Find("junie")!.ProjectMcp!;
+            Assert.That(junie.ConfigFileName, Is.EqualTo(Path.Combine(".junie", "mcp", "mcp.json")));
+
+            AgentMcpLocation droid = AgentCatalog.Find("droid")!.GlobalMcp!;
+            Assert.That(droid.ConfigFileName, Is.EqualTo(Path.Combine(".factory", "mcp.json")));
+
+            AgentMcpLocation openHands = AgentCatalog.Find("openhands")!.GlobalMcp!;
+            Assert.That(openHands.ConfigFileName, Is.EqualTo(Path.Combine(".openhands", "mcp.json")));
+            Assert.That(openHands.RemoteUrlPropertyName, Is.Null);
+
+            AgentMcpLocation crush = AgentCatalog.Find("crush")!.ProjectMcp!;
+            Assert.That(crush.ServersPropertyName, Is.EqualTo("mcp"));
+            Assert.That(crush.StdioTypeValue, Is.EqualTo("stdio"));
+
+            AgentMcpLocation gemini = AgentCatalog.Find("gemini-cli")!.ProjectMcp!;
+            Assert.That(gemini.RemoteUrlPropertyName, Is.EqualTo("httpUrl"));
+            Assert.That(gemini.RemoteTypeValue, Is.Null);
+
+            AgentMcpLocation windsurf = AgentCatalog.Find("windsurf")!.GlobalMcp!;
+            Assert.That(windsurf.RemoteUrlPropertyName, Is.EqualTo("serverUrl"));
+
+            AgentMcpLocation amp = AgentCatalog.Find("amp")!.ProjectMcp!;
+            Assert.That(amp.ConfigFileName, Is.EqualTo(Path.Combine(".amp", "settings.json")));
+            Assert.That(amp.ServersPropertyName, Is.EqualTo("amp.mcpServers"));
+        });
+    }
+
+    [Test]
+    public void Codex_uses_the_dot_agents_skills_convention_in_both_scopes()
+    {
+        AgentDefinition agent = AgentCatalog.Find("codex")!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                agent.SkillsDirectory(AgentInstallScope.Project),
+                Is.EqualTo(Path.Combine(".agents", "skills")));
+            Assert.That(
+                agent.SkillsDirectory(AgentInstallScope.Global),
+                Is.EqualTo(Path.Combine(".agents", "skills")));
+            // Codex subagents are TOML (.codex/agents), incompatible with the
+            // markdown subagents this toolkit ships.
+            Assert.That(agent.SubagentsDirectory(AgentInstallScope.Project), Is.Null);
         });
     }
 

@@ -74,11 +74,14 @@ public static class AgentToolkitInstaller
                 throw new InvalidOperationException("Live MCP installation requires a live MCP URI.");
             }
 
-            servers[options.LiveMcpServerName] = new JsonObject
+            var liveServer = new JsonObject();
+            if (options.LiveMcpTypeValue is not null)
             {
-                ["type"] = "http",
-                ["url"] = options.LiveMcpUri.ToString(),
-            };
+                liveServer["type"] = options.LiveMcpTypeValue;
+            }
+
+            liveServer[options.LiveMcpUrlPropertyName] = options.LiveMcpUri.ToString();
+            servers[options.LiveMcpServerName] = liveServer;
         }
 
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
@@ -99,12 +102,14 @@ public static class AgentToolkitInstaller
             args.Add(arg);
         }
 
-        var server = new JsonObject
+        var server = new JsonObject();
+        if (options.StdioMcpTypeValue is not null)
         {
-            ["type"] = "stdio",
-            ["command"] = options.StdioMcpCommand,
-            ["args"] = args,
-        };
+            server["type"] = options.StdioMcpTypeValue;
+        }
+
+        server["command"] = options.StdioMcpCommand;
+        server["args"] = args;
 
         var env = new JsonObject();
         if (!string.IsNullOrWhiteSpace(options.WorkspaceRoot))

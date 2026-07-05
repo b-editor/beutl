@@ -159,7 +159,10 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
         string SkillsDirectory,
         string? SubagentsDirectory,
         string? McpConfigFileName,
-        string McpServersPropertyName);
+        string McpServersPropertyName,
+        string? StdioTypeValue,
+        string? LiveUrlPropertyName,
+        string? LiveTypeValue);
 
     private ResolvedTargets Resolve()
     {
@@ -187,7 +190,14 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
             McpServersPropertyName.Value,
             mcp?.ServersPropertyName ?? "mcpServers");
 
-        return new ResolvedTargets(root, skills, subagents, mcpFile, mcpProperty);
+        // A manual file override on an agent without a known MCP location
+        // falls back to the ecosystem-standard entry shapes.
+        string? stdioType = mcp?.StdioTypeValue;
+        string? liveUrlProperty = mcp is null ? "url" : mcp.RemoteUrlPropertyName;
+        string? liveType = mcp is null ? "http" : mcp.RemoteTypeValue;
+
+        return new ResolvedTargets(
+            root, skills, subagents, mcpFile, mcpProperty, stdioType, liveUrlProperty, liveType);
     }
 
     private void SubscribeRecompute()
@@ -211,7 +221,9 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
         IsProjectFolderVisible.Value = custom || SelectedScope.Value.Scope == AgentInstallScope.Project;
         CanInstallSubagents.Value = targets.SubagentsDirectory is not null;
         CanInstallMcp.Value = targets.McpConfigFileName is not null;
-        CanInstallLiveMcp.Value = CanInstallMcp.Value && IsLiveMcpAvailable.Value;
+        CanInstallLiveMcp.Value = CanInstallMcp.Value
+                                  && targets.LiveUrlPropertyName is not null
+                                  && IsLiveMcpAvailable.Value;
 
         ResolvedSkillsPath.Value = DisplayPath(targets.Root, targets.SkillsDirectory);
         ResolvedSubagentsPath.Value = targets.SubagentsDirectory is null
@@ -264,7 +276,10 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
             Uri? liveMcpUri = TryCreateLiveMcpUri();
             bool canWriteMcp = targets.McpConfigFileName is not null;
             bool installStdioMcp = InstallStdioMcp.Value && canWriteMcp;
-            bool installLiveMcp = InstallLiveMcp.Value && canWriteMcp && liveMcpUri is not null;
+            bool installLiveMcp = InstallLiveMcp.Value
+                                  && canWriteMcp
+                                  && targets.LiveUrlPropertyName is not null
+                                  && liveMcpUri is not null;
 
             AgentToolkitInstallResult result = await AgentToolkitInstaller.InstallAsync(
                 new AgentToolkitInstallOptions
@@ -278,6 +293,9 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
                     InstallLiveMcp = installLiveMcp,
                     McpConfigFileName = targets.McpConfigFileName ?? ".mcp.json",
                     McpServersPropertyName = targets.McpServersPropertyName,
+                    StdioMcpTypeValue = targets.StdioTypeValue,
+                    LiveMcpUrlPropertyName = targets.LiveUrlPropertyName ?? "url",
+                    LiveMcpTypeValue = targets.LiveTypeValue,
                     WorkspaceRoot = WorkspaceRoot.Value,
                     StdioMcpCommand = McpCommand.Value,
                     StdioMcpArguments = ParseArguments(McpArguments.Value),

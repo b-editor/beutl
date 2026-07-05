@@ -29,7 +29,15 @@ public sealed record AgentToolkitInstallOptions
 
     public string McpConfigFileName { get; init; } = ".mcp.json";
 
-    public string McpServersPropertyName { get; init; } = "servers";
+    public string McpServersPropertyName { get; init; } = "mcpServers";
+
+    // null omits the "type" key; most agents infer stdio from "command".
+    public string? StdioMcpTypeValue { get; init; }
+
+    public string LiveMcpUrlPropertyName { get; init; } = "url";
+
+    // null omits the "type" key on the live (remote) entry.
+    public string? LiveMcpTypeValue { get; init; } = "http";
 
     public string StdioMcpServerName { get; init; } = "beutl-agent";
 

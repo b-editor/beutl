@@ -112,7 +112,7 @@ public sealed class AgentToolkitInstallerTests
             """
             {
               // user-managed server must stay
-              "servers": {
+              "mcpServers": {
                 "existing": { "type": "stdio", "command": "other" }
               },
               "otherSetting": true
@@ -137,11 +137,11 @@ public sealed class AgentToolkitInstallerTests
         Assert.That(result.McpConfigPath, Is.EqualTo(configPath));
 
         JsonObject root = ReadJson(configPath);
-        JsonObject servers = root["servers"]!.AsObject();
+        JsonObject servers = root["mcpServers"]!.AsObject();
         Assert.That(servers["existing"], Is.Not.Null);
 
         JsonObject beutlServer = servers["beutl-agent"]!.AsObject();
-        Assert.That(beutlServer["type"]!.GetValue<string>(), Is.EqualTo("stdio"));
+        Assert.That(beutlServer["type"], Is.Null);
         Assert.That(beutlServer["command"]!.GetValue<string>(), Is.EqualTo("dotnet"));
         Assert.That(beutlServer["args"]!.AsArray().Select(x => x!.GetValue<string>()).ToArray(),
             Is.EqualTo(new[] { "run", "--project", "server.csproj" }));
@@ -174,10 +174,41 @@ public sealed class AgentToolkitInstallerTests
         Assert.That(File.Exists(Path.Combine(_tempRoot, ".claude", "skills", "demo", "SKILL.md")), Is.True);
         Assert.That(File.Exists(Path.Combine(_tempRoot, ".claude", "agents", "demo.md")), Is.True);
 
-        JsonObject servers = ReadJson(Path.Combine(_tempRoot, ".mcp.json"))["servers"]!.AsObject();
+        JsonObject servers = ReadJson(Path.Combine(_tempRoot, ".mcp.json"))["mcpServers"]!.AsObject();
         JsonObject liveServer = servers["beutl-live"]!.AsObject();
         Assert.That(liveServer["type"]!.GetValue<string>(), Is.EqualTo("http"));
         Assert.That(liveServer["url"]!.GetValue<string>(), Is.EqualTo(liveUri.ToString()));
+    }
+
+    [Test]
+    public async Task InstallAsync_WritesAgentSpecificEntryShapes()
+    {
+        await AgentToolkitInstaller.InstallAsync(
+            new AgentToolkitInstallOptions
+            {
+                AgentRoot = _tempRoot,
+                InstallSkills = false,
+                InstallSubagents = false,
+                InstallLiveMcp = true,
+                McpConfigFileName = Path.Combine(".gemini", "settings.json"),
+                StdioMcpCommand = "beutl-mcp",
+                StdioMcpTypeValue = "stdio",
+                LiveMcpUrlPropertyName = "httpUrl",
+                LiveMcpTypeValue = null,
+                LiveMcpUri = new Uri("http://127.0.0.1:5008/mcp?token=abc"),
+            },
+            []);
+
+        JsonObject servers = ReadJson(Path.Combine(_tempRoot, ".gemini", "settings.json"))["mcpServers"]!.AsObject();
+        JsonObject stdioServer = servers["beutl-agent"]!.AsObject();
+        JsonObject liveServer = servers["beutl-live"]!.AsObject();
+        Assert.Multiple(() =>
+        {
+            Assert.That(stdioServer["type"]!.GetValue<string>(), Is.EqualTo("stdio"));
+            Assert.That(liveServer["type"], Is.Null);
+            Assert.That(liveServer["url"], Is.Null);
+            Assert.That(liveServer["httpUrl"]!.GetValue<string>(), Does.StartWith("http://127.0.0.1:5008/mcp"));
+        });
     }
 
     [Test]
@@ -209,14 +240,14 @@ public sealed class AgentToolkitInstallerTests
                 AgentRoot = _tempRoot,
                 InstallSkills = false,
                 InstallSubagents = false,
-                McpServersPropertyName = "mcpServers",
+                McpServersPropertyName = "servers",
                 StdioMcpCommand = "beutl-agent",
             },
             []);
 
         JsonObject root = ReadJson(Path.Combine(_tempRoot, ".mcp.json"));
-        Assert.That(root["servers"], Is.Null);
-        Assert.That(root["mcpServers"]!.AsObject()["beutl-agent"], Is.Not.Null);
+        Assert.That(root["mcpServers"], Is.Null);
+        Assert.That(root["servers"]!.AsObject()["beutl-agent"], Is.Not.Null);
     }
 
     [Test]
