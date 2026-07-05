@@ -16,9 +16,11 @@
 # carry a build-order-only <ProjectReference ... ReferenceOutputAssembly="false" />
 # (paired with its CopyFFmpegWorkerForApp target). Every other project, and any
 # <Compile Include>, is forbidden.
-# Also exempts tests/Beutl.FFmpegBenchmarks — a BenchmarkDotNet project that
-# intentionally link-compiles worker source files for direct-call benchmarking
-# (not shipped in the MIT app).
+# tests/Beutl.FFmpegBenchmarks (a BenchmarkDotNet project) and tests/Beutl.FFmpegWorker.Tests (a
+# non-distributed IsPackable=false NUnit project) intentionally source-link worker files under
+# BEUTL_FFMPEG_WORKER for direct-call benchmarking/testing (not shipped in the MIT app), so their
+# <Compile Include> of worker files is allowed. A <ProjectReference> to the worker is still forbidden
+# in them — the exemption covers only the source-link form, never a project dependency.
 #
 # Used by: beutl-pre-pr (step 2, --files mode), beutl-loop (step 2.5a, two-ref mode).
 set -euo pipefail
@@ -81,20 +83,28 @@ for f in $CHANGED; do
     fi
   fi
 
-  # The worker project itself ships FFmpegWorker linkages freely.
-  # tests/Beutl.FFmpegBenchmarks intentionally link-compiles worker source files for
-  # direct-call benchmarking (see its .csproj comments) — it is a BenchmarkDotNet
-  # project, not shipped in the MIT app, so the GPL boundary is not crossed.
+  # The worker project itself ships FFmpegWorker linkages freely, so skip it entirely.
+  # Beutl.FFmpegBenchmarks and Beutl.FFmpegWorker.Tests are non-shipped GPL-side projects that
+  # intentionally source-link worker files via <Compile Include> under BEUTL_FFMPEG_WORKER; allow
+  # that form for them (allow_compile_link) but still run the <ProjectReference> check below, so the
+  # exemption can never silently widen into a forbidden worker project dependency.
+  allow_compile_link=0
   case "$f" in
     */Beutl.FFmpegWorker/*|*/Beutl.FFmpegWorker.csproj) continue ;;
-    */Beutl.FFmpegBenchmarks/*|*/Beutl.FFmpegBenchmarks.csproj) continue ;;
+    */Beutl.FFmpegBenchmarks/*|*/Beutl.FFmpegBenchmarks.csproj) allow_compile_link=1 ;;
+    */Beutl.FFmpegWorker.Tests/*|*/Beutl.FFmpegWorker.Tests.csproj) allow_compile_link=1 ;;
   esac
 
   # Flatten the file so multi-line MSBuild elements are caught.
   flat=$(printf '%s' "$content" | tr '\n' ' ')
 
-  # <Compile Include="...FFmpegWorker..."> is always forbidden outside the worker.
-  compile_hit=$(printf '%s' "$flat" | grep -oE '<Compile[^>]*Beutl\.FFmpegWorker' || true)
+  # <Compile Include="...FFmpegWorker..."> is forbidden outside the worker and the two sanctioned
+  # source-linking consumers above.
+  if [ "$allow_compile_link" = "1" ]; then
+    compile_hit=""
+  else
+    compile_hit=$(printf '%s' "$flat" | grep -oE '<Compile[^>]*Beutl\.FFmpegWorker' || true)
+  fi
 
   # <ProjectReference> to FFmpegWorker: allow the sanctioned build-order-only
   # form (ReferenceOutputAssembly="false") ONLY in src/Beutl/Beutl.csproj.
