@@ -227,6 +227,17 @@ public sealed class ElementViewModelProxyStateTests
         Assert.That(ElementViewModel.AggregateProxyState(store, null, []), Is.EqualTo(ProxyState.None));
     }
 
+    [Test]
+    [TestCase(ProxyJobChangeKind.Enqueued, ExpectedResult = true)]
+    [TestCase(ProxyJobChangeKind.Started, ExpectedResult = true)]
+    [TestCase(ProxyJobChangeKind.Succeeded, ExpectedResult = true)]
+    [TestCase(ProxyJobChangeKind.Failed, ExpectedResult = true)]
+    [TestCase(ProxyJobChangeKind.Canceled, ExpectedResult = true)]
+    [TestCase(ProxyJobChangeKind.Skipped, ExpectedResult = true)]
+    [TestCase(ProxyJobChangeKind.Progressed, ExpectedResult = false)]
+    public bool AffectsProxyIndicator_ProgressedIsSkippedOthersTrigger(ProxyJobChangeKind kind)
+        => ElementViewModel.AffectsProxyIndicator(kind);
+
     private sealed class FakeProxyStore(params ProxyEntry[] entries) : IProxyStore
     {
         public string StoreRootPath => Path.GetTempPath();

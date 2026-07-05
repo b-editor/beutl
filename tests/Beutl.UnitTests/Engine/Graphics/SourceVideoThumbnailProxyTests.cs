@@ -1,4 +1,5 @@
 ﻿using Beutl.Composition;
+using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Media.Decoding;
@@ -83,6 +84,31 @@ public class SourceVideoThumbnailProxyTests
             Assert.That(resolvesAfterFirst, Is.GreaterThan(0), "the first resource should open a proxy reader");
             Assert.That(resolver.ResolveCallCount, Is.EqualTo(resolvesAfterFirst));
         });
+    }
+
+    // F-TL-3: a proxy register/delete must drop the filmstrip cache for BOTH preview-source modes,
+    // since the strip is stored under baseKey + "|proxy" / "|original" and Invalidate(baseKey) hits
+    // neither (nothing is stored under the unsuffixed key).
+    [Test]
+    public void InvalidateThumbnailCacheKeys_DropsBothModePartitions()
+    {
+        var cache = new RecordingThumbnailCacheService();
+
+        SourceVideo.InvalidateThumbnailCacheKeys(cache, "clip");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(cache.Invalidated, Is.EquivalentTo(new[] { "clip" + SourceVideo.ProxyThumbnailCacheKeySuffix, "clip" + SourceVideo.OriginalThumbnailCacheKeySuffix }));
+            Assert.That(cache.Invalidated.Contains("clip"), Is.False, "the unsuffixed base key is never stored and must not be the only key invalidated");
+        });
+    }
+
+    [Test]
+    public void InvalidateThumbnailCacheKeys_NullBaseKey_IsNoOp()
+    {
+        var cache = new RecordingThumbnailCacheService();
+        SourceVideo.InvalidateThumbnailCacheKeys(cache, null);
+        Assert.That(cache.Invalidated, Is.Empty);
     }
 
     // startIndex > endIndex skips the per-frame rasterization loop (which needs a GPU), so only the
@@ -173,5 +199,33 @@ public class SourceVideoThumbnailProxyTests
             if (Directory.Exists(_root))
                 Directory.Delete(_root, recursive: true);
         }
+    }
+
+    private sealed class RecordingThumbnailCacheService : IThumbnailCacheService
+    {
+        public List<string> Invalidated { get; } = [];
+
+        public bool TryGet(string cacheKey, TimeSpan time, TimeSpan threshold, out Bitmap? bitmap)
+        {
+            bitmap = null;
+            return false;
+        }
+
+        public void Save(string cacheKey, TimeSpan time, Bitmap bitmap)
+        {
+        }
+
+        public bool TryGetWaveform(string cacheKey, TimeSpan time, TimeSpan threshold, out float minValue, out float maxValue)
+        {
+            minValue = 0;
+            maxValue = 0;
+            return false;
+        }
+
+        public void SaveWaveform(string cacheKey, TimeSpan time, float minValue, float maxValue)
+        {
+        }
+
+        public void Invalidate(string cacheKey) => Invalidated.Add(cacheKey);
     }
 }

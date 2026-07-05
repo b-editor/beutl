@@ -19,6 +19,19 @@ public partial class SourceVideo : IThumbnailsProvider
 
     public event EventHandler? ThumbnailsInvalidated;
 
+    // Strip entries are stored under baseKey + suffix per preview-source mode; Invalidate(baseKey)
+    // alone never hits them because nothing is stored under the unsuffixed key.
+    public const string ProxyThumbnailCacheKeySuffix = "|proxy";
+    public const string OriginalThumbnailCacheKeySuffix = "|original";
+
+    public static void InvalidateThumbnailCacheKeys(IThumbnailCacheService cacheService, string? baseKey)
+    {
+        if (baseKey is null)
+            return;
+        cacheService.Invalidate(baseKey + ProxyThumbnailCacheKeySuffix);
+        cacheService.Invalidate(baseKey + OriginalThumbnailCacheKeySuffix);
+    }
+
     protected override void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args)
     {
         base.OnAttachedToHierarchy(args);
@@ -130,7 +143,7 @@ public partial class SourceVideo : IThumbnailsProvider
             // view, but two same-source views in different modes (or a fresh view after a prior proxy
             // render) would otherwise collide on the mode-agnostic base key.
             string? cacheKey = baseKey != null
-                ? (preferProxy ? baseKey + "|proxy" : baseKey + "|original")
+                ? baseKey + (preferProxy ? ProxyThumbnailCacheKeySuffix : OriginalThumbnailCacheKeySuffix)
                 : null;
             var cacheThreshold = TimeSpan.FromSeconds(interval * 0.5);
 

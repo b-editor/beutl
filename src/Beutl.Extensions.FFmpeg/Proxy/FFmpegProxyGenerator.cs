@@ -67,7 +67,7 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
 
             await controller.Encode(frameProvider, sampleProvider, job.CancellationToken);
 
-            File.Move(tempPath, finalPath, overwrite: true);
+            await PublishAsync(tempPath, finalPath, job, relative, originalSize, proxySize, job.CancellationToken);
         }
         catch (FFmpegLibrariesNotFoundException ex)
         {
@@ -79,6 +79,21 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
             TryDelete(tempPath);
             throw;
         }
+    }
+
+    // Encode has returned; observe the job token before the move + registration so a cancellation
+    // that arrived during the final IPC round-trip does not still publish the artifact.
+    internal async Task PublishAsync(
+        string tempPath,
+        string finalPath,
+        ProxyJob job,
+        string relative,
+        PixelSize originalSize,
+        PixelSize proxySize,
+        CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        File.Move(tempPath, finalPath, overwrite: true);
 
         // The encoded proxy is now on disk at finalPath and is valid. A failure in the metadata /
         // registration step below must never delete it — the artifact is re-registerable, so a

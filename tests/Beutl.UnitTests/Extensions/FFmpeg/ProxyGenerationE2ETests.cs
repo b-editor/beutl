@@ -204,6 +204,35 @@ public sealed class ProxyGenerationE2ETests
     }
 
     [Test]
+    public void PublishAsync_CanceledToken_DoesNotMoveOrRegister()
+    {
+        string root = CreateRoot();
+        var store = new CountingStore(root, failuresBeforeSuccess: 0);
+        var generator = new FFmpegProxyGenerator(store);
+        string source = Path.Combine(root, "src.mov");
+        File.WriteAllBytes(source, [1, 2, 3, 4]);
+        ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(source);
+        string tempPath = Path.Combine(root, "tmp.mov");
+        string finalPath = Path.Combine(root, "hash", "quarter.mp4");
+        Directory.CreateDirectory(Path.GetDirectoryName(finalPath)!);
+        File.WriteAllBytes(tempPath, [9, 9, 9, 9, 9]);
+        var job = new ProxyJob(fingerprint, ProxyPreset.Quarter);
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        Assert.ThrowsAsync<OperationCanceledException>(async () =>
+            await generator.PublishAsync(tempPath, finalPath, job, "hash/quarter.mp4", new PixelSize(64, 48), new PixelSize(32, 24), cts.Token));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.Exists(finalPath), Is.False, "a canceled job must not move the proxy into place");
+            Assert.That(File.Exists(tempPath), Is.True, "the temp artifact remains for the caller's catch to clean up");
+            Assert.That(store.RegisterAttempts, Is.EqualTo(0), "a canceled job must not register the proxy");
+            Assert.That(store.LastRegistered, Is.Null);
+        });
+    }
+
+    [Test]
     [TestCase(1920, 1080)]
     [TestCase(1998, 1080)]
     [TestCase(1280, 720)]

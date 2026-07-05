@@ -210,7 +210,11 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
         if (_proxyJobQueue != null)
         {
-            EventHandler<ProxyJobChangedEventArgs> jobHandler = (_, _) => OnProxyStateInvalidated();
+            EventHandler<ProxyJobChangedEventArgs> jobHandler = (_, e) =>
+            {
+                if (AffectsProxyIndicator(e.Kind))
+                    OnProxyStateInvalidated();
+            };
             _proxyJobQueue.JobChanged += jobHandler;
             Disposable.Create(() => _proxyJobQueue.JobChanged -= jobHandler).AddTo(_disposables);
         }
@@ -998,7 +1002,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         }
 
         if (_lastThumbnailsCacheKey != null)
-            _thumbnailCacheService.Invalidate(_lastThumbnailsCacheKey);
+            Beutl.Graphics.SourceVideo.InvalidateThumbnailCacheKeys(_thumbnailCacheService, _lastThumbnailsCacheKey);
 
         UpdateThumbnailsAsync();
     }
@@ -1089,6 +1093,9 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
         return best ?? ProxyState.None;
     }
+
+    // Progressed is a fractional update; it does not change the badge's queued/running/ready/failed state.
+    internal static bool AffectsProxyIndicator(ProxyJobChangeKind kind) => kind != ProxyJobChangeKind.Progressed;
 
     private static int ProxyStateRank(ProxyState state) => state switch
     {
