@@ -2,6 +2,7 @@
 using System.Runtime.InteropServices;
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
+using Beutl.Api.Services;
 using Beutl.ProjectSystem;
 using Beutl.ViewModels;
 using Beutl.Views;
@@ -119,11 +120,13 @@ public sealed class SceneEditorExtension : EditorExtension
     public override bool TryCreateContext(
         CoreObject obj, IEditorContextServices services, [NotNullWhen(true)] out IEditorContext? context)
     {
-        // TryCreate* must not throw: only build the context for the host-provided services we
-        // recognize, otherwise fail (return false) rather than pushing nulls into EditViewModel.
-        if (obj is Scene scene && services is EditorContextServices ctx)
+        // TryCreate* must not throw: when the host does not supply the services EditViewModel needs,
+        // fail (return false) rather than pushing nulls into EditViewModel.
+        if (obj is Scene scene
+            && services.TryGetService<EditorService>(out EditorService? editorService)
+            && services.TryGetService<ExtensionProvider>(out ExtensionProvider? extensionProvider))
         {
-            context = new EditViewModel(scene, ctx.ExtensionProvider, ctx.EditorService);
+            context = new EditViewModel(scene, extensionProvider, editorService);
             return true;
         }
 
