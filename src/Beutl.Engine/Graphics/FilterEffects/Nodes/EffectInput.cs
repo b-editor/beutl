@@ -67,4 +67,26 @@ public sealed class EffectInput
         ArgumentNullException.ThrowIfNull(canvas);
         canvas.DrawRenderTarget(_target, devicePoint);
     }
+
+    /// <summary>
+    /// Draws the input into <paramref name="canvas"/> in <em>logical</em> space at its origin under the current
+    /// transform — the honest replacement for the legacy <c>EffectTarget.Draw</c>. A density-1 buffer on a
+    /// density-1 canvas point-blits; otherwise the buffer is Mitchell-resampled into its logical footprint
+    /// (device size / supply density), so a geometry effect that composites under logical matrices keeps identical
+    /// math. Sizing from the buffer footprint (not <see cref="Bounds"/>) is deliberate: bounds may be inflated by a
+    /// downstream effect while the pixels still occupy the original footprint.
+    /// </summary>
+    public void Draw(ImmediateCanvas canvas)
+    {
+        ArgumentNullException.ThrowIfNull(canvas);
+        if ((Density.IsUnbounded || Density.Value == 1f) && canvas.Density == 1f)
+        {
+            canvas.DrawRenderTarget(_target, default);
+        }
+        else
+        {
+            float density = Density.IsUnbounded ? 1f : Density.Value;
+            canvas.DrawRenderTargetScaled(_target, new Rect(0, 0, _target.Width / density, _target.Height / density));
+        }
+    }
 }

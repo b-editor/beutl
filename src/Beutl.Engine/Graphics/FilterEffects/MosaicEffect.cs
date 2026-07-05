@@ -12,26 +12,26 @@ public partial class MosaicEffect : FilterEffect
     private static readonly ILogger s_logger = Log.CreateLogger<MosaicEffect>();
     private static readonly SKSLShader? s_shader;
 
+    private const string ShaderSource =
+        """
+        uniform shader src;
+        uniform float2 origin;
+        uniform float2 tileSize;
+
+        half4 main(float2 fragCoord) {
+            float2 blockIndex = floor((fragCoord - origin) / tileSize);
+
+            // タイルの中心位置を求める
+            float2 sampleCoord = (blockIndex * tileSize + tileSize * 0.5) + origin;
+
+            // 中心位置の色をサンプリングして返す
+            return src.eval(sampleCoord);
+        }
+        """;
+
     static MosaicEffect()
     {
-        string sksl =
-            """
-            uniform shader src;
-            uniform float2 origin;
-            uniform float2 tileSize;
-
-            half4 main(float2 fragCoord) {
-                float2 blockIndex = floor((fragCoord - origin) / tileSize);
-
-                // タイルの中心位置を求める
-                float2 sampleCoord = (blockIndex * tileSize + tileSize * 0.5) + origin;
-
-                // 中心位置の色をサンプリングして返す
-                return src.eval(sampleCoord);
-            }
-            """;
-
-        if (!SKSLShader.TryCreate(sksl, out s_shader, out string? errorText))
+        if (!SKSLShader.TryCreate(ShaderSource, out s_shader, out string? errorText))
         {
             s_logger.LogError("Failed to compile SKSL: {ErrorText}", errorText);
         }
@@ -56,6 +56,29 @@ public partial class MosaicEffect : FilterEffect
             (r.TileSize, r.Origin),
             OnApplyTo,
             static (_, r) => r);
+    }
+
+    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
+    {
+        var r = (Resource)resource;
+        if (s_shader is null)
+            return;
+
+        Size tileSize = r.TileSize;
+        RelativePoint originPoint = r.Origin;
+        float w = builder.WorkingScale;
+        (int bufW, int bufH) = CustomFilterEffectContext.DeviceBufferSize(builder.Bounds, w);
+        Point origin = originPoint.Unit == RelativeUnit.Relative
+            ? originPoint.ToPixels(new Size(bufW, bufH))
+            : originPoint.Point * w;
+
+        // A whole-source shader that samples its tile centre (non-invariant), but its output occupies the input rect,
+        // so the bounds contract is identity — exactly the legacy CustomEffect's transformBounds.
+        builder.Shader(ShaderNodeDescriptor.WholeSource(
+            ShaderSource,
+            BoundsContract.Identity,
+            u => u.Float2("origin", (float)origin.X, (float)origin.Y)
+                  .Float2("tileSize", tileSize.Width * w, tileSize.Height * w)));
     }
 
     private static void OnApplyTo((Size tileSize, RelativePoint origin) data, CustomFilterEffectContext c)
