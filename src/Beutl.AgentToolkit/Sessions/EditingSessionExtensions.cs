@@ -19,4 +19,21 @@ public static class EditingSessionExtensions
 
         return read();
     }
+
+    // Run a mutation on the editor's dispatcher; group/ungroup touch scene state directly rather
+    // than through Reconciler.ApplyFromCurrent. File sessions run inline.
+    public static void InvokeOnSession(this IEditingSession session, Action action)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        ArgumentNullException.ThrowIfNull(action);
+
+        if (session is IEditingSessionDispatcher dispatcher)
+        {
+            dispatcher.Invoke(action);
+        }
+        else
+        {
+            action();
+        }
+    }
 }

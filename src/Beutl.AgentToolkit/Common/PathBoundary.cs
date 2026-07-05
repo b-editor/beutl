@@ -42,14 +42,54 @@ public static class PathBoundary
 
     public static string ResolveExistingPath(string path)
     {
-        FileSystemInfo info = Directory.Exists(path)
-            ? new DirectoryInfo(path)
-            : new FileInfo(path);
+        if (!Path.IsPathRooted(path))
+        {
+            path = Path.GetFullPath(path);
+        }
 
-        // A broken symlink resolves to its (missing) target; use that so the boundary check follows
-        // where the link would write, not the link's own in-root location.
-        FileSystemInfo? target = TryResolveLinkTarget(info);
-        return Path.GetFullPath(target?.FullName ?? info.FullName);
+        // Resolve every existing component, not just the leaf: an intermediate symlinked directory
+        // (e.g. /workspace/link -> /outside) whose leaf exists resolves to the textual in-root path
+        // under a leaf-only check, and the boundary check would accept it while a write follows the
+        // link outside the root. Walk component by component, following each symlink to its final
+        // target, so the result is the real path the filesystem would write to.
+        string root = Path.GetPathRoot(path) ?? path;
+        var components = new Stack<string>();
+        string? current = path;
+        while (current is not null && current.Length >= root.Length && !string.Equals(current, root, PathComparison.ForCurrentPlatform))
+        {
+            string name = Path.GetFileName(current);
+            if (!string.IsNullOrEmpty(name))
+            {
+                components.Push(name);
+            }
+
+            current = Path.GetDirectoryName(current);
+            if (current is null)
+            {
+                break;
+            }
+        }
+
+        string resolved = root;
+        while (components.Count > 0)
+        {
+            string name = components.Pop();
+            string candidate = Path.Combine(resolved, name);
+            if (TryResolveLinkTarget(candidate, out string? target) && target is not null)
+            {
+                // Symlink targets may be relative to the link's own directory; resolve them there
+                // rather than against the process working directory.
+                resolved = Path.IsPathRooted(target)
+                    ? Path.GetFullPath(target)
+                    : Path.GetFullPath(Path.Combine(resolved, target));
+            }
+            else
+            {
+                resolved = Path.GetFullPath(candidate);
+            }
+        }
+
+        return resolved;
     }
 
     // Path.Exists follows symlinks; a broken link is missing to it. Query the link entry directly so
@@ -69,5 +109,13 @@ public static class PathBoundary
             // path itself, so the caller still boundary-checks a resolved location.
             return info.ResolveLinkTarget(returnFinalTarget: false);
         }
+    }
+
+    private static bool TryResolveLinkTarget(string path, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out string? target)
+    {
+        FileSystemInfo info = Directory.Exists(path) ? new DirectoryInfo(path) : new FileInfo(path);
+        FileSystemInfo? resolved = TryResolveLinkTarget(info);
+        target = resolved?.FullName;
+        return target is not null;
     }
 }

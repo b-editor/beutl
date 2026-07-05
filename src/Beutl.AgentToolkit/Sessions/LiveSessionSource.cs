@@ -10,7 +10,17 @@ public sealed class LiveSessionSource : ISessionSource
 
     public EditingSessionSource Source => EditingSessionSource.LiveEditor;
 
-    public IEditingSession? CurrentSession => _currentSession is { IsAlive: true } ? _currentSession : null;
+    // IsAlive dereferences editor-owned Scene/History on the UI thread; an MCP request thread probing
+    // liveness here would race a tab switch/close. Dispatch the check through the binding so editor
+    // state is only touched on the editor's own thread.
+    public IEditingSession? CurrentSession
+    {
+        get
+        {
+            LiveEditingSession? session = _currentSession;
+            return session is not null && session.ProbeIsAlive() ? session : null;
+        }
+    }
 
     public LiveEditingSession Attach(ILiveSessionBinding binding)
     {
@@ -49,6 +59,16 @@ public sealed class LiveEditingSession : IEditingSession, IEditingSessionDispatc
     public bool IsDirty => false;
 
     public bool IsAlive => _binding.IsAlive && _binding.ActiveScene is not null && _binding.ActiveHistory is not null;
+
+    // Run the liveness check on the editor's dispatcher (via the binding) instead of dereferencing
+    // editor-owned Scene/History from the MCP request thread. LiveEditingSession.Invoke guards on
+    // IsAlive and so cannot be used to probe liveness itself; reach the binding dispatcher directly.
+    public bool ProbeIsAlive()
+    {
+        bool alive = false;
+        _binding.Invoke(() => alive = _binding.IsAlive && _binding.ActiveScene is not null && _binding.ActiveHistory is not null);
+        return alive;
+    }
 
     public void Invoke(Action action)
     {

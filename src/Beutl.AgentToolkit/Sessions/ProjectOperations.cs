@@ -98,11 +98,46 @@ public static class ProjectOperations
         foreach (Scene scene in project.Items.OfType<Scene>())
         {
             RehomeSidecarsOutsideProject(project, projectDirectory, scene);
+        }
+
+        // Two scenes or two elements loaded from a hand-edited project can carry the same in-project
+        // sidecar Uri; StoreToUri writes each referenced sidecar to its Uri, so the later object would
+        // overwrite the earlier one and a reopen would lose it. Keep the first occurrence and null the
+        // rest so the Ensure* helpers below regenerate them on distinct paths.
+        NullDuplicateSidecarUris(project);
+
+        foreach (Scene scene in project.Items.OfType<Scene>())
+        {
             EnsureSceneUri(project, scene);
             EnsureElementUris(scene);
         }
 
         CoreSerializer.StoreToUri(project, project.Uri);
+    }
+
+    private static void NullDuplicateSidecarUris(Project project)
+    {
+        var used = new HashSet<string>(StringComparer.FromComparison(PathComparison.ForCurrentPlatform));
+        foreach (Scene scene in project.Items.OfType<Scene>())
+        {
+            if (scene.Uri is not null && !used.Add(ResolveSidecarPath(scene.Uri)))
+            {
+                scene.Uri = null;
+            }
+
+            foreach (Element element in scene.Children)
+            {
+                if (element.Uri is not null && !used.Add(ResolveSidecarPath(element.Uri)))
+                {
+                    element.Uri = null;
+                }
+            }
+        }
+    }
+
+    private static string ResolveSidecarPath(Uri uri)
+    {
+        return PathBoundary.ResolveDeepestExistingTarget(Path.GetFullPath(uri.LocalPath));
     }
 
     // A project loaded from disk can carry scene/element sidecar URIs pointing outside the project

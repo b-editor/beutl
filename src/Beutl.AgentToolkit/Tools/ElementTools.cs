@@ -32,28 +32,30 @@ public sealed class ElementTools(AgentSessionManager sessions) : ToolBase
         return Execute(() =>
         {
             IEditingSession session = sessions.RequireSession();
-            if (session.Root is not Scene)
+            return _reconciler.ApplyFromCurrent(session, current =>
             {
-                throw new InvalidOperationException("The current session root is not a Scene.");
-            }
+                if (session.Root is not Scene)
+                {
+                    throw new InvalidOperationException("The current session root is not a Scene.");
+                }
 
-            var element = new Element
-            {
-                Start = TimeSpan.FromSeconds(startSeconds),
-                Length = TimeSpan.FromSeconds(durationSeconds),
-                ZIndex = zIndex
-            };
+                var element = new Element
+                {
+                    Start = TimeSpan.FromSeconds(startSeconds),
+                    Length = TimeSpan.FromSeconds(durationSeconds),
+                    ZIndex = zIndex
+                };
 
-            EngineObject content = ContentFactory.Create(new ContentRequest(contentKind, mediaPath, text, shape));
-            element.AddObject(content);
+                EngineObject content = ContentFactory.Create(new ContentRequest(contentKind, mediaPath, text, shape));
+                element.AddObject(content);
 
-            JsonObject desired = session.Documents.Read(session.Root);
-            JsonArray elements = desired["Elements"] as JsonArray
-                                 ?? throw new InvalidOperationException("The current scene document does not contain an Elements array.");
-            JsonObject elementJson = CoreSerializer.SerializeToJsonObject(element);
-            RemoveIds(elementJson);
-            elements.Add(elementJson);
-            return _reconciler.Apply(session, desired);
+                JsonArray elements = current["Elements"] as JsonArray
+                                     ?? throw new InvalidOperationException("The current scene document does not contain an Elements array.");
+                JsonObject elementJson = CoreSerializer.SerializeToJsonObject(element);
+                RemoveIds(elementJson);
+                elements.Add(elementJson);
+                return (current, null);
+            });
         });
     }
 
@@ -68,24 +70,26 @@ public sealed class ElementTools(AgentSessionManager sessions) : ToolBase
         return Execute(() =>
         {
             IEditingSession session = sessions.RequireSession();
-            JsonObject desired = session.Documents.Read(session.Root);
-            JsonObject element = FindElement(desired, elementId);
-            if (startSeconds is { } start)
+            return _reconciler.ApplyFromCurrent(session, current =>
             {
-                element[nameof(Element.Start)] = TimeSpan.FromSeconds(start).ToString("c");
-            }
+                JsonObject element = FindElement(current, elementId);
+                if (startSeconds is { } start)
+                {
+                    element[nameof(Element.Start)] = TimeSpan.FromSeconds(start).ToString("c");
+                }
 
-            if (durationSeconds is { } duration)
-            {
-                element[nameof(Element.Length)] = TimeSpan.FromSeconds(duration).ToString("c");
-            }
+                if (durationSeconds is { } duration)
+                {
+                    element[nameof(Element.Length)] = TimeSpan.FromSeconds(duration).ToString("c");
+                }
 
-            if (zIndex is { } index)
-            {
-                element[nameof(Element.ZIndex)] = index;
-            }
+                if (zIndex is { } index)
+                {
+                    element[nameof(Element.ZIndex)] = index;
+                }
 
-            return _reconciler.Apply(session, desired);
+                return (current, null);
+            });
         });
     }
 
@@ -101,17 +105,20 @@ public sealed class ElementTools(AgentSessionManager sessions) : ToolBase
             }
 
             IEditingSession session = sessions.RequireSession();
-            JsonObject desired = session.Documents.Read(session.Root);
-            JsonArray elements = GetElements(desired);
-            int index = IndexOf(elements, elementId);
-            if (index < 0)
+            JsonNode? removed = null;
+            ReconcileResult result = _reconciler.ApplyFromCurrent(session, current =>
             {
-                throw StaleElement(elementId);
-            }
+                JsonArray elements = GetElements(current);
+                int index = IndexOf(elements, elementId);
+                if (index < 0)
+                {
+                    throw StaleElement(elementId);
+                }
 
-            JsonNode? removed = elements[index]?.DeepClone();
-            elements.RemoveAt(index);
-            ReconcileResult result = _reconciler.Apply(session, desired);
+                removed = elements[index]?.DeepClone();
+                elements.RemoveAt(index);
+                return (current, null);
+            });
             return result with
             {
                 Plan = result.Plan with
@@ -132,24 +139,26 @@ public sealed class ElementTools(AgentSessionManager sessions) : ToolBase
         return Execute(() =>
         {
             IEditingSession session = sessions.RequireSession();
-            JsonObject desired = session.Documents.Read(session.Root);
-            JsonArray elements = GetElements(desired);
-            JsonObject source = FindElement(desired, elementId);
-            JsonObject clone = (JsonObject)source.DeepClone();
-            RemoveIds(clone);
-
-            if (startSeconds is { } start)
+            return _reconciler.ApplyFromCurrent(session, current =>
             {
-                clone[nameof(Element.Start)] = TimeSpan.FromSeconds(start).ToString("c");
-            }
+                JsonArray elements = GetElements(current);
+                JsonObject source = FindElement(current, elementId);
+                JsonObject clone = (JsonObject)source.DeepClone();
+                RemoveIds(clone);
 
-            if (zIndex is { } index)
-            {
-                clone[nameof(Element.ZIndex)] = index;
-            }
+                if (startSeconds is { } start)
+                {
+                    clone[nameof(Element.Start)] = TimeSpan.FromSeconds(start).ToString("c");
+                }
 
-            elements.Add(clone);
-            return _reconciler.Apply(session, desired);
+                if (zIndex is { } index)
+                {
+                    clone[nameof(Element.ZIndex)] = index;
+                }
+
+                elements.Add(clone);
+                return (current, null);
+            });
         });
     }
 
@@ -160,27 +169,29 @@ public sealed class ElementTools(AgentSessionManager sessions) : ToolBase
         return Execute(() =>
         {
             IEditingSession session = sessions.RequireSession();
-            JsonObject desired = session.Documents.Read(session.Root);
-            JsonArray elements = GetElements(desired);
-            JsonObject element = FindElement(desired, elementId);
-            TimeSpan start = ReadTime(element, nameof(Element.Start));
-            TimeSpan length = ReadTime(element, nameof(Element.Length));
-            TimeSpan split = TimeSpan.FromSeconds(splitOffsetSeconds);
-            if (split <= TimeSpan.Zero || split >= length)
+            return _reconciler.ApplyFromCurrent(session, current =>
             {
-                throw new ReconcileException(new ToolError(
-                    ErrorCode.ValidationRejected,
-                    "Split offset must be inside the element duration.",
-                    elementId));
-            }
+                JsonArray elements = GetElements(current);
+                JsonObject element = FindElement(current, elementId);
+                TimeSpan start = ReadTime(element, nameof(Element.Start));
+                TimeSpan length = ReadTime(element, nameof(Element.Length));
+                TimeSpan split = TimeSpan.FromSeconds(splitOffsetSeconds);
+                if (split <= TimeSpan.Zero || split >= length)
+                {
+                    throw new ReconcileException(new ToolError(
+                        ErrorCode.ValidationRejected,
+                        "Split offset must be inside the element duration.",
+                        elementId));
+                }
 
-            JsonObject clone = (JsonObject)element.DeepClone();
-            RemoveIds(clone);
-            element[nameof(Element.Length)] = split.ToString("c");
-            clone[nameof(Element.Start)] = (start + split).ToString("c");
-            clone[nameof(Element.Length)] = (length - split).ToString("c");
-            elements.Add(clone);
-            return _reconciler.Apply(session, desired);
+                JsonObject clone = (JsonObject)element.DeepClone();
+                RemoveIds(clone);
+                element[nameof(Element.Length)] = split.ToString("c");
+                clone[nameof(Element.Start)] = (start + split).ToString("c");
+                clone[nameof(Element.Length)] = (length - split).ToString("c");
+                elements.Add(clone);
+                return (current, null);
+            });
         });
     }
 
@@ -191,22 +202,28 @@ public sealed class ElementTools(AgentSessionManager sessions) : ToolBase
         return Execute(() =>
         {
             IEditingSession session = sessions.RequireSession();
-            if (session.Root is not Scene scene)
+            ImmutableHashSet<Guid> ids = [];
+            JsonObject document = new();
+            session.InvokeOnSession(() =>
             {
-                throw new InvalidOperationException("The current session root is not a Scene.");
-            }
+                if (session.Root is not Scene scene)
+                {
+                    throw new InvalidOperationException("The current session root is not a Scene.");
+                }
 
-            ImmutableHashSet<Guid> ids = ParseElementIds(scene, elementIds).ToImmutableHashSet();
-            if (ids.Count < 2)
-            {
-                throw new ReconcileException(new ToolError(ErrorCode.ValidationRejected, "A group must contain at least two elements."));
-            }
+                ids = ParseElementIds(scene, elementIds).ToImmutableHashSet();
+                if (ids.Count < 2)
+                {
+                    throw new ReconcileException(new ToolError(ErrorCode.ValidationRejected, "A group must contain at least two elements."));
+                }
 
-            session.History.ExecuteInTransaction(() => scene.Groups.Add(ids), "Agent group elements");
+                session.History.ExecuteInTransaction(() => scene.Groups.Add(ids), "Agent group elements");
+                document = session.Documents.Read(session.Root);
+            });
             MarkFileSessionDirty(session);
             return new ReconcileResult(
                 new ReconcilePlan([new ChangeSetEntry("group-elements", "$/Groups", string.Join(",", ids))], []),
-                session.Documents.Read(session.Root));
+                document);
         });
     }
 
@@ -217,28 +234,34 @@ public sealed class ElementTools(AgentSessionManager sessions) : ToolBase
         return Execute(() =>
         {
             IEditingSession session = sessions.RequireSession();
-            if (session.Root is not Scene scene)
+            Guid[] ids = [];
+            JsonObject document = new();
+            session.InvokeOnSession(() =>
             {
-                throw new InvalidOperationException("The current session root is not a Scene.");
-            }
-
-            Guid[] ids = ParseElementIds(scene, elementIds).ToArray();
-            session.History.ExecuteInTransaction(
-                () =>
+                if (session.Root is not Scene scene)
                 {
-                    for (int i = scene.Groups.Count - 1; i >= 0; i--)
+                    throw new InvalidOperationException("The current session root is not a Scene.");
+                }
+
+                ids = ParseElementIds(scene, elementIds).ToArray();
+                session.History.ExecuteInTransaction(
+                    () =>
                     {
-                        if (scene.Groups[i].Overlaps(ids))
+                        for (int i = scene.Groups.Count - 1; i >= 0; i--)
                         {
-                            scene.Groups.RemoveAt(i);
+                            if (scene.Groups[i].Overlaps(ids))
+                            {
+                                scene.Groups.RemoveAt(i);
+                            }
                         }
-                    }
-                },
-                "Agent ungroup elements");
+                    },
+                    "Agent ungroup elements");
+                document = session.Documents.Read(session.Root);
+            });
             MarkFileSessionDirty(session);
             return new ReconcileResult(
                 new ReconcilePlan([new ChangeSetEntry("ungroup-elements", "$/Groups", string.Join(",", ids))], []),
-                session.Documents.Read(session.Root));
+                document);
         });
     }
 

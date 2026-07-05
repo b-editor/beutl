@@ -79,6 +79,37 @@ public sealed class ProjectOperationsTests
         Assert.That(File.Exists(outside), Is.False, "The out-of-project sidecar must not be written.");
     }
 
+    // Two scenes carrying the same in-project sidecar Uri would overwrite each other on save; Save must
+    // null the duplicate so the Ensure* helper regenerates it on a distinct path.
+    [Test]
+    public void Save_NullsDuplicateSidecarUris_RegeneratesDistinctPaths()
+    {
+        Project project = ProjectOperations.CreateProject(new ProjectCreateOptions(
+            Path.Combine(_tempRoot, "proj.bep"),
+            Width: 1920,
+            Height: 1080,
+            FrameRate: 30,
+            Duration: TimeSpan.FromSeconds(10)));
+
+        Scene first = project.Items.OfType<Scene>().First();
+        Scene second = ProjectOperations.AddScene(project, new SceneCreateOptions(
+            Width: 1920,
+            Height: 1080,
+            Start: TimeSpan.Zero,
+            Duration: TimeSpan.FromSeconds(5),
+            Name: "other"));
+
+        second.Uri = first.Uri;
+
+        ProjectOperations.Save(project);
+
+        Assert.That(second.Uri, Is.Not.EqualTo(first.Uri), "Duplicate sidecar Uri must be regenerated on a distinct path.");
+        Assert.That(
+            Path.GetDirectoryName(second.Uri!.LocalPath),
+            Is.Not.EqualTo(Path.GetDirectoryName(first.Uri!.LocalPath)),
+            "Regenerated sidecar must live in its own directory.");
+    }
+
     [Test]
     public void Save_RehomesSceneSidecarThroughInProjectSymlink_RegeneratesInsideProject()
     {
