@@ -125,7 +125,13 @@ public partial class SourceVideo : IThumbnailsProvider
             float thumbWidth = maxHeight * (float)frameSize.Width / frameSize.Height;
             double interval = duration.TotalSeconds / count;
 
-            string? cacheKey = cacheService != null ? GetThumbnailsCacheKey() : null;
+            string? baseKey = cacheService != null ? GetThumbnailsCacheKey() : null;
+            // Partition by preview-source mode: ThumbnailsInvalidated covers mode changes for one
+            // view, but two same-source views in different modes (or a fresh view after a prior proxy
+            // render) would otherwise collide on the mode-agnostic base key.
+            string? cacheKey = baseKey != null
+                ? (preferProxy ? baseKey + "|proxy" : baseKey + "|original")
+                : null;
             var cacheThreshold = TimeSpan.FromSeconds(interval * 0.5);
 
             int effectiveStart = Math.Max(0, startIndex);

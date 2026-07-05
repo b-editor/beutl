@@ -10,9 +10,9 @@ public interface IProxyJobQueue : IAsyncDisposable
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Enqueues a proxy job at the given <paramref name="priority"/>: higher-priority jobs are
-    /// dispatched ahead of lower-priority ones, and equal priorities keep arrival (FIFO) order. The
-    /// default implementation ignores priority and forwards to the arrival-order overload, so an
+    /// Enqueues a proxy job at the given <paramref name="priority"/>. Higher-priority jobs should be
+    /// dispatched ahead of lower-priority ones, and equal priorities should keep arrival (FIFO) order.
+    /// The default implementation ignores priority and forwards to the arrival-order overload, so an
     /// implementation only overrides this when it can honor priority.
     /// </summary>
     ValueTask<ProxyJob> EnqueueAsync(

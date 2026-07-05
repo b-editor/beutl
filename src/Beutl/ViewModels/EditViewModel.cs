@@ -291,6 +291,18 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         cache.DeleteAndUpdateBlocks(affectedRanges
             .Select(range => (Start: (int)range.Start.ToFrameNumber(rate),
                 End: (int)Math.Ceiling(range.End.ToFrameNumber(rate)))));
+
+        // While paused, the shown bitmap is cloned into PlayerViewModel and does not observe the
+        // deletion above, so re-render when the playhead sits in a changed range.
+        TimeSpan playhead = Player.CurrentFrame.Value;
+        foreach (TimeRange range in affectedRanges)
+        {
+            if (range.Start <= playhead && playhead < range.End)
+            {
+                Player.QueuePreviewRender();
+                break;
+            }
+        }
     }
 
     private static bool ElementUsesAnySource(Element element, IReadOnlySet<string> changedSources)

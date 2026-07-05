@@ -101,7 +101,39 @@ public static class ProxySourceEnumerator
                     foreach (VideoSource source in EnumerateGraphSources(groupNode.Group))
                         yield return source;
 
+                    // A group can also receive a VideoSource at its outer input boundary; the render
+                    // path forwards those into the inner graph (GroupInput.Resource.OuterInputValues).
+                    foreach (VideoSource source in EnumerateGroupNodeInputSources(groupNode))
+                        yield return source;
+
                     break;
+            }
+        }
+    }
+
+    private static IEnumerable<VideoSource> EnumerateGroupNodeInputSources(GroupNode groupNode)
+    {
+        foreach (var member in groupNode.Items)
+        {
+            if (member is not IInputPort { Property: { } property })
+                continue;
+
+            // Gate via PropertyType rather than a typed pattern: IPropertyAdapter<T> is invariant, so
+            // `is IPropertyAdapter<VideoSource?>` would miss a non-nullable adapter. PropertyType ==
+            // typeof(VideoSource) holds for both VideoSource and VideoSource? ports.
+            if (property.PropertyType != typeof(VideoSource))
+                continue;
+
+            if (property.GetValue() is VideoSource current)
+                yield return current;
+
+            if (property is IAnimatablePropertyAdapter<VideoSource?> { Animation: { } animation })
+            {
+                foreach (VideoSource? source in EnumerateAnimatedValues(animation))
+                {
+                    if (source != null)
+                        yield return source;
+                }
             }
         }
     }
