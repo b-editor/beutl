@@ -45,10 +45,10 @@
 
   <!-- Settings/record types shared with the MIT extension (compiled here under BEUTL_FFMPEG_WORKER). -->
   <ItemGroup>
-    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\Encoding\CodecRecord.cs" Link="Linked\CodecRecord.cs" />
-    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\Encoding\FFmpegEncodingSettings.cs" Link="Linked\FFmpegEncodingSettings.cs" />
-    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\Encoding\FFmpegVideoEncoderSettings.cs" Link="Linked\FFmpegVideoEncoderSettings.cs" />
-    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\Encoding\FFmpegAudioEncoderSettings.cs" Link="Linked\FFmpegAudioEncoderSettings.cs" />
+    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg.Core\Encoding\CodecRecord.cs" Link="Linked\CodecRecord.cs" />
+    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg.Core\Encoding\FFmpegEncodingSettings.cs" Link="Linked\FFmpegEncodingSettings.cs" />
+    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg.Core\Encoding\FFmpegVideoEncoderSettings.cs" Link="Linked\FFmpegVideoEncoderSettings.cs" />
+    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg.Core\Encoding\FFmpegAudioEncoderSettings.cs" Link="Linked\FFmpegAudioEncoderSettings.cs" />
   </ItemGroup>
 
 </Project>
