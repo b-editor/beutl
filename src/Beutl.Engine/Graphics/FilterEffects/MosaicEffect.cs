@@ -17,12 +17,17 @@ public partial class MosaicEffect : FilterEffect
         uniform shader src;
         uniform float2 origin;
         uniform float2 tileSize;
+        uniform float2 resolution;
 
         half4 main(float2 fragCoord) {
             float2 blockIndex = floor((fragCoord - origin) / tileSize);
 
             // タイルの中心位置を求める
             float2 sampleCoord = (blockIndex * tileSize + tileSize * 0.5) + origin;
+
+            // The legacy custom effect sampled the source with Clamp tiling; the fused whole-source src child is
+            // Decal, so clamp the tile-centre sample into the buffer to reproduce edge-tile colours.
+            sampleCoord = clamp(sampleCoord, float2(0.0), resolution - 0.5);
 
             // 中心位置の色をサンプリングして返す
             return src.eval(sampleCoord);
@@ -78,7 +83,8 @@ public partial class MosaicEffect : FilterEffect
             ShaderSource,
             BoundsContract.Identity,
             u => u.Float2("origin", (float)origin.X, (float)origin.Y)
-                  .Float2("tileSize", tileSize.Width * w, tileSize.Height * w)));
+                  .Float2("tileSize", tileSize.Width * w, tileSize.Height * w)
+                  .Float2("resolution", bufW, bufH)));
     }
 
     private static void OnApplyTo((Size tileSize, RelativePoint origin) data, CustomFilterEffectContext c)
