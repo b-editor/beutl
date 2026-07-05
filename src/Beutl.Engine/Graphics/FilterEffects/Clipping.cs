@@ -108,9 +108,10 @@ public sealed partial class Clipping : FilterEffect
             effective += new Thickness(detected.Left / w, detected.Top / w, detected.Right / w, detected.Bottom / w);
         }
 
-        (Rect targetBounds, Rect newBounds, float pointX, float pointY) = ComputeClip(input.Bounds, effective, autoCenter);
+        // The buffer occupies TargetBounds (already sized by the forward map); the callback only needs the crop
+        // offset, which derives from NewBounds (session.Bounds for the render-time AutoClip path).
+        (_, Rect newBounds, float pointX, float pointY) = ComputeClip(input.Bounds, effective, autoCenter);
         Rect reference = autoClip ? session.Bounds : newBounds;
-        _ = targetBounds;
 
         using (canvas.PushDeviceSpace())
         using (canvas.PushTransform(Matrix.CreateTranslation(pointX * w, pointY * w)))

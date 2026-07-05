@@ -630,9 +630,8 @@ internal static class PlanExecutor
                 RenderTarget? inputTarget = MaterializeInput(op, inW, maxWorkingScale, diagnostics, pool);
                 if (inputTarget == null)
                 {
-                    RenderNodeOperation? dropped = DropOrThrow(
-                        op, maxWorkingScale, $"Split input materialization failed ({bw}x{bh} px).");
-                    _ = dropped;
+                    // Delivery throws inside DropOrThrow; preview drops this input's branches and continues.
+                    DropOrThrow(op, maxWorkingScale, $"Split input materialization failed ({bw}x{bh} px).");
                     continue;
                 }
 
