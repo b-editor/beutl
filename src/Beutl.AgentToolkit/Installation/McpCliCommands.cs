@@ -61,13 +61,17 @@ public static class AgentMcpCliCommands
         string agentId,
         AgentInstallScope scope,
         string serverName,
-        Uri url)
+        Uri url,
+        IReadOnlyDictionary<string, string> headers)
     {
         return (agentId, scope) switch
         {
             ("claude-code", AgentInstallScope.Global) => new McpCliCommand(
                 "claude",
-                ["mcp", "add", "--scope", "user", "--transport", "http", serverName, url.ToString()]),
+                [
+                    "mcp", "add", "--scope", "user", "--transport", "http",
+                    .. HeaderFlags(headers), serverName, url.ToString(),
+                ]),
             _ => null,
         };
     }
@@ -92,6 +96,15 @@ public static class AgentMcpCliCommands
         {
             yield return "--env";
             yield return $"{pair.Key}={pair.Value}";
+        }
+    }
+
+    private static IEnumerable<string> HeaderFlags(IReadOnlyDictionary<string, string> headers)
+    {
+        foreach (KeyValuePair<string, string> pair in headers)
+        {
+            yield return "--header";
+            yield return $"{pair.Key}: {pair.Value}";
         }
     }
 }

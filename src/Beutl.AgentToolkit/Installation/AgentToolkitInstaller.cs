@@ -92,6 +92,17 @@ public static class AgentToolkitInstaller
             }
 
             liveServer[options.LiveMcpUrlPropertyName] = options.LiveMcpUri.ToString();
+            if (options.LiveMcpHeaders.Count > 0)
+            {
+                var headers = new JsonObject();
+                foreach (KeyValuePair<string, string> pair in options.LiveMcpHeaders)
+                {
+                    headers[pair.Key] = pair.Value;
+                }
+
+                liveServer["headers"] = headers;
+            }
+
             servers[options.LiveMcpServerName] = liveServer;
         }
 

@@ -15,12 +15,12 @@ dotnet build Beutl.slnx
 
 ### Install from the Beutl UI
 
-Open **Settings → AI Agents** in the Beutl app. The page installs the bundled Skills, Subagents, and MCP configuration into a user-selected agent root.
+Open **Settings → AI Agents** in the Beutl app. The page installs the bundled Skills, Subagents, and MCP configuration for a selected agent.
 
-- Pick an agent root. For Claude Code, select the home or workspace root and use the `Claude Code .claude folders` preset. For other MCP-capable agents, use `Generic skills/agents folders` or edit the relative Skills/Subagents folders directly.
-- Choose whether to install Skills, Subagents, stdio MCP, live MCP, or any subset.
-- Keep `.mcp.json` / `servers` for hosts that use the repository-local config shape, or change the config file and servers property name for hosts that use a different JSON layout such as `mcpServers`.
-- Use the generated stdio command for headless project editing, or enable live MCP while Beutl is running to connect to the in-app loopback endpoint.
+- Pick the agent (Claude Code, Codex, Cursor, Gemini CLI, ... or Custom for manual paths) and an install scope: Global (user profile) or Project (a chosen folder). The catalog resolves each agent's folder conventions and MCP config file/format; the "Install destinations" panel previews the resolved paths and any CLI commands the install will run.
+- Choose whether to install Skills, Subagents, live MCP, or the optional stdio MCP. Live MCP (editing the running editor) is the default; components an agent cannot host automatically are disabled with an explanation.
+- Agents whose MCP registry is not a mergeable JSON file are registered through their own CLI (`claude mcp add --scope user`, `codex mcp add`) or left for manual setup; Codex subagents are converted to its TOML agent format on install.
+- Advanced overrides (folder names, MCP config file, servers property, stdio command line) apply on top; empty fields use the selected agent's defaults.
 
 The installer preserves existing JSON properties and existing MCP servers, then updates only the `beutl-agent` and `beutl-live` entries.
 
@@ -48,10 +48,10 @@ In release, point `command` at the published exe. `BEUTL_WORKSPACE` is the write
 To see edits appear live in the running Beutl editor, connect to the **in-app endpoint** instead of spawning the headless server. With a project open in the editor (which hosts a loopback HTTP/SSE endpoint), point the agent host at it:
 
 ```jsonc
-{ "servers": { "beutl-live": { "type": "http", "url": "http://127.0.0.1:<port>/mcp?token=<token>" } } }
+{ "mcpServers": { "beutl-live": { "type": "http", "url": "http://127.0.0.1:<port>/mcp", "headers": { "Authorization": "Bearer <token>" } } } }
 ```
 
-Then `attach_active_editor` binds a **live session** to the open project; edits flow through the same scene + history the UI is bound to, so the preview/timeline/property panels update in real time and each change is on the editor's undo stack. (The endpoint binds loopback only, issues a per-session token, and accepts the token either as `?token=` or `X-Beutl-Agent-Token`; the write-boundary and validation guarantees are unchanged.)
+Then `attach_active_editor` binds a **live session** to the open project; edits flow through the same scene + history the UI is bound to, so the preview/timeline/property panels update in real time and each change is on the editor's undo stack. (The endpoint binds loopback only, issues a per-session token, and authenticates solely via the `Authorization: Bearer <token>` header — the former `?token=` query form was removed so the secret never appears in URLs; the write-boundary and validation guarantees are unchanged.)
 
 ### Raw HTTP/SSE smoke test
 
@@ -62,7 +62,8 @@ curl -sS -X POST \
   -H 'Accept: application/json, text/event-stream' \
   -H 'Content-Type: application/json' \
   --data '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"probe","version":"1"}}}' \
-  'http://127.0.0.1:<port>/mcp?token=<token>'
+  -H 'Authorization: Bearer <token>' \
+  'http://127.0.0.1:<port>/mcp'
 ```
 
 After `initialize`, send `notifications/initialized`, then `tools/list`, then `get_started` or `attach_active_editor`. `notifications/initialized` may have no response body; that is normal. Tool results are nested as JSON text under `result.content[0].text` in raw HTTP clients, so decode that text payload after reading the SSE `data:` line. For progress checks, prefer `read_document_summary` over `read_document` until you need the full JSON.
@@ -170,7 +171,7 @@ dotnet test tests/Beutl.AgentToolkit.Tests --settings coverlet.runsettings
 ## Live-Mode Manual Verification (SC-010)
 
 1. Open a project in the Beutl editor.
-2. Connect an MCP host to `http://127.0.0.1:<port>/mcp?token=<token>`.
+2. Connect an MCP host to `http://127.0.0.1:<port>/mcp` with the `Authorization: Bearer <token>` header.
 3. Call `attach_active_editor`.
 4. Call `read_document` and `apply_edit` for one visible text/shape change.
 5. Confirm the preview, timeline, and property panel update without reloading the project.

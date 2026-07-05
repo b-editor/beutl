@@ -65,6 +65,11 @@ public sealed record AgentToolkitInstallOptions
         = new Dictionary<string, string>();
 
     public Uri? LiveMcpUri { get; init; }
+
+    // Written as the remote entry's "headers" object; carries the
+    // Authorization bearer token, which never travels in the URL.
+    public IReadOnlyDictionary<string, string> LiveMcpHeaders { get; init; }
+        = new Dictionary<string, string>();
 }
 
 public sealed record AgentToolkitInstallResult(

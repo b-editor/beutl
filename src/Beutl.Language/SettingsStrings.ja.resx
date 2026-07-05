@@ -456,7 +456,7 @@
     <comment/>
   </data>
   <data name="AiAgents_LiveMcpUrl_Description" xml:space="preserve">
-    <value>MCP クライアント用の接続 URL。アクセストークンを含むためパスワードと同様に扱ってください</value>
+    <value>MCP クライアント用の接続 URL。下の認証ヘッダーを全リクエストに付与してください（ヘッダーはパスワードと同様に扱ってください）</value>
     <comment/>
   </data>
   <data name="AiAgents_Advanced" xml:space="preserve">
@@ -574,6 +574,10 @@
   </data>
   <data name="AiAgents_StdioMissing" xml:space="preserve">
     <value>stdio MCP サーバーの実行ファイルがアプリと同じ場所に見つかりませんでした。詳細設定でコマンドを指定するか、Beutl を再インストールしてください。</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_LiveMcpAuthHeader" xml:space="preserve">
+    <value>認証ヘッダー</value>
     <comment/>
   </data>
 </root>

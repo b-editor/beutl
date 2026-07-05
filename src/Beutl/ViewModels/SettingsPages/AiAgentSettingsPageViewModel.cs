@@ -58,6 +58,7 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
         InstallStdioMcp = new ReactivePropertySlim<bool>(_config.InstallStdioMcp).DisposeWith(_disposables);
         InstallLiveMcp = new ReactivePropertySlim<bool>(_config.InstallLiveMcp).DisposeWith(_disposables);
         LiveMcpUrl = new ReactivePropertySlim<string>().DisposeWith(_disposables);
+        LiveMcpAuthHeader = new ReactivePropertySlim<string>().DisposeWith(_disposables);
         IsLiveMcpAvailable = new ReactivePropertySlim<bool>().DisposeWith(_disposables);
         IsCustomAgent = new ReactivePropertySlim<bool>().DisposeWith(_disposables);
         IsScopeSelectable = new ReactivePropertySlim<bool>().DisposeWith(_disposables);
@@ -124,6 +125,8 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
     public ReactivePropertySlim<bool> InstallLiveMcp { get; }
 
     public ReactivePropertySlim<string> LiveMcpUrl { get; }
+
+    public ReactivePropertySlim<string> LiveMcpAuthHeader { get; }
 
     public ReactivePropertySlim<bool> IsLiveMcpAvailable { get; }
 
@@ -293,7 +296,8 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
                 SelectedAgent.Value.Id,
                 SelectedScope.Value.Scope,
                 AgentToolkitInstallOptions.DefaultLiveServerName,
-                liveUri) is { } remote)
+                liveUri,
+                BuildLiveMcpHeaders()) is { } remote)
         {
             lines.Add("$ " + remote.ToDisplayString());
         }
@@ -375,6 +379,7 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
                     StdioMcpCommand = McpCommand.Value,
                     StdioMcpArguments = ParseArguments(McpArguments.Value),
                     LiveMcpUri = installLiveMcp ? liveMcpUri : null,
+                    LiveMcpHeaders = BuildLiveMcpHeaders(),
                 },
                 BundledAgentToolkitAssets.Load());
 
@@ -429,7 +434,11 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
             && targets.CliSupportsRemote
             && liveMcpUri is not null
             && AgentMcpCliCommands.BuildRemote(
-                agentId, scope, AgentToolkitInstallOptions.DefaultLiveServerName, liveMcpUri) is { } remoteCommand)
+                agentId,
+                scope,
+                AgentToolkitInstallOptions.DefaultLiveServerName,
+                liveMcpUri,
+                BuildLiveMcpHeaders()) is { } remoteCommand)
         {
             await RunCliRegistrationAsync(
                 agentId, scope, AgentToolkitInstallOptions.DefaultLiveServerName, remoteCommand, errors)
@@ -462,21 +471,21 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
     {
         Uri? uri = TryCreateLiveMcpUri();
         LiveMcpUrl.Value = uri?.ToString() ?? "";
+        LiveMcpAuthHeader.Value = uri is null ? "" : "Authorization: Bearer " + _agentHostEndpoint.Token;
         IsLiveMcpAvailable.Value = uri is not null;
     }
 
     private Uri? TryCreateLiveMcpUri()
     {
-        if (_agentHostEndpoint.EndpointUri is not { } endpoint)
-        {
-            return null;
-        }
+        return _agentHostEndpoint.EndpointUri;
+    }
 
-        var builder = new UriBuilder(endpoint);
-        string query = builder.Query.TrimStart('?');
-        string token = "token=" + Uri.EscapeDataString(_agentHostEndpoint.Token);
-        builder.Query = string.IsNullOrWhiteSpace(query) ? token : query + "&" + token;
-        return builder.Uri;
+    private Dictionary<string, string> BuildLiveMcpHeaders()
+    {
+        return new Dictionary<string, string>
+        {
+            ["Authorization"] = "Bearer " + _agentHostEndpoint.Token,
+        };
     }
 
     private static string FirstNonEmpty(string configured, string fallback)

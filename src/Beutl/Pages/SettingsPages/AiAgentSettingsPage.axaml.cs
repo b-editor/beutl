@@ -53,6 +53,16 @@ public sealed partial class AiAgentSettingsPage : UserControl
         }
     }
 
+    private async void CopyLiveMcpAuthHeader_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is AiAgentSettingsPageViewModel vm
+            && vm.LiveMcpAuthHeader.Value is { Length: > 0 } header
+            && TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard)
+        {
+            await clipboard.SetTextAsync(header);
+        }
+    }
+
     private async Task PickFolderAsync(string title, Action<string> setPath)
     {
         TopLevel? topLevel = TopLevel.GetTopLevel(this);

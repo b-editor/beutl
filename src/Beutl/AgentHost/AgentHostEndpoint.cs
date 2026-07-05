@@ -233,13 +233,16 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         return false;
     }
 
+    // The token travels only in the standard Authorization header — never in
+    // the URL, where it would leak into client configs, logs, and history.
     private async Task RequireToken(HttpContext context, RequestDelegate next)
     {
-        string? header = context.Request.Headers["X-Beutl-Agent-Token"];
-        string? query = context.Request.Query["token"];
+        const string scheme = "Bearer ";
+        string? authorization = context.Request.Headers.Authorization;
 
-        if (!string.Equals(header, Token, StringComparison.Ordinal)
-            && !string.Equals(query, Token, StringComparison.Ordinal))
+        if (authorization is null
+            || !authorization.StartsWith(scheme, StringComparison.Ordinal)
+            || !string.Equals(authorization[scheme.Length..], Token, StringComparison.Ordinal))
         {
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
             return;

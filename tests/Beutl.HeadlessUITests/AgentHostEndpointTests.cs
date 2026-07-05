@@ -1,4 +1,5 @@
 ﻿using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Sockets;
 using Avalonia.Headless.NUnit;
 using Beutl.AgentHost;
@@ -42,8 +43,13 @@ public sealed class AgentHostEndpointTests
             using HttpResponseMessage rejected = await client.GetAsync(endpoint.EndpointUri);
             Assert.That((int)rejected.StatusCode, Is.EqualTo(401));
 
+            // The query-token form was removed; only the Authorization header authenticates.
+            using HttpResponseMessage queryRejected = await client.GetAsync(
+                new Uri(endpoint.EndpointUri + "?token=" + endpoint.Token));
+            Assert.That((int)queryRejected.StatusCode, Is.EqualTo(401));
+
             using HttpRequestMessage request = new(HttpMethod.Get, endpoint.EndpointUri);
-            request.Headers.Add("X-Beutl-Agent-Token", endpoint.Token);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", endpoint.Token);
             using HttpResponseMessage accepted = await client.SendAsync(request);
             Assert.That((int)accepted.StatusCode, Is.Not.EqualTo(401));
         }
@@ -126,7 +132,7 @@ public sealed class AgentHostEndpointTests
                 TransportMode = HttpTransportMode.StreamableHttp,
                 AdditionalHeaders = new Dictionary<string, string>
                 {
-                    ["X-Beutl-Agent-Token"] = endpoint.Token
+                    ["Authorization"] = "Bearer " + endpoint.Token
                 }
             });
             await using McpClient client = await McpClient.CreateAsync(transport);
@@ -169,7 +175,7 @@ public sealed class AgentHostEndpointTests
                 TransportMode = HttpTransportMode.StreamableHttp,
                 AdditionalHeaders = new Dictionary<string, string>
                 {
-                    ["X-Beutl-Agent-Token"] = endpoint.Token
+                    ["Authorization"] = "Bearer " + endpoint.Token
                 }
             });
             await using McpClient client = await McpClient.CreateAsync(transport);

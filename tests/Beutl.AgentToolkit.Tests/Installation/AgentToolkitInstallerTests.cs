@@ -153,7 +153,7 @@ public sealed class AgentToolkitInstallerTests
     [Test]
     public async Task InstallAsync_WritesCatalogDirectoriesAndLiveMcpConfig()
     {
-        Uri liveUri = new("http://127.0.0.1:12345/mcp?token=secret");
+        Uri liveUri = new("http://127.0.0.1:12345/mcp");
         AgentDefinition claudeCode = AgentCatalog.Find("claude-code")!;
 
         await AgentToolkitInstaller.InstallAsync(
@@ -165,6 +165,10 @@ public sealed class AgentToolkitInstallerTests
                 InstallStdioMcp = false,
                 InstallLiveMcp = true,
                 LiveMcpUri = liveUri,
+                LiveMcpHeaders = new Dictionary<string, string>
+                {
+                    ["Authorization"] = "Bearer secret",
+                },
             },
             [
                 new AgentToolkitAsset(AgentToolkitAssetKind.Skill, "demo/SKILL.md", "skill"),
@@ -178,6 +182,10 @@ public sealed class AgentToolkitInstallerTests
         JsonObject liveServer = servers["beutl-live"]!.AsObject();
         Assert.That(liveServer["type"]!.GetValue<string>(), Is.EqualTo("http"));
         Assert.That(liveServer["url"]!.GetValue<string>(), Is.EqualTo(liveUri.ToString()));
+        Assert.That(liveServer["url"]!.GetValue<string>(), Does.Not.Contain("token"));
+        Assert.That(
+            liveServer["headers"]!.AsObject()["Authorization"]!.GetValue<string>(),
+            Is.EqualTo("Bearer secret"));
     }
 
     [Test]

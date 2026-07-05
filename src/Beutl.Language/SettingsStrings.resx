@@ -460,7 +460,7 @@
     <comment/>
   </data>
   <data name="AiAgents_LiveMcpUrl_Description" xml:space="preserve">
-    <value>Connection URL for MCP clients. It contains an access token — treat it like a password</value>
+    <value>Connection URL for MCP clients. Send the authentication header below with every request — treat it like a password</value>
     <comment/>
   </data>
   <data name="AiAgents_Advanced" xml:space="preserve">
@@ -578,6 +578,10 @@
   </data>
   <data name="AiAgents_StdioMissing" xml:space="preserve">
     <value>The stdio MCP server binary was not found next to the app. Enter a command under Advanced, or reinstall Beutl.</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_LiveMcpAuthHeader" xml:space="preserve">
+    <value>Authentication header</value>
     <comment/>
   </data>
 </root>

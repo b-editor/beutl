@@ -30,16 +30,21 @@ public sealed class McpCliCommandsTests
     }
 
     [Test]
-    public void Claude_code_global_remote_uses_http_transport()
+    public void Claude_code_global_remote_uses_http_transport_with_auth_header()
     {
         McpCliCommand? command = AgentMcpCliCommands.BuildRemote(
-            "claude-code", AgentInstallScope.Global, "beutl-live", new Uri("http://127.0.0.1:5008/mcp?token=abc"));
+            "claude-code",
+            AgentInstallScope.Global,
+            "beutl-live",
+            new Uri("http://127.0.0.1:5008/mcp"),
+            new Dictionary<string, string> { ["Authorization"] = "Bearer abc" });
 
         Assert.That(command, Is.Not.Null);
         Assert.That(command!.Arguments, Is.EqualTo(new[]
         {
             "mcp", "add", "--scope", "user", "--transport", "http",
-            "beutl-live", "http://127.0.0.1:5008/mcp?token=abc",
+            "--header", "Authorization: Bearer abc",
+            "beutl-live", "http://127.0.0.1:5008/mcp",
         }));
     }
 
@@ -88,7 +93,8 @@ public sealed class McpCliCommandsTests
                 Is.Null);
             Assert.That(
                 AgentMcpCliCommands.BuildRemote(
-                    "codex", AgentInstallScope.Global, "s", new Uri("http://localhost/")),
+                    "codex", AgentInstallScope.Global, "s", new Uri("http://localhost/"),
+                    new Dictionary<string, string>()),
                 Is.Null);
             Assert.That(AgentMcpCliCommands.SupportsStdio("custom", AgentInstallScope.Global), Is.False);
         });
