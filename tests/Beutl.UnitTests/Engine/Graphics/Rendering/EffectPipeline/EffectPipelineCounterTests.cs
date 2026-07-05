@@ -117,6 +117,89 @@ public class EffectPipelineCounterTests
         });
     }
 
+    // T014: a structurally-constant scene rendered K times through one shared pool acquires its intermediates
+    // from the same four sites every frame (matching ColorChain's legacy allocation count of 4), but only
+    // frame 1 allocates — frames 2..K add ZERO fresh allocations / pool misses (all hits), the steady-state
+    // gate for US3 (SC-003).
+    //
+    // Frame 1 itself allocates fewer than 4 buffers (2 here): the pool reuses within a frame too — a bake
+    // target released mid-chain is reused by the next same-size acquire — so misses <= acquire sites. The
+    // gate that matters is the cross-frame delta, which is exactly zero.
+    //
+    // The full golden + frozen-reference suites remain unchanged: they render through bare, pool-less
+    // processors (GoldenImageHarness / EffectReferenceFreezeTests), so pooling cannot perturb their bytes.
+    [Test]
+    public void ColorChain_SteadyState_ReusesPooledTargetsAfterFirstFrame()
+    {
+        const int frames = 4;
+        PipelineDiagnosticsSnapshot[] perFrame = RenderFramesWithPool(
+            () => SceneFixtures.ColorChain(SceneFixtures.ReferenceSize), frames);
+
+        Assert.Multiple(() =>
+        {
+            // Four acquire sites per frame == ColorChain's legacy allocation count (pinned at 4 by
+            // ColorChain_PinsLegacyCostModel). Frame 1 allocates each miss exactly once.
+            Assert.That(perFrame[0].PoolAcquires, Is.EqualTo(4), "frame 1 acquire sites == legacy allocation count");
+            Assert.That(perFrame[0].TargetAllocations, Is.EqualTo(perFrame[0].PoolMisses), "each miss allocates once");
+            Assert.That(perFrame[0].PoolMisses, Is.GreaterThan(0).And.LessThanOrEqualTo(4), "frame 1 warms the pool");
+
+            for (int f = 1; f < frames; f++)
+            {
+                Assert.That(perFrame[f].TargetAllocations, Is.EqualTo(0), $"frame {f + 1} adds no fresh allocations");
+                Assert.That(perFrame[f].PoolMisses, Is.EqualTo(0), $"frame {f + 1} has no pool misses");
+                Assert.That(perFrame[f].PoolAcquires, Is.EqualTo(4),
+                    $"frame {f + 1} acquires the same four buffers, now all hits");
+            }
+        });
+    }
+
+    // Renders the same scene structure `frames` times through one shared RenderTargetPool, mirroring how
+    // Renderer drives per-frame processors over a persistent pool (Trim at frame start, fresh node/processor
+    // per frame, ops disposed within the frame so leases return to the pool). Counters are reset per frame so
+    // each snapshot is that frame's delta.
+    private static PipelineDiagnosticsSnapshot[] RenderFramesWithPool(Func<Drawable.Resource> makeScene, int frames)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        return VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            PixelSize size = SceneFixtures.ReferenceSize;
+            var diagnostics = new PipelineDiagnostics();
+            using var pool = new RenderTargetPool();
+            var snapshots = new PipelineDiagnosticsSnapshot[frames];
+
+            for (int f = 0; f < frames; f++)
+            {
+                pool.Trim(f);
+                diagnostics.Reset();
+
+                using RenderTarget target = RenderTarget.Create(size.Width, size.Height)
+                                            ?? throw new InvalidOperationException("RenderTarget.Create returned null.");
+                using var canvas = new ImmediateCanvas(target, 1f, logicalSize: size.ToSize(1));
+                canvas.Clear(Colors.Black);
+
+                Drawable.Resource resource = makeScene();
+                using var node = new DrawableRenderNode(resource);
+                using (var ctx = new GraphicsContext2D(node, size.ToSize(1), 1f))
+                {
+                    resource.GetOriginal().Render(ctx, resource);
+                }
+
+                var processor = new RenderNodeProcessor(
+                    node, useRenderCache: false, outputScale: 1f, diagnostics: diagnostics, pool: pool);
+                RenderNodeOperation[] ops = processor.PullToRoot();
+                foreach (RenderNodeOperation op in ops)
+                {
+                    op.Render(canvas);
+                    op.Dispose();
+                }
+
+                snapshots[f] = diagnostics.Snapshot();
+            }
+
+            return snapshots;
+        });
+    }
+
     // Renders a scene at output scale 1.0 through the real pull path and returns the renderer's counter
     // snapshot. Mirrors GoldenImageHarness.RenderAtScale but exposes the processor's PipelineDiagnostics.
     private static PipelineDiagnosticsSnapshot RenderAndSnapshot(Drawable.Resource resource)
