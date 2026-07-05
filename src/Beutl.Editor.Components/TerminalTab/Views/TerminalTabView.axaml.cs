@@ -24,19 +24,24 @@ public partial class TerminalTabView : UserControl
     {
         base.OnDataContextChanged(e);
 
-        if (_viewModel != null)
+        TerminalTabViewModel? previous = _viewModel;
+        if (previous != null)
         {
-            _viewModel.Disposed -= OnViewModelDisposed;
+            previous.Disposed -= OnViewModelDisposed;
         }
 
         _viewModel = DataContext as TerminalTabViewModel;
         if (_viewModel != null)
         {
-            // Reset the lifecycle flags so a recycled view bound to a fresh view-model relaunches
-            // rather than staying suppressed by the previous binding's state.
-            _launched = false;
-            _launching = false;
-            _disposed = false;
+            if (!ReferenceEquals(previous, _viewModel))
+            {
+                // Reset the lifecycle flags only when a recycled view is bound to a DIFFERENT
+                // view-model. A same-view-model re-fire (e.g. DataContext cleared and restored
+                // during a dock/reparent) must not relaunch and kill the live PTY session.
+                _launched = false;
+                _launching = false;
+                _disposed = false;
+            }
 
             // Pass the locale per spawn so it never mutates the shared process environment
             // (which would race across concurrent terminals and leak into other subprocesses).
