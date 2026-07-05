@@ -18,6 +18,13 @@ public interface IRenderer : IDisposable
         (int)Math.Ceiling(FrameSize.Width * OutputScale),
         (int)Math.Ceiling(FrameSize.Height * OutputScale));
 
+    /// <summary>
+    /// Effect-pipeline counters accumulated across this renderer's render/pull calls
+    /// (contracts/execution-plan.md §C8). <see langword="null"/> when the implementation does not
+    /// observe the pipeline.
+    /// </summary>
+    PipelineDiagnostics? Diagnostics => null;
+
     TimeSpan Time { get; }
 
     bool IsDisposed { get; }

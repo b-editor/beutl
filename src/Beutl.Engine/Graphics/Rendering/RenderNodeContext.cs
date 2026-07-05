@@ -10,6 +10,13 @@ public class RenderNodeContext(
     public bool IsRenderCacheEnabled { get; set; } = true;
 
     /// <summary>
+    /// The owning renderer's effect-pipeline counters, seeded by <see cref="RenderNodeProcessor"/>.
+    /// <see langword="null"/> when the pull path was not given a diagnostics instance; effect nodes then
+    /// skip counting after a single null check (zero overhead).
+    /// </summary>
+    public PipelineDiagnostics? Diagnostics { get; set; }
+
+    /// <summary>
     /// The final render-target scale <c>s_out</c> (device px per logical unit at the root).
     /// Sanitized to positive-finite at construction.
     /// Informational only for intermediates — never clamps working scale.

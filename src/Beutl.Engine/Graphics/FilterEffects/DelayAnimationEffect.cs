@@ -86,7 +86,7 @@ public partial class DelayAnimationEffect : FilterEffect
                     // Forward the working-scale ceiling into the nested pull.
                     using var activator = new FilterEffectActivator(
                         singleTargets, builder, effectContext.OutputScale, effectContext.WorkingScale,
-                        effectContext.MaxWorkingScale);
+                        effectContext.MaxWorkingScale, effectContext.Diagnostics);
                     activator.Apply(childFEContext);
                     activator.Flush(false);
 

@@ -17,6 +17,9 @@ public class Renderer : IRenderer
     private readonly List<Entry> _allCurrentEntries = [];
     private RenderCacheOptions _cacheOptions = RenderCacheOptions.CreateFromGlobalConfiguration();
 
+    /// <summary>Effect-pipeline counters shared by every processor this renderer creates.</summary>
+    public PipelineDiagnostics Diagnostics { get; } = new();
+
     private class Entry(DrawableRenderNode node) : IDisposable
     {
         ~Entry()
@@ -203,7 +206,7 @@ public class Renderer : IRenderer
         }
 
         RevalidateAll(entry.Node);
-        var processor = new RenderNodeProcessor(entry.Node, CacheOptions.IsEnabled, OutputScale, MaxWorkingScale);
+        var processor = new RenderNodeProcessor(entry.Node, CacheOptions.IsEnabled, OutputScale, MaxWorkingScale, Diagnostics);
         var ops = processor.PullToRoot();
         Rect bounds = Rect.Empty;
         int consumed = 0;
@@ -324,7 +327,7 @@ public class Renderer : IRenderer
         {
             Entry entry = _allCurrentEntries[i];
             // Same scale pair as the render pass to avoid thrashing scale-stateful nodes.
-            var processor = new RenderNodeProcessor(entry.Node, CacheOptions.IsEnabled, OutputScale, MaxWorkingScale);
+            var processor = new RenderNodeProcessor(entry.Node, CacheOptions.IsEnabled, OutputScale, MaxWorkingScale, Diagnostics);
             var arr = processor.PullToRoot();
             try
             {
@@ -383,7 +386,7 @@ public class Renderer : IRenderer
     {
         return [.. _allCurrentEntries.Where(e => e.Node.Drawable?.Resource.GetOriginal().ZIndex == zIndex).Select(e =>
         {
-            var processor = new RenderNodeProcessor(e.Node, CacheOptions.IsEnabled, OutputScale, MaxWorkingScale);
+            var processor = new RenderNodeProcessor(e.Node, CacheOptions.IsEnabled, OutputScale, MaxWorkingScale, Diagnostics);
             var ops = processor.PullToRoot();
             Rect bounds = Rect.Empty;
             int consumed = 0;

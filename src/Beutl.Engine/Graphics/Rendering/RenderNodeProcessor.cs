@@ -7,7 +7,8 @@ public class RenderNodeProcessor(
     RenderNode root,
     bool useRenderCache,
     float outputScale = 1f,
-    float maxWorkingScale = float.PositiveInfinity)
+    float maxWorkingScale = float.PositiveInfinity,
+    PipelineDiagnostics? diagnostics = null)
 {
     public RenderNode Root { get; } = root;
 
@@ -16,6 +17,13 @@ public class RenderNodeProcessor(
 
     /// <summary>Working-scale ceiling seeded into every <see cref="RenderNodeContext"/>. <c>+Inf</c> = no ceiling.</summary>
     public float MaxWorkingScale { get; } = RenderNodeContext.SanitizeMaxWorkingScale(maxWorkingScale);
+
+    /// <summary>
+    /// Effect-pipeline counters seeded into every pulled <see cref="RenderNodeContext"/>. A renderer that
+    /// creates processors per frame hands in its own instance so counts accumulate per renderer; a
+    /// standalone processor owns a fresh one.
+    /// </summary>
+    public PipelineDiagnostics Diagnostics { get; } = diagnostics ?? new PipelineDiagnostics();
 
     /// <summary>
     /// Allocates the intermediate <see cref="RenderTarget"/> used to rasterize each operation.
@@ -266,7 +274,7 @@ public class RenderNodeProcessor(
             input = operations.ToArray();
         }
 
-        var context = new RenderNodeContext(input, OutputScale, MaxWorkingScale);
+        var context = new RenderNodeContext(input, OutputScale, MaxWorkingScale) { Diagnostics = Diagnostics };
         var result = node.Process(context);
         if (useRenderCache && !context.IsRenderCacheEnabled)
         {

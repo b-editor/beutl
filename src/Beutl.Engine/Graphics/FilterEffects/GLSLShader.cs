@@ -118,6 +118,8 @@ public sealed class GLSLShader : IDisposable
                 continue;
 
             renderTarget.PrepareForSampling();
+            if (context.Diagnostics is { } diagSync)
+                diagSync.FlushSyncs++;
 
             EffectTarget newTarget = context.CreateTarget(target.Bounds);
             RenderTarget? newRenderTarget = newTarget.RenderTarget;
@@ -137,6 +139,8 @@ public sealed class GLSLShader : IDisposable
                     TextureFormat.Depth32Float);
 
                 _pipeline.Execute(sourceTexture, destinationTexture, depthTexture, pushConstants);
+                if (context.Diagnostics is { } diagPass)
+                    diagPass.GpuPasses++;
 
                 target.Dispose();
                 context.Targets[i] = newTarget;
@@ -206,6 +210,9 @@ public sealed class GLSLShader : IDisposable
 
             // Run first shader pass (pass 0) from source into ping buffer as the initial state
             sourceTexture.PrepareForSampling();
+            PipelineDiagnostics? diag = context.Diagnostics;
+            if (diag is not null)
+                diag.FlushSyncs++;
 
             if (passCount == 1)
             {
@@ -222,6 +229,8 @@ public sealed class GLSLShader : IDisposable
                 try
                 {
                     _pipeline.Execute(sourceTexture, newRenderTarget.Texture, depthTexture, createPushConstants(0, target));
+                    if (diag is not null)
+                        diag.GpuPasses++;
 
                     target.Dispose();
                     context.Targets[i] = newTarget;
@@ -236,6 +245,8 @@ public sealed class GLSLShader : IDisposable
             }
 
             _pipeline.Execute(sourceTexture, pingTexture, depthTexture, createPushConstants(0, target));
+            if (diag is not null)
+                diag.GpuPasses++;
 
             ITexture2D current = pingTexture;
             ITexture2D next = pongTexture;
@@ -244,6 +255,8 @@ public sealed class GLSLShader : IDisposable
             for (int pass = 1; pass < passCount - 1; pass++)
             {
                 _pipeline.Execute(current, next, depthTexture, createPushConstants(pass, target));
+                if (diag is not null)
+                    diag.GpuPasses++;
                 (current, next) = (next, current);
             }
 
@@ -261,6 +274,8 @@ public sealed class GLSLShader : IDisposable
                 try
                 {
                     _pipeline.Execute(current, newRenderTarget.Texture, depthTexture, createPushConstants(passCount - 1, target));
+                    if (diag is not null)
+                        diag.GpuPasses++;
 
                     target.Dispose();
                     context.Targets[i] = newTarget;
@@ -297,6 +312,8 @@ public sealed class GLSLShader : IDisposable
                 continue;
 
             renderTarget.PrepareForSampling();
+            if (context.Diagnostics is { } diagSync)
+                diagSync.FlushSyncs++;
 
             EffectTarget newTarget = context.CreateTarget(target.Bounds);
             RenderTarget? newRenderTarget = newTarget.RenderTarget;
@@ -318,6 +335,8 @@ public sealed class GLSLShader : IDisposable
 
                 T pushConstants = createPushConstants(target);
                 _pipeline.Execute(sourceTexture, destinationTexture, depthTexture, pushConstants);
+                if (context.Diagnostics is { } diagPass)
+                    diagPass.GpuPasses++;
 
                 target.Dispose();
                 context.Targets[i] = newTarget;
