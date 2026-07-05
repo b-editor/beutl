@@ -93,18 +93,31 @@ internal sealed class IpcSampleProvider : ISampleProvider
         // チャンク境界をまたぐ場合: 前半を現在のチャンクからコピー
         long firstPartLength = cacheEnd - offset;
         var result2 = new Pcm<Stereo32BitFloat>((int)SampleRate, (int)length);
-        int start = (int)(offset - _currentChunkOffset);
-        _currentChunk.DataSpan.Slice(start, (int)firstPartLength).CopyTo(result2.DataSpan);
+        try
+        {
+            // Test-only probe, inert in production (see CrossChunkSplitAllocatedForTest).
+            CrossChunkSplitAllocatedForTest?.Invoke(result2);
 
-        // 後半を次のチャンクからコピー
-        long remainingOffset = cacheEnd;
-        long remainingLength = length - firstPartLength;
-        await EnsureChunkLoaded(remainingOffset);
-        _currentChunk!.DataSpan[..(int)remainingLength].CopyTo(result2.DataSpan[(int)firstPartLength..]);
+            int start = (int)(offset - _currentChunkOffset);
+            _currentChunk.DataSpan.Slice(start, (int)firstPartLength).CopyTo(result2.DataSpan);
 
-        SamplesProvided += result2.NumSamples;
-        StartPrefetchIfNeeded();
-        return result2;
+            // 後半を次のチャンクからコピー
+            long remainingOffset = cacheEnd;
+            long remainingLength = length - firstPartLength;
+            await EnsureChunkLoaded(remainingOffset);
+            _currentChunk!.DataSpan[..(int)remainingLength].CopyTo(result2.DataSpan[(int)firstPartLength..]);
+
+            SamplesProvided += result2.NumSamples;
+            StartPrefetchIfNeeded();
+            return result2;
+        }
+        catch
+        {
+            // EnsureChunkLoaded can throw (IPC error / cancellation) after result2 is allocated; dispose
+            // its native buffer so a failed split does not leak it. The success path returns it undisposed.
+            result2.Dispose();
+            throw;
+        }
     }
 
     private Pcm<Stereo32BitFloat> CopyFromCache(long offset, long length)
@@ -222,6 +235,11 @@ internal sealed class IpcSampleProvider : ISampleProvider
     // Test-only probe: lets a Dispose test wait until the in-flight prefetch has actually faulted before
     // dropping it, so the faulted-task path is exercised deterministically without a sleep.
     internal bool IsPrefetchFaultedForTest() => _prefetchTask?.IsFaulted == true;
+
+    // Test-only hook (null and inert in production): invoked with the cross-chunk split's freshly
+    // allocated Pcm before the second chunk is loaded, so a disposal test can assert that a mid-split
+    // fault frees that buffer instead of leaking its native memory.
+    internal Action<Pcm<Stereo32BitFloat>>? CrossChunkSplitAllocatedForTest { get; set; }
 
     public void Dispose()
     {
