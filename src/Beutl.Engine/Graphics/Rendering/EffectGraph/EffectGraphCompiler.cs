@@ -72,7 +72,7 @@ internal static class EffectGraphCompiler
             else
             {
                 throw new NotSupportedException(
-                    $"Effect node kind '{node.Descriptor.Kind}' is not supported by the step-3a compiler.");
+                    $"Effect node descriptor '{node.Descriptor.GetType().Name}' is not supported by the step-3a compiler.");
             }
         }
 
@@ -149,7 +149,7 @@ internal static class EffectGraphCompiler
         ShaderNodeDescriptor shader => new RuntimeShaderStage(
             shader.Source, shader.Uniforms, shader.Samplers, shader.Children),
         ColorFilterNodeDescriptor colorFilter => new ColorFilterStage(colorFilter.Factory),
-        _ => throw new NotSupportedException($"'{descriptor.Kind}' is not a fused stage."),
+        _ => throw new NotSupportedException($"'{descriptor.GetType().Name}' is not a fused stage."),
     };
 
     private static ResourcePlan BuildResourcePlan(ImmutableArray<CompiledPass> passes)

@@ -29,9 +29,6 @@ public sealed record ColorFilterNodeDescriptor : EffectNodeDescriptor
     /// <inheritdoc/>
     public override BoundsContract Bounds => BoundsContract.Identity;
 
-    /// <inheritdoc/>
-    public override EffectNodeKind Kind => EffectNodeKind.ColorFilter;
-
     /// <summary>
     /// Builds a color-filter node. <paramref name="structuralToken"/> distinguishes filter kinds in the
     /// structural key; when omitted it is derived from <paramref name="factory"/>'s method, so filters built at

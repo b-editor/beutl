@@ -33,13 +33,14 @@ public readonly struct StructuralKey : IEquatable<StructuralKey>
 
     private static void Append(StringBuilder sb, EffectNodeDescriptor descriptor)
     {
-        sb.Append((int)descriptor.Kind).Append(':');
+        // Each case must write a distinct type tag: payloads alone (e.g. two StructuralTokens) may collide across kinds.
         sb.Append(descriptor.IsCoordinateInvariant ? '1' : '0').Append(':');
 
         switch (descriptor)
         {
             case ShaderNodeDescriptor shader:
-                sb.Append(shader.Source.IdentityHash)
+                sb.Append("shader:")
+                    .Append(shader.Source.IdentityHash)
                     .Append(',').Append((int)shader.Source.Kind)
                     .Append(',').Append(shader.Samplers.Length)
                     .Append(',').Append(shader.Children.Length);
@@ -48,21 +49,22 @@ public readonly struct StructuralKey : IEquatable<StructuralKey>
                 break;
 
             case ColorFilterNodeDescriptor colorFilter:
-                sb.Append(colorFilter.StructuralToken);
+                sb.Append("colorFilter:").Append(colorFilter.StructuralToken);
                 break;
 
             case SkiaFilterNodeDescriptor skiaFilter:
-                sb.Append(skiaFilter.StructuralToken)
+                sb.Append("skiaFilter:")
+                    .Append(skiaFilter.StructuralToken)
                     .Append(',').Append(skiaFilter.Bounds.StructuralIdentity.ToString(CultureInfo.InvariantCulture));
                 break;
 
             case OpaqueLegacyNodeDescriptor opaque:
                 // Opaque nodes never fuse and (this step) never hit a plan cache, so item count is a stable-enough token.
-                sb.Append("legacy").Append(opaque.Context.CountItems());
+                sb.Append("legacy:").Append(opaque.Context.CountItems());
                 break;
 
             default:
-                sb.Append("unknown");
+                sb.Append(descriptor.GetType().FullName);
                 break;
         }
     }

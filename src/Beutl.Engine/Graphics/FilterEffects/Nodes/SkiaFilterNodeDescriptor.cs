@@ -32,9 +32,6 @@ public sealed record SkiaFilterNodeDescriptor : EffectNodeDescriptor
     /// <inheritdoc/>
     public override BoundsContract Bounds { get; }
 
-    /// <inheritdoc/>
-    public override EffectNodeKind Kind => EffectNodeKind.SkiaFilter;
-
     /// <summary>
     /// Builds a Skia-filter node from a filter-composing factory and its bounds contract. The backward bounds
     /// SHOULD cover the region the filter samples (a blur reads its inflation radius); when unknown, pass a

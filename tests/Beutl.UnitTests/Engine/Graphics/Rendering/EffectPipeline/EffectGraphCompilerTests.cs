@@ -316,6 +316,57 @@ public class EffectGraphCompilerTests
         });
     }
 
+    [Test]
+    public void FusedChain_ArrayMatrixAndRawUniforms_BindThroughMergedProgram()
+    {
+        var bounds = new Rect(0, 0, 96, 64);
+
+        // Snippet 1: a float[] uniform and a RawUniform-written scalar (the open binding seam);
+        // snippet 2: a float3x3 uniform from a 2D scale matrix. Total per-channel gain:
+        // rgb × (0.8 × 0.9 × 0.5) × diag(0.5, 0.5, 1) = rgb × (0.18, 0.18, 0.36).
+        var arrayAndRaw = ShaderNodeDescriptor.Snippet(
+            """
+            uniform float gains[2];
+            uniform float extraGain;
+            half4 apply(half4 c) {
+                return half4(c.rgb * gains[0] * gains[1] * extraGain, c.a);
+            }
+            """,
+            u => u.FloatArray("gains", [0.8f, 0.9f])
+                .Raw("extraGain", static (b, name) => b.Uniforms[name] = 0.5f));
+        var matrixTint = ShaderNodeDescriptor.Snippet(
+            """
+            uniform float3x3 tint;
+            half4 apply(half4 c) {
+                return half4(half3(tint * c.rgb), c.a);
+            }
+            """,
+            u => u.Matrix3x3("tint", Matrix.CreateScale(0.5f, 0.5f)));
+        var equivalent = ShaderNodeDescriptor.Snippet(
+            """
+            uniform float3 mulv;
+            half4 apply(half4 c) {
+                return half4(c.rgb * mulv, c.a);
+            }
+            """,
+            u => u.Float3("mulv", 0.18f, 0.18f, 0.36f));
+
+        var diagnostics = new PipelineDiagnostics();
+        using Bitmap fused = RenderChain([arrayAndRaw, matrixTint], bounds, fuse: true, diagnostics, pool: null);
+        using Bitmap expected = RenderChain([equivalent], bounds, fuse: false, diagnostics: null, pool: null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(diagnostics.ProgramCreations, Is.EqualTo(1),
+                "the array/raw/matrix snippets merge into one program (prefixing covers array declarations)");
+
+            double ssim = ImageMetrics.Ssim(expected, fused);
+            double mae = ImageMetrics.MeanAbsoluteError(expected, fused);
+            Assert.That(ssim, Is.GreaterThanOrEqualTo(GoldenThresholds.ExactSsimMin), $"SSIM {ssim}");
+            Assert.That(mae, Is.LessThanOrEqualTo(GoldenThresholds.ExactMaeMax), $"MAE {mae}");
+        });
+    }
+
     // Renders a snippet chain over a fixed synthetic input. When fused, the whole chain compiles to one plan;
     // when unfused, each snippet is its own single-node plan run in sequence (the pre-fusion equivalent).
     private static Bitmap RenderChain(

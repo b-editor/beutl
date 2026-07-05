@@ -50,9 +50,6 @@ public sealed record ShaderNodeDescriptor : EffectNodeDescriptor
     /// <summary>Extra child shaders bound by name (whole-source only, beyond the implicit <c>src</c>).</summary>
     public ImmutableArray<ChildBinding> Children { get; }
 
-    /// <inheritdoc/>
-    public override EffectNodeKind Kind => EffectNodeKind.Shader;
-
     /// <summary>
     /// Builds a fusable coordinate-invariant snippet node from a <c>half4 apply(half4 c)</c> source. Bounds are
     /// identity by construction (A3). Optionally binds uniforms and samplers.
@@ -72,23 +69,43 @@ public sealed record ShaderNodeDescriptor : EffectNodeDescriptor
     }
 
     /// <summary>
-    /// Builds a whole-source shader node defining <c>half4 main(float2 coord)</c> with a <c>src</c> child.
-    /// Non-invariant by default (its own pass); pass <paramref name="isCoordinateInvariant"/> <see langword="true"/>
-    /// only when the shader provably samples solely the current pixel, in which case identity bounds are used and
-    /// the node becomes fusable (A6's opt-in).
+    /// Builds a non-invariant whole-source shader node defining <c>half4 main(float2 coord)</c> with a
+    /// <c>src</c> child. Runs as its own pass; <paramref name="bounds"/> declares its forward/backward
+    /// bounds. A shader that provably samples only the current pixel uses
+    /// <see cref="WholeSourceInvariant"/> instead — invariance and a custom bounds contract are mutually
+    /// exclusive by construction.
     /// </summary>
     public static ShaderNodeDescriptor WholeSource(
         string source,
         BoundsContract bounds,
         Action<UniformBindingBuilder>? uniforms = null,
         IEnumerable<SamplerBinding>? samplers = null,
-        IEnumerable<ChildBinding>? children = null,
-        bool isCoordinateInvariant = false)
+        IEnumerable<ChildBinding>? children = null)
     {
         return new ShaderNodeDescriptor(
             SkslSource.WholeSource(source),
-            isCoordinateInvariant,
-            isCoordinateInvariant ? BoundsContract.Identity : bounds,
+            isCoordinateInvariant: false,
+            bounds,
+            UniformBindingBuilder.Collect(uniforms).ToImmutableArray(),
+            (samplers ?? []).ToImmutableArray(),
+            (children ?? []).ToImmutableArray());
+    }
+
+    /// <summary>
+    /// Builds a coordinate-invariant whole-source shader node (A6's opt-in): the author asserts the shader
+    /// samples only the current pixel, so it gets identity bounds by construction and participates in fusion.
+    /// Violating that assertion produces wrong output by contract (A3).
+    /// </summary>
+    public static ShaderNodeDescriptor WholeSourceInvariant(
+        string source,
+        Action<UniformBindingBuilder>? uniforms = null,
+        IEnumerable<SamplerBinding>? samplers = null,
+        IEnumerable<ChildBinding>? children = null)
+    {
+        return new ShaderNodeDescriptor(
+            SkslSource.WholeSource(source),
+            isCoordinateInvariant: true,
+            BoundsContract.Identity,
             UniformBindingBuilder.Collect(uniforms).ToImmutableArray(),
             (samplers ?? []).ToImmutableArray(),
             (children ?? []).ToImmutableArray());

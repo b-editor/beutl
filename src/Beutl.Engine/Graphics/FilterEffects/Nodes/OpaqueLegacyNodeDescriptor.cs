@@ -9,8 +9,6 @@
 /// </summary>
 internal sealed record OpaqueLegacyNodeDescriptor(FilterEffectContext Context) : EffectNodeDescriptor
 {
-    public override EffectNodeKind Kind => EffectNodeKind.OpaqueLegacy;
-
     // The legacy machinery resolves its own bounds/ROIs at execution; the compiler must not try to lay it out.
     public override BoundsContract Bounds => BoundsContract.RenderTime;
 

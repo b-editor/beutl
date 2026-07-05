@@ -22,7 +22,8 @@ internal static partial class SkslSnippetMerger
     /// <summary>The child-shader name the generated <c>main</c> samples as the fused group's input.</summary>
     public const string SourceChildName = "src";
 
-    [GeneratedRegex(@"uniform\s+[A-Za-z_][A-Za-z0-9_]*\s+([A-Za-z_][A-Za-z0-9_]*)\s*;")]
+    // The optional bracket group matches SKSL fixed-size array uniforms (`uniform float lut[4];`).
+    [GeneratedRegex(@"uniform\s+[A-Za-z_][A-Za-z0-9_]*\s+([A-Za-z_][A-Za-z0-9_]*)\s*(?:\[\s*\d+\s*\])?\s*;")]
     private static partial Regex UniformDeclarationRegex();
 
     /// <summary>
