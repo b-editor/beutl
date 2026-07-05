@@ -1,0 +1,8 @@
+[submodule "external/XTerm.NET"]
+	path = external/XTerm.NET
+	url = https://github.com/b-editor/XTerm.NET.git
+	branch = beutl
+[submodule "external/Iciclecreek.Avalonia.Terminal"]
+	path = external/Iciclecreek.Avalonia.Terminal
+	url = https://github.com/b-editor/Iciclecreek.Avalonia.Terminal.git
+	branch = beutl

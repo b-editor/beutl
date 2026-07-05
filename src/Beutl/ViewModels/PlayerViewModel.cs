@@ -43,6 +43,10 @@ public enum PlaybackDirection
 public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 {
     private static readonly TimeSpan s_second = TimeSpan.FromSeconds(1);
+    // Upper bound on how long Pause() waits for the playback loop to stop. If the loop is stuck
+    // in a blocking OS audio/COM call, an unbounded await would hold the history-mutation gate
+    // (and the UI thread awaiting it) indefinitely, so we time out and abandon the task instead.
+    private static readonly TimeSpan s_pauseTimeout = TimeSpan.FromSeconds(5);
     private static readonly float[] s_fastSpeeds = [1.0f, 2.0f, 4.0f, 8.0f, 16.0f, 32.0f];
     private static readonly float[] s_slowSpeeds = [1.0f, 0.5f, 0.25f];
     private readonly ILogger _logger = Log.CreateLogger<PlayerViewModel>();
@@ -56,6 +60,10 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     private Size _maxFrameSize;
     private Task _playbackTask = Task.CompletedTask;
     private bool _isShuttling;
+    private readonly PlaybackSessionGuard _sessionGuard = new();
+    // Serializes RestoreStoppedPreviewState so PlayInternal's finally and Pause()'s timeout path
+    // cannot interleave the dispose/resubscribe and Scene.Edited unhook/hook steps across threads.
+    private readonly object _restoreLock = new();
 
     // Set by Pause(), cleared by Play(). Cancels a loop re-arm when a pause lands in the
     // brief IsPlaying=false window at a loop boundary that gating on IsPlaying would miss.
@@ -490,6 +498,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         // (before PlayInternal runs) signals the loop to stop instead of awaiting forever.
         _stopRequested = false;
         IsPlaying.Value = true;
+        int generation = _sessionGuard.Claim();
 
         _playbackTask = Task.Run(async () =>
         {
@@ -499,10 +508,11 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             bool restart;
             do
             {
-                restart = await PlayInternal();
-                // A boundary-window pause set _stopRequested without flipping IsPlaying;
-                // honor it so the loop does not restart and leave Pause()'s awaiter hanging.
-                if (restart && _stopRequested)
+                restart = await PlayInternal(generation);
+                // Stop restarting on a boundary-window pause (_stopRequested set without flipping
+                // IsPlaying), or when a Pause() timeout disowned this task and a newer session took
+                // over — a stale task must not re-arm and stomp the session that replaced it.
+                if (restart && (_stopRequested || !_sessionGuard.Owns(generation)))
                 {
                     restart = false;
                 }
@@ -516,7 +526,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         });
     }
 
-    private async Task<bool> PlayInternal()
+    private async Task<bool> PlayInternal(int generation)
     {
         if (!_isEnabled.Value || Scene == null)
         {
@@ -528,6 +538,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         FrameCacheManager frameCacheManager = EditViewModel.FrameCacheManager.Value;
         Scene.Edited -= OnSceneEdited;
         _currentFrameSubscription?.Dispose();
+        _currentFrameSubscription = null;
 
         int rate = GetFrameRate();
 
@@ -554,7 +565,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             playerImpl.Start();
 
             var clock = new AudioPlaybackClock();
-            var audioTask = PlayAudio(Scene, clock, startTime);
+            var audioTask = PlayAudio(Scene, clock, startTime, generation);
 
             // 音声バッファの準備に1フレーム以上かかると、映像だけが先に進んでしまい、
             // その後音声がアンカーされた瞬間に「映像が先行した状態」で止まってしまう。
@@ -581,6 +592,17 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 if (Interlocked.Exchange(ref processing, 1) != 0) return;
                 try
                 {
+                    // A Pause() timeout may have disowned this task while it is still blocked in the
+                    // WhenAll below; once a newer session has claimed, stop the loop instead of
+                    // dequeuing frames or writing shared preview state (PreviewImage / CurrentTime /
+                    // IsPlaying) over the session that replaced it. The generation guard on the
+                    // finally alone runs too late — the timer keeps firing until PlayInternal returns.
+                    if (!_sessionGuard.Owns(generation))
+                    {
+                        tcs.TrySetResult(true);
+                        return;
+                    }
+
                     var expectFrame = ComputeExpectFrame();
                     if (_stopRequested || !IsPlaying.Value || expectFrame >= endFrame)
                     {
@@ -651,26 +673,23 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
             await Task.WhenAll(tcs.Task, audioTask);
 
-            frameCacheManager.UpdateBlocks();
+            // Committing the recorded cache blocks is a shared write, so gate it on ownership like the
+            // finally/rewind paths below: a task disowned by a Pause() timeout that unblocks after a
+            // newer session started must not stomp that session's frame-cache bookkeeping.
+            if (_sessionGuard.Owns(generation))
+            {
+                frameCacheManager.UpdateBlocks();
+            }
         }
         finally
         {
-            // Restore the scene/frame subscriptions PlayInternal detached on entry, even if
-            // playback faulted mid-run. A leaked detach would leave the editor unsubscribed,
-            // and Pause() swallows the fault, so a guarded history mutation could otherwise
-            // run against a detached editor.
-            IsPlaying.Value = false;
-            bufferStatus.StartTime.Value = TimeSpan.Zero;
-            bufferStatus.EndTime.Value = TimeSpan.Zero;
-            frameCacheManager.Options = frameCacheManager.Options with
+            // Restore the stopped state (IsPlaying, buffer/cache, and the preview subscriptions this
+            // task detached on entry) only while this task still owns the session. If a Pause()
+            // timeout disowned it and a newer session took over, restoring here would stomp that
+            // session, so the new owner — or Pause()'s timeout path — restores it instead.
+            if (_sessionGuard.Owns(generation))
             {
-                DeletionStrategy = FrameCacheDeletionStrategy.Old
-            };
-
-            _currentFrameSubscription = CurrentFrame.Subscribe(UpdateCurrentFrame);
-            if (Scene != null)
-            {
-                Scene.Edited += OnSceneEdited;
+                RestoreStoppedPreviewState();
             }
 
             _logger.LogInformation("End the playback. ({SceneId})", _editViewModel.SceneId);
@@ -678,13 +697,43 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
         // ループが有効でユーザーによる停止ではない場合、ループ先頭に戻して再開を要求。
         // loopStart は購読で最新化されているため、再生中の In/Out 変更にも追従する。
-        if (IsLoopEnabled.Value && reachedNaturalEnd && Scene != null)
+        // A task disowned by a Pause() timeout must not rewind the playhead of a stopped editor or
+        // the session that replaced it, so gate the shared CurrentTime write on ownership too.
+        if (IsLoopEnabled.Value && reachedNaturalEnd && Scene != null && _sessionGuard.Owns(generation))
         {
             _editorClock.CurrentTime.Value = Scene.Start;
             return true;
         }
 
         return false;
+    }
+
+    // Return the editor to a consistent stopped state: clear IsPlaying, reset the playback-only
+    // buffer/frame-cache state, and re-attach the preview subscriptions a playback task detached on
+    // entry. Idempotent (dispose-then-resubscribe, remove-then-add) so it stays correct even when
+    // PlayInternal's finally and Pause()'s timeout path both run it around an abandoned task.
+    private void RestoreStoppedPreviewState()
+    {
+        lock (_restoreLock)
+        {
+            IsPlaying.Value = false;
+            BufferStatusViewModel bufferStatus = EditViewModel.BufferStatus;
+            bufferStatus.StartTime.Value = TimeSpan.Zero;
+            bufferStatus.EndTime.Value = TimeSpan.Zero;
+            FrameCacheManager frameCacheManager = EditViewModel.FrameCacheManager.Value;
+            frameCacheManager.Options = frameCacheManager.Options with
+            {
+                DeletionStrategy = FrameCacheDeletionStrategy.Old
+            };
+
+            _currentFrameSubscription?.Dispose();
+            _currentFrameSubscription = CurrentFrame.Subscribe(UpdateCurrentFrame);
+            if (Scene != null)
+            {
+                Scene.Edited -= OnSceneEdited;
+                Scene.Edited += OnSceneEdited;
+            }
+        }
     }
 
     public int GetFrameRate()
@@ -880,6 +929,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         _stopRequested = false;
         _isShuttling = true;
         IsPlaying.Value = true;
+        int generation = _sessionGuard.Claim();
 
         _playbackTask = Task.Run(async () =>
         {
@@ -955,19 +1005,25 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             }
             finally
             {
-                _isShuttling = false;
-                IsPlaying.Value = false;
-                PlaybackDirection.Value = ViewModels.PlaybackDirection.Stopped;
-                PlaybackSpeed.Value = 1.0f;
-                if (Scene != null)
+                // Only restore shared state while this shuttle still owns the session; a Pause()
+                // timeout that disowned it must not let this late finally stomp a newer session.
+                if (_sessionGuard.Owns(generation))
                 {
-                    Scene.Edited += OnSceneEdited;
+                    _isShuttling = false;
+                    IsPlaying.Value = false;
+                    PlaybackDirection.Value = ViewModels.PlaybackDirection.Stopped;
+                    PlaybackSpeed.Value = 1.0f;
+                    if (Scene != null)
+                    {
+                        Scene.Edited -= OnSceneEdited;
+                        Scene.Edited += OnSceneEdited;
+                    }
                 }
             }
         });
     }
 
-    private async Task PlayAudio(Scene scene, AudioPlaybackClock clock, TimeSpan startTime)
+    private async Task PlayAudio(Scene scene, AudioPlaybackClock clock, TimeSpan startTime, int generation)
     {
         try
         {
@@ -990,7 +1046,12 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             NotificationService.ShowError(MessageStrings.UnexpectedError,
                 MessageStrings.AudioPlaybackException);
             _logger.LogError(ex, "An exception occurred during audio playback.");
-            IsPlaying.Value = false;
+            // Only stop the session this task owns: a fault from an audio backend abandoned by a
+            // Pause() timeout must not clear IsPlaying on the session that replaced it.
+            if (_sessionGuard.Owns(generation))
+            {
+                IsPlaying.Value = false;
+            }
         }
         finally
         {
@@ -1370,12 +1431,29 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         }
 
         // Await even when already stopped so an overlapping pause blocks until the prior
-        // drain finishes. Catch a faulted task and drop it, so it neither surfaces as a
-        // history-operation failure nor replays on later pauses.
+        // drain finishes. Bound the wait: if the playback loop is stuck in a blocking OS
+        // audio/COM call, awaiting it unbounded would pin the history-mutation gate (and the
+        // UI thread awaiting Pause) indefinitely, so time out, log, and abandon the task.
+        // Catch a faulted task and drop it, so it neither surfaces as a history-operation
+        // failure nor replays on later pauses.
         Task playbackTask = _playbackTask;
         try
         {
-            await playbackTask;
+            if (!await WaitForPlaybackStopAsync(playbackTask, s_pauseTimeout, _logger, _editViewModel.SceneId))
+            {
+                // Timed out: drop the hung task so it neither replays on later pauses nor keeps
+                // the gate held. The abandoned task keeps observing _stopRequested / the cts.
+                if (_playbackTask == playbackTask)
+                {
+                    _playbackTask = Task.CompletedTask;
+                    // Disown the abandoned task so its late finally can't restore/stomp a future
+                    // session, then restore the stopped state here: the task detached the preview
+                    // subscriptions on entry and, now disowned, will skip re-attaching them, so
+                    // otherwise the editor would stay detached until (if ever) the task unblocks.
+                    _sessionGuard.Disown();
+                    RestoreStoppedPreviewState();
+                }
+            }
         }
         catch (Exception ex)
         {
@@ -1385,6 +1463,36 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 _playbackTask = Task.CompletedTask;
             }
         }
+    }
+
+    // Wait for the playback task to finish, but never longer than <paramref name="timeout"/>.
+    // Returns true when the task completed (its fault, if any, is re-thrown to the caller);
+    // false when the wait timed out. A timeout is logged and the task is left running but kept
+    // observed via a continuation, so a playback loop blocked in a native audio/COM call cannot
+    // pin the caller (and the history-mutation gate it runs under) indefinitely.
+    internal static async Task<bool> WaitForPlaybackStopAsync(
+        Task playbackTask, TimeSpan timeout, ILogger logger, string sceneId)
+    {
+        Task finished = await Task.WhenAny(playbackTask, Task.Delay(timeout)).ConfigureAwait(false);
+        if (finished == playbackTask)
+        {
+            // Completed within the timeout — propagate any fault so the caller can observe it.
+            await playbackTask.ConfigureAwait(false);
+            return true;
+        }
+
+        logger.LogError(
+            "Playback task did not stop within {Timeout} on pause; abandoning it to release the history gate. ({SceneId})",
+            timeout, sceneId);
+        // Observe a late fault so abandoning the task does not raise an unobserved-exception event.
+        _ = playbackTask.ContinueWith(
+            static (t, s) => ((ILogger)s!).LogError(
+                t.Exception, "Abandoned playback task faulted after a pause timeout."),
+            logger,
+            CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
+        return false;
     }
 
     private void UpdateImage(Ref<Bitmap> source)

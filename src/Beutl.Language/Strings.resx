@@ -1294,4 +1294,13 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="RenderScale_FitToPreviewer" xml:space="preserve">
     <value>Fit to previewer</value>
   </data>
+  <data name="Terminal" xml:space="preserve">
+    <value>Terminal</value>
+  </data>
+  <data name="TerminalSessionEnded" xml:space="preserve">
+    <value>The terminal session has ended.</value>
+  </data>
+  <data name="Restart" xml:space="preserve">
+    <value>Restart</value>
+  </data>
 </root>

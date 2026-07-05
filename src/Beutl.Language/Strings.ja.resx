@@ -1288,4 +1288,13 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="RenderScale_FitToPreviewer" xml:space="preserve">
     <value>プレビューに合わせる</value>
   </data>
+  <data name="Terminal" xml:space="preserve">
+    <value>ターミナル</value>
+  </data>
+  <data name="TerminalSessionEnded" xml:space="preserve">
+    <value>ターミナルセッションは終了しました。</value>
+  </data>
+  <data name="Restart" xml:space="preserve">
+    <value>再起動</value>
+  </data>
 </root>

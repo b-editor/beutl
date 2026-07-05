@@ -110,6 +110,30 @@ public class IpcProviderContractTests
         }, ct);
     }
 
+    // Fake host that answers every request with CancelEncode carrying a FRESH id (not the request's id),
+    // reproducing how the real host injects cancellation mid-encode: FFmpegEncodingControllerProxy sends
+    // CancelEncode minted from connection.NextId(), so on the worker's non-multiplexed connection that
+    // message is read in place of the awaited ProvideFrame/ProvideSample response and carries a
+    // non-matching id. The worker-cancel path must surface this as a clean OperationCanceledException, not
+    // a "Response ID mismatch" (which HandleStartAsync would report as EncodeComplete{Error=...}).
+    private static Task RunFreshIdCancelingHost(NamedPipeServerStream server, CancellationToken ct)
+    {
+        return Task.Run(async () =>
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                var req = await MessageSerializer.ReadMessageAsync(server, ct);
+                if (req == null)
+                    return;
+
+                // req.Id + 1_000_000 is guaranteed distinct from the in-flight request id, mirroring a
+                // CancelEncode minted from a separate id sequence on the host side.
+                var resp = IpcMessage.CreateSimple(req.Id + 1_000_000, MessageType.CancelEncode);
+                await MessageSerializer.WriteMessageAsync(server, resp, ct);
+            }
+        }, ct);
+    }
+
     // Fake host that replies to every request with one fixed ProvideFrame, so a test can drive the
     // provider's frame-validation guards with specific Width/Height/DataLength values.
     private static Task RunMalformedFrameHost(
@@ -204,6 +228,42 @@ public class IpcProviderContractTests
                     frame1Faulted = true;
                     await MessageSerializer.WriteMessageAsync(
                         server, IpcMessage.CreateError(req.Id, "injected prefetch failure"), ct);
+                    continue;
+                }
+
+                buffers[payload.BufferIndex].Write(BitConverter.GetBytes(payload.FrameIndex));
+                var resp = IpcMessage.Create(req.Id, MessageType.ProvideFrame, new ProvideFrameMessage
+                {
+                    Width = 1,
+                    Height = 1,
+                    BytesPerPixel = RgbaF16BytesPerPixel,
+                    DataLength = FrameDataLength,
+                    Premul = false,
+                });
+                await MessageSerializer.WriteMessageAsync(server, resp, ct);
+            }
+        }, ct);
+    }
+
+    // Fake host that always answers the request for a specific frame index with an error response (so that
+    // frame's prefetch faults) and serves every other frame normally. Lets a test prove that draining a
+    // FAULTED stale prefetch after a seek discards the worker error instead of aborting the fresh request.
+    private static Task RunFrameErrorsOnIndexHost(
+        NamedPipeServerStream server, SharedMemoryBuffer[] buffers, long erroringFrameIndex, CancellationToken ct)
+    {
+        return Task.Run(async () =>
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                var req = await MessageSerializer.ReadMessageAsync(server, ct);
+                if (req == null)
+                    return;
+
+                var payload = req.GetPayload<RequestFrameMessage>()!;
+                if (payload.FrameIndex == erroringFrameIndex)
+                {
+                    await MessageSerializer.WriteMessageAsync(
+                        server, IpcMessage.CreateError(req.Id, "injected stale-prefetch failure"), ct);
                     continue;
                 }
 
@@ -450,6 +510,43 @@ public class IpcProviderContractTests
         }
     }
 
+    [Test]
+    public async Task RenderFrame_SeekAfterPrefetchFaulted_DiscardsStaleErrorAndReturnsRequestedFrame()
+    {
+        // RenderFrame(0) arms a prefetch of frame 1, which the host faults with a worker error. A seek to
+        // frame 5 must DRAIN that faulted stale prefetch, discard its error (the error belongs to the
+        // discarded frame 1), then issue a fresh RequestFrame{5} and return frame 5 — not abort the seek by
+        // re-throwing the stale prefetch's FFmpegWorkerException.
+        var (server, client) = ConnectPair();
+        var buffers = CreateBuffers();
+        var hostCts = new CancellationTokenSource();
+        var hostTask = RunFrameErrorsOnIndexHost(server, buffers, erroringFrameIndex: 1, hostCts.Token);
+
+        using var conn = new IpcConnection(client);
+        // frameCount 6 makes frame 5 the last frame, so the recovered seek issues no further prefetch and
+        // nothing dangles into teardown.
+        var provider = new IpcFrameProvider(conn, buffers, frameCount: 6, frameRate: new Rational(30, 1));
+
+        try
+        {
+            using Bitmap frame0 = await provider.RenderFrame(0);
+            Assert.That(ReadFrameSignature(frame0), Is.EqualTo(0L), "frame 0 renders and arms the prefetch of frame 1");
+
+            // Wait until the prefetch actually faults so the seek drains an already-faulted stale task.
+            await WaitUntil(() => provider.IsPrefetchFaultedForTest(),
+                TimeSpan.FromSeconds(5), "the in-flight frame prefetch faults");
+
+            using Bitmap frame5 = await provider.RenderFrame(5);
+            Assert.That(ReadFrameSignature(frame5), Is.EqualTo(5L),
+                "the seek discards the faulted stale prefetch's worker error and returns the freshly requested frame 5");
+        }
+        finally
+        {
+            await StopHost(hostCts, server, hostTask);
+            DisposeBuffers(buffers);
+        }
+    }
+
     // Captures every UnobservedTaskException raised on the finalizer thread while subscribed, so a test
     // can prove a provider's Dispose drained its in-flight prefetch instead of leaking it to the GC.
     private sealed class UnobservedTaskExceptionWatcher : IDisposable
@@ -612,6 +709,61 @@ public class IpcProviderContractTests
         }
     }
 
+    [Test]
+    public async Task RenderFrame_WhenHostCancelsWithFreshId_ThrowsOperationCanceled()
+    {
+        // Regression for the worker-side cancel-during-encode reporting bug: the host injects CancelEncode
+        // with a fresh id while the worker awaits a frame. Before the fix the id-match check turned this
+        // into InvalidOperationException("Response ID mismatch"), which HandleStartAsync mis-reported as
+        // EncodeComplete{Error='Response ID mismatch'} instead of a clean cancel. It must surface as
+        // OperationCanceledException so HandleStartAsync reports "Cancelled".
+        var (server, client) = ConnectPair();
+        var buffers = CreateBuffers();
+        var hostCts = new CancellationTokenSource();
+        var hostTask = RunFreshIdCancelingHost(server, hostCts.Token);
+
+        using var conn = new IpcConnection(client);
+        var provider = new IpcFrameProvider(conn, buffers, frameCount: 100, frameRate: new Rational(30, 1));
+
+        try
+        {
+            Assert.That(async () => await provider.RenderFrame(0),
+                Throws.TypeOf<OperationCanceledException>(),
+                "a CancelEncode with a fresh id must surface as a clean cancel, not 'Response ID mismatch'");
+        }
+        finally
+        {
+            await StopHost(hostCts, server, hostTask);
+            DisposeBuffers(buffers);
+        }
+    }
+
+    [Test]
+    public async Task Sample_WhenHostCancelsWithFreshId_ThrowsOperationCanceled()
+    {
+        // Regression mirror of the frame-side test: a CancelEncode minted with a fresh id mid-encode must
+        // surface from the sample path as OperationCanceledException, not "Response ID mismatch".
+        var (server, client) = ConnectPair();
+        var buffers = CreateBuffers();
+        var hostCts = new CancellationTokenSource();
+        var hostTask = RunFreshIdCancelingHost(server, hostCts.Token);
+
+        using var conn = new IpcConnection(client);
+        var provider = new IpcSampleProvider(conn, buffers, sampleCount: 48000, sampleRate: 48000);
+
+        try
+        {
+            Assert.That(async () => await provider.Sample(0, 1024),
+                Throws.TypeOf<OperationCanceledException>(),
+                "a CancelEncode with a fresh id must surface as a clean cancel, not 'Response ID mismatch'");
+        }
+        finally
+        {
+            await StopHost(hostCts, server, hostTask);
+            DisposeBuffers(buffers);
+        }
+    }
+
     // ---- Sample-side host harness ----
 
     // The host writes a chunk signature (its offset) into the first 8 bytes of the requested audio
@@ -729,6 +881,40 @@ public class IpcProviderContractTests
         }, ct);
     }
 
+    // Fake host that always answers the request for a specific chunk offset with an error response (so that
+    // chunk's prefetch faults) and serves every other chunk normally. Mirrors RunFrameErrorsOnIndexHost for
+    // the sample-side stale-prefetch-error drain.
+    private static Task RunSampleErrorsOnOffsetHost(
+        NamedPipeServerStream server, SharedMemoryBuffer[] buffers, long erroringOffset, CancellationToken ct)
+    {
+        return Task.Run(async () =>
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                var req = await MessageSerializer.ReadMessageAsync(server, ct);
+                if (req == null)
+                    return;
+
+                var payload = req.GetPayload<RequestSampleMessage>()!;
+                if (payload.Offset == erroringOffset)
+                {
+                    await MessageSerializer.WriteMessageAsync(
+                        server, IpcMessage.CreateError(req.Id, "injected stale-prefetch failure"), ct);
+                    continue;
+                }
+
+                int numSamples = (int)payload.Length;
+                buffers[payload.BufferIndex].Write(BitConverter.GetBytes(payload.Offset));
+                var resp = IpcMessage.Create(req.Id, MessageType.ProvideSample, new ProvideSampleMessage
+                {
+                    NumSamples = numSamples,
+                    DataLength = numSamples * Stereo32BitFloatBytesPerSample,
+                });
+                await MessageSerializer.WriteMessageAsync(server, resp, ct);
+            }
+        }, ct);
+    }
+
     [TestCase(8 * Stereo32BitFloatBytesPerSample)]   // oversized: would overrun the native Pcm
     [TestCase(2 * Stereo32BitFloatBytesPerSample)]   // undersized vs NumSamples
     public async Task Sample_WhenWorkerReportsMismatchedDataLength_Throws(int dataLength)
@@ -819,6 +1005,44 @@ public class IpcProviderContractTests
     }
 
     [Test]
+    public async Task Sample_SeekAfterPrefetchFaulted_DiscardsStaleErrorAndReturnsRequestedChunk()
+    {
+        // Consuming chunk 0 arms a prefetch of chunk 1 (offset == sampleRate), which the host faults with a
+        // worker error. A seek to chunk 3 (offset 3*sampleRate) must DRAIN that faulted stale prefetch,
+        // discard its error (it belongs to the discarded chunk 1), then issue a fresh RequestSample and
+        // return chunk 3 — not abort the seek by re-throwing the stale prefetch's FFmpegWorkerException.
+        const long sampleRate = 4;
+        var (server, client) = ConnectPair();
+        var buffers = CreateBuffers();
+        var hostCts = new CancellationTokenSource();
+        var hostTask = RunSampleErrorsOnOffsetHost(server, buffers, erroringOffset: sampleRate, hostCts.Token);
+
+        using var conn = new IpcConnection(client);
+        // sampleCount 16 == 4 chunks of 4. Chunk 0 arms the prefetch of chunk 1; the seek target chunk 3
+        // (offset 12) is the last chunk, so loading it arms no further prefetch and nothing dangles.
+        var provider = new IpcSampleProvider(conn, buffers, sampleCount: 16, sampleRate: sampleRate);
+
+        try
+        {
+            using (Pcm<Stereo32BitFloat> chunk0 = await provider.Sample(0, sampleRate))
+                Assert.That(ReadSampleSignature(chunk0), Is.EqualTo(0L), "chunk 0 loads and arms the prefetch of chunk 1");
+
+            await WaitUntil(() => provider.IsPrefetchFaultedForTest(),
+                TimeSpan.FromSeconds(5), "the in-flight sample prefetch faults");
+
+            long seekOffset = 3 * sampleRate;
+            using Pcm<Stereo32BitFloat> chunk3 = await provider.Sample(seekOffset, sampleRate);
+            Assert.That(ReadSampleSignature(chunk3), Is.EqualTo(seekOffset),
+                "the seek discards the faulted stale prefetch's worker error and returns the freshly requested chunk 3");
+        }
+        finally
+        {
+            await StopHost(hostCts, server, hostTask);
+            DisposeBuffers(buffers);
+        }
+    }
+
+    [Test]
     public async Task Sample_WhenRequestStraddlesEof_ReturnsRequestedLengthWithSilenceTail()
     {
         // SampleCount aligns to a chunk boundary (8 == 2 * sampleRate 4). A request straddling EOF used to
@@ -859,6 +1083,45 @@ public class IpcProviderContractTests
         }
         finally
         {
+            await StopHost(hostCts, server, hostTask);
+            DisposeBuffers(buffers);
+        }
+    }
+
+    [Test]
+    public async Task Sample_WhenSecondChunkLoadFaultsMidSplit_DisposesSplitBufferAndDoesNotLeak()
+    {
+        // A cross-chunk SampleExact allocates result2, copies the first chunk's tail into it, then loads
+        // the SECOND chunk. If that load faults (an IPC error / cancellation, which happens for real mid-
+        // encode), result2 must be disposed — not leaked. Straddling request: offset 2, length 4 over
+        // sampleRate-4 chunks pulls samples 2..3 from chunk 0 and 4..5 from chunk 1; the host faults the
+        // chunk 1 request (offset == sampleRate), so the second load throws after result2 is allocated.
+        const long sampleRate = 4;
+        var (server, client) = ConnectPair();
+        var buffers = CreateBuffers();
+        var hostCts = new CancellationTokenSource();
+        var hostTask = RunSamplePrefetchFaultsOnceHost(server, buffers, sampleRate, hostCts.Token);
+
+        using var conn = new IpcConnection(client);
+        // sampleCount 12 == 3 chunks of 4; offset 2 + length 4 straddles the chunk 0/1 boundary.
+        var provider = new IpcSampleProvider(conn, buffers, sampleCount: 12, sampleRate: sampleRate);
+        Pcm<Stereo32BitFloat>? splitBuffer = null;
+        provider.CrossChunkSplitAllocatedForTest = pcm => splitBuffer = pcm;
+
+        try
+        {
+            Assert.That(async () => await provider.Sample(2, 4),
+                Throws.TypeOf<FFmpegWorkerException>(),
+                "the second chunk load faults mid-split, surfacing the worker error");
+
+            Assert.That(splitBuffer, Is.Not.Null,
+                "the cross-chunk split path allocated result2 before the faulting second load");
+            Assert.That(splitBuffer!.IsDisposed, Is.True,
+                "result2 must be disposed on a mid-split fault so its native buffer is not leaked");
+        }
+        finally
+        {
+            provider.Dispose();
             await StopHost(hostCts, server, hostTask);
             DisposeBuffers(buffers);
         }

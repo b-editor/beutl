@@ -14,6 +14,7 @@ using Beutl.Editor.Components.ObjectPropertyTab;
 using Beutl.Editor.Components.PathEditorTab;
 using Beutl.Editor.Components.PreviewSettingsTab;
 using Beutl.Editor.Components.SceneSettingsTab;
+using Beutl.Editor.Components.TerminalTab;
 using Beutl.Logging;
 using Beutl.Services.PrimitiveImpls;
 using Microsoft.Extensions.Logging;
@@ -54,7 +55,8 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
         EqualizerPropertiesExtension.Instance,
         ScriptEditorExtension.Instance,
         FileBrowserTabExtension.Instance,
-        HistoryTabExtension.Instance
+        HistoryTabExtension.Instance,
+        TerminalTabExtension.Instance
     ];
 
     public LoadPrimitiveExtensionTask(PackageManager manager, ExtensionProvider provider,
