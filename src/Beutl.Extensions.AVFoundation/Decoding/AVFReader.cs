@@ -73,8 +73,8 @@ public sealed class AVFReader : MediaReader
             _videoColorType = isHdr ? BitmapColorType.Rgba16161616 : BitmapColorType.Bgra8888;
             _videoColorSpace = ColorSpaceMapper.BuildColorSpace(
                 isHdr,
-                (BeutlTransferFunction)vi.TransferFunction,
-                (BeutlColorPrimaries)vi.ColorPrimaries);
+                (BitmapColorTransfer)vi.TransferFunction,
+                (BitmapColorPrimaries)vi.ColorPrimaries);
             _logger.LogInformation(
                 "Video color space: {ColorSpace} ({Hdr})",
                 _videoColorSpace, isHdr ? "HDR" : "SDR");
