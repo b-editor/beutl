@@ -1,5 +1,8 @@
 ﻿using Beutl.Composition;
 using Beutl.Engine;
+using Beutl.Graphics.Rendering;
+using Beutl.Graphics;
+using Beutl.Media.Proxy;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 
@@ -464,6 +467,61 @@ public class SceneCompositorTests
             layer.ZIndex = 1;
 
             Assert.That(compositor.EvaluateGraphics(TimeSpan.FromMilliseconds(500)).Objects, Is.Empty);
+        }
+        finally
+        {
+            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+        }
+    }
+
+    [Test]
+    public void EvaluateGraphics_CompositorForceOriginalTrue_SeedsPreferProxyFalse()
+    {
+        string basePath = GetTempPath();
+        try
+        {
+            Scene scene = CreateScene(basePath);
+            var capture = new SceneCompositorContextCaptureDrawable();
+            scene.Children.Add(CreateElement(basePath, isEnabled: true, capture));
+            using var compositor = new SceneCompositor(scene) { ForceOriginalSource = true };
+
+            compositor.EvaluateGraphics(TimeSpan.FromMilliseconds(500));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(capture.CapturedContexts, Has.Count.EqualTo(1));
+                Assert.That(capture.CapturedContexts[0].ForceOriginalSource, Is.True);
+                Assert.That(capture.CapturedContexts[0].PreferProxy, Is.False);
+            });
+        }
+        finally
+        {
+            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+        }
+    }
+
+    [TestCase(PreviewSourceMode.PreferProxy, true)]
+    [TestCase(PreviewSourceMode.ForceOriginal, false)]
+    public void EvaluateGraphics_CompositorForceOriginalFalse_SeedsPreferProxyFromSceneMode(
+        PreviewSourceMode mode, bool expectedPreferProxy)
+    {
+        string basePath = GetTempPath();
+        try
+        {
+            Scene scene = CreateScene(basePath);
+            scene.PreviewSourceMode = mode;
+            var capture = new SceneCompositorContextCaptureDrawable();
+            scene.Children.Add(CreateElement(basePath, isEnabled: true, capture));
+            using var compositor = new SceneCompositor(scene);
+
+            compositor.EvaluateGraphics(TimeSpan.FromMilliseconds(500));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(capture.CapturedContexts, Has.Count.EqualTo(1));
+                Assert.That(capture.CapturedContexts[0].ForceOriginalSource, Is.False);
+                Assert.That(capture.CapturedContexts[0].PreferProxy, Is.EqualTo(expectedPreferProxy));
+            });
         }
         finally
         {
