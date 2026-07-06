@@ -269,6 +269,139 @@ public class Scene : ProjectItem, INotifyEdited
         new MultipleMoveCommand(this, elements, deltaIndex, deltaStart).Do();
     }
 
+    /// <summary>
+    /// Enumerates the gaps between adjacent elements on each ZIndex, ordered by
+    /// ZIndex (ascending) then by gap start (ascending). A gap is the empty
+    /// interval between one element's <see cref="Element.Range.End"/> and the
+    /// next element's <see cref="Element.Start"/> on the same ZIndex when the
+    /// next element starts strictly after the previous one ends. Overlapping
+    /// or touching elements produce no gap.
+    /// </summary>
+    /// <param name="includeLeadingGap">
+    /// When <see langword="true"/>, also yields the leading gap on each ZIndex:
+    /// the interval from <see cref="TimeSpan.Zero"/> to the first element's
+    /// <see cref="Element.Start"/> when the first element starts after zero.
+    /// </param>
+    public IEnumerable<(int ZIndex, TimeRange Gap)> EnumerateGaps(bool includeLeadingGap = false)
+    {
+        foreach (IGrouping<int, Element> zGroup in Children.GroupBy(e => e.ZIndex).OrderBy(g => g.Key))
+        {
+            List<Element> sorted = zGroup.OrderBy(e => e.Start).ThenBy(e => e.Range.End).ToList();
+            if (sorted.Count == 0) continue;
+
+            if (includeLeadingGap && sorted[0].Start > TimeSpan.Zero)
+            {
+                yield return (zGroup.Key, new TimeRange(TimeSpan.Zero, sorted[0].Start));
+            }
+
+            for (int i = 0; i < sorted.Count - 1; i++)
+            {
+                TimeSpan gapStart = sorted[i].Range.End;
+                TimeSpan gapEnd = sorted[i + 1].Start;
+                if (gapEnd > gapStart)
+                {
+                    yield return (zGroup.Key, new TimeRange(gapStart, gapEnd - gapStart));
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Closes the gap immediately after <paramref name="anchor"/> on
+    /// <paramref name="anchor"/>'s ZIndex by shifting all subsequent elements on
+    /// that ZIndex left by the gap size. Returns <see langword="false"/> when
+    /// there is no gap after the anchor (no next element, or the next element
+    /// touches or overlaps the anchor). Does not commit history; the caller owns
+    /// the single <c>HistoryManager.Commit</c> boundary.
+    /// </summary>
+    public bool CloseGap(Element anchor)
+    {
+        ArgumentNullException.ThrowIfNull(anchor);
+        if (anchor.HierarchicalParent is not Scene scene || !ReferenceEquals(scene, this))
+            return false;
+
+        int z = anchor.ZIndex;
+        TimeSpan anchorEnd = anchor.Range.End;
+
+        Element? next = Children
+            .Where(e => e != anchor && e.ZIndex == z && e.Start >= anchorEnd)
+            .OrderBy(e => e.Start)
+            .FirstOrDefault();
+        if (next is null) return false;
+
+        TimeSpan gapSize = next.Start - anchorEnd;
+        if (gapSize <= TimeSpan.Zero) return false;
+
+        Element[] toShift = Children
+            .Where(e => e != anchor && e.ZIndex == z && e.Start >= next.Start)
+            .ToArray();
+        if (toShift.Length == 0) return false;
+
+        MoveChildren(0, -gapSize, toShift);
+        return true;
+    }
+
+    /// <summary>
+    /// Closes every gap between elements on every ZIndex (the leading gap from
+    /// zero to the first element is not closed). Returns the number of gaps
+    /// closed. Gaps are closed right-to-left within each ZIndex so earlier
+    /// closes do not shift elements that later closes depend on. Does not
+    /// commit history; the caller owns the single commit boundary.
+    /// </summary>
+    public int CloseAllGaps()
+    {
+        List<(int ZIndex, TimeRange Gap)> gaps = EnumerateGaps().ToList();
+        if (gaps.Count == 0) return 0;
+
+        int closed = 0;
+        foreach (IGrouping<int, (int ZIndex, TimeRange Gap)> zGroup in gaps.GroupBy(g => g.ZIndex))
+        {
+            foreach ((int ZIndex, TimeRange Gap) gap in zGroup.OrderByDescending(g => g.Gap.Start))
+            {
+                Element[] toShift = Children
+                    .Where(e => e.ZIndex == zGroup.Key && e.Start >= gap.Gap.End)
+                    .ToArray();
+                if (toShift.Length == 0) continue;
+
+                TimeSpan delta = -gap.Gap.Duration;
+                if (delta == TimeSpan.Zero) continue;
+
+                MoveChildren(0, delta, toShift);
+                closed++;
+            }
+        }
+
+        return closed;
+    }
+
+    /// <summary>
+    /// Returns the center of the first gap (across all ZIndexes) that starts
+    /// strictly after <paramref name="currentTime"/>, or <see langword="null"/>
+    /// when no such gap exists. The leading gap is excluded.
+    /// </summary>
+    public TimeSpan? FindNextGapCenter(TimeSpan currentTime)
+    {
+        return EnumerateGaps()
+            .Where(g => g.Gap.Start > currentTime)
+            .OrderBy(g => g.Gap.Start)
+            .Select(g => (TimeSpan?)(g.Gap.Start + new TimeSpan(g.Gap.Duration.Ticks / 2)))
+            .FirstOrDefault();
+    }
+
+    /// <summary>
+    /// Returns the center of the last gap (across all ZIndexes) that ends
+    /// strictly before <paramref name="currentTime"/>, or <see langword="null"/>
+    /// when no such gap exists. The leading gap is excluded.
+    /// </summary>
+    public TimeSpan? FindPreviousGapCenter(TimeSpan currentTime)
+    {
+        return EnumerateGaps()
+            .Where(g => g.Gap.End < currentTime)
+            .OrderByDescending(g => g.Gap.Start)
+            .Select(g => (TimeSpan?)(g.Gap.Start + new TimeSpan(g.Gap.Duration.Ticks / 2)))
+            .FirstOrDefault();
+    }
+
     public override void Serialize(ICoreSerializationContext context)
     {
         base.Serialize(context);

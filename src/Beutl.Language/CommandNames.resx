@@ -56,6 +56,12 @@
   <data name="UngroupElements" xml:space="preserve">
     <value>Ungroup Elements</value>
   </data>
+  <data name="CloseGap" xml:space="preserve">
+    <value>Close Gap</value>
+  </data>
+  <data name="CloseAllGaps" xml:space="preserve">
+    <value>Close All Gaps</value>
+  </data>
   <data name="ChangeSceneDuration" xml:space="preserve">
     <value>Change Scene Duration</value>
   </data>

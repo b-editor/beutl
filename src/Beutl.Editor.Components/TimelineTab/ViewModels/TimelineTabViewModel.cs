@@ -143,6 +143,10 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         SetEndTimeToPointerPosition.Subscribe(OnSetEndTimeToPointerPosition);
         SetStartTimeToCurrentTime.Subscribe(OnSetStartTimeToCurrentTime);
         SetEndTimeToCurrentTime.Subscribe(OnSetEndTimeToCurrentTime);
+        CloseGap = new ReactiveCommandSlim().WithSubscribe(CloseSelectedGap);
+        CloseAllGaps = new ReactiveCommandSlim().WithSubscribe(CloseAllSceneGaps);
+        GoToNextGap = new ReactiveCommandSlim().WithSubscribe(() => GoToGap(forward: true));
+        GoToPreviousGap = new ReactiveCommandSlim().WithSubscribe(() => GoToGap(forward: false));
         EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
 
         AutoAdjustSceneDuration = editorConfig.GetObservable(EditorConfig.AutoAdjustSceneDurationProperty)
@@ -309,6 +313,14 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
     public ReactiveCommandSlim SetStartTimeToCurrentTime { get; } = new();
 
     public ReactiveCommandSlim SetEndTimeToCurrentTime { get; } = new();
+
+    public ReactiveCommandSlim CloseGap { get; }
+
+    public ReactiveCommandSlim CloseAllGaps { get; }
+
+    public ReactiveCommandSlim GoToNextGap { get; }
+
+    public ReactiveCommandSlim GoToPreviousGap { get; }
 
     public CoreList<SceneMarker> Markers => Scene.Markers;
 
@@ -925,10 +937,12 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             "NudgeLeftFrame" or "NudgeRightFrame"
                 or "NudgeLeftLarge" or "NudgeRightLarge"
                 or "NudgeLeftSecond" or "NudgeRightSecond" => SelectedElements.Count > 0,
+            "CloseGap" => SelectedElements.Count > 0,
             "ToggleGroup" => SelectedElements.FirstOrDefault() is { } first
                 && (first.CanUngroupSelectedElements() || first.CanGroupSelectedElements()),
             "ExitRazorMode" => IsRazorMode.Value,
-            "Paste" or "SetStartTime" or "SetEndTime" or "ToggleRazorMode" or "ToggleRippleMode" => true,
+            "Paste" or "SetStartTime" or "SetEndTime" or "ToggleRazorMode" or "ToggleRippleMode"
+                or "CloseAllGaps" or "GoToNextGap" or "GoToPreviousGap" => true,
             // Rename / Split など Execute で対応 case が無いコマンドは false を返し、
             // パレットやショートカット経路で誤って enabled として扱われないようにする。
             _ => false,
@@ -1081,6 +1095,38 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
                 }
 
                 break;
+            case "CloseGap":
+                CloseGap.Execute();
+                if (execution.KeyEventArgs != null)
+                {
+                    execution.KeyEventArgs.Handled = true;
+                }
+
+                break;
+            case "CloseAllGaps":
+                CloseAllGaps.Execute();
+                if (execution.KeyEventArgs != null)
+                {
+                    execution.KeyEventArgs.Handled = true;
+                }
+
+                break;
+            case "GoToNextGap":
+                GoToNextGap.Execute();
+                if (execution.KeyEventArgs != null)
+                {
+                    execution.KeyEventArgs.Handled = true;
+                }
+
+                break;
+            case "GoToPreviousGap":
+                GoToPreviousGap.Execute();
+                if (execution.KeyEventArgs != null)
+                {
+                    execution.KeyEventArgs.Handled = true;
+                }
+
+                break;
         }
     }
 
@@ -1092,6 +1138,49 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
     {
         if (args?.Source is not Visual visual) return false;
         return visual.FindAncestorOfType<TextBox>(includeSelf: true) is not null;
+    }
+
+    private void CloseSelectedGap()
+    {
+        Element? anchor = SelectedElements
+            .OrderBy(e => e.Model.Start)
+            .Select(e => e.Model)
+            .FirstOrDefault();
+        if (anchor is null) return;
+
+        if (!EditorContext.GetRequiredService<IElementGapService>().CloseGap(Scene, anchor))
+        {
+            NotificationService.ShowInformation(Strings.CloseGap, Strings.NoGapsToClose);
+        }
+    }
+
+    private void CloseAllSceneGaps()
+    {
+        if (EditorContext.GetRequiredService<IElementGapService>().CloseAllGaps(Scene) == 0)
+        {
+            NotificationService.ShowInformation(Strings.CloseAllGaps, Strings.NoGapsToClose);
+        }
+    }
+
+    private void GoToGap(bool forward)
+    {
+        TimeSpan? center = forward
+            ? Scene.FindNextGapCenter(CurrentTime.Value)
+            : Scene.FindPreviousGapCenter(CurrentTime.Value);
+
+        if (center is { } target)
+        {
+            TimeSpan sceneEnd = Scene.Start + Scene.Duration;
+            CurrentTime.Value = target < Scene.Start
+                ? Scene.Start
+                : target > sceneEnd ? sceneEnd : target;
+        }
+        else
+        {
+            NotificationService.ShowInformation(
+                forward ? Strings.GoToNextGap : Strings.GoToPreviousGap,
+                Strings.NoGapsToGoTo);
+        }
     }
 
     private enum NudgeUnit { Frame, Large, Second }

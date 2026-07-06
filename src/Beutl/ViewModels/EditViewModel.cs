@@ -39,6 +39,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
     private ElementResizeService? _elementResizeService;
     private ElementDuplicateService? _elementDuplicateService;
     private ElementMoveService? _elementMoveService;
+    private ElementGapService? _elementGapService;
     private ElementClipboardService? _elementClipboardService;
     private ElementStructureService? _elementStructureService;
     private ElementAttributeService? _elementAttributeService;
@@ -755,6 +756,9 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
             return _elementMoveService ??= new ElementMoveService(
                 HistoryManager,
                 (IElementDuplicateService)GetService(typeof(IElementDuplicateService))!);
+
+        if (serviceType.IsAssignableTo(typeof(IElementGapService)))
+            return _elementGapService ??= new ElementGapService(HistoryManager);
 
         if (serviceType.IsAssignableTo(typeof(IClipboardGateway)))
             return _clipboardGateway;

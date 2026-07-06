@@ -121,6 +121,22 @@ public sealed class TimelineTabExtension : ToolTabExtension
         [
             new ContextCommandKeyGesture("B"),
         ]),
+        new ContextCommandDefinition("CloseGap", Strings.CloseGap, "",
+        [
+            new ContextCommandKeyGesture("OemSemicolon"),
+        ]),
+        new ContextCommandDefinition("CloseAllGaps", Strings.CloseAllGaps, "",
+        [
+            new ContextCommandKeyGesture("Shift+Alt+OemSemicolon"),
+        ]),
+        new ContextCommandDefinition("GoToNextGap", Strings.GoToNextGap, "",
+        [
+            new ContextCommandKeyGesture("Shift+OemSemicolon"),
+        ]),
+        new ContextCommandDefinition("GoToPreviousGap", Strings.GoToPreviousGap, "",
+        [
+            new ContextCommandKeyGesture("Alt+OemSemicolon"),
+        ]),
     ];
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
