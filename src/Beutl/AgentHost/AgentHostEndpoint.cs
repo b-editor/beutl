@@ -1,6 +1,7 @@
 ﻿using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
+using System.Text;
 using Beutl.AgentToolkit.Rendering;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tools;
@@ -282,12 +283,25 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
 
         if (authorization is null
             || !authorization.StartsWith(scheme, StringComparison.Ordinal)
-            || !string.Equals(authorization[scheme.Length..], Token, StringComparison.Ordinal))
+            || !FixedTimeTokenEquals(authorization[scheme.Length..], Token))
         {
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
             return;
         }
 
         await next(context).ConfigureAwait(false);
+    }
+
+    // Constant-time compare: the token drives the editing surface even on loopback.
+    private static bool FixedTimeTokenEquals(string provided, string expected)
+    {
+        if (provided.Length != expected.Length)
+        {
+            return false;
+        }
+
+        return CryptographicOperations.FixedTimeEquals(
+            Encoding.UTF8.GetBytes(provided),
+            Encoding.UTF8.GetBytes(expected));
     }
 }
