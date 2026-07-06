@@ -203,4 +203,314 @@ public class ElementResizeServiceTests
             GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration = original;
         }
     }
+
+    // --- Roll ---
+
+    [Test]
+    public void Roll_NullArguments_Throw()
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        Element back = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
+
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentNullException>(() => _service.Roll(null!, front, back, TimeSpan.Zero));
+            Assert.Throws<ArgumentNullException>(() => _service.Roll(_scene, null!, back, TimeSpan.Zero));
+            Assert.Throws<ArgumentNullException>(() => _service.Roll(_scene, front, null!, TimeSpan.Zero));
+        });
+    }
+
+    [Test]
+    public void Roll_SameElement_NoCommit()
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        int before = _history.UndoCount;
+
+        bool applied = _service.Roll(_scene, front, front, TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
+    public void Roll_NotAdjacent_NoCommit()
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        // Gap of 1s between front.End (2s) and back.Start (4s).
+        Element back = AddElement(TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(2));
+        int before = _history.UndoCount;
+
+        bool applied = _service.Roll(_scene, front, back, TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(back.Start, Is.EqualTo(TimeSpan.FromSeconds(4)));
+            Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
+    public void Roll_Adjacent_AppliesAndCommitsOnce()
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        Element back = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3));
+        int before = _history.UndoCount;
+
+        bool applied = _service.Roll(_scene, front, back, TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            Assert.That(back.Start, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            // Total length preserved.
+            Assert.That(front.Length + back.Length, Is.EqualTo(TimeSpan.FromSeconds(5)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
+        });
+    }
+
+    [Test]
+    public void Roll_NegativeDelta_ShrinksFrontGrowsBack()
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(3));
+        Element back = AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(2));
+
+        _service.Roll(_scene, front, back, TimeSpan.FromSeconds(-1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(back.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(3)));
+        });
+    }
+
+    [Test]
+    public void Roll_DeltaClampedToMinFrame_DoesNotUndersizeFront()
+    {
+        // 30fps default: 1 frame ~ 33.3ms. front is 1 frame; asking to roll -1s
+        // would empty front — must clamp so front keeps >= 1 frame.
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1d / 30));
+        Element back = AddElement(TimeSpan.FromSeconds(1d / 30), TimeSpan.FromSeconds(2));
+
+        bool applied = _service.Roll(_scene, front, back, TimeSpan.FromSeconds(-1));
+
+        // Clamped to -(front.Length - 1 frame) = 0, so no effective delta.
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(1d / 30)));
+            Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+        });
+    }
+
+    [Test]
+    public void Roll_DeltaClampedToMinFrame_DoesNotUndersizeBack()
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        Element back = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1d / 30));
+
+        bool applied = _service.Roll(_scene, front, back, TimeSpan.FromSeconds(1));
+
+        // Clamped to back.Length - 1 frame = 0, so no effective delta.
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(1d / 30)));
+        });
+    }
+
+    [Test]
+    public void Roll_UndoRestoresBothClips()
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        Element back = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3));
+        _service.Roll(_scene, front, back, TimeSpan.FromSeconds(1));
+        Assert.Multiple(() =>
+        {
+            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+        });
+
+        _history.Undo();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(back.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(3)));
+        });
+    }
+
+    // --- Slide ---
+
+    [Test]
+    public void Slide_NullArguments_Throw()
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        Element middle = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
+        Element back = AddElement(TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(2));
+
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentNullException>(() => _service.Slide(null!, front, middle, back, TimeSpan.Zero));
+            Assert.Throws<ArgumentNullException>(() => _service.Slide(_scene, null!, middle, back, TimeSpan.Zero));
+            Assert.Throws<ArgumentNullException>(() => _service.Slide(_scene, front, null!, back, TimeSpan.Zero));
+            Assert.Throws<ArgumentNullException>(() => _service.Slide(_scene, front, middle, null!, TimeSpan.Zero));
+        });
+    }
+
+    [Test]
+    public void Slide_DuplicateElements_NoCommit()
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        Element middle = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
+        int before = _history.UndoCount;
+
+        bool applied = _service.Slide(_scene, front, middle, middle, TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
+    public void Slide_NotAdjacentFrontMiddle_NoCommit()
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        Element middle = AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(2)); // gap before
+        Element back = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
+        int before = _history.UndoCount;
+
+        bool applied = _service.Slide(_scene, front, middle, back, TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
+    public void Slide_NotAdjacentMiddleBack_NoCommit()
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        Element middle = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
+        Element back = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2)); // gap before
+        int before = _history.UndoCount;
+
+        bool applied = _service.Slide(_scene, front, middle, back, TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
+    public void Slide_AdjacentTriplet_ShiftsMiddlePreservesTotalLength()
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        Element middle = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3));
+        Element back = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
+        int before = _history.UndoCount;
+
+        bool applied = _service.Slide(_scene, front, middle, back, TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            Assert.That(middle.Start, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            Assert.That(middle.Length, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            Assert.That(back.Start, Is.EqualTo(TimeSpan.FromSeconds(6)));
+            Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            // Total length preserved: 2+3+2 = 7 before; 3+3+1 = 7 after.
+            Assert.That(front.Length + middle.Length + back.Length, Is.EqualTo(TimeSpan.FromSeconds(7)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
+        });
+    }
+
+    [Test]
+    public void Slide_NegativeDelta_ShiftsMiddleLeft()
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        Element middle = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3));
+        Element back = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
+
+        _service.Slide(_scene, front, middle, back, TimeSpan.FromSeconds(-1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(middle.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(middle.Length, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            Assert.That(back.Start, Is.EqualTo(TimeSpan.FromSeconds(4)));
+            Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            Assert.That(front.Length + middle.Length + back.Length, Is.EqualTo(TimeSpan.FromSeconds(7)));
+        });
+    }
+
+    [Test]
+    public void Slide_DeltaClamped_DoesNotUndersizeFront()
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1d / 30));
+        Element middle = AddElement(TimeSpan.FromSeconds(1d / 30), TimeSpan.FromSeconds(2));
+        Element back = AddElement(TimeSpan.FromSeconds(1d / 30) + TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
+
+        bool applied = _service.Slide(_scene, front, middle, back, TimeSpan.FromSeconds(-1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(1d / 30)));
+        });
+    }
+
+    [Test]
+    public void Slide_DeltaClamped_DoesNotUndersizeBack()
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        Element middle = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
+        Element back = AddElement(TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(1d / 30));
+
+        bool applied = _service.Slide(_scene, front, middle, back, TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(1d / 30)));
+        });
+    }
+
+    [Test]
+    public void Slide_UndoRestoresAllThreeClips()
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        Element middle = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3));
+        Element back = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
+        _service.Slide(_scene, front, middle, back, TimeSpan.FromSeconds(1));
+
+        _history.Undo();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(middle.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(middle.Length, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            Assert.That(back.Start, Is.EqualTo(TimeSpan.FromSeconds(5)));
+            Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+        });
+    }
 }

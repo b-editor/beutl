@@ -230,6 +230,15 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         IsRazorMode
             .Subscribe(_ => RaiseCanExecuteChanged())
             .AddTo(_disposables);
+        IsSlipMode
+            .Subscribe(_ => RaiseCanExecuteChanged())
+            .AddTo(_disposables);
+        IsRollMode
+            .Subscribe(_ => RaiseCanExecuteChanged())
+            .AddTo(_disposables);
+        IsSlideMode
+            .Subscribe(_ => RaiseCanExecuteChanged())
+            .AddTo(_disposables);
 
         // The Undo/Redo flush hook now lives in ElementNudgeService, wired to
         // HistoryManager.BeforeMutation by the editor context.
@@ -358,6 +367,12 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
     public HashSet<ElementViewModel> SelectedElements { get; } = [];
 
     public ReactivePropertySlim<bool> IsRazorMode { get; } = new();
+
+    // Slip / Roll / Slide trim tool modes. Mutually exclusive with each other and
+    // with IsRazorMode — the Execute cases clear every other flag when one is set.
+    public ReactivePropertySlim<bool> IsSlipMode { get; } = new();
+    public ReactivePropertySlim<bool> IsRollMode { get; } = new();
+    public ReactivePropertySlim<bool> IsSlideMode { get; } = new();
 
     public ToolTabExtension Extension => TimelineTabExtension.Instance;
 
@@ -944,7 +959,12 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             "ToggleGroup" => SelectedElements.FirstOrDefault() is { } first
                 && (first.CanUngroupSelectedElements() || first.CanGroupSelectedElements()),
             "ExitRazorMode" => IsRazorMode.Value,
-            "Paste" or "SetStartTime" or "SetEndTime" or "ToggleRazorMode" or "ToggleRippleMode"
+            "ExitSlipMode" => IsSlipMode.Value,
+            "ExitRollMode" => IsRollMode.Value,
+            "ExitSlideMode" => IsSlideMode.Value,
+            "Paste" or "SetStartTime" or "SetEndTime"
+                or "ToggleRazorMode" or "ToggleRippleMode" or "ToggleSlipMode"
+                or "ToggleRollMode" or "ToggleSlideMode"
                 or "CloseAllGaps" or "GoToNextGap" or "GoToPreviousGap" => true,
             // Rename / Split など Execute で対応 case が無いコマンドは false を返し、
             // パレットやショートカット経路で誤って enabled として扱われないようにする。
@@ -1043,6 +1063,63 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
                 if (IsRazorMode.Value)
                 {
                     IsRazorMode.Value = false;
+                    if (execution.KeyEventArgs != null)
+                    {
+                        execution.KeyEventArgs.Handled = true;
+                    }
+                }
+
+                break;
+            case "ToggleSlipMode" when !IsTextInputFocused(execution.KeyEventArgs):
+                EnterTrimMode(IsSlipMode);
+                if (execution.KeyEventArgs != null)
+                {
+                    execution.KeyEventArgs.Handled = true;
+                }
+
+                break;
+            case "ToggleRollMode" when !IsTextInputFocused(execution.KeyEventArgs):
+                EnterTrimMode(IsRollMode);
+                if (execution.KeyEventArgs != null)
+                {
+                    execution.KeyEventArgs.Handled = true;
+                }
+
+                break;
+            case "ToggleSlideMode" when !IsTextInputFocused(execution.KeyEventArgs):
+                EnterTrimMode(IsSlideMode);
+                if (execution.KeyEventArgs != null)
+                {
+                    execution.KeyEventArgs.Handled = true;
+                }
+
+                break;
+            case "ExitSlipMode" when !IsTextInputFocused(execution.KeyEventArgs):
+                if (IsSlipMode.Value)
+                {
+                    IsSlipMode.Value = false;
+                    if (execution.KeyEventArgs != null)
+                    {
+                        execution.KeyEventArgs.Handled = true;
+                    }
+                }
+
+                break;
+            case "ExitRollMode" when !IsTextInputFocused(execution.KeyEventArgs):
+                if (IsRollMode.Value)
+                {
+                    IsRollMode.Value = false;
+                    if (execution.KeyEventArgs != null)
+                    {
+                        execution.KeyEventArgs.Handled = true;
+                    }
+                }
+
+                break;
+            case "ExitSlideMode" when !IsTextInputFocused(execution.KeyEventArgs):
+                if (IsSlideMode.Value)
+                {
+                    IsSlideMode.Value = false;
                     if (execution.KeyEventArgs != null)
                     {
                         execution.KeyEventArgs.Handled = true;
@@ -1273,6 +1350,16 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         TimeSpan target = visibleStart + new TimeSpan((visibleEnd - visibleStart).Ticks / 2);
         bool whollyInside = g.Range.Start >= sceneStart && g.Range.End <= sceneEnd;
         return (target, g.ZIndex, whollyInside ? g.Anchor : null);
+    }
+
+    private void EnterTrimMode(ReactivePropertySlim<bool> mode)
+    {
+        bool next = !mode.Value;
+        IsRazorMode.Value = false;
+        IsSlipMode.Value = false;
+        IsRollMode.Value = false;
+        IsSlideMode.Value = false;
+        mode.Value = next;
     }
 
     private enum NudgeUnit { Frame, Large, Second }

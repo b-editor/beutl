@@ -1,0 +1,164 @@
+﻿using Beutl.Audio;
+using Beutl.Editor;
+using Beutl.Editor.Services;
+using Beutl.Graphics;
+using Beutl.ProjectSystem;
+using Beutl.UnitTests.TestInfrastructure;
+
+namespace Beutl.UnitTests.Editor.Services;
+
+[TestFixture]
+public class ElementSlipServiceTests
+{
+    private SceneHistoryHarness _harness = null!;
+    private Scene _scene = null!;
+    private HistoryManager _history = null!;
+    private ElementSlipService _service = null!;
+
+    [SetUp]
+    public void Setup()
+    {
+        _harness = new SceneHistoryHarness("beutl_slip", start: TimeSpan.Zero, duration: TimeSpan.FromSeconds(30));
+        _scene = _harness.Scene;
+        _history = _harness.History;
+        _service = new ElementSlipService(_history);
+    }
+
+    [TearDown]
+    public void TearDown()
+    {
+        _harness.Dispose();
+    }
+
+    private Element AddElement(TimeSpan start, TimeSpan length, int zIndex = 0)
+        => _harness.AddElement(start, length, zIndex);
+
+    [Test]
+    public void Constructor_NullHistoryManager_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => new ElementSlipService(null!));
+    }
+
+    [Test]
+    public void Slip_NullElement_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => _service.Slip(null!, TimeSpan.FromSeconds(1)));
+    }
+
+    [Test]
+    public void Slip_ZeroDelta_NoCommit()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        element.Objects.Add(new SourceVideo());
+        int before = _history.UndoCount;
+
+        bool applied = _service.Slip(element, TimeSpan.Zero);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
+    public void Slip_NoSplittableMedia_NoCommit()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        int before = _history.UndoCount;
+
+        bool applied = _service.Slip(element, TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
+    public void Slip_SourceVideo_ShiftsOffsetPositionAndCommits()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        var video = new SourceVideo();
+        element.Objects.Add(video);
+        int before = _history.UndoCount;
+
+        bool applied = _service.Slip(element, TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(element.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
+        });
+    }
+
+    [Test]
+    public void Slip_SourceSound_ShiftsOffsetPositionAndCommits()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        var sound = new SourceSound();
+        element.Objects.Add(sound);
+        int before = _history.UndoCount;
+
+        bool applied = _service.Slip(element, TimeSpan.FromMilliseconds(500));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromMilliseconds(500)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
+        });
+    }
+
+    [Test]
+    public void Slip_MultipleMedia_ShiftsAllAndCommitsOnce()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        var video = new SourceVideo();
+        var sound = new SourceSound();
+        element.Objects.Add(video);
+        element.Objects.Add(sound);
+        int before = _history.UndoCount;
+
+        bool applied = _service.Slip(element, TimeSpan.FromSeconds(2));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
+        });
+    }
+
+    [Test]
+    public void Slip_NegativeDelta_ShiftsBackward()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        var video = new SourceVideo();
+        video.OffsetPosition.CurrentValue = TimeSpan.FromSeconds(3);
+        element.Objects.Add(video);
+
+        _service.Slip(element, TimeSpan.FromSeconds(-1));
+
+        Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(2)));
+    }
+
+    [Test]
+    public void Slip_UndoRestoresOffsetPosition()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        var video = new SourceVideo();
+        element.Objects.Add(video);
+        _service.Slip(element, TimeSpan.FromSeconds(1));
+        Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+
+        _history.Undo();
+
+        Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+    }
+}

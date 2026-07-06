@@ -35,6 +35,15 @@
   <data name="MoveElement" xml:space="preserve">
     <value>Move Element</value>
   </data>
+  <data name="SlipElement" xml:space="preserve">
+    <value>Slip Element</value>
+  </data>
+  <data name="RollElements" xml:space="preserve">
+    <value>Roll Elements</value>
+  </data>
+  <data name="SlideElements" xml:space="preserve">
+    <value>Slide Elements</value>
+  </data>
   <data name="SplitElement" xml:space="preserve">
     <value>Split Element</value>
   </data>

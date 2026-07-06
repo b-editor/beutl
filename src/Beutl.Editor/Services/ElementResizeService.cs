@@ -240,4 +240,79 @@ public sealed class ElementResizeService : IElementResizeService
         TimeSpan clampedLength = clampedEnd - start;
         return clampedLength > TimeSpan.Zero ? clampedLength : length;
     }
+
+    public bool Roll(Scene scene, Element front, Element back, TimeSpan delta)
+    {
+        ArgumentNullException.ThrowIfNull(scene);
+        ArgumentNullException.ThrowIfNull(front);
+        ArgumentNullException.ThrowIfNull(back);
+        if (front == back) return false;
+        if (front.Range.End != back.Start) return false;
+
+        int rate = SceneTimeRangeService.GetFrameRate(scene);
+        TimeSpan minDuration = TimeSpan.FromSeconds(1d / rate);
+
+        TimeSpan clamped = ClampTrimDelta(delta, front.Length, back.Length, minDuration);
+        if (clamped == TimeSpan.Zero) return false;
+
+        TimeSpan newFrontLength = front.Length + clamped;
+        TimeSpan newBackStart = back.Start + clamped;
+        TimeSpan newBackLength = back.Length - clamped;
+
+        // Bypass Scene.MoveChild's overlap handling: Roll intentionally keeps the
+        // two clips exactly adjacent (front.End == back.Start), which MoveCommand
+        // treats as overlap and refuses. Direct property setters still record.
+        front.Length = newFrontLength;
+        back.Start = newBackStart;
+        back.Length = newBackLength;
+
+        _historyManager.Commit(CommandNames.RollElements);
+        return true;
+    }
+
+    public bool Slide(Scene scene, Element front, Element middle, Element back, TimeSpan delta)
+    {
+        ArgumentNullException.ThrowIfNull(scene);
+        ArgumentNullException.ThrowIfNull(front);
+        ArgumentNullException.ThrowIfNull(middle);
+        ArgumentNullException.ThrowIfNull(back);
+        if (front == middle || middle == back || front == back) return false;
+        if (front.Range.End != middle.Start) return false;
+        if (middle.Range.End != back.Start) return false;
+
+        int rate = SceneTimeRangeService.GetFrameRate(scene);
+        TimeSpan minDuration = TimeSpan.FromSeconds(1d / rate);
+
+        // The middle clip's length is unaffected by Slide, so only front and back bound the delta.
+        TimeSpan clamped = ClampTrimDelta(delta, front.Length, back.Length, minDuration);
+        if (clamped == TimeSpan.Zero) return false;
+
+        // Invariant: front.Length + middle.Length + back.Length is unchanged.
+        TimeSpan newFrontLength = front.Length + clamped;
+        TimeSpan newMiddleStart = middle.Start + clamped;
+        TimeSpan newBackStart = back.Start + clamped;
+        TimeSpan newBackLength = back.Length - clamped;
+
+        front.Length = newFrontLength;
+        middle.Start = newMiddleStart;
+        back.Start = newBackStart;
+        back.Length = newBackLength;
+
+        _historyManager.Commit(CommandNames.SlideElements);
+        return true;
+    }
+
+    private static TimeSpan ClampTrimDelta(TimeSpan delta, TimeSpan frontLength, TimeSpan backLength, TimeSpan minDuration)
+    {
+        TimeSpan minDelta = minDuration - frontLength;
+        TimeSpan maxDelta = backLength - minDuration;
+        return Clamp(delta, minDelta, maxDelta);
+    }
+
+    private static TimeSpan Clamp(TimeSpan value, TimeSpan min, TimeSpan max)
+    {
+        if (value < min) return min;
+        if (value > max) return max;
+        return value;
+    }
 }

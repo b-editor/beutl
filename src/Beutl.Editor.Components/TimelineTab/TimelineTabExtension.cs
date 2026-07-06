@@ -121,6 +121,33 @@ public sealed class TimelineTabExtension : ToolTabExtension
         [
             new ContextCommandKeyGesture("B"),
         ]),
+        new ContextCommandDefinition("ToggleSlipMode", Strings.SlipTool, Strings.SlipTool_Description,
+        [
+            new ContextCommandKeyGesture("S"),
+        ]),
+        new ContextCommandDefinition("ExitSlipMode", Strings.ExitSlipTool, Strings.ExitSlipTool_Description,
+        [
+            new ContextCommandKeyGesture("V"),
+            new ContextCommandKeyGesture("Escape"),
+        ]),
+        new ContextCommandDefinition("ToggleRollMode", Strings.RollTool, Strings.RollTool_Description,
+        [
+            new ContextCommandKeyGesture("R"),
+        ]),
+        new ContextCommandDefinition("ExitRollMode", Strings.ExitRollTool, Strings.ExitRollTool_Description,
+        [
+            new ContextCommandKeyGesture("V"),
+            new ContextCommandKeyGesture("Escape"),
+        ]),
+        new ContextCommandDefinition("ToggleSlideMode", Strings.SlideTool, Strings.SlideTool_Description,
+        [
+            new ContextCommandKeyGesture("D"),
+        ]),
+        new ContextCommandDefinition("ExitSlideMode", Strings.ExitSlideTool, Strings.ExitSlideTool_Description,
+        [
+            new ContextCommandKeyGesture("V"),
+            new ContextCommandKeyGesture("Escape"),
+        ]),
         new ContextCommandDefinition("CloseGap", Strings.CloseGap, "",
         [
             new ContextCommandKeyGesture("OemSemicolon"),
