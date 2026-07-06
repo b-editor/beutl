@@ -1,4 +1,5 @@
 ﻿using Beutl.Configuration;
+using Beutl.Media.Proxy;
 
 namespace Beutl.UnitTests.Configuration;
 
@@ -53,5 +54,18 @@ public class ProxyStoreConfigTests
         config.StoreRootPath = string.Empty;
 
         Assert.That(config.StoreRootPath, Is.EqualTo(ProxyStoreConfig.DefaultStoreRootPath));
+    }
+
+    // ProxyStoreConfig.DefaultPreset is an int (Configuration cannot reference Engine, so it can't take a
+    // dependency on ProxyPreset directly). This guards the magic-number coupling: if the enum value of
+    // ProxyPreset.Quarter ever changes, this test fails and forces the int default to be updated in lockstep.
+    [Test]
+    public void DefaultPreset_MatchesProxyPresetQuarterEnum()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That((int)ProxyPreset.Quarter, Is.EqualTo(2), "ProxyPreset.Quarter must stay at 2 to match the int default.");
+            Assert.That(new ProxyStoreConfig().DefaultPreset, Is.EqualTo((int)ProxyPreset.Quarter));
+        });
     }
 }

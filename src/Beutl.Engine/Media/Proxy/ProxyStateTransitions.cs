@@ -1,5 +1,10 @@
 ﻿namespace Beutl.Media.Proxy;
 
+/// <summary>
+/// The proxy state machine is a closed set for MVP. Adding a state is an in-tree change (the
+/// <see cref="ProxyState"/> enum, this <see cref="IsLegal"/> switch, and the consumers of the state).
+/// Plugin-extensible states are out of MVP scope.
+/// </summary>
 public static class ProxyStateTransitions
 {
     public static bool IsLegal(ProxyState from, ProxyState to)
