@@ -492,6 +492,17 @@ public sealed class ProxyStore : IProxyStore
             yield return legacyEntry;
     }
 
+    // Intentionally holds _lock for the full read-merge-write. Moving the write outside _lock
+    // (to unblock TryGet/Touch/Enumerate during flush) breaks two invariants the single-lock span
+    // guarantees: (1) the disk read must happen under the cross-process index.lock so another
+    // instance cannot write between our read and our write; (2) the _entries clear+refill from the
+    // merged result is only safe with no concurrent in-process mutation — once _lock is released
+    // during the write, a concurrent Register/Delete can land between the refill and the write, and
+    // the refill re-adds a just-deleted key from disk while Phase 3's HashSet.Remove(key) clears a
+    // concurrent degraded flush's pending addition, losing that change. Fixing (2) needs a
+    // ref-counted pending structure plus an incremental _entries reconcile, which is high-risk for a
+    // LOW-severity finding and not deterministically testable. The Touch debounce (1 s) and
+    // DegradePersistence (pending replay on the next uncontended flush) mitigate the perf concern.
     private void FlushCore(
         IReadOnlySet<(ProxyFingerprint Source, ProxyPreset Preset)>? changedKeys = null,
         IReadOnlySet<(ProxyFingerprint Source, ProxyPreset Preset)>? removedKeys = null)

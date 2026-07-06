@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using System.Collections.Concurrent;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using Beutl.Media;
 using Beutl.Media.Proxy;
@@ -564,6 +565,146 @@ public sealed class ProxyStoreTests
             Assert.That(store.IsPersistenceDegraded, Is.False);
             Assert.That(reloaded.TryGet(entry.Source, entry.Preset), Is.EqualTo(entry));
         });
+    }
+
+    [Test]
+    public void ConcurrentMixedOperations_DoNotThrowOrLoseEntries()
+    {
+        string root = CreateRoot();
+        var store = new ProxyStore(root);
+
+        const int EntryCount = 40;
+        const int DistinctCount = 30;
+        var entries = new ProxyEntry[EntryCount];
+        for (int i = 0; i < EntryCount; i++)
+            entries[i] = CreateEntry(root, $"hash{i}/quarter.mp4");
+
+        var exceptions = new ConcurrentQueue<Exception>();
+        var distinctEntries = entries.Take(DistinctCount).ToArray();
+        var sharedEntries = entries.Skip(DistinctCount).ToArray();
+
+        Parallel.For(0, EntryCount, i =>
+        {
+            try
+            {
+                store.Register(entries[i]);
+            }
+            catch (Exception ex)
+            {
+                exceptions.Enqueue(ex);
+            }
+        });
+
+        Parallel.Invoke(
+            () =>
+            {
+                foreach (ProxyEntry entry in distinctEntries)
+                {
+                    for (int j = 0; j < 5; j++)
+                    {
+                        try
+                        {
+                            store.Touch(entry.Source, entry.Preset, DateTime.UtcNow);
+                        }
+                        catch (Exception ex)
+                        {
+                            exceptions.Enqueue(ex);
+                        }
+                    }
+                }
+            },
+            () =>
+            {
+                foreach (ProxyEntry entry in entries)
+                {
+                    for (int j = 0; j < 5; j++)
+                    {
+                        try
+                        {
+                            store.TryGet(entry.Source, entry.Preset);
+                        }
+                        catch (Exception ex)
+                        {
+                            exceptions.Enqueue(ex);
+                        }
+                    }
+                }
+            },
+            () =>
+            {
+                foreach (ProxyEntry entry in sharedEntries)
+                {
+                    for (int j = 0; j < 3; j++)
+                    {
+                        try
+                        {
+                            store.TryTransition(entry.Source, entry.Preset, ProxyState.Stale);
+                        }
+                        catch (Exception ex)
+                        {
+                            exceptions.Enqueue(ex);
+                        }
+                    }
+                }
+            },
+            () =>
+            {
+                foreach (ProxyEntry entry in sharedEntries.Take(5))
+                {
+                    try
+                    {
+                        store.Delete(entry.Source, entry.Preset);
+                        File.WriteAllBytes(Path.Combine(root, entry.ProxyFileRelative), [5, 6, 7]);
+                        store.Register(entry);
+                    }
+                    catch (Exception ex)
+                    {
+                        exceptions.Enqueue(ex);
+                    }
+                }
+            },
+            () =>
+            {
+                for (int j = 0; j < 10; j++)
+                {
+                    try
+                    {
+                        store.FlushAsync(CancellationToken.None).GetAwaiter().GetResult();
+                    }
+                    catch (Exception ex)
+                    {
+                        exceptions.Enqueue(ex);
+                    }
+                }
+            });
+
+        store.FlushAsync(CancellationToken.None).GetAwaiter().GetResult();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exceptions, Is.Empty, "no concurrent operation should throw");
+            foreach (ProxyEntry entry in distinctEntries)
+            {
+                Assert.That(
+                    store.TryGet(entry.Source, entry.Preset),
+                    Is.Not.Null,
+                    $"distinct entry for {entry.ProxyFileRelative} was lost");
+            }
+
+            Assert.That(
+                store.IsPersistenceDegraded,
+                Is.False,
+                "persistence should recover once the cross-process lock is uncontended");
+        });
+
+        var reloaded = new ProxyStore(root);
+        foreach (ProxyEntry entry in distinctEntries)
+        {
+            Assert.That(
+                reloaded.TryGet(entry.Source, entry.Preset),
+                Is.Not.Null,
+                $"distinct entry for {entry.ProxyFileRelative} was not persisted to disk");
+        }
     }
 
     private static string CreateRoot()
