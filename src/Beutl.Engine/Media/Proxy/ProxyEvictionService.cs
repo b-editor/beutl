@@ -1,8 +1,4 @@
-﻿using Beutl.Animation;
-using Beutl.Engine;
-using Beutl.IO;
-
-namespace Beutl.Media.Proxy;
+﻿namespace Beutl.Media.Proxy;
 
 public sealed class ProxyEvictionService
 {
@@ -221,67 +217,6 @@ public sealed class ProxyEvictionService
 
     private static string ResolveComparablePath(string path)
         => ProxyFingerprint.ResolveComparableKey(path);
-
-    /// <summary>
-    /// Collects the file-system paths of every <see cref="IFileSource"/> referenced anywhere in
-    /// <paramref name="root"/>, regardless of whether each file lives inside or outside the project
-    /// directory. This is the input the eviction service protects, so it must cover in-project media
-    /// too — otherwise a project whose media lives under its own folder gets no affinity protection.
-    /// </summary>
-    internal static IReadOnlySet<string> CollectProjectFileSources(IHierarchical root)
-    {
-        ArgumentNullException.ThrowIfNull(root);
-
-        var paths = new HashSet<string>(StringComparer.Ordinal);
-        foreach (CoreObject obj in root.EnumerateAllChildren<CoreObject>())
-            CollectFileSourcePaths(obj, paths);
-
-        if (root is CoreObject rootObj)
-            CollectFileSourcePaths(rootObj, paths);
-
-        return paths;
-    }
-
-    private static void CollectFileSourcePaths(CoreObject obj, HashSet<string> paths)
-    {
-        if (obj is EngineObject engineObj)
-        {
-            foreach (IProperty property in engineObj.Properties)
-            {
-                if (property.CurrentValue is IFileSource fileSource)
-                    AddFileSourcePath(fileSource.Uri, paths);
-
-                // Rendering (and the proxy scanner) consume animated file-source values too, so media
-                // referenced only from keyframes must be protected — otherwise its in-project proxy is
-                // treated as unprotected and can be evicted before unrelated closed-project proxies.
-                if (property.Animation is KeyFrameAnimation keyFrameAnimation)
-                {
-                    foreach (IKeyFrame keyFrame in keyFrameAnimation.KeyFrames)
-                    {
-                        if (keyFrame.Value is IFileSource keyFrameSource)
-                            AddFileSourcePath(keyFrameSource.Uri, paths);
-                    }
-                }
-            }
-        }
-
-        AddFileSourcePath(obj.Uri, paths);
-
-        foreach (CoreProperty prop in PropertyRegistry.GetRegistered(obj.GetType()))
-        {
-            if (prop.PropertyType.IsValueType)
-                continue;
-
-            if (obj.GetValue(prop) is IFileSource fileSource)
-                AddFileSourcePath(fileSource.Uri, paths);
-        }
-    }
-
-    private static void AddFileSourcePath(Uri? uri, HashSet<string> paths)
-    {
-        if (uri is { IsFile: true })
-            paths.Add(uri.LocalPath);
-    }
 
     private long? GetAvailableFreeSpace(string storeRootPath)
     {

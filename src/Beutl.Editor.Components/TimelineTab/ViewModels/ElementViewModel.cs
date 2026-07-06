@@ -10,8 +10,8 @@ using Avalonia.Media.Imaging;
 using Avalonia.Media.Immutable;
 using Beutl.Animation;
 using Beutl.Controls;
+using Beutl.Editor;
 using Beutl.Editor.Components.Helpers;
-using Beutl.Editor.Components.ProxiesTab;
 using Beutl.Editor.Components.TimelineTab.Services;
 using Beutl.Editor.Services;
 using Beutl.Engine;
@@ -201,7 +201,9 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         {
             EventHandler<ProxyStoreChangedEventArgs> storeHandler = (_, e) =>
             {
-                OnProxyStateInvalidated();
+                if (AffectsProxyBadge(e.Kind))
+                    OnProxyStateInvalidated(e);
+
                 OnProxyStoreChangedForThumbnails(e);
             };
             _proxyStore.Changed += storeHandler;
@@ -979,6 +981,23 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         RefreshProxyState();
     }
 
+    private void OnProxyStateInvalidated(ProxyStoreChangedEventArgs e)
+    {
+        if (!Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => OnProxyStateInvalidated(e));
+            return;
+        }
+
+        // ElementUsesChangedSource reads Model (UI-thread state), so the relevance gate runs here
+        // inside the marshaled callback — a store event for an unrelated source skips the per-clip
+        // store.Enumerate() + queue.Pending() walk in RefreshProxyState.
+        if (!ElementUsesChangedSource(Model, e.Source.AbsolutePath))
+            return;
+
+        RefreshProxyState();
+    }
+
     private void OnProxyStoreChangedForThumbnails(ProxyStoreChangedEventArgs e)
     {
         // Filmstrip thumbnails are cached without proxy availability in the key, so a proxy
@@ -996,7 +1015,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             return;
         }
 
-        if (!ElementUsesChangedSource(e.Source.AbsolutePath))
+        if (!ElementUsesChangedSource(Model, e.Source.AbsolutePath))
         {
             return;
         }
@@ -1007,12 +1026,12 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         UpdateThumbnailsAsync();
     }
 
-    private bool ElementUsesChangedSource(string changedSourceKey)
+    internal static bool ElementUsesChangedSource(Element element, string changedSourceKey)
     {
         // Match against every proxy-aware source (not just the first), so a store event for a source
         // reached only through an animated value / graph input / referenced scene still invalidates
         // the filmstrip. Resolve via FromFile so a symlinked source matches its own event key.
-        foreach (VideoSource source in ProxySourceEnumerator.EnumerateVideoSources(Model))
+        foreach (VideoSource source in ProxySourceEnumerator.EnumerateVideoSources(element))
         {
             if (source is { HasUri: true }
                 && source.Uri is { IsFile: true } uri
@@ -1096,6 +1115,13 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     // Progressed is a fractional update; it does not change the badge's queued/running/ready/failed state.
     internal static bool AffectsProxyIndicator(ProxyJobChangeKind kind) => kind != ProxyJobChangeKind.Progressed;
+
+    // Touched is an LRU bump on reader-open, not a state change; excluding it avoids a badge re-walk
+    // per clip per reader-open during bulk generate.
+    internal static bool AffectsProxyBadge(ProxyStoreChangeKind kind)
+        => kind is ProxyStoreChangeKind.Registered
+            or ProxyStoreChangeKind.StateChanged
+            or ProxyStoreChangeKind.Deleted;
 
     private static int ProxyStateRank(ProxyState state) => state switch
     {

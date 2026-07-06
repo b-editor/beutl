@@ -7,7 +7,6 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl.Configuration;
 using Beutl.Editor;
-using Beutl.Editor.Components.ProxiesTab;
 using Beutl.Editor.Observers;
 using Beutl.Editor.Operations;
 using Beutl.Graphics.Rendering.Cache;

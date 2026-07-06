@@ -1,4 +1,5 @@
-﻿using Beutl.Engine;
+﻿using Beutl.Editor;
+using Beutl.Engine;
 using Beutl.IO;
 using Beutl.Media;
 using Beutl.Media.Proxy;
@@ -97,7 +98,7 @@ public class ProxyEvictionTests
         // Drive the real collection path CollectOpenProjectSources uses.
         var graph = new TestHierarchical();
         graph.AddChild(new TestEngineObjectWithFileSource(new TestFileSource(new Uri(inProjectSource))));
-        IReadOnlySet<string> collected = ProxyEvictionService.CollectProjectFileSources(graph);
+        IReadOnlySet<string> collected = ProxySourceEnumerator.EnumerateFileSources(graph);
 
         var service = new ProxyEvictionService(
             store,
@@ -117,7 +118,7 @@ public class ProxyEvictionTests
     }
 
     [Test]
-    public void CollectProjectFileSources_IncludesAnimatedKeyframeSources()
+    public void EnumerateFileSources_IncludesAnimatedKeyframeSources()
     {
         string animatedPath = Path.Combine(TestContext.CurrentContext.WorkDirectory, "animated-source.mov");
         var keyframeSource = new Beutl.Media.Source.VideoSource();
@@ -134,7 +135,7 @@ public class ProxyEvictionTests
         var graph = new TestHierarchical();
         graph.AddChild(drawable);
 
-        IReadOnlySet<string> collected = ProxyEvictionService.CollectProjectFileSources(graph);
+        IReadOnlySet<string> collected = ProxySourceEnumerator.EnumerateFileSources(graph);
 
         Assert.That(collected, Does.Contain(new Uri(animatedPath).LocalPath));
     }

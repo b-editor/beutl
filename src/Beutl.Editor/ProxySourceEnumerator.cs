@@ -3,25 +3,105 @@ using Beutl.Engine;
 using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
+using Beutl.IO;
 using Beutl.Media.Source;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
 using Beutl.NodeGraph.Nodes.Group;
 using Beutl.ProjectSystem;
 
-namespace Beutl.Editor.Components.ProxiesTab;
+namespace Beutl.Editor;
 
-// Single source of truth for "which VideoSource values does an element (transitively) use?". Proxy
-// resolution reaches SourceVideo drawables, VideoSourceNode graph inputs, and referenced scenes, and
-// each holder can carry animated (keyframed) values as well as its current value. The walk mirrors
-// the render path, so it descends into DrawableGroup children and node-graph GroupNode subgraphs too.
-// Any caller that decides proxy usage (project summary, frame-cache invalidation) must cover all of them.
+// Single source of truth for "which media does this reference?". Proxy resolution reaches
+// SourceVideo drawables, VideoSourceNode graph inputs, and referenced scenes, and each holder
+// can carry animated (keyframed) values as well as its current value. The walk mirrors the render
+// path, so it descends into DrawableGroup children and node-graph GroupNode subgraphs too.
+// Any caller that decides proxy usage (project summary, frame-cache invalidation, eviction
+// protection) must cover all of them.
 public static class ProxySourceEnumerator
 {
     public static IEnumerable<VideoSource> EnumerateVideoSources(Element element, HashSet<Scene>? visitedScenes = null)
     {
         ArgumentNullException.ThrowIfNull(element);
         return Enumerate(element, visitedScenes ?? new HashSet<Scene>(ReferenceEqualityComparer.Instance));
+    }
+
+    /// <summary>
+    /// Collects the file-system paths of every <see cref="IFileSource"/> referenced anywhere in
+    /// <paramref name="root"/>, regardless of whether each file lives inside or outside the project
+    /// directory, AND every <see cref="VideoSource"/> held in a node-graph adapter the broad
+    /// <see cref="IFileSource"/> walk cannot reach. This is the single walk that subsumes the old
+    /// Engine-only <c>CollectProjectFileSources</c> + the UI video-only enumerator union: in-project
+    /// media must be covered too (otherwise a project whose media lives under its own folder gets
+    /// no affinity protection), and graph-only clips must be covered (their <see cref="VideoSource"/>
+    /// lives in a <see cref="NodeGraph"/> port, not a plain <see cref="IProperty{T}"/> on an
+    /// <see cref="EngineObject"/>). Paths are deduped with <see cref="StringComparer.Ordinal"/>.
+    /// </summary>
+    public static IReadOnlySet<string> EnumerateFileSources(IHierarchical root)
+    {
+        ArgumentNullException.ThrowIfNull(root);
+
+        var paths = new HashSet<string>(StringComparer.Ordinal);
+        foreach (CoreObject obj in root.EnumerateAllChildren<CoreObject>())
+            CollectFileSourcePaths(obj, paths);
+
+        if (root is CoreObject rootObj)
+            CollectFileSourcePaths(rootObj, paths);
+
+        // The broad IFileSource walk above cannot see VideoSource values held in NodeGraph adapters
+        // (a VideoSourceNode port is an IPropertyAdapter, not a plain IProperty on EngineObject.Properties),
+        // so run the video walk for each Element and fold in its URIs. Dedup is automatic.
+        foreach (Element element in root.EnumerateAllChildren<Element>())
+        {
+            foreach (VideoSource source in EnumerateVideoSources(element))
+            {
+                if (source is { HasUri: true } && source.Uri is { IsFile: true } uri)
+                    paths.Add(uri.LocalPath);
+            }
+        }
+
+        return paths;
+    }
+
+    private static void CollectFileSourcePaths(CoreObject obj, HashSet<string> paths)
+    {
+        if (obj is EngineObject engineObj)
+        {
+            foreach (IProperty property in engineObj.Properties)
+            {
+                if (property.CurrentValue is IFileSource fileSource)
+                    AddFileSourcePath(fileSource.Uri, paths);
+
+                // Rendering (and the proxy scanner) consume animated file-source values too, so media
+                // referenced only from keyframes must be protected — otherwise its in-project proxy is
+                // treated as unprotected and can be evicted before unrelated closed-project proxies.
+                if (property.Animation is KeyFrameAnimation keyFrameAnimation)
+                {
+                    foreach (IKeyFrame keyFrame in keyFrameAnimation.KeyFrames)
+                    {
+                        if (keyFrame.Value is IFileSource keyFrameSource)
+                            AddFileSourcePath(keyFrameSource.Uri, paths);
+                    }
+                }
+            }
+        }
+
+        AddFileSourcePath(obj.Uri, paths);
+
+        foreach (CoreProperty prop in PropertyRegistry.GetRegistered(obj.GetType()))
+        {
+            if (prop.PropertyType.IsValueType)
+                continue;
+
+            if (obj.GetValue(prop) is IFileSource fileSource)
+                AddFileSourcePath(fileSource.Uri, paths);
+        }
+    }
+
+    private static void AddFileSourcePath(Uri? uri, HashSet<string> paths)
+    {
+        if (uri is { IsFile: true })
+            paths.Add(uri.LocalPath);
     }
 
     private static IEnumerable<VideoSource> Enumerate(Element element, HashSet<Scene> visitedScenes)

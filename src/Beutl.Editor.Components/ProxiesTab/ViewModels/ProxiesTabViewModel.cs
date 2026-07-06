@@ -4,7 +4,7 @@ using System.Reactive.Disposables;
 using Avalonia.Threading;
 using Beutl.Animation;
 using Beutl.Configuration;
-using Beutl.Editor.Components.ProxiesTab;
+using Beutl.Editor;
 using Beutl.Engine;
 using Beutl.Extensibility;
 using Beutl.Graphics;

@@ -1,6 +1,9 @@
 ﻿using Beutl.Editor.Components.TimelineTab.ViewModels;
+using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Media.Proxy;
+using Beutl.Media.Source;
+using Beutl.ProjectSystem;
 
 namespace Beutl.UnitTests.Editor;
 
@@ -237,6 +240,60 @@ public sealed class ElementViewModelProxyStateTests
     [TestCase(ProxyJobChangeKind.Progressed, ExpectedResult = false)]
     public bool AffectsProxyIndicator_ProgressedIsSkippedOthersTrigger(ProxyJobChangeKind kind)
         => ElementViewModel.AffectsProxyIndicator(kind);
+
+    // C1: the badge refresh must skip Touched (an LRU bump on reader-open that does not change
+    // state), otherwise every clip's badge re-walks the store on every reader-open during bulk
+    // generate. Registered/StateChanged/Deleted are the state-changing kinds that warrant a refresh.
+    [Test]
+    [TestCase(ProxyStoreChangeKind.Registered, ExpectedResult = true)]
+    [TestCase(ProxyStoreChangeKind.StateChanged, ExpectedResult = true)]
+    [TestCase(ProxyStoreChangeKind.Deleted, ExpectedResult = true)]
+    [TestCase(ProxyStoreChangeKind.Touched, ExpectedResult = false)]
+    public bool AffectsProxyBadge_TouchedExcludedOthersIncluded(ProxyStoreChangeKind kind)
+        => ElementViewModel.AffectsProxyBadge(kind);
+
+    // C1: a Registered event for the element's own source refreshes the badge (kind gate passes,
+    // relevance gate passes).
+    [Test]
+    public void ElementUsesChangedSource_ForElementSource_ReturnsTrue()
+    {
+        Element element = ElementWithVideoSource("badge-clip.mov", out string absolutePath);
+        string changedKey = ProxyFingerprint.FromFile(absolutePath).AbsolutePath;
+
+        Assert.That(ElementViewModel.ElementUsesChangedSource(element, changedKey), Is.True);
+    }
+
+    // C1: a Registered event for a different source does NOT refresh this element's badge
+    // (kind gate passes, relevance gate fails).
+    [Test]
+    public void ElementUsesChangedSource_ForUnrelatedSource_ReturnsFalse()
+    {
+        Element element = ElementWithVideoSource("badge-clip.mov", out _);
+        string otherPath = Path.Combine(TestContext.CurrentContext.WorkDirectory, "other-clip.mov");
+        File.WriteAllBytes(otherPath, [1]);
+        string unrelatedKey = ProxyFingerprint.FromFile(otherPath).AbsolutePath;
+
+        Assert.That(ElementViewModel.ElementUsesChangedSource(element, unrelatedKey), Is.False);
+    }
+
+    private static Element ElementWithVideoSource(string fileName, out string absolutePath)
+    {
+        absolutePath = Path.Combine(TestContext.CurrentContext.WorkDirectory, fileName);
+        File.WriteAllBytes(absolutePath, [1]);
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(absolutePath));
+        var drawable = new SourceVideo();
+        drawable.Source.CurrentValue = source;
+        var element = new Element
+        {
+            Start = TimeSpan.Zero,
+            Length = TimeSpan.FromSeconds(1),
+            IsEnabled = true,
+            Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.layer")),
+        };
+        element.AddObject(drawable);
+        return element;
+    }
 
     private sealed class FakeProxyStore(params ProxyEntry[] entries) : IProxyStore
     {

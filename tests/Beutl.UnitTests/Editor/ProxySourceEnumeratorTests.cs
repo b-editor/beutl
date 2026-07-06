@@ -1,5 +1,6 @@
 ﻿using Beutl.Animation;
-using Beutl.Editor.Components.ProxiesTab;
+using Beutl.Audio;
+using Beutl.Editor;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
@@ -99,6 +100,92 @@ public class ProxySourceEnumeratorTests
         Assert.That(FileNames(element), Does.Contain("group-node.mov"));
     }
 
+    // The video walk must cover all three proxy-aware holders in a single element: a top-level
+    // SourceVideo, a VideoSourceNode inside a NodeGraphDrawable, and a SourceVideo inside a
+    // referenced scene (with the cycle guard letting the referenced scene's own sources resolve).
+    [Test]
+    public void EnumerateVideoSources_CoversSourceVideo_AndNodeGraph_AndReferencedScene()
+    {
+        var video = new SourceVideo();
+        video.Source.CurrentValue = CreateVideoSource("direct.mov");
+
+        var graphNode = new VideoSourceNode();
+        graphNode.Source.Property!.SetValue(CreateVideoSource("graph.mov"));
+        var graphDrawable = new NodeGraphDrawable();
+        graphDrawable.Model.CurrentValue!.Nodes.Add(graphNode);
+
+        Scene referenced = CreateScene("referenced.scene");
+        var nestedVideo = new SourceVideo();
+        nestedVideo.Source.CurrentValue = CreateVideoSource("nested.mov");
+        referenced.Children.Add(ElementWith(nestedVideo));
+
+        var sceneDrawable = new SceneDrawable();
+        sceneDrawable.ReferencedScene.CurrentValue = referenced;
+
+        Element element = ElementWith(video, graphDrawable, sceneDrawable);
+
+        Assert.That(
+            FileNames(element),
+            Is.EquivalentTo(new[] { "direct.mov", "graph.mov", "nested.mov" }));
+    }
+
+    // The single file-source walk subsumes the old Engine broad IFileSource walk + the UI video-only
+    // union: a Scene with an Element holding SourceVideo (video), SourceSound (audio), SourceImage
+    // (image), and a NodeGraph-held VideoSource must yield all four deduped paths. Audio and image
+    // surface as plain IProperty<IFileSource?> on EngineObjects (broad walk); the graph-held video
+    // only resolves through EnumerateVideoSources (video walk).
+    [Test]
+    public void EnumerateFileSources_CoversAllIFileSourceProperties_AndNodeGraphVideo()
+    {
+        var video = new SourceVideo();
+        video.Source.CurrentValue = CreateVideoSource("video.mov");
+
+        var sound = new SourceSound();
+        sound.Source.CurrentValue = CreateSoundSource("audio.mp3");
+
+        var image = new SourceImage();
+        image.Source.CurrentValue = CreateImageSource("image.png");
+
+        var graphNode = new VideoSourceNode();
+        graphNode.Source.Property!.SetValue(CreateVideoSource("graph.mov"));
+        var graphDrawable = new NodeGraphDrawable();
+        graphDrawable.Model.CurrentValue!.Nodes.Add(graphNode);
+
+        // Scene.Children_CollectionChanged dereferences Scene.Uri and Element.Uri, so both must be set.
+        Scene scene = CreateScene("covers.scene");
+        scene.Children.Add(ElementWith(video, sound, image, graphDrawable));
+
+        IReadOnlySet<string> collected = ProxySourceEnumerator.EnumerateFileSources(scene);
+
+        Assert.That(
+            collected.Select(Path.GetFileName),
+            Is.SupersetOf(new[] { "video.mov", "audio.mp3", "image.png", "graph.mov" }));
+    }
+
+    // An IFileSource property with a keyframe animation referencing a different file must include
+    // the animated file, so a proxy for media referenced only from a keyframe is protected.
+    [Test]
+    public void EnumerateFileSources_IncludesAnimatedKeyframeSources()
+    {
+        var drawable = new SourceVideo();
+        drawable.Source.CurrentValue = CreateVideoSource("current.mov");
+        var animation = new KeyFrameAnimation<VideoSource?>();
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?>
+        {
+            KeyTime = TimeSpan.FromSeconds(1),
+            Value = CreateVideoSource("animated.mov"),
+        });
+        drawable.Source.Animation = animation;
+        Scene scene = CreateScene("animated.scene");
+        scene.Children.Add(ElementWith(drawable));
+
+        IReadOnlySet<string> collected = ProxySourceEnumerator.EnumerateFileSources(scene);
+
+        Assert.That(
+            collected.Select(Path.GetFileName),
+            Is.SupersetOf(new[] { "current.mov", "animated.mov" }));
+    }
+
     private static IEnumerable<string> FileNames(Element element)
         => ProxySourceEnumerator.EnumerateVideoSources(element).Select(FileName);
 
@@ -107,6 +194,20 @@ public class ProxySourceEnumeratorTests
     private static VideoSource CreateVideoSource(string fileName)
     {
         var source = new VideoSource();
+        source.ReadFrom(new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, fileName)));
+        return source;
+    }
+
+    private static SoundSource CreateSoundSource(string fileName)
+    {
+        var source = new SoundSource();
+        source.ReadFrom(new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, fileName)));
+        return source;
+    }
+
+    private static ImageSource CreateImageSource(string fileName)
+    {
+        var source = new ImageSource();
         source.ReadFrom(new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, fileName)));
         return source;
     }

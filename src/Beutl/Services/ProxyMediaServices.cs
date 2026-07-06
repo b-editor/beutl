@@ -1,11 +1,10 @@
 ﻿using Avalonia.Threading;
 
 using Beutl.Configuration;
-using Beutl.Editor.Components.ProxiesTab;
+using Beutl.Editor;
 using Beutl.Logging;
 using Beutl.Media.Decoding;
 using Beutl.Media.Proxy;
-using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.Logging;
 
@@ -234,27 +233,7 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
             if (BeutlApplication.Current.Project is not { } project)
                 return s_noOpenProjectSources;
 
-            // Every IFileSource the project references, in- or out-of-project. Affinity must
-            // cover media stored under the project folder too; ExternalResourceCollector would
-            // filter those out, leaving in-project workflows on plain LRU.
-            var sources = new HashSet<string>(
-                ProxyEvictionService.CollectProjectFileSources(project),
-                StringComparer.Ordinal);
-
-            // CollectProjectFileSources (in Beutl.Engine) can only see EngineObject/CoreProperty
-            // file sources; video bound to a VideoSourceNode port lives in a NodeGraph adapter it
-            // cannot reach. Add those via the shared enumerator so a graph-only in-project clip's
-            // proxy is protected too.
-            foreach (Element element in project.EnumerateAllChildren<Element>())
-            {
-                foreach (VideoSource source in ProxySourceEnumerator.EnumerateVideoSources(element))
-                {
-                    if (source is { HasUri: true } && source.Uri is { IsFile: true } uri)
-                        sources.Add(uri.LocalPath);
-                }
-            }
-
-            return sources;
+            return ProxySourceEnumerator.EnumerateFileSources(project);
         }
         catch
         {
