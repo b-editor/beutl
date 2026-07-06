@@ -67,4 +67,45 @@ public sealed class LayerAttributeService : ILayerAttributeService
         _historyManager.Commit(CommandNames.ChangeLayerColor);
         return true;
     }
+
+    public bool SetLocked(Scene scene, int zIndex, bool isLocked)
+        => SetLayerFlag(scene, zIndex, isLocked, l => l.IsLocked, (l, v) => l.IsLocked = v, CommandNames.ChangeLayerLocked);
+
+    public bool SetAudioMuted(Scene scene, int zIndex, bool isMuted)
+        => SetLayerFlag(scene, zIndex, isMuted, l => l.IsAudioMuted, (l, v) => l.IsAudioMuted = v, CommandNames.ChangeLayerAudioMuted);
+
+    public bool SetVideoMuted(Scene scene, int zIndex, bool isMuted)
+        => SetLayerFlag(scene, zIndex, isMuted, l => l.IsVideoMuted, (l, v) => l.IsVideoMuted = v, CommandNames.ChangeLayerVideoMuted);
+
+    public bool SetSolo(Scene scene, int zIndex, bool isSolo)
+        => SetLayerFlag(scene, zIndex, isSolo, l => l.IsSolo, (l, v) => l.IsSolo = v, CommandNames.ChangeLayerSolo);
+
+    private bool SetLayerFlag(
+        Scene scene, int zIndex, bool newValue,
+        Func<TimelineLayer, bool> getter,
+        Action<TimelineLayer, bool> setter,
+        string commandName)
+    {
+        ArgumentNullException.ThrowIfNull(scene);
+        ArgumentNullException.ThrowIfNull(commandName);
+
+        TimelineLayer layer = GetOrCreateLayer(scene, zIndex);
+        if (getter(layer) == newValue) return false;
+
+        setter(layer, newValue);
+        _historyManager.Commit(commandName);
+        return true;
+    }
+
+    private static TimelineLayer GetOrCreateLayer(Scene scene, int zIndex)
+    {
+        foreach (TimelineLayer layer in scene.Layers)
+        {
+            if (layer.ZIndex == zIndex) return layer;
+        }
+
+        var created = new TimelineLayer { ZIndex = zIndex };
+        scene.Layers.Add(created);
+        return created;
+    }
 }

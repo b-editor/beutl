@@ -30,4 +30,13 @@ public sealed class ElementAttributeService : IElementAttributeService
         element.AccentColor = color;
         _historyManager.Commit(CommandNames.ChangeElementColor);
     }
+
+    public void SetLocked(Element element, bool isLocked)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        if (element.IsLocked == isLocked) return;
+
+        element.IsLocked = isLocked;
+        _historyManager.Commit(CommandNames.ChangeElementLocked);
+    }
 }

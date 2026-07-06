@@ -118,10 +118,26 @@ public sealed partial class ElementView : UserControl
     {
         if (DataContext is not ElementViewModel viewModel) return;
 
-        change2OriginalDuration.IsEnabled = viewModel.HasOriginalDuration();
-        splitByCurrent.IsEnabled = viewModel.Model.Range.Contains(viewModel.Timeline.EditorContext.GetRequiredService<IEditorClock>().CurrentTime.Value);
-        groupSelectedElements.IsEnabled = viewModel.CanGroupSelectedElements();
-        ungroupSelectedElements.IsEnabled = viewModel.CanUngroupSelectedElements();
+        bool editable = viewModel.IsEditable.Value;
+        change2OriginalDuration.IsEnabled = editable && viewModel.HasOriginalDuration();
+        splitByCurrent.IsEnabled = editable && viewModel.Model.Range.Contains(viewModel.Timeline.EditorContext.GetRequiredService<IEditorClock>().CurrentTime.Value);
+        groupSelectedElements.IsEnabled = editable && viewModel.CanGroupSelectedElements();
+        ungroupSelectedElements.IsEnabled = editable && viewModel.CanUngroupSelectedElements();
+        split.IsEnabled = editable;
+        cut.IsEnabled = editable;
+        delete.IsEnabled = editable;
+        exclude.IsEnabled = editable;
+        finishEditingAnimation.IsEnabled = editable;
+        lockElement.IsEnabled = true;
+        lockElement.IsChecked = viewModel.IsLocked.Value;
+    }
+
+    private void LockElement_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not ElementViewModel viewModel) return;
+        Element model = viewModel.Model;
+        viewModel.Timeline.EditorContext.GetRequiredService<IElementAttributeService>()
+            .SetLocked(model, !model.IsLocked);
     }
 
     private void OnDataContextDetached(ElementViewModel obj)
@@ -446,6 +462,11 @@ public sealed partial class ElementView : UserControl
                     return;
                 }
 
+                if (!viewModel.IsEditable.Value)
+                {
+                    return;
+                }
+
                 PointerPoint point = e.GetCurrentPoint(view.border);
                 if (point.Properties.IsLeftButtonPressed && e.KeyModifiers is KeyModifiers.None or KeyModifiers.Alt
                                                          && view.Cursor != Cursors.Arrow && view.Cursor is not null)
@@ -563,6 +584,13 @@ public sealed partial class ElementView : UserControl
                 if (viewModel.Timeline.IsRazorMode.Value)
                 {
                     view.Cursor = Cursors.Cross;
+                    _resizeType = AlignmentX.Center;
+                    return;
+                }
+
+                if (!viewModel.IsEditable.Value)
+                {
+                    view.Cursor = null;
                     _resizeType = AlignmentX.Center;
                     return;
                 }
@@ -697,13 +725,20 @@ public sealed partial class ElementView : UserControl
                     return;
                 }
 
+                if (!viewModel.IsEditable.Value)
+                {
+                    return;
+                }
+
                 PointerPoint point = e.GetCurrentPoint(view.border);
                 if (point.Properties.IsLeftButtonPressed
                     && (view.Cursor == Cursors.Arrow || view.Cursor == null))
                 {
                     _pressed = true;
                     _duplicateMode = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
-                    _relatedElements = viewModel.GetGroupOrSelectedElements();
+                    _relatedElements = viewModel.GetGroupOrSelectedElements()
+                        .Where(el => el.IsEditable.Value)
+                        .ToArray();
                     // Defensive: clear any ghosts orphaned by a prior Released early-return.
                     RemoveGhosts(timeline);
                     _start = point.Position;
@@ -921,7 +956,7 @@ public sealed partial class ElementView : UserControl
             {
                 if (timelineVm.IsRazorMode.Value && e.GetCurrentPoint(obj.border).Properties.IsLeftButtonPressed)
                 {
-                    if (obj.ViewModel is { } elementVm)
+                    if (obj.ViewModel is { } elementVm && elementVm.IsEditable.Value)
                     {
                         PointerPoint pt = e.GetCurrentPoint(obj.border);
                         float scale = timelineVm.Options.Value.Scale;
@@ -938,10 +973,13 @@ public sealed partial class ElementView : UserControl
                 {
                     if (e.ClickCount == 2)
                     {
-                        obj.textBlock.IsVisible = false;
-                        obj.textBox.IsVisible = true;
-                        obj.textBox.SelectAll();
-                        obj.textBox.Focus();
+                        if (obj.ViewModel is { IsEditable.Value: true })
+                        {
+                            obj.textBlock.IsVisible = false;
+                            obj.textBox.IsVisible = true;
+                            obj.textBox.SelectAll();
+                            obj.textBox.Focus();
+                        }
                     }
                     else
                     {

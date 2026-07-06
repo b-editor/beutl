@@ -37,6 +37,23 @@ public sealed class LayerHeaderViewModel : IDisposable
             .Select(c => c.ToAvaColor())
             .ToReactiveProperty(Colors.Transparent);
 
+        IsLocked = _model.Select(i =>
+                i?.GetObservable(TimelineLayer.IsLockedProperty) ?? Observable.ReturnThenNever(false))
+            .Switch()
+            .ToReactiveProperty(false);
+        IsAudioMuted = _model.Select(i =>
+                i?.GetObservable(TimelineLayer.IsAudioMutedProperty) ?? Observable.ReturnThenNever(false))
+            .Switch()
+            .ToReactiveProperty(false);
+        IsVideoMuted = _model.Select(i =>
+                i?.GetObservable(TimelineLayer.IsVideoMutedProperty) ?? Observable.ReturnThenNever(false))
+            .Switch()
+            .ToReactiveProperty(false);
+        IsSolo = _model.Select(i =>
+                i?.GetObservable(TimelineLayer.IsSoloProperty) ?? Observable.ReturnThenNever(false))
+            .Switch()
+            .ToReactiveProperty(false);
+
         HasItems = ItemsCount.Select(i => i > 0)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
@@ -57,6 +74,15 @@ public sealed class LayerHeaderViewModel : IDisposable
                     _skipSubscription = false;
                 }
             });
+
+        ToggleLockCommand = new ReactiveCommand()
+            .WithSubscribe(() => ToggleLayerFlag(IsLocked, (s, scene, n, v) => s.SetLocked(scene, n, v)));
+        ToggleAudioMuteCommand = new ReactiveCommand()
+            .WithSubscribe(() => ToggleLayerFlag(IsAudioMuted, (s, scene, n, v) => s.SetAudioMuted(scene, n, v)));
+        ToggleVideoMuteCommand = new ReactiveCommand()
+            .WithSubscribe(() => ToggleLayerFlag(IsVideoMuted, (s, scene, n, v) => s.SetVideoMuted(scene, n, v)));
+        ToggleSoloCommand = new ReactiveCommand()
+            .WithSubscribe(() => ToggleLayerFlag(IsSolo, (s, scene, n, v) => s.SetSolo(scene, n, v)));
 
         Height.Subscribe(_ => Timeline.RaiseLayerHeightChanged(this)).DisposeWith(_disposables);
 
@@ -132,6 +158,14 @@ public sealed class LayerHeaderViewModel : IDisposable
 
     public ReactiveProperty<bool> IsEnabled { get; } = new(true);
 
+    public ReactiveProperty<bool> IsLocked { get; }
+
+    public ReactiveProperty<bool> IsAudioMuted { get; }
+
+    public ReactiveProperty<bool> IsVideoMuted { get; }
+
+    public ReactiveProperty<bool> IsSolo { get; }
+
     public ReactiveProperty<int> ItemsCount { get; } = new();
 
     public ReadOnlyReactivePropertySlim<bool> HasItems { get; }
@@ -141,6 +175,14 @@ public sealed class LayerHeaderViewModel : IDisposable
     public CoreList<InlineAnimationLayerViewModel> Inlines { get; } = new() { ResetBehavior = ResetBehavior.Remove };
 
     public ReactiveCommand SwitchEnabledCommand { get; }
+
+    public ReactiveCommand ToggleLockCommand { get; }
+
+    public ReactiveCommand ToggleAudioMuteCommand { get; }
+
+    public ReactiveCommand ToggleVideoMuteCommand { get; }
+
+    public ReactiveCommand ToggleSoloCommand { get; }
 
     public void UpdateZIndex(int layerNum)
     {
@@ -221,6 +263,21 @@ public sealed class LayerHeaderViewModel : IDisposable
         // Re-sync the local TimelineLayer from the scene so Name/Color bindings track
         // the model the service just created or updated.
         _model.Value = Timeline.Scene.Layers.FirstOrDefault(l => l.ZIndex == Number.Value);
+    }
+
+    private void ToggleLayerFlag(ReactiveProperty<bool> flag, Action<ILayerAttributeService, Scene, int, bool> apply)
+    {
+        bool target = !flag.Value;
+        flag.Value = target;
+        ILayerAttributeService service = Timeline.EditorContext.GetRequiredService<ILayerAttributeService>();
+        apply(service, Timeline.Scene, Number.Value, target);
+
+        // The service may have materialized a TimelineLayer on demand; re-sync so
+        // the flag's source observable tracks the now-existing model.
+        if (_model.Value is null)
+        {
+            _model.Value = Timeline.Scene.Layers.FirstOrDefault(l => l.ZIndex == Number.Value);
+        }
     }
 
     private TimelineLayer GetOrCreateModel()

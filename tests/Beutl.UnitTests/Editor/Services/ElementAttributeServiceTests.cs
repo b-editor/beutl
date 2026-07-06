@@ -91,4 +91,36 @@ public class ElementAttributeServiceTests
 
         Assert.That(_history.UndoCount, Is.EqualTo(before));
     }
+
+    [Test]
+    public void SetLocked_TogglesAndCommitsOnce()
+    {
+        Element element = AddElement();
+        int before = _history.UndoCount;
+
+        _service.SetLocked(element, true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(element.IsLocked, Is.True);
+            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
+        });
+    }
+
+    [Test]
+    public void SetLocked_NoChange_NoCommit()
+    {
+        Element element = AddElement();
+        int before = _history.UndoCount;
+
+        _service.SetLocked(element, element.IsLocked);
+
+        Assert.That(_history.UndoCount, Is.EqualTo(before));
+    }
+
+    [Test]
+    public void SetLocked_NullElement_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => _service.SetLocked(null!, true));
+    }
 }

@@ -56,6 +56,10 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
+        IsLocked = element.GetObservable(Element.IsLockedProperty)
+            .ToReadOnlyReactivePropertySlim()
+            .AddTo(_disposables);
+
         Name = element.GetObservable(CoreObject.NameProperty)
             .ToReactiveProperty()
             .AddTo(_disposables)!;
@@ -137,6 +141,16 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
                 newLH?.ElementAdded(this);
                 LayerHeader.Value = newLH;
             })
+            .AddTo(_disposables);
+
+        // Editable unless the element or its TimelineLayer is locked.
+        IsEditable = IsLocked
+            .CombineLatest(
+                LayerHeader.Select(h => h is null
+                    ? Observable.Return(false)
+                    : h.IsLocked).Switch(),
+                (el, layer) => !el && !layer)
+            .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
         Scope = new ElementScopeViewModel(Model, this);
@@ -242,6 +256,10 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
     public Scene Scene { get; }
 
     public ReadOnlyReactivePropertySlim<bool> IsEnabled { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> IsLocked { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> IsEditable { get; }
 
     public ReactiveProperty<string> Name { get; }
 
@@ -488,17 +506,22 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     private void OnExclude()
     {
-        Element[] targets = GetGroupOrSelectedElements().Select(e => e.Model).ToArray();
+        Element[] targets = EditableTargets();
+        if (targets.Length == 0) return;
         Timeline.EditorContext.GetRequiredService<IElementStructureService>()
             .Exclude(Scene, targets, Timeline.IsRippleEnabled.Value);
     }
 
     private void OnDelete()
     {
-        Element[] targets = GetGroupOrSelectedElements().Select(e => e.Model).ToArray();
+        Element[] targets = EditableTargets();
+        if (targets.Length == 0) return;
         Timeline.EditorContext.GetRequiredService<IElementStructureService>()
             .Delete(Scene, targets, Timeline.IsRippleEnabled.Value);
     }
+
+    private Element[] EditableTargets()
+        => GetGroupOrSelectedElements().Where(e => e.IsEditable.Value).Select(e => e.Model).ToArray();
 
     private void OnBringAnimationToTop()
     {
@@ -521,6 +544,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     private void OnFinishEditingAnimation()
     {
+        if (!IsEditable.Value) return;
         foreach (InlineAnimationLayerViewModel item in Timeline.Inlines.Where(x => x.Element == this).ToArray())
         {
             Timeline.DetachInline(item);
@@ -541,12 +565,14 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     private void OnGroupSelectedElements()
     {
+        if (!IsEditable.Value) return;
         IReadOnlyCollection<Guid> ids = GetSelectedIdsOrSelf();
         Timeline.EditorContext.GetRequiredService<IElementStructureService>().Group(Scene, ids);
     }
 
     private void OnUngroupSelectedElements()
     {
+        if (!IsEditable.Value) return;
         IReadOnlyCollection<Guid> ids = GetSelectedIdsOrSelf();
         Timeline.EditorContext.GetRequiredService<IElementStructureService>().Ungroup(Scene, ids);
     }
@@ -575,7 +601,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     private async Task OnCut()
     {
-        Element[] models = GetGroupOrSelectedElements().Select(e => e.Model).ToArray();
+        Element[] models = EditableTargets();
         if (models.Length == 0) return;
         await Timeline.EditorContext.GetRequiredService<IElementClipboardService>()
             .CutAsync(Scene, models, Timeline.IsRippleEnabled.Value);
@@ -604,15 +630,17 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     private void SplitCore(IReadOnlyList<ElementViewModel> targets, TimeSpan timeSpan)
     {
+        Element[] models = targets.Where(t => t.IsEditable.Value).Select(t => t.Model).ToArray();
+        if (models.Length == 0) return;
         int rate = Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
         TimeSpan at = timeSpan.RoundToRate(rate);
 
-        Element[] models = targets.Select(t => t.Model).ToArray();
         Timeline.EditorContext.GetRequiredService<IElementStructureService>().Split(Scene, models, at);
     }
 
     private async void OnChangeToOriginalDuration()
     {
+        if (!IsEditable.Value) return;
         if (Model.HasOriginalDuration()
             && Model.TryGetOriginalDuration(out TimeSpan timeSpan))
         {

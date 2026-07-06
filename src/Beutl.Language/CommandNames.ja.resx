@@ -75,6 +75,21 @@
   <data name="ChangeLayerColor" xml:space="preserve">
     <value>レイヤーの色を変更</value>
   </data>
+  <data name="ChangeLayerLocked" xml:space="preserve">
+    <value>レイヤーのロックを変更</value>
+  </data>
+  <data name="ChangeLayerAudioMuted" xml:space="preserve">
+    <value>レイヤーの音声ミュートを変更</value>
+  </data>
+  <data name="ChangeLayerVideoMuted" xml:space="preserve">
+    <value>レイヤーの映像ミュートを変更</value>
+  </data>
+  <data name="ChangeLayerSolo" xml:space="preserve">
+    <value>レイヤーのソロを変更</value>
+  </data>
+  <data name="ChangeElementLocked" xml:space="preserve">
+    <value>要素のロックを変更</value>
+  </data>
   <!-- KeyFrame/Animation Operations -->
   <data name="InsertKeyFrame" xml:space="preserve">
     <value>キーフレームを挿入</value>

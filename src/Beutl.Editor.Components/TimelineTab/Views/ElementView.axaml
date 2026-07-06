@@ -30,6 +30,7 @@
             Background="{Binding Color.Value, Converter={StaticResource ColorToBrushConverter}}"
             BorderThickness="1"
             Classes.elm-disabled="{Binding !IsEnabled.Value}"
+            Classes.elm-locked="{Binding IsLocked.Value}"
             Classes.selected="{Binding IsSelected.Value}">
         <Border.Styles>
             <Style Selector="Border:pressed">
@@ -40,6 +41,9 @@
             </Style>
             <Style Selector="Border.elm-disabled:pressed">
                 <Setter Property="Opacity" Value="0.4" />
+            </Style>
+            <Style Selector="Border.elm-locked">
+                <Setter Property="Opacity" Value="0.6" />
             </Style>
             <Style Selector="Border.selected">
                 <Setter Property="BorderBrush" Value="{DynamicResource TextControlForeground}" />
@@ -59,6 +63,16 @@
                         </Style>
                     </ui:ToggleMenuFlyoutItem.Styles>
                 </ui:ToggleMenuFlyoutItem>
+                <ui:ToggleMenuFlyoutItem x:Name="lockElement"
+                                         Click="LockElement_Click"
+                                         IsChecked="{Binding IsLocked.Value}"
+                                         Text="{x:Static lang:Strings.Lock}">
+                    <ui:ToggleMenuFlyoutItem.Styles>
+                        <Style Selector="ui|ToggleMenuFlyoutItem /template/ Viewbox#IconRoot">
+                            <Setter Property="Width" Value="0" />
+                        </Style>
+                    </ui:ToggleMenuFlyoutItem.Styles>
+                </ui:ToggleMenuFlyoutItem>
                 <ui:ToggleMenuFlyoutItem IsChecked="{Binding Timeline.IsRazorMode.Value, Mode=TwoWay}"
                                          InputGesture="{h:GetCommandGesture ToggleRazorMode,
                                                                             ExtensionType={x:Type p:TimelineTabExtension}}"
@@ -72,7 +86,9 @@
                                                                             ExtensionType={x:Type p:TimelineTabExtension}}"
                                          Text="{x:Static lang:Strings.RippleEdit}" />
                 <ui:MenuFlyoutSeparator />
-                <ui:MenuFlyoutItem Command="{Binding Split}" Text="{x:Static lang:Strings.Split}">
+                <ui:MenuFlyoutItem x:Name="split"
+                                   Command="{Binding Split}"
+                                   Text="{x:Static lang:Strings.Split}">
                     <ui:MenuFlyoutItem.IconSource>
                         <icons:FluentIconSource Icon="SplitVertical" />
                     </ui:MenuFlyoutItem.IconSource>
@@ -82,7 +98,8 @@
                                    InputGesture="{h:GetCommandGesture Split,
                                                                       ExtensionType={x:Type p:TimelineTabExtension}}"
                                    Text="{x:Static lang:Strings.SplitByCurrentFrame}" />
-                <ui:MenuFlyoutItem Command="{Binding Cut}"
+                <ui:MenuFlyoutItem x:Name="cut"
+                                   Command="{Binding Cut}"
                                    InputGesture="{h:GetCommandGesture Cut,
                                                                       ExtensionType={x:Type p:TimelineTabExtension}}"
                                    Text="{x:Static lang:Strings.Cut}">
@@ -98,7 +115,8 @@
                         <icons:FluentIconSource Icon="Copy" />
                     </ui:MenuFlyoutItem.IconSource>
                 </ui:MenuFlyoutItem>
-                <ui:MenuFlyoutItem Command="{Binding Delete}"
+                <ui:MenuFlyoutItem x:Name="delete"
+                                   Command="{Binding Delete}"
                                    InputGesture="{h:GetCommandGesture Delete,
                                                                       ExtensionType={x:Type p:TimelineTabExtension}}"
                                    Text="{x:Static lang:Strings.Delete}">
@@ -106,7 +124,8 @@
                         <icons:FluentIconSource Icon="DeleteDismiss" />
                     </ui:MenuFlyoutItem.IconSource>
                 </ui:MenuFlyoutItem>
-                <ui:MenuFlyoutItem Command="{Binding Exclude}"
+                <ui:MenuFlyoutItem x:Name="exclude"
+                                   Command="{Binding Exclude}"
                                    InputGesture="{h:GetCommandGesture Exclude,
                                                                       ExtensionType={x:Type p:TimelineTabExtension}}"
                                    Text="{x:Static lang:Strings.Exclude}">
@@ -147,7 +166,9 @@
                 </ui:MenuFlyoutItem>
                 <ui:MenuFlyoutSeparator />
                 <ui:MenuFlyoutSubItem Text="{x:Static lang:Strings.Animation}">
-                    <ui:MenuFlyoutItem Command="{Binding FinishEditingAnimation}" Text="{x:Static lang:Strings.FinishEditing}" />
+                    <ui:MenuFlyoutItem x:Name="finishEditingAnimation"
+                                       Command="{Binding FinishEditingAnimation}"
+                                       Text="{x:Static lang:Strings.FinishEditing}" />
                     <ui:MenuFlyoutItem Command="{Binding BringAnimationToTop}" Text="{x:Static lang:Strings.BringToTop}" />
                 </ui:MenuFlyoutSubItem>
             </ui:FAMenuFlyout>
@@ -175,6 +196,13 @@
                      HorizontalAlignment="Stretch"
                      IsVisible="False"
                      Text="{Binding Name.Value}" />
+            <icons:SymbolIcon Margin="4,0"
+                              HorizontalAlignment="Left"
+                              VerticalAlignment="Center"
+                              FontSize="12"
+                              Foreground="{Binding TextColor.Value, Converter={StaticResource ColorToBrushConverter}}"
+                              IsVisible="{Binding IsLocked.Value}"
+                              Symbol="LockClosed" />
         </Panel>
     </Border>
 

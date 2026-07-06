@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+             xmlns:lang="using:Beutl.Language"
              xmlns:local="using:Beutl.Editor.Components.TimelineTab.Views"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
@@ -19,6 +20,10 @@
              mc:Ignorable="d">
     <Grid RowDefinitions="25,*">
         <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="Auto" />
@@ -41,11 +46,54 @@
         </Border>
 
         <ToggleButton Grid.Column="1"
+                      Command="{Binding ToggleLockCommand}"
+                      IsChecked="{Binding IsLocked.Value, Mode=OneWay}"
+                      Theme="{StaticResource LayerHeaderToggleButtonStyle}"
+                      ToolTip.Tip="{x:Static lang:Strings.Lock}" />
+
+        <ToggleButton Grid.Column="2"
                       Command="{Binding SwitchEnabledCommand}"
                       IsChecked="{Binding IsEnabled.Value, Mode=OneWay}"
                       Theme="{StaticResource VisibilityToggleButtonStyle}" />
 
-        <ui:ColorPickerButton Grid.Column="2"
+        <ToggleButton Grid.Column="3"
+                      Command="{Binding ToggleVideoMuteCommand}"
+                      IsChecked="{Binding IsVideoMuted.Value, Mode=OneWay}"
+                      Theme="{StaticResource LayerHeaderToggleButtonStyle}"
+                      ToolTip.Tip="{x:Static lang:Strings.Video}">
+            <icons:SymbolIcon FontSize="14"
+                              Symbol="Video" />
+            <ToggleButton.Styles>
+                <Style Selector="Button:checked > icons|SymbolIcon">
+                    <Setter Property="Symbol" Value="VideoOff" />
+                </Style>
+            </ToggleButton.Styles>
+        </ToggleButton>
+
+        <ToggleButton Grid.Column="4"
+                      Command="{Binding ToggleAudioMuteCommand}"
+                      IsChecked="{Binding IsAudioMuted.Value, Mode=OneWay}"
+                      Theme="{StaticResource LayerHeaderToggleButtonStyle}"
+                      ToolTip.Tip="{x:Static lang:Strings.Audio}">
+            <icons:SymbolIcon FontSize="14"
+                              Symbol="Speaker1" />
+            <ToggleButton.Styles>
+                <Style Selector="Button:checked > icons|SymbolIcon">
+                    <Setter Property="Symbol" Value="SpeakerMute" />
+                </Style>
+            </ToggleButton.Styles>
+        </ToggleButton>
+
+        <ToggleButton Grid.Column="5"
+                      Command="{Binding ToggleSoloCommand}"
+                      IsChecked="{Binding IsSolo.Value, Mode=OneWay}"
+                      Theme="{StaticResource LayerHeaderToggleButtonStyle}"
+                      ToolTip.Tip="Solo">
+            <icons:SymbolIcon FontSize="14"
+                              Symbol="Star" />
+        </ToggleButton>
+
+        <ui:ColorPickerButton Grid.Column="6"
                               MinHeight="{DynamicResource LayerHeight}"
                               CustomPaletteColors="{StaticResource PaletteColors}"
                               FlyoutConfirmed="OnColorChanged"
@@ -55,13 +103,13 @@
                               Color="{Binding Color.Value, Mode=OneWay}" />
 
         <TextBox x:Name="NameTextBox"
-                 Grid.Column="3"
+                 Grid.Column="7"
                  Theme="{StaticResource LayerHeaderNameTextBoxTheme}"
                  InputMethod.IsInputMethodEnabled="True"
                  Text="{Binding Name.Value}" />
 
         <ItemsControl Grid.Row="1"
-                      Grid.ColumnSpan="4"
+                      Grid.ColumnSpan="8"
                       ItemsSource="{CompiledBinding Inlines}">
             <ItemsControl.ItemTemplate>
                 <DataTemplate>

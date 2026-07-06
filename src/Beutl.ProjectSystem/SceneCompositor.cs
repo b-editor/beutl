@@ -51,7 +51,7 @@ public sealed class SceneCompositor : ICompositor
     public CompositionFrame EvaluateGraphics(TimeSpan time)
     {
         using var currentElements = new PooledList<Element>();
-        SortLayers(time, currentElements);
+        SortLayers(time, currentElements, CompositionTarget.Graphics);
 
         using var tmpObjects = new PooledList<EngineObject>();
         using var flow = new PooledList<EngineObject.Resource>();
@@ -74,7 +74,7 @@ public sealed class SceneCompositor : ICompositor
     public CompositionFrame EvaluateAudio(TimeRange timeRange)
     {
         using var currentElements = new PooledList<Element>();
-        SortLayers(timeRange, currentElements);
+        SortLayers(timeRange, currentElements, CompositionTarget.Audio);
 
         using var tmpObjects = new PooledList<EngineObject>();
         using var flow = new PooledList<EngineObject.Resource>();
@@ -159,26 +159,54 @@ public sealed class SceneCompositor : ICompositor
     }
 
     // Layersを振り分ける
-    private void SortLayers(TimeSpan time, PooledList<Element> currentElements)
+    private void SortLayers(TimeSpan time, PooledList<Element> currentElements, CompositionTarget target)
     {
+        bool hasSolo = AnySoloLayer();
         foreach (Element item in Scene.Children)
         {
-            if (item.IsEnabled && item.Range.Contains(time))
-            {
-                currentElements.OrderedAdd(item, x => x.ZIndex);
-            }
+            if (!item.IsEnabled || !item.Range.Contains(time)) continue;
+            if (ShouldSkipLayer(item.ZIndex, target, hasSolo)) continue;
+            currentElements.OrderedAdd(item, x => x.ZIndex);
         }
     }
 
-    private void SortLayers(TimeRange timeRange, PooledList<Element> currentElements)
+    private void SortLayers(TimeRange timeRange, PooledList<Element> currentElements, CompositionTarget target)
     {
+        bool hasSolo = AnySoloLayer();
         foreach (Element item in Scene.Children)
         {
-            if (item.IsEnabled && item.Range.Intersects(timeRange))
-            {
-                currentElements.OrderedAdd(item, x => x.ZIndex);
-            }
+            if (!item.IsEnabled || !item.Range.Intersects(timeRange)) continue;
+            if (ShouldSkipLayer(item.ZIndex, target, hasSolo)) continue;
+            currentElements.OrderedAdd(item, x => x.ZIndex);
         }
+    }
+
+    private bool AnySoloLayer()
+    {
+        foreach (TimelineLayer layer in Scene.Layers)
+        {
+            if (layer.IsSolo) return true;
+        }
+        return false;
+    }
+
+    private TimelineLayer? FindLayer(int zIndex)
+    {
+        foreach (TimelineLayer layer in Scene.Layers)
+        {
+            if (layer.ZIndex == zIndex) return layer;
+        }
+        return null;
+    }
+
+    // A layer without a TimelineLayer model cannot be soloed, so it is excluded
+    // under solo mode. Mute is independent per target (audio vs video).
+    private bool ShouldSkipLayer(int zIndex, CompositionTarget target, bool hasSolo)
+    {
+        TimelineLayer? layer = FindLayer(zIndex);
+        if (hasSolo && (layer is null || !layer.IsSolo)) return true;
+        if (layer is null) return false;
+        return target == CompositionTarget.Graphics ? layer.IsVideoMuted : layer.IsAudioMuted;
     }
 
     public void Dispose()

@@ -140,4 +140,102 @@ public class LayerAttributeServiceTests
             Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
     }
+
+    [Test]
+    public void SetLocked_NoExistingModel_CreatesLayerAndCommits()
+    {
+        int beforeUndo = _history.UndoCount;
+        int beforeLayers = _scene.Layers.Count;
+
+        bool changed = _service.SetLocked(_scene, zIndex: 3, isLocked: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(changed, Is.True);
+            Assert.That(_scene.Layers.Count, Is.EqualTo(beforeLayers + 1));
+            Assert.That(_scene.Layers.First(l => l.ZIndex == 3).IsLocked, Is.True);
+            Assert.That(_history.UndoCount, Is.EqualTo(beforeUndo + 1));
+        });
+    }
+
+    [Test]
+    public void SetLocked_ExistingModel_UpdatesInPlace()
+    {
+        var existing = new TimelineLayer { ZIndex = 7, IsLocked = false };
+        _scene.Layers.Add(existing);
+        int beforeLayers = _scene.Layers.Count;
+
+        bool changed = _service.SetLocked(_scene, zIndex: 7, isLocked: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(changed, Is.True);
+            Assert.That(_scene.Layers.Count, Is.EqualTo(beforeLayers));
+            Assert.That(existing.IsLocked, Is.True);
+        });
+    }
+
+    [Test]
+    public void SetLocked_NoChange_DoesNotCommit()
+    {
+        var existing = new TimelineLayer { ZIndex = 4, IsLocked = true };
+        _scene.Layers.Add(existing);
+        int before = _history.UndoCount;
+
+        bool changed = _service.SetLocked(_scene, zIndex: 4, isLocked: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(changed, Is.False);
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
+    public void SetAudioMuted_CreatesModelAndCommits()
+    {
+        int beforeUndo = _history.UndoCount;
+
+        bool changed = _service.SetAudioMuted(_scene, zIndex: 6, isMuted: true);
+
+        TimelineLayer layer = _scene.Layers.First(l => l.ZIndex == 6);
+        Assert.Multiple(() =>
+        {
+            Assert.That(changed, Is.True);
+            Assert.That(layer.IsAudioMuted, Is.True);
+            Assert.That(_history.UndoCount, Is.EqualTo(beforeUndo + 1));
+        });
+    }
+
+    [Test]
+    public void SetVideoMuted_CreatesModelAndCommits()
+    {
+        int beforeUndo = _history.UndoCount;
+
+        bool changed = _service.SetVideoMuted(_scene, zIndex: 6, isMuted: true);
+
+        TimelineLayer layer = _scene.Layers.First(l => l.ZIndex == 6);
+        Assert.Multiple(() =>
+        {
+            Assert.That(changed, Is.True);
+            Assert.That(layer.IsVideoMuted, Is.True);
+            Assert.That(_history.UndoCount, Is.EqualTo(beforeUndo + 1));
+        });
+    }
+
+    [Test]
+    public void SetSolo_CreatesModelAndCommits()
+    {
+        int beforeUndo = _history.UndoCount;
+
+        bool changed = _service.SetSolo(_scene, zIndex: 6, isSolo: true);
+
+        TimelineLayer layer = _scene.Layers.First(l => l.ZIndex == 6);
+        Assert.Multiple(() =>
+        {
+            Assert.That(changed, Is.True);
+            Assert.That(layer.IsSolo, Is.True);
+            Assert.That(_history.UndoCount, Is.EqualTo(beforeUndo + 1));
+        });
+    }
 }

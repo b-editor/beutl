@@ -14,4 +14,6 @@ public interface IElementAttributeService
     void SetEnabled(Element element, bool isEnabled);
 
     void SetAccentColor(Element element, Color color);
+
+    void SetLocked(Element element, bool isLocked);
 }
