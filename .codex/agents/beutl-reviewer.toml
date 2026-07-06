@@ -64,7 +64,7 @@ high | medium | low
 
 ## Notes
 
-- **Advisory: read `.Codex/loop-memory/bot-false-positive-patterns.md`** if it exists — it records
+- **Advisory: read `.codex/loop-memory/bot-false-positive-patterns.md`** if it exists — it records
   patterns where bots (CodeRabbit / Copilot / Codex / Codex) misread Beutl code. Use it to avoid
   raising a finding that is a known bot blind spot, and to sharpen your own axes. This file is
   gitignored and populated by `beutl-resolve-reviews` over successive runs (D-7/D-8).

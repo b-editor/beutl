@@ -6,7 +6,7 @@ in your own context keeps the huge Docker/test logs and multi-GB cores out of th
 evidence — you do NOT design or apply fixes.
 
 The procedure and scripts live in the `beutl-gpu-crash-repro` skill
-(`.Codex/skills/beutl-gpu-crash-repro/`). Read its `SKILL.md` and use its `scripts/`.
+(`.codex/skills/beutl-gpu-crash-repro/`). Read its `SKILL.md` and use its `scripts/`.
 
 ## Inputs (from the caller)
 - Optional `TEST_FILTER`: an FQN substring to narrow the repro (else the full `Beutl.UnitTests` suite).
@@ -14,7 +14,7 @@ The procedure and scripts live in the `beutl-gpu-crash-repro` skill
 - Optional: whether to also chase the managed call site via the file-trace.
 
 ## Procedure
-1. `SKILL=.Codex/skills/beutl-gpu-crash-repro`. Ensure the repro worktree + image:
+1. `SKILL=.codex/skills/beutl-gpu-crash-repro`. Ensure the repro worktree + image:
    - `git worktree add --detach /tmp/beutl-ss-arm64 HEAD` (skip if present & at the right commit).
    - `docker build --platform linux/arm64 -t beutl-ss:10.0-arm64 "$SKILL/scripts"`
 2. A FRESH dumps dir per attempt, e.g. `mkdir -p /tmp/ss-dumps-$$`. Define:

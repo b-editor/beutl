@@ -21,7 +21,7 @@ The dispatch prompt provides:
 
 ## Procedure — follow the `beutl-board-task` skill (two exceptions)
 
-Read `.Codex/skills/beutl-board-task/SKILL.md` and execute its Steps 2–6 for **this one item**
+Read `.codex/skills/beutl-board-task/SKILL.md` and execute its Steps 2–6 for **this one item**
 (Step 1 selection is already done — the item was handed to you). **Do not execute Step 7** — you
 do not open the PR; instead, commit and push the branch, then hand back a draft (see Step 9 below).
 

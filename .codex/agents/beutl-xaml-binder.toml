@@ -50,7 +50,7 @@ You are the Avalonia XAML bindings auditor.
 
 ## Notes
 
-- **Advisory: read `.Codex/loop-memory/bot-false-positive-patterns.md`** if it exists — it records
+- **Advisory: read `.codex/loop-memory/bot-false-positive-patterns.md`** if it exists — it records
   patterns where bots misread Beutl XAML. Use it to avoid flagging a known-bot-blind-spot and to
   sharpen your compiled-bindings checks. Populated by `beutl-resolve-reviews` over successive runs.
 - Style issues owned by `.editorconfig` / `xamlstyler.json` (indentation, attribute ordering) are out of scope.
