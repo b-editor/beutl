@@ -1,7 +1,7 @@
 # Run — 2026-07-03T165727Z-low-effort-bde (low-effort brief pipeline)
 
 First full 10-brief run of the **low-effort brief pipeline** (brief expansion +
-convergence loop; spec `docs/superpowers/specs/2026-07-03-low-effort-briefs.md`),
+convergence loop; see "Low-Effort Brief Pipeline" in `../../spec.md`),
 measured against the `2026-07-03T093833Z-baseline-t2t8` baseline. Vision scores
 are a regression screen; human side-by-side judgment is final (see README).
 

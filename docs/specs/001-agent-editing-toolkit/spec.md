@@ -271,6 +271,69 @@ A creator opens a project in the Beutl editor and asks the agent — connected t
 - **A new on-disk format or a new rendering engine** — this feature consumes the existing ones.
 - **Developer-facing AI tooling** for the Beutl codebase itself (build/test/review/spec) — that already exists and is a different audience.
 
+## Delivered Extensions
+
+The toolkit shipped five design extensions after the original spec was approved. Each is fully implemented in this branch; their design notes were consolidated here from `docs/superpowers/specs/` and `docs/benchmarks/` to keep `docs/` aligned with the Spec-Kit layout (`docs/specs/<NNN>-<slug>/`). The benchmark briefs and vision-scoring baselines that exercise these extensions live under `checklists/briefs/` and `checklists/visual-quality-baselines/`.
+
+### Visual-Quality Improvement (2026-07-02)
+
+**Problem**: AI-authored motion graphics regressed to amateur-looking output — clashing palettes, weak typography, cluttered composition, unnatural motion, flat backgrounds, and sparse scenes.
+
+**Delivered approach** — three layers plus an evaluation harness:
+
+| Root cause | Layer | Implementation |
+|---|---|---|
+| No vocabulary of good palettes/backgrounds/motion — the model invents from scratch | **L1 Parametric design system** | `ColorHarmonyEngine` (828 lines) — `derive_palette` expands a brief-derived seed into a role-tagged palette with guaranteed contrast; background-recipe grammar in `VideoTypeCatalog`; anti-repeat feeds `CreativeMemoryStore` fingerprints into the derivation step |
+| The agent never sees its own rendered output | **L2 Visual feedback loop** | `render_still` / `render_storyboard` gain `returnImageContent` (MCP `ImageContent`); contact-sheet compositing via `StillRenderer`; `beutl-agent-visual-review` skill with the 6-axis rubric |
+| Sparseness / disharmony not measurable numerically | **L3 Heuristic upgrades** | `QualityAnalyzer` (4171 lines) — layer-density/depth metrics, color-harmony scoring, background-richness check |
+
+**L0 Evaluation harness** lives under `checklists/briefs/` (10 fixed briefs) and `checklists/visual-quality-baselines/` (recorded vision-model axis averages); see `checklists/visual-quality-baseline.md` for the generation + scoring procedure.
+
+**Key invariant**: no fixed style packs — variety comes from the brief's seed, the quality floor from the rules. Prior art of fixed packs converging to one look was explicitly rejected.
+
+### Video-Type-Aware Workflows (2026-07-03)
+
+**Problem**: the original single workflow assumed motion-graphics (BPM beat grids, background grammar, 2-3 foreground layers); other video types tripped inapplicable gates or missed type-specific steps.
+
+**Delivered**: `VideoTypeCatalog` (`src/Beutl.AgentToolkit/Design/VideoTypeCatalog.cs`, 288 lines) — five first-class `videoType` profiles (`motion-graphics`, `footage-cut`, `slideshow`, `lyric-captions`, `logo-intro`). The one `beutl-agent-timeline-from-shotlist` skill gained a Phase -1 classification step and a per-type flow matrix; no per-type skill forks. The `videoType` parameter threads through `evaluate_edit_quality`, `preview_quality_risks`, `suggest_quality_fixes`, `final_preflight`, and `get_started`, applying implied intent flags + analyzer applicability. A new advisory `timelineCoverage` reports gaps for footage-cut/slideshow. Backward compatibility: omitted `videoType` is byte-for-byte `motion-graphics` (characterized by tests).
+
+### Autonomous Asset Sourcing (2026-07-03)
+
+**Problem**: the toolkit assumed media files already existed; agents either refused footage-driven briefs or fetched files ad hoc with no licensing discipline and no provenance trail.
+
+**Delivered**: `beutl-agent-asset-sourcing` skill — skill-driven, no server-side providers (v1). The agent uses its own web capabilities following a binding contract: source-or-generate decision per asset, recommended sources (Openverse, Pexels, Pixabay, Freesound, Google Fonts, ...), license policy (CC0/CC-BY/OFL allowed; CC-BY-SA recorded; NC/ND forbidden autonomously), provenance manifest at `<workspace>/assets/manifest.json`, download conventions, quality criteria, and a failure path back to procedural generation. The skill is registered in `get_started`'s `CreateRecommendedSkills()` and referenced from footage-cut/slideshow/lyric-captions workflow steps.
+
+### Low-Effort Brief Pipeline (2026-07-03)
+
+**Problem**: output quality correlated with how carefully the brief was written. Terse prompts ("かっこいいロゴイントロ作って") produced weak videos because the weakest axes (`layerDensityDepth` 2.5, `backgroundRichness` 2.7 in the 2026-07-03 baseline) were exactly the qualities under-specified prompts fail to request.
+
+**Delivered**: three accepted directions (B/D/E); preset libraries, template scaffolds, and creative-memory defaulting were **rejected by the user** for converging every run onto the same look.
+
+- **B — Brief expansion**: `beutl-agent-brief-expansion` skill. Trigger: terse prompt missing two or more of subject/duration/mood/style/asset inventory. Mechanism: record literal constraints, sketch three structurally divergent concept candidates (checked against `recentToAvoid`), emit an Expanded Brief block feeding `derive_palette`/background grammar/plan sheets.
+- **E — Reference-based direction**: same skill, second intake path. User-supplied reference images/video are fetched, stored under `references/` with a `use: "direction-only"` manifest, and abstract attributes (hue family, tonal seed, layer-density profile, motion vocabulary, ...) are extracted via vision. Prohibited: reproducing logos/marks/characters/illustrations or reconstructing the composition wholesale.
+- **D — Quality convergence loop**: `beutl-agent-visual-review` extension. Loop: score six axes → concrete directives → smallest coherent revision pass → re-render → `compare_revisions` → rescore. Exit: every axis ≥ 3 or `maxPasses` (default 3) exhausted. Anti-genericization (directives phrased in the piece's own concept vocabulary; stock-particle/glow/grain purely to raise a score is forbidden) and anti-oscillation (an axis ≥ 4 is only edited to repair a regression) guardrails.
+
+**Server-side**: registration only — `Beutl.AgentToolkit.csproj` EmbeddedResource + `BundledAgentToolkitAssets` + `QueryTools.CreateRecommendedSkills`. No new MCP tools.
+
+### Visual-Quality Backlog (2026-07-03)
+
+A theory-grounded backlog of ten tasks (T1–T10), each naming the film/motion-design theory it operationalizes so the implementation has a measurable target instead of taste. Status: **T1–T8 delivered in this branch; T9–T10 remain backlog** (each task implemented only on explicit request).
+
+| Task | Theory | Status |
+|---|---|---|
+| T1 Benchmark baseline run | Dailies / screening-room practice | ✅ Delivered — `checklists/visual-quality-baselines/2026-07-03-baseline-t2t8.md` + `2026-07-03-low-effort-bde.md` |
+| T2 Audio-driven timing grid (`analyze_audio_rhythm`) | Eisenstein's metric/rhythmic montage; Chion's synchresis | ✅ Delivered — `AudioRhythmAnalyzer.cs` (625 lines) + tests |
+| T3 Rendered text contrast | WCAG 2.x contrast measured against the rendered result | ✅ Delivered — `QualityAnalyzer.TypographyContrastSample` per-text sampling |
+| T4 Easing & motion-monotony analysis | Disney's 12 principles (slow-in/slow-out, anticipation, follow-through) | ✅ Delivered — `MotionVariationAnalyzer.cs` + easing-diversity metric |
+| T5 Eye-trace continuity across cuts | Murch's Rule of Six (eye-trace 7%) | ✅ Delivered — storyboard-subdivision cut-continuity pass |
+| T6 Transition vocabulary + consistency classification | Bordwell & Thompson continuity-editing grammar | ✅ Delivered — `TransitionVocabularyMetrics` + `TransitionBoundaryClassification` |
+| T7 Palette role-balance (60-30-10) | Itten's contrast-of-extension | ✅ Delivered — `PaletteBalanceMetrics` + `PaletteRoleShare` |
+| T8 Revision diff review (before/after ledger) | Editorial QC regression discipline | ✅ Delivered — `compare_revisions` flow + per-axis delta ledger |
+| T9 Quality-outcome feedback into creative memory | Ericsson's deliberate-practice / critique loops | ⏳ Backlog — `CreativeMemoryStore` is anti-repeat only; per-axis quality feedback not yet wired |
+| T10 Export QC (decode-back + loudness) | EBU R128 / ITU-R BS.1770 broadcast QC | ⏳ Backlog — `export_video` does not yet decode-back or compute integrated loudness |
+
+**Non-goals across the backlog**: no new blocking gates except T3 (folded into the existing read-time/typography family); no ML-trained aesthetic scorers in-process; no beat-tracking research project (T2 is peak-picking on a novelty curve).
+
 ## Dependencies
 
 - Beutl's existing non-UI editing services and undo/redo history/operation infrastructure (`Beutl.Editor`).
