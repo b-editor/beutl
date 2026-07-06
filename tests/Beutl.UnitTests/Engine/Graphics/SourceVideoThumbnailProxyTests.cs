@@ -148,6 +148,8 @@ public class SourceVideoThumbnailProxyTests
         }
 
         public IDisposable Pin(ProxyResolution resolution) => inner.Pin(resolution);
+
+        public bool IsPinned(string absoluteProxyFilePath) => inner.IsPinned(absoluteProxyFilePath);
     }
 
     private sealed class ProxyScope : IDisposable

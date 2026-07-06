@@ -3,9 +3,6 @@
 using Beutl.Configuration;
 using Beutl.Editor.Components.ProxiesTab;
 using Beutl.Logging;
-#if FFMPEG_BUILD_IN
-using Beutl.Extensions.FFmpeg.Proxy;
-#endif
 using Beutl.Media.Decoding;
 using Beutl.Media.Proxy;
 using Beutl.Media.Source;
@@ -76,14 +73,28 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
             openProjectSourceProvider: CollectOpenProjectSources,
             activeGenerationProvider: () => CollectActiveGenerations(queue));
 
-        IProxyGenerator generator = CreateGenerator(store);
-        // Free disk headroom in the dispatch path (right before the encoder writes) rather than only
-        // as a fire-and-forget task on Enqueue, so a low-disk store does not fail the first job that
-        // eviction could have made room for. Only wrap availability-aware generators so the queue
-        // still sees the real IsAvailable signal.
-        if (generator is IProxyGeneratorAvailability)
-            generator = new DiskHeadroomProxyGenerator(generator, eviction);
-        queue = new ProxyJobQueue(generator, store);
+        // The generator is resolved lazily from ProxyGeneratorRegistry on the first job dispatch:
+        // the FFmpeg proxy extension registers its factory during the startup extension-load task,
+        // which runs AFTER RegisterServices builds this queue, so the registry is still empty here.
+        // Returning null while empty lets the queue re-probe and pick up a generator that registers
+        // later (a plugin, or the built-in FFmpeg factory once its extension loads).
+        IProxyGenerator? ResolveGenerator()
+        {
+            IProxyGeneratorFactory? factory = ProxyGeneratorRegistry.Enumerate().FirstOrDefault();
+            if (factory is null)
+                return null;
+
+            IProxyGenerator generator = factory.Create(store);
+            // Free disk headroom in the dispatch path (right before the encoder writes) rather than
+            // only as a fire-and-forget task on Enqueue, so a low-disk store does not fail the first
+            // job eviction could have made room for. Only wrap availability-aware generators so the
+            // queue still sees the real IsAvailable signal.
+            return generator is IProxyGeneratorAvailability
+                ? new DiskHeadroomProxyGenerator(generator, eviction)
+                : generator;
+        }
+
+        queue = new ProxyJobQueue(ResolveGenerator, store);
 
         var services = new ProxyMediaServices(store, resolver, queue, eviction);
         s_disposing = false;
@@ -112,15 +123,6 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
             Current = null;
 
         await Queue.DisposeAsync().ConfigureAwait(false);
-    }
-
-    private static IProxyGenerator CreateGenerator(IProxyStore store)
-    {
-#if FFMPEG_BUILD_IN
-        return new FFmpegProxyGenerator(store);
-#else
-        return new UnavailableProxyGenerator();
-#endif
     }
 
     private void OnJobChanged(object? sender, ProxyJobChangedEventArgs e)
@@ -274,14 +276,6 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
         }
 
         return $"{value:0.#} {units[unit]}";
-    }
-
-    private sealed class UnavailableProxyGenerator : IProxyGenerator
-    {
-        public ValueTask GenerateAsync(ProxyJob job)
-        {
-            throw new ProxyGeneratorUnavailableException("FFmpeg proxy generation is not available in this build.");
-        }
     }
 
     // Runs a disk-pressure sweep synchronously in the queue's dispatch path, right before the inner

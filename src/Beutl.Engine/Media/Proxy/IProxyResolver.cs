@@ -21,6 +21,14 @@ public interface IProxyResolver
     long GetSourceVersion(ProxyFingerprint source);
 
     IDisposable Pin(ProxyResolution resolution);
+
+    /// <summary>
+    /// True while at least one transient decode-lifetime safety pin (see <see cref="Pin"/>) is held.
+    /// On the interface so an <c>IProxyResolver</c>-dependent eviction service honors a custom
+    /// resolver's pins — otherwise swapping <c>DecoderRegistry.ProxyResolver</c> would leave a
+    /// custom resolver's proxies unprotected.
+    /// </summary>
+    bool IsPinned(string absoluteProxyFilePath);
 }
 
 public sealed record ProxyResolution(

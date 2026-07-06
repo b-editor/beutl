@@ -4,9 +4,14 @@ namespace Beutl.Media.Proxy;
 
 public sealed class ProxyResolver : IProxyResolver
 {
+    // Resolve is on the preview hot path, and the staleness scan enumerates the store, so bound it
+    // to one scan per source path per interval.
+    private static readonly TimeSpan s_stalenessCheckInterval = TimeSpan.FromSeconds(30);
+
     private readonly IProxyStore _store;
     private readonly ConcurrentDictionary<string, int> _pins = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, long> _sourceVersions = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, DateTime> _stalenessLastChecked = new(StringComparer.Ordinal);
 
     public ProxyResolver(IProxyStore store)
     {
@@ -32,22 +37,46 @@ public sealed class ProxyResolver : IProxyResolver
         if (!ProxyFingerprint.TryFromFile(sourceUri.LocalPath, out ProxyFingerprint fingerprint))
             return null;
 
-        // preferredPreset is only a generation-time floor (which fidelity to encode), not a
-        // resolve-time selection cap: resolution always picks the densest Ready proxy.
-        foreach (ProxyPreset preset in EnumeratePresetsByDensity())
+        // A mid-session source edit leaves a same-path, different-(size,mtime) entry Ready in the
+        // store until the next startup reconcile; surface it as Stale now so the badge refreshes.
+        MaybeMarkStaleEntries(fingerprint);
+
+        // preferredPreset is a resolve-time density cap, not only a generation-time floor: prefer the
+        // densest Ready proxy whose Scale does not exceed the cap, so a user who picked a low-density
+        // preset is not served a denser proxy. Fall back to the densest Ready proxy overall if nothing
+        // fits — denser-than-requested is still cheaper than the original.
+        float cap = ScaleOf(preferredPreset);
+        ProxyResolution? cappedWinner = null;
+        float cappedWinnerScale = -1f;
+        ProxyResolution? densestWinner = null;
+        float densestScale = -1f;
+
+        foreach (ProxyPreset preset in ProxyPresetDefinitions.All.Keys)
         {
-            if (TryResolve(fingerprint, preset) is { } resolution)
-                return resolution;
+            if (Evaluate(fingerprint, preset) is not { } resolution)
+                continue;
+
+            float scale = ScaleOf(preset);
+            if (scale <= cap && scale > cappedWinnerScale)
+            {
+                cappedWinner = resolution;
+                cappedWinnerScale = scale;
+            }
+
+            if (scale > densestScale)
+            {
+                densestWinner = resolution;
+                densestScale = scale;
+            }
         }
 
-        return null;
-    }
+        ProxyResolution? chosen = cappedWinner ?? densestWinner;
+        if (chosen is null)
+            return null;
 
-    // Densest first, so a deliberately generated denser per-clip proxy wins over the
-    // global default instead of being downgraded to it.
-    private static IEnumerable<ProxyPreset> EnumeratePresetsByDensity()
-    {
-        return ProxyPresetDefinitions.All.Keys.OrderByDescending(ScaleOf);
+        // Touch only the proxy we actually hand out (contract: exactly once per successful Resolve).
+        _store.Touch(chosen.Source, chosen.Preset, DateTime.UtcNow);
+        return chosen;
     }
 
     private static float ScaleOf(ProxyPreset preset)
@@ -56,11 +85,10 @@ public sealed class ProxyResolver : IProxyResolver
     }
 
     /// <summary>
-    /// Takes a transient, reference-counted decode-lifetime safety pin on a resolved
-    /// proxy file so eviction cannot delete it while a MediaReader is decoding it.
-    /// Dispose the returned handle to release the reference.
-    /// This is NOT the future user-facing "do-not-evict" pin (FR-018a); that is a
-    /// separate, persistent, user-driven concept — do not conflate the two.
+    /// Takes a transient, reference-counted decode-lifetime safety pin on a resolved proxy file so
+    /// eviction cannot delete it while a MediaReader is decoding it. Dispose the returned handle to
+    /// release the reference. This is NOT the future user-facing "do-not-evict" pin (FR-018a); that
+    /// is a separate, persistent, user-driven concept — do not conflate the two.
     /// </summary>
     public IDisposable Pin(ProxyResolution resolution)
     {
@@ -71,15 +99,15 @@ public sealed class ProxyResolver : IProxyResolver
     }
 
     /// <summary>
-    /// True while at least one transient decode-lifetime safety pin (see <see cref="Pin"/>)
-    /// is held for the proxy file. Unrelated to FR-018a's future persistent user pin.
+    /// True while at least one transient decode-lifetime safety pin (see <see cref="Pin"/>) is held
+    /// for the proxy file. Unrelated to FR-018a's future persistent user pin.
     /// </summary>
     public bool IsPinned(string absoluteProxyFilePath)
     {
         return _pins.TryGetValue(Path.GetFullPath(absoluteProxyFilePath), out int count) && count > 0;
     }
 
-    private ProxyResolution? TryResolve(ProxyFingerprint fingerprint, ProxyPreset preset)
+    private ProxyResolution? Evaluate(ProxyFingerprint fingerprint, ProxyPreset preset)
     {
         ProxyEntry? entry = _store.TryGet(fingerprint, preset);
         if (entry is not { State: ProxyState.Ready })
@@ -103,13 +131,45 @@ public sealed class ProxyResolver : IProxyResolver
         if (fileSize != entry.ProxyFileSizeBytes)
             return null;
 
-        _store.Touch(fingerprint, preset, DateTime.UtcNow);
         return new ProxyResolution(
             absolutePath,
             fingerprint,
             preset,
             entry.OriginalLogicalFrameSize,
             entry.ProxyDecodedFrameSize);
+    }
+
+    private void MaybeMarkStaleEntries(ProxyFingerprint current)
+    {
+        string path = current.AbsolutePath;
+        if (string.IsNullOrEmpty(path))
+            return;
+
+        DateTime nowUtc = DateTime.UtcNow;
+        if (_stalenessLastChecked.TryGetValue(path, out DateTime last)
+            && nowUtc - last < s_stalenessCheckInterval)
+        {
+            return;
+        }
+
+        _stalenessLastChecked[path] = nowUtc;
+
+        // Filter the full enumeration by source path. The throttle above bounds how often this runs
+        // per path, so a linear scan is acceptable here without a dedicated path index in the store.
+        foreach (ProxyEntry entry in _store.Enumerate())
+        {
+            if (entry.State != ProxyState.Ready)
+                continue;
+
+            if (!string.Equals(entry.Source.AbsolutePath, path, StringComparison.Ordinal))
+                continue;
+
+            // Same path but different (size, mtime) ⇒ the source was edited/replaced after this proxy
+            // was generated. Transition the old entry to Stale so the UI badge refreshes and the user
+            // is prompted to regenerate. TryTransition is a no-op if another caller raced us to it.
+            if (entry.Source != current)
+                _store.TryTransition(entry.Source, entry.Preset, ProxyState.Stale);
+        }
     }
 
     private bool TryGetAbsolutePath(ProxyEntry entry, out string absolutePath)
@@ -152,13 +212,26 @@ public sealed class ProxyResolver : IProxyResolver
 
     private void Unpin(string path)
     {
-        _pins.AddOrUpdate(
-            path,
-            0,
-            static (_, count) => Math.Max(0, count - 1));
+        // Decrement-and-remove-if-zero, atomic against concurrent Pin. The naive TryGetValue →
+        // TryRemove is racy: a Pin landing between seeing count 0 and TryRemove would add a fresh
+        // reference that TryRemove then drops. Loop on the observed value and only act while it still
+        // matches: decrement via TryUpdate(old → old-1, old), or remove via the KeyValuePair overload
+        // of TryRemove which removes only if the value still equals what we observed.
+        while (_pins.TryGetValue(path, out int current))
+        {
+            if (current > 1)
+            {
+                if (_pins.TryUpdate(path, current - 1, current))
+                    return;
+            }
+            else
+            {
+                if (_pins.TryRemove(new KeyValuePair<string, int>(path, current)))
+                    return;
+            }
+        }
 
-        if (_pins.TryGetValue(path, out int count) && count <= 0)
-            _pins.TryRemove(path, out _);
+        // Key absent: a concurrent Unpin already cleaned it up. Idempotent.
     }
 
     // Disposable release token for a transient decode-lifetime safety pin (see Pin).

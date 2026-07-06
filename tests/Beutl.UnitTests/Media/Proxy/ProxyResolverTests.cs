@@ -70,13 +70,32 @@ public class ProxyResolverTests
     }
 
     [Test]
-    public void Resolve_PrefersDensestReadyProxy_OverPreferredDefault()
+    public void Resolve_HonorsPreferredPresetAsDensityCap()
     {
         string source = CreateSourceFile();
         RegisterProxy(source, ProxyPreset.Quarter, new PixelSize(100, 80), new PixelSize(25, 20));
         RegisterProxy(source, ProxyPreset.Half, new PixelSize(100, 80), new PixelSize(50, 40));
 
-        // The global default is Quarter, but a denser Half proxy exists for this clip.
+        // preferredPreset=Quarter caps the resolve at Quarter density, so the denser Half proxy is
+        // NOT chosen even though it is available.
+        ProxyResolution? result = _resolver.Resolve(new Uri(source), ProxyPreset.Quarter);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result!.Preset, Is.EqualTo(ProxyPreset.Quarter));
+            Assert.That(result.SupplyDensity, Is.EqualTo(0.25f).Within(1e-6));
+        });
+    }
+
+    [Test]
+    public void Resolve_FallsBackToDensestOverall_WhenNothingUnderCap()
+    {
+        string source = CreateSourceFile();
+        // Only a Half proxy exists; preferredPreset=Quarter caps below it, so nothing satisfies the
+        // cap and the fallback serves the densest Ready proxy overall.
+        RegisterProxy(source, ProxyPreset.Half, new PixelSize(100, 80), new PixelSize(50, 40));
+
         ProxyResolution? result = _resolver.Resolve(new Uri(source), ProxyPreset.Quarter);
 
         Assert.Multiple(() =>
@@ -85,6 +104,19 @@ public class ProxyResolverTests
             Assert.That(result!.Preset, Is.EqualTo(ProxyPreset.Half));
             Assert.That(result.SupplyDensity, Is.EqualTo(0.5f).Within(1e-6));
         });
+    }
+
+    [Test]
+    public void Resolve_PicksDensestProxyUnderCap_WhenMultipleUnderCapExist()
+    {
+        string source = CreateSourceFile();
+        RegisterProxy(source, ProxyPreset.Eighth, new PixelSize(100, 80), new PixelSize(12, 10));
+        RegisterProxy(source, ProxyPreset.Quarter, new PixelSize(100, 80), new PixelSize(25, 20));
+
+        // Both Eighth and Quarter are at or under the Half cap; the densest-under-cap (Quarter) wins.
+        ProxyResolution? result = _resolver.Resolve(new Uri(source), ProxyPreset.Half);
+
+        Assert.That(result?.Preset, Is.EqualTo(ProxyPreset.Quarter));
     }
 
     [Test]
@@ -143,6 +175,32 @@ public class ProxyResolverTests
     }
 
     [Test]
+    public void Resolve_TransitionsOldEntryToStale_WhenSourceChangesMidSession()
+    {
+        string source = CreateSourceFile();
+        // Register a Ready proxy keyed on the source's current fingerprint.
+        ProxyEntry entry = RegisterProxy(source, ProxyPreset.Quarter, new PixelSize(100, 80), new PixelSize(25, 20));
+        ProxyFingerprint original = entry.Source;
+
+        // Simulate an external mid-session edit: different size and mtime.
+        File.WriteAllBytes(source, [1, 2, 3, 4, 5, 6, 7, 8, 9]);
+        File.SetLastWriteTimeUtc(source, original.MtimeUtc.AddSeconds(30));
+
+        ProxyResolution? result = _resolver.Resolve(new Uri(source), ProxyPreset.Quarter);
+
+        Assert.Multiple(() =>
+        {
+            // The new fingerprint no longer matches the stored entry → fall back to original.
+            Assert.That(result, Is.Null);
+            // The old (same-path, stale) entry is surfaced as Stale so the badge refreshes instead of
+            // waiting for the next startup reconcile.
+            ProxyEntry? surfaced = _store.TryGet(original, ProxyPreset.Quarter);
+            Assert.That(surfaced, Is.Not.Null);
+            Assert.That(surfaced!.State, Is.EqualTo(ProxyState.Stale));
+        });
+    }
+
+    [Test]
     public void Pin_ReferenceCountsPath()
     {
         string source = CreateSourceFile();
@@ -156,6 +214,70 @@ public class ProxyResolverTests
         second.Dispose();
         Assert.That(_resolver.IsPinned(resolution.AbsoluteProxyFilePath), Is.True);
         first.Dispose();
+        Assert.That(_resolver.IsPinned(resolution.AbsoluteProxyFilePath), Is.False);
+    }
+
+    [Test]
+    public void Pin_Unpin_Concurrent_StaysConsistent()
+    {
+        string source = CreateSourceFile();
+        RegisterProxy(source, ProxyPreset.Quarter, new PixelSize(100, 80), new PixelSize(25, 20));
+        ProxyResolution resolution = _resolver.Resolve(new Uri(source), ProxyPreset.Quarter)!;
+
+        const int threadCount = 16;
+        const int iterations = 1000;
+        var barrier = new Barrier(threadCount);
+        int liveHandles = 0;
+        int pinViolations = 0;
+
+        Thread[] threads = new Thread[threadCount];
+        for (int t = 0; t < threadCount; t++)
+        {
+            threads[t] = new Thread(() =>
+            {
+                // Hold threadCount pins simultaneously at the barrier; IsPinned must be true there.
+                Interlocked.Increment(ref liveHandles);
+                using IDisposable barrierHandle = _resolver.Pin(resolution);
+                if (!_resolver.IsPinned(resolution.AbsoluteProxyFilePath))
+                    Interlocked.Increment(ref pinViolations);
+                barrier.SignalAndWait();
+
+                // IsPinned must be true right after each Pin — a racing Unpin must not drop it.
+                for (int i = 0; i < iterations; i++)
+                {
+                    Interlocked.Increment(ref liveHandles);
+                    using IDisposable handle = _resolver.Pin(resolution);
+                    if (!_resolver.IsPinned(resolution.AbsoluteProxyFilePath))
+                        Interlocked.Increment(ref pinViolations);
+                    handle.Dispose();
+                    Interlocked.Decrement(ref liveHandles);
+                }
+
+                barrierHandle.Dispose();
+                Interlocked.Decrement(ref liveHandles);
+            });
+            threads[t].IsBackground = true;
+        }
+
+        foreach (Thread t in threads)
+            t.Start();
+        foreach (Thread t in threads)
+            t.Join();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(pinViolations, Is.Zero,
+                "IsPinned must be true immediately after Pin; a racing Unpin must not drop a concurrent Pin");
+            Assert.That(liveHandles, Is.EqualTo(0));
+            Assert.That(_resolver.IsPinned(resolution.AbsoluteProxyFilePath), Is.False,
+                "after all handles are disposed, IsPinned must be false");
+        });
+
+        // The count must not be stuck negative or corrupted: a subsequent single Pin makes IsPinned true.
+        using (IDisposable post = _resolver.Pin(resolution))
+        {
+            Assert.That(_resolver.IsPinned(resolution.AbsoluteProxyFilePath), Is.True);
+        }
         Assert.That(_resolver.IsPinned(resolution.AbsoluteProxyFilePath), Is.False);
     }
 

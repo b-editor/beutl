@@ -118,14 +118,16 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
                         var decoding = new Extensions.FFmpeg.Decoding.FFmpegDecodingExtension();
                         var encoding = new Extensions.FFmpeg.Encoding.FFmpegControlledEncodingExtension();
                         var propertyEditor = new Extensions.FFmpeg.PropertyEditors.FFmpegEncoderSpecializedPropertyExtension();
+                        var proxy = new Extensions.FFmpeg.Proxy.FFmpegProxyExtension();
                         _manager.SetupExtensionSettings(decoding);
                         _manager.SetupExtensionSettings(encoding);
                         _manager.SetupExtensionSettings(propertyEditor);
                         decoding.Load();
                         encoding.Load();
                         propertyEditor.Load();
+                        proxy.Load();
 
-                        provider.AddExtensions(pkg.LocalId, [decoding, encoding, propertyEditor]);
+                        provider.AddExtensions(pkg.LocalId, [decoding, encoding, propertyEditor, proxy]);
                     }
                     catch (Exception ex)
                     {

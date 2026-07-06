@@ -12,7 +12,7 @@ public sealed class ProxyEvictionService
         new HashSet<(ProxyFingerprint, ProxyPreset)>();
 
     private readonly IProxyStore _store;
-    private readonly ProxyResolver? _resolver;
+    private readonly IProxyResolver? _resolver;
     private readonly long _maxTotalBytes;
     private readonly long _minFreeDiskBytes;
     private readonly Action<ProxyEvictionResult>? _notify;
@@ -22,7 +22,7 @@ public sealed class ProxyEvictionService
 
     public ProxyEvictionService(
         IProxyStore store,
-        ProxyResolver? resolver,
+        IProxyResolver? resolver,
         long maxTotalBytes,
         Action<ProxyEvictionResult>? notify = null,
         long minFreeDiskBytes = 0,

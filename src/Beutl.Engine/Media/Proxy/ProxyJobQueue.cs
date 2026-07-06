@@ -9,8 +9,9 @@ namespace Beutl.Media.Proxy;
 public sealed class ProxyJobQueue : IProxyJobQueue
 {
     private static readonly ILogger s_logger = Log.CreateLogger("ProxyJobQueue");
-    private readonly IProxyGenerator _generator;
-    private readonly IProxyGeneratorAvailability? _generatorAvailability;
+    private readonly Func<IProxyGenerator?> _generatorProvider;
+    private IProxyGenerator? _generator;
+    private IProxyGeneratorAvailability? _generatorAvailability;
     private readonly IProxyStore? _store;
     private readonly Channel<WorkItem> _channel;
     private readonly CancellationTokenSource _disposeCts = new();
@@ -25,12 +26,12 @@ public sealed class ProxyJobQueue : IProxyJobQueue
     private bool _disposed;
 
     public ProxyJobQueue(IProxyGenerator generator, int capacity = 256)
-        : this(generator, store: null, capacity)
+        : this(EagerProvider(generator), store: null, capacity)
     {
     }
 
     public ProxyJobQueue(IProxyGenerator generator, IProxyStore? store, int capacity = 256)
-        : this(generator, store, capacity, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(30))
+        : this(EagerProvider(generator), store, capacity, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(30))
     {
     }
 
@@ -40,16 +41,36 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         int capacity,
         TimeSpan minUnavailableBackoff,
         TimeSpan maxUnavailableBackoff)
+        : this(EagerProvider(generator), store, capacity, minUnavailableBackoff, maxUnavailableBackoff)
     {
-        ArgumentNullException.ThrowIfNull(generator);
+    }
+
+    /// <summary>
+    /// Constructs the queue with a generator resolved lazily from <paramref name="generatorProvider"/>
+    /// on the first job dispatch. Supports composition roots where the generator is registered after
+    /// the queue is constructed (e.g. a proxy generator registered by an extension's <c>Load</c>,
+    /// which runs after the app's <c>RegisterServices</c> builds this queue). The provider may return
+    /// null to signal "not yet registered"; such jobs are terminal-skipped and the next dispatch
+    /// re-probes, so a job queued before registration is not lost to a permanently-empty resolver.
+    /// </summary>
+    public ProxyJobQueue(Func<IProxyGenerator?> generatorProvider, IProxyStore? store, int capacity = 256)
+        : this(generatorProvider, store, capacity, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(30))
+    {
+    }
+
+    internal ProxyJobQueue(
+        Func<IProxyGenerator?> generatorProvider,
+        IProxyStore? store,
+        int capacity,
+        TimeSpan minUnavailableBackoff,
+        TimeSpan maxUnavailableBackoff)
+    {
+        ArgumentNullException.ThrowIfNull(generatorProvider);
         ArgumentOutOfRangeException.ThrowIfLessThan(capacity, 1);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(minUnavailableBackoff, TimeSpan.Zero);
         ArgumentOutOfRangeException.ThrowIfLessThan(maxUnavailableBackoff, minUnavailableBackoff);
 
-        _generator = generator;
-        _generatorAvailability = generator as IProxyGeneratorAvailability;
-        if (_generatorAvailability != null)
-            _generatorAvailability.AvailabilityChanged += OnGeneratorAvailabilityChanged;
+        _generatorProvider = generatorProvider;
         _store = store;
         _minUnavailableBackoff = minUnavailableBackoff;
         _maxUnavailableBackoff = maxUnavailableBackoff;
@@ -60,6 +81,33 @@ public sealed class ProxyJobQueue : IProxyJobQueue
             SingleWriter = false,
         });
         _drainTask = Task.Run(DrainAsync);
+    }
+
+    // Wraps a concrete generator as a provider for the eager constructors. The null check runs in
+    // the :this(...) initializer evaluation, preserving the pre-lazy throw-at-construction contract.
+    private static Func<IProxyGenerator?> EagerProvider(IProxyGenerator generator)
+    {
+        ArgumentNullException.ThrowIfNull(generator);
+        return () => generator;
+    }
+
+    // Resolves and caches the generator on first dispatch (single-threaded: the drain task is the
+    // only caller). The availability subscription is taken out here so an extension-registered
+    // generator that loads after the queue is constructed still drives the queue's resume/backoff.
+    private IProxyGenerator? ResolveGenerator()
+    {
+        if (_generator is { } resolved)
+            return resolved;
+
+        IProxyGenerator? generator = _generatorProvider();
+        if (generator is null)
+            return null;
+
+        _generator = generator;
+        _generatorAvailability = generator as IProxyGeneratorAvailability;
+        if (_generatorAvailability != null)
+            _generatorAvailability.AvailabilityChanged += OnGeneratorAvailabilityChanged;
+        return generator;
     }
 
     public int MaxConcurrency => 1;
@@ -240,10 +288,24 @@ public sealed class ProxyJobQueue : IProxyJobQueue
             item.Job.Status = ProxyJobStatus.Running;
             OnJobChanged(item.Job, ProxyJobChangeKind.Started);
 
+            IProxyGenerator? generator = ResolveGenerator();
+            if (generator is null)
+            {
+                // No generator registered yet (registry empty: build without FFmpeg, or a generator
+                // extension that has not finished loading). Skip this job terminally and let the next
+                // dispatch re-probe; once a generator registers, later jobs resolve and use it.
+                item.Job.Status = ProxyJobStatus.Skipped;
+                item.Job.StatusMessage = "Proxy generation is not available in this build.";
+                OnJobChanged(item.Job, ProxyJobChangeKind.Skipped);
+                Remove(item);
+                item.Dispose();
+                return;
+            }
+
             bool requeued = false;
             try
             {
-                await _generator.GenerateAsync(item.Job).ConfigureAwait(false);
+                await generator.GenerateAsync(item.Job).ConfigureAwait(false);
                 item.Job.Status = ProxyJobStatus.Succeeded;
                 Interlocked.Exchange(ref _consecutiveUnavailable, 0);
                 OnJobChanged(item.Job, ProxyJobChangeKind.Succeeded);
