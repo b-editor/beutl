@@ -90,10 +90,20 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
         string relative,
         PixelSize originalSize,
         PixelSize proxySize,
-        CancellationToken ct)
+        CancellationToken ct,
+        Func<string, string, bool>? moveAttempt = null)
     {
         ct.ThrowIfCancellationRequested();
-        File.Move(tempPath, finalPath, overwrite: true);
+        await MoveWithRetryAsync(tempPath, finalPath, ct, moveAttempt);
+
+        // The pre-check only guards a cancel that arrived before the move; a cancel during the move
+        // still leaves a complete artifact at finalPath. Do not register it — delete the moved file
+        // so it is not left as an orphan claiming to be the proxy.
+        if (ct.IsCancellationRequested)
+        {
+            TryDelete(finalPath);
+            throw new OperationCanceledException(ct);
+        }
 
         // The encoded proxy is now on disk at finalPath and is valid. A failure in the metadata /
         // registration step below must never delete it — the artifact is re-registerable, so a
@@ -303,6 +313,64 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
         }
         catch
         {
+        }
+    }
+
+    // Bounded retry for File.Move: on Windows, a preview reader holding dest open causes a transient
+    // sharing violation (IOException); on Unix the replace is atomic so the retry is a no-op. A
+    // genuinely-held-long file still fails after maxAttempts — the job fails and the old proxy is kept,
+    // the same end state as the un-retried move. The moveAttempt seam lets tests inject failures; the
+    // default does File.Move(overwrite: true) and returns false on IOException so the helper retries.
+    internal static async Task MoveWithRetryAsync(
+        string source,
+        string dest,
+        CancellationToken ct,
+        Func<string, string, bool>? moveAttempt = null,
+        int maxAttempts = 5,
+        TimeSpan? retryDelay = null)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(dest);
+        if (maxAttempts < 1)
+            throw new ArgumentOutOfRangeException(nameof(maxAttempts), maxAttempts, "Must be at least 1.");
+
+        Func<string, string, bool> attempt = moveAttempt ?? DefaultMoveAttempt;
+        TimeSpan delay = retryDelay ?? TimeSpan.FromMilliseconds(200);
+
+        IOException? lastError = null;
+        for (int i = 0; i < maxAttempts; i++)
+        {
+            ct.ThrowIfCancellationRequested();
+            try
+            {
+                if (attempt(source, dest))
+                    return;
+            }
+            catch (IOException ex)
+            {
+                // A delegate may throw IOException instead of returning false; preserve it so the
+                // exhausted path rethrows the underlying error rather than a synthetic one.
+                lastError = ex;
+            }
+
+            if (i < maxAttempts - 1)
+                await Task.Delay(delay, ct);
+        }
+
+        throw lastError ?? new IOException(
+            $"Failed to move '{source}' to '{dest}' after {maxAttempts} attempt(s).");
+    }
+
+    private static bool DefaultMoveAttempt(string source, string dest)
+    {
+        try
+        {
+            File.Move(source, dest, overwrite: true);
+            return true;
+        }
+        catch (IOException)
+        {
+            return false;
         }
     }
 

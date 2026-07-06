@@ -1,0 +1,306 @@
+﻿using Beutl.Extensions.FFmpeg.Proxy;
+using Beutl.Media;
+using Beutl.Media.Proxy;
+
+namespace Beutl.UnitTests.Extensions.FFmpeg;
+
+[TestFixture]
+public sealed class FFmpegProxyGeneratorPublishTests
+{
+    [Test]
+    public async Task MoveWithRetryAsync_RetriesTransientFailuresThenSucceeds()
+    {
+        string root = CreateRoot();
+        string source = Path.Combine(root, "src.mp4");
+        string dest = Path.Combine(root, "dst.mp4");
+        File.WriteAllBytes(source, [1, 2, 3, 4]);
+        int attempts = 0;
+
+        await FFmpegProxyGenerator.MoveWithRetryAsync(
+            source,
+            dest,
+            CancellationToken.None,
+            moveAttempt: (s, d) =>
+            {
+                attempts++;
+                if (attempts < 3)
+                    return false;
+                File.Move(s, d, overwrite: true);
+                return true;
+            },
+            maxAttempts: 5,
+            retryDelay: TimeSpan.FromMilliseconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(attempts, Is.EqualTo(3), "the first two transient failures must be retried");
+            Assert.That(File.Exists(dest), Is.True);
+            Assert.That(File.Exists(source), Is.False);
+        });
+    }
+
+    [Test]
+    public void MoveWithRetryAsync_WhenAlwaysFails_ThrowsIOExceptionAfterMaxAttempts()
+    {
+        string root = CreateRoot();
+        string source = Path.Combine(root, "src.mp4");
+        string dest = Path.Combine(root, "dst.mp4");
+        File.WriteAllBytes(source, [1, 2, 3, 4]);
+        int attempts = 0;
+
+        Assert.ThrowsAsync<IOException>(async () =>
+            await FFmpegProxyGenerator.MoveWithRetryAsync(
+                source,
+                dest,
+                CancellationToken.None,
+                moveAttempt: (_, _) =>
+                {
+                    attempts++;
+                    return false;
+                },
+                maxAttempts: 3,
+                retryDelay: TimeSpan.FromMilliseconds(1)));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(attempts, Is.EqualTo(3), "must give up after maxAttempts");
+            Assert.That(File.Exists(source), Is.True, "source must remain when the move never succeeds");
+            Assert.That(File.Exists(dest), Is.False);
+        });
+    }
+
+    [Test]
+    public void MoveWithRetryAsync_WhenDelegateThrowsIOException_RetriesAndRethrowsLastError()
+    {
+        string root = CreateRoot();
+        string source = Path.Combine(root, "src.mp4");
+        string dest = Path.Combine(root, "dst.mp4");
+        File.WriteAllBytes(source, [1, 2, 3, 4]);
+        int attempts = 0;
+        IOException thrown0 = new("share violation 0");
+        IOException thrown1 = new("share violation 1");
+
+        IOException ex = (IOException)Assert.ThrowsAsync<IOException>(async () =>
+            await FFmpegProxyGenerator.MoveWithRetryAsync(
+                source,
+                dest,
+                CancellationToken.None,
+                moveAttempt: (_, _) =>
+                {
+                    attempts++;
+                    throw attempts == 1 ? thrown0 : thrown1;
+                },
+                maxAttempts: 2,
+                retryDelay: TimeSpan.FromMilliseconds(1)))!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(attempts, Is.EqualTo(2));
+            Assert.That(ex, Is.SameAs(thrown1), "the last thrown IOException must be rethrown after exhausting attempts");
+            Assert.That(File.Exists(source), Is.True);
+        });
+    }
+
+    [Test]
+    public void MoveWithRetryAsync_PropagatesOperationCanceledExceptionFromDelegate()
+    {
+        string root = CreateRoot();
+        string source = Path.Combine(root, "src.mp4");
+        string dest = Path.Combine(root, "dst.mp4");
+        File.WriteAllBytes(source, [1, 2, 3, 4]);
+        using var cts = new CancellationTokenSource();
+
+        Assert.ThrowsAsync<OperationCanceledException>(async () =>
+            await FFmpegProxyGenerator.MoveWithRetryAsync(
+                source,
+                dest,
+                cts.Token,
+                moveAttempt: (_, _) => throw new OperationCanceledException(cts.Token)));
+    }
+
+    [Test]
+    public void MoveWithRetryAsync_RespectsCancellationDuringRetryDelay()
+    {
+        string root = CreateRoot();
+        string source = Path.Combine(root, "src.mp4");
+        string dest = Path.Combine(root, "dst.mp4");
+        File.WriteAllBytes(source, [1, 2, 3, 4]);
+        using var cts = new CancellationTokenSource();
+        int attempts = 0;
+
+        // Task.Delay(delay, ct) throws TaskCanceledException (a derived OperationCanceledException),
+        // so accept the base type or any derived type.
+        Assert.CatchAsync<OperationCanceledException>(async () =>
+            await FFmpegProxyGenerator.MoveWithRetryAsync(
+                source,
+                dest,
+                cts.Token,
+                moveAttempt: (_, _) =>
+                {
+                    attempts++;
+                    cts.Cancel();
+                    return false;
+                },
+                maxAttempts: 5,
+                retryDelay: TimeSpan.FromMilliseconds(50)));
+
+        Assert.That(attempts, Is.EqualTo(1), "the retry delay after the first failure must observe the canceled token and stop");
+    }
+
+    [Test]
+    public void MoveWithRetryAsync_PreCanceledToken_ThrowsBeforeFirstAttempt()
+    {
+        string root = CreateRoot();
+        string source = Path.Combine(root, "src.mp4");
+        string dest = Path.Combine(root, "dst.mp4");
+        File.WriteAllBytes(source, [1, 2, 3, 4]);
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        int attempts = 0;
+
+        Assert.ThrowsAsync<OperationCanceledException>(async () =>
+            await FFmpegProxyGenerator.MoveWithRetryAsync(
+                source,
+                dest,
+                cts.Token,
+                moveAttempt: (_, _) =>
+                {
+                    attempts++;
+                    return true;
+                }));
+
+        Assert.That(attempts, Is.EqualTo(0), "a pre-canceled token must fail fast before invoking the delegate");
+    }
+
+    [Test]
+    public void PublishAsync_CancelDuringMove_DeletesMovedArtifactAndDoesNotRegister()
+    {
+        string root = CreateRoot();
+        var store = new CountingStore(root, failuresBeforeSuccess: 0);
+        var generator = new FFmpegProxyGenerator(store);
+        string source = Path.Combine(root, "src.mov");
+        File.WriteAllBytes(source, [1, 2, 3, 4]);
+        ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(source);
+        string tempPath = Path.Combine(root, "tmp.mov");
+        string finalPath = Path.Combine(root, "hash", "quarter.mp4");
+        Directory.CreateDirectory(Path.GetDirectoryName(finalPath)!);
+        File.WriteAllBytes(tempPath, [9, 9, 9, 9, 9]);
+        var job = new ProxyJob(fingerprint, ProxyPreset.Quarter);
+        using var cts = new CancellationTokenSource();
+
+        Assert.ThrowsAsync<OperationCanceledException>(async () =>
+            await generator.PublishAsync(
+                tempPath,
+                finalPath,
+                job,
+                "hash/quarter.mp4",
+                new PixelSize(64, 48),
+                new PixelSize(32, 24),
+                cts.Token,
+                moveAttempt: (s, d) =>
+                {
+                    File.Move(s, d, overwrite: true);
+                    cts.Cancel();
+                    return true;
+                }));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.Exists(finalPath), Is.False, "the moved artifact must be cleaned up so it is not left as an orphan claiming to be the proxy");
+            Assert.That(store.RegisterAttempts, Is.EqualTo(0), "a cancel after the move must not register the proxy");
+            Assert.That(store.LastRegistered, Is.Null);
+        });
+    }
+
+    [Test]
+    public void PublishAsync_RetriesTransientMoveFailureThenRegisters()
+    {
+        string root = CreateRoot();
+        var store = new CountingStore(root, failuresBeforeSuccess: 0);
+        var generator = new FFmpegProxyGenerator(store);
+        string source = Path.Combine(root, "src.mov");
+        File.WriteAllBytes(source, [1, 2, 3, 4]);
+        ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(source);
+        string tempPath = Path.Combine(root, "tmp.mov");
+        string finalPath = Path.Combine(root, "hash", "quarter.mp4");
+        Directory.CreateDirectory(Path.GetDirectoryName(finalPath)!);
+        File.WriteAllBytes(tempPath, [9, 9, 9, 9, 9]);
+        var job = new ProxyJob(fingerprint, ProxyPreset.Quarter);
+        int attempts = 0;
+
+        Assert.DoesNotThrowAsync(async () =>
+            await generator.PublishAsync(
+                tempPath,
+                finalPath,
+                job,
+                "hash/quarter.mp4",
+                new PixelSize(64, 48),
+                new PixelSize(32, 24),
+                CancellationToken.None,
+                moveAttempt: (s, d) =>
+                {
+                    attempts++;
+                    if (attempts < 2)
+                        return false;
+                    File.Move(s, d, overwrite: true);
+                    return true;
+                }));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(attempts, Is.EqualTo(2), "the transient move failure must be retried");
+            Assert.That(File.Exists(finalPath), Is.True);
+            Assert.That(store.RegisterAttempts, Is.EqualTo(1), "the proxy must be registered once the move succeeds");
+            Assert.That(store.LastRegistered, Is.Not.Null);
+        });
+    }
+
+    private static string CreateRoot()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        return root;
+    }
+
+    private sealed class CountingStore(string root, int failuresBeforeSuccess) : IProxyStore
+    {
+        public int RegisterAttempts { get; private set; }
+
+        public ProxyEntry? LastRegistered { get; private set; }
+
+        public string StoreRootPath => root;
+
+        public ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset) => null;
+
+        public IReadOnlyList<ProxyEntry> Enumerate() => [];
+
+        public void Register(ProxyEntry entry)
+        {
+            RegisterAttempts++;
+            if (RegisterAttempts <= failuresBeforeSuccess)
+                throw new InvalidOperationException("index locked");
+
+            LastRegistered = entry;
+        }
+
+        public bool TryTransition(ProxyFingerprint source, ProxyPreset preset, ProxyState newState, string? failureReason = null) => false;
+
+        public bool Delete(ProxyFingerprint source, ProxyPreset preset) => false;
+
+        public void Touch(ProxyFingerprint source, ProxyPreset preset, DateTime nowUtc)
+        {
+        }
+
+        public long GetTotalBytes() => 0;
+
+        public long GetTotalBytes(IReadOnlySet<string> sourceAbsolutePaths) => 0;
+
+        public Task FlushAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task ReconcileAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+#pragma warning disable CS0067 // Not exercised by these tests.
+        public event EventHandler<ProxyStoreChangedEventArgs>? Changed;
+#pragma warning restore CS0067
+    }
+}
