@@ -58,6 +58,8 @@ public sealed class RenderTargetPool : IDisposable
     private Func<int, int, TextureFormat, ITexture2D?> _textureFactory = CreateBackingTexture;
     private long _idleBytes;
     private long _currentFrame;
+    private long _liveLeases;
+    private long _peakLiveLeases;
     private bool _isDisposed;
 
     public RenderTargetPool(long maxIdleBytes = DefaultMaxIdleBytes)
@@ -70,6 +72,15 @@ public sealed class RenderTargetPool : IDisposable
 
     /// <summary>Total bytes of idle buffers currently held. Test/diagnostic surface.</summary>
     public long IdleBytes => _idleBytes;
+
+    /// <summary>Number of leases currently issued and not yet returned. Test/diagnostic surface.</summary>
+    public long LiveLeaseCount => _liveLeases;
+
+    /// <summary>High-water mark of concurrently live leases since the last <see cref="ResetPeakLiveLeases"/> (the FR-007 measured peak).</summary>
+    public long PeakLiveLeaseCount => _peakLiveLeases;
+
+    /// <summary>Restarts the peak-live window at the current live count; the plan executor calls this once per plan execution.</summary>
+    public void ResetPeakLiveLeases() => _peakLiveLeases = _liveLeases;
 
     /// <summary>
     /// Acquires a cleared RGBA16F buffer of exactly <paramref name="width"/> × <paramref name="height"/>:
@@ -101,6 +112,7 @@ public sealed class RenderTargetPool : IDisposable
             ClearForReuse(pooled);
             if (diagnostics != null)
                 diagnostics.PoolAcquires++;
+            OnLeaseIssued();
             return RenderTarget.WrapPooled(this, pooled);
         }
 
@@ -115,6 +127,7 @@ public sealed class RenderTargetPool : IDisposable
             diagnostics.PoolAcquires++;
         }
 
+        OnLeaseIssued();
         return RenderTarget.WrapPooled(this, fresh);
     }
 
@@ -141,6 +154,7 @@ public sealed class RenderTargetPool : IDisposable
             _idleBytes -= pooled.ByteSize;
             if (diagnostics != null)
                 diagnostics.PoolAcquires++;
+            OnLeaseIssued();
             return new PooledTextureLease(this, pooled);
         }
 
@@ -156,7 +170,15 @@ public sealed class RenderTargetPool : IDisposable
             diagnostics.PoolAcquires++;
         }
 
+        OnLeaseIssued();
         return new PooledTextureLease(this, fresh);
+    }
+
+    private void OnLeaseIssued()
+    {
+        _liveLeases++;
+        if (_liveLeases > _peakLiveLeases)
+            _peakLiveLeases = _liveLeases;
     }
 
     /// <summary>
@@ -179,17 +201,30 @@ public sealed class RenderTargetPool : IDisposable
 
     /// <summary>
     /// Returns a buffer to its bucket at its lease's last release (called by the pool-aware deallocator in
-    /// <see cref="RenderTarget"/>, never directly by consumers). Bumps the generation to invalidate any stale
-    /// lease, stamps the current frame for idle eviction, and enforces the byte cap. If the pool is already
-    /// disposed the buffer is disposed instead of resurrected.
+    /// <see cref="RenderTarget"/> and by <see cref="PooledTextureLease.Dispose"/>, never directly by consumers).
+    /// Bumps the generation to invalidate any stale lease, stamps the current frame for idle eviction, and
+    /// enforces the byte cap. If the pool is already disposed the buffer is disposed instead of resurrected.
+    /// <paramref name="leaseGeneration"/> is the generation the returning lease captured at acquire time: a stale
+    /// lease (its buffer force-returned and possibly reissued to a newer lease) is rejected so it can never
+    /// re-bucket a buffer the current lease still owns.
     /// </summary>
-    internal void Return(PooledSurface pooled)
+    internal void Return(PooledSurface pooled, int leaseGeneration)
     {
+        // Pool state is render-thread-affine, but a lease's last release can happen on any thread
+        // (PooledTextureLease.Dispose runs on the caller thread); marshal like DisposeBacking does.
+        if (_dispatcher != null && !_dispatcher.CheckAccess())
+        {
+            _dispatcher.Dispatch(() => Return(pooled, leaseGeneration));
+            return;
+        }
+
         // Idempotent against a double return (a buggy double-dispose, or the generation test seam that
-        // deliberately returns a still-leased buffer): a buffer already idle is not re-bucketed.
-        if (pooled.IsPooled)
+        // deliberately returns a still-leased buffer): a buffer already idle is not re-bucketed, and a stale
+        // lease generation means a newer lease owns the buffer now.
+        if (pooled.IsPooled || pooled.Generation != leaseGeneration)
             return;
 
+        _liveLeases--;
         if (_isDisposed)
         {
             DisposeBacking(pooled);
@@ -257,7 +292,7 @@ public sealed class RenderTargetPool : IDisposable
     internal void ForceReturnForTest(RenderTarget target)
     {
         PooledSurface pooled = target.PooledSurfaceOrThrowForTest();
-        Return(pooled);
+        Return(pooled, pooled.Generation);
     }
 
     /// <summary>Test seam: overrides the backing-surface factory to simulate deterministic allocation failure.</summary>
@@ -465,13 +500,13 @@ public sealed class PooledTextureLease : IDisposable
         }
     }
 
-    /// <summary>Returns the texture to the pool. Idempotent.</summary>
+    /// <summary>Returns the texture to the pool. Idempotent; safe from any thread (the pool marshals).</summary>
     public void Dispose()
     {
         if (_disposed)
             return;
 
         _disposed = true;
-        _pool.Return(_pooled);
+        _pool.Return(_pooled, _generation);
     }
 }
