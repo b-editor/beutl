@@ -30,7 +30,7 @@
             Background="{Binding Color.Value, Converter={StaticResource ColorToBrushConverter}}"
             BorderThickness="1"
             Classes.elm-disabled="{Binding !IsEnabled.Value}"
-            Classes.elm-locked="{Binding IsLocked.Value}"
+            Classes.elm-locked="{Binding !IsEditable.Value}"
             Classes.selected="{Binding IsSelected.Value}">
         <Border.Styles>
             <Style Selector="Border:pressed">
@@ -201,7 +201,7 @@
                               VerticalAlignment="Center"
                               FontSize="12"
                               Foreground="{Binding TextColor.Value, Converter={StaticResource ColorToBrushConverter}}"
-                              IsVisible="{Binding IsLocked.Value}"
+                              IsVisible="{Binding !IsEditable.Value}"
                               Symbol="LockClosed" />
         </Panel>
     </Border>

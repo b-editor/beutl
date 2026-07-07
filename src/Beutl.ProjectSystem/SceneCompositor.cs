@@ -160,50 +160,58 @@ public sealed class SceneCompositor : ICompositor
 
     // Layersを振り分ける
     private void SortLayers(TimeSpan time, PooledList<Element> currentElements, CompositionTarget target)
-    {
-        bool hasSolo = AnySoloLayer();
-        foreach (Element item in Scene.Children)
-        {
-            if (!item.IsEnabled || !item.Range.Contains(time)) continue;
-            if (ShouldSkipLayer(item.ZIndex, target, hasSolo)) continue;
-            currentElements.OrderedAdd(item, x => x.ZIndex);
-        }
-    }
+        => SortLayersCore(currentElements, target, item => item.Range.Contains(time));
 
     private void SortLayers(TimeRange timeRange, PooledList<Element> currentElements, CompositionTarget target)
+        => SortLayersCore(currentElements, target, item => item.Range.Intersects(timeRange));
+
+    private void SortLayersCore(
+        PooledList<Element> currentElements,
+        CompositionTarget target,
+        Func<Element, bool> isActive)
     {
-        bool hasSolo = AnySoloLayer();
+        Dictionary<int, TimelineLayer> layersByZIndex = CreateLayerLookup();
+        bool hasSolo = AnySoloLayer(layersByZIndex);
         foreach (Element item in Scene.Children)
         {
-            if (!item.IsEnabled || !item.Range.Intersects(timeRange)) continue;
-            if (ShouldSkipLayer(item.ZIndex, target, hasSolo)) continue;
+            if (!item.IsEnabled || !isActive(item)) continue;
+            if (ShouldSkipLayer(item.ZIndex, target, hasSolo, layersByZIndex)) continue;
             currentElements.OrderedAdd(item, x => x.ZIndex);
         }
     }
 
-    private bool AnySoloLayer()
+    private Dictionary<int, TimelineLayer> CreateLayerLookup()
     {
+        var layersByZIndex = new Dictionary<int, TimelineLayer>(Scene.Layers.Count);
         foreach (TimelineLayer layer in Scene.Layers)
+        {
+            if (!layersByZIndex.ContainsKey(layer.ZIndex))
+            {
+                layersByZIndex.Add(layer.ZIndex, layer);
+            }
+        }
+
+        return layersByZIndex;
+    }
+
+    private static bool AnySoloLayer(Dictionary<int, TimelineLayer> layersByZIndex)
+    {
+        foreach (TimelineLayer layer in layersByZIndex.Values)
         {
             if (layer.IsSolo) return true;
         }
         return false;
     }
 
-    private TimelineLayer? FindLayer(int zIndex)
-    {
-        foreach (TimelineLayer layer in Scene.Layers)
-        {
-            if (layer.ZIndex == zIndex) return layer;
-        }
-        return null;
-    }
-
     // A layer without a TimelineLayer model cannot be soloed, so it is excluded
     // under solo mode. Mute is independent per target (audio vs video).
-    private bool ShouldSkipLayer(int zIndex, CompositionTarget target, bool hasSolo)
+    private static bool ShouldSkipLayer(
+        int zIndex,
+        CompositionTarget target,
+        bool hasSolo,
+        Dictionary<int, TimelineLayer> layersByZIndex)
     {
-        TimelineLayer? layer = FindLayer(zIndex);
+        layersByZIndex.TryGetValue(zIndex, out TimelineLayer? layer);
         if (hasSolo && (layer is null || !layer.IsSolo)) return true;
         if (layer is null) return false;
         return target == CompositionTarget.Graphics ? layer.IsVideoMuted : layer.IsAudioMuted;

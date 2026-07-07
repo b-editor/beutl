@@ -129,7 +129,6 @@ public sealed partial class ElementView : UserControl
         exclude.IsEnabled = editable;
         finishEditingAnimation.IsEnabled = editable;
         lockElement.IsEnabled = true;
-        lockElement.IsChecked = viewModel.IsLocked.Value;
     }
 
     private void LockElement_Click(object? sender, RoutedEventArgs e)
@@ -471,7 +470,9 @@ public sealed partial class ElementView : UserControl
                 if (point.Properties.IsLeftButtonPressed && e.KeyModifiers is KeyModifiers.None or KeyModifiers.Alt
                                                          && view.Cursor != Cursors.Arrow && view.Cursor is not null)
                 {
-                    IReadOnlyList<ElementViewModel> relatedElements = viewModel.GetGroupOrSelectedElements();
+                    IReadOnlyList<ElementViewModel> relatedElements = viewModel.GetGroupOrSelectedElements()
+                        .Where(el => el.IsEditable.Value)
+                        .ToArray();
 
                     // リサイズタイプに応じて、同じ時間の要素のみをフィルタリング
                     IEnumerable<ElementViewModel> filteredElements;

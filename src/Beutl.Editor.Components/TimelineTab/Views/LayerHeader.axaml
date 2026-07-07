@@ -49,7 +49,10 @@
                       Command="{Binding ToggleLockCommand}"
                       IsChecked="{Binding IsLocked.Value, Mode=OneWay}"
                       Theme="{StaticResource LayerHeaderToggleButtonStyle}"
-                      ToolTip.Tip="{x:Static lang:Strings.Lock}" />
+                      ToolTip.Tip="{x:Static lang:Strings.Lock}">
+            <icons:SymbolIcon FontSize="14"
+                              Symbol="LockClosed" />
+        </ToggleButton>
 
         <ToggleButton Grid.Column="2"
                       Command="{Binding SwitchEnabledCommand}"
@@ -88,7 +91,7 @@
                       Command="{Binding ToggleSoloCommand}"
                       IsChecked="{Binding IsSolo.Value, Mode=OneWay}"
                       Theme="{StaticResource LayerHeaderToggleButtonStyle}"
-                      ToolTip.Tip="Solo">
+                      ToolTip.Tip="{x:Static lang:Strings.Solo}">
             <icons:SymbolIcon FontSize="14"
                               Symbol="Star" />
         </ToggleButton>

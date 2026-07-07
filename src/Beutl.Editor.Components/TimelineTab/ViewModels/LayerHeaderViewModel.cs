@@ -265,19 +265,15 @@ public sealed class LayerHeaderViewModel : IDisposable
         _model.Value = Timeline.Scene.Layers.FirstOrDefault(l => l.ZIndex == Number.Value);
     }
 
-    private void ToggleLayerFlag(ReactiveProperty<bool> flag, Action<ILayerAttributeService, Scene, int, bool> apply)
+    private void ToggleLayerFlag(ReactiveProperty<bool> flag, Func<ILayerAttributeService, Scene, int, bool, bool> apply)
     {
         bool target = !flag.Value;
-        flag.Value = target;
         ILayerAttributeService service = Timeline.EditorContext.GetRequiredService<ILayerAttributeService>();
         apply(service, Timeline.Scene, Number.Value, target);
 
         // The service may have materialized a TimelineLayer on demand; re-sync so
         // the flag's source observable tracks the now-existing model.
-        if (_model.Value is null)
-        {
-            _model.Value = Timeline.Scene.Layers.FirstOrDefault(l => l.ZIndex == Number.Value);
-        }
+        _model.Value = Timeline.Scene.Layers.FirstOrDefault(l => l.ZIndex == Number.Value);
     }
 
     private TimelineLayer GetOrCreateModel()

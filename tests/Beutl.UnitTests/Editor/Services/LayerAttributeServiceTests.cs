@@ -191,6 +191,32 @@ public class LayerAttributeServiceTests
         });
     }
 
+    [TestCase("locked")]
+    [TestCase("audio-muted")]
+    [TestCase("video-muted")]
+    [TestCase("solo")]
+    public void SetFlag_NoExistingModel_FalseValue_DoesNotCreateOrCommit(string flag)
+    {
+        int beforeUndo = _history.UndoCount;
+        int beforeLayers = _scene.Layers.Count;
+
+        bool changed = flag switch
+        {
+            "locked" => _service.SetLocked(_scene, zIndex: 8, isLocked: false),
+            "audio-muted" => _service.SetAudioMuted(_scene, zIndex: 8, isMuted: false),
+            "video-muted" => _service.SetVideoMuted(_scene, zIndex: 8, isMuted: false),
+            "solo" => _service.SetSolo(_scene, zIndex: 8, isSolo: false),
+            _ => throw new ArgumentOutOfRangeException(nameof(flag), flag, null),
+        };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(changed, Is.False);
+            Assert.That(_scene.Layers.Count, Is.EqualTo(beforeLayers));
+            Assert.That(_history.UndoCount, Is.EqualTo(beforeUndo));
+        });
+    }
+
     [Test]
     public void SetAudioMuted_CreatesModelAndCommits()
     {

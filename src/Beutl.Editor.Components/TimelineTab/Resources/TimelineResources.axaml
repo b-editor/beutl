@@ -97,7 +97,7 @@
         <Style Selector="^:checked /template/ Border#PART_Root">
             <Setter Property="Background" Value="{DynamicResource ToggleButtonBackgroundIndeterminate}" />
         </Style>
-        <Style Selector="^:checked:pointoever /template/ Border#PART_Root">
+        <Style Selector="^:checked:pointerover /template/ Border#PART_Root">
             <Setter Property="Background" Value="{DynamicResource ToggleButtonBackgroundIndeterminatePointerOver}" />
         </Style>
         <Style Selector="^:checked:pressed /template/ Border#PART_Root">

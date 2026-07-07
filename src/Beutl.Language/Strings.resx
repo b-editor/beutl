@@ -626,6 +626,9 @@
   <data name="Unlock" xml:space="preserve">
     <value>Unlock</value>
   </data>
+  <data name="Solo" xml:space="preserve">
+    <value>Solo</value>
+  </data>
   <data name="FrameCache" xml:space="preserve">
     <value>Frame cache</value>
   </data>

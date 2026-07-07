@@ -89,23 +89,30 @@ public sealed class LayerAttributeService : ILayerAttributeService
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(commandName);
 
-        TimelineLayer layer = GetOrCreateLayer(scene, zIndex);
-        if (getter(layer) == newValue) return false;
+        TimelineLayer? layer = FindLayer(scene, zIndex);
+        if (layer is null)
+        {
+            if (!newValue) return false;
+            layer = new TimelineLayer { ZIndex = zIndex };
+            scene.Layers.Add(layer);
+        }
+        else if (getter(layer) == newValue)
+        {
+            return false;
+        }
 
         setter(layer, newValue);
         _historyManager.Commit(commandName);
         return true;
     }
 
-    private static TimelineLayer GetOrCreateLayer(Scene scene, int zIndex)
+    private static TimelineLayer? FindLayer(Scene scene, int zIndex)
     {
         foreach (TimelineLayer layer in scene.Layers)
         {
             if (layer.ZIndex == zIndex) return layer;
         }
 
-        var created = new TimelineLayer { ZIndex = zIndex };
-        scene.Layers.Add(created);
-        return created;
+        return null;
     }
 }
