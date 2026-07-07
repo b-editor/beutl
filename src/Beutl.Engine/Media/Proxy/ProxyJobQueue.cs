@@ -269,6 +269,11 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         }
     }
 
+    // Drives one channel permit to a terminal state, then loops while a dispatchable item
+    // remains. Each iteration either completes the item or requeues it and waits up to
+    // _maxUnavailableBackoff for generator availability, so the loop is bounded by
+    // ceil(_maxUnavailableBackoff / _minUnavailableBackoff) consecutive unavailable retries
+    // before a successful dispatch or an empty _items set ends the call.
     private async Task ProcessOneAsync()
     {
         while (true)

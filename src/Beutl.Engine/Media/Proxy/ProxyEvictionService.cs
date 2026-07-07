@@ -16,6 +16,20 @@ public sealed class ProxyEvictionService
     private readonly Func<string, long?>? _availableFreeSpaceProvider;
     private readonly Func<IReadOnlySet<(ProxyFingerprint Source, ProxyPreset Preset)>>? _activeGenerationProvider;
 
+    /// <param name="openProjectSourceProvider">
+    /// Returns the absolute paths of media files referenced by the currently-open project so
+    /// those proxies are evicted last (only when nothing else satisfies the cap). The set is
+    /// compared by <see cref="StringComparer.Ordinal"/> after path normalization. This callback
+    /// is invoked once per <see cref="Sweep"/> and <see cref="SweepForDiskPressure"/> call; it
+    /// must be O(1) or memoized by the consumer (e.g. a cached snapshot invalidated on project
+    /// open/close), not a fresh per-call enumeration of the project tree.
+    /// </param>
+    /// <param name="activeGenerationProvider">
+    /// Returns the (source, preset) keys of proxy generation jobs currently in flight so the
+    /// eviction never deletes a proxy whose replacement is still being written. This callback
+    /// is invoked once per <see cref="Sweep"/> and <see cref="SweepForDiskPressure"/> call; it
+    /// must be O(1) or memoized (e.g. a live snapshot of the job queue's pending set).
+    /// </param>
     public ProxyEvictionService(
         IProxyStore store,
         IProxyResolver? resolver,

@@ -108,12 +108,16 @@ public static class ProxySourceEnumerator
     {
         foreach (Drawable drawable in element.Objects.OfType<Drawable>())
         {
-            foreach (VideoSource source in EnumerateDrawable(drawable, visitedScenes))
+            foreach (VideoSource source in EnumerateDrawable(drawable, visitedScenes, new(ReferenceEqualityComparer.Instance), new(ReferenceEqualityComparer.Instance)))
                 yield return source;
         }
     }
 
-    private static IEnumerable<VideoSource> EnumerateDrawable(Drawable drawable, HashSet<Scene> visitedScenes)
+    private static IEnumerable<VideoSource> EnumerateDrawable(
+        Drawable drawable,
+        HashSet<Scene> visitedScenes,
+        HashSet<GraphGroup> visitedGraphGroups,
+        HashSet<FilterEffectGroup> visitedFilterEffectGroups)
     {
         switch (drawable)
         {
@@ -127,7 +131,7 @@ public static class ProxySourceEnumerator
                 break;
 
             case NodeGraphDrawable graphDrawable when graphDrawable.Model.CurrentValue is { } model:
-                foreach (VideoSource source in EnumerateGraphSources(model))
+                foreach (VideoSource source in EnumerateGraphSources(model, visitedGraphGroups))
                     yield return source;
 
                 break;
@@ -149,7 +153,7 @@ public static class ProxySourceEnumerator
             case DrawableGroup group:
                 foreach (Drawable child in group.Children)
                 {
-                    foreach (VideoSource source in EnumerateDrawable(child, visitedScenes))
+                    foreach (VideoSource source in EnumerateDrawable(child, visitedScenes, visitedGraphGroups, visitedFilterEffectGroups))
                         yield return source;
                 }
 
@@ -158,11 +162,13 @@ public static class ProxySourceEnumerator
 
         // A VideoSourceNode can also live inside a NodeGraphFilterEffect on any drawable's filter
         // chain; the render path evaluates those with proxy flags, so they must be scanned too.
-        foreach (VideoSource source in EnumerateFilterEffectGraphSources(drawable.FilterEffect.CurrentValue))
+        foreach (VideoSource source in EnumerateFilterEffectGraphSources(drawable.FilterEffect.CurrentValue, visitedFilterEffectGroups, visitedGraphGroups))
             yield return source;
     }
 
-    private static IEnumerable<VideoSource> EnumerateGraphSources(GraphModel model)
+    private static IEnumerable<VideoSource> EnumerateGraphSources(
+        GraphModel model,
+        HashSet<GraphGroup> visitedGraphGroups)
     {
         foreach (GraphNode node in model.Nodes)
         {
@@ -178,13 +184,19 @@ public static class ProxySourceEnumerator
                     break;
 
                 case GroupNode groupNode:
-                    foreach (VideoSource source in EnumerateGraphSources(groupNode.Group))
-                        yield return source;
+                    // A user-constructed GroupNode can reference a GraphGroup that (transitively)
+                    // contains the same GroupNode, producing an infinite walk. The visited set
+                    // makes the recursion terminate, mirroring the Scene cycle-break above.
+                    if (visitedGraphGroups.Add(groupNode.Group))
+                    {
+                        foreach (VideoSource source in EnumerateGraphSources(groupNode.Group, visitedGraphGroups))
+                            yield return source;
 
-                    // A group can also receive a VideoSource at its outer input boundary; the render
-                    // path forwards those into the inner graph (GroupInput.Resource.OuterInputValues).
-                    foreach (VideoSource source in EnumerateGroupNodeInputSources(groupNode))
-                        yield return source;
+                        // A group can also receive a VideoSource at its outer input boundary; the render
+                        // path forwards those into the inner graph (GroupInput.Resource.OuterInputValues).
+                        foreach (VideoSource source in EnumerateGroupNodeInputSources(groupNode))
+                            yield return source;
+                    }
 
                     break;
             }
@@ -218,20 +230,23 @@ public static class ProxySourceEnumerator
         }
     }
 
-    private static IEnumerable<VideoSource> EnumerateFilterEffectGraphSources(FilterEffect? effect)
+    private static IEnumerable<VideoSource> EnumerateFilterEffectGraphSources(
+        FilterEffect? effect,
+        HashSet<FilterEffectGroup> visitedFilterEffectGroups,
+        HashSet<GraphGroup> visitedGraphGroups)
     {
-        if (effect is FilterEffectGroup group)
+        if (effect is FilterEffectGroup group && visitedFilterEffectGroups.Add(group))
         {
             foreach (FilterEffect child in group.Children)
             {
-                foreach (VideoSource source in EnumerateFilterEffectGraphSources(child))
+                foreach (VideoSource source in EnumerateFilterEffectGraphSources(child, visitedFilterEffectGroups, visitedGraphGroups))
                     yield return source;
             }
         }
         else if (effect is NodeGraphFilterEffect graphEffect
                  && graphEffect.Model.CurrentValue is { } model)
         {
-            foreach (VideoSource source in EnumerateGraphSources(model))
+            foreach (VideoSource source in EnumerateGraphSources(model, visitedGraphGroups))
                 yield return source;
         }
     }

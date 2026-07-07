@@ -3,17 +3,21 @@ using System.Text.Json.Serialization;
 using Beutl.Extensibility;
 using Beutl.Extensions.FFmpeg.Encoding;
 using Beutl.FFmpegIpc;
+using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
 using Beutl.Media.Proxy;
 using Beutl.Media.Source;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.Extensions.FFmpeg.Proxy;
 
 public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, IProxyGeneratorAvailability
 {
+    private static readonly ILogger s_logger = Log.CreateLogger<FFmpegProxyGenerator>();
+
     private static readonly JsonSerializerOptions s_jsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -134,8 +138,11 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
         {
             WriteMetadata(finalPath, entry);
         }
-        catch
+        catch (Exception ex)
         {
+            // Sidecar is best-effort: the ProxyStore index is the authoritative record, and
+            // ReconcileAsync can later recover the artifact from disk. Log and continue.
+            s_logger.LogWarning(ex, "Failed to write proxy sidecar metadata at {Path}", finalPath);
         }
 
         await RegisterWithRetryAsync(entry);

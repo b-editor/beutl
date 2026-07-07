@@ -11,6 +11,8 @@ public interface IProxyResolver
     /// only when that source's own proxy entries change (registered / state-changed /
     /// deleted). Callers cache the value per source and reload when it changes, so a
     /// proxy change to one source never forces unrelated proxied sources to reopen.
+    /// The first observed value for a source with no recorded changes is <c>0</c>;
+    /// subsequent bumps yield <c>1, 2, 3, …</c>.
     /// </summary>
     /// <param name="source">
     /// Fingerprint of the original media file. Keying on <see cref="ProxyFingerprint"/>

@@ -74,6 +74,75 @@ public sealed class ExportRenderContextSafetyTests
         });
     }
 
+    [Test]
+    public void ExportCompositor_WithMissingOriginalFile_FailsRatherThanUsingProxy()
+    {
+        using var scope = ProxyScope.Create(new PixelSize(100, 80), new PixelSize(50, 40));
+        DecoderRegistry.ProxyResolver = new ProxyResolver(scope.Store);
+
+        // Point the VideoSource at a path that does not exist on disk so the export-time
+        // reader open fails. A Ready proxy IS registered for that source fingerprint, so if
+        // FR-004 were violated (export silently substituting the proxy), ProxyResolution would
+        // be non-null and the resource would decode from the proxy instead of failing.
+        string missingOriginalPath = Path.Combine(scope.RootPath, "missing-source.mp4");
+
+        // Create a dummy proxy file on disk so ProxyStore.Register's Ready-state validation
+        // (file exists + size matches) passes; the proxy content is irrelevant — the test
+        // asserts it is NOT used.
+        string dummyProxyRelative = $"proxy/{Guid.NewGuid():N}.mp4";
+        string dummyProxyPath = Path.Combine(scope.RootPath, dummyProxyRelative.Replace('/', Path.DirectorySeparatorChar));
+        Directory.CreateDirectory(Path.GetDirectoryName(dummyProxyPath)!);
+        File.WriteAllBytes(dummyProxyPath, [1, 2, 3, 4]);
+        long dummyProxySize = new FileInfo(dummyProxyPath).Length;
+
+        scope.Store.Register(new ProxyEntry(
+            new ProxyFingerprint(missingOriginalPath, 4, DateTime.UtcNow),
+            ProxyPreset.Quarter,
+            ProxyState.Ready,
+            dummyProxyRelative,
+            dummyProxySize,
+            new PixelSize(100, 80),
+            new PixelSize(50, 40),
+            DateTime.UtcNow,
+            DateTime.UtcNow,
+            null));
+
+        var media = new VideoSource();
+        media.ReadFrom(new Uri(missingOriginalPath));
+        var drawable = new SourceVideo();
+        drawable.Source.CurrentValue = media;
+        var element = new Element
+        {
+            Start = TimeSpan.Zero,
+            Length = TimeSpan.FromSeconds(1),
+            IsEnabled = true,
+            Uri = new Uri(Path.Combine(scope.RootPath, $"{Guid.NewGuid():N}.layer")),
+        };
+        element.AddObject(drawable);
+        var scene = new Scene(100, 80, string.Empty)
+        {
+            Uri = new Uri(Path.Combine(scope.RootPath, "test.scene")),
+            PreviewSourceMode = PreviewSourceMode.PreferProxy,
+        };
+        scene.Children.Add(element);
+        using var compositor = new SceneCompositor(scene)
+        {
+            DisableResourceShare = true,
+            ForceOriginalSource = true,
+        };
+
+        CompositionFrame frame = compositor.EvaluateGraphics(TimeSpan.Zero);
+        var resource = (SourceVideo.Resource)frame.Objects.Single();
+
+        Assert.Multiple(() =>
+        {
+            // FR-004: the proxy must NOT be substituted when the original is missing at export.
+            Assert.That(resource.Source, Is.Not.Null, "A VideoSource.Resource should still be produced even when the original is missing.");
+            Assert.That(resource.Source!.ProxyResolution, Is.Null, "Export must not silently use a proxy when the original is missing.");
+            Assert.That(resource.Source.MediaReader, Is.Null, "The export reader must not have opened a proxy as a substitute.");
+        });
+    }
+
     private sealed class ProxyScope : IDisposable
     {
         private readonly string _root;
