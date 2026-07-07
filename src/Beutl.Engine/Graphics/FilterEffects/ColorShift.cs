@@ -76,9 +76,10 @@ public partial class ColorShift : FilterEffect
         var data = (r.RedOffset, r.GreenOffset, r.BlueOffset, r.AlphaOffset);
         float w = builder.WorkingScale;
 
-        // A whole-source shader sampling each channel from its own shifted position. The executor re-bakes the
-        // source into the (expanded) output rect before this pass, so the shifted sample coordinate is already in
-        // the output buffer's device space — the legacy minOffset alignment is absorbed by the re-bake and stays 0.
+        // A whole-source shader sampling each channel from its own shifted position. The executor sizes this
+        // non-invariant pass by its declared forward bounds (the union of the shifted copies) and re-bakes the
+        // source into that expanded rect before the pass, so the shifted sample coordinate is already in the
+        // output buffer's device space — the legacy minOffset alignment is absorbed by the re-bake and stays 0.
         builder.Shader(ShaderNodeDescriptor.WholeSource(
             ShaderSource,
             BoundsContract.Create(

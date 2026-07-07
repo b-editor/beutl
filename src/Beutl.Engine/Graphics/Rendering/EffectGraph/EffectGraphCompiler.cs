@@ -69,12 +69,13 @@ internal static class EffectGraphCompiler
                     OutputBounds = node.OutputBounds,
                     BackwardBounds = shader.Bounds.GetRequiredInputBounds,
                     IsRenderTimeResolved = shader.Bounds.IsRenderTimeResolved,
+                    CoordinateInvariant = shader.IsCoordinateInvariant,
                 });
                 i++;
             }
             else if (node.Descriptor is GeometryNodeDescriptor geometry)
             {
-                passes.Add(new GeometryPass(geometry.Render, geometry.InputCount)
+                passes.Add(new GeometryPass(geometry.Render)
                 {
                     InputBounds = node.InputBounds,
                     OutputBounds = node.OutputBounds,
@@ -300,14 +301,54 @@ internal static class EffectGraphCompiler
         _ => throw new NotSupportedException($"'{descriptor.GetType().Name}' is not a fused stage."),
     };
 
+    // Declares every intermediate the executor concurrently holds, so PeakLiveCount bounds the runtime FR-007
+    // assert: one output per current operation, read by the next pass ([idx, idx+1]; the tail's output is the
+    // frame result), plus pass-scoped scratch ([idx, idx]) — the baked input for geometry/compute/split, and the
+    // C3.3 ping-pong pair and depth attachment for compute. A dynamic-output pass (dynamic split, nested graph)
+    // has no static decls (C3.5); the executor skips the peak assert for such plans.
     private static ResourcePlan BuildResourcePlan(ImmutableArray<CompiledPass> passes)
     {
         var decls = ImmutableArray.CreateBuilder<IntermediateDecl>(passes.Length);
+        int id = 0;
+        int multiplicity = 1;
+
+        void Add(int count, int firstUse, int lastUse, TextureFormat format = TextureFormat.RGBA16Float)
+        {
+            for (int c = 0; c < count; c++)
+                decls.Add(new IntermediateDecl(id++, format, firstUse, lastUse));
+        }
+
         for (int idx = 0; idx < passes.Length; idx++)
         {
-            // A pass writes one intermediate; the next pass reads it (its own output is the frame result at the tail).
             int lastUse = idx < passes.Length - 1 ? idx + 1 : idx;
-            decls.Add(new IntermediateDecl(idx, TextureFormat.RGBA16Float, idx, lastUse));
+            switch (passes[idx])
+            {
+                case SplitPass { IsDynamicOutputs: false } split:
+                    Add(multiplicity, idx, idx);
+                    multiplicity *= split.BranchCount;
+                    Add(multiplicity, idx, lastUse);
+                    break;
+                case SplitPass or NestedGraphPass:
+                    break;
+                case CompositePass:
+                    multiplicity = 1;
+                    Add(1, idx, lastUse);
+                    break;
+                case GeometryPass:
+                    Add(multiplicity, idx, idx);
+                    Add(multiplicity, idx, lastUse);
+                    break;
+                case ComputePass compute:
+                    Add(multiplicity, idx, idx);
+                    Add(2 * multiplicity, idx, idx);
+                    if (compute.RequiresDepth)
+                        Add(multiplicity, idx, idx, TextureFormat.Depth32Float);
+                    Add(multiplicity, idx, lastUse);
+                    break;
+                default:
+                    Add(multiplicity, idx, lastUse);
+                    break;
+            }
         }
 
         return new ResourcePlan(decls.ToImmutable());

@@ -77,6 +77,14 @@ public sealed record ColorFilterStage(Func<SKColorFilter?> Factory) : FusedStage
 /// </summary>
 public sealed record FusedShaderPass(ImmutableArray<FusedStage> Stages) : CompiledPass
 {
+    /// <summary>
+    /// True when every stage is coordinate-invariant, so the pass's output bounds equal its input's and the
+    /// executor may size/place it from the operation's own bounds. A pass wrapping a single non-invariant
+    /// whole-source stage (e.g. a channel-shift shader whose output rect differs from its input) sets this
+    /// <see langword="false"/> and is sized/placed by its resolved ROI / declared forward bounds instead.
+    /// </summary>
+    public bool CoordinateInvariant { get; init; } = true;
+
     /// <inheritdoc/>
     public override PassBackend Backend => PassBackend.Skia;
 }
@@ -92,11 +100,11 @@ public sealed record SkiaFilterPass(ImmutableArray<Func<SKImageFilter?, SKImageF
 }
 
 /// <summary>
-/// An imperative geometry pass (feature 004, data-model §3, T040): the executor bakes the node's inputs, opens a
-/// bracketed canvas over a pooled output target, and invokes <see cref="Render"/> with a <see cref="GeometrySession"/>.
-/// One draw = one output; never fused.
+/// An imperative geometry pass (feature 004, data-model §3, T040): the executor bakes the node's single input,
+/// opens a bracketed canvas over a pooled output target, and invokes <see cref="Render"/> with a
+/// <see cref="GeometrySession"/>. One draw = one output; never fused.
 /// </summary>
-public sealed record GeometryPass(Action<GeometrySession> Render, int InputCount) : CompiledPass
+public sealed record GeometryPass(Action<GeometrySession> Render) : CompiledPass
 {
     /// <inheritdoc/>
     public override PassBackend Backend => PassBackend.Skia;
