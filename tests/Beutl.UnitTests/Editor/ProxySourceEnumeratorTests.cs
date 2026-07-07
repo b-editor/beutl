@@ -88,6 +88,30 @@ public class ProxySourceEnumeratorTests
     }
 
     [Test]
+    public void EnumerateVideoSources_RecursesIntoDrawableDecoratorChildren()
+    {
+        var nested = new SourceVideo();
+        nested.Source.CurrentValue = CreateVideoSource("decorated.mov");
+        var decorator = new DrawableDecorator();
+        decorator.Children.Add(nested);
+        Element element = ElementWith(decorator);
+
+        Assert.That(FileNames(element), Does.Contain("decorated.mov"));
+    }
+
+    [Test]
+    public void EnumerateVideoSources_RecursesIntoDrawableTimeControllerTarget()
+    {
+        var nested = new SourceVideo();
+        nested.Source.CurrentValue = CreateVideoSource("retimed.mov");
+        var controller = new DrawableTimeController();
+        controller.Target.CurrentValue = nested;
+        Element element = ElementWith(controller);
+
+        Assert.That(FileNames(element), Does.Contain("retimed.mov"));
+    }
+
+    [Test]
     public void EnumerateVideoSources_RecursesIntoGroupNodeSubgraph()
     {
         var node = new VideoSourceNode();

@@ -261,6 +261,37 @@ public class ProxyJobQueueTests
     }
 
     [Test]
+    public async Task EnqueueAsync_CancelWhileWriteBlocked_NeverDispatchesTheJob()
+    {
+        // capacity 1: the worker is occupied and one permit is buffered, so this enqueue's WriteAsync
+        // blocks with the item unpublished. Canceling it must remove the item cleanly without ever
+        // dispatching it, and the queue must keep processing the buffered job.
+        var generator = new ControlledBlockingGenerator();
+        await using var queue = new ProxyJobQueue(generator, capacity: 1);
+        ProxyFingerprint running = CreateFingerprint("running.mov");
+        ProxyFingerprint bulk = CreateFingerprint("bulk.mov");
+        ProxyFingerprint canceled = CreateFingerprint("canceled.mov");
+
+        ProxyJob runningJob = await queue.EnqueueAsync(running, ProxyPreset.Quarter);
+        await generator.WaitForStartedCountAsync(1);
+
+        await queue.EnqueueAsync(bulk, ProxyPreset.Quarter);
+
+        using var cts = new CancellationTokenSource();
+        Task<ProxyJob> canceledEnqueue = queue.EnqueueAsync(canceled, ProxyPreset.Quarter, priority: 10, cts.Token).AsTask();
+        cts.Cancel();
+        Assert.CatchAsync<OperationCanceledException>(async () => await canceledEnqueue);
+
+        generator.ReleaseOne();
+        await generator.WaitForStartedCountAsync(2);
+        generator.ReleaseAll();
+        await WaitForTerminalAsync(runningJob);
+
+        Assert.That(generator.StartedSources, Does.Not.Contain(canceled),
+            "a canceled enqueue whose permit was never reserved must not dispatch its job");
+    }
+
+    [Test]
     public async Task EnqueueAsync_PriorityReachableThroughInterfaceType()
     {
         var generator = new ControlledBlockingGenerator();

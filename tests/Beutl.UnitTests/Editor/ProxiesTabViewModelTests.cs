@@ -540,6 +540,41 @@ public sealed class ProxiesTabViewModelTests
     }
 
     [Test]
+    public async Task DeleteAllForProject_DeletesProxyRegisteredDuringConfirmation()
+    {
+        string root = CreateRoot();
+        string sourcePath = CreateSourceFile(root, "clip.mov", 2048);
+        var store = new ProxyStore(Path.Combine(root, "proxies"));
+        ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(sourcePath);
+        DateTime now = DateTime.UtcNow;
+        var quarter = new ProxyEntry(
+            fingerprint, ProxyPreset.Quarter, ProxyState.Ready, "hash/quarter.mp4", 1536,
+            new PixelSize(1920, 1080), new PixelSize(480, 270), now, now, null);
+        RegisterProxyEntry(store, quarter);
+
+        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
+
+        var half = new ProxyEntry(
+            fingerprint, ProxyPreset.Half, ProxyState.Ready, "hash/half.mp4", 3072,
+            new PixelSize(1920, 1080), new PixelSize(960, 540), now, now, null);
+        viewModel.ConfirmDeleteAllForProjectAsync = _ =>
+        {
+            // A project job finishes while the confirmation dialog is open and registers a new proxy.
+            RegisterProxyEntry(store, half);
+            return Task.FromResult(true);
+        };
+
+        await viewModel.DeleteAllForProjectCommand.ExecuteAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(store.TryGet(quarter.Source, quarter.Preset), Is.Null);
+            Assert.That(store.TryGet(half.Source, half.Preset), Is.Null,
+                "a proxy registered during confirmation must be re-snapshotted and deleted");
+        });
+    }
+
+    [Test]
     public async Task DeleteAllForProject_CancelsJobsForCurrentProjectFingerprints()
     {
         string root = CreateRoot();

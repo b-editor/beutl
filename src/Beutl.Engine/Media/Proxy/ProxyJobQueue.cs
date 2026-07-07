@@ -188,11 +188,18 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         try
         {
             await _channel.Writer.WriteAsync(item, cancellationToken);
+            lock (_lock)
+            {
+                item.Published = true;
+            }
+
             OnJobChanged(item.Job, ProxyJobChangeKind.Enqueued);
             return item.Job;
         }
         catch
         {
+            // The item was never published, so no dispatcher could have started it; removing and
+            // disposing it here cannot race a running generation.
             Remove(item);
             item.Dispose();
             throw;
@@ -423,7 +430,8 @@ public sealed class ProxyJobQueue : IProxyJobQueue
             WorkItem? best = null;
             foreach (WorkItem candidate in _items)
             {
-                if (candidate.Job.Status != ProxyJobStatus.Queued
+                if (!candidate.Published
+                    || candidate.Job.Status != ProxyJobStatus.Queued
                     || candidate.Cancellation.IsCancellationRequested)
                 {
                     continue;
@@ -547,6 +555,11 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         private bool _disposed;
 
         public ProxyJob Job { get; } = job;
+
+        // Guarded by the queue's _lock (not this WorkItem's _lock). Set true only after the item's
+        // channel permit is durably queued; TakeNextDispatchable ignores unpublished items so a job
+        // can never start before its capacity is reserved.
+        public bool Published { get; set; }
 
         public CancellationTokenSource Cancellation { get; } = cancellation;
 

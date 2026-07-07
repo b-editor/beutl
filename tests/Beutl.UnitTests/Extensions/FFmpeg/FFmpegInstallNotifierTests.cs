@@ -100,6 +100,31 @@ public class FFmpegInstallNotifierTests
     }
 
     [Test]
+    public void MarkMissingObserved_SetsLatchWithoutArmingCooldown()
+    {
+        FFmpegInstallNotifier.MarkMissingObserved();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(FFmpegInstallNotifier.IsLibrariesMissing, Is.True);
+            Assert.That(FFmpegInstallNotifier.MissingSinceTicks, Is.EqualTo(0),
+                "an observe-only decode failure must not arm the re-probe cooldown");
+        });
+    }
+
+    [Test]
+    public void MarkMissingObserved_DoesNotPushCooldownWindowForward()
+    {
+        FFmpegInstallNotifier.MarkMissing();
+        long since = FFmpegInstallNotifier.MissingSinceTicks;
+
+        FFmpegInstallNotifier.MarkMissingObserved();
+
+        Assert.That(FFmpegInstallNotifier.MissingSinceTicks, Is.EqualTo(since),
+            "a short-circuited decode must not re-arm and push the cooldown window forward");
+    }
+
+    [Test]
     public void NotifyWorkerStarted_ClearsMissingLatchAndSignalsAvailability()
     {
         FFmpegInstallNotifier.MarkMissing();

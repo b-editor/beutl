@@ -1,4 +1,4 @@
-using Beutl.Graphics;
+﻿using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.Media.Music;

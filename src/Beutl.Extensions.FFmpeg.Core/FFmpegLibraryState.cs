@@ -36,6 +36,12 @@ public static class FFmpegLibraryState
         SetLibrariesMissing(true);
     }
 
+    // Record the missing latch observed by a decode attempt WITHOUT re-arming the cooldown. The
+    // short-circuit throw (ShouldSkipStartProbe) surfaces the same exception as a real failure, so
+    // re-arming here would push the re-probe window forward on every short-circuited decode and keep
+    // queued jobs from ever re-probing. A real worker-start failure arms the cooldown itself.
+    public static void MarkMissingObserved() => SetLibrariesMissing(true);
+
     // A worker process handshaked successfully, so FFmpeg loaded: clear any missing latch. This is
     // the self-recovery path for a transient failure that had latched the queue.
     public static void NotifyWorkerStarted() => SetLibrariesMissing(false);

@@ -151,6 +151,26 @@ public static class ProxySourceEnumerator
                     }
 
                     break;
+
+                // DrawableDecorator and DrawableTimeController are IFlowOperator/IPresenter that render
+                // nested drawables the property walk cannot reach, so a SourceVideo placed in them would
+                // otherwise be invisible to the Proxies tab, badges, and cache invalidation.
+                case DrawableDecorator decorator:
+                    foreach (Drawable child in decorator.Children)
+                    {
+                        foreach (IFileSource source in EnumerateObjectFileSources(
+                            child, visitedScenes, visitedGraphGroups, visitedFilterEffectGroups))
+                            yield return source;
+                    }
+
+                    break;
+
+                case DrawableTimeController { Target.CurrentValue: { } target }:
+                    foreach (IFileSource source in EnumerateObjectFileSources(
+                        target, visitedScenes, visitedGraphGroups, visitedFilterEffectGroups))
+                        yield return source;
+
+                    break;
             }
         }
 

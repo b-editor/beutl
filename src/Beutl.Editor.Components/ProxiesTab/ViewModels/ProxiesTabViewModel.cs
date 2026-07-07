@@ -375,19 +375,16 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
         if (_store == null)
             return;
 
-        HashSet<string> projectPaths = [.. Clips.Select(static c => c.Source.AbsolutePath)];
-        ProxyEntry[] entries =
-        [
-            .. _store.Enumerate().Where(entry => projectPaths.Contains(entry.Source.AbsolutePath)),
-        ];
-        ProxyJob[] projectJobs = _queue == null
-            ? []
-            : [.. _queue.Pending().Where(job => projectPaths.Contains(job.Source.AbsolutePath))];
+        (ProxyEntry[] entries, ProxyJob[] projectJobs) = CollectProjectProxies();
         if (entries.Length == 0 && projectJobs.Length == 0)
             return;
 
         if (!await ConfirmDeleteAllForProjectAsync(entries.Length))
             return;
+
+        // Re-snapshot after the dialog: a project job can finish while it is open and register a new
+        // proxy the pre-dialog snapshot would miss, leaving it behind after the user confirms.
+        (entries, projectJobs) = CollectProjectProxies();
 
         foreach (ProxyJob job in projectJobs)
         {
@@ -400,6 +397,18 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
         }
 
         Refresh();
+    }
+
+    private (ProxyEntry[] Entries, ProxyJob[] Jobs) CollectProjectProxies()
+    {
+        HashSet<string> projectPaths = [.. Clips.Select(static c => c.Source.AbsolutePath)];
+        ProxyEntry[] entries = _store == null
+            ? []
+            : [.. _store.Enumerate().Where(entry => projectPaths.Contains(entry.Source.AbsolutePath))];
+        ProxyJob[] jobs = _queue == null
+            ? []
+            : [.. _queue.Pending().Where(job => projectPaths.Contains(job.Source.AbsolutePath))];
+        return (entries, jobs);
     }
 
     private static async Task<bool> ShowDeleteAllForProjectConfirmationAsync(int entryCount)
