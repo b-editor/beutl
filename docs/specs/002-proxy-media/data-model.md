@@ -88,7 +88,7 @@ public enum PreviewSourceMode
 }
 ```
 
-Stored on `Scene` (see "Touched types" below). Export path ignores this — it always decodes from original regardless.
+Lives in `Beutl.Configuration` and stored on `EditorConfig` (global, `settings.json` under `"Editor"`) — shared across all scenes, not per-scene. The preview `SceneCompositor` seeds `CompositionContext.PreferProxy` from `EditorConfig.PreviewSourceMode`. Export path ignores this — it always decodes from original regardless.
 
 ---
 
@@ -175,7 +175,7 @@ public record MediaOptions(
 
 > **Role of `PreferProxy` vs the size/density data (post-003)**: `PreferProxy` is **only the on/off toggle** — it tells `DecoderRegistry.OpenMediaFile` to consult `IProxyResolver`. The information needed to preserve the logical footprint and report supply density under 003 (the original logical size + the proxy's decoded size) is **not** carried on `MediaOptions`; it rides on the resolved `ProxyResolution` (see [contracts/IProxyResolver.md](./contracts/IProxyResolver.md)) and is consumed by the source / render-node layer (see "Source logical-size decoupling" below). A bare `bool` on `MediaOptions` is therefore sufficient and stays additive — consistent with 003 FR-025, which reserves room for a future decode-target-size hint without adding one now. The trade-off (bool-toggle + side-channel sizes vs a single decode-scale hint on `MediaOptions`) is recorded in research R-11.
 
-### `Scene` (existing class)
+### `EditorConfig` (existing class — global preview settings)
 
 Add:
 
@@ -183,7 +183,7 @@ Add:
 public PreviewSourceMode PreviewSourceMode { get; set; } = PreviewSourceMode.PreferProxy;
 ```
 
-Persistence: serialized into the existing `Scene` JSON via the existing `JsonSerializerOptions`. Default carries forward for projects saved without the field.
+Persistence: serialized into `settings.json` under `"Editor"` via the `CoreProperty` auto-serialization. Shared across all scenes (not per-scene). The preview `SceneCompositor` seeds `CompositionContext.PreferProxy` from `GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode`. The `PlayerView` source-mode badge and the `SceneSettingsTab` toggle were removed; the setting is edited in the app settings proxy section and the `PreviewSettingsTab`. Existing `Scene.json` files with a leftover `PreviewSourceMode` key ignore it on load.
 
 ### `SceneRenderer` (existing class — changed by 003)
 

@@ -2,7 +2,6 @@
 
 using Beutl.Editor;
 using Beutl.Editor.Services;
-using Beutl.Media.Proxy;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 
@@ -40,9 +39,6 @@ public sealed class SceneSettingsTabViewModel : IToolContext
             .Select(v => v.ToString())
             .ToReactiveProperty()
             .DisposeWith(_disposable)!;
-        PreviewSourceMode = _scene.GetObservable(Scene.PreviewSourceModeProperty)
-            .ToReactiveProperty()
-            .DisposeWith(_disposable);
         LayerCount = _optionsProvider.Options.Select(x => x.MaxLayerCount)
             .ToReactiveProperty()
             .DisposeWith(_disposable);
@@ -98,8 +94,7 @@ public sealed class SceneSettingsTabViewModel : IToolContext
                         _scene,
                         frameSize,
                         start,
-                        duration,
-                        PreviewSourceMode.Value);
+                        duration);
 
                     _optionsProvider.Options.Value = _optionsProvider.Options.Value with
                     {
@@ -116,7 +111,6 @@ public sealed class SceneSettingsTabViewModel : IToolContext
                 Height.Value = _scene.FrameSize.Height;
                 StartInput.Value = _scene.Start.ToString();
                 DurationInput.Value = _scene.Duration.ToString();
-                PreviewSourceMode.Value = _scene.PreviewSourceMode;
                 LayerCount.Value = _optionsProvider.Options.Value.MaxLayerCount;
             })
             .DisposeWith(_disposable);
@@ -171,10 +165,6 @@ public sealed class SceneSettingsTabViewModel : IToolContext
     public ReactiveProperty<string> StartInput { get; }
 
     public ReactiveProperty<string> DurationInput { get; }
-
-    public ReactiveProperty<PreviewSourceMode> PreviewSourceMode { get; }
-
-    public IReadOnlyList<PreviewSourceMode> PreviewSourceModeOptions { get; } = Enum.GetValues<PreviewSourceMode>();
 
     public ReactiveProperty<int> LayerCount { get; }
 

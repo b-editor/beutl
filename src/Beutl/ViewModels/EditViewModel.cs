@@ -116,7 +116,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
             .DisposeWith(_disposables)!;
 
         Player = new PlayerViewModel(this);
-        scene.GetObservable(Scene.PreviewSourceModeProperty)
+        GlobalConfiguration.Instance.EditorConfig.GetObservable(EditorConfig.PreviewSourceModeProperty)
             .Skip(1)
             .Subscribe(_ =>
             {

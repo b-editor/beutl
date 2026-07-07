@@ -1,4 +1,5 @@
 ﻿using Beutl.Composition;
+using Beutl.Configuration;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
@@ -18,6 +19,7 @@ namespace Beutl.UnitTests.Graphics;
 public class ProxyVideoLogicalSizeTests
 {
     private IProxyResolver? _oldResolver;
+    private PreviewSourceMode _originalPreviewSourceMode;
 
     [OneTimeSetUp]
     public void OneTimeSetUp()
@@ -30,12 +32,15 @@ public class ProxyVideoLogicalSizeTests
     {
         _oldResolver = DecoderRegistry.ProxyResolver;
         DecoderRegistry.ProxyResolver = null;
+        _originalPreviewSourceMode = GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode;
+        GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode = PreviewSourceMode.PreferProxy;
     }
 
     [TearDown]
     public void TearDown()
     {
         DecoderRegistry.ProxyResolver = _oldResolver;
+        GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode = _originalPreviewSourceMode;
     }
 
     [Test]
@@ -243,7 +248,6 @@ public class ProxyVideoLogicalSizeTests
             var scene = new Scene(120, 100, string.Empty)
             {
                 Uri = new Uri(Path.Combine(scope.RootPath, "test.scene")),
-                PreviewSourceMode = PreviewSourceMode.PreferProxy,
             };
             scene.Children.Add(element);
 
@@ -292,7 +296,6 @@ public class ProxyVideoLogicalSizeTests
             var scene = new Scene(120, 100, string.Empty)
             {
                 Uri = new Uri(Path.Combine(scope.RootPath, "test.scene")),
-                PreviewSourceMode = PreviewSourceMode.PreferProxy,
             };
             scene.Children.Add(element);
 
@@ -343,7 +346,6 @@ public class ProxyVideoLogicalSizeTests
             var scene = new Scene(160, 130, string.Empty)
             {
                 Uri = new Uri(Path.Combine(scope.RootPath, "test.scene")),
-                PreviewSourceMode = PreviewSourceMode.PreferProxy,
             };
             scene.Children.Add(element);
 

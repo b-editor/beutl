@@ -99,6 +99,15 @@
                            Text="{x:Static lang:SettingsStrings.ProxyMedia}"
                            Theme="{StaticResource BodyStrongTextBlockStyle}" />
 
+                <ctrls:OptionsDisplayItem Header="{x:Static lang:Strings.PreviewSource}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <ComboBox MinWidth="250" SelectedIndex="{CompiledBinding PreviewSourceMode.Value}">
+                            <ComboBoxItem Content="{x:Static lang:Strings.PreviewSourcePreferProxy}" />
+                            <ComboBoxItem Content="{x:Static lang:Strings.PreviewSourceForceOriginal}" />
+                        </ComboBox>
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+
                 <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.ProxyStoreRootPath_Description}"
                                           Header="{x:Static lang:SettingsStrings.ProxyStoreRootPath}">
                     <ctrls:OptionsDisplayItem.ActionButton>

@@ -170,14 +170,14 @@ description: "Implementation tasks for the Proxy Media Workflow feature"
 
 ### Tests for US3 (NUnit) — write first, ensure they fail
 
-- [ ] T048 [P] [US3] Create `tests/Beutl.UnitTests/ProjectSystem/SceneSerializationPreviewSourceModeTests.cs` covering: default `PreferProxy` for a freshly-created scene, JSON round-trip preserves the value, projects saved before this feature land deserialized as `PreferProxy` (backward compatibility)
-- [ ] T049 [P] [US3] Extend `tests/Beutl.UnitTests/ProjectSystem/SceneRendererPreviewRoutingTests.cs` (created in T031): switching `Scene.PreviewSourceMode` to `ForceOriginal` causes subsequent `MediaOptions.PreferProxy` to be `false`; flipping back restores `true`; export path (T024) is unaffected in both states
+- [x] T048 [P] [US3] ~~Create `tests/Beutl.UnitTests/ProjectSystem/SceneSerializationPreviewSourceModeTests.cs`~~ **Replaced** by `tests/Beutl.UnitTests/Configuration/EditorConfigPreviewSourceModeTests.cs` after the setting moved from `Scene` to global `EditorConfig`.
+- [ ] T049 [P] [US3] Extend `tests/Beutl.UnitTests/ProjectSystem/SceneRendererPreviewRoutingTests.cs` (created in T031): switching `EditorConfig.PreviewSourceMode` to `ForceOriginal` causes subsequent `MediaOptions.PreferProxy` to be `false`; flipping back restores `true`; export path (T024) is unaffected in both states. (Was `Scene.PreviewSourceMode`; updated for the global move. The referenced test file was never created — tracked separately.)
 
 ### Implementation for US3
 
-- [ ] T050 [US3] Modify `src/Beutl.ProjectSystem/ProjectSystem/Scene.cs` to add `public PreviewSourceMode PreviewSourceMode { get; set; } = PreviewSourceMode.PreferProxy;` with JSON serialization (default omitted for backward compatibility on read)
-- [ ] T051 [US3] Update `SceneCompositor` (`src/Beutl.ProjectSystem/SceneCompositor.cs`) to seed the render context's `PreferProxy` from `Scene.PreviewSourceMode` (replacing the constant-`true` seeded in T031) — `VideoSource.Resource.Update` reads it when constructing `MediaOptions`. Verify against T049
-- [ ] T052 [US3] Add the toggle UI surface to existing Scene/Project settings panel (radio: Proxy / Original). UserControl must declare `x:CompileBindings="True"` + `x:DataType`. Bind two-way to `Scene.PreviewSourceMode` via the existing settings view model
+- [x] T050 [US3] ~~Modify `Scene.cs` to add `PreviewSourceMode`~~ **Moved to global `EditorConfig.PreviewSourceMode`** (`src/Beutl.Configuration/EditorConfig.cs`); `Scene.PreviewSourceMode` removed. The `PreviewSourceMode` enum moved from `Beutl.Media.Proxy` to `Beutl.Configuration` (to avoid a Configuration → Engine circular dependency).
+- [x] T051 [US3] `SceneCompositor` seeds `CompositionContext.PreferProxy` from `GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode` (was `Scene.PreviewSourceMode`); export path still forces original.
+- [x] T052 [US3] ~~Add toggle UI to Scene/Project settings panel~~ **Moved to global**: `EditorSettingsPage` proxy section + `PreviewSettingsTab` (ComboBox, both edit `EditorConfig.PreviewSourceMode`). `SceneSettingsTab` toggle, `PlayerView` source-mode badge, and `PreviewSourceModeIndexConverter` removed.
 
 **Checkpoint**: all three user stories complete. The full Proxy Media Workflow is functional and matches the spec's acceptance scenarios.
 

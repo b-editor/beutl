@@ -24,13 +24,6 @@
         <TextBlock Margin="8,8,8,0" Text="{x:Static lang:Strings.DurationTime}" />
         <TextBox Margin="8,0" Text="{Binding DurationInput.Value, Mode=TwoWay}" />
 
-        <TextBlock Margin="8,8,8,0" Text="{x:Static lang:Strings.PreviewSource}" />
-        <ComboBox Margin="8,0"
-                  SelectedIndex="{Binding PreviewSourceMode.Value, Converter={x:Static local:PreviewSourceModeIndexConverter.Instance}, Mode=TwoWay}">
-            <ComboBoxItem Content="{x:Static lang:Strings.PreviewSourcePreferProxy}" />
-            <ComboBoxItem Content="{x:Static lang:Strings.PreviewSourceForceOriginal}" />
-        </ComboBox>
-
         <local:IntEditor x:Name="countEditor"
                          Margin="4,8,4,0"
                          EditorStyle="Compact"

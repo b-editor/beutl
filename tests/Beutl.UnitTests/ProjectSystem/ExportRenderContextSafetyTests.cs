@@ -54,7 +54,6 @@ public sealed class ExportRenderContextSafetyTests
         var scene = new Scene(100, 80, string.Empty)
         {
             Uri = new Uri(Path.Combine(scope.RootPath, "test.scene")),
-            PreviewSourceMode = PreviewSourceMode.PreferProxy,
         };
         scene.Children.Add(element);
         using var compositor = new SceneCompositor(scene)
@@ -122,7 +121,6 @@ public sealed class ExportRenderContextSafetyTests
         var scene = new Scene(100, 80, string.Empty)
         {
             Uri = new Uri(Path.Combine(scope.RootPath, "test.scene")),
-            PreviewSourceMode = PreviewSourceMode.PreferProxy,
         };
         scene.Children.Add(element);
         using var compositor = new SceneCompositor(scene)

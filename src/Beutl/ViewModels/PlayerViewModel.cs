@@ -19,7 +19,6 @@ using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
-using Beutl.Media.Proxy;
 using Beutl.Media.Source;
 using Beutl.Models;
 using Beutl.ProjectSystem;
@@ -186,13 +185,6 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                     i.Fourth.Ticks));
             })
             .ToReadOnlyReactiveProperty()
-            .DisposeWith(_disposables);
-
-        // Reflects the project-level mode (Scene.PreviewSourceMode), not a per-frame "did this clip
-        // fall back to original" fact — that would need resolver telemetry that is not exposed yet.
-        PreviewSourceLabel = Scene.GetObservable(Scene.PreviewSourceModeProperty)
-            .Select(GetPreviewSourceLabel)
-            .ToReadOnlyReactiveProperty(GetPreviewSourceLabel(Scene.PreviewSourceMode))
             .DisposeWith(_disposables);
 
         PathEditor = new PathEditorViewModel(_editViewModel, this)
@@ -438,8 +430,6 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     public ReactiveProperty<TimeSpan> CurrentFrame { get; }
 
     public ReadOnlyReactiveProperty<TimeSpan> Duration { get; }
-
-    public ReadOnlyReactiveProperty<string> PreviewSourceLabel { get; }
 
     public AsyncReactiveCommand PlayPause { get; }
 
@@ -716,13 +706,6 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         }
 
         return false;
-    }
-
-    public static string GetPreviewSourceLabel(PreviewSourceMode mode)
-    {
-        return mode == PreviewSourceMode.ForceOriginal
-            ? Strings.PreviewSourceForceOriginal
-            : Strings.PreviewSourcePreferProxy;
     }
 
     // Return the editor to a consistent stopped state: clear IsPlaying, reset the playback-only

@@ -281,7 +281,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
         // Switching PreviewSourceMode changes the decode path (proxy vs original), so an already
         // rendered filmstrip is stale until an unrelated invalidation; drop its cache and re-render.
-        Scene.GetObservable(Scene.PreviewSourceModeProperty)
+        GlobalConfiguration.Instance.EditorConfig.GetObservable(EditorConfig.PreviewSourceModeProperty)
             .Skip(1)
             .DistinctUntilChanged()
             .ObserveOnUIDispatcher()
@@ -291,7 +291,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         GlobalConfiguration.Instance.ProxyStoreConfig.GetObservable(ProxyStoreConfig.DefaultPresetProperty)
             .Skip(1)
             .DistinctUntilChanged()
-            .Where(_ => ShouldRefreshThumbnailsForDefaultPresetChange(Scene.PreviewSourceMode))
+            .Where(_ => ShouldRefreshThumbnailsForDefaultPresetChange(GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode))
             .ObserveOnUIDispatcher()
             .Subscribe(_ => InvalidateAndUpdateThumbnails())
             .AddTo(_disposables);
@@ -919,7 +919,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
     private static readonly IBrush s_proxyFailedBrush = new ImmutableSolidColorBrush(Avalonia.Media.Color.FromRgb(0xF4, 0x43, 0x36));
     private static readonly IBrush s_proxyNoneBrush = new ImmutableSolidColorBrush(Avalonia.Media.Color.FromRgb(0x9E, 0x9E, 0x9E));
 
-    private bool PreferProxyForThumbnails => Scene.PreviewSourceMode == PreviewSourceMode.PreferProxy;
+    private bool PreferProxyForThumbnails => GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode == PreviewSourceMode.PreferProxy;
 
     private ProxyPreset PreferredProxyPresetForThumbnails => ToProxyPreset(GlobalConfiguration.Instance.ProxyStoreConfig.DefaultPreset);
 

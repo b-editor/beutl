@@ -1,6 +1,5 @@
 ﻿using Beutl.Language;
 using Beutl.Media;
-using Beutl.Media.Proxy;
 using Beutl.ProjectSystem;
 
 namespace Beutl.Editor.Services;
@@ -14,14 +13,13 @@ public sealed class SceneSettingsService : ISceneSettingsService
         _historyManager = historyManager ?? throw new ArgumentNullException(nameof(historyManager));
     }
 
-    public bool Apply(Scene scene, PixelSize frameSize, TimeSpan start, TimeSpan duration, PreviewSourceMode previewSourceMode)
+    public bool Apply(Scene scene, PixelSize frameSize, TimeSpan start, TimeSpan duration)
     {
         ArgumentNullException.ThrowIfNull(scene);
 
         if (scene.FrameSize == frameSize
             && scene.Start == start
-            && scene.Duration == duration
-            && scene.PreviewSourceMode == previewSourceMode)
+            && scene.Duration == duration)
         {
             return false;
         }
@@ -30,7 +28,6 @@ public sealed class SceneSettingsService : ISceneSettingsService
         scene.FrameSize = frameSize;
         scene.Start = start;
         scene.Duration = duration;
-        scene.PreviewSourceMode = previewSourceMode;
 
         _historyManager.Commit(CommandNames.ChangeSceneSettings);
         return true;

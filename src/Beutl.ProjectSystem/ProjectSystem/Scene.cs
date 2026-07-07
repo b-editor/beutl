@@ -9,7 +9,6 @@ using Beutl.Collections;
 using Beutl.Configuration;
 using Beutl.Language;
 using Beutl.Media;
-using Beutl.Media.Proxy;
 using Beutl.Serialization;
 using Beutl.Utilities;
 using Microsoft.Extensions.FileSystemGlobbing;
@@ -48,7 +47,6 @@ public class Scene : ProjectItem, INotifyEdited
     public static readonly CoreProperty<Elements> ChildrenProperty;
     public static readonly CoreProperty<TimeSpan> StartProperty;
     public static readonly CoreProperty<TimeSpan> DurationProperty;
-    public static readonly CoreProperty<PreviewSourceMode> PreviewSourceModeProperty;
     public static readonly CoreProperty<CoreList<ImmutableHashSet<Guid>>> GroupsProperty;
     public static readonly CoreProperty<CoreList<TimelineLayer>> LayersProperty;
     public static readonly CoreProperty<CoreList<SceneMarker>> MarkersProperty;
@@ -60,7 +58,6 @@ public class Scene : ProjectItem, INotifyEdited
     private TimeSpan _start = TimeSpan.FromMinutes(0);
     private TimeSpan _duration = TimeSpan.FromMinutes(5);
     private PixelSize _frameSize;
-    private PreviewSourceMode _previewSourceMode = PreviewSourceMode.PreferProxy;
 
     public Scene()
         : this(1920, 1080, string.Empty)
@@ -98,11 +95,6 @@ public class Scene : ProjectItem, INotifyEdited
 
         DurationProperty = ConfigureProperty<TimeSpan, Scene>(nameof(Duration))
             .Accessor(o => o.Duration, (o, v) => o.Duration = v)
-            .Register();
-
-        PreviewSourceModeProperty = ConfigureProperty<PreviewSourceMode, Scene>(nameof(PreviewSourceMode))
-            .Accessor(o => o.PreviewSourceMode, (o, v) => o.PreviewSourceMode = v)
-            .DefaultValue(PreviewSourceMode.PreferProxy)
             .Register();
 
         GroupsProperty = ConfigureProperty<CoreList<ImmutableHashSet<Guid>>, Scene>(nameof(Groups))
@@ -150,12 +142,6 @@ public class Scene : ProjectItem, INotifyEdited
 
             SetAndRaise(DurationProperty, ref _duration, value);
         }
-    }
-
-    public PreviewSourceMode PreviewSourceMode
-    {
-        get => _previewSourceMode;
-        set => SetAndRaise(PreviewSourceModeProperty, ref _previewSourceMode, value);
     }
 
     [NotAutoSerialized]

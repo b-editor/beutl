@@ -76,6 +76,7 @@ public sealed partial class EditorConfig : ConfigurationBase
     public static readonly CoreProperty<int> OnionSkinNextCountProperty;
     public static readonly CoreProperty<float> OnionSkinPrevOpacityProperty;
     public static readonly CoreProperty<float> OnionSkinNextOpacityProperty;
+    public static readonly CoreProperty<PreviewSourceMode> PreviewSourceModeProperty;
 
     static EditorConfig()
     {
@@ -176,6 +177,10 @@ public sealed partial class EditorConfig : ConfigurationBase
 
         OnionSkinNextOpacityProperty = ConfigureProperty<float, EditorConfig>(nameof(OnionSkinNextOpacity))
             .DefaultValue(0.35f)
+            .Register();
+
+        PreviewSourceModeProperty = ConfigureProperty<PreviewSourceMode, EditorConfig>(nameof(PreviewSourceMode))
+            .DefaultValue(PreviewSourceMode.PreferProxy)
             .Register();
     }
 
@@ -339,6 +344,13 @@ public sealed partial class EditorConfig : ConfigurationBase
     {
         get => GetValue(OnionSkinNextOpacityProperty);
         set => SetValue(OnionSkinNextOpacityProperty, value);
+    }
+
+    [Display(Name = nameof(Strings.PreviewSource), ResourceType = typeof(Strings))]
+    public PreviewSourceMode PreviewSourceMode
+    {
+        get => GetValue(PreviewSourceModeProperty);
+        set => SetValue(PreviewSourceModeProperty, value);
     }
 
     public CoreDictionary<string, LibraryTabDisplayMode> LibraryTabDisplayModes { get; } = new()

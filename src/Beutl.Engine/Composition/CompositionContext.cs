@@ -11,10 +11,10 @@ namespace Beutl.Composition;
 /// <para>
 /// <b>Proxy/original selection — three signals, one source of truth.</b> The "use proxy or
 /// original" choice is carried by two boolean fields (<see cref="ForceOriginalSource"/> and
-/// <see cref="PreferProxy"/>) plus the user-facing <c>Scene.PreviewSourceMode</c> enum, which
-/// is the source of truth. The two bools are a derived, transport-friendly projection of that
-/// enum. The producer (SceneCompositor's nested CompositorContext) seeds
-/// <c>PreferProxy = !ForceOriginalSource &amp;&amp; Scene.PreviewSourceMode == PreferProxy</c>,
+/// <see cref="PreferProxy"/>) plus the user-facing <c>EditorConfig.PreviewSourceMode</c> enum,
+/// which is the source of truth. The two bools are a derived, transport-friendly projection of
+/// that enum. The producer (SceneCompositor's nested CompositorContext) seeds
+/// <c>PreferProxy = !ForceOriginalSource &amp;&amp; EditorConfig.PreviewSourceMode == PreferProxy</c>,
 /// so the invariant <c>ForceOriginalSource =&gt; !PreferProxy</c> always holds. Consumers
 /// (SceneDrawable, SceneSound) collapse the two into one "decode original" bit —
 /// <c>ForceOriginalSource || !PreferProxy</c> — which, given the invariant, is equivalent to

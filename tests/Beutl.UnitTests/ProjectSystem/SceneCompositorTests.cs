@@ -1,8 +1,8 @@
 ﻿using Beutl.Composition;
+using Beutl.Configuration;
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics;
-using Beutl.Media.Proxy;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 
@@ -502,14 +502,15 @@ public class SceneCompositorTests
 
     [TestCase(PreviewSourceMode.PreferProxy, true)]
     [TestCase(PreviewSourceMode.ForceOriginal, false)]
-    public void EvaluateGraphics_CompositorForceOriginalFalse_SeedsPreferProxyFromSceneMode(
+    public void EvaluateGraphics_CompositorForceOriginalFalse_SeedsPreferProxyFromGlobalConfig(
         PreviewSourceMode mode, bool expectedPreferProxy)
     {
         string basePath = GetTempPath();
+        PreviewSourceMode original = GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode;
         try
         {
+            GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode = mode;
             Scene scene = CreateScene(basePath);
-            scene.PreviewSourceMode = mode;
             var capture = new SceneCompositorContextCaptureDrawable();
             scene.Children.Add(CreateElement(basePath, isEnabled: true, capture));
             using var compositor = new SceneCompositor(scene);
@@ -525,6 +526,7 @@ public class SceneCompositorTests
         }
         finally
         {
+            GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode = original;
             if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
         }
     }
@@ -533,13 +535,14 @@ public class SceneCompositorTests
     public void EvaluateGraphics_PropagatesForceOriginalPreviewIntoReferencedScene()
     {
         string basePath = GetTempPath();
+        PreviewSourceMode original = GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode;
         try
         {
+            GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode = PreviewSourceMode.ForceOriginal;
             Scene childScene = CreateScene(basePath);
             var capture = new SceneCompositorContextCaptureDrawable();
             childScene.Children.Add(CreateElement(basePath, isEnabled: true, capture));
             Scene parentScene = CreateScene(basePath);
-            parentScene.PreviewSourceMode = PreviewSourceMode.ForceOriginal;
             var sceneDrawable = new SceneDrawable();
             sceneDrawable.ReferencedScene.CurrentValue = childScene;
             parentScene.Children.Add(CreateElement(basePath, isEnabled: true, sceneDrawable));
@@ -556,6 +559,7 @@ public class SceneCompositorTests
         }
         finally
         {
+            GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode = original;
             if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
         }
     }

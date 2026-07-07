@@ -127,6 +127,13 @@ public sealed class EditorSettingsPageViewModel : IDisposable
         UseHdrPreview.Subscribe(b => _editorConfig.UseHdrPreview = b)
             .DisposeWith(_disposables);
 
+        PreviewSourceMode = _editorConfig.GetObservable(EditorConfig.PreviewSourceModeProperty)
+            .Select(v => (int)v)
+            .ToReactiveProperty()
+            .DisposeWith(_disposables);
+        PreviewSourceMode.Subscribe(b => _editorConfig.PreviewSourceMode = (PreviewSourceMode)b)
+            .DisposeWith(_disposables);
+
         ProxyStoreRootPath = new ReactiveProperty<string>(_proxyStoreConfig.StoreRootPath)
             .DisposeWith(_disposables);
         _proxyStoreConfig.GetObservable(ProxyStoreConfig.StoreRootPathProperty)
@@ -240,6 +247,8 @@ public sealed class EditorSettingsPageViewModel : IDisposable
     public ReactiveProperty<double> ToneMappingExposure { get; }
 
     public ReactiveProperty<bool> UseHdrPreview { get; }
+
+    public ReactiveProperty<int> PreviewSourceMode { get; }
 
     public ReactiveProperty<string> ProxyStoreRootPath { get; }
 

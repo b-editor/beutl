@@ -54,7 +54,7 @@ public sealed class SceneCompositor : ICompositor
             DisableResourceShare = compositor.DisableResourceShare;
             ForceOriginalSource = compositor.ForceOriginalSource;
             PreferProxy = !compositor.ForceOriginalSource
-                && compositor.Scene.PreviewSourceMode == PreviewSourceMode.PreferProxy;
+                && GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode == PreviewSourceMode.PreferProxy;
             PreferredProxyPreset = ToPreset(GlobalConfiguration.Instance.ProxyStoreConfig.DefaultPreset);
         }
 

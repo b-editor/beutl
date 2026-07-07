@@ -1,4 +1,4 @@
-﻿namespace Beutl.Media.Proxy;
+﻿namespace Beutl.Configuration;
 
 public enum PreviewSourceMode
 {

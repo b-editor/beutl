@@ -1,4 +1,5 @@
-﻿using Beutl.Editor.Components.TimelineTab.ViewModels;
+﻿using Beutl.Configuration;
+using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Media.Proxy;

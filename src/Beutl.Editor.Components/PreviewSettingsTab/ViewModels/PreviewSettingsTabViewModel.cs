@@ -55,9 +55,17 @@ public sealed class PreviewSettingsTabViewModel : IToolContext, IPropertyEditorC
         AddEditors(factory, NodeCacheProperties,
             new CorePropertyAdapter<int>(EditorConfig.NodeCacheMaxPixelsProperty, config),
             new CorePropertyAdapter<int>(EditorConfig.NodeCacheMinPixelsProperty, config));
+
+        PreviewSourceMode = config.GetObservable(EditorConfig.PreviewSourceModeProperty)
+            .ToReactiveProperty()
+            .DisposeWith(_disposables);
+        PreviewSourceMode.Subscribe(v => config.PreviewSourceMode = v)
+            .DisposeWith(_disposables);
     }
 
     public bool IsRenderQualityAvailable { get; }
+
+    public ReactiveProperty<PreviewSourceMode> PreviewSourceMode { get; }
 
     public IReactiveProperty<RenderScale>? PreviewScale { get; }
 
