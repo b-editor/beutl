@@ -301,19 +301,24 @@ public sealed class ElementResizeService : IElementResizeService
         return true;
     }
 
-    // A positive delta extends the front clip's out-point and pulls the back clip's in-point
-    // forward; a negative delta pulls the back clip's in-point earlier. Each direction can run
-    // past a finite source, so clamp by the front's remaining tail (positive) or the back's
-    // remaining head (negative). Clips without a bounded source impose no limit.
+    // A positive delta extends the front clip's out-point past its source tail; a negative delta
+    // pulls the back clip's in-point earlier, toward its source head.
     private static TimeSpan ClampToSourceBounds(TimeSpan clamped, Element front, Element back)
     {
         if (clamped > TimeSpan.Zero)
         {
-            TimeSpan room = SlippableMedia.OutPointRoom(front);
-            if (room < clamped) clamped = room;
+            // Extending the front out-point past its source honours the same editor preference as
+            // normal edge resize: with clamping off, the clip may run past its original media.
+            if (GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength)
+            {
+                TimeSpan room = SlippableMedia.OutPointRoom(front);
+                if (room < clamped) clamped = room;
+            }
         }
         else if (clamped < TimeSpan.Zero)
         {
+            // The back in-point can never go below zero regardless of the preference: a negative
+            // source offset is an invalid frame request, not an original-length extension.
             TimeSpan room = SlippableMedia.InPointRoom(back);
             if (room < -clamped) clamped = -room;
         }

@@ -433,6 +433,37 @@ public class ElementResizeServiceTests
     }
 
     [Test]
+    public void Roll_PositiveDelta_ClampDisabled_ExtendsPastFrontSource()
+    {
+        // With ClampResizeToOriginalLength off, Roll must not clamp the front out-point to its
+        // source tail — the clip may run past its media, matching the normal edge-resize path.
+        bool original = GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength;
+        GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength = false;
+        try
+        {
+            var frontSource = new VideoSource();
+            frontSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 90)));
+            Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+            front.Objects.Add(new SourceVideo { Source = { CurrentValue = frontSource } });
+            Element back = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(10));
+
+            bool applied = _service.Roll(_scene, front, back, TimeSpan.FromSeconds(5));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(applied, Is.True);
+                Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(7)));
+                Assert.That(back.Start, Is.EqualTo(TimeSpan.FromSeconds(7)));
+                Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(5)));
+            });
+        }
+        finally
+        {
+            GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength = original;
+        }
+    }
+
+    [Test]
     public void Roll_NegativeDelta_ClampedByBackSourceHead()
     {
         // Back source in-point sits at 0.5s, so a -5s roll can only pull it back to 0 (-0.5s).
