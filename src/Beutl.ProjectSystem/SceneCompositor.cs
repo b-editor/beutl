@@ -160,21 +160,51 @@ public sealed class SceneCompositor : ICompositor
 
     // Layersを振り分ける
     private void SortLayers(TimeSpan time, PooledList<Element> currentElements, CompositionTarget target)
-        => SortLayersCore(currentElements, target, item => item.Range.Contains(time));
-
-    private void SortLayers(TimeRange timeRange, PooledList<Element> currentElements, CompositionTarget target)
-        => SortLayersCore(currentElements, target, item => item.Range.Intersects(timeRange));
-
-    private void SortLayersCore(
-        PooledList<Element> currentElements,
-        CompositionTarget target,
-        Func<Element, bool> isActive)
     {
+        // No TimelineLayer models means no lock/mute/solo state; skip the lookup allocation.
+        if (Scene.Layers.Count == 0)
+        {
+            foreach (Element item in Scene.Children)
+            {
+                if (item.IsEnabled && item.Range.Contains(time))
+                {
+                    currentElements.OrderedAdd(item, x => x.ZIndex);
+                }
+            }
+
+            return;
+        }
+
         Dictionary<int, TimelineLayer> layersByZIndex = CreateLayerLookup();
         bool hasSolo = AnySoloLayer(layersByZIndex);
         foreach (Element item in Scene.Children)
         {
-            if (!item.IsEnabled || !isActive(item)) continue;
+            if (!item.IsEnabled || !item.Range.Contains(time)) continue;
+            if (ShouldSkipLayer(item.ZIndex, target, hasSolo, layersByZIndex)) continue;
+            currentElements.OrderedAdd(item, x => x.ZIndex);
+        }
+    }
+
+    private void SortLayers(TimeRange timeRange, PooledList<Element> currentElements, CompositionTarget target)
+    {
+        if (Scene.Layers.Count == 0)
+        {
+            foreach (Element item in Scene.Children)
+            {
+                if (item.IsEnabled && item.Range.Intersects(timeRange))
+                {
+                    currentElements.OrderedAdd(item, x => x.ZIndex);
+                }
+            }
+
+            return;
+        }
+
+        Dictionary<int, TimelineLayer> layersByZIndex = CreateLayerLookup();
+        bool hasSolo = AnySoloLayer(layersByZIndex);
+        foreach (Element item in Scene.Children)
+        {
+            if (!item.IsEnabled || !item.Range.Intersects(timeRange)) continue;
             if (ShouldSkipLayer(item.ZIndex, target, hasSolo, layersByZIndex)) continue;
             currentElements.OrderedAdd(item, x => x.ZIndex);
         }
