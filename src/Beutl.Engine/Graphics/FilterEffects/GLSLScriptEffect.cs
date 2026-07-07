@@ -71,20 +71,6 @@ public sealed partial class GLSLScriptEffect : FilterEffect, IScriptCompilableEf
         }
     }
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-    {
-        var r = (Resource)resource;
-
-        if (r._shader == null)
-            return;
-
-        context.CustomEffect(
-            (progress: r.Progress, duration: r.Duration, time: r.Time, shader: r._shader,
-                compileError: r._compileError),
-            OnApplyTo,
-            static (_, r) => r);
-    }
-
     public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
@@ -115,27 +101,6 @@ public sealed partial class GLSLScriptEffect : FilterEffect, IScriptCompilableEf
             passCount: 1,
             ComputeFallback.Identity,
             structuralToken: nameof(GLSLScriptEffect)));
-    }
-
-    private static void OnApplyTo(
-        (float progress, float duration, float time, GLSLShader shader, string? compileError) data,
-        CustomFilterEffectContext c)
-    {
-        // Push constants report device px at the clamped buffer density.
-        data.shader.Apply(c, target =>
-        {
-            float w = c.ResolveTargetDensity(target.Bounds);
-            (int devW, int devH) = CustomFilterEffectContext.DeviceBufferSize(target.Bounds, w);
-            return new PushConstants
-            {
-                Progress = data.progress,
-                Duration = data.duration,
-                Time = data.time,
-                Width = devW,
-                Height = devH,
-                Scale = w
-            };
-        });
     }
 
     // Field order must match the GLSL `layout(push_constant)` block.

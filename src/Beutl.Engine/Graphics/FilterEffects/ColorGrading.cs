@@ -1,5 +1,4 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using System.Reactive;
 using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Logging;
@@ -341,21 +340,6 @@ public sealed partial class ColorGrading : FilterEffect
     [Display(Name = nameof(GraphicsStrings.ColorGrading_Offset), ResourceType = typeof(GraphicsStrings))]
     public IProperty<GradingColor> Offset { get; } = Property.CreateAnimatable(GradingColor.Zero);
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-    {
-        if (s_shader is null)
-        {
-            throw new InvalidOperationException("Failed to compile SKSL.");
-        }
-
-        var r = (Resource)resource;
-        // TODO: 第二引数がIEquatableを要求しているので，タプルにしている
-        context.CustomEffect(
-            (r, Unit.Default),
-            (t, c) => OnApply(t.r, c),
-            static (_, rect) => rect);
-    }
-
     public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
@@ -393,51 +377,6 @@ public sealed partial class ColorGrading : FilterEffect
                 .Float3("gamma", gamma.Red, gamma.Green, gamma.Blue)
                 .Float3("gain", gain.Red, gain.Green, gain.Blue)
                 .Float3("offset", offset.Red, offset.Green, offset.Blue)));
-    }
-
-    private static void OnApply(Resource data, CustomFilterEffectContext context)
-    {
-        if (s_shader is null) return;
-
-        for (int i = 0; i < context.Targets.Count; i++)
-        {
-            using var target = context.Targets[i];
-            var renderTarget = target.RenderTarget!;
-
-            using SKImage image = renderTarget.Value.Snapshot();
-            using SKShader baseShader = image.ToShader(SKShaderTileMode.Decal, SKShaderTileMode.Decal);
-            var builder = s_shader.CreateBuilder();
-
-            builder.Children["src"] = baseShader;
-            builder.Uniforms["exposure"] = data.Exposure;
-            builder.Uniforms["contrast"] = data.Contrast / 100f;
-            builder.Uniforms["contrastPivot"] = data.ContrastPivot;
-            builder.Uniforms["saturation"] = data.Saturation / 100f;
-            builder.Uniforms["vibrance"] = data.Vibrance / 100f;
-            builder.Uniforms["hue"] = data.Hue;
-            builder.Uniforms["temperature"] = data.Temperature / 100f;
-            builder.Uniforms["tint"] = data.Tint / 100f;
-
-            float lowRange = Math.Clamp(data.LowRange, 0f, 100f);
-            float highRange = Math.Clamp(data.HighRange, 0f, 100f);
-            if (lowRange > highRange)
-            {
-                (lowRange, highRange) = (highRange, lowRange);
-            }
-
-            builder.Uniforms["lowRange"] = lowRange / 100f;
-            builder.Uniforms["highRange"] = highRange / 100f;
-            builder.Uniforms["shadows"] = ToColorVector(data.Shadows);
-            builder.Uniforms["midtones"] = ToColorVector(data.Midtones);
-            builder.Uniforms["highlights"] = ToColorVector(data.Highlights);
-            builder.Uniforms["lift"] = ToColorVector(data.Lift);
-            builder.Uniforms["gamma"] = ToColorVector(data.Gamma, 0.001f);
-            builder.Uniforms["gain"] = ToColorVector(data.Gain, 0.0f);
-            builder.Uniforms["offset"] = ToColorVector(data.Offset);
-
-            // 新しいターゲットに適用
-            context.Targets[i] = s_shader.ApplyToNewTarget(context, builder, target.Bounds);
-        }
     }
 
     private static SKColorF ToColorVector(GradingColor value, float minValue = float.NegativeInfinity)

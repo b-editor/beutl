@@ -27,95 +27,40 @@ public partial class DelayAnimationEffect : FilterEffect
         var r = (Resource)resource;
         if (r.Effect is not { } child) return;
 
-        // Describe the child effect's graph at the per-input delayed clock (nested describe, research D8). The single
-        // input uses delay*0 — the current clock, i.e. the child at its already-resolved resource — so the delay only
-        // shifts the child across a fan-out (a split), which the declarative model expresses as multiple branches.
-        child.GetOriginal().Describe(builder, child);
-    }
+        // A nested graph per branch (research D8): branch i re-describes the child effect at the clock delayed by
+        // delay × i, so a split fan-out gets the staggered animation the legacy per-target pull produced. Branch 0's
+        // delayed clock is the current clock, so the single-input path equals describing the child directly.
+        var childEffect = child.GetOriginal();
+        float delay = r.Delay;
+        TimeSpan globalTime = r.GlobalTime;
+        bool disableResourceShare = r.DisableResourceShare;
+        bool preferProxy = r.PreferProxy;
+        ProxyPreset preferredProxyPreset = r.PreferredProxyPreset;
+        List<FilterEffect.Resource> cache = r.DelayedResources;
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-    {
-        var r = (Resource)resource;
-        if (r.Effect == null) return;
-
-        var childEffect = r.Effect.GetOriginal();
-
-        context.CustomEffect(
-            (delay: r.Delay, globalTime: r.GlobalTime, childEffect, cache: r.DelayedResources,
-             disableResourceShare: r.DisableResourceShare,
-             preferProxy: r.PreferProxy, preferredProxyPreset: r.PreferredProxyPreset),
-            static (data, effectContext) =>
+        builder.NestedGraph(NestedGraphNodeDescriptor.Create(
+            (branchBuilder, i) =>
             {
-                int targetCount = effectContext.Targets.Count;
-
-                // キャッシュを必要数まで成長
-                for (int i = data.cache.Count; i < targetCount; i++)
+                TimeSpan delayedTime = globalTime - TimeSpan.FromMilliseconds(delay * i);
+                var delayedContext = new CompositionContext(delayedTime)
                 {
-                    TimeSpan delayedTime = data.globalTime - TimeSpan.FromMilliseconds(data.delay * i);
-                    data.cache.Add(data.childEffect.ToResource(new CompositionContext(delayedTime)
-                    {
-                        DisableResourceShare = data.disableResourceShare,
-                        PreferProxy = data.preferProxy,
-                        PreferredProxyPreset = data.preferredProxyPreset,
-                    }));
+                    DisableResourceShare = disableResourceShare,
+                    PreferProxy = preferProxy,
+                    PreferredProxyPreset = preferredProxyPreset,
+                };
+                while (cache.Count <= i)
+                {
+                    cache.Add(childEffect.ToResource(delayedContext));
                 }
 
-                // 余分なキャッシュを縮小
-                while (data.cache.Count > targetCount)
+                bool updateOnly = false;
+                cache[i].Update(childEffect, delayedContext, ref updateOnly);
+                if (cache[i].IsEnabled)
                 {
-                    data.cache[^1].Dispose();
-                    data.cache.RemoveAt(data.cache.Count - 1);
+                    childEffect.Describe(branchBuilder, cache[i]);
                 }
-
-                for (int i = 0, j = 0; i < targetCount; i++, j++)
-                {
-                    EffectTarget target = effectContext.Targets[i];
-                    if (target.IsEmpty) continue;
-
-                    // 既存Resourceを遅延時刻で更新
-                    TimeSpan delayedTime = data.globalTime - TimeSpan.FromMilliseconds(data.delay * j);
-                    var delayedContext = new CompositionContext(delayedTime)
-                    {
-                        DisableResourceShare = data.disableResourceShare,
-                        PreferProxy = data.preferProxy,
-                        PreferredProxyPreset = data.preferredProxyPreset,
-                    };
-                    var updateOnly = false;
-                    data.cache[j].Update(data.childEffect, delayedContext, ref updateOnly);
-
-                    if (!data.cache[j].IsEnabled) continue;
-
-                    // Forward output scale and working density into the nested re-application.
-                    using var childFEContext = new FilterEffectContext(
-                        target.Bounds, effectContext.OutputScale, effectContext.WorkingScale);
-                    data.childEffect.ApplyTo(childFEContext, data.cache[j]);
-
-                    target.OriginalBounds = target.Bounds.WithX(0).WithY(0);
-                    using var singleTargets = new EffectTargets();
-                    singleTargets.Add(target.Clone());
-                    using var builder = new SKImageFilterBuilder();
-                    // Forward the working-scale ceiling into the nested pull.
-                    using var activator = new FilterEffectActivator(
-                        singleTargets, builder, effectContext.OutputScale, effectContext.WorkingScale,
-                        effectContext.MaxWorkingScale, effectContext.Diagnostics, effectContext.Pool);
-                    activator.Apply(childFEContext);
-                    activator.Flush(false);
-
-                    if (singleTargets.Count > 0)
-                    {
-                        effectContext.Targets[i] = singleTargets[0].Clone();
-                        target.Dispose();
-
-                        for (int k = 1; k < singleTargets.Count; k++)
-                        {
-                            effectContext.Targets.Insert(i + k, singleTargets[k].Clone());
-                        }
-
-                        i += singleTargets.Count - 1;
-                        targetCount = effectContext.Targets.Count;
-                    }
-                }
-            });
+            },
+            structuralToken: nameof(DelayAnimationEffect)));
     }
 
     public override Resource ToResource(CompositionContext context)

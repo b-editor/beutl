@@ -115,13 +115,14 @@ internal static class EffectGraphCompiler
                 });
                 i++;
             }
-            else if (node.Descriptor is OpaqueLegacyNodeDescriptor opaque)
+            else if (node.Descriptor is NestedGraphNodeDescriptor nested)
             {
-                passes.Add(new OpaqueLegacyPass(opaque.Context)
+                passes.Add(new NestedGraphPass(nested.DescribeBranch)
                 {
                     InputBounds = node.InputBounds,
                     OutputBounds = node.OutputBounds,
                     IsRenderTimeResolved = true,
+                    IsDynamicOutputs = true,
                 });
                 i++;
             }
@@ -277,7 +278,7 @@ internal static class EffectGraphCompiler
         {
             Rect sizeBounds = outputRoi[k].IsInvalid ? FullBounds(passes[k]) : outputRoi[k];
             float clamped = RenderNodeContext.ClampWorkingScaleToBufferBudget(sizeBounds, w, maxDimension);
-            (int bw, int bh) = CustomFilterEffectContext.DeviceBufferSize(sizeBounds, clamped);
+            (int bw, int bh) = RenderNodeContext.DeviceBufferSize(sizeBounds, clamped);
             bool skip = bw <= 0 || bh <= 0;
             resolutions.Add(new PassResolution(outputRoi[k], bw, bh, clamped, skip));
             w = MathF.Min(w, clamped);

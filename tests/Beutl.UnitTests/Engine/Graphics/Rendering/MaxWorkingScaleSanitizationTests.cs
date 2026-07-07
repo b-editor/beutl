@@ -152,38 +152,4 @@ public class MaxWorkingScaleSanitizationTests
 
         Assert.That(ctor.MaxWorkingScale, Is.EqualTo(3f));
     }
-
-    [TestCaseSource(nameof(DegenerateCeilings))]
-    public void CustomFilterEffectContext_DegenerateCeiling_StoredAsPositiveInfinity(float maxWorkingScale)
-    {
-        using var targets = new EffectTargets();
-        var context = new CustomFilterEffectContext(
-            targets, outputScale: 1f, workingScale: 1f, maxWorkingScale: maxWorkingScale);
-
-        Assert.That(context.MaxWorkingScale, Is.EqualTo(float.PositiveInfinity));
-    }
-
-    // SanitizeCeiling also logs a warning on substitution, but only the stored value is pinned here;
-    // the warning emission is not observed.
-    [TestCaseSource(nameof(DegenerateCeilings))]
-    public void FilterEffectActivator_DegenerateCeiling_StoredAsPositiveInfinity(float maxWorkingScale)
-    {
-        using var targets = new EffectTargets();
-        using var builder = new SKImageFilterBuilder();
-        using var activator = new FilterEffectActivator(
-            targets, builder, outputScale: 1f, workingScale: 1f, maxWorkingScale: maxWorkingScale);
-
-        Assert.That(activator.MaxWorkingScale, Is.EqualTo(float.PositiveInfinity));
-    }
-
-    [Test]
-    public void FilterEffectActivator_FinitePositiveCeiling_PassesThrough()
-    {
-        using var targets = new EffectTargets();
-        using var builder = new SKImageFilterBuilder();
-        using var activator = new FilterEffectActivator(
-            targets, builder, outputScale: 1f, workingScale: 1f, maxWorkingScale: 3f);
-
-        Assert.That(activator.MaxWorkingScale, Is.EqualTo(3f));
-    }
 }

@@ -87,12 +87,10 @@ public readonly struct StructuralKey : IEquatable<StructuralKey>
                     .Append(',').Append(composite.InputOffsets.Length);
                 break;
 
-            case OpaqueLegacyNodeDescriptor opaque:
-                // The token is the effect TYPE, not the recorded item count: a count varies with an animated
-                // parameter (a bridged chain would then never cache-hit) and collides across distinct effect kinds
-                // of equal count (a false hit on a real topology change). Type is stable per animation, distinct
-                // per kind.
-                sb.Append("legacy:").Append(opaque.StructuralToken);
+            case NestedGraphNodeDescriptor nested:
+                // The child graph's structure is resolved per branch at execution; only the nested kind is
+                // structural here (a child topology change re-describes inside the branch, never stale-hits this key).
+                sb.Append("nested:").Append(nested.StructuralToken);
                 break;
 
             default:

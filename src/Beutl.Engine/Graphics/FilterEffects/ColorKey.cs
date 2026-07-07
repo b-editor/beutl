@@ -93,15 +93,6 @@ public partial class ColorKey : FilterEffect
     [Display(Name = nameof(GraphicsStrings.ColorKey_Boundary), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Boundary { get; } = Property.CreateAnimatable(2f);
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-    {
-        var r = (Resource)resource;
-        context.CustomEffect(
-            (r.Color, r.Range, r.Boundary),
-            OnApplyTo,
-            static (_, r) => r);
-    }
-
     public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
@@ -111,28 +102,5 @@ public partial class ColorKey : FilterEffect
             u => u.Raw("color", (b, name) => b.Uniforms[name] = color.ToLinear().ToSKColorF())
                 .Float("range", r.Range / 100f)
                 .Float("boundary", r.Boundary / 100f)));
-    }
-
-    private static void OnApplyTo((Color color, float range, float boundary) data, CustomFilterEffectContext c)
-    {
-        if (s_shader is null) return;
-
-        for (int i = 0; i < c.Targets.Count; i++)
-        {
-            using EffectTarget effectTarget = c.Targets[i];
-            var renderTarget = effectTarget.RenderTarget!;
-
-            using var image = renderTarget.Value.Snapshot();
-            using var baseShader = image.ToShader();
-
-            var builder = s_shader.CreateBuilder();
-
-            builder.Children["src"] = baseShader;
-            builder.Uniforms["color"] = data.color.ToLinear().ToSKColorF();
-            builder.Uniforms["range"] = data.range / 100f;
-            builder.Uniforms["boundary"] = data.boundary / 100f;
-
-            c.Targets[i] = s_shader.ApplyToNewTarget(c, builder, effectTarget.Bounds);
-        }
     }
 }

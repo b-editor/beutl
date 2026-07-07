@@ -10,22 +10,12 @@ namespace Beutl.Graphics.Rendering;
 
 /// <summary>
 /// Runs a <see cref="CompiledPlan"/> against the graphics context (feature 004, T023, D2/D5). A plan is a
-/// schedule of passes threaded over the input operation set. Two pass families interleave:
-/// <list type="bullet">
-/// <item><description>A descriptor pass (<see cref="FusedShaderPass"/>, <see cref="SkiaFilterPass"/>) transforms
-/// each current operation independently — a fused pass executes as one draw built by shader composition (input
-/// image shader → <c>WithColorFilter</c> wraps → nested <c>SKRuntimeEffect</c> child shaders, adjacent snippets
-/// merged into one program), a Skia-filter pass as one filtered draw. The RGBA16F premultiplied linear-light
-/// representation is preserved between stages.</description></item>
-/// <item><description>An <see cref="OpaqueLegacyPass"/> segment runs the retained (internal-only) activator over
-/// the <em>whole</em> current set via <see cref="LegacyBridgeExecutor"/> (T019 bridge). Its input is the upstream
-/// pass's output and its output feeds the downstream passes, so an unmigrated effect fuses correctly between
-/// migrated ones. All of a segment's counter attribution stays inside the legacy machinery (never additionally
-/// counted here), keeping bridged content's counters byte-identical to today's.</description></item>
-/// </list>
-/// A plan that is a single opaque pass over all inputs keeps the whole-plan fast path (byte-identity + counter
-/// parity for a fully-unmigrated chain). Descriptor-pass counters follow §C8: one
-/// <see cref="PipelineDiagnostics.GpuPasses"/> per executed draw, one
+/// schedule of passes threaded over the input operation set: a descriptor pass (<see cref="FusedShaderPass"/>,
+/// <see cref="SkiaFilterPass"/>) transforms each current operation independently — a fused pass executes as one
+/// draw built by shader composition (input image shader → <c>WithColorFilter</c> wraps → nested
+/// <c>SKRuntimeEffect</c> child shaders, adjacent snippets merged into one program), a Skia-filter pass as one
+/// filtered draw. The RGBA16F premultiplied linear-light representation is preserved between stages.
+/// Descriptor-pass counters follow §C8: one <see cref="PipelineDiagnostics.GpuPasses"/> per executed draw, one
 /// <see cref="PipelineDiagnostics.ProgramCreations"/> per <c>SKRuntimeEffect</c> created.
 /// </summary>
 internal static class PlanExecutor
@@ -43,16 +33,8 @@ internal static class PlanExecutor
         PipelineDiagnostics? diagnostics,
         RenderTargetPool? pool)
     {
-        // Whole-plan fast path: a fully-unmigrated chain is one opaque pass over every input at once. Delegating
-        // to the bridge keeps the render byte-identical and its counters unchanged from the pre-redesign pipeline.
-        if (plan.Passes is [OpaqueLegacyPass onlyOpaque])
-        {
-            return LegacyBridgeExecutor.Execute(
-                onlyOpaque.Context, inputs, bounds, outputScale, workingScale, maxWorkingScale, diagnostics, pool);
-        }
-
-        // Mixed plan: thread the whole operation set through the schedule pass by pass, so an opaque segment can
-        // consume the upstream set and hand its output to the downstream passes.
+        // Thread the whole operation set through the schedule pass by pass, so a split/composite can fan the set out
+        // and back in and each descriptor pass maps every current operation.
         var current = new List<RenderNodeOperation>(inputs);
         try
         {
@@ -68,10 +50,6 @@ internal static class PlanExecutor
 
                 switch (pass)
                 {
-                    case OpaqueLegacyPass opaque:
-                        ExecuteOpaqueSegment(
-                            opaque, current, bounds, outputScale, workingScale, maxWorkingScale, diagnostics, pool);
-                        break;
                     case SplitPass split:
                         ExecuteSplit(
                             split, current, outputScale, workingScale, maxWorkingScale, diagnostics, pool);
@@ -79,6 +57,10 @@ internal static class PlanExecutor
                     case CompositePass composite:
                         ExecuteComposite(
                             composite, current, workingScale, maxWorkingScale, diagnostics, pool);
+                        break;
+                    case NestedGraphPass nestedGraph:
+                        ExecuteNestedGraph(
+                            nestedGraph, current, outputScale, workingScale, maxWorkingScale, diagnostics, pool);
                         break;
                     default:
                         MapDescriptorPass(
@@ -98,17 +80,42 @@ internal static class PlanExecutor
         }
     }
 
-    // Runs a bridged legacy segment over the whole current set. The bridge takes ownership of the handed-in
-    // operations (same contract as the whole-plan fast path); on success its output replaces the set.
-    private static void ExecuteOpaqueSegment(
-        OpaqueLegacyPass opaque, List<RenderNodeOperation> current, Rect bounds, float outputScale,
-        float workingScale, float maxWorkingScale, PipelineDiagnostics? diagnostics, RenderTargetPool? pool)
+    // Executes a nested-graph pass: per branch, describe the child graph at the branch's bounds and index, compile,
+    // and recurse. Each branch's plan compiles fresh per frame (counted in PlanCompilations) — a nested description
+    // is branch-index-dependent by contract, so the outer node's plan cache cannot hold it; program caching still
+    // applies inside. An empty child graph is the identity (the branch passes through).
+    private static void ExecuteNestedGraph(
+        NestedGraphPass pass, List<RenderNodeOperation> current, float outputScale, float workingScale,
+        float maxWorkingScale, PipelineDiagnostics? diagnostics, RenderTargetPool? pool)
     {
-        RenderNodeOperation[] segmentInputs = current.ToArray();
+        var outputs = new List<RenderNodeOperation>(current.Count);
+        try
+        {
+            for (int i = 0; i < current.Count; i++)
+            {
+                RenderNodeOperation op = current[i];
+                current[i] = null!;
+                var builder = new EffectGraphBuilder(op.Bounds, outputScale, workingScale, maxWorkingScale);
+                pass.DescribeBranch(builder, i);
+                using EffectGraph graph = builder.Build();
+                CompiledPlan branchPlan = EffectGraphCompiler.Compile(graph, diagnostics);
+                FrameResources branchResources = EffectGraphCompiler.ResolveResources(
+                    branchPlan, builder.Bounds, workingScale);
+                outputs.AddRange(Execute(
+                    branchPlan, branchResources, [op], op.Bounds, outputScale, workingScale, maxWorkingScale,
+                    diagnostics, pool));
+            }
+        }
+        catch
+        {
+            RenderNodeOperation.DisposeAll(CollectionsMarshal.AsSpan(outputs));
+            RenderNodeOperation.DisposeAll(CollectionsMarshal.AsSpan(current));
+            current.Clear();
+            throw;
+        }
+
         current.Clear();
-        RenderNodeOperation[] produced = LegacyBridgeExecutor.Execute(
-            opaque.Context, segmentInputs, bounds, outputScale, workingScale, maxWorkingScale, diagnostics, pool);
-        current.AddRange(produced);
+        current.AddRange(outputs);
     }
 
     // Applies a descriptor pass to every current operation independently. A single upstream operation uses the
@@ -175,7 +182,7 @@ internal static class PlanExecutor
         {
             outBounds = pass.OutputBounds.IsInvalid || pass is FusedShaderPass ? op.Bounds : pass.OutputBounds;
             w = RenderNodeContext.ClampWorkingScaleToBufferBudget(outBounds, workingScale);
-            (width, height) = CustomFilterEffectContext.DeviceBufferSize(outBounds, w);
+            (width, height) = RenderNodeContext.DeviceBufferSize(outBounds, w);
             skip = width <= 0 || height <= 0;
         }
         else
@@ -433,7 +440,7 @@ internal static class PlanExecutor
     private static RenderTarget? MaterializeInput(
         RenderNodeOperation op, float w, float maxWorkingScale, PipelineDiagnostics? diagnostics, RenderTargetPool? pool)
     {
-        (int bw, int bh) = CustomFilterEffectContext.DeviceBufferSize(op.Bounds, w);
+        (int bw, int bh) = RenderNodeContext.DeviceBufferSize(op.Bounds, w);
         RenderTarget? target = RenderTargetPool.Acquire(pool, bw, bh, diagnostics);
         if (target == null)
             return null;
@@ -459,7 +466,7 @@ internal static class PlanExecutor
         RenderTargetPool? pool)
     {
         float inW = RenderNodeContext.ClampWorkingScaleToBufferBudget(op.Bounds, workingScale);
-        (int inBw, int inBh) = CustomFilterEffectContext.DeviceBufferSize(op.Bounds, inW);
+        (int inBw, int inBh) = RenderNodeContext.DeviceBufferSize(op.Bounds, inW);
         if (inBw <= 0 || inBh <= 0)
             return op;
 
@@ -513,7 +520,7 @@ internal static class PlanExecutor
         }
 
         float inW = RenderNodeContext.ClampWorkingScaleToBufferBudget(op.Bounds, workingScale);
-        (int inBw, int inBh) = CustomFilterEffectContext.DeviceBufferSize(op.Bounds, inW);
+        (int inBw, int inBh) = RenderNodeContext.DeviceBufferSize(op.Bounds, inW);
         if (inBw <= 0 || inBh <= 0)
             return op;
 
@@ -628,7 +635,7 @@ internal static class PlanExecutor
                 current[i] = null!;
 
                 float inW = RenderNodeContext.ClampWorkingScaleToBufferBudget(op.Bounds, workingScale);
-                (int bw, int bh) = CustomFilterEffectContext.DeviceBufferSize(op.Bounds, inW);
+                (int bw, int bh) = RenderNodeContext.DeviceBufferSize(op.Bounds, inW);
                 if (bw <= 0 || bh <= 0)
                 {
                     outputs.Add(op);
@@ -684,7 +691,7 @@ internal static class PlanExecutor
         }
 
         float w = RenderNodeContext.ClampWorkingScaleToBufferBudget(union, workingScale);
-        (int bw, int bh) = CustomFilterEffectContext.DeviceBufferSize(union, w);
+        (int bw, int bh) = RenderNodeContext.DeviceBufferSize(union, w);
         if (bw <= 0 || bh <= 0)
         {
             RenderNodeOperation.DisposeAll(CollectionsMarshal.AsSpan(current));
@@ -816,7 +823,7 @@ internal static class PlanExecutor
             ArgumentNullException.ThrowIfNull(render);
 
             float w = RenderNodeContext.ClampWorkingScaleToBufferBudget(logicalBounds, workingScale);
-            (int bw, int bh) = CustomFilterEffectContext.DeviceBufferSize(logicalBounds, w);
+            (int bw, int bh) = RenderNodeContext.DeviceBufferSize(logicalBounds, w);
             if (bw <= 0 || bh <= 0)
                 return;
 

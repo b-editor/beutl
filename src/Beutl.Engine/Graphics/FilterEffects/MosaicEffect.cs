@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Engine;
+using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
@@ -54,15 +55,6 @@ public partial class MosaicEffect : FilterEffect
     [Display(Name = nameof(GraphicsStrings.MosaicEffect_Origin), ResourceType = typeof(GraphicsStrings))]
     public IProperty<RelativePoint> Origin { get; } = Property.CreateAnimatable(RelativePoint.Center);
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-    {
-        var r = (Resource)resource;
-        context.CustomEffect(
-            (r.TileSize, r.Origin),
-            OnApplyTo,
-            static (_, r) => r);
-    }
-
     public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
@@ -72,7 +64,7 @@ public partial class MosaicEffect : FilterEffect
         Size tileSize = r.TileSize;
         RelativePoint originPoint = r.Origin;
         float w = builder.WorkingScale;
-        (int bufW, int bufH) = CustomFilterEffectContext.DeviceBufferSize(builder.Bounds, w);
+        (int bufW, int bufH) = RenderNodeContext.DeviceBufferSize(builder.Bounds, w);
         Point origin = originPoint.Unit == RelativeUnit.Relative
             ? originPoint.ToPixels(new Size(bufW, bufH))
             : originPoint.Point * w;
@@ -85,36 +77,5 @@ public partial class MosaicEffect : FilterEffect
             u => u.Float2("origin", (float)origin.X, (float)origin.Y)
                   .Float2("tileSize", tileSize.Width * w, tileSize.Height * w)
                   .Float2("resolution", bufW, bufH)));
-    }
-
-    private static void OnApplyTo((Size tileSize, RelativePoint origin) data, CustomFilterEffectContext c)
-    {
-        if (s_shader is null) return;
-
-        for (int i = 0; i < c.Targets.Count; i++)
-        {
-            using var effectTarget = c.Targets[i];
-            var renderTarget = effectTarget.RenderTarget!;
-
-            using var image = renderTarget.Value.Snapshot();
-            using var baseShader = image.ToShader();
-
-            // SKRuntimeShaderBuilderを作成して、child shaderとuniformを設定
-            var builder = s_shader.CreateBuilder();
-
-            // child shaderとしてテクスチャ用のシェーダーを設定
-            builder.Children["src"] = baseShader;
-            // Scale tile size by working density so uniforms match the device-px buffer.
-            float w = c.ResolveTargetDensity(effectTarget.Bounds);
-            var (bufW, bufH) = CustomFilterEffectContext.DeviceBufferSize(effectTarget.Bounds, w);
-            builder.Uniforms["tileSize"] = new Size(data.tileSize.Width * w, data.tileSize.Height * w).ToSKSize();
-            Point origin = data.origin.Unit == RelativeUnit.Relative
-                ? data.origin.ToPixels(new(bufW, bufH))
-                : data.origin.Point * w;
-            builder.Uniforms["origin"] = origin.ToSKPoint();
-
-            // 新しいターゲットに適用
-            c.Targets[i] = s_shader.ApplyToNewTarget(c, builder, effectTarget.Bounds);
-        }
     }
 }

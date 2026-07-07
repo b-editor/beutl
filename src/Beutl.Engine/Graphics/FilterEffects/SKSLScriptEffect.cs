@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Composition;
 using Beutl.Engine;
+using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
@@ -72,20 +73,6 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
         }
     }
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-    {
-        var r = (Resource)resource;
-
-        if (r._shader == null)
-            return;
-
-        context.CustomEffect(
-            (Resource: r.Progress, duration: r.Duration, time: r.Time, shader: r._shader,
-                compileError: r._compileError),
-            OnApplyTo,
-            static (_, r) => r);
-    }
-
     public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
@@ -97,11 +84,10 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
 
         if (!effect.Children.Contains("src"))
         {
-            // The fused whole-source path always binds a `src` child; a script without one cannot run through it, so
-            // it stays on the legacy bridge (byte-identical) until the imperative surface is removed.
-            var bridge = new FilterEffectContext(builder.Bounds, builder.OutputScale, builder.WorkingScale);
-            ApplyTo(bridge, resource);
-            builder.AppendOpaqueLegacy(bridge, nameof(SKSLScriptEffect));
+            // A script with no `src` child never samples the source — it is a pure generator. The whole-source path
+            // requires the implicit `src` binding, so it runs as a geometry pass drawing the built shader over the
+            // input rect (the legacy behavior for such scripts).
+            DescribeGenerator(builder, r);
             return;
         }
 
@@ -109,7 +95,7 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
         float duration = r.Duration;
         float time = r.Time;
         float w = builder.WorkingScale;
-        (int devW, int devH) = CustomFilterEffectContext.DeviceBufferSize(builder.Bounds, w);
+        (int devW, int devH) = RenderNodeContext.DeviceBufferSize(builder.Bounds, w);
 
         void BindUniforms(UniformBindingBuilder u)
         {
@@ -128,46 +114,41 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
             : ShaderNodeDescriptor.WholeSource(source, BoundsContract.Identity, BindUniforms));
     }
 
-    private static void OnApplyTo(
-        (float progress, float duration, float time, SKSLShader shader, string? compileError) data,
-        CustomFilterEffectContext c)
+    private static void DescribeGenerator(EffectGraphBuilder builder, Resource r)
     {
-        for (int i = 0; i < c.Targets.Count; i++)
-        {
-            using var effectTarget = c.Targets[i];
-            var renderTarget = effectTarget.RenderTarget!;
+        SKSLShader shader = r._shader!;
+        float progress = r.Progress;
+        float duration = r.Duration;
+        float time = r.Time;
 
-            using var image = renderTarget.Value.Snapshot();
-            using var baseShader = image.ToShader();
+        builder.Geometry(GeometryNodeDescriptor.Create(
+            session =>
+            {
+                ImmediateCanvas canvas = session.OpenCanvas();
+                SKRuntimeShaderBuilder shaderBuilder = shader.CreateBuilder();
+                SKRuntimeEffect effect = shader.Effect;
 
-            var builder = data.shader.CreateBuilder();
-            var effect = data.shader.Effect;
+                // Resolution uniforms report device px at the output buffer's real (possibly clamped) density.
+                float w = canvas.Density;
+                (int devW, int devH) = RenderNodeContext.DeviceBufferSize(session.Bounds, w);
+                if (effect.Uniforms.Contains("progress")) shaderBuilder.Uniforms["progress"] = progress;
+                if (effect.Uniforms.Contains("duration")) shaderBuilder.Uniforms["duration"] = duration;
+                if (effect.Uniforms.Contains("time")) shaderBuilder.Uniforms["time"] = time;
+                if (effect.Uniforms.Contains("width")) shaderBuilder.Uniforms["width"] = (float)devW;
+                if (effect.Uniforms.Contains("height")) shaderBuilder.Uniforms["height"] = (float)devH;
+                if (effect.Uniforms.Contains("iResolution")) shaderBuilder.Uniforms["iResolution"] = new SKPoint(devW, devH);
+                if (effect.Uniforms.Contains("iScale")) shaderBuilder.Uniforms["iScale"] = w;
+                if (effect.Uniforms.Contains("iTime")) shaderBuilder.Uniforms["iTime"] = time;
 
-            if (effect.Children.Contains("src"))
-                builder.Children["src"] = baseShader;
-            if (effect.Uniforms.Contains("progress"))
-                builder.Uniforms["progress"] = data.progress;
-            if (effect.Uniforms.Contains("duration"))
-                builder.Uniforms["duration"] = data.duration;
-            if (effect.Uniforms.Contains("time"))
-                builder.Uniforms["time"] = data.time;
-            // Resolution uniforms report device px at the clamped buffer density.
-            float w = c.ResolveTargetDensity(effectTarget.Bounds);
-            (int devW, int devH) = CustomFilterEffectContext.DeviceBufferSize(effectTarget.Bounds, w);
-            if (effect.Uniforms.Contains("width"))
-                builder.Uniforms["width"] = (float)devW;
-            if (effect.Uniforms.Contains("height"))
-                builder.Uniforms["height"] = (float)devH;
-            if (effect.Uniforms.Contains("iResolution"))
-                builder.Uniforms["iResolution"] = new SKPoint(devW, devH);
-            if (effect.Uniforms.Contains("iScale"))
-                builder.Uniforms["iScale"] = w;
-            if (effect.Uniforms.Contains("iTime"))
-                builder.Uniforms["iTime"] = data.time;
-
-            // 新しいターゲットに適用
-            c.Targets[i] = data.shader.ApplyToNewTarget(c, builder, effectTarget.Bounds);
-        }
+                using SKShader built = shaderBuilder.Build();
+                using var paint = new SKPaint { Shader = built };
+                using (canvas.PushDeviceSpace())
+                {
+                    canvas.Canvas.DrawRect(new SKRect(0, 0, devW, devH), paint);
+                }
+            },
+            BoundsContract.Identity,
+            structuralToken: nameof(SKSLScriptEffect) + ".Generator"));
     }
 
     public new partial class Resource

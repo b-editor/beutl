@@ -4,7 +4,7 @@ namespace Beutl.Graphics.Effects;
 
 /// <summary>
 /// The bounded escape hatch a <see cref="GeometryNodeDescriptor"/> callback draws through (feature 004,
-/// data-model §1, research D8) — the replacement for <see cref="CustomFilterEffectContext"/>'s authoring role.
+/// data-model §1, research D8) — the replacement for the removed imperative custom-effect context's authoring role.
 /// It exposes the pass's resolved scales, read-only views of its inputs, and a single canvas over the
 /// executor-acquired pooled output target. It deliberately exposes <b>no</b> target creation, flushing, or
 /// output snapshot: every resource and synchronization decision stays with the executor, which brackets the

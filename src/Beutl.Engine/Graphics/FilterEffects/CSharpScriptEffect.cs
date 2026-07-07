@@ -74,7 +74,7 @@ public sealed partial class CSharpScriptEffect : FilterEffect, IScriptCompilable
                 typeof(Console).Assembly,
                 typeof(Enumerable).Assembly,
                 typeof(CoreObject).Assembly,
-                typeof(FilterEffectContext).Assembly,
+                typeof(EffectGraphBuilder).Assembly,
                 typeof(SkiaSharp.SKCanvas).Assembly)
             .AddImports(
                 "System",
@@ -85,15 +85,6 @@ public sealed partial class CSharpScriptEffect : FilterEffect, IScriptCompilable
                 "Beutl.Graphics.Rendering",
                 "Beutl.Graphics.Effects",
                 "SkiaSharp");
-    }
-
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-    {
-        // The imperative FilterEffectContext scripting surface was removed (breaking, contracts/breaking-changes.md).
-        // Scripts run through Describe's GeometrySession now; the legacy bridge never reaches this effect.
-        throw new NotSupportedException(
-            $"{nameof(CSharpScriptEffect)} no longer supports the imperative {nameof(ApplyTo)} path. "
-            + "Its script runs through the declarative Describe/GeometrySession pipeline.");
     }
 
     public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)

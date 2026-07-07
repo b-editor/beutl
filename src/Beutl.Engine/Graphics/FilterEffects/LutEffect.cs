@@ -362,25 +362,6 @@ public sealed partial class LutEffect : FilterEffect
     [Range(0, 100)]
     public IProperty<float> Strength { get; } = Property.CreateAnimatable(100f);
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-    {
-        var r = (Resource)resource;
-        var cube = r.Source?.Cube;
-        if (cube != null)
-        {
-            float strength = r.Strength / 100f;
-
-            if (cube.Dimention == CubeFileDimension.OneDimension)
-            {
-                context.CustomEffect((cube, strength), OnApply1DLUT_GPU, static (_, r) => r);
-            }
-            else
-            {
-                context.CustomEffect((cube, strength), OnApply3DLUT_GPU, static (_, r) => r);
-            }
-        }
-    }
-
     public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
@@ -414,76 +395,5 @@ public sealed partial class LutEffect : FilterEffect
         }
 
         return lutImage.ToShader();
-    }
-
-    private void OnApply1DLUT_GPU((CubeFile cube, float strength) data, CustomFilterEffectContext c)
-    {
-        if (s_1dShader is null) return;
-
-        for (int i = 0; i < c.Targets.Count; i++)
-        {
-            using var effectTarget = c.Targets[i];
-            var renderTarget = effectTarget.RenderTarget!;
-
-            using var image = renderTarget.Value.Snapshot();
-            using var baseShader = image.ToShader();
-
-            var builder = s_1dShader.CreateBuilder();
-
-            using var lutImage = SKImage.Create(new SKImageInfo(data.cube.Data.Length, 1, SKColorType.RgbaF32));
-            using (var pixmap = lutImage.PeekPixels())
-            {
-                var span = pixmap.GetPixelSpan<Vector4>();
-                for (int j = 0; j < data.cube.Data.Length; j++)
-                {
-                    var color = data.cube.Data[j];
-                    span[j] = new Vector4(color, 1);
-                }
-            }
-            using var lutShader = lutImage.ToShader();
-
-            builder.Children["src"] = baseShader;
-            builder.Children["lut"] = lutShader;
-            builder.Uniforms["lutSize"] = data.cube.Size;
-            builder.Uniforms["strength"] = data.strength;
-
-            c.Targets[i] = s_1dShader.ApplyToNewTarget(c, builder, effectTarget.Bounds);
-        }
-    }
-
-    private void OnApply3DLUT_GPU((CubeFile cube, float strength) data, CustomFilterEffectContext c)
-    {
-        if (s_shader is null) return;
-
-        for (int i = 0; i < c.Targets.Count; i++)
-        {
-            using var effectTarget = c.Targets[i];
-            var renderTarget = effectTarget.RenderTarget!;
-
-            using var image = renderTarget.Value.Snapshot();
-            using var baseShader = image.ToShader();
-
-            var builder = s_shader.CreateBuilder();
-
-            using var lutImage = SKImage.Create(new SKImageInfo(data.cube.Data.Length, 1, SKColorType.RgbaF32));
-            using (var pixmap = lutImage.PeekPixels())
-            {
-                var span = pixmap.GetPixelSpan<Vector4>();
-                for (int j = 0; j < data.cube.Data.Length; j++)
-                {
-                    var color = data.cube.Data[j];
-                    span[j] = new Vector4(color, 1);
-                }
-            }
-            using var lutShader = lutImage.ToShader();
-
-            builder.Children["src"] = baseShader;
-            builder.Children["lut"] = lutShader;
-            builder.Uniforms["lutSize"] = data.cube.Size;
-            builder.Uniforms["strength"] = data.strength;
-
-            // 新しいターゲットに適用
-            c.Targets[i] = s_shader.ApplyToNewTarget(c, builder, effectTarget.Bounds);
-        }
     }
 }

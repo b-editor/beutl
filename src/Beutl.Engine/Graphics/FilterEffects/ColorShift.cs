@@ -102,20 +102,6 @@ public partial class ColorShift : FilterEffect
             .Union(r.Translate(-data.AlphaOffset.ToPoint(1)));
     }
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-    {
-        var r = (Resource)resource;
-        if (s_shader is null)
-        {
-            throw new InvalidOperationException("Failed to compile SKSL.");
-        }
-
-        context.CustomEffect(
-            (r.RedOffset, r.GreenOffset, r.BlueOffset, r.AlphaOffset),
-            OnApply,
-            TransformBoundsCore);
-    }
-
     private static Rect TransformBoundsCore(
         (PixelPoint RedOffset, PixelPoint GreenOffset, PixelPoint BlueOffset, PixelPoint AlphaOffset) data,
         Rect bounds)
@@ -124,62 +110,5 @@ public partial class ColorShift : FilterEffect
             .Union(bounds.Translate(data.GreenOffset.ToPoint(1)))
             .Union(bounds.Translate(data.BlueOffset.ToPoint(1)))
             .Union(bounds.Translate(data.AlphaOffset.ToPoint(1)));
-    }
-
-    private static void OnApply(
-        (PixelPoint RedOffset, PixelPoint GreenOffset, PixelPoint BlueOffset, PixelPoint AlphaOffset) data,
-        CustomFilterEffectContext context)
-    {
-        if (s_shader is null) return;
-        for (int i = 0; i < context.Targets.Count; i++)
-        {
-            // Not `using`: the skip paths below keep this target in context.Targets[i], so it must
-            // only be disposed after the slot is replaced with the shifted output.
-            EffectTarget effectTarget = context.Targets[i];
-            RenderTarget? renderTarget = effectTarget.RenderTarget;
-            if (renderTarget is null)
-            {
-                continue;
-            }
-
-            var bounds = TransformBoundsCore(data, effectTarget.Bounds);
-            int minOffsetX = Math.Min(data.RedOffset.X,
-                Math.Min(data.GreenOffset.X, Math.Min(data.BlueOffset.X, data.AlphaOffset.X)));
-            int minOffsetY = Math.Min(data.RedOffset.Y,
-                Math.Min(data.GreenOffset.Y, Math.Min(data.BlueOffset.Y, data.AlphaOffset.Y)));
-
-            using var image = renderTarget.Value.Snapshot();
-            if (image is null)
-            {
-                // Delivery (MaxWorkingScale == +inf) must not silently ship an unshifted layer;
-                // preview keeps the source pixels.
-                if (float.IsPositiveInfinity(context.MaxWorkingScale))
-                {
-                    throw new InvalidOperationException(
-                        $"ColorShift snapshot failed for target {i}; the GPU surface could not be read back.");
-                }
-
-                continue;
-            }
-
-            using var baseShader = image.ToShader(SKShaderTileMode.Decal, SKShaderTileMode.Decal);
-
-            // SKRuntimeShaderBuilderを作成して、child shaderとuniformを設定
-            var builder = s_shader.CreateBuilder();
-
-            // child shaderとしてテクスチャ用のシェーダーを設定
-            builder.Children["src"] = baseShader;
-            // Scale offsets by working density so they match the device-px buffer.
-            float w = context.ResolveTargetDensity(bounds);
-            builder.Uniforms["redOffset"] = new SKPoint(data.RedOffset.X * w, data.RedOffset.Y * w);
-            builder.Uniforms["greenOffset"] = new SKPoint(data.GreenOffset.X * w, data.GreenOffset.Y * w);
-            builder.Uniforms["blueOffset"] = new SKPoint(data.BlueOffset.X * w, data.BlueOffset.Y * w);
-            builder.Uniforms["alphaOffset"] = new SKPoint(data.AlphaOffset.X * w, data.AlphaOffset.Y * w);
-            builder.Uniforms["minOffset"] = new SKPoint(minOffsetX * w, minOffsetY * w);
-
-            // 新しいターゲットに適用
-            context.Targets[i] = s_shader.ApplyToNewTarget(context, builder, bounds);
-            effectTarget.Dispose();
-        }
     }
 }

@@ -11,10 +11,11 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.EffectPipeline;
 
 /// <summary>
 /// The premultiplied-alpha migration parity gate (feature 004, T031, contracts/observability.md O4). Each case
-/// renders a semitransparent alpha-gradient input through the migrated effect's new fused/mixed executor path and
-/// through the retained legacy <see cref="FilterEffectActivator"/> (its <c>ApplyTo</c> recording), then asserts
-/// the two match within the golden thresholds. This exercises the unpremultiply/re-premultiply handling of fused
-/// shader/color-filter interleavings that the opaque frozen-reference gate (EffectReferenceFreezeTests) cannot.
+/// renders a semitransparent alpha-gradient input through the fused/mixed executor path and asserts it against a
+/// frozen legacy-pipeline reference under <c>Golden/References/004-parity/</c> (captured from the retained
+/// activator immediately before the imperative surface was removed — do not regenerate). This exercises the
+/// unpremultiply/re-premultiply handling of fused shader/color-filter interleavings that the opaque
+/// frozen-reference gate (EffectReferenceFreezeTests) cannot.
 /// </summary>
 [NonParallelizable]
 [TestFixture]
@@ -87,7 +88,7 @@ public class EffectMigrationParityTests
     [TestCaseSource(nameof(MigratedEffects))]
     public void Effect_FusedMatchesLegacyOnSemitransparentInput(string name, Func<FilterEffect> makeEffect)
     {
-        AssertChainParity([makeEffect()]);
+        AssertChainParity("effect-" + name, [makeEffect()]);
     }
 
     // Five invariant color effects fuse into one pass; parity against the legacy activator confirms the composed
@@ -95,7 +96,7 @@ public class EffectMigrationParityTests
     [Test]
     public void ColorChain_FusedMatchesLegacyOnSemitransparentInput()
     {
-        AssertChainParity(
+        AssertChainParity("chain-ColorChain",
         [
             new Gamma { Amount = { CurrentValue = 1.5f } },
             new HueRotate { Angle = { CurrentValue = 90f } },
@@ -109,7 +110,7 @@ public class EffectMigrationParityTests
     [Test]
     public void MixedChain_FusedMatchesLegacyOnSemitransparentInput()
     {
-        AssertChainParity(
+        AssertChainParity("chain-MixedChain",
         [
             new Blur { Sigma = { CurrentValue = new Size(6, 6) } },
             new Gamma { Amount = { CurrentValue = 1.4f } },
@@ -119,12 +120,11 @@ public class EffectMigrationParityTests
         ]);
     }
 
-    // Drives the mixed-plan executor (an opaque bridged segment between fused runs): ColorShift is still bridged
-    // in step 5b, so this remains the only chain exercising OpaqueLegacyPass threading between descriptor passes.
+    // Drives the mixed-plan executor with a whole-source shader pass (ColorShift) threaded between fused runs.
     [Test]
-    public void BridgedSegmentChain_FusedMatchesLegacyOnSemitransparentInput()
+    public void WholeSourceSegmentChain_FusedMatchesLegacyOnSemitransparentInput()
     {
-        AssertChainParity(
+        AssertChainParity("chain-WholeSourceSegmentChain",
         [
             new Gamma { Amount = { CurrentValue = 1.4f } },
             new Invert { Amount = { CurrentValue = 1f } },
@@ -134,57 +134,32 @@ public class EffectMigrationParityTests
         ]);
     }
 
-    private static void AssertChainParity(IReadOnlyList<FilterEffect> effects)
+    private static void AssertChainParity(string referenceName, IReadOnlyList<FilterEffect> effects)
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using Bitmap fused = RenderChain(effects, fused: true);
-            using Bitmap legacy = RenderChain(effects, fused: false);
-
-            double ssim = ImageMetrics.Ssim(legacy, fused);
-            double mae = ImageMetrics.MeanAbsoluteError(legacy, fused);
-            TestContext.WriteLine($"fused-vs-legacy SSIM={ssim:F4} MAE={mae:F4}");
-            Assert.Multiple(() =>
-            {
-                Assert.That(ssim, Is.GreaterThanOrEqualTo(GoldenThresholds.ExactSsimMin), $"SSIM {ssim}");
-                Assert.That(mae, Is.LessThanOrEqualTo(GoldenThresholds.ExactMaeMax), $"MAE {mae}");
-            });
+            using Bitmap fused = RenderChain(effects);
+            GoldenReferenceStore.FreezeOrAssert("004-parity", referenceName, fused);
         });
     }
 
-    private static Bitmap RenderChain(IReadOnlyList<FilterEffect> effects, bool fused)
+    private static Bitmap RenderChain(IReadOnlyList<FilterEffect> effects)
     {
         RenderNodeOperation[] inputs = [MakeSemitransparentInput(s_bounds)];
-        RenderNodeOperation[] outputs;
-        if (fused)
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        foreach (FilterEffect effect in effects)
         {
-            var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
-            foreach (FilterEffect effect in effects)
-            {
-                FilterEffect.Resource resource = Capture(effect);
-                effect.Describe(builder, resource);
-            }
-
-            using EffectGraph graph = builder.Build();
-            CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
-            FrameResources frame = EffectGraphCompiler.ResolveResources(plan, s_bounds, workingScale: 1f);
-            outputs = PlanExecutor.Execute(
-                plan, frame, inputs, s_bounds, outputScale: 1f, workingScale: 1f,
-                maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null);
+            FilterEffect.Resource resource = Capture(effect);
+            effect.Describe(builder, resource);
         }
-        else
-        {
-            using var context = new FilterEffectContext(s_bounds, outputScale: 1f, workingScale: 1f);
-            foreach (FilterEffect effect in effects)
-            {
-                effect.ApplyTo(context, Capture(effect));
-            }
 
-            outputs = LegacyBridgeExecutor.Execute(
-                context, inputs, s_bounds, outputScale: 1f, workingScale: 1f,
-                maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null);
-        }
+        using EffectGraph graph = builder.Build();
+        CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
+        FrameResources frame = EffectGraphCompiler.ResolveResources(plan, s_bounds, workingScale: 1f);
+        RenderNodeOperation[] outputs = PlanExecutor.Execute(
+            plan, frame, inputs, s_bounds, outputScale: 1f, workingScale: 1f,
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null);
 
         return Rasterize(outputs, s_bounds);
     }

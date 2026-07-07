@@ -4,7 +4,6 @@ using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
-using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
@@ -215,21 +214,6 @@ public sealed partial class Curves : FilterEffect
     [Display(Name = nameof(GraphicsStrings.Curves_SaturationVsSaturation), ResourceType = typeof(GraphicsStrings))]
     public IProperty<CurveMap> SaturationVsSaturation { get; } = Property.Create(new CurveMap([new CurveControlPoint(0, 0.5f), new CurveControlPoint(1, 0.5f)]));
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-    {
-        if (s_shader is null)
-        {
-            throw new InvalidOperationException("Failed to compile SKSL.");
-        }
-
-        var r = (Resource)resource;
-
-        context.CustomEffect(
-            (Resource: r, Dummy: 0),
-            static (data, ctx) => OnApply(data.Resource, ctx),
-            static (_, rect) => rect);
-    }
-
     public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
@@ -247,45 +231,5 @@ public sealed partial class Curves : FilterEffect
                 builder.Sampler("lumaVsSat", r.LuminanceVsSaturation.ToShader()),
                 builder.Sampler("satVsSat", r.SaturationVsSaturation.ToShader()),
             ]));
-    }
-
-    private static void OnApply(Resource data, CustomFilterEffectContext context)
-    {
-        if (s_shader is null) return;
-
-        using SKShader master = data.MasterCurve.ToShader();
-        using SKShader red = data.RedCurve.ToShader();
-        using SKShader green = data.GreenCurve.ToShader();
-        using SKShader blue = data.BlueCurve.ToShader();
-        using SKShader hueHue = data.HueVsHue.ToShader();
-        using SKShader hueSat = data.HueVsSaturation.ToShader();
-        using SKShader hueLum = data.HueVsLuminance.ToShader();
-        using SKShader lumSat = data.LuminanceVsSaturation.ToShader();
-        using SKShader satSat = data.SaturationVsSaturation.ToShader();
-
-        for (int i = 0; i < context.Targets.Count; i++)
-        {
-            using var target = context.Targets[i];
-            var renderTarget = target.RenderTarget!;
-
-            using SKImage image = renderTarget.Value.Snapshot();
-            using SKShader baseShader = image.ToShader(SKShaderTileMode.Decal, SKShaderTileMode.Decal);
-
-            var builder = s_shader.CreateBuilder();
-
-            builder.Children["src"] = baseShader;
-            builder.Children["masterCurve"] = master;
-            builder.Children["redCurve"] = red;
-            builder.Children["greenCurve"] = green;
-            builder.Children["blueCurve"] = blue;
-            builder.Children["hueVsHue"] = hueHue;
-            builder.Children["hueVsSat"] = hueSat;
-            builder.Children["hueVsLuma"] = hueLum;
-            builder.Children["lumaVsSat"] = lumSat;
-            builder.Children["satVsSat"] = satSat;
-
-            // 新しいターゲットに適用
-            context.Targets[i] = s_shader.ApplyToNewTarget(context, builder, target.Bounds);
-        }
     }
 }

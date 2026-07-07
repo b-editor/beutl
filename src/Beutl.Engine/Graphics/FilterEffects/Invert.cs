@@ -1,11 +1,9 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using System.Reactive;
 
 using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
-using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
@@ -80,46 +78,11 @@ public sealed partial class Invert : FilterEffect
     [Display(Name = nameof(GraphicsStrings.Invert_ExcludeAlphaChannel), ResourceType = typeof(GraphicsStrings))]
     public IProperty<bool> ExcludeAlphaChannel { get; } = Property.CreateAnimatable(true);
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-    {
-        if (s_shader is null)
-        {
-            throw new InvalidOperationException("Failed to compile SKSL.");
-        }
-
-        var r = (Resource)resource;
-        context.CustomEffect(
-            (r, Unit.Default),
-            (t, c) => OnApply(t.r, c),
-            static (_, rect) => rect);
-    }
-
     public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
         builder.Shader(ShaderNodeDescriptor.Snippet(
             s_snippet,
             u => u.Float("amount", r.Amount / 100f).Int("excludeAlpha", r.ExcludeAlphaChannel ? 1 : 0)));
-    }
-
-    private static void OnApply(Resource data, CustomFilterEffectContext context)
-    {
-        if (s_shader is null) return;
-
-        for (int i = 0; i < context.Targets.Count; i++)
-        {
-            using var target = context.Targets[i];
-            var renderTarget = target.RenderTarget!;
-
-            using SKImage image = renderTarget.Value.Snapshot();
-            using SKShader baseShader = image.ToShader(SKShaderTileMode.Decal, SKShaderTileMode.Decal);
-            var builder = s_shader.CreateBuilder();
-
-            builder.Children["src"] = baseShader;
-            builder.Uniforms["amount"] = data.Amount / 100f;
-            builder.Uniforms["excludeAlpha"] = data.ExcludeAlphaChannel ? 1 : 0;
-
-            context.Targets[i] = s_shader.ApplyToNewTarget(context, builder, target.Bounds);
-        }
     }
 }

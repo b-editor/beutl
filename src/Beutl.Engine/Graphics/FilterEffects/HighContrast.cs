@@ -21,12 +21,6 @@ public sealed partial class HighContrast : FilterEffect
     [Display(Name = nameof(GraphicsStrings.HighContrast_Contrast), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Contrast { get; } = Property.CreateAnimatable<float>();
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-    {
-        var r = (Resource)resource;
-        context.HighContrast(r.Grayscale, r.InvertStyle, r.Contrast / 100f);
-    }
-
     public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;

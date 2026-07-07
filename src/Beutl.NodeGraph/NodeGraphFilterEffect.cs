@@ -23,10 +23,12 @@ public sealed partial class NodeGraphFilterEffect : FilterEffect
 
     public IProperty<GraphModel?> Model { get; } = Property.Create<GraphModel?>();
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+    // A render-node boundary on the 003 CreateRenderNode seam (research D7): the graph is evaluated by
+    // NodeGraphFilterEffectRenderNode, which overrides Process and never describes through this surface.
+    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
     {
         throw new NotSupportedException(
-            $"{nameof(NodeGraphFilterEffect)} does not support {nameof(ApplyTo)}. " +
+            $"{nameof(NodeGraphFilterEffect)} does not support {nameof(Describe)}. " +
             "Use the resource/render-node pipeline (via ToResource and CreateRenderNode) instead.");
     }
 

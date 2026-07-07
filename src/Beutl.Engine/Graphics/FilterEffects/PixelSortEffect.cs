@@ -264,35 +264,12 @@ public sealed partial class PixelSortEffect : FilterEffect
         }
     }
 
-    // Delivery (MaxWorkingScale == +inf) must not ship silently unsorted frames; preview keeps the
-    // source pixels and logs. Cancellation always propagates.
-    internal static bool ShouldRethrowPassFailure(Exception exception, float maxWorkingScale)
-        => exception is OperationCanceledException || float.IsPositiveInfinity(maxWorkingScale);
-
-    // Same delivery contract for the non-exception failure: an output target without a texture
-    // (allocation failure) must fail a delivery render instead of shipping the frame unsorted.
-    internal static void ThrowIfDeliveryAllocationFailure(float maxWorkingScale, int targetIndex)
-    {
-        if (float.IsPositiveInfinity(maxWorkingScale))
-        {
-            throw new InvalidOperationException(
-                $"PixelSort could not allocate an output target for target {targetIndex}; the delivery render fails instead of shipping unsorted pixels.");
-        }
-    }
-
     private readonly record struct EffectData(
         PixelSortDirection Direction,
         PixelSortKey SortKey,
         float ThresholdMin,
         float ThresholdMax,
         bool Ascending);
-
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-    {
-        var r = (Resource)resource;
-        var data = new EffectData(r.Direction, r.SortKey, r.ThresholdMin / 100f, r.ThresholdMax / 100f, r.Ascending);
-        context.CustomEffect(data, static (d, ctx) => OnApplyTo(d, ctx), static (_, b) => b);
-    }
 
     public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
     {
@@ -347,108 +324,6 @@ public sealed partial class PixelSortEffect : FilterEffect
                 Width = width,
                 Height = height,
             });
-    }
-
-    private static void OnApplyTo(EffectData r, CustomFilterEffectContext ctx)
-    {
-        EnsureShadersInitialized();
-
-        if (s_prepareShader == null || s_rankShader == null || s_gatherShader == null)
-            return;
-
-        IGraphicsContext? gfx = GraphicsContextFactory.SharedContext;
-        if (gfx == null || !gfx.Supports3DRendering)
-            return;
-
-        for (int i = 0; i < ctx.Targets.Count; i++)
-        {
-            EffectTarget target = ctx.Targets[i];
-            RenderTarget? renderTarget = target.RenderTarget;
-            if (renderTarget?.Texture == null) continue;
-
-            ITexture2D originalTexture = renderTarget.Texture;
-            int width = originalTexture.Width;
-            int height = originalTexture.Height;
-
-            try
-            {
-                using ITexture2D prepTexture = gfx.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
-                using ITexture2D rankTexture = gfx.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
-                using ITexture2D depth = gfx.CreateTexture2D(width, height, TextureFormat.Depth32Float);
-
-                // Pass 1: Prepare - encode sort key into alpha
-                s_prepareShader.ExecuteSingleTarget(
-                    originalTexture, prepTexture, depth,
-                    new PreparePushConstants
-                    {
-                        ThresholdMin = r.ThresholdMin,
-                        ThresholdMax = r.ThresholdMax,
-                        SortKeyType = (int)r.SortKey,
-                        SortDir = (int)r.Direction,
-                        Width = width,
-                        Height = height,
-                    });
-
-                // Pass 2: Rank - compute each pixel's rank within its segment
-                s_rankShader.ExecuteSingleTarget(
-                    prepTexture, rankTexture, depth,
-                    new RankPushConstants
-                    {
-                        SortDir = (int)r.Direction,
-                        Width = width,
-                        Height = height,
-                    });
-
-                // Pass 3: Gather + Restore - place pixels by rank, restore anchors
-                EffectTarget newTarget = ctx.CreateTarget(target.Bounds);
-                RenderTarget? newRenderTarget = newTarget.RenderTarget;
-
-                if (newRenderTarget?.Texture == null)
-                {
-                    newTarget.Dispose();
-                    ThrowIfDeliveryAllocationFailure(ctx.MaxWorkingScale, i);
-                    continue;
-                }
-
-                try
-                {
-                    using ITexture2D gatherDepth = gfx.CreateTexture2D(width, height, TextureFormat.Depth32Float);
-
-                    s_gatherShader.ExecuteSingleTargetWithMask(
-                        rankTexture, originalTexture, newRenderTarget.Texture, gatherDepth,
-                        new GatherPushConstants
-                        {
-                            SortDir = (int)r.Direction,
-                            Ascending = r.Ascending ? 1 : 0,
-                            Width = width,
-                            Height = height,
-                        });
-
-                    target.Dispose();
-                    ctx.Targets[i] = newTarget;
-                }
-                catch (Exception ex)
-                {
-                    newTarget.Dispose();
-                    if (ShouldRethrowPassFailure(ex, ctx.MaxWorkingScale))
-                    {
-                        throw;
-                    }
-
-                    s_logger.LogWarning(ex, "PixelSort gather pass failed for target {Index}; keeping the source pixels.", i);
-                }
-            }
-            catch (Exception ex)
-            {
-                if (ShouldRethrowPassFailure(ex, ctx.MaxWorkingScale))
-                {
-                    throw;
-                }
-
-                s_logger.LogWarning(ex, "PixelSort pass failed for target {Index}; leaving it unsorted.", i);
-                continue;
-            }
-        }
     }
 
     [StructLayout(LayoutKind.Sequential)]

@@ -5,7 +5,7 @@ namespace Beutl.Graphics.Effects;
 /// <summary>
 /// An <c>SKImageFilter</c> node (feature 004, data-model §1): blur, drop-shadow, morphology, matrix transform,
 /// convolution, etc. Adjacent Skia-filter nodes group into one filtered draw (C2), reproducing today's
-/// <c>SKImageFilterBuilder</c> accumulation as an explicit plan pass. Non-invariant: it carries a mandatory
+/// legacy image-filter accumulation as an explicit plan pass. Non-invariant: it carries a mandatory
 /// <see cref="BoundsContract"/>. The <see cref="Factory"/> composes the frame's filter over the upstream filter
 /// (<see langword="null"/> when this node heads the group); its <see cref="StructuralToken"/> identifies the
 /// filter kind for the structural key, leaving the parameters (sigma, offset, kernel) as re-resolved sizes (A4).

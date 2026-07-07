@@ -96,7 +96,7 @@ public class GLSLShaderTests
     }
 
     [Test]
-    public void Apply_AfterDispose_Throws()
+    public void ExecuteSingleTarget_AfterDispose_Throws()
     {
         VulkanTestEnvironment.EnsureAvailable();
 
@@ -105,48 +105,40 @@ public class GLSLShaderTests
             var shader = GLSLShader.Create(ConstantBlueFragment);
             shader.Dispose();
 
-            using var targets = new EffectTargets();
-            var ctx = CreateCustomContext(targets);
-
             Assert.Throws<ObjectDisposedException>(() =>
-                shader.Apply<DummyPush>(ctx, new DummyPush()));
+                shader.ExecuteSingleTarget<DummyPush>(null!, null!, null!, new DummyPush()));
         });
     }
 
     [Test]
-    public void Apply_OverwritesTargetWithShaderOutput()
+    public void ExecuteSingleTarget_OverwritesDestinationWithShaderOutput()
     {
         var ctx = VulkanTestEnvironment.EnsureAvailable();
 
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using var targets = new EffectTargets();
-
-            // Set up a 4x4 red EffectTarget so we can detect the shader's blue overwrite.
+            // A 4x4 red source so the shader's blue overwrite is detectable.
             using var sourceRenderTarget = RenderTarget.Create(4, 4);
             Assume.That(sourceRenderTarget, Is.Not.Null);
-            using (var canvas = new ImmediateCanvas(sourceRenderTarget!))
+            Assume.That(sourceRenderTarget!.Texture, Is.Not.Null);
+            using (var canvas = new ImmediateCanvas(sourceRenderTarget))
             {
                 canvas.Clear(Colors.Red);
             }
 
-            targets.Add(new EffectTarget(sourceRenderTarget!, new Rect(0, 0, 4, 4)));
+            sourceRenderTarget.PrepareForSampling();
 
-            var customCtx = CreateCustomContext(targets);
+            using Beutl.Graphics.Backend.ITexture2D destination =
+                ctx.CreateTexture2D(4, 4, Beutl.Graphics.Backend.TextureFormat.RGBA16Float);
+            using Beutl.Graphics.Backend.ITexture2D depth =
+                ctx.CreateTexture2D(4, 4, Beutl.Graphics.Backend.TextureFormat.Depth32Float);
 
             using var shader = GLSLShader.Create(ConstantBlueFragment);
-            shader.Apply<DummyPush>(customCtx, new DummyPush());
-
-            // After Apply, the EffectTarget at index 0 should be replaced with the shader output.
-            var resultTarget = targets[0];
-            Assert.That(resultTarget.RenderTarget, Is.Not.Null);
-            Assert.That(resultTarget.RenderTarget!.Texture, Is.Not.Null);
-            Assert.That(resultTarget.RenderTarget.Width, Is.EqualTo(4));
+            shader.ExecuteSingleTarget(sourceRenderTarget.Texture!, destination, depth, new DummyPush());
 
             ctx.WaitIdle();
 
-            // Sample the resulting texture pixels.
-            byte[] pixels = resultTarget.RenderTarget.Texture!.DownloadPixels();
+            byte[] pixels = destination.DownloadPixels();
             // RGBA16Float: 8 bytes per pixel
             Assert.That(pixels.Length, Is.EqualTo(4 * 4 * 8));
 
@@ -159,7 +151,4 @@ public class GLSLShaderTests
             Assert.That(b, Is.EqualTo(1f).Within(0.01f));
         });
     }
-
-    private static CustomFilterEffectContext CreateCustomContext(EffectTargets targets)
-        => new CustomFilterEffectContext(targets);
 }

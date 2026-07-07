@@ -83,7 +83,7 @@ public sealed record FusedShaderPass(ImmutableArray<FusedStage> Stages) : Compil
 
 /// <summary>
 /// A group of adjacent Skia image-filter nodes composed into one filtered draw (feature 004, C2). Each factory
-/// composes over the previous filter, reproducing today's <c>SKImageFilterBuilder</c> accumulation as a plan pass.
+/// composes over the previous filter, reproducing the legacy builder's image-filter accumulation as a plan pass.
 /// </summary>
 public sealed record SkiaFilterPass(ImmutableArray<Func<SKImageFilter?, SKImageFilter?>> Filters) : CompiledPass
 {
@@ -141,13 +141,15 @@ public sealed record CompositePass(BlendMode BlendMode, ImmutableArray<Point> In
 }
 
 /// <summary>
-/// A transition-only pass (feature 004, rollout step 3) wrapping an unmigrated effect's recorded legacy item
-/// list. The executor runs it through the retained (internal-only) activator machinery, deferring <b>all</b>
-/// counter attribution to that machinery so bridged content's counters are byte-identical to today's. Deleted
-/// with the bridge in step 6.
+/// A per-branch nested graph pass (feature 004, research D8): for each current operation the executor invokes
+/// <see cref="DescribeBranch"/> with the branch index, compiles the described child graph, and executes it
+/// recursively against that single operation through the same pipeline (plans, pool, counters). Its outputs and
+/// buffers are execution-time-resolved (<see cref="CompiledPass.IsDynamicOutputs"/>), exempt from the static
+/// peak-live bound.
 /// </summary>
-internal sealed record OpaqueLegacyPass(FilterEffectContext Context) : CompiledPass
+public sealed record NestedGraphPass(Action<EffectGraphBuilder, int> DescribeBranch) : CompiledPass
 {
+    /// <inheritdoc/>
     public override PassBackend Backend => PassBackend.Skia;
 }
 

@@ -128,7 +128,7 @@ public class NodeGraphFilterEffectRenderNodeTests
 [SuppressResourceClassGeneration]
 internal sealed partial class ScaleProbeEffect : FilterEffect
 {
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
     {
     }
 

@@ -6,9 +6,9 @@ namespace Beutl.Graphics.Rendering;
 /// <summary>
 /// The per-frame parameter payload of a re-described <see cref="EffectGraph"/> (feature 004, T033, data-model §4).
 /// On a <see cref="PlanCache"/> hit the graph is re-described (cheap) but must not recompile; this block carries
-/// the frame's mutable values — uniform bindings, color-filter/image-filter factories, sampler textures, and the
-/// freshly captured bridged <see cref="FilterEffectContext"/>s — plus each pass's re-resolved bounds, and rebinds
-/// them onto the cached plan's structural identity via <see cref="RebindOnto"/>.
+/// the frame's mutable values — uniform bindings, color-filter/image-filter factories, sampler/child textures —
+/// plus each pass's re-resolved bounds, and rebinds them onto the cached plan's structural identity via
+/// <see cref="RebindOnto"/>.
 /// </summary>
 /// <remarks>
 /// Structural-key equality (verified by the cache before a rebind) guarantees the fresh graph has the same node

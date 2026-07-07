@@ -4,7 +4,7 @@ namespace Beutl.Graphics.Effects;
 
 /// <summary>
 /// The script globals a <see cref="CSharpScriptEffect"/> script runs against (feature 004, contract A6,
-/// contracts/breaking-changes.md). The imperative <see cref="FilterEffectContext"/> surface is gone: a script now
+/// contracts/breaking-changes.md). The imperative <c>FilterEffectContext</c> surface is gone: a script now
 /// draws through <see cref="Session"/> (a bounded <see cref="GeometrySession"/>) whose canvas the executor has
 /// pre-filled with the input. A legacy script that references <c>Context</c> fails to compile with a diagnostic
 /// pointing at the migration guide — never silently wrong output.
@@ -28,10 +28,12 @@ public class CSharpScriptEffectGlobals
     public GeometrySession Session { get; }
 
     /// <summary>
-    /// Removed surface. Referencing it is a compile-time error naming the migration guide; it never runs.
+    /// Removed surface, typed <see cref="object"/> because <c>FilterEffectContext</c> itself is deleted. This is the
+    /// FR-013 script diagnostic and the audit-sanctioned sole surviving <c>[Obsolete]</c> member: referencing
+    /// <c>Context</c> stays a compile-time error naming the migration guide; it never runs.
     /// </summary>
     [Obsolete(MigrationDiagnostic, error: true)]
-    public FilterEffectContext Context =>
+    public object Context =>
         throw new NotSupportedException(MigrationDiagnostic);
 
     public float Time { get; }

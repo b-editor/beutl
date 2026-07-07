@@ -6,7 +6,7 @@ namespace Beutl.Graphics.Effects;
 
 /// <summary>
 /// The declarative recording surface an effect appends node descriptors to (feature 004, data-model §1,
-/// research D1) — the replacement for <see cref="FilterEffectContext"/>'s recording role. It preserves today's
+/// research D1) — the replacement for the removed imperative context's recording role. It preserves today's
 /// append idiom: each primitive appender advances the logical <see cref="Bounds"/> by the node's forward bounds,
 /// and the convenience methods construct the same vocabulary (<c>Blur</c>, <c>Saturate</c>, …) as descriptors.
 /// The builder never renders or allocates; it produces an <see cref="EffectGraph"/> the render node compiles and
@@ -91,12 +91,11 @@ public sealed class EffectGraphBuilder
         return Append(descriptor);
     }
 
-    internal EffectGraphBuilder AppendOpaqueLegacy(FilterEffectContext context, object structuralToken)
+    /// <summary>Appends a per-branch nested graph node: the executor re-describes and runs a child graph per branch index.</summary>
+    public EffectGraphBuilder NestedGraph(NestedGraphNodeDescriptor descriptor)
     {
-        ArgumentNullException.ThrowIfNull(context);
-        ArgumentNullException.ThrowIfNull(structuralToken);
-        _disposables.Add(context);
-        return Append(new OpaqueLegacyNodeDescriptor(context, structuralToken));
+        ArgumentNullException.ThrowIfNull(descriptor);
+        return Append(descriptor);
     }
 
     /// <summary>
@@ -151,7 +150,7 @@ public sealed class EffectGraphBuilder
 
     internal EffectGraph Build() => new(_nodes, OriginalBounds, OutputScale, WorkingScale, _disposables);
 
-    // ---- Convenience vocabulary (mirrors today's FilterEffectContext) ---------------------------------
+    // ---- Convenience vocabulary (mirrors the legacy recording context) ---------------------------------
 
     /// <summary>Appends a Gaussian blur (Skia filter), inflating bounds by <c>sigma × 3</c>.</summary>
     public EffectGraphBuilder Blur(Size sigma)

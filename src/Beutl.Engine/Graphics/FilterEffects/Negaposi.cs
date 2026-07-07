@@ -1,12 +1,10 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using System.Reactive;
 
 using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Media;
 using Microsoft.Extensions.Logging;
-using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
@@ -79,20 +77,6 @@ public partial class Negaposi : FilterEffect
     [Display(Name = nameof(GraphicsStrings.Strength), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Strength { get; } = Property.CreateAnimatable(100f);
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-    {
-        if (s_shader is null)
-        {
-            throw new InvalidOperationException("Failed to compile SKSL.");
-        }
-
-        var r = (Resource)resource;
-        context.CustomEffect(
-            (r, Unit.Default),
-            (t, c) => OnApply(t.r, c),
-            static (_, rect) => rect);
-    }
-
     public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
@@ -102,31 +86,5 @@ public partial class Negaposi : FilterEffect
         builder.Shader(ShaderNodeDescriptor.Snippet(
             s_snippet,
             u => u.Float3("negaColor", negR, negG, negB).Float("strength", r.Strength / 100f)));
-    }
-
-    private static void OnApply(Resource data, CustomFilterEffectContext context)
-    {
-        if (s_shader is null) return;
-
-        float negR = Color.SrgbToLinear(data.Red / 255f);
-        float negG = Color.SrgbToLinear(data.Green / 255f);
-        float negB = Color.SrgbToLinear(data.Blue / 255f);
-        float strength = data.Strength / 100f;
-
-        for (int i = 0; i < context.Targets.Count; i++)
-        {
-            using var target = context.Targets[i];
-            var renderTarget = target.RenderTarget!;
-
-            using SKImage image = renderTarget.Value.Snapshot();
-            using SKShader baseShader = image.ToShader(SKShaderTileMode.Decal, SKShaderTileMode.Decal);
-            var builder = s_shader.CreateBuilder();
-
-            builder.Children["src"] = baseShader;
-            builder.Uniforms["negaColor"] = new SKColorF(negR, negG, negB);
-            builder.Uniforms["strength"] = strength;
-
-            context.Targets[i] = s_shader.ApplyToNewTarget(context, builder, target.Bounds);
-        }
     }
 }

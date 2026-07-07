@@ -16,10 +16,8 @@ public sealed class PipelineDiagnostics
     public long GpuPasses;
 
     /// <summary>
-    /// C8: each fresh GPU target creation (pool miss or non-pooled). On the legacy pipeline this counts the
-    /// fresh <see cref="RenderTarget"/> each <see cref="Effects.FilterEffectActivator"/> bake allocates plus
-    /// each successful <see cref="Effects.CustomFilterEffectContext.CreateTarget"/>. Non-effect surfaces
-    /// (the root render target, per-operation rasterization) are deliberately not counted.
+    /// C8: each fresh GPU target creation (pool miss or non-pooled) on an effect pass's buffer acquire. Non-effect
+    /// surfaces (the root render target, per-operation rasterization) are deliberately not counted.
     /// </summary>
     public long TargetAllocations;
 
@@ -30,9 +28,8 @@ public sealed class PipelineDiagnostics
     public long PoolMisses;
 
     /// <summary>
-    /// C8: each bake of an accumulated chain into a target. On the legacy pipeline this is each
-    /// <see cref="Effects.FilterEffectActivator.Flush"/> materialization — including the forced flush an
-    /// adjacent custom item pays even with no pending Skia chain (research §0 cost model).
+    /// C8: each bake of an upstream operation into a pooled buffer so a geometry/compute/split pass can sample it as
+    /// a texture (the plan executor's input materialization).
     /// </summary>
     public long FullFrameMaterializations;
 

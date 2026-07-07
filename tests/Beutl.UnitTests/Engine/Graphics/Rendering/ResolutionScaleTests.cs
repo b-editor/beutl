@@ -359,11 +359,11 @@ public class ResolutionScaleTests
     public void DeviceBufferSize_MatchesCreateTargetFormula()
     {
         // Must match CreateTarget: (int) truncation at w==1, ceil(bounds * w) at w!=1.
-        Assert.That(CustomFilterEffectContext.DeviceBufferSize(new Rect(0, 0, 100.7f, 50.2f), 1f),
+        Assert.That(RenderNodeContext.DeviceBufferSize(new Rect(0, 0, 100.7f, 50.2f), 1f),
             Is.EqualTo((100, 50)), "w == 1 truncates");
-        Assert.That(CustomFilterEffectContext.DeviceBufferSize(new Rect(0, 0, 100.0f, 50.0f), 2f),
+        Assert.That(RenderNodeContext.DeviceBufferSize(new Rect(0, 0, 100.0f, 50.0f), 2f),
             Is.EqualTo((200, 100)), "integral bounds * w stays integral");
-        Assert.That(CustomFilterEffectContext.DeviceBufferSize(new Rect(0, 0, 100.3f, 50.1f), 2f),
+        Assert.That(RenderNodeContext.DeviceBufferSize(new Rect(0, 0, 100.3f, 50.1f), 2f),
             Is.EqualTo((201, 101)), "fractional bounds * w ceils up");
     }
 

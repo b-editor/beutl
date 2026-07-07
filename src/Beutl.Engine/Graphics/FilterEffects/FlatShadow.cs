@@ -28,12 +28,6 @@ public partial class FlatShadow : FilterEffect
     [Display(Name = nameof(GraphicsStrings.ShadowOnly), ResourceType = typeof(GraphicsStrings))]
     public IProperty<bool> ShadowOnly { get; } = Property.CreateAnimatable(false);
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-    {
-        var r = (Resource)resource;
-        context.CustomEffect((r.Angle, r.Length, r.Brush, r.ShadowOnly), Apply, TransformBounds);
-    }
-
     public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
@@ -134,98 +128,5 @@ public partial class FlatShadow : FilterEffect
         float height = rect.Height + yAbs;
 
         return new Rect(rect.X - (xAbs - x) / 2, rect.Y - (yAbs - y) / 2, width, height);
-    }
-
-    private static void Apply((float Angle, float Length, Brush.Resource? Brush, bool ShadowOnly) data,
-        CustomFilterEffectContext context)
-    {
-        static SKPath CreatePath(Bitmap src)
-        {
-            using var contours = ContourTracer.FindContours(src);
-
-            var skpath = new SKPath();
-            foreach (var contour in contours)
-            {
-                for (int j = 0; j < contour.Count; j++)
-                {
-                    if (j == 0)
-                        skpath.MoveTo(contour[j].X, contour[j].Y);
-                    else
-                        skpath.LineTo(contour[j].X, contour[j].Y);
-                }
-
-                skpath.Close();
-            }
-
-            return skpath;
-        }
-
-        Brush.Resource? brush = data.Brush;
-        float length = data.Length;
-        float radian = MathUtilities.Deg2Rad(data.Angle);
-
-        for (int ii = 0; ii < context.Targets.Count; ii++)
-        {
-            var target = context.Targets[ii];
-            using var srcBitmap = target.RenderTarget!.Snapshot();
-
-            float x1 = MathF.Cos(radian);
-            float y1 = MathF.Sin(radian);
-            float x2 = length * x1;
-            float y2 = length * y1;
-            float x2Abs = Math.Abs(x2);
-            float y2Abs = Math.Abs(y2);
-
-            Size size = target.Bounds.Size;
-            EffectTarget newTarget = context.CreateTarget(
-                new Rect(
-                    target.Bounds.X - (x2Abs - x2) / 2,
-                    target.Bounds.Y - (y2Abs - y2) / 2,
-                    (size.Width + x2Abs),
-                    (size.Height + y2Abs)));
-            using (var paint = new SKPaint { Color = SKColors.White, IsAntialias = true, Style = SKPaintStyle.Fill })
-            using (var brushPaint = new SKPaint())
-            using (SKPath path = CreatePath(srcBitmap))
-            using (ImmediateCanvas newCanvas = context.Open(newTarget))
-            {
-                newCanvas.Clear();
-                // Contour path is device px; shadow extrusion uses device-space coordinates.
-                float w = context.WorkingScale;
-                // CreateTarget may clamp below w; compensate with Scale(wOut / w).
-                float wOut = newTarget.Scale.Value;
-
-                using (newCanvas.PushDeviceSpace())
-                using (w == wOut ? default : newCanvas.PushTransform(Matrix.CreateScale(wOut / w, wOut / w)))
-                using (newCanvas.PushTransform(Matrix.CreateTranslation((x2Abs - x2) / 2 * w, (y2Abs - y2) / 2 * w)))
-                {
-                    float lenAbs = Math.Abs(length) * w;
-                    int unit = Math.Sign(length);
-                    for (int i = 0; i < lenAbs; i++)
-                    {
-                        newCanvas.Transform = Matrix.CreateTranslation(x1 * unit, y1 * unit) * newCanvas.Transform;
-                        newCanvas.Canvas.DrawPath(path, paint);
-                    }
-                }
-
-                // SrcIn brush at the buffer's real density (wOut).
-                var c = new BrushConstructor(new(newTarget.Bounds.Size), brush, BlendMode.SrcIn, wOut,
-                    context.MaxWorkingScale);
-                c.ConfigurePaint(brushPaint);
-                newCanvas.Canvas.DrawRect(SKRect.Create(newTarget.Bounds.Width, newTarget.Bounds.Height), brushPaint);
-
-                if (!data.ShadowOnly)
-                {
-                    using (newCanvas.PushDeviceSpace())
-                    using (w == wOut ? default : newCanvas.PushTransform(Matrix.CreateScale(wOut / w, wOut / w)))
-                    {
-                        newCanvas.DrawRenderTarget(target.RenderTarget!,
-                            new((x2Abs - x2) / 2 * w, (y2Abs - y2) / 2 * w));
-                    }
-                }
-            }
-
-            target.Dispose();
-            context.Targets[ii] = newTarget;
-        }
     }
 }

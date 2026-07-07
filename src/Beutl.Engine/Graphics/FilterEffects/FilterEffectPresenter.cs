@@ -16,13 +16,6 @@ public sealed partial class FilterEffectPresenter : FilterEffect, IPresenter<Fil
     [Display(Name = nameof(GraphicsStrings.Target), ResourceType = typeof(GraphicsStrings))]
     public IProperty<FilterEffect?> Target { get; } = Property.Create<FilterEffect?>();
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-    {
-        var r = (Resource)resource;
-
-        r.Target?.GetOriginal().ApplyTo(context, r.Target);
-    }
-
     public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;

@@ -68,35 +68,6 @@ public sealed class SKSLShader : IDisposable
         return new SKRuntimeShaderBuilder(_effect);
     }
 
-    public EffectTarget ApplyToNewTarget(CustomFilterEffectContext context, SKRuntimeShaderBuilder builder, Rect bounds)
-    {
-        var newTarget = context.CreateTarget(bounds);
-        try
-        {
-            using (SKShader finalShader = builder.Build())
-            using (var paint = new SKPaint())
-            using (var canvas = context.Open(newTarget))
-            {
-                paint.Shader = finalShader;
-                canvas.Clear();
-                // Cover the full device buffer in device space.
-                float dw = context.WorkingScale == 1f ? (float)bounds.Width : newTarget.RenderTarget!.Width;
-                float dh = context.WorkingScale == 1f ? (float)bounds.Height : newTarget.RenderTarget!.Height;
-                using (canvas.PushDeviceSpace())
-                {
-                    canvas.Canvas.DrawRect(new SKRect(0, 0, dw, dh), paint);
-                }
-            }
-
-            return newTarget;
-        }
-        catch
-        {
-            newTarget.Dispose();
-            throw;
-        }
-    }
-
     public void Dispose()
     {
         if (_disposed) return;

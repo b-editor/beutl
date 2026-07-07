@@ -52,8 +52,8 @@ public partial class ShakeEffect : FilterEffect
         // target list, which the declarative model expresses as a split fan-out).
         float a = r.Time * r.Speed / 100 + _offset;
         float b = _offset;
-        float randomX = (_random.Perlin(a, b) - 0.5F) * 2F * r.StrengthX;
-        float randomY = (_random.Perlin(b, a) - 0.5F) * 2F * r.StrengthY;
+        float randomX = ClampOffset((_random.Perlin(a, b) - 0.5F) * 2F * r.StrengthX);
+        float randomY = ClampOffset((_random.Perlin(b, a) - 0.5F) * 2F * r.StrengthY);
 
         var translate = new Vector(randomX, randomY);
         builder.Geometry(GeometryNodeDescriptor.Create(
@@ -62,28 +62,8 @@ public partial class ShakeEffect : FilterEffect
             structuralToken: nameof(ShakeEffect)));
     }
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-    {
-        var r = (Resource)resource;
-        context.CustomEffect(
-            (time: r.Time, speed: r.Speed, strengthX: r.StrengthX, strengthY: r.StrengthY, random: _random, offset: _offset),
-            static (data, effectContext) =>
-            {
-                effectContext.ForEach((i, target) =>
-                {
-                    float a = data.time * data.speed / 100 + data.offset;
-                    float b = i + data.offset;
-                    float randomX = data.random.Perlin(a, b);
-                    float randomY = data.random.Perlin(b, a);
-                    randomX = (randomX - 0.5F) * 2F * data.strengthX;
-                    randomY = (randomY - 0.5F) * 2F * data.strengthY;
-                    randomX = ClampOffset(randomX);
-                    randomY = ClampOffset(randomY);
-                    target.Bounds = target.Bounds.Translate(new Vector(randomX, randomY));
-                });
-            });
-    }
-
+    // A non-finite or runaway translation would produce an unallocatable geometry bounds downstream; clamp it so
+    // a degenerate strength/speed animation cannot crash the executor.
     private static float ClampOffset(float value)
     {
         const float maxOffset = 100_000f;

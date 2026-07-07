@@ -23,8 +23,8 @@ internal sealed class EffectNode(EffectNodeDescriptor descriptor, Rect inputBoun
 /// <summary>
 /// The DAG an <see cref="Effects.EffectGraphBuilder"/> produces (feature 004, data-model §3): an ordered node
 /// list plus the render-request context (bounds/scales) the compiler and executor need. Owns no GPU state; it
-/// does own the disposables the bridge captured (an <see cref="FilterEffectContext"/> per opaque node), released
-/// by <see cref="Dispose"/> once the frame's plan has executed.
+/// does own per-frame describe-time disposables (sampler/child shaders), released by <see cref="Dispose"/> once
+/// the frame's plan has executed.
 /// </summary>
 internal sealed class EffectGraph(
     IReadOnlyList<EffectNode> nodes,

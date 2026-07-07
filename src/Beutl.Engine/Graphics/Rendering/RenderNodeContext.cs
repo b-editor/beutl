@@ -95,4 +95,15 @@ public class RenderNodeContext(
             fit = MathF.BitDecrement(fit);
         return MathF.Max(MathF.Min(w, fit), 0f);
     }
+
+    /// <summary>
+    /// Device-buffer dimensions for a logical <paramref name="bounds"/> at density <paramref name="w"/>. The single
+    /// source of truth for effect-pass buffer sizing so shader resolution uniforms match the allocated buffer.
+    /// </summary>
+    public static (int Width, int Height) DeviceBufferSize(Rect bounds, float w)
+    {
+        int bw = w == 1f ? (int)bounds.Width : (int)MathF.Ceiling(bounds.Width * w);
+        int bh = w == 1f ? (int)bounds.Height : (int)MathF.Ceiling(bounds.Height * w);
+        return (bw, bh);
+    }
 }

@@ -10,12 +10,11 @@ using Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.EffectPipeline;
 
 /// <summary>
-/// Pins the legacy (pre-redesign) effect-pipeline cost model on the ColorChain / MixedChain fixtures
-/// (feature 004, T008; contracts/observability.md O1/O2, research §0). Counters are asserted as exact
-/// equalities derived from the code paths in <see cref="FilterEffectActivator"/> /
-/// <see cref="CustomFilterEffectContext"/>; the derivation is documented next to each assertion. A render at
-/// output scale 1.0 is structure-determined, so the counts are size-independent and rendered at the small
-/// reference size for speed.
+/// Pins the effect-pipeline cost model on the ColorChain / MixedChain fixtures (feature 004, T008/T030;
+/// contracts/observability.md O1/O2, research §0). Counters are asserted as exact equalities derived from the
+/// compiled plan's pass schedule; the derivation is documented next to each assertion. A render at output
+/// scale 1.0 is structure-determined, so the counts are size-independent and rendered at the small reference
+/// size for speed.
 /// </summary>
 [NonParallelizable]
 [TestFixture]
@@ -96,9 +95,8 @@ public class EffectPipelineCounterTests
         });
     }
 
-    // The counters are additive and nullable: a render whose activator is handed no PipelineDiagnostics must
-    // run every effect-path branch (Flush bake, CustomFilterEffectContext.CreateTarget, Open) with no throw
-    // and produce a materialized target.
+    // The counters are additive and nullable: a render handed no PipelineDiagnostics must run every effect-path
+    // branch (describe, compile, resolve, execute) with no throw and produce a real output operation.
     [Test]
     public void NullDiagnostics_EffectPathStillRenders()
     {
@@ -111,23 +109,24 @@ public class EffectPipelineCounterTests
                 canvas => canvas.DrawRectangle(bounds, Brushes.Resource.White, null),
                 hitTest: _ => false);
 
-            using var feContext = new FilterEffectContext(bounds, outputScale: 1f, workingScale: 1f);
             var gamma = new Gamma();
             gamma.Amount.CurrentValue = 1.5f;
             var resource = (FilterEffect.Resource)(object)gamma.ToResource(Beutl.Composition.CompositionContext.Default);
-            gamma.ApplyTo(feContext, resource);
 
-            using var targets = new EffectTargets { new EffectTarget(op) };
-            using var builder = new SKImageFilterBuilder();
-            // diagnostics defaults to null — exercises the unobserved path.
-            using var activator = new FilterEffectActivator(
-                targets, builder, outputScale: 1f, workingScale: 1f);
+            var builder = new EffectGraphBuilder(bounds, outputScale: 1f, workingScale: 1f);
+            gamma.Describe(builder, resource);
+            using EffectGraph graph = builder.Build();
+            CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
+            FrameResources frame = EffectGraphCompiler.ResolveResources(plan, bounds, workingScale: 1f);
 
-            Assert.That(() => activator.Apply(feContext), Throws.Nothing);
-            Assert.That(activator.Diagnostics, Is.Null);
-            Assert.That(activator.CurrentTargets, Has.Count.EqualTo(1));
-            Assert.That(activator.CurrentTargets[0].RenderTarget, Is.Not.Null,
-                "the custom Gamma pass must have materialized a real buffer even without diagnostics");
+            RenderNodeOperation[] outputs = null!;
+            Assert.That(
+                () => outputs = PlanExecutor.Execute(
+                    plan, frame, [op], bounds, outputScale: 1f, workingScale: 1f,
+                    maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null),
+                Throws.Nothing);
+            Assert.That(outputs, Has.Length.EqualTo(1));
+            RenderNodeOperation.DisposeAll(outputs);
         });
     }
 
