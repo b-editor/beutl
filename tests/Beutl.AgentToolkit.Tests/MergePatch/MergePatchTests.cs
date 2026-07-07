@@ -51,6 +51,55 @@ public sealed class MergePatchTests
     }
 
     [Test]
+    public void Nested_directives_inside_replacement_members_are_rejected()
+    {
+        ReconcileException ex = Assert.Throws<ReconcileException>(() => MergePatchApplier.Apply(
+            JsonNode.Parse("""{"Elements":[]}""")!,
+            JsonNode.Parse($$"""
+                {
+                  "Elements": [
+                    { "$replace": true },
+                    {
+                      "Name": "a",
+                      "Objects": [
+                        { "Id": "{{Guid.NewGuid()}}", "$delete": true }
+                      ]
+                    }
+                  ]
+                }
+                """)!))!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ex.Error.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(ex.Error.Message, Does.Contain("$delete"));
+        });
+    }
+
+    [Test]
+    public void Nested_directives_inside_a_typed_object_replacement_are_rejected()
+    {
+        ReconcileException ex = Assert.Throws<ReconcileException>(() => MergePatchApplier.Apply(
+            JsonNode.Parse("""{"FilterEffect":{"$type":"Blur"}}""")!,
+            JsonNode.Parse($$"""
+                {
+                  "FilterEffect": {
+                    "$type": "FilterEffectGroup",
+                    "Children": [
+                      { "Id": "{{Guid.NewGuid()}}", "$delete": true }
+                    ]
+                  }
+                }
+                """)!))!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ex.Error.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(ex.Error.Message, Does.Contain("$delete"));
+        });
+    }
+
+    [Test]
     public void Nested_replace_directive_inside_a_newly_inserted_member_is_rejected()
     {
         Guid existingId = Guid.NewGuid();

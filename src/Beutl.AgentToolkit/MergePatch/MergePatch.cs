@@ -25,6 +25,9 @@ public static class MergePatch
             JsonObject? targetObject = target as JsonObject;
             if (ShouldReplaceTypedObject(targetObject, patchObject))
             {
+                // A type-change replacement is a full desired object, not a patch; directives
+                // inside it are never executed and would leak as literal properties.
+                RejectNestedDirectives(patchObject, path);
                 return patchObject.DeepClone();
             }
 
@@ -210,6 +213,9 @@ public static class MergePatch
         JsonArray result = [];
         for (int i = 1; i < patch.Count; i++)
         {
+            // Replacement members are full desired objects; nested directives are never executed
+            // and would leak into the stored document.
+            RejectNestedDirectives(patch[i], $"{path}[{i}]");
             result.Add(patch[i]?.DeepClone());
         }
 

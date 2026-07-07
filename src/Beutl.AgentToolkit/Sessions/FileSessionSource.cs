@@ -79,21 +79,26 @@ public sealed class FileSessionSource : ISessionSource, IDisposable
     private void SetCurrent(FileEditingSession session)
     {
         FileEditingSession? previous;
+        bool disposedRace;
         lock (_swapLock)
         {
-            // A swap racing Dispose must not leave the incoming session undisposed and orphaned.
-            if (_disposed)
+            disposedRace = _disposed;
+            previous = disposedRace ? null : _currentSession;
+            if (!disposedRace)
             {
-                session.Dispose();
-                throw new ObjectDisposedException(nameof(FileSessionSource));
+                _currentSession = session;
             }
-
-            previous = _currentSession;
-            _currentSession = session;
         }
 
         // Dispose outside _swapLock: Dispose quiesces on the session's dispatch lock and must not
         // stall other swaps behind an in-flight edit.
+        if (disposedRace)
+        {
+            // A swap racing Dispose must not leave the incoming session undisposed and orphaned.
+            session.Dispose();
+            throw new ObjectDisposedException(nameof(FileSessionSource));
+        }
+
         previous?.Dispose();
     }
 

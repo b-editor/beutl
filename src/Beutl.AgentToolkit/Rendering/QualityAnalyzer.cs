@@ -502,7 +502,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
                             ? "For 1.5s kinetic beats, keep hero text to 1-3 words and supporting labels to 2-4 words or compact tokens."
                             : "Shorten the copy, split it across beats, or keep it on screen longer with a calmer entrance/exit.",
                     info,
-                    (info.Element.Start - scene.Start).ToString("c")));
+                    (info.Element.Start > scene.Start ? info.Element.Start - scene.Start : TimeSpan.Zero).ToString("c")));
             }
         }
 
@@ -927,7 +927,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
                 "A background plate behind text is not aligned with the text timing or geometry.",
                 $"Center distance {centerDistance:F1}px, plate {plateBounds.Width:F0}x{plateBounds.Height:F0}, text {textBounds.Width:F0}x{textBounds.Height:F0}, matching time range: {sameTime}.",
                 "Pair text and backing plate by name or [role:text-backing], matching Start/Length, center transform, and at least 12% horizontal plus 18% vertical padding. Mark decorative rectangles [role:decorative] or use non-rectangular accents so they are not treated as backing plates.",
-                (textInfo.Element.Start - scene.Start).ToString("c"),
+                (textInfo.Element.Start > scene.Start ? textInfo.Element.Start - scene.Start : TimeSpan.Zero).ToString("c"),
                 [textInfo.Element.Id.ToString(), backingPlate.Element.Id.ToString()],
                 [textInfo.Object.Id.ToString(), backingPlate.Object.Id.ToString()]));
         }
@@ -1957,7 +1957,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
             .GroupBy(item => item.Element)
             .ToDictionary(group => group.Key, group => group.ToArray());
         AnimatedElementMotion[] animatedElements = scene.Children
-            .Select(element => AnalyzeElementMotion(element, foregroundByElement))
+            .Select(element => AnalyzeElementMotion(element, scene.Start, foregroundByElement))
             .Where(item => item is not null)
             .Select(item => item!)
             .ToArray();
@@ -1988,7 +1988,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
                 "motionUniformity",
                 Advisory,
                 "Most animated elements start, last, and move in the same way, reducing follow-through and overlapping action.",
-                $"{largestCount}/{animatedElements.Length} animated elements cluster at start {largestCluster.Key.StartBucket - scene.Start.TotalSeconds:F1}s, duration {largestCluster.Key.DurationBucket:F1}s, direction {largestCluster.Key.Direction}.",
+                $"{largestCount}/{animatedElements.Length} animated elements cluster at start {largestCluster.Key.StartBucket:F1}s, duration {largestCluster.Key.DurationBucket:F1}s, direction {largestCluster.Key.Direction}.",
                 "Stagger starts by 0.1-0.3 seconds and vary durations or translate directions so follow-through and overlapping action are visible.",
                 null,
                 largestCluster.Items
@@ -2005,7 +2005,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
             animatedElements.Length,
             largestCount,
             Math.Round(largestShare, 4, MidpointRounding.AwayFromZero),
-            Math.Round(largestCluster.Key.StartBucket - scene.Start.TotalSeconds, 1, MidpointRounding.AwayFromZero),
+            largestCluster.Key.StartBucket,
             largestCluster.Key.DurationBucket,
             largestCluster.Key.Direction);
     }
@@ -2118,6 +2118,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
 
     private static AnimatedElementMotion? AnalyzeElementMotion(
         Element element,
+        TimeSpan sceneStart,
         IReadOnlyDictionary<Element, SceneObjectInfo[]> foregroundByElement)
     {
         if (!foregroundByElement.TryGetValue(element, out SceneObjectInfo[]? objects)
@@ -2144,7 +2145,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         string direction = hasTranslate && Distance(0, 0, deltaX, deltaY) >= 1
             ? BucketDirection(deltaX, deltaY)
             : "none";
-        double start = RoundToTenth(element.Start.TotalSeconds);
+        double start = RoundToTenth((element.Start - sceneStart).TotalSeconds);
         double duration = RoundToTenth(element.Length.TotalSeconds);
         return new AnimatedElementMotion(
             element,
