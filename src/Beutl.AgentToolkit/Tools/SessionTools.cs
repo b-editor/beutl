@@ -99,7 +99,7 @@ public sealed class SessionTools(
                     width,
                     height,
                     frameRate,
-                    ParseTimeSpan(duration, nameof(duration))),
+                    ParsePositiveTimeSpan(duration, nameof(duration))),
                 cancellationToken).ConfigureAwait(false);
             return new CreateProjectResponse(
                 result.Session.SessionId,
@@ -127,8 +127,8 @@ public sealed class SessionTools(
                 new SceneCreateOptions(
                     width,
                     height,
-                    ParseTimeSpan(start, nameof(start)),
-                    ParseTimeSpan(duration, nameof(duration)),
+                    ParseNonNegativeTimeSpan(start, nameof(start)),
+                    ParsePositiveTimeSpan(duration, nameof(duration)),
                     name),
                 cancellationToken).ConfigureAwait(false);
             return new AddSceneResponse(
@@ -172,8 +172,7 @@ public sealed class SessionTools(
             }
 
             FileEditingSession fileSession = RequireFileSession(sessionId);
-            bool skipConflictCheck = false;
-            FileEditingSession.UriState? preSaveAs = null;
+            bool savedAs = false;
             if (!string.IsNullOrWhiteSpace(path))
             {
                 string writePath = NormalizeProjectPath(workspace, path, nameof(path));
@@ -181,22 +180,14 @@ public sealed class SessionTools(
                 if (!string.Equals(Path.GetFullPath(currentPath), Path.GetFullPath(writePath), PathComparison.ForCurrentPlatform))
                 {
                     destructiveGuard.EnsureOverwriteAllowed(writePath, confirmOverwrite);
-                    preSaveAs = fileSession.CaptureUriState();
-                    fileSession.SetProjectPath(writePath);
-                    skipConflictCheck = confirmOverwrite;
+                    fileSession.SaveAs(writePath, skipConflictCheck: confirmOverwrite);
+                    savedAs = true;
                 }
             }
 
-            try
+            if (!savedAs)
             {
-                fileSession.Save(skipConflictCheck);
-            }
-            catch when (preSaveAs is not null)
-            {
-                // A failed Save As leaves the session pointed at the new location with sidecar URIs
-                // rewritten; restore the originals so a later plain save still targets the source project.
-                fileSession.RestoreUriState(preSaveAs);
-                throw;
+                fileSession.Save(skipConflictCheck: false);
             }
 
             return new SaveProjectResponse(fileSession.Project.Uri!.LocalPath)
@@ -297,6 +288,36 @@ public sealed class SessionTools(
             ErrorCode.ValidationRejected,
             $"'{field}' is not a valid time span (expected an invariant TimeSpan string such as '00:00:05').",
             field));
+    }
+
+    // Scene.Start/Duration do not clamp, so a negative or zero value would persist a scene whose
+    // range sampling and export read before the timeline instead of rejecting the request.
+    private static TimeSpan ParseNonNegativeTimeSpan(string value, string field)
+    {
+        TimeSpan result = ParseTimeSpan(value, field);
+        if (result < TimeSpan.Zero)
+        {
+            throw new ReconcileException(new ToolError(
+                ErrorCode.ValidationRejected,
+                $"'{field}' must be a non-negative time span.",
+                field));
+        }
+
+        return result;
+    }
+
+    private static TimeSpan ParsePositiveTimeSpan(string value, string field)
+    {
+        TimeSpan result = ParseTimeSpan(value, field);
+        if (result <= TimeSpan.Zero)
+        {
+            throw new ReconcileException(new ToolError(
+                ErrorCode.ValidationRejected,
+                $"'{field}' must be a positive time span.",
+                field));
+        }
+
+        return result;
     }
 
     private static void ValidateProjectSettings(int width, int height, int frameRate)

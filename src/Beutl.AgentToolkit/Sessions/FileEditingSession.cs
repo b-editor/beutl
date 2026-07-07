@@ -148,9 +148,30 @@ public sealed class FileEditingSession : IEditingSession, IEditingSessionDispatc
         AcceptExternalStamp();
     }
 
-    // SetProjectPath rewrites the project/scene/element URIs before the caller's Save runs; a failed
-    // Save As must be able to restore the original locations so a later plain save still hits the source.
-    internal UriState CaptureUriState()
+    // Save As rehomes the project/scene/element URIs and then writes; run capture → rehome → save —
+    // and the restore on failure — as one critical section so a concurrent Invoke cannot mutate the
+    // graph between the steps or observe a half-captured/half-restored URI set.
+    internal void SaveAs(string projectPath, bool skipConflictCheck)
+    {
+        lock (_dispatchLock)
+        {
+            UriState original = CaptureUriState();
+            SetProjectPathCore(projectPath);
+            try
+            {
+                Save(skipConflictCheck);
+            }
+            catch
+            {
+                // A failed Save As would leave the session pointed at the new location with sidecar
+                // URIs rewritten; restore the originals so a later plain save still targets the source.
+                RestoreUriState(original);
+                throw;
+            }
+        }
+    }
+
+    private UriState CaptureUriState()
     {
         var scenes = new List<(Scene Scene, Uri? Uri)>();
         var elements = new List<(Element Element, Uri? Uri)>();
@@ -166,7 +187,7 @@ public sealed class FileEditingSession : IEditingSession, IEditingSessionDispatc
         return new UriState(Project.Uri, _projectLastWriteUtc, scenes, elements);
     }
 
-    internal void RestoreUriState(UriState state)
+    private void RestoreUriState(UriState state)
     {
         Project.Uri = state.ProjectUri;
         foreach ((Scene scene, Uri? uri) in state.Scenes)
@@ -182,7 +203,7 @@ public sealed class FileEditingSession : IEditingSession, IEditingSessionDispatc
         _projectLastWriteUtc = state.Stamp;
     }
 
-    internal sealed record UriState(
+    private sealed record UriState(
         Uri? ProjectUri,
         DateTime Stamp,
         IReadOnlyList<(Scene Scene, Uri? Uri)> Scenes,

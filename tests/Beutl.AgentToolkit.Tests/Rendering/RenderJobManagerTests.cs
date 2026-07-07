@@ -54,7 +54,10 @@ public sealed class RenderJobManagerTests
             Assert.That(snapshot.State, Is.EqualTo("failed"));
             Assert.That(snapshot.Error, Is.Not.Null);
             Assert.That(snapshot.Error!.Code, Is.EqualTo("internal_error"));
-            Assert.That(snapshot.Error.Message, Does.Contain("boom"));
+            // ToolErrorMapper redacts unexpected exception messages (they can embed absolute paths);
+            // only the exception type reaches the client.
+            Assert.That(snapshot.Error.Message, Does.Contain(nameof(InvalidOperationException)));
+            Assert.That(snapshot.Error.Message, Does.Not.Contain("boom"));
         });
     }
 

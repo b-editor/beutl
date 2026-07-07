@@ -176,6 +176,57 @@ public sealed class SessionToolsTests
         });
     }
 
+    [TestCase("-00:00:04")]
+    [TestCase("00:00:00")]
+    public async Task Create_project_rejects_a_non_positive_duration(string duration)
+    {
+        string root = CreateWorkspace();
+        using var source = new FileSessionSource();
+        SessionTools sessionTools = CreateSessionTools(source, new AgentSessionManager(), root);
+
+        ToolResult<CreateProjectResponse> result = await sessionTools.CreateProject(
+            "motion.bep",
+            width: 640,
+            height: 360,
+            frameRate: 30,
+            duration: duration);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(result.Error.Target, Is.EqualTo("duration"));
+        });
+    }
+
+    [TestCase("-00:00:01", "00:00:02", "start")]
+    [TestCase("00:00:00", "-00:00:02", "duration")]
+    [TestCase("00:00:00", "00:00:00", "duration")]
+    public async Task Add_scene_rejects_negative_start_and_non_positive_duration(
+        string start, string duration, string expectedTarget)
+    {
+        string root = CreateWorkspace();
+        var manager = new AgentSessionManager();
+        using var source = new FileSessionSource();
+        SessionTools sessionTools = CreateSessionTools(source, manager, root);
+
+        ToolResult<CreateProjectResponse> created = await sessionTools.CreateProject(
+            "motion.bep", width: 640, height: 360, frameRate: 30, duration: "00:00:04");
+        Assert.That(created.IsSuccess, Is.True, created.Error?.Message);
+
+        ToolResult<AddSceneResponse> added = await sessionTools.AddScene(
+            created.Value!.Session, width: 320, height: 240, start: start, duration: duration);
+
+        FileEditingSession session = source.CurrentFileSession!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(added.IsSuccess, Is.False);
+            Assert.That(added.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(added.Error.Target, Is.EqualTo(expectedTarget));
+            Assert.That(session.Project.Items.OfType<Scene>().Count(), Is.EqualTo(1));
+        });
+    }
+
     [Test]
     public async Task Create_project_rejects_package_extension_and_appends_missing_project_extension()
     {

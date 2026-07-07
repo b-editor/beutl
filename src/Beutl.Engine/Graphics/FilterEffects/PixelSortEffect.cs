@@ -264,6 +264,11 @@ public sealed partial class PixelSortEffect : FilterEffect
         }
     }
 
+    // Delivery (MaxWorkingScale == +inf) must not ship silently unsorted frames; preview keeps the
+    // source pixels and logs. Cancellation always propagates.
+    internal static bool ShouldRethrowPassFailure(Exception exception, float maxWorkingScale)
+        => exception is OperationCanceledException || float.IsPositiveInfinity(maxWorkingScale);
+
     private readonly record struct EffectData(
         PixelSortDirection Direction,
         PixelSortKey SortKey,
@@ -358,13 +363,7 @@ public sealed partial class PixelSortEffect : FilterEffect
                 catch (Exception ex)
                 {
                     newTarget.Dispose();
-                    if (ex is OperationCanceledException)
-                    {
-                        throw;
-                    }
-
-                    // Delivery (MaxWorkingScale == +inf) must not ship silently unsorted frames; preview keeps the source.
-                    if (float.IsPositiveInfinity(ctx.MaxWorkingScale))
+                    if (ShouldRethrowPassFailure(ex, ctx.MaxWorkingScale))
                     {
                         throw;
                     }
@@ -374,12 +373,7 @@ public sealed partial class PixelSortEffect : FilterEffect
             }
             catch (Exception ex)
             {
-                if (ex is OperationCanceledException)
-                {
-                    throw;
-                }
-
-                if (float.IsPositiveInfinity(ctx.MaxWorkingScale))
+                if (ShouldRethrowPassFailure(ex, ctx.MaxWorkingScale))
                 {
                     throw;
                 }
