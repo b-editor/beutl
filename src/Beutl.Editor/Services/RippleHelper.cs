@@ -49,9 +49,9 @@ internal static class RippleHelper
         ArgumentNullException.ThrowIfNull(elements);
         ArgumentNullException.ThrowIfNull(removeElement);
 
-        (int ZIndex, TimeSpan End, TimeSpan Length)[]? removed = ripple
+        (int ZIndex, TimeSpan End, TimeSpan Length)[] removed = ripple
             ? elements.Select(e => (e.ZIndex, e.Range.End, e.Length)).ToArray()
-            : null;
+            : [];
 
         foreach (Element element in elements.ToArray())
         {
@@ -60,7 +60,7 @@ internal static class RippleHelper
 
         if (ripple)
         {
-            ShiftAfterRemoved(scene, removed!);
+            ShiftAfterRemoved(scene, removed);
         }
     }
 }

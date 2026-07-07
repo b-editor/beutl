@@ -148,4 +148,29 @@ public class ElementResizeServiceTests
             Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
     }
+
+    [Test]
+    public void Resize_RippleOn_InvalidSecondRequest_ThrowsBeforeAnyMutation()
+    {
+        Element valid = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 0);
+        Element invalid = AddElement(TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(2), zIndex: 1);
+        int before = _history.UndoCount;
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            _service.Resize(_scene,
+            [
+                new ElementResizeRequest(valid, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(5), 0),
+                new ElementResizeRequest(invalid, TimeSpan.FromSeconds(4), TimeSpan.Zero, 1),
+            ],
+            ripple: true));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(valid.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(valid.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(invalid.Start, Is.EqualTo(TimeSpan.FromSeconds(4)));
+            Assert.That(invalid.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
 }
