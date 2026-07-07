@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Collections.Immutable;
+using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Documents;
 using Beutl.AgentToolkit.Reconciliation;
@@ -52,6 +53,29 @@ public sealed class FullDocumentApplyTests
             Assert.That(session.Scene.Children[0].Objects, Has.Count.EqualTo(1));
             Assert.That(result.Plan.Changes, Is.Not.Empty);
         });
+    }
+
+    [Test]
+    public void Full_document_that_omits_groups_clears_the_existing_scene_groups()
+    {
+        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var scene = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
+        var first = new Element { Length = TimeSpan.FromSeconds(1), Uri = new Uri(Path.Combine(dir, "first.belm")) };
+        var second = new Element { Length = TimeSpan.FromSeconds(1), Uri = new Uri(Path.Combine(dir, "second.belm")) };
+        scene.Children.Add(first);
+        scene.Children.Add(second);
+        scene.Groups.Add(ImmutableHashSet.Create(first.Id, second.Id));
+
+        using var session = TestEditingSession.Create(scene);
+        var reconciler = new Reconciler();
+
+        JsonObject desired = session.Documents.Read(scene);
+        desired.Remove("Groups");
+
+        reconciler.Apply(session, desired);
+
+        Assert.That(session.Scene.Groups, Is.Empty);
     }
 
     [Test]

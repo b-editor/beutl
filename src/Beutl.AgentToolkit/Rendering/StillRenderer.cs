@@ -613,10 +613,13 @@ public sealed class StillRenderer
                || y >= height - borderWidth;
     }
 
-    private static IReadOnlyList<RenderStillActiveElement> CreateActiveElementSummaries(Scene scene, TimeSpan time)
+    internal static IReadOnlyList<RenderStillActiveElement> CreateActiveElementSummaries(Scene scene, TimeSpan time)
     {
+        // The frame is rendered at time + scene.Start (EvaluateGraphics), so element activity must be
+        // filtered at the same absolute time or a non-zero Scene.Start reports the wrong elements.
+        TimeSpan renderTime = time + scene.Start;
         return scene.Children
-            .Where(element => element.IsEnabled && element.Range.Contains(time))
+            .Where(element => element.IsEnabled && element.Range.Contains(renderTime))
             .OrderBy(element => element.ZIndex)
             .Select(element => new RenderStillActiveElement(
                 element.Id.ToString(),
@@ -633,10 +636,11 @@ public sealed class StillRenderer
         SceneRenderer renderer,
         TimeSpan time)
     {
+        TimeSpan renderTime = time + scene.Start;
         var result = new List<RenderedTextBounds>();
         foreach (Element element in scene.Children)
         {
-            if (!element.IsEnabled || !element.Range.Contains(time))
+            if (!element.IsEnabled || !element.Range.Contains(renderTime))
             {
                 continue;
             }

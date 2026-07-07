@@ -89,6 +89,12 @@ internal sealed class DeclarativeDocumentApplier
                 }
             }
         }
+        else
+        {
+            // A full desired document that omits Groups means "no groups"; clear the existing ones like
+            // Elements/Objects do, so the plan's removal is not left stale on later saves/renders.
+            scene.Groups.Clear();
+        }
     }
 
     private static void ApplyElement(Element element, JsonObject desired)

@@ -175,6 +175,59 @@ public sealed class FileEditingSessionTests
         Assert.That(saveSawCompletedInvoke, Is.True);
     }
 
+    [Test]
+    public void Invoke_after_dispose_reports_an_unavailable_session_not_an_internal_error()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        var source = new FileSessionSource();
+        FileEditingSession session = source.CreateProject(new ProjectCreateOptions(
+            Path.Combine(root, "demo.bep"), 640, 360, 30, TimeSpan.FromSeconds(2), Name: "demo"));
+
+        session.Dispose();
+
+        Assert.Throws<SessionUnavailableException>(() => session.Invoke(() => { }));
+    }
+
+    [Test]
+    public void SetProjectPath_waits_for_an_in_flight_Invoke()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        using var source = new FileSessionSource();
+        FileEditingSession session = source.CreateProject(new ProjectCreateOptions(
+            Path.Combine(root, "demo.bep"), 640, 360, 30, TimeSpan.FromSeconds(2), Name: "demo"));
+
+        using var inInvoke = new ManualResetEventSlim();
+        using var releaseInvoke = new ManualResetEventSlim();
+        bool invokeCompleted = false;
+        bool rehomeSawCompletedInvoke = false;
+
+        var invokeThread = new Thread(() => session.Invoke(() =>
+        {
+            inInvoke.Set();
+            releaseInvoke.Wait();
+            Thread.Sleep(20);
+            Volatile.Write(ref invokeCompleted, true);
+        }));
+        invokeThread.Start();
+        inInvoke.Wait();
+
+        var rehomeThread = new Thread(() =>
+        {
+            session.SetProjectPath(Path.Combine(root, "copy.bep"));
+            rehomeSawCompletedInvoke = Volatile.Read(ref invokeCompleted);
+        });
+        rehomeThread.Start();
+
+        releaseInvoke.Set();
+        invokeThread.Join();
+        rehomeThread.Join();
+
+        // SetProjectPath rehomes under the dispatch lock, so it can only rewrite URIs after the in-flight Invoke released it.
+        Assert.That(rehomeSawCompletedInvoke, Is.True);
+    }
+
     private static void InterlockedMax(ref int target, int value)
     {
         int current = Volatile.Read(ref target);

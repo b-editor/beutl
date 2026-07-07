@@ -13,6 +13,7 @@ public sealed class FileEditingSession : IEditingSession, IEditingSessionDispatc
     private readonly BeutlApplication _hierarchyRoot = new();
     private readonly object _dispatchLock = new();
     private DateTime _projectLastWriteUtc;
+    private bool _disposed;
 
     internal FileEditingSession(string sessionId, Project project, Scene scene, DateTime projectLastWriteUtc)
     {
@@ -104,6 +105,16 @@ public sealed class FileEditingSession : IEditingSession, IEditingSessionDispatc
 
     public void SetProjectPath(string projectPath)
     {
+        // Rewriting the project/scene/element URIs is part of the same atomic critical section as Save;
+        // hold the dispatch lock so a concurrent apply_edit/add_scene cannot observe a half-rehomed graph.
+        lock (_dispatchLock)
+        {
+            SetProjectPathCore(projectPath);
+        }
+    }
+
+    private void SetProjectPathCore(string projectPath)
+    {
         string fullPath = Path.GetFullPath(projectPath);
         Project.Uri = new Uri(fullPath);
         string projectDirectory = Path.GetDirectoryName(fullPath)!;
@@ -189,6 +200,14 @@ public sealed class FileEditingSession : IEditingSession, IEditingSessionDispatc
         // keep concurrent tool calls from interleaving and dropping the earlier edit.
         lock (_dispatchLock)
         {
+            // A request can obtain this session from RequireSession() and then be swapped out (Dispose)
+            // before it enters here; reject the dispatch cleanly instead of running against a disposed
+            // HistoryManager and surfacing an internal error.
+            if (_disposed)
+            {
+                throw new SessionUnavailableException();
+            }
+
             action();
         }
     }
@@ -198,6 +217,12 @@ public sealed class FileEditingSession : IEditingSession, IEditingSessionDispatc
         // Quiesce any in-flight Invoke so a concurrent session swap cannot dispose HistoryManager mid-edit.
         lock (_dispatchLock)
         {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
             _recording.Dispose();
             _hierarchyRoot.Project = null;
         }
