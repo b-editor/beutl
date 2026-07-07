@@ -16,9 +16,13 @@ public interface IElementSlipService
     /// <summary>
     /// Shift the source-media window inside <paramref name="element"/> by
     /// <paramref name="delta"/>. Adjusts <see cref="Beutl.Graphics.SourceVideo.OffsetPosition"/>
-    /// and <see cref="Beutl.Audio.Sound.OffsetPosition"/> on the media objects inside
-    /// <see cref="Element.Objects"/>. Returns <see langword="false"/> (no commit) when
-    /// <paramref name="delta"/> is zero or the element carries no slip-able media.
+    /// and <see cref="Beutl.Audio.Sound.OffsetPosition"/> on every slip-able media object
+    /// reachable from <see cref="Element.Objects"/>, including sources nested inside
+    /// Drawable and Sound containers. A single effective delta — the largest the tightest
+    /// stream can accept without leaving its source — is applied to all streams so linked
+    /// media (e.g. a video + audio pair) stay in sync. Returns <see langword="false"/>
+    /// (no commit) when <paramref name="delta"/> is zero, the element carries no slip-able
+    /// media, or the shared clamped delta is zero.
     /// </summary>
     bool Slip(Element element, TimeSpan delta);
 }

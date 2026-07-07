@@ -392,7 +392,8 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
 
     public ReactivePropertySlim<bool> IsRazorMode { get; } = new();
 
-    // Tool mode flags are switched through EnterRazorMode/EnterTrimMode.
+    // Mutually exclusive with IsRazorMode and each other; SubscribeToolMode/EnforceSingleToolMode
+    // clears the other flags whenever one becomes true, however it was set.
     public ReactivePropertySlim<bool> IsSlipMode { get; } = new();
     public ReactivePropertySlim<bool> IsRollMode { get; } = new();
     public ReactivePropertySlim<bool> IsSlideMode { get; } = new();

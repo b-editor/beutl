@@ -695,6 +695,12 @@ public sealed partial class ElementView : UserControl
                             scale,
                             e.KeyModifiers.HasFlag(KeyModifiers.Alt));
                         TimeSpan initialFrame = ctx.InitialPointerX.PixelToTimeSpan(scale);
+                        // Snap the press point the same way as the release, so a no-move click near
+                        // a cut does not snap only one endpoint and commit a spurious one-frame trim.
+                        initialFrame = AssociatedObject.RoundStartTime(
+                            initialFrame,
+                            scale,
+                            e.KeyModifiers.HasFlag(KeyModifiers.Alt));
                         TimeSpan delta = (releasedFrame - initialFrame).RoundToRate(rate);
 
                         RestoreTrimDragVisuals(ctx);
@@ -976,7 +982,11 @@ public sealed partial class ElementView : UserControl
             Point released = e.GetPosition(view);
             TimeSpan pointerFrame = released.X.PixelToTimeSpan(scale);
             pointerFrame = view.RoundStartTime(pointerFrame, scale, e.KeyModifiers.HasFlag(KeyModifiers.Alt));
-            TimeSpan delta = pointerFrame - _start.X.PixelToTimeSpan(scale);
+            // Snap the press point the same way, so a no-move click near a cut does not snap only
+            // the release endpoint and shift the media window without any pointer movement.
+            TimeSpan startFrame = view.RoundStartTime(
+                _start.X.PixelToTimeSpan(scale), scale, e.KeyModifiers.HasFlag(KeyModifiers.Alt));
+            TimeSpan delta = pointerFrame - startFrame;
             if (delta != TimeSpan.Zero)
             {
                 viewModel.Timeline.EditorContext

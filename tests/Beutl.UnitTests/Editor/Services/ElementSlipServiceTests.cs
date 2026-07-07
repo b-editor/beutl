@@ -283,4 +283,49 @@ public class ElementSlipServiceTests
 
         Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
     }
+
+    [Test]
+    public void Slip_LinkedStreamsWithDifferentBounds_ShiftsAllByTheTighterDelta()
+    {
+        // Video source allows a 1s offset (3s source - 2s element); audio source allows 3s
+        // (5s - 2s). A +5s request must land both at the tighter 1s so the streams stay in sync.
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        var videoSource = new VideoSource();
+        videoSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 90)));
+        var video = new SourceVideo { Source = { CurrentValue = videoSource } };
+        var soundSource = new SoundSource();
+        soundSource.ReadFrom(new Uri(TestMediaHelper.CreateTestAudioFile(durationSeconds: 5)));
+        var sound = new SourceSound { Source = { CurrentValue = soundSource } };
+        element.Objects.Add(video);
+        element.Objects.Add(sound);
+
+        bool applied = _service.Slip(element, TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+        });
+    }
+
+    [Test]
+    public void Slip_VideoNestedInDrawableGroup_ShiftsOffsetPositionAndCommits()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        var video = new SourceVideo();
+        var group = new DrawableGroup();
+        group.Children.Add(video);
+        element.Objects.Add(group);
+        int before = _history.UndoCount;
+
+        bool applied = _service.Slip(element, TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
+        });
+    }
 }

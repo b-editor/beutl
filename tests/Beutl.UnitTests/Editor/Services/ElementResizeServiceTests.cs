@@ -1,7 +1,11 @@
 ﻿using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.Services;
+using Beutl.Graphics;
+using Beutl.Media;
+using Beutl.Media.Source;
 using Beutl.ProjectSystem;
+using Beutl.UnitTests.Engine.Graphics.Rendering;
 using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Editor.Services;
@@ -13,6 +17,9 @@ public class ElementResizeServiceTests
     private Scene _scene = null!;
     private HistoryManager _history = null!;
     private ElementResizeService _service = null!;
+
+    [OneTimeSetUp]
+    public void OneTimeSetUp() => TestMediaHelper.RegisterTestDecoder();
 
     [SetUp]
     public void Setup()
@@ -369,6 +376,86 @@ public class ElementResizeServiceTests
         });
     }
 
+    [Test]
+    public void Roll_SourceBackedBack_AdvancesInPointByDelta()
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        Element back = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3));
+        var video = new SourceVideo();
+        back.Objects.Add(video);
+
+        bool applied = _service.Roll(_scene, front, back, TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            Assert.That(back.Start, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            // Back in-point advances so its content stays anchored to the timeline.
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+        });
+    }
+
+    [Test]
+    public void Roll_UndoRestoresBackInPoint()
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        Element back = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3));
+        var video = new SourceVideo();
+        back.Objects.Add(video);
+        _service.Roll(_scene, front, back, TimeSpan.FromSeconds(1));
+
+        _history.Undo();
+
+        Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+    }
+
+    [Test]
+    public void Roll_PositiveDelta_ClampedByFrontSourceTail()
+    {
+        // Front source is 3s; with a 2s element only 1s of tail remains, so a +5s roll that the
+        // adjacent lengths would allow must clamp to +1s rather than extend past the media.
+        var frontSource = new VideoSource();
+        frontSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 90)));
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        front.Objects.Add(new SourceVideo { Source = { CurrentValue = frontSource } });
+        Element back = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(10));
+
+        bool applied = _service.Roll(_scene, front, back, TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            Assert.That(back.Start, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(9)));
+        });
+    }
+
+    [Test]
+    public void Roll_NegativeDelta_ClampedByBackSourceHead()
+    {
+        // Back source in-point sits at 0.5s, so a -5s roll can only pull it back to 0 (-0.5s).
+        var backSource = new VideoSource();
+        backSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 90)));
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(3));
+        Element back = AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(2));
+        var video = new SourceVideo { Source = { CurrentValue = backSource } };
+        video.OffsetPosition.CurrentValue = TimeSpan.FromSeconds(0.5);
+        back.Objects.Add(video);
+
+        bool applied = _service.Roll(_scene, front, back, TimeSpan.FromSeconds(-5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(2.5)));
+            Assert.That(back.Start, Is.EqualTo(TimeSpan.FromSeconds(2.5)));
+            Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(2.5)));
+        });
+    }
+
     // --- Slide ---
 
     [Test]
@@ -550,6 +637,28 @@ public class ElementResizeServiceTests
             Assert.That(middle.Length, Is.EqualTo(TimeSpan.FromSeconds(3)));
             Assert.That(back.Start, Is.EqualTo(TimeSpan.FromSeconds(5)));
             Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+        });
+    }
+
+    [Test]
+    public void Slide_SourceBackedBack_AdvancesInPointByDelta()
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        Element middle = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3));
+        Element back = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
+        var video = new SourceVideo();
+        back.Objects.Add(video);
+
+        bool applied = _service.Slide(_scene, front, middle, back, TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(back.Start, Is.EqualTo(TimeSpan.FromSeconds(6)));
+            Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            // Middle only shifts in time; the back clip is trimmed at its head, so its in-point advances.
+            Assert.That(middle.Length, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
         });
     }
 }

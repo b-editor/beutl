@@ -253,18 +253,18 @@ public sealed class ElementResizeService : IElementResizeService
         TimeSpan minDuration = TimeSpan.FromSeconds(1d / rate);
 
         TimeSpan clamped = ClampTrimDelta(delta, front.Length, back.Length, minDuration);
+        clamped = ClampToSourceBounds(clamped, front, back);
         if (clamped == TimeSpan.Zero) return false;
-
-        TimeSpan newFrontLength = front.Length + clamped;
-        TimeSpan newBackStart = back.Start + clamped;
-        TimeSpan newBackLength = back.Length - clamped;
 
         // Bypass Scene.MoveChild's overlap handling: Roll intentionally keeps the
         // two clips exactly adjacent (front.End == back.Start), which MoveCommand
         // treats as overlap and refuses. Direct property setters still record.
-        front.Length = newFrontLength;
-        back.Start = newBackStart;
-        back.Length = newBackLength;
+        front.Length += clamped;
+        back.Start += clamped;
+        back.Length -= clamped;
+        // Preserve the back clip's content across the moving cut: its in-point advances
+        // by the same delta so the same source frames stay under the same timeline times.
+        SlippableMedia.ApplyOffsetDelta(SlippableMedia.Collect(back), clamped);
 
         _historyManager.Commit(CommandNames.RollElements);
         return true;
@@ -285,21 +285,40 @@ public sealed class ElementResizeService : IElementResizeService
 
         // The middle clip's length is unaffected by Slide, so only front and back bound the delta.
         TimeSpan clamped = ClampTrimDelta(delta, front.Length, back.Length, minDuration);
+        clamped = ClampToSourceBounds(clamped, front, back);
         if (clamped == TimeSpan.Zero) return false;
 
         // Invariant: front.Length + middle.Length + back.Length is unchanged.
-        TimeSpan newFrontLength = front.Length + clamped;
-        TimeSpan newMiddleStart = middle.Start + clamped;
-        TimeSpan newBackStart = back.Start + clamped;
-        TimeSpan newBackLength = back.Length - clamped;
-
-        front.Length = newFrontLength;
-        middle.Start = newMiddleStart;
-        back.Start = newBackStart;
-        back.Length = newBackLength;
+        front.Length += clamped;
+        middle.Start += clamped;
+        back.Start += clamped;
+        back.Length -= clamped;
+        // The middle clip only shifts in time (its in-point is unchanged), but the back clip is
+        // trimmed at its head, so advance its media offset by the same delta to keep its content.
+        SlippableMedia.ApplyOffsetDelta(SlippableMedia.Collect(back), clamped);
 
         _historyManager.Commit(CommandNames.SlideElements);
         return true;
+    }
+
+    // A positive delta extends the front clip's out-point and pulls the back clip's in-point
+    // forward; a negative delta pulls the back clip's in-point earlier. Each direction can run
+    // past a finite source, so clamp by the front's remaining tail (positive) or the back's
+    // remaining head (negative). Clips without a bounded source impose no limit.
+    private static TimeSpan ClampToSourceBounds(TimeSpan clamped, Element front, Element back)
+    {
+        if (clamped > TimeSpan.Zero)
+        {
+            TimeSpan room = SlippableMedia.OutPointRoom(front);
+            if (room < clamped) clamped = room;
+        }
+        else if (clamped < TimeSpan.Zero)
+        {
+            TimeSpan room = SlippableMedia.InPointRoom(back);
+            if (room < -clamped) clamped = -room;
+        }
+
+        return clamped;
     }
 
     private static TimeSpan ClampTrimDelta(TimeSpan delta, TimeSpan frontLength, TimeSpan backLength, TimeSpan minDuration)
