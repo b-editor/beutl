@@ -21,6 +21,9 @@ public interface ISplitEmitter
     /// <summary>
     /// Emits one branch occupying <paramref name="logicalBounds"/>, drawn by <paramref name="render"/>. The
     /// executor sizes and clears the branch's pooled buffer, opens a session over it, and invokes the callback.
+    /// A branch whose bounds resolve to a zero-size device buffer (a sub-pixel tile) emits nothing — the executor
+    /// skips it, so a static split may yield fewer live branches than its declared
+    /// <see cref="SplitNodeDescriptor.BranchCount"/>, matching the legacy pipeline.
     /// </summary>
     void Emit(Rect logicalBounds, Action<GeometrySession> render);
 }

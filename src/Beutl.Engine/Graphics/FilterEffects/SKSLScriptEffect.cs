@@ -26,10 +26,11 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
 
     /// <summary>
     /// Opt-in assertion (contract A6/A3) that the script samples only the current pixel
-    /// (<c>src.eval(fragCoord)</c> with no coordinate offset). When set, the node is described as
-    /// coordinate-invariant: it gets identity bounds by construction and may participate in fusion. Setting this on
-    /// a script that samples neighbours produces wrong output by contract — the single-pixel rule is the author's
-    /// responsibility. Left off, the script runs as a non-invariant whole-source pass.
+    /// (<c>src.eval(fragCoord)</c> with no coordinate offset). When set, the node is described as a
+    /// coordinate-invariant whole-source shader: it gets identity bounds and identity ROI by construction, so it
+    /// never inflates buffers or blocks ROI propagation. It stays its own pass either way — fusion requires a
+    /// snippet, and a script is always whole-source. Setting this on a script that samples neighbours produces
+    /// wrong output by contract — the single-pixel rule is the author's responsibility.
     /// </summary>
     [Display(Name = "Coordinate invariant")]
     public IProperty<bool> CoordinateInvariant { get; } = Property.Create(false);

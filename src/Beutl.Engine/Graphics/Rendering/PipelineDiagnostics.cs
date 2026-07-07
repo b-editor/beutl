@@ -9,9 +9,8 @@
 public sealed class PipelineDiagnostics
 {
     /// <summary>
-    /// C8: each executed draw/dispatch of a pass. On the legacy pipeline this counts every effect-path
-    /// materialization bake draw plus every custom effect pass (SKSL <c>ApplyToNewTarget</c> draw, GLSL
-    /// pipeline dispatch, and each <see cref="ImmediateCanvas"/> composite session opened by a custom effect).
+    /// C8: each executed draw/dispatch of a pass — a fused group counts one, K compute iterations count K,
+    /// each split branch and each composite fan-in draw counts one.
     /// </summary>
     public long GpuPasses;
 
@@ -21,10 +20,10 @@ public sealed class PipelineDiagnostics
     /// </summary>
     public long TargetAllocations;
 
-    /// <summary>C8: each render-target pool acquire. Stays 0 until the pool lands (rollout step 2).</summary>
+    /// <summary>C8: each <see cref="RenderTargetPool"/> acquire (hit or miss).</summary>
     public long PoolAcquires;
 
-    /// <summary>C8: each pool acquire that had to allocate (a miss). Stays 0 until the pool lands (rollout step 2).</summary>
+    /// <summary>C8: each pool acquire that had to allocate (a miss).</summary>
     public long PoolMisses;
 
     /// <summary>
@@ -34,19 +33,17 @@ public sealed class PipelineDiagnostics
     public long FullFrameMaterializations;
 
     /// <summary>
-    /// C8: each backend-transition sync pair (C4.2). Counted at the effect-path call sites, not inside
-    /// <see cref="RenderTarget"/>, because <see cref="RenderTarget.PrepareForSampling"/> /
-    /// <see cref="RenderTarget.BeginDraw"/> also fire for non-effect surfaces (root draw, snapshot readback).
-    /// On the legacy pipeline each effect-path GPU buffer is drawn (BeginDraw) then sampled (PrepareForSampling)
-    /// uncoordinated, so this increments once per effect-path draw session: each activator bake and each custom
-    /// effect canvas open.
+    /// C8: each schedule-level backend transition (C4.2, a pass whose <c>SyncBefore</c> is set). Counted by the
+    /// plan executor, not inside <see cref="RenderTarget"/>, because <see cref="RenderTarget.PrepareForSampling"/> /
+    /// <see cref="RenderTarget.BeginDraw"/> also fire for non-effect surfaces (root draw, snapshot readback) and
+    /// for the per-draw flushes Skia itself performs inside a pass.
     /// </summary>
     public long FlushSyncs;
 
-    /// <summary>C8: each graph compile. Stays 0 until the compiler lands (rollout step 3).</summary>
+    /// <summary>C8: each effect-graph compile (a <see cref="PlanCache"/> hit rebinds without counting).</summary>
     public long PlanCompilations;
 
-    /// <summary>C8: each <c>SKRuntimeEffect</c> / Vulkan pipeline construction. Stays 0 until the program cache lands (rollout step 4).</summary>
+    /// <summary>C8: each <c>SKRuntimeEffect</c> / Vulkan pipeline construction (a <see cref="ProgramCache"/> miss).</summary>
     public long ProgramCreations;
 
     /// <summary>Takes an immutable copy of the current counter values for test assertions.</summary>

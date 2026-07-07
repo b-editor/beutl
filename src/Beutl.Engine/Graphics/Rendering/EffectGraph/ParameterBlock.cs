@@ -16,7 +16,8 @@ namespace Beutl.Graphics.Rendering;
 /// <see cref="CompiledPass"/> schedule the compiler would emit — built by the shared
 /// <see cref="EffectGraphCompiler.BuildPasses"/> grouping <b>without</b> the compile accounting — so it also
 /// re-resolves bounds for animated spatial parameters (blur sigma, drop-shadow offset) and, critically, swaps the
-/// cached (now disposed) bridged contexts for this frame's, keeping bridged-effect animation live.
+/// cached passes' captured closures (uniform bindings, filter factories, session callbacks over last frame's
+/// resource values) for this frame's, keeping animated parameters live on a cache hit.
 /// </remarks>
 internal sealed record ParameterBlock(ImmutableArray<CompiledPass> Passes)
 {

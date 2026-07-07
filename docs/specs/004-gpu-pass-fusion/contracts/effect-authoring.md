@@ -41,7 +41,7 @@ This contract defines what an effect author (built-in, plugin, or script) may re
 
 ## A6. Script surfaces
 
-- `SKSLScriptEffect`: script SKSL is a whole-source `ShaderNode`; an explicit `CoordinateInvariant` opt-in property makes it a fusable snippet (author asserts A3's single-pixel rule).
+- `SKSLScriptEffect`: script SKSL is a whole-source `ShaderNode`; an explicit `CoordinateInvariant` opt-in property asserts A3's single-pixel rule, giving the node identity bounds and identity ROI by construction. It remains a whole-source pass either way — fusion requires a snippet (`half4 apply(half4 c)`), which a script never is — so the opt-in buys bounds/ROI behavior, not fusion.
 - `GLSLScriptEffect`: unchanged authoring semantics, now a `ComputeNode`.
 - `CSharpScriptEffect`: script globals expose the `GeometrySession` surface (breaking for existing user scripts, maintainer-approved 2026-07-05). A legacy script written against the removed imperative surface MUST fail at script compile time with a clear diagnostic pointing at the migration guide — it never silently renders wrong output. Migration table in [breaking-changes.md](./breaking-changes.md).
 
