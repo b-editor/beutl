@@ -348,6 +348,12 @@ internal sealed class DeclarativeDocumentApplier
                     property.Name));
             }
 
+            // CoreSerializer appends keyframes in JSON order, but GetPreviousAndNextKeyFrame walks collection order.
+            if (animation is KeyFrameAnimation keyFrameAnimation)
+            {
+                SortKeyFramesByKeyTime(keyFrameAnimation.KeyFrames);
+            }
+
             property.Animation = animation;
         }
     }

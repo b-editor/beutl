@@ -99,7 +99,7 @@ public sealed class SessionTools(
                     width,
                     height,
                     frameRate,
-                    ParseTimeSpan(duration)),
+                    ParseTimeSpan(duration, nameof(duration))),
                 cancellationToken).ConfigureAwait(false);
             return new CreateProjectResponse(
                 result.Session.SessionId,
@@ -127,8 +127,8 @@ public sealed class SessionTools(
                 new SceneCreateOptions(
                     width,
                     height,
-                    ParseTimeSpan(start),
-                    ParseTimeSpan(duration),
+                    ParseTimeSpan(start, nameof(start)),
+                    ParseTimeSpan(duration, nameof(duration)),
                     name),
                 cancellationToken).ConfigureAwait(false);
             return new AddSceneResponse(
@@ -273,9 +273,17 @@ public sealed class SessionTools(
             .ToArray());
     }
 
-    private static TimeSpan ParseTimeSpan(string value)
+    private static TimeSpan ParseTimeSpan(string value, string field)
     {
-        return TimeSpan.Parse(value, CultureInfo.InvariantCulture);
+        if (TimeSpan.TryParse(value, CultureInfo.InvariantCulture, out TimeSpan result))
+        {
+            return result;
+        }
+
+        throw new ReconcileException(new ToolError(
+            ErrorCode.ValidationRejected,
+            $"'{field}' is not a valid time span (expected an invariant TimeSpan string such as '00:00:05').",
+            field));
     }
 
     private static void ValidateProjectSettings(int width, int height, int frameRate)

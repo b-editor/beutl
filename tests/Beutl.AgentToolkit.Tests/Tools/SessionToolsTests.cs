@@ -99,6 +99,28 @@ public sealed class SessionToolsTests
     }
 
     [Test]
+    public async Task Create_project_rejects_a_malformed_duration_as_a_validation_error()
+    {
+        string root = CreateWorkspace();
+        using var source = new FileSessionSource();
+        SessionTools sessionTools = CreateSessionTools(source, new AgentSessionManager(), root);
+
+        ToolResult<CreateProjectResponse> result = await sessionTools.CreateProject(
+            "motion.bep",
+            width: 640,
+            height: 360,
+            frameRate: 30,
+            duration: "not-a-timespan");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(result.Error.Target, Is.EqualTo("duration"));
+        });
+    }
+
+    [Test]
     public async Task Create_project_rejects_package_extension_and_appends_missing_project_extension()
     {
         string root = CreateWorkspace();

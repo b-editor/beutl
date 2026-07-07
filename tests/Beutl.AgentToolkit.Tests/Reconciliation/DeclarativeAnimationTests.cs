@@ -156,6 +156,50 @@ public sealed class DeclarativeAnimationTests
     }
 
     [Test]
+    public void Creating_an_animation_with_unsorted_keyframes_sorts_them_by_key_time()
+    {
+        Scene scene = CreateSceneWithText(out Element element, out TextBlock text);
+        using var session = new AgentToolkitTestSession(scene);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var tools = new EditTools(manager);
+
+        JsonObject animationDocument = CreateOpacityAnimationDocument(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var frames = (JsonArray)animationDocument[nameof(KeyFrameAnimation.KeyFrames)]!;
+        // Present the keyframes in descending KeyTime order; CoreSerializer preserves array order.
+        animationDocument[nameof(KeyFrameAnimation.KeyFrames)] = new JsonArray(
+            frames[1]!.DeepClone(),
+            frames[0]!.DeepClone());
+
+        JsonObject createPatch = PatchTextObject(
+            element,
+            text,
+            new JsonObject
+            {
+                ["Animations"] = new JsonObject
+                {
+                    ["Opacity"] = animationDocument
+                }
+            });
+
+        ToolResult<ApplyEditResponse> createApply = tools.ApplyEdit(
+            patch: createPatch,
+            schemaVersion: SchemaVersion.Current);
+        Assert.That(createApply.IsSuccess, Is.True, createApply.Error?.Message);
+
+        var animation = (KeyFrameAnimation<float>)text.Opacity.Animation!;
+        KeyFrame<float>[] resultFrames = animation.KeyFrames.Cast<KeyFrame<float>>().ToArray();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(resultFrames.Select(frame => frame.KeyTime),
+                Is.EqualTo(new[] { TimeSpan.Zero, TimeSpan.FromSeconds(1) }));
+            Assert.That(resultFrames[0].Value, Is.EqualTo(0f));
+            Assert.That(resultFrames[1].Value, Is.EqualTo(100f));
+        });
+    }
+
+    [Test]
     public void Unknown_easing_type_is_rejected_instead_of_silently_falling_back_to_linear()
     {
         Scene scene = CreateSceneWithText(out Element element, out TextBlock text);
