@@ -25,13 +25,11 @@ public sealed class ElementSlipService : IElementSlipService
         {
             if (obj is SourceVideo sv)
             {
-                sv.OffsetPosition.CurrentValue += delta;
-                applied = true;
+                applied |= ShiftOffset(sv, delta);
             }
             else if (obj is Sound sound)
             {
-                sound.OffsetPosition.CurrentValue += delta;
-                applied = true;
+                applied |= ShiftOffset(sound, delta);
             }
         }
 
@@ -40,5 +38,30 @@ public sealed class ElementSlipService : IElementSlipService
             _historyManager.Commit(CommandNames.SlipElement);
         }
         return applied;
+    }
+
+    private static bool ShiftOffset(SourceVideo source, TimeSpan delta)
+    {
+        TimeSpan current = source.OffsetPosition.CurrentValue;
+        TimeSpan next = ClampOffset(current + delta);
+        if (next == current) return false;
+
+        source.OffsetPosition.CurrentValue = next;
+        return true;
+    }
+
+    private static bool ShiftOffset(Sound sound, TimeSpan delta)
+    {
+        TimeSpan current = sound.OffsetPosition.CurrentValue;
+        TimeSpan next = ClampOffset(current + delta);
+        if (next == current) return false;
+
+        sound.OffsetPosition.CurrentValue = next;
+        return true;
+    }
+
+    private static TimeSpan ClampOffset(TimeSpan value)
+    {
+        return value < TimeSpan.Zero ? TimeSpan.Zero : value;
     }
 }

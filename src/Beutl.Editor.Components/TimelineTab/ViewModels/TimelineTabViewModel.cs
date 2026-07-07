@@ -368,8 +368,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
 
     public ReactivePropertySlim<bool> IsRazorMode { get; } = new();
 
-    // Slip / Roll / Slide trim tool modes. Mutually exclusive with each other and
-    // with IsRazorMode — the Execute cases clear every other flag when one is set.
+    // Tool mode flags are switched through EnterRazorMode/EnterTrimMode.
     public ReactivePropertySlim<bool> IsSlipMode { get; } = new();
     public ReactivePropertySlim<bool> IsRollMode { get; } = new();
     public ReactivePropertySlim<bool> IsSlideMode { get; } = new();
@@ -1044,7 +1043,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
 
                 break;
             case "ToggleRazorMode" when !IsTextInputFocused(execution.KeyEventArgs):
-                IsRazorMode.Value = !IsRazorMode.Value;
+                EnterRazorMode();
                 if (execution.KeyEventArgs != null)
                 {
                     execution.KeyEventArgs.Handled = true;
@@ -1350,6 +1349,16 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         TimeSpan target = visibleStart + new TimeSpan((visibleEnd - visibleStart).Ticks / 2);
         bool whollyInside = g.Range.Start >= sceneStart && g.Range.End <= sceneEnd;
         return (target, g.ZIndex, whollyInside ? g.Anchor : null);
+    }
+
+    private void EnterRazorMode()
+    {
+        bool next = !IsRazorMode.Value;
+        IsRazorMode.Value = false;
+        IsSlipMode.Value = false;
+        IsRollMode.Value = false;
+        IsSlideMode.Value = false;
+        IsRazorMode.Value = next;
     }
 
     private void EnterTrimMode(ReactivePropertySlim<bool> mode)

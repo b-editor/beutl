@@ -149,6 +149,43 @@ public class ElementSlipServiceTests
     }
 
     [Test]
+    public void Slip_NegativeDeltaAtZero_NoCommit()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        var video = new SourceVideo();
+        element.Objects.Add(video);
+        int before = _history.UndoCount;
+
+        bool applied = _service.Slip(element, TimeSpan.FromSeconds(-1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
+    public void Slip_NegativeDeltaPastZero_ClampsAndCommitsOnce()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        var video = new SourceVideo();
+        video.OffsetPosition.CurrentValue = TimeSpan.FromMilliseconds(500);
+        element.Objects.Add(video);
+        int before = _history.UndoCount;
+
+        bool applied = _service.Slip(element, TimeSpan.FromSeconds(-1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
+        });
+    }
+
+    [Test]
     public void Slip_UndoRestoresOffsetPosition()
     {
         Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));

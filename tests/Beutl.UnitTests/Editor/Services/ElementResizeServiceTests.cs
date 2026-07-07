@@ -329,6 +329,25 @@ public class ElementResizeServiceTests
     }
 
     [Test]
+    public void Roll_AlreadyShorterThanMinFrame_DoesNotFlipDelta()
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromMilliseconds(1));
+        Element back = AddElement(TimeSpan.FromMilliseconds(1), TimeSpan.FromSeconds(2));
+        int before = _history.UndoCount;
+
+        bool applied = _service.Roll(_scene, front, back, TimeSpan.FromSeconds(-1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromMilliseconds(1)));
+            Assert.That(back.Start, Is.EqualTo(TimeSpan.FromMilliseconds(1)));
+            Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
     public void Roll_UndoRestoresBothClips()
     {
         Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
@@ -491,6 +510,26 @@ public class ElementResizeServiceTests
         {
             Assert.That(applied, Is.False);
             Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(1d / 30)));
+        });
+    }
+
+    [Test]
+    public void Slide_AlreadyShorterThanMinFrame_DoesNotFlipDelta()
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromMilliseconds(1));
+        Element middle = AddElement(TimeSpan.FromMilliseconds(1), TimeSpan.FromSeconds(2));
+        Element back = AddElement(TimeSpan.FromMilliseconds(2001), TimeSpan.FromSeconds(2));
+        int before = _history.UndoCount;
+
+        bool applied = _service.Slide(_scene, front, middle, back, TimeSpan.FromSeconds(-1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromMilliseconds(1)));
+            Assert.That(middle.Start, Is.EqualTo(TimeSpan.FromMilliseconds(1)));
+            Assert.That(back.Start, Is.EqualTo(TimeSpan.FromMilliseconds(2001)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
     }
 

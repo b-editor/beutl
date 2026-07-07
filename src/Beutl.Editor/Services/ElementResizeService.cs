@@ -304,8 +304,14 @@ public sealed class ElementResizeService : IElementResizeService
 
     private static TimeSpan ClampTrimDelta(TimeSpan delta, TimeSpan frontLength, TimeSpan backLength, TimeSpan minDuration)
     {
+        if (frontLength < minDuration || backLength < minDuration)
+            return TimeSpan.Zero;
+
         TimeSpan minDelta = minDuration - frontLength;
         TimeSpan maxDelta = backLength - minDuration;
+        if (minDelta > maxDelta)
+            return TimeSpan.Zero;
+
         return Clamp(delta, minDelta, maxDelta);
     }
 

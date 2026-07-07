@@ -493,11 +493,9 @@ public sealed partial class ElementView : UserControl
             TrimDragContext ctx = _trimDrag;
             double delta = pointerX - ctx.InitialPointerX;
 
-            double frontWidth = Math.Max(ctx.InitialFrontWidth + delta, minWidth);
-            double backWidth = Math.Max(ctx.InitialBackWidth - delta, minWidth);
-            double actualDelta = Math.Min(
-                frontWidth - ctx.InitialFrontWidth,
-                ctx.InitialBackWidth - backWidth);
+            double floor = minWidth - ctx.InitialFrontWidth;
+            double ceiling = ctx.InitialBackWidth - minWidth;
+            double actualDelta = Math.Clamp(delta, floor, ceiling);
 
             ctx.Front.Width.Value = ctx.InitialFrontWidth + actualDelta;
             ctx.Back.BorderMargin.Value = new Thickness(ctx.InitialBackLeft + actualDelta, 0, 0, 0);
@@ -528,16 +526,24 @@ public sealed partial class ElementView : UserControl
                 if (point.Properties.IsLeftButtonPressed && e.KeyModifiers is KeyModifiers.None or KeyModifiers.Alt
                                                          && view.Cursor != Cursors.Arrow && view.Cursor is not null)
                 {
-                    if (viewModel.Timeline.IsRollMode.Value && TryStartRollDrag(viewModel, point.Position, view))
+                    if (viewModel.Timeline.IsRollMode.Value)
                     {
-                        _pressed = true;
+                        if (TryStartRollDrag(viewModel, point.Position, view))
+                        {
+                            _pressed = true;
+                        }
+
                         e.Handled = true;
                         return;
                     }
 
-                    if (viewModel.Timeline.IsSlideMode.Value && TryStartSlideDrag(viewModel, point.Position, view))
+                    if (viewModel.Timeline.IsSlideMode.Value)
                     {
-                        _pressed = true;
+                        if (TryStartSlideDrag(viewModel, point.Position, view))
+                        {
+                            _pressed = true;
+                        }
+
                         e.Handled = true;
                         return;
                     }
@@ -679,8 +685,13 @@ public sealed partial class ElementView : UserControl
                         float scale = viewModel.Timeline.Options.Value.Scale;
                         int rate = viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
                         Point released = e.GetPosition(AssociatedObject);
-                        double deltaPixel = released.X - ctx.InitialPointerX;
-                        TimeSpan delta = deltaPixel.PixelToTimeSpan(scale).RoundToRate(rate);
+                        TimeSpan releasedFrame = released.X.PixelToTimeSpan(scale);
+                        releasedFrame = AssociatedObject.RoundStartTime(
+                            releasedFrame,
+                            scale,
+                            e.KeyModifiers.HasFlag(KeyModifiers.Alt));
+                        TimeSpan initialFrame = ctx.InitialPointerX.PixelToTimeSpan(scale);
+                        TimeSpan delta = (releasedFrame - initialFrame).RoundToRate(rate);
 
                         if (delta != TimeSpan.Zero)
                         {
