@@ -70,6 +70,46 @@ public class ElementStructureServiceTests
     }
 
     [Test]
+    public void Delete_PrunesDeletedIdsFromGroups_AndDisbandsShrunkGroup()
+    {
+        Element e1 = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element e2 = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
+        _service.Group(_scene, [e1.Id, e2.Id]);
+
+        _service.Delete(_scene, [e1]);
+
+        Assert.That(_scene.Groups.Any(g => g.Contains(e1.Id)), Is.False);
+        Assert.That(_scene.Groups, Is.Empty);
+    }
+
+    [Test]
+    public void Delete_KeepsGroupWithRemainingMembers()
+    {
+        Element e1 = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element e2 = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
+        Element e3 = AddElement(TimeSpan.FromSeconds(9), TimeSpan.FromSeconds(2));
+        _service.Group(_scene, [e1.Id, e2.Id, e3.Id]);
+
+        _service.Delete(_scene, [e1]);
+
+        Assert.That(_scene.Groups, Has.Count.EqualTo(1));
+        Assert.That(_scene.Groups[0], Is.EquivalentTo(new[] { e2.Id, e3.Id }));
+    }
+
+    [Test]
+    public void Exclude_PrunesDeletedIdsFromGroups()
+    {
+        Element e1 = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element e2 = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
+        _service.Group(_scene, [e1.Id, e2.Id]);
+
+        _service.Exclude(_scene, [e1]);
+
+        Assert.That(_scene.Groups.Any(g => g.Contains(e1.Id)), Is.False);
+        Assert.That(_scene.Groups, Is.Empty);
+    }
+
+    [Test]
     public void Exclude_EmptyList_NoCommit()
     {
         int before = _history.UndoCount;

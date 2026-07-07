@@ -23,6 +23,9 @@ public sealed class ElementStructureService : IElementStructureService
         if (elements.Count == 0) return;
 
         RippleHelper.RemoveAndShiftAfter(scene, elements, ripple, scene.RemoveChild);
+
+        RemoveIdsFromGroups(scene, elements.Select(e => e.Id).ToArray());
+
         _historyManager.Commit(CommandNames.RemoveElement);
     }
 
@@ -33,6 +36,9 @@ public sealed class ElementStructureService : IElementStructureService
         if (elements.Count == 0) return;
 
         RippleHelper.RemoveAndShiftAfter(scene, elements, ripple, scene.DeleteChild);
+
+        RemoveIdsFromGroups(scene, elements.Select(e => e.Id).ToArray());
+
         _historyManager.Commit(CommandNames.DeleteElement);
     }
 

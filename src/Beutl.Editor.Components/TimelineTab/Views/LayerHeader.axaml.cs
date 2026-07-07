@@ -164,7 +164,7 @@ public sealed partial class LayerHeader : UserControl
             _startRel = point.Position;
             _start = e.GetCurrentPoint(timeline.TimelinePanel).Position;
             _elements = ViewModel.Timeline.Elements
-                .Where(i => i.Model.ZIndex == ViewModel.Number.Value)
+                .Where(i => i.Model.ZIndex == ViewModel.Number.Value && i.IsEditable.Value)
                 .ToArray();
         }
     }
