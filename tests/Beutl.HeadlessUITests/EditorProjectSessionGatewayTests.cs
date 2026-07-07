@@ -240,7 +240,13 @@ public class EditorProjectSessionGatewayTests
                 rejection = ex;
             }
 
-            Assert.That(rejection, Is.Not.Null);
+            Assert.Multiple(() =>
+            {
+                Assert.That(rejection, Is.Not.Null);
+                // The boundary guard runs before the live project is mutated, so a rejected add_scene
+                // leaves no unsaved extra scene behind in the editor.
+                Assert.That(BeutlApplication.Current.Project!.Items.OfType<Scene>().Count(), Is.EqualTo(1));
+            });
         }
         finally
         {

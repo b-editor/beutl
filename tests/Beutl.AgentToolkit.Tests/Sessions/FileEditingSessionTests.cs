@@ -53,4 +53,61 @@ public sealed class FileEditingSessionTests
             Assert.That(Path.GetFileName(Path.GetDirectoryName(scene.Uri.LocalPath)!), Is.EqualTo("demo-2"));
         });
     }
+
+    [Test]
+    public void Invoke_serializes_concurrent_dispatches()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        using var source = new FileSessionSource();
+        FileEditingSession session = source.CreateProject(new ProjectCreateOptions(
+            Path.Combine(root, "demo.bep"), 640, 360, 30, TimeSpan.FromSeconds(2), Name: "demo"));
+
+        const int threadCount = 8;
+        int concurrent = 0;
+        int maxObserved = 0;
+        using var start = new Barrier(threadCount);
+
+        void Body()
+        {
+            start.SignalAndWait();
+            session.Invoke(() =>
+            {
+                int now = Interlocked.Increment(ref concurrent);
+                InterlockedMax(ref maxObserved, now);
+                Thread.Sleep(5);
+                Interlocked.Decrement(ref concurrent);
+            });
+        }
+
+        Thread[] threads = [.. Enumerable.Range(0, threadCount).Select(_ => new Thread(Body))];
+        foreach (Thread thread in threads)
+        {
+            thread.Start();
+        }
+
+        foreach (Thread thread in threads)
+        {
+            thread.Join();
+        }
+
+        // The reconciler runs its read/merge/write critical section inside a single Invoke, so the
+        // file dispatcher must admit only one action at a time — parity with the live UI thread.
+        Assert.That(maxObserved, Is.EqualTo(1));
+    }
+
+    private static void InterlockedMax(ref int target, int value)
+    {
+        int current = Volatile.Read(ref target);
+        while (value > current)
+        {
+            int prior = Interlocked.CompareExchange(ref target, value, current);
+            if (prior == current)
+            {
+                break;
+            }
+
+            current = prior;
+        }
+    }
 }

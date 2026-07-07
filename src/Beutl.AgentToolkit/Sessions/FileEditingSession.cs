@@ -11,6 +11,7 @@ public sealed class FileEditingSession : IEditingSession, IEditingSessionDispatc
     // Attach-driven engine invariants (TimeRange/ZIndex mirroring, animation parent
     // capture) require an IHierarchicalRoot, which headless sessions otherwise lack.
     private readonly BeutlApplication _hierarchyRoot = new();
+    private readonly object _dispatchLock = new();
     private DateTime _projectLastWriteUtc;
 
     internal FileEditingSession(string sessionId, Project project, Scene scene, DateTime projectLastWriteUtc)
@@ -138,7 +139,13 @@ public sealed class FileEditingSession : IEditingSession, IEditingSessionDispatc
 
     public void Invoke(Action action)
     {
-        action();
+        // The reconciler treats each Invoke as its atomic read/merge/write critical section; the live
+        // session gets that from the single UI thread, so file sessions need a per-session lock to
+        // keep concurrent tool calls from interleaving and dropping the earlier edit.
+        lock (_dispatchLock)
+        {
+            action();
+        }
     }
 
     public void Dispose()

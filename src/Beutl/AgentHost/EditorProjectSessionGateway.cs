@@ -78,11 +78,12 @@ public sealed class EditorProjectSessionGateway(
                 throw new SessionUnavailableException();
             }
 
-            Scene scene = ProjectOperations.AddScene(project, options);
             // The editor may hold a project opened from outside the workspace (open_project reads
             // anywhere); saving its sidecars there would let a live MCP client write outside the
-            // configured root. Enforce the boundary before persisting.
+            // configured root. Enforce the boundary before mutating the live project so a rejected
+            // write leaves no unsaved scene behind in the UI.
             workspace.ResolveForWrite(project.Uri!.LocalPath);
+            Scene scene = ProjectOperations.AddScene(project, options);
             ProjectOperations.Save(project);
             // add_scene activates the new scene's tab, so rebind the live session to it; otherwise
             // read_document/apply_edit would keep operating on the previously attached EditViewModel.
