@@ -526,24 +526,28 @@ public sealed partial class ElementView : UserControl
                 }
 
                 PointerPoint point = e.GetCurrentPoint(view.border);
-                if (point.Properties.IsLeftButtonPressed && e.KeyModifiers is KeyModifiers.None or KeyModifiers.Alt
-                                                         && view.Cursor != Cursors.Arrow && view.Cursor is not null)
+                bool leftButton = point.Properties.IsLeftButtonPressed
+                                  && e.KeyModifiers is KeyModifiers.None or KeyModifiers.Alt;
+
+                // Slide is a body-drag gesture (SlideTool_Description: "Drag a clip"), so it must
+                // start on the clip body where the cursor is Arrow, not only on the resize edge.
+                if (leftButton && viewModel.Timeline.IsSlideMode.Value)
+                {
+                    if (TryStartSlideDrag(viewModel, e.GetPosition(view), view))
+                    {
+                        _pressed = true;
+                    }
+
+                    e.Handled = true;
+                    return;
+                }
+
+                if (leftButton && view.Cursor != Cursors.Arrow && view.Cursor is not null)
                 {
                     Point timelinePosition = e.GetPosition(view);
                     if (viewModel.Timeline.IsRollMode.Value)
                     {
                         if (TryStartRollDrag(viewModel, timelinePosition, view))
-                        {
-                            _pressed = true;
-                        }
-
-                        e.Handled = true;
-                        return;
-                    }
-
-                    if (viewModel.Timeline.IsSlideMode.Value)
-                    {
-                        if (TryStartSlideDrag(viewModel, timelinePosition, view))
                         {
                             _pressed = true;
                         }

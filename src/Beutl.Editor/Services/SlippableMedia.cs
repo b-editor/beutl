@@ -142,13 +142,14 @@ internal static class SlippableMedia
     }
 
     // Room to pull the element's in-point earlier, bounded by the smallest current offset among
-    // its streams (the offset cannot go below zero). TimeSpan.MaxValue when unbounded.
+    // its streams (the offset cannot go below zero). Unlike OutPointRoom this bound holds even
+    // when the source duration is unknown (Total == null), so those streams are not skipped.
+    // TimeSpan.MaxValue when the element has no slip-able media.
     public static TimeSpan InPointRoom(Element element)
     {
         TimeSpan room = TimeSpan.MaxValue;
         foreach (Target target in Collect(element))
         {
-            if (target.Total is null) continue;
             if (target.Current < room) room = target.Current;
         }
 

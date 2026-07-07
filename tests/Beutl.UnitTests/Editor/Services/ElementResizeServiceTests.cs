@@ -456,6 +456,29 @@ public class ElementResizeServiceTests
         });
     }
 
+    [Test]
+    public void Roll_NegativeDelta_UnknownDurationBack_ClampsInPointAtZero()
+    {
+        // Back media has no loadable source, so its duration is unknown. The in-point still cannot
+        // go below zero, so a large negative roll must clamp the offset at 0, not drive it negative.
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(3));
+        Element back = AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(2));
+        var video = new SourceVideo();
+        video.OffsetPosition.CurrentValue = TimeSpan.FromSeconds(0.5);
+        back.Objects.Add(video);
+
+        bool applied = _service.Roll(_scene, front, back, TimeSpan.FromSeconds(-5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(2.5)));
+            Assert.That(back.Start, Is.EqualTo(TimeSpan.FromSeconds(2.5)));
+            Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(2.5)));
+        });
+    }
+
     // --- Slide ---
 
     [Test]
