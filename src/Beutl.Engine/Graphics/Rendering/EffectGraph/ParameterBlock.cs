@@ -55,6 +55,10 @@ internal sealed record ParameterBlock(ImmutableArray<CompiledPass> Passes)
                     if (sa.Filters.Length != sb.Filters.Length)
                         return false;
                     break;
+                case CompositePass ca when b[i] is CompositePass cb:
+                    if (ca.InputColorFilters.Length != cb.InputColorFilters.Length)
+                        return false;
+                    break;
             }
         }
 

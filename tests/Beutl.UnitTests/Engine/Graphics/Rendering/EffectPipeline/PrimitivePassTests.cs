@@ -26,15 +26,18 @@ public class PrimitivePassTests
         Log.LoggerFactory = Microsoft.Extensions.Logging.LoggerFactory.Create(static _ => { });
     }
 
-    // SplitTree = SplitEffect(3x3) -> Saturate (fused) -> LayerEffect. LayerEffect left the bridge in step 5b and is
-    // now a CompositeNode (fan-in), so the counters were re-derived (they strictly improve vs the 5a-era
-    // 28/10/10 bridged numbers). Rendered pool-less through the real pull path, so the counts are
-    // structure-determined. Derivation:
+    // SplitTree = SplitEffect(3x3) -> Saturate (fused) -> LayerEffect. LayerEffect is a CompositeNode (fan-in), and
+    // the coordinate-invariant Saturate run that sits between the split and the composite folds into the composite's
+    // per-branch draw (C9, step-6 perf follow-up): the composite draws each of the 9 tiles once, so applying the
+    // Saturate SKColorFilter on each tile draw is identical to baking each tile through Saturate and then
+    // compositing, which eliminates the 9 intermediate Saturate targets and their 9 draws. Rendered pool-less
+    // through the real pull path, so the counts are structure-determined. Derivation:
     //   Split:       input bake (+1 FullFrameMaterialization) + 9 tile draws (+9 GpuPasses)
-    //   Saturate:    one fused draw per tile (+9 GpuPasses)
-    //   LayerEffect: one composite draw folding all 9 tiles into one output (+1 GpuPasses; no bake, no sync)
-    // Totals: GpuPasses = 19, FullFrameMaterializations = 1, FlushSyncs = 0 (all Skia — no backend transition),
-    // one compile. Migrating the layer to a fused composite removed the bridge's 9 per-tile bakes and 9 Opens.
+    //   Saturate:    folded into the composite — no standalone pass, no per-tile target
+    //   LayerEffect: one composite draw folding all 9 tiles (each with the Saturate filter) into one output
+    //                (+1 GpuPasses; no bake, no sync)
+    // Totals: GpuPasses = 10 (was 19 before the fold), FullFrameMaterializations = 1, FlushSyncs = 0 (all Skia — no
+    // backend transition), one compile. GpuPasses/allocations only ever fall through a fold — never rise.
     [Test]
     public void SplitTree_CounterDerivation()
     {
@@ -45,7 +48,7 @@ public class PrimitivePassTests
         Assert.Multiple(() =>
         {
             Assert.That(c.PlanCompilations, Is.EqualTo(1), "one compile for the split/fused/composite plan");
-            Assert.That(c.GpuPasses, Is.EqualTo(19), "9 tile draws + 9 fused Saturate draws + 1 composite fan-in");
+            Assert.That(c.GpuPasses, Is.EqualTo(10), "9 tile draws + 1 composite fan-in with the folded Saturate (C9)");
             Assert.That(c.FullFrameMaterializations, Is.EqualTo(1), "only the split input bake — the composite draws directly");
             Assert.That(c.FlushSyncs, Is.EqualTo(0), "the whole plan is Skia; no backend transition");
         });

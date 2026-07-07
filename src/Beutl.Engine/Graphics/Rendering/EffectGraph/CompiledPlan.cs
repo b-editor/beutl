@@ -134,8 +134,19 @@ public sealed record SplitPass(Action<ISplitEmitter> Render, int BranchCount) : 
 /// A fan-in composite pass (feature 004, data-model §3, T039): the current branch set is composited back into one
 /// output under <see cref="BlendMode"/> with per-branch <see cref="InputOffsets"/>. Fusion never crosses a composite.
 /// </summary>
+/// <remarks>
+/// <see cref="InputColorFilters"/> holds the color-filter factories of a coordinate-invariant color-filter run that
+/// immediately preceded this composite and was folded into it by the compiler (contracts/execution-plan.md C9):
+/// the composite draws each branch once, so applying the composed <c>SKColorFilter</c> to each branch's draw is
+/// identical to first baking each branch through the filter and then compositing — eliminating the intermediate
+/// pass and its per-branch targets. Empty when nothing folded; the factories are per-frame parameters (re-extracted
+/// on a plan-cache hit), so an animated fold amount rebinds without a recompile.
+/// </remarks>
 public sealed record CompositePass(BlendMode BlendMode, ImmutableArray<Point> InputOffsets) : CompiledPass
 {
+    /// <summary>The folded color-filter factories applied to each branch draw, in node order (C9); empty when none folded.</summary>
+    public ImmutableArray<Func<SKColorFilter?>> InputColorFilters { get; init; } = [];
+
     /// <inheritdoc/>
     public override PassBackend Backend => PassBackend.Skia;
 }

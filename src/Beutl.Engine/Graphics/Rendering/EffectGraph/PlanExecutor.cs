@@ -711,6 +711,10 @@ internal static class PlanExecutor
             return;
         }
 
+        // A folded color-filter run (C9) applies as one composed SKColorFilter on each branch draw; identical to
+        // baking each branch through the run and then compositing, at zero extra layers (it rides the blend-mode
+        // SaveLayer the composite already opens per branch).
+        SKColorFilter? branchFilter = ComposeCompositeColorFilter(pass.InputColorFilters);
         try
         {
             using var canvas = new ImmediateCanvas(target, w, maxWorkingScale, logicalSize: union.Size);
@@ -720,7 +724,7 @@ internal static class PlanExecutor
                 for (int i = 0; i < current.Count; i++)
                 {
                     Point offset = i < pass.InputOffsets.Length ? pass.InputOffsets[i] : default;
-                    using (canvas.PushBlendMode(pass.BlendMode))
+                    using (canvas.PushBlendMode(pass.BlendMode, branchFilter))
                     using (canvas.PushTransform(Matrix.CreateTranslation(offset.X, offset.Y)))
                     {
                         current[i].Render(canvas);
@@ -730,17 +734,52 @@ internal static class PlanExecutor
         }
         catch
         {
+            branchFilter?.Dispose();
             target.Dispose();
             RenderNodeOperation.DisposeAll(CollectionsMarshal.AsSpan(current));
             current.Clear();
             throw;
         }
 
+        branchFilter?.Dispose();
+
         RenderNodeOperation.DisposeAll(CollectionsMarshal.AsSpan(current));
         current.Clear();
         if (diagnostics != null)
             diagnostics.GpuPasses++;
         current.Add(RenderNodeOperation.CreateFromRenderTarget(union, union.Position, target, EffectiveScale.At(w)));
+    }
+
+    // Composes the folded color-filter factories into one SKColorFilter in node order (C9): stage 0 is innermost, so
+    // each subsequent filter wraps as the outer of a compose. A null factory result is a no-op stage and is skipped.
+    // Returns null when nothing folded (or every stage is a no-op), leaving the composite draw unfiltered. The caller
+    // owns the returned filter and disposes it once the whole branch set is drawn.
+    private static SKColorFilter? ComposeCompositeColorFilter(ImmutableArray<Func<SKColorFilter?>> factories)
+    {
+        if (factories.IsDefaultOrEmpty)
+            return null;
+
+        SKColorFilter? composed = null;
+        foreach (Func<SKColorFilter?> factory in factories)
+        {
+            SKColorFilter? filter = factory();
+            if (filter == null)
+                continue;
+
+            if (composed == null)
+            {
+                composed = filter;
+            }
+            else
+            {
+                SKColorFilter next = SKColorFilter.CreateCompose(filter, composed);
+                composed.Dispose();
+                filter.Dispose();
+                composed = next;
+            }
+        }
+
+        return composed;
     }
 
     // The executor-owned resources handed to a compute node's dispatch callback: the materialized source and the

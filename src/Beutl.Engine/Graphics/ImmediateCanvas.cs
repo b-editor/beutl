@@ -636,13 +636,18 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         return new PushedState(this, _states.Count);
     }
 
-    public PushedState PushBlendMode(BlendMode blendMode)
+    public PushedState PushBlendMode(BlendMode blendMode) => PushBlendMode(blendMode, colorFilter: null);
+
+    // The color filter, when set, transforms the layer's pixels before the blend (the composite-fold path, C9);
+    // the caller owns the filter's lifetime — disposing the paint on Pop does not free it.
+    internal PushedState PushBlendMode(BlendMode blendMode, SKColorFilter? colorFilter)
     {
         VerifyAccess();
         BlendMode tmp = BlendMode;
         BlendMode = blendMode;
         var paint = new SKPaint();
         paint.BlendMode = (SKBlendMode)blendMode;
+        paint.ColorFilter = colorFilter;
 
         int count = Canvas.SaveLayer(paint);
         _states.Push(new CanvasPushedState.BlendModePushedState(tmp, count, paint));

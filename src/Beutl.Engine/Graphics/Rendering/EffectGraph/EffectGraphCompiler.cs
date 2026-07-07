@@ -133,7 +133,68 @@ internal static class EffectGraphCompiler
             }
         }
 
-        return ApplySyncBefore(passes.ToImmutable());
+        return ApplySyncBefore(FoldColorFiltersIntoComposites(passes.ToImmutable()));
+    }
+
+    // Folds a coordinate-invariant color-filter-only FusedShaderPass that immediately precedes a CompositePass into
+    // that composite's per-branch draw (C9). The composite draws each branch once, so applying the run's composed
+    // SKColorFilter to each branch draw is identical to baking each branch through the filter and then compositing,
+    // while eliminating the fused pass and its per-branch intermediate targets. Only a pure color-filter run folds:
+    // a run containing a runtime SKSL stage is not an SKColorFilter and stays its own pass. Shared by the compile and
+    // plan-cache-hit paths, so the folded shape is identical on both (the structural key promises it).
+    private static ImmutableArray<CompiledPass> FoldColorFiltersIntoComposites(ImmutableArray<CompiledPass> passes)
+    {
+        int n = passes.Length;
+        if (n < 2)
+            return passes;
+
+        ImmutableArray<CompiledPass>.Builder? folded = null;
+        for (int i = 0; i < n; i++)
+        {
+            if (i + 1 < n
+                && passes[i] is FusedShaderPass { Stages: var stages } fused
+                && IsColorFilterOnly(stages)
+                && passes[i + 1] is CompositePass composite)
+            {
+                folded ??= CopyPrefix(passes, i);
+                folded.Add(composite with { InputColorFilters = ColorFilterFactories(stages) });
+                i++; // consumed both the fused pass and the composite
+                continue;
+            }
+
+            folded?.Add(passes[i]);
+        }
+
+        return folded?.ToImmutable() ?? passes;
+    }
+
+    private static bool IsColorFilterOnly(ImmutableArray<FusedStage> stages)
+    {
+        foreach (FusedStage stage in stages)
+        {
+            if (stage is not ColorFilterStage)
+                return false;
+        }
+
+        return stages.Length > 0;
+    }
+
+    private static ImmutableArray<Func<SkiaSharp.SKColorFilter?>> ColorFilterFactories(ImmutableArray<FusedStage> stages)
+    {
+        var factories = ImmutableArray.CreateBuilder<Func<SkiaSharp.SKColorFilter?>>(stages.Length);
+        foreach (FusedStage stage in stages)
+            factories.Add(((ColorFilterStage)stage).Factory);
+
+        return factories.MoveToImmutable();
+    }
+
+    private static ImmutableArray<CompiledPass>.Builder CopyPrefix(ImmutableArray<CompiledPass> passes, int count)
+    {
+        var builder = ImmutableArray.CreateBuilder<CompiledPass>(passes.Length);
+        for (int j = 0; j < count; j++)
+            builder.Add(passes[j]);
+
+        return builder;
     }
 
     // Sets SyncBefore at every backend transition (C4.2). The plan's input is a Skia-drawn (baked) buffer, so the
@@ -145,17 +206,23 @@ internal static class EffectGraphCompiler
         if (passes.IsDefaultOrEmpty)
             return passes;
 
-        var builder = passes.ToBuilder();
+        // The common case (a single-backend, all-Skia plan) needs no flag change; skip the rebuild entirely so a
+        // plan-cache-hit rebind of such a plan re-derives zero syncs without allocating a builder + array.
+        ImmutableArray<CompiledPass>.Builder? builder = null;
         PassBackend previous = PassBackend.Skia;
-        for (int k = 0; k < builder.Count; k++)
+        for (int k = 0; k < passes.Length; k++)
         {
-            bool sync = builder[k].Backend != previous;
-            if (sync != builder[k].SyncBefore)
-                builder[k] = builder[k] with { SyncBefore = sync };
-            previous = builder[k].Backend;
+            bool sync = passes[k].Backend != previous;
+            if (sync != passes[k].SyncBefore)
+            {
+                builder ??= passes.ToBuilder();
+                builder[k] = passes[k] with { SyncBefore = sync };
+            }
+
+            previous = passes[k].Backend;
         }
 
-        return builder.ToImmutable();
+        return builder?.ToImmutable() ?? passes;
     }
 
     private static bool IsFusable(EffectNodeDescriptor descriptor) => descriptor switch
