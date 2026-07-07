@@ -257,6 +257,11 @@ public sealed class ElementResizeService : IElementResizeService
         ArgumentNullException.ThrowIfNull(front);
         ArgumentNullException.ThrowIfNull(back);
         if (front == back) return false;
+        // Coincidental time adjacency across layers is not an editable cut, and elements
+        // outside the supplied scene must not be mutated through this public seam — the
+        // UI guarantees both, direct service callers may not.
+        if (front.ZIndex != back.ZIndex) return false;
+        if (!scene.Children.Contains(front) || !scene.Children.Contains(back)) return false;
         if (front.Range.End != back.Start) return false;
 
         List<SlippableMedia.Target> frontTargets = SlippableMedia.Collect(front);
@@ -286,6 +291,9 @@ public sealed class ElementResizeService : IElementResizeService
         ArgumentNullException.ThrowIfNull(middle);
         ArgumentNullException.ThrowIfNull(back);
         if (front == middle || middle == back || front == back) return false;
+        if (front.ZIndex != middle.ZIndex || middle.ZIndex != back.ZIndex) return false;
+        if (!scene.Children.Contains(front) || !scene.Children.Contains(middle) || !scene.Children.Contains(back))
+            return false;
         if (front.Range.End != middle.Start) return false;
         if (middle.Range.End != back.Start) return false;
 

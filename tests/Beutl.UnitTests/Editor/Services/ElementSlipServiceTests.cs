@@ -328,4 +328,42 @@ public class ElementSlipServiceTests
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
+
+    [Test]
+    public void Slip_VideoNestedInDrawablePresenter_ShiftsOffsetPositionAndCommits()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        var video = new SourceVideo();
+        var presenter = new DrawablePresenter();
+        presenter.Target.CurrentValue = video;
+        element.Objects.Add(presenter);
+        int before = _history.UndoCount;
+
+        bool applied = _service.Slip(element, TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
+        });
+    }
+
+    [Test]
+    public void Slip_VideoNestedInDrawableTimeController_ShiftsOffsetPositionAndCommits()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        var video = new SourceVideo();
+        var controller = new DrawableTimeController();
+        controller.Target.CurrentValue = video;
+        element.Objects.Add(controller);
+
+        bool applied = _service.Slip(element, TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+        });
+    }
 }

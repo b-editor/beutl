@@ -716,6 +716,56 @@ public class ElementResizeServiceTests
         });
     }
 
+    [Test]
+    public void Roll_DifferentLayers_NoCommit()
+    {
+        // Time-adjacent clips on different layers do not share an editable cut.
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2), zIndex: 0);
+        Element back = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3), zIndex: 1);
+        int before = _history.UndoCount;
+
+        bool applied = _service.Roll(_scene, front, back, TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(back.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
+    public void Roll_ElementOutsideScene_NoCommit()
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        var back = new Element { Start = TimeSpan.FromSeconds(2), Length = TimeSpan.FromSeconds(3) };
+
+        bool applied = _service.Roll(_scene, front, back, TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+        });
+    }
+
+    [Test]
+    public void Slide_DifferentLayers_NoCommit()
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2), zIndex: 0);
+        Element middle = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3), zIndex: 1);
+        Element back = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2), zIndex: 0);
+
+        bool applied = _service.Slide(_scene, front, middle, back, TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(middle.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
+        });
+    }
+
     // --- GetTrimDeltaBounds ---
 
     [Test]

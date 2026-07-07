@@ -175,9 +175,9 @@ public class ContextCommandManager(
             seen++;
         }
 
-        // platformId が見つからなかった場合、次の空きスロット (gestureIndex == 既存数) なら追加する。
-        // それより大きい index は UI が提示していないスロットを黙って生み出し、Save 経由で
-        // 永続化までされてしまうため、呼び出し側のバグとして例外にする。
+        // When no slot matched, appending is only valid at the next free slot
+        // (gestureIndex == existing count). A larger index would silently create a slot the
+        // UI never presented — and persist it through Save — so treat it as a caller bug.
         if (!changed)
         {
             if (gestureIndex != seen)
@@ -212,8 +212,8 @@ public class ContextCommandManager(
             foreach ((OSPlatform platform, IReadOnlyList<KeyGesture?> gestures) in
                      settingsStore.Restore(GetFullName(entry)))
             {
-                // 保存されたリストでデフォルトのGestureをスロット順に上書きする。保存された
-                // リストがデフォルトより短い場合、残りのスロットはデフォルトのまま維持する。
+                // Overwrite the default gestures slot-by-slot with the persisted list; slots
+                // beyond a shorter persisted list keep their defaults.
                 int seen = 0;
                 for (int index = 0; index < entry.KeyGestures.Count && seen < gestures.Count; index++)
                 {
@@ -223,7 +223,7 @@ public class ContextCommandManager(
                     seen++;
                 }
 
-                // デフォルトに無いスロットは追加する
+                // Slots the defaults do not have are appended
                 for (; seen < gestures.Count; seen++)
                 {
                     entry.KeyGestures.Add(new ContextCommandParsedKeyGesture(gestures[seen], platform));

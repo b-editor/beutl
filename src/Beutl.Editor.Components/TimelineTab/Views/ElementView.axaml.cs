@@ -1020,8 +1020,15 @@ public sealed partial class ElementView : UserControl
 
                 // Slip shifts the media window, not clip geometry, so it starts anywhere on the clip
                 // — including the resize edge, where a plain resize would otherwise take over.
+                // Selection-modifier clicks (Ctrl/Shift) belong to _SelectBehavior and must not
+                // start a slip; Alt stays allowed as the snap-disable modifier, like other drags.
                 if (viewModel.Timeline.IsSlipMode.Value)
                 {
+                    if (e.KeyModifiers is not (KeyModifiers.None or KeyModifiers.Alt))
+                    {
+                        return;
+                    }
+
                     _pressed = true;
                     _isSlipDrag = true;
                     _start = e.GetPosition(view);

@@ -72,6 +72,12 @@ internal static class SlippableMedia
                 foreach (Drawable child in decorator.Children)
                     CollectFrom(child, targets);
                 break;
+            // DrawablePresenter / DrawableTimeController render the drawable in Target
+            // rather than a Children list, so a wrapped SourceVideo is only reachable here.
+            case IPresenter<Drawable> presenter:
+                if (presenter.Target.CurrentValue is { } presented)
+                    CollectFrom(presented, targets);
+                break;
         }
     }
 
