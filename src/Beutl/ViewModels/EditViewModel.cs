@@ -306,6 +306,9 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         if (obj is TimelineLayer layer)
         {
             string propertyName = GetPropertyNameFromPath(propertyPath);
+            // ZIndex is absent because a layer's ZIndex only changes in
+            // LayerMoveService.ApplyMove, whose Element.ZIndex writes already
+            // invalidate the same frame ranges via the Element branch above.
             bool affectsGraphics = propertyName is nameof(TimelineLayer.IsVideoMuted)
                 or nameof(TimelineLayer.IsSolo)
                 or nameof(TimelineLayer.IsAudioMuted);

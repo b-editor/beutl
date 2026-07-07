@@ -102,9 +102,23 @@ public sealed class LayerAttributeService : ILayerAttributeService
         }
 
         setter(layer, newValue);
+        if (!newValue && IsEmptyLayerModel(layer))
+        {
+            scene.Layers.Remove(layer);
+        }
+
         _historyManager.Commit(commandName);
         return true;
     }
+
+    // A model holding only defaults is indistinguishable from having no model,
+    // so prune it instead of letting toggled-off layers accumulate in the file.
+    // Alpha 0 covers both default(Color) (#00000000) and Colors.Transparent
+    // (#00FFFFFF) — either renders as "no tint" in the layer header.
+    private static bool IsEmptyLayerModel(TimelineLayer layer)
+        => layer is { IsLocked: false, IsAudioMuted: false, IsVideoMuted: false, IsSolo: false }
+           && string.IsNullOrEmpty(layer.Name)
+           && layer.Color.A == 0;
 
     private static TimelineLayer? FindLayer(Scene scene, int zIndex)
     {

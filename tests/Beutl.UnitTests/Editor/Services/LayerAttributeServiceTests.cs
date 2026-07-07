@@ -277,6 +277,52 @@ public class LayerAttributeServiceTests
         });
     }
 
+    [TestCase("locked")]
+    [TestCase("audio-muted")]
+    [TestCase("video-muted")]
+    [TestCase("solo")]
+    public void SetFlag_ClearingLastFlag_PrunesEmptyModel(string flag)
+    {
+        SetFlag(flag, zIndex: 5, value: true);
+        Assert.That(_scene.Layers.Any(l => l.ZIndex == 5), Is.True);
+        int beforeUndo = _history.UndoCount;
+
+        bool changed = SetFlag(flag, zIndex: 5, value: false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(changed, Is.True);
+            Assert.That(_scene.Layers.Any(l => l.ZIndex == 5), Is.False);
+            Assert.That(_history.UndoCount, Is.EqualTo(beforeUndo + 1));
+        });
+    }
+
+    [Test]
+    public void SetFlag_ClearingFlag_KeepsCustomizedModel()
+    {
+        var named = new TimelineLayer { ZIndex = 5, Name = "BG" };
+        _scene.Layers.Add(named);
+        var colored = new TimelineLayer { ZIndex = 6, Color = Colors.Red };
+        _scene.Layers.Add(colored);
+        var multiFlag = new TimelineLayer { ZIndex = 7, IsSolo = true };
+        _scene.Layers.Add(multiFlag);
+        _service.SetLocked(_scene, zIndex: 5, isLocked: true);
+        _service.SetLocked(_scene, zIndex: 6, isLocked: true);
+        _service.SetLocked(_scene, zIndex: 7, isLocked: true);
+
+        _service.SetLocked(_scene, zIndex: 5, isLocked: false);
+        _service.SetLocked(_scene, zIndex: 6, isLocked: false);
+        _service.SetLocked(_scene, zIndex: 7, isLocked: false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_scene.Layers, Does.Contain(named));
+            Assert.That(_scene.Layers, Does.Contain(colored));
+            Assert.That(_scene.Layers, Does.Contain(multiFlag));
+            Assert.That(named.IsLocked, Is.False);
+        });
+    }
+
     [Test]
     public void SetAudioMuted_CreatesModelAndCommits()
     {
