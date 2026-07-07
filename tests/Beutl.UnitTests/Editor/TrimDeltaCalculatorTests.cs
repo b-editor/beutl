@@ -66,4 +66,30 @@ public class TrimDeltaCalculatorTests
 
         Assert.That(delta, Is.EqualTo(TimeSpan.FromSeconds(-2)));
     }
+
+    [Test]
+    public void ClampDelta_InsideWindow_IsUnchanged()
+    {
+        TimeSpan delta = TrimDeltaCalculator.ClampDelta(
+            TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(-2), TimeSpan.FromSeconds(3));
+
+        Assert.That(delta, Is.EqualTo(TimeSpan.FromSeconds(1)));
+    }
+
+    [TestCase(-5, -2)]
+    [TestCase(5, 3)]
+    public void ClampDelta_OutsideWindow_ClampsToBound(int deltaSeconds, int expectedSeconds)
+    {
+        TimeSpan delta = TrimDeltaCalculator.ClampDelta(
+            TimeSpan.FromSeconds(deltaSeconds), TimeSpan.FromSeconds(-2), TimeSpan.FromSeconds(3));
+
+        Assert.That(delta, Is.EqualTo(TimeSpan.FromSeconds(expectedSeconds)));
+    }
+
+    [Test]
+    public void ClampDelta_InvertedWindow_Throws()
+    {
+        Assert.Throws<ArgumentException>(() => TrimDeltaCalculator.ClampDelta(
+            TimeSpan.Zero, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(-1)));
+    }
 }

@@ -13,4 +13,15 @@ public static class TrimDeltaCalculator
         ArgumentNullException.ThrowIfNull(snap);
         return snap(releaseTime) - snap(pressTime);
     }
+
+    /// <summary>
+    /// Clamp a trim delta into the <c>[min, max]</c> window the resize service reported at
+    /// drag start, so the per-pointer-frame preview never overshoots what the release commit
+    /// will apply. Throws when <paramref name="min"/> exceeds <paramref name="max"/> — the
+    /// service guarantees <c>Min ≤ 0 ≤ Max</c>, so an inverted window is a caller bug.
+    /// </summary>
+    public static TimeSpan ClampDelta(TimeSpan delta, TimeSpan min, TimeSpan max)
+    {
+        return TimeSpan.FromTicks(Math.Clamp(delta.Ticks, min.Ticks, max.Ticks));
+    }
 }

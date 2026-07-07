@@ -715,4 +715,81 @@ public class ElementResizeServiceTests
             Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
         });
     }
+
+    // --- GetTrimDeltaBounds ---
+
+    [Test]
+    public void GetTrimDeltaBounds_NullArguments_Throw()
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        Element back = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3));
+
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentNullException>(() => _service.GetTrimDeltaBounds(null!, front, back));
+            Assert.Throws<ArgumentNullException>(() => _service.GetTrimDeltaBounds(_scene, null!, back));
+            Assert.Throws<ArgumentNullException>(() => _service.GetTrimDeltaBounds(_scene, front, null!));
+        });
+    }
+
+    [Test]
+    public void GetTrimDeltaBounds_NoSourceMedia_BoundsByMinFrameLengths()
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        Element back = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3));
+
+        (TimeSpan min, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, front, back);
+
+        TimeSpan minDuration = TimeSpan.FromSeconds(1d / 30);
+        Assert.Multiple(() =>
+        {
+            Assert.That(min, Is.EqualTo(minDuration - TimeSpan.FromSeconds(2)));
+            Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(3) - minDuration));
+        });
+    }
+
+    [Test]
+    public void GetTrimDeltaBounds_SourceBackedFront_MaxClampedToSourceTail()
+    {
+        // Same shape as Roll_PositiveDelta_ClampedByFrontSourceTail: 3s source, 2s clip →
+        // 1s of tail; the bounds must report the same +1s ceiling the Roll commit applies.
+        var frontSource = new VideoSource();
+        frontSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 90)));
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        front.Objects.Add(new SourceVideo { Source = { CurrentValue = frontSource } });
+        Element back = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(10));
+
+        (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, front, back);
+
+        Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(1)));
+    }
+
+    [Test]
+    public void GetTrimDeltaBounds_BackInPoint_MinClampedToSourceHead()
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(3));
+        Element back = AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(2));
+        var video = new SourceVideo();
+        video.OffsetPosition.CurrentValue = TimeSpan.FromSeconds(0.5);
+        back.Objects.Add(video);
+
+        (TimeSpan min, TimeSpan _) = _service.GetTrimDeltaBounds(_scene, front, back);
+
+        Assert.That(min, Is.EqualTo(TimeSpan.FromSeconds(-0.5)));
+    }
+
+    [Test]
+    public void GetTrimDeltaBounds_SubFrameClip_ReturnsZeroWindow()
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromMilliseconds(1));
+        Element back = AddElement(TimeSpan.FromMilliseconds(1), TimeSpan.FromSeconds(2));
+
+        (TimeSpan min, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, front, back);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(min, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(max, Is.EqualTo(TimeSpan.Zero));
+        });
+    }
 }

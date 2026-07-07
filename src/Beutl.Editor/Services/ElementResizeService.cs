@@ -241,6 +241,16 @@ public sealed class ElementResizeService : IElementResizeService
         return clampedLength > TimeSpan.Zero ? clampedLength : length;
     }
 
+    public (TimeSpan Min, TimeSpan Max) GetTrimDeltaBounds(Scene scene, Element front, Element back)
+    {
+        ArgumentNullException.ThrowIfNull(scene);
+        ArgumentNullException.ThrowIfNull(front);
+        ArgumentNullException.ThrowIfNull(back);
+
+        return ComputeTrimDeltaBounds(scene, front, back,
+            SlippableMedia.Collect(front), SlippableMedia.Collect(back));
+    }
+
     public bool Roll(Scene scene, Element front, Element back, TimeSpan delta)
     {
         ArgumentNullException.ThrowIfNull(scene);
@@ -249,11 +259,10 @@ public sealed class ElementResizeService : IElementResizeService
         if (front == back) return false;
         if (front.Range.End != back.Start) return false;
 
-        int rate = SceneTimeRangeService.GetFrameRate(scene);
-        TimeSpan minDuration = TimeSpan.FromSeconds(1d / rate);
-
-        TimeSpan clamped = ClampTrimDelta(delta, front.Length, back.Length, minDuration);
-        clamped = ClampToSourceBounds(clamped, front, back);
+        List<SlippableMedia.Target> frontTargets = SlippableMedia.Collect(front);
+        List<SlippableMedia.Target> backTargets = SlippableMedia.Collect(back);
+        (TimeSpan min, TimeSpan max) = ComputeTrimDeltaBounds(scene, front, back, frontTargets, backTargets);
+        TimeSpan clamped = Clamp(delta, min, max);
         if (clamped == TimeSpan.Zero) return false;
 
         // Bypass Scene.MoveChild's overlap handling: Roll intentionally keeps the
@@ -264,7 +273,7 @@ public sealed class ElementResizeService : IElementResizeService
         back.Length -= clamped;
         // Preserve the back clip's content across the moving cut: its in-point advances
         // by the same delta so the same source frames stay under the same timeline times.
-        SlippableMedia.ApplyOffsetDelta(SlippableMedia.Collect(back), clamped);
+        SlippableMedia.ApplyOffsetDelta(backTargets, clamped);
 
         _historyManager.Commit(CommandNames.RollElements);
         return true;
@@ -280,12 +289,11 @@ public sealed class ElementResizeService : IElementResizeService
         if (front.Range.End != middle.Start) return false;
         if (middle.Range.End != back.Start) return false;
 
-        int rate = SceneTimeRangeService.GetFrameRate(scene);
-        TimeSpan minDuration = TimeSpan.FromSeconds(1d / rate);
-
         // The middle clip's length is unaffected by Slide, so only front and back bound the delta.
-        TimeSpan clamped = ClampTrimDelta(delta, front.Length, back.Length, minDuration);
-        clamped = ClampToSourceBounds(clamped, front, back);
+        List<SlippableMedia.Target> frontTargets = SlippableMedia.Collect(front);
+        List<SlippableMedia.Target> backTargets = SlippableMedia.Collect(back);
+        (TimeSpan min, TimeSpan max) = ComputeTrimDeltaBounds(scene, front, back, frontTargets, backTargets);
+        TimeSpan clamped = Clamp(delta, min, max);
         if (clamped == TimeSpan.Zero) return false;
 
         // Invariant: front.Length + middle.Length + back.Length is unchanged.
@@ -295,48 +303,42 @@ public sealed class ElementResizeService : IElementResizeService
         back.Length -= clamped;
         // The middle clip only shifts in time (its in-point is unchanged), but the back clip is
         // trimmed at its head, so advance its media offset by the same delta to keep its content.
-        SlippableMedia.ApplyOffsetDelta(SlippableMedia.Collect(back), clamped);
+        SlippableMedia.ApplyOffsetDelta(backTargets, clamped);
 
         _historyManager.Commit(CommandNames.SlideElements);
         return true;
     }
 
-    // A positive delta extends the front clip's out-point past its source tail; a negative delta
-    // pulls the back clip's in-point earlier, toward its source head.
-    private static TimeSpan ClampToSourceBounds(TimeSpan clamped, Element front, Element back)
+    // Shared Roll/Slide delta window. Min (≤ 0) is bounded by the shrinking front keeping one
+    // frame and — always, regardless of the clamp preference — by the back in-point staying at
+    // or above zero (a negative source offset is an invalid frame request, not an
+    // original-length extension). Max (≥ 0) is bounded by the shrinking back keeping one frame
+    // and, when ClampResizeToOriginalLength is on, by the front out-point staying within its
+    // source (matching normal edge resize, which may run past the media with the preference off).
+    private static (TimeSpan Min, TimeSpan Max) ComputeTrimDeltaBounds(
+        Scene scene, Element front, Element back,
+        IReadOnlyList<SlippableMedia.Target> frontTargets,
+        IReadOnlyList<SlippableMedia.Target> backTargets)
     {
-        if (clamped > TimeSpan.Zero)
+        int rate = SceneTimeRangeService.GetFrameRate(scene);
+        TimeSpan minDuration = TimeSpan.FromSeconds(1d / rate);
+
+        if (front.Length < minDuration || back.Length < minDuration)
+            return (TimeSpan.Zero, TimeSpan.Zero);
+
+        TimeSpan min = minDuration - front.Length;
+        TimeSpan max = back.Length - minDuration;
+
+        if (GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength)
         {
-            // Extending the front out-point past its source honours the same editor preference as
-            // normal edge resize: with clamping off, the clip may run past its original media.
-            if (GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength)
-            {
-                TimeSpan room = SlippableMedia.OutPointRoom(front);
-                if (room < clamped) clamped = room;
-            }
-        }
-        else if (clamped < TimeSpan.Zero)
-        {
-            // The back in-point can never go below zero regardless of the preference: a negative
-            // source offset is an invalid frame request, not an original-length extension.
-            TimeSpan room = SlippableMedia.InPointRoom(back);
-            if (room < -clamped) clamped = -room;
+            TimeSpan outRoom = SlippableMedia.OutPointRoom(frontTargets, front.Length);
+            if (outRoom < max) max = outRoom;
         }
 
-        return clamped;
-    }
+        TimeSpan inRoom = SlippableMedia.InPointRoom(backTargets);
+        if (inRoom != TimeSpan.MaxValue && -inRoom > min) min = -inRoom;
 
-    private static TimeSpan ClampTrimDelta(TimeSpan delta, TimeSpan frontLength, TimeSpan backLength, TimeSpan minDuration)
-    {
-        if (frontLength < minDuration || backLength < minDuration)
-            return TimeSpan.Zero;
-
-        TimeSpan minDelta = minDuration - frontLength;
-        TimeSpan maxDelta = backLength - minDuration;
-        if (minDelta > maxDelta)
-            return TimeSpan.Zero;
-
-        return Clamp(delta, minDelta, maxDelta);
+        return (min, max);
     }
 
     private static TimeSpan Clamp(TimeSpan value, TimeSpan min, TimeSpan max)

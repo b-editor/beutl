@@ -374,7 +374,9 @@ public sealed partial class ElementView : UserControl
             double InitialMiddleWidth,
             double InitialBackLeft,
             double InitialBackWidth,
-            double InitialPointerX);
+            double InitialPointerX,
+            TimeSpan MinDelta,
+            TimeSpan MaxDelta);
 
         private bool _pressed;
         private AlignmentX _resizeType;
@@ -424,17 +426,30 @@ public sealed partial class ElementView : UserControl
 
                 if (view._timeline is { } timeline && _pressed)
                 {
-                    pointerFrame = view.RoundStartTime(pointerFrame, scale, e.KeyModifiers.HasFlag(KeyModifiers.Alt));
-                    point = point.WithX(pointerFrame.TimeToPixel(scale));
+                    bool alt = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
                     int rate = viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
-                    double minWidth = TimeSpan.FromSeconds(1d / rate).TimeToPixel(scale);
 
                     if (_trimDrag.Kind is not TrimDragKind.None)
                     {
-                        ApplyTrimDragPreview(point.X, minWidth);
+                        // Mirror the release commit exactly: snap both endpoints with the same
+                        // function, round to the frame rate, clamp to the bounds captured at drag
+                        // start. Snap the press point first so the snap guide (a RoundStartTime
+                        // side effect) ends up reflecting the pointer, not the press point.
+                        TimeSpan pressTime = view.RoundStartTime(
+                            _trimDrag.InitialPointerX.PixelToTimeSpan(scale), scale, alt);
+                        pointerFrame = view.RoundStartTime(pointerFrame, scale, alt);
+                        TimeSpan previewDelta = TrimDeltaCalculator.ClampDelta(
+                            (pointerFrame - pressTime).RoundToRate(rate),
+                            _trimDrag.MinDelta,
+                            _trimDrag.MaxDelta);
+                        ApplyTrimDragPreview(previewDelta.TimeToPixel(scale));
                         e.Handled = true;
                         return;
                     }
+
+                    pointerFrame = view.RoundStartTime(pointerFrame, scale, alt);
+                    point = point.WithX(pointerFrame.TimeToPixel(scale));
+                    double minWidth = TimeSpan.FromSeconds(1d / rate).TimeToPixel(scale);
 
                     if (view.Cursor != Cursors.Arrow && view.Cursor is { })
                     {
@@ -488,26 +503,17 @@ public sealed partial class ElementView : UserControl
             }
         }
 
-        private void ApplyTrimDragPreview(double pointerX, double minWidth)
+        private void ApplyTrimDragPreview(double deltaPixels)
         {
             TrimDragContext ctx = _trimDrag;
-            double delta = pointerX - ctx.InitialPointerX;
 
-            double floor = minWidth - ctx.InitialFrontWidth;
-            double ceiling = ctx.InitialBackWidth - minWidth;
-            if (floor > ceiling)
-                return;
-
-            double actualDelta = Math.Clamp(delta, floor, ceiling);
-
-            ctx.Front.Width.Value = ctx.InitialFrontWidth + actualDelta;
-            ctx.Back.BorderMargin.Value = new Thickness(ctx.InitialBackLeft + actualDelta, 0, 0, 0);
-            ctx.Back.Width.Value = ctx.InitialBackWidth - actualDelta;
+            ctx.Front.Width.Value = ctx.InitialFrontWidth + deltaPixels;
+            ctx.Back.BorderMargin.Value = new Thickness(ctx.InitialBackLeft + deltaPixels, 0, 0, 0);
+            ctx.Back.Width.Value = ctx.InitialBackWidth - deltaPixels;
 
             if (ctx.Middle is { } middle)
             {
-                middle.BorderMargin.Value = new Thickness(ctx.InitialMiddleLeft + actualDelta, 0, 0, 0);
-                middle.Width.Value = ctx.InitialMiddleWidth;
+                middle.BorderMargin.Value = new Thickness(ctx.InitialMiddleLeft + deltaPixels, 0, 0, 0);
             }
         }
 
@@ -533,7 +539,7 @@ public sealed partial class ElementView : UserControl
                 // start on the clip body where the cursor is Arrow, not only on the resize edge.
                 if (leftButton && viewModel.Timeline.IsSlideMode.Value)
                 {
-                    if (TryStartSlideDrag(viewModel, e.GetPosition(view), view))
+                    if (TryStartSlideDrag(viewModel, e.GetPosition(view)))
                     {
                         _pressed = true;
                     }
@@ -554,7 +560,7 @@ public sealed partial class ElementView : UserControl
                     Point timelinePosition = e.GetPosition(view);
                     if (viewModel.Timeline.IsRollMode.Value)
                     {
-                        if (TryStartRollDrag(viewModel, timelinePosition, view))
+                        if (TryStartRollDrag(viewModel, timelinePosition))
                         {
                             _pressed = true;
                         }
@@ -614,7 +620,7 @@ public sealed partial class ElementView : UserControl
             }
         }
 
-        private bool TryStartRollDrag(ElementViewModel viewModel, Point position, ElementView view)
+        private bool TryStartRollDrag(ElementViewModel viewModel, Point position)
         {
             if (_resizeType is not (AlignmentX.Left or AlignmentX.Right)) return false;
 
@@ -639,6 +645,10 @@ public sealed partial class ElementView : UserControl
             ElementViewModel? backVm = viewModel.Timeline.GetViewModelFor(backModel);
             if (frontVm is null || backVm is null) return false;
 
+            (TimeSpan minDelta, TimeSpan maxDelta) = viewModel.Timeline.EditorContext
+                .GetRequiredService<IElementResizeService>()
+                .GetTrimDeltaBounds(viewModel.Scene, frontModel, backModel);
+
             _trimDrag = new TrimDragContext(
                 Kind: TrimDragKind.Roll,
                 Front: frontVm,
@@ -649,11 +659,13 @@ public sealed partial class ElementView : UserControl
                 InitialMiddleWidth: 0,
                 InitialBackLeft: backVm.BorderMargin.Value.Left,
                 InitialBackWidth: backVm.Width.Value,
-                InitialPointerX: position.X);
+                InitialPointerX: position.X,
+                MinDelta: minDelta,
+                MaxDelta: maxDelta);
             return true;
         }
 
-        private bool TryStartSlideDrag(ElementViewModel viewModel, Point position, ElementView view)
+        private bool TryStartSlideDrag(ElementViewModel viewModel, Point position)
         {
             Element middleModel = viewModel.Model;
             Element? frontModel = middleModel.GetBefore(middleModel.ZIndex, middleModel.Start);
@@ -667,6 +679,10 @@ public sealed partial class ElementView : UserControl
             ElementViewModel? backVm = viewModel.Timeline.GetViewModelFor(backModel);
             if (frontVm is null || middleVm is null || backVm is null) return false;
 
+            (TimeSpan minDelta, TimeSpan maxDelta) = viewModel.Timeline.EditorContext
+                .GetRequiredService<IElementResizeService>()
+                .GetTrimDeltaBounds(viewModel.Scene, frontModel, backModel);
+
             _trimDrag = new TrimDragContext(
                 Kind: TrimDragKind.Slide,
                 Front: frontVm,
@@ -677,7 +693,9 @@ public sealed partial class ElementView : UserControl
                 InitialMiddleWidth: middleVm.Width.Value,
                 InitialBackLeft: backVm.BorderMargin.Value.Left,
                 InitialBackWidth: backVm.Width.Value,
-                InitialPointerX: position.X);
+                InitialPointerX: position.X,
+                MinDelta: minDelta,
+                MaxDelta: maxDelta);
             return true;
         }
 
@@ -990,12 +1008,14 @@ public sealed partial class ElementView : UserControl
         private void CommitSlipDrag(ElementView view, ElementViewModel viewModel, PointerReleasedEventArgs e)
         {
             float scale = viewModel.Timeline.Options.Value.Scale;
+            int rate = viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
             Point released = e.GetPosition(view);
             bool alt = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
             TimeSpan delta = TrimDeltaCalculator.SnappedDelta(
-                _start.X.PixelToTimeSpan(scale),
-                released.X.PixelToTimeSpan(scale),
-                t => view.RoundStartTime(t, scale, alt));
+                    _start.X.PixelToTimeSpan(scale),
+                    released.X.PixelToTimeSpan(scale),
+                    t => view.RoundStartTime(t, scale, alt))
+                .RoundToRate(rate);
             // RoundStartTime re-sets the snap guide line as a side effect; clear it.
             viewModel.Timeline.SnapBarPosition.Value = null;
             if (delta != TimeSpan.Zero)

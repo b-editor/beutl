@@ -51,6 +51,18 @@ public interface IElementResizeService
     /// <c>middle.End != back.Start</c>) or the clamped delta is zero.
     /// </summary>
     bool Slide(Scene scene, Element front, Element middle, Element back, TimeSpan delta);
+
+    /// <summary>
+    /// The delta window shared by <see cref="Roll"/> and <see cref="Slide"/> for a given
+    /// front/back pair: <c>Min ≤ 0 ≤ Max</c>, bounded by both clips keeping at least one
+    /// frame at the scene's frame rate, the back in-point staying at or above zero, and —
+    /// when the editor's ClampResizeToOriginalLength preference is on — the front out-point
+    /// staying within its source. Both operations clamp with the same window on commit;
+    /// the Timeline View queries it once at drag start so the per-pointer-frame preview
+    /// cannot overshoot what the release will apply. <c>(Zero, Zero)</c> when no trim is
+    /// possible. Adjacency is not validated here; callers check it before starting a drag.
+    /// </summary>
+    (TimeSpan Min, TimeSpan Max) GetTrimDeltaBounds(Scene scene, Element front, Element back);
 }
 
 public readonly record struct ElementResizeRequest(

@@ -126,14 +126,14 @@ internal static class SlippableMedia
 
     // Room to extend the element's out-point (grow its length while the in-point stays put),
     // bounded by the tightest source tail among its streams. TimeSpan.MaxValue when unbounded.
-    public static TimeSpan OutPointRoom(Element element)
+    public static TimeSpan OutPointRoom(IReadOnlyList<Target> targets, TimeSpan elementLength)
     {
         TimeSpan room = TimeSpan.MaxValue;
-        foreach (Target target in Collect(element))
+        foreach (Target target in targets)
         {
             if (target.Total is not { } total) continue;
 
-            TimeSpan available = total - target.Current - element.Length;
+            TimeSpan available = total - target.Current - elementLength;
             if (available < TimeSpan.Zero) available = TimeSpan.Zero;
             if (available < room) room = available;
         }
@@ -145,10 +145,10 @@ internal static class SlippableMedia
     // its streams (the offset cannot go below zero). Unlike OutPointRoom this bound holds even
     // when the source duration is unknown (Total == null), so those streams are not skipped.
     // TimeSpan.MaxValue when the element has no slip-able media.
-    public static TimeSpan InPointRoom(Element element)
+    public static TimeSpan InPointRoom(IReadOnlyList<Target> targets)
     {
         TimeSpan room = TimeSpan.MaxValue;
-        foreach (Target target in Collect(element))
+        foreach (Target target in targets)
         {
             if (target.Current < room) room = target.Current;
         }
