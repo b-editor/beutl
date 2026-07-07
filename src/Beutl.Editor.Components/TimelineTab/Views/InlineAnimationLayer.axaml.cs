@@ -169,6 +169,24 @@ public partial class InlineAnimationLayer : UserControl
             if (AssociatedObject is not { DataContext: InlineKeyFrameViewModel viewModel }) return;
             if (!_pressed) return;
 
+            // Locked mid-drag: snap keyframes back to the model without committing.
+            if (!viewModel.Parent.IsEditable)
+            {
+                viewModel.ReflectModelKeyTime();
+                if (_items != null)
+                {
+                    foreach (InlineKeyFrameViewModel item in _items)
+                    {
+                        item.ReflectModelKeyTime();
+                    }
+                }
+
+                _items = null;
+                _pressed = false;
+                e.Handled = true;
+                return;
+            }
+
             if (_items != null)
             {
                 foreach (InlineKeyFrameViewModel item in _items)

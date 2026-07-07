@@ -160,28 +160,7 @@ public sealed class ElementStructureService : IElementStructureService
     }
 
     private static bool RemoveIdsFromGroups(Scene scene, IReadOnlyCollection<Guid> ids)
-    {
-        bool removed = false;
-        for (int i = scene.Groups.Count - 1; i >= 0; i--)
-        {
-            ImmutableHashSet<Guid> group = scene.Groups[i];
-            if (!group.Overlaps(ids)) continue;
-
-            ImmutableHashSet<Guid> updated = group.Except(ids);
-            if (updated.Count >= 2)
-            {
-                scene.Groups[i] = updated;
-            }
-            else
-            {
-                scene.Groups.RemoveAt(i);
-            }
-
-            removed = true;
-        }
-
-        return removed;
-    }
+        => scene.RemoveElementsFromGroups(ids);
 
     private static void ShiftLocalKeyFrames(Element element, TimeSpan delta)
     {

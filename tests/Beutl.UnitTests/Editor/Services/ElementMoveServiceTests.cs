@@ -140,4 +140,39 @@ public class ElementMoveServiceTests
             Assert.Throws<ArgumentNullException>(() => _service.DuplicateOrMove(_scene, null!, TimeSpan.Zero, 0));
         });
     }
+
+    [Test]
+    public void Move_OntoLockedDestinationLayer_IsRefused()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 0);
+        _scene.Layers.Add(new TimelineLayer { ZIndex = 2, IsLocked = true });
+        int before = _history.UndoCount;
+
+        ElementMoveOutcome outcome = _service.Move(_scene, [element], TimeSpan.Zero, 2);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome, Is.EqualTo(ElementMoveOutcome.None));
+            Assert.That(element.ZIndex, Is.EqualTo(0));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
+    public void DuplicateOrMove_OntoLockedDestinationLayer_IsRefused()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 0);
+        _scene.Layers.Add(new TimelineLayer { ZIndex = 2, IsLocked = true });
+        int beforeChildren = _scene.Children.Count;
+        int before = _history.UndoCount;
+
+        ElementMoveOutcome outcome = _service.DuplicateOrMove(_scene, [element], TimeSpan.Zero, 2);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome, Is.EqualTo(ElementMoveOutcome.None));
+            Assert.That(_scene.Children.Count, Is.EqualTo(beforeChildren));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
 }

@@ -301,16 +301,17 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
             return element.Range;
         }
 
-        // Only video-mute / solo change graphics output; lock (editor-only) and
-        // audio-mute leave the frame cache valid.
+        // Video-mute, solo, and audio-mute can all change graphics output (audio-mute
+        // via audio-driven visualizers); only lock is editor-only and cache-neutral.
         if (obj is TimelineLayer layer)
         {
             string propertyName = GetPropertyNameFromPath(propertyPath);
-            bool affectsGraphics = propertyName == nameof(TimelineLayer.IsVideoMuted)
-                || propertyName == nameof(TimelineLayer.IsSolo);
+            bool affectsGraphics = propertyName is nameof(TimelineLayer.IsVideoMuted)
+                or nameof(TimelineLayer.IsSolo)
+                or nameof(TimelineLayer.IsAudioMuted);
             if (!affectsGraphics) return null;
 
-            // Solo re-filters every layer; video-mute only affects its own zIndex.
+            // Solo re-filters every layer; video/audio-mute only affect their own zIndex.
             bool soloChanged = propertyName == nameof(TimelineLayer.IsSolo);
             TimeRange? union = null;
             foreach (Element el in Scene.Children)

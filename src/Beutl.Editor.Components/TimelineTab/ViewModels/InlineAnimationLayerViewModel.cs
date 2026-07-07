@@ -24,6 +24,7 @@ public sealed class InlineAnimationLayerViewModel<T>(
 {
     public override void DropEasing(Easing easing, TimeSpan keyTime)
     {
+        if (!IsEditable) return;
         if (Property.Animation is KeyFrameAnimation<T> kfAnimation)
         {
             TimeSpan originalKeyTime = keyTime;
@@ -50,6 +51,7 @@ public sealed class InlineAnimationLayerViewModel<T>(
 
     public override void InsertKeyFrame(Easing easing, TimeSpan keyTime)
     {
+        if (!IsEditable) return;
         if (Property.Animation is not KeyFrameAnimation<T> animation) return;
         HistoryManager history = Timeline.EditorContext.GetRequiredService<HistoryManager>();
 
@@ -184,6 +186,9 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
 
     public ElementViewModel Element { get; }
 
+    // Inline keyframe edits are refused while the clip or its layer is locked.
+    public bool IsEditable => Element.IsEditable.Value;
+
     [Obsolete("Use Element property instead.")]
     public ElementViewModel Layer => Element;
 
@@ -227,6 +232,7 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
 
     private void PasteAnimation(string json)
     {
+        if (!IsEditable) return;
         _logger.LogInformation("Pasting JSON");
         KeyFrameAnimation animation = (KeyFrameAnimation)Property.Animation!;
         IKeyFrameClipboardService service = Timeline.EditorContext.GetRequiredService<IKeyFrameClipboardService>();
@@ -262,6 +268,7 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
 
     private void PasteKeyFrame(string json, TimeSpan pointerPosition)
     {
+        if (!IsEditable) return;
         _logger.LogInformation("Pasting JSON");
         KeyFrameAnimation animation = (KeyFrameAnimation)Property.Animation!;
         TimeSpan keyTime = ConvertKeyTime(pointerPosition, animation);
@@ -299,6 +306,7 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
 
     public void DeleteAnimation()
     {
+        if (!IsEditable) return;
         HistoryManager history = Timeline.EditorContext.GetRequiredService<HistoryManager>();
 
         Property.Animation = null;

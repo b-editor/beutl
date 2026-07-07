@@ -26,6 +26,10 @@ public sealed class ElementMoveService : IElementMoveService
         if (elements.Count == 0) return ElementMoveOutcome.None;
         if (deltaStart == TimeSpan.Zero && deltaZIndex == 0) return ElementMoveOutcome.None;
 
+        // Refuse dropping content onto a locked destination layer. None makes the
+        // caller snap the drag visuals back to the model.
+        if (AnyDestinationLayerLocked(scene, elements, deltaZIndex)) return ElementMoveOutcome.None;
+
         scene.MoveChildren(deltaZIndex, deltaStart, elements.ToArray());
         _historyManager.Commit(CommandNames.MoveElement);
         return ElementMoveOutcome.Moved;
@@ -55,6 +59,12 @@ public sealed class ElementMoveService : IElementMoveService
         if (anchorStart < TimeSpan.Zero) anchorStart = TimeSpan.Zero;
         int anchorZIndex = Math.Max(minSourceZIndex + deltaZIndex, 0);
 
+        // Refuse landing the duplicate (or its move fallback) on a locked layer.
+        if (AnyDestinationLayerLocked(scene, source, anchorZIndex - minSourceZIndex))
+        {
+            return ElementMoveOutcome.None;
+        }
+
         if (_duplicateService.WouldOverlap(source, anchorStart, anchorZIndex))
         {
             return ElementMoveOutcome.DuplicateOverlapsSource;
@@ -73,5 +83,15 @@ public sealed class ElementMoveService : IElementMoveService
         scene.MoveChildren(deltaZIndex, deltaStart, source);
         _historyManager.Commit(CommandNames.MoveElement);
         return ElementMoveOutcome.FellBackToMove;
+    }
+
+    private static bool AnyDestinationLayerLocked(Scene scene, IReadOnlyList<Element> elements, int deltaZIndex)
+    {
+        foreach (Element e in elements)
+        {
+            if (scene.IsLayerLocked(Math.Max(e.ZIndex + deltaZIndex, 0))) return true;
+        }
+
+        return false;
     }
 }

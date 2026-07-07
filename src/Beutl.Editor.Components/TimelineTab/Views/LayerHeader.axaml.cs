@@ -128,6 +128,14 @@ public sealed partial class LayerHeader : UserControl
             newLayerNum,
             directElements.Select(x => x.Model).ToArray());
 
+        // A lock-blocked move returns IsNoop without writing the model; snap the
+        // dragged header back rather than syncing the UI to an unmoved drop row.
+        if (plan.IsNoop)
+        {
+            vm.PosY.Value = 0;
+            return;
+        }
+
         // Service already wrote Element.ZIndex and committed history; now sync VM-side
         // state (Number.Value, header order) and animate the affected element views.
         int headerShift = oldLayerNum < newLayerNum ? -1 : 1;

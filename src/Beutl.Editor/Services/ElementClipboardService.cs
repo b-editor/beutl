@@ -80,6 +80,8 @@ public sealed class ElementClipboardService : IElementClipboardService
 
         RippleHelper.RemoveAndShiftAfter(scene, editable, ripple, scene.RemoveChild);
 
+        scene.RemoveElementsFromGroups(editable.Select(e => e.Id).ToArray());
+
         _historyManager.Commit(CommandNames.CutElement);
         return true;
     }

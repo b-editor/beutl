@@ -94,6 +94,25 @@ public class ElementClipboardServiceTests
     }
 
     [Test]
+    public async Task CutAsync_PrunesCutIdsFromGroups()
+    {
+        Element e1 = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element e2 = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
+        Element e3 = AddElement(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(2));
+        _scene.Groups.Add([e1.Id, e2.Id, e3.Id]);
+
+        bool result = await _service.CutAsync(_scene, [e1]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.True);
+            Assert.That(_scene.Groups, Has.Count.EqualTo(1));
+            Assert.That(_scene.Groups[0], Does.Not.Contain(e1.Id));
+            Assert.That(_scene.Groups[0], Is.EquivalentTo(new[] { e2.Id, e3.Id }));
+        });
+    }
+
+    [Test]
     public async Task CutAsync_LockedElement_IsPreserved()
     {
         Element locked = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));

@@ -188,6 +188,33 @@ public class Scene : ProjectItem, INotifyEdited
         return element.IsLocked || IsLayerLocked(element.ZIndex);
     }
 
+    // Prunes ids from every group and disbands any group left with fewer than two
+    // members. Returns true if any group changed.
+    public bool RemoveElementsFromGroups(IReadOnlyCollection<Guid> ids)
+    {
+        ArgumentNullException.ThrowIfNull(ids);
+        bool removed = false;
+        for (int i = Groups.Count - 1; i >= 0; i--)
+        {
+            ImmutableHashSet<Guid> group = Groups[i];
+            if (!group.Overlaps(ids)) continue;
+
+            ImmutableHashSet<Guid> updated = group.Except(ids);
+            if (updated.Count >= 2)
+            {
+                Groups[i] = updated;
+            }
+            else
+            {
+                Groups.RemoveAt(i);
+            }
+
+            removed = true;
+        }
+
+        return removed;
+    }
+
     // element.FileNameが既に設定されている状態
     public void AddChild(Element element,
         ElementOverlapHandling overlapHandling = ElementOverlapHandling.Auto)

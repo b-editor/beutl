@@ -85,6 +85,7 @@ public sealed class InlineKeyFrameViewModel : IDisposable
 
     private async Task PasteAsync()
     {
+        if (!Parent.IsEditable) return;
         IClipboard? clipboard = ClipboardHelper.GetClipboard();
         if (clipboard == null) return;
 
@@ -140,6 +141,7 @@ public sealed class InlineKeyFrameViewModel : IDisposable
 
     private void Remove()
     {
+        if (!Parent.IsEditable) return;
         HistoryManager history = Timeline.EditorContext.GetRequiredService<HistoryManager>();
         AnimationOperations.RemoveKeyFrame(
             animation: Animation,
@@ -150,6 +152,7 @@ public sealed class InlineKeyFrameViewModel : IDisposable
 
     public void UpdateKeyTime()
     {
+        if (!Parent.IsEditable) return;
         float scale = Timeline.Options.Value.Scale;
         Project? proj = Timeline.Scene.FindHierarchicalParent<Project>();
         int rate = proj?.GetFrameRate() ?? 30;
