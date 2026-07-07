@@ -490,7 +490,6 @@ public class SceneCompositorTests
             Assert.Multiple(() =>
             {
                 Assert.That(capture.CapturedContexts, Has.Count.EqualTo(1));
-                Assert.That(capture.CapturedContexts[0].ForceOriginalSource, Is.True);
                 Assert.That(capture.CapturedContexts[0].PreferProxy, Is.False);
             });
         }
@@ -520,7 +519,6 @@ public class SceneCompositorTests
             Assert.Multiple(() =>
             {
                 Assert.That(capture.CapturedContexts, Has.Count.EqualTo(1));
-                Assert.That(capture.CapturedContexts[0].ForceOriginalSource, Is.False);
                 Assert.That(capture.CapturedContexts[0].PreferProxy, Is.EqualTo(expectedPreferProxy));
             });
         }
@@ -554,7 +552,6 @@ public class SceneCompositorTests
             {
                 Assert.That(capture.CapturedContexts, Has.Count.EqualTo(1));
                 Assert.That(capture.CapturedContexts[0].PreferProxy, Is.False);
-                Assert.That(capture.CapturedContexts[0].ForceOriginalSource, Is.True);
             });
         }
         finally
@@ -592,12 +589,10 @@ internal sealed partial class SceneCompositorContextCaptureDrawable : Drawable
         partial void PostUpdate(SceneCompositorContextCaptureDrawable obj, CompositionContext context)
         {
             obj.CapturedContexts.Add(new CapturedCompositionContext(
-                context.ForceOriginalSource,
                 context.PreferProxy));
         }
     }
 }
 
 internal readonly record struct CapturedCompositionContext(
-    bool ForceOriginalSource,
     bool PreferProxy);

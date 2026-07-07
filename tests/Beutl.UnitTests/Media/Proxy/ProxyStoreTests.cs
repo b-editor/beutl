@@ -134,6 +134,59 @@ public sealed class ProxyStoreTests
     }
 
     [Test]
+    public void ReconcileAsync_WhenCancelled_ThrowsOperationCanceled()
+    {
+        string root = CreateRoot();
+        var store = new ProxyStore(root);
+        store.Register(CreateEntry(root, "quarter.mp4"));
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        Assert.That(async () => await store.ReconcileAsync(cts.Token),
+            Throws.InstanceOf<OperationCanceledException>());
+    }
+
+    [Test]
+    public void TryTransition_ToNonReadyState_PreservesGeneratedAtUtc()
+    {
+        string root = CreateRoot();
+        var store = new ProxyStore(root);
+        DateTime generatedAt = DateTime.UtcNow.AddHours(-3);
+        ProxyEntry entry = CreateEntry(root, "quarter.mp4") with { GeneratedAtUtc = generatedAt };
+        store.Register(entry);
+
+        bool ok = store.TryTransition(entry.Source, entry.Preset, ProxyState.Stale);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ok, Is.True);
+            Assert.That(store.TryGet(entry.Source, entry.Preset)?.GeneratedAtUtc, Is.EqualTo(generatedAt));
+        });
+    }
+
+    [Test]
+    public void TryTransition_IntoReadyState_RefreshesGeneratedAtUtc()
+    {
+        string root = CreateRoot();
+        var store = new ProxyStore(root);
+        DateTime generatedAt = DateTime.UtcNow.AddHours(-3);
+        ProxyEntry generating = CreateEntry(root, "quarter.mp4") with
+        {
+            State = ProxyState.Generating,
+            GeneratedAtUtc = generatedAt,
+        };
+        store.Register(generating);
+
+        bool ok = store.TryTransition(generating.Source, generating.Preset, ProxyState.Ready);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ok, Is.True);
+            Assert.That(store.TryGet(generating.Source, generating.Preset)?.GeneratedAtUtc, Is.GreaterThan(generatedAt));
+        });
+    }
+
+    [Test]
     public async Task ReconcileAsync_AdoptsSidecarWhenIndexIsCorrupt()
     {
         string root = CreateRoot();

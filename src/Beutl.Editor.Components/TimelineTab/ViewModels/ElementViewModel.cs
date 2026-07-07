@@ -241,7 +241,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             return;
         }
 
-        if (!ElementUsesChangedSource(Model, e.Job.Source.AbsolutePath))
+        if (!ElementUsesChangedSourceCached(e.Job.Source.AbsolutePath))
             return;
 
         RefreshProxyState(invalidateFingerprintCache: true);
@@ -1032,10 +1032,10 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             return;
         }
 
-        // ElementUsesChangedSource reads Model (UI-thread state), so the relevance gate runs here
+        // ElementUsesChangedSourceCached reads Model (UI-thread state), so the relevance gate runs here
         // inside the marshaled callback — a store event for an unrelated source skips the per-clip
         // store.Enumerate() + queue.Pending() walk in RefreshProxyState.
-        if (!ElementUsesChangedSource(Model, e.Source.AbsolutePath))
+        if (!ElementUsesChangedSourceCached(e.Source.AbsolutePath))
             return;
 
         RefreshProxyState();
@@ -1058,7 +1058,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             return;
         }
 
-        if (!ElementUsesChangedSource(Model, e.Source.AbsolutePath))
+        if (!ElementUsesChangedSourceCached(e.Source.AbsolutePath))
         {
             return;
         }
@@ -1083,6 +1083,20 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             {
                 return true;
             }
+        }
+
+        return false;
+    }
+
+    // Per-event relevance gate: matches against this element's cached fingerprints so a burst of
+    // store/job events never re-stats the source files (ResolveLinkTarget) on the UI thread. The
+    // cache re-stats only when the source URI set changes or a source edit fires ThumbnailsInvalidated.
+    private bool ElementUsesChangedSourceCached(string changedSourceKey)
+    {
+        foreach (ProxyFingerprint fingerprint in ResolveProxyFingerprints(invalidateCache: false))
+        {
+            if (string.Equals(fingerprint.AbsolutePath, changedSourceKey, StringComparison.Ordinal))
+                return true;
         }
 
         return false;

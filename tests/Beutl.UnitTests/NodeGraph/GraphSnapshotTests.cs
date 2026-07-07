@@ -18,14 +18,12 @@ public sealed class GraphSnapshotTests
         var firstContext = new CompositionContext(TimeSpan.Zero)
         {
             DisableResourceShare = false,
-            ForceOriginalSource = false,
             PreferProxy = true,
             PreferredProxyPreset = ProxyPreset.Half,
         };
         var secondContext = new CompositionContext(TimeSpan.FromSeconds(1))
         {
             DisableResourceShare = true,
-            ForceOriginalSource = true,
             PreferProxy = false,
             PreferredProxyPreset = ProxyPreset.Eighth,
         };
@@ -40,7 +38,6 @@ public sealed class GraphSnapshotTests
             Assert.That(node.CapturedContexts[0].PreferProxy, Is.True);
             Assert.That(node.CapturedContexts[0].PreferredProxyPreset, Is.EqualTo(ProxyPreset.Half));
             Assert.That(node.CapturedContexts[1].DisableResourceShare, Is.True);
-            Assert.That(node.CapturedContexts[1].ForceOriginalSource, Is.True);
             Assert.That(node.CapturedContexts[1].PreferProxy, Is.False);
             Assert.That(node.CapturedContexts[1].PreferredProxyPreset, Is.EqualTo(ProxyPreset.Eighth));
         });
@@ -58,7 +55,6 @@ internal sealed partial class ContextCaptureNode : GraphNode
             var node = (ContextCaptureNode)GetOriginal();
             node.CapturedContexts.Add(new CapturedGraphContext(
                 context.DisableResourceShare,
-                context.ForceOriginalSource,
                 context.PreferProxy,
                 context.PreferredProxyPreset));
         }
@@ -67,6 +63,5 @@ internal sealed partial class ContextCaptureNode : GraphNode
 
 internal readonly record struct CapturedGraphContext(
     bool DisableResourceShare,
-    bool ForceOriginalSource,
     bool PreferProxy,
     ProxyPreset PreferredProxyPreset);

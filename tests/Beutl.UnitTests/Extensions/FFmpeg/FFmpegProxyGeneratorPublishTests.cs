@@ -255,6 +255,50 @@ public sealed class FFmpegProxyGeneratorPublishTests
         });
     }
 
+    [Test]
+    public void PublishAsync_WhenRollbackMetadataRestoreFails_PreservesPrimaryExceptionAndRestoresFinal()
+    {
+        string root = CreateRoot();
+        // Register always throws, so FinalizeAsync fails after the move and rollback runs.
+        var store = new CountingStore(root, failuresBeforeSuccess: 100);
+        var generator = new FFmpegProxyGenerator(store);
+        string source = Path.Combine(root, "src.mov");
+        File.WriteAllBytes(source, [1, 2, 3, 4]);
+        ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(source);
+        string tempPath = Path.Combine(root, "tmp.mov");
+        string finalPath = Path.Combine(root, "hash", "quarter.mp4");
+        Directory.CreateDirectory(Path.GetDirectoryName(finalPath)!);
+        byte[] previousProxy = [7, 7, 7];
+        File.WriteAllBytes(finalPath, previousProxy);
+        File.WriteAllBytes(tempPath, [9, 9, 9, 9, 9]);
+        var job = new ProxyJob(fingerprint, ProxyPreset.Quarter);
+
+        Exception? thrown = Assert.CatchAsync(async () =>
+            await generator.PublishAsync(
+                tempPath,
+                finalPath,
+                job,
+                "hash/quarter.mp4",
+                new PixelSize(64, 48),
+                new PixelSize(32, 24),
+                CancellationToken.None,
+                moveAttempt: (s, d) =>
+                {
+                    File.Move(s, d, overwrite: true);
+                    return true;
+                },
+                // A metadata backup path that does not exist makes RestoreMetadata's File.Copy fail
+                // during rollback; that fault must not mask the primary Register failure.
+                metadataBackupAttempt: _ => Path.Combine(root, "missing.bak")));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(thrown, Is.InstanceOf<InvalidOperationException>(), "the primary Register failure must survive a rollback-restore fault");
+            Assert.That(File.Exists(finalPath), Is.True, "the previous proxy must be restored from backup");
+            Assert.That(File.ReadAllBytes(finalPath), Is.EqualTo(previousProxy));
+        });
+    }
+
     private static string CreateRoot()
     {
         string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));

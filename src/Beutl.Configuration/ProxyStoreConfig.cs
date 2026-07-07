@@ -8,6 +8,12 @@ public sealed class ProxyStoreConfig : ConfigurationBase
     public const long MinTotalBytes = 5L * 1024 * 1024 * 1024;
     public const long DefaultTotalBytes = 50L * 1024 * 1024 * 1024;
     public const long MaxTotalBytesLimit = 500L * 1024 * 1024 * 1024;
+
+    // Bounds of the closed Beutl.Media.Proxy.ProxyPreset int set (Half=1, Quarter=2, Eighth=3),
+    // mirrored here without a Configuration -> Engine cycle. Default is Quarter.
+    public const int MinPreset = 1;
+    public const int MaxPreset = 3;
+    public const int DefaultPresetValue = 2;
     public static string DefaultStoreRootPath => Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "proxies");
 
     public static readonly CoreProperty<string> StoreRootPathProperty;
@@ -24,9 +30,8 @@ public sealed class ProxyStoreConfig : ConfigurationBase
             .DefaultValue(DefaultTotalBytes)
             .Register();
 
-        // Matches Beutl.Media.Proxy.ProxyPreset.Quarter without introducing a Configuration -> Engine cycle.
         DefaultPresetProperty = ConfigureProperty<int, ProxyStoreConfig>(nameof(DefaultPreset))
-            .DefaultValue(2)
+            .DefaultValue(DefaultPresetValue)
             .Register();
     }
 
@@ -43,10 +48,11 @@ public sealed class ProxyStoreConfig : ConfigurationBase
         set => SetValue(MaxTotalBytesProperty, Math.Clamp(value, MinTotalBytes, MaxTotalBytesLimit));
     }
 
+    [Range(MinPreset, MaxPreset)]
     public int DefaultPreset
     {
-        get => GetValue(DefaultPresetProperty);
-        set => SetValue(DefaultPresetProperty, value);
+        get => Math.Clamp(GetValue(DefaultPresetProperty), MinPreset, MaxPreset);
+        set => SetValue(DefaultPresetProperty, Math.Clamp(value, MinPreset, MaxPreset));
     }
 
     private static string NormalizeStoreRootPath(string? value)

@@ -9,7 +9,10 @@ namespace Beutl.Media.Proxy;
 
 public sealed class ProxyStore : IProxyStore
 {
-    private const int DefaultLockAcquireMaxAttempts = 200;
+    // Bounds the cross-process index.lock spin (10 ms/attempt) while _lock is held, so a peer
+    // instance holding the lock stalls hot-path readers (TryGet/Touch/Enumerate) for at most
+    // ~0.5 s before DegradePersistence engages and replays on the next uncontended flush.
+    private const int DefaultLockAcquireMaxAttempts = 50;
 
     private static readonly TimeSpan s_generatedTempCleanupMinAge = TimeSpan.FromHours(1);
 
@@ -119,7 +122,7 @@ public sealed class ProxyStore : IProxyStore
             updated = entry with
             {
                 State = newState,
-                GeneratedAtUtc = DateTime.UtcNow,
+                GeneratedAtUtc = newState == ProxyState.Ready ? DateTime.UtcNow : entry.GeneratedAtUtc,
                 LastUsedUtc = DateTime.UtcNow,
                 FailureReason = newState == ProxyState.Failed ? failureReason : null,
             };
@@ -226,72 +229,94 @@ public sealed class ProxyStore : IProxyStore
                 TryDelete(tmp);
             }
 
-            List<ProxyEntry> missing = [];
-            List<ProxyEntry> changed = [];
             HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> changedKeys = [];
-            HashSet<string> trackedProxyPaths = [];
+            List<ProxyEntry> snapshot;
             lock (_lock)
             {
                 changedKeys.UnionWith(AdoptSidecarsCore(cancellationToken));
+                snapshot = [.. _entries.Values];
+            }
 
-                foreach (ProxyEntry entry in _entries.Values)
+            // Stat each tracked entry outside _lock: File.Exists / FileInfo.Length / FromFile
+            // (symlink resolve) over the whole store would otherwise block the preview hot path
+            // (TryGet/Touch/Enumerate) behind startup reconciliation. The mutations below re-acquire
+            // _lock and re-validate each key against the current entry before acting.
+            List<ProxyEntry> missing = [];
+            List<ProxyEntry> changed = [];
+            foreach (ProxyEntry entry in snapshot)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                string path;
+                try
                 {
-                    string path;
-                    try
-                    {
-                        path = GetAbsolutePath(entry);
-                    }
-                    catch
-                    {
-                        missing.Add(entry);
-                        continue;
-                    }
-
-                    if (entry.State == ProxyState.Failed)
-                        continue;
-
-                    if (!File.Exists(path))
-                    {
-                        missing.Add(entry);
-                        continue;
-                    }
-
-                    if (entry.State is ProxyState.Ready or ProxyState.Stale
-                        && !HasValidReadyFile(entry, path))
-                    {
-                        missing.Add(entry);
-                        continue;
-                    }
-
-                    if (entry.State == ProxyState.Ready
-                        && File.Exists(entry.Source.SourcePath)
-                        && ProxyFingerprint.FromFile(entry.Source.SourcePath) != entry.Source)
-                    {
-                        changed.Add(entry);
-                    }
+                    path = GetAbsolutePath(entry);
+                }
+                catch
+                {
+                    missing.Add(entry);
+                    continue;
                 }
 
+                if (entry.State == ProxyState.Failed)
+                    continue;
+
+                if (!File.Exists(path))
+                {
+                    missing.Add(entry);
+                    continue;
+                }
+
+                if (entry.State is ProxyState.Ready or ProxyState.Stale
+                    && !HasValidReadyFile(entry, path))
+                {
+                    missing.Add(entry);
+                    continue;
+                }
+
+                if (entry.State == ProxyState.Ready
+                    && File.Exists(entry.Source.SourcePath)
+                    && ProxyFingerprint.FromFile(entry.Source.SourcePath) != entry.Source)
+                {
+                    changed.Add(entry);
+                }
+            }
+
+            List<ProxyEntry> removedEntries = [];
+            List<ProxyEntry> changedEntries = [];
+            HashSet<string> trackedProxyPaths;
+            lock (_lock)
+            {
+                HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> removedKeys = [];
                 foreach (ProxyEntry entry in missing)
                 {
-                    _entries.Remove((entry.Source, entry.Preset));
+                    var key = (entry.Source, entry.Preset);
+                    // Act only on entries unchanged since the unlocked scan; a concurrent
+                    // Register/TryTransition/Touch supersedes our now-stale decision.
+                    if (_entries.TryGetValue(key, out ProxyEntry? current) && current == entry)
+                    {
+                        _entries.Remove(key);
+                        removedKeys.Add(key);
+                        removedEntries.Add(entry);
+                    }
                 }
 
                 foreach (ProxyEntry entry in changed)
                 {
-                    _entries[(entry.Source, entry.Preset)] = entry with
+                    var key = (entry.Source, entry.Preset);
+                    if (_entries.TryGetValue(key, out ProxyEntry? current) && current == entry)
                     {
-                        State = ProxyState.Stale,
-                        LastUsedUtc = DateTime.UtcNow,
-                    };
-                    changedKeys.Add((entry.Source, entry.Preset));
+                        _entries[key] = entry with
+                        {
+                            State = ProxyState.Stale,
+                            LastUsedUtc = DateTime.UtcNow,
+                        };
+                        changedKeys.Add(key);
+                        changedEntries.Add(entry);
+                    }
                 }
 
-                if (missing.Count > 0 || changedKeys.Count > 0)
+                if (removedKeys.Count > 0 || changedKeys.Count > 0)
                 {
-                    HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> removedKeys =
-                    [
-                        .. missing.Select(static entry => (entry.Source, entry.Preset))
-                    ];
                     FlushCore(changedKeys, removedKeys);
                 }
 
@@ -304,15 +329,19 @@ public sealed class ProxyStore : IProxyStore
             // age threshold, so the snapshot going slightly stale cannot reclaim a live file.
             ReclaimOrphanProxyFiles(trackedProxyPaths, cancellationToken);
 
-            foreach (ProxyEntry entry in missing)
+            foreach (ProxyEntry entry in removedEntries)
             {
                 OnChanged(entry.Source, entry.Preset, ProxyStoreChangeKind.Deleted);
             }
 
-            foreach (ProxyEntry entry in changed)
+            foreach (ProxyEntry entry in changedEntries)
             {
                 OnChanged(entry.Source, entry.Preset, ProxyStoreChangeKind.StateChanged);
             }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch
         {

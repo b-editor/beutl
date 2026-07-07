@@ -56,6 +56,26 @@ public class ProxyEvictionTests
     }
 
     [Test]
+    public void Sweep_ReChecksPinTakenAfterCandidateCollection()
+    {
+        string root = CreateRoot();
+        var store = new ProxyStore(root);
+        ProxyEntry candidate = Register(store, root, "candidate.mp4", DateTime.UtcNow.AddMinutes(-10), 7);
+        // Simulates a decode-lifetime pin taken between candidate collection and the delete loop:
+        // false on the first (collection) probe, true on the second (delete) probe for the same path.
+        var resolver = new PinOnSecondProbeResolver();
+        var service = new ProxyEvictionService(store, resolver, maxTotalBytes: 7);
+
+        ProxyEvictionResult result = service.Sweep();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.RemovedCount, Is.EqualTo(0));
+            Assert.That(store.TryGet(candidate.Source, candidate.Preset), Is.Not.Null);
+        });
+    }
+
+    [Test]
     public void Sweep_ProtectsOpenProjectEntries_EvictingUnrelatedFirst()
     {
         string root = CreateRoot();
@@ -339,6 +359,19 @@ public class ProxyEvictionTests
             null);
         store.Register(entry);
         return entry;
+    }
+
+    private sealed class PinOnSecondProbeResolver : IProxyResolver
+    {
+        private readonly HashSet<string> _probed = new(StringComparer.Ordinal);
+
+        public bool IsPinned(string absoluteProxyFilePath) => !_probed.Add(absoluteProxyFilePath);
+
+        public ProxyResolution? Resolve(Uri sourceUri, ProxyPreset preferredPreset) => null;
+
+        public long GetSourceVersion(ProxyFingerprint source) => 0;
+
+        public IDisposable Pin(ProxyResolution resolution) => throw new NotSupportedException();
     }
 
     private sealed class TestHierarchical : Hierarchical

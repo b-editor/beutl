@@ -87,7 +87,6 @@ public class NodeGraphFilterEffectRenderNodeTests
         var context = new CompositionContext(TimeSpan.Zero)
         {
             PreferProxy = true,
-            ForceOriginalSource = true,
             PreferredProxyPreset = ProxyPreset.Eighth,
             DisableResourceShare = true,
         };
@@ -100,7 +99,6 @@ public class NodeGraphFilterEffectRenderNodeTests
         Assert.Multiple(() =>
         {
             Assert.That(resource.PreferProxy, Is.True);
-            Assert.That(resource.ForceOriginalSource, Is.True);
             Assert.That(resource.PreferredProxyPreset, Is.EqualTo(ProxyPreset.Eighth));
             Assert.That(resource.DisableResourceShare, Is.True);
         });

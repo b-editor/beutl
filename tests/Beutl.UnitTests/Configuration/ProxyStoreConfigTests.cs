@@ -56,6 +56,22 @@ public class ProxyStoreConfigTests
         Assert.That(config.StoreRootPath, Is.EqualTo(ProxyStoreConfig.DefaultStoreRootPath));
     }
 
+    [Test]
+    public void DefaultPreset_ClampsToKnownPresetRange()
+    {
+        var config = new ProxyStoreConfig
+        {
+            DefaultPreset = 0,
+        };
+        Assert.That(config.DefaultPreset, Is.EqualTo(ProxyStoreConfig.MinPreset));
+
+        config.DefaultPreset = 99;
+        Assert.That(config.DefaultPreset, Is.EqualTo(ProxyStoreConfig.MaxPreset));
+
+        config.DefaultPreset = (int)ProxyPreset.Half;
+        Assert.That(config.DefaultPreset, Is.EqualTo((int)ProxyPreset.Half));
+    }
+
     // ProxyStoreConfig.DefaultPreset is an int (Configuration cannot reference Engine, so it can't take a
     // dependency on ProxyPreset directly). This guards the magic-number coupling: if the enum value of
     // ProxyPreset.Quarter ever changes, this test fails and forces the int default to be updated in lockstep.

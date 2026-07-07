@@ -141,11 +141,69 @@ public class DecoderRegistryProxyRoutingTests
         Assert.That(reader, Is.Null);
     }
 
+    [Test]
+    public void OpenMediaFile_WhenResolverThrows_FallsBackToOriginal()
+    {
+        string original = CreateTestVideoFileWithBytes(100, 100);
+        DecoderRegistry.ProxyResolver = new ThrowingProxyResolver(throwOnPin: false);
+
+        using MediaReader? reader = DecoderRegistry.OpenMediaFile(
+            original,
+            new MediaOptions(MediaMode.Video) { PreferProxy = true });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(reader, Is.Not.Null);
+            Assert.That(reader!.VideoInfo.FrameSize, Is.EqualTo(new PixelSize(100, 100)));
+            Assert.That(reader.ProxyResolution, Is.Null);
+        });
+    }
+
+    [Test]
+    public void OpenMediaFile_WhenPinThrows_FallsBackToOriginal()
+    {
+        string original = CreateTestVideoFileWithBytes(100, 100);
+        DecoderRegistry.ProxyResolver = new ThrowingProxyResolver(throwOnPin: true);
+
+        using MediaReader? reader = DecoderRegistry.OpenMediaFile(
+            original,
+            new MediaOptions(MediaMode.Video) { PreferProxy = true });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(reader, Is.Not.Null);
+            Assert.That(reader!.VideoInfo.FrameSize, Is.EqualTo(new PixelSize(100, 100)));
+            Assert.That(reader.ProxyResolution, Is.Null);
+        });
+    }
+
     private static string CreateTestVideoFileWithBytes(int width, int height)
     {
         string path = TestMediaHelper.CreateTestVideoFile(width, height, new Rational(30, 1), 30);
         File.WriteAllBytes(path, [1, 2, 3, 4]);
         return path;
+    }
+
+    private sealed class ThrowingProxyResolver(bool throwOnPin) : IProxyResolver
+    {
+        public ProxyResolution? Resolve(Uri sourceUri, ProxyPreset preferredPreset)
+        {
+            if (!throwOnPin)
+                throw new InvalidOperationException("resolve failure");
+
+            return new ProxyResolution(
+                sourceUri.LocalPath,
+                ProxyFingerprint.FromFile(sourceUri.LocalPath),
+                preferredPreset,
+                new PixelSize(100, 100),
+                new PixelSize(50, 50));
+        }
+
+        public long GetSourceVersion(ProxyFingerprint source) => 0;
+
+        public IDisposable Pin(ProxyResolution resolution) => throw new InvalidOperationException("pin failure");
+
+        public bool IsPinned(string absoluteProxyFilePath) => false;
     }
 
     private sealed class ProxyRouteScope : IDisposable

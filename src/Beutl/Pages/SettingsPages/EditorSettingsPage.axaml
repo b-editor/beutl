@@ -1,10 +1,12 @@
 <UserControl x:Class="Beutl.Pages.SettingsPages.EditorSettingsPage"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="using:Beutl.Converters"
              xmlns:ctrls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
+             xmlns:proxy="using:Beutl.Media.Proxy"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:Beutl.ViewModels.SettingsPages"
@@ -137,7 +139,13 @@
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <ComboBox MinWidth="250"
                                   ItemsSource="{CompiledBinding ProxyPresetOptions}"
-                                  SelectedItem="{CompiledBinding ProxyDefaultPreset.Value}" />
+                                  SelectedItem="{CompiledBinding ProxyDefaultPreset.Value}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="proxy:ProxyPreset">
+                                    <TextBlock Text="{CompiledBinding Path=., Converter={x:Static conv:ProxyPresetNameConverter.Instance}}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
                     </ctrls:OptionsDisplayItem.ActionButton>
                 </ctrls:OptionsDisplayItem>
 

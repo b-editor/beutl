@@ -47,16 +47,17 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
     private readonly Scene _scene;
     private readonly IProxyStore? _store;
     private readonly IProxyJobQueue? _queue;
-    private readonly IProxyEvictionPolicy? _evictionPolicy;
+    private readonly IProxyStoreCapInfo? _storeCapInfo;
     private readonly ProxyStoreConfig _config;
     private bool _isDisposed;
+    private int _refreshScheduled;
 
     public ProxiesTabViewModel(IEditorContext editorContext)
     {
         _scene = editorContext.GetService<Scene>()!;
         _store = editorContext.GetService<IProxyStore>();
         _queue = editorContext.GetService<IProxyJobQueue>();
-        _evictionPolicy = editorContext.GetService<IProxyEvictionPolicy>();
+        _storeCapInfo = editorContext.GetService<IProxyStoreCapInfo>();
         _config = GlobalConfiguration.Instance.ProxyStoreConfig;
 
         ClipSummary = new ReactiveProperty<string>()
@@ -418,6 +419,25 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
         return await dialog.ShowAsync() == ContentDialogResult.Primary;
     }
 
+    // Collapse a burst of store/job events (e.g. a "Generate all" completing N clips raises ~2N
+    // events) into one full rebuild per UI tick; the heavy Refresh walks the whole project graph and
+    // stats every source, so running it per event scales the timeline stall with clip count.
+    private void ScheduleRefresh()
+    {
+        if (_isDisposed)
+            return;
+
+        if (Interlocked.Exchange(ref _refreshScheduled, 1) == 1)
+            return;
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            Interlocked.Exchange(ref _refreshScheduled, 0);
+            if (!_isDisposed)
+                Refresh();
+        });
+    }
+
     private void Refresh()
     {
         if (_isDisposed)
@@ -593,7 +613,7 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
         long totalBytes = _store.GetTotalBytes();
         ProjectUsageText.Value = FormatBytes(projectBytes);
         StoreUsageText.Value = FormatBytes(totalBytes);
-        StoreCapText.Value = FormatBytes(_evictionPolicy?.MaxTotalBytes ?? _config.MaxTotalBytes);
+        StoreCapText.Value = FormatBytes(_storeCapInfo?.MaxTotalBytes ?? _config.MaxTotalBytes);
         StoreSummary.Value = string.Format(
             CultureInfo.CurrentCulture,
             Strings.ProxyStoreSummaryFormat,
@@ -667,7 +687,7 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
         if (e.Kind == ProxyStoreChangeKind.Touched)
             return;
 
-        Refresh();
+        ScheduleRefresh();
     }
 
     private void OnJobChanged(object? sender, ProxyJobChangedEventArgs e)
@@ -696,7 +716,7 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
             or ProxyJobChangeKind.Canceled
             or ProxyJobChangeKind.Skipped)
         {
-            Refresh();
+            ScheduleRefresh();
         }
     }
 

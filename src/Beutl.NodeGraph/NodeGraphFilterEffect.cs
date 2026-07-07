@@ -50,8 +50,6 @@ public sealed partial class NodeGraphFilterEffect : FilterEffect
         // with a fresh context and must restore them. Otherwise graph video inputs always evaluate
         // with PreferProxy=false (wrong in a "prefer proxy" preview) and DisableResourceShare=false
         // (loses reader isolation during an export/full-scale render).
-        public bool ForceOriginalSource { get; private set; }
-
         public bool PreferProxy { get; private set; }
 
         public ProxyPreset PreferredProxyPreset { get; private set; } = ProxyPreset.Quarter;
@@ -88,7 +86,6 @@ public sealed partial class NodeGraphFilterEffect : FilterEffect
                 if (Model != null)
                 {
                     LastTime = context.Time;
-                    ForceOriginalSource = context.ForceOriginalSource;
                     PreferProxy = context.PreferProxy;
                     PreferredProxyPreset = context.PreferredProxyPreset;
                     DisableResourceShare = context.DisableResourceShare;

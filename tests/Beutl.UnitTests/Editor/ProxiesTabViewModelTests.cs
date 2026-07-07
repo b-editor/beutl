@@ -74,7 +74,7 @@ public sealed class ProxiesTabViewModelTests
         string sourcePath = CreateSourceFile(root, "clip.mov", 2048);
         var store = new ProxyStore(Path.Combine(root, "proxies"));
         var context = CreateContext(root, store, sourcePath);
-        context.AddService<IProxyEvictionPolicy>(new TestProxyEvictionPolicy(12L * 1024 * 1024 * 1024));
+        context.AddService<IProxyStoreCapInfo>(new TestProxyStoreCapInfo(12L * 1024 * 1024 * 1024));
 
         using var viewModel = new ProxiesTabViewModel(context);
 
@@ -983,7 +983,7 @@ public sealed class ProxiesTabViewModelTests
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 
-    private sealed class TestProxyEvictionPolicy(long maxTotalBytes) : IProxyEvictionPolicy
+    private sealed class TestProxyStoreCapInfo(long maxTotalBytes) : IProxyStoreCapInfo
     {
         public long MaxTotalBytes { get; } = maxTotalBytes;
     }

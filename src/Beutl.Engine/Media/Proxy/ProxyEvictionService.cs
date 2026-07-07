@@ -1,6 +1,6 @@
 ﻿namespace Beutl.Media.Proxy;
 
-public sealed class ProxyEvictionService : IProxyEvictionPolicy
+public sealed class ProxyEvictionService : IProxyStoreCapInfo
 {
     private static readonly IReadOnlySet<string> s_noProtectedSources = new HashSet<string>();
 
@@ -170,6 +170,13 @@ public sealed class ProxyEvictionService : IProxyEvictionPolicy
         {
             if (reclaimed >= bytesToFree)
                 break;
+
+            // Re-check the pin immediately before deleting: a ProxyMediaReader may have pinned this
+            // proxy after candidate collection, and the collection-time snapshot would miss it.
+            if (_resolver != null
+                && ProxyPathUtilities.TryResolveRelativePath(_store.StoreRootPath, candidate.Entry.ProxyFileRelative, out string pinnedPath)
+                && _resolver.IsPinned(pinnedPath))
+                continue;
 
             if (_store.Delete(candidate.Entry.Source, candidate.Entry.Preset))
             {

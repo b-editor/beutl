@@ -88,7 +88,7 @@ public sealed partial class SceneDrawable : Drawable
         partial void PostUpdate(SceneDrawable obj, CompositionContext context)
         {
             bool changed = false;
-            bool forceOriginalSource = context.ForceOriginalSource || !context.PreferProxy;
+            bool forceOriginalSource = !context.PreferProxy;
             if (_start != obj.Start)
             {
                 _start = obj.Start;

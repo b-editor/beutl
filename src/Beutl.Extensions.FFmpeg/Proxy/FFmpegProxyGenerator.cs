@@ -135,15 +135,15 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
-            RestoreMetadata(finalPath, entry, metadataBackupPath);
             RestoreOrDeleteCanceledFinal(finalPath, replacedFinalBackupPath);
+            RestoreMetadata(finalPath, entry, metadataBackupPath);
             replacedFinalBackupPath = null;
             throw;
         }
         catch when (replacedFinalBackupPath != null)
         {
-            RestoreMetadata(finalPath, entry, metadataBackupPath);
             RestoreFinalPath(finalPath, replacedFinalBackupPath);
+            RestoreMetadata(finalPath, entry, metadataBackupPath);
             replacedFinalBackupPath = null;
             throw;
         }
@@ -358,20 +358,36 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
 
     private static void RestoreFinalPath(string finalPath, string backupPath)
     {
-        TryDelete(finalPath);
-        if (File.Exists(backupPath))
-            File.Move(backupPath, finalPath, overwrite: true);
+        // Best-effort: a rollback I/O fault must not replace the primary exception. The ProxyStore
+        // index is authoritative and ReconcileAsync recovers a stranded backup on next run.
+        try
+        {
+            TryDelete(finalPath);
+            if (File.Exists(backupPath))
+                File.Move(backupPath, finalPath, overwrite: true);
+        }
+        catch (Exception ex)
+        {
+            s_logger.LogWarning(ex, "Failed to restore previous proxy at {Path} during rollback.", finalPath);
+        }
     }
 
     private static void RestoreMetadata(string finalPath, ProxyEntry? entry, string? backupPath)
     {
-        if (backupPath != null)
+        try
         {
-            File.Copy(backupPath, GetMetadataPath(finalPath), overwrite: true);
+            if (backupPath != null)
+            {
+                File.Copy(backupPath, GetMetadataPath(finalPath), overwrite: true);
+            }
+            else if (entry != null)
+            {
+                RemoveMetadataEntry(finalPath, entry);
+            }
         }
-        else if (entry != null)
+        catch (Exception ex)
         {
-            RemoveMetadataEntry(finalPath, entry);
+            s_logger.LogWarning(ex, "Failed to restore proxy sidecar metadata at {Path} during rollback.", finalPath);
         }
     }
 

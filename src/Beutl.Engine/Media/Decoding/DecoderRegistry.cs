@@ -9,6 +9,8 @@ public static class DecoderRegistry
     private static readonly List<IDecoderInfo> s_ordered = [];
     private static readonly object s_lock = new();
 
+    // Set once at startup (ProxyMediaServices.Initialize) and cleared on shutdown; read unsynchronized
+    // on the decode path. Not intended for concurrent reassignment while renders are in flight.
     public static IProxyResolver? ProxyResolver { get; set; }
 
     static DecoderRegistry()
@@ -48,31 +50,32 @@ public static class DecoderRegistry
 
     public static MediaReader? OpenMediaFile(string file, MediaOptions options)
     {
+        // Proxy is best-effort and must never break original playback: any proxy-side fault
+        // degrades to the original-decode path below.
         if (options.PreferProxy && ProxyResolver is { } resolver)
         {
-            var sourceUri = new Uri(Path.GetFullPath(file));
-            if (resolver.Resolve(sourceUri, options.PreferredProxyPreset) is { } resolution)
+            IDisposable? pin = null;
+            try
             {
-                IDisposable? pin = resolver.Pin(resolution);
-                try
+                var sourceUri = new Uri(Path.GetFullPath(file));
+                if (resolver.Resolve(sourceUri, options.PreferredProxyPreset) is { } resolution)
                 {
+                    pin = resolver.Pin(resolution);
                     var proxyOptions = options with { PreferProxy = false };
                     foreach (IDecoderInfo decoder in GuessDecoder(resolution.AbsoluteProxyFilePath))
                     {
                         if (decoder.Open(resolution.AbsoluteProxyFilePath, proxyOptions) is { } reader)
                         {
-                            return new ProxyMediaReader(reader, pin!, resolution);
+                            return new ProxyMediaReader(reader, pin, resolution);
                         }
                     }
                 }
-                catch
-                {
-                    pin.Dispose();
-                    pin = null;
-                }
-
-                pin?.Dispose();
             }
+            catch
+            {
+            }
+
+            pin?.Dispose();
         }
 
         foreach (IDecoderInfo decoder in GuessDecoder(file))
