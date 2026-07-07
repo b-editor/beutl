@@ -95,7 +95,7 @@ public static class MergePatch
             ValidateDirectives(patchItem);
 
             bool delete = patchItem.TryGetPropertyValue("$delete", out JsonNode? deleteNode)
-                          && deleteNode?.GetValue<bool>() == true;
+                          && ReadBool(deleteNode, "$delete");
             bool hasId = TryGetId(patchItem, out Guid id);
             int currentIndex = hasId ? IndexOf(result, id) : -1;
 
@@ -254,7 +254,7 @@ public static class MergePatch
         int? targetIndex = null;
         if (directiveSource.TryGetPropertyValue("$index", out JsonNode? indexNode))
         {
-            targetIndex = Math.Clamp(indexNode!.GetValue<int>(), 0, array.Count - 1);
+            targetIndex = Math.Clamp(ReadInt(indexNode, "$index"), 0, array.Count - 1);
         }
         else if (directiveSource.TryGetPropertyValue("$after", out JsonNode? afterNode))
         {
@@ -320,9 +320,23 @@ public static class MergePatch
 
     private static Guid ReadGuid(JsonNode? node, string name)
     {
-        return node?.GetValue<string>() is { } text && Guid.TryParse(text, out Guid id)
+        return node is JsonValue value && value.TryGetValue(out string? text) && Guid.TryParse(text, out Guid id)
             ? id
             : throw new ReconcileException(new ToolError(ErrorCode.ValidationRejected, $"{name} must be a Guid string."));
+    }
+
+    private static bool ReadBool(JsonNode? node, string name)
+    {
+        return node is JsonValue value && value.TryGetValue(out bool result)
+            ? result
+            : throw new ReconcileException(new ToolError(ErrorCode.ValidationRejected, $"{name} must be a boolean."));
+    }
+
+    private static int ReadInt(JsonNode? node, string name)
+    {
+        return node is JsonValue value && value.TryGetValue(out int result)
+            ? result
+            : throw new ReconcileException(new ToolError(ErrorCode.ValidationRejected, $"{name} must be an integer."));
     }
 
     private static void RemoveDirectives(JsonObject obj)

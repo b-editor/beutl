@@ -240,4 +240,37 @@ public sealed class MergePatchTests
                 Is.EqualTo(ErrorCode.ValidationRejected));
         });
     }
+
+    [Test]
+    public void Non_boolean_delete_directive_returns_validation_error()
+    {
+        Guid id = Guid.NewGuid();
+        JsonNode target = JsonNode.Parse($$"""{"Children":[{"Id":"{{id}}","$type":"Blur"}]}""")!;
+
+        ReconcileException ex = Assert.Throws<ReconcileException>(() => MergePatchApplier.Apply(
+            target,
+            JsonNode.Parse($$"""{"Children":[{"Id":"{{id}}","$delete":"true"}]}""")!))!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ex.Error.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(ex.Error.Message, Does.Contain("$delete"));
+        });
+    }
+
+    [Test]
+    public void Non_integer_index_directive_returns_validation_error()
+    {
+        JsonNode target = JsonNode.Parse("""{"Children":[]}""")!;
+
+        ReconcileException ex = Assert.Throws<ReconcileException>(() => MergePatchApplier.Apply(
+            target,
+            JsonNode.Parse("""{"Children":[{"$type":"Blur","$index":"first"}]}""")!))!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ex.Error.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(ex.Error.Message, Does.Contain("$index"));
+        });
+    }
 }

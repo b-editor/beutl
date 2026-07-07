@@ -156,6 +156,66 @@ public sealed class DeclarativeAnimationTests
     }
 
     [Test]
+    public void Unknown_easing_type_is_rejected_instead_of_silently_falling_back_to_linear()
+    {
+        Scene scene = CreateSceneWithText(out Element element, out TextBlock text);
+        using var session = new AgentToolkitTestSession(scene);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var tools = new EditTools(manager);
+
+        JsonObject createPatch = PatchTextObject(
+            element,
+            text,
+            new JsonObject
+            {
+                ["Animations"] = new JsonObject
+                {
+                    ["Opacity"] = CreateOpacityAnimationDocument()
+                }
+            });
+
+        ToolResult<ApplyEditResponse> createApply = tools.ApplyEdit(
+            patch: createPatch,
+            schemaVersion: SchemaVersion.Current);
+        Assert.That(createApply.IsSuccess, Is.True, createApply.Error?.Message);
+
+        var createdAnimation = (KeyFrameAnimation<float>)text.Opacity.Animation!;
+        KeyFrame<float>[] createdFrames = createdAnimation.KeyFrames.Cast<KeyFrame<float>>().ToArray();
+        Easing originalEasing = createdFrames[0].Easing;
+
+        JsonObject badPatch = PatchTextObject(
+            element,
+            text,
+            new JsonObject
+            {
+                ["Animations"] = new JsonObject
+                {
+                    ["Opacity"] = new JsonObject
+                    {
+                        ["KeyFrames"] = new JsonArray(
+                            new JsonObject
+                            {
+                                [nameof(CoreObject.Id)] = createdFrames[0].Id.ToString(),
+                                [nameof(KeyFrame.Easing)] = "EaseInOutCubicTYPO"
+                            })
+                    }
+                }
+            });
+
+        ToolResult<ApplyEditResponse> badApply = tools.ApplyEdit(
+            patch: badPatch,
+            schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(badApply.IsSuccess, Is.False);
+            Assert.That(badApply.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(createdFrames[0].Easing, Is.SameAs(originalEasing));
+        });
+    }
+
+    [Test]
     public void Full_desired_round_trip_preserves_serialized_easing_type_strings()
     {
         Scene scene = CreateSceneWithText(out Element element, out TextBlock text);

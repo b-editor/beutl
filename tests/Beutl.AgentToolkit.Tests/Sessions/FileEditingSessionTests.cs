@@ -96,6 +96,46 @@ public sealed class FileEditingSessionTests
         Assert.That(maxObserved, Is.EqualTo(1));
     }
 
+    [Test]
+    public void Dispose_waits_for_an_in_flight_Invoke()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        // Not disposed via `using`: the test disposes the session itself and RecordingPipeline.Dispose is not idempotent.
+        var source = new FileSessionSource();
+        FileEditingSession session = source.CreateProject(new ProjectCreateOptions(
+            Path.Combine(root, "demo.bep"), 640, 360, 30, TimeSpan.FromSeconds(2), Name: "demo"));
+
+        using var inInvoke = new ManualResetEventSlim();
+        using var releaseInvoke = new ManualResetEventSlim();
+        bool invokeCompleted = false;
+        bool disposeSawCompletedInvoke = false;
+
+        var invokeThread = new Thread(() => session.Invoke(() =>
+        {
+            inInvoke.Set();
+            releaseInvoke.Wait();
+            Thread.Sleep(20);
+            Volatile.Write(ref invokeCompleted, true);
+        }));
+        invokeThread.Start();
+        inInvoke.Wait();
+
+        var disposeThread = new Thread(() =>
+        {
+            session.Dispose();
+            disposeSawCompletedInvoke = Volatile.Read(ref invokeCompleted);
+        });
+        disposeThread.Start();
+
+        releaseInvoke.Set();
+        invokeThread.Join();
+        disposeThread.Join();
+
+        // Dispose blocks on the dispatch lock, so it can only return after the in-flight Invoke released it.
+        Assert.That(disposeSawCompletedInvoke, Is.True);
+    }
+
     private static void InterlockedMax(ref int target, int value)
     {
         int current = Volatile.Read(ref target);

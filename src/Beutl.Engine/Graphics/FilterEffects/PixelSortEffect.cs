@@ -363,7 +363,13 @@ public sealed partial class PixelSortEffect : FilterEffect
                         throw;
                     }
 
-                    s_logger.LogDebug(ex, "PixelSort gather pass failed for target {Index}; keeping the source pixels.", i);
+                    // Delivery (MaxWorkingScale == +inf) must not ship silently unsorted frames; preview keeps the source.
+                    if (float.IsPositiveInfinity(ctx.MaxWorkingScale))
+                    {
+                        throw;
+                    }
+
+                    s_logger.LogWarning(ex, "PixelSort gather pass failed for target {Index}; keeping the source pixels.", i);
                 }
             }
             catch (Exception ex)
@@ -373,7 +379,12 @@ public sealed partial class PixelSortEffect : FilterEffect
                     throw;
                 }
 
-                s_logger.LogDebug(ex, "PixelSort pass failed for target {Index}; leaving it unsorted.", i);
+                if (float.IsPositiveInfinity(ctx.MaxWorkingScale))
+                {
+                    throw;
+                }
+
+                s_logger.LogWarning(ex, "PixelSort pass failed for target {Index}; leaving it unsorted.", i);
                 continue;
             }
         }

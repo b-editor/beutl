@@ -645,7 +645,9 @@ internal sealed class DeclarativeDocumentApplier
                 return easing;
             }
 
-            return new LinearEasing();
+            throw new ReconcileException(new ToolError(
+                ErrorCode.ValidationRejected,
+                $"Unknown easing type '{typeName}'."));
         }
 
         if (node is JsonObject obj)
@@ -660,6 +662,21 @@ internal sealed class DeclarativeDocumentApplier
         throw new ReconcileException(new ToolError(
             ErrorCode.ValidationRejected,
             "Easing must be a type string or spline object."));
+    }
+
+    internal static string? ValidateEasingNode(JsonNode? node)
+    {
+        if (node is JsonValue value && value.TryGetValue(out string? typeName))
+        {
+            return ResolveEasingType(typeName) is not null ? null : $"Unknown easing type '{typeName}'.";
+        }
+
+        if (node is JsonObject)
+        {
+            return null;
+        }
+
+        return "Easing must be a type string or spline object.";
     }
 
     private static Type? ResolveEasingType(string typeName)
@@ -742,7 +759,7 @@ internal sealed class DeclarativeDocumentApplier
         list.Insert(Math.Clamp(newIndex, 0, list.Count), item);
     }
 
-    private static CoreSerializerOptions CreateOptions(CoreObject? root)
+    internal static CoreSerializerOptions CreateOptions(CoreObject? root)
     {
         return new CoreSerializerOptions
         {

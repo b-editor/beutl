@@ -885,15 +885,20 @@ public sealed class Reconciler
         {
             if (target is KeyFrame && propertyName == nameof(KeyFrame.Easing))
             {
-                validation.Add(ValidationOutcome.Ok(valueNode?.DeepClone()));
+                string? easingError = DeclarativeDocumentApplier.ValidateEasingNode(valueNode);
+                validation.Add(easingError is null
+                    ? ValidationOutcome.Ok(valueNode?.DeepClone())
+                    : ValidationOutcome.Rejected(null, $"{propertyName}: {easingError}", null));
                 return;
             }
+
+            CoreSerializerOptions options = DeclarativeDocumentApplier.CreateOptions(target);
 
             if (PropertyRegistry.FindRegistered(target, propertyName) is { } coreProperty)
             {
                 object? value = valueNode is null
                     ? null
-                    : EnumJsonValueNormalizer.Deserialize(valueNode, coreProperty.PropertyType);
+                    : EnumJsonValueNormalizer.Deserialize(valueNode, coreProperty.PropertyType, options);
                 validation.Add(ValidationEvaluator.Evaluate(target, coreProperty, value));
                 return;
             }
@@ -903,7 +908,7 @@ public sealed class Reconciler
             {
                 object? value = valueNode is null
                     ? null
-                    : EnumJsonValueNormalizer.Deserialize(valueNode, engineProperty.ValueType);
+                    : EnumJsonValueNormalizer.Deserialize(valueNode, engineProperty.ValueType, options);
                 validation.Add(ValidationEvaluator.Evaluate(engineProperty, value));
             }
         }

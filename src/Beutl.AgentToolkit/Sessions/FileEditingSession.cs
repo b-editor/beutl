@@ -150,7 +150,11 @@ public sealed class FileEditingSession : IEditingSession, IEditingSessionDispatc
 
     public void Dispose()
     {
-        _recording.Dispose();
-        _hierarchyRoot.Project = null;
+        // Quiesce any in-flight Invoke so a concurrent session swap cannot dispose HistoryManager mid-edit.
+        lock (_dispatchLock)
+        {
+            _recording.Dispose();
+            _hierarchyRoot.Project = null;
+        }
     }
 }
