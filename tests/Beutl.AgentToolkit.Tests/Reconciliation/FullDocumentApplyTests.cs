@@ -4,6 +4,7 @@ using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Documents;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Sessions;
+using Beutl.Animation;
 using Beutl.Editor;
 using Beutl.Graphics.Shapes;
 using Beutl.ProjectSystem;
@@ -103,6 +104,32 @@ public sealed class FullDocumentApplyTests
             Assert.That(session.Scene.Children[0].Objects, Is.Empty);
             Assert.That(result.Plan.Changes.Select(change => change.Operation), Does.Contain(ChangeOperations.InsertChild));
         });
+    }
+
+    [Test]
+    public void Full_document_that_omits_keyframes_clears_the_animation()
+    {
+        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var scene = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
+        var element = new Element { Length = TimeSpan.FromSeconds(1), Uri = new Uri(Path.Combine(dir, "first.belm")) };
+        var text = new TextBlock { Text = { CurrentValue = "Title" } };
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 0 }, out _);
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 100 }, out _);
+        text.Opacity.Animation = animation;
+        element.AddObject(text);
+        scene.Children.Add(element);
+        using var session = TestEditingSession.Create(scene);
+        var reconciler = new Reconciler();
+
+        JsonObject desired = session.Documents.Read(session.Scene);
+        var animationJson = (JsonObject)desired["Elements"]![0]!["Objects"]![0]!["Animations"]!["Opacity"]!;
+        animationJson.Remove(nameof(KeyFrameAnimation.KeyFrames));
+
+        reconciler.Apply(session, desired);
+
+        Assert.That(((KeyFrameAnimation<float>)text.Opacity.Animation!).KeyFrames, Is.Empty);
     }
 
     [Test]

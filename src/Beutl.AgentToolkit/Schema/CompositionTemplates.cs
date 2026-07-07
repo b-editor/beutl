@@ -1,4 +1,5 @@
-﻿using System.Security.Cryptography;
+﻿using System.Globalization;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -101,6 +102,33 @@ public sealed record OriginalScaffold(
 public sealed class CompositionTemplateCatalog
 {
     private static readonly Lazy<CompositionTemplateSpec[]> s_templates = new(CreateTemplates);
+
+    // Template/scaffold patches lay elements out from t=0 of the visible window, but the document
+    // stores absolute-axis Start values; a trimmed scene (Scene.Start > 0) needs every emitted
+    // Start shifted into the window or the composition renders entirely off-screen.
+    public static JsonObject OffsetPatchElementStarts(JsonObject patch, TimeSpan sceneStart)
+    {
+        if (sceneStart <= TimeSpan.Zero)
+        {
+            return patch;
+        }
+
+        var offsetPatch = (JsonObject)patch.DeepClone();
+        if (offsetPatch["Elements"] is JsonArray elements)
+        {
+            foreach (JsonObject element in elements.OfType<JsonObject>())
+            {
+                TimeSpan start = element["Start"] is JsonValue value
+                                 && value.TryGetValue(out string? text)
+                                 && TimeSpan.TryParseExact(text, "c", CultureInfo.InvariantCulture, out TimeSpan parsed)
+                    ? parsed
+                    : TimeSpan.Zero;
+                element["Start"] = (start + sceneStart).ToString("c");
+            }
+        }
+
+        return offsetPatch;
+    }
 
     private static readonly (string Name, string[] Tokens)[] s_templateInferenceTokens =
     [

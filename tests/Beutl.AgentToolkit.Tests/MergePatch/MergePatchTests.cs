@@ -51,6 +51,34 @@ public sealed class MergePatchTests
     }
 
     [Test]
+    public void Nested_replace_directive_inside_a_newly_inserted_member_is_rejected()
+    {
+        Guid existingId = Guid.NewGuid();
+
+        ReconcileException ex = Assert.Throws<ReconcileException>(() => MergePatchApplier.Apply(
+            JsonNode.Parse($$"""{"Elements":[{"Id":"{{existingId}}"}]}""")!,
+            JsonNode.Parse("""
+                {
+                  "Elements": [
+                    {
+                      "Name": "new",
+                      "Objects": [
+                        { "$replace": true },
+                        { "Name": "child" }
+                      ]
+                    }
+                  ]
+                }
+                """)!))!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ex.Error.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(ex.Error.Message, Does.Contain("$replace"));
+        });
+    }
+
+    [Test]
     public void Typed_object_null_patch_deletes_property()
     {
         Guid id = Guid.NewGuid();

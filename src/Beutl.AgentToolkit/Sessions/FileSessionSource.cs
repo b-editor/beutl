@@ -12,6 +12,7 @@ public sealed class FileSessionSource : ISessionSource, IDisposable
     // replaced), and the replaced session must be disposed exactly once.
     private readonly object _swapLock = new();
     private volatile FileEditingSession? _currentSession;
+    private bool _disposed;
 
     public EditingSessionSource Source => EditingSessionSource.File;
 
@@ -50,22 +51,16 @@ public sealed class FileSessionSource : ISessionSource, IDisposable
         return session;
     }
 
-    public Scene AddScene(SceneCreateOptions options)
+    // Takes the caller's session instead of re-reading the current one: a concurrent
+    // open_project/create_project swap between the caller's session lookup and this call must not
+    // add the scene to the newly opened project.
+    public Scene AddScene(FileEditingSession session, SceneCreateOptions options)
     {
-        FileEditingSession session = _currentSession
-            ?? throw new InvalidOperationException("No file editing session is open.");
+        ArgumentNullException.ThrowIfNull(session);
 
         Scene scene = ProjectOperations.AddScene(session.Project, options);
         session.MarkDirty();
         return scene;
-    }
-
-    public void SaveProject()
-    {
-        FileEditingSession session = _currentSession
-            ?? throw new InvalidOperationException("No file editing session is open.");
-
-        session.Save();
     }
 
     public void Dispose()
@@ -73,6 +68,7 @@ public sealed class FileSessionSource : ISessionSource, IDisposable
         FileEditingSession? current;
         lock (_swapLock)
         {
+            _disposed = true;
             current = _currentSession;
             _currentSession = null;
         }
@@ -85,6 +81,13 @@ public sealed class FileSessionSource : ISessionSource, IDisposable
         FileEditingSession? previous;
         lock (_swapLock)
         {
+            // A swap racing Dispose must not leave the incoming session undisposed and orphaned.
+            if (_disposed)
+            {
+                session.Dispose();
+                throw new ObjectDisposedException(nameof(FileSessionSource));
+            }
+
             previous = _currentSession;
             _currentSession = session;
         }

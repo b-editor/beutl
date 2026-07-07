@@ -708,6 +708,49 @@ public sealed class ReadDocumentTests
     }
 
     [Test]
+    public void Measure_object_bounds_uses_scene_relative_time_on_trimmed_scenes()
+    {
+        var scene = new Scene(1920, 1080, "Measure trimmed")
+        {
+            Start = TimeSpan.FromSeconds(30),
+            Duration = TimeSpan.FromSeconds(5),
+            Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.scene"))
+        };
+        var element = new Element
+        {
+            Name = "Clip",
+            Start = TimeSpan.FromSeconds(32),
+            Length = TimeSpan.FromSeconds(2),
+            Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.belm"))
+        };
+        var plate = new RoundedRectShape
+        {
+            Name = "Plate",
+            Width = { CurrentValue = 200 },
+            Height = { CurrentValue = 80 }
+        };
+        element.AddObject(plate);
+        scene.Children.Add(element);
+
+        using var session = new AgentToolkitTestSession(scene);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var tools = new QueryTools(manager);
+
+        // Scene-relative 3s = absolute 33s (inside the element); relative 1s = absolute 31s (before it).
+        ToolResult<ObjectBoundsMeasurementResponse> during = tools.MeasureObjectBounds(timeSeconds: 3);
+        ToolResult<ObjectBoundsMeasurementResponse> before = tools.MeasureObjectBounds(timeSeconds: 1);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(during.IsSuccess, Is.True, during.Error?.Message);
+            Assert.That(during.Value!.Objects, Has.Count.EqualTo(1));
+            Assert.That(before.IsSuccess, Is.True, before.Error?.Message);
+            Assert.That(before.Value!.Objects, Is.Empty);
+        });
+    }
+
+    [Test]
     public void Measure_object_bounds_reports_center_aligned_scene_bounds()
     {
         var scene = new Scene(1920, 1080, "Measure")

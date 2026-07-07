@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
@@ -192,7 +193,9 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
             ResolvedEdit resolved = null!;
             ReconcilePlan plan = _reconciler.PlanFromCurrent(session, current =>
             {
-                resolved = ResolvePatchEdit(current, composition.Patch, SchemaVersion.Current);
+                JsonObject patch = CompositionTemplateCatalog.OffsetPatchElementStarts(
+                    composition.Patch, ReadSceneStart(current));
+                resolved = ResolvePatchEdit(current, patch, SchemaVersion.Current);
                 return (resolved.Document, resolved.KnownNewIds);
             });
             CompositionPlanState state = sessions.StoreCompositionPlan(
@@ -264,7 +267,9 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
                 session,
                 current =>
                 {
-                    ResolvedEdit resolved = ResolvePatchEdit(current, composition.Patch, SchemaVersion.Current);
+                    JsonObject patch = CompositionTemplateCatalog.OffsetPatchElementStarts(
+                        composition.Patch, ReadSceneStart(current));
+                    ResolvedEdit resolved = ResolvePatchEdit(current, patch, SchemaVersion.Current);
                     return (resolved.Document, resolved.KnownNewIds);
                 },
                 plan => normalizedExpectedChangeSet is null || ChangeSetMatches(plan, normalizedExpectedChangeSet)
@@ -428,6 +433,15 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
     private static bool EnforceFirstSelection(string? name, bool avoidRecent)
     {
         return avoidRecent && !string.IsNullOrWhiteSpace(name);
+    }
+
+    private static TimeSpan ReadSceneStart(JsonObject current)
+    {
+        return current["Start"] is JsonValue value
+               && value.TryGetValue(out string? text)
+               && TimeSpan.TryParseExact(text, "c", CultureInfo.InvariantCulture, out TimeSpan start)
+            ? start
+            : TimeSpan.Zero;
     }
 
     private static void RequireCompositionName(string? name)

@@ -1620,9 +1620,11 @@ public sealed class RenderTools(
                     relative = TimeSpan.Zero;
                 }
 
-                if (scene.Duration > TimeSpan.Zero && relative > scene.Duration)
+                if (scene.Duration > TimeSpan.Zero && relative >= scene.Duration)
                 {
-                    relative = scene.Duration;
+                    // Element.Range treats the end as exclusive, so a shot exactly at Duration
+                    // renders past every element; stay one tick inside the scene.
+                    relative = TimeSpan.FromTicks(scene.Duration.Ticks - 1);
                 }
 
                 return new ResolvedStoryboardShot(

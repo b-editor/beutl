@@ -53,7 +53,7 @@ public sealed class FileProjectSessionGateway(
         // cannot observe Project.Items mid-mutation or race SetActiveScene's recording-pipeline swap.
         session.Invoke(() =>
         {
-            scene = fileSessions.AddScene(options);
+            scene = fileSessions.AddScene(session, options);
             session.SetActiveScene(scene);
         });
         return ValueTask.FromResult(new ProjectSceneResult(scene, session.Project, session));

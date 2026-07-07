@@ -525,9 +525,13 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
     {
         return Execute(() =>
         {
-            (int width, int height, double durationSeconds) = ResolveScaffoldFrame();
+            (int width, int height, double durationSeconds, TimeSpan sceneStart) = ResolveScaffoldFrame();
             string[] inspirationSeedNames = CreateInspirationSeeds().Select(item => item.Name).ToArray();
             OriginalScaffold scaffold = _compositionCatalog.Scaffold(seed, brief, inspirationSeedNames, width, height, durationSeconds);
+            scaffold = scaffold with
+            {
+                Patch = CompositionTemplateCatalog.OffsetPatchElementStarts(scaffold.Patch, sceneStart)
+            };
             return new OriginalScaffoldResponse(
                 SchemaVersion.Current,
                 scaffold,
@@ -535,22 +539,22 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
         });
     }
 
-    private (int Width, int Height, double DurationSeconds) ResolveScaffoldFrame()
+    private (int Width, int Height, double DurationSeconds, TimeSpan SceneStart) ResolveScaffoldFrame()
     {
         IEditingSession? session = sessions.CurrentSession;
         if (session is null)
         {
-            return (1920, 1080, 8);
+            return (1920, 1080, 8, TimeSpan.Zero);
         }
 
         return session.ReadOnSession(() =>
         {
             if (session.Root is Scene scene)
             {
-                return (scene.FrameSize.Width, scene.FrameSize.Height, Math.Max(0.1, scene.Duration.TotalSeconds));
+                return (scene.FrameSize.Width, scene.FrameSize.Height, Math.Max(0.1, scene.Duration.TotalSeconds), scene.Start);
             }
 
-            return (1920, 1080, 8);
+            return (1920, 1080, 8, TimeSpan.Zero);
         });
     }
 
@@ -712,15 +716,20 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
         return Execute(() =>
         {
             RequireCompositionName(name);
+            CompositionRender composition = _compositionCatalog.Render(
+                name,
+                tag,
+                inputProps,
+                sessions.ResolveCompositionSeed(seed),
+                avoidRecent ? sessions.GetAvoidedCompositions() : null,
+                EnforceFirstSelection(name, avoidRecent));
+            composition = composition with
+            {
+                Patch = CompositionTemplateCatalog.OffsetPatchElementStarts(composition.Patch, ResolveScaffoldFrame().SceneStart)
+            };
             return new RenderCompositionPatchResponse(
                 SchemaVersion.Current,
-                _compositionCatalog.Render(
-                    name,
-                    tag,
-                    inputProps,
-                    sessions.ResolveCompositionSeed(seed),
-                    avoidRecent ? sessions.GetAvoidedCompositions() : null,
-                    EnforceFirstSelection(name, avoidRecent)),
+                composition,
                 "Pass composition.patch to apply_edit with schemaVersion=1. Use the returned seed to reproduce or intentionally vary this named template.");
         });
     }
@@ -987,7 +996,10 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
         }
 
         Size canvasSize = new(scene.FrameSize.Width, scene.FrameSize.Height);
-        var context = new CompositionContext(time);
+        // timeSeconds is scene-relative like every other tool, but Element.Range and the engine's
+        // composition clock live on the absolute timeline axis (renderers evaluate time + scene.Start).
+        TimeSpan absoluteTime = time + scene.Start;
+        var context = new CompositionContext(absoluteTime);
         var measurements = new List<ObjectBoundsMeasurement>();
         foreach (Element element in scene.Children)
         {
@@ -996,7 +1008,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 continue;
             }
 
-            if (timeFiltered && (!element.IsEnabled || !element.Range.Contains(time)))
+            if (timeFiltered && (!element.IsEnabled || !element.Range.Contains(absoluteTime)))
             {
                 continue;
             }

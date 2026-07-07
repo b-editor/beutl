@@ -76,7 +76,7 @@ public sealed class AuthorFromBriefTests
             TimeSpan.FromSeconds(5),
             Name: "multi"));
 
-        source.AddScene(new SceneCreateOptions(
+        source.AddScene(session, new SceneCreateOptions(
             640,
             360,
             TimeSpan.FromSeconds(5),

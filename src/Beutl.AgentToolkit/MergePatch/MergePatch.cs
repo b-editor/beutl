@@ -358,7 +358,7 @@ public static class MergePatch
             case JsonObject obj:
                 foreach (KeyValuePair<string, JsonNode?> pair in obj)
                 {
-                    if (pair.Key == "$delete" || s_directives.Contains(pair.Key))
+                    if (pair.Key is "$delete" or ReplaceDirective || s_directives.Contains(pair.Key))
                     {
                         throw new ReconcileException(new ToolError(
                             ErrorCode.ValidationRejected,

@@ -11,6 +11,31 @@ namespace Beutl.AgentToolkit.Tests.Tools;
 public sealed class PlanOriginalScaffoldTests
 {
     [Test]
+    public void Offset_patch_element_starts_shifts_into_a_trimmed_scene_window()
+    {
+        var patch = new System.Text.Json.Nodes.JsonObject
+        {
+            ["Duration"] = "00:00:08",
+            ["Elements"] = new System.Text.Json.Nodes.JsonArray(
+                new System.Text.Json.Nodes.JsonObject { ["Name"] = "a", ["Start"] = "00:00:00" },
+                new System.Text.Json.Nodes.JsonObject { ["Name"] = "b", ["Start"] = "00:00:02" })
+        };
+
+        System.Text.Json.Nodes.JsonObject offset =
+            CompositionTemplateCatalog.OffsetPatchElementStarts(patch, TimeSpan.FromSeconds(30));
+        System.Text.Json.Nodes.JsonObject unchanged =
+            CompositionTemplateCatalog.OffsetPatchElementStarts(patch, TimeSpan.Zero);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(offset["Elements"]![0]!["Start"]!.GetValue<string>(), Is.EqualTo("00:00:30"));
+            Assert.That(offset["Elements"]![1]!["Start"]!.GetValue<string>(), Is.EqualTo("00:00:32"));
+            Assert.That(unchanged, Is.SameAs(patch));
+            Assert.That(patch["Elements"]![0]!["Start"]!.GetValue<string>(), Is.EqualTo("00:00:00"));
+        });
+    }
+
+    [Test]
     public async Task Plan_original_scaffold_applies_cleanly_is_not_a_template_and_passes_quality_gate()
     {
         string root = CreateWorkspace();

@@ -502,7 +502,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
                             ? "For 1.5s kinetic beats, keep hero text to 1-3 words and supporting labels to 2-4 words or compact tokens."
                             : "Shorten the copy, split it across beats, or keep it on screen longer with a calmer entrance/exit.",
                     info,
-                    info.Element.Start.ToString("c")));
+                    (info.Element.Start - scene.Start).ToString("c")));
             }
         }
 
@@ -696,9 +696,18 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         HashSet<long> timelineEvents = [];
         foreach (Element element in scene.Children.Where(element => IsTempoForegroundElement(scene, element)))
         {
-            // Element times are absolute; the event axis is scene-relative [0, Duration].
-            AddEventTime(timelineEvents, element.Start - scene.Start, scene.Duration);
-            AddEventTime(timelineEvents, element.Start + element.Length - scene.Start, scene.Duration);
+            // Element times are absolute; the event axis is scene-relative [0, Duration]. Clamp the
+            // boundaries of elements overlapping the window edges so they still anchor an event
+            // instead of being dropped, leaving a spurious opening/closing gap.
+            TimeSpan relativeStart = element.Start - scene.Start;
+            TimeSpan relativeEnd = element.Start + element.Length - scene.Start;
+            if (relativeEnd <= TimeSpan.Zero || relativeStart >= scene.Duration)
+            {
+                continue;
+            }
+
+            AddEventTime(timelineEvents, relativeStart < TimeSpan.Zero ? TimeSpan.Zero : relativeStart, scene.Duration);
+            AddEventTime(timelineEvents, relativeEnd > scene.Duration ? scene.Duration : relativeEnd, scene.Duration);
         }
 
         HashSet<long> keyFrameEvents = [];
@@ -918,7 +927,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
                 "A background plate behind text is not aligned with the text timing or geometry.",
                 $"Center distance {centerDistance:F1}px, plate {plateBounds.Width:F0}x{plateBounds.Height:F0}, text {textBounds.Width:F0}x{textBounds.Height:F0}, matching time range: {sameTime}.",
                 "Pair text and backing plate by name or [role:text-backing], matching Start/Length, center transform, and at least 12% horizontal plus 18% vertical padding. Mark decorative rectangles [role:decorative] or use non-rectangular accents so they are not treated as backing plates.",
-                textInfo.Element.Start.ToString("c"),
+                (textInfo.Element.Start - scene.Start).ToString("c"),
                 [textInfo.Element.Id.ToString(), backingPlate.Element.Id.ToString()],
                 [textInfo.Object.Id.ToString(), backingPlate.Object.Id.ToString()]));
         }
@@ -1306,7 +1315,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         string evidence = string.Join(
             "; ",
             lateBoundaries.Select(boundary =>
-                $"{FormatSeconds(boundary.Time.TotalSeconds)} is {boundary.NearestBeatDistanceSeconds * 1000:F0} ms from beat {FormatSeconds(boundary.NearestBeatSeconds)}"));
+                $"{FormatSeconds((boundary.Time - scene.Start).TotalSeconds)} is {boundary.NearestBeatDistanceSeconds * 1000:F0} ms from beat {FormatSeconds(boundary.NearestBeatSeconds)}"));
         issues.Add(new QualityIssue(
             "audioSync",
             Advisory,
@@ -1392,6 +1401,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         if (outgoingOpacity.Length > 0 && incomingOpacity.Length > 0)
         {
             return CreateTransitionClassification(
+                scene,
                 boundary,
                 "dissolve",
                 "Opacity ramps overlap across the boundary.",
@@ -1405,6 +1415,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         if (dipPlates.Length > 0)
         {
             return CreateTransitionClassification(
+                scene,
                 boundary,
                 "dip-to-color",
                 "A full-frame plate opacity peaks at the boundary.",
@@ -1417,6 +1428,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         if (sweepBridges.Length > 0)
         {
             return CreateTransitionClassification(
+                scene,
                 boundary,
                 "sweep",
                 "A transform-animated element remains visible on both sides of the boundary.",
@@ -1424,6 +1436,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         }
 
         return CreateTransitionClassification(
+            scene,
             boundary,
             "hard-cut",
             "No overlap dissolve, transform bridge, or dip plate was detected.",
@@ -1431,6 +1444,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
     }
 
     private static TransitionBoundaryClassification CreateTransitionClassification(
+        Scene scene,
         CutBoundary boundary,
         string type,
         string evidence,
@@ -1442,7 +1456,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
             .Distinct(StringComparer.Ordinal)
             .ToArray();
         return new TransitionBoundaryClassification(
-            Math.Round(boundary.Time.TotalSeconds, 4, MidpointRounding.AwayFromZero),
+            Math.Round((boundary.Time - scene.Start).TotalSeconds, 4, MidpointRounding.AwayFromZero),
             type,
             evidence,
             elementIds);
@@ -1974,7 +1988,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
                 "motionUniformity",
                 Advisory,
                 "Most animated elements start, last, and move in the same way, reducing follow-through and overlapping action.",
-                $"{largestCount}/{animatedElements.Length} animated elements cluster at start {largestCluster.Key.StartBucket:F1}s, duration {largestCluster.Key.DurationBucket:F1}s, direction {largestCluster.Key.Direction}.",
+                $"{largestCount}/{animatedElements.Length} animated elements cluster at start {largestCluster.Key.StartBucket - scene.Start.TotalSeconds:F1}s, duration {largestCluster.Key.DurationBucket:F1}s, direction {largestCluster.Key.Direction}.",
                 "Stagger starts by 0.1-0.3 seconds and vary durations or translate directions so follow-through and overlapping action are visible.",
                 null,
                 largestCluster.Items
@@ -1991,7 +2005,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
             animatedElements.Length,
             largestCount,
             Math.Round(largestShare, 4, MidpointRounding.AwayFromZero),
-            largestCluster.Key.StartBucket,
+            Math.Round(largestCluster.Key.StartBucket - scene.Start.TotalSeconds, 1, MidpointRounding.AwayFromZero),
             largestCluster.Key.DurationBucket,
             largestCluster.Key.Direction);
     }
@@ -2063,7 +2077,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         {
             issues.Add(CreateMotionArcIssue(
                 "The logo-intro motion arc is missing a detectable anticipation phase before the main reveal.",
-                $"Largest {largest.PropertyPath} change runs {FormatSeconds(largest.StartSeconds)}-{FormatSeconds(largest.EndSeconds)} with no earlier smaller counter-move or hold segment.",
+                $"Largest {largest.PropertyPath} change runs {FormatSeconds(largest.StartSeconds - scene.Start.TotalSeconds)}-{FormatSeconds(largest.EndSeconds - scene.Start.TotalSeconds)} with no earlier smaller counter-move or hold segment.",
                 "Add a brief anticipation before the reveal: a smaller counter-move, compression, opacity breath, or held pre-beat before the largest transform/opacity change.",
                 largest));
         }
@@ -2072,7 +2086,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         {
             issues.Add(CreateMotionArcIssue(
                 "The logo-intro motion arc is missing a clear settle into the final hold.",
-                $"Final {finalSegment.PropertyPath} segment ends at {FormatSeconds(finalSegment.EndSeconds)} with {holdSeconds:F2}s of hold and easing {finalSegment.Easing.GetType().Name}.",
+                $"Final {finalSegment.PropertyPath} segment ends at {FormatSeconds(finalSegment.EndSeconds - scene.Start.TotalSeconds)} with {holdSeconds:F2}s of hold and easing {finalSegment.Easing.GetType().Name}.",
                 "End with a non-linear ease-out or overshoot-then-return settle, then keep the final keyframe stable for at least 1 second before the element or scene ends.",
                 finalSegment));
         }

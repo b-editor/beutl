@@ -205,8 +205,12 @@ public sealed class StillRenderer
 
     internal static bool ContainsGpuOnlyContent(Scene scene)
     {
-        return scene is IHierarchical hierarchical
-               && hierarchical.EnumerateAllChildren<Scene3D>().Any();
+        // A Scene3D on a disabled element never renders, so it must not force the GPU requirement.
+        return scene.Children
+            .Where(element => element.IsEnabled)
+            .SelectMany(element => element.Objects)
+            .Any(obj => obj is Scene3D
+                        || (obj is IHierarchical hierarchical && hierarchical.EnumerateAllChildren<Scene3D>().Any()));
     }
 
     internal static async ValueTask<bool> Has3DGraphicsContextAsync(CancellationToken cancellationToken)
