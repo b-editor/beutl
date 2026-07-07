@@ -192,6 +192,85 @@ public class ProxySourceEnumeratorTests
             Is.SupersetOf(new[] { "video.mov", "audio.mp3", "image.png", "graph.mov" }));
     }
 
+    // Export preflight must reach image/audio held inside a referenced scene: those are not
+    // hierarchical children (the scene is a property value) and are not VideoSources, so neither
+    // the broad property walk nor the old video-only deep walk surfaced them.
+    [Test]
+    public void EnumerateMediaFileSources_CoversImageAndSoundInsideReferencedScene()
+    {
+        Scene childScene = CreateScene("child.scene");
+        var childImage = new SourceImage();
+        childImage.Source.CurrentValue = CreateImageSource("nested-image.png");
+        var childSound = new SourceSound();
+        childSound.Source.CurrentValue = CreateSoundSource("nested-audio.mp3");
+        childScene.Children.Add(ElementWith(childImage, childSound));
+
+        var sceneDrawable = new SceneDrawable();
+        sceneDrawable.ReferencedScene.CurrentValue = childScene;
+        Scene root = CreateScene("root.scene");
+        root.Children.Add(ElementWith(sceneDrawable));
+
+        IReadOnlySet<string> collected = ProxySourceEnumerator.EnumerateMediaFileSources(root);
+
+        Assert.That(
+            collected.Select(Path.GetFileName),
+            Is.SupersetOf(new[] { "nested-image.png", "nested-audio.mp3" }));
+    }
+
+    // A SceneSound (a Sound, not a Drawable) referencing a scene must also have its nested media
+    // enumerated; the deep walk descends Sound references, not just SceneDrawable.
+    [Test]
+    public void EnumerateMediaFileSources_CoversMediaInsideSceneSoundReference()
+    {
+        Scene childScene = CreateScene("sound-child.scene");
+        var childSound = new SourceSound();
+        childSound.Source.CurrentValue = CreateSoundSource("scene-sound.mp3");
+        childScene.Children.Add(ElementWith(childSound));
+
+        var sceneSound = new SceneSound();
+        sceneSound.ReferencedScene.CurrentValue = childScene;
+        Scene root = CreateScene("sound-root.scene");
+        root.Children.Add(ElementWith(sceneSound));
+
+        IReadOnlySet<string> collected = ProxySourceEnumerator.EnumerateMediaFileSources(root);
+
+        Assert.That(collected.Select(Path.GetFileName), Does.Contain("scene-sound.mp3"));
+    }
+
+    // A non-video graph input (ImageSourceNode.Source) is an IPropertyAdapter port, invisible to the
+    // broad property walk; the export preflight must still enumerate it.
+    [Test]
+    public void EnumerateMediaFileSources_CoversImageSourceNodeGraphInput()
+    {
+        var node = new ImageSourceNode();
+        node.Source.Property!.SetValue(CreateImageSource("graph-image.png"));
+        var drawable = new NodeGraphDrawable();
+        drawable.Model.CurrentValue!.Nodes.Add(node);
+        Scene root = CreateScene("graph-image.scene");
+        root.Children.Add(ElementWith(drawable));
+
+        IReadOnlySet<string> collected = ProxySourceEnumerator.EnumerateMediaFileSources(root);
+
+        Assert.That(collected.Select(Path.GetFileName), Does.Contain("graph-image.png"));
+    }
+
+    // EnumerateVideoSources stays video-only even though the shared walk now yields every IFileSource:
+    // an ImageSourceNode input must not leak into the proxy-eligible video set.
+    [Test]
+    public void EnumerateVideoSources_ExcludesNonVideoGraphInputs()
+    {
+        var imageNode = new ImageSourceNode();
+        imageNode.Source.Property!.SetValue(CreateImageSource("image.png"));
+        var videoNode = new VideoSourceNode();
+        videoNode.Source.Property!.SetValue(CreateVideoSource("video.mov"));
+        var drawable = new NodeGraphDrawable();
+        drawable.Model.CurrentValue!.Nodes.Add(imageNode);
+        drawable.Model.CurrentValue!.Nodes.Add(videoNode);
+        Element element = ElementWith(drawable);
+
+        Assert.That(FileNames(element), Is.EquivalentTo(new[] { "video.mov" }));
+    }
+
     // An IFileSource property with a keyframe animation referencing a different file must include
     // the animated file, so a proxy for media referenced only from a keyframe is protected.
     [Test]

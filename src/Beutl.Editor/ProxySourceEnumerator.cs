@@ -6,36 +6,38 @@ using Beutl.Graphics.Effects;
 using Beutl.IO;
 using Beutl.Media.Source;
 using Beutl.NodeGraph;
-using Beutl.NodeGraph.Nodes;
 using Beutl.NodeGraph.Nodes.Group;
 using Beutl.ProjectSystem;
 
 namespace Beutl.Editor;
 
-// Single source of truth for "which media does this reference?". Proxy resolution reaches
-// SourceVideo drawables, VideoSourceNode graph inputs, and referenced scenes, and each holder
-// can carry animated (keyframed) values as well as its current value. The walk mirrors the render
-// path, so it descends into DrawableGroup children and node-graph GroupNode subgraphs too.
-// Any caller that decides proxy usage (project summary, frame-cache invalidation, eviction
-// protection) must cover all of them.
+// Single source of truth for "which media does this reference?". The walk mirrors the render path,
+// so it reaches every IFileSource a renderer can open: object properties, animated values, node-graph
+// adapter inputs, filter-effect subgraphs, and referenced scenes. Proxy resolution (video-only) and
+// export preflight (all media) both build on this one traversal.
 public static class ProxySourceEnumerator
 {
+    /// <summary>
+    /// Enumerates every <see cref="VideoSource"/> reachable from <paramref name="element"/> — the
+    /// proxy-eligible subset of the full media walk (proxies are generated for video only). Reaches
+    /// direct/animated <see cref="SourceVideo"/> values, node-graph adapter inputs, filter-effect
+    /// subgraphs, and referenced scenes.
+    /// </summary>
     public static IEnumerable<VideoSource> EnumerateVideoSources(Element element, HashSet<Scene>? visitedScenes = null)
     {
         ArgumentNullException.ThrowIfNull(element);
-        return Enumerate(element, visitedScenes ?? new HashSet<Scene>(ReferenceEqualityComparer.Instance));
+        return EnumerateElementFileSources(element, visitedScenes ?? new HashSet<Scene>(ReferenceEqualityComparer.Instance))
+            .OfType<VideoSource>();
     }
 
     /// <summary>
     /// Collects the file-system paths of every <see cref="IFileSource"/> referenced anywhere in
     /// <paramref name="root"/>, regardless of whether each file lives inside or outside the project
-    /// directory, AND every <see cref="VideoSource"/> held in a node-graph adapter the broad
-    /// <see cref="IFileSource"/> walk cannot reach. This is the single walk that subsumes the old
-    /// Engine-only <c>CollectProjectFileSources</c> + the UI video-only enumerator union: in-project
-    /// media must be covered too (otherwise a project whose media lives under its own folder gets
-    /// no affinity protection), and graph-only clips must be covered (their <see cref="VideoSource"/>
-    /// lives in a <see cref="NodeGraph"/> port, not a plain <see cref="IProperty{T}"/> on an
-    /// <see cref="EngineObject"/>). Paths are deduped with <see cref="StringComparer.Ordinal"/>.
+    /// directory. Covers the broad <see cref="IFileSource"/> property walk AND every source the
+    /// property walk cannot reach — node-graph adapter inputs (a port is an <see cref="IPropertyAdapter"/>,
+    /// not a plain <see cref="IProperty{T}"/> on an <see cref="EngineObject"/>) and media held inside
+    /// referenced scenes (a referenced scene is a property value, not a hierarchical child). Paths are
+    /// deduped with <see cref="StringComparer.Ordinal"/>.
     /// </summary>
     public static IReadOnlySet<string> EnumerateFileSources(IHierarchical root)
         => EnumerateFileSources(root, includeObjectUris: true);
@@ -51,20 +53,23 @@ public static class ProxySourceEnumerator
         ArgumentNullException.ThrowIfNull(root);
 
         var paths = new HashSet<string>(StringComparer.Ordinal);
+
         foreach (CoreObject obj in root.EnumerateAllChildren<CoreObject>())
             CollectFileSourcePaths(obj, paths, includeObjectUris);
 
         if (root is CoreObject rootObj)
             CollectFileSourcePaths(rootObj, paths, includeObjectUris);
 
-        // The broad IFileSource walk above cannot see VideoSource values held in NodeGraph adapters
-        // (a VideoSourceNode port is an IPropertyAdapter, not a plain IProperty on EngineObject.Properties),
-        // so run the video walk for each Element and fold in its URIs. Dedup is automatic.
+        // The property walk above cannot see node-graph adapter inputs (a port is an IPropertyAdapter,
+        // not an EngineObject property) or media inside referenced scenes (a scene is a property value,
+        // not a hierarchical child), so descend those here. A shared visited-scene set resolves cross-
+        // element references to the same scene once.
+        var visitedScenes = new HashSet<Scene>(ReferenceEqualityComparer.Instance);
         foreach (Element element in root.EnumerateAllChildren<Element>())
         {
-            foreach (VideoSource source in EnumerateVideoSources(element))
+            foreach (IFileSource source in EnumerateElementFileSources(element, visitedScenes))
             {
-                if (source is { HasUri: true } && source.Uri is { IsFile: true } uri)
+                if (source.Uri is { IsFile: true } uri)
                     paths.Add(uri.LocalPath);
             }
         }
@@ -76,36 +81,12 @@ public static class ProxySourceEnumerator
     {
         if (obj is EngineObject engineObj)
         {
-            foreach (IProperty property in engineObj.Properties)
-            {
-                if (property.CurrentValue is IFileSource fileSource)
-                    AddFileSourcePath(fileSource.Uri, paths);
-
-                // Rendering (and the proxy scanner) consume animated file-source values too, so media
-                // referenced only from keyframes must be protected — otherwise its in-project proxy is
-                // treated as unprotected and can be evicted before unrelated closed-project proxies.
-                if (property.Animation is KeyFrameAnimation keyFrameAnimation)
-                {
-                    foreach (IKeyFrame keyFrame in keyFrameAnimation.KeyFrames)
-                    {
-                        if (keyFrame.Value is IFileSource keyFrameSource)
-                            AddFileSourcePath(keyFrameSource.Uri, paths);
-                    }
-                }
-            }
+            foreach (IFileSource source in EnumeratePropertyFileSources(engineObj))
+                AddFileSourcePath(source.Uri, paths);
         }
 
         if (includeObjectUri)
             AddFileSourcePath(obj.Uri, paths);
-
-        foreach (CoreProperty prop in PropertyRegistry.GetRegistered(obj.GetType()))
-        {
-            if (prop.PropertyType.IsValueType)
-                continue;
-
-            if (obj.GetValue(prop) is IFileSource fileSource)
-                AddFileSourcePath(fileSource.Uri, paths);
-        }
     }
 
     private static void AddFileSourcePath(Uri? uri, HashSet<string> paths)
@@ -114,134 +95,150 @@ public static class ProxySourceEnumerator
             paths.Add(uri.LocalPath);
     }
 
-    private static IEnumerable<VideoSource> Enumerate(Element element, HashSet<Scene> visitedScenes)
+    private static IEnumerable<IFileSource> EnumerateElementFileSources(Element element, HashSet<Scene> visitedScenes)
     {
-        foreach (Drawable drawable in element.Objects.OfType<Drawable>())
+        foreach (EngineObject obj in element.Objects)
         {
-            foreach (VideoSource source in EnumerateDrawable(drawable, visitedScenes, new(ReferenceEqualityComparer.Instance), new(ReferenceEqualityComparer.Instance)))
+            foreach (IFileSource source in EnumerateObjectFileSources(
+                obj,
+                visitedScenes,
+                new HashSet<GraphGroup>(ReferenceEqualityComparer.Instance),
+                new HashSet<FilterEffectGroup>(ReferenceEqualityComparer.Instance)))
+            {
                 yield return source;
+            }
         }
     }
 
-    private static IEnumerable<VideoSource> EnumerateDrawable(
-        Drawable drawable,
+    private static IEnumerable<IFileSource> EnumerateObjectFileSources(
+        EngineObject obj,
         HashSet<Scene> visitedScenes,
         HashSet<GraphGroup> visitedGraphGroups,
         HashSet<FilterEffectGroup> visitedFilterEffectGroups)
     {
-        switch (drawable)
-        {
-            case SourceVideo video:
-                foreach (VideoSource? source in EnumerateValues(video.Source))
-                {
-                    if (source != null)
-                        yield return source;
-                }
-
-                break;
-
-            case NodeGraphDrawable graphDrawable when graphDrawable.Model.CurrentValue is { } model:
-                foreach (VideoSource source in EnumerateGraphSources(model, visitedGraphGroups))
-                    yield return source;
-
-                break;
-
-            case SceneDrawable sceneDrawable when sceneDrawable.ReferencedScene.CurrentValue is { } referencedScene:
-                // Scene references are user-constructible and can cycle; the visited set makes the walk
-                // terminate (render-time Enter/Exit is the only other guard).
-                if (visitedScenes.Add(referencedScene))
-                {
-                    foreach (Element child in referencedScene.Children)
-                    {
-                        foreach (VideoSource source in Enumerate(child, visitedScenes))
-                            yield return source;
-                    }
-                }
-
-                break;
-
-            case DrawableGroup group:
-                foreach (Drawable child in group.Children)
-                {
-                    foreach (VideoSource source in EnumerateDrawable(child, visitedScenes, visitedGraphGroups, visitedFilterEffectGroups))
-                        yield return source;
-                }
-
-                break;
-        }
-
-        // A VideoSourceNode can also live inside a NodeGraphFilterEffect on any drawable's filter
-        // chain; the render path evaluates those with proxy flags, so they must be scanned too.
-        foreach (VideoSource source in EnumerateFilterEffectGraphSources(drawable.FilterEffect.CurrentValue, visitedFilterEffectGroups, visitedGraphGroups))
+        // Direct IFileSource-valued properties (current + animated): SourceVideo/SourceImage/SourceSound.
+        foreach (IFileSource source in EnumeratePropertyFileSources(obj))
             yield return source;
-    }
 
-    private static IEnumerable<VideoSource> EnumerateGraphSources(
-        GraphModel model,
-        HashSet<GraphGroup> visitedGraphGroups)
-    {
-        foreach (GraphNode node in model.Nodes)
+        if (obj is Drawable drawable)
         {
-            switch (node)
+            // A VideoSourceNode / ImageSourceNode can live inside a NodeGraphFilterEffect on any
+            // drawable's filter chain; the render path evaluates those, so scan them too.
+            foreach (IFileSource source in EnumerateFilterEffectGraphSources(
+                drawable.FilterEffect.CurrentValue, visitedFilterEffectGroups, visitedGraphGroups))
+                yield return source;
+
+            switch (drawable)
             {
-                case VideoSourceNode { Source.Property: { } property }:
-                    foreach (VideoSource? source in EnumerateValues(property))
-                    {
-                        if (source != null)
-                            yield return source;
-                    }
+                case NodeGraphDrawable { Model.CurrentValue: { } model }:
+                    foreach (IFileSource source in EnumerateGraphSources(model, visitedGraphGroups))
+                        yield return source;
 
                     break;
 
-                case GroupNode groupNode:
-                    // A group can receive VideoSource values at its outer input boundary per instance.
-                    // Scan those inputs for every GroupNode, even when several instances share the same
-                    // GraphGroup and recursion into the shared inner graph is already guarded.
-                    foreach (VideoSource source in EnumerateGroupNodeInputSources(groupNode))
+                case SceneDrawable { ReferencedScene.CurrentValue: { } referencedScene }:
+                    foreach (IFileSource source in EnumerateReferencedSceneSources(referencedScene, visitedScenes))
                         yield return source;
 
-                    // A user-constructed GroupNode can reference a GraphGroup that (transitively)
-                    // contains the same GroupNode, producing an infinite walk. The visited set
-                    // makes the recursion terminate, mirroring the Scene cycle-break above.
-                    if (visitedGraphGroups.Add(groupNode.Group))
+                    break;
+
+                case DrawableGroup group:
+                    foreach (Drawable child in group.Children)
                     {
-                        foreach (VideoSource source in EnumerateGraphSources(groupNode.Group, visitedGraphGroups))
+                        foreach (IFileSource source in EnumerateObjectFileSources(
+                            child, visitedScenes, visitedGraphGroups, visitedFilterEffectGroups))
                             yield return source;
                     }
 
                     break;
             }
         }
+
+        // A SceneSound is a Sound (not a Drawable), so it is not covered by the Drawable switch above;
+        // its referenced scene still contributes renderable media and must be descended.
+        if (obj is SceneSound { ReferencedScene.CurrentValue: { } soundScene })
+        {
+            foreach (IFileSource source in EnumerateReferencedSceneSources(soundScene, visitedScenes))
+                yield return source;
+        }
     }
 
-    private static IEnumerable<VideoSource> EnumerateGroupNodeInputSources(GroupNode groupNode)
+    private static IEnumerable<IFileSource> EnumerateReferencedSceneSources(Scene scene, HashSet<Scene> visitedScenes)
     {
-        foreach (var member in groupNode.Items)
+        // Scene references are user-constructible and can cycle; the visited set makes the walk
+        // terminate (render-time Enter/Exit is the only other guard).
+        if (!visitedScenes.Add(scene))
+            yield break;
+
+        foreach (Element child in scene.Children)
+        {
+            foreach (IFileSource source in EnumerateElementFileSources(child, visitedScenes))
+                yield return source;
+        }
+    }
+
+    private static IEnumerable<IFileSource> EnumeratePropertyFileSources(EngineObject obj)
+    {
+        foreach (IProperty property in obj.Properties)
+        {
+            if (property.CurrentValue is IFileSource fileSource)
+                yield return fileSource;
+
+            // Rendering (and the proxy scanner) consume animated file-source values too, so media
+            // referenced only from keyframes must be enumerated as well.
+            foreach (IFileSource animated in EnumerateAnimatedFileSources(property.Animation))
+                yield return animated;
+        }
+
+        foreach (CoreProperty prop in PropertyRegistry.GetRegistered(obj.GetType()))
+        {
+            if (prop.PropertyType.IsValueType)
+                continue;
+
+            if (obj.GetValue(prop) is IFileSource fileSource)
+                yield return fileSource;
+        }
+    }
+
+    private static IEnumerable<IFileSource> EnumerateGraphSources(GraphModel model, HashSet<GraphGroup> visitedGraphGroups)
+    {
+        foreach (GraphNode node in model.Nodes)
+        {
+            // Every input port whose value is an IFileSource — VideoSourceNode.Source, ImageSourceNode.Source,
+            // and a GroupNode's outer-boundary inputs alike. Gating on the value type (not a specific node
+            // type) keeps this uniform across all source-carrying nodes.
+            foreach (IFileSource source in EnumerateNodeInputSources(node))
+                yield return source;
+
+            // A user-constructed GroupNode can reference a GraphGroup that (transitively) contains the
+            // same GroupNode, producing an infinite walk. The visited set makes the recursion terminate.
+            if (node is GroupNode groupNode && visitedGraphGroups.Add(groupNode.Group))
+            {
+                foreach (IFileSource source in EnumerateGraphSources(groupNode.Group, visitedGraphGroups))
+                    yield return source;
+            }
+        }
+    }
+
+    private static IEnumerable<IFileSource> EnumerateNodeInputSources(GraphNode node)
+    {
+        foreach (INodeMember member in node.Items)
         {
             if (member is not IInputPort { Property: { } property })
                 continue;
 
-            // Gate via PropertyType rather than a typed pattern: IPropertyAdapter<T> is invariant, so
-            // `is IPropertyAdapter<VideoSource?>` would miss a non-nullable adapter. PropertyType ==
-            // typeof(VideoSource) holds for both VideoSource and VideoSource? ports.
-            if (property.PropertyType != typeof(VideoSource))
-                continue;
-
-            if (property.GetValue() is VideoSource current)
+            if (property.GetValue() is IFileSource current)
                 yield return current;
 
-            if (property is IAnimatablePropertyAdapter<VideoSource?> { Animation: { } animation })
+            if (property is IAnimatablePropertyAdapter { Animation: { } animation })
             {
-                foreach (VideoSource? source in EnumerateAnimatedValues(animation))
-                {
-                    if (source != null)
-                        yield return source;
-                }
+                foreach (IFileSource source in EnumerateAnimatedFileSources(animation))
+                    yield return source;
             }
         }
     }
 
-    private static IEnumerable<VideoSource> EnumerateFilterEffectGraphSources(
+    private static IEnumerable<IFileSource> EnumerateFilterEffectGraphSources(
         FilterEffect? effect,
         HashSet<FilterEffectGroup> visitedFilterEffectGroups,
         HashSet<GraphGroup> visitedGraphGroups)
@@ -250,45 +247,25 @@ public static class ProxySourceEnumerator
         {
             foreach (FilterEffect child in group.Children)
             {
-                foreach (VideoSource source in EnumerateFilterEffectGraphSources(child, visitedFilterEffectGroups, visitedGraphGroups))
+                foreach (IFileSource source in EnumerateFilterEffectGraphSources(child, visitedFilterEffectGroups, visitedGraphGroups))
                     yield return source;
             }
         }
-        else if (effect is NodeGraphFilterEffect graphEffect
-                 && graphEffect.Model.CurrentValue is { } model)
+        else if (effect is NodeGraphFilterEffect { Model.CurrentValue: { } model })
         {
-            foreach (VideoSource source in EnumerateGraphSources(model, visitedGraphGroups))
+            foreach (IFileSource source in EnumerateGraphSources(model, visitedGraphGroups))
                 yield return source;
         }
     }
 
-    private static IEnumerable<VideoSource?> EnumerateValues(IProperty<VideoSource?> property)
+    private static IEnumerable<IFileSource> EnumerateAnimatedFileSources(IAnimation? animation)
     {
-        yield return property.CurrentValue;
-
-        foreach (VideoSource? source in EnumerateAnimatedValues(property.Animation))
-            yield return source;
-    }
-
-    private static IEnumerable<VideoSource?> EnumerateValues(IPropertyAdapter<VideoSource?> property)
-    {
-        yield return property.GetValue();
-
-        if (property is IAnimatablePropertyAdapter<VideoSource?> animatable)
-        {
-            foreach (VideoSource? source in EnumerateAnimatedValues(animatable.Animation))
-                yield return source;
-        }
-    }
-
-    private static IEnumerable<VideoSource?> EnumerateAnimatedValues(IAnimation<VideoSource?>? animation)
-    {
-        if (animation is not KeyFrameAnimation<VideoSource?> keyFrameAnimation)
+        if (animation is not KeyFrameAnimation keyFrameAnimation)
             yield break;
 
         foreach (IKeyFrame keyFrame in keyFrameAnimation.KeyFrames)
         {
-            if (keyFrame.Value is VideoSource source)
+            if (keyFrame.Value is IFileSource source)
                 yield return source;
         }
     }
