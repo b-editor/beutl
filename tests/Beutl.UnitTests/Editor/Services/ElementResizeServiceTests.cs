@@ -1,4 +1,5 @@
-﻿using Beutl.Editor;
+﻿using Beutl.Configuration;
+using Beutl.Editor;
 using Beutl.Editor.Services;
 using Beutl.ProjectSystem;
 using Beutl.UnitTests.TestInfrastructure;
@@ -172,5 +173,34 @@ public class ElementResizeServiceTests
             Assert.That(invalid.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
             Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
+    }
+
+    [Test]
+    public void Resize_RippleOn_AutoAdjustsSceneDurationAfterFollowerShift()
+    {
+        bool original = GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration;
+        GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration = true;
+
+        try
+        {
+            _scene.Duration = TimeSpan.FromSeconds(4);
+            Element target = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2), zIndex: 0);
+            Element follower = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2), zIndex: 0);
+
+            _service.Resize(_scene,
+                [new ElementResizeRequest(target, TimeSpan.Zero, TimeSpan.FromSeconds(5), 0)],
+                ripple: true);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(target.Range.End, Is.EqualTo(TimeSpan.FromSeconds(5)));
+                Assert.That(follower.Range.End, Is.EqualTo(TimeSpan.FromSeconds(7)));
+                Assert.That(_scene.Duration, Is.EqualTo(TimeSpan.FromSeconds(7)));
+            });
+        }
+        finally
+        {
+            GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration = original;
+        }
     }
 }

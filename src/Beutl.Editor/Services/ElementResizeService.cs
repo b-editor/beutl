@@ -19,6 +19,7 @@ public sealed class ElementResizeService : IElementResizeService
         ArgumentNullException.ThrowIfNull(requests);
         if (requests.Count == 0) return;
 
+        bool autoAdjustSceneDuration = ripple && GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration;
         var oldEnds = ripple ? new Dictionary<Element, (int ZIndex, TimeSpan End)>(requests.Count) : null;
         if (ripple)
         {
@@ -33,16 +34,11 @@ public sealed class ElementResizeService : IElementResizeService
         {
             // MoveChild reverts on follower overlap; ripple needs that overlap, and direct
             // writes are still CoreObjectOperationObserver-recorded for undo.
-            bool autoAdjust = GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration;
             foreach (ElementResizeRequest req in requests)
             {
                 req.Element.ZIndex = req.ZIndex;
                 req.Element.Start = req.NewStart;
                 req.Element.Length = req.NewLength;
-                if (autoAdjust && scene.Duration + scene.Start < req.Element.Range.End)
-                {
-                    scene.Duration = req.Element.Range.End - scene.Start;
-                }
             }
         }
         else
@@ -65,9 +61,28 @@ public sealed class ElementResizeService : IElementResizeService
                 TimeSpan delta = newEnd - oldEnd;
                 RippleHelper.ShiftAfter(scene, oldZ, oldEnd, delta, resized);
             }
+
+            if (autoAdjustSceneDuration)
+            {
+                ExtendSceneDurationToIncludeChildren(scene);
+            }
         }
 
         _historyManager.Commit(CommandNames.MoveElement);
+    }
+
+    private static void ExtendSceneDurationToIncludeChildren(Scene scene)
+    {
+        TimeSpan sceneEnd = scene.Start + scene.Duration;
+        foreach (Element child in scene.Children)
+        {
+            if (sceneEnd < child.Range.End)
+            {
+                sceneEnd = child.Range.End;
+            }
+        }
+
+        scene.Duration = sceneEnd - scene.Start;
     }
 
     private static void ValidateRippleRequest(ElementResizeRequest req)

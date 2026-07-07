@@ -57,6 +57,23 @@ public sealed partial class ElementView : UserControl
 
     private ElementViewModel ViewModel => (ElementViewModel)DataContext!;
 
+    internal static double CalculateRightResizeX(
+        double pointerX,
+        double? afterStartX,
+        double leftX,
+        double? originalDurationWidth,
+        bool ripple)
+    {
+        double x = ripple || afterStartX is null ? pointerX : Math.Min(afterStartX.Value, pointerX);
+
+        if (originalDurationWidth is { } maxWidth)
+        {
+            x = Math.Min(x, leftX + maxWidth);
+        }
+
+        return x;
+    }
+
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
@@ -344,13 +361,12 @@ public sealed partial class ElementView : UserControl
                             if (_resizeType == AlignmentX.Right)
                             {
                                 // 右
-                                double x = ctx.After == null ? point.X : Math.Min(ctx.After.Start.TimeToPixel(scale), point.X);
-
-                                if (ctx.OriginalDuration.HasValue)
-                                {
-                                    double maxWidth = ctx.OriginalDuration.Value.TimeToPixel(scale);
-                                    x = Math.Min(x, left + maxWidth);
-                                }
+                                double x = CalculateRightResizeX(
+                                    point.X,
+                                    ctx.After?.Start.TimeToPixel(scale),
+                                    left,
+                                    ctx.OriginalDuration?.TimeToPixel(scale),
+                                    viewModel.Timeline.IsRippleEnabled.Value);
 
                                 ctx.ViewModel.Width.Value = Math.Max(x - left, minWidth);
                             }
