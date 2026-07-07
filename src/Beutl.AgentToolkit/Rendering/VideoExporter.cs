@@ -2,6 +2,7 @@
 using System.Reactive.Subjects;
 using Beutl.Collections;
 using Beutl.Extensibility;
+using Beutl.Extensions.FFmpeg;
 using Beutl.Extensions.FFmpeg.Encoding;
 using Beutl.FFmpegIpc;
 using Beutl.Graphics.Rendering.Cache;
@@ -85,26 +86,34 @@ public sealed class VideoExporter(EncoderRegistration encoders)
                 scene.Duration.ToString("c"));
         }
 
-        // FFmpeg registers first, but its native libraries may be absent; fall through to the next
-        // encoder that supports this container (e.g. AVFoundation on macOS) before giving up.
-        FFmpegLibrariesNotFoundException? ffmpegMissing = null;
+        // FFmpeg registers first, but its native libraries or out-of-process worker may be absent; fall
+        // through to the next encoder that supports this container (e.g. AVFoundation on macOS) before giving up.
+        bool workerAvailable = FFmpegWorkerProcess.IsWorkerAvailable(AppContext.BaseDirectory);
+        CodecUnavailableException? ffmpegFailure = null;
         for (int i = 0; i < candidates.Count; i++)
         {
+            // A missing worker fails during process start (not FFmpegLibrariesNotFoundException), so skip
+            // the FFmpeg encoder up front when the worker is absent and another encoder can take over.
+            if (candidates[i] is FFmpegHeadlessEncodingExtension && !workerAvailable && candidates.Count > 1)
+            {
+                continue;
+            }
+
             try
             {
                 return await EncodeWithAsync(candidates[i]).ConfigureAwait(false);
             }
             catch (FFmpegLibrariesNotFoundException ex)
             {
-                ffmpegMissing = ex;
+                ffmpegFailure = new CodecUnavailableException("FFmpeg libraries are not available.", ex);
             }
             catch (FFmpegWorkerException ex)
             {
-                throw new CodecUnavailableException(ex.Message, ex);
+                ffmpegFailure = new CodecUnavailableException(ex.Message, ex);
             }
         }
 
-        throw new CodecUnavailableException("FFmpeg libraries are not available.", ffmpegMissing);
+        throw ffmpegFailure ?? new CodecUnavailableException("FFmpeg libraries are not available.");
     }
 
     internal static void ApplyQualitySettings(VideoEncoderSettings settings, int? crf, int? bitrate)

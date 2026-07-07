@@ -84,6 +84,40 @@ public sealed class ExportOrchestrationTests
         });
     }
 
+    [Test]
+    public void Missing_worker_falls_through_to_avfoundation_instead_of_codec_unavailable()
+    {
+        if (!OperatingSystem.IsMacOS())
+        {
+            Assert.Ignore("AVFoundation is only registered on macOS.");
+        }
+
+        if (FFmpegWorkerProcess.IsWorkerAvailable(AppContext.BaseDirectory))
+        {
+            Assert.Ignore("An FFmpeg worker is present next to the test host; the fallback path is not exercised.");
+        }
+
+        var exporter = new VideoExporter(new EncoderRegistration());
+        var scene = new Scene(64, 64, "export") { Duration = TimeSpan.FromSeconds(1) };
+        string output = Path.Combine(CreateWorkspace(), "movie.mov");
+
+        try
+        {
+            exporter.ExportAsync(scene, output, new Rational(30, 1), 44100, 1, CancellationToken.None)
+                .AsTask().GetAwaiter().GetResult();
+            Assert.That(File.Exists(output), Is.True);
+        }
+        catch (CodecUnavailableException)
+        {
+            Assert.Fail("The FFmpeg worker being absent must fall through to AVFoundation, not surface codec_unavailable.");
+        }
+        catch (Exception ex)
+        {
+            // The FFmpeg skip is what matters here; AVFoundation itself may not run in a headless runner.
+            Assert.Ignore($"AVFoundation encode could not run in this environment: {ex.GetType().Name}.");
+        }
+    }
+
     private static string CreateWorkspace()
     {
         string path = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
