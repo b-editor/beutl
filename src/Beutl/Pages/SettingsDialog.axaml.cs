@@ -119,18 +119,18 @@ public sealed partial class SettingsDialog : AppWindow
             {
                 Content = Strings.Extensions,
                 Tag = typeof(ExtensionsSettingsPage),
-                IconSource = new FluentIcons.Avalonia.Fluent.SymbolIconSource()
+                IconSource = new FluentIcons.Avalonia.Fluent.FluentIconSource()
                 {
-                    Symbol = FluentIcons.Common.Symbol.PuzzlePiece
+                    Icon = FluentIcons.Common.Icon.PuzzlePiece
                 }
             },
             new NavigationViewItem()
             {
                 Content = Strings.Info,
                 Tag = typeof(InformationPage),
-                IconSource = new FluentIcons.Avalonia.Fluent.SymbolIconSource()
+                IconSource = new FluentIcons.Avalonia.Fluent.FluentIconSource()
                 {
-                    Symbol = FluentIcons.Common.Symbol.Info
+                    Icon = FluentIcons.Common.Icon.Info
                 }
             }
         ];

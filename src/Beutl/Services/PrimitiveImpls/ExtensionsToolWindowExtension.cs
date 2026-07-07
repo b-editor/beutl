@@ -4,8 +4,8 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Beutl.ViewModels;
 using FluentAvalonia.UI.Controls;
-using Symbol = FluentIcons.Common.Symbol;
-using SymbolIconSource = FluentIcons.Avalonia.Fluent.SymbolIconSource;
+using Icon = FluentIcons.Common.Icon;
+using FluentIconSource = FluentIcons.Avalonia.Fluent.FluentIconSource;
 
 namespace Beutl.Services.PrimitiveImpls;
 
@@ -21,7 +21,7 @@ public sealed class ExtensionsToolWindowExtension : ToolWindowExtension
     public override ToolWindowMode Mode => ToolWindowMode.Dialog;
 
     public override IconSource? GetIcon()
-        => new SymbolIconSource() { Symbol = Symbol.PuzzlePiece };
+        => new FluentIconSource() { Icon = Icon.PuzzlePiece };
 
     public override bool TryCreateContent([NotNullWhen(true)] out Window? window)
     {

@@ -227,9 +227,9 @@ public partial class NodePortView : UserControl
             {
                 Header = Strings.Rename,
                 Command = new ReactiveCommand().WithSubscribe(RenameClick),
-                Icon = new SymbolIcon
+                Icon = new FluentIcon
                 {
-                    Symbol = Symbol.Rename
+                    Icon = Icon.Rename
                 }
             });
         }
