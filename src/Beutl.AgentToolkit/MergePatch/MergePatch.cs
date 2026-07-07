@@ -368,9 +368,9 @@ public static class MergePatch
                     {
                         throw new ReconcileException(new ToolError(
                             ErrorCode.ValidationRejected,
-                            $"'{path}' is a newly inserted member; '{pair.Key}' directives are not allowed inside it.",
+                            $"'{path}' is a full desired object (an inserted or replacement member); '{pair.Key}' directives are not allowed inside it.",
                             pair.Key,
-                            "Insert the member as a plain desired object first, then reorder or delete its nested members with a follow-up patch."));
+                            "Apply the member as a plain desired object first, then reorder or delete its nested members with a follow-up patch."));
                     }
 
                     RejectNestedDirectives(pair.Value, $"{path}/{pair.Key}");
