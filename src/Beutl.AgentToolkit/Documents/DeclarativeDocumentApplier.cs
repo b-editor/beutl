@@ -242,8 +242,12 @@ internal sealed class DeclarativeDocumentApplier
     {
         foreach (CoreProperty property in PropertyRegistry.GetRegistered(target.GetType()))
         {
+            // Getter-only properties (e.g. Element.Objects) reject SetValue, and identity lists
+            // (Objects/KeyFrames) are cleared by their specialized handlers, never by nulling.
             if (property.PropertyType.IsValueType
                 || property.PropertyType == typeof(string)
+                || typeof(ICoreList).IsAssignableFrom(property.PropertyType)
+                || property is IStaticProperty { CanWrite: false }
                 || desired.ContainsKey(property.Name)
                 || serializedPayload.ContainsKey(property.Name))
             {

@@ -179,11 +179,22 @@ public sealed class AgentSessionManager(CreativeMemoryStore? creativeMemory = nu
             DateTimeOffset.UtcNow);
         lock (_stateLock)
         {
+            // Plans are only removed on a successful apply; abandoned ones (never applied, failed
+            // validation, or from a swapped-away session) would otherwise accumulate for the
+            // lifetime of the in-app host, each holding a full cloned document.
+            while (_compositionPlans.Count >= MaxRetainedCompositionPlans)
+            {
+                string oldest = _compositionPlans.Values.MinBy(plan => plan.CreatedAt)!.Id;
+                _compositionPlans.Remove(oldest);
+            }
+
             _compositionPlans[id] = state;
         }
 
         return state;
     }
+
+    private const int MaxRetainedCompositionPlans = 32;
 
     public CompositionPlanState GetCompositionPlan(string planId)
     {

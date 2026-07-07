@@ -55,6 +55,61 @@ public sealed class FileEditingSessionTests
     }
 
     [Test]
+    public void Save_and_save_as_on_a_disposed_session_throw_session_unavailable()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        using var source = new FileSessionSource();
+        FileEditingSession session = source.CreateProject(new ProjectCreateOptions(
+            Path.Combine(root, "demo.bep"), 640, 360, 30, TimeSpan.FromSeconds(2)));
+
+        session.Dispose();
+
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<SessionUnavailableException>(() => session.Save(skipConflictCheck: true));
+            Assert.Throws<SessionUnavailableException>(
+                () => session.SaveAs(Path.Combine(root, "copy.bep"), skipConflictCheck: true));
+        });
+    }
+
+    [Test]
+    public void Open_project_returns_the_session_created_for_the_requested_path()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string pathA = Path.Combine(root, "a.bep");
+        string pathB = Path.Combine(root, "b.bep");
+        using var source = new FileSessionSource();
+        source.CreateProject(new ProjectCreateOptions(pathA, 640, 360, 30, TimeSpan.FromSeconds(2))).Save(skipConflictCheck: true);
+        source.CreateProject(new ProjectCreateOptions(pathB, 640, 360, 30, TimeSpan.FromSeconds(2))).Save(skipConflictCheck: true);
+
+        for (int i = 0; i < 20; i++)
+        {
+            using var barrier = new Barrier(2);
+            FileEditingSession? fromA = null;
+            FileEditingSession? fromB = null;
+            Task openA = Task.Run(() =>
+            {
+                barrier.SignalAndWait();
+                fromA = source.OpenProject(pathA);
+            });
+            Task openB = Task.Run(() =>
+            {
+                barrier.SignalAndWait();
+                fromB = source.OpenProject(pathB);
+            });
+            Task.WaitAll(openA, openB);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(fromA!.Project.Uri!.LocalPath, Is.EqualTo(Path.GetFullPath(pathA)));
+                Assert.That(fromB!.Project.Uri!.LocalPath, Is.EqualTo(Path.GetFullPath(pathB)));
+            });
+        }
+    }
+
+    [Test]
     public void Invoke_serializes_concurrent_dispatches()
     {
         string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));

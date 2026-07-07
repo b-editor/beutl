@@ -99,7 +99,17 @@ public sealed class RenderJobManager : IDisposable
             }
         }
 
-        record.Cts.Cancel();
+        try
+        {
+            record.Cts.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+            // The job finished (and RunAsync disposed the CTS) between the state check and here;
+            // treat it like the not-running case instead of surfacing an internal error.
+            return false;
+        }
+
         return true;
     }
 

@@ -13,13 +13,6 @@ public sealed class DestructiveGuard
         }
     }
 
-    public void EnsureDeleteAllowed(bool confirmed, string target)
-    {
-        if (!confirmed)
-        {
-            throw new DestructiveIntentException(target, "Deleting content requires explicit confirmation.");
-        }
-    }
 }
 
 public sealed class DestructiveIntentException : Exception

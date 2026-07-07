@@ -98,7 +98,9 @@ public partial class ColorShift : FilterEffect
         if (s_shader is null) return;
         for (int i = 0; i < context.Targets.Count; i++)
         {
-            using var effectTarget = context.Targets[i];
+            // Not `using`: the skip paths below keep this target in context.Targets[i], so it must
+            // only be disposed after the slot is replaced with the shifted output.
+            EffectTarget effectTarget = context.Targets[i];
             RenderTarget? renderTarget = effectTarget.RenderTarget;
             if (renderTarget is null)
             {
@@ -114,6 +116,14 @@ public partial class ColorShift : FilterEffect
             using var image = renderTarget.Value.Snapshot();
             if (image is null)
             {
+                // Delivery (MaxWorkingScale == +inf) must not silently ship an unshifted layer;
+                // preview keeps the source pixels.
+                if (float.IsPositiveInfinity(context.MaxWorkingScale))
+                {
+                    throw new InvalidOperationException(
+                        $"ColorShift snapshot failed for target {i}; the GPU surface could not be read back.");
+                }
+
                 continue;
             }
 
@@ -134,6 +144,7 @@ public partial class ColorShift : FilterEffect
 
             // 新しいターゲットに適用
             context.Targets[i] = s_shader.ApplyToNewTarget(context, builder, bounds);
+            effectTarget.Dispose();
         }
     }
 }

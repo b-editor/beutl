@@ -1302,6 +1302,26 @@ public sealed class QualityAnalyzerTests
     }
 
     [Test]
+    public async Task Timeline_coverage_evaluates_trimmed_scenes_on_the_scene_relative_axis()
+    {
+        Scene scene = CreateScene(durationSeconds: 4);
+        scene.Start = TimeSpan.FromSeconds(30);
+        Element first = AddRect(scene, "Clip A", zIndex: 5, width: 1920, height: 1080, color: Color.Parse("#ff20242b"));
+        first.Start = TimeSpan.FromSeconds(30);
+        first.Length = TimeSpan.FromSeconds(2);
+        Element second = AddRect(scene, "Clip B", zIndex: 5, width: 1920, height: 1080, color: Color.Parse("#ff303640"));
+        second.Start = TimeSpan.FromSeconds(32);
+        second.Length = TimeSpan.FromSeconds(2);
+
+        QualityReviewResponse result = await AnalyzeAsync(scene, evaluateMotion: false, videoType: "footage-cut");
+
+        // Absolute element times (30-34s) fully cover the trimmed scene window; comparing them
+        // against the relative axis would report the whole timeline as one big gap.
+        Assert.That(result.Issues, Has.None.Matches<QualityIssue>(issue =>
+            issue.Category == "timelineCoverage"));
+    }
+
+    [Test]
     public async Task Omitted_video_type_keeps_motion_graphics_issue_set_at_pre_change_baseline()
     {
         Scene scene = CreateScene(durationSeconds: 4);

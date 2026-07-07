@@ -1,4 +1,5 @@
-﻿using Beutl.AgentToolkit.Common;
+﻿using System.Globalization;
+using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
@@ -97,6 +98,63 @@ public sealed class AddElementToolTests
             Assert.That(result.Error.Target, Is.EqualTo("startSeconds"));
             Assert.That(scene.Children, Has.Count.EqualTo(1));
         });
+    }
+
+    [Test]
+    public void Split_element_rejects_non_finite_and_out_of_range_offsets()
+    {
+        var scene = new Scene(1920, 1080, "Scene");
+        using var session = new AgentToolkitTestSession(scene);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var tools = new ElementTools(manager);
+        var added = tools.AddElement(startSeconds: 0, durationSeconds: 2, zIndex: 0, contentKind: "shape", shape: "rect");
+        Assert.That(added.IsSuccess, Is.True, added.Error?.Message);
+        string elementId = scene.Children[0].Id.ToString();
+
+        var nan = tools.SplitElement(elementId, double.NaN);
+        var huge = tools.SplitElement(elementId, 1e15);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(nan.IsSuccess, Is.False);
+            Assert.That(nan.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(huge.IsSuccess, Is.False);
+            Assert.That(huge.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(scene.Children, Has.Count.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public void Split_element_parses_fractional_times_invariantly_under_comma_decimal_culture()
+    {
+        CultureInfo originalCulture = CultureInfo.CurrentCulture;
+        try
+        {
+            CultureInfo.CurrentCulture = new CultureInfo("de-DE");
+
+            var scene = new Scene(1920, 1080, "Scene");
+            using var session = new AgentToolkitTestSession(scene);
+            var manager = new AgentSessionManager();
+            manager.UseSource(new AgentToolkitTestSessionSource(session));
+            var tools = new ElementTools(manager);
+            var added = tools.AddElement(startSeconds: 1.5, durationSeconds: 3, zIndex: 0, contentKind: "shape", shape: "rect");
+            Assert.That(added.IsSuccess, Is.True, added.Error?.Message);
+            string elementId = scene.Children[0].Id.ToString();
+
+            var result = tools.SplitElement(elementId, 1.5);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+                Assert.That(scene.Children, Has.Count.EqualTo(2));
+                Assert.That(scene.Children[0].Length, Is.EqualTo(TimeSpan.FromSeconds(1.5)));
+            });
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = originalCulture;
+        }
     }
 
     [Test]

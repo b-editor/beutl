@@ -1608,12 +1608,26 @@ public sealed class RenderTools(
             .ThenBy(element => element.ZIndex)
             .Select(element =>
             {
+                // Element.Start lives on the absolute timeline axis while shot times are
+                // scene-relative (the renderer re-applies scene.Start); normalize and clamp so a
+                // trimmed scene (Scene.Start > 0) does not sample past the element.
                 TimeSpan midpoint = element.Length > TimeSpan.Zero
                     ? element.Start + TimeSpan.FromTicks(element.Length.Ticks / 2)
                     : element.Start;
+                TimeSpan relative = midpoint - scene.Start;
+                if (relative < TimeSpan.Zero)
+                {
+                    relative = TimeSpan.Zero;
+                }
+
+                if (scene.Duration > TimeSpan.Zero && relative > scene.Duration)
+                {
+                    relative = scene.Duration;
+                }
+
                 return new ResolvedStoryboardShot(
                     string.IsNullOrWhiteSpace(element.Name) ? element.Id.ToString() : element.Name,
-                    midpoint);
+                    relative);
             })
             .GroupBy(shot => shot.Time)
             .Select(group => group.First())

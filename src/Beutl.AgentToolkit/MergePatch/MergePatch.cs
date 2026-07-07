@@ -117,6 +117,9 @@ public static class MergePatch
                 nextItem = (JsonObject)patchItem.DeepClone();
                 nextItem[nameof(CoreObject.Id)] = id.ToString();
                 RemoveDirectives(nextItem);
+                // An inserted member is a full desired object, not a patch: nested $-directives are
+                // never executed, so they would leak into the stored document as literal properties.
+                RejectNestedDirectives(nextItem, $"{path}[new:{patchIndex}]");
                 result.Add(nextItem);
                 MoveWithDirectives(result, id, patchItem);
                 patchIndex++;
@@ -345,6 +348,36 @@ public static class MergePatch
         foreach (string directive in s_directives)
         {
             obj.Remove(directive);
+        }
+    }
+
+    private static void RejectNestedDirectives(JsonNode? node, string path)
+    {
+        switch (node)
+        {
+            case JsonObject obj:
+                foreach (KeyValuePair<string, JsonNode?> pair in obj)
+                {
+                    if (pair.Key == "$delete" || s_directives.Contains(pair.Key))
+                    {
+                        throw new ReconcileException(new ToolError(
+                            ErrorCode.ValidationRejected,
+                            $"'{path}' is a newly inserted member; '{pair.Key}' directives are not allowed inside it.",
+                            pair.Key,
+                            "Insert the member as a plain desired object first, then reorder or delete its nested members with a follow-up patch."));
+                    }
+
+                    RejectNestedDirectives(pair.Value, $"{path}/{pair.Key}");
+                }
+
+                break;
+            case JsonArray array:
+                for (int i = 0; i < array.Count; i++)
+                {
+                    RejectNestedDirectives(array[i], $"{path}[{i}]");
+                }
+
+                break;
         }
     }
 }

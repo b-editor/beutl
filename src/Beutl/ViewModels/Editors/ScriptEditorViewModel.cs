@@ -31,7 +31,7 @@ public sealed class ScriptEditorViewModel : ValueEditorViewModel<string?>
             {
                 CompileError.Value = result.Status == ScriptCompilationStatus.Failed ? result.Error : null;
                 ValidationNotice.Value = result.Status == ScriptCompilationStatus.Unavailable
-                    ? "Validation is unavailable here (no graphics context); the script was not checked."
+                    ? MessageStrings.ScriptValidationUnavailable
                     : null;
             })
             .DisposeWith(Disposables);

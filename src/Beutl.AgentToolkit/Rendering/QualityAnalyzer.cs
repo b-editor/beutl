@@ -696,14 +696,15 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         HashSet<long> timelineEvents = [];
         foreach (Element element in scene.Children.Where(element => IsTempoForegroundElement(scene, element)))
         {
-            AddEventTime(timelineEvents, element.Start, scene.Duration);
-            AddEventTime(timelineEvents, element.Start + element.Length, scene.Duration);
+            // Element times are absolute; the event axis is scene-relative [0, Duration].
+            AddEventTime(timelineEvents, element.Start - scene.Start, scene.Duration);
+            AddEventTime(timelineEvents, element.Start + element.Length - scene.Start, scene.Duration);
         }
 
         HashSet<long> keyFrameEvents = [];
         foreach (SceneObjectInfo info in objects.Where(item => IsTempoForegroundObject(scene, item)))
         {
-            AddKeyFrameEventTimes(info, scene.Duration, keyFrameEvents);
+            AddKeyFrameEventTimes(info, scene.Start, scene.Duration, keyFrameEvents);
         }
 
         double beatRate = targetBpm > 0 ? targetBpm / 60d : 0;
@@ -718,7 +719,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
                     keyFrameEvents,
                     scene.Duration,
                     maxForegroundEventGapSeconds,
-                    finalResolveElement?.Start.TotalSeconds)
+                    finalResolveElement is { } resolve ? (resolve.Start - scene.Start).TotalSeconds : null)
                 : (0, 0);
 
         SceneObjectInfo[] slowHoldObjects = highTempoProfile
@@ -1112,7 +1113,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
             TimeSpan start = TimeSpan.FromSeconds(startSeconds);
             TimeSpan end = TimeSpan.FromSeconds(endSeconds);
             SceneObjectInfo[] active = objects
-                .Where(item => IsVisibleDuring(item, start, end))
+                .Where(item => IsVisibleDuring(scene, item, start, end))
                 .Where(item => IsLayerDensityObject(item.Object))
                 .ToArray();
             int visibleLayerCount = active.Length;
@@ -1223,8 +1224,8 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
             .Where(element => element.Length > TimeSpan.Zero)
             .Where(element => objects.Any(info => info.Element == element && IsVisibleTimelineObject(info.Object)))
             .Select(element => (
-                Start: Math.Clamp(element.Start.TotalSeconds, 0, durationSeconds),
-                End: Math.Clamp((element.Start + element.Length).TotalSeconds, 0, durationSeconds)))
+                Start: Math.Clamp((element.Start - scene.Start).TotalSeconds, 0, durationSeconds),
+                End: Math.Clamp((element.Start + element.Length - scene.Start).TotalSeconds, 0, durationSeconds)))
             .Where(interval => interval.End > interval.Start)
             .OrderBy(interval => interval.Start)
             .ThenBy(interval => interval.End)
@@ -1285,7 +1286,8 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         CutBoundary[] lateBoundaries = FindInteriorCutBoundaries(scene)
             .Select(boundary =>
             {
-                double boundarySeconds = boundary.Time.TotalSeconds;
+                // Audio beats are scene-relative; boundary times are absolute.
+                double boundarySeconds = (boundary.Time - scene.Start).TotalSeconds;
                 double nearestBeat = beats.MinBy(beat => Math.Abs(beat - boundarySeconds));
                 double distance = Math.Abs(nearestBeat - boundarySeconds);
                 return boundary with
@@ -2043,7 +2045,11 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         MotionArcSegment finalSegment = dominantMovingSegments
             .OrderBy(item => item.EndSeconds)
             .Last();
-        double sceneEnd = scene.Duration > TimeSpan.Zero ? scene.Duration.TotalSeconds : finalSegment.EndSeconds;
+        // Segment times come from ResolveKeyFrameTime (absolute axis), so the scene end must be
+        // absolute too: scene.Start + Duration, not Duration alone.
+        double sceneEnd = scene.Duration > TimeSpan.Zero
+            ? (scene.Start + scene.Duration).TotalSeconds
+            : finalSegment.EndSeconds;
         double elementEnd = finalSegment.Info.Element.Length > TimeSpan.Zero
             ? (finalSegment.Info.Element.Start + finalSegment.Info.Element.Length).TotalSeconds
             : sceneEnd;
@@ -3129,14 +3135,16 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
                || ContainsAny(info.Object.Name, "minimal", "minimalism", "sparse", "negative space", "negative-space", "poster field", "quiet field");
     }
 
-    private static bool IsVisibleDuring(SceneObjectInfo info, TimeSpan start, TimeSpan end)
+    // start/end are scene-relative band times; Element.Start is on the absolute timeline axis.
+    private static bool IsVisibleDuring(Scene scene, SceneObjectInfo info, TimeSpan start, TimeSpan end)
     {
         if (info.Element.Length <= TimeSpan.Zero)
         {
             return false;
         }
 
-        if (info.Element.Start >= end || info.Element.Start + info.Element.Length <= start)
+        TimeSpan elementStart = info.Element.Start - scene.Start;
+        if (elementStart >= end || elementStart + info.Element.Length <= start)
         {
             return false;
         }
@@ -3399,7 +3407,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         SceneObjectInfo last = foreground
             .OrderByDescending(item => item.Element.Start)
             .First();
-        return last.Element.Start > TimeSpan.Zero ? last.Element : null;
+        return last.Element.Start > scene.Start ? last.Element : null;
     }
 
     private static bool IsNamedFinalResolve(SceneObjectInfo info)
@@ -3497,14 +3505,15 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         events.Add(quantizedMilliseconds);
     }
 
-    private static void AddKeyFrameEventTimes(SceneObjectInfo info, TimeSpan sceneDuration, HashSet<long> events)
+    private static void AddKeyFrameEventTimes(SceneObjectInfo info, TimeSpan sceneStart, TimeSpan sceneDuration, HashSet<long> events)
     {
-        AddKeyFrameEventTimes(info.Object, info.Element.Start, sceneDuration, events);
+        AddKeyFrameEventTimes(info.Object, info.Element.Start, sceneStart, sceneDuration, events);
     }
 
     private static void AddKeyFrameEventTimes(
         EngineObject obj,
         TimeSpan elementStart,
+        TimeSpan sceneStart,
         TimeSpan sceneDuration,
         HashSet<long> events)
     {
@@ -3514,24 +3523,25 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
             {
                 foreach (IKeyFrame keyFrame in animation.KeyFrames)
                 {
+                    // Both branches yield absolute-axis times; the event axis is scene-relative.
                     TimeSpan time = animation.UseGlobalClock
                         ? keyFrame.KeyTime
                         : elementStart + keyFrame.KeyTime;
-                    AddEventTime(events, time, sceneDuration);
+                    AddEventTime(events, time - sceneStart, sceneDuration);
                 }
             }
 
             switch (property.CurrentValue)
             {
                 case EngineObject nested:
-                    AddKeyFrameEventTimes(nested, elementStart, sceneDuration, events);
+                    AddKeyFrameEventTimes(nested, elementStart, sceneStart, sceneDuration, events);
                     break;
                 case ICoreList list:
                     foreach (object? item in list)
                     {
                         if (item is EngineObject nestedItem)
                         {
-                            AddKeyFrameEventTimes(nestedItem, elementStart, sceneDuration, events);
+                            AddKeyFrameEventTimes(nestedItem, elementStart, sceneStart, sceneDuration, events);
                         }
                     }
 
@@ -3892,7 +3902,9 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
 
         void AddBoundary(TimeSpan time, Element element)
         {
-            if (time <= TimeSpan.Zero || time >= duration)
+            // Boundary times stay on the absolute axis (consumers compare against Element.Range);
+            // "interior" therefore means inside [scene.Start, scene.Start + duration].
+            if (time <= scene.Start || time >= scene.Start + duration)
             {
                 return;
             }

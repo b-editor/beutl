@@ -1,5 +1,6 @@
 ﻿using System.Collections.Immutable;
 using System.ComponentModel;
+using System.Globalization;
 using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Documents;
@@ -209,6 +210,7 @@ public sealed class ElementTools(AgentSessionManager sessions) : ToolBase
     {
         return Execute(() =>
         {
+            ValidateDuration(splitOffsetSeconds, nameof(splitOffsetSeconds));
             IEditingSession session = sessions.RequireSession();
             return _reconciler.ApplyFromCurrent(session, current =>
             {
@@ -216,6 +218,15 @@ public sealed class ElementTools(AgentSessionManager sessions) : ToolBase
                 JsonObject element = FindElement(current, elementId);
                 TimeSpan start = ReadTime(element, nameof(Element.Start));
                 TimeSpan length = ReadTime(element, nameof(Element.Length));
+                // Compare in seconds before converting: TimeSpan.FromSeconds overflows on huge values.
+                if (splitOffsetSeconds >= length.TotalSeconds)
+                {
+                    throw new ReconcileException(new ToolError(
+                        ErrorCode.ValidationRejected,
+                        "Split offset must be inside the element duration.",
+                        elementId));
+                }
+
                 TimeSpan split = TimeSpan.FromSeconds(splitOffsetSeconds);
                 if (split <= TimeSpan.Zero || split >= length)
                 {
@@ -370,7 +381,9 @@ public sealed class ElementTools(AgentSessionManager sessions) : ToolBase
 
     private static TimeSpan ReadTime(JsonObject obj, string propertyName)
     {
-        return TimeSpan.Parse(obj[propertyName]!.GetValue<string>());
+        // Document time strings are always constant ("c") format; a culture-sensitive parse breaks
+        // fractional values on comma-decimal locales.
+        return TimeSpan.ParseExact(obj[propertyName]!.GetValue<string>(), "c", CultureInfo.InvariantCulture);
     }
 
     private static IEnumerable<Guid> ParseElementIds(Scene scene, IEnumerable<string> elementIds)

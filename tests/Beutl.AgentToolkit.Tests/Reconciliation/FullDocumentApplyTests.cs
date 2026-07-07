@@ -56,6 +56,56 @@ public sealed class FullDocumentApplyTests
     }
 
     [Test]
+    public void Full_document_that_omits_an_elements_objects_clears_them()
+    {
+        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var scene = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
+        var element = new Element { Length = TimeSpan.FromSeconds(1), Uri = new Uri(Path.Combine(dir, "first.belm")) };
+        element.AddObject(new TextBlock { Text = { CurrentValue = "Title" } });
+        scene.Children.Add(element);
+        using var session = TestEditingSession.Create(scene);
+        var reconciler = new Reconciler();
+
+        JsonObject desired = session.Documents.Read(session.Scene);
+        ((JsonArray)desired["Elements"]!)[0]!.AsObject().Remove("Objects");
+
+        reconciler.Apply(session, desired);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(session.Scene.Children, Has.Count.EqualTo(1));
+            Assert.That(session.Scene.Children[0].Objects, Is.Empty);
+        });
+    }
+
+    [Test]
+    public void New_element_inserted_without_an_objects_key_starts_empty()
+    {
+        using var session = TestEditingSession.Create(new Scene(1920, 1080, "Scene"));
+        var reconciler = new Reconciler();
+        JsonObject desired = session.Documents.Read(session.Scene);
+
+        JsonObject elementJson = CoreSerializer.SerializeToJsonObject(new Element
+        {
+            Start = TimeSpan.FromSeconds(1),
+            Length = TimeSpan.FromSeconds(2)
+        });
+        elementJson.Remove(nameof(CoreObject.Id));
+        elementJson.Remove("Objects");
+        ((JsonArray)desired["Elements"]!).Add(elementJson);
+
+        ReconcileResult result = reconciler.Apply(session, desired);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(session.Scene.Children, Has.Count.EqualTo(1));
+            Assert.That(session.Scene.Children[0].Objects, Is.Empty);
+            Assert.That(result.Plan.Changes.Select(change => change.Operation), Does.Contain(ChangeOperations.InsertChild));
+        });
+    }
+
+    [Test]
     public void Full_document_that_omits_groups_clears_the_existing_scene_groups()
     {
         string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));

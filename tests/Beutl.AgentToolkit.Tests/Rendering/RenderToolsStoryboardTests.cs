@@ -47,6 +47,42 @@ public sealed class RenderToolsStoryboardTests
     }
 
     [Test]
+    public void Derived_storyboard_shots_normalize_element_midpoints_to_scene_relative_times()
+    {
+        var scene = new Scene(16, 9, "trimmed")
+        {
+            Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.scene")),
+            Start = TimeSpan.FromSeconds(5),
+            Duration = TimeSpan.FromSeconds(10)
+        };
+        scene.Children.Add(new Element
+        {
+            Name = "before-trim",
+            Start = TimeSpan.Zero,
+            Length = TimeSpan.FromSeconds(2),
+            Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.belm"))
+        });
+        scene.Children.Add(new Element
+        {
+            Name = "clip",
+            Start = TimeSpan.FromSeconds(5),
+            Length = TimeSpan.FromSeconds(10),
+            Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.belm"))
+        });
+
+        RenderTools.ResolvedStoryboardFrame[] frames =
+            RenderTools.ResolveStoryboardFrames(scene, shots: null, subdivisionLevel: 0).ToArray();
+
+        Assert.Multiple(() =>
+        {
+            // "before-trim" midpoint (absolute 1s) clamps to scene-relative 0; "clip" midpoint
+            // (absolute 10s) becomes scene-relative 5s, not the double-offset 10s.
+            Assert.That(frames.Select(frame => frame.Time),
+                Is.EqualTo(new[] { TimeSpan.Zero, TimeSpan.FromSeconds(5) }));
+        });
+    }
+
+    [Test]
     public void Resolve_storyboard_frames_subdivides_explicit_shots_at_binary_points()
     {
         var scene = new Scene(16, 9, "subdivision") { Duration = TimeSpan.FromSeconds(1) };

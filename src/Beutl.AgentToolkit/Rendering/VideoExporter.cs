@@ -50,6 +50,15 @@ public sealed class VideoExporter(EncoderRegistration encoders)
                 $"No encoder is registered for '{Path.GetExtension(outputPath)}'.");
         }
 
+        // Scene3DRenderNode silently renders nothing without a 3D-capable context, so exporting
+        // would succeed with the 3D layers missing; fail up front like render_still does.
+        if (StillRenderer.ContainsGpuOnlyContent(scene)
+            && !await StillRenderer.Has3DGraphicsContextAsync(cancellationToken).ConfigureAwait(false))
+        {
+            throw new RenderingUnavailableException(
+                "The scene contains 3D content, but no GPU context with 3D rendering support is available.");
+        }
+
         string? directory = Path.GetDirectoryName(outputPath);
         if (!string.IsNullOrEmpty(directory))
         {

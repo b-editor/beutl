@@ -7,6 +7,24 @@ namespace Beutl.AgentToolkit.Tests.Sessions;
 public sealed class AgentSessionManagerConcurrencyTests
 {
     [Test]
+    public async Task Composition_plans_evict_the_oldest_beyond_the_retention_cap()
+    {
+        var manager = new AgentSessionManager();
+
+        CompositionPlanState first = manager.StoreCompositionPlan(
+            "comp", "seed", new JsonObject(), new JsonObject(), new JsonArray(), new HashSet<Guid>());
+        await Task.Delay(10);
+        for (int i = 0; i < 32; i++)
+        {
+            manager.StoreCompositionPlan(
+                "comp", "seed", new JsonObject(), new JsonObject(), new JsonArray(), new HashSet<Guid>());
+        }
+
+        Assert.Throws<AgentToolkit.Reconciliation.ReconcileException>(
+            () => manager.GetCompositionPlan(first.Id));
+    }
+
+    [Test]
     public void Concurrent_plan_store_get_remove_does_not_throw_or_corrupt()
     {
         var manager = new AgentSessionManager();

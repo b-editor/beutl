@@ -7,7 +7,11 @@ namespace Beutl.AgentToolkit.Sessions;
 
 public sealed class FileSessionSource : ISessionSource, IDisposable
 {
-    private FileEditingSession? _currentSession;
+    // Concurrent open_project/create_project calls race on the current-session swap; each caller
+    // must get back the session IT created (never the shared field, which another call may have
+    // replaced), and the replaced session must be disposed exactly once.
+    private readonly object _swapLock = new();
+    private volatile FileEditingSession? _currentSession;
 
     public EditingSessionSource Source => EditingSessionSource.File;
 
@@ -27,54 +31,67 @@ public sealed class FileSessionSource : ISessionSource, IDisposable
         Scene scene = project.Items.OfType<Scene>().FirstOrDefault()
                       ?? throw new InvalidOperationException("The project does not contain a scene.");
 
-        SetCurrent(new FileEditingSession(
+        var session = new FileEditingSession(
             Guid.NewGuid().ToString("N"),
             project,
             scene,
-            File.Exists(fullPath) ? File.GetLastWriteTimeUtc(fullPath) : DateTime.MinValue));
-        return _currentSession!;
+            File.Exists(fullPath) ? File.GetLastWriteTimeUtc(fullPath) : DateTime.MinValue);
+        SetCurrent(session);
+        return session;
     }
 
     public FileEditingSession CreateProject(ProjectCreateOptions options)
     {
         Project project = ProjectOperations.CreateProject(options);
         Scene scene = project.Items.OfType<Scene>().First();
-        SetCurrent(new FileEditingSession(Guid.NewGuid().ToString("N"), project, scene, DateTime.MinValue));
-        _currentSession!.MarkDirty();
-        return _currentSession;
+        var session = new FileEditingSession(Guid.NewGuid().ToString("N"), project, scene, DateTime.MinValue);
+        session.MarkDirty();
+        SetCurrent(session);
+        return session;
     }
 
     public Scene AddScene(SceneCreateOptions options)
     {
-        if (_currentSession is null)
-        {
-            throw new InvalidOperationException("No file editing session is open.");
-        }
+        FileEditingSession session = _currentSession
+            ?? throw new InvalidOperationException("No file editing session is open.");
 
-        Scene scene = ProjectOperations.AddScene(_currentSession.Project, options);
-        _currentSession.MarkDirty();
+        Scene scene = ProjectOperations.AddScene(session.Project, options);
+        session.MarkDirty();
         return scene;
     }
 
     public void SaveProject()
     {
-        if (_currentSession is null)
-        {
-            throw new InvalidOperationException("No file editing session is open.");
-        }
+        FileEditingSession session = _currentSession
+            ?? throw new InvalidOperationException("No file editing session is open.");
 
-        _currentSession.Save();
+        session.Save();
     }
 
     public void Dispose()
     {
-        _currentSession?.Dispose();
+        FileEditingSession? current;
+        lock (_swapLock)
+        {
+            current = _currentSession;
+            _currentSession = null;
+        }
+
+        current?.Dispose();
     }
 
     private void SetCurrent(FileEditingSession session)
     {
-        _currentSession?.Dispose();
-        _currentSession = session;
+        FileEditingSession? previous;
+        lock (_swapLock)
+        {
+            previous = _currentSession;
+            _currentSession = session;
+        }
+
+        // Dispose outside _swapLock: Dispose quiesces on the session's dispatch lock and must not
+        // stall other swaps behind an in-flight edit.
+        previous?.Dispose();
     }
 
     private static string? ReadSchemaVersion(string path)

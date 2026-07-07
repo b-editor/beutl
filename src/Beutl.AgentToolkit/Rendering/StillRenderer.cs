@@ -203,13 +203,13 @@ public sealed class StillRenderer
         }, ct: cancellationToken).ConfigureAwait(false);
     }
 
-    private static bool ContainsGpuOnlyContent(Scene scene)
+    internal static bool ContainsGpuOnlyContent(Scene scene)
     {
         return scene is IHierarchical hierarchical
                && hierarchical.EnumerateAllChildren<Scene3D>().Any();
     }
 
-    private static async ValueTask<bool> Has3DGraphicsContextAsync(CancellationToken cancellationToken)
+    internal static async ValueTask<bool> Has3DGraphicsContextAsync(CancellationToken cancellationToken)
     {
         return await RenderThread.Dispatcher.InvokeAsync(
             () => GraphicsContextFactory.GetOrCreateShared()?.Supports3DRendering == true,

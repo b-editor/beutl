@@ -27,14 +27,4 @@ public class DestructiveGuardTests
 
         Assert.DoesNotThrow(() => guard.EnsureOverwriteAllowed(path, confirmed: true));
     }
-
-    [Test]
-    public void EnsureDeleteAllowed_RejectsDeleteWithoutConfirmation()
-    {
-        var guard = new DestructiveGuard();
-
-        var ex = Assert.Throws<DestructiveIntentException>(() =>
-            guard.EnsureDeleteAllowed(confirmed: false, target: "element"));
-        Assert.That(ex!.Code, Is.EqualTo(AgentToolkit.Common.ErrorCode.DestructiveIntent));
-    }
 }

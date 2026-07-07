@@ -79,6 +79,11 @@ public sealed class FileEditingSession : IEditingSession, IEditingSessionDispatc
         // a concurrent Invoke cannot persist a half-applied edit or throw while the writer enumerates them.
         lock (_dispatchLock)
         {
+            if (_disposed)
+            {
+                throw new SessionUnavailableException();
+            }
+
             string projectPath = Project.Uri.LocalPath;
             DateTime currentStamp = File.Exists(projectPath)
                 ? File.GetLastWriteTimeUtc(projectPath)
@@ -155,6 +160,11 @@ public sealed class FileEditingSession : IEditingSession, IEditingSessionDispatc
     {
         lock (_dispatchLock)
         {
+            if (_disposed)
+            {
+                throw new SessionUnavailableException();
+            }
+
             UriState original = CaptureUriState();
             SetProjectPathCore(projectPath);
             try
