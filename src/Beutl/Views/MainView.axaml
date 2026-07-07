@@ -189,6 +189,8 @@
                         <MenuItem Command="{CompiledBinding MenuBar.CutLayer}" Header="{x:Static lang:Strings.Cut}" />
                         <MenuItem Command="{CompiledBinding MenuBar.CopyLayer}" Header="{x:Static lang:Strings.Copy}" />
                         <MenuItem Command="{CompiledBinding MenuBar.PasteLayer}" Header="{x:Static lang:Strings.Paste}" />
+                        <Separator />
+                        <MenuItem Command="{CompiledBinding MenuBar.AutoSplitBySilence}" Header="{x:Static lang:Strings.AutoSplitBySilence}" />
                     </MenuItem>
                 </MenuItem>
                 <!--  オブジェクト  -->

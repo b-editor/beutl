@@ -243,6 +243,9 @@
   <data name="Split" xml:space="preserve">
     <value>分割</value>
   </data>
+  <data name="AutoSplitBySilence" xml:space="preserve">
+    <value>無音検出で自動分割</value>
+  </data>
   <data name="Duplicate" xml:space="preserve">
     <value>複製</value>
   </data>

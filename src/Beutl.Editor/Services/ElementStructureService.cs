@@ -34,12 +34,7 @@ public sealed class ElementStructureService : IElementStructureService
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(elements);
-        Element[] editable = elements.Where(e => !scene.IsElementLocked(e)).ToArray();
-        if (editable.Length == 0) return;
-
-        RippleHelper.RemoveAndShiftAfter(scene, editable, ripple, scene.DeleteChild);
-
-        RemoveIdsFromGroups(scene, editable.Select(e => e.Id).ToArray());
+        if (DeleteCore(scene, elements, ripple) == 0) return;
 
         _historyManager.Commit(CommandNames.DeleteElement);
     }
@@ -50,6 +45,27 @@ public sealed class ElementStructureService : IElementStructureService
         ArgumentNullException.ThrowIfNull(targets);
         if (targets.Count == 0 || scene.Uri is null) return SplitOutcome.Empty;
 
+        List<Element> newElements = SplitCore(scene, targets, at);
+        if (newElements.Count == 0) return SplitOutcome.Empty;
+
+        _historyManager.Commit(CommandNames.SplitElement);
+        return new SplitOutcome(newElements);
+    }
+
+    // Deletes without committing — the caller owns the commit boundary so a batch folds into one undo entry.
+    internal static int DeleteCore(Scene scene, IReadOnlyList<Element> elements, bool ripple = false)
+    {
+        Element[] editable = elements.Where(e => !scene.IsElementLocked(e)).ToArray();
+        if (editable.Length == 0) return 0;
+
+        RippleHelper.RemoveAndShiftAfter(scene, editable, ripple, scene.DeleteChild);
+        RemoveIdsFromGroups(scene, editable.Select(e => e.Id).ToArray());
+        return editable.Length;
+    }
+
+    // Splits without committing — the caller owns the commit boundary so a batch folds into one undo entry.
+    internal List<Element> SplitCore(Scene scene, IReadOnlyList<Element> targets, TimeSpan at)
+    {
         int rate = SceneTimeRangeService.GetFrameRate(scene);
         TimeSpan minDuration = TimeSpan.FromSeconds(1d / rate);
         var newElements = new List<Element>();
@@ -101,8 +117,6 @@ public sealed class ElementStructureService : IElementStructureService
             }
         }
 
-        if (newElements.Count == 0) return SplitOutcome.Empty;
-
         foreach ((int index, List<Guid> value) in groupUpdates.OrderByDescending(x => x.Key))
         {
             ImmutableHashSet<Guid> newGroup = [.. value];
@@ -112,8 +126,7 @@ public sealed class ElementStructureService : IElementStructureService
             }
         }
 
-        _historyManager.Commit(CommandNames.SplitElement);
-        return new SplitOutcome(newElements);
+        return newElements;
     }
 
     public GroupOutcome Group(Scene scene, IReadOnlyCollection<Guid> ids)
