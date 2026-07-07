@@ -99,6 +99,30 @@ public sealed class SessionToolsTests
     }
 
     [Test]
+    public async Task Add_scene_adds_and_activates_the_new_scene_through_the_session_dispatcher()
+    {
+        string root = CreateWorkspace();
+        var manager = new AgentSessionManager();
+        using var source = new FileSessionSource();
+        SessionTools sessionTools = CreateSessionTools(source, manager, root);
+
+        ToolResult<CreateProjectResponse> created = await sessionTools.CreateProject(
+            "motion.bep", width: 640, height: 360, frameRate: 30, duration: "00:00:04");
+        Assert.That(created.IsSuccess, Is.True, created.Error?.Message);
+
+        ToolResult<AddSceneResponse> added = await sessionTools.AddScene(
+            created.Value!.Session, width: 320, height: 240, start: "00:00:00", duration: "00:00:02", name: "second");
+
+        FileEditingSession session = source.CurrentFileSession!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(added.IsSuccess, Is.True, added.Error?.Message);
+            Assert.That(session.Project.Items.OfType<Scene>().Count(), Is.EqualTo(2));
+            Assert.That(session.Scene.Id.ToString(), Is.EqualTo(added.Value!.SceneId));
+        });
+    }
+
+    [Test]
     public async Task Create_project_rejects_a_malformed_duration_as_a_validation_error()
     {
         string root = CreateWorkspace();

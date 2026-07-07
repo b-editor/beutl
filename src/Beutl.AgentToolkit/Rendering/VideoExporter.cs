@@ -21,6 +21,14 @@ public sealed record ExportVideoResult(
 
 public sealed class VideoExporter(EncoderRegistration encoders)
 {
+    // True only when FFmpeg is the sole encoder for this container, so a missing worker leaves no
+    // fallback. AVFoundation (macOS .mp4/.mov) makes this false and the export must not preflight-reject.
+    public bool RequiresFFmpegWorker(string outputPath)
+    {
+        IReadOnlyList<ControllableEncodingExtension> candidates = encoders.FindAllForOutput(outputPath);
+        return candidates.Count > 0 && candidates.All(encoder => encoder is FFmpegHeadlessEncodingExtension);
+    }
+
     public async ValueTask<ExportVideoResponse> ExportAsync(
         Scene scene,
         string outputPath,

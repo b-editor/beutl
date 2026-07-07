@@ -139,7 +139,9 @@ public sealed class McpToolBindingTests
             "export_video",
             new Dictionary<string, object?>
             {
-                ["outputPath"] = "out.mp4"
+                // .webm is FFmpeg-only on every platform, so the absent-worker guard fires even where
+                // AVFoundation would otherwise handle .mp4/.mov without the worker.
+                ["outputPath"] = "out.webm"
             });
 
         Assert.Multiple(() =>

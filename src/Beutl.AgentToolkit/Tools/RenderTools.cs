@@ -812,7 +812,10 @@ public sealed class RenderTools(
     {
         return ExecuteAsync<ExportVideoResult>(async () =>
         {
-            if (!FFmpegWorkerProcess.IsWorkerAvailable(AppContext.BaseDirectory))
+            // Only preflight-reject when FFmpeg is the sole encoder for this container; a non-FFmpeg
+            // encoder (e.g. AVFoundation for macOS .mp4/.mov) can export without the worker.
+            if (videoExporter.RequiresFFmpegWorker(NormalizeOutputPath(outputPath))
+                && !FFmpegWorkerProcess.IsWorkerAvailable(AppContext.BaseDirectory))
             {
                 throw new ReconcileException(new ToolError(
                     ErrorCode.CodecUnavailable,

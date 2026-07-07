@@ -18,6 +18,30 @@ public sealed class ElementTools(AgentSessionManager sessions) : ToolBase
 {
     private readonly Reconciler _reconciler = new();
 
+    // Element.Start/Length do not clamp, so an unvalidated negative time persists an element with a
+    // negative range that later sampling reads before the timeline instead of rejecting the request.
+    private static void ValidateStart(double startSeconds, string field)
+    {
+        if (!double.IsFinite(startSeconds) || startSeconds < 0)
+        {
+            throw new ReconcileException(new ToolError(
+                ErrorCode.ValidationRejected,
+                $"'{field}' must be a finite, non-negative number of seconds.",
+                field));
+        }
+    }
+
+    private static void ValidateDuration(double durationSeconds, string field)
+    {
+        if (!double.IsFinite(durationSeconds) || durationSeconds <= 0)
+        {
+            throw new ReconcileException(new ToolError(
+                ErrorCode.ValidationRejected,
+                $"'{field}' must be a finite, positive number of seconds.",
+                field));
+        }
+    }
+
     [McpServerTool(Name = "add_element")]
     [Description("Adds one timeline element through the declarative reconcile path.")]
     public ToolResult<ReconcileResult> AddElement(
@@ -31,6 +55,8 @@ public sealed class ElementTools(AgentSessionManager sessions) : ToolBase
     {
         return Execute(() =>
         {
+            ValidateStart(startSeconds, nameof(startSeconds));
+            ValidateDuration(durationSeconds, nameof(durationSeconds));
             IEditingSession session = sessions.RequireSession();
             return _reconciler.ApplyFromCurrent(session, current =>
             {
@@ -69,6 +95,16 @@ public sealed class ElementTools(AgentSessionManager sessions) : ToolBase
     {
         return Execute(() =>
         {
+            if (startSeconds is { } startValue)
+            {
+                ValidateStart(startValue, nameof(startSeconds));
+            }
+
+            if (durationSeconds is { } durationValue)
+            {
+                ValidateDuration(durationValue, nameof(durationSeconds));
+            }
+
             IEditingSession session = sessions.RequireSession();
             return _reconciler.ApplyFromCurrent(session, current =>
             {
@@ -138,6 +174,11 @@ public sealed class ElementTools(AgentSessionManager sessions) : ToolBase
     {
         return Execute(() =>
         {
+            if (startSeconds is { } startValue)
+            {
+                ValidateStart(startValue, nameof(startSeconds));
+            }
+
             IEditingSession session = sessions.RequireSession();
             return _reconciler.ApplyFromCurrent(session, current =>
             {

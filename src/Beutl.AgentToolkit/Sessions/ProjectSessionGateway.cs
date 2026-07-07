@@ -46,11 +46,16 @@ public sealed class FileProjectSessionGateway(
 
     public ValueTask<ProjectSceneResult> AddSceneAsync(SceneCreateOptions options, CancellationToken cancellationToken = default)
     {
-        Scene scene = fileSessions.AddScene(options);
-        FileEditingSession session = fileSessions.CurrentFileSession!;
-        // Switch the session to the scene just added, so a following read_document/apply_edit/render
-        // on the returned session targets it rather than the previously active scene.
-        session.SetActiveScene(scene);
+        FileEditingSession session = fileSessions.CurrentFileSession
+            ?? throw new InvalidOperationException("No file editing session is open.");
+        Scene scene = null!;
+        // Route the add and active-scene switch through the session dispatcher so a concurrent apply_edit
+        // cannot observe Project.Items mid-mutation or race SetActiveScene's recording-pipeline swap.
+        session.Invoke(() =>
+        {
+            scene = fileSessions.AddScene(options);
+            session.SetActiveScene(scene);
+        });
         return ValueTask.FromResult(new ProjectSceneResult(scene, session.Project, session));
     }
 }

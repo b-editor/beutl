@@ -74,18 +74,23 @@ public sealed class FileEditingSession : IEditingSession, IEditingSessionDispatc
             throw new InvalidOperationException("Project must have a Uri before it can be saved.");
         }
 
-        string projectPath = Project.Uri.LocalPath;
-        DateTime currentStamp = File.Exists(projectPath)
-            ? File.GetLastWriteTimeUtc(projectPath)
-            : DateTime.MinValue;
-        if (!skipConflictCheck && currentStamp != _projectLastWriteUtc)
+        // ProjectOperations.Save walks and writes the Project/Scene collections; take the dispatch lock so
+        // a concurrent Invoke cannot persist a half-applied edit or throw while the writer enumerates them.
+        lock (_dispatchLock)
         {
-            throw new ProjectConflictException(projectPath);
-        }
+            string projectPath = Project.Uri.LocalPath;
+            DateTime currentStamp = File.Exists(projectPath)
+                ? File.GetLastWriteTimeUtc(projectPath)
+                : DateTime.MinValue;
+            if (!skipConflictCheck && currentStamp != _projectLastWriteUtc)
+            {
+                throw new ProjectConflictException(projectPath);
+            }
 
-        ProjectOperations.Save(Project);
-        _projectLastWriteUtc = File.GetLastWriteTimeUtc(projectPath);
-        IsDirty = false;
+            ProjectOperations.Save(Project);
+            _projectLastWriteUtc = File.GetLastWriteTimeUtc(projectPath);
+            IsDirty = false;
+        }
     }
 
     internal void AcceptExternalStamp()

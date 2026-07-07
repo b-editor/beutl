@@ -6,6 +6,40 @@ namespace Beutl.AgentToolkit.Tests.Rendering;
 public sealed class VideoExporterQualityTests
 {
     [Test]
+    public void RequiresFFmpegWorker_is_true_for_an_ffmpeg_only_container()
+    {
+        var exporter = new VideoExporter(new EncoderRegistration());
+
+        // .webm is served only by the FFmpeg encoder on every platform.
+        Assert.That(exporter.RequiresFFmpegWorker("out.webm"), Is.True);
+    }
+
+    [Test]
+    public void RequiresFFmpegWorker_is_false_for_an_unregistered_container()
+    {
+        var exporter = new VideoExporter(new EncoderRegistration());
+
+        Assert.That(exporter.RequiresFFmpegWorker("out.xyz"), Is.False);
+    }
+
+    [Test]
+    public void RequiresFFmpegWorker_is_false_on_macos_for_avfoundation_containers()
+    {
+        if (!OperatingSystem.IsMacOS())
+        {
+            Assert.Ignore("AVFoundation is only registered on macOS.");
+        }
+
+        var exporter = new VideoExporter(new EncoderRegistration());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exporter.RequiresFFmpegWorker("out.mp4"), Is.False);
+            Assert.That(exporter.RequiresFFmpegWorker("out.mov"), Is.False);
+        });
+    }
+
+    [Test]
     public void Crf_overrides_the_crf_option()
     {
         var settings = new FFmpegVideoEncoderSettings();

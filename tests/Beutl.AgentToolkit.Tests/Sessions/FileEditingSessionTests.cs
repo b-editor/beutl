@@ -136,6 +136,45 @@ public sealed class FileEditingSessionTests
         Assert.That(disposeSawCompletedInvoke, Is.True);
     }
 
+    [Test]
+    public void Save_waits_for_an_in_flight_Invoke()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        using var source = new FileSessionSource();
+        FileEditingSession session = source.CreateProject(new ProjectCreateOptions(
+            Path.Combine(root, "demo.bep"), 640, 360, 30, TimeSpan.FromSeconds(2), Name: "demo"));
+
+        using var inInvoke = new ManualResetEventSlim();
+        using var releaseInvoke = new ManualResetEventSlim();
+        bool invokeCompleted = false;
+        bool saveSawCompletedInvoke = false;
+
+        var invokeThread = new Thread(() => session.Invoke(() =>
+        {
+            inInvoke.Set();
+            releaseInvoke.Wait();
+            Thread.Sleep(20);
+            Volatile.Write(ref invokeCompleted, true);
+        }));
+        invokeThread.Start();
+        inInvoke.Wait();
+
+        var saveThread = new Thread(() =>
+        {
+            session.Save(skipConflictCheck: true);
+            saveSawCompletedInvoke = Volatile.Read(ref invokeCompleted);
+        });
+        saveThread.Start();
+
+        releaseInvoke.Set();
+        invokeThread.Join();
+        saveThread.Join();
+
+        // Save blocks on the dispatch lock, so it can only persist after the in-flight Invoke released it.
+        Assert.That(saveSawCompletedInvoke, Is.True);
+    }
+
     private static void InterlockedMax(ref int target, int value)
     {
         int current = Volatile.Read(ref target);
