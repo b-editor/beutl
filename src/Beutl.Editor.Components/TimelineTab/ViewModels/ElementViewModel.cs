@@ -347,13 +347,13 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     public bool CanGroupSelectedElements()
     {
-        IReadOnlyCollection<Guid> ids = GetSelectedIdsOrSelf();
+        IReadOnlyCollection<Guid> ids = GetEditableSelectedIdsOrSelf();
         return ids.Count >= 2 && !Scene.Groups.Any(x => x.SetEquals(ids));
     }
 
     public bool CanUngroupSelectedElements()
     {
-        IReadOnlyCollection<Guid> ids = GetSelectedIdsOrSelf();
+        IReadOnlyCollection<Guid> ids = GetEditableSelectedIdsOrSelf();
         return Scene.Groups.Any(x => x.Overlaps(ids));
     }
 
@@ -551,11 +551,13 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         }
     }
 
-    private HashSet<Guid> GetSelectedIdsOrSelf()
+    private HashSet<Guid> GetEditableSelectedIdsOrSelf()
     {
-        var ids = new HashSet<Guid>(Timeline.SelectedElements.Select(x => x.Model.Id));
+        var ids = new HashSet<Guid>(Timeline.SelectedElements
+            .Where(x => x.IsEditable.Value)
+            .Select(x => x.Model.Id));
 
-        if (ids.Count == 0)
+        if (ids.Count == 0 && IsEditable.Value)
         {
             ids.Add(Model.Id);
         }
@@ -566,14 +568,14 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
     private void OnGroupSelectedElements()
     {
         if (!IsEditable.Value) return;
-        IReadOnlyCollection<Guid> ids = GetSelectedIdsOrSelf();
+        IReadOnlyCollection<Guid> ids = GetEditableSelectedIdsOrSelf();
         Timeline.EditorContext.GetRequiredService<IElementStructureService>().Group(Scene, ids);
     }
 
     private void OnUngroupSelectedElements()
     {
         if (!IsEditable.Value) return;
-        IReadOnlyCollection<Guid> ids = GetSelectedIdsOrSelf();
+        IReadOnlyCollection<Guid> ids = GetEditableSelectedIdsOrSelf();
         Timeline.EditorContext.GetRequiredService<IElementStructureService>().Ungroup(Scene, ids);
     }
 
@@ -680,7 +682,10 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         switch (execution.CommandName)
         {
             case "Rename":
-                RenameRequested();
+                if (IsEditable.Value)
+                {
+                    RenameRequested();
+                }
                 break;
             case "Split":
                 SplitByCurrentFrame.Execute();

@@ -139,7 +139,8 @@
                 <ui:MenuFlyoutItem x:Name="ungroupSelectedElements"
                                    Command="{Binding UngroupSelectedElements}"
                                    Text="{x:Static lang:Strings.UngroupSelectedElements}" />
-                <ui:MenuFlyoutItem Click="Rename_Click"
+                <ui:MenuFlyoutItem x:Name="rename"
+                                   Click="Rename_Click"
                                    InputGesture="{h:GetCommandGesture Rename,
                                                                       ExtensionType={x:Type p:TimelineTabExtension}}"
                                    Text="{x:Static lang:Strings.Rename}">

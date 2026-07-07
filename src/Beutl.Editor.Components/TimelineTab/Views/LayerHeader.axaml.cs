@@ -155,7 +155,9 @@ public sealed partial class LayerHeader : UserControl
     private void Border_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
         PointerPoint point = e.GetCurrentPoint(border);
-        if (point.Properties.IsLeftButtonPressed && GetOrFindTimeline() is { } timeline)
+        if (point.Properties.IsLeftButtonPressed
+            && !ViewModel.IsLocked.Value
+            && GetOrFindTimeline() is { } timeline)
         {
             _pressed = true;
             _newLayer = ViewModel.Number.Value;

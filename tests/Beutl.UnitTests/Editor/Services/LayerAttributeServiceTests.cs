@@ -32,6 +32,30 @@ public class LayerAttributeServiceTests
     private Element AddElement(int zIndex, bool isEnabled = true)
         => _harness.AddElement(zIndex, isEnabled);
 
+    private bool SetFlag(string flag, int zIndex, bool value)
+    {
+        return flag switch
+        {
+            "locked" => _service.SetLocked(_scene, zIndex, value),
+            "audio-muted" => _service.SetAudioMuted(_scene, zIndex, value),
+            "video-muted" => _service.SetVideoMuted(_scene, zIndex, value),
+            "solo" => _service.SetSolo(_scene, zIndex, value),
+            _ => throw new ArgumentOutOfRangeException(nameof(flag), flag, null),
+        };
+    }
+
+    private static bool GetFlag(TimelineLayer layer, string flag)
+    {
+        return flag switch
+        {
+            "locked" => layer.IsLocked,
+            "audio-muted" => layer.IsAudioMuted,
+            "video-muted" => layer.IsVideoMuted,
+            "solo" => layer.IsSolo,
+            _ => throw new ArgumentOutOfRangeException(nameof(flag), flag, null),
+        };
+    }
+
     [Test]
     public void Constructor_NullHistoryManager_Throws()
     {
@@ -200,19 +224,55 @@ public class LayerAttributeServiceTests
         int beforeUndo = _history.UndoCount;
         int beforeLayers = _scene.Layers.Count;
 
-        bool changed = flag switch
-        {
-            "locked" => _service.SetLocked(_scene, zIndex: 8, isLocked: false),
-            "audio-muted" => _service.SetAudioMuted(_scene, zIndex: 8, isMuted: false),
-            "video-muted" => _service.SetVideoMuted(_scene, zIndex: 8, isMuted: false),
-            "solo" => _service.SetSolo(_scene, zIndex: 8, isSolo: false),
-            _ => throw new ArgumentOutOfRangeException(nameof(flag), flag, null),
-        };
+        bool changed = SetFlag(flag, zIndex: 8, value: false);
 
         Assert.Multiple(() =>
         {
             Assert.That(changed, Is.False);
             Assert.That(_scene.Layers.Count, Is.EqualTo(beforeLayers));
+            Assert.That(_history.UndoCount, Is.EqualTo(beforeUndo));
+        });
+    }
+
+    [TestCase("audio-muted")]
+    [TestCase("video-muted")]
+    [TestCase("solo")]
+    public void SetFlag_ExistingModel_UpdatesInPlaceAndCommits(string flag)
+    {
+        var existing = new TimelineLayer { ZIndex = 7 };
+        _scene.Layers.Add(existing);
+        int beforeUndo = _history.UndoCount;
+        int beforeLayers = _scene.Layers.Count;
+
+        bool changed = SetFlag(flag, zIndex: 7, value: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(changed, Is.True);
+            Assert.That(_scene.Layers.Count, Is.EqualTo(beforeLayers));
+            Assert.That(GetFlag(existing, flag), Is.True);
+            Assert.That(_history.UndoCount, Is.EqualTo(beforeUndo + 1));
+        });
+    }
+
+    [TestCase("audio-muted")]
+    [TestCase("video-muted")]
+    [TestCase("solo")]
+    public void SetFlag_NoChange_DoesNotCommit(string flag)
+    {
+        var existing = new TimelineLayer { ZIndex = 4 };
+        _scene.Layers.Add(existing);
+        SetFlag(flag, zIndex: 4, value: true);
+        int beforeUndo = _history.UndoCount;
+        int beforeLayers = _scene.Layers.Count;
+
+        bool changed = SetFlag(flag, zIndex: 4, value: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(changed, Is.False);
+            Assert.That(_scene.Layers.Count, Is.EqualTo(beforeLayers));
+            Assert.That(GetFlag(existing, flag), Is.True);
             Assert.That(_history.UndoCount, Is.EqualTo(beforeUndo));
         });
     }

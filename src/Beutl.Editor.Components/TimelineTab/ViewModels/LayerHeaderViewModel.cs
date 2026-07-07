@@ -268,6 +268,11 @@ public sealed class LayerHeaderViewModel : IDisposable
     private void ToggleLayerFlag(ReactiveProperty<bool> flag, Func<ILayerAttributeService, Scene, int, bool, bool> apply)
     {
         bool target = !flag.Value;
+        if (_model.Value is null)
+        {
+            GetOrCreateModel();
+        }
+
         ILayerAttributeService service = Timeline.EditorContext.GetRequiredService<ILayerAttributeService>();
         apply(service, Timeline.Scene, Number.Value, target);
 

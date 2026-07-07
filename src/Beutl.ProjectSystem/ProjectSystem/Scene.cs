@@ -1,5 +1,6 @@
 ﻿using System.Collections.Immutable;
 using System.Collections.Specialized;
+using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
 using System.Text.Json;
@@ -71,6 +72,9 @@ public class Scene : ProjectItem, INotifyEdited
         _children.Attached += item => item.Edited += OnElementEdited;
         _children.Detached += item => item.Edited -= OnElementEdited;
         _layers = new HierarchicalList<TimelineLayer>(this);
+        _layers.CollectionChanged += Layers_CollectionChanged;
+        _layers.Attached += OnLayerAttached;
+        _layers.Detached += OnLayerDetached;
         _markers = new HierarchicalList<SceneMarker>(this);
         Name = name;
     }
@@ -455,6 +459,26 @@ public class Scene : ProjectItem, INotifyEdited
         }
 
         Edited?.Invoke(this, new ElementEditedEventArgs { AffectedRange = affectedRange.DrainToImmutable() });
+    }
+
+    private void Layers_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        Edited?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void OnLayerAttached(TimelineLayer layer)
+    {
+        layer.PropertyChanged += OnLayerPropertyChanged;
+    }
+
+    private void OnLayerDetached(TimelineLayer layer)
+    {
+        layer.PropertyChanged -= OnLayerPropertyChanged;
+    }
+
+    private void OnLayerPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        Edited?.Invoke(sender, EventArgs.Empty);
     }
 
     private void OnElementEdited(object? sender, EventArgs e)

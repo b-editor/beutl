@@ -1092,8 +1092,10 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             .FirstOrDefault();
         if (first is null) return;
 
-        IReadOnlyList<ElementViewModel> targets = first.GetGroupOrSelectedElements();
-        if (targets.Count == 0) return;
+        ElementViewModel[] targets = first.GetGroupOrSelectedElements()
+            .Where(x => x.IsEditable.Value)
+            .ToArray();
+        if (targets.Length == 0) return;
 
         int rate = Scene.FindHierarchicalParent<Project>()?.GetFrameRate() ?? 30;
         int frames = unit switch

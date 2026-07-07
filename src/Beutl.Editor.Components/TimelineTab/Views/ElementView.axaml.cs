@@ -128,6 +128,7 @@ public sealed partial class ElementView : UserControl
         delete.IsEnabled = editable;
         exclude.IsEnabled = editable;
         finishEditingAnimation.IsEnabled = editable;
+        rename.IsEnabled = editable;
         lockElement.IsEnabled = true;
     }
 
@@ -251,6 +252,8 @@ public sealed partial class ElementView : UserControl
 
     private void Rename_Click(object? sender, RoutedEventArgs e)
     {
+        if (DataContext is not ElementViewModel { IsEditable.Value: true }) return;
+
         textBlock.IsVisible = false;
         textBox.IsVisible = true;
         textBox.SelectAll();

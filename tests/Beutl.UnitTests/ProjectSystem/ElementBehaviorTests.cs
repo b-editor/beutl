@@ -73,6 +73,20 @@ public class ElementBehaviorTests
     }
 
     [Test]
+    public void TimelineLayer_ChangeRaisesSceneEdited()
+    {
+        var scene = new Scene(1920, 1080, string.Empty);
+        var layer = new TimelineLayer { ZIndex = 2 };
+        scene.Layers.Add(layer);
+        int count = 0;
+        scene.Edited += (_, _) => count++;
+
+        layer.IsVideoMuted = true;
+
+        Assert.That(count, Is.EqualTo(1));
+    }
+
+    [Test]
     public void AddObject_FlowOperator_AlsoAddsPortalBeforeIt()
     {
         var element = new Element();
