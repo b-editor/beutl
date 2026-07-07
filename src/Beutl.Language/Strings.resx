@@ -614,6 +614,9 @@
   <data name="NoGapsToGoTo" xml:space="preserve">
     <value>There are no gaps to go to</value>
   </data>
+  <data name="NoElementSelected" xml:space="preserve">
+    <value>No element is selected</value>
+  </data>
   <data name="Editor" xml:space="preserve">
     <value>Editor</value>
   </data>

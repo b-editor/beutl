@@ -4,7 +4,9 @@ using Avalonia.Controls;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.Extensibility;
+using Beutl.Language;
 using Beutl.ProjectSystem;
+using Beutl.Services;
 using Beutl.UnitTests.TestInfrastructure;
 using Reactive.Bindings;
 
@@ -13,6 +15,20 @@ namespace Beutl.UnitTests.Editor;
 [TestFixture]
 public class TimelineTabViewModelShortcutTests
 {
+    private static readonly CaptureNotificationHandler s_notificationHandler = new();
+
+    [OneTimeSetUp]
+    public void InstallNotificationHandler()
+    {
+        NotificationService.Handler = s_notificationHandler;
+    }
+
+    [SetUp]
+    public void ClearCapturedNotifications()
+    {
+        s_notificationHandler.Notifications.Clear();
+    }
+
     [Test]
     public void IsTextInputSource_ReturnsTrue_ForTextBox()
     {
@@ -48,6 +64,101 @@ public class TimelineTabViewModelShortcutTests
             Assert.That(nudgeService.FlushCount, Is.EqualTo(1));
             Assert.That(gapService.CloseGapCalled, Is.True);
             Assert.That(gapService.CloseGapSawFlush, Is.True);
+        });
+    }
+
+    [Test]
+    public void CloseGapCommand_NoSelection_NotifiesWithoutCallingGapService()
+    {
+        using var harness = new SceneHistoryHarness("beutl_timeline_gap_command", duration: TimeSpan.FromSeconds(30));
+        var nudgeService = new CaptureNudgeService();
+        var gapService = new CaptureGapService(nudgeService);
+        TimelineTabViewModel viewModel = CreateViewModel(harness.Scene, nudgeService, gapService);
+
+        InvokePrivate(viewModel, "CloseSelectedGap");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(gapService.CloseGapCalled, Is.False);
+            Assert.That(nudgeService.FlushCount, Is.Zero);
+            Assert.That(s_notificationHandler.Notifications, Has.Count.EqualTo(1));
+            Assert.That(s_notificationHandler.Notifications[0].Title, Is.EqualTo(Strings.CloseGap));
+            Assert.That(s_notificationHandler.Notifications[0].Message, Is.EqualTo(Strings.NoElementSelected));
+        });
+    }
+
+    [Test]
+    public void FindGapNavigationTarget_Forward_ReturnsGapCenter()
+    {
+        using var harness = new SceneHistoryHarness("beutl_timeline_gap_nav", duration: TimeSpan.FromSeconds(30));
+        harness.AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        harness.AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
+
+        TimeSpan? target = TimelineTabViewModel.FindGapNavigationTarget(
+            harness.Scene, TimeSpan.Zero, forward: true);
+
+        Assert.That(target, Is.EqualTo(TimeSpan.FromSeconds(4)));
+    }
+
+    [Test]
+    public void FindGapNavigationTarget_Forward_NoGapAhead_ReturnsNull()
+    {
+        using var harness = new SceneHistoryHarness("beutl_timeline_gap_nav", duration: TimeSpan.FromSeconds(30));
+        harness.AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        harness.AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
+
+        TimeSpan? target = TimelineTabViewModel.FindGapNavigationTarget(
+            harness.Scene, TimeSpan.FromSeconds(10), forward: true);
+
+        Assert.That(target, Is.Null);
+    }
+
+    [Test]
+    public void FindGapNavigationTarget_Forward_CurrentBeforeSceneStart_ClampsOriginToSceneStart()
+    {
+        using var harness = new SceneHistoryHarness(
+            "beutl_timeline_gap_nav",
+            start: TimeSpan.FromSeconds(10),
+            duration: TimeSpan.FromSeconds(20));
+        harness.AddElement(TimeSpan.FromSeconds(11), TimeSpan.FromSeconds(2));
+        harness.AddElement(TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(2));
+
+        TimeSpan? target = TimelineTabViewModel.FindGapNavigationTarget(
+            harness.Scene, TimeSpan.Zero, forward: true);
+
+        Assert.That(target, Is.EqualTo(TimeSpan.FromSeconds(14)));
+    }
+
+    [Test]
+    public void FindGapNavigationTarget_Backward_CurrentBeyondSceneEnd_ClampsOriginToSceneEnd()
+    {
+        using var harness = new SceneHistoryHarness("beutl_timeline_gap_nav", duration: TimeSpan.FromSeconds(20));
+        harness.AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(5));
+        harness.AddElement(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(5));
+        // Starts exactly at the scene end, so the gap [15s, 20s] touches the boundary. With the
+        // origin clamped to the scene end and the strictly-before filter, that gap is skipped and
+        // navigation lands on the earlier gap [5s, 10s].
+        harness.AddElement(TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(5));
+
+        TimeSpan? target = TimelineTabViewModel.FindGapNavigationTarget(
+            harness.Scene, TimeSpan.FromSeconds(100), forward: false);
+
+        Assert.That(target, Is.EqualTo(TimeSpan.FromSeconds(7.5)));
+    }
+
+    [Test]
+    public void FindGapNavigationTarget_NoElements_ReturnsNull()
+    {
+        using var harness = new SceneHistoryHarness("beutl_timeline_gap_nav", duration: TimeSpan.FromSeconds(30));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                TimelineTabViewModel.FindGapNavigationTarget(harness.Scene, TimeSpan.Zero, forward: true),
+                Is.Null);
+            Assert.That(
+                TimelineTabViewModel.FindGapNavigationTarget(harness.Scene, TimeSpan.Zero, forward: false),
+                Is.Null);
         });
     }
 
@@ -128,6 +239,13 @@ public class TimelineTabViewModelShortcutTests
             BindingFlags.Instance | BindingFlags.NonPublic)
             ?? throw new MissingFieldException(typeof(TTarget).FullName, propertyName);
         field.SetValue(target, value);
+    }
+
+    private sealed class CaptureNotificationHandler : INotificationServiceHandler
+    {
+        public List<Notification> Notifications { get; } = [];
+
+        public void Show(Notification notification) => Notifications.Add(notification);
     }
 
     private sealed class CaptureNudgeService : IElementNudgeService

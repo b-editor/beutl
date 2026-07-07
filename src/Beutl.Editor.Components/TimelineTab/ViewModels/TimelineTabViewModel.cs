@@ -1151,7 +1151,12 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             .ThenBy(e => e.Model.ZIndex)
             .Select(e => e.Model)
             .FirstOrDefault();
-        if (anchor is null) return;
+        if (anchor is null)
+        {
+            // Reachable from the flyout menu, which unlike the shortcut path has no selection gate.
+            NotificationService.ShowInformation(Strings.CloseGap, Strings.NoElementSelected);
+            return;
+        }
 
         FlushPendingNudgeCommit();
         if (!EditorContext.GetRequiredService<IElementGapService>().CloseGap(Scene, anchor))
@@ -1171,21 +1176,9 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
 
     private void GoToGap(bool forward)
     {
-        TimeSpan sceneStart = Scene.Start;
-        TimeSpan sceneEnd = Scene.Start + Scene.Duration;
-        var range = new TimeRange(sceneStart, Scene.Duration);
-        TimeSpan origin = CurrentTime.Value < sceneStart
-            ? sceneStart
-            : CurrentTime.Value > sceneEnd ? sceneEnd : CurrentTime.Value;
-        TimeSpan? center = forward
-            ? Scene.FindNextGapCenter(origin, range)
-            : Scene.FindPreviousGapCenter(origin, range);
-
-        if (center is { } target)
+        if (FindGapNavigationTarget(Scene, CurrentTime.Value, forward) is { } target)
         {
-            CurrentTime.Value = target < sceneStart
-                ? sceneStart
-                : target > sceneEnd ? sceneEnd : target;
+            CurrentTime.Value = target;
         }
         else
         {
@@ -1193,6 +1186,25 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
                 forward ? Strings.GoToNextGap : Strings.GoToPreviousGap,
                 Strings.NoGapsToGoTo);
         }
+    }
+
+    // Both the search origin and the returned target are clamped to the active scene range, so a
+    // playhead parked outside the scene still navigates within it and never lands outside it.
+    internal static TimeSpan? FindGapNavigationTarget(Scene scene, TimeSpan currentTime, bool forward)
+    {
+        TimeSpan sceneStart = scene.Start;
+        TimeSpan sceneEnd = scene.Start + scene.Duration;
+        var range = new TimeRange(sceneStart, scene.Duration);
+        TimeSpan origin = currentTime < sceneStart
+            ? sceneStart
+            : currentTime > sceneEnd ? sceneEnd : currentTime;
+        TimeSpan? center = forward
+            ? scene.FindNextGapCenter(origin, range)
+            : scene.FindPreviousGapCenter(origin, range);
+
+        return center is { } target
+            ? target < sceneStart ? sceneStart : target > sceneEnd ? sceneEnd : target
+            : null;
     }
 
     private enum NudgeUnit { Frame, Large, Second }

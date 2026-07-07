@@ -609,6 +609,9 @@
   <data name="NoGapsToGoTo" xml:space="preserve">
     <value>移動できる隙間がありません</value>
   </data>
+  <data name="NoElementSelected" xml:space="preserve">
+    <value>要素が選択されていません</value>
+  </data>
   <data name="Editor" xml:space="preserve">
     <value>エディター</value>
   </data>
