@@ -607,8 +607,9 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             int rate = Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
             TimeSpan duration = timeSpan.FloorToRate(rate);
 
+            bool ripple = Timeline.IsRippleEnabled.Value;
             Element? after = Model.GetAfter(Model.ZIndex, Model.Range.End);
-            if (after != null)
+            if (!ripple && after != null)
             {
                 TimeSpan delta = after.Start - Model.Start;
                 if (delta < duration)
@@ -617,8 +618,9 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
                 }
             }
 
-            Scene.MoveChild(Model.ZIndex, Model.Start, duration, Model);
-            Timeline.EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.MoveElement);
+            var request = new ElementResizeRequest(Model, Model.Start, duration, Model.ZIndex);
+            Timeline.EditorContext.GetRequiredService<IElementResizeService>()
+                .Resize(Scene, [request], ripple);
 
             await AnimationRequest(context);
         }

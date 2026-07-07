@@ -22,20 +22,7 @@ public sealed class ElementStructureService : IElementStructureService
         ArgumentNullException.ThrowIfNull(elements);
         if (elements.Count == 0) return;
 
-        (int ZIndex, TimeSpan End, TimeSpan Length)[]? removed = ripple
-            ? elements.Select(e => (e.ZIndex, e.Range.End, e.Length)).ToArray()
-            : null;
-
-        foreach (Element element in elements.ToArray())
-        {
-            scene.RemoveChild(element);
-        }
-
-        if (ripple)
-        {
-            RippleHelper.ShiftAfterRemoved(scene, removed!);
-        }
-
+        RippleHelper.RemoveAndShiftAfter(scene, elements, ripple, scene.RemoveChild);
         _historyManager.Commit(CommandNames.RemoveElement);
     }
 
@@ -45,20 +32,7 @@ public sealed class ElementStructureService : IElementStructureService
         ArgumentNullException.ThrowIfNull(elements);
         if (elements.Count == 0) return;
 
-        (int ZIndex, TimeSpan End, TimeSpan Length)[]? removed = ripple
-            ? elements.Select(e => (e.ZIndex, e.Range.End, e.Length)).ToArray()
-            : null;
-
-        foreach (Element element in elements.ToArray())
-        {
-            scene.DeleteChild(element);
-        }
-
-        if (ripple)
-        {
-            RippleHelper.ShiftAfterRemoved(scene, removed!);
-        }
-
+        RippleHelper.RemoveAndShiftAfter(scene, elements, ripple, scene.DeleteChild);
         _historyManager.Commit(CommandNames.DeleteElement);
     }
 

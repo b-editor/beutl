@@ -452,7 +452,7 @@ public sealed partial class ElementView : UserControl
                     viewModel.Timeline.SnapBarPosition.Value = null;
                     e.Handled = true;
 
-                    bool ripple = viewModel.Timeline.IsRippleEnabled.Value && _resizeType != AlignmentX.Center;
+                    bool ripple = viewModel.Timeline.IsRippleEnabled.Value && _resizeType == AlignmentX.Right;
 
                     if (_resizeContexts.Length == 1)
                     {

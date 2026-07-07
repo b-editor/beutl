@@ -33,9 +33,34 @@ internal static class RippleHelper
         Scene scene,
         IReadOnlyList<(int ZIndex, TimeSpan End, TimeSpan Length)> removed)
     {
-        foreach ((int zIndex, TimeSpan end, TimeSpan length) r in removed.OrderByDescending(r => r.End))
+        foreach (var r in removed.OrderByDescending(r => r.End))
         {
-            ShiftAfter(scene, r.zIndex, r.end, -r.length, Array.Empty<Element>());
+            ShiftAfter(scene, r.ZIndex, r.End, -r.Length, Array.Empty<Element>());
+        }
+    }
+
+    public static void RemoveAndShiftAfter(
+        Scene scene,
+        IReadOnlyList<Element> elements,
+        bool ripple,
+        Action<Element> removeElement)
+    {
+        ArgumentNullException.ThrowIfNull(scene);
+        ArgumentNullException.ThrowIfNull(elements);
+        ArgumentNullException.ThrowIfNull(removeElement);
+
+        (int ZIndex, TimeSpan End, TimeSpan Length)[]? removed = ripple
+            ? elements.Select(e => (e.ZIndex, e.Range.End, e.Length)).ToArray()
+            : null;
+
+        foreach (Element element in elements.ToArray())
+        {
+            removeElement(element);
+        }
+
+        if (ripple)
+        {
+            ShiftAfterRemoved(scene, removed!);
         }
     }
 }

@@ -24,6 +24,7 @@ public sealed class ElementResizeService : IElementResizeService
         {
             foreach (ElementResizeRequest req in requests)
             {
+                ValidateRippleRequest(req);
                 oldEnds![req.Element] = (req.Element.ZIndex, req.Element.Range.End);
             }
         }
@@ -67,5 +68,20 @@ public sealed class ElementResizeService : IElementResizeService
         }
 
         _historyManager.Commit(CommandNames.MoveElement);
+    }
+
+    private static void ValidateRippleRequest(ElementResizeRequest req)
+    {
+        ArgumentNullException.ThrowIfNull(req.Element);
+
+        if (req.NewStart < TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(ElementResizeRequest.NewStart));
+        }
+
+        if (req.NewLength <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(ElementResizeRequest.NewLength));
+        }
     }
 }

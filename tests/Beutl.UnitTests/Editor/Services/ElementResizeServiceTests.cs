@@ -110,4 +110,42 @@ public class ElementResizeServiceTests
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
+
+    [Test]
+    public void Resize_RippleOn_NegativeStart_ThrowsBeforeMutation()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        int before = _history.UndoCount;
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            _service.Resize(_scene,
+                [new ElementResizeRequest(element, TimeSpan.FromSeconds(-1), TimeSpan.FromSeconds(2), 0)],
+                ripple: true));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(element.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
+    public void Resize_RippleOn_ZeroLength_ThrowsBeforeMutation()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        int before = _history.UndoCount;
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            _service.Resize(_scene,
+                [new ElementResizeRequest(element, TimeSpan.FromSeconds(1), TimeSpan.Zero, 0)],
+                ripple: true));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(element.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
 }

@@ -229,7 +229,7 @@ public class RippleEditTests
     }
 
     [Test]
-    public void Exclude_RippleOn_GroupedElement_DoesNotShiftGroupedFollower()
+    public void Exclude_RippleOn_GroupedFollower_ShiftsWithSameLayer()
     {
         // A grouped follower shares a group with the removed element but sits after it.
         // Ripple must still close the timeline gap; grouping only locks the grouped member
