@@ -425,7 +425,7 @@ public class Scene : ProjectItem, INotifyEdited
     {
         return EnumerateGaps()
             .Where(g => g.Gap.End < currentTime)
-            .OrderByDescending(g => g.Gap.Start)
+            .OrderByDescending(g => g.Gap.End)
             .Select(g => (TimeSpan?)(g.Gap.Start + new TimeSpan(g.Gap.Duration.Ticks / 2)))
             .FirstOrDefault();
     }

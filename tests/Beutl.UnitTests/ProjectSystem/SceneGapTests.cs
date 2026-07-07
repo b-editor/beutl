@@ -616,6 +616,30 @@ public class SceneGapTests
     }
 
     [Test]
+    public void FindPreviousGapCenter_OverlappingCrossLayerGaps_PicksGapEndingClosest()
+    {
+        string basePath = GetTempPath();
+        try
+        {
+            Scene scene = CreateScene(basePath);
+            // The layer-1 gap (90s-91s) starts later than the layer-0 gap (80s-200s) but ends
+            // far earlier; the previous gap must be chosen by end time, so the wide gap wins.
+            scene.Children.Add(CreateElement(basePath, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(79)));
+            scene.Children.Add(CreateElement(basePath, TimeSpan.FromSeconds(200), TimeSpan.FromSeconds(1)));
+            scene.Children.Add(CreateElement(basePath, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(89), zIndex: 1));
+            scene.Children.Add(CreateElement(basePath, TimeSpan.FromSeconds(91), TimeSpan.FromSeconds(1), zIndex: 1));
+
+            TimeSpan? center = scene.FindPreviousGapCenter(TimeSpan.FromSeconds(201));
+
+            Assert.That(center, Is.EqualTo(TimeSpan.FromSeconds(140)));
+        }
+        finally
+        {
+            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+        }
+    }
+
+    [Test]
     public void CloseGap_ThenUndo_RestoresPositions()
     {
         using var harness = new SceneHistoryHarness("beutl_gap_undo", duration: TimeSpan.FromSeconds(60));
