@@ -326,28 +326,41 @@ public class Scene : ProjectItem, INotifyEdited
             return false;
 
         int z = anchor.ZIndex;
-        TimeSpan anchorEnd = anchor.Range.End;
-
         List<Element> sorted = Children
             .Where(e => e.ZIndex == z)
             .OrderBy(e => e.Start)
             .ThenBy(e => e.Range.End)
             .ToList();
-        int anchorIndex = sorted.IndexOf(anchor);
-        if (anchorIndex < 0) return false;
+        if (sorted.Count == 0) return false;
 
-        Element? next = sorted.Skip(anchorIndex + 1).FirstOrDefault();
-        if (next is null) return false;
+        // The gap to close is the first empty interval after the continuous coverage run that
+        // contains the anchor, so an earlier element covering past the anchor means no gap exists.
+        TimeSpan coveredEnd = sorted[0].Range.End;
+        bool anchorInRun = ReferenceEquals(sorted[0], anchor);
+        for (int i = 1; i < sorted.Count; i++)
+        {
+            Element cur = sorted[i];
+            if (cur.Start > coveredEnd)
+            {
+                if (anchorInRun)
+                {
+                    Element[] toShift = Children
+                        .Where(e => e.ZIndex == z && e.Start >= cur.Start)
+                        .ToArray();
+                    return toShift.Length != 0 && MoveChildrenAndDetectChange(toShift, coveredEnd - cur.Start);
+                }
 
-        TimeSpan gapSize = next.Start - anchorEnd;
-        if (gapSize <= TimeSpan.Zero) return false;
+                coveredEnd = cur.Range.End;
+                anchorInRun = ReferenceEquals(cur, anchor);
+            }
+            else
+            {
+                if (cur.Range.End > coveredEnd) coveredEnd = cur.Range.End;
+                if (ReferenceEquals(cur, anchor)) anchorInRun = true;
+            }
+        }
 
-        Element[] toShift = Children
-            .Where(e => e != anchor && e.ZIndex == z && e.Start >= next.Start)
-            .ToArray();
-        if (toShift.Length == 0) return false;
-
-        return MoveChildrenAndDetectChange(toShift, -gapSize);
+        return false;
     }
 
     /// <summary>
@@ -407,10 +420,15 @@ public class Scene : ProjectItem, INotifyEdited
     /// strictly after <paramref name="currentTime"/>, or <see langword="null"/>
     /// when no such gap exists. The leading gap is excluded.
     /// </summary>
-    public TimeSpan? FindNextGapCenter(TimeSpan currentTime)
+    /// <param name="searchEnd">
+    /// When set, gaps that end after this time are ignored, so navigation stays
+    /// within the active scene range and does not target the trailing space left
+    /// by elements beyond a shortened scene.
+    /// </param>
+    public TimeSpan? FindNextGapCenter(TimeSpan currentTime, TimeSpan? searchEnd = null)
     {
         return EnumerateGaps()
-            .Where(g => g.Gap.Start > currentTime)
+            .Where(g => g.Gap.Start > currentTime && (searchEnd is not { } end || g.Gap.End <= end))
             .OrderBy(g => g.Gap.Start)
             .Select(g => (TimeSpan?)(g.Gap.Start + new TimeSpan(g.Gap.Duration.Ticks / 2)))
             .FirstOrDefault();
@@ -421,10 +439,14 @@ public class Scene : ProjectItem, INotifyEdited
     /// strictly before <paramref name="currentTime"/>, or <see langword="null"/>
     /// when no such gap exists. The leading gap is excluded.
     /// </summary>
-    public TimeSpan? FindPreviousGapCenter(TimeSpan currentTime)
+    /// <param name="searchStart">
+    /// When set, gaps that start before this time are ignored, so navigation
+    /// stays within the active scene range.
+    /// </param>
+    public TimeSpan? FindPreviousGapCenter(TimeSpan currentTime, TimeSpan? searchStart = null)
     {
         return EnumerateGaps()
-            .Where(g => g.Gap.End < currentTime)
+            .Where(g => g.Gap.End < currentTime && (searchStart is not { } start || g.Gap.Start >= start))
             .OrderByDescending(g => g.Gap.End)
             .Select(g => (TimeSpan?)(g.Gap.Start + new TimeSpan(g.Gap.Duration.Ticks / 2)))
             .FirstOrDefault();

@@ -343,8 +343,10 @@ public class SceneGapTests
         try
         {
             Scene scene = CreateScene(basePath);
+            // b overlaps a and extends coverage up to c, so the layer is continuous and there is
+            // no gap after a to close.
             Element a = CreateElement(basePath, TimeSpan.Zero, TimeSpan.FromSeconds(10));
-            Element b = CreateElement(basePath, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(1));
+            Element b = CreateElement(basePath, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(7));
             Element c = CreateElement(basePath, TimeSpan.FromSeconds(12), TimeSpan.FromSeconds(1));
             scene.Children.Add(a);
             scene.Children.Add(b);
@@ -357,6 +359,66 @@ public class SceneGapTests
                 Assert.That(closed, Is.False);
                 Assert.That(b.Start, Is.EqualTo(TimeSpan.FromSeconds(5)));
                 Assert.That(c.Start, Is.EqualTo(TimeSpan.FromSeconds(12)));
+            });
+        }
+        finally
+        {
+            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+        }
+    }
+
+    [Test]
+    public void CloseGap_AnchorCoveredByEarlierElement_ReturnsFalse()
+    {
+        string basePath = GetTempPath();
+        try
+        {
+            Scene scene = CreateScene(basePath);
+            // The layer is continuously covered by [0s..100s], so selecting [10s..15s] must not
+            // treat the space before [20s..25s] as a closeable gap.
+            Element cover = CreateElement(basePath, TimeSpan.Zero, TimeSpan.FromSeconds(100));
+            Element anchor = CreateElement(basePath, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(5));
+            Element next = CreateElement(basePath, TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(5));
+            scene.Children.Add(cover);
+            scene.Children.Add(anchor);
+            scene.Children.Add(next);
+
+            bool closed = scene.CloseGap(anchor);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(closed, Is.False);
+                Assert.That(next.Start, Is.EqualTo(TimeSpan.FromSeconds(20)));
+            });
+        }
+        finally
+        {
+            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+        }
+    }
+
+    [Test]
+    public void CloseGap_CoverageExtendsPastAnchor_UsesCoveredEnd()
+    {
+        string basePath = GetTempPath();
+        try
+        {
+            Scene scene = CreateScene(basePath);
+            // [10s..15s] anchor, then [12s..50s] extends coverage to 50s, then [60s..70s]; the real
+            // gap is 50s-60s, so the trailing clip must land at 50s, not be shifted by 45s.
+            Element anchor = CreateElement(basePath, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(5));
+            Element mid = CreateElement(basePath, TimeSpan.FromSeconds(12), TimeSpan.FromSeconds(38));
+            Element next = CreateElement(basePath, TimeSpan.FromSeconds(60), TimeSpan.FromSeconds(10));
+            scene.Children.Add(anchor);
+            scene.Children.Add(mid);
+            scene.Children.Add(next);
+
+            bool closed = scene.CloseGap(anchor);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(closed, Is.True);
+                Assert.That(next.Start, Is.EqualTo(TimeSpan.FromSeconds(50)));
             });
         }
         finally
@@ -632,6 +694,30 @@ public class SceneGapTests
             TimeSpan? center = scene.FindPreviousGapCenter(TimeSpan.FromSeconds(201));
 
             Assert.That(center, Is.EqualTo(TimeSpan.FromSeconds(140)));
+        }
+        finally
+        {
+            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+        }
+    }
+
+    [Test]
+    public void FindNextGapCenter_GapBeyondSearchEnd_Ignored()
+    {
+        string basePath = GetTempPath();
+        try
+        {
+            Scene scene = CreateScene(basePath);
+            // Elements left beyond a shortened scene form a gap 10s-100s; bounding the search to a
+            // 30s scene end must reject it so navigation reports no gap instead of clamping.
+            scene.Children.Add(CreateElement(basePath, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(9)));
+            scene.Children.Add(CreateElement(basePath, TimeSpan.FromSeconds(100), TimeSpan.FromSeconds(10)));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(scene.FindNextGapCenter(TimeSpan.Zero, TimeSpan.FromSeconds(30)), Is.Null);
+                Assert.That(scene.FindNextGapCenter(TimeSpan.Zero), Is.EqualTo(TimeSpan.FromSeconds(55)));
+            });
         }
         finally
         {

@@ -1170,15 +1170,16 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
 
     private void GoToGap(bool forward)
     {
+        TimeSpan sceneStart = Scene.Start;
+        TimeSpan sceneEnd = Scene.Start + Scene.Duration;
         TimeSpan? center = forward
-            ? Scene.FindNextGapCenter(CurrentTime.Value)
-            : Scene.FindPreviousGapCenter(CurrentTime.Value);
+            ? Scene.FindNextGapCenter(CurrentTime.Value, sceneEnd)
+            : Scene.FindPreviousGapCenter(CurrentTime.Value, sceneStart);
 
         if (center is { } target)
         {
-            TimeSpan sceneEnd = Scene.Start + Scene.Duration;
-            CurrentTime.Value = target < Scene.Start
-                ? Scene.Start
+            CurrentTime.Value = target < sceneStart
+                ? sceneStart
                 : target > sceneEnd ? sceneEnd : target;
         }
         else
