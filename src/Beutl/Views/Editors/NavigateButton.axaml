@@ -63,7 +63,7 @@
                               IsEnabled="{Binding CanWrite}" />
                 </ContextMenu>
             </Button.ContextMenu>
-            <icons:SymbolIcon Symbol="MoreVertical" />
+            <icons:FluentIcon Icon="MoreVertical" />
         </Button>
     </Grid>
 </UserControl>

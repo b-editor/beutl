@@ -49,7 +49,7 @@
                                     <Setter Property="IsVisible" Value="{Binding $parent[TabStripItem].IsSelected}" />
                                     <Setter Property="VerticalAlignment" Value="Center" />
                                 </Style>
-                                <Style Selector="^ > icons|SymbolIcon">
+                                <Style Selector="^ > icons|FluentIcon">
                                     <Setter Property="FontSize" Value="20" />
                                 </Style>
                             </Style>
@@ -61,7 +61,7 @@
                         Click="MoreButton_Click"
                         FontSize="20"
                         Theme="{StaticResource LiteButtonStyle}">
-                    <icons:SymbolIcon Symbol="MoreHorizontal" />
+                    <icons:FluentIcon Icon="MoreHorizontal" />
                 </Button>
             </StackPanel>
         </ScrollViewer>

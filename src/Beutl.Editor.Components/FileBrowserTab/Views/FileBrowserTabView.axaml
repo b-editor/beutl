@@ -23,18 +23,18 @@
                 <ContextMenu Opened="OnContextMenuOpened">
                     <MenuItem Click="OnOpenClick" Header="{x:Static lang:Strings.Open}">
                         <MenuItem.Icon>
-                            <icons:SymbolIcon Symbol="Open" />
+                            <icons:FluentIcon Icon="Open" />
                         </MenuItem.Icon>
                     </MenuItem>
                     <Separator />
                     <MenuItem Click="OnRenameClick" Header="{x:Static lang:Strings.Rename}">
                         <MenuItem.Icon>
-                            <icons:SymbolIcon Symbol="Rename" />
+                            <icons:FluentIcon Icon="Rename" />
                         </MenuItem.Icon>
                     </MenuItem>
                     <MenuItem Click="OnDeleteClick" Header="{x:Static lang:Strings.Delete}">
                         <MenuItem.Icon>
-                            <icons:SymbolIcon Symbol="Delete" />
+                            <icons:FluentIcon Icon="Delete" />
                         </MenuItem.Icon>
                     </MenuItem>
                     <Separator />
@@ -42,7 +42,7 @@
                               Header="{x:Static lang:Strings.AddToFavorites}"
                               Tag="FavoriteToggle">
                         <MenuItem.Icon>
-                            <icons:SymbolIcon Symbol="Star" />
+                            <icons:FluentIcon Icon="Star" />
                         </MenuItem.Icon>
                     </MenuItem>
                 </ContextMenu>
@@ -70,9 +70,9 @@
                         <Image IsVisible="{Binding HasThumbnail.Value}"
                                Source="{Binding Thumbnail.Value}"
                                Stretch="Uniform" />
-                        <icons:SymbolIcon FontSize="48"
+                        <icons:FluentIcon FontSize="48"
                                           IsVisible="{Binding !HasThumbnail.Value}"
-                                          Symbol="{Binding IconSymbol}" />
+                                          Icon="{Binding IconSymbol}" />
                     </Panel>
                     <!--  ファイル名  -->
                     <TextBlock Grid.Row="1"
@@ -104,9 +104,9 @@
                         <Image IsVisible="{Binding HasThumbnail.Value}"
                                Source="{Binding Thumbnail.Value}"
                                Stretch="Uniform" />
-                        <icons:SymbolIcon FontSize="20"
+                        <icons:FluentIcon FontSize="20"
                                           IsVisible="{Binding !HasThumbnail.Value}"
-                                          Symbol="{Binding IconSymbol}" />
+                                          Icon="{Binding IconSymbol}" />
                     </Panel>
                     <TextBlock VerticalAlignment="Center"
                                Text="{Binding Name.Value}"
@@ -130,7 +130,7 @@
                         IsVisible="{Binding !IsHomeView.Value}"
                         Theme="{StaticResource TransparentButton}"
                         ToolTip.Tip="{x:Static lang:Strings.OpenFolder}">
-                    <icons:SymbolIcon FontSize="16" Symbol="OpenFolder" />
+                    <icons:FluentIcon FontSize="16" Icon="OpenFolder" />
                 </Button>
 
                 <!--  パス表示（ディレクトリブラウズ時）  -->
@@ -172,15 +172,15 @@
                             Theme="{StaticResource TransparentButton}"
                             ToolTip.Tip="{Binding ViewMode.Value, Converter={x:Static vm:FileBrowserViewModeConverters.ToDisplayName}}">
                         <Panel>
-                            <icons:SymbolIcon FontSize="16"
+                            <icons:FluentIcon FontSize="16"
                                               IsVisible="{Binding ViewMode.Value, Converter={x:Static vm:FileBrowserViewModeConverters.IsList}}"
-                                              Symbol="TextBulletList" />
-                            <icons:SymbolIcon FontSize="16"
+                                              Icon="TextBulletList" />
+                            <icons:FluentIcon FontSize="16"
                                               IsVisible="{Binding ViewMode.Value, Converter={x:Static vm:FileBrowserViewModeConverters.IsTree}}"
-                                              Symbol="TextBulletListTree" />
-                            <icons:SymbolIcon FontSize="16"
+                                              Icon="TextBulletListTree" />
+                            <icons:FluentIcon FontSize="16"
                                               IsVisible="{Binding ViewMode.Value, Converter={x:Static vm:FileBrowserViewModeConverters.IsIcon}}"
-                                              Symbol="Grid" />
+                                              Icon="Grid" />
                         </Panel>
                     </Button>
 
@@ -190,7 +190,7 @@
                             IsVisible="{Binding !IsHomeView.Value}"
                             Theme="{StaticResource TransparentButton}"
                             ToolTip.Tip="{x:Static lang:Strings.NewFolder}">
-                        <icons:SymbolIcon FontSize="16" Symbol="FolderAdd" />
+                        <icons:FluentIcon FontSize="16" Icon="FolderAdd" />
                     </Button>
 
                     <!--  更新  -->
@@ -198,7 +198,7 @@
                             Click="OnRefreshClick"
                             Theme="{StaticResource TransparentButton}"
                             ToolTip.Tip="{x:Static lang:Strings.Refresh}">
-                        <icons:SymbolIcon FontSize="16" Symbol="ArrowClockwise" />
+                        <icons:FluentIcon FontSize="16" Icon="ArrowClockwise" />
                     </Button>
 
                     <!--  ホームボタン  -->
@@ -206,7 +206,7 @@
                             Click="OnHomeClick"
                             Theme="{StaticResource TransparentButton}"
                             ToolTip.Tip="{x:Static lang:Strings.Home}">
-                        <icons:SymbolIcon FontSize="16" Symbol="Home" />
+                        <icons:FluentIcon FontSize="16" Icon="Home" />
                     </Button>
                 </StackPanel>
             </Grid>
@@ -229,12 +229,12 @@
                                               IsChecked="{Binding IsFavoritesIconView.Value}"
                                               Theme="{StaticResource TransparentButton}">
                                     <Panel>
-                                        <icons:SymbolIcon FontSize="14"
+                                        <icons:FluentIcon FontSize="14"
                                                           IsVisible="{Binding IsFavoritesIconView.Value}"
-                                                          Symbol="Grid" />
-                                        <icons:SymbolIcon FontSize="14"
+                                                          Icon="Grid" />
+                                        <icons:FluentIcon FontSize="14"
                                                           IsVisible="{Binding !IsFavoritesIconView.Value}"
-                                                          Symbol="TextBulletList" />
+                                                          Icon="TextBulletList" />
                                     </Panel>
                                 </ToggleButton>
                             </ToggleButton.Tag>
@@ -296,12 +296,12 @@
                                               IsChecked="{Binding IsProjectDirIconView.Value}"
                                               Theme="{StaticResource TransparentButton}">
                                     <Panel>
-                                        <icons:SymbolIcon FontSize="14"
+                                        <icons:FluentIcon FontSize="14"
                                                           IsVisible="{Binding IsProjectDirIconView.Value}"
-                                                          Symbol="Grid" />
-                                        <icons:SymbolIcon FontSize="14"
+                                                          Icon="Grid" />
+                                        <icons:FluentIcon FontSize="14"
                                                           IsVisible="{Binding !IsProjectDirIconView.Value}"
-                                                          Symbol="TextBulletList" />
+                                                          Icon="TextBulletList" />
                                     </Panel>
                                 </ToggleButton>
                             </ToggleButton.Tag>
@@ -358,12 +358,12 @@
                                               IsChecked="{Binding IsMediaFilesIconView.Value}"
                                               Theme="{StaticResource TransparentButton}">
                                     <Panel>
-                                        <icons:SymbolIcon FontSize="14"
+                                        <icons:FluentIcon FontSize="14"
                                                           IsVisible="{Binding IsMediaFilesIconView.Value}"
-                                                          Symbol="Grid" />
-                                        <icons:SymbolIcon FontSize="14"
+                                                          Icon="Grid" />
+                                        <icons:FluentIcon FontSize="14"
                                                           IsVisible="{Binding !IsMediaFilesIconView.Value}"
-                                                          Symbol="TextBulletList" />
+                                                          Icon="TextBulletList" />
                                     </Panel>
                                 </ToggleButton>
                             </ToggleButton.Tag>
@@ -500,9 +500,9 @@
                                         <Image IsVisible="{Binding HasThumbnail.Value}"
                                                Source="{Binding Thumbnail.Value}"
                                                Stretch="Uniform" />
-                                        <icons:SymbolIcon FontSize="20"
+                                        <icons:FluentIcon FontSize="20"
                                                           IsVisible="{Binding !HasThumbnail.Value}"
-                                                          Symbol="{Binding IconSymbol}" />
+                                                          Icon="{Binding IconSymbol}" />
                                     </Panel>
                                     <TextBlock VerticalAlignment="Center" Text="{Binding Name.Value}" />
                                 </StackPanel>

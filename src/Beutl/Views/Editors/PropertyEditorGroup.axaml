@@ -30,7 +30,7 @@
                     Classes="size-24x24"
                     Click="ShowClick"
                     Theme="{DynamicResource TransparentButton}">
-                <icons:SymbolIcon Symbol="ChevronUpDown" />
+                <icons:FluentIcon Icon="ChevronUpDown" />
             </Button>
         </Panel>
 

@@ -58,7 +58,7 @@
                     IsVisible="{Binding SelectedScopeType.Value, Converter={x:Static scopes:ScopeTypeConverter.Instance}, ConverterParameter=Zebra}"
                     Theme="{StaticResource TransparentButton}"
                     ToolTip.Tip="{x:Static lang:Strings.Settings}">
-                <icons:SymbolIcon Symbol="Settings" />
+                <icons:FluentIcon Icon="Settings" />
                 <Button.Flyout>
                     <Flyout Placement="Bottom">
                         <Flyout.FlyoutPresenterTheme>
@@ -85,9 +85,9 @@
                             <!--  Header  -->
                             <Border Padding="16,12,16,12">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <icons:SymbolIcon VerticalAlignment="Center"
+                                    <icons:FluentIcon VerticalAlignment="Center"
                                                       FontSize="16"
-                                                      Symbol="Settings" />
+                                                      Icon="Settings" />
                                     <TextBlock VerticalAlignment="Center"
                                                Text="{x:Static lang:Strings.Zebra}"
                                                Theme="{StaticResource BodyStrongTextBlockStyle}" />

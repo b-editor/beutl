@@ -29,7 +29,7 @@
                                           Navigates="True"
                                           NavigationCommand="{Binding NavigateToEditorPriority}">
                     <ctrls:OptionsDisplayItem.Icon>
-                        <icons:SymbolIcon Symbol="TabDesktop" />
+                        <icons:FluentIcon Icon="TabDesktop" />
                     </ctrls:OptionsDisplayItem.Icon>
 
                 </ctrls:OptionsDisplayItem>
@@ -44,7 +44,7 @@
                         </Style>
                     </ctrls:OptionsDisplayItem.Styles>
                     <ctrls:OptionsDisplayItem.Icon>
-                        <icons:SymbolIcon Symbol="Settings" />
+                        <icons:FluentIcon Icon="Settings" />
                     </ctrls:OptionsDisplayItem.Icon>
 
                     <ctrls:OptionsDisplayItem.Content>

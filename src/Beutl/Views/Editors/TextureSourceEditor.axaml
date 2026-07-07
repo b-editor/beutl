@@ -44,7 +44,7 @@
                                                     Text="{x:Static lang:Strings.Null}" />
                         </ui:FAMenuFlyout>
                     </Button.ContextFlyout>
-                    <icons:SymbolIcon Symbol="Compose" />
+                    <icons:FluentIcon Icon="Compose" />
                 </Button>
             </ToggleButton.Tag>
         </ToggleButton>

@@ -59,7 +59,7 @@
                         Classes="size-24x24"
                         Click="Tag_Click"
                         Theme="{StaticResource TransparentButton}">
-                    <icons:SymbolIcon Symbol="Compose" />
+                    <icons:FluentIcon Icon="Compose" />
                 </Button>
             </ToggleButton.Tag>
             <TextBlock Text="{Binding Header, FallbackValue=Transform}" />

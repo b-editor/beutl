@@ -38,16 +38,16 @@
                         Classes="size-24x24"
                         Click="Tag_Click"
                         Theme="{StaticResource TransparentButton}">
-                    <icons:SymbolIcon Classes.add="{Binding IsGroup.Value}">
-                        <icons:SymbolIcon.Styles>
-                            <Style Selector="icons|SymbolIcon">
-                                <Setter Property="Symbol" Value="Compose" />
+                    <icons:FluentIcon Classes.add="{Binding IsGroup.Value}">
+                        <icons:FluentIcon.Styles>
+                            <Style Selector="icons|FluentIcon">
+                                <Setter Property="Icon" Value="Compose" />
                             </Style>
-                            <Style Selector="icons|SymbolIcon.add">
-                                <Setter Property="Symbol" Value="Add" />
+                            <Style Selector="icons|FluentIcon.add">
+                                <Setter Property="Icon" Value="Add" />
                             </Style>
-                        </icons:SymbolIcon.Styles>
-                    </icons:SymbolIcon>
+                        </icons:FluentIcon.Styles>
+                    </icons:FluentIcon>
                 </Button>
             </ToggleButton.Tag>
             <WrapPanel Orientation="Horizontal">

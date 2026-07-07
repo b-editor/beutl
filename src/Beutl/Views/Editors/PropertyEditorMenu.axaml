@@ -67,23 +67,23 @@
                                    Text="{x:Static lang:Strings.CopyGetPropertyCode}" />
             </ui:FAMenuFlyout>
         </Button.ContextFlyout>
-        <icons:SymbolIcon x:Name="symbolIcon"
+        <icons:FluentIcon x:Name="symbolIcon"
                           Classes.hasAnimation="{Binding HasAnimation.Value}"
                           Classes.hasExpression="{Binding HasExpression.Value}"
                           IconVariant="{Binding SymbolIconVariant.Value}">
-            <icons:SymbolIcon.Styles>
-                <Style Selector="icons|SymbolIcon">
-                    <Setter Property="Symbol" Value="MoreVertical" />
+            <icons:FluentIcon.Styles>
+                <Style Selector="icons|FluentIcon">
+                    <Setter Property="Icon" Value="MoreVertical" />
                 </Style>
-                <Style Selector="icons|SymbolIcon.hasAnimation">
-                    <Setter Property="Symbol" Value="Diamond" />
+                <Style Selector="icons|FluentIcon.hasAnimation">
+                    <Setter Property="Icon" Value="Diamond" />
                     <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCaution}" />
                 </Style>
-                <Style Selector="icons|SymbolIcon.hasExpression">
-                    <Setter Property="Symbol" Value="MathFormula" />
+                <Style Selector="icons|FluentIcon.hasExpression">
+                    <Setter Property="Icon" Value="MathFormula" />
                     <Setter Property="Foreground" Value="{DynamicResource SystemFillColorSuccess}" />
                 </Style>
-            </icons:SymbolIcon.Styles>
-        </icons:SymbolIcon>
+            </icons:FluentIcon.Styles>
+        </icons:FluentIcon>
     </Button>
 </UserControl>

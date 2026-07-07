@@ -41,13 +41,13 @@
                                     IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
                                     Orientation="Horizontal">
                             <RadioButton Name="PART_LeftRadioButton" Padding="12,4">
-                                <icons:SymbolIcon Symbol="AlignLeft" />
+                                <icons:FluentIcon Icon="AlignLeft" />
                             </RadioButton>
                             <RadioButton Name="PART_CenterRadioButton" Padding="12,4">
-                                <icons:SymbolIcon Symbol="AlignCenterVertical" />
+                                <icons:FluentIcon Icon="AlignCenterVertical" />
                             </RadioButton>
                             <RadioButton Name="PART_RightRadioButton" Padding="12,4">
-                                <icons:SymbolIcon Symbol="AlignRight" />
+                                <icons:FluentIcon Icon="AlignRight" />
                             </RadioButton>
                         </StackPanel>
 
@@ -109,17 +109,17 @@
                                 <RadioButton Name="PART_LeftRadioButton"
                                              Grid.Column="0"
                                              Padding="12,4">
-                                    <icons:SymbolIcon Symbol="AlignLeft" />
+                                    <icons:FluentIcon Icon="AlignLeft" />
                                 </RadioButton>
                                 <RadioButton Name="PART_CenterRadioButton"
                                              Grid.Column="1"
                                              Padding="12,4">
-                                    <icons:SymbolIcon Symbol="AlignCenterVertical" />
+                                    <icons:FluentIcon Icon="AlignCenterVertical" />
                                 </RadioButton>
                                 <RadioButton Name="PART_RightRadioButton"
                                              Grid.Column="2"
                                              Padding="12,4">
-                                    <icons:SymbolIcon Symbol="AlignRight" />
+                                    <icons:FluentIcon Icon="AlignRight" />
                                 </RadioButton>
                             </Grid>
 
@@ -150,13 +150,13 @@
                                         IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
                                         Orientation="Horizontal">
                                 <RadioButton Name="PART_LeftRadioButton" Padding="12,4">
-                                    <icons:SymbolIcon Symbol="AlignLeft" />
+                                    <icons:FluentIcon Icon="AlignLeft" />
                                 </RadioButton>
                                 <RadioButton Name="PART_CenterRadioButton" Padding="12,4">
-                                    <icons:SymbolIcon Symbol="AlignCenterVertical" />
+                                    <icons:FluentIcon Icon="AlignCenterVertical" />
                                 </RadioButton>
                                 <RadioButton Name="PART_RightRadioButton" Padding="12,4">
-                                    <icons:SymbolIcon Symbol="AlignRight" />
+                                    <icons:FluentIcon Icon="AlignRight" />
                                 </RadioButton>
                             </StackPanel>
 
@@ -166,7 +166,7 @@
                                     Padding="0"
                                     Classes="size-24x24"
                                     Theme="{StaticResource TransparentButton}">
-                                <icons:SymbolIcon Symbol="Delete" />
+                                <icons:FluentIcon Icon="Delete" />
                             </Button>
                         </Grid>
                     </Border>
@@ -229,13 +229,13 @@
                                     IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
                                     Orientation="Horizontal">
                             <RadioButton Name="PART_TopRadioButton" Padding="12,4">
-                                <icons:SymbolIcon Symbol="AlignTop" />
+                                <icons:FluentIcon Icon="AlignTop" />
                             </RadioButton>
                             <RadioButton Name="PART_CenterRadioButton" Padding="12,4">
-                                <icons:SymbolIcon Symbol="AlignCenterHorizontal" />
+                                <icons:FluentIcon Icon="AlignCenterHorizontal" />
                             </RadioButton>
                             <RadioButton Name="PART_BottomRadioButton" Padding="12,4">
-                                <icons:SymbolIcon Symbol="AlignBottom" />
+                                <icons:FluentIcon Icon="AlignBottom" />
                             </RadioButton>
                         </StackPanel>
 
@@ -297,17 +297,17 @@
                                 <RadioButton Name="PART_TopRadioButton"
                                              Grid.Column="0"
                                              Padding="12,4">
-                                    <icons:SymbolIcon Symbol="AlignTop" />
+                                    <icons:FluentIcon Icon="AlignTop" />
                                 </RadioButton>
                                 <RadioButton Name="PART_CenterRadioButton"
                                              Grid.Column="1"
                                              Padding="12,4">
-                                    <icons:SymbolIcon Symbol="AlignCenterHorizontal" />
+                                    <icons:FluentIcon Icon="AlignCenterHorizontal" />
                                 </RadioButton>
                                 <RadioButton Name="PART_BottomRadioButton"
                                              Grid.Column="2"
                                              Padding="12,4">
-                                    <icons:SymbolIcon Symbol="AlignBottom" />
+                                    <icons:FluentIcon Icon="AlignBottom" />
                                 </RadioButton>
                             </Grid>
 
@@ -338,13 +338,13 @@
                                         IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
                                         Orientation="Horizontal">
                                 <RadioButton Name="PART_TopRadioButton" Padding="12,4">
-                                    <icons:SymbolIcon Symbol="AlignTop" />
+                                    <icons:FluentIcon Icon="AlignTop" />
                                 </RadioButton>
                                 <RadioButton Name="PART_CenterRadioButton" Padding="12,4">
-                                    <icons:SymbolIcon Symbol="AlignCenterHorizontal" />
+                                    <icons:FluentIcon Icon="AlignCenterHorizontal" />
                                 </RadioButton>
                                 <RadioButton Name="PART_BottomRadioButton" Padding="12,4">
-                                    <icons:SymbolIcon Symbol="AlignBottom" />
+                                    <icons:FluentIcon Icon="AlignBottom" />
                                 </RadioButton>
                             </StackPanel>
 
@@ -354,7 +354,7 @@
                                     Padding="0"
                                     Classes="size-24x24"
                                     Theme="{StaticResource TransparentButton}">
-                                <icons:SymbolIcon Symbol="Delete" />
+                                <icons:FluentIcon Icon="Delete" />
                             </Button>
                         </Grid>
                     </Border>

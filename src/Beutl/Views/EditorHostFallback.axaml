@@ -34,7 +34,7 @@
                                     Navigates="True"
                                     NavigationRequested="OpenContext">
                     <OptionsDisplayItem.Icon>
-                        <icons:SymbolIcon Symbol="New" />
+                        <icons:FluentIcon Icon="New" />
                     </OptionsDisplayItem.Icon>
                     <OptionsDisplayItem.ContextMenu>
                         <ContextMenu Placement="AnchorAndGravity"
@@ -52,7 +52,7 @@
                                     Navigates="True"
                                     NavigationRequested="OpenContext">
                     <OptionsDisplayItem.Icon>
-                        <icons:SymbolIcon Symbol="Open" />
+                        <icons:FluentIcon Icon="Open" />
                     </OptionsDisplayItem.Icon>
                     <OptionsDisplayItem.ContextMenu>
                         <ContextMenu Placement="AnchorAndGravity"

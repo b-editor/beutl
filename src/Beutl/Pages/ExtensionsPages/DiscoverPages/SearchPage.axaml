@@ -57,7 +57,7 @@
                                                 Click="Package_Click">
                                             <Grid Margin="16" ColumnDefinitions="Auto,16,*">
                                                 <Border Width="80" Height="80">
-                                                    <icons:SymbolIcon FontSize="32" Symbol="MoreHorizontal" />
+                                                    <icons:FluentIcon FontSize="32" Icon="MoreHorizontal" />
                                                 </Border>
 
                                                 <TextBlock Grid.Column="2"

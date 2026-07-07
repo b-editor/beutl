@@ -17,18 +17,18 @@
                           IsChecked="{Binding IsExpanded.Value}"
                           Theme="{StaticResource ListEditorMiniExpanderToggleButton}">
                 <ToggleButton.Tag>
-                    <icons:SymbolIcon Margin="0,1,0,0" Symbol="ChevronUpDown" />
+                    <icons:FluentIcon Margin="0,1,0,0" Icon="ChevronUpDown" />
                 </ToggleButton.Tag>
                 <ToggleButton.ContextMenu>
                     <ContextMenu>
                         <MenuItem Click="Remove_Click" Header="{x:Static lang:Strings.Remove}">
                             <MenuItem.Icon>
-                                <icons:SymbolIcon Symbol="Delete" />
+                                <icons:FluentIcon Icon="Delete" />
                             </MenuItem.Icon>
                         </MenuItem>
                         <MenuItem Click="RenameClick" Header="{x:Static lang:Strings.Rename}">
                             <MenuItem.Icon>
-                                <icons:SymbolIcon Symbol="Rename" />
+                                <icons:FluentIcon Icon="Rename" />
                             </MenuItem.Icon>
                         </MenuItem>
                     </ContextMenu>
@@ -41,7 +41,7 @@
                     Classes="size-24x24"
                     Click="Remove_Click"
                     Theme="{StaticResource TransparentButton}">
-                <icons:SymbolIcon Symbol="Delete" />
+                <icons:FluentIcon Icon="Delete" />
             </Button>
         </Grid>
 

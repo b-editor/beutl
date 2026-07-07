@@ -13,20 +13,19 @@ using Beutl.Editor.Components.LibraryTab.Views.LibraryViews;
 using Beutl.Utilities;
 
 using FluentAvalonia.UI.Controls;
-
-using Symbol = FluentIcons.Common.Symbol;
-using SymbolIcon = FluentIcons.Avalonia.Fluent.SymbolIcon;
+using FluentIcons.Avalonia.Fluent;
+using FluentIcons.Common;
 
 namespace Beutl.Editor.Components.LibraryTab.Views;
 
 public sealed partial class LibraryTabView : UserControl
 {
-    private static readonly (Symbol Icon, string Text, string Id, Func<Control> Create)[] s_tabItems =
+    private static readonly (Icon Icon, string Text, string Id, Func<Control> Create)[] s_tabItems =
     [
-        (Symbol.Search, Strings.Search, "Search", () => new SearchView()),
-        (Symbol.BezierCurveSquare, Strings.Easings, "Easings", () => new EasingsView()),
-        (Symbol.Library, Strings.Library, "Library", () => new LibraryView()),
-        (Symbol.Flow, Strings.NodeGraph, "Nodes", () => new NodesView()),
+        (Icon.Search, Strings.Search, "Search", () => new SearchView()),
+        (Icon.BezierCurveSquare, Strings.Easings, "Easings", () => new EasingsView()),
+        (Icon.Library, Strings.Library, "Library", () => new LibraryView()),
+        (Icon.Flow, Strings.NodeGraph, "Nodes", () => new NodesView()),
     ];
 
     public LibraryTabView()
@@ -46,7 +45,7 @@ public sealed partial class LibraryTabView : UserControl
                 {
                     Children =
                     {
-                        new SymbolIcon { Symbol = item.Icon },
+                        new FluentIcon { Icon = item.Icon },
                         new TextBlock { Text = item.Text }
                     }
                 };

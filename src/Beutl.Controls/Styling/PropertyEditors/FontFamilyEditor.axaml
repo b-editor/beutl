@@ -145,7 +145,7 @@
                                     Padding="0"
                                     Classes="size-24x24"
                                     Theme="{StaticResource TransparentButton}">
-                                <icons:SymbolIcon Symbol="Delete" />
+                                <icons:FluentIcon Icon="Delete" />
                             </Button>
                         </Grid>
                     </Border>

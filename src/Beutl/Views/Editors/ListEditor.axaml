@@ -32,16 +32,16 @@
                             <ui:MenuFlyoutItem Click="DeleteClick" Text="{x:Static lang:Strings.Remove}" />
                         </ui:FAMenuFlyout>
                     </Button.ContextFlyout>
-                    <icons:SymbolIcon Classes.add="{Binding List.Value, Converter={x:Static ObjectConverters.IsNotNull}}">
-                        <icons:SymbolIcon.Styles>
-                            <Style Selector="icons|SymbolIcon">
-                                <Setter Property="Symbol" Value="MoreVertical" />
+                    <icons:FluentIcon Classes.add="{Binding List.Value, Converter={x:Static ObjectConverters.IsNotNull}}">
+                        <icons:FluentIcon.Styles>
+                            <Style Selector="icons|FluentIcon">
+                                <Setter Property="Icon" Value="MoreVertical" />
                             </Style>
-                            <Style Selector="icons|SymbolIcon.add">
-                                <Setter Property="Symbol" Value="Add" />
+                            <Style Selector="icons|FluentIcon.add">
+                                <Setter Property="Icon" Value="Add" />
                             </Style>
-                        </icons:SymbolIcon.Styles>
-                    </icons:SymbolIcon>
+                        </icons:FluentIcon.Styles>
+                    </icons:FluentIcon>
                 </Button>
             </ToggleButton.Tag>
         </ToggleButton>

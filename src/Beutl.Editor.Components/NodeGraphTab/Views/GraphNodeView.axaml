@@ -39,12 +39,12 @@
                                        InputGesture="Delete"
                                        Text="{x:Static lang:Strings.Delete}">
                         <ui:MenuFlyoutItem.IconSource>
-                            <icons:SymbolIconSource Symbol="Delete" />
+                            <icons:FluentIconSource Icon="Delete" />
                         </ui:MenuFlyoutItem.IconSource>
                     </ui:MenuFlyoutItem>
                     <ui:MenuFlyoutItem Click="RenameClick" Text="{x:Static lang:Strings.Rename}">
                         <ui:MenuFlyoutItem.IconSource>
-                            <icons:SymbolIconSource Symbol="Rename" />
+                            <icons:FluentIconSource Icon="Rename" />
                         </ui:MenuFlyoutItem.IconSource>
                     </ui:MenuFlyoutItem>
                 </ui:FAMenuFlyout>
@@ -70,7 +70,7 @@
                         Click="OpenNodeClick"
                         IsVisible="{Binding IsGroupNode}"
                         Theme="{StaticResource TransparentButton}">
-                    <icons:SymbolIcon Symbol="Open" />
+                    <icons:FluentIcon Icon="Open" />
                 </Button>
             </Grid>
         </Border>

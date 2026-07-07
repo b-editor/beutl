@@ -40,7 +40,7 @@
 
                 <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsStrings.Language}">
                     <ctrls:OptionsDisplayItem.Icon>
-                        <icons:SymbolIcon Symbol="LocalLanguage" />
+                        <icons:FluentIcon Icon="LocalLanguage" />
                     </ctrls:OptionsDisplayItem.Icon>
 
                     <ctrls:OptionsDisplayItem.ActionButton>
@@ -58,7 +58,7 @@
 
                 <ctrls:OptionsDisplayItem Expands="True" Header="{x:Static lang:SettingsStrings.AccentColor}">
                     <ctrls:OptionsDisplayItem.Icon>
-                        <icons:SymbolIcon Symbol="Color" />
+                        <icons:FluentIcon Icon="Color" />
                     </ctrls:OptionsDisplayItem.Icon>
                     <ctrls:OptionsDisplayItem.Content>
                         <StackPanel Margin="40,0">

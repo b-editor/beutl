@@ -40,12 +40,12 @@
                     <ContextMenu>
                         <MenuItem Click="Remove_Click" Header="{x:Static lang:Strings.Remove}">
                             <MenuItem.Icon>
-                                <icons:SymbolIcon Symbol="Delete" />
+                                <icons:FluentIcon Icon="Delete" />
                             </MenuItem.Icon>
                         </MenuItem>
                         <MenuItem Click="SaveAsTemplate_Click" Header="{x:Static lang:Strings.SaveAsTemplate}">
                             <MenuItem.Icon>
-                                <icons:SymbolIcon Symbol="DocumentCopy" />
+                                <icons:FluentIcon Icon="DocumentCopy" />
                             </MenuItem.Icon>
                         </MenuItem>
                     </ContextMenu>
@@ -58,9 +58,9 @@
                             <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
                         </Style>
                     </Border.Styles>
-                    <icons:SymbolIcon VerticalAlignment="Center"
+                    <icons:FluentIcon VerticalAlignment="Center"
                                       FontSize="16"
-                                      Symbol="ReOrderDotsVertical" />
+                                      Icon="ReOrderDotsVertical" />
                 </Border>
 
                 <ToggleButton IsChecked="{Binding IsEnabled.Value}" Theme="{StaticResource VisibilityToggleButtonStyle}" />

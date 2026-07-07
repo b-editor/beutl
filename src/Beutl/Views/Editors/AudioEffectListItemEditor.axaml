@@ -33,7 +33,7 @@
                     Classes="size-24x24"
                     Click="DeleteClick"
                     Theme="{StaticResource TransparentButton}">
-                <icons:SymbolIcon Symbol="Delete" />
+                <icons:FluentIcon Icon="Delete" />
             </Button>
         </Grid>
 

@@ -32,7 +32,7 @@
                     Classes="size-24x24"
                     Click="NewClick"
                     Theme="{StaticResource TransparentButton}">
-                <icons:SymbolIcon Symbol="New" />
+                <icons:FluentIcon Icon="New" />
             </Button>
 
             <Button Grid.Column="2"
@@ -41,7 +41,7 @@
                     Classes="size-24x24"
                     Click="DeleteClick"
                     Theme="{StaticResource TransparentButton}">
-                <icons:SymbolIcon Symbol="Delete" />
+                <icons:FluentIcon Icon="Delete" />
             </Button>
         </Grid>
 
@@ -64,7 +64,7 @@
                             Classes="size-24x24"
                             Click="DeleteClick"
                             Theme="{StaticResource TransparentButton}">
-                        <icons:SymbolIcon Symbol="Delete" />
+                        <icons:FluentIcon Icon="Delete" />
                     </Button>
                 </StackPanel>
             </pe:ReferenceEditor.MenuContent>

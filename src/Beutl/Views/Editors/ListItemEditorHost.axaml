@@ -25,7 +25,7 @@
                     Classes="size-24x24"
                     Click="DeleteClick"
                     Theme="{StaticResource TransparentButton}">
-                <icons:SymbolIcon VerticalAlignment="Center" Symbol="Delete" />
+                <icons:FluentIcon VerticalAlignment="Center" Icon="Delete" />
             </Button>
         </Grid>
 

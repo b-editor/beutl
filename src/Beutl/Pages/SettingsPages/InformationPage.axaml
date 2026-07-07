@@ -60,7 +60,7 @@
                                       Navigates="True"
                                       NavigationCommand="{Binding NavigateToTelemetry}">
                 <ctrls:OptionsDisplayItem.Icon>
-                    <icons:SymbolIcon Symbol="LockClosed" />
+                    <icons:FluentIcon Icon="LockClosed" />
                 </ctrls:OptionsDisplayItem.Icon>
             </ctrls:OptionsDisplayItem>
 
@@ -85,7 +85,7 @@
                                       Header="{x:Static lang:SettingsStrings.DeviceInformation}"
                                       IsExpanded="True">
                 <ctrls:OptionsDisplayItem.Icon>
-                    <icons:SymbolIcon Symbol="Desktop" />
+                    <icons:FluentIcon Icon="Desktop" />
                 </ctrls:OptionsDisplayItem.Icon>
                 <ctrls:OptionsDisplayItem.Content>
                     <StackPanel Margin="32,16">

@@ -22,7 +22,7 @@
                         <ui:MenuFlyoutItem Click="SetNullClick" Text="{x:Static lang:Strings.Null}" />
                     </ui:FAMenuFlyout>
                 </Button.Flyout>
-                <icons:SymbolIcon Symbol="MoreVertical" />
+                <icons:FluentIcon Icon="MoreVertical" />
             </Button>
         </pe:ReferenceEditor.MenuContent>
     </pe:ReferenceEditor>

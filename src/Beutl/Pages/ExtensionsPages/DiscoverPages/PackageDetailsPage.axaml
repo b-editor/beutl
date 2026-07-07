@@ -197,9 +197,9 @@
 
                         <StackPanel Margin="16" Spacing="16">
                             <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto">
-                                <icons:SymbolIcon Margin="0,0,8,0"
+                                <icons:FluentIcon Margin="0,0,8,0"
                                                   VerticalAlignment="Bottom"
-                                                  Symbol="Tag" />
+                                                  Icon="Tag" />
                                 <TextBlock Grid.Column="1" Text="{x:Static lang:ExtensionsStrings.Package_Tags}" />
 
                                 <ItemsRepeater Grid.Row="1"
@@ -221,9 +221,9 @@
                                 </ItemsRepeater>
                             </Grid>
                             <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto">
-                                <icons:SymbolIcon Margin="0,0,8,0"
+                                <icons:FluentIcon Margin="0,0,8,0"
                                                   VerticalAlignment="Bottom"
-                                                  Symbol="Link" />
+                                                  Icon="Link" />
                                 <TextBlock Grid.Column="1" Text="{x:Static lang:Strings.Link}" />
 
                                 <HyperlinkButton Grid.Row="1"
@@ -233,9 +233,9 @@
                                                  IsVisible="{Binding Package.WebSite.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                             </Grid>
                             <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto">
-                                <icons:SymbolIcon Margin="0,0,8,0"
+                                <icons:FluentIcon Margin="0,0,8,0"
                                                   VerticalAlignment="Bottom"
-                                                  Symbol="Bookmark" />
+                                                  Icon="Bookmark" />
                                 <TextBlock Grid.Column="1" Text="{x:Static lang:ExtensionsStrings.Package_LatestVersion}" />
 
                                 <TextBlock Grid.Row="1"
@@ -245,9 +245,9 @@
                                            Text="{Binding LatestRelease.Value.Version.Value}" />
                             </Grid>
                             <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto">
-                                <icons:SymbolIcon Margin="0,0,8,0"
+                                <icons:FluentIcon Margin="0,0,8,0"
                                                   VerticalAlignment="Bottom"
-                                                  Symbol="ArrowMinimize" />
+                                                  Icon="ArrowMinimize" />
                                 <TextBlock Grid.Column="1" Text="{x:Static lang:ExtensionsStrings.Release_TargetVersion}" />
 
                                 <TextBlock Grid.Row="1"
@@ -258,9 +258,9 @@
                             <Grid ColumnDefinitions="Auto,*"
                                   IsVisible="{Binding CurrentRelease.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
                                   RowDefinitions="Auto,Auto">
-                                <icons:SymbolIcon Margin="0,0,8,0"
+                                <icons:FluentIcon Margin="0,0,8,0"
                                                   VerticalAlignment="Bottom"
-                                                  Symbol="ArrowDownload" />
+                                                  Icon="ArrowDownload" />
                                 <TextBlock Grid.Column="1" Text="{x:Static lang:ExtensionsStrings.Package_InstalledVersion}" />
 
                                 <TextBlock Grid.Row="1"

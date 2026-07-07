@@ -83,16 +83,16 @@
                         BorderBrush="{TemplateBinding BorderBrush}"
                         BorderThickness="{TemplateBinding BorderThickness}"
                         CornerRadius="{TemplateBinding CornerRadius}">
-                    <icons:SymbolIcon Name="PART_SymbolIcon"
+                    <icons:FluentIcon Name="PART_SymbolIcon"
                                       HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                       VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
-                                      Symbol="Edit" />
+                                      Icon="Edit" />
                 </Border>
             </ControlTemplate>
         </Setter>
 
-        <Style Selector="^:checked /template/ icons|SymbolIcon#PART_SymbolIcon">
-            <Setter Property="Symbol" Value="EditOff" />
+        <Style Selector="^:checked /template/ icons|FluentIcon#PART_SymbolIcon">
+            <Setter Property="Icon" Value="EditOff" />
         </Style>
 
         <Style Selector="^:pointerover /template/ Border#PART_Root">
@@ -102,14 +102,14 @@
         <Style Selector="^:pressed /template/ Border#PART_Root">
             <Setter Property="Background" Value="{DynamicResource SubtleFillColorTertiaryBrush}" />
         </Style>
-        <Style Selector="^:pressed /template/ icons|SymbolIcon#PART_SymbolIcon">
+        <Style Selector="^:pressed /template/ icons|FluentIcon#PART_SymbolIcon">
             <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
         </Style>
 
         <Style Selector="^:disabled /template/ Border#PART_Root">
             <Setter Property="Background" Value="{DynamicResource SubtleFillColorDisabledBrush}" />
         </Style>
-        <Style Selector="^:disabled /template/ icons|SymbolIcon#PART_SymbolIcon">
+        <Style Selector="^:disabled /template/ icons|FluentIcon#PART_SymbolIcon">
             <Setter Property="Foreground" Value="{DynamicResource TextFillColorDisabledBrush}" />
         </Style>
     </ControlTheme>
