@@ -61,7 +61,6 @@ public readonly struct StructuralKey : IEquatable<StructuralKey>
             case GeometryNodeDescriptor geometry:
                 sb.Append("geometry:")
                     .Append(geometry.StructuralToken)
-                    .Append(',').Append(geometry.InputCount)
                     .Append(',').Append(geometry.Bounds.StructuralIdentity.ToString(CultureInfo.InvariantCulture));
                 break;
 

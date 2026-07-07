@@ -158,7 +158,7 @@ public class EffectMigrationParityTests
         CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
         FrameResources frame = EffectGraphCompiler.ResolveResources(plan, s_bounds, workingScale: 1f);
         RenderNodeOperation[] outputs = PlanExecutor.Execute(
-            plan, frame, inputs, s_bounds, outputScale: 1f, workingScale: 1f,
+            plan, frame, inputs, outputScale: 1f, workingScale: 1f,
             maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null);
 
         return Rasterize(outputs, s_bounds);

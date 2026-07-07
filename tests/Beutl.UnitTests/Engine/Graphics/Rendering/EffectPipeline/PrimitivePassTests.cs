@@ -295,7 +295,7 @@ public class PrimitivePassTests
             CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics);
             FrameResources frame = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale: 1f);
             RenderNodeOperation[] outputs = PlanExecutor.Execute(
-                plan, frame, [Input()], s_bounds, outputScale: 1f, workingScale: 1f,
+                plan, frame, [Input()], outputScale: 1f, workingScale: 1f,
                 maxWorkingScale: float.PositiveInfinity, diagnostics: diagnostics, pool: pool);
 
             int count = outputs.Length;
@@ -351,7 +351,7 @@ public class PrimitivePassTests
         CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics);
         FrameResources frame = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale: 1f);
         return PlanExecutor.Execute(
-            plan, frame, inputs, s_bounds, outputScale: 1f, workingScale: 1f,
+            plan, frame, inputs, outputScale: 1f, workingScale: 1f,
             maxWorkingScale: maxWorkingScale, diagnostics: diagnostics, pool: pool);
     }
 

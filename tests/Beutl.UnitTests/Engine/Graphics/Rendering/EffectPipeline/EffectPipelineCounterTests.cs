@@ -122,7 +122,7 @@ public class EffectPipelineCounterTests
             RenderNodeOperation[] outputs = null!;
             Assert.That(
                 () => outputs = PlanExecutor.Execute(
-                    plan, frame, [op], bounds, outputScale: 1f, workingScale: 1f,
+                    plan, frame, [op], outputScale: 1f, workingScale: 1f,
                     maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null),
                 Throws.Nothing);
             Assert.That(outputs, Has.Length.EqualTo(1));
@@ -282,8 +282,8 @@ public class EffectPipelineCounterTests
         });
     }
 
-    // SC-002 (2): a bounds-animating case — an UNMIGRATED Blur whose sigma animates, ahead of a fused Gamma. The
-    // opaque bridged context and the per-frame bounds both re-resolve on a cache hit, so the plan compiles once
+    // SC-002 (2): a bounds-animating case — a declarative SkiaFilter Blur whose sigma animates, ahead of a fused
+    // Gamma. The per-frame filter factory and the bounds both re-resolve on a cache hit, so the plan compiles once
     // while the output (growing blur) tracks a fresh compile.
     [Test]
     public void MixedChain_AnimatedBlurSigma_CompilesOnceWithGrowingBounds()
@@ -373,12 +373,12 @@ public class EffectPipelineCounterTests
         });
     }
 
-    // SC-002 (5) / T034 bridged-staleness regression: an animated parameter on an UNMIGRATED effect (DropShadow
-    // position) inside a structurally constant chain that also contains a fused node (Gamma) must render each frame
-    // identically to a fresh compile — proving the cache hit swaps the stale bridged context for the frame's — while
-    // PlanCompilations stays at 1. A stale-context bug would freeze the shadow after frame 0.
+    // SC-002 (5) / T034 stale-parameter regression: an animated parameter on a declarative SkiaFilter effect
+    // (DropShadow position) inside a structurally constant chain that also contains a fused node (Gamma) must render
+    // each frame identically to a fresh compile — proving the cache hit swaps the cached passes' captured factories
+    // for the frame's — while PlanCompilations stays at 1. A stale-capture bug would freeze the shadow after frame 0.
     [Test]
-    public void BridgedEffectAnimation_StaysLiveWhilePlanCompilesOnce()
+    public void AnimatedSkiaFilterEffect_StaysLiveWhilePlanCompilesOnce()
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
@@ -394,15 +394,15 @@ public class EffectPipelineCounterTests
             {
                 Assert.That(snaps[0].PlanCompilations, Is.EqualTo(1), "frame 0 compiles once");
                 Assert.That(snaps.Skip(1).Sum(s => s.PlanCompilations), Is.EqualTo(0),
-                    "the animated bridged effect keeps hitting the cache (stable structural token)");
+                    "the animated effect keeps hitting the cache (stable structural token)");
 
                 for (int f = 0; f < frames; f++)
                 {
                     using Bitmap fresh = RenderFresh(MakeAnimatedDropShadowChain, f);
-                    AssertMatches(fresh, bmps[f]!, $"bridged frame {f} vs fresh compile");
+                    AssertMatches(fresh, bmps[f]!, $"animated frame {f} vs fresh compile");
                 }
 
-                // Proof the animation is live on cache hits, not vacuous: the bridged shadow's moving position
+                // Proof the animation is live on cache hits, not vacuous: the shadow's moving position
                 // re-resolves the output op's union bounds every frame, so they grow across the run. A frozen
                 // (stale-context) cache would replay frame 0's bounds unchanged.
                 Assert.That(drive.OutputBounds[2].Right, Is.GreaterThan(drive.OutputBounds[0].Right),

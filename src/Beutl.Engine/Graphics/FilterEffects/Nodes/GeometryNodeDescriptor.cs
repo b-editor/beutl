@@ -12,11 +12,10 @@
 public sealed record GeometryNodeDescriptor : EffectNodeDescriptor
 {
     private GeometryNodeDescriptor(
-        Action<GeometrySession> render, BoundsContract bounds, int inputCount, object structuralToken)
+        Action<GeometrySession> render, BoundsContract bounds, object structuralToken)
     {
         Render = render;
         Bounds = bounds;
-        InputCount = inputCount;
         StructuralToken = structuralToken;
     }
 
@@ -29,9 +28,6 @@ public sealed record GeometryNodeDescriptor : EffectNodeDescriptor
     /// <inheritdoc/>
     public override bool IsCoordinateInvariant => false;
 
-    /// <summary>How many upstream operations this node consumes (materialized as <see cref="GeometrySession.Inputs"/>).</summary>
-    public int InputCount { get; }
-
     /// <summary>Identity of the geometry <em>kind</em> for the structural key; equal tokens share a plan shape.</summary>
     public object StructuralToken { get; }
 
@@ -40,12 +36,13 @@ public sealed record GeometryNodeDescriptor : EffectNodeDescriptor
     /// be non-null (an author who cannot lay out until execution passes <see cref="BoundsContract.RenderTime"/>).
     /// <paramref name="structuralToken"/> defaults to the callback's method identity, so callbacks built at the
     /// same call site (differing only in parameters) share a structural identity and never force a recompile.
+    /// A geometry node consumes exactly one upstream operation — the executor materializes it as the single entry
+    /// of <see cref="GeometrySession.Inputs"/>; fan-in belongs to <see cref="CompositeNodeDescriptor"/>.
     /// </summary>
     public static GeometryNodeDescriptor Create(
-        Action<GeometrySession> render, BoundsContract bounds, int inputCount = 1, object? structuralToken = null)
+        Action<GeometrySession> render, BoundsContract bounds, object? structuralToken = null)
     {
         ArgumentNullException.ThrowIfNull(render);
-        ArgumentOutOfRangeException.ThrowIfLessThan(inputCount, 1);
-        return new GeometryNodeDescriptor(render, bounds, inputCount, structuralToken ?? render.Method.MethodHandle.Value);
+        return new GeometryNodeDescriptor(render, bounds, structuralToken ?? render.Method.MethodHandle.Value);
     }
 }

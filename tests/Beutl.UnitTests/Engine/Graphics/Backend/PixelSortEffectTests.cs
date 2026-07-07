@@ -74,7 +74,7 @@ public class PixelSortEffectTests
         CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
         FrameResources frame = EffectGraphCompiler.ResolveResources(plan, bounds, workingScale: 1f);
         return PlanExecutor.Execute(
-            plan, frame, [input], bounds, outputScale: 1f, workingScale: 1f,
+            plan, frame, [input], outputScale: 1f, workingScale: 1f,
             maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null);
     }
 

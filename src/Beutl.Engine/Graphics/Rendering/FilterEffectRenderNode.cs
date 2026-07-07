@@ -56,8 +56,8 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
         using EffectGraph graph = graphBuilder.Build();
 
         // Cache the compiled plan on structural identity (C5): a parameter-only frame (animated uniforms, sigma,
-        // even a bridged effect's captured values) re-describes and rebinds without recompiling. Structural changes
-        // and a graphics-context change miss and recompile exactly once.
+        // filter factories) re-describes and rebinds without recompiling. Structural changes and a
+        // graphics-context change miss and recompile exactly once.
         object contextId = GraphicsContextFactory.SharedContext ?? s_noContext;
         StructuralKey key = StructuralKey.Compute(graph);
         CompiledPlan plan;
@@ -74,7 +74,7 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
         // The parent wants the effect's full output; Rect.Invalid requests every pass's full bounds (no ROI crop).
         FrameResources resources = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale);
         return PlanExecutor.Execute(
-            plan, resources, context.Input, bounds, context.OutputScale, workingScale, context.MaxWorkingScale,
+            plan, resources, context.Input, context.OutputScale, workingScale, context.MaxWorkingScale,
             context.Diagnostics, context.Pool);
     }
 

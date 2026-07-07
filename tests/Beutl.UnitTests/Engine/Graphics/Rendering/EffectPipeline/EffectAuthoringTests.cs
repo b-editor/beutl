@@ -186,7 +186,7 @@ public class EffectAuthoringTests
         CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
         FrameResources frame = EffectGraphCompiler.ResolveResources(plan, s_bounds, workingScale: 1f);
         RenderNodeOperation[] outputs = PlanExecutor.Execute(
-            plan, frame, [input], s_bounds, outputScale: 1f, workingScale: 1f,
+            plan, frame, [input], outputScale: 1f, workingScale: 1f,
             maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null);
         return Rasterize(outputs, s_bounds);
     }

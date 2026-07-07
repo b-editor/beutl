@@ -410,7 +410,7 @@ public class SourceEffectiveScaleFlowTests
             CompiledPlan plan = EffectGraphCompiler.Compile(graph, context.Diagnostics);
             FrameResources resources = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale);
             return PlanExecutor.Execute(
-                plan, resources, context.Input, bounds, context.OutputScale, workingScale,
+                plan, resources, context.Input, context.OutputScale, workingScale,
                 context.MaxWorkingScale, context.Diagnostics, context.Pool);
         }
     }
