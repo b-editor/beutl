@@ -8,6 +8,9 @@ namespace Beutl.AgentToolkit.Sessions;
 
 public sealed class AgentSessionManager(CreativeMemoryStore? creativeMemory = null)
 {
+    // GetCompositionSessionKey calls ReadOnSession; resolve it OUTSIDE the lock or an
+    // editor-thread caller waiting on the lock can deadlock.
+    private readonly object _stateLock = new();
     private readonly string _hostCompositionSeed = CreateCompositionSeed("host");
     private readonly Dictionary<string, CompositionPlanState> _compositionPlans = new(StringComparer.Ordinal);
     private readonly Dictionary<string, QualityReviewBaseline> _qualityReviewBaselines = new(StringComparer.Ordinal);
@@ -15,7 +18,7 @@ public sealed class AgentSessionManager(CreativeMemoryStore? creativeMemory = nu
     private readonly List<string> _hostRecentCompositions = [];
     private readonly List<string> _preAttachPreviewedCompositions = [];
     private int _creativeDirectionRequestCount;
-    private ISessionSource? _currentSource;
+    private volatile ISessionSource? _currentSource;
     private string? _compositionSessionKey;
     private string? _compositionSessionSeed;
 
@@ -51,36 +54,49 @@ public sealed class AgentSessionManager(CreativeMemoryStore? creativeMemory = nu
         }
 
         string sessionKey = GetCompositionSessionKey();
-        if (!StringComparer.Ordinal.Equals(_compositionSessionKey, sessionKey))
+        lock (_stateLock)
         {
-            _compositionSessionKey = sessionKey;
-            _compositionSessionSeed = $"session:{sessionKey}";
-        }
+            if (!StringComparer.Ordinal.Equals(_compositionSessionKey, sessionKey))
+            {
+                _compositionSessionKey = sessionKey;
+                _compositionSessionSeed = $"session:{sessionKey}";
+            }
 
-        return _compositionSessionSeed!;
+            return _compositionSessionSeed!;
+        }
     }
 
     public IReadOnlyList<string> GetRecentCompositions()
     {
         string key = GetCompositionSessionKey();
-        IEnumerable<string> sessionRecent = _recentCompositions.TryGetValue(key, out List<string>? names)
-            ? names
-            : [];
-        return sessionRecent
-            .Concat(_hostRecentCompositions)
+        List<string>? sessionRecentSnapshot;
+        List<string> hostRecentSnapshot;
+        lock (_stateLock)
+        {
+            sessionRecentSnapshot = _recentCompositions.TryGetValue(key, out List<string>? names)
+                ? names.ToList()
+                : null;
+            hostRecentSnapshot = _hostRecentCompositions.ToList();
+        }
+
+        return (sessionRecentSnapshot ?? [])
+            .Concat(hostRecentSnapshot)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
     }
 
     public IReadOnlyList<string> GetPreAttachPreviewedCompositions()
     {
-        return _preAttachPreviewedCompositions.ToArray();
+        lock (_stateLock)
+        {
+            return _preAttachPreviewedCompositions.ToArray();
+        }
     }
 
     public IReadOnlyList<string> GetAvoidedCompositions()
     {
         return GetRecentCompositions()
-            .Concat(_preAttachPreviewedCompositions)
+            .Concat(GetPreAttachPreviewedCompositions())
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
     }
@@ -103,7 +119,10 @@ public sealed class AgentSessionManager(CreativeMemoryStore? creativeMemory = nu
             return;
         }
 
-        AddRecent(_preAttachPreviewedCompositions, name);
+        lock (_stateLock)
+        {
+            AddRecent(_preAttachPreviewedCompositions, name);
+        }
     }
 
     public void RecordCompositionUse(string name)
@@ -113,16 +132,19 @@ public sealed class AgentSessionManager(CreativeMemoryStore? creativeMemory = nu
             return;
         }
 
-        AddRecent(_hostRecentCompositions, name);
-
         string key = GetCompositionSessionKey();
-        if (!_recentCompositions.TryGetValue(key, out List<string>? names))
+        lock (_stateLock)
         {
-            names = [];
-            _recentCompositions[key] = names;
-        }
+            AddRecent(_hostRecentCompositions, name);
 
-        AddRecent(names, name);
+            if (!_recentCompositions.TryGetValue(key, out List<string>? names))
+            {
+                names = [];
+                _recentCompositions[key] = names;
+            }
+
+            AddRecent(names, name);
+        }
     }
 
     private static void AddRecent(List<string> names, string name)
@@ -144,9 +166,10 @@ public sealed class AgentSessionManager(CreativeMemoryStore? creativeMemory = nu
         IReadOnlySet<Guid> knownNewIds)
     {
         string id = Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLowerInvariant();
+        string sessionKey = GetCompositionSessionKey();
         var state = new CompositionPlanState(
             id,
-            GetCompositionSessionKey(),
+            sessionKey,
             compositionName,
             seed,
             (JsonObject)inputProps.DeepClone(),
@@ -154,13 +177,24 @@ public sealed class AgentSessionManager(CreativeMemoryStore? creativeMemory = nu
             (JsonArray)expectedChangeSet.DeepClone(),
             knownNewIds.ToArray(),
             DateTimeOffset.UtcNow);
-        _compositionPlans[id] = state;
+        lock (_stateLock)
+        {
+            _compositionPlans[id] = state;
+        }
+
         return state;
     }
 
     public CompositionPlanState GetCompositionPlan(string planId)
     {
-        if (!_compositionPlans.TryGetValue(planId, out CompositionPlanState? state))
+        string currentKey = GetCompositionSessionKey();
+        CompositionPlanState? state;
+        lock (_stateLock)
+        {
+            _compositionPlans.TryGetValue(planId, out state);
+        }
+
+        if (state is null)
         {
             throw new ReconcileException(new ToolError(
                 ErrorCode.StaleHandle,
@@ -169,7 +203,6 @@ public sealed class AgentSessionManager(CreativeMemoryStore? creativeMemory = nu
                 "Run plan_composition again and pass the returned planId to apply_composition."));
         }
 
-        string currentKey = GetCompositionSessionKey();
         if (!StringComparer.Ordinal.Equals(state.SessionKey, currentKey))
         {
             throw new ReconcileException(new ToolError(
@@ -184,19 +217,32 @@ public sealed class AgentSessionManager(CreativeMemoryStore? creativeMemory = nu
 
     public void RemoveCompositionPlan(string planId)
     {
-        _compositionPlans.Remove(planId);
+        lock (_stateLock)
+        {
+            _compositionPlans.Remove(planId);
+        }
     }
 
     public void StoreQualityReviewBaseline(QualityReviewBaseline baseline)
     {
         ArgumentNullException.ThrowIfNull(baseline);
-        _qualityReviewBaselines[GetCompositionSessionKey()] = baseline;
+        string key = GetCompositionSessionKey();
+        lock (_stateLock)
+        {
+            _qualityReviewBaselines[key] = baseline;
+        }
     }
 
     public QualityReviewBaseline GetQualityReviewBaseline()
     {
         string currentKey = GetCompositionSessionKey();
-        if (!_qualityReviewBaselines.TryGetValue(currentKey, out QualityReviewBaseline? baseline))
+        QualityReviewBaseline? baseline;
+        lock (_stateLock)
+        {
+            _qualityReviewBaselines.TryGetValue(currentKey, out baseline);
+        }
+
+        if (baseline is null)
         {
             throw new ReconcileException(new ToolError(
                 ErrorCode.StaleHandle,

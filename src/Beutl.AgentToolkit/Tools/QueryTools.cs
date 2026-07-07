@@ -537,12 +537,21 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
 
     private (int Width, int Height, double DurationSeconds) ResolveScaffoldFrame()
     {
-        if (sessions.CurrentSession is { Root: Scene scene })
+        IEditingSession? session = sessions.CurrentSession;
+        if (session is null)
         {
-            return (scene.FrameSize.Width, scene.FrameSize.Height, Math.Max(0.1, scene.Duration.TotalSeconds));
+            return (1920, 1080, 8);
         }
 
-        return (1920, 1080, 8);
+        return session.ReadOnSession(() =>
+        {
+            if (session.Root is Scene scene)
+            {
+                return (scene.FrameSize.Width, scene.FrameSize.Height, Math.Max(0.1, scene.Duration.TotalSeconds));
+            }
+
+            return (1920, 1080, 8);
+        });
     }
 
     [McpServerTool(Name = "get_schema")]

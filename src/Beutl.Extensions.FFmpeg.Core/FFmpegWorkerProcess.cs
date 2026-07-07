@@ -259,6 +259,17 @@ public sealed class FFmpegWorkerProcess : IDisposable
             : new WorkerCommand(dotnetHost, stem + ".dll");
     }
 
+    /// <summary>Reports whether a launchable Beutl.FFmpegWorker is present under
+    /// <paramref name="baseDirectory"/> (FFmpegWorker/ subdir, then flat layout).</summary>
+    public static bool IsWorkerAvailable(string baseDirectory)
+    {
+        string exeSuffix = OperatingSystem.IsWindows() ? ".exe" : "";
+        string subDirStem = Path.Combine(baseDirectory, "FFmpegWorker", "Beutl.FFmpegWorker");
+        string flatStem = Path.Combine(baseDirectory, "Beutl.FFmpegWorker");
+        return File.Exists(subDirStem + exeSuffix) || File.Exists(subDirStem + ".dll")
+            || File.Exists(flatStem + exeSuffix) || File.Exists(flatStem + ".dll");
+    }
+
     private void Cleanup()
     {
         _connection?.Dispose();

@@ -5,6 +5,7 @@ using Beutl.AgentToolkit.Rendering;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tools;
 using Beutl.AgentToolkit.Workspace;
+using Beutl.Extensions.FFmpeg;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using ModelContextProtocol.Client;
@@ -107,6 +108,44 @@ public sealed class McpToolBindingTests
         {
             Assert.That(ReadText(result), Does.Not.Contain("An error occurred invoking 'evaluate_edit_quality'"));
             AssertToolResultSuccess(result);
+        });
+    }
+
+    [Test]
+    public async Task Export_video_returns_clear_error_when_ffmpeg_worker_absent()
+    {
+        if (FFmpegWorkerProcess.IsWorkerAvailable(AppContext.BaseDirectory))
+        {
+            Assert.Ignore("Test BaseDirectory already has an FFmpeg worker; cannot verify the absent-worker path.");
+        }
+
+        string workspace = CreateWorkspace();
+        await using InProcessMcpServer server = await InProcessMcpServer.StartAsync(workspace);
+        await using McpClient client = await McpClient.CreateAsync(server.ClientTransport);
+
+        CallToolResult create = await client.CallToolAsync(
+            "create_project",
+            new Dictionary<string, object?>
+            {
+                ["path"] = "export-probe.bep",
+                ["width"] = 320,
+                ["height"] = 180,
+                ["frameRate"] = 30,
+                ["duration"] = "00:00:02"
+            });
+        AssertMcpCallSucceeded(create, "create_project");
+
+        CallToolResult result = await client.CallToolAsync(
+            "export_video",
+            new Dictionary<string, object?>
+            {
+                ["outputPath"] = "out.mp4"
+            });
+
+        Assert.Multiple(() =>
+        {
+            AssertToolResultError(result, ErrorCode.CodecUnavailable);
+            Assert.That(ReadText(result), Does.Contain("FFmpegWorker"));
         });
     }
 

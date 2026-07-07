@@ -9,6 +9,7 @@ using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Rendering;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Workspace;
+using Beutl.Extensions.FFmpeg;
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.ProjectSystem;
@@ -811,6 +812,15 @@ public sealed class RenderTools(
     {
         return ExecuteAsync<ExportVideoResult>(async () =>
         {
+            if (!FFmpegWorkerProcess.IsWorkerAvailable(AppContext.BaseDirectory))
+            {
+                throw new ReconcileException(new ToolError(
+                    ErrorCode.CodecUnavailable,
+                    "export_video requires the Beutl.FFmpegWorker next to this MCP host, but it was not found under the server directory.",
+                    "exportVideo",
+                    "The stdio MCP host (source-run or standalone install) does not place the FFmpeg worker next to the server. Use the in-app MCP endpoint (Tools > AI Agents) for video export, or run from the installed Beutl app directory where the worker is copied under FFmpegWorker/."));
+            }
+
             if (frameRateNumerator <= 0 || frameRateDenominator <= 0)
             {
                 throw new ReconcileException(new ToolError(
