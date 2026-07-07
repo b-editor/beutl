@@ -119,7 +119,7 @@ public sealed class RenderTools(
                     "returnImageContent cannot be combined with background:true; run render_storyboard synchronously when the contact-sheet image block is needed."));
             }
 
-            Scene scene = RequireSceneSnapshot();
+            Scene scene = RequireSceneSnapshot(forceClone: background);
             int normalizedSubdivisionLevel = NormalizeStoryboardSubdivisionLevel(subdivisionLevel);
             IReadOnlyList<ResolvedStoryboardFrame> resolvedShots = ResolveStoryboardFrames(
                 scene,
@@ -360,6 +360,9 @@ public sealed class RenderTools(
         {
             ValidateVideoType(videoType);
             Scene scene = RequireSceneSnapshot();
+            // Capture the session key alongside the snapshot: a switch during the render must not file
+            // the baseline under another project's key.
+            string sessionKey = sessions.CurrentSessionKey;
             PaletteRoleColor[]? parsedPaletteRoleColors = ParsePaletteRoleColors(paletteRoleColors);
             IReadOnlyList<TimeSpan>? sampleTimes = staticLayout
                 ? NormalizeQualitySampleTimesOrNull(timeSeconds)
@@ -409,7 +412,7 @@ public sealed class RenderTools(
                     options.RenderScale,
                     "quality-baseline",
                     cancellationToken).ConfigureAwait(false);
-                StoreQualityBaseline(sampleTimes, options, review, stillPaths);
+                StoreQualityBaseline(sessionKey, sampleTimes, options, review, stillPaths);
             }
 
             return review;
@@ -601,6 +604,9 @@ public sealed class RenderTools(
         {
             ValidateVideoType(videoType);
             Scene scene = RequireSceneSnapshot();
+            // Capture the session key alongside the snapshot: a switch during the render must not file
+            // the baseline under another project's key.
+            string sessionKey = sessions.CurrentSessionKey;
             PaletteRoleColor[]? parsedPaletteRoleColors = ParsePaletteRoleColors(paletteRoleColors);
             IReadOnlyList<TimeSpan> sampleTimes = ResolveSampleTimes(scene, timeSeconds, sampleCount);
             var stills = new List<PreflightStillFrame>(sampleTimes.Count);
@@ -666,6 +672,7 @@ public sealed class RenderTools(
             if (!staticLayout)
             {
                 StoreQualityBaseline(
+                    sessionKey,
                     sampleTimes,
                     CreateQualityAnalysisOptions(
                         videoType,
@@ -733,6 +740,9 @@ public sealed class RenderTools(
         {
             QualityReviewBaseline baseline = sessions.GetQualityReviewBaseline();
             Scene scene = RequireSceneSnapshot();
+            // Capture the session key alongside the snapshot: a switch during the render must not file
+            // the refreshed baseline under another project's key.
+            string sessionKey = sessions.CurrentSessionKey;
             IReadOnlyList<string> currentStillPaths = await RenderBaselineStillsAsync(
                 scene,
                 baseline.SampleTimes,
@@ -778,7 +788,7 @@ public sealed class RenderTools(
                 baseline.Review,
                 current);
 
-            StoreQualityBaseline(baseline.SampleTimes, baseline.Options, current, currentStillPaths);
+            StoreQualityBaseline(sessionKey, baseline.SampleTimes, baseline.Options, current, currentStillPaths);
 
             IReadOnlyList<ImageContentBlock> images = returnImageContent
                 ? CreateRevisionPreviewImages(pairs)
@@ -852,7 +862,7 @@ public sealed class RenderTools(
                     "Provide either crf or bitrate, not both."));
             }
 
-            Scene scene = RequireSceneSnapshot();
+            Scene scene = RequireSceneSnapshot(forceClone: background);
             string resolvedPath = workspace.ResolveForWrite(NormalizeOutputPath(outputPath));
             destructiveGuard.EnsureOverwriteAllowed(resolvedPath, confirmOverwrite);
 
@@ -1201,13 +1211,14 @@ public sealed class RenderTools(
     }
 
     private void StoreQualityBaseline(
+        string sessionKey,
         IReadOnlyList<TimeSpan> sampleTimes,
         QualityAnalysisOptions options,
         QualityReviewResponse review,
         IReadOnlyList<string> stillPaths)
     {
         sessions.StoreQualityReviewBaseline(new QualityReviewBaseline(
-            sessions.CurrentSessionKey,
+            sessionKey,
             DateTimeOffset.UtcNow,
             sampleTimes.ToArray(),
             options with
@@ -1980,13 +1991,13 @@ public sealed class RenderTools(
         };
     }
 
-    internal Scene RequireSceneSnapshot()
+    internal Scene RequireSceneSnapshot(bool forceClone = false)
     {
         IEditingSession session = sessions.RequireSession();
-        return CreateSceneSnapshot(session);
+        return CreateSceneSnapshot(session, forceClone);
     }
 
-    internal static Scene CreateSceneSnapshot(IEditingSession session)
+    internal static Scene CreateSceneSnapshot(IEditingSession session, bool forceClone = false)
     {
         ArgumentNullException.ThrowIfNull(session);
 
@@ -1999,7 +2010,9 @@ public sealed class RenderTools(
                     "The current editing session is not attached to a scene."));
             }
 
-            if (session.Source != EditingSessionSource.LiveEditor)
+            // A background job outlives the request and a later apply_edit can mutate the live scene
+            // while the renderer enumerates it, so background renders must clone file sessions too.
+            if (!forceClone && session.Source != EditingSessionSource.LiveEditor)
             {
                 return scene;
             }

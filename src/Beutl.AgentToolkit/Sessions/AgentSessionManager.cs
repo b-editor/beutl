@@ -226,10 +226,11 @@ public sealed class AgentSessionManager(CreativeMemoryStore? creativeMemory = nu
     public void StoreQualityReviewBaseline(QualityReviewBaseline baseline)
     {
         ArgumentNullException.ThrowIfNull(baseline);
-        string key = GetCompositionSessionKey();
+        // Store under baseline.SessionKey (captured before the async render), not a key re-derived now:
+        // a session switch during the render would otherwise file the snapshot under the wrong project.
         lock (_stateLock)
         {
-            _qualityReviewBaselines[key] = baseline;
+            _qualityReviewBaselines[baseline.SessionKey] = baseline;
         }
     }
 

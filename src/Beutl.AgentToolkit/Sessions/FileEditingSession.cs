@@ -137,6 +137,46 @@ public sealed class FileEditingSession : IEditingSession, IEditingSessionDispatc
         AcceptExternalStamp();
     }
 
+    // SetProjectPath rewrites the project/scene/element URIs before the caller's Save runs; a failed
+    // Save As must be able to restore the original locations so a later plain save still hits the source.
+    internal UriState CaptureUriState()
+    {
+        var scenes = new List<(Scene Scene, Uri? Uri)>();
+        var elements = new List<(Element Element, Uri? Uri)>();
+        foreach (Scene scene in Project.Items.OfType<Scene>())
+        {
+            scenes.Add((scene, scene.Uri));
+            foreach (Element element in scene.Children)
+            {
+                elements.Add((element, element.Uri));
+            }
+        }
+
+        return new UriState(Project.Uri, _projectLastWriteUtc, scenes, elements);
+    }
+
+    internal void RestoreUriState(UriState state)
+    {
+        Project.Uri = state.ProjectUri;
+        foreach ((Scene scene, Uri? uri) in state.Scenes)
+        {
+            scene.Uri = uri;
+        }
+
+        foreach ((Element element, Uri? uri) in state.Elements)
+        {
+            element.Uri = uri;
+        }
+
+        _projectLastWriteUtc = state.Stamp;
+    }
+
+    internal sealed record UriState(
+        Uri? ProjectUri,
+        DateTime Stamp,
+        IReadOnlyList<(Scene Scene, Uri? Uri)> Scenes,
+        IReadOnlyList<(Element Element, Uri? Uri)> Elements);
+
     public void MarkDirty()
     {
         IsDirty = true;

@@ -123,6 +123,38 @@ public sealed class SessionToolsTests
     }
 
     [Test]
+    public async Task Failed_save_as_restores_the_original_project_and_scene_uris()
+    {
+        string root = CreateWorkspace();
+        var manager = new AgentSessionManager();
+        using var source = new FileSessionSource();
+        SessionTools sessionTools = CreateSessionTools(source, manager, root);
+
+        ToolResult<CreateProjectResponse> created = await sessionTools.CreateProject(
+            "orig.bep", width: 640, height: 360, frameRate: 30, duration: "00:00:04");
+        Assert.That(created.IsSuccess, Is.True, created.Error?.Message);
+
+        FileEditingSession session = source.CurrentFileSession!;
+        string originalProjectUri = session.Project.Uri!.LocalPath;
+        string[] originalSceneUris = session.Project.Items.OfType<Scene>().Select(s => s.Uri!.LocalPath).ToArray();
+
+        // A directory occupying the destination .bep path makes ProjectOperations.Save throw after
+        // SetProjectPath has already rewritten the URIs.
+        Directory.CreateDirectory(Path.Combine(root, "dest.bep"));
+
+        ToolResult<SaveProjectResponse> failed = sessionTools.SaveProject(
+            created.Value!.Session, "dest.bep", confirmOverwrite: true);
+
+        string[] restoredSceneUris = session.Project.Items.OfType<Scene>().Select(s => s.Uri!.LocalPath).ToArray();
+        Assert.Multiple(() =>
+        {
+            Assert.That(failed.IsSuccess, Is.False);
+            Assert.That(session.Project.Uri!.LocalPath, Is.EqualTo(originalProjectUri));
+            Assert.That(restoredSceneUris, Is.EqualTo(originalSceneUris));
+        });
+    }
+
+    [Test]
     public async Task Create_project_rejects_a_malformed_duration_as_a_validation_error()
     {
         string root = CreateWorkspace();

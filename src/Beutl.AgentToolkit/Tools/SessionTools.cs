@@ -173,6 +173,7 @@ public sealed class SessionTools(
 
             FileEditingSession fileSession = RequireFileSession(sessionId);
             bool skipConflictCheck = false;
+            FileEditingSession.UriState? preSaveAs = null;
             if (!string.IsNullOrWhiteSpace(path))
             {
                 string writePath = NormalizeProjectPath(workspace, path, nameof(path));
@@ -180,12 +181,24 @@ public sealed class SessionTools(
                 if (!string.Equals(Path.GetFullPath(currentPath), Path.GetFullPath(writePath), PathComparison.ForCurrentPlatform))
                 {
                     destructiveGuard.EnsureOverwriteAllowed(writePath, confirmOverwrite);
+                    preSaveAs = fileSession.CaptureUriState();
                     fileSession.SetProjectPath(writePath);
                     skipConflictCheck = confirmOverwrite;
                 }
             }
 
-            fileSession.Save(skipConflictCheck);
+            try
+            {
+                fileSession.Save(skipConflictCheck);
+            }
+            catch when (preSaveAs is not null)
+            {
+                // A failed Save As leaves the session pointed at the new location with sidecar URIs
+                // rewritten; restore the originals so a later plain save still targets the source project.
+                fileSession.RestoreUriState(preSaveAs);
+                throw;
+            }
+
             return new SaveProjectResponse(fileSession.Project.Uri!.LocalPath)
             {
                 Saved = true,
