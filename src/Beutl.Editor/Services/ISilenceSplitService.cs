@@ -12,6 +12,12 @@ namespace Beutl.Editor.Services;
 /// </summary>
 public interface ISilenceSplitService
 {
+    /// <summary>
+    /// Splits <paramref name="targets"/> at the boundaries of <paramref name="silenceRegions"/>.
+    /// The regions are in <b>scene-timeline coordinates</b> (the same space as
+    /// <see cref="Element.Start"/>), not element-local — the caller offsets a detector's 0-based
+    /// <see cref="SilenceRegion"/>s by each source's timeline start before calling this.
+    /// </summary>
     SilenceSplitOutcome SplitBySilence(
         Scene scene,
         IReadOnlyList<Element> targets,

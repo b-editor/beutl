@@ -246,6 +246,24 @@
   <data name="AutoSplitBySilence" xml:space="preserve">
     <value>無音検出で自動分割</value>
   </data>
+  <data name="AutoSplitBySilence_Threshold" xml:space="preserve">
+    <value>しきい値 (dB)</value>
+  </data>
+  <data name="AutoSplitBySilence_MinSilenceDuration" xml:space="preserve">
+    <value>最小無音長 (ms)</value>
+  </data>
+  <data name="AutoSplitBySilence_Padding" xml:space="preserve">
+    <value>前後の保護 (ms)</value>
+  </data>
+  <data name="AutoSplitBySilence_Mode" xml:space="preserve">
+    <value>モード</value>
+  </data>
+  <data name="AutoSplitBySilence_ModeSplitOnly" xml:space="preserve">
+    <value>分割のみ</value>
+  </data>
+  <data name="AutoSplitBySilence_ModeSplitAndDelete" xml:space="preserve">
+    <value>分割して無音を削除</value>
+  </data>
   <data name="Duplicate" xml:space="preserve">
     <value>複製</value>
   </data>
