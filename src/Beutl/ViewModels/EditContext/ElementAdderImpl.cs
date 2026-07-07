@@ -124,6 +124,14 @@ internal sealed class ElementAdderImpl(EditViewModel context) : IElementAdder
             else if (MatchFileVideoOnly(desc.FileName))
             {
                 _logger.LogDebug("File is a video.");
+                // The audio companion goes to desc.Layer + 1; refuse the whole
+                // import rather than adding the video without its sound.
+                if (scene.IsLayerLocked(desc.Layer + 1))
+                {
+                    NotificationService.ShowWarning(Strings.Lock, Strings.LayerIsLocked);
+                    return;
+                }
+
                 Element element1 = CreateElementFor<SourceVideo>(out var t1);
                 Element element2 = CreateElementFor<SourceSound>(out var t2);
                 element2.ZIndex++;

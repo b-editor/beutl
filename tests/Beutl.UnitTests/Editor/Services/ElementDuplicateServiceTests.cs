@@ -149,6 +149,23 @@ public class ElementDuplicateServiceTests
     }
 
     [Test]
+    public void DuplicateAtClickedPosition_ClickedOnLockedLayer_PlacesElsewhere()
+    {
+        Element source = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 0);
+        _scene.Layers.Add(new TimelineLayer { ZIndex = 3, IsLocked = true });
+
+        DuplicateOutcome outcome = _service.DuplicateAtClickedPosition(
+            _scene, [source], TimeSpan.FromSeconds(20), 3);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome.Success, Is.True);
+            Assert.That(outcome.ScrollToZIndex, Is.Not.EqualTo(3));
+            Assert.That(_scene.Children.Any(c => c != source && c.ZIndex == 3), Is.False);
+        });
+    }
+
+    [Test]
     public void DuplicateAtClickedPosition_ClipboardSourceOnLockedLayer_IsNotFiltered()
     {
         // A deserialized clipboard element is not a child of the scene, so the

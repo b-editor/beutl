@@ -130,9 +130,16 @@ public sealed partial class LayerHeader : UserControl
 
         // A lock-blocked move returns IsNoop without writing the model; snap the
         // dragged header back rather than syncing the UI to an unmoved drop row.
+        // PointerMoved already parked the clip views at the drop row, so restore
+        // their margins to the (unchanged) model rows too.
         if (plan.IsNoop)
         {
             vm.PosY.Value = 0;
+            foreach (ElementViewModel item in directElements)
+            {
+                item.Margin.Value = new Thickness(0, vm.Timeline.CalculateLayerTop(item.Model.ZIndex), 0, 0);
+            }
+
             return;
         }
 

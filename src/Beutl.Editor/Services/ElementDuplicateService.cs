@@ -51,6 +51,14 @@ public sealed class ElementDuplicateService : IElementDuplicateService
             (seedRange, minZIndex, maxZIndex) = DuplicateHelper.ComputePlacementRange(regenerated);
             (anchorStart, anchorZIndex) =
                 CorrectPosition(scene, seedRange, minZIndex, maxZIndex, clickedFrame, clickedLayer);
+
+            // CorrectPosition avoids locked rows, but its give-up fallback can
+            // still land on one; never place content inside a locked layer.
+            if (AnyLayerLockedInRange(scene, anchorZIndex, anchorZIndex + (maxZIndex - minZIndex)))
+            {
+                return DuplicateOutcome.Failed;
+            }
+
             DuplicateHelper.PlaceDuplicates(scene, regenerated, sourceArray, anchorStart, anchorZIndex);
         }
         catch (Exception ex)
@@ -116,7 +124,7 @@ public sealed class ElementDuplicateService : IElementDuplicateService
         TimeSpan newStart = clickedFrame;
         int newZIndex = clickedLayer;
 
-        if (!IsOverlapping(scene, new TimeRange(newStart, length), newZIndex, newZIndex + layerCount - 1))
+        if (IsPlacementFree(scene, new TimeRange(newStart, length), newZIndex, newZIndex + layerCount - 1))
         {
             return (newStart, newZIndex);
         }
@@ -139,7 +147,7 @@ public sealed class ElementDuplicateService : IElementDuplicateService
             if (newStart < TimeSpan.Zero) newStart = TimeSpan.Zero;
             if (newZIndex < 0) newZIndex = 0;
 
-            if (!IsOverlapping(scene, new TimeRange(newStart, length), newZIndex, newZIndex + layerCount - 1))
+            if (IsPlacementFree(scene, new TimeRange(newStart, length), newZIndex, newZIndex + layerCount - 1))
             {
                 return (newStart, newZIndex);
             }
@@ -162,6 +170,20 @@ public sealed class ElementDuplicateService : IElementDuplicateService
                     stepLen++;
             }
         }
+    }
+
+    private static bool IsPlacementFree(Scene scene, TimeRange range, int minZIndex, int maxZIndex)
+        => !IsOverlapping(scene, range, minZIndex, maxZIndex)
+           && !AnyLayerLockedInRange(scene, minZIndex, maxZIndex);
+
+    private static bool AnyLayerLockedInRange(Scene scene, int minZIndex, int maxZIndex)
+    {
+        for (int z = minZIndex; z <= maxZIndex; z++)
+        {
+            if (scene.IsLayerLocked(z)) return true;
+        }
+
+        return false;
     }
 
     private static bool IsOverlapping(Scene scene, TimeRange range, int minZIndex, int maxZIndex)

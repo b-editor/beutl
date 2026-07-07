@@ -165,6 +165,15 @@ public sealed class InlineKeyFrameViewModel : IDisposable
         Left.Value = time.TimeToPixel(scale);
     }
 
+    // Visual-only rollback: unlike ReflectModelKeyTime (which commits the dragged
+    // Left into Model.KeyTime), this never touches the model — required when a
+    // drag is cancelled because the clip is locked.
+    public void RestoreVisualFromModel()
+    {
+        float scale = Timeline.Options.Value.Scale;
+        Left.Value = Model.KeyTime.TimeToPixel(scale);
+    }
+
     public void ReflectModelKeyTime()
     {
         float scale = Timeline.Options.Value.Scale;
