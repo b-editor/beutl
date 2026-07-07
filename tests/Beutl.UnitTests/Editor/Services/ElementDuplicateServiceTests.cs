@@ -149,6 +149,31 @@ public class ElementDuplicateServiceTests
     }
 
     [Test]
+    public void DuplicateAtClickedPosition_ClipboardSourceOnLockedLayer_IsNotFiltered()
+    {
+        // A deserialized clipboard element is not a child of the scene, so the
+        // current scene's layer locks must not apply to its source ZIndex.
+        _scene.Layers.Add(new TimelineLayer { ZIndex = 2, IsLocked = true });
+        var clipboardElement = new Element
+        {
+            Start = TimeSpan.FromSeconds(1),
+            Length = TimeSpan.FromSeconds(2),
+            ZIndex = 2,
+            Uri = new Uri(Path.Combine(_harness.BasePath, $"{Guid.NewGuid():N}.layer")),
+        };
+        int childrenBefore = _scene.Children.Count;
+
+        DuplicateOutcome outcome = _service.DuplicateAtClickedPosition(
+            _scene, [clipboardElement], TimeSpan.FromSeconds(20), 0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome.Success, Is.True);
+            Assert.That(_scene.Children.Count, Is.EqualTo(childrenBefore + 1));
+        });
+    }
+
+    [Test]
     public void DuplicateAtClickedPosition_AllSourcesLocked_ReturnsFailed()
     {
         Element locked = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 3);

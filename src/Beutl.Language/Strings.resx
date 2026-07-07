@@ -629,6 +629,9 @@
   <data name="Solo" xml:space="preserve">
     <value>Solo</value>
   </data>
+  <data name="LayerIsLocked" xml:space="preserve">
+    <value>The layer is locked.</value>
+  </data>
   <data name="FrameCache" xml:space="preserve">
     <value>Frame cache</value>
   </data>

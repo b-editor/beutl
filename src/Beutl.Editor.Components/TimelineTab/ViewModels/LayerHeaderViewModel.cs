@@ -24,9 +24,12 @@ public sealed class LayerHeaderViewModel : IDisposable
         Timeline = timeline;
         _model.Value = timeline.Scene.Layers.FirstOrDefault(i => i.ZIndex == num);
 
-        Number = _model.Select(i => i?.GetObservable(TimelineLayer.ZIndexProperty) ?? Observable.ReturnThenNever(num))
+        // Never (not ReturnThenNever(num)): when the model is pruned after this
+        // header moved rows, re-emitting the construction-time num would snap
+        // Number back to the original row.
+        Number = _model.Select(i => i?.GetObservable(TimelineLayer.ZIndexProperty) ?? Observable.Never<int>())
             .Switch()
-            .ToReactiveProperty();
+            .ToReactiveProperty(num);
         Name = _model.Select(i => i?.GetObservable(CoreObject.NameProperty) ?? Number.Select(n => n.ToString()))
             .Switch()
             .Select(s => string.IsNullOrEmpty(s) ? $"{Number.Value}" : s)

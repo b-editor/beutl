@@ -29,8 +29,13 @@ public sealed class ElementDuplicateService : IElementDuplicateService
         ArgumentNullException.ThrowIfNull(sources);
 
         // Duplicating a locked clip would bypass the lock's editing freeze — the
-        // same rule ElementMoveService applies to Alt+drag duplicates.
-        Element[] sourceArray = sources.Where(e => !scene.IsElementLocked(e)).ToArray();
+        // same rule ElementMoveService applies to Alt+drag duplicates. Only scene
+        // children are checked: PasteElementsAsync routes deserialized clipboard
+        // elements here, and their source ZIndex must not pick up this scene's
+        // layer locks.
+        Element[] sourceArray = sources
+            .Where(e => !scene.Children.Contains(e) || !scene.IsElementLocked(e))
+            .ToArray();
         if (sourceArray.Length == 0) return DuplicateOutcome.Failed;
 
         Element[] regenerated;

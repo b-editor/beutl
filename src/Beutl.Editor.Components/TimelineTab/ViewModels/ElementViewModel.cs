@@ -567,15 +567,17 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     private void OnGroupSelectedElements()
     {
-        if (!IsEditable.Value) return;
+        // No self-editability guard: a mixed selection dispatched through a
+        // locked first clip must still group its editable members.
         IReadOnlyCollection<Guid> ids = GetEditableSelectedIdsOrSelf();
+        if (ids.Count == 0) return;
         Timeline.EditorContext.GetRequiredService<IElementStructureService>().Group(Scene, ids);
     }
 
     private void OnUngroupSelectedElements()
     {
-        if (!IsEditable.Value) return;
         IReadOnlyCollection<Guid> ids = GetEditableSelectedIdsOrSelf();
+        if (ids.Count == 0) return;
         Timeline.EditorContext.GetRequiredService<IElementStructureService>().Ungroup(Scene, ids);
     }
 
