@@ -1130,10 +1130,9 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         }
     }
 
-    // ナッジ・ToggleRazorMode 系のショートカットがテキスト入力中に発火しないようにする。
-    // TextBox を直接見るだけでは AutoCompleteBox/NumericUpDown/MaskedTextBox 等の
-    // ラッパー経由でフォーカスされた埋め込み TextBox を検知できないので、Source の
-    // ancestor 連鎖を辿って TextBox を探す。
+    // Timeline shortcuts that use printable keys must not fire while a text input has focus.
+    // Checking only TextBox misses embedded text boxes inside wrappers such as AutoCompleteBox,
+    // NumericUpDown, and MaskedTextBox, so inspect the Source visual ancestor chain.
     private static bool IsTextInputFocused(KeyEventArgs? args)
     {
         return IsTextInputSource(args?.Source);
