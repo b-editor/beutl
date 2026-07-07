@@ -544,6 +544,13 @@ public sealed partial class ElementView : UserControl
 
                 if (leftButton && view.Cursor != Cursors.Arrow && view.Cursor is not null)
                 {
+                    // In Slip mode an edge press is a slip, handled by _MoveBehavior; leave the
+                    // event unconsumed so a plain edge resize does not run in its place.
+                    if (viewModel.Timeline.IsSlipMode.Value)
+                    {
+                        return;
+                    }
+
                     Point timelinePosition = e.GetPosition(view);
                     if (viewModel.Timeline.IsRollMode.Value)
                     {
@@ -943,18 +950,24 @@ public sealed partial class ElementView : UserControl
                 }
 
                 PointerPoint point = e.GetCurrentPoint(view.border);
-                if (point.Properties.IsLeftButtonPressed
-                    && (view.Cursor == Cursors.Arrow || view.Cursor == null))
+                if (!point.Properties.IsLeftButtonPressed)
                 {
-                    if (viewModel.Timeline.IsSlipMode.Value)
-                    {
-                        _pressed = true;
-                        _isSlipDrag = true;
-                        _start = e.GetPosition(view);
-                        e.Handled = true;
-                        return;
-                    }
+                    return;
+                }
 
+                // Slip shifts the media window, not clip geometry, so it starts anywhere on the clip
+                // — including the resize edge, where a plain resize would otherwise take over.
+                if (viewModel.Timeline.IsSlipMode.Value)
+                {
+                    _pressed = true;
+                    _isSlipDrag = true;
+                    _start = e.GetPosition(view);
+                    e.Handled = true;
+                    return;
+                }
+
+                if (view.Cursor == Cursors.Arrow || view.Cursor == null)
+                {
                     if (viewModel.Timeline.IsRollMode.Value || viewModel.Timeline.IsSlideMode.Value)
                     {
                         e.Handled = true;
