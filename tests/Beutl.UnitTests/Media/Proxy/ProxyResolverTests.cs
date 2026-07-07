@@ -89,6 +89,23 @@ public class ProxyResolverTests
     }
 
     [Test]
+    public void Resolve_UsesActualDensityForClampedPresetRanking()
+    {
+        string source = CreateSourceFile();
+        RegisterProxy(source, ProxyPreset.Half, new PixelSize(7680, 4320), new PixelSize(1920, 1080));
+        RegisterProxy(source, ProxyPreset.Quarter, new PixelSize(7680, 4320), new PixelSize(1280, 720));
+
+        ProxyResolution? result = _resolver.Resolve(new Uri(source), ProxyPreset.Quarter);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result!.Preset, Is.EqualTo(ProxyPreset.Half));
+            Assert.That(result.SupplyDensity, Is.EqualTo(0.25f).Within(1e-6));
+        });
+    }
+
+    [Test]
     public void Resolve_FallsBackToDensestOverall_WhenNothingUnderCap()
     {
         string source = CreateSourceFile();

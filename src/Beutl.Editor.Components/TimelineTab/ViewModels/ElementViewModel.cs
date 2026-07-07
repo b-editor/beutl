@@ -285,14 +285,26 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             .Skip(1)
             .DistinctUntilChanged()
             .ObserveOnUIDispatcher()
-            .Subscribe(_ =>
-            {
-                Beutl.Graphics.SourceVideo.InvalidateThumbnailCacheKeys(_thumbnailCacheService, _lastThumbnailsCacheKey);
+            .Subscribe(_ => InvalidateAndUpdateThumbnails())
+            .AddTo(_disposables);
 
-                UpdateThumbnailsAsync();
-            })
+        GlobalConfiguration.Instance.ProxyStoreConfig.GetObservable(ProxyStoreConfig.DefaultPresetProperty)
+            .Skip(1)
+            .DistinctUntilChanged()
+            .Where(_ => ShouldRefreshThumbnailsForDefaultPresetChange(Scene.PreviewSourceMode))
+            .ObserveOnUIDispatcher()
+            .Subscribe(_ => InvalidateAndUpdateThumbnails())
             .AddTo(_disposables);
     }
+
+    private void InvalidateAndUpdateThumbnails()
+    {
+        Beutl.Graphics.SourceVideo.InvalidateThumbnailCacheKeys(_thumbnailCacheService, _lastThumbnailsCacheKey);
+        UpdateThumbnailsAsync();
+    }
+
+    internal static bool ShouldRefreshThumbnailsForDefaultPresetChange(PreviewSourceMode previewSourceMode)
+        => previewSourceMode == PreviewSourceMode.PreferProxy;
 
     private void InitializeElementGroup()
     {

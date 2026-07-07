@@ -187,7 +187,7 @@ public sealed class FFmpegWorkerProcess : IDisposable
                 catch (InvalidOperationException) { }
             }
             pipeServer.Dispose();
-            throw new TimeoutException("FFmpeg worker failed to connect within 30 seconds");
+            throw CreateWorkerStartCanceledException(ct);
         }
         catch
         {
@@ -228,6 +228,13 @@ public sealed class FFmpegWorkerProcess : IDisposable
         // デコード用接続は多重化モードで起動（複数リーダーからの並行リクエスト対応）
         if (_multiplexed)
             _connection.StartMultiplexedReceive(ct);
+    }
+
+    internal static Exception CreateWorkerStartCanceledException(CancellationToken ct)
+    {
+        return ct.IsCancellationRequested
+            ? new OperationCanceledException(ct)
+            : new TimeoutException("FFmpeg worker failed to connect within 30 seconds");
     }
 
     private static void ConfigureWorkerProcess(ProcessStartInfo startInfo)

@@ -252,6 +252,12 @@ public sealed class ElementViewModelProxyStateTests
     public bool AffectsProxyBadge_TouchedExcludedOthersIncluded(ProxyStoreChangeKind kind)
         => ElementViewModel.AffectsProxyBadge(kind);
 
+    [Test]
+    [TestCase(PreviewSourceMode.PreferProxy, ExpectedResult = true)]
+    [TestCase(PreviewSourceMode.ForceOriginal, ExpectedResult = false)]
+    public bool ShouldRefreshThumbnailsForDefaultPresetChange_OnlyWhenProxyDecodeCanChange(PreviewSourceMode mode)
+        => ElementViewModel.ShouldRefreshThumbnailsForDefaultPresetChange(mode);
+
     // C1: a Registered event for the element's own source refreshes the badge (kind gate passes,
     // relevance gate passes).
     [Test]

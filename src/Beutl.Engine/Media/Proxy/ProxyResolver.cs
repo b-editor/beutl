@@ -7,6 +7,7 @@ public sealed class ProxyResolver : IProxyResolver
     // Resolve is on the preview hot path, and the staleness scan enumerates the store, so bound it
     // to one scan per source path per interval.
     private static readonly TimeSpan s_stalenessCheckInterval = TimeSpan.FromSeconds(30);
+    private const float DensityTolerance = 1e-6f;
 
     private readonly IProxyStore _store;
     private readonly ConcurrentDictionary<string, int> _pins = new(StringComparer.Ordinal);
@@ -42,31 +43,32 @@ public sealed class ProxyResolver : IProxyResolver
         MaybeMarkStaleEntries(fingerprint);
 
         // preferredPreset is a resolve-time density cap, not only a generation-time floor: prefer the
-        // densest Ready proxy whose Scale does not exceed the cap, so a user who picked a low-density
-        // preset is not served a denser proxy. Fall back to the densest Ready proxy overall if nothing
-        // fits — denser-than-requested is still cheaper than the original.
+        // densest Ready proxy whose actual decoded density does not exceed the cap, so clamped large
+        // sources are ranked by the proxy file that exists rather than by the preset's nominal scale.
+        // Fall back to the densest Ready proxy overall if nothing fits — denser-than-requested is still
+        // cheaper than the original.
         float cap = ScaleOf(preferredPreset);
         ProxyResolution? cappedWinner = null;
-        float cappedWinnerScale = -1f;
+        float cappedWinnerDensity = -1f;
         ProxyResolution? densestWinner = null;
-        float densestScale = -1f;
+        float densestDensity = -1f;
 
         foreach (ProxyPreset preset in ProxyPresetDefinitions.All.Keys)
         {
             if (Evaluate(fingerprint, preset) is not { } resolution)
                 continue;
 
-            float scale = ScaleOf(preset);
-            if (scale <= cap && scale > cappedWinnerScale)
+            float density = resolution.SupplyDensity;
+            if (density <= cap + DensityTolerance && density > cappedWinnerDensity)
             {
                 cappedWinner = resolution;
-                cappedWinnerScale = scale;
+                cappedWinnerDensity = density;
             }
 
-            if (scale > densestScale)
+            if (density > densestDensity)
             {
                 densestWinner = resolution;
-                densestScale = scale;
+                densestDensity = density;
             }
         }
 

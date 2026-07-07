@@ -274,6 +274,57 @@ public sealed class ProxyGenerationE2ETests
     }
 
     [Test]
+    public void PublishAsync_CanceledDuringRegisterRetry_RestoresExistingProxyAndSidecar()
+    {
+        string root = CreateRoot();
+        var store = new CountingStore(root, failuresBeforeSuccess: int.MaxValue);
+        var generator = new FFmpegProxyGenerator(store);
+        string source = Path.Combine(root, "src.mov");
+        File.WriteAllBytes(source, [1, 2, 3, 4]);
+        ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(source);
+        string tempPath = Path.Combine(root, "tmp.mov");
+        string finalPath = Path.Combine(root, "hash", "quarter.mp4");
+        Directory.CreateDirectory(Path.GetDirectoryName(finalPath)!);
+        byte[] oldBytes = [1, 2, 3];
+        File.WriteAllBytes(finalPath, oldBytes);
+        File.WriteAllBytes(tempPath, [9, 9, 9, 9, 9]);
+        ProxyEntry oldEntry = CreateEntry(fingerprint, ProxyPreset.Quarter, "hash/quarter.mp4");
+        FFmpegProxyGenerator.WriteMetadata(finalPath, oldEntry);
+        var job = new ProxyJob(fingerprint, ProxyPreset.Quarter);
+        using var cts = new CancellationTokenSource();
+        store.RegisterAttempted = _ => cts.Cancel();
+
+        Assert.CatchAsync<OperationCanceledException>(async () =>
+            await generator.PublishAsync(
+                tempPath,
+                finalPath,
+                job,
+                "hash/quarter.mp4",
+                new PixelSize(64, 48),
+                new PixelSize(32, 24),
+                cts.Token,
+                static (src, dest) =>
+                {
+                    File.Move(src, dest, overwrite: true);
+                    return true;
+                }));
+
+        ProxySourceMetadata? metadata = JsonSerializer.Deserialize<ProxySourceMetadata>(
+            File.ReadAllText(Path.Combine(Path.GetDirectoryName(finalPath)!, "meta.json")),
+            s_jsonOptions);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.ReadAllBytes(finalPath), Is.EqualTo(oldBytes), "a canceled regeneration must restore the previous ready proxy file");
+            Assert.That(metadata, Is.Not.Null);
+            Assert.That(metadata!.Entries.Single(), Is.EqualTo(oldEntry), "the sidecar must keep the previous ready entry");
+            Assert.That(store.RegisterAttempts, Is.EqualTo(1));
+            Assert.That(store.LastRegistered, Is.Null);
+        });
+    }
+
+
+    [Test]
     [TestCase(1920, 1080)]
     [TestCase(1998, 1080)]
     [TestCase(1280, 720)]

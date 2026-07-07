@@ -98,20 +98,15 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
         Func<string, string, bool>? moveAttempt = null)
     {
         ct.ThrowIfCancellationRequested();
-        await MoveWithRetryAsync(tempPath, finalPath, ct, moveAttempt);
 
-        // The pre-check only guards a cancel that arrived before the move; a cancel during the move
-        // still leaves a complete artifact at finalPath. Do not register it — delete the moved file
-        // so it is not left as an orphan claiming to be the proxy.
-        if (ct.IsCancellationRequested)
-        {
-            TryDelete(finalPath);
-            throw new OperationCanceledException(ct);
-        }
-
+        string? replacedFinalBackupPath = null;
+        string? metadataBackupPath = null;
         ProxyEntry? entry = null;
+        bool committed = false;
         try
         {
+            replacedFinalBackupPath = MoveExistingFileToBackup(finalPath);
+            await MoveWithRetryAsync(tempPath, finalPath, ct, moveAttempt);
             ct.ThrowIfCancellationRequested();
 
             // The encoded proxy is now on disk at finalPath and is valid. A failure in the metadata /
@@ -133,14 +128,33 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
                 now,
                 null);
 
+            metadataBackupPath = CopyExistingFileToBackup(GetMetadataPath(finalPath));
             await FinalizeAsync(finalPath, entry, ct);
+            committed = true;
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
-            if (entry != null)
-                RemoveMetadataEntry(finalPath, entry);
-            TryDelete(finalPath);
+            RestoreMetadata(finalPath, entry, metadataBackupPath);
+            RestoreOrDeleteCanceledFinal(finalPath, replacedFinalBackupPath);
+            replacedFinalBackupPath = null;
             throw;
+        }
+        catch when (replacedFinalBackupPath != null)
+        {
+            RestoreMetadata(finalPath, entry, metadataBackupPath);
+            RestoreFinalPath(finalPath, replacedFinalBackupPath);
+            replacedFinalBackupPath = null;
+            throw;
+        }
+        finally
+        {
+            if (committed && replacedFinalBackupPath != null)
+            {
+                TryDelete(replacedFinalBackupPath);
+            }
+
+            if (metadataBackupPath != null)
+                TryDelete(metadataBackupPath);
         }
     }
 
@@ -285,9 +299,71 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
         return Path.Combine(directory, fileName);
     }
 
+    private static string CreateBackupPathForOutput(string path)
+    {
+        string directory = Path.GetDirectoryName(path) ?? string.Empty;
+        string extension = Path.GetExtension(path);
+        string fileName = $"{Path.GetFileNameWithoutExtension(path)}.{Guid.NewGuid():N}.bak{extension}";
+        return Path.Combine(directory, fileName);
+    }
+
+    private static string? MoveExistingFileToBackup(string path)
+    {
+        if (!File.Exists(path))
+            return null;
+
+        string backupPath = CreateBackupPathForOutput(path);
+        File.Move(path, backupPath, overwrite: false);
+        return backupPath;
+    }
+
+    private static string? CopyExistingFileToBackup(string path)
+    {
+        if (!File.Exists(path))
+            return null;
+
+        string backupPath = CreateBackupPathForOutput(path);
+        File.Copy(path, backupPath, overwrite: false);
+        return backupPath;
+    }
+
+    private static string GetMetadataPath(string finalPath)
+        => Path.Combine(Path.GetDirectoryName(finalPath)!, "meta.json");
+
+    private static void RestoreOrDeleteCanceledFinal(string finalPath, string? backupPath)
+    {
+        if (backupPath != null)
+        {
+            RestoreFinalPath(finalPath, backupPath);
+        }
+        else
+        {
+            TryDelete(finalPath);
+        }
+    }
+
+    private static void RestoreFinalPath(string finalPath, string backupPath)
+    {
+        TryDelete(finalPath);
+        if (File.Exists(backupPath))
+            File.Move(backupPath, finalPath, overwrite: true);
+    }
+
+    private static void RestoreMetadata(string finalPath, ProxyEntry? entry, string? backupPath)
+    {
+        if (backupPath != null)
+        {
+            File.Copy(backupPath, GetMetadataPath(finalPath), overwrite: true);
+        }
+        else if (entry != null)
+        {
+            RemoveMetadataEntry(finalPath, entry);
+        }
+    }
+
     internal static void WriteMetadata(string finalPath, ProxyEntry entry)
     {
-        string metadataPath = Path.Combine(Path.GetDirectoryName(finalPath)!, "meta.json");
+        string metadataPath = GetMetadataPath(finalPath);
         ProxyEntry[] entries = ReadMetadataEntries(metadataPath, entry.Source)
             .Where(existing => existing.Preset != entry.Preset)
             .Append(entry)
