@@ -117,7 +117,11 @@ public sealed class GateNode : AudioNode
                 for (int i = 0; i < sampleCount; i++)
                 {
                     float s0 = in0[i];
-                    float peak = MathF.Abs(s0);
+                    // Seed from 0 and compare (NaN > 0 is false) so a NaN in one channel is skipped
+                    // rather than poisoning the linked-stereo peak; a finite channel still drives it.
+                    float peak = 0f;
+                    float a0 = MathF.Abs(s0);
+                    if (a0 > peak) peak = a0;
                     float s1 = 0f;
                     if (channels == 2)
                     {
@@ -234,7 +238,11 @@ public sealed class GateNode : AudioNode
                     if (channels <= 2)
                     {
                         float s0 = in0[idx];
-                        float peak = MathF.Abs(s0);
+                        // Seed from 0 and compare (NaN > 0 is false) so a NaN in one channel is
+                        // skipped rather than poisoning the linked-stereo peak.
+                        float peak = 0f;
+                        float a0 = MathF.Abs(s0);
+                        if (a0 > peak) peak = a0;
                         float s1 = 0f;
                         if (channels == 2)
                         {
@@ -384,8 +392,11 @@ public sealed class GateNode : AudioNode
     // ProcessAnimated so the gate/hold math cannot drift between the paths.
     private float NextGain(float peak, float attackCoeff, float releaseCoeff, in EffectiveParameters p, int holdSamples)
     {
+        // Digital silence (peak == 0) is -inf dB — below any threshold — so it must never open the
+        // gate, not even when Threshold sits at its -100 dB minimum where inputDb would otherwise
+        // collapse to MinDb and compare equal (-100 >= -100). Require real signal energy to open.
         float inputDb = peak > 0f ? 20f * MathF.Log10(peak) : MinDb;
-        bool aboveThreshold = inputDb >= p.Threshold;
+        bool aboveThreshold = peak > 0f && inputDb >= p.Threshold;
         if (aboveThreshold)
         {
             _holdCounter = holdSamples;
@@ -393,6 +404,15 @@ public sealed class GateNode : AudioNode
         else if (_holdCounter > 0)
         {
             _holdCounter--;
+        }
+
+        // Range 0 dB disables gating: the closed floor equals the open level, so the gate is an exact
+        // identity. Snap the follower fully open and bypass smoothing so the disabled case adds no
+        // attack ramp or asymptotic sub-unity gain — output equals input sample-for-sample.
+        if (p.Range >= 0f)
+        {
+            _gateGainDb = 0f;
+            return 1f;
         }
 
         // Open (0 dB) while the signal is above threshold or the hold timer keeps it latched; else

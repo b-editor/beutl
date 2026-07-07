@@ -644,4 +644,89 @@ public class GateNodeTests
                 $"Discontinuity at chunk boundary {boundary}: prevDelta={prevDelta:F6}, boundaryDelta={boundaryDelta:F6}");
         }
     }
+
+    [Test]
+    public void Process_RangeZero_IsExactIdentity()
+    {
+        // Range=0 disables gating, so output must equal input sample-for-sample — no startup attack
+        // ramp and no asymptotic sub-unity gain from the envelope follower. The buffer includes the
+        // initial samples (which would otherwise ramp up from the closed floor) and a below-threshold
+        // region (which a real gate would attenuate), so any residual smoothing would show up.
+        const int loudSamples = SampleRate / 4;
+        const int sampleCount = SampleRate / 2;
+        using var input = MakeTwoPhaseBuffer(0.9f, 0.003f, loudSamples, sampleCount);
+        var node = CreateNode(range: 0f);
+        node.AddInput(new BufferReplayNode(input));
+
+        using var output = node.Process(CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(sampleCount / (double)SampleRate)));
+
+        for (int ch = 0; ch < input.ChannelCount; ch++)
+        {
+            var inData = input.GetChannelData(ch);
+            var outData = output.GetChannelData(ch);
+            for (int i = 0; i < sampleCount; i++)
+            {
+                Assert.That(outData[i], Is.EqualTo(inData[i]),
+                    $"Range=0 must be exact identity, but [{ch}][{i}] output={outData[i]} != input={inData[i]}");
+            }
+        }
+    }
+
+    [Test]
+    public void Process_OneChannelNaN_GatesFromValidChannel()
+    {
+        // A NaN in one channel must not poison linked-stereo peak detection: a loud, above-threshold
+        // valid channel must still open the gate and pass through, rather than the gate closing
+        // because Abs(NaN) contaminated the peak. All output stays finite (the NaN channel is zeroed).
+        const int sampleCount = SampleRate / 2;
+        using var input = CreateBuffer(2, sampleCount, (ch, _) => ch == 0 ? float.NaN : 0.9f);
+        var node = CreateNode();
+        node.AddInput(new BufferReplayNode(input));
+
+        using var output = node.Process(CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(sampleCount / (double)SampleRate)));
+
+        for (int ch = 0; ch < output.ChannelCount; ch++)
+        {
+            var data = output.GetChannelData(ch);
+            for (int i = 0; i < output.SampleCount; i++)
+            {
+                Assert.That(float.IsFinite(data[i]), Is.True,
+                    $"Output sample [{ch}][{i}] = {data[i]} is not finite");
+            }
+        }
+
+        float validPeak = 0f;
+        var validData = output.GetChannelData(1);
+        for (int i = sampleCount / 2; i < sampleCount; i++)
+        {
+            float a = MathF.Abs(validData[i]);
+            if (a > validPeak) validPeak = a;
+        }
+        float validPeakDb = validPeak > 0f ? 20f * MathF.Log10(validPeak) : -100f;
+        Assert.That(validPeakDb, Is.EqualTo(20f * MathF.Log10(0.9f)).Within(1f),
+            $"Valid channel should open the gate and pass at unity despite NaN in the other channel; got {validPeakDb:F2} dB");
+    }
+
+    [Test]
+    public void Process_MinThreshold_DigitalSilenceDoesNotOpenGate()
+    {
+        // At the -100 dB minimum Threshold, digital silence (sample 0 = -inf dB) must still leave the
+        // gate closed. If silence wrongly opened it, the following loud region would already be open
+        // and pass at unity immediately; with the gate correctly closed it ramps open (attack), so the
+        // loud onset starts heavily attenuated.
+        const int silenceSamples = SampleRate / 5; // 200 ms
+        const int sampleCount = SampleRate / 2;
+        using var input = CreateBuffer(1, sampleCount, (_, i) => i < silenceSamples ? 0f : 0.9f);
+        var node = CreateNode(threshold: -100f, attack: 50f, hold: 0f, release: 100f, range: -60f);
+        node.AddInput(new BufferReplayNode(input));
+
+        using var output = node.Process(CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(sampleCount / (double)SampleRate)));
+
+        // First 1 ms of the loud region: a correctly-closed gate is only starting to open, so the peak
+        // there is far below unity. A gate wrongly opened during silence would already sit near 0.9.
+        int probeWidth = SampleRate / 1000;
+        float onsetPeakDb = PeakDbInWindow(output, silenceSamples, probeWidth);
+        Assert.That(onsetPeakDb, Is.LessThan(-20f),
+            $"Digital silence at min threshold must keep the gate closed; loud onset should ramp from closed but measured {onsetPeakDb:F2} dB");
+    }
 }
