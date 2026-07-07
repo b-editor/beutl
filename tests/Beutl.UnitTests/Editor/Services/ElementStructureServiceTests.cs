@@ -239,6 +239,42 @@ public class ElementStructureServiceTests
     }
 
     [Test]
+    public void Group_LockedElementId_IsExcluded()
+    {
+        Element locked = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        locked.IsLocked = true;
+        Element e1 = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
+        Element e2 = AddElement(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(2));
+
+        GroupOutcome outcome = _service.Group(_scene, [locked.Id, e1.Id, e2.Id]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome.Created, Is.True);
+            Assert.That(_scene.Groups, Has.Count.EqualTo(1));
+            Assert.That(_scene.Groups[0], Is.EquivalentTo(new[] { e1.Id, e2.Id }));
+        });
+    }
+
+    [Test]
+    public void Ungroup_LockedElementId_IsIgnored()
+    {
+        Element e1 = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element e2 = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
+        _service.Group(_scene, [e1.Id, e2.Id]);
+        e1.IsLocked = true;
+        int before = _history.UndoCount;
+
+        _service.Ungroup(_scene, [e1.Id]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_scene.Groups, Has.Count.EqualTo(1));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
     public void Delete_LockedElement_IsSkipped()
     {
         Element locked = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));

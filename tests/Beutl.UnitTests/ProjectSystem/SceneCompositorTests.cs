@@ -365,6 +365,112 @@ public class SceneCompositorTests
         }
     }
 
+    [Test]
+    public void EvaluateGraphics_SoloToggledBetweenEvaluations_IsReflected()
+    {
+        string basePath = GetTempPath();
+        try
+        {
+            Scene scene = CreateScene(basePath);
+            Element z0 = CreateElement(basePath, isEnabled: true, new TestGraphicsObject());
+            z0.ZIndex = 0;
+            Element z1 = CreateElement(basePath, isEnabled: true, new TestGraphicsObject());
+            z1.ZIndex = 1;
+            scene.Children.Add(z0);
+            scene.Children.Add(z1);
+            TimelineLayer layer1 = CreateLayer(1);
+            scene.Layers.Add(CreateLayer(0));
+            scene.Layers.Add(layer1);
+            using var compositor = new SceneCompositor(scene);
+
+            Assert.That(compositor.EvaluateGraphics(TimeSpan.FromMilliseconds(500)).Objects.Length, Is.EqualTo(2));
+
+            layer1.IsSolo = true;
+            CompositionFrame frame = compositor.EvaluateGraphics(TimeSpan.FromMilliseconds(500));
+
+            Assert.That(frame.Objects.Length, Is.EqualTo(1));
+            Assert.That(frame.Objects[0].GetOriginal(), Is.SameAs(z1.Objects[0]));
+        }
+        finally
+        {
+            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+        }
+    }
+
+    [Test]
+    public void EvaluateGraphics_MuteToggledBetweenEvaluations_IsReflected()
+    {
+        string basePath = GetTempPath();
+        try
+        {
+            Scene scene = CreateScene(basePath);
+            Element element = CreateElement(basePath, isEnabled: true, new TestGraphicsObject());
+            scene.Children.Add(element);
+            TimelineLayer layer = CreateLayer(0);
+            scene.Layers.Add(layer);
+            using var compositor = new SceneCompositor(scene);
+
+            Assert.That(compositor.EvaluateGraphics(TimeSpan.FromMilliseconds(500)).Objects.Length, Is.EqualTo(1));
+
+            layer.IsVideoMuted = true;
+
+            Assert.That(compositor.EvaluateGraphics(TimeSpan.FromMilliseconds(500)).Objects, Is.Empty);
+        }
+        finally
+        {
+            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+        }
+    }
+
+    [Test]
+    public void EvaluateGraphics_LayerAddedBetweenEvaluations_IsReflected()
+    {
+        string basePath = GetTempPath();
+        try
+        {
+            Scene scene = CreateScene(basePath);
+            Element element = CreateElement(basePath, isEnabled: true, new TestGraphicsObject());
+            scene.Children.Add(element);
+            using var compositor = new SceneCompositor(scene);
+
+            Assert.That(compositor.EvaluateGraphics(TimeSpan.FromMilliseconds(500)).Objects.Length, Is.EqualTo(1));
+
+            scene.Layers.Add(CreateLayer(0, videoMuted: true));
+
+            Assert.That(compositor.EvaluateGraphics(TimeSpan.FromMilliseconds(500)).Objects, Is.Empty);
+        }
+        finally
+        {
+            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+        }
+    }
+
+    [Test]
+    public void EvaluateGraphics_LayerZIndexChangedBetweenEvaluations_IsReflected()
+    {
+        string basePath = GetTempPath();
+        try
+        {
+            Scene scene = CreateScene(basePath);
+            Element element = CreateElement(basePath, isEnabled: true, new TestGraphicsObject());
+            element.ZIndex = 1;
+            scene.Children.Add(element);
+            TimelineLayer layer = CreateLayer(0, videoMuted: true);
+            scene.Layers.Add(layer);
+            using var compositor = new SceneCompositor(scene);
+
+            Assert.That(compositor.EvaluateGraphics(TimeSpan.FromMilliseconds(500)).Objects.Length, Is.EqualTo(1));
+
+            layer.ZIndex = 1;
+
+            Assert.That(compositor.EvaluateGraphics(TimeSpan.FromMilliseconds(500)).Objects, Is.Empty);
+        }
+        finally
+        {
+            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+        }
+    }
+
     [Beutl.Engine.SuppressResourceClassGeneration]
     private class TestGraphicsObject : EngineObject
     {

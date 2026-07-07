@@ -1,4 +1,6 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.Collections.Specialized;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
 using Beutl.Collections.Pooled;
 using Beutl.Composition;
 using Beutl.Engine;
@@ -11,9 +13,20 @@ public sealed class SceneCompositor : ICompositor
 {
     private readonly ConditionalWeakTable<EngineObject, EngineObject.Resource> _resourceCache = new();
 
+    // Mute flags are read live from the layers inside the snapshot, so only the
+    // lookup shape (membership, ZIndex) and HasSolo require invalidation.
+    private volatile LayerSnapshot? _layerSnapshot;
+
     public SceneCompositor(Scene scene)
     {
         Scene = scene;
+        Scene.Layers.CollectionChanged += OnLayersCollectionChanged;
+        Scene.Layers.Attached += OnLayerAttached;
+        Scene.Layers.Detached += OnLayerDetached;
+        foreach (TimelineLayer layer in Scene.Layers)
+        {
+            layer.PropertyChanged += OnLayerPropertyChanged;
+        }
     }
 
     public Scene Scene { get; }
@@ -161,8 +174,8 @@ public sealed class SceneCompositor : ICompositor
     // Layersを振り分ける
     private void SortLayers(TimeSpan time, PooledList<Element> currentElements, CompositionTarget target)
     {
-        // No TimelineLayer models means no lock/mute/solo state; skip the lookup allocation.
-        if (Scene.Layers.Count == 0)
+        LayerSnapshot snapshot = GetLayerSnapshot();
+        if (snapshot.ByZIndex.Count == 0)
         {
             foreach (Element item in Scene.Children)
             {
@@ -175,19 +188,18 @@ public sealed class SceneCompositor : ICompositor
             return;
         }
 
-        Dictionary<int, TimelineLayer> layersByZIndex = CreateLayerLookup();
-        bool hasSolo = AnySoloLayer(layersByZIndex);
         foreach (Element item in Scene.Children)
         {
             if (!item.IsEnabled || !item.Range.Contains(time)) continue;
-            if (ShouldSkipLayer(item.ZIndex, target, hasSolo, layersByZIndex)) continue;
+            if (ShouldSkipLayer(item.ZIndex, target, snapshot.HasSolo, snapshot.ByZIndex)) continue;
             currentElements.OrderedAdd(item, x => x.ZIndex);
         }
     }
 
     private void SortLayers(TimeRange timeRange, PooledList<Element> currentElements, CompositionTarget target)
     {
-        if (Scene.Layers.Count == 0)
+        LayerSnapshot snapshot = GetLayerSnapshot();
+        if (snapshot.ByZIndex.Count == 0)
         {
             foreach (Element item in Scene.Children)
             {
@@ -200,37 +212,67 @@ public sealed class SceneCompositor : ICompositor
             return;
         }
 
-        Dictionary<int, TimelineLayer> layersByZIndex = CreateLayerLookup();
-        bool hasSolo = AnySoloLayer(layersByZIndex);
         foreach (Element item in Scene.Children)
         {
             if (!item.IsEnabled || !item.Range.Intersects(timeRange)) continue;
-            if (ShouldSkipLayer(item.ZIndex, target, hasSolo, layersByZIndex)) continue;
+            if (ShouldSkipLayer(item.ZIndex, target, snapshot.HasSolo, snapshot.ByZIndex)) continue;
             currentElements.OrderedAdd(item, x => x.ZIndex);
         }
     }
 
-    private Dictionary<int, TimelineLayer> CreateLayerLookup()
+    private sealed record LayerSnapshot(Dictionary<int, TimelineLayer> ByZIndex, bool HasSolo);
+
+    private static readonly LayerSnapshot s_emptyLayerSnapshot = new([], false);
+
+    // Concurrent rebuilds after an invalidation are benign: each produces an
+    // equivalent snapshot and the last write wins.
+    private LayerSnapshot GetLayerSnapshot()
     {
-        var layersByZIndex = new Dictionary<int, TimelineLayer>(Scene.Layers.Count);
+        LayerSnapshot? snapshot = _layerSnapshot;
+        if (snapshot is not null) return snapshot;
+
+        if (Scene.Layers.Count == 0)
+        {
+            _layerSnapshot = s_emptyLayerSnapshot;
+            return s_emptyLayerSnapshot;
+        }
+
+        var byZIndex = new Dictionary<int, TimelineLayer>(Scene.Layers.Count);
+        bool hasSolo = false;
         foreach (TimelineLayer layer in Scene.Layers)
         {
-            if (!layersByZIndex.ContainsKey(layer.ZIndex))
+            if (byZIndex.TryAdd(layer.ZIndex, layer) && layer.IsSolo)
             {
-                layersByZIndex.Add(layer.ZIndex, layer);
+                hasSolo = true;
             }
         }
 
-        return layersByZIndex;
+        snapshot = new LayerSnapshot(byZIndex, hasSolo);
+        _layerSnapshot = snapshot;
+        return snapshot;
     }
 
-    private static bool AnySoloLayer(Dictionary<int, TimelineLayer> layersByZIndex)
+    private void OnLayersCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+        => _layerSnapshot = null;
+
+    private void OnLayerAttached(TimelineLayer layer)
     {
-        foreach (TimelineLayer layer in layersByZIndex.Values)
+        layer.PropertyChanged += OnLayerPropertyChanged;
+        _layerSnapshot = null;
+    }
+
+    private void OnLayerDetached(TimelineLayer layer)
+    {
+        layer.PropertyChanged -= OnLayerPropertyChanged;
+        _layerSnapshot = null;
+    }
+
+    private void OnLayerPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(TimelineLayer.ZIndex) or nameof(TimelineLayer.IsSolo))
         {
-            if (layer.IsSolo) return true;
+            _layerSnapshot = null;
         }
-        return false;
     }
 
     // A layer without a TimelineLayer model cannot be soloed, so it is excluded
@@ -249,6 +291,14 @@ public sealed class SceneCompositor : ICompositor
 
     public void Dispose()
     {
+        Scene.Layers.CollectionChanged -= OnLayersCollectionChanged;
+        Scene.Layers.Attached -= OnLayerAttached;
+        Scene.Layers.Detached -= OnLayerDetached;
+        foreach (TimelineLayer layer in Scene.Layers)
+        {
+            layer.PropertyChanged -= OnLayerPropertyChanged;
+        }
+
         foreach (var kvp in _resourceCache)
         {
             kvp.Value.Dispose();

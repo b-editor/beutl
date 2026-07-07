@@ -23,14 +23,16 @@ public sealed class ElementMoveService : IElementMoveService
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(elements);
 
-        if (elements.Count == 0) return ElementMoveOutcome.None;
         if (deltaStart == TimeSpan.Zero && deltaZIndex == 0) return ElementMoveOutcome.None;
+
+        Element[] editable = FilterUnlocked(scene, elements);
+        if (editable.Length == 0) return ElementMoveOutcome.None;
 
         // Refuse dropping content onto a locked destination layer. None makes the
         // caller snap the drag visuals back to the model.
-        if (AnyDestinationLayerLocked(scene, elements, deltaZIndex)) return ElementMoveOutcome.None;
+        if (AnyDestinationLayerLocked(scene, editable, deltaZIndex)) return ElementMoveOutcome.None;
 
-        scene.MoveChildren(deltaZIndex, deltaStart, elements.ToArray());
+        scene.MoveChildren(deltaZIndex, deltaStart, editable);
         _historyManager.Commit(CommandNames.MoveElement);
         return ElementMoveOutcome.Moved;
     }
@@ -44,9 +46,10 @@ public sealed class ElementMoveService : IElementMoveService
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(elements);
 
-        if (elements.Count == 0) return ElementMoveOutcome.None;
-
-        Element[] source = elements.ToArray();
+        // Locked sources must not move via the FellBackToMove path, and duplicating
+        // them would bypass the lock's editing freeze, so drop them up front.
+        Element[] source = FilterUnlocked(scene, elements);
+        if (source.Length == 0) return ElementMoveOutcome.None;
         TimeSpan minSourceStart = TimeSpan.MaxValue;
         int minSourceZIndex = int.MaxValue;
         foreach (Element e in source)
@@ -84,6 +87,9 @@ public sealed class ElementMoveService : IElementMoveService
         _historyManager.Commit(CommandNames.MoveElement);
         return ElementMoveOutcome.FellBackToMove;
     }
+
+    private static Element[] FilterUnlocked(Scene scene, IReadOnlyList<Element> elements)
+        => elements.Where(e => !scene.IsElementLocked(e)).ToArray();
 
     private static bool AnyDestinationLayerLocked(Scene scene, IReadOnlyList<Element> elements, int deltaZIndex)
     {

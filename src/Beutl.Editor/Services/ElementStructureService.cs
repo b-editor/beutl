@@ -120,6 +120,7 @@ public sealed class ElementStructureService : IElementStructureService
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(ids);
+        ids = FilterUnlockedIds(scene, ids);
         if (ids.Count == 0) return GroupOutcome.NotCreated;
 
         // Remove ids from existing groups first — with a single id this acts as
@@ -151,6 +152,7 @@ public sealed class ElementStructureService : IElementStructureService
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(ids);
+        ids = FilterUnlockedIds(scene, ids);
         if (ids.Count == 0) return;
 
         if (RemoveIdsFromGroups(scene, ids))
@@ -161,6 +163,24 @@ public sealed class ElementStructureService : IElementStructureService
 
     private static bool RemoveIdsFromGroups(Scene scene, IReadOnlyCollection<Guid> ids)
         => scene.RemoveElementsFromGroups(ids);
+
+    // Ids with no matching element cannot be locked and pass through unchanged.
+    private static IReadOnlyCollection<Guid> FilterUnlockedIds(Scene scene, IReadOnlyCollection<Guid> ids)
+    {
+        if (ids.Count == 0) return ids;
+
+        HashSet<Guid>? locked = null;
+        foreach (Element child in scene.Children)
+        {
+            if (scene.IsElementLocked(child))
+            {
+                (locked ??= []).Add(child.Id);
+            }
+        }
+
+        if (locked is null) return ids;
+        return ids.Where(id => !locked.Contains(id)).ToArray();
+    }
 
     private static void ShiftLocalKeyFrames(Element element, TimeSpan delta)
     {

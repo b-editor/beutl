@@ -73,7 +73,7 @@ public class ElementBehaviorTests
     }
 
     [Test]
-    public void TimelineLayer_ChangeRaisesSceneEdited()
+    public void TimelineLayer_CompositionalChangeRaisesSceneEdited()
     {
         var scene = new Scene(1920, 1080, string.Empty);
         var layer = new TimelineLayer { ZIndex = 2 };
@@ -82,8 +82,27 @@ public class ElementBehaviorTests
         scene.Edited += (_, _) => count++;
 
         layer.IsVideoMuted = true;
+        layer.IsAudioMuted = true;
+        layer.IsSolo = true;
+        layer.ZIndex = 3;
 
-        Assert.That(count, Is.EqualTo(1));
+        Assert.That(count, Is.EqualTo(4));
+    }
+
+    [Test]
+    public void TimelineLayer_EditorOnlyChangeDoesNotRaiseSceneEdited()
+    {
+        var scene = new Scene(1920, 1080, string.Empty);
+        var layer = new TimelineLayer { ZIndex = 2 };
+        scene.Layers.Add(layer);
+        int count = 0;
+        scene.Edited += (_, _) => count++;
+
+        layer.IsLocked = true;
+        layer.Color = Beutl.Media.Colors.Red;
+        layer.Name = "renamed";
+
+        Assert.That(count, Is.Zero);
     }
 
     [Test]

@@ -522,7 +522,15 @@ public class Scene : ProjectItem, INotifyEdited
 
     private void OnLayerPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        Edited?.Invoke(sender, EventArgs.Empty);
+        // Edited triggers a preview re-render; Name/Color/IsLocked are editor-only
+        // and must not. ZIndex retargets existing mute/solo flags, so it counts.
+        if (e.PropertyName is nameof(TimelineLayer.IsVideoMuted)
+            or nameof(TimelineLayer.IsAudioMuted)
+            or nameof(TimelineLayer.IsSolo)
+            or nameof(TimelineLayer.ZIndex))
+        {
+            Edited?.Invoke(sender, EventArgs.Empty);
+        }
     }
 
     private void OnElementEdited(object? sender, EventArgs e)
