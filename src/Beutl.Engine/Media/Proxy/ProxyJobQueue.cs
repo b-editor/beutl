@@ -199,7 +199,10 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         catch
         {
             // The item was never published, so no dispatcher could have started it; removing and
-            // disposing it here cannot race a running generation.
+            // disposing it here cannot race a running generation. Complete the job first: a
+            // deduplicated caller may already hold this ProxyJob, and without a terminal
+            // transition it would stay Queued forever with no further JobChanged.
+            CompleteCanceled(item);
             Remove(item);
             item.Dispose();
             throw;
@@ -273,6 +276,22 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         await foreach (WorkItem _ in _channel.Reader.ReadAllAsync())
         {
             await ProcessOneAsync().ConfigureAwait(false);
+        }
+
+        // An item published between DisposeAsync's CancelAll snapshot and Writer.TryComplete is
+        // cancellation-requested, so TakeNextDispatchable never selects it and nothing else moves
+        // it out of Queued; complete such leftovers so no job ends non-terminal.
+        WorkItem[] leftovers;
+        lock (_lock)
+        {
+            leftovers = [.. _items];
+        }
+
+        foreach (WorkItem item in leftovers)
+        {
+            CompleteCanceled(item);
+            Remove(item);
+            item.Dispose();
         }
     }
 
@@ -354,9 +373,11 @@ public sealed class ProxyJobQueue : IProxyJobQueue
                 }
                 catch (Exception ex)
                 {
-                    item.Job.Status = ProxyJobStatus.Failed;
+                    // Record the Failed store entry before the terminal transition so an observer
+                    // that sees Status == Failed can already read the entry from the store.
                     item.Job.Error = ex;
                     RegisterFailure(item.Job, ex.Message);
+                    item.Job.Status = ProxyJobStatus.Failed;
                     OnJobChanged(item.Job, ProxyJobChangeKind.Failed);
                 }
             }
@@ -462,11 +483,18 @@ public sealed class ProxyJobQueue : IProxyJobQueue
 
     private void CompleteCanceled(WorkItem item)
     {
-        if (!IsTerminal(item.Job.Status))
+        // Concurrent callers (CancelAll, a failed enqueue write, the drain-exit sweep) can race
+        // on the same item; the guarded transition makes exactly one of them win, so consumers
+        // never observe a duplicate Canceled notification.
+        lock (_lock)
         {
+            if (IsTerminal(item.Job.Status))
+                return;
+
             item.Job.Status = ProxyJobStatus.Canceled;
-            OnJobChanged(item.Job, ProxyJobChangeKind.Canceled);
         }
+
+        OnJobChanged(item.Job, ProxyJobChangeKind.Canceled);
     }
 
     private void CancelItem(WorkItem item)

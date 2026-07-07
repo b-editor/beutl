@@ -1,4 +1,6 @@
-﻿using Beutl.Media;
+﻿using System.Threading.Channels;
+
+using Beutl.Media;
 using Beutl.Media.Proxy;
 
 namespace Beutl.UnitTests.Media.Proxy;
@@ -538,6 +540,142 @@ public class ProxyJobQueueTests
             Assert.That(firstJob.Status, Is.EqualTo(ProxyJobStatus.Succeeded));
             Assert.That(generator.Sources, Does.Contain(firstSource));
         });
+    }
+
+    [Test]
+    public async Task EnqueueAsync_CanceledWhileChannelFull_CompletesJobAsCanceled()
+    {
+        var generator = new BlockingGenerator();
+        await using var queue = new ProxyJobQueue(generator, capacity: 1);
+        ProxyFingerprint blockedSource = CreateFingerprint("write-canceled-blocked.mov");
+        var canceledJobs = new List<ProxyJob>();
+        queue.JobChanged += (_, e) =>
+        {
+            if (e.Kind == ProxyJobChangeKind.Canceled)
+            {
+                lock (canceledJobs)
+                {
+                    canceledJobs.Add(e.Job);
+                }
+            }
+        };
+
+        // The first job parks inside the generator and the second occupies the single channel
+        // slot, so the third write blocks until its token is canceled.
+        await queue.EnqueueAsync(CreateFingerprint("write-canceled-running.mov"), ProxyPreset.Quarter);
+        await queue.EnqueueAsync(CreateFingerprint("write-canceled-buffered.mov"), ProxyPreset.Quarter);
+
+        using var cts = new CancellationTokenSource();
+        ValueTask<ProxyJob> blocked = queue.EnqueueAsync(blockedSource, ProxyPreset.Quarter, cts.Token);
+        cts.Cancel();
+
+        Assert.CatchAsync<OperationCanceledException>(async () => await blocked);
+
+        ProxyJob? blockedJob;
+        lock (canceledJobs)
+        {
+            blockedJob = canceledJobs.FirstOrDefault(j => j.Source == blockedSource);
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(blockedJob, Is.Not.Null);
+            Assert.That(blockedJob!.Status, Is.EqualTo(ProxyJobStatus.Canceled));
+            Assert.That(queue.Pending().Select(j => j.Source), Does.Not.Contain(blockedSource));
+        });
+        generator.Release();
+    }
+
+    [Test]
+    public async Task DisposeAsync_WhileEnqueueBlockedOnFullChannel_CompletesBlockedJobAsCanceled()
+    {
+        var generator = new BlockingGenerator();
+        var queue = new ProxyJobQueue(generator, capacity: 1);
+        ProxyFingerprint blockedSource = CreateFingerprint("dispose-blocked.mov");
+        var canceledJobs = new List<ProxyJob>();
+        queue.JobChanged += (_, e) =>
+        {
+            if (e.Kind == ProxyJobChangeKind.Canceled)
+            {
+                lock (canceledJobs)
+                {
+                    canceledJobs.Add(e.Job);
+                }
+            }
+        };
+
+        ProxyJob running = await queue.EnqueueAsync(CreateFingerprint("dispose-running.mov"), ProxyPreset.Quarter);
+        ProxyJob buffered = await queue.EnqueueAsync(CreateFingerprint("dispose-buffered.mov"), ProxyPreset.Quarter);
+        ValueTask<ProxyJob> blocked = queue.EnqueueAsync(blockedSource, ProxyPreset.Quarter);
+
+        await queue.DisposeAsync();
+
+        Assert.ThrowsAsync<ChannelClosedException>(async () => await blocked);
+
+        ProxyJob? blockedJob;
+        lock (canceledJobs)
+        {
+            blockedJob = canceledJobs.FirstOrDefault(j => j.Source == blockedSource);
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(running.Status, Is.EqualTo(ProxyJobStatus.Canceled));
+            Assert.That(buffered.Status, Is.EqualTo(ProxyJobStatus.Canceled));
+            Assert.That(blockedJob, Is.Not.Null);
+            Assert.That(blockedJob!.Status, Is.EqualTo(ProxyJobStatus.Canceled));
+            Assert.That(queue.Pending(), Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task DisposeAsync_RacingEnqueues_LeavesNoJobNonTerminal()
+    {
+        for (int i = 0; i < 50; i++)
+        {
+            var generator = new RecordingGenerator();
+            var queue = new ProxyJobQueue(generator, capacity: 1);
+            var seenJobs = new List<ProxyJob>();
+            queue.JobChanged += (_, e) =>
+            {
+                lock (seenJobs)
+                {
+                    seenJobs.Add(e.Job);
+                }
+            };
+
+            int iteration = i;
+            Task<ProxyJob?>[] enqueues = [.. Enumerable.Range(0, 4).Select(n => Task.Run(async () =>
+            {
+                try
+                {
+                    return (ProxyJob?)await queue.EnqueueAsync(
+                        CreateFingerprint($"race-{iteration}-{n}.mov"), ProxyPreset.Quarter);
+                }
+                catch (Exception ex) when (ex is ObjectDisposedException or ChannelClosedException or OperationCanceledException)
+                {
+                    return null;
+                }
+            }))];
+
+            await Task.Delay(1);
+            await queue.DisposeAsync();
+            ProxyJob?[] returned = await Task.WhenAll(enqueues);
+
+            ProxyJob[] observed;
+            lock (seenJobs)
+            {
+                observed = [.. returned.OfType<ProxyJob>().Concat(seenJobs).Distinct()];
+            }
+
+            foreach (ProxyJob job in observed)
+            {
+                Assert.That(
+                    job.Status,
+                    Is.AnyOf(ProxyJobStatus.Succeeded, ProxyJobStatus.Failed, ProxyJobStatus.Canceled, ProxyJobStatus.Skipped),
+                    $"iteration {iteration}: job for {job.Source.AbsolutePath} left at {job.Status}");
+            }
+        }
     }
 
     private static async Task WaitForTerminalAsync(ProxyJob job)
