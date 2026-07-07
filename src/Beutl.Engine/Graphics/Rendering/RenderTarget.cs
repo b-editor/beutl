@@ -146,11 +146,12 @@ public class RenderTarget : IDisposable
                 "Cannot wrap a surface-less pooled texture as a RenderTarget; lease it via AcquireTexture instead.");
         }
 
-        var surfaceRef = new SKSurfaceCounter<SKSurface>(surface, onLastRelease: () => pool.Return(pooled));
+        int leaseGeneration = pooled.Generation;
+        var surfaceRef = new SKSurfaceCounter<SKSurface>(surface, onLastRelease: () => pool.Return(pooled, leaseGeneration));
         var textureRef = pooled.Texture != null
             ? new SKSurfaceCounter<ITexture2D>(pooled.Texture, onLastRelease: static () => { })
             : null;
-        return new RenderTarget(surfaceRef, pooled.Width, pooled.Height, textureRef, pooled, pooled.Generation);
+        return new RenderTarget(surfaceRef, pooled.Width, pooled.Height, textureRef, pooled, leaseGeneration);
     }
 
     public static RenderTarget CreateNull(int width, int height)
