@@ -1,4 +1,5 @@
 ﻿using System.Collections.Immutable;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Effects;
@@ -26,13 +27,21 @@ internal static class PlanExecutor
         CompiledPlan plan,
         FrameResources resources,
         RenderNodeOperation[] inputs,
-        Rect bounds,
         float outputScale,
         float workingScale,
         float maxWorkingScale,
         PipelineDiagnostics? diagnostics,
         RenderTargetPool? pool)
     {
+        // FR-007 (C3.1) measurement scope: pooled leases live before this execution belong to the caller (an outer
+        // plan, a held upstream op) and are subtracted from the peak measured for this plan.
+        long leaseBaseline = 0;
+        if (pool != null)
+        {
+            leaseBaseline = pool.LiveLeaseCount;
+            pool.ResetPeakLiveLeases();
+        }
+
         // Thread the whole operation set through the schedule pass by pass, so a split/composite can fan the set out
         // and back in and each descriptor pass maps every current operation.
         var current = new List<RenderNodeOperation>(inputs);
@@ -70,6 +79,7 @@ internal static class PlanExecutor
                 }
             }
 
+            AssertPeakLiveWithinPlan(plan, inputs.Length, pool, leaseBaseline);
             return current.ToArray();
         }
         catch
@@ -78,6 +88,31 @@ internal static class PlanExecutor
             current.Clear();
             throw;
         }
+    }
+
+    // FR-007 runtime gate (C3.1): the measured peak of concurrently live pooled leases during one plan execution
+    // must stay within the plan's declared peak-live bound. Only statically bounded single-input executions are
+    // asserted: a dynamic-output pass (dynamic split, nested graph) allocates an execution-time-resolved set
+    // exempt from the static bound (C3.5) — and a nested execution resets the pool's peak window — while a
+    // multi-op input set has no per-op intermediate decls.
+    [Conditional("DEBUG")]
+    private static void AssertPeakLiveWithinPlan(
+        CompiledPlan plan, int inputCount, RenderTargetPool? pool, long leaseBaseline)
+    {
+        if (pool == null || inputCount != 1)
+            return;
+
+        foreach (CompiledPass pass in plan.Passes)
+        {
+            if (pass.IsDynamicOutputs)
+                return;
+        }
+
+        long measured = pool.PeakLiveLeaseCount - leaseBaseline;
+        Debug.Assert(
+            measured <= plan.Resources.PeakLiveCount,
+            $"FR-007 violated: measured peak of concurrently live pooled leases ({measured}) exceeds the plan's " +
+            $"declared peak-live bound ({plan.Resources.PeakLiveCount}).");
     }
 
     // Executes a nested-graph pass: per branch, describe the child graph at the branch's bounds and index, compile,
@@ -102,7 +137,7 @@ internal static class PlanExecutor
                 FrameResources branchResources = EffectGraphCompiler.ResolveResources(
                     branchPlan, builder.Bounds, workingScale);
                 outputs.AddRange(Execute(
-                    branchPlan, branchResources, [op], op.Bounds, outputScale, workingScale, maxWorkingScale,
+                    branchPlan, branchResources, [op], outputScale, workingScale, maxWorkingScale,
                     diagnostics, pool));
             }
         }
@@ -135,8 +170,8 @@ internal static class PlanExecutor
             {
                 RenderNodeOperation op = current[i];
                 current[i] = null!;
-                // A null result is a preview allocation-failure drop (C7): the pass output is discarded and the
-                // frame continues; delivery renders throw instead of returning null.
+                // A null result drops this pass output and continues: either an empty resolved output (a shrinking
+                // pass) or a preview allocation-failure (C7; delivery renders throw instead of returning null).
                 RenderNodeOperation? mapped = MapOneOperation(
                     pass, resolution, linear, op, outputScale, workingScale, maxWorkingScale, diagnostics, pool);
                 if (mapped != null)
@@ -173,14 +208,17 @@ internal static class PlanExecutor
 
         // A coordinate-invariant fused pass is identity: its output bounds are the operation's own bounds. Sizing
         // from the operation (rather than the pass's described output bounds) both survives an upstream opaque
-        // node that did not advance the builder's logical bounds and sizes each fan-out branch correctly.
+        // node that did not advance the builder's logical bounds and sizes each fan-out branch correctly. A
+        // non-invariant whole-source fused pass, whose output rect differs from its input (a channel-shift shader
+        // baked into an expanded rect), is sized/placed by its resolved ROI like a geometry pass.
+        bool invariantFused = pass is FusedShaderPass { CoordinateInvariant: true };
         Rect outBounds;
         int width, height;
         float w;
         bool skip;
-        if (pass is FusedShaderPass || !linear)
+        if (invariantFused || !linear)
         {
-            outBounds = pass.OutputBounds.IsInvalid || pass is FusedShaderPass ? op.Bounds : pass.OutputBounds;
+            outBounds = invariantFused || pass.OutputBounds.IsInvalid ? op.Bounds : pass.OutputBounds;
             w = RenderNodeContext.ClampWorkingScaleToBufferBudget(outBounds, workingScale);
             (width, height) = RenderNodeContext.DeviceBufferSize(outBounds, w);
             skip = width <= 0 || height <= 0;
@@ -199,7 +237,17 @@ internal static class PlanExecutor
 
         if (skip)
         {
-            return op;
+            // Two skip causes need opposite handling. When the INPUT op is itself empty, an identity/invariant pass
+            // over nothing is nothing: pass the already-empty op through. When the input is non-empty but the pass's
+            // resolved OUTPUT is empty (a shrinking pass, e.g. a fully-closed Clipping), the pass legitimately
+            // produces nothing — drop the input rather than leaking it downstream (legacy Apply removed the target).
+            float inW = RenderNodeContext.ClampWorkingScaleToBufferBudget(op.Bounds, workingScale);
+            (int inBw, int inBh) = RenderNodeContext.DeviceBufferSize(op.Bounds, inW);
+            if (inBw <= 0 || inBh <= 0)
+                return op;
+
+            op.Dispose();
+            return null;
         }
 
         // Geometry and compute passes sample their input as a texture, so they materialize it and manage their own

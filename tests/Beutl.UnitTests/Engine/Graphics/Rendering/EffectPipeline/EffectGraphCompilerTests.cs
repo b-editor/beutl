@@ -1,4 +1,5 @@
 ﻿using System.Collections.Immutable;
+using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
@@ -253,6 +254,43 @@ public class EffectGraphCompilerTests
         Assert.That(res.Passes[0].SkipEmpty, Is.True);
     }
 
+    // The flag test above only proves the resolver marks the pass; this proves the executor's behavior on the flag:
+    // a pass whose resolved OUTPUT is empty (a shrinking pass, e.g. a fully-closed Clipping) must produce nothing,
+    // not pass the still-present input through (legacy Clipping.Apply removed the target on an empty intersect).
+    [Test]
+    public void Execute_ShrinkingPassToEmptyOutput_DropsOutput_NotInputPassThrough()
+    {
+        var bounds = new Rect(0, 0, 100, 100);
+        bool callbackRan = false;
+        var closing = GeometryNodeDescriptor.Create(
+            _ => callbackRan = true,
+            BoundsContract.Create(static _ => Rect.Empty, static r => r),
+            structuralToken: "CloseToEmpty");
+
+        RenderNodeOperation[] outputs = Execute(
+            NewBuilder(bounds).Geometry(closing), bounds, [MakeInput(bounds)], diagnostics: null, pool: null);
+
+        Assert.That(outputs, Is.Empty,
+            "an empty resolved output drops the pass result; returning the input would leak a full-size image");
+        Assert.That(callbackRan, Is.False, "the geometry callback never runs for an empty output");
+    }
+
+    // The other skip cause: the INPUT op is itself empty. A coordinate-invariant identity pass over nothing is
+    // nothing, so the empty op passes straight through unchanged (no crash, no phantom buffer).
+    [Test]
+    public void Execute_EmptyInputToInvariantPass_PassesEmptyOpThrough()
+    {
+        var bounds = new Rect(0, 0, 100, 100);
+        RenderNodeOperation empty = MakeInput(new Rect(10, 10, 0, 0));
+
+        RenderNodeOperation[] outputs = Execute(
+            NewBuilder(bounds).Shader(Scale(1f)), bounds, [empty], diagnostics: null, pool: null);
+
+        Assert.That(outputs, Has.Length.EqualTo(1), "an empty input to an identity pass survives as an empty op");
+        Assert.That(outputs[0].Bounds.Width * outputs[0].Bounds.Height, Is.EqualTo(0));
+        RenderNodeOperation.DisposeAll(outputs);
+    }
+
     // ---- Working-scale carry + 16384 clamp --------------------------------------------------------------
 
     [Test]
@@ -287,6 +325,37 @@ public class EffectGraphCompilerTests
         Assert.That(res.Passes[1].WorkingScale, Is.LessThanOrEqualTo(res.Passes[0].WorkingScale),
             "the reduced working scale carries monotonically to downstream passes (legacy Flush parity)");
         Assert.That(res.Passes[0].Width, Is.LessThanOrEqualTo(RenderNodeContext.MaxBufferDimension));
+    }
+
+    // MosaicEffect computes its resolution/tileSize/origin uniforms at describe time from builder.WorkingScale.
+    // At the 16384 px/axis budget edge this matches the executed buffer only because the node-level clamp
+    // (FilterEffectRenderNode.Process) runs BEFORE Describe and the pass has identity bounds, so the per-pass
+    // re-clamp in ResolveResources lands on the same w. Pins that equality at a clamping size.
+    [Test]
+    public void MosaicEffect_AtBufferBudgetEdge_DescribeTimeUniformsMatchExecuteTimeBuffer()
+    {
+        var bounds = new Rect(0, 0, 20000, 50);
+        float workingScale = RenderNodeContext.ClampWorkingScaleToBufferBudget(bounds, 1f);
+        Assert.That(workingScale, Is.LessThan(1f), "sanity: this size must trigger the clamp");
+
+        var effect = new MosaicEffect();
+        FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
+        var builder = new EffectGraphBuilder(bounds, outputScale: 1f, workingScale: workingScale);
+        effect.Describe(builder, resource);
+        (int describeW, int describeH) = RenderNodeContext.DeviceBufferSize(builder.Bounds, builder.WorkingScale);
+
+        using EffectGraph graph = builder.Build();
+        CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
+        FrameResources res = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(res.Passes[0].Width, Is.EqualTo(RenderNodeContext.MaxBufferDimension));
+            Assert.That((res.Passes[0].Width, res.Passes[0].Height), Is.EqualTo((describeW, describeH)),
+                "the describe-time resolution uniform equals the execute-time clamped buffer");
+            Assert.That(res.Passes[0].WorkingScale, Is.EqualTo(workingScale).Within(1e-6f),
+                "the per-pass re-clamp resolves the same density the uniforms were computed at");
+        });
     }
 
     // ---- End-to-end fused execution (raster, GPU-less) --------------------------------------------------
@@ -404,7 +473,7 @@ public class EffectGraphCompilerTests
         CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics);
         FrameResources res = EffectGraphCompiler.ResolveResources(plan, bounds, workingScale: 1f);
         return PlanExecutor.Execute(
-            plan, res, inputs, bounds, outputScale: 1f, workingScale: 1f,
+            plan, res, inputs, outputScale: 1f, workingScale: 1f,
             maxWorkingScale: float.PositiveInfinity, diagnostics, pool);
     }
 
