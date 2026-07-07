@@ -1,4 +1,4 @@
-using Beutl.Graphics.Effects;
+﻿using Beutl.Graphics.Effects;
 using Beutl.Logging;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.EffectPipeline;

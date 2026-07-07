@@ -1,4 +1,4 @@
-namespace Beutl.Graphics.Effects;
+﻿namespace Beutl.Graphics.Effects;
 
 /// <summary>
 /// A per-branch nested graph node (feature 004, research D8): the executor invokes <see cref="DescribeBranch"/>

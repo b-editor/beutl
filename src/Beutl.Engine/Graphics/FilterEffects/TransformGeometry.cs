@@ -1,4 +1,4 @@
-namespace Beutl.Graphics.Effects;
+﻿namespace Beutl.Graphics.Effects;
 
 /// <summary>
 /// Shared render for geometry effects that redraw their single input under a per-operation logical matrix pivoting in

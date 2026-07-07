@@ -58,18 +58,62 @@ code on the identical runtime with the same warmup/measure budget as ShortRun. `
 `PoolMisses` / `PlanCompilations` / `ProgramCreations` are structurally 0 at step 1 (pool and compiler land
 in later rollout steps) and are omitted from the table.
 
-## After redesign (step 6 — TODO: fill from the T053 benchmark run)
+## After redesign (step 6 — measured 2026-07-07, T053, post-removal commit)
 
 | Scene | Size | GpuPasses | TargetAllocations | FullFrameMaterializations | FlushSyncs | Median frame time |
 |---|---|---|---|---|---|---|
-| ColorChain | 1920×1080 | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ |
-| ColorChain | 3840×2160 | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ |
-| MixedChain | 1920×1080 | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ |
-| MixedChain | 3840×2160 | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ |
-| SplitTree | 1920×1080 | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ |
-| SplitTree | 3840×2160 | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ |
-| HeavySource | 1920×1080 | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ |
-| HeavySource | 3840×2160 | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ |
+| ColorChain | 1920×1080 | 1 | 1 | 0 | 0 | 5.359 ms |
+| ColorChain | 3840×2160 | 1 | 1 | 0 | 0 | 17.635 ms |
+| MixedChain | 1920×1080 | 4 | 4 | 0 | 0 | 15.414 ms |
+| MixedChain | 3840×2160 | 4 | 4 | 0 | 0 | 43.814 ms |
+| SplitTree | 1920×1080 | 19 | 20 | 1 | 0 | 27.016 ms |
+| SplitTree | 3840×2160 | 19 | 20 | 1 | 0 | 55.166 ms |
+| HeavySource | 1920×1080 | 1 | 1 | 0 | 0 | 7.415 ms |
+| HeavySource | 3840×2160 | 1 | 1 | 0 | 0 | 31.962 ms |
+
+**Counter derivations** (structure-determined, size-independent; pinned in
+`EffectPipelineCounterTests` for ColorChain/MixedChain):
+
+- **ColorChain**: five coordinate-invariant nodes fuse to one `FusedShaderPass` — 1 pass / 1 intermediate /
+  0 materializations / 0 syncs (SC-001).
+- **MixedChain**: [SkiaFilter Blur, fused Gamma+Invert, SkiaFilter DropShadow, fused LUT] — 4 passes /
+  4 intermediates; fusion never crosses the non-adjacent Skia filters (C2).
+- **HeavySource**: Gamma+Invert+ColorGrading fuse to one pass — 1 / 1 / 0 / 0 (versus 6 / 6 / 3 / 6 legacy;
+  the three adjacent custom items no longer pay per-item bakes).
+- **SplitTree**: 1 split pass materializing its input (1 FullFrameMaterialization) + 9 pooled part targets,
+  then the fused Saturate applies per branch (9 passes / 9 targets) and LayerEffect composites (1 pass +
+  1 target): 19 passes / 20 allocations / 1 materialization / 0 syncs (versus 20 / 20 / 10 / 20 legacy).
+
+**Environment / method**: identical to the step-1 run (same machine, MoltenVK, RGBA16F linear-sRGB; BDN
+`InProcessEmitToolchain`, LaunchCount=1, WarmupCount=3, IterationCount=7, same CLI). Median over the
+measured workload iterations. `PoolAcquires`/`PoolMisses` equal the acquires per frame with zero misses in
+steady state (SC-003 gate); `PlanCompilations` = 1 per structural change, `ProgramCreations` = 0 on warm
+frames (SC-002 gate) — asserted exactly in NUnit rather than tabulated here.
+
+## SC-005 verdict (step 6, ColorChain — the pinned scene)
+
+| Metric | Re-pinned target | Measured | Verdict |
+|---|---|---|---|
+| GpuPasses reduction | ≥ 60% (4 → ≤ 1.6) | 4 → 1 (**75%**) | **PASS** |
+| TargetAllocations reduction | ≥ 60% (4 → ≤ 1.6) | 4 → 1 (**75%**) | **PASS** |
+| FlushSyncs reduction | ≥ 60% (4 → ≤ 1.6) | 4 → 0 (**100%**) | **PASS** |
+| Median frame time, 1080p | ≥ 20% (9.385 → ≤ 7.508 ms) | 9.385 → 5.359 ms (**42.9%**) | **PASS** |
+| Median frame time, 4K | ≥ 20% (37.292 → ≤ 29.834 ms) | 37.292 → 17.635 ms (**52.7%**) | **PASS** |
+
+**Non-gated scene observations** (honest reporting; SC-005 pins only the color chain):
+
+- **HeavySource** improves strongly (16.097 → 7.415 ms at 1080p, 43.755 → 31.962 ms at 4K) — its three
+  custom items now fuse to one pass.
+- **MixedChain** improves modestly (18.525 → 15.414 ms, 45.749 → 43.814 ms) — passes fell 6 → 4 but each
+  declarative Skia-filter pass pays its own bake that the legacy pipeline folded into an adjacent custom
+  bake.
+- **SplitTree regressed in frame time** (22.681 → 27.016 ms at 1080p, 40.686 → 55.166 ms at 4K) despite
+  materializations falling 10 → 1 and syncs 20 → 0. The per-branch fused Saturate draws and the composite
+  path are not yet cheaper than the legacy accumulated-filter bakes on this GPU, and run-to-run variance on
+  this scene is high (21.6–35.4 ms spread at 1080p). This is a **finding for the maintainer**, not an
+  SC-005 miss: no split-tree time target was pinned, and the counter story (pool hits, zero syncs) is
+  strictly better. Candidate follow-up: batch the per-branch fused draws or size branch targets from part
+  bounds earlier.
 
 ## SC-005 re-pinned targets
 
