@@ -1152,6 +1152,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             .FirstOrDefault();
         if (anchor is null) return;
 
+        FlushPendingNudgeCommit();
         if (!EditorContext.GetRequiredService<IElementGapService>().CloseGap(Scene, anchor))
         {
             NotificationService.ShowInformation(Strings.CloseGap, Strings.NoGapsToClose);
@@ -1160,6 +1161,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
 
     private void CloseAllSceneGaps()
     {
+        FlushPendingNudgeCommit();
         if (EditorContext.GetRequiredService<IElementGapService>().CloseAllGaps(Scene) == 0)
         {
             NotificationService.ShowInformation(Strings.CloseAllGaps, Strings.NoGapsToClose);
