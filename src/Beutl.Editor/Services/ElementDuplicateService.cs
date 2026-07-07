@@ -27,9 +27,11 @@ public sealed class ElementDuplicateService : IElementDuplicateService
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(sources);
-        if (sources.Count == 0) return DuplicateOutcome.Failed;
 
-        var sourceArray = sources.ToArray();
+        // Duplicating a locked clip would bypass the lock's editing freeze — the
+        // same rule ElementMoveService applies to Alt+drag duplicates.
+        Element[] sourceArray = sources.Where(e => !scene.IsElementLocked(e)).ToArray();
+        if (sourceArray.Length == 0) return DuplicateOutcome.Failed;
 
         Element[] regenerated;
         TimeRange seedRange;

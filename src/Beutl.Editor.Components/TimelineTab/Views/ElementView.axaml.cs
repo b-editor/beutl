@@ -129,6 +129,8 @@ public sealed partial class ElementView : UserControl
         exclude.IsEnabled = editable;
         finishEditingAnimation.IsEnabled = editable;
         rename.IsEnabled = editable;
+        enableElement.IsEnabled = editable;
+        changeColor.IsEnabled = editable;
         // With the layer locked, clearing the element flag has no visible effect
         // (IsEditable stays false), so the toggle would read as broken.
         lockElement.IsEnabled = viewModel.LayerHeader.Value?.IsLocked.Value != true;
@@ -241,6 +243,8 @@ public sealed partial class ElementView : UserControl
 
     private void EnableElementClick(object? sender, RoutedEventArgs e)
     {
+        if (!ViewModel.IsEditable.Value) return;
+
         Element model = ViewModel.Model;
         ViewModel.Timeline.EditorContext.GetRequiredService<IElementAttributeService>()
             .SetEnabled(model, !model.IsEnabled);
@@ -284,7 +288,7 @@ public sealed partial class ElementView : UserControl
 
     private void ChangeColor_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not ElementViewModel viewModel) return;
+        if (DataContext is not ElementViewModel { IsEditable.Value: true } viewModel) return;
 
         // ContextMenuから開いているので、閉じるのを待つ
         s_colorPickerFlyout ??= new ColorPickerFlyout();
@@ -812,6 +816,15 @@ public sealed partial class ElementView : UserControl
 
             if (!duplicate && elems.Length == 1)
             {
+                // SubmitViewModelChanges writes Scene.MoveChild directly, so it
+                // bypasses ElementMoveService's locked-destination refusal —
+                // mirror that guard here for the single-clip drag path.
+                if (viewModel.Scene.IsLayerLocked(newIndex))
+                {
+                    ForceRestoreVisualToModel(relatedElements);
+                    return;
+                }
+
                 await viewModel.SubmitViewModelChanges();
                 return;
             }

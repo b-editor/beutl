@@ -129,4 +129,41 @@ public class ElementDuplicateServiceTests
 
         Assert.That(outcome.Success, Is.False);
     }
+
+    [Test]
+    public void DuplicateAtClickedPosition_LockedSource_IsExcluded()
+    {
+        Element locked = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        locked.IsLocked = true;
+        Element free = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
+        int childrenBefore = _scene.Children.Count;
+
+        DuplicateOutcome outcome = _service.DuplicateAtClickedPosition(
+            _scene, [locked, free], TimeSpan.FromSeconds(20), 0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome.Success, Is.True);
+            Assert.That(_scene.Children.Count, Is.EqualTo(childrenBefore + 1));
+        });
+    }
+
+    [Test]
+    public void DuplicateAtClickedPosition_AllSourcesLocked_ReturnsFailed()
+    {
+        Element locked = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 3);
+        _scene.Layers.Add(new TimelineLayer { ZIndex = 3, IsLocked = true });
+        int childrenBefore = _scene.Children.Count;
+        int before = _history.UndoCount;
+
+        DuplicateOutcome outcome = _service.DuplicateAtClickedPosition(
+            _scene, [locked], TimeSpan.FromSeconds(20), 0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome.Success, Is.False);
+            Assert.That(_scene.Children.Count, Is.EqualTo(childrenBefore));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
 }

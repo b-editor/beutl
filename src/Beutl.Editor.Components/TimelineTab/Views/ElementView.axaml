@@ -54,7 +54,8 @@
         </Border.Styles>
         <Border.ContextFlyout>
             <ui:FAMenuFlyout>
-                <ui:ToggleMenuFlyoutItem Click="EnableElementClick"
+                <ui:ToggleMenuFlyoutItem x:Name="enableElement"
+                                         Click="EnableElementClick"
                                          IsChecked="{Binding IsEnabled.Value}"
                                          Text="{x:Static lang:Strings.EnableElement}">
                     <ui:ToggleMenuFlyoutItem.Styles>
@@ -151,7 +152,9 @@
                 <ui:MenuFlyoutItem x:Name="change2OriginalDuration"
                                    Command="{Binding ChangeToOriginalDuration}"
                                    Text="{x:Static lang:Strings.ChangeToOriginalLength}" />
-                <ui:MenuFlyoutItem Click="ChangeColor_Click" Text="{x:Static lang:Strings.ChangeColor}" />
+                <ui:MenuFlyoutItem x:Name="changeColor"
+                                   Click="ChangeColor_Click"
+                                   Text="{x:Static lang:Strings.ChangeColor}" />
                 <ui:ToggleMenuFlyoutItem IsChecked="{Binding IsThumbnailsDisabled.Value}" Text="{x:Static lang:Strings.DisableThumbnails}">
                     <ui:ToggleMenuFlyoutItem.Styles>
                         <Style Selector="ui|ToggleMenuFlyoutItem /template/ Viewbox#IconRoot">

@@ -103,6 +103,13 @@ public sealed class LayerHeaderViewModel : IDisposable
         Inlines.CollectionChangedAsObservable()
             .Subscribe(OnInlinesCollectionChanged)
             .AddTo(_disposables);
+
+        // Undo/redo inserts or removes TimelineLayer models directly in
+        // Scene.Layers (e.g. restoring a pruned model), which no command-side
+        // resync covers — track the collection so the header rebinds.
+        Timeline.Scene.Layers.CollectionChangedAsObservable()
+            .Subscribe(_ => _model.Value = Timeline.Scene.Layers.FirstOrDefault(l => l.ZIndex == Number.Value))
+            .AddTo(_disposables);
     }
 
     private void OnInlinesCollectionChanged(NotifyCollectionChangedEventArgs e)
