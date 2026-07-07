@@ -100,6 +100,13 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             Elements.AddRange(Scene.Children.Select(item => new ElementViewModel(item, this)));
         }
 
+        // A persisted layer-only model (solo/mute/lock on a clipless row) still
+        // feeds the compositor, so it needs a header to show and clear its flags.
+        if (Scene.Layers.Count > 0)
+        {
+            AddLayerHeaders(Scene.Layers.Max(l => l.ZIndex) + 1);
+        }
+
         Scene.Children.TrackCollectionChanged(
                 (idx, item) =>
                 {

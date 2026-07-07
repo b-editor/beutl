@@ -102,6 +102,40 @@ public class LayerAttributeServiceTests
     }
 
     [Test]
+    public void SetEnabled_LockedElement_IsSkipped()
+    {
+        Element locked = AddElement(2, isEnabled: true);
+        locked.IsLocked = true;
+        Element free = AddElement(2, isEnabled: true);
+
+        bool changed = _service.SetEnabled(_scene, 2, newEnabled: false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(changed, Is.True);
+            Assert.That(locked.IsEnabled, Is.True);
+            Assert.That(free.IsEnabled, Is.False);
+        });
+    }
+
+    [Test]
+    public void SetEnabled_LayerLocked_DoesNotCommit()
+    {
+        Element element = AddElement(2, isEnabled: true);
+        _scene.Layers.Add(new TimelineLayer { ZIndex = 2, IsLocked = true });
+        int before = _history.UndoCount;
+
+        bool changed = _service.SetEnabled(_scene, 2, newEnabled: false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(changed, Is.False);
+            Assert.That(element.IsEnabled, Is.True);
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
     public void SetColor_NoExistingModel_CreatesLayerAndCommits()
     {
         int beforeUndo = _history.UndoCount;

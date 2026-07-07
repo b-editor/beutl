@@ -21,6 +21,7 @@ public sealed class LayerAttributeService : ILayerAttributeService
         foreach (Element element in scene.Children)
         {
             if (element.ZIndex != zIndex || element.IsEnabled == newEnabled) continue;
+            if (scene.IsElementLocked(element)) continue;
             element.IsEnabled = newEnabled;
             changed = true;
         }
