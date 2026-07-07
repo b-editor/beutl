@@ -402,6 +402,7 @@ public sealed partial class ElementView : UserControl
             AssociatedObject.border.AddHandler(PointerPressedEvent, OnBorderPointerPressed);
             AssociatedObject.border.AddHandler(PointerReleasedEvent, OnBorderPointerReleased);
             AssociatedObject.border.AddHandler(PointerMovedEvent, OnBorderPointerMoved);
+            AssociatedObject.border.AddHandler(PointerCaptureLostEvent, OnBorderPointerCaptureLost);
         }
 
         protected override void OnDetaching()
@@ -413,6 +414,26 @@ public sealed partial class ElementView : UserControl
                 AssociatedObject.border.RemoveHandler(PointerPressedEvent, OnBorderPointerPressed);
                 AssociatedObject.border.RemoveHandler(PointerReleasedEvent, OnBorderPointerReleased);
                 AssociatedObject.border.RemoveHandler(PointerMovedEvent, OnBorderPointerMoved);
+                AssociatedObject.border.RemoveHandler(PointerCaptureLostEvent, OnBorderPointerCaptureLost);
+            }
+        }
+
+        // A normal release also raises PointerCaptureLost (the implicit capture is released
+        // after PointerReleased), so this only acts when the trim-drag state is still live —
+        // i.e. the capture was stolen mid-drag (window deactivation, another control capturing,
+        // touch cancel). Without the restore, Roll/Slide would leave the neighbour clips frozen
+        // at their previewed geometry, out of sync with the model.
+        private void OnBorderPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
+        {
+            if (_trimDrag.Kind is TrimDragKind.None) return;
+
+            TrimDragContext ctx = _trimDrag;
+            _trimDrag = default;
+            _pressed = false;
+            RestoreTrimDragVisuals(ctx);
+            if (AssociatedObject is { ViewModel: { } viewModel })
+            {
+                viewModel.Timeline.SnapBarPosition.Value = null;
             }
         }
 
@@ -542,6 +563,10 @@ public sealed partial class ElementView : UserControl
                     if (TryStartSlideDrag(viewModel, e.GetPosition(view)))
                     {
                         _pressed = true;
+                        // Re-target Avalonia's implicit capture from the hit-tested child to the
+                        // border: PointerCaptureLost routes Direct (no bubbling), so the reset
+                        // handler below only fires reliably when the border itself is captured.
+                        e.Pointer.Capture(view.border);
                     }
 
                     e.Handled = true;
@@ -563,6 +588,7 @@ public sealed partial class ElementView : UserControl
                         if (TryStartRollDrag(viewModel, timelinePosition))
                         {
                             _pressed = true;
+                            e.Pointer.Capture(view.border);
                         }
 
                         e.Handled = true;
@@ -882,6 +908,7 @@ public sealed partial class ElementView : UserControl
             AssociatedObject.AddHandler(PointerMovedEvent, OnPointerMoved);
             AssociatedObject.border.AddHandler(PointerPressedEvent, OnBorderPointerPressed);
             AssociatedObject.border.AddHandler(PointerReleasedEvent, OnBorderPointerReleased);
+            AssociatedObject.border.AddHandler(PointerCaptureLostEvent, OnBorderPointerCaptureLost);
         }
 
         protected override void OnDetaching()
@@ -895,6 +922,24 @@ public sealed partial class ElementView : UserControl
             AssociatedObject.RemoveHandler(PointerMovedEvent, OnPointerMoved);
             AssociatedObject.border.RemoveHandler(PointerPressedEvent, OnBorderPointerPressed);
             AssociatedObject.border.RemoveHandler(PointerReleasedEvent, OnBorderPointerReleased);
+            AssociatedObject.border.RemoveHandler(PointerCaptureLostEvent, OnBorderPointerCaptureLost);
+        }
+
+        // A normal release also raises PointerCaptureLost (the implicit capture is released
+        // after PointerReleased), so this only acts while a slip drag is still live — i.e.
+        // the capture was stolen mid-drag (window deactivation, another control capturing,
+        // touch cancel). Slip has no geometry preview, so only the flags and the snap guide
+        // need resetting; the pending slip is intentionally dropped, not committed.
+        private void OnBorderPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
+        {
+            if (!_isSlipDrag) return;
+
+            _isSlipDrag = false;
+            _pressed = false;
+            if (AssociatedObject is { ViewModel: { } viewModel })
+            {
+                viewModel.Timeline.SnapBarPosition.Value = null;
+            }
         }
 
         private void OnPointerMoved(object? sender, PointerEventArgs e)
@@ -980,6 +1025,10 @@ public sealed partial class ElementView : UserControl
                     _pressed = true;
                     _isSlipDrag = true;
                     _start = e.GetPosition(view);
+                    // Re-target the implicit capture to the border: PointerCaptureLost routes
+                    // Direct (no bubbling), so the reset handler only fires reliably when the
+                    // border itself holds the capture.
+                    e.Pointer.Capture(view.border);
                     e.Handled = true;
                     return;
                 }
