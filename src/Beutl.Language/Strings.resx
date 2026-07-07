@@ -596,6 +596,9 @@
   <data name="CloseGap" xml:space="preserve">
     <value>Close Gap</value>
   </data>
+  <data name="Gaps" xml:space="preserve">
+    <value>Gaps</value>
+  </data>
   <data name="CloseAllGaps" xml:space="preserve">
     <value>Close All Gaps</value>
   </data>

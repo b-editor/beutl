@@ -294,13 +294,18 @@ public class Scene : ProjectItem, INotifyEdited
                 yield return (zGroup.Key, new TimeRange(TimeSpan.Zero, sorted[0].Start));
             }
 
-            for (int i = 0; i < sorted.Count - 1; i++)
+            TimeSpan coveredEnd = sorted[0].Range.End;
+            for (int i = 1; i < sorted.Count; i++)
             {
-                TimeSpan gapStart = sorted[i].Range.End;
-                TimeSpan gapEnd = sorted[i + 1].Start;
-                if (gapEnd > gapStart)
+                Element next = sorted[i];
+                if (next.Start > coveredEnd)
                 {
-                    yield return (zGroup.Key, new TimeRange(gapStart, gapEnd - gapStart));
+                    yield return (zGroup.Key, new TimeRange(coveredEnd, next.Start - coveredEnd));
+                }
+
+                if (next.Range.End > coveredEnd)
+                {
+                    coveredEnd = next.Range.End;
                 }
             }
         }
@@ -323,10 +328,15 @@ public class Scene : ProjectItem, INotifyEdited
         int z = anchor.ZIndex;
         TimeSpan anchorEnd = anchor.Range.End;
 
-        Element? next = Children
-            .Where(e => e != anchor && e.ZIndex == z && e.Start >= anchorEnd)
+        List<Element> sorted = Children
+            .Where(e => e.ZIndex == z)
             .OrderBy(e => e.Start)
-            .FirstOrDefault();
+            .ThenBy(e => e.Range.End)
+            .ToList();
+        int anchorIndex = sorted.IndexOf(anchor);
+        if (anchorIndex < 0) return false;
+
+        Element? next = sorted.Skip(anchorIndex + 1).FirstOrDefault();
         if (next is null) return false;
 
         TimeSpan gapSize = next.Start - anchorEnd;
@@ -337,8 +347,7 @@ public class Scene : ProjectItem, INotifyEdited
             .ToArray();
         if (toShift.Length == 0) return false;
 
-        MoveChildren(0, -gapSize, toShift);
-        return true;
+        return MoveChildrenAndDetectChange(toShift, -gapSize);
     }
 
     /// <summary>
@@ -366,12 +375,31 @@ public class Scene : ProjectItem, INotifyEdited
                 TimeSpan delta = -gap.Gap.Duration;
                 if (delta == TimeSpan.Zero) continue;
 
-                MoveChildren(0, delta, toShift);
-                closed++;
+                if (MoveChildrenAndDetectChange(toShift, delta))
+                {
+                    closed++;
+                }
             }
         }
 
         return closed;
+    }
+
+    private bool MoveChildrenAndDetectChange(Element[] elements, TimeSpan deltaStart)
+    {
+        TimeSpan[] originalStarts = elements.Select(e => e.Start).ToArray();
+
+        MoveChildren(0, deltaStart, elements);
+
+        for (int i = 0; i < elements.Length; i++)
+        {
+            if (elements[i].Start != originalStarts[i])
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>

@@ -591,6 +591,9 @@
   <data name="CloseGap" xml:space="preserve">
     <value>隙間を詰める</value>
   </data>
+  <data name="Gaps" xml:space="preserve">
+    <value>隙間</value>
+  </data>
   <data name="CloseAllGaps" xml:space="preserve">
     <value>すべての隙間を詰める</value>
   </data>

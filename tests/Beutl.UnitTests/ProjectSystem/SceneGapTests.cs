@@ -107,6 +107,32 @@ public class SceneGapTests
     }
 
     [Test]
+    public void EnumerateGaps_NestedOverlap_UsesCoveredEndForNextGap()
+    {
+        string basePath = GetTempPath();
+        try
+        {
+            Scene scene = CreateScene(basePath);
+            scene.Children.Add(CreateElement(basePath, TimeSpan.Zero, TimeSpan.FromSeconds(10)));
+            scene.Children.Add(CreateElement(basePath, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(1)));
+            scene.Children.Add(CreateElement(basePath, TimeSpan.FromSeconds(12), TimeSpan.FromSeconds(1)));
+
+            List<(int ZIndex, TimeRange Gap)> gaps = Gaps(scene);
+
+            Assert.That(gaps, Has.Count.EqualTo(1));
+            Assert.Multiple(() =>
+            {
+                Assert.That(gaps[0].Gap.Start, Is.EqualTo(TimeSpan.FromSeconds(10)));
+                Assert.That(gaps[0].Gap.Duration, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            });
+        }
+        finally
+        {
+            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+        }
+    }
+
+    [Test]
     public void EnumerateGaps_WithGap_YieldsGap()
     {
         string basePath = GetTempPath();
@@ -311,6 +337,35 @@ public class SceneGapTests
     }
 
     [Test]
+    public void CloseGap_OverlappingNextElement_ReturnsFalse()
+    {
+        string basePath = GetTempPath();
+        try
+        {
+            Scene scene = CreateScene(basePath);
+            Element a = CreateElement(basePath, TimeSpan.Zero, TimeSpan.FromSeconds(10));
+            Element b = CreateElement(basePath, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(1));
+            Element c = CreateElement(basePath, TimeSpan.FromSeconds(12), TimeSpan.FromSeconds(1));
+            scene.Children.Add(a);
+            scene.Children.Add(b);
+            scene.Children.Add(c);
+
+            bool closed = scene.CloseGap(a);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(closed, Is.False);
+                Assert.That(b.Start, Is.EqualTo(TimeSpan.FromSeconds(5)));
+                Assert.That(c.Start, Is.EqualTo(TimeSpan.FromSeconds(12)));
+            });
+        }
+        finally
+        {
+            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+        }
+    }
+
+    [Test]
     public void CloseGap_AnchorNotInScene_ReturnsFalse()
     {
         string basePath = GetTempPath();
@@ -419,6 +474,40 @@ public class SceneGapTests
                 Assert.That(a.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
                 Assert.That(b.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
                 Assert.That(c.Start, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            });
+        }
+        finally
+        {
+            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+        }
+    }
+
+    [Test]
+    public void CloseAllGaps_NestedOverlap_ClosesOnlyRealGaps()
+    {
+        string basePath = GetTempPath();
+        try
+        {
+            Scene scene = CreateScene(basePath);
+            Element a = CreateElement(basePath, TimeSpan.Zero, TimeSpan.FromSeconds(10));
+            Element b = CreateElement(basePath, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(1));
+            Element c = CreateElement(basePath, TimeSpan.FromSeconds(12), TimeSpan.FromSeconds(1));
+            Element d = CreateElement(basePath, TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(1));
+            scene.Children.Add(a);
+            scene.Children.Add(b);
+            scene.Children.Add(c);
+            scene.Children.Add(d);
+
+            int closed = scene.CloseAllGaps();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(closed, Is.EqualTo(2));
+                Assert.That(a.Start, Is.EqualTo(TimeSpan.Zero));
+                Assert.That(b.Start, Is.EqualTo(TimeSpan.FromSeconds(5)));
+                Assert.That(c.Start, Is.EqualTo(TimeSpan.FromSeconds(10)));
+                Assert.That(d.Start, Is.EqualTo(TimeSpan.FromSeconds(11)));
+                Assert.That(Gaps(scene), Is.Empty);
             });
         }
         finally

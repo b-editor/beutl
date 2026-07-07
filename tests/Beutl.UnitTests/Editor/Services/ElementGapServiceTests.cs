@@ -125,6 +125,26 @@ public class ElementGapServiceTests
     }
 
     [Test]
+    public void CloseAllGaps_ClosesGapsAcrossMultipleZIndexes()
+    {
+        AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), 0);
+        Element b = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(1), 0);
+        AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1), 1);
+        Element d = AddElement(TimeSpan.FromSeconds(7), TimeSpan.FromSeconds(1), 1);
+        int before = _history.UndoCount;
+
+        int closed = _service.CloseAllGaps(_scene);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(closed, Is.EqualTo(2));
+            Assert.That(b.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(d.Start, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
+        });
+    }
+
+    [Test]
     public void CloseAllGaps_NoGaps_ReturnsZero_NoCommit()
     {
         AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));

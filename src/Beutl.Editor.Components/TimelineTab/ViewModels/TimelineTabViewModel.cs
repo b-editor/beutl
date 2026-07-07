@@ -992,7 +992,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             case "Exclude":
                 SelectedElements.FirstOrDefault()?.Exclude.Execute();
                 break;
-            case "SetStartTime":
+            case "SetStartTime" when !IsTextInputFocused(execution.KeyEventArgs):
                 SetStartTimeToCurrentTime.Execute();
                 if (execution.KeyEventArgs != null)
                 {
@@ -1000,7 +1000,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
                 }
 
                 break;
-            case "SetEndTime":
+            case "SetEndTime" when !IsTextInputFocused(execution.KeyEventArgs):
                 SetEndTimeToCurrentTime.Execute();
                 if (execution.KeyEventArgs != null)
                 {
@@ -1095,7 +1095,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
                 }
 
                 break;
-            case "CloseGap":
+            case "CloseGap" when !IsTextInputFocused(execution.KeyEventArgs):
                 CloseGap.Execute();
                 if (execution.KeyEventArgs != null)
                 {
@@ -1103,7 +1103,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
                 }
 
                 break;
-            case "CloseAllGaps":
+            case "CloseAllGaps" when !IsTextInputFocused(execution.KeyEventArgs):
                 CloseAllGaps.Execute();
                 if (execution.KeyEventArgs != null)
                 {
@@ -1111,7 +1111,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
                 }
 
                 break;
-            case "GoToNextGap":
+            case "GoToNextGap" when !IsTextInputFocused(execution.KeyEventArgs):
                 GoToNextGap.Execute();
                 if (execution.KeyEventArgs != null)
                 {
@@ -1119,7 +1119,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
                 }
 
                 break;
-            case "GoToPreviousGap":
+            case "GoToPreviousGap" when !IsTextInputFocused(execution.KeyEventArgs):
                 GoToPreviousGap.Execute();
                 if (execution.KeyEventArgs != null)
                 {
@@ -1136,7 +1136,12 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
     // ancestor 連鎖を辿って TextBox を探す。
     private static bool IsTextInputFocused(KeyEventArgs? args)
     {
-        if (args?.Source is not Visual visual) return false;
+        return IsTextInputSource(args?.Source);
+    }
+
+    internal static bool IsTextInputSource(object? source)
+    {
+        if (source is not Visual visual) return false;
         return visual.FindAncestorOfType<TextBox>(includeSelf: true) is not null;
     }
 
