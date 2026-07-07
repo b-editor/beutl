@@ -99,6 +99,33 @@ public class ContextCommandManagerTests
     }
 
     [Test]
+    public void ChangeKeyGesture_NextFreeSlot_AppendsGesture()
+    {
+        var manager = CreateManager([]);
+        manager.Register(new TestViewExtension());
+        ContextCommandEntry entry = manager.GetDefinitions<TestViewExtension>().Single();
+
+        manager.ChangeKeyGesture(entry, KeyGesture.Parse("F2"), OSPlatform.Windows, gestureIndex: 2);
+
+        Assert.That(GesturesFor(entry, OSPlatform.Windows),
+            Is.EqualTo(new[] { KeyGesture.Parse("V"), KeyGesture.Parse("Escape"), KeyGesture.Parse("F2") }));
+    }
+
+    [Test]
+    public void ChangeKeyGesture_IndexBeyondNextFreeSlot_Throws()
+    {
+        var manager = CreateManager([]);
+        manager.Register(new TestViewExtension());
+        ContextCommandEntry entry = manager.GetDefinitions<TestViewExtension>().Single();
+
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => manager.ChangeKeyGesture(entry, KeyGesture.Parse("B"), OSPlatform.Windows, gestureIndex: 5));
+        // The failed call must not have persisted or mutated anything.
+        Assert.That(GesturesFor(entry, OSPlatform.Windows),
+            Is.EqualTo(new[] { KeyGesture.Parse("V"), KeyGesture.Parse("Escape") }));
+    }
+
+    [Test]
     public void ChangeKeyGesture_RemapRoundTrip_RestoresBothSlots()
     {
         var json = new JsonObject();

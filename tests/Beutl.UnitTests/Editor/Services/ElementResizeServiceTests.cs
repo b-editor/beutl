@@ -779,6 +779,27 @@ public class ElementResizeServiceTests
     }
 
     [Test]
+    public void GetTrimDeltaBounds_NegativeBackOffset_WindowStillSpansZero()
+    {
+        // A negative media offset is invalid state owned elsewhere, but the bounds contract
+        // (Min ≤ 0 ≤ Max) must hold structurally — the View's per-move ClampDelta throws on
+        // an inverted window.
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(3));
+        Element back = AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(2));
+        var video = new SourceVideo();
+        video.OffsetPosition.CurrentValue = TimeSpan.FromSeconds(-1);
+        back.Objects.Add(video);
+
+        (TimeSpan min, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, front, back);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(min, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(max, Is.GreaterThanOrEqualTo(TimeSpan.Zero));
+        });
+    }
+
+    [Test]
     public void GetTrimDeltaBounds_SubFrameClip_ReturnsZeroWindow()
     {
         Element front = AddElement(TimeSpan.Zero, TimeSpan.FromMilliseconds(1));

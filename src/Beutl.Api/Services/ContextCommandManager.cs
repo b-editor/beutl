@@ -175,9 +175,18 @@ public class ContextCommandManager(
             seen++;
         }
 
-        // platformId が見つからなかった場合、追加する
+        // platformId が見つからなかった場合、次の空きスロット (gestureIndex == 既存数) なら追加する。
+        // それより大きい index は UI が提示していないスロットを黙って生み出し、Save 経由で
+        // 永続化までされてしまうため、呼び出し側のバグとして例外にする。
         if (!changed)
         {
+            if (gestureIndex != seen)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(gestureIndex), gestureIndex,
+                    $"The platform '{platform}' has {seen} gesture slot(s); only an existing slot or the next free slot can be assigned.");
+            }
+
             entry.KeyGestures.Add(new ContextCommandParsedKeyGesture(keyGesture, platform));
         }
 

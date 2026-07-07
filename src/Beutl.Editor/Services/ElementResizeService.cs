@@ -338,6 +338,12 @@ public sealed class ElementResizeService : IElementResizeService
         TimeSpan inRoom = SlippableMedia.InPointRoom(backTargets);
         if (inRoom != TimeSpan.MaxValue && -inRoom > min) min = -inRoom;
 
+        // Enforce the documented Min ≤ 0 ≤ Max contract structurally instead of relying on
+        // every media OffsetPosition being non-negative (an invariant owned by other services);
+        // an inverted window would throw in the View's per-pointer-frame ClampDelta.
+        if (min > TimeSpan.Zero) min = TimeSpan.Zero;
+        if (max < TimeSpan.Zero) max = TimeSpan.Zero;
+
         return (min, max);
     }
 
