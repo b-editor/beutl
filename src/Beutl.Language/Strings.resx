@@ -167,6 +167,9 @@
   <data name="Split" xml:space="preserve">
     <value>Split</value>
   </data>
+  <data name="AutoSplitBySilence" xml:space="preserve">
+    <value>Auto Split by Silence</value>
+  </data>
   <data name="Duplicate" xml:space="preserve">
     <value>Duplicate</value>
   </data>

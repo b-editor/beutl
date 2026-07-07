@@ -15,7 +15,7 @@ namespace Beutl.ViewModels;
 
 public partial class MenuBarViewModel
 {
-    [MemberNotNull(nameof(DeleteLayer), nameof(ExcludeLayer), nameof(CutLayer), nameof(PasteLayer), nameof(CopyLayer), nameof(ShowSceneSettings), nameof(RemoveFromProject))]
+    [MemberNotNull(nameof(DeleteLayer), nameof(ExcludeLayer), nameof(CutLayer), nameof(PasteLayer), nameof(CopyLayer), nameof(ShowSceneSettings), nameof(AutoSplitBySilence), nameof(RemoveFromProject))]
     private void InitializeSceneCommands(IObservable<bool> isSceneOpened)
     {
         IObservable<bool> isProjectOpenedAndTabOpened = _projectService.IsOpened
@@ -44,6 +44,8 @@ public partial class MenuBarViewModel
 
         ShowSceneSettings = new ReactiveCommandSlim(isSceneOpened)
             .WithSubscribe(OnShowSceneSettings);
+
+        AutoSplitBySilence = new(isSceneOpened);
     }
 
     // Scene
@@ -72,6 +74,8 @@ public partial class MenuBarViewModel
     public ReactiveCommandSlim PasteLayer { get; private set; }
 
     public ReactiveCommandSlim ShowSceneSettings { get; private set; }
+
+    public ReactiveCommandSlim AutoSplitBySilence { get; private set; }
 
     private bool TryGetSelectedEditViewModel([NotNullWhen(true)] out EditViewModel? viewModel)
     {

@@ -38,6 +38,9 @@
   <data name="SplitElement" xml:space="preserve">
     <value>Split Element</value>
   </data>
+  <data name="AutoSplitBySilence" xml:space="preserve">
+    <value>Auto Split by Silence</value>
+  </data>
   <data name="DuplicateElement" xml:space="preserve">
     <value>Duplicate Element</value>
   </data>

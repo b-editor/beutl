@@ -6,9 +6,11 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.VisualTree;
 using Beutl.Animation;
+using Beutl.Audio;
 using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.Models;
+using Beutl.Editor.Components.TimelineTab.Services;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Engine;
@@ -1117,6 +1119,44 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         }
 
         targets[0].SplitAt(targets, time);
+    }
+
+    public async Task AutoSplitBySilenceAsync(
+        SilenceDetectionOptions options,
+        SilenceSplitMode mode,
+        CancellationToken cancellationToken = default)
+    {
+        if (EditorContext.GetService<IEditorSelection>()?.SelectedObject.Value is not Element element)
+            return;
+
+        IThumbnailsProvider? provider = null;
+        foreach (EngineObject obj in element.Objects)
+        {
+            if (obj is IThumbnailsProvider p && p.ThumbnailsKind == ThumbnailsKind.Audio)
+            {
+                provider = p;
+                break;
+            }
+        }
+        if (provider is null) return;
+
+        TimeSpan duration = element.Range.Duration;
+        if (duration <= TimeSpan.Zero) return;
+
+        const int SamplesPerChunk = 4096;
+        int chunkCount = Math.Clamp((int)(duration.TotalSeconds * 20), 200, 8000);
+
+        var chunks = new List<WaveformChunk>();
+        await foreach (WaveformChunk chunk in provider.GetWaveformChunksAsync(chunkCount, SamplesPerChunk, ThumbnailCacheService.Instance, cancellationToken))
+        {
+            chunks.Add(chunk);
+        }
+
+        IReadOnlyList<SilenceRegion> regions = SilenceDetector.Detect(chunks, duration, chunkCount, options);
+        if (regions.Count == 0) return;
+
+        EditorContext.GetRequiredService<ISilenceSplitService>()
+            .SplitBySilence(Scene, [element], regions, mode);
     }
 
     private sealed class TrackedLayerTopObservable(int layerNum, TimelineTabViewModel timeline)

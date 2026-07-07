@@ -41,6 +41,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
     private ElementMoveService? _elementMoveService;
     private ElementClipboardService? _elementClipboardService;
     private ElementStructureService? _elementStructureService;
+    private ElementSilenceSplitService? _elementSilenceSplitService;
     private ElementAttributeService? _elementAttributeService;
     private ElementNudgeService? _elementNudgeService;
     private LayerMoveService? _layerMoveService;
@@ -747,6 +748,11 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
 
         if (serviceType.IsAssignableTo(typeof(IElementStructureService)))
             return _elementStructureService ??= new ElementStructureService(HistoryManager);
+
+        if (serviceType.IsAssignableTo(typeof(ISilenceSplitService)))
+            return _elementSilenceSplitService ??= new ElementSilenceSplitService(
+                HistoryManager,
+                _elementStructureService ??= new ElementStructureService(HistoryManager));
 
         if (serviceType.IsAssignableTo(typeof(IElementAttributeService)))
             return _elementAttributeService ??= new ElementAttributeService(HistoryManager);
