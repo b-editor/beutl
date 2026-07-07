@@ -59,7 +59,7 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
         string tempPath = CreateTempPathForOutput(finalPath);
         Directory.CreateDirectory(Path.GetDirectoryName(finalPath)!);
 
-        try
+        await EncodeAndPublishGuardedAsync(tempPath, async () =>
         {
             if (File.Exists(tempPath))
                 File.Delete(tempPath);
@@ -72,6 +72,16 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
             await controller.Encode(frameProvider, sampleProvider, job.CancellationToken);
 
             await PublishAsync(tempPath, finalPath, job, relative, originalSize, proxySize, job.CancellationToken);
+        });
+    }
+
+    // The temp artifact must not outlive a failed or canceled generation: nothing else reclaims it
+    // until the age-based reconcile sweep, so every failure path deletes it here.
+    internal static async Task EncodeAndPublishGuardedAsync(string tempPath, Func<Task> encodeAndPublish)
+    {
+        try
+        {
+            await encodeAndPublish();
         }
         catch (FFmpegLibrariesNotFoundException ex)
         {

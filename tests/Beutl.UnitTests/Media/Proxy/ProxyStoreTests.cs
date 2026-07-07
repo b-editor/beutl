@@ -621,6 +621,71 @@ public sealed class ProxyStoreTests
     }
 
     [Test]
+    public void Register_StoreRootWithoutWritePermission_DegradesAndReplaysAfterRestore()
+    {
+        if (OperatingSystem.IsWindows())
+            Assert.Ignore("Revoking directory write permission via UnixFileMode is not supported on Windows.");
+
+        // Root bypasses the permission check, so under a root container this fails loudly
+        // (Register throws) rather than passing vacuously; CI runners are non-root.
+
+        string root = CreateRoot();
+        ProxyEntry entry = CreateEntry(root, "hash/quarter.mp4");
+        var store = new ProxyStore(root);
+
+        static void SetMode(string path, UnixFileMode mode)
+        {
+            if (!OperatingSystem.IsWindows())
+                File.SetUnixFileMode(path, mode);
+        }
+
+        UnixFileMode readOnly = UnixFileMode.UserRead | UnixFileMode.UserExecute;
+        UnixFileMode writable = readOnly | UnixFileMode.UserWrite;
+        SetMode(root, readOnly);
+        try
+        {
+            Assert.DoesNotThrow(() => store.Register(entry));
+            Assert.Multiple(() =>
+            {
+                Assert.That(store.TryGet(entry.Source, entry.Preset), Is.EqualTo(entry));
+                Assert.That(store.IsPersistenceDegraded, Is.True);
+            });
+        }
+        finally
+        {
+            SetMode(root, writable);
+        }
+
+        store.FlushAsync(CancellationToken.None).GetAwaiter().GetResult();
+
+        var reloaded = new ProxyStore(root);
+        Assert.Multiple(() =>
+        {
+            Assert.That(store.IsPersistenceDegraded, Is.False);
+            Assert.That(reloaded.TryGet(entry.Source, entry.Preset), Is.EqualTo(entry));
+        });
+    }
+
+    [Test]
+    public void GetTotalBytes_SumsOnlyReadyStaleAndFailedEntries()
+    {
+        string root = CreateRoot();
+        var store = new ProxyStore(root);
+
+        ProxyEntry ready = CreateEntry(root, "ready/quarter.mp4");
+        ProxyEntry stale = CreateEntry(root, "stale/quarter.mp4") with { State = ProxyState.Stale, ProxyFileSizeBytes = 10 };
+        File.WriteAllBytes(Path.Combine(root, "stale", "quarter.mp4"), new byte[10]);
+        ProxyEntry failed = CreateEntry(root, "failed/quarter.mp4") with { State = ProxyState.Failed, ProxyFileSizeBytes = 100 };
+        ProxyEntry generating = CreateEntry(root, "generating/quarter.mp4") with { State = ProxyState.Generating, ProxyFileSizeBytes = 1000 };
+        store.Register(ready);
+        store.Register(stale);
+        store.Register(failed);
+        store.Register(generating);
+
+        Assert.That(store.GetTotalBytes(), Is.EqualTo(ready.ProxyFileSizeBytes + 10 + 100));
+    }
+
+    [Test]
     public void ConcurrentMixedOperations_DoNotThrowOrLoseEntries()
     {
         string root = CreateRoot();

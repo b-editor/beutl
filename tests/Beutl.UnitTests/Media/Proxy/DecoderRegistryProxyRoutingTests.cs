@@ -78,17 +78,22 @@ public class DecoderRegistryProxyRoutingTests
     public void OpenMediaFile_WhenProxyOpenFails_FallsBackToOriginal()
     {
         using var scope = ProxyRouteScope.CreateWithInvalidProxy(originalSize: new PixelSize(100, 100));
-        DecoderRegistry.ProxyResolver = new ProxyResolver(scope.Store);
+        var resolver = new ProxyResolver(scope.Store);
+        DecoderRegistry.ProxyResolver = resolver;
 
         using MediaReader? reader = DecoderRegistry.OpenMediaFile(
             scope.OriginalPath,
             new MediaOptions(MediaMode.Video) { PreferProxy = true });
 
+        ProxyEntry entry = scope.Store.Enumerate().Single();
+        string proxyPath = ProxyPathUtilities.ResolveRelativePath(scope.Store.StoreRootPath, entry.ProxyFileRelative);
         Assert.Multiple(() =>
         {
             Assert.That(reader, Is.Not.Null);
             Assert.That(reader!.VideoInfo.FrameSize, Is.EqualTo(new PixelSize(100, 100)));
             Assert.That(reader.ProxyResolution, Is.Null);
+            // A leaked pin would permanently block eviction of that proxy file.
+            Assert.That(resolver.IsPinned(proxyPath), Is.False);
         });
     }
 

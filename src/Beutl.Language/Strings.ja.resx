@@ -1405,6 +1405,12 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="ProxyQueuedJobPlural" xml:space="preserve">
     <value>{0} 件のジョブ</value>
   </data>
+  <data name="ProxyDeleteFailedSingular" xml:space="preserve">
+    <value>ファイルが使用中のため、プロキシを1件削除できませんでした。</value>
+  </data>
+  <data name="ProxyDeleteFailedPluralFormat" xml:space="preserve">
+    <value>ファイルが使用中のため、プロキシを{0}件削除できませんでした。</value>
+  </data>
   <data name="ProxyClipSummaryFormat" xml:space="preserve">
     <value>{0} クリップ / 準備完了 {1} / 期限切れ {2} / 失敗 {3} / 未生成 {4}</value>
   </data>

@@ -180,6 +180,21 @@ public class ProxyResolverTests
         });
     }
 
+    // Every successful Resolve calls Touch; if Touched bumped the version, resolve → touch →
+    // version-bump → reader-reopen → resolve would loop on the preview hot path.
+    [Test]
+    public void GetSourceVersion_DoesNotBumpOnTouch()
+    {
+        string source = CreateSourceFile();
+        ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(source);
+        RegisterProxy(source, ProxyPreset.Quarter, new PixelSize(100, 80), new PixelSize(25, 20));
+        long version = _resolver.GetSourceVersion(fingerprint);
+
+        _store.Touch(fingerprint, ProxyPreset.Quarter, DateTime.UtcNow);
+
+        Assert.That(_resolver.GetSourceVersion(fingerprint), Is.EqualTo(version));
+    }
+
     [Test]
     public void Resolve_IgnoresStaleEntries()
     {

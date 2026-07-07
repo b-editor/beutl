@@ -114,16 +114,10 @@ public sealed class ProxyJobQueue : IProxyJobQueue
 
     public event EventHandler<ProxyJobChangedEventArgs>? JobChanged;
 
-    public ValueTask<ProxyJob> EnqueueAsync(
-        ProxyFingerprint source,
-        ProxyPreset preset,
-        CancellationToken cancellationToken = default)
-        => EnqueueAsync(source, preset, priority: 0, cancellationToken);
-
     public async ValueTask<ProxyJob> EnqueueAsync(
         ProxyFingerprint source,
         ProxyPreset preset,
-        int priority,
+        int priority = 0,
         CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -275,7 +269,16 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         // priority (not by which entry was read), so a high-priority enqueue can jump a bulk run.
         await foreach (WorkItem _ in _channel.Reader.ReadAllAsync())
         {
-            await ProcessOneAsync().ConfigureAwait(false);
+            try
+            {
+                await ProcessOneAsync().ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                // Last-resort backstop: a fault escaping the per-job guards must not kill the
+                // drain loop, or every later job would sit Queued forever with no diagnostics.
+                s_logger.LogError(ex, "Proxy job dispatch faulted; continuing with the next queued job.");
+            }
         }
 
         // An item published between DisposeAsync's CancelAll snapshot and Writer.TryComplete is
@@ -320,66 +323,70 @@ public sealed class ProxyJobQueue : IProxyJobQueue
             OnJobChanged(item.Job, ProxyJobChangeKind.Started);
 
             bool requeued = false;
-            IProxyGenerator? generator = ResolveGenerator();
-            if (generator is null)
+            try
             {
-                // No generator has registered yet. Keep the job queued and re-probe after the same
-                // bounded backoff used for unavailable generators; extension loading may register one.
-                item.Job.StatusMessage = "Waiting for proxy generator registration.";
-                requeued = RequeueForRetry(item);
-                if (!requeued)
-                    CompleteCanceled(item);
-            }
-            else
-            {
-                item.Job.StatusMessage = null;
-                try
+                // ResolveGenerator runs inside the guarded region: the provider is plugin-supplied
+                // and a throw must fail this job, not the drain loop.
+                IProxyGenerator? generator = ResolveGenerator();
+                if (generator is null)
                 {
+                    // No generator has registered yet. Keep the job queued and re-probe after the same
+                    // bounded backoff used for unavailable generators; extension loading may register one.
+                    item.Job.StatusMessage = "Waiting for proxy generator registration.";
+                    requeued = RequeueForRetry(item);
+                    if (!requeued)
+                        CompleteCanceled(item);
+                }
+                else
+                {
+                    item.Job.StatusMessage = null;
                     await generator.GenerateAsync(item.Job).ConfigureAwait(false);
                     item.Job.Status = ProxyJobStatus.Succeeded;
                     Interlocked.Exchange(ref _consecutiveUnavailable, 0);
                     OnJobChanged(item.Job, ProxyJobChangeKind.Succeeded);
                 }
-                catch (ProxyGenerationSkippedException ex)
+            }
+            catch (ProxyGenerationSkippedException ex)
+            {
+                item.Job.Status = ProxyJobStatus.Skipped;
+                item.Job.StatusMessage = ex.Message;
+                OnJobChanged(item.Job, ProxyJobChangeKind.Skipped);
+            }
+            catch (OperationCanceledException) when (item.Token.IsCancellationRequested)
+            {
+                // Guarded so an OCE thrown by a generator whose own token was NOT canceled is
+                // reported as Failed below instead of masquerading as a user cancellation.
+                CompleteCanceled(item);
+            }
+            catch (ProxyGeneratorUnavailableException ex)
+            {
+                if (_generatorAvailability == null)
                 {
+                    // With no availability signal the queue can never learn the generator recovered,
+                    // so requeuing would occupy the serial queue forever (e.g. a build without FFmpeg).
+                    // Treat it as a terminal skip instead.
                     item.Job.Status = ProxyJobStatus.Skipped;
                     item.Job.StatusMessage = ex.Message;
                     OnJobChanged(item.Job, ProxyJobChangeKind.Skipped);
                 }
-                catch (OperationCanceledException)
+                else
                 {
-                    CompleteCanceled(item);
+                    // Unavailability is environmental, not the job's fault: keep the job Queued and
+                    // re-probe after a bounded backoff, so a transient failure self-recovers and a
+                    // genuinely-missing install keeps the job (and its install prompt) alive.
+                    requeued = RequeueForRetry(item);
+                    if (!requeued)
+                        CompleteCanceled(item);
                 }
-                catch (ProxyGeneratorUnavailableException ex)
-                {
-                    if (_generatorAvailability == null)
-                    {
-                        // With no availability signal the queue can never learn the generator recovered,
-                        // so requeuing would occupy the serial queue forever (e.g. a build without FFmpeg).
-                        // Treat it as a terminal skip instead.
-                        item.Job.Status = ProxyJobStatus.Skipped;
-                        item.Job.StatusMessage = ex.Message;
-                        OnJobChanged(item.Job, ProxyJobChangeKind.Skipped);
-                    }
-                    else
-                    {
-                        // Unavailability is environmental, not the job's fault: keep the job Queued and
-                        // re-probe after a bounded backoff, so a transient failure self-recovers and a
-                        // genuinely-missing install keeps the job (and its install prompt) alive.
-                        requeued = RequeueForRetry(item);
-                        if (!requeued)
-                            CompleteCanceled(item);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    // Record the Failed store entry before the terminal transition so an observer
-                    // that sees Status == Failed can already read the entry from the store.
-                    item.Job.Error = ex;
-                    RegisterFailure(item.Job, ex.Message);
-                    item.Job.Status = ProxyJobStatus.Failed;
-                    OnJobChanged(item.Job, ProxyJobChangeKind.Failed);
-                }
+            }
+            catch (Exception ex)
+            {
+                // Record the Failed store entry before the terminal transition so an observer
+                // that sees Status == Failed can already read the entry from the store.
+                item.Job.Error = ex;
+                RegisterFailure(item.Job, ex.Message);
+                item.Job.Status = ProxyJobStatus.Failed;
+                OnJobChanged(item.Job, ProxyJobChangeKind.Failed);
             }
 
             if (!requeued)
@@ -563,11 +570,32 @@ public sealed class ProxyJobQueue : IProxyJobQueue
 
     private void OnJobChanged(ProxyJob job, ProxyJobChangeKind kind)
     {
-        JobChanged?.Invoke(this, new ProxyJobChangedEventArgs
+        if (JobChanged is not { } handlers)
+            return;
+
+        var args = new ProxyJobChangedEventArgs
         {
             Job = job,
             Kind = kind,
-        });
+        };
+        // JobChanged is plugin-facing and fires on the drain thread; a throwing subscriber must
+        // neither fault the queue nor starve the remaining subscribers of the notification.
+        foreach (EventHandler<ProxyJobChangedEventArgs> handler in
+                 Delegate.EnumerateInvocationList(handlers))
+        {
+            try
+            {
+                handler(this, args);
+            }
+            catch (Exception ex)
+            {
+                s_logger.LogError(
+                    ex,
+                    "A JobChanged subscriber threw for job {JobId} ({Kind}).",
+                    job.JobId,
+                    kind);
+            }
+        }
     }
 
     private static bool IsTerminal(ProxyJobStatus status)

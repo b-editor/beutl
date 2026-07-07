@@ -55,7 +55,7 @@ The user needs an explicit way to control proxy generation: request a proxy for 
 
 ### User Story 3 - Toggle between proxy and original preview (Priority: P3)
 
-While editing, the user occasionally needs to inspect detail that the low-resolution proxy hides (focus check, fine color work, small text in a graphic). The user wants a project-level toggle that forces the preview path to use the original media instead of the proxy, without having to delete the proxy or change the export.
+While editing, the user occasionally needs to inspect detail that the low-resolution proxy hides (focus check, fine color work, small text in a graphic). The user wants a preview source toggle that forces the preview path to use the original media instead of the proxy, without having to delete the proxy or change the export. (Shipped as an editor-wide setting shared across open projects — see FR-013.)
 
 **Why this priority**: A convenience over the core flow. The fallback in US1 already handles the "no proxy" case correctly; this story is about deliberately previewing at full quality during editing.
 
@@ -94,7 +94,7 @@ While editing, the user occasionally needs to inspect detail that the low-resolu
 
 **Proxy lifecycle**
 
-- **FR-005**: Users MUST be able to request proxy generation for a specific clip, a selection of clips, or every eligible clip in the current project.
+- **FR-005**: Users MUST be able to request proxy generation for a specific clip, a selection of clips, or every eligible clip in the current project. *Shipped refinement*: the bulk "generate all" action additionally skips lightweight clips (below 1920×1080, or below 32 MB when the resolution is unknown) and reports when nothing was eligible; per-clip and selection generation have no such floor. The floor is a UI heuristic intended to become user-configurable.
 - **FR-006**: Users MUST be able to delete a clip's proxy (single, selection, or all) to reclaim disk space.
 - **FR-007**: The system MUST run proxy generation as a background job that does not block editing, and MUST surface per-job and overall queue progress.
 - **FR-008**: The system MUST queue multiple proxy generation jobs and process them **serially (one at a time)** at MVP. Each finished proxy MUST become individually usable as soon as it completes (no "all-or-nothing" batch). Parallel job execution is a follow-up enhancement; the queue API SHOULD be designed so that raising concurrency later does not require an architectural rewrite.
@@ -114,7 +114,7 @@ While editing, the user occasionally needs to inspect detail that the low-resolu
 
 **Visibility and control**
 
-- **FR-013**: The system MUST expose a project-level preview source toggle with at least "Proxy (preferred, fall back to original)" and "Original (force)".
+- **FR-013**: The system MUST expose a preview source toggle with at least "Proxy (preferred, fall back to original)" and "Original (force)". *Shipped as an editor-wide setting* (`EditorConfig.PreviewSourceMode`, persisted in `settings.json`, shared across all open projects) rather than the originally-specified project-level setting — a recorded design decision (see plan.md); all US3 acceptance scenarios hold unchanged.
 - **FR-014**: The toggle in FR-013 MUST NOT affect export behavior — exports always follow FR-002.
 - **FR-015**: The system MUST surface, somewhere visible (per-clip indicator, project panel, or status bar — choice deferred to design), the proxy state of each clip: none / generating / ready / stale / failed.
 
@@ -136,7 +136,7 @@ While editing, the user occasionally needs to inspect detail that the low-resolu
 - **Source media reference**: the project's existing handle to an on-disk video source file. Identity key for proxies is the triple `(absolute path, file size, mtime)`. Content hashing is not used at MVP.
 - **Proxy**: a derived, lower-cost representation of a single source media reference. Has its own file on disk, a generation-time fingerprint of the source it was derived from, a quality preset, and a state (generating / ready / stale / failed / partial).
 - **Proxy job**: a background unit of work that turns one source media reference into one proxy file. Has progress, status, cancel handle, and an error if failed.
-- **Preview source mode**: a project-level setting that selects "prefer proxy" vs. "force original" for the preview pipeline. Does not exist for the export pipeline (export is always original).
+- **Preview source mode**: an editor-wide setting (global `EditorConfig`, shared across all scenes) that selects "prefer proxy" vs. "force original" for the preview pipeline. Does not exist for the export pipeline (export is always original).
 - **Proxy store**: the on-disk location holding proxy files plus their fingerprint metadata. Configurable location; shared across projects on the same machine when possible. Subject to a configurable global LRU cap (FR-018a) with a per-entry "last used" timestamp. Per-entry metadata at minimum: `(absolute path, size, mtime)` of the source at generation time, chosen preset, last-used timestamp, state (generating / ready / stale / failed / partial).
 
 ## Success Criteria *(mandatory)*
@@ -145,7 +145,7 @@ While editing, the user occasionally needs to inspect detail that the low-resolu
 
 - **SC-001**: On a project with at least one 4K source clip (≥3840×2160, ≥60 Mbps), scrubbing and playback in the editor preview after proxies are generated is **at least 3× faster in frame-decode time** than scrubbing the same project with proxies disabled, on the same machine.
 - **SC-002**: Exporting a project that has proxies generated produces a file whose every frame is bit-identical (or, when re-encoded, visually indistinguishable at the chosen export quality) to the same export run with all proxies deleted — i.e., proxies provably do not contaminate the export.
-- **SC-003**: Switching the project-level preview source between "Proxy" and "Original" takes effect on the next preview frame (no project reload required), within **2 seconds** on a project of ≤500 clips. Under 003 this toggle changes the affected sources' `EffectiveScale`, so the render cache MUST be invalidated for those sources (FR-023) and the next frame re-rendered — the toggle does **not** trigger a `SceneRenderer` rebuild (the render scale is unchanged).
+- **SC-003**: Switching the preview source mode between "Proxy" and "Original" takes effect on the next preview frame (no project reload required), within **2 seconds** on a project of ≤500 clips. Under 003 this toggle changes the affected sources' `EffectiveScale`, so the render cache MUST be invalidated for those sources (FR-023) and the next frame re-rendered — the toggle does **not** trigger a `SceneRenderer` rebuild (the render scale is unchanged).
 - **SC-004**: With proxies generated and preview source set to "Proxy", playback of a heavy timeline (≥3 simultaneous 4K layers) stays at the project frame rate (no dropped frames) on a machine that drops frames at the same point with proxies disabled.
 - **SC-005**: A user new to the feature can, within **2 minutes** of opening the project and with no help beyond the in-app UI, **discover how to initiate proxy generation** for a clip and — once generation completes — **confirm via the UI that preview is served from the proxy**. The 2-minute bound scopes only the interaction/onboarding portion (finding the control, starting generation, reading the proxy-state badge); the background encode itself is explicitly excluded because it is an open-ended background job (FR-007) whose wall-clock scales with source size and can exceed 2 minutes for a genuinely heavy clip (SC-001's ≥4K/≥60 Mbps target). For a bounded, falsifiable measurement, use a lightweight reference clip rather than arbitrary heavy footage. *Verification*: quickstart.md §3 (generate a proxy on the lightweight `$SRC_SMALL`) then §4 (confirm preview uses that proxy) — the discoverability path, not the heavy-encode path.
 - **SC-006**: When a proxy is missing, stale, or partial, preview falls back to the original with **zero playback errors surfaced to the user** in 100% of cases across the edge-cases listed above.

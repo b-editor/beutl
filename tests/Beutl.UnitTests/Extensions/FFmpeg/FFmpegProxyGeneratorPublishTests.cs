@@ -1,4 +1,5 @@
 ﻿using Beutl.Extensions.FFmpeg.Proxy;
+using Beutl.FFmpegIpc;
 using Beutl.Media;
 using Beutl.Media.Proxy;
 
@@ -297,6 +298,67 @@ public sealed class FFmpegProxyGeneratorPublishTests
             Assert.That(File.Exists(finalPath), Is.True, "the previous proxy must be restored from backup");
             Assert.That(File.ReadAllBytes(finalPath), Is.EqualTo(previousProxy));
         });
+    }
+
+    [Test]
+    public void EncodeAndPublishGuarded_GenericFailure_DeletesTempAndRethrows()
+    {
+        string temp = CreateTempArtifact();
+
+        InvalidOperationException? thrown = Assert.ThrowsAsync<InvalidOperationException>(
+            () => FFmpegProxyGenerator.EncodeAndPublishGuardedAsync(
+                temp,
+                () => throw new InvalidOperationException("encode failed")));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(thrown!.Message, Is.EqualTo("encode failed"));
+            Assert.That(File.Exists(temp), Is.False, "a failed generation must not leave its temp artifact behind");
+        });
+    }
+
+    [Test]
+    public void EncodeAndPublishGuarded_Cancellation_DeletesTempAndRethrows()
+    {
+        string temp = CreateTempArtifact();
+
+        Assert.CatchAsync<OperationCanceledException>(
+            () => FFmpegProxyGenerator.EncodeAndPublishGuardedAsync(
+                temp,
+                () => throw new OperationCanceledException()));
+
+        Assert.That(File.Exists(temp), Is.False, "a canceled generation must not leave its temp artifact behind");
+    }
+
+    [Test]
+    public void EncodeAndPublishGuarded_LibrariesMissing_DeletesTempAndMapsToUnavailable()
+    {
+        string temp = CreateTempArtifact();
+
+        Assert.ThrowsAsync<ProxyGeneratorUnavailableException>(
+            () => FFmpegProxyGenerator.EncodeAndPublishGuardedAsync(
+                temp,
+                () => throw new FFmpegLibrariesNotFoundException("libs missing")));
+
+        Assert.That(File.Exists(temp), Is.False);
+    }
+
+    [Test]
+    public async Task EncodeAndPublishGuarded_Success_LeavesTempAlone()
+    {
+        string temp = CreateTempArtifact();
+
+        await FFmpegProxyGenerator.EncodeAndPublishGuardedAsync(temp, () => Task.CompletedTask);
+
+        Assert.That(File.Exists(temp), Is.True);
+    }
+
+    private static string CreateTempArtifact()
+    {
+        string root = CreateRoot();
+        string temp = Path.Combine(root, $"quarter.{Guid.NewGuid():N}.tmp.mp4");
+        File.WriteAllBytes(temp, [1, 2, 3]);
+        return temp;
     }
 
     private static string CreateRoot()

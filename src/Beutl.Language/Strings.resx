@@ -1411,6 +1411,12 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="ProxyQueuedJobPlural" xml:space="preserve">
     <value>{0} queued jobs</value>
   </data>
+  <data name="ProxyDeleteFailedSingular" xml:space="preserve">
+    <value>1 proxy could not be deleted because its file is in use.</value>
+  </data>
+  <data name="ProxyDeleteFailedPluralFormat" xml:space="preserve">
+    <value>{0} proxies could not be deleted because their files are in use.</value>
+  </data>
   <data name="ProxyClipSummaryFormat" xml:space="preserve">
     <value>{0} clips / {1} ready / {2} stale / {3} failed / {4} missing</value>
   </data>

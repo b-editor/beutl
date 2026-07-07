@@ -45,6 +45,10 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
     private int _lastVisibleStart = -1;
     private int _lastVisibleEnd = -1;
     private CancellationTokenSource? _scrollThumbnailsCts;
+
+    // The proxy store/queue handlers marshal via Dispatcher.UIThread.Post, so a posted callback can
+    // run after Dispose; they bail on this flag instead of touching disposed reactive state.
+    private bool _isDisposed;
     private readonly Subject<(int Start, int End)> _visibleRangeSubject = new();
     private readonly IProxyStore? _proxyStore;
     private readonly IProxyJobQueue? _proxyJobQueue;
@@ -235,6 +239,9 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     private void OnProxyStateInvalidated(ProxyJobChangedEventArgs e)
     {
+        if (_isDisposed)
+            return;
+
         if (!Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
         {
             Avalonia.Threading.Dispatcher.UIThread.Post(() => OnProxyStateInvalidated(e));
@@ -474,6 +481,8 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     public void Dispose()
     {
+        _isDisposed = true;
+
         // ThumbnailsInvalidatedイベントの購読を解除
         if (_currentThumbnailsProvider != null && _thumbnailsInvalidatedHandler != null)
         {
@@ -1015,6 +1024,9 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     private void OnProxyStateInvalidated()
     {
+        if (_isDisposed)
+            return;
+
         if (!Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
         {
             Avalonia.Threading.Dispatcher.UIThread.Post(OnProxyStateInvalidated);
@@ -1026,6 +1038,9 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     private void OnProxyStateInvalidated(ProxyStoreChangedEventArgs e)
     {
+        if (_isDisposed)
+            return;
+
         if (!Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
         {
             Avalonia.Threading.Dispatcher.UIThread.Post(() => OnProxyStateInvalidated(e));
@@ -1043,6 +1058,9 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     private void OnProxyStoreChangedForThumbnails(ProxyStoreChangedEventArgs e)
     {
+        if (_isDisposed)
+            return;
+
         // Filmstrip thumbnails are cached without proxy availability in the key, so a proxy
         // registered/deleted/changed for this element's source (in prefer-proxy mode) leaves the
         // strip decoded from the previous path until an unrelated edit; drop the cache and re-render.

@@ -37,6 +37,7 @@ public sealed class ProxyStore : IProxyStore
     private readonly string _indexLockPath;
     private readonly int _lockAcquireMaxAttempts;
     private int _touchFlushScheduled;
+    private int _touchFlushFaulted;
     private bool _touchDirty;
     private bool _persistenceDegraded;
 
@@ -343,9 +344,12 @@ public sealed class ProxyStore : IProxyStore
         {
             throw;
         }
-        catch
+        catch (Exception ex)
         {
             // Reconcile is best-effort; serving known-good entries is safer than failing startup.
+            s_logger.LogWarning(
+                ex,
+                "Proxy store reconciliation failed; stale entries and orphan files may remain until the next reconcile.");
         }
 
         return Task.CompletedTask;
@@ -537,10 +541,10 @@ public sealed class ProxyStore : IProxyStore
         IReadOnlySet<(ProxyFingerprint Source, ProxyPreset Preset)>? removedKeys = null)
     {
         Directory.CreateDirectory(StoreRootPath);
-        FileStream? indexLock = AcquireIndexLock();
+        FileStream? indexLock = AcquireIndexLock(out Exception? lockFailure);
         if (indexLock is null)
         {
-            DegradePersistence(changedKeys, removedKeys);
+            DegradePersistence(changedKeys, removedKeys, lockFailure);
             return;
         }
 
@@ -619,12 +623,13 @@ public sealed class ProxyStore : IProxyStore
                 _pendingRemoveKeys.Clear();
                 _persistenceDegraded = false;
             }
-            catch (IOException)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                // A transient durable-write failure degrades like a contended lock instead of
-                // throwing out of Register/TryTransition/FlushAsync; the pending sets are left
-                // populated (not cleared above) so the change replays on the next flush.
-                DegradePersistence(changedKeys, removedKeys);
+                // A durable-write failure (transient I/O or a store root without write permission)
+                // degrades like a contended lock instead of throwing out of Register/TryTransition/
+                // FlushAsync; the pending sets are left populated (not cleared above) so the change
+                // replays on the next flush.
+                DegradePersistence(changedKeys, removedKeys, ex);
             }
             finally
             {
@@ -635,8 +640,10 @@ public sealed class ProxyStore : IProxyStore
 
     private void DegradePersistence(
         IReadOnlySet<(ProxyFingerprint Source, ProxyPreset Preset)>? changedKeys,
-        IReadOnlySet<(ProxyFingerprint Source, ProxyPreset Preset)>? removedKeys)
+        IReadOnlySet<(ProxyFingerprint Source, ProxyPreset Preset)>? removedKeys,
+        Exception? cause = null)
     {
+        bool firstDegradation = !_persistenceDegraded;
         _persistenceDegraded = true;
         if (removedKeys != null)
         {
@@ -657,9 +664,25 @@ public sealed class ProxyStore : IProxyStore
             }
         }
 
-        s_logger.LogWarning(
-            "Proxy index lock at '{LockPath}' is contended; skipping durable persistence and serving in-memory state (read-only degradation).",
-            _indexLockPath);
+        // Log only on the transition into the degraded state: the 1 s touch-flush loop retries a
+        // persistent fault every second and a per-attempt warning would flood the log. The flag is
+        // reset by the next successful flush, so each degradation episode logs exactly once.
+        if (!firstDegradation)
+            return;
+
+        if (cause is null)
+        {
+            s_logger.LogWarning(
+                "Proxy index lock at '{LockPath}' is contended; skipping durable persistence and serving in-memory state (read-only degradation).",
+                _indexLockPath);
+        }
+        else
+        {
+            s_logger.LogWarning(
+                cause,
+                "Proxy index write to '{IndexPath}' failed; skipping durable persistence and serving in-memory state until a later flush succeeds.",
+                _indexPath);
+        }
     }
 
     private async Task FlushTouchesAsync()
@@ -674,9 +697,20 @@ public sealed class ProxyStore : IProxyStore
 
                 FlushCore();
             }
+
+            Interlocked.Exchange(ref _touchFlushFaulted, 0);
         }
-        catch
+        catch (Exception ex)
         {
+            // FlushCore degrades I/O and permission faults internally, so anything landing here is
+            // unexpected (bug-class). Log once per failure streak — the finally block reschedules
+            // this loop every second and a per-attempt error would flood the log.
+            if (Interlocked.Exchange(ref _touchFlushFaulted, 1) == 0)
+            {
+                s_logger.LogError(
+                    ex,
+                    "Deferred proxy touch flush failed unexpectedly; LastUsedUtc updates stay pending and will retry every second.");
+            }
         }
         finally
         {
@@ -752,12 +786,13 @@ public sealed class ProxyStore : IProxyStore
         }
     }
 
-    private FileStream? AcquireIndexLock()
+    private FileStream? AcquireIndexLock(out Exception? failure)
     {
         for (int attempt = 0; ; attempt++)
         {
             try
             {
+                failure = null;
                 return new FileStream(
                     _indexLockPath,
                     FileMode.OpenOrCreate,
@@ -768,8 +803,13 @@ public sealed class ProxyStore : IProxyStore
             {
                 Thread.Sleep(10);
             }
-            catch (IOException)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
+                // UnauthorizedAccessException (store root without write permission) is not
+                // transient, so it skips the retry loop and degrades immediately. Only the
+                // permission fault is surfaced — an IOException here is ordinary lock
+                // contention, which the null-cause degradation message already describes.
+                failure = ex is UnauthorizedAccessException ? ex : null;
                 return null;
             }
         }

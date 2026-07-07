@@ -367,7 +367,12 @@ public sealed class ProxiesTabViewModelTests
             now,
             null));
 
-        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
+        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath))
+        {
+            // Run the coalesced rebuild synchronously: with the real (never-pumped) test dispatcher
+            // a scheduled rebuild would silently not run and the assertion below would be vacuous.
+            RefreshScheduler = static action => action(),
+        };
         ProxyClipViewModel clip = viewModel.Clips.Single();
         clip.ToggleSelection();
 
@@ -388,7 +393,10 @@ public sealed class ProxiesTabViewModelTests
         string sourcePath = CreateSourceFile(root, "clip.mov", 1024);
         var store = new ProxyStore(Path.Combine(root, "proxies"));
 
-        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
+        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath))
+        {
+            RefreshScheduler = static action => action(),
+        };
         ProxyClipViewModel clip = viewModel.Clips.Single();
         clip.ToggleSelection();
         string selectedPath = clip.Path;
@@ -428,6 +436,51 @@ public sealed class ProxiesTabViewModelTests
 
         // Otherwise the in-flight generation would re-register the proxy on success and undo the delete.
         Assert.That(queue.CanceledJobIds, Does.Contain(job.JobId));
+    }
+
+    [Test]
+    public void Delete_WhenProxyFileCannotBeDeleted_SurfacesFailureInStatusMessage()
+    {
+        string root = CreateRoot();
+        string sourcePath = CreateSourceFile(root, "clip.mov", 1024);
+        var store = new ProxyStore(Path.Combine(root, "proxies"));
+        ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(sourcePath);
+        DateTime now = DateTime.UtcNow;
+        RegisterProxyEntry(store, new ProxyEntry(
+            fingerprint,
+            ProxyPreset.Quarter,
+            ProxyState.Ready,
+            "hash/quarter.mp4",
+            512,
+            new PixelSize(1920, 1080),
+            new PixelSize(480, 270),
+            now,
+            now,
+            null));
+
+        using var viewModel = new ProxiesTabViewModel(CreateContext(root, new UndeletableStore(store), sourcePath));
+        ProxyClipViewModel clip = viewModel.Clips.Single();
+
+        viewModel.Delete(clip);
+
+        Assert.That(viewModel.StatusMessage.Value, Is.EqualTo(Strings.ProxyDeleteFailedSingular));
+    }
+
+    [Test]
+    public void Delete_WhenEntryAlreadyGone_DoesNotReportFailure()
+    {
+        string root = CreateRoot();
+        string sourcePath = CreateSourceFile(root, "clip.mov", 1024);
+        var store = new ProxyStore(Path.Combine(root, "proxies"));
+
+        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
+        ProxyClipViewModel clip = viewModel.Clips.Single();
+
+        // No entry is registered, so Delete returns false for "not found" — a benign race,
+        // not an in-use failure the user must be told about.
+        viewModel.Delete(clip);
+
+        Assert.That(viewModel.StatusMessage.Value, Is.Not.EqualTo(Strings.ProxyDeleteFailedSingular));
     }
 
     [Test]
@@ -781,12 +834,12 @@ public sealed class ProxiesTabViewModelTests
         });
     }
 
-    private static TestEditorContext CreateContext(string root, ProxyStore store, params string[] sourcePaths)
+    private static TestEditorContext CreateContext(string root, IProxyStore store, params string[] sourcePaths)
         => CreateContext(root, store, queue: null, sourcePaths);
 
     private static TestEditorContext CreateContext(
         string root,
-        ProxyStore store,
+        IProxyStore store,
         IProxyJobQueue? queue,
         params string[] sourcePaths)
     {
@@ -852,7 +905,7 @@ public sealed class ProxiesTabViewModelTests
         return context;
     }
 
-    private static TestEditorContext CreateContext(Scene scene, ProxyStore store, IProxyJobQueue? queue = null)
+    private static TestEditorContext CreateContext(Scene scene, IProxyStore store, IProxyJobQueue? queue = null)
     {
         var context = new TestEditorContext(scene);
         context.AddService(scene);
@@ -914,6 +967,41 @@ public sealed class ProxiesTabViewModelTests
         File.WriteAllBytes(path, Enumerable.Repeat((byte)7, bytes).ToArray());
         File.SetLastWriteTimeUtc(path, DateTime.UtcNow);
         return path;
+    }
+
+    // Simulates a Windows sharing violation: the entry stays registered because its file could not
+    // be deleted, which is exactly the shape the ViewModel must report to the user.
+    private sealed class UndeletableStore(IProxyStore inner) : IProxyStore
+    {
+        public string StoreRootPath => inner.StoreRootPath;
+
+        public ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset) => inner.TryGet(source, preset);
+
+        public IReadOnlyList<ProxyEntry> Enumerate() => inner.Enumerate();
+
+        public void Register(ProxyEntry entry) => inner.Register(entry);
+
+        public bool TryTransition(ProxyFingerprint source, ProxyPreset preset, ProxyState newState, string? failureReason = null)
+            => inner.TryTransition(source, preset, newState, failureReason);
+
+        public bool Delete(ProxyFingerprint source, ProxyPreset preset) => false;
+
+        public void Touch(ProxyFingerprint source, ProxyPreset preset, DateTime nowUtc)
+            => inner.Touch(source, preset, nowUtc);
+
+        public long GetTotalBytes() => inner.GetTotalBytes();
+
+        public long GetTotalBytes(IReadOnlySet<string> sourceAbsolutePaths) => inner.GetTotalBytes(sourceAbsolutePaths);
+
+        public Task FlushAsync(CancellationToken cancellationToken) => inner.FlushAsync(cancellationToken);
+
+        public Task ReconcileAsync(CancellationToken cancellationToken) => inner.ReconcileAsync(cancellationToken);
+
+        public event EventHandler<ProxyStoreChangedEventArgs>? Changed
+        {
+            add => inner.Changed += value;
+            remove => inner.Changed -= value;
+        }
     }
 
     private static void RegisterProxyEntry(ProxyStore store, ProxyEntry entry)
@@ -984,13 +1072,7 @@ public sealed class ProxiesTabViewModelTests
         public ValueTask<ProxyJob> EnqueueAsync(
             ProxyFingerprint source,
             ProxyPreset preset,
-            CancellationToken cancellationToken = default)
-            => EnqueueAsync(source, preset, priority: 0, cancellationToken);
-
-        public ValueTask<ProxyJob> EnqueueAsync(
-            ProxyFingerprint source,
-            ProxyPreset preset,
-            int priority,
+            int priority = 0,
             CancellationToken cancellationToken = default)
         {
             var job = new ProxyJob(source, preset, priority: priority);

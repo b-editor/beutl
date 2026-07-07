@@ -4,23 +4,16 @@ public interface IProxyJobQueue : IAsyncDisposable
 {
     int MaxConcurrency { get; }
 
-    ValueTask<ProxyJob> EnqueueAsync(
-        ProxyFingerprint source,
-        ProxyPreset preset,
-        CancellationToken cancellationToken = default);
-
     /// <summary>
     /// Enqueues a proxy job at the given <paramref name="priority"/>. Higher-priority jobs should be
-    /// dispatched ahead of lower-priority ones, and equal priorities should keep arrival (FIFO) order.
-    /// The default implementation ignores priority and forwards to the arrival-order overload, so an
-    /// implementation only overrides this when it can honor priority.
+    /// dispatched ahead of lower-priority ones, and equal priorities should keep arrival (FIFO) order;
+    /// an implementation that cannot express ordering may ignore <paramref name="priority"/>.
     /// </summary>
     ValueTask<ProxyJob> EnqueueAsync(
         ProxyFingerprint source,
         ProxyPreset preset,
-        int priority,
-        CancellationToken cancellationToken = default)
-        => EnqueueAsync(source, preset, cancellationToken);
+        int priority = 0,
+        CancellationToken cancellationToken = default);
 
     IReadOnlyList<ProxyJob> Pending();
 

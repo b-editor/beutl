@@ -19,7 +19,7 @@ End-to-end developer/manual-test walkthrough for the proxy media feature. The he
 1. Launch Beutl. **File → New Project**.
 2. Import `$SRC` and `$SRC_SMALL` into the project.
 3. Drop both onto the timeline so the project preview pipeline references them.
-4. Save the project. **Confirm**: `Scene.PreviewSourceMode == PreferProxy` in the saved JSON.
+4. **Confirm**: `"PreviewSourceMode": "PreferProxy"` under the `"Editor"` section of `settings.json` (the mode is an editor-wide setting, not part of the project JSON).
 
 ## 2. Inspect the empty proxy store
 

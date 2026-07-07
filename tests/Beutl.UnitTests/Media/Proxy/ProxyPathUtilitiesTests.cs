@@ -59,6 +59,22 @@ public class ProxyPathUtilitiesTests
         });
     }
 
+    // Pins the producer/consumer filename contract: if BuildRelativePath's shape drifts (hex casing,
+    // separator, preset casing), orphan reclaim stops recognizing generated files and the store leaks.
+    [Test]
+    public void BuildRelativePath_OutputIsRecognizedAsGeneratedProxyFinalPath([Values] ProxyPreset preset)
+    {
+        string root = CreateRoot();
+        string sourcePath = Path.Combine(root, "source.mov");
+        File.WriteAllBytes(sourcePath, [1, 2, 3]);
+        ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(sourcePath);
+
+        string relative = ProxyPathUtilities.BuildRelativePath(fingerprint, preset);
+        string absolute = ProxyPathUtilities.ResolveRelativePath(root, relative);
+
+        Assert.That(ProxyPathUtilities.IsGeneratedProxyFinalPath(root, absolute), Is.True);
+    }
+
     private static string CreateRoot()
     {
         string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));

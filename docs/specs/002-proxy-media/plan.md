@@ -41,7 +41,7 @@ While editing, Beutl must transparently serve preview video decode requests from
 - Target a typical 200–500 clip project with up to ~50 heavy (≥4K, ≥60 Mbps) source files.
 - Proxy-store default cap: 50 GB global (initial default; user-configurable 5–500 GB).
 - Concurrency: 1 active proxy generation job at MVP (serial queue).
-- UI surface: one new project-level toggle (preview source mode) + one new tool tab ("Proxies") for queue / store / eviction visibility.
+- UI surface: one new editor-wide toggle (preview source mode) + one new tool tab ("Proxies") for queue / store / eviction visibility.
 
 ## Constitution Check
 
@@ -115,7 +115,6 @@ src/
 │           └── VideoSourceRenderNode.cs               #   (touched: Bounds from original logical size; EffectiveScale.At(supplyDensity); dest-rect draw)
 ├── Beutl.ProjectSystem/
 │   ├── ProjectSystem/
-│   │   └── Scene.cs                                   #   (touched: add PreviewSourceMode property; persist)
 │   ├── SceneRenderer.cs                               #   (existing 003 ctor; no MediaOptions construction)
 │   └── SceneCompositor.cs                             #   (touched: seed CompositionContext.PreferProxy for preview only)
 ├── Beutl.Configuration/
@@ -128,7 +127,7 @@ src/
     │   ├── ProxiesToolTab.axaml                       # NEW UserControl
     │   ├── ProxiesToolTab.axaml.cs
     │   └── ProxiesToolTabViewModel.cs
-    └── (existing Scene settings UI)                   #   (touched: surface PreviewSourceMode toggle)
+    └── (app settings + PreviewSettingsTab)            #   (touched: surface the editor-wide PreviewSourceMode toggle)
 
 tests/
 └── Beutl.UnitTests/
@@ -170,7 +169,7 @@ All preview-vs-export routing (the heart of the feature) is exercised through `P
 | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|
 | **Opening a smaller proxy file shrinks the source's logical footprint under 003** (003 derives logical size from decoded `FrameSize`; render nodes hard-code `EffectiveScale.At(1)`) → the clip moves/resizes on canvas | **High** (the naive file-swap does exactly this) | **High** (visibly broken preview; defeats the feature) | Deliver the logical-size seam (FR-021/FR-022, tasks T062–T065, research R-11): carry `OriginalLogicalFrameSize` + `ProxyDecodedFrameSize` on `ProxyResolution`; pin render-node `Bounds` to the original `FrameSize`; report `EffectiveScale.At(supplyDensity)`; draw into the original-footprint dest rect. On the original path the ratio is `1.0` ⇒ byte-identical to 003. Verified by quickstart step 4a. |
-| Preview and export accidentally share a `PreferProxy = true` render context | Low (003 export builds its own `SceneRenderer` with `disableResourceShare: true`) | High (whole design hinges on export never using proxies) | Phase 0 includes a verification step that audits **all** `OpenMediaFile` / `MediaOptions` call sites and the `CompositionContext` seeding path. The preview `SceneCompositor` is the only place that reads `Scene.PreviewSourceMode`; the export renderer's context leaves `PreferProxy` at the default `false`. T024/T030 cover the export context seam. |
+| Preview and export accidentally share a `PreferProxy = true` render context | Low (003 export builds its own `SceneRenderer` with `disableResourceShare: true`) | High (whole design hinges on export never using proxies) | Phase 0 includes a verification step that audits **all** `OpenMediaFile` / `MediaOptions` call sites and the `CompositionContext` seeding path. The preview `SceneCompositor` is the only place that reads `EditorConfig.PreviewSourceMode`; the export renderer's context leaves `PreferProxy` at the default `false`. T024/T030 cover the export context seam. |
 | LRU eviction races with preview decode | Medium | Medium (could yank a file out from under the reader) | `ProxyEvictionService` consults an in-memory "pinned" set of proxy paths that `ProxyResolver` populates while a `MediaReader` is open. Eviction skips pinned entries (FR-018a safety clause). Tested in `ProxyEvictionTests`. |
 | Partial proxy file from crash mistakenly served as ready | Medium | High (silent wrong output in preview) | `ProxyStore` writes to `*.proxy.tmp` first, fsyncs, then renames to the canonical name and only then updates `index.json`. Boot-time scan finds dangling `.tmp` files and marks corresponding entries `Partial`. Tested in `ProxyStoreTests`. |
 | FFmpeg-not-installed surface | Medium | Medium (proxy generation silently fails) | Keep the user-facing install prompt in the `Beutl.Extensions.FFmpeg` generator implementation. `ProxyJobQueue` sees generator unavailability through the `IProxyGenerator` contract, marks the active job failed, and pauses draining without Engine referencing `FFmpegInstallNotifier`. |

@@ -180,8 +180,33 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
     public void Delete(ProxyClipViewModel clip)
     {
         CancelMatchingJobs(clip);
-        _store?.Delete(clip.EntrySource ?? clip.Source, clip.Preset.Value);
+        int failed = TryDeleteEntry(clip.EntrySource ?? clip.Source, clip.Preset.Value) ? 0 : 1;
+        ReportDeleteFailures(failed);
         Refresh();
+    }
+
+    // Delete also returns false for an entry that no longer exists (a benign race with eviction or
+    // another instance); only an entry still present afterwards is a real failure worth surfacing —
+    // typically a sharing violation because the preview is decoding that proxy right now.
+    private bool TryDeleteEntry(ProxyFingerprint source, ProxyPreset preset)
+    {
+        if (_store is not { } store)
+            return true;
+
+        if (store.Delete(source, preset))
+            return true;
+
+        return store.TryGet(source, preset) is null;
+    }
+
+    private void ReportDeleteFailures(int failed)
+    {
+        if (failed <= 0)
+            return;
+
+        StatusMessage.Value = failed == 1
+            ? Strings.ProxyDeleteFailedSingular
+            : string.Format(CultureInfo.CurrentCulture, Strings.ProxyDeleteFailedPluralFormat, failed);
     }
 
     // A queued/running generation would Register the proxy again on success and silently undo the
@@ -361,12 +386,15 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
 
     private void DeleteSelected()
     {
+        int failed = 0;
         foreach (ProxyClipViewModel clip in Clips.Where(static c => c.IsSelected.Value).ToArray())
         {
             CancelMatchingJobs(clip);
-            _store?.Delete(clip.EntrySource ?? clip.Source, clip.Preset.Value);
+            if (!TryDeleteEntry(clip.EntrySource ?? clip.Source, clip.Preset.Value))
+                failed++;
         }
 
+        ReportDeleteFailures(failed);
         Refresh();
     }
 
@@ -391,11 +419,14 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
             _queue?.Cancel(job.JobId);
         }
 
+        int failed = 0;
         foreach (ProxyEntry entry in entries)
         {
-            _store.Delete(entry.Source, entry.Preset);
+            if (!TryDeleteEntry(entry.Source, entry.Preset))
+                failed++;
         }
 
+        ReportDeleteFailures(failed);
         Refresh();
     }
 
@@ -439,13 +470,17 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
         if (Interlocked.Exchange(ref _refreshScheduled, 1) == 1)
             return;
 
-        Dispatcher.UIThread.Post(() =>
+        RefreshScheduler(() =>
         {
             Interlocked.Exchange(ref _refreshScheduled, 0);
             if (!_isDisposed)
                 Refresh();
         });
     }
+
+    // Test seam: the unit-test environment has no pumping dispatcher, so tests inject an
+    // immediate scheduler to exercise the coalesced event-driven rebuild synchronously.
+    internal Action<Action> RefreshScheduler { get; set; } = static action => Dispatcher.UIThread.Post(action);
 
     private void Refresh()
     {

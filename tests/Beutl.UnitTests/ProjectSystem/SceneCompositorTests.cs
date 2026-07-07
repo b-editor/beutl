@@ -561,6 +561,73 @@ public class SceneCompositorTests
         }
     }
 
+    // The dangerous export configuration: the compositor forces original decode while the global
+    // preview mode prefers proxies. Without SceneDrawable's propagation the nested compositor
+    // would seed PreferProxy from the global config and export a referenced scene from proxies.
+    [Test]
+    public void EvaluateGraphics_ExportForceOriginal_OverridesPreferProxyConfigInReferencedScene()
+    {
+        string basePath = GetTempPath();
+        PreviewSourceMode original = GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode;
+        try
+        {
+            GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode = PreviewSourceMode.PreferProxy;
+            Scene childScene = CreateScene(basePath);
+            var capture = new SceneCompositorContextCaptureDrawable();
+            childScene.Children.Add(CreateElement(basePath, isEnabled: true, capture));
+            Scene parentScene = CreateScene(basePath);
+            var sceneDrawable = new SceneDrawable();
+            sceneDrawable.ReferencedScene.CurrentValue = childScene;
+            parentScene.Children.Add(CreateElement(basePath, isEnabled: true, sceneDrawable));
+            using var compositor = new SceneCompositor(parentScene) { ForceOriginalSource = true };
+
+            compositor.EvaluateGraphics(TimeSpan.FromMilliseconds(500));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(capture.CapturedContexts, Has.Count.EqualTo(1));
+                Assert.That(capture.CapturedContexts[0].PreferProxy, Is.False);
+            });
+        }
+        finally
+        {
+            GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode = original;
+            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+        }
+    }
+
+    [Test]
+    public void EvaluateAudio_ExportForceOriginal_PropagatesIntoReferencedSceneSound()
+    {
+        string basePath = GetTempPath();
+        PreviewSourceMode original = GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode;
+        try
+        {
+            GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode = PreviewSourceMode.PreferProxy;
+            Scene childScene = CreateScene(basePath);
+            Scene parentScene = CreateScene(basePath);
+            var sceneSound = new SceneSound();
+            sceneSound.ReferencedScene.CurrentValue = childScene;
+            parentScene.Children.Add(CreateElement(basePath, isEnabled: true, sceneSound));
+            using var compositor = new SceneCompositor(parentScene) { ForceOriginalSource = true };
+
+            CompositionFrame frame = compositor.EvaluateAudio(
+                new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)));
+
+            var resource = (SceneSound.Resource)frame.Objects[0];
+            Assert.Multiple(() =>
+            {
+                Assert.That(resource._compositor, Is.Not.Null);
+                Assert.That(resource._compositor!.ForceOriginalSource, Is.True);
+            });
+        }
+        finally
+        {
+            GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode = original;
+            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+        }
+    }
+
     [Beutl.Engine.SuppressResourceClassGeneration]
     private class TestGraphicsObject : EngineObject
     {

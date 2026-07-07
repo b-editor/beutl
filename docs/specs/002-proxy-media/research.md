@@ -10,8 +10,8 @@ Phase 0 resolves the open items left after `/speckit-clarify` so that Phase 1 (c
 
 **Decision**: The spec-level assumption holds — preview and export video decode paths are distinct and meet only at `DecoderRegistry.OpenMediaFile(file, options)`. The route the spec is asking for is implemented by adding a new boolean `PreferProxy` to `MediaOptions`, threading it through `VideoSource.Resource.Update` (the current video site that constructs `MediaOptions`), and consulting a registered `IProxyResolver` inside `DecoderRegistry.OpenMediaFile` only when that flag is true.
 
-- The **preview** `SceneCompositor` seeds the render context's `PreferProxy` from `Scene.PreviewSourceMode`; `VideoSource.Resource.Update` reads it when constructing `new(MediaMode.Video)` — the sole video `MediaOptions` site (`src/Beutl.Engine/Media/Source/VideoSource.cs`). (`SceneRenderer` / `SceneComposer` do **not** construct `MediaOptions`; the compositor's `CompositionContext` is the seam, as a sibling to the existing `DisableResourceShare` init-property — `src/Beutl.Engine/Composition/CompositionContext.cs`, `src/Beutl.ProjectSystem/SceneCompositor.cs`.)
-- The **export** `SceneCompositor` (the one inside the `SceneRenderer` that `OutputViewModel` builds with `disableResourceShare: true`) MUST NOT seed `PreferProxy` from `Scene.PreviewSourceMode`, so the context default `false` holds and every export `MediaOptions` is `PreferProxy = false`, **always**, regardless of project setting. This is the safety floor for FR-002 / FR-004.
+- The **preview** `SceneCompositor` seeds the render context's `PreferProxy` from the editor-wide `EditorConfig.PreviewSourceMode` (originally specified on `Scene`; see the R-8 supersession note); `VideoSource.Resource.Update` reads it when constructing `new(MediaMode.Video)` — the sole video `MediaOptions` site (`src/Beutl.Engine/Media/Source/VideoSource.cs`). (`SceneRenderer` / `SceneComposer` do **not** construct `MediaOptions`; the compositor's `CompositionContext` is the seam, as a sibling to the existing `DisableResourceShare` init-property — `src/Beutl.Engine/Composition/CompositionContext.cs`, `src/Beutl.ProjectSystem/SceneCompositor.cs`.)
+- The **export** `SceneCompositor` (the one inside the `SceneRenderer` that `OutputViewModel` builds with `disableResourceShare: true`) MUST NOT seed `PreferProxy` from the preview source mode, so the context default `false` holds and every export `MediaOptions` is `PreferProxy = false`, **always**, regardless of project setting. This is the safety floor for FR-002 / FR-004.
 
 **Rationale**: `DecoderRegistry.OpenMediaFile` is the only public choke point through which video media open requests pass; intercepting there guarantees consistent behavior without sprinkling proxy-awareness across decoder implementations. `MediaOptions` already exists as the per-open parameter bag, so adding one boolean is the minimum-surface change. Keeping the export context explicitly unable to seed `PreferProxy = true` prevents future regressions: a `git grep PreferProxy` must show both the preview seeding site and the export-safety test seam.
 
@@ -177,6 +177,8 @@ Phase 0 resolves the open items left after `/speckit-clarify` so that Phase 1 (c
 
 ## R-8: Project-level `PreviewSourceMode` storage and propagation
 
+> **Superseded (2026-07)**: the toggle shipped on the global `EditorConfig` (`settings.json`, `"Editor"` section) instead of `Scene`, shared across all scenes — a user-confirmed design decision recorded in plan.md and data-model.md. The propagation seam below (compositor context → `VideoSource.Resource.Update`) is unchanged; only the storage location moved. The original decision text is preserved for history.
+
 **Decision**: Add `PreviewSourceMode PreviewSourceMode { get; set; }` to `Scene` with default `PreferProxy`. Persisted in the existing `Scene` JSON via the existing serialization pipeline. The preview `SceneCompositor` reads it while seeding `CompositionContext.PreferProxy`, and `VideoSource.Resource.Update` copies that context value into the `MediaOptions` it constructs.
 
 **Rationale**: `Scene` is already the per-project state object and is already serialized. Putting the toggle there is the smallest possible change and matches how `TimelineOptions` is stored. A project-level (not global) toggle matches the user's mental model — different projects can have different needs (color-grading project wants `ForceOriginal`, rough-cut wants `PreferProxy`).
@@ -192,7 +194,7 @@ Phase 0 resolves the open items left after `/speckit-clarify` so that Phase 1 (c
 
 **Decision**: Two UI surfaces in MVP:
 
-1. **Project Settings → "Preview source" toggle** (radio: Proxy / Original) — bound to `Scene.PreviewSourceMode`.
+1. **Settings → "Preview source" toggle** (radio: Proxy / Original) — bound to the editor-wide `EditorConfig.PreviewSourceMode` (shipped location; originally planned on `Scene`).
 2. **New tool tab: "Proxies"** — implemented as a `ToolTabExtension` registered via the existing extensibility surface. Contents: per-project clip list with proxy state badge (None / Generating / Ready / Stale / Failed), action buttons (Generate / Regenerate / Delete) for selection, current/pending job list with progress bars, current store totals (per-project size, global size, % of cap), "Delete all for this project" button.
 
 A small per-clip badge on the timeline strip is captured as a stretch goal and left for `/speckit-tasks` to slot.
@@ -230,7 +232,7 @@ A small per-clip badge on the timeline strip is captured as a stretch goal and l
 | Preset shape | R-5: 3 H.264 presets (Half / Quarter default / Eighth) |
 | On-disk layout | R-6: store root with `index.json` + per-source subdirs |
 | Queue implementation | R-7: `Channel<ProxyJob>` with bounded capacity, single consumer |
-| Project toggle storage | R-8: `Scene.PreviewSourceMode` |
+| Preview toggle storage | R-8 (superseded): shipped as global `EditorConfig.PreviewSourceMode` |
 | UI surface | R-9: project settings toggle + new Proxies tool tab |
 | FFmpeg-missing UX | R-10: reuse existing install prompt; jobs stay queued |
 | 003 integration (logical-size seam, supply density, `MediaOptions` shape) | R-11: proxy = lower-density supply, same logical footprint; sizes on `ProxyResolution`, `PreferProxy` stays a bool toggle |

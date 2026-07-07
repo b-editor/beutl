@@ -342,7 +342,7 @@ public sealed class ElementViewModelProxyStateTests
     {
         public int MaxConcurrency => 1;
 
-        public ValueTask<ProxyJob> EnqueueAsync(ProxyFingerprint source, ProxyPreset preset, CancellationToken cancellationToken = default)
+        public ValueTask<ProxyJob> EnqueueAsync(ProxyFingerprint source, ProxyPreset preset, int priority = 0, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 
         public IReadOnlyList<ProxyJob> Pending() => pending;

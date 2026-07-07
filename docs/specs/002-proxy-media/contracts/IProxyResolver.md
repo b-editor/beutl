@@ -33,6 +33,14 @@ public interface IProxyResolver
     /// </summary>
     /// <returns>An opaque pin handle; dispose it after the proxy MediaReader is disposed.</returns>
     IDisposable Pin(ProxyResolution resolution);
+
+    /// <summary>
+    /// True while at least one decode-lifetime pin (see Pin) is held for the file. On the
+    /// interface so an IProxyResolver-dependent eviction service honors a custom resolver's
+    /// pins — otherwise swapping DecoderRegistry.ProxyResolver would leave a custom
+    /// resolver's proxies unprotected.
+    /// </summary>
+    bool IsPinned(string absoluteProxyFilePath);
 }
 
 /// <summary>
@@ -77,7 +85,7 @@ public sealed record ProxyResolution(
 
 ## Behavior contract
 
-1. **Resolution policy — densest-wins.** `preferredPreset` is a *generation-time floor* (which fidelity to encode when a proxy is requested), **not** a resolve-time selection cap. `Resolve` enumerates this source's presets densest-first and returns the first whose `Ready` entry has a matching, present proxy file; the densest usable proxy therefore always wins, and a deliberately generated denser per-clip proxy is never downgraded to the global default. If none is usable, return `null` — caller falls back to the original. **The returned `ProxyDecodedFrameSize` / `SupplyDensity` reflect the *actually-resolved* preset** (e.g. a `Half` proxy resolved for a `Quarter` request reports the `Half` density), so the 003 pipeline sees the real supply density; `OriginalLogicalFrameSize` is always the original source's footprint regardless of preset. `SupplyDensity` is always computed from the actual `ProxyDecodedFrameSize / OriginalLogicalFrameSize` — it is **not** exactly the preset's nominal factor, because the R-5 long-edge clamps (e.g. `Quarter` caps the long edge at 1280 px) and integer `PixelSize` rounding shift the realized ratio (an 8K source's `Quarter` proxy decodes to 1280 px ⇒ density ≈ `0.167`, not `0.25`).
+1. **Resolution policy — densest-within-cap, densest-overall fallback.** `preferredPreset` acts as a *resolve-time density cap* in addition to its generation-time meaning: `Resolve` evaluates every preset's `Ready` entry with a matching, present proxy file and returns the densest one whose **actual decoded density** does not exceed the cap (ranking by realized density, not the preset's nominal scale, so long-edge-clamped large sources rank by the file that exists). If no usable proxy fits under the cap, the densest usable proxy overall is returned instead — denser-than-requested is still cheaper than decoding the original. If none is usable at all, return `null` — caller falls back to the original. **The returned `ProxyDecodedFrameSize` / `SupplyDensity` reflect the *actually-resolved* preset** (e.g. a `Half` proxy resolved for a `Quarter` request reports the `Half` density), so the 003 pipeline sees the real supply density; `OriginalLogicalFrameSize` is always the original source's footprint regardless of preset. `SupplyDensity` is always computed from the actual `ProxyDecodedFrameSize / OriginalLogicalFrameSize` — it is **not** exactly the preset's nominal factor, because the R-5 long-edge clamps (e.g. `Quarter` caps the long edge at 1280 px) and integer `PixelSize` rounding shift the realized ratio (an 8K source's `Quarter` proxy decodes to 1280 px ⇒ density ≈ `0.167`, not `0.25`).
 2. **Size population (post-003)**: every non-null `ProxyResolution` MUST carry `OriginalLogicalFrameSize` (the original source `FrameSize`, captured at generation time and stored in the proxy metadata) and `ProxyDecodedFrameSize` (read from the proxy file's own header / the stored metadata). These are what let the source layer keep the logical footprint fixed and report `EffectiveScale.At(SupplyDensity)` (FR-021/FR-022). `Resolve` does not need to open the original file to obtain `OriginalLogicalFrameSize` — it is persisted in the proxy's `meta.json` sidecar at generation time (R-6).
 3. **Pin handles**: `Pin(resolution)` must be called *before* `OpenMediaFile` on the proxy path; releasing the handle (Dispose) removes the pin. `ProxyEvictionService` consults the pin set on every eviction sweep and skips pinned proxies.
 4. **Touch on resolve**: a successful `Resolve` MUST touch `LastUsedUtc` via `IProxyStore.Touch`. This keeps the LRU eviction policy aligned with actual use.

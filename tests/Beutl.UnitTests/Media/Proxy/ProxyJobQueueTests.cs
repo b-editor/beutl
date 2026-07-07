@@ -38,9 +38,14 @@ public class ProxyJobQueueTests
 
         ProxyJob first = await queue.EnqueueAsync(source, ProxyPreset.Quarter);
         ProxyJob second = await queue.EnqueueAsync(source, ProxyPreset.Quarter);
-
-        Assert.That(second, Is.SameAs(first));
         generator.Release();
+        await WaitForTerminalAsync(first);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(second, Is.SameAs(first));
+            Assert.That(generator.StartedCount, Is.EqualTo(1), "a deduplicated enqueue must not run the generator twice");
+        });
     }
 
     [Test]
@@ -91,6 +96,7 @@ public class ProxyJobQueueTests
         await WaitForTerminalAsync(job);
 
         Assert.DoesNotThrow(() => queue.Cancel(job.JobId));
+        Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Succeeded), "a late Cancel must not overwrite the terminal state");
     }
 
     [Test]
@@ -566,7 +572,7 @@ public class ProxyJobQueueTests
         await queue.EnqueueAsync(CreateFingerprint("write-canceled-buffered.mov"), ProxyPreset.Quarter);
 
         using var cts = new CancellationTokenSource();
-        ValueTask<ProxyJob> blocked = queue.EnqueueAsync(blockedSource, ProxyPreset.Quarter, cts.Token);
+        ValueTask<ProxyJob> blocked = queue.EnqueueAsync(blockedSource, ProxyPreset.Quarter, cancellationToken: cts.Token);
         cts.Cancel();
 
         Assert.CatchAsync<OperationCanceledException>(async () => await blocked);
@@ -678,9 +684,89 @@ public class ProxyJobQueueTests
         }
     }
 
+    [Test]
+    public async Task JobChanged_ThrowingSubscriber_DoesNotKillQueueOrStarveOtherSubscribers()
+    {
+        var generator = new RecordingGenerator();
+        await using var queue = new ProxyJobQueue(generator);
+        var seenKinds = new List<(ProxyJob Job, ProxyJobChangeKind Kind)>();
+        queue.JobChanged += (_, _) => throw new InvalidOperationException("bad subscriber");
+        queue.JobChanged += (_, e) =>
+        {
+            lock (seenKinds)
+            {
+                seenKinds.Add((e.Job, e.Kind));
+            }
+        };
+
+        ProxyJob first = await queue.EnqueueAsync(CreateFingerprint("subscriber-a.mov"), ProxyPreset.Quarter);
+        ProxyJob second = await queue.EnqueueAsync(CreateFingerprint("subscriber-b.mov"), ProxyPreset.Quarter);
+
+        // Wait on the recorded events, not job status: Status turns Succeeded before the
+        // Succeeded notification fans out, so a status poll can win the race.
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        while (true)
+        {
+            lock (seenKinds)
+            {
+                if (seenKinds.Contains((first, ProxyJobChangeKind.Succeeded))
+                    && seenKinds.Contains((second, ProxyJobChangeKind.Succeeded)))
+                {
+                    break;
+                }
+            }
+
+            await Task.Delay(10, cts.Token);
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.Status, Is.EqualTo(ProxyJobStatus.Succeeded));
+            Assert.That(second.Status, Is.EqualTo(ProxyJobStatus.Succeeded));
+        });
+    }
+
+    [Test]
+    public async Task GeneratorThrowsOceWithoutCancellation_ReportsFailedNotCanceled()
+    {
+        await using var queue = new ProxyJobQueue(new OceThrowingGenerator());
+        ProxyFingerprint source = CreateFingerprint("spurious-oce.mov");
+
+        ProxyJob job = await queue.EnqueueAsync(source, ProxyPreset.Quarter);
+        await WaitForTerminalAsync(job);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Failed));
+            Assert.That(job.Error, Is.InstanceOf<OperationCanceledException>());
+        });
+    }
+
+    [Test]
+    public async Task LazyProviderThrows_FailsJobInsteadOfKillingDrainLoop()
+    {
+        await using var queue = new ProxyJobQueue(
+            (Func<IProxyGenerator?>)(() => throw new InvalidOperationException("provider fault")),
+            store: null);
+
+        ProxyJob first = await queue.EnqueueAsync(CreateFingerprint("provider-a.mov"), ProxyPreset.Quarter);
+        await WaitForTerminalAsync(first);
+        ProxyJob second = await queue.EnqueueAsync(CreateFingerprint("provider-b.mov"), ProxyPreset.Quarter);
+        await WaitForTerminalAsync(second);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.Status, Is.EqualTo(ProxyJobStatus.Failed));
+            Assert.That(second.Status, Is.EqualTo(ProxyJobStatus.Failed));
+            Assert.That(second.Error, Is.InstanceOf<InvalidOperationException>());
+        });
+    }
+
     private static async Task WaitForTerminalAsync(ProxyJob job)
     {
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        // 10 s: generous against the suite's worst observed scheduling stall — the queue logic
+        // under test completes in tens of milliseconds.
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         while (!cts.IsCancellationRequested
                && job.Status is not (ProxyJobStatus.Succeeded or ProxyJobStatus.Failed or ProxyJobStatus.Canceled or ProxyJobStatus.Skipped))
         {
@@ -752,16 +838,22 @@ public class ProxyJobQueueTests
 
         public Task WaitForCountAsync(int count)
         {
-            return count == 2 ? _two.Task.WaitAsync(TimeSpan.FromSeconds(5)) : Task.CompletedTask;
+            return count == 2
+                ? _two.Task.WaitAsync(TimeSpan.FromSeconds(5))
+                : throw new ArgumentOutOfRangeException(nameof(count), "This fixture only supports waiting for exactly 2 generations.");
         }
     }
 
     private sealed class BlockingGenerator : IProxyGenerator
     {
         private readonly TaskCompletionSource _release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int _startedCount;
+
+        public int StartedCount => Volatile.Read(ref _startedCount);
 
         public async ValueTask GenerateAsync(ProxyJob job)
         {
+            Interlocked.Increment(ref _startedCount);
             await _release.Task.WaitAsync(job.CancellationToken);
         }
 
@@ -769,6 +861,12 @@ public class ProxyJobQueueTests
         {
             _release.TrySetResult();
         }
+    }
+
+    private sealed class OceThrowingGenerator : IProxyGenerator
+    {
+        public ValueTask GenerateAsync(ProxyJob job)
+            => throw new OperationCanceledException("internal token, not the job's");
     }
 
     private sealed class SkippingGenerator : IProxyGenerator

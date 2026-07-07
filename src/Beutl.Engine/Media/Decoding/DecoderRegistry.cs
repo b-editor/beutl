@@ -1,10 +1,14 @@
 ﻿using Beutl.Configuration;
+using Beutl.Logging;
 using Beutl.Media.Proxy;
+
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.Media.Decoding;
 
 public static class DecoderRegistry
 {
+    private static readonly ILogger s_logger = Log.CreateLogger("DecoderRegistry");
     private static readonly List<IDecoderInfo> s_registered = [];
     private static readonly List<IDecoderInfo> s_ordered = [];
     private static readonly object s_lock = new();
@@ -71,8 +75,12 @@ public static class DecoderRegistry
                     }
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                s_logger.LogWarning(
+                    ex,
+                    "Proxy resolution or open failed for '{File}'; falling back to the original media.",
+                    file);
             }
 
             pin?.Dispose();
