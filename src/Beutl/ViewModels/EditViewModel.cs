@@ -981,6 +981,9 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         if (serviceType == typeof(ProxyEvictionService))
             return ProxyMediaServices.Current?.EvictionService;
 
+        if (serviceType.IsAssignableTo(typeof(IProxyEvictionPolicy)))
+            return ProxyMediaServices.Current?.EvictionService;
+
         return null;
     }
 

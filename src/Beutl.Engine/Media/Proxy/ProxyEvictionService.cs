@@ -1,6 +1,6 @@
 ﻿namespace Beutl.Media.Proxy;
 
-public sealed class ProxyEvictionService
+public sealed class ProxyEvictionService : IProxyEvictionPolicy
 {
     private static readonly IReadOnlySet<string> s_noProtectedSources = new HashSet<string>();
 
@@ -15,6 +15,8 @@ public sealed class ProxyEvictionService
     private readonly Func<IReadOnlySet<string>>? _openProjectSourceProvider;
     private readonly Func<string, long?>? _availableFreeSpaceProvider;
     private readonly Func<IReadOnlySet<(ProxyFingerprint Source, ProxyPreset Preset)>>? _activeGenerationProvider;
+
+    public long MaxTotalBytes => _maxTotalBytes;
 
     /// <param name="openProjectSourceProvider">
     /// Returns the absolute paths of media files referenced by the currently-open project so

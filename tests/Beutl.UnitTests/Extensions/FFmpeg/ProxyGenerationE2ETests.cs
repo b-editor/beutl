@@ -233,6 +233,46 @@ public sealed class ProxyGenerationE2ETests
     }
 
     [Test]
+    public async Task PublishAsync_WhenMetadataBackupFails_StillRegistersMovedProxy()
+    {
+        string root = CreateRoot();
+        var store = new CountingStore(root, failuresBeforeSuccess: 0);
+        var generator = new FFmpegProxyGenerator(store);
+        string source = Path.Combine(root, "src.mov");
+        File.WriteAllBytes(source, [1, 2, 3, 4]);
+        ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(source);
+        string tempPath = Path.Combine(root, "tmp.mov");
+        string finalPath = Path.Combine(root, "hash", "quarter.mp4");
+        Directory.CreateDirectory(Path.GetDirectoryName(finalPath)!);
+        File.WriteAllBytes(tempPath, [9, 9, 9, 9, 9]);
+        File.WriteAllText(Path.Combine(Path.GetDirectoryName(finalPath)!, "meta.json"), "{}");
+        var job = new ProxyJob(fingerprint, ProxyPreset.Quarter);
+
+        await generator.PublishAsync(
+            tempPath,
+            finalPath,
+            job,
+            "hash/quarter.mp4",
+            new PixelSize(64, 48),
+            new PixelSize(32, 24),
+            CancellationToken.None,
+            static (src, dest) =>
+            {
+                File.Move(src, dest, overwrite: true);
+                return true;
+            },
+            static _ => throw new IOException("sidecar locked"));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.Exists(finalPath), Is.True);
+            Assert.That(store.LastRegistered, Is.Not.Null);
+            Assert.That(store.LastRegistered!.Source, Is.EqualTo(fingerprint));
+            Assert.That(store.LastRegistered.Preset, Is.EqualTo(ProxyPreset.Quarter));
+        });
+    }
+
+    [Test]
     public void PublishAsync_CanceledDuringRegisterRetry_RemovesMovedArtifactAndSidecar()
     {
         string root = CreateRoot();

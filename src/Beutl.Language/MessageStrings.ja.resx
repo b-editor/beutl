@@ -219,6 +219,9 @@
   <data name="FailedToLoadScript" xml:space="preserve">
     <value>スクリプトの読み込みに失敗しました。</value>
   </data>
+  <data name="ExportMissingSourceFile" xml:space="preserve">
+    <value>参照元ファイルが見つからないためエクスポートを開始できません: {0}（欠落 {1} 件）</value>
+  </data>
   <data name="ApplicationRestartRequired" xml:space="preserve">
     <value>アプリケーションの再起動が必要です。
 再起動しますか？</value>

@@ -216,7 +216,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             EventHandler<ProxyJobChangedEventArgs> jobHandler = (_, e) =>
             {
                 if (AffectsProxyIndicator(e.Kind))
-                    OnProxyStateInvalidated();
+                    OnProxyStateInvalidated(e);
             };
             _proxyJobQueue.JobChanged += jobHandler;
             Disposable.Create(() => _proxyJobQueue.JobChanged -= jobHandler).AddTo(_disposables);
@@ -230,7 +230,21 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             .Subscribe(_ => RefreshProxyState(invalidateFingerprintCache: true))
             .AddTo(_disposables);
 
-        RefreshProxyState();
+        RefreshProxyState(invalidateFingerprintCache: true);
+    }
+
+    private void OnProxyStateInvalidated(ProxyJobChangedEventArgs e)
+    {
+        if (!Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => OnProxyStateInvalidated(e));
+            return;
+        }
+
+        if (!ElementUsesChangedSource(Model, e.Job.Source.AbsolutePath))
+            return;
+
+        RefreshProxyState(invalidateFingerprintCache: true);
     }
 
     private void InitializeThumbnails()

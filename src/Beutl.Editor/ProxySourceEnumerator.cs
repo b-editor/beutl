@@ -38,15 +38,24 @@ public static class ProxySourceEnumerator
     /// <see cref="EngineObject"/>). Paths are deduped with <see cref="StringComparer.Ordinal"/>.
     /// </summary>
     public static IReadOnlySet<string> EnumerateFileSources(IHierarchical root)
+        => EnumerateFileSources(root, includeObjectUris: true);
+
+    /// <summary>
+    /// Collects media file paths while excluding project document URIs such as scene and layer files.
+    /// </summary>
+    public static IReadOnlySet<string> EnumerateMediaFileSources(IHierarchical root)
+        => EnumerateFileSources(root, includeObjectUris: false);
+
+    private static IReadOnlySet<string> EnumerateFileSources(IHierarchical root, bool includeObjectUris)
     {
         ArgumentNullException.ThrowIfNull(root);
 
         var paths = new HashSet<string>(StringComparer.Ordinal);
         foreach (CoreObject obj in root.EnumerateAllChildren<CoreObject>())
-            CollectFileSourcePaths(obj, paths);
+            CollectFileSourcePaths(obj, paths, includeObjectUris);
 
         if (root is CoreObject rootObj)
-            CollectFileSourcePaths(rootObj, paths);
+            CollectFileSourcePaths(rootObj, paths, includeObjectUris);
 
         // The broad IFileSource walk above cannot see VideoSource values held in NodeGraph adapters
         // (a VideoSourceNode port is an IPropertyAdapter, not a plain IProperty on EngineObject.Properties),
@@ -63,7 +72,7 @@ public static class ProxySourceEnumerator
         return paths;
     }
 
-    private static void CollectFileSourcePaths(CoreObject obj, HashSet<string> paths)
+    private static void CollectFileSourcePaths(CoreObject obj, HashSet<string> paths, bool includeObjectUri)
     {
         if (obj is EngineObject engineObj)
         {
@@ -86,7 +95,8 @@ public static class ProxySourceEnumerator
             }
         }
 
-        AddFileSourcePath(obj.Uri, paths);
+        if (includeObjectUri)
+            AddFileSourcePath(obj.Uri, paths);
 
         foreach (CoreProperty prop in PropertyRegistry.GetRegistered(obj.GetType()))
         {

@@ -95,7 +95,8 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
         PixelSize originalSize,
         PixelSize proxySize,
         CancellationToken ct,
-        Func<string, string, bool>? moveAttempt = null)
+        Func<string, string, bool>? moveAttempt = null,
+        Func<string, string?>? metadataBackupAttempt = null)
     {
         ct.ThrowIfCancellationRequested();
 
@@ -128,7 +129,7 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
                 now,
                 null);
 
-            metadataBackupPath = CopyExistingFileToBackup(GetMetadataPath(finalPath));
+            metadataBackupPath = TryCopyExistingFileToBackup(GetMetadataPath(finalPath), metadataBackupAttempt);
             await FinalizeAsync(finalPath, entry, ct);
             committed = true;
         }
@@ -325,6 +326,19 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
         string backupPath = CreateBackupPathForOutput(path);
         File.Copy(path, backupPath, overwrite: false);
         return backupPath;
+    }
+
+    private static string? TryCopyExistingFileToBackup(string path, Func<string, string?>? copyAttempt = null)
+    {
+        try
+        {
+            return (copyAttempt ?? CopyExistingFileToBackup)(path);
+        }
+        catch (Exception ex)
+        {
+            s_logger.LogWarning(ex, "Failed to back up proxy sidecar metadata at {Path}; continuing with index registration.", path);
+            return null;
+        }
     }
 
     private static string GetMetadataPath(string finalPath)

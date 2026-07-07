@@ -146,8 +146,9 @@ public sealed class ElementViewModelProxyStateTests
     {
         string otherPath = Path.Combine(Path.GetTempPath(), "proxy-badge-clip-2.mov");
         ProxyFingerprint first = Fingerprint(size: 1000);
+        ProxyFingerprint second = new(otherPath, 500, DateTime.UtcNow);
         Func<Uri, ProxyFingerprint?> stat = u =>
-            u.LocalPath == s_path ? first : new ProxyFingerprint(otherPath, 500, DateTime.UtcNow);
+            u.LocalPath == s_path ? first : second;
 
         string? cachedKey = null;
         IReadOnlyList<ProxyFingerprint> cached = [];
@@ -156,7 +157,7 @@ public sealed class ElementViewModelProxyStateTests
         IReadOnlyList<ProxyFingerprint> resolved = ElementViewModel.ResolveCachedFingerprints(
             [new Uri(s_path), new Uri(otherPath)], false, ref cachedKey, ref cached, stat);
 
-        Assert.That(resolved, Has.Count.EqualTo(2));
+        Assert.That(resolved, Is.EqualTo(new[] { first, second }));
     }
 
     [Test]

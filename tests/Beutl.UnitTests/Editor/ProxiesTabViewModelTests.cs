@@ -68,6 +68,20 @@ public sealed class ProxiesTabViewModelTests
     }
 
     [Test]
+    public void Refresh_UsesRunningEvictionCapForStoreCapDisplay()
+    {
+        string root = CreateRoot();
+        string sourcePath = CreateSourceFile(root, "clip.mov", 2048);
+        var store = new ProxyStore(Path.Combine(root, "proxies"));
+        var context = CreateContext(root, store, sourcePath);
+        context.AddService<IProxyEvictionPolicy>(new TestProxyEvictionPolicy(12L * 1024 * 1024 * 1024));
+
+        using var viewModel = new ProxiesTabViewModel(context);
+
+        Assert.That(viewModel.StoreCapText.Value, Is.EqualTo("12 GB"));
+    }
+
+    [Test]
     public void Refresh_SeparatesStaleAndMissingClips()
     {
         string root = CreateRoot();
@@ -967,5 +981,10 @@ public sealed class ProxiesTabViewModelTests
         }
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+
+    private sealed class TestProxyEvictionPolicy(long maxTotalBytes) : IProxyEvictionPolicy
+    {
+        public long MaxTotalBytes { get; } = maxTotalBytes;
     }
 }

@@ -4,6 +4,7 @@ using System.Reactive.Subjects;
 using System.Text.Json.Nodes;
 using Avalonia.Platform.Storage;
 using Beutl.Api.Services;
+using Beutl.Editor;
 using Beutl.Editor.Services;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
@@ -230,6 +231,23 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             _logger.LogWarning(
                 "Encoding blocked: supersampling factor {Factor} exceeds the device buffer limit for frame size {FrameSize}.",
                 SupersampleFactor.Value, Model.FrameSize);
+            return;
+        }
+
+        IReadOnlyList<string> missingSources = ExportSourceValidator.GetMissingFileSources(Model);
+        if (missingSources.Count > 0)
+        {
+            string message = string.Format(
+                System.Globalization.CultureInfo.CurrentCulture,
+                MessageStrings.ExportMissingSourceFile,
+                missingSources[0],
+                missingSources.Count);
+            ProgressText.Value = message;
+            NotificationService.ShowError(MessageStrings.OutputException, message);
+            _logger.LogWarning(
+                "Encoding blocked because {MissingSourceCount} referenced source file(s) are missing. First missing source: {MissingSource}",
+                missingSources.Count,
+                missingSources[0]);
             return;
         }
 

@@ -105,7 +105,7 @@
 
         <Grid Grid.Row="1"
               Margin="10"
-              RowDefinitions="Auto,Auto,*"
+              RowDefinitions="Auto,Auto,Auto,*"
               RowSpacing="10">
             <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
                 <Border Padding="10,8" Classes="CardStyle">
@@ -175,7 +175,17 @@
                 </Button>
             </Grid>
 
-            <Grid Grid.Row="2" RowDefinitions="Auto,*" RowSpacing="6">
+            <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <TextBlock Classes="subtle"
+                           Text="{Binding StatusMessage.Value}"
+                           TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="1"
+                           Classes="subtle"
+                           Text="{Binding JobSummary.Value}"
+                           TextTrimming="CharacterEllipsis" />
+            </Grid>
+
+            <Grid Grid.Row="3" RowDefinitions="Auto,*" RowSpacing="6">
                 <Grid ColumnDefinitions="*,Auto">
                     <TextBlock Classes="sectionHeader" Text="{x:Static lang:Strings.ProxyClips}" />
                     <TextBlock Grid.Column="1"

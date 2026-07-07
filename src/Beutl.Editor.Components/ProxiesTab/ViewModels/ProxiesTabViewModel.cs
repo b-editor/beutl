@@ -47,6 +47,7 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
     private readonly Scene _scene;
     private readonly IProxyStore? _store;
     private readonly IProxyJobQueue? _queue;
+    private readonly IProxyEvictionPolicy? _evictionPolicy;
     private readonly ProxyStoreConfig _config;
     private bool _isDisposed;
 
@@ -55,6 +56,7 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
         _scene = editorContext.GetService<Scene>()!;
         _store = editorContext.GetService<IProxyStore>();
         _queue = editorContext.GetService<IProxyJobQueue>();
+        _evictionPolicy = editorContext.GetService<IProxyEvictionPolicy>();
         _config = GlobalConfiguration.Instance.ProxyStoreConfig;
 
         ClipSummary = new ReactiveProperty<string>()
@@ -591,7 +593,7 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
         long totalBytes = _store.GetTotalBytes();
         ProjectUsageText.Value = FormatBytes(projectBytes);
         StoreUsageText.Value = FormatBytes(totalBytes);
-        StoreCapText.Value = FormatBytes(_config.MaxTotalBytes);
+        StoreCapText.Value = FormatBytes(_evictionPolicy?.MaxTotalBytes ?? _config.MaxTotalBytes);
         StoreSummary.Value = string.Format(
             CultureInfo.CurrentCulture,
             Strings.ProxyStoreSummaryFormat,
