@@ -109,31 +109,47 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
             throw new OperationCanceledException(ct);
         }
 
-        // The encoded proxy is now on disk at finalPath and is valid. A failure in the metadata /
-        // registration step below must never delete it — the artifact is re-registerable, so a
-        // recoverable failure is surfaced instead of destroying it.
-        long fileSize = new FileInfo(finalPath).Length;
-        var now = DateTime.UtcNow;
-        var entry = new ProxyEntry(
-            job.Source,
-            job.Preset,
-            ProxyState.Ready,
-            relative,
-            fileSize,
-            originalSize,
-            proxySize,
-            now,
-            now,
-            null);
+        ProxyEntry? entry = null;
+        try
+        {
+            ct.ThrowIfCancellationRequested();
 
-        await FinalizeAsync(finalPath, entry);
+            // The encoded proxy is now on disk at finalPath and is valid. A failure in the metadata /
+            // registration step below must never delete it — the artifact is re-registerable, so a
+            // recoverable failure is surfaced instead of destroying it.
+            long fileSize = new FileInfo(finalPath).Length;
+            ct.ThrowIfCancellationRequested();
+
+            var now = DateTime.UtcNow;
+            entry = new ProxyEntry(
+                job.Source,
+                job.Preset,
+                ProxyState.Ready,
+                relative,
+                fileSize,
+                originalSize,
+                proxySize,
+                now,
+                now,
+                null);
+
+            await FinalizeAsync(finalPath, entry, ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            if (entry != null)
+                RemoveMetadataEntry(finalPath, entry);
+            TryDelete(finalPath);
+            throw;
+        }
     }
 
-    internal async Task FinalizeAsync(string finalPath, ProxyEntry entry)
+    internal async Task FinalizeAsync(string finalPath, ProxyEntry entry, CancellationToken ct = default)
     {
         // The proxy is already encoded and moved to finalPath; a sidecar-write failure (e.g. a
         // transient lock/permission error) must not skip the index registration, or the ready proxy
         // would be neither indexed nor recoverable from a sidecar and would later look like an orphan.
+        ct.ThrowIfCancellationRequested();
         try
         {
             WriteMetadata(finalPath, entry);
@@ -145,14 +161,16 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
             s_logger.LogWarning(ex, "Failed to write proxy sidecar metadata at {Path}", finalPath);
         }
 
-        await RegisterWithRetryAsync(entry);
+        ct.ThrowIfCancellationRequested();
+        await RegisterWithRetryAsync(entry, ct);
     }
 
-    private async Task RegisterWithRetryAsync(ProxyEntry entry)
+    private async Task RegisterWithRetryAsync(ProxyEntry entry, CancellationToken ct)
     {
         const int maxAttempts = 3;
         for (int attempt = 1; ; attempt++)
         {
+            ct.ThrowIfCancellationRequested();
             try
             {
                 store.Register(entry);
@@ -162,7 +180,7 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
             {
                 // Transient contention (e.g. index-lock) on a valid, already-moved artifact: back off
                 // briefly and retry rather than failing the whole job.
-                await Task.Delay(TimeSpan.FromMilliseconds(25 * attempt));
+                await Task.Delay(TimeSpan.FromMilliseconds(25 * attempt), ct);
             }
         }
     }
@@ -280,6 +298,35 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
             Entries = [.. entries],
         };
         File.WriteAllText(metadataPath, JsonSerializer.Serialize(metadata, s_jsonOptions));
+    }
+
+    private static void RemoveMetadataEntry(string finalPath, ProxyEntry entry)
+    {
+        try
+        {
+            string metadataPath = Path.Combine(Path.GetDirectoryName(finalPath)!, "meta.json");
+            if (!File.Exists(metadataPath))
+                return;
+
+            ProxyEntry[] entries = ReadMetadataEntries(metadataPath, entry.Source)
+                .Where(existing => existing.Preset != entry.Preset)
+                .ToArray();
+            if (entries.Length == 0)
+            {
+                File.Delete(metadataPath);
+                return;
+            }
+
+            var metadata = new ProxySourceMetadata
+            {
+                Source = entry.Source,
+                Entries = [.. entries],
+            };
+            File.WriteAllText(metadataPath, JsonSerializer.Serialize(metadata, s_jsonOptions));
+        }
+        catch
+        {
+        }
     }
 
     private static IEnumerable<ProxyEntry> ReadMetadataEntries(string metadataPath, ProxyFingerprint source)

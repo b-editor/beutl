@@ -184,17 +184,18 @@ public static class ProxySourceEnumerator
                     break;
 
                 case GroupNode groupNode:
+                    // A group can receive VideoSource values at its outer input boundary per instance.
+                    // Scan those inputs for every GroupNode, even when several instances share the same
+                    // GraphGroup and recursion into the shared inner graph is already guarded.
+                    foreach (VideoSource source in EnumerateGroupNodeInputSources(groupNode))
+                        yield return source;
+
                     // A user-constructed GroupNode can reference a GraphGroup that (transitively)
                     // contains the same GroupNode, producing an infinite walk. The visited set
                     // makes the recursion terminate, mirroring the Scene cycle-break above.
                     if (visitedGraphGroups.Add(groupNode.Group))
                     {
                         foreach (VideoSource source in EnumerateGraphSources(groupNode.Group, visitedGraphGroups))
-                            yield return source;
-
-                        // A group can also receive a VideoSource at its outer input boundary; the render
-                        // path forwards those into the inner graph (GroupInput.Resource.OuterInputValues).
-                        foreach (VideoSource source in EnumerateGroupNodeInputSources(groupNode))
                             yield return source;
                     }
 

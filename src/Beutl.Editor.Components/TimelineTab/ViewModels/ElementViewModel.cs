@@ -9,6 +9,7 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Media.Immutable;
 using Beutl.Animation;
+using Beutl.Configuration;
 using Beutl.Controls;
 using Beutl.Editor;
 using Beutl.Editor.Components.Helpers;
@@ -286,8 +287,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             .ObserveOnUIDispatcher()
             .Subscribe(_ =>
             {
-                if (_lastThumbnailsCacheKey != null)
-                    _thumbnailCacheService.Invalidate(_lastThumbnailsCacheKey);
+                Beutl.Graphics.SourceVideo.InvalidateThumbnailCacheKeys(_thumbnailCacheService, _lastThumbnailsCacheKey);
 
                 UpdateThumbnailsAsync();
             })
@@ -909,12 +909,29 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     private bool PreferProxyForThumbnails => Scene.PreviewSourceMode == PreviewSourceMode.PreferProxy;
 
+    private ProxyPreset PreferredProxyPresetForThumbnails => ToProxyPreset(GlobalConfiguration.Instance.ProxyStoreConfig.DefaultPreset);
+
     private IAsyncEnumerable<(int Index, int Count, Beutl.Media.Bitmap Thumbnail)> GetVideoThumbnailStrip(
         IThumbnailsProvider provider, int width, int height, CancellationToken ct, int start, int end)
     {
         return provider is Beutl.Graphics.SourceVideo video
-            ? video.GetThumbnailStripAsync(width, height, _thumbnailCacheService, ct, start, end, PreferProxyForThumbnails)
+            ? video.GetThumbnailStripAsync(
+                width,
+                height,
+                _thumbnailCacheService,
+                ct,
+                start,
+                end,
+                PreferProxyForThumbnails,
+                PreferredProxyPresetForThumbnails)
             : provider.GetThumbnailStripAsync(width, height, _thumbnailCacheService, ct, start, end);
+    }
+
+    private static ProxyPreset ToProxyPreset(int value)
+    {
+        return Enum.IsDefined(typeof(ProxyPreset), value)
+            ? (ProxyPreset)value
+            : ProxyPreset.Quarter;
     }
 
     private IReadOnlyList<ProxyFingerprint> ResolveProxyFingerprints(bool invalidateCache)

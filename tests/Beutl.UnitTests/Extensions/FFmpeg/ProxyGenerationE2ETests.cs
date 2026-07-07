@@ -233,6 +233,47 @@ public sealed class ProxyGenerationE2ETests
     }
 
     [Test]
+    public void PublishAsync_CanceledDuringRegisterRetry_RemovesMovedArtifactAndSidecar()
+    {
+        string root = CreateRoot();
+        var store = new CountingStore(root, failuresBeforeSuccess: int.MaxValue);
+        var generator = new FFmpegProxyGenerator(store);
+        string source = Path.Combine(root, "src.mov");
+        File.WriteAllBytes(source, [1, 2, 3, 4]);
+        ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(source);
+        string tempPath = Path.Combine(root, "tmp.mov");
+        string finalPath = Path.Combine(root, "hash", "quarter.mp4");
+        Directory.CreateDirectory(Path.GetDirectoryName(finalPath)!);
+        File.WriteAllBytes(tempPath, [9, 9, 9, 9, 9]);
+        var job = new ProxyJob(fingerprint, ProxyPreset.Quarter);
+        using var cts = new CancellationTokenSource();
+        store.RegisterAttempted = _ => cts.Cancel();
+
+        Assert.CatchAsync<OperationCanceledException>(async () =>
+            await generator.PublishAsync(
+                tempPath,
+                finalPath,
+                job,
+                "hash/quarter.mp4",
+                new PixelSize(64, 48),
+                new PixelSize(32, 24),
+                cts.Token,
+                static (src, dest) =>
+                {
+                    File.Move(src, dest, overwrite: true);
+                    return true;
+                }));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.Exists(finalPath), Is.False, "a job canceled during registration must not leave a published proxy file");
+            Assert.That(File.Exists(Path.Combine(Path.GetDirectoryName(finalPath)!, "meta.json")), Is.False, "the sidecar must not let Reconcile adopt a canceled proxy later");
+            Assert.That(store.RegisterAttempts, Is.EqualTo(1));
+            Assert.That(store.LastRegistered, Is.Null);
+        });
+    }
+
+    [Test]
     [TestCase(1920, 1080)]
     [TestCase(1998, 1080)]
     [TestCase(1280, 720)]
@@ -300,6 +341,8 @@ public sealed class ProxyGenerationE2ETests
 
         public ProxyEntry? LastRegistered { get; private set; }
 
+        public Action<int>? RegisterAttempted { get; set; }
+
         public string StoreRootPath => root;
 
         public ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset) => null;
@@ -309,6 +352,7 @@ public sealed class ProxyGenerationE2ETests
         public void Register(ProxyEntry entry)
         {
             RegisterAttempts++;
+            RegisterAttempted?.Invoke(RegisterAttempts);
             if (RegisterAttempts <= failuresBeforeSuccess)
                 throw new InvalidOperationException("index locked");
 

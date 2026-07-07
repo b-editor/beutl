@@ -481,7 +481,7 @@ public class ProxyJobQueueTests
     }
 
     [Test]
-    public async Task LazyProvider_NullThenGenerator_SkipsFirstJobThenRunsSecond()
+    public async Task LazyProvider_NullThenGenerator_RetainsQueuedJobUntilRegistration()
     {
         var generator = new RecordingGenerator();
         int providerCallCount = 0;
@@ -491,27 +491,21 @@ public class ProxyJobQueueTests
             return n == 1 ? null : generator;
         }
 
-        await using var queue = new ProxyJobQueue((Func<IProxyGenerator?>)Provider, store: null);
+        await using var queue = new ProxyJobQueue(
+            (Func<IProxyGenerator?>)Provider,
+            store: null,
+            capacity: 256,
+            minUnavailableBackoff: TimeSpan.FromMilliseconds(20),
+            maxUnavailableBackoff: TimeSpan.FromMilliseconds(40));
         ProxyFingerprint firstSource = CreateFingerprint("lazy-first.mov");
-        ProxyFingerprint secondSource = CreateFingerprint("lazy-second.mov");
 
         ProxyJob firstJob = await queue.EnqueueAsync(firstSource, ProxyPreset.Quarter);
         await WaitForTerminalAsync(firstJob);
 
         Assert.Multiple(() =>
         {
-            Assert.That(firstJob.Status, Is.EqualTo(ProxyJobStatus.Skipped));
-            Assert.That(firstJob.StatusMessage, Is.EqualTo("Proxy generation is not available in this build."));
-        });
-
-        ProxyJob secondJob = await queue.EnqueueAsync(secondSource, ProxyPreset.Quarter);
-        await WaitForTerminalAsync(secondJob);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(secondJob.Status, Is.EqualTo(ProxyJobStatus.Succeeded));
-            Assert.That(generator.Sources, Does.Contain(secondSource));
-            Assert.That(generator.Sources, Does.Not.Contain(firstSource));
+            Assert.That(firstJob.Status, Is.EqualTo(ProxyJobStatus.Succeeded));
+            Assert.That(generator.Sources, Does.Contain(firstSource));
         });
     }
 

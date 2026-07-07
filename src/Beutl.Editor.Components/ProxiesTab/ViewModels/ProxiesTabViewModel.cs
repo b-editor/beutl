@@ -377,15 +377,22 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
         [
             .. _store.Enumerate().Where(entry => projectPaths.Contains(entry.Source.AbsolutePath)),
         ];
-        if (entries.Length == 0)
+        ProxyJob[] projectJobs = _queue == null
+            ? []
+            : [.. _queue.Pending().Where(job => projectPaths.Contains(job.Source.AbsolutePath))];
+        if (entries.Length == 0 && projectJobs.Length == 0)
             return;
 
         if (!await ConfirmDeleteAllForProjectAsync(entries.Length))
             return;
 
+        foreach (ProxyJob job in projectJobs)
+        {
+            _queue?.Cancel(job.JobId);
+        }
+
         foreach (ProxyEntry entry in entries)
         {
-            CancelMatchingJobs(entry.Source, entry.Preset);
             _store.Delete(entry.Source, entry.Preset);
         }
 

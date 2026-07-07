@@ -6,6 +6,7 @@ using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
+using Beutl.Media.Proxy;
 using Beutl.Serialization;
 using Beutl.Threading;
 
@@ -28,9 +29,19 @@ public partial class SourceVideo : IThumbnailsProvider
     {
         if (baseKey is null)
             return;
+        // Keep invalidating the legacy proxy key too; older in-memory strips may have been saved under
+        // it before preset-aware partitioning was introduced.
         cacheService.Invalidate(baseKey + ProxyThumbnailCacheKeySuffix);
+        foreach (ProxyPreset preset in Enum.GetValues<ProxyPreset>())
+        {
+            cacheService.Invalidate(baseKey + GetProxyThumbnailCacheKeySuffix(preset));
+        }
+
         cacheService.Invalidate(baseKey + OriginalThumbnailCacheKeySuffix);
     }
+
+    internal static string GetProxyThumbnailCacheKeySuffix(ProxyPreset preferredProxyPreset)
+        => $"{ProxyThumbnailCacheKeySuffix}:{preferredProxyPreset}";
 
     protected override void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args)
     {
@@ -98,7 +109,8 @@ public partial class SourceVideo : IThumbnailsProvider
         int startIndex = 0,
         int endIndex = -1)
         => GetThumbnailStripAsync(maxWidth, maxHeight, cacheService, cancellationToken, startIndex, endIndex,
-            preferProxy: false);
+            preferProxy: false,
+            preferredProxyPreset: ProxyPreset.Quarter);
 
     // preferProxy false must keep the original decode path byte-identical (shared Default context).
     public async IAsyncEnumerable<(int Index, int Count, Bitmap Thumbnail)> GetThumbnailStripAsync(
@@ -108,14 +120,19 @@ public partial class SourceVideo : IThumbnailsProvider
         [EnumeratorCancellation] CancellationToken cancellationToken,
         int startIndex,
         int endIndex,
-        bool preferProxy)
+        bool preferProxy,
+        ProxyPreset preferredProxyPreset = ProxyPreset.Quarter)
     {
         Resource? resource = null;
         DrawableRenderNode? node = null;
         try
         {
             resource = ToResource(preferProxy
-                ? new CompositionContext(TimeSpan.Zero) { PreferProxy = true }
+                ? new CompositionContext(TimeSpan.Zero)
+                {
+                    PreferProxy = true,
+                    PreferredProxyPreset = preferredProxyPreset,
+                }
                 : CompositionContext.Default);
 
             if (resource.Source is not { } source)
@@ -143,7 +160,7 @@ public partial class SourceVideo : IThumbnailsProvider
             // view, but two same-source views in different modes (or a fresh view after a prior proxy
             // render) would otherwise collide on the mode-agnostic base key.
             string? cacheKey = baseKey != null
-                ? baseKey + (preferProxy ? ProxyThumbnailCacheKeySuffix : OriginalThumbnailCacheKeySuffix)
+                ? baseKey + (preferProxy ? GetProxyThumbnailCacheKeySuffix(preferredProxyPreset) : OriginalThumbnailCacheKeySuffix)
                 : null;
             var cacheThreshold = TimeSpan.FromSeconds(interval * 0.5);
 
@@ -173,7 +190,11 @@ public partial class SourceVideo : IThumbnailsProvider
                     if (cancellationToken.IsCancellationRequested)
                         return null;
 
-                    var ctx = new CompositionContext(time + TimeRange.Start) { PreferProxy = preferProxy };
+                    var ctx = new CompositionContext(time + TimeRange.Start)
+                    {
+                        PreferProxy = preferProxy,
+                        PreferredProxyPreset = preferredProxyPreset,
+                    };
                     bool updateOnly = false;
                     resource.Update(this, ctx, ref updateOnly);
 

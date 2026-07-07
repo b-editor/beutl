@@ -526,6 +526,46 @@ public sealed class ProxiesTabViewModelTests
     }
 
     [Test]
+    public async Task DeleteAllForProject_CancelsJobsForCurrentProjectFingerprints()
+    {
+        string root = CreateRoot();
+        string sourcePath = CreateSourceFile(root, "clip.mov", 2048);
+        var store = new ProxyStore(Path.Combine(root, "proxies"));
+        ProxyFingerprint current = ProxyFingerprint.FromFile(sourcePath);
+        ProxyFingerprint stale = current with
+        {
+            FileSizeBytes = current.FileSizeBytes + 4096,
+            MtimeUtc = current.MtimeUtc.AddMinutes(-5),
+        };
+        DateTime now = DateTime.UtcNow;
+        var entry = new ProxyEntry(
+            stale,
+            ProxyPreset.Quarter,
+            ProxyState.Ready,
+            "hash/quarter.mp4",
+            1536,
+            new PixelSize(1920, 1080),
+            new PixelSize(480, 270),
+            now,
+            now,
+            null);
+        RegisterProxyEntry(store, entry);
+        var currentJob = new ProxyJob(current, ProxyPreset.Quarter);
+        var queue = new TestProxyJobQueue(currentJob);
+
+        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, queue, sourcePath));
+        viewModel.ConfirmDeleteAllForProjectAsync = _ => Task.FromResult(true);
+
+        await viewModel.DeleteAllForProjectCommand.ExecuteAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(queue.CanceledJobIds, Does.Contain(currentJob.JobId));
+            Assert.That(store.TryGet(entry.Source, entry.Preset), Is.Null);
+        });
+    }
+
+    [Test]
     public async Task DeleteAllForProject_KeepsEntriesWhenConfirmationDeclined()
     {
         string root = CreateRoot();

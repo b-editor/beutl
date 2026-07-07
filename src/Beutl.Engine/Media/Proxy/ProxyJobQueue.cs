@@ -50,8 +50,8 @@ public sealed class ProxyJobQueue : IProxyJobQueue
     /// on the first job dispatch. Supports composition roots where the generator is registered after
     /// the queue is constructed (e.g. a proxy generator registered by an extension's <c>Load</c>,
     /// which runs after the app's <c>RegisterServices</c> builds this queue). The provider may return
-    /// null to signal "not yet registered"; such jobs are terminal-skipped and the next dispatch
-    /// re-probes, so a job queued before registration is not lost to a permanently-empty resolver.
+    /// null to signal "not yet registered"; such jobs stay queued and the drain loop re-probes, so a
+    /// job queued before extension registration is not lost.
     /// </summary>
     public ProxyJobQueue(Func<IProxyGenerator?> generatorProvider, IProxyStore? store, int capacity = 256)
         : this(generatorProvider, store, capacity, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(30))
@@ -293,65 +293,65 @@ public sealed class ProxyJobQueue : IProxyJobQueue
             item.Job.Status = ProxyJobStatus.Running;
             OnJobChanged(item.Job, ProxyJobChangeKind.Started);
 
+            bool requeued = false;
             IProxyGenerator? generator = ResolveGenerator();
             if (generator is null)
             {
-                // No generator registered yet (registry empty: build without FFmpeg, or a generator
-                // extension that has not finished loading). Skip this job terminally and let the next
-                // dispatch re-probe; once a generator registers, later jobs resolve and use it.
-                item.Job.Status = ProxyJobStatus.Skipped;
-                item.Job.StatusMessage = "Proxy generation is not available in this build.";
-                OnJobChanged(item.Job, ProxyJobChangeKind.Skipped);
-                Remove(item);
-                item.Dispose();
-                return;
+                // No generator has registered yet. Keep the job queued and re-probe after the same
+                // bounded backoff used for unavailable generators; extension loading may register one.
+                item.Job.StatusMessage = "Waiting for proxy generator registration.";
+                requeued = RequeueForRetry(item);
+                if (!requeued)
+                    CompleteCanceled(item);
             }
-
-            bool requeued = false;
-            try
+            else
             {
-                await generator.GenerateAsync(item.Job).ConfigureAwait(false);
-                item.Job.Status = ProxyJobStatus.Succeeded;
-                Interlocked.Exchange(ref _consecutiveUnavailable, 0);
-                OnJobChanged(item.Job, ProxyJobChangeKind.Succeeded);
-            }
-            catch (ProxyGenerationSkippedException ex)
-            {
-                item.Job.Status = ProxyJobStatus.Skipped;
-                item.Job.StatusMessage = ex.Message;
-                OnJobChanged(item.Job, ProxyJobChangeKind.Skipped);
-            }
-            catch (OperationCanceledException)
-            {
-                CompleteCanceled(item);
-            }
-            catch (ProxyGeneratorUnavailableException ex)
-            {
-                if (_generatorAvailability == null)
+                item.Job.StatusMessage = null;
+                try
                 {
-                    // With no availability signal the queue can never learn the generator recovered,
-                    // so requeuing would occupy the serial queue forever (e.g. a build without FFmpeg).
-                    // Treat it as a terminal skip instead.
+                    await generator.GenerateAsync(item.Job).ConfigureAwait(false);
+                    item.Job.Status = ProxyJobStatus.Succeeded;
+                    Interlocked.Exchange(ref _consecutiveUnavailable, 0);
+                    OnJobChanged(item.Job, ProxyJobChangeKind.Succeeded);
+                }
+                catch (ProxyGenerationSkippedException ex)
+                {
                     item.Job.Status = ProxyJobStatus.Skipped;
                     item.Job.StatusMessage = ex.Message;
                     OnJobChanged(item.Job, ProxyJobChangeKind.Skipped);
                 }
-                else
+                catch (OperationCanceledException)
                 {
-                    // Unavailability is environmental, not the job's fault: keep the job Queued and
-                    // re-probe after a bounded backoff, so a transient failure self-recovers and a
-                    // genuinely-missing install keeps the job (and its install prompt) alive.
-                    requeued = RequeueForRetry(item);
-                    if (!requeued)
-                        CompleteCanceled(item);
+                    CompleteCanceled(item);
                 }
-            }
-            catch (Exception ex)
-            {
-                item.Job.Status = ProxyJobStatus.Failed;
-                item.Job.Error = ex;
-                RegisterFailure(item.Job, ex.Message);
-                OnJobChanged(item.Job, ProxyJobChangeKind.Failed);
+                catch (ProxyGeneratorUnavailableException ex)
+                {
+                    if (_generatorAvailability == null)
+                    {
+                        // With no availability signal the queue can never learn the generator recovered,
+                        // so requeuing would occupy the serial queue forever (e.g. a build without FFmpeg).
+                        // Treat it as a terminal skip instead.
+                        item.Job.Status = ProxyJobStatus.Skipped;
+                        item.Job.StatusMessage = ex.Message;
+                        OnJobChanged(item.Job, ProxyJobChangeKind.Skipped);
+                    }
+                    else
+                    {
+                        // Unavailability is environmental, not the job's fault: keep the job Queued and
+                        // re-probe after a bounded backoff, so a transient failure self-recovers and a
+                        // genuinely-missing install keeps the job (and its install prompt) alive.
+                        requeued = RequeueForRetry(item);
+                        if (!requeued)
+                            CompleteCanceled(item);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    item.Job.Status = ProxyJobStatus.Failed;
+                    item.Job.Error = ex;
+                    RegisterFailure(item.Job, ex.Message);
+                    OnJobChanged(item.Job, ProxyJobChangeKind.Failed);
+                }
             }
 
             if (!requeued)

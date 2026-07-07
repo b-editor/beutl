@@ -114,6 +114,8 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
             .DisposePreviousValue()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables)!;
+
+        Player = new PlayerViewModel(this);
         scene.GetObservable(Scene.PreviewSourceModeProperty)
             .Skip(1)
             .Subscribe(_ =>
@@ -126,7 +128,11 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
             .DisposeWith(_disposables);
         GlobalConfiguration.Instance.ProxyStoreConfig.GetObservable(ProxyStoreConfig.DefaultPresetProperty)
             .Skip(1)
-            .Subscribe(_ => FrameCacheManager.Value.Clear())
+            .Subscribe(_ =>
+            {
+                FrameCacheManager.Value.Clear();
+                Player.QueuePreviewRender();
+            })
             .DisposeWith(_disposables);
 
         if (ProxyMediaServices.Current?.Store is { } proxyStore)
@@ -138,7 +144,6 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
 
         config.PropertyChanged += OnEditorConfigPropertyChanged;
 
-        Player = new PlayerViewModel(this);
         HookCommandStateNotifier();
         Commands = new KnownCommandsImpl(scene, this);
         var sequenceGenerator = new OperationSequenceGenerator();

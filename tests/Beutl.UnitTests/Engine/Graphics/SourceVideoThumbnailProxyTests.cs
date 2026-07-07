@@ -98,9 +98,26 @@ public class SourceVideoThumbnailProxyTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(cache.Invalidated, Is.EquivalentTo(new[] { "clip" + SourceVideo.ProxyThumbnailCacheKeySuffix, "clip" + SourceVideo.OriginalThumbnailCacheKeySuffix }));
+            Assert.That(
+                cache.Invalidated,
+                Is.EquivalentTo(new[]
+                {
+                    "clip" + SourceVideo.ProxyThumbnailCacheKeySuffix,
+                    "clip" + SourceVideo.GetProxyThumbnailCacheKeySuffix(ProxyPreset.Half),
+                    "clip" + SourceVideo.GetProxyThumbnailCacheKeySuffix(ProxyPreset.Quarter),
+                    "clip" + SourceVideo.GetProxyThumbnailCacheKeySuffix(ProxyPreset.Eighth),
+                    "clip" + SourceVideo.OriginalThumbnailCacheKeySuffix,
+                }));
             Assert.That(cache.Invalidated.Contains("clip"), Is.False, "the unsuffixed base key is never stored and must not be the only key invalidated");
         });
+    }
+
+    [Test]
+    public void ProxyThumbnailCacheKeySuffix_IncludesPreferredPreset()
+    {
+        Assert.That(
+            SourceVideo.GetProxyThumbnailCacheKeySuffix(ProxyPreset.Half),
+            Is.Not.EqualTo(SourceVideo.GetProxyThumbnailCacheKeySuffix(ProxyPreset.Quarter)));
     }
 
     [Test]

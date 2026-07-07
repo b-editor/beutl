@@ -1,4 +1,5 @@
-﻿using Beutl.Animation;
+﻿using System.Reflection;
+using Beutl.Animation;
 using Beutl.Audio;
 using Beutl.Editor;
 using Beutl.Engine;
@@ -100,6 +101,35 @@ public class ProxySourceEnumeratorTests
         Assert.That(FileNames(element), Does.Contain("group-node.mov"));
     }
 
+    [Test]
+    public void EnumerateVideoSources_IncludesEverySharedGroupNodeOuterInput()
+    {
+        var first = new GroupNode();
+        GraphGroup sharedGroup = first.Group;
+        var innerNode = new VideoSourceNode();
+        var groupInput = new GroupInput();
+        sharedGroup.Nodes.Add(innerNode);
+        sharedGroup.Nodes.Add(groupInput);
+        Assert.That(groupInput.AddNodePort(innerNode.Source, out _), Is.True);
+        PopulateGroupInputPorts(first);
+
+        var second = new GroupNode();
+        SetGroup(second, sharedGroup);
+        PopulateGroupInputPorts(second);
+
+        SetGroupNodeVideoInput(first, "first-outer.mov");
+        SetGroupNodeVideoInput(second, "second-outer.mov");
+
+        var drawable = new NodeGraphDrawable();
+        drawable.Model.CurrentValue!.Nodes.Add(first);
+        drawable.Model.CurrentValue!.Nodes.Add(second);
+        Element element = ElementWith(drawable);
+
+        Assert.That(
+            FileNames(element),
+            Is.EquivalentTo(new[] { "first-outer.mov", "second-outer.mov" }));
+    }
+
     // The video walk must cover all three proxy-aware holders in a single element: a top-level
     // SourceVideo, a VideoSourceNode inside a NodeGraphDrawable, and a SourceVideo inside a
     // referenced scene (with the cycle guard letting the referenced scene's own sources resolve).
@@ -190,6 +220,28 @@ public class ProxySourceEnumeratorTests
         => ProxySourceEnumerator.EnumerateVideoSources(element).Select(FileName);
 
     private static string FileName(VideoSource source) => Path.GetFileName(source.Uri.LocalPath);
+
+    private static void SetGroup(GroupNode node, GraphGroup group)
+    {
+        typeof(GroupNode)
+            .GetField("<Group>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(node, group);
+    }
+
+    private static void PopulateGroupInputPorts(GroupNode node)
+    {
+        typeof(GroupNode)
+            .GetMethod("OnInputChanged", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(node, [node.Group.Input, null]);
+    }
+
+    private static void SetGroupNodeVideoInput(GroupNode node, string fileName)
+    {
+        IInputPort input = node.Items
+            .OfType<IInputPort>()
+            .Single(item => item.Property?.PropertyType == typeof(VideoSource));
+        input.Property!.SetValue(CreateVideoSource(fileName));
+    }
 
     private static VideoSource CreateVideoSource(string fileName)
     {
