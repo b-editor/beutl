@@ -2,9 +2,8 @@
 
 namespace Beutl.Audio;
 
-// Start/End are times relative to the source element's TimeRange.Start and already had
-// Padding subtracted from both ends, so splitting or deleting [Start, End] does not clip
-// the tail of the content on either side.
+// Start/End are 0-based times from the start of the analyzed waveform (chunk 0), NOT scene-timeline
+// times; the caller offsets by the source's timeline start. Padding is already subtracted off both ends.
 public readonly record struct SilenceRegion(TimeSpan Start, TimeSpan End)
 {
     public TimeSpan Duration => End - Start;

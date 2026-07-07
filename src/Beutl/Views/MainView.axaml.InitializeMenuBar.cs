@@ -176,7 +176,11 @@ public partial class MainView
             };
             var modeCombo = new ComboBox
             {
-                ItemsSource = new[] { "Split only", "Split + delete silence" },
+                ItemsSource = new[]
+                {
+                    Strings.AutoSplitBySilence_ModeSplitOnly,
+                    Strings.AutoSplitBySilence_ModeSplitAndDelete,
+                },
                 SelectedIndex = 0,
                 MinWidth = 220,
             };
@@ -187,13 +191,13 @@ public partial class MainView
                 Margin = new Thickness(4),
                 Children =
                 {
-                    new TextBlock { Text = "Threshold (dB)" },
+                    new TextBlock { Text = Strings.AutoSplitBySilence_Threshold },
                     thresholdBox,
-                    new TextBlock { Text = "Min silence duration (ms)" },
+                    new TextBlock { Text = Strings.AutoSplitBySilence_MinSilenceDuration },
                     minSilenceBox,
-                    new TextBlock { Text = "Padding (ms)" },
+                    new TextBlock { Text = Strings.AutoSplitBySilence_Padding },
                     paddingBox,
-                    new TextBlock { Text = "Mode" },
+                    new TextBlock { Text = Strings.AutoSplitBySilence_Mode },
                     modeCombo,
                 },
             };
@@ -214,7 +218,17 @@ public partial class MainView
                     TimeSpan.FromMilliseconds((double)(minSilenceBox.Value ?? 300m)),
                     TimeSpan.FromMilliseconds((double)(paddingBox.Value ?? 100m)));
                 var mode = (SilenceSplitMode)Math.Max(0, modeCombo.SelectedIndex);
-                await timeline.AutoSplitBySilenceAsync(options, mode);
+
+                try
+                {
+                    await timeline.AutoSplitBySilenceAsync(options, mode);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Unhandled exception during auto split by silence.");
+                    _ = ex.Handle();
+                    NotificationService.ShowError(Strings.AutoSplitBySilence, MessageStrings.OperationFailed);
+                }
             }
         }
     }

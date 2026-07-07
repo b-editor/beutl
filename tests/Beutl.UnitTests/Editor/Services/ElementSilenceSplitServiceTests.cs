@@ -118,6 +118,60 @@ public class ElementSilenceSplitServiceTests
     }
 
     [Test]
+    public void SplitBySilence_NonZeroStartElement_UsesSceneTimelineCoordinates()
+    {
+        // Pins the coordinate contract: regions are scene-timeline, not element-local. An element
+        // at [10, 30s] with a mid-clip silence region [15, 20] (timeline) splits into [10,15],
+        // [15,20], [20,30]. An element-local region [5, 10] (the same silence measured from the
+        // element start) would instead split at absolute 5s/10s, entirely outside the element.
+        Element element = AddElement(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(20));
+        var timelineRegion = new[]
+        {
+            new SilenceRegion(TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(20)),
+        };
+        int before = _history.UndoCount;
+
+        SilenceSplitOutcome outcome = _service.SplitBySilence(_scene, [element], timelineRegion, SilenceSplitMode.SplitOnly);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome.SplitCount, Is.EqualTo(2));
+            Assert.That(outcome.DeletedCount, Is.EqualTo(0));
+            var starts = _scene.Children.Select(e => e.Start).OrderBy(t => t).ToArray();
+            Assert.That(starts, Is.EqualTo(new[]
+            {
+                TimeSpan.FromSeconds(10),
+                TimeSpan.FromSeconds(15),
+                TimeSpan.FromSeconds(20),
+            }));
+            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
+        });
+    }
+
+    [Test]
+    public void SplitBySilence_ElementLocalRegionOnNonZeroElement_DoesNothing()
+    {
+        // The negative half of the coordinate contract: feeding element-local region times for an
+        // element that does not start at zero lands the boundaries outside the element, so nothing
+        // splits. This is exactly the bug the VM's timeline offset prevents.
+        Element element = AddElement(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(20));
+        var elementLocalRegion = new[]
+        {
+            new SilenceRegion(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(10)),
+        };
+        int before = _history.UndoCount;
+
+        SilenceSplitOutcome outcome = _service.SplitBySilence(_scene, [element], elementLocalRegion, SilenceSplitMode.SplitOnly);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome, Is.EqualTo(SilenceSplitOutcome.None));
+            Assert.That(_scene.Children, Has.Count.EqualTo(1));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
     public void SplitBySilence_WholeElementSilent_SplitAndDelete_DeletesElement()
     {
         // Element [0, 5s]; region [0, 5s] covers it entirely. No boundary is strictly inside, so

@@ -389,4 +389,16 @@
   <data name="SceneSettings_ApplyCanceledInputsInvalid" xml:space="preserve">
     <value>再生の一時停止中にシーン設定が無効になったため、適用をキャンセルしました。</value>
   </data>
+  <data name="AutoSplitBySilence_NoAudioElement" xml:space="preserve">
+    <value>先に音声要素を選択してください。無音検出による自動分割には音声ソースを持つ要素が必要です。</value>
+  </data>
+  <data name="AutoSplitBySilence_NoSilenceDetected" xml:space="preserve">
+    <value>現在のしきい値と長さでは無音が検出されませんでした。しきい値を上げるか、最小無音長を短くしてください。</value>
+  </data>
+  <data name="AutoSplitBySilence_AnalysisFailed" xml:space="preserve">
+    <value>無音検出のための波形解析に失敗しました。</value>
+  </data>
+  <data name="AutoSplitBySilence_Completed" xml:space="preserve">
+    <value>{0} 個に分割し、{1} 個の無音区間を削除しました。</value>
+  </data>
 </root>
