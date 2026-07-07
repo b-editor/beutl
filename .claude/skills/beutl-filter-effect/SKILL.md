@@ -11,7 +11,16 @@ description: |
 
 ## Overview
 
-`FilterEffect` is the base class for applying filter processing to an image. Implementations rely on SkiaSharp's `SKImageFilter` / `SKColorFilter` or on SKSL/GLSL shaders.
+`FilterEffect` is the base class for applying filter processing to an image. Effects are **declarative** (feature 004): an effect no longer *executes* rendering — it *describes* a graph of node descriptors, and the engine compiles, caches, fuses, and executes that graph.
+
+Override the abstract `FilterEffect.Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)` and append node descriptors via `builder`:
+
+- **Shader** (SKSL snippet or whole-source), **ColorFilter**, **SkiaFilter** (`SKImageFilter`), **Geometry** (imperative canvas draw), **Compute** (GLSL passes), **Split** / **Composite**, **NestedGraph**.
+- Convenience methods (`builder.Blur`, `builder.DropShadow`, `builder.Saturate`, `builder.Dilate`, `builder.Transform`, color matrices, …) keep the names they had on the old `FilterEffectContext` and expand to the right descriptor for you.
+
+Consequences you author against: adjacent coordinate-invariant color nodes **fuse into one GPU draw**; intermediate buffers come from a **pool**; compiled plans are **cached on a structural key**, so animated parameter values update uniforms without recompiling. This is why the two hard rules below matter — never bake a parameter value into shader source, and always declare bounds for non-invariant work.
+
+> The authoritative contract is [`docs/specs/004-gpu-pass-fusion/contracts/effect-authoring.md`](../../../docs/specs/004-gpu-pass-fusion/contracts/effect-authoring.md); the removed-surface migration map (`ApplyTo`, `FilterEffectContext`, `CustomFilterEffectContext`, `EffectTarget`, `SKImageFilterBuilder`, …) is [`contracts/breaking-changes.md`](../../../docs/specs/004-gpu-pass-fusion/contracts/breaking-changes.md).
 
 ## Implementation steps
 
@@ -35,10 +44,10 @@ public sealed partial class YourEffect : FilterEffect
 
     // Property definitions
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
-        // Apply effects via context.XXX()
+        // Append node descriptors via builder.XXX() — never render here
     }
 }
 ```
@@ -139,15 +148,15 @@ Children.RemoveAt(0);
 Children.Clear();
 ```
 
-**Using lists in `ApplyTo`:**
+**Using lists in `Describe`:** describe every child into the *same* builder so their nodes can fuse with each other (a group must not hide its children behind one opaque pass):
 ```csharp
-public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
 {
     var r = (Resource)resource;
     // r.Children is auto-generated as List<FilterEffect.Resource>
     foreach (FilterEffect.Resource child in r.Children)
     {
-        child.GetOriginal().ApplyTo(context, child);
+        child.GetOriginal().Describe(builder, child);
     }
 }
 ```
@@ -164,56 +173,50 @@ public sealed partial class FilterEffectGroup : FilterEffect
 
     public IListProperty<FilterEffect> Children { get; } = Property.CreateList<FilterEffect>();
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
         foreach (FilterEffect.Resource item in r.Children)
         {
-            item.GetOriginal().ApplyTo(context, item);
+            item.GetOriginal().Describe(builder, item);
         }
     }
 }
 ```
 
-### 3. Implementing `ApplyTo`
+### 3. Implementing `Describe`
 
-Use the methods provided by `FilterEffectContext` to apply effects:
+`Describe` MUST be side-effect-free apart from appending descriptors: **no rendering, no target allocation, no GPU calls.** It may be called every frame and must be cheap. Read all animated values from the passed `Resource`, never from live properties.
 
-**Built-in effects** (see [references/context_methods.md](references/context_methods.md) for the full list):
+**Choosing a node kind:**
 
-```csharp
-// Blur
-context.Blur(sigma);
+| Want to… | Use |
+|---|---|
+| Per-pixel color math (gamma, curves, LUT) | `builder.Shader(ShaderNodeDescriptor.Snippet(...))` — fusable, identity bounds |
+| A ready-made filter (blur, shadow, morphology, color) | the convenience method (`builder.Blur`, …) |
+| A raw `SKColorFilter` / `SKImageFilter` | `builder.ColorFilter(...)` / `builder.SkiaFilter(...)` |
+| A shader that samples other pixels (mosaic, displacement) | `builder.Shader(ShaderNodeDescriptor.WholeSource(source, bounds, ...))` |
+| Imperative canvas drawing (stroke, flat shadow, clip, C# script) | `builder.Geometry(GeometryNodeDescriptor.Create(...))` |
+| GLSL / compute passes | `builder.Compute(ComputeNodeDescriptor.Create(...))` |
+| Fan out into tiles/branches | `builder.Split(...)` / `builder.Composite(...)` |
 
-// Drop shadow
-context.DropShadow(position, sigma, color);
-
-// Color correction
-context.Brightness(amount);
-context.Saturate(amount);
-context.HueRotate(degrees);
-
-// Morphology
-context.Dilate(radiusX, radiusY);
-context.Erode(radiusX, radiusY);
-
-// Transform
-context.Transform(matrix, interpolationMode);
-```
-
-**Custom effects:**
+**Built-in convenience methods** (same names as before; full list in [references/context_methods.md](references/context_methods.md)):
 
 ```csharp
-context.CustomEffect(
-    data: (param1, param2),
-    action: (data, customContext) => {
-        // customContext.Targets — access the render targets
-        // customContext.CreateTarget() — create a new target
-        // customContext.Open() — obtain a canvas
-    },
-    transformBounds: (data, bounds) => bounds
-);
+builder.Blur(sigma);                     // Gaussian blur
+builder.DropShadow(position, sigma, color);
+builder.Brightness(amount);              // color correction
+builder.Saturate(amount);
+builder.HueRotate(degrees);
+builder.Dilate(radiusX, radiusY);        // morphology
+builder.Erode(radiusX, radiusY);
+builder.Transform(matrix, interpolationMode);
 ```
+
+**Two hard rules (why the cache/fusion works):**
+
+- **Structure vs parameters.** Shader source identity, pass/branch counts, invariance flags, and the bounds-contract identity are *structural* — changing one recompiles the plan (once). Everything else (uniform values, colors, matrices, LUT contents) is a *parameter* and must NOT change the compiled plan. **Never interpolate a parameter value into shader source** — pass it as a uniform, or you defeat the program cache. Bounds MAY depend on parameters (an animated blur radius inflating bounds is fine); they are re-resolved every frame and are not structural.
+- **Bounds & ROI.** Every non-invariant node MUST declare a `BoundsContract` (forward `TransformBounds` + backward `GetRequiredInputBounds`). A coordinate-invariant snippet gets identity bounds by construction and MUST only read the current pixel. See [contracts/effect-authoring.md §A3–A4](../../../docs/specs/004-gpu-pass-fusion/contracts/effect-authoring.md).
 
 ### 4. Localization
 
@@ -233,72 +236,103 @@ Create your own resource files inside the extension project, or pass a literal s
 
 ## Shader-based implementations
 
-### SKSL (SkiaShaderLanguage) pattern
+### SKSL snippet (fusable per-pixel color) — preferred
 
-Compile the shader in the static constructor and apply it through `CustomEffect`:
+A coordinate-invariant snippet defines `half4 apply(half4 c)` where `c` is the **premultiplied-alpha, linear-light** source pixel (and your return value must be too). It participates in fusion and gets identity bounds for free — no bounds contract, no target management. Pass parameters as uniforms; never inline them into the source string.
 
 ```csharp
-public partial class MosaicEffect : FilterEffect
+// src/Beutl.Engine/Graphics/FilterEffects/Gamma.cs
+private static readonly string s_snippet =
+    """
+    uniform float gamma;
+    uniform float strength;
+
+    half4 apply(half4 c) {
+        float alpha = c.a;
+        if (alpha <= 0.0001) return half4(0.0);
+        float3 rgb = c.rgb / alpha;                       // unpremultiply
+        float3 corrected = pow(max(rgb, float3(0.0)), float3(1.0 / gamma));
+        float3 result = mix(rgb, corrected, strength);
+        return half4(half3(result * alpha), half(alpha)); // re-premultiply
+    }
+    """;
+
+public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
 {
-    private static readonly SKRuntimeEffect? s_runtimeEffect;
+    var r = (Resource)resource;
+    float gamma = Math.Clamp(r.Amount / 100f, 0.01f, 3f);
+    builder.Shader(ShaderNodeDescriptor.Snippet(
+        s_snippet, u => u.Float("gamma", gamma).Float("strength", r.Strength / 100f)));
+}
+```
 
-    static MosaicEffect()
-    {
-        string sksl = """
-            uniform shader src;
-            uniform float2 tileSize;
+### SKSL whole-source (samples other pixels)
 
-            half4 main(float2 fragCoord) {
-                float2 blockIndex = floor(fragCoord / tileSize);
-                float2 sampleCoord = blockIndex * tileSize + tileSize * 0.5;
-                return src.eval(sampleCoord);
-            }
-            """;
+When the shader samples coordinates other than the current pixel (mosaic, displacement), use `WholeSource`: an SKSL `half4 main(float2 coord)` with an implicit `src` child, plus a mandatory `BoundsContract`. Compile the holder shader in the static constructor with `SKSLShader.TryCreate`. Device-pixel literals (tile size, resolution) scale by the working scale `w = builder.WorkingScale`; use `RenderNodeContext.DeviceBufferSize(builder.Bounds, w)` for the buffer extent.
 
-        s_runtimeEffect = SKRuntimeEffect.CreateShader(sksl, out string? errorText);
-        if (errorText is not null)
-        {
-            // log it
-        }
-    }
+```csharp
+// src/Beutl.Engine/Graphics/FilterEffects/MosaicEffect.cs (abridged)
+public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
+{
+    var r = (Resource)resource;
+    float w = builder.WorkingScale;
+    (int bufW, int bufH) = RenderNodeContext.DeviceBufferSize(builder.Bounds, w);
+    Size tileSize = r.TileSize;
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-    {
-        var r = (Resource)resource;
-        context.CustomEffect(r.TileSize, OnApplyTo, static (_, bounds) => bounds);
-    }
+    // Output occupies the input rect ⇒ identity bounds (the legacy transformBounds).
+    builder.Shader(ShaderNodeDescriptor.WholeSource(
+        ShaderSource,
+        BoundsContract.Identity,
+        u => u.Float2("tileSize", tileSize.Width * w, tileSize.Height * w)
+              .Float2("resolution", bufW, bufH)));
+}
+```
 
-    private static void OnApplyTo(Size tileSize, CustomFilterEffectContext c)
-    {
-        for (int i = 0; i < c.Targets.Count; i++)
-        {
-            EffectTarget target = c.Targets[i];
-            using var image = target.RenderTarget!.Value.Snapshot();
-            using var baseShader = SKShader.CreateImage(image);
+### Imperative canvas drawing (Geometry node)
 
-            var builder = new SKRuntimeShaderBuilder(s_runtimeEffect);
-            builder.Children["src"] = baseShader;
-            builder.Uniforms["tileSize"] = tileSize.ToSKSize();
+Stroke, flat shadow, clipping, and C# scripts that must draw with a canvas use a `GeometryNode`. The engine hands your callback a `GeometrySession` with a canvas over a pooled output target and read-only `Inputs`; you never allocate or dispose targets. The bounds contract is **mandatory**.
 
-            var newTarget = c.CreateTarget(target.Bounds);
-            using (SKShader shader = builder.Build())
-            using (var paint = new SKPaint { Shader = shader })
-            using (var canvas = c.Open(newTarget))
-            {
-                canvas.Clear();
-                canvas.Canvas.DrawRect(
-                    new SKRect(0, 0, target.Bounds.Width, target.Bounds.Height), paint);
-            }
-            target.Dispose();
-            c.Targets[i] = newTarget;
-        }
-    }
+```csharp
+// src/Beutl.Engine/Graphics/FilterEffects/FlatShadow.cs (abridged)
+public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
+{
+    var r = (Resource)resource;
+    var data = (r.Angle, r.Length, r.Brush, r.ShadowOnly);
+    builder.Geometry(GeometryNodeDescriptor.Create(
+        session => ApplyGeometry(session, data),
+        BoundsContract.Create(rect => TransformBounds(data, rect), static r => r),
+        structuralToken: nameof(FlatShadow)));
+}
+
+private static void ApplyGeometry(GeometrySession session, (...) data)
+{
+    EffectInput input = session.Inputs[0];       // read-only upstream result
+    ImmediateCanvas canvas = session.OpenCanvas(); // canvas over the pooled output
+    using Bitmap srcBitmap = input.Snapshot();
+    float w = session.WorkingScale;
+    // ... draw into canvas; the executor owns the target, ROI, and sync ...
+}
+```
+
+### Split into tiles / branches
+
+```csharp
+// src/Beutl.Engine/Graphics/FilterEffects/SplitEffect.cs (abridged)
+public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
+{
+    var r = (Resource)resource;
+    int hDiv = r.HorizontalDivisions, vDiv = r.VerticalDivisions;
+    // Division counts are structural — animating them recompiles exactly once.
+    builder.Split(SplitNodeDescriptor.Static(
+        emitter => EmitTiles(emitter, hDiv, vDiv, r.HorizontalSpacing, r.VerticalSpacing),
+        branchCount: Math.Max(1, hDiv * vDiv),
+        structuralToken: nameof(SplitEffect)));
 }
 ```
 
 ### Dynamic SKSL pattern
 
-When the user can edit the script, compile it inside the `Resource` class:
+When the user can edit the script, compile it inside the `Resource` class (see `SKSLScriptEffect.cs` for the full pattern; a script that declares no `src` child runs as a generator geometry pass, and `CoordinateInvariant` opts a whole-source script into fusion):
 
 ```csharp
 public new partial class Resource
@@ -333,7 +367,7 @@ public new partial class Resource
 
 ### GLSL (Vulkan) pattern
 
-Use the fragment shader on Vulkan-capable environments:
+GLSL fragment shaders run as a `ComputeNode` (`builder.Compute(ComputeNodeDescriptor.Create(...))`); the executor schedules the passes, provides ping-pong/depth textures from the pool, and applies push constants. A compute node MUST declare a no-Vulkan fallback (`Identity` / `Skip` / a CPU callback) so GPU-less CI still passes. See `GLSLScriptEffect.cs` for the full pattern. Declare the shader source as a property:
 
 ```csharp
 [Display(Name = nameof(Strings.Script), ResourceType = typeof(Strings))]
@@ -413,10 +447,14 @@ public partial class StrokeEffect : FilterEffect
     [Display(Name = nameof(Strings.Offset), ResourceType = typeof(Strings))]
     public IProperty<Point> Offset { get; } = Property.CreateAnimatable(default(Point));
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
-        context.CustomEffect((r.Offset, r.Pen), Apply, TransformBounds);
+        var data = (r.Offset, r.Pen);
+        builder.Geometry(GeometryNodeDescriptor.Create(
+            session => Apply(session, data),
+            BoundsContract.Create(rect => TransformBounds(data, rect), static r => r),
+            structuralToken: nameof(StrokeEffect)));
     }
 }
 ```

@@ -13,7 +13,7 @@ filter effects, brushes, and shaders.
 |---|---|---|
 | **Output scale `s_out`** | `Renderer.OutputScale` / `RenderNodeContext.OutputScale` | the final target only: device pixels per logical unit at the root. `1.0` = logical == device. |
 | **Effective scale** | `RenderNodeOperation.EffectiveScale` | the supply density an op's pixels actually exist at. Vector ops are `Unbounded`; bitmap ops report `At(scale)`. |
-| **Working scale `w`** | `FilterEffectContext.WorkingScale` (+ `RenderNodeContext.ResolveWorkingScale`) | the density a buffer-allocating boundary runs at, negotiated from the inputs' supply densities (falling back to `s_out` for vector-only inputs), capped by `MaxWorkingScale`. There is no per-effect policy knob. |
+| **Working scale `w`** | `EffectGraphBuilder.WorkingScale` / `GeometrySession.WorkingScale` (+ `RenderNodeContext.ResolveWorkingScale`) | the density a buffer-allocating boundary runs at, negotiated from the inputs' supply densities (falling back to `s_out` for vector-only inputs), capped by `MaxWorkingScale`. There is no per-effect policy knob. |
 
 ## What most authors need to do: nothing
 
@@ -25,16 +25,16 @@ image filters (blur, drop shadow, color, gradients) for free**. This is empirica
 - every built-in effect category (incl. the buffer-allocating InnerShadow, 0.9983) scales faithfully
   at reduced scale with **no per-effect code**.
 
-So if your effect is built from the `FilterEffectContext` primitives (`Blur`, `DropShadow`, `Dilate`,
+So if your effect is built from the `EffectGraphBuilder` convenience methods (`Blur`, `DropShadow`, `Dilate`,
 `Transform`, color matrices, …) or draws plain geometry/text, **do not multiply anything by a scale**:
 the CTM handles it, and a manual `× w` would double-scale and regress the result.
 
 ## When scale matters
 
-- **Reading the working scale.** A `CustomEffect` / SKSL / GLSL author who hand-allocates an
-  intermediate or hard-codes a pixel literal reads `CustomFilterEffectContext.WorkingScale`
-  (or `FilterEffectContext.WorkingScale`); both default to `1.0`. `CreateTarget(bounds)` already
-  allocates a `ceil(bounds × w)` device buffer tagged `EffectiveScale.At(w)`, so the runtime shader
+- **Reading the working scale.** A `Geometry` / SKSL / GLSL node author who draws to the session canvas
+  or hard-codes a pixel literal reads `GeometrySession.WorkingScale` (or `EffectGraphBuilder.WorkingScale`
+  in `Describe`); both default to `1.0`. The executor allocates the pass's pooled `ceil(bounds × w)` device
+  buffer tagged `EffectiveScale.At(w)`, so the runtime shader
   evaluates in DEVICE pixels: multiply any **absolute-length** pixel literal
   (tile size, displacement amount, split offset, a hard-coded `iResolution`-style constant) by `w` to
   stay logically constant. Content-relative logic (a luminance pixel-sort, a normalized-uv shader)

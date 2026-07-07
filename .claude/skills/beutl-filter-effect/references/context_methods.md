@@ -1,333 +1,203 @@
-# FilterEffectContext method reference
+# EffectGraphBuilder & node-descriptor reference
+
+Effects describe a graph in `FilterEffect.Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)`. This is the reference for the surface `builder` exposes. The authoritative contract is
+[`docs/specs/004-gpu-pass-fusion/contracts/effect-authoring.md`](../../../../docs/specs/004-gpu-pass-fusion/contracts/effect-authoring.md); the removed-surface migration map is
+[`contracts/breaking-changes.md`](../../../../docs/specs/004-gpu-pass-fusion/contracts/breaking-changes.md).
 
 ## Table of contents
-1. [Blur and shadow](#blur-and-shadow)
-2. [Color correction](#color-correction)
-3. [Morphology](#morphology)
-4. [Transform](#transform)
-5. [Custom effects](#custom-effects)
-6. [Low-level API](#low-level-api)
-7. [Shaders (SKSL / GLSL)](#shaders-sksl--glsl)
+1. [Builder properties](#builder-properties)
+2. [Convenience methods](#convenience-methods) — blur/shadow, color, morphology, transform
+3. [Node descriptors](#node-descriptors) — Shader, ColorFilter, SkiaFilter, Geometry, Compute, Split/Composite
+4. [GeometrySession & EffectInput](#geometrysession--effectinput)
+5. [BoundsContract](#boundscontract)
+6. [Structural vs parameter](#structural-vs-parameter)
+7. [Shader uniforms (SKSL / GLSL)](#shader-uniforms-sksl--glsl)
 
 ---
 
-## Blur and shadow
+## Builder properties
 
-### Blur
 ```csharp
-void Blur(Size sigma)
+Rect  builder.Bounds        // the input rect this effect is described against
+float builder.OutputScale   // 003 s_out (device px per logical unit at the root)
+float builder.WorkingScale  // 003 w — the density this boundary's buffers run at
 ```
-Apply a Gaussian blur. Bounds expand by `sigma * 3`.
 
-### DropShadow / DropShadowOnly
-```csharp
-void DropShadow(Point position, Size sigma, Color color)
-void DropShadowOnly(Point position, Size sigma, Color color)
-```
-- `DropShadow`: draws a shadow beneath the source image.
-- `DropShadowOnly`: shadow only (no source image).
-
-### InnerShadow / InnerShadowOnly
-```csharp
-void InnerShadow(Point position, Size sigma, Color color)
-void InnerShadowOnly(Point position, Size sigma, Color color)
-```
-Draws a shadow on the inside. Implemented via `CustomEffect`.
+`RenderNodeContext.DeviceBufferSize(builder.Bounds, builder.WorkingScale)` returns the `(width, height)` device-pixel extent of the pass buffer — use it for resolution uniforms.
 
 ---
 
-## Color correction
+## Convenience methods
 
-### ColorMatrix
+Each returns the builder (chainable) and expands to the right descriptor. Same names/semantics as the old `FilterEffectContext`.
+
+### Blur and shadow
 ```csharp
-void ColorMatrix(in ColorMatrix matrix)
-void ColorMatrix<T>(T data, Func<T, ColorMatrix> factory)
+EffectGraphBuilder Blur(Size sigma)                                    // bounds expand by sigma * 3
+EffectGraphBuilder DropShadow(Point position, Size sigma, Color color)
+EffectGraphBuilder DropShadowOnly(Point position, Size sigma, Color color)
 ```
-Color transformation through a 5x4 color matrix.
+> `InnerShadow` is now a standalone `FilterEffect` (`InnerShadow.cs`), not a builder method.
 
-### Saturate
+### Color correction
 ```csharp
-void Saturate(float amount)
+EffectGraphBuilder ColorMatrix(ColorMatrix matrix)         // 5x4 color matrix
+EffectGraphBuilder Saturate(float amount)                  // 1.0 = unchanged, 0.0 = grayscale
+EffectGraphBuilder HueRotate(float degrees)
+EffectGraphBuilder Brightness(float amount)
+EffectGraphBuilder HighContrast(bool grayscale, HighContrastInvertStyle invertStyle, float contrast)
+EffectGraphBuilder Lighting(Color multiply, Color add)
+EffectGraphBuilder LumaColor()
+EffectGraphBuilder LuminanceToAlpha()
+EffectGraphBuilder BlendMode(Color color, BlendMode blendMode)
 ```
-Saturation adjustment. `1.0` keeps the original saturation, `0.0` produces grayscale.
+These all emit coordinate-invariant `ColorFilterNode`s, so **adjacent color methods fuse into a single GPU draw**.
 
-### HueRotate
+### Morphology
 ```csharp
-void HueRotate(float degrees)
+EffectGraphBuilder Dilate(float radiusX, float radiusY)    // bounds expand by radius
+EffectGraphBuilder Erode(float radiusX, float radiusY)     // bounds unchanged
 ```
-Hue rotation (in degrees).
-
-### Brightness
-```csharp
-void Brightness(float amount)
-```
-Brightness adjustment.
-
-### HighContrast
-```csharp
-void HighContrast(bool grayscale, HighContrastInvertStyle invertStyle, float contrast)
-```
-High-contrast processing.
-
-### Lighting
-```csharp
-void Lighting(Color multiply, Color add)
-```
-Lighting composed of a multiply and an additive color.
-
-### LumaColor
-```csharp
-void LumaColor()
-```
-Builds a color filter from luminance.
-
-### LuminanceToAlpha
-```csharp
-void LuminanceToAlpha()
-```
-Convert luminance into the alpha channel.
-
-### BlendMode
-```csharp
-void BlendMode(Color color, BlendMode blendMode)
-void BlendMode(Brush.Resource? brush, BlendMode blendMode)
-```
-Apply a blend mode.
-
----
-
-## Morphology
-
-### Dilate
-```csharp
-void Dilate(float radiusX, float radiusY)
-```
-Dilation. Bounds expand by `radius`.
-
-### Erode
-```csharp
-void Erode(float radiusX, float radiusY)
-```
-Erosion. Bounds are unchanged.
-
----
-
-## Transform
 
 ### Transform
 ```csharp
-void Transform(Matrix matrix, BitmapInterpolationMode bitmapInterpolationMode)
-```
-Affine transform. Bounds are converted to the AABB.
-
-### MatrixConvolution
-```csharp
-void MatrixConvolution(
-    PixelSize kernelSize,
-    float[] kernel,
-    float gain,
-    float bias,
-    PixelPoint kernelOffset,
-    GradientSpreadMethod spreadMethod,
-    bool convolveAlpha)
-```
-Convolution filter.
-
----
-
-## Custom effects
-
-### CustomEffect
-```csharp
-void CustomEffect<T>(
-    T data,
-    Action<T, CustomFilterEffectContext> action,
-    Func<T, Rect, Rect> transformBounds)
-
-void CustomEffect<T>(
-    T data,
-    Action<T, CustomFilterEffectContext> action)  // transformBounds defaults to Rect.Invalid
-```
-
-Use this for low-level custom processing. Via `CustomFilterEffectContext`:
-
-- `Targets`: list of render targets (`EffectTarget`).
-- `CreateTarget(Rect bounds)`: create a new target.
-- `Open(EffectTarget target)`: obtain an `ImmediateCanvas`.
-
-**Basic pattern:**
-```csharp
-context.CustomEffect(
-    data,
-    (data, c) => {
-        for (int i = 0; i < c.Targets.Count; i++)
-        {
-            var target = c.Targets[i];
-            var newTarget = c.CreateTarget(target.Bounds);
-            using (var canvas = c.Open(newTarget))
-            {
-                // draw here
-            }
-            target.Dispose();
-            c.Targets[i] = newTarget;
-        }
-    },
-    (_, bounds) => bounds);
+EffectGraphBuilder Transform(Matrix matrix, BitmapInterpolationMode interpolation)
+EffectGraphBuilder MatrixConvolution(
+    PixelSize kernelSize, float[] kernel, float gain, float bias,
+    PixelPoint kernelOffset, GradientSpreadMethod spreadMethod, bool convolveAlpha)
 ```
 
 ---
 
-## Low-level API
+## Node descriptors
 
-### AppendSkiaFilter
-```csharp
-void AppendSkiaFilter<T>(
-    T data,
-    Func<T, SKImageFilter?, FilterEffectActivator, SKImageFilter?> factory,
-    Func<T, Rect, Rect> transformBounds)
-```
-Append a SkiaSharp `SKImageFilter` directly.
+Append with `builder.Shader/ColorFilter/SkiaFilter/Geometry/Compute/Split/Composite/NestedGraph(descriptor)`.
 
-### AppendSKColorFilter
+### Shader (SKSL)
 ```csharp
-void AppendSKColorFilter<T>(
-    T data,
-    Func<T, FilterEffectActivator, SKColorFilter?> factory)
+// Fusable per-pixel color: `half4 apply(half4 c)`, c is premultiplied linear-light.
+ShaderNodeDescriptor.Snippet(
+    string source, Action<UniformBindingBuilder>? uniforms = null,
+    IEnumerable<SamplerBinding>? samplers = null)
+
+// Non-invariant `half4 main(float2 coord)` with an implicit `src` child; bounds contract mandatory.
+ShaderNodeDescriptor.WholeSource(
+    string source, BoundsContract bounds, Action<UniformBindingBuilder>? uniforms = null,
+    IEnumerable<SamplerBinding>? samplers = null, IEnumerable<ChildBinding>? children = null,
+    SKShaderTileMode srcTileMode = SKShaderTileMode.Decal)
+
+// Whole-source that provably samples only the current pixel: opts into fusion, identity bounds.
+ShaderNodeDescriptor.WholeSourceInvariant(string source, ...)
 ```
-Append a SkiaSharp `SKColorFilter` directly (no bounds transformation).
+Uniforms are bound via the `UniformBindingBuilder`: `u => u.Float("gamma", g).Float2("tileSize", x, y)`.
+
+### ColorFilter / SkiaFilter (raw Skia)
+```csharp
+ColorFilterNodeDescriptor.Create(Func<SKColorFilter?> factory, object? structuralToken = null)
+SkiaFilterNodeDescriptor.Create(
+    Func<SKImageFilter?, SKImageFilter?> factory, BoundsContract bounds, object? structuralToken = null)
+```
+The `SKImageFilter?` argument is the upstream filter (chain input). Adjacent Skia-filter nodes group into one filtered draw.
+
+### Geometry (imperative canvas)
+```csharp
+GeometryNodeDescriptor.Create(
+    Action<GeometrySession> render, BoundsContract bounds,
+    int inputCount = 1, object? structuralToken = null)   // bounds MANDATORY
+```
+The sole descriptor that carries a rendering callback. Never fused, always its own pass.
+
+### Compute (GLSL)
+```csharp
+ComputeNodeDescriptor.Create(
+    Action<IComputeContext> dispatch, int passCount, ComputeFallback fallback,
+    bool requiresDepth = false, Action<GeometrySession>? cpuCallback = null,
+    object? structuralToken = null)                        // fallback MANDATORY
+```
+`fallback` (`Identity` / `Skip` / a CPU callback) is applied when Vulkan is unavailable so GPU-less CI passes.
+
+### Split / Composite
+```csharp
+SplitNodeDescriptor.Static(Action<ISplitEmitter> emit, int branchCount, object? structuralToken = null)
+```
+`emitter.Emit(tileBounds, session => { ... })` schedules a branch. Fusion never crosses a split.
 
 ---
 
-## Shaders (SKSL / GLSL)
+## GeometrySession & EffectInput
 
-### SKSL (SkiaShaderLanguage)
+Inside a `GeometryNode`/`Split` branch callback the executor owns the target — you only draw:
 
-Author a custom shader with SkiaSharp's `SKRuntimeEffect`.
-
-**Compile:**
 ```csharp
-SKRuntimeEffect? effect = SKRuntimeEffect.CreateShader(skslCode, out string? errorText);
-```
+// GeometrySession
+Rect  session.Bounds                       // output buffer rect
+float session.OutputScale                  // 003 s_out
+float session.WorkingScale                 // 003 w
+float session.MaxWorkingScale
+IReadOnlyList<EffectInput> session.Inputs
+ImmediateCanvas session.OpenCanvas()       // canvas over the pooled output target
 
-**Built-in uniforms:**
+// EffectInput (read-only upstream result)
+Rect          input.Bounds
+EffectiveScale input.Density
+PixelSize     input.DeviceSize
+SKShader       input.AsShader()
+Bitmap         input.Snapshot()            // dispose it
+void           input.Draw(ImmediateCanvas canvas, Point devicePoint)
+void           input.Draw(ImmediateCanvas canvas)
+```
+Do NOT allocate/dispose targets, catch-and-continue, or apply Skia image filters through the session — pass/target scheduling and lifetimes are executor-owned (compose a dedicated `Blur`/`DropShadow` effect in the chain instead).
+
+---
+
+## BoundsContract
+
+```csharp
+BoundsContract.Identity                                     // output == input rect
+BoundsContract.RenderTime                                   // cannot lay out until execution (no ROI benefit)
+BoundsContract.Create(Func<Rect,Rect> transformBounds,     // forward: how output bounds grow
+                      Func<Rect,Rect> getRequiredInputBounds) // backward: input texels a region samples
+```
+Every non-invariant node MUST declare one. Backward MUST cover every input texel the node samples for a given output region; the engine may render inputs cropped to exactly that region. Common forward shapes: expand `bounds.Inflate(thickness)`, unchanged `bounds`.
+
+---
+
+## Structural vs parameter
+
+- **Structural** (changing it recompiles the plan once): shader source identity, pass/branch counts, invariance flags, bounds-contract identity, the `structuralToken`.
+- **Parameter** (must NOT change the compiled plan): uniform values, colors, matrices, LUT texture contents. **Never encode a parameter into shader source** — it defeats the program cache and forces recompiles.
+- Bounds/ROIs/buffer sizes MAY depend on parameters and are re-resolved every frame; only the graph's *shape* is structural. A parameter that changes the *number/kind* of nodes/passes/branches is structural and must be declared via `structuralToken`.
+
+---
+
+## Shader uniforms (SKSL / GLSL)
+
+Compile the holder shader once (usually a static field), then reference it in `Describe`.
+
+**SKSL** — compile with `SKSLShader.TryCreate(source, out shader, out errorText)`. Built-in whole-source uniforms the script executors bind when present:
 ```glsl
-uniform shader src;          // input image
-uniform float progress;      // 0.0 - 1.0 (effect progress)
-uniform float duration;      // seconds (effect length)
-uniform float time;          // seconds (current time)
-uniform float width;         // render-target width
-uniform float height;        // render-target height
-uniform float2 iResolution;  // (width, height)
+uniform shader src;          // input image (implicit child)
+uniform float progress;      // 0.0 - 1.0
+uniform float duration;      // seconds
+uniform float time;          // seconds
+uniform float width;         // device-px target width
+uniform float height;        // device-px target height
+uniform float2 iResolution;  // (width, height) device px
+uniform float iScale;        // device px per logical px (003 working scale w)
 uniform float iTime;         // alias for time
 ```
 
-**Applying a shader:**
-```csharp
-using var image = target.RenderTarget!.Value.Snapshot();
-using var baseShader = SKShader.CreateImage(image);
-
-var builder = new SKRuntimeShaderBuilder(s_runtimeEffect);
-builder.Children["src"] = baseShader;
-builder.Uniforms["myParam"] = value;
-
-using SKShader shader = builder.Build();
-using var paint = new SKPaint { Shader = shader };
-canvas.Canvas.DrawRect(rect, paint);
-```
-
-**SKSL basics:**
-```glsl
-uniform shader src;
-uniform float2 tileSize;
-
-half4 main(float2 fragCoord) {
-    // fragCoord: pixel coordinate
-    // src.eval(coord): sample the input image
-    half4 color = src.eval(fragCoord);
-    return color;
-}
-```
-
-### GLSL (Vulkan)
-
-Fragment shaders on Vulkan-capable environments via `GLSLFilterPipeline`.
-
-**Basic structure:**
+**GLSL** — runs as a `ComputeNode`. Push-constant layout:
 ```glsl
 #version 450
-
-layout(location = 0) in vec2 fragCoord;  // 0.0 - 1.0 (normalized coordinate)
+layout(location = 0) in vec2 fragCoord;       // normalized 0.0 - 1.0
 layout(location = 0) out vec4 outColor;
-
 layout(set = 0, binding = 0) uniform sampler2D srcTexture;
-
 layout(push_constant) uniform PushConstants {
-    float progress;
-    float duration;
-    float time;
-    float width;
-    float height;
+    float progress; float duration; float time;
+    float width; float height; float scale;   // scale mirrors SKSL iScale (= w)
 } pc;
-
-void main() {
-    vec4 color = texture(srcTexture, fragCoord);
-    outColor = color;
-}
 ```
 
-**PushConstants layout:**
-```csharp
-[StructLayout(LayoutKind.Sequential)]
-private struct PushConstants
-{
-    public float Progress;
-    public float Duration;
-    public float Time;
-    public float Width;
-    public float Height;
-}
-```
-
-**Compile and execute:**
-```csharp
-IGraphicsContext context = GraphicsContextFactory.SharedContext;
-GLSLFilterPipeline pipeline = GLSLFilterPipeline.Create(context, fragmentShaderCode);
-pipeline.Execute(sourceTexture, destinationTexture, depthTexture, pushConstants);
-```
-
----
-
-## About bounds transformation
-
-The `transformBounds` function tells the effect how its output bounds change.
-
-- **Expand**: `bounds.Inflate(new Thickness(amount))`
-- **No change**: `bounds`
-- **Invalidate**: `Rect.Invalid` (recomputed at runtime)
-
-Accurate bounds tracking lets the renderer skip unnecessary regions, improving performance.
-
----
-
-## EffectTarget
-
-The render target used inside a `CustomEffect`.
-
-**Properties:**
-- `RenderTarget`: a render target wrapping an `SKSurface`.
-- `Bounds`: the target's bounds (`Rect`).
-
-**Operations:**
-```csharp
-// Snapshot
-using var image = target.RenderTarget!.Value.Snapshot();
-
-// Create a new target
-EffectTarget newTarget = context.CreateTarget(target.Bounds);
-
-// Get a canvas
-using ImmediateCanvas canvas = context.Open(newTarget);
-
-// Dispose (important: always dispose after use)
-target.Dispose();
-```
+Absolute-length pixel literals (tile size, displacement, `iResolution`-style constants) multiply by the working scale `w` to stay logically constant; normalized/content-relative math needs nothing. Full uniform contract:
+[`docs/specs/003-resolution-independent-pipeline/contracts/shader-uniforms.md`](../../../../docs/specs/003-resolution-independent-pipeline/contracts/shader-uniforms.md).
