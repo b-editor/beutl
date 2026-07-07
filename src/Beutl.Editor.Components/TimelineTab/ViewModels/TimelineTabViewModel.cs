@@ -33,6 +33,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
     private readonly Subject<System.Reactive.Unit> _canExecuteChangedSubject = new();
     private readonly Dictionary<int, TrackedLayerTopObservable> _trackerCache = [];
     private bool _isDisposed;
+    private bool _updatingToolMode;
 
     public TimelineTabViewModel(IEditorContext editorContext)
     {
@@ -226,19 +227,10 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
                 BufferStatus.UpdateBlocks();
             });
 
-        // CanExecute がレイザーモード切替に追従するよう変更通知へ流す。
-        IsRazorMode
-            .Subscribe(_ => RaiseCanExecuteChanged())
-            .AddTo(_disposables);
-        IsSlipMode
-            .Subscribe(_ => RaiseCanExecuteChanged())
-            .AddTo(_disposables);
-        IsRollMode
-            .Subscribe(_ => RaiseCanExecuteChanged())
-            .AddTo(_disposables);
-        IsSlideMode
-            .Subscribe(_ => RaiseCanExecuteChanged())
-            .AddTo(_disposables);
+        SubscribeToolMode(IsRazorMode);
+        SubscribeToolMode(IsSlipMode);
+        SubscribeToolMode(IsRollMode);
+        SubscribeToolMode(IsSlideMode);
 
         // The Undo/Redo flush hook now lives in ElementNudgeService, wired to
         // HistoryManager.BeforeMutation by the editor context.
@@ -251,6 +243,38 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         if (!_isDisposed)
         {
             _canExecuteChangedSubject.OnNext(System.Reactive.Unit.Default);
+        }
+    }
+
+    private void SubscribeToolMode(ReactivePropertySlim<bool> mode)
+    {
+        mode.Subscribe(isEnabled =>
+            {
+                if (isEnabled)
+                {
+                    EnforceSingleToolMode(mode);
+                }
+
+                RaiseCanExecuteChanged();
+            })
+            .AddTo(_disposables);
+    }
+
+    private void EnforceSingleToolMode(ReactivePropertySlim<bool> activeMode)
+    {
+        if (_updatingToolMode) return;
+
+        _updatingToolMode = true;
+        try
+        {
+            if (!ReferenceEquals(activeMode, IsRazorMode)) IsRazorMode.Value = false;
+            if (!ReferenceEquals(activeMode, IsSlipMode)) IsSlipMode.Value = false;
+            if (!ReferenceEquals(activeMode, IsRollMode)) IsRollMode.Value = false;
+            if (!ReferenceEquals(activeMode, IsSlideMode)) IsSlideMode.Value = false;
+        }
+        finally
+        {
+            _updatingToolMode = false;
         }
     }
 

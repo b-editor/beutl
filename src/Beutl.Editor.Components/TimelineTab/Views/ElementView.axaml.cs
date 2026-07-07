@@ -495,6 +495,9 @@ public sealed partial class ElementView : UserControl
 
             double floor = minWidth - ctx.InitialFrontWidth;
             double ceiling = ctx.InitialBackWidth - minWidth;
+            if (floor > ceiling)
+                return;
+
             double actualDelta = Math.Clamp(delta, floor, ceiling);
 
             ctx.Front.Width.Value = ctx.InitialFrontWidth + actualDelta;
@@ -526,9 +529,10 @@ public sealed partial class ElementView : UserControl
                 if (point.Properties.IsLeftButtonPressed && e.KeyModifiers is KeyModifiers.None or KeyModifiers.Alt
                                                          && view.Cursor != Cursors.Arrow && view.Cursor is not null)
                 {
+                    Point timelinePosition = e.GetPosition(view);
                     if (viewModel.Timeline.IsRollMode.Value)
                     {
-                        if (TryStartRollDrag(viewModel, point.Position, view))
+                        if (TryStartRollDrag(viewModel, timelinePosition, view))
                         {
                             _pressed = true;
                         }
@@ -539,7 +543,7 @@ public sealed partial class ElementView : UserControl
 
                     if (viewModel.Timeline.IsSlideMode.Value)
                     {
-                        if (TryStartSlideDrag(viewModel, point.Position, view))
+                        if (TryStartSlideDrag(viewModel, timelinePosition, view))
                         {
                             _pressed = true;
                         }
@@ -693,6 +697,8 @@ public sealed partial class ElementView : UserControl
                         TimeSpan initialFrame = ctx.InitialPointerX.PixelToTimeSpan(scale);
                         TimeSpan delta = (releasedFrame - initialFrame).RoundToRate(rate);
 
+                        RestoreTrimDragVisuals(ctx);
+
                         if (delta != TimeSpan.Zero)
                         {
                             IElementResizeService resizeService = viewModel.Timeline.EditorContext
@@ -707,7 +713,6 @@ public sealed partial class ElementView : UserControl
                             }
                         }
 
-                        RestoreTrimDragVisuals(ctx);
                         return;
                     }
 
@@ -940,7 +945,13 @@ public sealed partial class ElementView : UserControl
                     {
                         _pressed = true;
                         _isSlipDrag = true;
-                        _start = point.Position;
+                        _start = e.GetPosition(view);
+                        e.Handled = true;
+                        return;
+                    }
+
+                    if (viewModel.Timeline.IsRollMode.Value || viewModel.Timeline.IsSlideMode.Value)
+                    {
                         e.Handled = true;
                         return;
                     }
@@ -958,13 +969,13 @@ public sealed partial class ElementView : UserControl
             }
         }
 
-        private void CommitSlipDrag(ElementViewModel viewModel, PointerReleasedEventArgs e)
+        private void CommitSlipDrag(ElementView view, ElementViewModel viewModel, PointerReleasedEventArgs e)
         {
             float scale = viewModel.Timeline.Options.Value.Scale;
             int rate = viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
-            Point released = e.GetPosition(AssociatedObject);
+            Point released = e.GetPosition(view);
             TimeSpan pointerFrame = released.X.PixelToTimeSpan(scale);
-            pointerFrame = AssociatedObject.RoundStartTime(pointerFrame, scale, e.KeyModifiers.HasFlag(KeyModifiers.Alt));
+            pointerFrame = view.RoundStartTime(pointerFrame, scale, e.KeyModifiers.HasFlag(KeyModifiers.Alt));
             TimeSpan delta = pointerFrame - _start.X.PixelToTimeSpan(scale);
             if (delta != TimeSpan.Zero)
             {
@@ -1006,7 +1017,7 @@ public sealed partial class ElementView : UserControl
             IReadOnlyList<ElementViewModel> relatedElements = _relatedElements;
             _relatedElements = [];
 
-            if (AssociatedObject is not { ViewModel: { } viewModel, _timeline: { } timeline }) return;
+            if (AssociatedObject is not { ViewModel: { } viewModel, _timeline: { } timeline } view) return;
 
             RemoveGhosts(timeline);
 
@@ -1016,7 +1027,7 @@ public sealed partial class ElementView : UserControl
             if (_isSlipDrag)
             {
                 _isSlipDrag = false;
-                CommitSlipDrag(viewModel, e);
+                CommitSlipDrag(view, viewModel, e);
                 return;
             }
 

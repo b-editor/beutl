@@ -2,7 +2,10 @@
 using Beutl.Editor;
 using Beutl.Editor.Services;
 using Beutl.Graphics;
+using Beutl.Media;
+using Beutl.Media.Source;
 using Beutl.ProjectSystem;
+using Beutl.UnitTests.Engine.Graphics.Rendering;
 using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Editor.Services;
@@ -14,6 +17,9 @@ public class ElementSlipServiceTests
     private Scene _scene = null!;
     private HistoryManager _history = null!;
     private ElementSlipService _service = null!;
+
+    [OneTimeSetUp]
+    public void OneTimeSetUp() => TestMediaHelper.RegisterTestDecoder();
 
     [SetUp]
     public void Setup()
@@ -97,6 +103,27 @@ public class ElementSlipServiceTests
     }
 
     [Test]
+    public void Slip_SourceVideo_ClampsToUsableSourceDuration()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        var videoSource = new VideoSource();
+        videoSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 90)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = videoSource }
+        };
+        element.Objects.Add(video);
+
+        bool applied = _service.Slip(element, TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+        });
+    }
+
+    [Test]
     public void Slip_SourceSound_ShiftsOffsetPositionAndCommits()
     {
         Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
@@ -110,6 +137,64 @@ public class ElementSlipServiceTests
         {
             Assert.That(applied, Is.True);
             Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromMilliseconds(500)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
+        });
+    }
+
+    [Test]
+    public void Slip_SourceSound_ClampsToUsableSourceDuration()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        var soundSource = new SoundSource();
+        soundSource.ReadFrom(new Uri(TestMediaHelper.CreateTestAudioFile(durationSeconds: 3)));
+        var sound = new SourceSound
+        {
+            Source = { CurrentValue = soundSource }
+        };
+        element.Objects.Add(sound);
+
+        bool applied = _service.Slip(element, TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+        });
+    }
+
+    [Test]
+    public void Slip_FallbackSound_NoCommit()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        element.Objects.Add(new FallbackSound());
+        int before = _history.UndoCount;
+
+        bool applied = _service.Slip(element, TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
+    public void Slip_SoundGroup_ShiftsSourceChildrenAndCommitsOnce()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        var source = new SourceSound();
+        var group = new SoundGroup();
+        group.Children.Add(source);
+        element.Objects.Add(group);
+        int before = _history.UndoCount;
+
+        bool applied = _service.Slip(element, TimeSpan.FromMilliseconds(500));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(source.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromMilliseconds(500)));
+            Assert.That(group.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
