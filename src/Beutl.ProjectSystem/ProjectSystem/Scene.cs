@@ -420,15 +420,15 @@ public class Scene : ProjectItem, INotifyEdited
     /// strictly after <paramref name="currentTime"/>, or <see langword="null"/>
     /// when no such gap exists. The leading gap is excluded.
     /// </summary>
-    /// <param name="searchEnd">
-    /// When set, gaps that end after this time are ignored, so navigation stays
-    /// within the active scene range and does not target the trailing space left
-    /// by elements beyond a shortened scene.
+    /// <param name="searchRange">
+    /// When set, only gaps that lie entirely within this range are considered, so
+    /// navigation stays within the active scene range and does not target the
+    /// trailing space left by elements beyond a shortened or offset scene.
     /// </param>
-    public TimeSpan? FindNextGapCenter(TimeSpan currentTime, TimeSpan? searchEnd = null)
+    public TimeSpan? FindNextGapCenter(TimeSpan currentTime, TimeRange? searchRange = null)
     {
         return EnumerateGaps()
-            .Where(g => g.Gap.Start > currentTime && (searchEnd is not { } end || g.Gap.End <= end))
+            .Where(g => g.Gap.Start > currentTime && Contains(searchRange, g.Gap))
             .OrderBy(g => g.Gap.Start)
             .Select(g => (TimeSpan?)(g.Gap.Start + new TimeSpan(g.Gap.Duration.Ticks / 2)))
             .FirstOrDefault();
@@ -439,18 +439,21 @@ public class Scene : ProjectItem, INotifyEdited
     /// strictly before <paramref name="currentTime"/>, or <see langword="null"/>
     /// when no such gap exists. The leading gap is excluded.
     /// </summary>
-    /// <param name="searchStart">
-    /// When set, gaps that start before this time are ignored, so navigation
-    /// stays within the active scene range.
+    /// <param name="searchRange">
+    /// When set, only gaps that lie entirely within this range are considered, so
+    /// navigation stays within the active scene range.
     /// </param>
-    public TimeSpan? FindPreviousGapCenter(TimeSpan currentTime, TimeSpan? searchStart = null)
+    public TimeSpan? FindPreviousGapCenter(TimeSpan currentTime, TimeRange? searchRange = null)
     {
         return EnumerateGaps()
-            .Where(g => g.Gap.End < currentTime && (searchStart is not { } start || g.Gap.Start >= start))
+            .Where(g => g.Gap.End < currentTime && Contains(searchRange, g.Gap))
             .OrderByDescending(g => g.Gap.End)
             .Select(g => (TimeSpan?)(g.Gap.Start + new TimeSpan(g.Gap.Duration.Ticks / 2)))
             .FirstOrDefault();
     }
+
+    private static bool Contains(TimeRange? range, TimeRange gap)
+        => range is not { } r || (gap.Start >= r.Start && gap.End <= r.End);
 
     public override void Serialize(ICoreSerializationContext context)
     {

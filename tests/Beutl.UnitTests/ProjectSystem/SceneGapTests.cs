@@ -713,10 +713,42 @@ public class SceneGapTests
             scene.Children.Add(CreateElement(basePath, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(9)));
             scene.Children.Add(CreateElement(basePath, TimeSpan.FromSeconds(100), TimeSpan.FromSeconds(10)));
 
+            var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(30));
             Assert.Multiple(() =>
             {
-                Assert.That(scene.FindNextGapCenter(TimeSpan.Zero, TimeSpan.FromSeconds(30)), Is.Null);
+                Assert.That(scene.FindNextGapCenter(TimeSpan.Zero, range), Is.Null);
                 Assert.That(scene.FindNextGapCenter(TimeSpan.Zero), Is.EqualTo(TimeSpan.FromSeconds(55)));
+            });
+        }
+        finally
+        {
+            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+        }
+    }
+
+    [Test]
+    public void FindGapCenter_BoundsBothSides_IgnoresGapsOutsideOffsetScene()
+    {
+        string basePath = GetTempPath();
+        try
+        {
+            Scene scene = CreateScene(basePath);
+            // Active scene range is 50s-150s. A gap 10s-40s sits entirely before it and a gap
+            // 200s-260s entirely after it; neither may be selected from either direction.
+            scene.Children.Add(CreateElement(basePath, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(9)));
+            scene.Children.Add(CreateElement(basePath, TimeSpan.FromSeconds(40), TimeSpan.FromSeconds(60)));
+            scene.Children.Add(CreateElement(basePath, TimeSpan.FromSeconds(120), TimeSpan.FromSeconds(80)));
+            scene.Children.Add(CreateElement(basePath, TimeSpan.FromSeconds(260), TimeSpan.FromSeconds(10)));
+            var range = new TimeRange(TimeSpan.FromSeconds(50), TimeSpan.FromSeconds(100));
+
+            Assert.Multiple(() =>
+            {
+                // The only in-range gap is 100s-120s (center 110s).
+                Assert.That(scene.FindNextGapCenter(TimeSpan.FromSeconds(50), range), Is.EqualTo(TimeSpan.FromSeconds(110)));
+                Assert.That(scene.FindPreviousGapCenter(TimeSpan.FromSeconds(150), range), Is.EqualTo(TimeSpan.FromSeconds(110)));
+                // Searching from outside the range must not reach the out-of-range gaps.
+                Assert.That(scene.FindNextGapCenter(TimeSpan.FromSeconds(150), range), Is.Null);
+                Assert.That(scene.FindPreviousGapCenter(TimeSpan.FromSeconds(50), range), Is.Null);
             });
         }
         finally

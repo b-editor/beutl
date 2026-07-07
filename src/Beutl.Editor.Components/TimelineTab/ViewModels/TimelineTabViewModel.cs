@@ -1148,6 +1148,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
     {
         Element? anchor = SelectedElements
             .OrderBy(e => e.Model.Start)
+            .ThenBy(e => e.Model.ZIndex)
             .Select(e => e.Model)
             .FirstOrDefault();
         if (anchor is null) return;
@@ -1172,9 +1173,13 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
     {
         TimeSpan sceneStart = Scene.Start;
         TimeSpan sceneEnd = Scene.Start + Scene.Duration;
+        var range = new TimeRange(sceneStart, Scene.Duration);
+        TimeSpan origin = CurrentTime.Value < sceneStart
+            ? sceneStart
+            : CurrentTime.Value > sceneEnd ? sceneEnd : CurrentTime.Value;
         TimeSpan? center = forward
-            ? Scene.FindNextGapCenter(CurrentTime.Value, sceneEnd)
-            : Scene.FindPreviousGapCenter(CurrentTime.Value, sceneStart);
+            ? Scene.FindNextGapCenter(origin, range)
+            : Scene.FindPreviousGapCenter(origin, range);
 
         if (center is { } target)
         {
