@@ -33,6 +33,12 @@ internal static class SlippableMedia
         }
     }
 
+    // Disabled (IsEnabled == false) media is deliberately included, unlike playback's
+    // Element.CollectObjects: trim edits apply one shared delta to every stream so linked
+    // media (e.g. a temporarily muted audio track) stays in sync with the visible content
+    // and re-enabling it does not reveal a desynced or out-of-range offset. The same
+    // reasoning keeps disabled streams in the clamp bounds — a delta that would push a
+    // disabled stream outside its source is refused, not applied desynced.
     public static List<Target> Collect(Element element)
     {
         var targets = new List<Target>();
