@@ -7,9 +7,10 @@ namespace Beutl.Editor.Services;
 /// changing the element's <see cref="Element.Start"/> / <see cref="Element.Length"/>.
 /// Writes the media's in-source offset (<see cref="Beutl.Graphics.SourceVideo.OffsetPosition"/>
 /// / <see cref="Beutl.Audio.Sound.OffsetPosition"/>), not element geometry, and owns
-/// the single history commit boundary for one user-visible slip. Distinct from
-/// <see cref="IElementResizeService"/> so a plugin replacing the geometry-trim family
-/// does not inherit the media-offset family.
+/// the single history commit boundary for one user-visible slip. Kept separate from
+/// <see cref="IElementResizeService"/> by responsibility — this edits the media window,
+/// that edits clip geometry — even though Roll / Slide reuse the same media-offset
+/// primitives to keep a trimmed neighbour's content anchored across a moving cut.
 /// </summary>
 public interface IElementSlipService
 {

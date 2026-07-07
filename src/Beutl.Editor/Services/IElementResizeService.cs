@@ -3,18 +3,23 @@
 namespace Beutl.Editor.Services;
 
 /// <summary>
-/// Element-geometry trim operations on <see cref="Element"/>s: writes to
-/// <see cref="Element.Start"/> / <see cref="Element.Length"/> / <see cref="Element.ZIndex"/>
-/// only. Each method owns a single history commit boundary for one user-visible
-/// operation. The View handles per-pointer-frame preview via VM reactive properties;
-/// the service runs once on drag release with the final values.
+/// Element-geometry trim operations on <see cref="Element"/>s: primarily writes
+/// <see cref="Element.Start"/> / <see cref="Element.Length"/> / <see cref="Element.ZIndex"/>.
+/// Each method owns a single history commit boundary for one user-visible operation. The
+/// View handles per-pointer-frame preview via VM reactive properties; the service runs once
+/// on drag release with the final values.
 /// <para>
 /// <see cref="Resize"/> writes the final (start, length, zIndex) per element in one
 /// transaction. <see cref="Roll"/> and <see cref="Slide"/> are the roll / slide trim
-/// modes, which adjust clip boundaries while preserving the total timeline length.
-/// Media-offset shifts (the Slip mode) are owned by <see cref="IElementSlipService"/>
-/// — they write the source-media window, not element geometry, and are kept separate
-/// so a plugin replacing one family does not inherit the other.
+/// modes, which adjust clip boundaries while preserving the total timeline length; they
+/// additionally advance the trimmed neighbour's media offset so its content stays anchored
+/// across the moving cut (see the shared primitives in <c>SlippableMedia</c>).
+/// </para>
+/// <para>
+/// The pure media-offset shift (the Slip mode) is owned by <see cref="IElementSlipService"/>
+/// — kept as a separate service by responsibility (media-window vs. clip-geometry editing),
+/// each owning its own history commit boundary. These are in-tree editing seams consumed by
+/// the Timeline View; the concrete implementations are wired in <c>EditViewModel.GetService</c>.
 /// </para>
 /// </summary>
 public interface IElementResizeService

@@ -689,19 +689,14 @@ public sealed partial class ElementView : UserControl
                         float scale = viewModel.Timeline.Options.Value.Scale;
                         int rate = viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
                         Point released = e.GetPosition(AssociatedObject);
-                        TimeSpan releasedFrame = released.X.PixelToTimeSpan(scale);
-                        releasedFrame = AssociatedObject.RoundStartTime(
-                            releasedFrame,
-                            scale,
-                            e.KeyModifiers.HasFlag(KeyModifiers.Alt));
-                        TimeSpan initialFrame = ctx.InitialPointerX.PixelToTimeSpan(scale);
-                        // Snap the press point the same way as the release, so a no-move click near
-                        // a cut does not snap only one endpoint and commit a spurious one-frame trim.
-                        initialFrame = AssociatedObject.RoundStartTime(
-                            initialFrame,
-                            scale,
-                            e.KeyModifiers.HasFlag(KeyModifiers.Alt));
-                        TimeSpan delta = (releasedFrame - initialFrame).RoundToRate(rate);
+                        bool alt = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
+                        TimeSpan delta = TrimDeltaCalculator.SnappedDelta(
+                                ctx.InitialPointerX.PixelToTimeSpan(scale),
+                                released.X.PixelToTimeSpan(scale),
+                                t => AssociatedObject.RoundStartTime(t, scale, alt))
+                            .RoundToRate(rate);
+                        // RoundStartTime re-sets the snap guide line as a side effect; clear it.
+                        viewModel.Timeline.SnapBarPosition.Value = null;
 
                         RestoreTrimDragVisuals(ctx);
 
@@ -978,15 +973,14 @@ public sealed partial class ElementView : UserControl
         private void CommitSlipDrag(ElementView view, ElementViewModel viewModel, PointerReleasedEventArgs e)
         {
             float scale = viewModel.Timeline.Options.Value.Scale;
-            int rate = viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
             Point released = e.GetPosition(view);
-            TimeSpan pointerFrame = released.X.PixelToTimeSpan(scale);
-            pointerFrame = view.RoundStartTime(pointerFrame, scale, e.KeyModifiers.HasFlag(KeyModifiers.Alt));
-            // Snap the press point the same way, so a no-move click near a cut does not snap only
-            // the release endpoint and shift the media window without any pointer movement.
-            TimeSpan startFrame = view.RoundStartTime(
-                _start.X.PixelToTimeSpan(scale), scale, e.KeyModifiers.HasFlag(KeyModifiers.Alt));
-            TimeSpan delta = pointerFrame - startFrame;
+            bool alt = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
+            TimeSpan delta = TrimDeltaCalculator.SnappedDelta(
+                _start.X.PixelToTimeSpan(scale),
+                released.X.PixelToTimeSpan(scale),
+                t => view.RoundStartTime(t, scale, alt));
+            // RoundStartTime re-sets the snap guide line as a side effect; clear it.
+            viewModel.Timeline.SnapBarPosition.Value = null;
             if (delta != TimeSpan.Zero)
             {
                 viewModel.Timeline.EditorContext
