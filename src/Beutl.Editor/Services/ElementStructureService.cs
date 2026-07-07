@@ -20,11 +20,12 @@ public sealed class ElementStructureService : IElementStructureService
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(elements);
-        if (elements.Count == 0) return;
+        Element[] editable = elements.Where(e => !scene.IsElementLocked(e)).ToArray();
+        if (editable.Length == 0) return;
 
-        RippleHelper.RemoveAndShiftAfter(scene, elements, ripple, scene.RemoveChild);
+        RippleHelper.RemoveAndShiftAfter(scene, editable, ripple, scene.RemoveChild);
 
-        RemoveIdsFromGroups(scene, elements.Select(e => e.Id).ToArray());
+        RemoveIdsFromGroups(scene, editable.Select(e => e.Id).ToArray());
 
         _historyManager.Commit(CommandNames.RemoveElement);
     }
@@ -33,11 +34,12 @@ public sealed class ElementStructureService : IElementStructureService
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(elements);
-        if (elements.Count == 0) return;
+        Element[] editable = elements.Where(e => !scene.IsElementLocked(e)).ToArray();
+        if (editable.Length == 0) return;
 
-        RippleHelper.RemoveAndShiftAfter(scene, elements, ripple, scene.DeleteChild);
+        RippleHelper.RemoveAndShiftAfter(scene, editable, ripple, scene.DeleteChild);
 
-        RemoveIdsFromGroups(scene, elements.Select(e => e.Id).ToArray());
+        RemoveIdsFromGroups(scene, editable.Select(e => e.Id).ToArray());
 
         _historyManager.Commit(CommandNames.DeleteElement);
     }
@@ -55,6 +57,8 @@ public sealed class ElementStructureService : IElementStructureService
 
         foreach (Element target in targets)
         {
+            if (scene.IsElementLocked(target)) continue;
+
             TimeSpan forwardDuration = at - target.Start;
             TimeSpan backwardDuration = target.Length - forwardDuration;
             if (forwardDuration < minDuration || backwardDuration < minDuration) continue;

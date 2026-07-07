@@ -237,4 +237,70 @@ public class ElementStructureServiceTests
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
+
+    [Test]
+    public void Delete_LockedElement_IsSkipped()
+    {
+        Element locked = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        locked.IsLocked = true;
+        Element free = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
+        int before = _history.UndoCount;
+
+        _service.Delete(_scene, [locked, free]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_scene.Children, Does.Contain(locked));
+            Assert.That(_scene.Children, Does.Not.Contain(free));
+            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
+        });
+    }
+
+    [Test]
+    public void Delete_AllLocked_DoesNotCommit()
+    {
+        Element locked = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        locked.IsLocked = true;
+        int before = _history.UndoCount;
+
+        _service.Delete(_scene, [locked]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_scene.Children, Does.Contain(locked));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
+    public void Exclude_LayerLockedElement_IsSkipped()
+    {
+        Element onLockedLayer = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 3);
+        _scene.Layers.Add(new TimelineLayer { ZIndex = 3, IsLocked = true });
+        int before = _history.UndoCount;
+
+        _service.Exclude(_scene, [onLockedLayer]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_scene.Children, Does.Contain(onLockedLayer));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
+    public void Split_LockedElement_IsNotSplit()
+    {
+        Element locked = AddElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(4));
+        locked.IsLocked = true;
+        int beforeCount = _scene.Children.Count;
+
+        SplitOutcome outcome = _service.Split(_scene, [locked], TimeSpan.FromSeconds(2));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome.NewElements, Is.Empty);
+            Assert.That(_scene.Children.Count, Is.EqualTo(beforeCount));
+        });
+    }
 }

@@ -301,6 +301,27 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
             return element.Range;
         }
 
+        // Only video-mute / solo change graphics output; lock (editor-only) and
+        // audio-mute leave the frame cache valid.
+        if (obj is TimelineLayer layer)
+        {
+            string propertyName = GetPropertyNameFromPath(propertyPath);
+            bool affectsGraphics = propertyName == nameof(TimelineLayer.IsVideoMuted)
+                || propertyName == nameof(TimelineLayer.IsSolo);
+            if (!affectsGraphics) return null;
+
+            // Solo re-filters every layer; video-mute only affects its own zIndex.
+            bool soloChanged = propertyName == nameof(TimelineLayer.IsSolo);
+            TimeRange? union = null;
+            foreach (Element el in Scene.Children)
+            {
+                if (!soloChanged && el.ZIndex != layer.ZIndex) continue;
+                union = union is { } u ? u.Union(el.Range) : el.Range;
+            }
+
+            return union;
+        }
+
         // Element以外のオブジェクトの場合、親を辿ってElementを探す
         Element? parentElement = FindElementFromObject(obj);
         if (parentElement != null)

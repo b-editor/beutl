@@ -65,19 +65,21 @@ public sealed class ElementClipboardService : IElementClipboardService
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(elements);
-        if (elements.Count == 0) return false;
+        Element[] editable = elements.Where(e => !scene.IsElementLocked(e)).ToArray();
+        if (editable.Length == 0) return false;
 
         // Abort the delete half if the clipboard write failed, else the user
         // loses the elements with no way to paste them back.
-        if (!await CopyAsync(elements))
+        if (!await CopyAsync(editable))
         {
             s_logger.LogWarning(
                 "CutAsync aborted: clipboard unavailable, preserving {Count} element(s).",
-                elements.Count);
+                editable.Length);
             return false;
         }
 
-        RippleHelper.RemoveAndShiftAfter(scene, elements, ripple, scene.RemoveChild);
+        RippleHelper.RemoveAndShiftAfter(scene, editable, ripple, scene.RemoveChild);
+
         _historyManager.Commit(CommandNames.CutElement);
         return true;
     }

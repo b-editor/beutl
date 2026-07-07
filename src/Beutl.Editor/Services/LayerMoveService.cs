@@ -22,6 +22,11 @@ public sealed class LayerMoveService : ILayerMoveService
         ArgumentNullException.ThrowIfNull(directElements);
         if (oldLayer == newLayer) return LayerMovePlan.Noop;
 
+        // A layer move rewrites the ZIndex of the source layer and everything it
+        // shifts past; refuse the whole move if any locked layer or clip sits there,
+        // otherwise locked content moves indirectly.
+        if (AnyLockedInMoveRange(scene, oldLayer, newLayer)) return LayerMovePlan.Noop;
+
         // Snapshot the shift-range before mutating, against the pre-write state.
         var shifted = new List<Element>();
         foreach (Element child in scene.Children)
@@ -71,6 +76,29 @@ public sealed class LayerMoveService : ILayerMoveService
 
         _historyManager.Commit(CommandNames.MoveLayer);
         return new LayerMovePlan(oldLayer, newLayer, directElements, shifted);
+    }
+
+    private static bool AnyLockedInMoveRange(Scene scene, int oldLayer, int newLayer)
+    {
+        foreach (Element child in scene.Children)
+        {
+            if ((child.ZIndex == oldLayer || InShiftRange(child.ZIndex, oldLayer, newLayer))
+                && scene.IsElementLocked(child))
+            {
+                return true;
+            }
+        }
+
+        foreach (TimelineLayer layer in scene.Layers)
+        {
+            if (layer.IsLocked
+                && (layer.ZIndex == oldLayer || InShiftRange(layer.ZIndex, oldLayer, newLayer)))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     // A ZIndex shifts when it lies between old and new layer, inclusive of the

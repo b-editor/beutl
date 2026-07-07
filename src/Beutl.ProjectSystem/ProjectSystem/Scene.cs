@@ -171,6 +171,23 @@ public class Scene : ProjectItem, INotifyEdited
         set => _markers.Replace(value);
     }
 
+    public bool IsLayerLocked(int zIndex)
+    {
+        foreach (TimelineLayer layer in _layers)
+        {
+            if (layer.ZIndex == zIndex && layer.IsLocked) return true;
+        }
+
+        return false;
+    }
+
+    // Editor-only lock: an element cannot be edited when it or its layer is locked.
+    public bool IsElementLocked(Element element)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        return element.IsLocked || IsLayerLocked(element.ZIndex);
+    }
+
     // element.FileNameが既に設定されている状態
     public void AddChild(Element element,
         ElementOverlapHandling overlapHandling = ElementOverlapHandling.Auto)

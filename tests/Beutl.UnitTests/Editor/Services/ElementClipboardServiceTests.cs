@@ -94,6 +94,23 @@ public class ElementClipboardServiceTests
     }
 
     [Test]
+    public async Task CutAsync_LockedElement_IsPreserved()
+    {
+        Element locked = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        locked.IsLocked = true;
+        int before = _history.UndoCount;
+
+        bool result = await _service.CutAsync(_scene, [locked]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.False);
+            Assert.That(_scene.Children, Does.Contain(locked));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
     public async Task PasteAsync_NoMatchingFormat_ReturnsEmpty()
     {
         ElementPasteOutcome outcome = await _service.PasteAsync(_scene, TimeSpan.Zero, 0);

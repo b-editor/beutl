@@ -87,6 +87,36 @@ public class ElementBehaviorTests
     }
 
     [Test]
+    public void IsLayerLocked_ReflectsLayerModel()
+    {
+        var scene = new Scene(1920, 1080, string.Empty);
+        scene.Layers.Add(new TimelineLayer { ZIndex = 2, IsLocked = true });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(scene.IsLayerLocked(2), Is.True);
+            Assert.That(scene.IsLayerLocked(0), Is.False);
+        });
+    }
+
+    [Test]
+    public void IsElementLocked_TrueWhenElementOrItsLayerIsLocked()
+    {
+        var scene = new Scene(1920, 1080, string.Empty);
+        var onLockedLayer = new Element { ZIndex = 2 };
+        var selfLocked = new Element { ZIndex = 0, IsLocked = true };
+        var free = new Element { ZIndex = 0 };
+        scene.Layers.Add(new TimelineLayer { ZIndex = 2, IsLocked = true });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(scene.IsElementLocked(onLockedLayer), Is.True);
+            Assert.That(scene.IsElementLocked(selfLocked), Is.True);
+            Assert.That(scene.IsElementLocked(free), Is.False);
+        });
+    }
+
+    [Test]
     public void AddObject_FlowOperator_AlsoAddsPortalBeforeIt()
     {
         var element = new Element();
