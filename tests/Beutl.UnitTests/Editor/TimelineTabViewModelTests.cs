@@ -58,6 +58,37 @@ public class TimelineTabViewModelTests
         });
     }
 
+    // The V/Escape gestures are shared by every Exit* command; the dispatcher relies on
+    // CanExecute being true only for the active mode to fall through to the right one.
+    [Test]
+    public void CanExecute_ExitCommands_TrueOnlyForActiveMode()
+    {
+        using TimelineTabViewModel viewModel = CreateViewModel();
+        viewModel.IsRollMode.Value = true;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.CanExecute(new ContextCommandExecution("ExitRollMode")), Is.True);
+            Assert.That(viewModel.CanExecute(new ContextCommandExecution("ExitRazorMode")), Is.False);
+            Assert.That(viewModel.CanExecute(new ContextCommandExecution("ExitSlipMode")), Is.False);
+            Assert.That(viewModel.CanExecute(new ContextCommandExecution("ExitSlideMode")), Is.False);
+        });
+    }
+
+    [Test]
+    public void CanExecute_ExitCommands_AllFalseWhenNoModeActive()
+    {
+        using TimelineTabViewModel viewModel = CreateViewModel();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.CanExecute(new ContextCommandExecution("ExitRazorMode")), Is.False);
+            Assert.That(viewModel.CanExecute(new ContextCommandExecution("ExitSlipMode")), Is.False);
+            Assert.That(viewModel.CanExecute(new ContextCommandExecution("ExitRollMode")), Is.False);
+            Assert.That(viewModel.CanExecute(new ContextCommandExecution("ExitSlideMode")), Is.False);
+        });
+    }
+
     private static TimelineTabViewModel CreateViewModel()
     {
         var scene = new Scene();
