@@ -112,6 +112,73 @@ public class ProxySourceEnumeratorTests
     }
 
     [Test]
+    public void EnumerateVideoSources_RecursesIntoDrawablePresenterTarget()
+    {
+        var nested = new SourceVideo();
+        nested.Source.CurrentValue = CreateVideoSource("presented.mov");
+        var presenter = new DrawablePresenter();
+        presenter.Target.CurrentValue = nested;
+        Element element = ElementWith(presenter);
+
+        Assert.That(FileNames(element), Does.Contain("presented.mov"));
+    }
+
+    // Target is a reference property, so a user can point a presenter at its own ancestor;
+    // the visited-target set must terminate the walk instead of recursing forever. The cycle is
+    // wired silently (reflection) because completing it through the property setter trips a
+    // pre-existing engine stack overflow in the Edited-forwarding chain — the state is otherwise
+    // reachable via deserialization of a saved cyclic project.
+    [Test]
+    public void EnumerateVideoSources_TerminatesOnPresenterTargetCycle()
+    {
+        var video = new SourceVideo();
+        video.Source.CurrentValue = CreateVideoSource("cycled.mov");
+        var group = new DrawableGroup();
+        group.Children.Add(video);
+        var presenter = new DrawablePresenter();
+        group.Children.Add(presenter);
+        SetPropertyValueSilently(presenter.Target, group);
+        Element element = ElementWith(group);
+
+        Assert.That(FileNames(element), Does.Contain("cycled.mov"));
+    }
+
+    // SimpleProperty attaches a referenced scene as a hierarchical child, so mutually-referencing
+    // scenes form a hierarchy cycle; the broad walk must terminate instead of overflowing the
+    // stack. The cycle is wired via AddChild because completing it through the property setter
+    // trips the same pre-existing Edited-forwarding stack overflow noted above.
+    [Test]
+    public void EnumerateFileSources_TerminatesOnMutuallyReferencingScenes()
+    {
+        Scene sceneA = CreateScene("mutual-a.scene");
+        Scene sceneB = CreateScene("mutual-b.scene");
+
+        var videoA = new SourceVideo();
+        videoA.Source.CurrentValue = CreateVideoSource("in-a.mov");
+        var referenceToB = new SceneDrawable();
+        sceneA.Children.Add(ElementWith(videoA, referenceToB));
+
+        var videoB = new SourceVideo();
+        videoB.Source.CurrentValue = CreateVideoSource("in-b.mov");
+        var referenceToA = new SceneDrawable();
+        sceneB.Children.Add(ElementWith(videoB, referenceToA));
+
+        ((IModifiableHierarchical)referenceToB).AddChild(sceneB);
+        ((IModifiableHierarchical)referenceToA).AddChild(sceneA);
+
+        IReadOnlySet<string> collected = ProxySourceEnumerator.EnumerateMediaFileSources(sceneA);
+
+        Assert.That(collected.Select(Path.GetFileName), Is.SupersetOf(new[] { "in-a.mov", "in-b.mov" }));
+    }
+
+    private static void SetPropertyValueSilently<T>(IProperty<T> property, T value)
+    {
+        property.GetType()
+            .GetField("_currentValue", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(property, value);
+    }
+
+    [Test]
     public void EnumerateVideoSources_RecursesIntoGroupNodeSubgraph()
     {
         var node = new VideoSourceNode();

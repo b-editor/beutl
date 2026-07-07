@@ -267,8 +267,17 @@ public sealed class ProxyJobQueue : IProxyJobQueue
     {
         // Each channel entry is a permit to drive one job to a terminal state; the job is chosen by
         // priority (not by which entry was read), so a high-priority enqueue can jump a bulk run.
-        await foreach (WorkItem _ in _channel.Reader.ReadAllAsync())
+        await foreach (WorkItem permitItem in _channel.Reader.ReadAllAsync())
         {
+            // Dequeuing the permit proves its WriteAsync durably completed, so publish here too:
+            // the enqueuer's own post-write continuation can lose the race to this read, and
+            // skipping the still-unpublished item would waste its only permit, stranding the job
+            // at Queued forever.
+            lock (_lock)
+            {
+                permitItem.Published = true;
+            }
+
             try
             {
                 await ProcessOneAsync().ConfigureAwait(false);

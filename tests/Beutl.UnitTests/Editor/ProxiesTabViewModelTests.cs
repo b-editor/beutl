@@ -438,6 +438,35 @@ public sealed class ProxiesTabViewModelTests
         Assert.That(queue.CanceledJobIds, Does.Contain(job.JobId));
     }
 
+    // Generate All / Delete act on Clips, so the list must track project edits made while the tab
+    // is open — not just proxy store/queue events.
+    [Test]
+    public void SceneEdited_AddingAndRemovingVideoElements_RebuildsClipList()
+    {
+        string root = CreateRoot();
+        string firstPath = CreateSourceFile(root, "first.mov", 1024);
+        string secondPath = CreateSourceFile(root, "second.mov", 1024);
+        var store = new ProxyStore(Path.Combine(root, "proxies"));
+        var scene = new Scene(1920, 1080, string.Empty)
+        {
+            Uri = new Uri(Path.Combine(root, "test.scene")),
+        };
+        scene.Children.Add(CreateVideoElement(root, firstPath));
+
+        using var viewModel = new ProxiesTabViewModel(CreateContext(scene, store))
+        {
+            RefreshScheduler = static action => action(),
+        };
+        Assert.That(viewModel.Clips, Has.Count.EqualTo(1));
+
+        Element added = CreateVideoElement(root, secondPath);
+        scene.Children.Add(added);
+        Assert.That(viewModel.Clips, Has.Count.EqualTo(2));
+
+        scene.Children.Remove(added);
+        Assert.That(viewModel.Clips, Has.Count.EqualTo(1));
+    }
+
     [Test]
     public void Delete_WhenProxyFileCannotBeDeleted_SurfacesFailureInStatusMessage()
     {
@@ -850,19 +879,7 @@ public sealed class ProxiesTabViewModelTests
 
         foreach (string sourcePath in sourcePaths)
         {
-            var source = new VideoSource();
-            source.ReadFrom(new Uri(sourcePath));
-            var drawable = new SourceVideo();
-            drawable.Source.CurrentValue = source;
-            var element = new Element
-            {
-                Start = TimeSpan.Zero,
-                Length = TimeSpan.FromSeconds(1),
-                IsEnabled = true,
-                Uri = new Uri(Path.Combine(root, $"{Guid.NewGuid():N}.layer")),
-            };
-            element.AddObject(drawable);
-            scene.Children.Add(element);
+            scene.Children.Add(CreateVideoElement(root, sourcePath));
         }
 
         var context = new TestEditorContext(scene);
@@ -874,6 +891,23 @@ public sealed class ProxiesTabViewModelTests
         }
 
         return context;
+    }
+
+    private static Element CreateVideoElement(string root, string sourcePath)
+    {
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(sourcePath));
+        var drawable = new SourceVideo();
+        drawable.Source.CurrentValue = source;
+        var element = new Element
+        {
+            Start = TimeSpan.Zero,
+            Length = TimeSpan.FromSeconds(1),
+            IsEnabled = true,
+            Uri = new Uri(Path.Combine(root, $"{Guid.NewGuid():N}.layer")),
+        };
+        element.AddObject(drawable);
+        return element;
     }
 
     private static TestEditorContext CreateGraphContext(string root, ProxyStore store, string sourcePath)

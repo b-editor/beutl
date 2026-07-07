@@ -110,8 +110,20 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
                 .DisposeWith(_disposables);
         }
 
+        // Media can be added, removed, or replaced while the tab is open; Scene.Edited fires for
+        // both structural child changes and forwarded element edits, so Generate All / Delete never
+        // act on a stale clip list. ScheduleRefresh coalesces an edit burst into one rebuild.
+        if (_scene != null)
+        {
+            _scene.Edited += OnSceneEdited;
+            Disposable.Create(() => _scene.Edited -= OnSceneEdited)
+                .DisposeWith(_disposables);
+        }
+
         Refresh();
     }
+
+    private void OnSceneEdited(object? sender, EventArgs e) => ScheduleRefresh();
 
     public ObservableCollection<ProxyClipViewModel> Clips { get; } = [];
 

@@ -634,6 +634,27 @@ public class ProxyJobQueueTests
         });
     }
 
+    // Pins the drain-side publish: dequeuing a permit proves its write completed, so the drain must
+    // not skip the item (and waste the permit) just because the enqueuer's post-write continuation
+    // has not run yet — that race left jobs stranded at Queued under a full-channel burst.
+    [Test]
+    public async Task EnqueueAsync_BurstOverFullChannel_AllJobsReachTerminal()
+    {
+        var generator = new RecordingGenerator();
+        await using var queue = new ProxyJobQueue(generator, capacity: 1);
+
+        Task<ProxyJob>[] enqueues = [.. Enumerable.Range(0, 16)
+            .Select(n => queue.EnqueueAsync(CreateFingerprint($"burst-{n}.mov"), ProxyPreset.Quarter).AsTask())];
+
+        ProxyJob[] jobs = await Task.WhenAll(enqueues);
+        foreach (ProxyJob job in jobs)
+        {
+            await WaitForTerminalAsync(job);
+        }
+
+        Assert.That(jobs.Select(static j => j.Status), Is.All.EqualTo(ProxyJobStatus.Succeeded));
+    }
+
     [Test]
     public async Task DisposeAsync_RacingEnqueues_LeavesNoJobNonTerminal()
     {

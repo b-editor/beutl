@@ -35,9 +35,11 @@ public static class ProxySourceEnumerator
     /// <paramref name="root"/>, regardless of whether each file lives inside or outside the project
     /// directory. Covers the broad <see cref="IFileSource"/> property walk AND every source the
     /// property walk cannot reach — node-graph adapter inputs (a port is an <see cref="IPropertyAdapter"/>,
-    /// not a plain <see cref="IProperty{T}"/> on an <see cref="EngineObject"/>) and media held inside
-    /// referenced scenes (a referenced scene is a property value, not a hierarchical child). Paths are
-    /// deduped with <see cref="StringComparer.Ordinal"/>.
+    /// not a plain <see cref="IProperty{T}"/> on an <see cref="EngineObject"/>), including those held
+    /// inside referenced scenes. <c>SimpleProperty</c> attaches hierarchical property values (a
+    /// referenced scene, a presenter target) as hierarchical children, so the hierarchy itself is
+    /// user-cyclable and the walk is cycle-safe. Paths are deduped with
+    /// <see cref="StringComparer.Ordinal"/>.
     /// </summary>
     public static IReadOnlySet<string> EnumerateFileSources(IHierarchical root)
         => EnumerateFileSources(root, includeObjectUris: true);
@@ -54,18 +56,23 @@ public static class ProxySourceEnumerator
 
         var paths = new HashSet<string>(StringComparer.Ordinal);
 
-        foreach (CoreObject obj in root.EnumerateAllChildren<CoreObject>())
+        // SimpleProperty attaches IHierarchical property values (a referenced scene, a presenter
+        // target) as hierarchical children, so user-constructible reference cycles reach the
+        // hierarchy itself; the unguarded EnumerateAllChildren recursion would overflow the stack.
+        List<IHierarchical> allChildren = [.. EnumerateAllChildrenCycleSafe(root)];
+
+        foreach (CoreObject obj in allChildren.OfType<CoreObject>())
             CollectFileSourcePaths(obj, paths, includeObjectUris);
 
         if (root is CoreObject rootObj)
             CollectFileSourcePaths(rootObj, paths, includeObjectUris);
 
         // The property walk above cannot see node-graph adapter inputs (a port is an IPropertyAdapter,
-        // not an EngineObject property) or media inside referenced scenes (a scene is a property value,
-        // not a hierarchical child), so descend those here. A shared visited-scene set resolves cross-
-        // element references to the same scene once.
+        // not an EngineObject property), including ports inside referenced scenes, so descend the
+        // element walk here too. A shared visited-scene set resolves cross-element references to the
+        // same scene once.
         var visitedScenes = new HashSet<Scene>(ReferenceEqualityComparer.Instance);
-        foreach (Element element in root.EnumerateAllChildren<Element>())
+        foreach (Element element in allChildren.OfType<Element>())
         {
             foreach (IFileSource source in EnumerateElementFileSources(element, visitedScenes))
             {
@@ -103,7 +110,8 @@ public static class ProxySourceEnumerator
                 obj,
                 visitedScenes,
                 new HashSet<GraphGroup>(ReferenceEqualityComparer.Instance),
-                new HashSet<FilterEffectGroup>(ReferenceEqualityComparer.Instance)))
+                new HashSet<FilterEffectGroup>(ReferenceEqualityComparer.Instance),
+                new HashSet<Drawable>(ReferenceEqualityComparer.Instance)))
             {
                 yield return source;
             }
@@ -114,7 +122,8 @@ public static class ProxySourceEnumerator
         EngineObject obj,
         HashSet<Scene> visitedScenes,
         HashSet<GraphGroup> visitedGraphGroups,
-        HashSet<FilterEffectGroup> visitedFilterEffectGroups)
+        HashSet<FilterEffectGroup> visitedFilterEffectGroups,
+        HashSet<Drawable> visitedTargets)
     {
         // Direct IFileSource-valued properties (current + animated): SourceVideo/SourceImage/SourceSound.
         foreach (IFileSource source in EnumeratePropertyFileSources(obj))
@@ -146,29 +155,45 @@ public static class ProxySourceEnumerator
                     foreach (Drawable child in group.Children)
                     {
                         foreach (IFileSource source in EnumerateObjectFileSources(
-                            child, visitedScenes, visitedGraphGroups, visitedFilterEffectGroups))
+                            child, visitedScenes, visitedGraphGroups, visitedFilterEffectGroups, visitedTargets))
                             yield return source;
                     }
 
                     break;
 
-                // DrawableDecorator and DrawableTimeController are IFlowOperator/IPresenter that render
-                // nested drawables the property walk cannot reach, so a SourceVideo placed in them would
-                // otherwise be invisible to the Proxies tab, badges, and cache invalidation.
+                // DrawableDecorator, DrawableTimeController, and DrawablePresenter are
+                // IFlowOperator/IPresenter that render nested drawables the property walk cannot
+                // reach, so a SourceVideo placed in them would otherwise be invisible to the Proxies
+                // tab, badges, and cache invalidation. Target is a reference property (not
+                // ownership), so target chains are user-cyclable — the visited set makes the
+                // recursion terminate.
                 case DrawableDecorator decorator:
                     foreach (Drawable child in decorator.Children)
                     {
                         foreach (IFileSource source in EnumerateObjectFileSources(
-                            child, visitedScenes, visitedGraphGroups, visitedFilterEffectGroups))
+                            child, visitedScenes, visitedGraphGroups, visitedFilterEffectGroups, visitedTargets))
                             yield return source;
                     }
 
                     break;
 
                 case DrawableTimeController { Target.CurrentValue: { } target }:
-                    foreach (IFileSource source in EnumerateObjectFileSources(
-                        target, visitedScenes, visitedGraphGroups, visitedFilterEffectGroups))
-                        yield return source;
+                    if (visitedTargets.Add(target))
+                    {
+                        foreach (IFileSource source in EnumerateObjectFileSources(
+                            target, visitedScenes, visitedGraphGroups, visitedFilterEffectGroups, visitedTargets))
+                            yield return source;
+                    }
+
+                    break;
+
+                case DrawablePresenter { Target.CurrentValue: { } presented }:
+                    if (visitedTargets.Add(presented))
+                    {
+                        foreach (IFileSource source in EnumerateObjectFileSources(
+                            presented, visitedScenes, visitedGraphGroups, visitedFilterEffectGroups, visitedTargets))
+                            yield return source;
+                    }
 
                     break;
             }
@@ -180,6 +205,24 @@ public static class ProxySourceEnumerator
         {
             foreach (IFileSource source in EnumerateReferencedSceneSources(soundScene, visitedScenes))
                 yield return source;
+        }
+    }
+
+    private static IEnumerable<IHierarchical> EnumerateAllChildrenCycleSafe(IHierarchical root)
+    {
+        var visited = new HashSet<IHierarchical>(ReferenceEqualityComparer.Instance) { root };
+        var stack = new Stack<IHierarchical>();
+        stack.Push(root);
+        while (stack.Count > 0)
+        {
+            foreach (IHierarchical child in stack.Pop().HierarchicalChildren)
+            {
+                if (visited.Add(child))
+                {
+                    yield return child;
+                    stack.Push(child);
+                }
+            }
         }
     }
 
