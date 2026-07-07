@@ -275,24 +275,15 @@ public class Scene : ProjectItem, INotifyEdited
     /// interval between one element's <see cref="Element.Range.End"/> and the
     /// next element's <see cref="Element.Start"/> on the same ZIndex when the
     /// next element starts strictly after the previous one ends. Overlapping
-    /// or touching elements produce no gap.
+    /// or touching elements produce no gap, and the space before the first
+    /// element on a ZIndex is not a gap.
     /// </summary>
-    /// <param name="includeLeadingGap">
-    /// When <see langword="true"/>, also yields the leading gap on each ZIndex:
-    /// the interval from <see cref="TimeSpan.Zero"/> to the first element's
-    /// <see cref="Element.Start"/> when the first element starts after zero.
-    /// </param>
-    public IEnumerable<(int ZIndex, TimeRange Gap)> EnumerateGaps(bool includeLeadingGap = false)
+    public IEnumerable<SceneGap> EnumerateGaps()
     {
         foreach (IGrouping<int, Element> zGroup in Children.GroupBy(e => e.ZIndex).OrderBy(g => g.Key))
         {
             List<Element> sorted = zGroup.OrderBy(e => e.Start).ThenBy(e => e.Range.End).ToList();
             if (sorted.Count == 0) continue;
-
-            if (includeLeadingGap && sorted[0].Start > TimeSpan.Zero)
-            {
-                yield return (zGroup.Key, new TimeRange(TimeSpan.Zero, sorted[0].Start));
-            }
 
             TimeSpan coveredEnd = sorted[0].Range.End;
             for (int i = 1; i < sorted.Count; i++)
@@ -300,7 +291,7 @@ public class Scene : ProjectItem, INotifyEdited
                 Element next = sorted[i];
                 if (next.Start > coveredEnd)
                 {
-                    yield return (zGroup.Key, new TimeRange(coveredEnd, next.Start - coveredEnd));
+                    yield return new SceneGap(zGroup.Key, new TimeRange(coveredEnd, next.Start - coveredEnd));
                 }
 
                 if (next.Range.End > coveredEnd)
@@ -319,7 +310,7 @@ public class Scene : ProjectItem, INotifyEdited
     /// touches or overlaps the anchor). Does not commit history; the caller owns
     /// the single <c>HistoryManager.Commit</c> boundary.
     /// </summary>
-    public bool CloseGap(Element anchor)
+    public bool CloseGapAfter(Element anchor)
     {
         ArgumentNullException.ThrowIfNull(anchor);
         if (anchor.HierarchicalParent is not Scene scene || !ReferenceEquals(scene, this))
@@ -364,28 +355,28 @@ public class Scene : ProjectItem, INotifyEdited
     }
 
     /// <summary>
-    /// Closes every gap between elements on every ZIndex (the leading gap from
-    /// zero to the first element is not closed). Returns the number of gaps
+    /// Closes every gap between elements on every ZIndex (the space before the
+    /// first element on a ZIndex is not closed). Returns the number of gaps
     /// closed. Gaps are closed right-to-left within each ZIndex so earlier
     /// closes do not shift elements that later closes depend on. Does not
     /// commit history; the caller owns the single commit boundary.
     /// </summary>
     public int CloseAllGaps()
     {
-        List<(int ZIndex, TimeRange Gap)> gaps = EnumerateGaps().ToList();
+        List<SceneGap> gaps = EnumerateGaps().ToList();
         if (gaps.Count == 0) return 0;
 
         int closed = 0;
-        foreach (IGrouping<int, (int ZIndex, TimeRange Gap)> zGroup in gaps.GroupBy(g => g.ZIndex))
+        foreach (IGrouping<int, SceneGap> zGroup in gaps.GroupBy(g => g.ZIndex))
         {
-            foreach ((int ZIndex, TimeRange Gap) gap in zGroup.OrderByDescending(g => g.Gap.Start))
+            foreach (SceneGap gap in zGroup.OrderByDescending(g => g.Range.Start))
             {
                 Element[] toShift = Children
-                    .Where(e => e.ZIndex == zGroup.Key && e.Start >= gap.Gap.End)
+                    .Where(e => e.ZIndex == zGroup.Key && e.Start >= gap.Range.End)
                     .ToArray();
                 if (toShift.Length == 0) continue;
 
-                TimeSpan delta = -gap.Gap.Duration;
+                TimeSpan delta = -gap.Range.Duration;
                 if (delta == TimeSpan.Zero) continue;
 
                 if (MoveChildrenAndDetectChange(toShift, delta))
@@ -416,42 +407,44 @@ public class Scene : ProjectItem, INotifyEdited
     }
 
     /// <summary>
-    /// Returns the center of the first gap (across all ZIndexes) that starts
-    /// strictly after <paramref name="currentTime"/>, or <see langword="null"/>
-    /// when no such gap exists. The leading gap is excluded.
+    /// Returns the first gap (across all ZIndexes) that starts strictly after
+    /// <paramref name="currentTime"/>, or <see langword="null"/> when no such
+    /// gap exists.
     /// </summary>
     /// <param name="searchRange">
     /// When set, only gaps that lie entirely within this range are considered, so
     /// navigation stays within the active scene range and does not target the
     /// trailing space left by elements beyond a shortened or offset scene.
     /// </param>
-    public TimeSpan? FindNextGapCenter(TimeSpan currentTime, TimeRange? searchRange = null)
+    public TimeRange? FindNextGap(TimeSpan currentTime, TimeRange? searchRange = null)
     {
         return EnumerateGaps()
-            .Where(g => g.Gap.Start > currentTime && Contains(searchRange, g.Gap))
-            .OrderBy(g => g.Gap.Start)
-            .Select(g => (TimeSpan?)(g.Gap.Start + new TimeSpan(g.Gap.Duration.Ticks / 2)))
+            .Where(g => g.Range.Start > currentTime && Contains(searchRange, g.Range))
+            .OrderBy(g => g.Range.Start)
+            .Select(g => (TimeRange?)g.Range)
             .FirstOrDefault();
     }
 
     /// <summary>
-    /// Returns the center of the last gap (across all ZIndexes) that ends
-    /// strictly before <paramref name="currentTime"/>, or <see langword="null"/>
-    /// when no such gap exists. The leading gap is excluded.
+    /// Returns the last gap (across all ZIndexes) that ends strictly before
+    /// <paramref name="currentTime"/>, or <see langword="null"/> when no such
+    /// gap exists.
     /// </summary>
     /// <param name="searchRange">
     /// When set, only gaps that lie entirely within this range are considered, so
     /// navigation stays within the active scene range.
     /// </param>
-    public TimeSpan? FindPreviousGapCenter(TimeSpan currentTime, TimeRange? searchRange = null)
+    public TimeRange? FindPreviousGap(TimeSpan currentTime, TimeRange? searchRange = null)
     {
         return EnumerateGaps()
-            .Where(g => g.Gap.End < currentTime && Contains(searchRange, g.Gap))
-            .OrderByDescending(g => g.Gap.End)
-            .Select(g => (TimeSpan?)(g.Gap.Start + new TimeSpan(g.Gap.Duration.Ticks / 2)))
+            .Where(g => g.Range.End < currentTime && Contains(searchRange, g.Range))
+            .OrderByDescending(g => g.Range.End)
+            .Select(g => (TimeRange?)g.Range)
             .FirstOrDefault();
     }
 
+    // Inclusive at both ends, unlike the half-open TimeRange.Contains: a gap touching
+    // the searched range's end must still count as inside it.
     private static bool Contains(TimeRange? range, TimeRange gap)
         => range is not { } r || (gap.Start >= r.Start && gap.End <= r.End);
 

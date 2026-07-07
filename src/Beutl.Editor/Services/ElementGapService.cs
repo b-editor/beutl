@@ -12,12 +12,12 @@ public sealed class ElementGapService : IElementGapService
         _historyManager = historyManager ?? throw new ArgumentNullException(nameof(historyManager));
     }
 
-    public bool CloseGap(Scene scene, Element anchor)
+    public bool CloseGapAfter(Scene scene, Element anchor)
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(anchor);
 
-        if (!scene.CloseGap(anchor)) return false;
+        if (!scene.CloseGapAfter(anchor)) return false;
         _historyManager.Commit(CommandNames.CloseGap);
         return true;
     }

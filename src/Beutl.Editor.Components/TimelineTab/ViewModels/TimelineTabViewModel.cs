@@ -1159,7 +1159,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         }
 
         FlushPendingNudgeCommit();
-        if (!EditorContext.GetRequiredService<IElementGapService>().CloseGap(Scene, anchor))
+        if (!EditorContext.GetRequiredService<IElementGapService>().CloseGapAfter(Scene, anchor))
         {
             NotificationService.ShowInformation(Strings.CloseGap, Strings.NoGapsToClose);
         }
@@ -1198,13 +1198,13 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         TimeSpan origin = currentTime < sceneStart
             ? sceneStart
             : currentTime > sceneEnd ? sceneEnd : currentTime;
-        TimeSpan? center = forward
-            ? scene.FindNextGapCenter(origin, range)
-            : scene.FindPreviousGapCenter(origin, range);
+        TimeRange? gap = forward
+            ? scene.FindNextGap(origin, range)
+            : scene.FindPreviousGap(origin, range);
+        if (gap is not { } g) return null;
 
-        return center is { } target
-            ? target < sceneStart ? sceneStart : target > sceneEnd ? sceneEnd : target
-            : null;
+        TimeSpan target = g.Start + new TimeSpan(g.Duration.Ticks / 2);
+        return target < sceneStart ? sceneStart : target > sceneEnd ? sceneEnd : target;
     }
 
     private enum NudgeUnit { Frame, Large, Second }

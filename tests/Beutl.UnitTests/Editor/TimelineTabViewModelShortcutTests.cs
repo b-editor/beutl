@@ -13,14 +13,28 @@ using Reactive.Bindings;
 namespace Beutl.UnitTests.Editor;
 
 [TestFixture]
+[NonParallelizable]
 public class TimelineTabViewModelShortcutTests
 {
     private static readonly CaptureNotificationHandler s_notificationHandler = new();
+    private INotificationServiceHandler? _previousHandler;
 
     [OneTimeSetUp]
     public void InstallNotificationHandler()
     {
+        _previousHandler = NotificationService.Handler;
         NotificationService.Handler = s_notificationHandler;
+    }
+
+    [OneTimeTearDown]
+    public void RestoreNotificationHandler()
+    {
+        // The setter rejects null; when no handler existed before, ours stays (Show is null-safe
+        // and no other fixture asserts on Handler identity).
+        if (_previousHandler is not null)
+        {
+            NotificationService.Handler = _previousHandler;
+        }
     }
 
     [SetUp]
@@ -273,7 +287,7 @@ public class TimelineTabViewModelShortcutTests
         public bool CloseAllGapsCalled { get; private set; }
         public bool CloseAllGapsSawFlush { get; private set; }
 
-        public bool CloseGap(Scene scene, Element anchor)
+        public bool CloseGapAfter(Scene scene, Element anchor)
         {
             CloseGapCalled = true;
             CloseGapSawFlush = nudgeService.FlushCount > 0;

@@ -39,25 +39,25 @@ public class ElementGapServiceTests
     }
 
     [Test]
-    public void CloseGap_NullArguments_Throw()
+    public void CloseGapAfter_NullArguments_Throw()
     {
         Element placeholder = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
 
         Assert.Multiple(() =>
         {
-            Assert.Throws<ArgumentNullException>(() => _service.CloseGap(null!, placeholder));
-            Assert.Throws<ArgumentNullException>(() => _service.CloseGap(_scene, null!));
+            Assert.Throws<ArgumentNullException>(() => _service.CloseGapAfter(null!, placeholder));
+            Assert.Throws<ArgumentNullException>(() => _service.CloseGapAfter(_scene, null!));
         });
     }
 
     [Test]
-    public void CloseGap_ClosesGapAndCommitsOnce()
+    public void CloseGapAfter_ClosesGapAndCommitsOnce()
     {
         Element a = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
         Element b = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
         int before = _history.UndoCount;
 
-        bool result = _service.CloseGap(_scene, a);
+        bool result = _service.CloseGapAfter(_scene, a);
 
         Assert.Multiple(() =>
         {
@@ -68,13 +68,13 @@ public class ElementGapServiceTests
     }
 
     [Test]
-    public void CloseGap_NoGap_ReturnsFalse_NoCommit()
+    public void CloseGapAfter_NoGap_ReturnsFalse_NoCommit()
     {
         Element a = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
         AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(2));
         int before = _history.UndoCount;
 
-        bool result = _service.CloseGap(_scene, a);
+        bool result = _service.CloseGapAfter(_scene, a);
 
         Assert.Multiple(() =>
         {
@@ -84,13 +84,13 @@ public class ElementGapServiceTests
     }
 
     [Test]
-    public void CloseGap_AnchorIsLastElement_ReturnsFalse_NoCommit()
+    public void CloseGapAfter_AnchorIsLastElement_ReturnsFalse_NoCommit()
     {
         Element a = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
         Element b = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
         int before = _history.UndoCount;
 
-        bool result = _service.CloseGap(_scene, b);
+        bool result = _service.CloseGapAfter(_scene, b);
 
         Assert.Multiple(() =>
         {
@@ -161,14 +161,14 @@ public class ElementGapServiceTests
     }
 
     [Test]
-    public void CloseGap_ThenUndo_RestoresLayout()
+    public void CloseGapAfter_ThenUndo_RestoresLayout()
     {
         Element a = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
         Element b = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
         TimeSpan originalBStart = b.Start;
         int before = _history.UndoCount;
 
-        _service.CloseGap(_scene, a);
+        _service.CloseGapAfter(_scene, a);
         _history.Undo();
 
         Assert.Multiple(() =>

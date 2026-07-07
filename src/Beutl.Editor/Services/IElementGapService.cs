@@ -10,7 +10,7 @@ public interface IElementGapService
 {
     /// <summary>Closes the gap immediately after <paramref name="anchor"/> on its ZIndex layer.
     /// Returns <see langword="false"/> (no commit) when there is no gap to close.</summary>
-    bool CloseGap(Scene scene, Element anchor);
+    bool CloseGapAfter(Scene scene, Element anchor);
 
     /// <summary>Closes every gap across all ZIndex layers. Returns the number of gaps closed;
     /// commits one undo entry only when that number is greater than zero.</summary>
