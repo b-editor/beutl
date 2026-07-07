@@ -76,6 +76,39 @@ public sealed class LiveSessionTests
         Assert.That(source.CurrentSession, Is.Null, "A dead binding must surface as no current session.");
     }
 
+    [Test]
+    public void Invoke_checks_liveness_inside_binding_dispatcher()
+    {
+        var scene = new Scene(1920, 1080, "Scene");
+        using RecordingPipeline recording = RecordingPipeline.Create(scene);
+        var binding = new GuardedFakeLiveBinding(scene, recording.History);
+        var source = new LiveSessionSource();
+        LiveEditingSession session = source.Attach(binding);
+        binding.RequireDispatchedAccess = true;
+
+        Assert.DoesNotThrow(() => session.Invoke(() => { }));
+    }
+
+    [Test]
+    public void Current_session_key_reads_live_root_through_binding_dispatcher()
+    {
+        var scene = new Scene(1920, 1080, "Scene");
+        using RecordingPipeline recording = RecordingPipeline.Create(scene);
+        var binding = new FakeLiveBinding(scene, recording.History);
+        var source = new LiveSessionSource();
+        source.Attach(binding);
+        var manager = new AgentSessionManager();
+        manager.UseSource(source);
+
+        string key = manager.CurrentSessionKey;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(key, Is.EqualTo($"{EditingSessionSource.LiveEditor}:{scene.Id}"));
+            Assert.That(binding.InvokeCount, Is.EqualTo(2));
+        });
+    }
+
     private sealed class FakeLiveBinding(Scene? scene, HistoryManager? history) : ILiveSessionBinding
     {
         public int InvokeCount { get; private set; }
@@ -110,5 +143,60 @@ public sealed class LiveSessionTests
         public bool IsAlive => Alive && ActiveScene is not null && ActiveHistory is not null;
 
         public void Invoke(Action action) => action();
+    }
+
+    private sealed class GuardedFakeLiveBinding(Scene? scene, HistoryManager? history) : ILiveSessionBinding
+    {
+        private bool _insideInvoke;
+
+        public bool RequireDispatchedAccess { get; set; }
+
+        public Scene? ActiveScene
+        {
+            get
+            {
+                EnsureDispatched();
+                return scene;
+            }
+        }
+
+        public HistoryManager? ActiveHistory
+        {
+            get
+            {
+                EnsureDispatched();
+                return history;
+            }
+        }
+
+        public bool IsAlive
+        {
+            get
+            {
+                EnsureDispatched();
+                return scene is not null && history is not null;
+            }
+        }
+
+        public void Invoke(Action action)
+        {
+            _insideInvoke = true;
+            try
+            {
+                action();
+            }
+            finally
+            {
+                _insideInvoke = false;
+            }
+        }
+
+        private void EnsureDispatched()
+        {
+            if (RequireDispatchedAccess && !_insideInvoke)
+            {
+                throw new InvalidOperationException("Live binding was read outside the dispatcher.");
+            }
+        }
     }
 }

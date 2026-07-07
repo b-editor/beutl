@@ -26,6 +26,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
     private static readonly TimeSpan s_shutdownTimeout = TimeSpan.FromSeconds(2);
     private readonly ProjectService _projectService;
     private readonly EditorService _editorService;
+    private readonly AiAgentConfig _config;
     private readonly int _preferredPort;
     private WebApplication? _application;
 
@@ -35,7 +36,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
     }
 
     internal AgentHostEndpoint(ProjectService projectService, EditorService editorService, AiAgentConfig config)
-        : this(projectService, editorService, DefaultPort, ResolveToken(config))
+        : this(projectService, editorService, DefaultPort, ResolveToken(config), config)
     {
     }
 
@@ -61,21 +62,43 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
     }
 
     // Prefer the workspace the user chose on the AI Agents settings page (read at start, so a
-    // restart picks up a change) over BEUTL_WORKSPACE / the process directory.
-    private static string ResolveWorkspaceRoot()
+    // restart picks up a change) over the shared host-computed default.
+    internal static string ResolveWorkspaceRoot(AiAgentConfig config)
     {
-        string configured = GlobalConfiguration.Instance.AiAgentConfig.WorkspaceRoot;
+        ArgumentNullException.ThrowIfNull(config);
+
+        string configured = config.WorkspaceRoot;
         if (!string.IsNullOrWhiteSpace(configured))
         {
             return configured;
         }
 
         string? env = Environment.GetEnvironmentVariable("BEUTL_WORKSPACE");
-        return string.IsNullOrWhiteSpace(env) ? Directory.GetCurrentDirectory() : env;
+        if (!string.IsNullOrWhiteSpace(env))
+        {
+            return env;
+        }
+
+        string documents = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+        return string.IsNullOrWhiteSpace(documents)
+            ? Directory.GetCurrentDirectory()
+            : documents;
     }
 
     internal AgentHostEndpoint(ProjectService projectService, EditorService editorService, int preferredPort, string token)
+        : this(projectService, editorService, preferredPort, token, GlobalConfiguration.Instance.AiAgentConfig)
     {
+    }
+
+    private AgentHostEndpoint(
+        ProjectService projectService,
+        EditorService editorService,
+        int preferredPort,
+        string token,
+        AiAgentConfig config)
+    {
+        ArgumentNullException.ThrowIfNull(config);
+
         if (preferredPort is < 1 or > IPEndPoint.MaxPort)
         {
             throw new ArgumentOutOfRangeException(nameof(preferredPort));
@@ -88,6 +111,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
 
         _projectService = projectService;
         _editorService = editorService;
+        _config = config;
         _preferredPort = preferredPort;
         Token = token;
     }
@@ -180,7 +204,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             options.Listen(IPAddress.Loopback, port);
         });
 
-        string workspaceRoot = ResolveWorkspaceRoot();
+        string workspaceRoot = ResolveWorkspaceRoot(_config);
 
         builder.Services
             .AddSingleton(_projectService)

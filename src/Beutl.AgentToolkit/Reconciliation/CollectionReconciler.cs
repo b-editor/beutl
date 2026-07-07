@@ -100,18 +100,22 @@ public static class CollectionReconciler
     public static ToolError? ValidateNoDuplicateIdsInIdentityArrays(
         JsonNode? node,
         IReadOnlySet<Guid>? toleratedIds = null)
-        => ValidateNoDuplicateIdsInIdentityArrays(node, toleratedIds, "$");
+    {
+        var seenIds = new Dictionary<Guid, string>();
+        return ValidateNoDuplicateIdsInIdentityArrays(node, toleratedIds, "$", seenIds);
+    }
 
     private static ToolError? ValidateNoDuplicateIdsInIdentityArrays(
         JsonNode? node,
         IReadOnlySet<Guid>? toleratedIds,
-        string path)
+        string path,
+        Dictionary<Guid, string> seenIds)
     {
         if (node is JsonObject obj)
         {
             foreach (KeyValuePair<string, JsonNode?> pair in obj.ToArray())
             {
-                if (ValidateNoDuplicateIdsInIdentityArrays(pair.Value, toleratedIds, $"{path}/{pair.Key}") is { } error)
+                if (ValidateNoDuplicateIdsInIdentityArrays(pair.Value, toleratedIds, $"{path}/{pair.Key}", seenIds) is { } error)
                 {
                     return error;
                 }
@@ -119,22 +123,24 @@ public static class CollectionReconciler
         }
         else if (node is JsonArray array)
         {
-            var seen = new HashSet<Guid>();
             for (int i = 0; i < array.Count; i++)
             {
+                string itemPath = $"{path}[{i}]";
                 if (array[i] is JsonObject item
                     && TryGetId(item, out Guid id)
-                    && !seen.Add(id)
                     && toleratedIds?.Contains(id) != true)
                 {
-                    return new ToolError(
-                        ErrorCode.ValidationRejected,
-                        $"Array '{path}' contains Id '{id}' more than once.",
-                        id.ToString(),
-                        "Each Id may appear at most once per array. Remove the duplicate entry, or omit Id so a fresh object is created.");
+                    if (!seenIds.TryAdd(id, itemPath))
+                    {
+                        return new ToolError(
+                            ErrorCode.ValidationRejected,
+                            $"Desired document contains Id '{id}' more than once at '{seenIds[id]}' and '{itemPath}'.",
+                            id.ToString(),
+                            "Each Id may appear at most once in the desired document. Remove the duplicate entry, or omit Id so a fresh object is created.");
+                    }
                 }
 
-                if (ValidateNoDuplicateIdsInIdentityArrays(array[i], toleratedIds, $"{path}[{i}]") is { } error)
+                if (ValidateNoDuplicateIdsInIdentityArrays(array[i], toleratedIds, itemPath, seenIds) is { } error)
                 {
                     return error;
                 }

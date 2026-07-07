@@ -1,9 +1,11 @@
 ﻿using Beutl.AgentToolkit.Common;
+using Beutl.AgentToolkit.Documents;
 using Beutl.AgentToolkit.Rendering;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
 using Beutl.AgentToolkit.Workspace;
+using Beutl.Editor;
 using Beutl.ProjectSystem;
 
 namespace Beutl.AgentToolkit.Tests.Tools;
@@ -201,6 +203,34 @@ public sealed class SessionToolsTests
         });
     }
 
+    [Test]
+    public async Task Create_project_builds_live_summary_through_session_dispatcher()
+    {
+        string root = CreateWorkspace();
+        var gateway = new DispatchingProjectGateway();
+        var workspace = new WorkspaceGuard(root);
+        var sessionTools = new SessionTools(
+            gateway,
+            new AgentSessionManager(),
+            workspace,
+            new DestructiveGuard(),
+            new RenderJobManager());
+
+        ToolResult<CreateProjectResponse> created = await sessionTools.CreateProject(
+            "live-summary.bep",
+            width: 640,
+            height: 360,
+            frameRate: 30,
+            duration: "00:00:04");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(created.IsSuccess, Is.True, created.Error?.Message);
+            Assert.That(created.Value!.Summary.Scenes, Has.Count.EqualTo(1));
+            Assert.That(gateway.LastSession!.InvokeCount, Is.EqualTo(1));
+        });
+    }
+
     private static SessionTools CreateSessionTools(FileSessionSource source, AgentSessionManager manager, string root)
     {
         var workspace = new WorkspaceGuard(root);
@@ -217,5 +247,53 @@ public sealed class SessionToolsTests
         string path = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(path);
         return path;
+    }
+
+    private sealed class DispatchingProjectGateway : IProjectSessionGateway
+    {
+        public DispatchingLiveSession? LastSession { get; private set; }
+
+        public ValueTask<ProjectSessionResult> OpenProjectAsync(string fullPath, CancellationToken cancellationToken = default)
+            => CreateProjectAsync(new ProjectCreateOptions(fullPath, 640, 360, 30, TimeSpan.FromSeconds(4)), cancellationToken);
+
+        public ValueTask<ProjectSessionResult> CreateProjectAsync(
+            ProjectCreateOptions options,
+            CancellationToken cancellationToken = default)
+        {
+            Project project = ProjectOperations.CreateProject(options);
+            Scene scene = project.Items.OfType<Scene>().Single();
+            LastSession = new DispatchingLiveSession(scene);
+            return ValueTask.FromResult(new ProjectSessionResult(LastSession, project));
+        }
+
+        public ValueTask<ProjectSceneResult> AddSceneAsync(
+            SceneCreateOptions options,
+            CancellationToken cancellationToken = default)
+        {
+            throw new NotSupportedException();
+        }
+    }
+
+    private sealed class DispatchingLiveSession(CoreObject root) : IEditingSession, IEditingSessionDispatcher
+    {
+        public int InvokeCount { get; private set; }
+
+        public string SessionId { get; } = Guid.NewGuid().ToString("N");
+
+        public EditingSessionSource Source => EditingSessionSource.LiveEditor;
+
+        public CoreObject Root => root;
+
+        public HistoryManager History => throw new NotSupportedException();
+
+        public DocumentAdapter Documents { get; } = new();
+
+        public bool IsDirty => false;
+
+        public void Invoke(Action action)
+        {
+            InvokeCount++;
+            action();
+        }
     }
 }

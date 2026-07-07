@@ -65,6 +65,47 @@ public sealed class ReconcilerIdIntegrityTests
     }
 
     [Test]
+    public void Apply_edit_rejects_desired_document_with_duplicate_ids_across_arrays()
+    {
+        Scene scene = CreateSceneWithElement(out Element firstElement);
+        var secondElement = new Element
+        {
+            Start = TimeSpan.FromSeconds(4),
+            Length = TimeSpan.FromSeconds(4),
+            Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "second.belm"))
+        };
+        scene.Children.Add(secondElement);
+        var rect = new RectShape { Name = "mark", Width = { CurrentValue = 100 }, Height = { CurrentValue = 100 } };
+        firstElement.AddObject(rect);
+
+        using var session = new AgentToolkitTestSession(scene);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var tools = new EditTools(manager);
+
+        JsonObject desired = session.Documents.Read(session.Root);
+        var elements = (JsonArray)desired["Elements"]!;
+        var secondElementJson = elements
+            .OfType<JsonObject>()
+            .Single(item => item["Id"]!.GetValue<string>() == secondElement.Id.ToString());
+        secondElementJson["Objects"] = new JsonArray(new JsonObject
+        {
+            ["$type"] = IdentityHelper.WriteDiscriminator(typeof(RectShape)),
+            ["Id"] = rect.Id.ToString(),
+            ["Name"] = "duplicate mark"
+        });
+
+        ToolResult<ApplyEditResponse> result = tools.ApplyEdit(desired: desired, schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(result.Error.Message, Does.Contain("more than once"));
+        });
+    }
+
+    [Test]
     public void Apply_edit_still_works_on_document_with_preexisting_duplicate_ids()
     {
         Scene scene = CreateSceneWithElement(out Element element);

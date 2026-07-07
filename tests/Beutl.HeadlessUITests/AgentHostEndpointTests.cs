@@ -84,6 +84,29 @@ public sealed class AgentHostEndpointTests
     }
 
     [AvaloniaTest]
+    public async Task Resolve_workspace_root_uses_settings_default_when_config_and_environment_are_empty()
+    {
+        await TestReset.ResetShellAsync();
+        string? previous = Environment.GetEnvironmentVariable("BEUTL_WORKSPACE");
+        try
+        {
+            Environment.SetEnvironmentVariable("BEUTL_WORKSPACE", null);
+            string documents = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+            string expected = string.IsNullOrWhiteSpace(documents)
+                ? Directory.GetCurrentDirectory()
+                : documents;
+
+            string resolved = AgentHostEndpoint.ResolveWorkspaceRoot(new AiAgentConfig());
+
+            Assert.That(resolved, Is.EqualTo(expected));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("BEUTL_WORKSPACE", previous);
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Endpoint_increments_port_when_preferred_port_is_in_use()
     {
         await TestReset.ResetShellAsync();

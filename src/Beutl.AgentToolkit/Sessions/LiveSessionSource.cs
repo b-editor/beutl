@@ -72,11 +72,16 @@ public sealed class LiveEditingSession : IEditingSession, IEditingSessionDispatc
 
     public void Invoke(Action action)
     {
-        if (!IsAlive)
-        {
-            throw new SessionUnavailableException();
-        }
+        ArgumentNullException.ThrowIfNull(action);
 
-        _binding.Invoke(action);
+        _binding.Invoke(() =>
+        {
+            if (!IsAlive)
+            {
+                throw new SessionUnavailableException();
+            }
+
+            action();
+        });
     }
 }

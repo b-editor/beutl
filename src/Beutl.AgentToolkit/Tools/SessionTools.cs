@@ -68,7 +68,10 @@ public sealed class SessionTools(
             }
 
             ProjectSessionResult result = await projects.OpenProjectAsync(fullPath, cancellationToken).ConfigureAwait(false);
-            return new OpenProjectResponse(result.Session.SessionId, result.Session.Source.ToString(), CreateSummary(result.Project));
+            return new OpenProjectResponse(
+                result.Session.SessionId,
+                result.Session.Source.ToString(),
+                CreateSummary(result.Session, result.Project));
         });
     }
 
@@ -101,7 +104,7 @@ public sealed class SessionTools(
             return new CreateProjectResponse(
                 result.Session.SessionId,
                 result.Project.Uri!.LocalPath,
-                CreateSummary(result.Project));
+                CreateSummary(result.Session, result.Project));
         });
     }
 
@@ -128,7 +131,10 @@ public sealed class SessionTools(
                     ParseTimeSpan(duration),
                     name),
                 cancellationToken).ConfigureAwait(false);
-            return new AddSceneResponse(result.Scene.Id.ToString(), result.Session.SessionId, CreateSummary(result.Project));
+            return new AddSceneResponse(
+                result.Scene.Id.ToString(),
+                result.Session.SessionId,
+                CreateSummary(result.Session, result.Project));
         });
     }
 
@@ -245,6 +251,11 @@ public sealed class SessionTools(
         }
 
         return session;
+    }
+
+    private static SessionSummary CreateSummary(IEditingSession session, Project project)
+    {
+        return session.ReadOnSession(() => CreateSummary(project));
     }
 
     private static SessionSummary CreateSummary(Project project)

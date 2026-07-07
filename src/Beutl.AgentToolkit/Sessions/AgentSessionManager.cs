@@ -222,7 +222,7 @@ public sealed class AgentSessionManager(CreativeMemoryStore? creativeMemory = nu
         IEditingSession? session = CurrentSession;
         return session is null
             ? "host"
-            : $"{session.Source}:{session.Root.Id}";
+            : $"{session.Source}:{session.ReadOnSession(() => session.Root.Id)}";
     }
 
     private static string CreateCompositionSeed(string scope)
