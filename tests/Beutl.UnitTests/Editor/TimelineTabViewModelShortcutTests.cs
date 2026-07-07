@@ -82,6 +82,9 @@ public class TimelineTabViewModelShortcutTests
         context.AddService<IElementGapService>(gapService);
 
         var viewModel = (TimelineTabViewModel)RuntimeHelpers.GetUninitializedObject(typeof(TimelineTabViewModel));
+        // GetUninitializedObject skips field initializers, so any finalizer would run against null
+        // fields and crash the finalizer thread (killing the test host). Suppress it.
+        GC.SuppressFinalize(viewModel);
         SetAutoProperty(viewModel, nameof(TimelineTabViewModel.Scene), scene);
         SetAutoProperty(viewModel, nameof(TimelineTabViewModel.EditorContext), context);
         SetAutoProperty(viewModel, nameof(TimelineTabViewModel.SelectedElements), CreateSelection(selectedElement));
@@ -102,6 +105,8 @@ public class TimelineTabViewModelShortcutTests
     private static ElementViewModel CreateElementViewModel(Element element)
     {
         var viewModel = (ElementViewModel)RuntimeHelpers.GetUninitializedObject(typeof(ElementViewModel));
+        // ElementViewModel's finalizer dereferences a field that GetUninitializedObject leaves null.
+        GC.SuppressFinalize(viewModel);
         SetAutoProperty(viewModel, nameof(ElementViewModel.Model), element);
         return viewModel;
     }
