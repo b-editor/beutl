@@ -55,3 +55,12 @@ This is a deliberate **normalization** of path-dependent legacy behavior — tod
 | `PlanCompilations` / `ProgramCreations` | each graph compile / each `SKRuntimeEffect` (or Vulkan pipeline) construction |
 
 Counters are per-renderer, render-thread, always-on; `Snapshot()`/`Reset()` are the test API. These definitions are binding — SC-001/002/003/005 are expressed in them.
+
+## C9. Invariant-run fold into an adjacent composite (normative)
+
+A `FusedShaderPass` composed **entirely** of color-filter stages (`ColorFilterStage`; no `RuntimeShaderStage`) that **immediately precedes** a `CompositePass` folds into that composite: the compiler drops the fused pass and attaches its ordered color-filter factories to the composite (`CompositePass.InputColorFilters`), and the executor applies their composed `SKColorFilter` to **each** branch draw the composite performs.
+
+1. **Correctness basis.** A composite draws each current branch exactly once (C4, fan-in). A color-filter run is coordinate-invariant (identity bounds, per-pixel), so applying it to each branch draw is byte-identical to first baking every branch through the run and then compositing — the same equivalence C2 already grants a `ColorFilterNode` adjacent to a Skia-filter run. The composed filter is applied **before** the blend (Skia's layer-paint color-filter semantics), i.e. `blend(colorFilter(branch), dst)`. The fold rides the blend-mode `SaveLayer` the composite already opens per branch, adding no layers.
+2. **Applicability.** A run containing a `RuntimeShaderStage` (an SKSL snippet/whole-source shader) is **not** an `SKColorFilter` and does **not** fold — it stays its own pass. The fold only collapses a pure color-filter run that is *immediately* upstream of the composite; a non-invariant pass (Skia filter, geometry, compute) between the run and the composite blocks it.
+3. **Counters (C8).** The fold removes the fused pass's draw and its per-branch intermediate targets: `GpuPasses` and `TargetAllocations` **decrease** (never increase). The composite still counts one `GpuPass`. Structure-determined, so a fold is reproduced identically on a plan-cache hit (the folded factories are per-frame parameters re-extracted by `ParameterBlock`, so an animated fold amount rebinds without a recompile).
+4. **Parity.** Because the fold is semantics-preserving, a scene's frozen parity reference (e.g. `chain-SplitTree`) MUST still pass **un-regenerated** after the fold lands.

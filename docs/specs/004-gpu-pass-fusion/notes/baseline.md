@@ -66,10 +66,17 @@ in later rollout steps) and are omitted from the table.
 | ColorChain | 3840×2160 | 1 | 1 | 0 | 0 | 17.635 ms |
 | MixedChain | 1920×1080 | 4 | 4 | 0 | 0 | 15.414 ms |
 | MixedChain | 3840×2160 | 4 | 4 | 0 | 0 | 43.814 ms |
-| SplitTree | 1920×1080 | 19 | 20 | 1 | 0 | 27.016 ms |
-| SplitTree | 3840×2160 | 19 | 20 | 1 | 0 | 55.166 ms |
+| SplitTree † | 1920×1080 | 10 | 11 | 1 | 0 | 15.498 ms |
+| SplitTree † | 3840×2160 | 10 | 11 | 1 | 0 | 43.866 ms |
 | HeavySource | 1920×1080 | 1 | 1 | 0 | 0 | 7.415 ms |
 | HeavySource | 3840×2160 | 1 | 1 | 0 | 0 | 31.962 ms |
+
+† **SplitTree: step-6 follow-up, re-measured** (2026-07-07). The coordinate-invariant Saturate run between the
+split and the composite now folds into the composite's per-branch draw (C9, contracts/execution-plan.md), so
+GpuPasses fell 19 → 10 and TargetAllocations 20 → 11 (the 9 standalone Saturate passes and their 9 intermediate
+targets are gone; the composite applies the Saturate `SKColorFilter` per branch instead). The original T053 row was
+19 / 20 / 1 / 0 at 27.016 ms (1080p) / 55.166 ms (4K). The frame times above are a **same-session A/B on a
+contended shared machine, control-normalized against ColorChain** (see the follow-up finding below).
 
 **Counter derivations** (structure-determined, size-independent; pinned in
 `EffectPipelineCounterTests` for ColorChain/MixedChain):
@@ -80,9 +87,12 @@ in later rollout steps) and are omitted from the table.
   4 intermediates; fusion never crosses the non-adjacent Skia filters (C2).
 - **HeavySource**: Gamma+Invert+ColorGrading fuse to one pass — 1 / 1 / 0 / 0 (versus 6 / 6 / 3 / 6 legacy;
   the three adjacent custom items no longer pay per-item bakes).
-- **SplitTree**: 1 split pass materializing its input (1 FullFrameMaterialization) + 9 pooled part targets,
-  then the fused Saturate applies per branch (9 passes / 9 targets) and LayerEffect composites (1 pass +
-  1 target): 19 passes / 20 allocations / 1 materialization / 0 syncs (versus 20 / 20 / 10 / 20 legacy).
+- **SplitTree** (step-6 follow-up, post-fold): 1 split pass materializing its input (1 FullFrameMaterialization) +
+  9 pooled part targets, then LayerEffect composites the 9 branches into 1 target with the Saturate `SKColorFilter`
+  folded onto each branch draw (C9): 10 passes / 11 allocations / 1 materialization / 0 syncs (versus 19 / 20 / 1 / 0
+  before the fold and 20 / 20 / 10 / 20 legacy). The fold eliminates the 9 standalone Saturate passes and their 9
+  intermediate targets because a coordinate-invariant color run adjacent to a composite is identical to applying that
+  color filter per composite input. Pinned in `PrimitivePassTests.SplitTree_CounterDerivation` (re-pinned 19 → 10).
 
 **Environment / method**: identical to the step-1 run (same machine, MoltenVK, RGBA16F linear-sRGB; BDN
 `InProcessEmitToolchain`, LaunchCount=1, WarmupCount=3, IterationCount=7, same CLI). Median over the
@@ -107,13 +117,32 @@ frames (SC-002 gate) — asserted exactly in NUnit rather than tabulated here.
 - **MixedChain** improves modestly (18.525 → 15.414 ms, 45.749 → 43.814 ms) — passes fell 6 → 4 but each
   declarative Skia-filter pass pays its own bake that the legacy pipeline folded into an adjacent custom
   bake.
-- **SplitTree regressed in frame time** (22.681 → 27.016 ms at 1080p, 40.686 → 55.166 ms at 4K) despite
-  materializations falling 10 → 1 and syncs 20 → 0. The per-branch fused Saturate draws and the composite
-  path are not yet cheaper than the legacy accumulated-filter bakes on this GPU, and run-to-run variance on
-  this scene is high (21.6–35.4 ms spread at 1080p). This is a **finding for the maintainer**, not an
-  SC-005 miss: no split-tree time target was pinned, and the counter story (pool hits, zero syncs) is
-  strictly better. Candidate follow-up: batch the per-branch fused draws or size branch targets from part
-  bounds earlier.
+- **SplitTree regression — CLOSED (step-6 follow-up, 2026-07-07).** The T053 measurement recorded a frame-time
+  regression (22.681 → 27.016 ms at 1080p, 40.686 → 55.166 ms at 4K) despite materializations falling 10 → 1 and
+  syncs 20 → 0, driven by the 9 standalone per-branch fused Saturate draws — 9 × (pooled-target acquire + clear +
+  shader-tree build + `SKImage` snapshot + draw) on small tiles. The fix folds that coordinate-invariant Saturate run
+  into the LayerEffect composite draw (C9): the composite already draws each of the 9 branches once, so applying the
+  Saturate `SKColorFilter` per branch is byte-identical to baking each branch through Saturate first, and it removes
+  the 9 passes and 9 intermediate targets entirely (GpuPasses 19 → 10, TargetAllocations 20 → 11). The frozen
+  `chain-SplitTree` parity reference still passes **un-regenerated**, confirming the fold is semantics-preserving.
+
+  *Measurement (honest).* This machine was under heavy, non-stationary background load during the follow-up
+  (1-minute load average swinging 5–117), so absolute cross-session comparison against the T053 idle-machine numbers
+  is invalid. Instead a **same-session A/B** was run — folded (new) vs unfolded (old) built back-to-back — with
+  **ColorChain as the control** (unaffected by the fold): each run was accepted only when its ColorChain median
+  matched the T053 baseline (1080p ≈ 4.7 ms vs 5.359 ms; 4K ≈ 17.6 ms). In the two control-matched runs:
+  - SplitTree 1080p: **22.194 → 15.498 ms (−30%)**, now below both the T053 regression and the legacy 22.681 ms.
+  - SplitTree 4K: **51.089 → 43.866 ms (−14%)**; the 9 branch draws that remain are bandwidth-bound at 4K, so the
+    proportional win is smaller than at 1080p where the eliminated per-pass fixed overhead dominated.
+  - ColorChain (guard): 4.752 → 4.660 ms (1080p), 19.120 → 17.551 ms (4K) — within noise, the fused fast path is
+    not regressed by the composite-fold code path.
+
+  A secondary follow-up also lightened the plan-cache **hit path**: `ApplySyncBefore` no longer rebuilds the pass
+  array when no backend-transition flag changes (the all-Skia common case), cutting ~112 B/frame of the per-frame
+  rebind allocation (measured: SplitTree 968 → 856 B, a 30-effect chain 1992 → 1880 B). The residual per-frame cost
+  is the inherent immutable pass/stage-record construction, which cannot be removed without making the pass records
+  mutable — a redesign whose correctness risk (bridged-effect staleness, sampler freshness, NestedGraph re-describe)
+  is not justified for the ~1–2 KB/frame at stake; the counter gates (SC-002) remain exact either way.
 
 ## SC-005 re-pinned targets
 
