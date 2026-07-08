@@ -30,6 +30,43 @@ public class EffectGraphCompilerTests
     private static ShaderNodeDescriptor Scale(float amount)
         => ShaderNodeDescriptor.Snippet(ScaleSnippet, u => u.Float("scaleAmount", amount));
 
+    // An invariant snippet whose every top-level declaration — a file-scope const, a helper function, and the
+    // apply entry — is INDENTED (the closing """ sits at column 0, so the raw literal keeps the leading spaces).
+    // Contract A2 requires only `half4 apply(half4 c)`, never column-0 formatting; the merger must still prefix
+    // each of these to feN_ so the generated main's `fe0_apply` call resolves.
+    private const string IndentedSnippet =
+"""
+    const half3 tintWeights = half3(0.3, 0.5, 0.2);
+    half3 boost(half3 rgb) {
+        return rgb * tintWeights;
+    }
+    half4 apply(half4 c) {
+        return half4(boost(c.rgb), c.a);
+    }
+""";
+
+    // The same math at column 0 — the reference the indented variant must render identically to.
+    private const string ColumnZeroSnippet =
+"""
+const half3 tintWeights = half3(0.3, 0.5, 0.2);
+half3 boost(half3 rgb) {
+    return rgb * tintWeights;
+}
+half4 apply(half4 c) {
+    return half4(boost(c.rgb), c.a);
+}
+""";
+
+    // An indented apply whose body calls the `clamp` builtin. The relaxed top-level matchers must NOT mistake the
+    // indented `return clamp(...)` body statement for a function definition (which would rename clamp to fe0_clamp
+    // and break compilation).
+    private const string IndentedBuiltinCallSnippet =
+"""
+    half4 apply(half4 c) {
+        return clamp(c, half4(0.0), half4(1.0));
+    }
+""";
+
     private static EffectGraphBuilder NewBuilder(Rect bounds, float workingScale = 1f)
         => new(bounds, outputScale: 1f, workingScale: workingScale);
 
@@ -107,6 +144,64 @@ public class EffectGraphCompilerTests
             Assert.DoesNotThrow(
                 () => ShaderNodeDescriptor.Snippet("uniform float lut[4];\nhalf4 apply(half4 c){ return c; }"),
                 "a fixed-size array uniform is single-declarator and valid");
+        });
+    }
+
+    // B1: a snippet whose top-level declarations are indented must still fuse. The merger prefixes the indented
+    // const, helper, and apply to fe0_ so the generated main's fe0_apply call resolves and the program compiles.
+    [Test]
+    public void Merge_IndentedTopLevelDeclarations_ArePrefixedAndCompile()
+    {
+        string merged = SkslSnippetMerger.Merge([SkslSource.Snippet(IndentedSnippet)]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(merged, Does.Contain("fe0_apply(half4"), "the indented apply entry is prefixed to fe0_apply");
+            Assert.That(merged, Does.Contain("fe0_boost"), "the indented helper function is prefixed");
+            Assert.That(merged, Does.Contain("fe0_tintWeights"), "the indented file-scope const is prefixed");
+
+            using SKRuntimeEffect? effect = SKRuntimeEffect.CreateShader(merged, out string? error);
+            Assert.That(error, Is.Null, $"the merged program compiles ({error})");
+            Assert.That(effect, Is.Not.Null);
+        });
+    }
+
+    // B1: the relaxed top-level matchers must not grab an indented body statement. `return clamp(...)` is a call
+    // inside the function body, not a file-scope definition, so `clamp` stays a builtin (never renamed to fe0_clamp).
+    [Test]
+    public void Merge_IndentedBodyBuiltinCall_IsNotMistakenForATopLevelDefinition()
+    {
+        string merged = SkslSnippetMerger.Merge([SkslSource.Snippet(IndentedBuiltinCallSnippet)]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(merged, Does.Not.Contain("fe0_clamp"),
+                "an indented `return clamp(...)` body statement is not a top-level definition; clamp stays a builtin");
+            using SKRuntimeEffect? effect = SKRuntimeEffect.CreateShader(merged, out string? error);
+            Assert.That(error, Is.Null, $"the merged program compiles ({error})");
+            Assert.That(effect, Is.Not.Null);
+        });
+    }
+
+    // B1 end-to-end: an indented snippet fused with a second snippet renders identically to the same math at
+    // column 0. Pre-fix the indented apply/helper/const are never prefixed, so the merged program fails to compile
+    // and Execute throws.
+    [Test]
+    public void FusedChain_IndentedSnippet_RendersLikeNonIndentedEquivalent()
+    {
+        var bounds = new Rect(0, 0, 96, 64);
+        ShaderNodeDescriptor indented = ShaderNodeDescriptor.Snippet(IndentedSnippet);
+        ShaderNodeDescriptor columnZero = ShaderNodeDescriptor.Snippet(ColumnZeroSnippet);
+
+        using Bitmap indentedResult = RenderChain([indented, Scale(1.1f)], bounds, fuse: true, diagnostics: null, pool: null);
+        using Bitmap referenceResult = RenderChain([columnZero, Scale(1.1f)], bounds, fuse: true, diagnostics: null, pool: null);
+
+        double ssim = ImageMetrics.Ssim(referenceResult, indentedResult);
+        double mae = ImageMetrics.MeanAbsoluteError(referenceResult, indentedResult);
+        Assert.Multiple(() =>
+        {
+            Assert.That(ssim, Is.GreaterThanOrEqualTo(GoldenThresholds.ExactSsimMin), $"SSIM {ssim}");
+            Assert.That(mae, Is.LessThanOrEqualTo(GoldenThresholds.ExactMaeMax), $"MAE {mae}");
         });
     }
 

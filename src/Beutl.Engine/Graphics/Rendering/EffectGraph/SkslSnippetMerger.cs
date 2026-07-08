@@ -28,14 +28,15 @@ internal static partial class SkslSnippetMerger
     [GeneratedRegex(@"uniform\s+[A-Za-z_][A-Za-z0-9_]*\s+([A-Za-z_][A-Za-z0-9_]*)\s*(?:\[\s*\d+\s*\])?\s*;")]
     private static partial Regex UniformDeclarationRegex();
 
-    // A file-scope const (`const float3 LUMA = ...`) — matched only at column 0 so function-local consts are left
-    // to their block scope.
-    [GeneratedRegex(@"(?m)^const\s+[A-Za-z_][A-Za-z0-9_]*\s+([A-Za-z_][A-Za-z0-9_]*)")]
+    // A file-scope const (`const float3 LUMA = ...`), tolerating leading whitespace. Applied only to lines that
+    // start at brace depth 0 (see <see cref="EnumerateTopLevelLines"/>), so function-local consts are left alone.
+    [GeneratedRegex(@"^[ \t]*const\s+[A-Za-z_][A-Za-z0-9_]*\s+([A-Za-z_][A-Za-z0-9_]*)")]
     private static partial Regex ConstDeclarationRegex();
 
-    // A top-level function definition (`float3 apply(...)`, `int modInt(...)`) — anchored at column 0, so nested
-    // calls and control statements (which are indented) are never mistaken for definitions.
-    [GeneratedRegex(@"(?m)^[A-Za-z_][A-Za-z0-9_]*\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(")]
+    // A top-level function definition (`float3 apply(...)`, `int modInt(...)`), tolerating leading whitespace.
+    // Applied only to lines starting at brace depth 0, so a body call/control statement (`return foo(c);`, `if (...)`)
+    // — which lives inside the function body at depth > 0 — is never mistaken for a definition.
+    [GeneratedRegex(@"^[ \t]*[A-Za-z_][A-Za-z0-9_]*\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(")]
     private static partial Regex FunctionDefinitionRegex();
 
     /// <summary>
@@ -79,17 +80,74 @@ internal static partial class SkslSnippetMerger
     {
         string prefix = $"fe{index}_";
         var names = new HashSet<string>(StringComparer.Ordinal);
+
+        // Uniforms only ever appear at file scope, so an unanchored match is safe regardless of indentation.
         foreach (Match match in UniformDeclarationRegex().Matches(source))
             names.Add(match.Groups[1].Value);
-        foreach (Match match in ConstDeclarationRegex().Matches(source))
-            names.Add(match.Groups[1].Value);
-        foreach (Match match in FunctionDefinitionRegex().Matches(source))
-            names.Add(match.Groups[1].Value);
+
+        // Const and function definitions are file-scope only; classify by the brace depth at each line's start so
+        // the leading-whitespace-tolerant matchers see an indented signature/const but never a body statement.
+        foreach (string line in EnumerateTopLevelLines(source))
+        {
+            Match constMatch = ConstDeclarationRegex().Match(line);
+            if (constMatch.Success)
+                names.Add(constMatch.Groups[1].Value);
+
+            Match functionMatch = FunctionDefinitionRegex().Match(line);
+            if (functionMatch.Success)
+                names.Add(functionMatch.Groups[1].Value);
+        }
 
         string result = source;
         foreach (string name in names)
             result = Regex.Replace(result, $@"\b{Regex.Escape(name)}\b", prefix + name);
 
         return result;
+    }
+
+    // Yields each line whose start is at brace depth 0 (file scope). A function signature line opens its body brace
+    // at or after the yield, so it is classified at depth 0; the body statements it encloses start at depth > 0 and
+    // are skipped. Line (`//`) and block (`/* */`) comments are ignored when counting braces.
+    private static IEnumerable<string> EnumerateTopLevelLines(string source)
+    {
+        int depth = 0;
+        bool inBlockComment = false;
+        foreach (string line in source.Split('\n'))
+        {
+            bool topLevel = depth == 0 && !inBlockComment;
+
+            for (int i = 0; i < line.Length; i++)
+            {
+                char ch = line[i];
+                if (inBlockComment)
+                {
+                    if (ch == '*' && i + 1 < line.Length && line[i + 1] == '/')
+                    {
+                        inBlockComment = false;
+                        i++;
+                    }
+
+                    continue;
+                }
+
+                if (ch == '/' && i + 1 < line.Length && line[i + 1] == '/')
+                    break;
+
+                if (ch == '/' && i + 1 < line.Length && line[i + 1] == '*')
+                {
+                    inBlockComment = true;
+                    i++;
+                    continue;
+                }
+
+                if (ch == '{')
+                    depth++;
+                else if (ch == '}' && depth > 0)
+                    depth--;
+            }
+
+            if (topLevel)
+                yield return line;
+        }
     }
 }
