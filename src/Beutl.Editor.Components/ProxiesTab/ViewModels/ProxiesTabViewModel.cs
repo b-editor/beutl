@@ -1,4 +1,5 @@
 ﻿using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Globalization;
 using System.Reactive.Disposables;
 using Avalonia.Threading;
@@ -120,10 +121,50 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
                 .DisposeWith(_disposables);
         }
 
+        _config.PropertyChanged += OnProxyConfigPropertyChanged;
+        Disposable.Create(() => _config.PropertyChanged -= OnProxyConfigPropertyChanged)
+            .DisposeWith(_disposables);
+
         Refresh();
     }
 
     private void OnSceneEdited(object? sender, EventArgs e) => ScheduleRefresh();
+
+    private void OnProxyConfigPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e is not CorePropertyChangedEventArgs<int> args
+            || args.Property != ProxyStoreConfig.DefaultPresetProperty)
+        {
+            return;
+        }
+
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(() => ApplyDefaultPresetChange(args.OldValue, args.NewValue));
+            return;
+        }
+
+        ApplyDefaultPresetChange(args.OldValue, args.NewValue);
+    }
+
+    // Rows that merely showed the previous default follow a Settings change, so Generate honors the
+    // setting the UI now shows; rows the user explicitly set to another preset keep their choice.
+    private void ApplyDefaultPresetChange(int oldValue, int newValue)
+    {
+        if (_isDisposed)
+            return;
+
+        ProxyPreset oldPreset = ToPreset(oldValue);
+        ProxyPreset newPreset = ToPreset(newValue);
+        if (oldPreset == newPreset)
+            return;
+
+        foreach (ProxyClipViewModel clip in Clips)
+        {
+            if (clip.Preset.Value == oldPreset)
+                clip.Preset.Value = newPreset;
+        }
+    }
 
     public ObservableCollection<ProxyClipViewModel> Clips { get; } = [];
 

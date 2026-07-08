@@ -1,6 +1,7 @@
 ﻿using System.Globalization;
 using Beutl;
 using Beutl.Animation;
+using Beutl.Configuration;
 using Beutl.Editor.Components.ProxiesTab.ViewModels;
 using Beutl.Engine;
 using Beutl.Extensibility;
@@ -436,6 +437,37 @@ public sealed class ProxiesTabViewModelTests
 
         // Otherwise the in-flight generation would re-register the proxy on success and undo the delete.
         Assert.That(queue.CanceledJobIds, Does.Contain(job.JobId));
+    }
+
+    [Test]
+    public void DefaultPresetChanged_UpdatesRowsOnPreviousDefault_KeepsExplicitChoices()
+    {
+        string root = CreateRoot();
+        string firstPath = CreateSourceFile(root, "first.mov", 1024);
+        string secondPath = CreateSourceFile(root, "second.mov", 1024);
+        var store = new ProxyStore(Path.Combine(root, "proxies"));
+        ProxyStoreConfig config = GlobalConfiguration.Instance.ProxyStoreConfig;
+        int originalDefault = config.DefaultPreset;
+        try
+        {
+            config.DefaultPreset = (int)ProxyPreset.Quarter;
+            using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, firstPath, secondPath));
+            ProxyClipViewModel following = viewModel.Clips[0];
+            ProxyClipViewModel explicitChoice = viewModel.Clips[1];
+            explicitChoice.Preset.Value = ProxyPreset.Eighth;
+
+            config.DefaultPreset = (int)ProxyPreset.Half;
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(following.Preset.Value, Is.EqualTo(ProxyPreset.Half));
+                Assert.That(explicitChoice.Preset.Value, Is.EqualTo(ProxyPreset.Eighth));
+            });
+        }
+        finally
+        {
+            config.DefaultPreset = originalDefault;
+        }
     }
 
     // Generate All / Delete act on Clips, so the list must track project edits made while the tab

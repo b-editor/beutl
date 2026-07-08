@@ -86,11 +86,13 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
             IProxyGenerator generator = factory.Create(store);
             // Free disk headroom in the dispatch path (right before the encoder writes) rather than
             // only as a fire-and-forget task on Enqueue, so a low-disk store does not fail the first
-            // job eviction could have made room for. Only wrap availability-aware generators so the
-            // queue still sees the real IsAvailable signal.
+            // job eviction could have made room for. The availability-aware wrapper is a distinct
+            // type because the queue detects IProxyGeneratorAvailability by type test — exposing it
+            // over an inner generator without a signal would fabricate one and change the queue's
+            // unavailable semantics.
             return generator is IProxyGeneratorAvailability
-                ? new DiskHeadroomProxyGenerator(generator, eviction)
-                : generator;
+                ? new AvailabilityAwareDiskHeadroomProxyGenerator(generator, eviction)
+                : new DiskHeadroomProxyGenerator(generator, eviction);
         }
 
         queue = new ProxyJobQueue(ResolveGenerator, store);
@@ -259,8 +261,20 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
 
     // Runs a disk-pressure sweep synchronously in the queue's dispatch path, right before the inner
     // generator writes, and forwards the inner generator's availability signal unchanged.
-    private sealed class DiskHeadroomProxyGenerator(IProxyGenerator inner, ProxyEvictionService eviction)
-        : IProxyGenerator, IProxyGeneratorAvailability
+    private class DiskHeadroomProxyGenerator(IProxyGenerator inner, ProxyEvictionService eviction)
+        : IProxyGenerator
+    {
+        public ValueTask GenerateAsync(ProxyJob job)
+        {
+            SweepForDiskPressureBestEffort(eviction);
+            return inner.GenerateAsync(job);
+        }
+    }
+
+    private sealed class AvailabilityAwareDiskHeadroomProxyGenerator(
+        IProxyGenerator inner,
+        ProxyEvictionService eviction)
+        : DiskHeadroomProxyGenerator(inner, eviction), IProxyGeneratorAvailability
     {
         private readonly IProxyGeneratorAvailability _availability = (IProxyGeneratorAvailability)inner;
 
@@ -270,12 +284,6 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
         {
             add => _availability.AvailabilityChanged += value;
             remove => _availability.AvailabilityChanged -= value;
-        }
-
-        public ValueTask GenerateAsync(ProxyJob job)
-        {
-            SweepForDiskPressureBestEffort(eviction);
-            return inner.GenerateAsync(job);
         }
     }
 }
