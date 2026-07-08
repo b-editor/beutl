@@ -106,6 +106,36 @@ public class ElementBehaviorTests
     }
 
     [Test]
+    public void AddChild_AutoPlacement_SkipsLockedLayer()
+    {
+        string basePath = Path.Combine(Path.GetTempPath(), $"beutl_addchild_{Guid.NewGuid():N}");
+        var scene = new Scene(1920, 1080, string.Empty)
+        {
+            Uri = new Uri(Path.Combine(basePath, "test.scene"))
+        };
+        var occupying = new Element
+        {
+            Start = TimeSpan.Zero,
+            Length = TimeSpan.FromSeconds(5),
+            ZIndex = 0,
+            Uri = new Uri(Path.Combine(basePath, "a.belm")),
+        };
+        scene.Children.Add(occupying);
+        scene.Layers.Add(new TimelineLayer { ZIndex = 1, IsLocked = true });
+        var added = new Element
+        {
+            Start = TimeSpan.FromSeconds(1),
+            Length = TimeSpan.FromSeconds(2),
+            ZIndex = 0,
+            Uri = new Uri(Path.Combine(basePath, "b.belm")),
+        };
+
+        scene.AddChild(added);
+
+        Assert.That(added.ZIndex, Is.EqualTo(2));
+    }
+
+    [Test]
     public void IsLayerLocked_ReflectsLayerModel()
     {
         var scene = new Scene(1920, 1080, string.Empty);

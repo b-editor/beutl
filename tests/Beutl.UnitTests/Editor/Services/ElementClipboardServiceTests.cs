@@ -160,6 +160,24 @@ public class ElementClipboardServiceTests
     }
 
     [Test]
+    public async Task PasteAsync_SingleElementFormat_LockedTargetLayer_IsRefused()
+    {
+        Element original = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        string json = CoreSerializer.SerializeToJsonString(original);
+        _clipboard.SetSingle(BeutlClipboardFormats.Element, json);
+        _scene.Layers.Add(new TimelineLayer { ZIndex = 1, IsLocked = true });
+        int childrenBefore = _scene.Children.Count;
+
+        ElementPasteOutcome outcome = await _service.PasteAsync(_scene, TimeSpan.FromSeconds(10), 1);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome.Pasted, Is.False);
+            Assert.That(_scene.Children.Count, Is.EqualTo(childrenBefore));
+        });
+    }
+
+    [Test]
     public async Task CutAsync_ClipboardUnavailable_PreservesScene()
     {
         Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));

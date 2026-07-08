@@ -160,6 +160,12 @@ public sealed class ElementClipboardService : IElementClipboardService
             return ElementPasteOutcome.Empty;
         }
 
+        if (scene.IsLayerLocked(clickedLayer))
+        {
+            s_logger.LogWarning("PasteSingleElementAsync skipped: layer {Layer} is locked.", clickedLayer);
+            return ElementPasteOutcome.Empty;
+        }
+
         string? json = await _clipboard.TryGetStringAsync(BeutlClipboardFormats.Element);
         if (json is null) return ElementPasteOutcome.Empty;
         if (ClipboardJson.TryParse(json) is not JsonObject obj) return ElementPasteOutcome.Empty;
@@ -204,6 +210,12 @@ public sealed class ElementClipboardService : IElementClipboardService
         if (scene.Uri is null)
         {
             s_logger.LogWarning("PasteBitmapAsync skipped: scene has no Uri.");
+            return ElementPasteOutcome.Empty;
+        }
+
+        if (scene.IsLayerLocked(clickedLayer))
+        {
+            s_logger.LogWarning("PasteBitmapAsync skipped: layer {Layer} is locked.", clickedLayer);
             return ElementPasteOutcome.Empty;
         }
 

@@ -69,8 +69,15 @@ public sealed class LayerHeaderViewModel : IDisposable
                     _skipSubscription = true;
                     bool target = !IsEnabled.Value;
                     IsEnabled.Value = target;
-                    Timeline.EditorContext.GetRequiredService<ILayerAttributeService>()
+                    bool changed = Timeline.EditorContext.GetRequiredService<ILayerAttributeService>()
                         .SetEnabled(Timeline.Scene, Number.Value, target);
+
+                    // No element changed (locked or empty row): revert the local
+                    // flip so the header does not show a state the model refused.
+                    if (!changed)
+                    {
+                        IsEnabled.Value = !target;
+                    }
                 }
                 finally
                 {

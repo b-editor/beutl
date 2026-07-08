@@ -544,12 +544,13 @@ public class Scene : ProjectItem, INotifyEdited
         {
             int layerMax = Children.Max(i => i.ZIndex);
 
-            // 使うことができるレイヤー番号
+            // 使うことができるレイヤー番号。ロックされたレイヤーには自動配置しない。
             var numbers = new List<int>();
 
             for (int l = 0; l <= layerMax; l++)
             {
-                if (!Children.Any(i => i.ZIndex == l && i.Range.Intersects(element.Range)))
+                if (!IsLayerLocked(l)
+                    && !Children.Any(i => i.ZIndex == l && i.Range.Intersects(element.Range)))
                 {
                     numbers.Add(l);
                 }
@@ -557,7 +558,9 @@ public class Scene : ProjectItem, INotifyEdited
 
             if (numbers.Count < 1)
             {
-                return layerMax + 1;
+                int next = layerMax + 1;
+                while (IsLayerLocked(next)) next++;
+                return next;
             }
 
             return numbers.Nearest(element.ZIndex);

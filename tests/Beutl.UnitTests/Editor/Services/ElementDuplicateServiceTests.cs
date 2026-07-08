@@ -166,6 +166,27 @@ public class ElementDuplicateServiceTests
     }
 
     [Test]
+    public void DuplicateAtClickedPosition_SparseSelection_IgnoresLockedGapRow()
+    {
+        // Sources on layers 0 and 2; the locked layer 1 sits in the gap and no
+        // duplicate lands on it, so the placement must succeed.
+        Element bottom = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 0);
+        Element top = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 2);
+        _scene.Layers.Add(new TimelineLayer { ZIndex = 1, IsLocked = true });
+        int childrenBefore = _scene.Children.Count;
+
+        DuplicateOutcome outcome = _service.DuplicateAtClickedPosition(
+            _scene, [bottom, top], TimeSpan.FromSeconds(20), 0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome.Success, Is.True);
+            Assert.That(_scene.Children.Count, Is.EqualTo(childrenBefore + 2));
+            Assert.That(_scene.Children.Any(c => c != bottom && c != top && c.ZIndex == 1), Is.False);
+        });
+    }
+
+    [Test]
     public void DuplicateAtClickedPosition_ClipboardSourceOnLockedLayer_IsNotFiltered()
     {
         // A deserialized clipboard element is not a child of the scene, so the
