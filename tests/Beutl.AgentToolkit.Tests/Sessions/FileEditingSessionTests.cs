@@ -55,6 +55,33 @@ public sealed class FileEditingSessionTests
     }
 
     [Test]
+    public void Failed_plain_save_restores_the_original_uri_state()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        using var source = new FileSessionSource();
+        FileEditingSession session = source.CreateProject(new ProjectCreateOptions(
+            Path.Combine(root, "demo.bep"), 640, 360, 30, TimeSpan.FromSeconds(2)));
+        session.Save(skipConflictCheck: true);
+        string projectPath = session.Project.Uri!.LocalPath;
+        string[] originalSceneUris = session.Project.Items.OfType<Scene>().Select(s => s.Uri!.LocalPath).ToArray();
+
+        // A directory occupying the project file path makes the final project write throw after
+        // ProjectOperations.Save already normalized the sidecar URIs.
+        File.Delete(projectPath);
+        Directory.CreateDirectory(projectPath);
+
+        Assert.Multiple(() =>
+        {
+            Assert.Catch(() => session.Save(skipConflictCheck: true));
+            Assert.That(session.Project.Uri!.LocalPath, Is.EqualTo(projectPath));
+            Assert.That(
+                session.Project.Items.OfType<Scene>().Select(s => s.Uri!.LocalPath),
+                Is.EqualTo(originalSceneUris));
+        });
+    }
+
+    [Test]
     public void Save_and_save_as_on_a_disposed_session_throw_session_unavailable()
     {
         string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));

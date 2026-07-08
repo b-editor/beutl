@@ -218,6 +218,9 @@ public class EditorProjectSessionGatewayTests
         (EditorProjectSessionGateway gateway, _) = CreateGateway();
         await gateway.OpenProjectAsync(projectPath);
         HeadlessTestHelpers.Settle();
+        string[] originalSceneUris = BeutlApplication.Current.Project!.Items.OfType<Scene>()
+            .Select(s => s.Uri!.LocalPath)
+            .ToArray();
 
         // A directory occupying the project file path makes ProjectOperations.Save throw after the
         // scene was added to the live project.
@@ -240,6 +243,9 @@ public class EditorProjectSessionGatewayTests
         {
             Assert.That(failure, Is.Not.Null);
             Assert.That(BeutlApplication.Current.Project!.Items.OfType<Scene>().Count(), Is.EqualTo(1));
+            Assert.That(
+                BeutlApplication.Current.Project!.Items.OfType<Scene>().Select(s => s.Uri!.LocalPath),
+                Is.EqualTo(originalSceneUris));
         });
     }
 

@@ -93,7 +93,19 @@ public sealed class FileEditingSession : IEditingSession, IEditingSessionDispatc
                 throw new ProjectConflictException(projectPath);
             }
 
-            ProjectOperations.Save(Project);
+            UriState original = CaptureUriState();
+            try
+            {
+                ProjectOperations.Save(Project);
+            }
+            catch
+            {
+                // Save rehomes/nulls/assigns sidecar URIs before the fallible project write; a
+                // failed save must leave the open graph exactly as it was.
+                RestoreUriState(original);
+                throw;
+            }
+
             _projectLastWriteUtc = File.GetLastWriteTimeUtc(projectPath);
             IsDirty = false;
         }
@@ -183,41 +195,16 @@ public sealed class FileEditingSession : IEditingSession, IEditingSessionDispatc
 
     private UriState CaptureUriState()
     {
-        var scenes = new List<(Scene Scene, Uri? Uri)>();
-        var elements = new List<(Element Element, Uri? Uri)>();
-        foreach (Scene scene in Project.Items.OfType<Scene>())
-        {
-            scenes.Add((scene, scene.Uri));
-            foreach (Element element in scene.Children)
-            {
-                elements.Add((element, element.Uri));
-            }
-        }
-
-        return new UriState(Project.Uri, _projectLastWriteUtc, scenes, elements);
+        return new UriState(ProjectOperations.CaptureUriState(Project), _projectLastWriteUtc);
     }
 
     private void RestoreUriState(UriState state)
     {
-        Project.Uri = state.ProjectUri;
-        foreach ((Scene scene, Uri? uri) in state.Scenes)
-        {
-            scene.Uri = uri;
-        }
-
-        foreach ((Element element, Uri? uri) in state.Elements)
-        {
-            element.Uri = uri;
-        }
-
+        ProjectOperations.RestoreUriState(Project, state.Uris);
         _projectLastWriteUtc = state.Stamp;
     }
 
-    private sealed record UriState(
-        Uri? ProjectUri,
-        DateTime Stamp,
-        IReadOnlyList<(Scene Scene, Uri? Uri)> Scenes,
-        IReadOnlyList<(Element Element, Uri? Uri)> Elements);
+    private sealed record UriState(ProjectUriState Uris, DateTime Stamp);
 
     public void MarkDirty()
     {

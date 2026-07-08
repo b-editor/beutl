@@ -165,7 +165,11 @@ public sealed class AgentSessionManager(CreativeMemoryStore? creativeMemory = nu
         }
     }
 
+    // sessionKey is the key of the session the plan was BUILT against (GetSessionKey on the
+    // captured session), not re-read here: a session switch between plan and store must not file
+    // the plan under the new session's key.
     public CompositionPlanState StoreCompositionPlan(
+        string sessionKey,
         string compositionName,
         string seed,
         JsonObject inputProps,
@@ -173,8 +177,8 @@ public sealed class AgentSessionManager(CreativeMemoryStore? creativeMemory = nu
         JsonArray expectedChangeSet,
         IReadOnlySet<Guid> knownNewIds)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sessionKey);
         string id = Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLowerInvariant();
-        string sessionKey = GetCompositionSessionKey();
         var state = new CompositionPlanState(
             id,
             sessionKey,

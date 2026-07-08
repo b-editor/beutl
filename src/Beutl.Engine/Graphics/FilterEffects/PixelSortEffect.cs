@@ -269,6 +269,17 @@ public sealed partial class PixelSortEffect : FilterEffect
     internal static bool ShouldRethrowPassFailure(Exception exception, float maxWorkingScale)
         => exception is OperationCanceledException || float.IsPositiveInfinity(maxWorkingScale);
 
+    // Same delivery contract for the non-exception failure: an output target without a texture
+    // (allocation failure) must fail a delivery render instead of shipping the frame unsorted.
+    internal static void ThrowIfDeliveryAllocationFailure(float maxWorkingScale, int targetIndex)
+    {
+        if (float.IsPositiveInfinity(maxWorkingScale))
+        {
+            throw new InvalidOperationException(
+                $"PixelSort could not allocate an output target for target {targetIndex}; the delivery render fails instead of shipping unsorted pixels.");
+        }
+    }
+
     private readonly record struct EffectData(
         PixelSortDirection Direction,
         PixelSortKey SortKey,
@@ -340,6 +351,7 @@ public sealed partial class PixelSortEffect : FilterEffect
                 if (newRenderTarget?.Texture == null)
                 {
                     newTarget.Dispose();
+                    ThrowIfDeliveryAllocationFailure(ctx.MaxWorkingScale, i);
                     continue;
                 }
 

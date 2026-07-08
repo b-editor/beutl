@@ -83,6 +83,7 @@ public sealed class EditorProjectSessionGateway(
             // configured root. Enforce the boundary before mutating the live project so a rejected
             // write leaves no unsaved scene behind in the UI.
             workspace.ResolveForWrite(project.Uri!.LocalPath);
+            ProjectUriState uriState = ProjectOperations.CaptureUriState(project);
             Scene scene = ProjectOperations.AddScene(project, options);
             try
             {
@@ -91,8 +92,10 @@ public sealed class EditorProjectSessionGateway(
             catch
             {
                 // A failed save (permissions, disk, serialization) must not leave the unsaved scene
-                // behind in the live editor with no attached session.
+                // behind in the live editor, nor the sidecar URIs Save rewrote before the fallible
+                // project write.
                 project.Items.Remove(scene);
+                ProjectOperations.RestoreUriState(project, uriState);
                 throw;
             }
             // add_scene activates the new scene's tab, so rebind the live session to it; otherwise

@@ -22,6 +22,11 @@ public sealed record SceneCreateOptions(
     TimeSpan Duration,
     string? Name = null);
 
+public sealed record ProjectUriState(
+    Uri? ProjectUri,
+    IReadOnlyList<(Scene Scene, Uri? Uri)> Scenes,
+    IReadOnlyList<(Element Element, Uri? Uri)> Elements);
+
 public static class ProjectOperations
 {
     public static Project CreateProject(ProjectCreateOptions options)
@@ -81,6 +86,44 @@ public static class ProjectOperations
 
         project.Items.Add(scene);
         return scene;
+    }
+
+    // Save mutates the open graph BEFORE the fallible project write (rehoming out-of-project
+    // sidecars, nulling duplicates, assigning missing URIs); a failed save must be able to put the
+    // original locations back so the project is left exactly as it was.
+    public static ProjectUriState CaptureUriState(Project project)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+
+        var scenes = new List<(Scene Scene, Uri? Uri)>();
+        var elements = new List<(Element Element, Uri? Uri)>();
+        foreach (Scene scene in project.Items.OfType<Scene>())
+        {
+            scenes.Add((scene, scene.Uri));
+            foreach (Element element in scene.Children)
+            {
+                elements.Add((element, element.Uri));
+            }
+        }
+
+        return new ProjectUriState(project.Uri, scenes, elements);
+    }
+
+    public static void RestoreUriState(Project project, ProjectUriState state)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        ArgumentNullException.ThrowIfNull(state);
+
+        project.Uri = state.ProjectUri;
+        foreach ((Scene scene, Uri? uri) in state.Scenes)
+        {
+            scene.Uri = uri;
+        }
+
+        foreach ((Element element, Uri? uri) in state.Elements)
+        {
+            element.Uri = uri;
+        }
     }
 
     public static void Save(Project project)

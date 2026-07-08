@@ -31,16 +31,34 @@ public sealed class AgentSessionManagerConcurrencyTests
     }
 
     [Test]
+    public void Composition_plans_are_stored_under_the_supplied_session_key()
+    {
+        var manager = new AgentSessionManager();
+
+        // The plan is keyed by the session it was BUILT against; a different current session must
+        // see it as moved, not as its own plan.
+        CompositionPlanState state = manager.StoreCompositionPlan(
+            "File:11111111-1111-1111-1111-111111111111",
+            "comp", "seed", new JsonObject(), new JsonObject(), new JsonArray(), new HashSet<Guid>());
+
+        var ex = Assert.Throws<AgentToolkit.Reconciliation.ReconcileException>(
+            () => manager.GetCompositionPlan(state.Id))!;
+        Assert.That(ex.Error.Message, Does.Contain("session"));
+    }
+
+    [Test]
     public async Task Composition_plans_evict_the_oldest_beyond_the_retention_cap()
     {
         var manager = new AgentSessionManager();
 
         CompositionPlanState first = manager.StoreCompositionPlan(
+            manager.CurrentSessionKey,
             "comp", "seed", new JsonObject(), new JsonObject(), new JsonArray(), new HashSet<Guid>());
         await Task.Delay(10);
         for (int i = 0; i < 32; i++)
         {
             manager.StoreCompositionPlan(
+                manager.CurrentSessionKey,
                 "comp", "seed", new JsonObject(), new JsonObject(), new JsonArray(), new HashSet<Guid>());
         }
 
@@ -67,6 +85,7 @@ public sealed class AgentSessionManagerConcurrencyTests
                 try
                 {
                     CompositionPlanState state = manager.StoreCompositionPlan(
+                        manager.CurrentSessionKey,
                         "comp",
                         "seed",
                         new JsonObject(),

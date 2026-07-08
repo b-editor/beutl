@@ -99,6 +99,18 @@ public class PixelSortEffectTests
             Is.True);
     }
 
+    [Test]
+    public void ThrowIfDeliveryAllocationFailure_fails_delivery_and_degrades_preview()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<InvalidOperationException>(
+                () => PixelSortEffect.ThrowIfDeliveryAllocationFailure(float.PositiveInfinity, 0));
+            Assert.DoesNotThrow(
+                () => PixelSortEffect.ThrowIfDeliveryAllocationFailure(2f, 0));
+        });
+    }
+
     private static RenderTarget? CreateGradientTarget(int width, int height)
     {
         var target = RenderTarget.Create(width, height);

@@ -199,6 +199,7 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
                 return (resolved.Document, resolved.KnownNewIds);
             });
             CompositionPlanState state = sessions.StoreCompositionPlan(
+                sessions.GetSessionKey(session),
                 composition.Name,
                 composition.Seed,
                 composition.InputProps,
