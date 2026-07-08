@@ -52,7 +52,7 @@ This is a deliberate **normalization** of path-dependent legacy behavior — tod
 | `GpuPasses` | each executed draw/dispatch of a `CompiledPass` (a fused group = 1; K compute iterations = K) |
 | `TargetAllocations` | each fresh GPU target creation (pool miss or non-pooled) |
 | `PoolAcquires` / `PoolMisses` | each pool acquire / acquire that allocated |
-| `FullFrameMaterializations` | each bake of an accumulated chain into a target (legacy `Flush` during transition; `SkiaFilterPass`/`GeometryPass` outputs after) |
+| `FullFrameMaterializations` | each bake of an upstream operation into a pooled buffer so a geometry/compute/split pass can sample it as a texture (the executor's input materialization); a fused/Skia-filter pass bakes straight into its output and does not count |
 | `FlushSyncs` | each backend-transition sync pair (C4.2) |
 | `PlanCompilations` / `ProgramCreations` | each graph compile / each `SKRuntimeEffect` (or Vulkan pipeline) construction |
 
