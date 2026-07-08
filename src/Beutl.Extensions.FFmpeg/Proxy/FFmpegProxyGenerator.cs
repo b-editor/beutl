@@ -106,7 +106,8 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
         PixelSize proxySize,
         CancellationToken ct,
         Func<string, string, bool>? moveAttempt = null,
-        Func<string, string?>? metadataBackupAttempt = null)
+        Func<string, string?>? metadataBackupAttempt = null,
+        Func<string, string, bool>? backupMoveAttempt = null)
     {
         ct.ThrowIfCancellationRequested();
 
@@ -116,7 +117,7 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
         bool committed = false;
         try
         {
-            replacedFinalBackupPath = MoveExistingFileToBackup(finalPath);
+            replacedFinalBackupPath = await MoveExistingFileToBackupWithRetryAsync(finalPath, ct, backupMoveAttempt);
             await MoveWithRetryAsync(tempPath, finalPath, ct, moveAttempt);
             ct.ThrowIfCancellationRequested();
 
@@ -318,13 +319,19 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
         return Path.Combine(directory, fileName);
     }
 
-    private static string? MoveExistingFileToBackup(string path)
+    // Backing up the existing proxy hits the same Windows sharing violation the temp->final move
+    // does when preview playback still holds the old proxy open, so it goes through the same bounded
+    // retry (the backup path is a fresh GUID, so the move never overwrites).
+    private static async Task<string?> MoveExistingFileToBackupWithRetryAsync(
+        string path,
+        CancellationToken ct,
+        Func<string, string, bool>? moveAttempt = null)
     {
         if (!File.Exists(path))
             return null;
 
         string backupPath = CreateBackupPathForOutput(path);
-        File.Move(path, backupPath, overwrite: false);
+        await MoveWithRetryAsync(path, backupPath, ct, moveAttempt);
         return backupPath;
     }
 

@@ -257,6 +257,51 @@ public sealed class FFmpegProxyGeneratorPublishTests
     }
 
     [Test]
+    public void PublishAsync_RetriesTransientBackupMoveFailureThenRegisters()
+    {
+        string root = CreateRoot();
+        var store = new CountingStore(root, failuresBeforeSuccess: 0);
+        var generator = new FFmpegProxyGenerator(store);
+        string source = Path.Combine(root, "src.mov");
+        File.WriteAllBytes(source, [1, 2, 3, 4]);
+        ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(source);
+        string tempPath = Path.Combine(root, "tmp.mov");
+        string finalPath = Path.Combine(root, "hash", "quarter.mp4");
+        Directory.CreateDirectory(Path.GetDirectoryName(finalPath)!);
+        // A previous proxy exists, so the pre-move backup step runs; simulate a preview reader
+        // holding it open with a transient sharing violation on the first backup attempt.
+        File.WriteAllBytes(finalPath, [7, 7, 7]);
+        File.WriteAllBytes(tempPath, [9, 9, 9, 9, 9]);
+        var job = new ProxyJob(fingerprint, ProxyPreset.Quarter);
+        int backupAttempts = 0;
+
+        Assert.DoesNotThrowAsync(async () =>
+            await generator.PublishAsync(
+                tempPath,
+                finalPath,
+                job,
+                "hash/quarter.mp4",
+                new PixelSize(64, 48),
+                new PixelSize(32, 24),
+                CancellationToken.None,
+                backupMoveAttempt: (s, d) =>
+                {
+                    backupAttempts++;
+                    if (backupAttempts < 2)
+                        return false;
+                    File.Move(s, d, overwrite: false);
+                    return true;
+                }));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(backupAttempts, Is.EqualTo(2), "the transient backup-move failure must be retried");
+            Assert.That(File.Exists(finalPath), Is.True);
+            Assert.That(store.RegisterAttempts, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
     public void PublishAsync_WhenRollbackMetadataRestoreFails_PreservesPrimaryExceptionAndRestoresFinal()
     {
         string root = CreateRoot();
