@@ -41,6 +41,22 @@ public sealed class PathBoundaryTests
     }
 
     [Test]
+    public void ResolveDeepestExistingTarget_BrokenSymlinkWithRelativeTarget_ResolvesAgainstLinkDirectory()
+    {
+        string linkDir = Path.Combine(_tempRoot, "sub");
+        Directory.CreateDirectory(linkDir);
+        string linkPath = Path.Combine(linkDir, "escape");
+        // A broken symlink whose stored target is relative: the fallback must resolve it against the
+        // link's own directory (not the process CWD) without ever propagating the resolve failure.
+        string relativeTarget = Path.Combine("..", "pb-rel-missing-" + Guid.NewGuid().ToString("N"));
+        CreateSymbolicLinkOrIgnore(linkPath, relativeTarget);
+
+        string resolved = PathBoundary.ResolveDeepestExistingTarget(linkPath);
+
+        Assert.That(resolved, Is.EqualTo(Path.GetFullPath(Path.Combine(linkDir, relativeTarget))));
+    }
+
+    [Test]
     public void ResolveDeepestExistingTarget_PlainMissingPath_ReappendsRemainderUnderRoot()
     {
         string missing = Path.Combine(_tempRoot, "a", "b", "c.txt");

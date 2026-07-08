@@ -211,6 +211,44 @@ public class EditorProjectSessionGatewayTests
     }
 
     [AvaloniaTest]
+    public async Task AddScene_rejects_a_session_whose_scene_left_the_open_project()
+    {
+        await TestReset.ResetShellAsync();
+        string firstProject = CreateProjectFilesOnDisk("gateway-stale-first", TimeSpan.FromSeconds(4));
+        string secondProject = CreateProjectFilesOnDisk("gateway-stale-second", TimeSpan.FromSeconds(4));
+        (EditorProjectSessionGateway gateway, _) = CreateGateway();
+        ProjectSessionResult opened = await gateway.OpenProjectAsync(firstProject);
+        HeadlessTestHelpers.Settle();
+
+        // Swap the open project out from under the captured session: its Root scene is no longer in
+        // the live project, so add_scene must refuse rather than mutate a document the client is not
+        // editing.
+        TestShell.Project.CloseProject();
+        await TestShell.Project.OpenProject(secondProject);
+        HeadlessTestHelpers.Settle();
+
+        SessionUnavailableException? rejection = null;
+        try
+        {
+            await gateway.AddSceneAsync(opened.Session, new SceneCreateOptions(
+                320, 180, TimeSpan.Zero, TimeSpan.FromSeconds(2), "orphan-scene"));
+            Assert.Fail("Expected a SessionUnavailableException.");
+        }
+        catch (SessionUnavailableException ex)
+        {
+            rejection = ex;
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rejection, Is.Not.Null);
+            Assert.That(BeutlApplication.Current.Project!.Uri!.LocalPath, Is.EqualTo(secondProject));
+            // The swapped-in project keeps its single original scene; the rejected add left nothing behind.
+            Assert.That(BeutlApplication.Current.Project!.Items.OfType<Scene>().Count(), Is.EqualTo(1));
+        });
+    }
+
+    [AvaloniaTest]
     public async Task AddScene_rolls_back_the_live_scene_when_the_save_fails()
     {
         await TestReset.ResetShellAsync();

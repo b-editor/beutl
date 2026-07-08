@@ -111,18 +111,29 @@ public static class PathBoundary
             // link's own in-root path, which would fail OPEN and hide a symlink escape. Instead read
             // the immediate link-target metadata (no filesystem walk) and boundary-check the REAL
             // destination, resolving a relative target against the link's own directory.
-            string? immediateTarget = info.LinkTarget;
-            if (immediateTarget is null)
+            try
             {
+                string? immediateTarget = info.LinkTarget;
+                string? baseDirectory = Path.GetDirectoryName(info.FullName);
+                if (immediateTarget is null || baseDirectory is null)
+                {
+                    return null;
+                }
+
+                string absoluteTarget = Path.IsPathRooted(immediateTarget)
+                    ? Path.GetFullPath(immediateTarget)
+                    : Path.GetFullPath(Path.Combine(baseDirectory, immediateTarget));
+                return Directory.Exists(absoluteTarget)
+                    ? new DirectoryInfo(absoluteTarget)
+                    : new FileInfo(absoluteTarget);
+            }
+            catch (Exception fallbackEx) when (fallbackEx is IOException or UnauthorizedAccessException or NotSupportedException or ArgumentException)
+            {
+                // The fallback itself must never propagate (this runs in boundary/installer checks);
+                // if the link metadata cannot be read, treat it as a non-link and let the caller
+                // boundary-check the textual path.
                 return null;
             }
-
-            string absoluteTarget = Path.IsPathRooted(immediateTarget)
-                ? Path.GetFullPath(immediateTarget)
-                : Path.GetFullPath(Path.Combine(Path.GetDirectoryName(info.FullName)!, immediateTarget));
-            return Directory.Exists(absoluteTarget)
-                ? new DirectoryInfo(absoluteTarget)
-                : new FileInfo(absoluteTarget);
         }
     }
 

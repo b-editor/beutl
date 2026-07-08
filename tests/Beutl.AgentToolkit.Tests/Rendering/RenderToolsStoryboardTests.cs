@@ -75,11 +75,58 @@ public sealed class RenderToolsStoryboardTests
 
         Assert.Multiple(() =>
         {
-            // "before-trim" midpoint (absolute 1s) clamps to scene-relative 0; "clip" midpoint
-            // (absolute 10s) becomes scene-relative 5s, not the double-offset 10s.
+            // "before-trim" sits wholly before the visible window, so it derives no shot; "clip"
+            // midpoint (absolute 10s) becomes scene-relative 5s, not the double-offset 10s.
+            Assert.That(frames.Select(frame => frame.Name), Is.EqualTo(new[] { "clip" }));
             Assert.That(frames.Select(frame => frame.Time),
-                Is.EqualTo(new[] { TimeSpan.Zero, TimeSpan.FromSeconds(5) }));
+                Is.EqualTo(new[] { TimeSpan.FromSeconds(5) }));
         });
+    }
+
+    [Test]
+    public void Derived_storyboard_shots_skip_disabled_and_off_window_elements()
+    {
+        var scene = new Scene(16, 9, "filtered")
+        {
+            Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.scene")),
+            Duration = TimeSpan.FromSeconds(10)
+        };
+        scene.Children.Add(new Element
+        {
+            Name = "visible",
+            Start = TimeSpan.FromSeconds(2),
+            Length = TimeSpan.FromSeconds(2),
+            Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.belm"))
+        });
+        scene.Children.Add(new Element
+        {
+            Name = "disabled",
+            IsEnabled = false,
+            Start = TimeSpan.FromSeconds(4),
+            Length = TimeSpan.FromSeconds(2),
+            Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.belm"))
+        });
+        scene.Children.Add(new Element
+        {
+            Name = "after-window",
+            Start = TimeSpan.FromSeconds(12),
+            Length = TimeSpan.FromSeconds(2),
+            Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.belm"))
+        });
+        scene.Children.Add(new Element
+        {
+            Name = "zero-length",
+            Start = TimeSpan.FromSeconds(5),
+            Length = TimeSpan.Zero,
+            Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.belm"))
+        });
+
+        RenderTools.ResolvedStoryboardFrame[] frames =
+            RenderTools.ResolveStoryboardFrames(scene, shots: null, subdivisionLevel: 0).ToArray();
+
+        // Only the enabled, in-window, non-empty element contributes a derived shot; the others would
+        // add blank frames and burn the subdivision cap.
+        Assert.That(frames.Select(frame => frame.Name), Is.EqualTo(new[] { "visible" }));
     }
 
     [Test]

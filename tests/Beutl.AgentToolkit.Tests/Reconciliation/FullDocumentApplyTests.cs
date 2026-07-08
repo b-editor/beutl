@@ -133,6 +133,39 @@ public sealed class FullDocumentApplyTests
     }
 
     [Test]
+    public void Full_document_with_a_non_object_keyframe_entry_is_rejected_and_rolled_back()
+    {
+        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var scene = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
+        var element = new Element { Length = TimeSpan.FromSeconds(1), Uri = new Uri(Path.Combine(dir, "first.belm")) };
+        var text = new TextBlock { Text = { CurrentValue = "Title" } };
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 0 }, out _);
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 100 }, out _);
+        text.Opacity.Animation = animation;
+        element.AddObject(text);
+        scene.Children.Add(element);
+        using var session = TestEditingSession.Create(scene);
+        var reconciler = new Reconciler();
+
+        JsonObject desired = session.Documents.Read(session.Scene);
+        var animationJson = (JsonObject)desired["Elements"]![0]!["Objects"]![0]!["Animations"]!["Opacity"]!;
+        // A primitive entry has no Id, so silently skipping it would leave the removal pass to delete
+        // every existing keyframe. The apply must be rejected instead.
+        animationJson[nameof(KeyFrameAnimation.KeyFrames)] = new JsonArray(JsonValue.Create(42));
+
+        ReconcileException rejection = Assert.Throws<ReconcileException>(() => reconciler.Apply(session, desired))!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rejection.Error.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(rejection.Error.Target, Is.EqualTo("KeyFrames[0]"));
+            Assert.That(((KeyFrameAnimation<float>)text.Opacity.Animation!).KeyFrames, Has.Count.EqualTo(2));
+        });
+    }
+
+    [Test]
     public void Full_document_that_omits_groups_clears_the_existing_scene_groups()
     {
         string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));

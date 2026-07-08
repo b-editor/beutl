@@ -425,10 +425,11 @@ internal sealed class DeclarativeDocumentApplier
             {
                 // Silently skipping a non-object entry would leave its Id uncollected, so the
                 // removal pass below would then delete other existing children — reject instead.
+                string entryPath = CreateIdentityListItemPath(elementBaseType, desiredIndex);
                 throw new ReconcileException(new ToolError(
                     ErrorCode.ValidationRejected,
-                    $"Identity array entry at '{CreateIdentityListItemPath(elementBaseType, desiredIndex)}' is not an object.",
-                    null,
+                    $"Identity array entry at '{entryPath}' is not an object.",
+                    entryPath,
                     "Each identity-array member must be a JSON object with an optional Id; remove null/primitive entries."));
             }
 
@@ -522,8 +523,19 @@ internal sealed class DeclarativeDocumentApplier
     private static void ApplyKeyFrameList(KeyFrames list, JsonArray desired)
     {
         var desiredIds = new HashSet<Guid>();
-        foreach (JsonObject itemJson in desired.OfType<JsonObject>())
+        for (int index = 0; index < desired.Count; index++)
         {
+            if (desired[index] is not JsonObject itemJson)
+            {
+                // Skipping a non-object entry would leave its Id uncollected, so the removal pass
+                // below would then delete other existing keyframes — reject instead.
+                throw new ReconcileException(new ToolError(
+                    ErrorCode.ValidationRejected,
+                    $"KeyFrames entry at index {index} is not an object.",
+                    $"KeyFrames[{index}]",
+                    "Each KeyFrames member must be a JSON object with an optional Id; remove null/primitive entries."));
+            }
+
             CoreObject item;
             if (TryGetId(itemJson, out Guid id) && FindById(list, id) is { } existing)
             {

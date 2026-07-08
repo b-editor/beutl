@@ -248,6 +248,46 @@ public sealed class RenderStillTests
         });
     }
 
+    [Test]
+    public async Task Rendered_text_bound_is_attributed_to_its_owning_element()
+    {
+        string dir = CreateWorkspace();
+        var scene = new Scene(160, 90, "text-owner")
+        {
+            Duration = TimeSpan.FromSeconds(1),
+            Uri = new Uri(Path.Combine(dir, "Scene.scene"))
+        };
+        var text = new TextBlock
+        {
+            Name = "headline",
+            Text = { CurrentValue = "HELLO" },
+            Size = { CurrentValue = 48 },
+            Fill = { CurrentValue = new SolidColorBrush(Colors.White) }
+        };
+        var element = new Element
+        {
+            Name = "owner",
+            Length = TimeSpan.FromSeconds(1),
+            ZIndex = 7,
+            Uri = new Uri(Path.Combine(dir, "owner.belm"))
+        };
+        element.AddObject(text);
+        scene.Children.Add(element);
+
+        var renderer = new StillRenderer();
+        using RenderedFrameAnalysis frame = await renderer.RenderFrameAnalysisAsync(
+            scene, TimeSpan.Zero, 1f, CancellationToken.None);
+
+        RenderedTextBounds bound = frame.TextBounds.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(bound.TextBlock.Name, Is.EqualTo("headline"));
+            // The bound is attributed via textBlock.FindHierarchicalParent<Element>(), which must
+            // resolve to the owning element rather than falling back or naming a different one.
+            Assert.That(bound.Element, Is.SameAs(element));
+        });
+    }
+
     private static Scene CreateScene(string dir, EngineObject drawable)
     {
         var scene = new Scene(160, 90, "still")

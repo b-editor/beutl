@@ -69,13 +69,20 @@ public sealed class EditorProjectSessionGateway(
         return await OpenProjectAsync(fullPath, cancellationToken).ConfigureAwait(false);
     }
 
-    // activeSession is unused here: the in-app host always edits the single open editor project, so
-    // there is no separate file session to swap; the interface passes it for the file-backed host.
     public async ValueTask<ProjectSceneResult> AddSceneAsync(IEditingSession activeSession, SceneCreateOptions options, CancellationToken cancellationToken = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
             if (projectService.CurrentProject.Value is not { } project)
+            {
+                throw new SessionUnavailableException();
+            }
+
+            // The caller's session must still be the one bound to the open editor project. If the user
+            // switched projects (or closed and reopened one) after the session was captured, its Root
+            // scene is no longer in the live project, so adding a scene to `project` would mutate a
+            // different document than the client is editing.
+            if (activeSession.Root is not Scene sessionScene || !project.Items.Contains(sessionScene))
             {
                 throw new SessionUnavailableException();
             }

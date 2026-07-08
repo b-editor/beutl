@@ -1632,6 +1632,12 @@ public sealed class RenderTools(
         }
 
         ResolvedStoryboardShot[] derivedShots = scene.Children
+            // Only enabled elements that overlap the visible window can render at their derived time;
+            // disabled/off-window draft layers would add blank frames and burn the subdivision cap.
+            .Where(element => element.IsEnabled
+                && element.Length > TimeSpan.Zero
+                && element.Start < scene.Start + scene.Duration
+                && element.Start + element.Length > scene.Start)
             .OrderBy(element => element.Start)
             .ThenBy(element => element.ZIndex)
             .Select(element =>

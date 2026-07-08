@@ -680,7 +680,11 @@ public sealed class StillRenderer
             && bounds.Width > 0
             && bounds.Height > 0)
         {
-            result.Add(new RenderedTextBounds(element, textBlock, bounds));
+            // Attribute the bound to the TextBlock's own owning element, not the outer loop element:
+            // a grouped/portaled child can originate from a different element, and downstream
+            // focal-point selection ranks by RenderedTextBounds.Element.ZIndex.
+            Element owner = textBlock.FindHierarchicalParent<Element>() ?? element;
+            result.Add(new RenderedTextBounds(owner, textBlock, bounds));
         }
 
         IEnumerable<EngineObject> children = obj switch
