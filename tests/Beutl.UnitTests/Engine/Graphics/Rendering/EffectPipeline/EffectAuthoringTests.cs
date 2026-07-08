@@ -125,6 +125,57 @@ public class EffectAuthoringTests
         Assert.That(((FusedShaderPass)plan.Passes[0]).Stages, Has.Length.EqualTo(3));
     }
 
+    // ---- M3: an out-of-tree effect binds a sampler and relies on graph-owned disposal ------------------
+
+    // A coordinate-invariant snippet that reads a bound sampler at a fixed texel (invariant: same for every output
+    // pixel) and tints the input's alpha by it — the shape an out-of-tree LUT effect authors.
+    private const string SamplerSnippet =
+        """
+        uniform shader lutTex;
+        half4 apply(half4 c) {
+            half4 t = lutTex.eval(float2(0.5));
+            return half4(t.rgb * c.a, c.a);
+        }
+        """;
+
+    // The now-public builder.Sampler lets an out-of-tree effect hand its SKShader to the graph, which owns the
+    // lifetime (one dispose per frame). The author never disposes it. Two frames, each with its own sampler shader:
+    // identical output proves the API works and frame 1's graph-owned disposal did not corrupt frame 2.
+    [Test]
+    public void SamplerBearingSnippet_GraphOwnsShaderLifetime_WorksAcrossTwoFrames()
+    {
+        using Bitmap frame0 = RenderSamplerEffect();
+        using Bitmap frame1 = RenderSamplerEffect();
+
+        double ssim = ImageMetrics.Ssim(frame0, frame1);
+        double mae = ImageMetrics.MeanAbsoluteError(frame0, frame1);
+        Assert.Multiple(() =>
+        {
+            Assert.That(ssim, Is.GreaterThanOrEqualTo(GoldenThresholds.ExactSsimMin),
+                "the second frame renders identically — frame 1's graph-owned sampler disposal did not corrupt it");
+            Assert.That(mae, Is.LessThanOrEqualTo(GoldenThresholds.ExactMaeMax));
+        });
+    }
+
+    private static Bitmap RenderSamplerEffect()
+    {
+        EffectGraphBuilder builder = NewBuilder();
+        SKShader lut = SKShader.CreateColor(new SKColor(40, 200, 90, 255));
+        SamplerBinding sampler = builder.Sampler("lutTex", lut);
+        builder.Shader(ShaderNodeDescriptor.Snippet(SamplerSnippet, samplers: [sampler]));
+
+        using EffectGraph graph = builder.Build();
+        CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
+        FrameResources frame = EffectGraphCompiler.ResolveResources(plan, s_bounds, workingScale: 1f);
+        RenderNodeOperation[] outputs = PlanExecutor.Execute(
+            plan, frame,
+            [RenderNodeOperation.CreateLambda(
+                s_bounds, canvas => canvas.DrawRectangle(s_bounds.Deflate(10), Fill(180, 255, 255, 255), null),
+                hitTest: s_bounds.Contains)],
+            outputScale: 1f, workingScale: 1f, maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null);
+        return Rasterize(outputs, s_bounds);
+    }
+
     // ---- A3: a convolution node's declared backward ROI covers the region it samples -------------------
 
     [Test]

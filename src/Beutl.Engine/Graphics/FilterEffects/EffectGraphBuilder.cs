@@ -104,7 +104,7 @@ public sealed class EffectGraphBuilder
     /// leaked. Sampler contents are a parameter (a swap re-binds without recompiling); the sampler name is
     /// structural (A4).
     /// </summary>
-    internal SamplerBinding Sampler(string name, SKShader shader)
+    public SamplerBinding Sampler(string name, SKShader shader)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentNullException.ThrowIfNull(shader);
@@ -117,7 +117,7 @@ public sealed class EffectGraphBuilder
     /// per-frame resource: the graph disposes it in <see cref="EffectGraph.Dispose"/>, so it survives a skipped pass
     /// and is never leaked. The child name is structural; the shader instance is a parameter (A4).
     /// </summary>
-    internal ChildBinding Child(string name, SKShader shader)
+    public ChildBinding Child(string name, SKShader shader)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentNullException.ThrowIfNull(shader);
@@ -126,7 +126,7 @@ public sealed class EffectGraphBuilder
     }
 
     /// <summary>Registers an intermediate per-frame shader (e.g. the pre-local-matrix base of a child) for frame-end disposal.</summary>
-    internal SKShader Track(SKShader shader)
+    public SKShader Track(SKShader shader)
     {
         ArgumentNullException.ThrowIfNull(shader);
         _disposables.Add(shader);
