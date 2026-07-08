@@ -299,6 +299,18 @@ public sealed class RenderTargetPool : IDisposable
     internal void SetBackingFactoryForTest(Func<int, int, (SKSurface Surface, ITexture2D? Texture)?> factory)
         => _backingFactory = factory;
 
+    /// <summary>
+    /// Test seam: lets the first <paramref name="successfulAcquires"/> fresh backing allocations succeed and fails
+    /// (returns null) after that, so a test can force an allocation failure at a specific downstream acquire — a
+    /// compute pass's output target or a ping-pong scratch — rather than only at the first (input) acquire.
+    /// </summary>
+    internal void SetBackingFactoryFailingAfterForTest(int successfulAcquires)
+    {
+        int remaining = successfulAcquires;
+        Func<int, int, (SKSurface Surface, ITexture2D? Texture)?> real = RenderTarget.CreateBackingSurface;
+        _backingFactory = (w, h) => remaining-- > 0 ? real(w, h) : null;
+    }
+
     /// <summary>Test seam: overrides the surface-less texture factory to simulate deterministic allocation failure.</summary>
     internal void SetTextureFactoryForTest(Func<int, int, TextureFormat, ITexture2D?> factory)
         => _textureFactory = factory;

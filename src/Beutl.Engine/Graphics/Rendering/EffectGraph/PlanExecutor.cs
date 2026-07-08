@@ -592,18 +592,29 @@ internal static class PlanExecutor
 
         inputTarget.PrepareForSampling();
         ITexture2D? sourceTexture = inputTarget.Texture;
-
-        RenderTarget? outputTarget = sourceTexture != null
-            ? RenderTargetPool.Acquire(pool, width, height, diagnostics)
-            : null;
-        ITexture2D? destTexture = outputTarget?.Texture;
-        if (sourceTexture == null || destTexture == null)
+        if (sourceTexture == null)
         {
-            // No shared texture (raster surface behind a compute-capable context is not expected): fall back to
-            // identity so the content survives rather than vanishing.
-            outputTarget?.Dispose();
+            // Genuinely surface-less context (a raster surface behind a compute-capable context): identity so the
+            // content survives. Decided BEFORE the output acquire so a later allocation failure is never mistaken
+            // for it (review M1) — the input passes through unchanged.
             inputTarget.Dispose();
             return op;
+        }
+
+        RenderTarget? outputTarget = RenderTargetPool.Acquire(pool, width, height, diagnostics);
+        if (outputTarget == null)
+        {
+            inputTarget.Dispose();
+            return DropOrThrow(op, maxWorkingScale,
+                $"Compute output allocation failed ({width}x{height} px, w {w}, bounds {outBounds}).");
+        }
+
+        ITexture2D? destTexture = outputTarget.Texture;
+        if (destTexture == null)
+        {
+            outputTarget.Dispose();
+            inputTarget.Dispose();
+            return DropOrThrow(op, maxWorkingScale, $"Pooled compute output has no Vulkan texture ({width}x{height} px).");
         }
 
         var scratch = new List<RenderTarget>();
@@ -613,6 +624,15 @@ internal static class PlanExecutor
             var ctx = new ComputeContext(
                 gfx, sourceTexture, destTexture, width, height, w, scratch, depthScratch, diagnostics, pool);
             pass.Dispatch(ctx);
+        }
+        catch (ComputeScratchAllocationException ex)
+        {
+            // A ping-pong / depth scratch acquire failed mid-dispatch: normalize like every other pass kind (C7,
+            // review M1) — preview drops and continues, delivery throws — instead of aborting preview by rethrowing.
+            ReleaseComputeScratch(scratch, depthScratch);
+            outputTarget.Dispose();
+            inputTarget.Dispose();
+            return DropOrThrow(op, maxWorkingScale, ex.Message);
         }
         catch
         {
@@ -639,6 +659,10 @@ internal static class PlanExecutor
             return op;
 
         float inW = RenderNodeContext.ClampWorkingScaleToBufferBudget(op.Bounds, workingScale);
+        (int inBw, int inBh) = RenderNodeContext.DeviceBufferSize(op.Bounds, inW);
+        if (inBw <= 0 || inBh <= 0)
+            return op;
+
         RenderTarget? inputTarget = MaterializeInput(op, inW, maxWorkingScale, diagnostics, pool);
         if (inputTarget == null)
             return DropOrThrow(op, maxWorkingScale, "Compute CPU-fallback input materialization failed.");
@@ -844,6 +868,10 @@ internal static class PlanExecutor
         return composed;
     }
 
+    // A compute pass's ping-pong/depth scratch acquire failed. Distinct from a genuine dispatch bug so ExecuteCompute
+    // can route it through the uniform C7 drop/throw (preview drops, delivery throws) rather than aborting preview.
+    private sealed class ComputeScratchAllocationException(string message) : Exception(message);
+
     // The executor-owned resources handed to a compute node's dispatch callback: the materialized source and the
     // pass output texture, plus pooled color and depth scratch released when the pass ends.
     private sealed class ComputeContext(
@@ -864,11 +892,11 @@ internal static class PlanExecutor
         public ITexture2D AcquireColorScratch()
         {
             RenderTarget target = RenderTargetPool.Acquire(pool, width, height, diagnostics)
-                ?? throw new InvalidOperationException(
+                ?? throw new ComputeScratchAllocationException(
                     $"Compute ping-pong scratch allocation failed ({width}x{height} px).");
             colorScratch.Add(target);
             return target.Texture
-                ?? throw new InvalidOperationException("Pooled compute scratch has no Vulkan texture.");
+                ?? throw new ComputeScratchAllocationException("Pooled compute scratch has no Vulkan texture.");
         }
 
         public ITexture2D AcquireDepthScratch()
@@ -876,7 +904,7 @@ internal static class PlanExecutor
             if (pool != null)
             {
                 PooledTextureLease lease = pool.AcquireTexture(width, height, TextureFormat.Depth32Float, diagnostics)
-                    ?? throw new InvalidOperationException(
+                    ?? throw new ComputeScratchAllocationException(
                         $"Compute depth scratch allocation failed ({width}x{height} px).");
                 depthScratch.Add(lease);
                 return lease.Texture;

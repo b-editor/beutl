@@ -228,9 +228,11 @@ public class PrimitivePassTests
 
     // C7 normalization for the new pass kinds under forced pool exhaustion (the pool test seam): preview drops the
     // pass output and continues; delivery throws with the parity message.
+    [TestCase("Fused")]
     [TestCase("Geometry")]
     [TestCase("Compute")]
     [TestCase("Split")]
+    [TestCase("Composite")]
     public void NewPass_AllocationFailure_PreviewDropsDeliveryThrows(string kind)
     {
         var context = VulkanTestEnvironment.EnsureAvailable();
@@ -304,11 +306,114 @@ public class PrimitivePassTests
         });
     }
 
+    // C7 for compute at the OUTPUT acquire (input materialized OK, output allocation fails): must drop (preview) /
+    // throw (delivery), NOT silently fall back to identity and export a no-op pass (review M1). The fail-after seam
+    // lets the input materialize (acquire 1) succeed and fails the output acquire (2).
+    [Test]
+    public void Compute_OutputAllocationFailure_PreviewDropsDeliveryThrows()
+    {
+        var context = VulkanTestEnvironment.EnsureAvailable();
+        if (!context.Supports3DRendering)
+            Assert.Ignore("Compute output-failure gate requires a Vulkan compute-capable context.");
+
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using (var deliveryPool = new RenderTargetPool())
+            {
+                deliveryPool.SetBackingFactoryFailingAfterForTest(1);
+                Assert.That(
+                    () => RenderNodeOperation.DisposeAll(RenderThroughPlan(
+                        [new PixelSortEffect()], [Input()], float.PositiveInfinity, new PipelineDiagnostics(), deliveryPool)),
+                    Throws.TypeOf<InvalidOperationException>(),
+                    "delivery must throw on compute output allocation failure, not export a silent identity");
+            }
+
+            using (var previewPool = new RenderTargetPool())
+            {
+                previewPool.SetBackingFactoryFailingAfterForTest(1);
+                RenderNodeOperation[] outputs = RenderThroughPlan(
+                    [new PixelSortEffect()], [Input()], maxWorkingScale: 2f, new PipelineDiagnostics(), previewPool);
+                Assert.That(outputs, Is.Empty, "preview drops the compute pass output on output allocation failure");
+                RenderNodeOperation.DisposeAll(outputs);
+            }
+        });
+    }
+
+    // C7 for compute at a ping-pong SCRATCH acquire (input + output OK, a scratch fails mid-dispatch): must drop
+    // (preview) / throw (delivery), NOT abort preview by rethrowing the raw scratch allocation exception (review M1).
+    // Fail-after 2 lets the input + output acquires succeed and fails the first color scratch acquire.
+    [Test]
+    public void Compute_ScratchAllocationFailure_PreviewDropsDeliveryThrows()
+    {
+        var context = VulkanTestEnvironment.EnsureAvailable();
+        if (!context.Supports3DRendering)
+            Assert.Ignore("Compute scratch-failure gate requires a Vulkan compute-capable context.");
+
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using (var deliveryPool = new RenderTargetPool())
+            {
+                deliveryPool.SetBackingFactoryFailingAfterForTest(2);
+                Assert.That(
+                    () => RenderNodeOperation.DisposeAll(RenderThroughPlan(
+                        [new PixelSortEffect()], [Input()], float.PositiveInfinity, new PipelineDiagnostics(), deliveryPool)),
+                    Throws.TypeOf<InvalidOperationException>(),
+                    "delivery throws on compute scratch allocation failure");
+            }
+
+            using (var previewPool = new RenderTargetPool())
+            {
+                previewPool.SetBackingFactoryFailingAfterForTest(2);
+                RenderNodeOperation[] outputs = RenderThroughPlan(
+                    [new PixelSortEffect()], [Input()], maxWorkingScale: 2f, new PipelineDiagnostics(), previewPool);
+                Assert.That(outputs, Is.Empty, "preview drops the compute pass output on scratch allocation failure");
+                RenderNodeOperation.DisposeAll(outputs);
+            }
+        });
+    }
+
+    // N3: an empty input op reaching a compute pass must pass straight through — on either backend. The
+    // GPU path (ExecuteCompute) already guards empty input; the CPU-fallback path (no Vulkan) lacked the same
+    // guard and spuriously threw in delivery. Neither the dispatch nor the CPU callback may run for an empty input.
+    // On a 3D-capable host this exercises the GPU guard; on a no-Vulkan host it exercises the added fallback guard.
+    [Test]
+    public void EmptyInputToComputePass_PassesThroughOnEitherBackend()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var compute = ComputeNodeDescriptor.Create(
+                dispatch: static _ => throw new InvalidOperationException("dispatch must not run for an empty input"),
+                passCount: 1,
+                fallback: ComputeFallback.CpuCallback,
+                cpuCallback: static _ => throw new InvalidOperationException("CPU callback must not run for an empty input"));
+
+            var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+            builder.Compute(compute);
+            using EffectGraph graph = builder.Build();
+            CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
+            FrameResources frame = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale: 1f);
+
+            RenderNodeOperation empty = RenderNodeOperation.CreateLambda(
+                new Rect(10, 10, 0, 0), static _ => { }, hitTest: static _ => false);
+
+            RenderNodeOperation[] outputs = PlanExecutor.Execute(
+                plan, frame, [empty], outputScale: 1f, workingScale: 1f,
+                maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null);
+
+            int count = outputs.Length;
+            RenderNodeOperation.DisposeAll(outputs);
+            Assert.That(count, Is.EqualTo(1), "the empty input passes through the compute pass without throwing");
+        });
+    }
+
     private static FilterEffect MakeEffect(string kind) => kind switch
     {
+        "Fused" => new Saturate { Amount = { CurrentValue = 1.3f } },
         "Geometry" => new Clipping { Left = { CurrentValue = 10 }, Top = { CurrentValue = 10 } },
         "Compute" => new PixelSortEffect(),
         "Split" => new SplitEffect { HorizontalDivisions = { CurrentValue = 2 }, VerticalDivisions = { CurrentValue = 2 } },
+        "Composite" => new LayerEffect(),
         _ => throw new ArgumentOutOfRangeException(nameof(kind)),
     };
 
