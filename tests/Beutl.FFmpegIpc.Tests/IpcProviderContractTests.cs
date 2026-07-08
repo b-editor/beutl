@@ -462,12 +462,12 @@ public class IpcProviderContractTests
     }
 
     [Test]
-    public async Task RenderFrame_WhenFrameExceedsBufferCapacity_ThrowsFromReadAndDoesNotLeak()
+    public async Task RenderFrame_WhenFrameExceedsBufferCapacity_ThrowsBeforeAllocating()
     {
         // 32x32 RgbaF16 = 8192 bytes > BufferCapacity (4096). The DataLength guard passes (8192 == the
-        // 32x32 RgbaF16 size), so the overflow only surfaces from SharedMemoryBuffer.Read's capacity check
-        // AFTER the bitmap is allocated. The provider must let that throw propagate (its catch disposes the
-        // freshly allocated native bitmap so the throw can't leak it).
+        // 32x32 RgbaF16 size), so the capacity guard must reject the frame BEFORE the native bitmap is
+        // allocated — otherwise a malformed/huge frame would trigger the large allocation only to fail
+        // later in Read.
         var (server, client) = ConnectPair();
         var buffers = CreateBuffers();
         var hostCts = new CancellationTokenSource();
@@ -481,14 +481,13 @@ public class IpcProviderContractTests
         try
         {
             Assert.That(async () => await provider.RenderFrame(0),
-                Throws.TypeOf<ArgumentOutOfRangeException>(),
-                "a frame larger than the shared buffer must surface the Read capacity overflow as a throw");
+                Throws.TypeOf<InvalidOperationException>(),
+                "a frame larger than the shared buffer must be rejected by the pre-allocation capacity guard");
 
-            // The native Bitmap dispose on the throw path can't be observed in-process, but a leak-free
-            // failure must at least leave no committed state: the failed render must not count as a
-            // completed frame (FramesRendered++ runs only after BuildBitmap succeeds).
+            // The rejected render must not count as a completed frame (FramesRendered++ runs only
+            // after BuildBitmap succeeds).
             Assert.That(provider.FramesRendered, Is.EqualTo(0),
-                "a render that throws from Read must not count as a completed frame");
+                "a render rejected before allocation must not count as a completed frame");
         }
         finally
         {

@@ -111,6 +111,13 @@ internal sealed class IpcFrameProvider : IFrameProvider
                 $"Frame DataLength {frameInfo.DataLength} does not match the {frameInfo.Width}x{frameInfo.Height} " +
                 $"{colorType} buffer size {expected}.");
 
+        // Reject an oversized frame BEFORE allocating the native bitmap: the frame's pixel data must
+        // fit the shared buffer it is read from, so a frame that cannot fit is invalid and would
+        // otherwise trigger a huge native allocation that only fails later in Read.
+        if (expected > _videoBuffers[bufferIndex].Capacity)
+            throw new InvalidOperationException(
+                $"Frame size {expected} exceeds the shared buffer capacity {_videoBuffers[bufferIndex].Capacity}.");
+
         var alphaType = frameInfo.Premul ? BitmapAlphaType.Premul : BitmapAlphaType.Unpremul;
         var bmp = new Bitmap(frameInfo.Width, frameInfo.Height, colorType, alphaType, colorSpace);
 

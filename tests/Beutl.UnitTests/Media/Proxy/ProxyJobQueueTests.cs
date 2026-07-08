@@ -616,7 +616,11 @@ public class ProxyJobQueueTests
 
         await queue.DisposeAsync();
 
-        Assert.ThrowsAsync<ChannelClosedException>(async () => await blocked);
+        // DisposeAsync cancels the item (its token is linked into the write) and completes the
+        // channel; the blocked write observes whichever wins the race, so either is acceptable.
+        Assert.That(
+            async () => await blocked,
+            Throws.InstanceOf<OperationCanceledException>().Or.InstanceOf<ChannelClosedException>());
 
         ProxyJob? blockedJob;
         lock (canceledJobs)

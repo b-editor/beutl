@@ -14,7 +14,11 @@ public sealed class ProxyStore : IProxyStore
     // ~0.5 s before DegradePersistence engages and replays on the next uncontended flush.
     private const int DefaultLockAcquireMaxAttempts = 50;
 
-    private static readonly TimeSpan s_generatedTempCleanupMinAge = TimeSpan.FromHours(1);
+    // A live encode keeps its *.tmp mtime fresh, so the mtime-based age check below already spares an
+    // active file. The wide margin adds headroom for a shared store where a peer instance's long
+    // encode may have a laggy mtime (e.g. a network share) — a cross-process in-flight marker would
+    // remove the residual race but is out of scope here.
+    private static readonly TimeSpan s_generatedTempCleanupMinAge = TimeSpan.FromHours(24);
 
     private static readonly ILogger s_logger = Log.CreateLogger<ProxyStore>();
 
@@ -230,11 +234,13 @@ public sealed class ProxyStore : IProxyStore
                 TryDelete(tmp);
             }
 
+            List<ProxyEntry> sidecarCandidates = CollectSidecarCandidates(cancellationToken);
+
             HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> changedKeys = [];
             List<ProxyEntry> snapshot;
             lock (_lock)
             {
-                changedKeys.UnionWith(AdoptSidecarsCore(cancellationToken));
+                changedKeys.UnionWith(MergeSidecarCandidates(sidecarCandidates));
                 snapshot = [.. _entries.Values];
             }
 
@@ -372,7 +378,8 @@ public sealed class ProxyStore : IProxyStore
             if (index?.Version != ProxyStoreIndex.CurrentVersion)
             {
                 _entries.Clear();
-                HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> adoptedKeys = AdoptSidecarsCore(CancellationToken.None);
+                HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> adoptedKeys =
+                    MergeSidecarCandidates(CollectSidecarCandidates(CancellationToken.None));
                 FlushCore(adoptedKeys);
                 return;
             }
@@ -386,14 +393,18 @@ public sealed class ProxyStore : IProxyStore
         catch
         {
             _entries.Clear();
-            HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> adoptedKeys = AdoptSidecarsCore(CancellationToken.None);
+            HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> adoptedKeys =
+                MergeSidecarCandidates(CollectSidecarCandidates(CancellationToken.None));
             FlushCore(adoptedKeys);
         }
     }
 
-    private HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> AdoptSidecarsCore(CancellationToken cancellationToken)
+    // The meta.json walk + per-entry validation (filesystem work) runs without _lock so a large or
+    // shared store cannot block preview TryGet/Touch behind startup reconciliation; only the _entries
+    // merge below needs the lock.
+    private List<ProxyEntry> CollectSidecarCandidates(CancellationToken cancellationToken)
     {
-        HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> adoptedKeys = [];
+        List<ProxyEntry> candidates = [];
         foreach (string metadataPath in Directory.EnumerateFiles(StoreRootPath, "meta.json", SearchOption.AllDirectories))
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -413,16 +424,26 @@ public sealed class ProxyStore : IProxyStore
                     continue;
                 }
 
-                if (!File.Exists(proxyPath))
-                    continue;
+                if (File.Exists(proxyPath))
+                    candidates.Add(entry);
+            }
+        }
 
-                var key = (entry.Source, entry.Preset);
-                if (!_entries.TryGetValue(key, out ProxyEntry? existing)
-                    || ShouldAdoptSidecar(entry, existing))
-                {
-                    _entries[key] = entry;
-                    adoptedKeys.Add(key);
-                }
+        return candidates;
+    }
+
+    // Must be called with _lock held: merges the lock-free candidate scan into _entries.
+    private HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> MergeSidecarCandidates(List<ProxyEntry> candidates)
+    {
+        HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> adoptedKeys = [];
+        foreach (ProxyEntry entry in candidates)
+        {
+            var key = (entry.Source, entry.Preset);
+            if (!_entries.TryGetValue(key, out ProxyEntry? existing)
+                || ShouldAdoptSidecar(entry, existing))
+            {
+                _entries[key] = entry;
+                adoptedKeys.Add(key);
             }
         }
 

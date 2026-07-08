@@ -75,7 +75,7 @@ public sealed class ProxyStoreTests
         File.WriteAllBytes(encodedTmpPath, [1, 2, 3]);
         File.WriteAllBytes(recentEncodedTmpPath, [1, 2, 3]);
         File.WriteAllBytes(nestedGeneratedLookingTmpPath, [1, 2, 3]);
-        File.SetLastWriteTimeUtc(encodedTmpPath, DateTime.UtcNow.AddHours(-2));
+        File.SetLastWriteTimeUtc(encodedTmpPath, DateTime.UtcNow.AddHours(-25));
 
         await store.ReconcileAsync(CancellationToken.None);
 
@@ -96,7 +96,7 @@ public sealed class ProxyStoreTests
         string root = CreateRoot();
         var store = new ProxyStore(root);
         string hashDirectory = new('b', 64);
-        DateTime aged = DateTime.UtcNow.AddHours(-2);
+        DateTime aged = DateTime.UtcNow.AddHours(-25);
 
         string proxyOrphan = Path.Combine(root, hashDirectory, "quarter.mp4");
         string unrelatedTopLevel = Path.Combine(root, "archive.mp4");
@@ -538,7 +538,7 @@ public sealed class ProxyStoreTests
         Directory.CreateDirectory(orphanDir);
         string oldOrphan = Path.Combine(orphanDir, "quarter.mp4");
         File.WriteAllBytes(oldOrphan, [1, 2, 3]);
-        File.SetLastWriteTimeUtc(oldOrphan, DateTime.UtcNow.AddHours(-2));
+        File.SetLastWriteTimeUtc(oldOrphan, DateTime.UtcNow.AddHours(-25));
 
         string freshDir = Path.Combine(root, new string('c', 64));
         Directory.CreateDirectory(freshDir);

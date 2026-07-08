@@ -1,4 +1,5 @@
-﻿using System.Reactive.Linq;
+﻿using System.Globalization;
+using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Runtime.InteropServices;
 using Beutl.Audio;
@@ -1906,6 +1907,20 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         return await RenderThread.Dispatcher.InvokeAsync(() =>
         {
             if (Scene == null) throw new Exception("Scene is null.");
+
+            // This renderer forces original sources, so unlike preview it cannot fall back to a
+            // proxy when the original is missing; without this check the render resource path
+            // swallows the open failure and the user saves a blank frame with no error. Match the
+            // export preflight before spending the render.
+            IReadOnlyList<string> missingSources = Beutl.Editor.ExportSourceValidator.GetMissingFileSources(Scene);
+            if (missingSources.Count > 0)
+            {
+                throw new InvalidOperationException(string.Format(
+                    CultureInfo.CurrentCulture,
+                    Language.MessageStrings.SaveFrameMissingSourceFile,
+                    missingSources[0],
+                    missingSources.Count));
+            }
 
             // Throwaway renderer with disableResourceShare to avoid mutating live preview resources.
             using var renderer = new SceneRenderer(

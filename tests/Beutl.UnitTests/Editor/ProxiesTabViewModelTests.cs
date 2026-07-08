@@ -348,6 +348,78 @@ public sealed class ProxiesTabViewModelTests
             Is.EquivalentTo(new[] { "scene1.mov", "scene2.mov" }));
     }
 
+    // A clip referencing media through a symlink whose target was moved/deleted must still match its
+    // stored entry (keyed on the resolved target) rather than dropping off the tab.
+    [Test]
+    public void Refresh_SymlinkedSourceWithMovedTarget_StaysMatchedToStoredEntry()
+    {
+        string root = CreateRoot();
+        string target = CreateSourceFile(root, "target.mov", 1024);
+        string link = Path.Combine(root, "link.mov");
+        try
+        {
+            File.CreateSymbolicLink(link, target);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or PlatformNotSupportedException)
+        {
+            Assert.Ignore("Creating a symbolic link is not permitted in this environment.");
+        }
+
+        var store = new ProxyStore(Path.Combine(root, "proxies"));
+        ProxyFingerprint resolved = ProxyFingerprint.FromFile(link);
+        DateTime now = DateTime.UtcNow;
+        RegisterProxyEntry(store, new ProxyEntry(
+            resolved,
+            ProxyPreset.Quarter,
+            ProxyState.Ready,
+            "hash/quarter.mp4",
+            512,
+            new PixelSize(1920, 1080),
+            new PixelSize(480, 270),
+            now,
+            now,
+            null));
+
+        // Move the target away: TryFromFile(link) now fails, forcing the resolved-path fallback.
+        File.Move(target, Path.Combine(root, "moved.mov"));
+
+        var scene = CreateScene(root, "symlink.scene");
+        AddSourceVideo(scene, root, link);
+
+        using var viewModel = new ProxiesTabViewModel(CreateContext(scene, store));
+
+        Assert.That(viewModel.Clips.Select(static clip => clip.FileName), Does.Contain("link.mov"));
+    }
+
+    // Project-wide actions scan every scene, so an edit in a scene other than the tab's own must
+    // still refresh the clip list.
+    [Test]
+    public void SceneEdited_InAnotherProjectScene_RefreshesClipList()
+    {
+        string root = CreateRoot();
+        string path1 = CreateSourceFile(root, "scene1.mov", 1024);
+        string path2 = CreateSourceFile(root, "scene2.mov", 1024);
+        var store = new ProxyStore(Path.Combine(root, "proxies"));
+        Scene scene1 = CreateScene(root, "scene1.scene");
+        AddSourceVideo(scene1, root, path1);
+        Scene scene2 = CreateScene(root, "scene2.scene");
+        var project = new Project();
+        project.Items.Add(scene1);
+        project.Items.Add(scene2);
+
+        using var viewModel = new ProxiesTabViewModel(CreateContext(scene1, store))
+        {
+            RefreshScheduler = static action => action(),
+        };
+        Assert.That(viewModel.Clips, Has.Count.EqualTo(1));
+
+        AddSourceVideo(scene2, root, path2);
+
+        Assert.That(
+            viewModel.Clips.Select(static clip => clip.FileName),
+            Is.EquivalentTo(new[] { "scene1.mov", "scene2.mov" }));
+    }
+
     [Test]
     public void OnStoreChanged_TouchEvent_PreservesClipSelection()
     {
@@ -790,6 +862,39 @@ public sealed class ProxiesTabViewModelTests
     // After an in-place replace, the store holds a stale small-dimension entry for the old
     // fingerprint. It must not drive bulk eligibility for the current (heavy) source — the
     // file-size fallback should make the replaced 4K-but-small-metadata clip eligible.
+    // A benign mtime-only change (touch/re-copy, same path + size) must keep using the stored
+    // dimensions for bulk eligibility rather than falling back to the coarse file-size floor.
+    [Test]
+    public async Task GenerateAll_MtimeOnlyChange_StillUsesStoredDimensions()
+    {
+        string root = CreateRoot();
+        string path = CreateSourceFile(root, "touched.mov", 4096);
+        var store = new ProxyStore(Path.Combine(root, "proxies"));
+        ProxyFingerprint current = ProxyFingerprint.FromFile(path);
+        // Same path + size, older mtime: an mtime-only difference from the current fingerprint.
+        ProxyFingerprint touched = current with { MtimeUtc = current.MtimeUtc.AddMinutes(-5) };
+        DateTime now = DateTime.UtcNow;
+        RegisterProxyEntry(store, new ProxyEntry(
+            touched,
+            ProxyPreset.Quarter,
+            ProxyState.Ready,
+            "hash/touched.mp4",
+            1024,
+            new PixelSize(3840, 2160),
+            new PixelSize(960, 540),
+            now,
+            now,
+            null));
+        var queue = new TestProxyJobQueue();
+
+        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, queue, path));
+
+        await viewModel.GenerateAllCommand.ExecuteAsync();
+
+        // 3840x2160 clears the pixel floor even though the 4 KB file is far below the size floor.
+        Assert.That(queue.Pending().Select(static job => job.Source), Does.Contain(current));
+    }
+
     [Test]
     public async Task GenerateAll_StaleSamePathDimensions_DoNotSuppressHeavyClip()
     {

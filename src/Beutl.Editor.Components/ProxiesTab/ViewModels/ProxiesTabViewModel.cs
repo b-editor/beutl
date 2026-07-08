@@ -1,4 +1,5 @@
 ﻿using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Globalization;
 using System.Reactive.Disposables;
@@ -45,6 +46,7 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
     private const int BulkGenerationPriority = 0;
 
     private readonly CompositeDisposable _disposables = [];
+    private readonly SerialDisposable _sceneEditedSubscriptions = new();
     private readonly Scene _scene;
     private readonly IProxyStore? _store;
     private readonly IProxyJobQueue? _queue;
@@ -116,9 +118,17 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
         // act on a stale clip list. ScheduleRefresh coalesces an edit burst into one rebuild.
         if (_scene != null)
         {
-            _scene.Edited += OnSceneEdited;
-            Disposable.Create(() => _scene.Edited -= OnSceneEdited)
-                .DisposeWith(_disposables);
+            _sceneEditedSubscriptions.DisposeWith(_disposables);
+            RefreshSceneSubscriptions();
+
+            // Project-wide totals / Generate All / Delete scan every project scene, so a media edit
+            // in another open scene must also refresh; watch the project's scene set for add/remove.
+            if (_scene.FindHierarchicalParent<Project>() is { } project)
+            {
+                project.Items.CollectionChanged += OnProjectItemsChanged;
+                Disposable.Create(() => project.Items.CollectionChanged -= OnProjectItemsChanged)
+                    .DisposeWith(_disposables);
+            }
         }
 
         _config.PropertyChanged += OnProxyConfigPropertyChanged;
@@ -129,6 +139,25 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
     }
 
     private void OnSceneEdited(object? sender, EventArgs e) => ScheduleRefresh();
+
+    private void OnProjectItemsChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        RefreshSceneSubscriptions();
+        ScheduleRefresh();
+    }
+
+    private void RefreshSceneSubscriptions()
+    {
+        var subscriptions = new CompositeDisposable();
+        foreach (Scene scene in EnumerateProjectScenes())
+        {
+            Scene captured = scene;
+            captured.Edited += OnSceneEdited;
+            subscriptions.Add(Disposable.Create(() => captured.Edited -= OnSceneEdited));
+        }
+
+        _sceneEditedSubscriptions.Disposable = subscriptions;
+    }
 
     private void OnProxyConfigPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
@@ -394,11 +423,15 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
 
         foreach (ProxyEntry entry in _store.Enumerate())
         {
-            // Only an exact-fingerprint entry describes the current file's dimensions. A same-path
-            // stale entry (an in-place replace left old dimensions) must not drive eligibility —
-            // returning null falls the caller back to the current file size instead.
-            if (entry.Source != source)
+            // Match on path + size, not the full fingerprint: an in-place replace changes the size,
+            // so old dimensions can't drive eligibility for a heavier file; a benign mtime-only
+            // touch keeps the size, so valid dimensions are still used (rather than falling back to
+            // the coarse file-size floor). Only same-path/same-size entries describe this file.
+            if (entry.Source.AbsolutePath != source.AbsolutePath
+                || entry.Source.FileSizeBytes != source.FileSizeBytes)
+            {
                 continue;
+            }
 
             PixelSize frameSize = entry.OriginalLogicalFrameSize;
             if (frameSize.Width > 0 && frameSize.Height > 0)
@@ -690,11 +723,26 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
 
     private static string NormalizeSourcePath(string path)
     {
-        // Case folding must match ProxyFingerprint.NormalizeAbsolutePath (Windows + macOS).
-        string fullPath = Path.GetFullPath(path);
+        // Resolve a symlink to the target path the store entry was keyed on (FromFile resolves the
+        // link at registration). A moved/deleted target leaves the link resolvable via
+        // returnFinalTarget:false, so a broken symlink still matches its stored entry instead of
+        // dropping the clip from the tab. Case folding must match ProxyFingerprint.NormalizeAbsolutePath.
+        string fullPath = ResolveLinkTarget(Path.GetFullPath(path));
         return OperatingSystem.IsWindows() || OperatingSystem.IsMacOS()
             ? fullPath.ToUpperInvariant()
             : fullPath;
+    }
+
+    private static string ResolveLinkTarget(string fullPath)
+    {
+        try
+        {
+            return new FileInfo(fullPath).ResolveLinkTarget(returnFinalTarget: false)?.FullName ?? fullPath;
+        }
+        catch
+        {
+            return fullPath;
+        }
     }
 
     private void UpdateStoreSummary()

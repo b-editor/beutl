@@ -251,6 +251,33 @@ public class ProxyEvictionTests
         });
     }
 
+    // A stale entry whose proxy file was deleted outside the process frees no disk when removed, so
+    // it must not satisfy a disk-pressure sweep early — the sweep has to reach a real file.
+    [Test]
+    public void SweepForDiskPressure_MissingProxyFileDoesNotCreditDiskHeadroom()
+    {
+        string root = CreateRoot();
+        var store = new ProxyStore(root);
+        ProxyEntry missing = Register(store, root, "missing.mp4", DateTime.UtcNow.AddMinutes(-10), 20);
+        ProxyEntry real = Register(store, root, "real.mp4", DateTime.UtcNow, 20);
+        File.Delete(Path.Combine(root, "missing.mp4"));
+        var service = new ProxyEvictionService(
+            store,
+            resolver: null,
+            maxTotalBytes: 1_000_000,
+            minFreeDiskBytes: 100,
+            availableFreeSpaceProvider: _ => 85); // shortfall 15
+
+        ProxyEvictionResult result = service.SweepForDiskPressure();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(store.TryGet(real.Source, real.Preset), Is.Null, "the sweep must reach the real file the missing one couldn't free");
+            Assert.That(result.ReclaimedBytes, Is.EqualTo(20), "only the actually-freed on-disk bytes are reported");
+            Assert.That(store.TryGet(missing.Source, missing.Preset), Is.Null);
+        });
+    }
+
     [Test]
     public void SweepForDiskPressure_DoesNotEvictWhenEvictionCannotFreeEnough()
     {

@@ -181,7 +181,11 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         WorkItem item = newItem!;
         try
         {
-            await _channel.Writer.WriteAsync(item, cancellationToken);
+            // Link the item's own token so a Cancel/CancelAll while the write is parked on a full
+            // channel aborts the write instead of publishing a job that was already canceled and
+            // removed (which would fire a spurious Enqueued and return false success to the caller).
+            using var writeCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, item.Token);
+            await _channel.Writer.WriteAsync(item, writeCts.Token);
             lock (_lock)
             {
                 item.Published = true;

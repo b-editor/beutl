@@ -138,12 +138,17 @@ public sealed class ProxyEvictionService : IProxyStoreCapInfo
             if (activeGenerations.Contains((entry.Source, entry.Preset)))
                 continue;
 
-            // A shared-store peer can delete the file between the existence check and the stat; fall
-            // back to the recorded size rather than letting the whole sweep abort on that race.
-            long bytes = TryGetFileLength(absolutePath) ?? entry.ProxyFileSizeBytes;
+            // Two sizes: the on-disk length actually freed (for the disk-pressure goal) and the size
+            // credited toward the cap goal. A shared-store peer can delete the file between the
+            // existence check and the stat; a missing file frees no disk (onDiskBytes = 0) but still
+            // reduces the recorded cap total when its entry is removed, so cap accounting keeps the
+            // recorded size.
+            long? onDiskLength = TryGetFileLength(absolutePath);
+            long onDiskBytes = onDiskLength ?? 0;
+            long capBytes = onDiskLength ?? entry.ProxyFileSizeBytes;
 
             bool isProtected = protectedSources.Contains(entry.Source.AbsolutePath);
-            candidates.Add(new Candidate(entry, bytes, isProtected));
+            candidates.Add(new Candidate(entry, capBytes, onDiskBytes, isProtected));
         }
 
         // Non-protected LRU candidates first; open-project proxies only as a last resort.
@@ -155,20 +160,22 @@ public sealed class ProxyEvictionService : IProxyStoreCapInfo
                 : a.Entry.LastUsedUtc.CompareTo(b.Entry.LastUsedUtc);
         });
 
-        long totalReclaimable = candidates.Sum(static c => c.Bytes);
-
-        // Restoring disk headroom is only worthwhile if eviction can actually reach it;
-        // otherwise pursue the cap goal alone rather than delete proxies for nothing.
-        long diskTarget = totalReclaimable >= diskShortfall ? diskShortfall : 0;
-        long bytesToFree = Math.Max(capOverage, diskTarget);
-        if (bytesToFree <= 0)
+        // Disk headroom can only be freed by actually-present files; restoring it is worthwhile only
+        // if eviction can reach it, otherwise pursue the cap goal alone rather than delete for nothing.
+        long totalOnDiskReclaimable = candidates.Sum(static c => c.OnDiskBytes);
+        long diskTarget = totalOnDiskReclaimable >= diskShortfall ? diskShortfall : 0;
+        long capTarget = Math.Max(capOverage, 0);
+        if (capTarget <= 0 && diskTarget <= 0)
             return default;
 
         int removed = 0;
-        long reclaimed = 0;
+        long reclaimedCap = 0;
+        long reclaimedDisk = 0;
         foreach (Candidate candidate in candidates)
         {
-            if (reclaimed >= bytesToFree)
+            // Stop once both goals are met. A missing proxy contributes its recorded size to the cap
+            // goal but 0 to the disk goal, so it cannot end a disk-pressure sweep early.
+            if (reclaimedCap >= capTarget && reclaimedDisk >= diskTarget)
                 break;
 
             // Re-check the pin immediately before deleting: a ProxyMediaReader may have pinned this
@@ -181,11 +188,12 @@ public sealed class ProxyEvictionService : IProxyStoreCapInfo
             if (_store.Delete(candidate.Entry.Source, candidate.Entry.Preset))
             {
                 removed++;
-                reclaimed += candidate.Bytes;
+                reclaimedCap += candidate.Bytes;
+                reclaimedDisk += candidate.OnDiskBytes;
             }
         }
 
-        return new ProxyEvictionResult(removed, reclaimed);
+        return new ProxyEvictionResult(removed, reclaimedDisk);
     }
 
     private IReadOnlySet<string> ResolveProtectedSources()
@@ -269,7 +277,7 @@ public sealed class ProxyEvictionService : IProxyStoreCapInfo
         }
     }
 
-    private readonly record struct Candidate(ProxyEntry Entry, long Bytes, bool IsProtected);
+    private readonly record struct Candidate(ProxyEntry Entry, long Bytes, long OnDiskBytes, bool IsProtected);
 }
 
 public readonly record struct ProxyEvictionResult(int RemovedCount, long ReclaimedBytes);

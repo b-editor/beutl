@@ -1137,10 +1137,18 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
     internal static ProxyState AggregateProxyState(
         IProxyStore store, IProxyJobQueue? queue, IReadOnlyList<ProxyFingerprint> fingerprints)
     {
+        ArgumentNullException.ThrowIfNull(store);
+
+        // Snapshot the store/queue once for the whole element instead of per fingerprint: each
+        // Enumerate()/Pending() allocates, and a store/job event fans out to every element on the
+        // UI thread, so the per-fingerprint scans compounded across a large project.
+        IReadOnlyList<ProxyEntry> entries = store.Enumerate();
+        IReadOnlyList<ProxyJob> pending = queue?.Pending() ?? [];
+
         ProxyState? aggregate = null;
         foreach (ProxyFingerprint fingerprint in fingerprints)
         {
-            ProxyState state = ResolveProxyState(store, queue, fingerprint);
+            ProxyState state = ResolveProxyState(entries, pending, fingerprint);
             aggregate = aggregate is { } current ? CombineProxyStates(current, state) : state;
         }
 
@@ -1163,19 +1171,21 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
     internal static ProxyState ResolveProxyState(IProxyStore store, IProxyJobQueue? queue, ProxyFingerprint fingerprint)
     {
         ArgumentNullException.ThrowIfNull(store);
+        return ResolveProxyState(store.Enumerate(), queue?.Pending() ?? [], fingerprint);
+    }
 
-        if (queue != null)
+    private static ProxyState ResolveProxyState(
+        IReadOnlyList<ProxyEntry> entries, IReadOnlyList<ProxyJob> pending, ProxyFingerprint fingerprint)
+    {
+        foreach (ProxyJob job in pending)
         {
-            foreach (ProxyJob job in queue.Pending())
-            {
-                if (string.Equals(job.Source.AbsolutePath, fingerprint.AbsolutePath, StringComparison.Ordinal))
-                    return ProxyState.Generating;
-            }
+            if (string.Equals(job.Source.AbsolutePath, fingerprint.AbsolutePath, StringComparison.Ordinal))
+                return ProxyState.Generating;
         }
 
         ProxyState? best = null;
         bool bestIsExact = false;
-        foreach (ProxyEntry entry in store.Enumerate())
+        foreach (ProxyEntry entry in entries)
         {
             if (!string.Equals(entry.Source.AbsolutePath, fingerprint.AbsolutePath, StringComparison.Ordinal))
                 continue;
