@@ -238,6 +238,25 @@ half4 apply(half4 c) {
         Assert.That(blur.Key, Is.Not.EqualTo(dilate.Key));
     }
 
+    // B3: RequiresDepth is structural — it decides whether the resource plan declares an extra depth intermediate
+    // (C3.3). Two computes identical in every other structural field must key differently so a depth toggle can
+    // never stale-hit a plan that under-declares the depth attachment (C3/C5).
+    [Test]
+    public void StructuralKey_ComputeRequiresDepthDiffers_ProducesDifferentKey()
+    {
+        var bounds = new Rect(0, 0, 100, 100);
+
+        static ComputeNodeDescriptor Compute(bool requiresDepth) => ComputeNodeDescriptor.Create(
+            static _ => { }, passCount: 1, ComputeFallback.Identity, requiresDepth: requiresDepth,
+            structuralToken: "depth-key");
+
+        using EffectGraph withDepth = NewBuilder(bounds).Compute(Compute(requiresDepth: true)).Build();
+        using EffectGraph withoutDepth = NewBuilder(bounds).Compute(Compute(requiresDepth: false)).Build();
+
+        Assert.That(StructuralKey.Compute(withDepth), Is.Not.EqualTo(StructuralKey.Compute(withoutDepth)),
+            "toggling the structural depth requirement must change the structural key");
+    }
+
     // ---- Resource plan (peak-live) ----------------------------------------------------------------------
 
     [Test]

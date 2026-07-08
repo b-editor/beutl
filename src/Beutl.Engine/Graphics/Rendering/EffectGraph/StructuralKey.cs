@@ -66,9 +66,12 @@ public readonly struct StructuralKey : IEquatable<StructuralKey>
 
             case ComputeNodeDescriptor compute:
                 // PassCount is topology (C3.6): it is in the key, so animating it recompiles exactly once.
+                // RequiresDepth is structural too — it decides the extra depth intermediate the resource plan
+                // declares (C3.3), so a depth toggle must not stale-hit a plan that under-declares it (C3/C5).
                 sb.Append("compute:")
                     .Append(compute.StructuralToken)
                     .Append(',').Append(compute.PassCount)
+                    .Append(',').Append(compute.RequiresDepth ? '1' : '0')
                     .Append(',').Append((int)compute.Fallback);
                 break;
 

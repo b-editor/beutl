@@ -60,6 +60,10 @@ internal sealed record ParameterBlock(ImmutableArray<CompiledPass> Passes)
                     if (ca.InputColorFilters.Length != cb.InputColorFilters.Length)
                         return false;
                     break;
+                case ComputePass compa when b[i] is ComputePass compb:
+                    if (compa.PassCount != compb.PassCount || compa.RequiresDepth != compb.RequiresDepth)
+                        return false;
+                    break;
             }
         }
 
