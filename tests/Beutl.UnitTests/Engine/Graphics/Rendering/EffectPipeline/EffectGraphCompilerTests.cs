@@ -407,6 +407,56 @@ public class EffectGraphCompilerTests
         }
     }
 
+    // F3: FlushSyncs discipline is a compiler property (ApplySyncBefore, C4.2), so assert it on a synthetic
+    // mixed-backend plan without a GPU. A Skia -> Vulkan -> Skia schedule sets SyncBefore at exactly the two backend
+    // transitions (the virtual backend before pass 0 is Skia, so a leading Skia pass needs no sync).
+    [Test]
+    public void Compile_MixedBackendPlan_SetsSyncBeforeAtEachBackendTransition()
+    {
+        var bounds = new Rect(0, 0, 64, 64);
+        CompiledPlan plan = Compile(NewBuilder(bounds)
+            .Shader(Scale(1f))
+            .Compute(ComputeNodeDescriptor.Create(
+                static _ => { }, passCount: 1, ComputeFallback.Identity, structuralToken: "sync-test"))
+            .Shader(Scale(1f)));
+
+        Assert.That(plan.Passes.Select(p => p.Backend),
+            Is.EqualTo(new[] { PassBackend.Skia, PassBackend.Vulkan, PassBackend.Skia }));
+        Assert.Multiple(() =>
+        {
+            Assert.That(plan.Passes[0].SyncBefore, Is.False, "a leading Skia pass after the virtual Skia input needs no sync");
+            Assert.That(plan.Passes[1].SyncBefore, Is.True, "the Skia->Vulkan transition syncs");
+            Assert.That(plan.Passes[2].SyncBefore, Is.True, "the Vulkan->Skia transition syncs");
+            Assert.That(plan.Passes.Count(p => p.SyncBefore), Is.EqualTo(2),
+                "FlushSyncs equals the number of backend transitions in the schedule (C4.2)");
+        });
+    }
+
+    // U1: a forward-INFLATED pass (ColorShift-style, output wider than its input) can cross the buffer budget while
+    // its input still fits. The resolver clamps only the inflated pass's own buffer and carries that reduced density
+    // FORWARD; the fitting upstream pass keeps full density (the monotonic carry is one-directional, C3.2). No
+    // divergence — the inflating pass bakes its source at its own output density, so the two densities stay coherent.
+    [Test]
+    public void ResolveResources_ForwardInflatedPassCrossesBudget_ClampsOnlyItselfAndCarriesForward()
+    {
+        var bounds = new Rect(0, 0, 100, 100);
+        var inflateWidth = ShaderNodeDescriptor.WholeSource(
+            "uniform shader src; half4 main(float2 coord){ return src.eval(coord); }",
+            BoundsContract.Create(static r => r.Inflate(new Thickness(0, 0, 100, 0)), static r => r));
+        CompiledPlan plan = Compile(NewBuilder(bounds).Shader(Scale(1f)).Shader(inflateWidth));
+
+        FrameResources res = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale: 1f, maxDimension: 150);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(res.Passes[0].WorkingScale, Is.EqualTo(1f), "the fitting 100-px upstream pass keeps full density");
+            Assert.That(res.Passes[0].Width, Is.EqualTo(100));
+            Assert.That(res.Passes[1].WorkingScale, Is.EqualTo(0.75f).Within(1e-4f),
+                "the 200-px inflated output crosses the 150-px budget and clamps its own buffer to 0.75");
+            Assert.That(res.Passes[1].Width, Is.EqualTo(150));
+        });
+    }
+
     // ---- End-to-end fused execution (raster, GPU-less) --------------------------------------------------
 
     [Test]

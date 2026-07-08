@@ -12,10 +12,11 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.EffectPipeline;
 /// <summary>
 /// The premultiplied-alpha migration parity gate (feature 004, T031, contracts/observability.md O4). Each case
 /// renders a semitransparent alpha-gradient input through the fused/mixed executor path and asserts it against a
-/// frozen legacy-pipeline reference under <c>Golden/References/004-parity/</c> (captured from the retained
-/// activator immediately before the imperative surface was removed — do not regenerate). This exercises the
-/// unpremultiply/re-premultiply handling of fused shader/color-filter interleavings that the opaque
-/// frozen-reference gate (EffectReferenceFreezeTests) cannot.
+/// frozen reference under <c>Golden/References/004-parity/</c>. The references were captured at the removal commit
+/// from the redesigned pipeline at the point it was verified equal to the legacy activator by the immediately
+/// preceding live comparison — so they are transitively anchored to legacy output, not a live legacy render. Do
+/// NOT regenerate them. This exercises the unpremultiply/re-premultiply handling of fused shader/color-filter
+/// interleavings that the opaque frozen-reference gate (EffectReferenceFreezeTests) cannot.
 /// </summary>
 [NonParallelizable]
 [TestFixture]
