@@ -787,6 +787,40 @@ public sealed class ProxiesTabViewModelTests
         Assert.That(queue.CanceledJobIds, Does.Contain(job.JobId));
     }
 
+    // After an in-place replace, the store holds a stale small-dimension entry for the old
+    // fingerprint. It must not drive bulk eligibility for the current (heavy) source — the
+    // file-size fallback should make the replaced 4K-but-small-metadata clip eligible.
+    [Test]
+    public async Task GenerateAll_StaleSamePathDimensions_DoNotSuppressHeavyClip()
+    {
+        string root = CreateRoot();
+        string path = Path.Combine(root, "replaced.mov");
+        using (FileStream fs = File.Create(path))
+            fs.SetLength(33L * 1024 * 1024); // >= MinBulkSourceFileBytes, sparse (no real 33 MB write)
+        var store = new ProxyStore(Path.Combine(root, "proxies"));
+        ProxyFingerprint current = ProxyFingerprint.FromFile(path);
+        ProxyFingerprint outdated = current with { FileSizeBytes = 1000, MtimeUtc = current.MtimeUtc.AddMinutes(-5) };
+        DateTime now = DateTime.UtcNow;
+        RegisterProxyEntry(store, new ProxyEntry(
+            outdated,
+            ProxyPreset.Quarter,
+            ProxyState.Ready,
+            "hash/old.mp4",
+            1024,
+            new PixelSize(640, 480),
+            new PixelSize(160, 120),
+            now,
+            now,
+            null));
+        var queue = new TestProxyJobQueue();
+
+        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, queue, path));
+
+        await viewModel.GenerateAllCommand.ExecuteAsync();
+
+        Assert.That(queue.Pending().Select(static job => job.Source), Does.Contain(current));
+    }
+
     [Test]
     public async Task GenerateAll_SkipsSubFloorClipsButSingleGenerateStillEnqueues()
     {

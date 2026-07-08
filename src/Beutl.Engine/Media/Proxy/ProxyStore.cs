@@ -893,12 +893,35 @@ public sealed class ProxyStore : IProxyStore
 
     private void OnChanged(ProxyFingerprint source, ProxyPreset preset, ProxyStoreChangeKind kind)
     {
-        Changed?.Invoke(this, new ProxyStoreChangedEventArgs
+        if (Changed is not { } handlers)
+            return;
+
+        var args = new ProxyStoreChangedEventArgs
         {
             Source = source,
             Preset = preset,
             Kind = kind,
-        });
+        };
+        // Changed is an invalidation notification, not part of the mutation result: a throwing
+        // subscriber must not fault Register/Delete/TryTransition (e.g. making a committed Ready
+        // entry look like a failed registration to the generator) nor starve other subscribers.
+        foreach (EventHandler<ProxyStoreChangedEventArgs> handler in
+                 Delegate.EnumerateInvocationList(handlers))
+        {
+            try
+            {
+                handler(this, args);
+            }
+            catch (Exception ex)
+            {
+                s_logger.LogError(
+                    ex,
+                    "A ProxyStore.Changed subscriber threw for {Source} ({Preset}, {Kind}).",
+                    source.AbsolutePath,
+                    preset,
+                    kind);
+            }
+        }
     }
 
     private static void TryDelete(string path)

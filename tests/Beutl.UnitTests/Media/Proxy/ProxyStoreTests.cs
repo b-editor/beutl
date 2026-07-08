@@ -667,6 +667,24 @@ public sealed class ProxyStoreTests
     }
 
     [Test]
+    public void Register_WhenChangedSubscriberThrows_StillCommitsAndNotifiesOtherSubscribers()
+    {
+        string root = CreateRoot();
+        var store = new ProxyStore(root);
+        ProxyEntry entry = CreateEntry(root, "hash/quarter.mp4");
+        bool otherNotified = false;
+        store.Changed += (_, _) => throw new InvalidOperationException("bad subscriber");
+        store.Changed += (_, _) => otherNotified = true;
+
+        Assert.DoesNotThrow(() => store.Register(entry));
+        Assert.Multiple(() =>
+        {
+            Assert.That(store.TryGet(entry.Source, entry.Preset), Is.EqualTo(entry));
+            Assert.That(otherNotified, Is.True, "a throwing subscriber must not starve later subscribers");
+        });
+    }
+
+    [Test]
     public void GetTotalBytes_SumsOnlyReadyStaleAndFailedEntries()
     {
         string root = CreateRoot();

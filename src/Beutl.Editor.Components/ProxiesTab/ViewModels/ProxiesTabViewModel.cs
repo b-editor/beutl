@@ -394,7 +394,10 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
 
         foreach (ProxyEntry entry in _store.Enumerate())
         {
-            if (entry.Source.AbsolutePath != source.AbsolutePath)
+            // Only an exact-fingerprint entry describes the current file's dimensions. A same-path
+            // stale entry (an in-place replace left old dimensions) must not drive eligibility —
+            // returning null falls the caller back to the current file size instead.
+            if (entry.Source != source)
                 continue;
 
             PixelSize frameSize = entry.OriginalLogicalFrameSize;
