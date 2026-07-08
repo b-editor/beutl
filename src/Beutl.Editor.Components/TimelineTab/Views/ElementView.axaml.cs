@@ -121,8 +121,11 @@ public sealed partial class ElementView : UserControl
         bool editable = viewModel.IsEditable.Value;
         change2OriginalDuration.IsEnabled = editable && viewModel.HasOriginalDuration();
         splitByCurrent.IsEnabled = editable && viewModel.Model.Range.Contains(viewModel.Timeline.EditorContext.GetRequiredService<IEditorClock>().CurrentTime.Value);
-        groupSelectedElements.IsEnabled = editable && viewModel.CanGroupSelectedElements();
-        ungroupSelectedElements.IsEnabled = editable && viewModel.CanUngroupSelectedElements();
+        // Not gated by `editable`: Group/Ungroup act on the selection's editable
+        // members, so they stay valid from a locked clip's menu when other
+        // selected clips are editable. CanGroup/CanUngroup already filter.
+        groupSelectedElements.IsEnabled = viewModel.CanGroupSelectedElements();
+        ungroupSelectedElements.IsEnabled = viewModel.CanUngroupSelectedElements();
         split.IsEnabled = editable;
         cut.IsEnabled = editable;
         delete.IsEnabled = editable;

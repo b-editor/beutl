@@ -507,7 +507,28 @@ public class Scene : ProjectItem, INotifyEdited
 
     private void Layers_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        Edited?.Invoke(this, EventArgs.Empty);
+        // Only a layer that carries a compositional flag changes the rendered
+        // output when added/removed; a default or lock-only model (materialized
+        // or pruned by a lock toggle) is editor-only, mirroring OnLayerPropertyChanged.
+        if (AnyCompositionalLayer(e.NewItems) || AnyCompositionalLayer(e.OldItems))
+        {
+            Edited?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    private static bool AnyCompositionalLayer(System.Collections.IList? items)
+    {
+        if (items is null) return false;
+        foreach (object? item in items)
+        {
+            if (item is TimelineLayer { IsVideoMuted: true } or TimelineLayer { IsAudioMuted: true }
+                or TimelineLayer { IsSolo: true })
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private void OnLayerAttached(TimelineLayer layer)

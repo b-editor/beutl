@@ -106,6 +106,34 @@ public class ElementBehaviorTests
     }
 
     [Test]
+    public void Layers_AddOrRemoveDefaultModel_DoesNotRaiseSceneEdited()
+    {
+        var scene = new Scene(1920, 1080, string.Empty);
+        int count = 0;
+        scene.Edited += (_, _) => count++;
+
+        var lockOnly = new TimelineLayer { ZIndex = 1, IsLocked = true };
+        scene.Layers.Add(lockOnly);
+        scene.Layers.Remove(lockOnly);
+
+        Assert.That(count, Is.Zero);
+    }
+
+    [Test]
+    public void Layers_AddOrRemoveCompositionalModel_RaisesSceneEdited()
+    {
+        var scene = new Scene(1920, 1080, string.Empty);
+        int count = 0;
+        scene.Edited += (_, _) => count++;
+
+        var soloed = new TimelineLayer { ZIndex = 1, IsSolo = true };
+        scene.Layers.Add(soloed);
+        scene.Layers.Remove(soloed);
+
+        Assert.That(count, Is.EqualTo(2));
+    }
+
+    [Test]
     public void AddChild_AutoPlacement_SkipsLockedLayer()
     {
         string basePath = Path.Combine(Path.GetTempPath(), $"beutl_addchild_{Guid.NewGuid():N}");
