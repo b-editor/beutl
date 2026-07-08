@@ -51,6 +51,14 @@ internal static class GoldenReferenceStore
         string path = ResolvePath(category, name);
         if (!File.Exists(path))
         {
+            // Freeze-on-missing is a local convenience only. On CI (GitHub Actions sets CI) a missing reference must
+            // FAIL, not self-heal to green — otherwise a deleted or renamed reference silently disables its gate
+            // forever. Freeze it locally on a Vulkan-capable machine and commit the blob.
+            Assert.That(
+                Environment.GetEnvironmentVariable("CI"), Is.Null.Or.Empty,
+                $"[golden-ref] {category}/{name}: reference is missing on CI — a frozen reference must be committed, "
+                + "not self-healed. Freeze it locally (a Vulkan-capable machine) and commit the blob.");
+
             Save(path, actual);
             TestContext.WriteLine($"[golden-ref] wrote missing reference: {category}/{name} ({actual.Width}x{actual.Height})");
             return true;
