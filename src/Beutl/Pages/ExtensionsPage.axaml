@@ -4,6 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:lang="using:Beutl.Language"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:icons="using:FluentIcons.Avalonia.Fluent"
         xmlns:ui="using:FluentAvalonia.UI.Controls"
         Title="{x:Static lang:Strings.Extensions}"
         Width="800"
@@ -33,7 +34,7 @@
                          Watermark="{x:Static lang:Strings.Search}">
                     <TextBox.InnerRightContent>
                         <Button Click="Search_Click" Theme="{StaticResource TransparentButton}">
-                            <ui:SymbolIcon Symbol="Find" />
+                            <icons:FluentIcon Icon="Search" />
                         </Button>
                     </TextBox.InnerRightContent>
                 </TextBox>

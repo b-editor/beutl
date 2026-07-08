@@ -1,5 +1,6 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:icons="using:FluentIcons.Avalonia.Fluent"
                     xmlns:ui="using:FluentAvalonia.UI.Controls">
     <ControlTheme x:Key="LayerHeaderColorPickerButtonTheme"
                   TargetType="ui:ColorPickerButton"
@@ -23,11 +24,11 @@
                                 BorderThickness="1"
                                 CornerRadius="{TemplateBinding CornerRadius}" />
 
-                        <ui:SymbolIcon Grid.Column="1"
-                                       Margin="0,0,8,0"
-                                       HorizontalAlignment="Right"
-                                       FontSize="18"
-                                       Symbol="ChevronDown" />
+                        <icons:FluentIcon Grid.Column="1"
+                                          Margin="0,0,8,0"
+                                          HorizontalAlignment="Right"
+                                          FontSize="18"
+                                          Icon="ChevronDown" />
                     </Grid>
                 </Button>
             </ControlTemplate>

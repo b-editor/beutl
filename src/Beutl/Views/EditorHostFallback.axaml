@@ -70,7 +70,7 @@
                                     Navigates="True"
                                     NavigationRequested="StartTutorial_Click">
                     <OptionsDisplayItem.Icon>
-                        <ui:SymbolIcon Symbol="Help" />
+                        <icons:FluentIcon Icon="QuestionCircle" />
                     </OptionsDisplayItem.Icon>
                 </OptionsDisplayItem>
             </WrapPanel>
@@ -164,10 +164,10 @@
                     AutomationProperties.Name="{x:Static lang:Strings.Website}"
                     Tag="Url"
                     ToolTip.Tip="{x:Static lang:Strings.Website}">
-                <ui:SymbolIcon Width="24"
-                               Height="24"
-                               FontSize="20"
-                               Symbol="Link" />
+                <icons:FluentIcon Width="24"
+                                  Height="24"
+                                  FontSize="20"
+                                  Icon="Link" />
             </Button>
         </StackPanel>
     </Grid>

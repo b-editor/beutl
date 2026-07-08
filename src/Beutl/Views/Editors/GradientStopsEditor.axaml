@@ -5,6 +5,7 @@
              xmlns:local="using:Beutl.Views.Editors"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:pe="using:Beutl.Controls.PropertyEditors"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:Beutl.ViewModels.Editors"
              Padding="4,0"
@@ -38,7 +39,7 @@
             <Button Width="37"
                     Height="37"
                     Click="Delete_Click">
-                <ui:SymbolIcon FontSize="16" Symbol="Delete" />
+                <icons:FluentIcon FontSize="16" Icon="Delete" />
             </Button>
 
             <ui:ColorPickerButton x:Name="colorPicker"

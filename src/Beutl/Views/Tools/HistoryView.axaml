@@ -5,6 +5,7 @@
              xmlns:editor="using:Beutl.Editor"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:viewModels="using:Beutl.ViewModels.Tools"
              d:DesignHeight="450"
@@ -52,7 +53,7 @@
                     Click="OnUndoClick"
                     Theme="{StaticResource TransparentButton}"
                     ToolTip.Tip="{x:Static lang:Strings.Undo}">
-                <ui:SymbolIcon Symbol="Undo" />
+                <icons:FluentIcon Icon="ArrowUndo" />
             </Button>
             <Button Grid.Column="1"
                     Margin="4,0,0,0"
@@ -60,7 +61,7 @@
                     Click="OnRedoClick"
                     Theme="{StaticResource TransparentButton}"
                     ToolTip.Tip="{x:Static lang:Strings.Redo}">
-                <ui:SymbolIcon Symbol="Redo" />
+                <icons:FluentIcon Icon="ArrowRedo" />
             </Button>
             <TextBlock Grid.Column="2"
                        Margin="8,0,0,0"

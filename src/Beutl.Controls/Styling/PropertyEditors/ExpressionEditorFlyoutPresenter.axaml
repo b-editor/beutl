@@ -2,6 +2,7 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:lang="using:Beutl.Language"
                     xmlns:local="using:Beutl.Controls.PropertyEditors"
+                    xmlns:icons="using:FluentIcons.Avalonia.Fluent"
                     xmlns:ui="clr-namespace:FluentAvalonia.UI.Controls;assembly=FluentAvalonia"
                     x:CompileBindings="True">
 
@@ -37,11 +38,11 @@
                                 <RadioButton Name="InputTabButton"
                                              IsChecked="True"
                                              ToolTip.Tip="{x:Static lang:Strings.Expression_Input}">
-                                    <ui:SymbolIcon Symbol="Edit" />
+                                    <icons:FluentIcon Icon="Edit" />
                                 </RadioButton>
                                 <RadioButton Name="HelpTabButton"
                                              ToolTip.Tip="{x:Static lang:Strings.Expression_Help}">
-                                    <ui:SymbolIcon Symbol="Help" />
+                                    <icons:FluentIcon Icon="QuestionCircle" />
                                 </RadioButton>
                             </WrapPanel>
 
@@ -144,7 +145,7 @@
                                             HorizontalAlignment="Stretch"
                                             VerticalAlignment="Stretch"
                                             Theme="{StaticResource FlyoutAcceptDismiss}">
-                                        <ui:SymbolIcon FontSize="18" Symbol="Checkmark" />
+                                        <icons:FluentIcon FontSize="18" Icon="Checkmark" />
                                     </Button>
                                     <Button Name="DismissButton"
                                             Grid.Column="1"
@@ -152,7 +153,7 @@
                                             HorizontalAlignment="Stretch"
                                             VerticalAlignment="Stretch"
                                             Theme="{StaticResource FlyoutAcceptDismiss}">
-                                        <ui:SymbolIcon FontSize="16" Symbol="Dismiss" />
+                                        <icons:FluentIcon FontSize="16" Icon="Dismiss" />
                                     </Button>
                                 </Grid>
                             </Panel>

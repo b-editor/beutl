@@ -2,6 +2,7 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:media="clr-namespace:FluentAvalonia.UI.Media;assembly=FluentAvalonia"
                     xmlns:sys="clr-namespace:System;assembly=netstandard"
+                    xmlns:icons="using:FluentIcons.Avalonia.Fluent"
                     xmlns:ui="using:FluentAvalonia.UI.Controls"
                     x:CompileBindings="True">
 
@@ -35,11 +36,11 @@
                                 BorderThickness="1"
                                 CornerRadius="{TemplateBinding CornerRadius}" />
 
-                        <ui:SymbolIcon Grid.Column="1"
-                                       Margin="4,6,8,6"
-                                       HorizontalAlignment="Right"
-                                       FontSize="18"
-                                       Symbol="ChevronDown" />
+                        <icons:FluentIcon Grid.Column="1"
+                                          Margin="4,6,8,6"
+                                          HorizontalAlignment="Right"
+                                          FontSize="18"
+                                          Icon="ChevronDown" />
                     </Grid>
                 </Button>
             </ControlTemplate>

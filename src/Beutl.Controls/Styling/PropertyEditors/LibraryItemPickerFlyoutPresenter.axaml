@@ -4,6 +4,7 @@
                     xmlns:int="using:Avalonia.Xaml.Interactivity"
                     xmlns:lang="using:Beutl.Language"
                     xmlns:local="using:Beutl.Controls.PropertyEditors"
+                    xmlns:icons="using:FluentIcons.Avalonia.Fluent"
                     xmlns:ui="clr-namespace:FluentAvalonia.UI.Controls;assembly=FluentAvalonia"
                     x:CompileBindings="True">
     <ControlTheme x:Key="LibraryItemPicker_ToggleButton"
@@ -50,7 +51,7 @@
                             <int:Interaction.Behaviors>
                                 <behaviors:LibraryItemPickerItemBehavior />
                             </int:Interaction.Behaviors>
-                            <ui:SymbolIcon Symbol="Pin" />
+                            <icons:FluentIcon Icon="Pin" />
                         </ToggleButton>
 
                         <!--
@@ -186,15 +187,15 @@
                               ColumnDefinitions="*,Auto">
                             <WrapPanel Name="TabLayout" Margin="4,4,0,4">
                                 <ToggleButton Name="ShowSearchBoxButton" IsChecked="{TemplateBinding ShowSearchBox, Mode=TwoWay}">
-                                    <ui:SymbolIcon Symbol="Find" />
+                                    <icons:FluentIcon Icon="Search" />
                                 </ToggleButton>
                                 <ToggleButton Name="ShowAllButton" IsChecked="{TemplateBinding ShowAll, Mode=TwoWay}">
-                                    <ui:SymbolIcon Symbol="More" />
+                                    <icons:FluentIcon Icon="MoreHorizontal" />
                                 </ToggleButton>
                                 <ToggleButton Name="ShowReferencesButton"
                                               IsVisible="False"
                                               IsChecked="{TemplateBinding ShowReferences, Mode=TwoWay}">
-                                    <ui:SymbolIcon Symbol="Link" />
+                                    <icons:FluentIcon Icon="Link" />
                                 </ToggleButton>
                             </WrapPanel>
 
@@ -225,7 +226,7 @@
                                             HorizontalAlignment="Stretch"
                                             VerticalAlignment="Stretch"
                                             Theme="{StaticResource FlyoutAcceptDismiss}">
-                                        <ui:SymbolIcon FontSize="18" Symbol="Checkmark" />
+                                        <icons:FluentIcon FontSize="18" Icon="Checkmark" />
                                     </Button>
                                     <Button Name="DismissButton"
                                             Grid.Column="1"
@@ -233,7 +234,7 @@
                                             HorizontalAlignment="Stretch"
                                             VerticalAlignment="Stretch"
                                             Theme="{StaticResource FlyoutAcceptDismiss}">
-                                        <ui:SymbolIcon FontSize="16" Symbol="Dismiss" />
+                                        <icons:FluentIcon FontSize="16" Icon="Dismiss" />
                                     </Button>
                                 </Grid>
 
