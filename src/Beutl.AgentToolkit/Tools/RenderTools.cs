@@ -740,12 +740,13 @@ public sealed class RenderTools(
     {
         return ExecuteMcpManyAsync<CompareRevisionsResponse>(async () =>
         {
-            QualityReviewBaseline baseline = sessions.GetQualityReviewBaseline();
             IEditingSession snapshotSession = sessions.RequireSession();
             Scene scene = CreateSceneSnapshot(snapshotSession);
-            // Derive the baseline key from the SAME session the snapshot came from: a session switch
-            // between two active-session reads must not file the baseline under another project's key.
+            // Capture the session key first, then fetch the baseline FOR that key: a session switch
+            // between the baseline lookup and the snapshot must not apply one project's baseline to
+            // another project's snapshot and re-file it under the wrong key.
             string sessionKey = sessions.GetSessionKey(snapshotSession);
+            QualityReviewBaseline baseline = sessions.GetQualityReviewBaseline(sessionKey);
             IReadOnlyList<string> currentStillPaths = await RenderBaselineStillsAsync(
                 scene,
                 baseline.SampleTimes,

@@ -7,7 +7,9 @@ using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tools;
 using Beutl.AgentToolkit.Workspace;
 using Beutl.Configuration;
+using Beutl.Logging;
 using Beutl.Services;
+using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Hosting;
@@ -24,10 +26,13 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
     internal const int DefaultPort = 59737;
 
     private static readonly TimeSpan s_shutdownTimeout = TimeSpan.FromSeconds(2);
+    private static readonly ILogger s_logger = Log.CreateLogger<AgentHostEndpoint>();
     private readonly ProjectService _projectService;
     private readonly EditorService _editorService;
     private readonly AiAgentConfig _config;
     private readonly int _preferredPort;
+    private readonly object _lifecycleLock = new();
+    private bool _stopRequested;
     private WebApplication? _application;
 
     public AgentHostEndpoint(ProjectService projectService, EditorService editorService)
@@ -124,9 +129,13 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
 
     public async Task StartAsync(CancellationToken cancellationToken = default)
     {
-        if (_application is not null)
+        lock (_lifecycleLock)
         {
-            return;
+            // A stop requested before (or during) startup must win: never start after RequestStop.
+            if (_application is not null || _stopRequested)
+            {
+                return;
+            }
         }
 
         int port = _preferredPort;
@@ -146,7 +155,24 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
                     .Single();
 
                 EndpointUri = new Uri(new Uri(address), "/mcp");
-                _application = app;
+
+                bool stopRequested;
+                lock (_lifecycleLock)
+                {
+                    stopRequested = _stopRequested;
+                    if (!stopRequested)
+                    {
+                        _application = app;
+                    }
+                }
+
+                // RequestStop ran while app.StartAsync was in flight (so it couldn't see/take
+                // _application): stop the just-started host here instead of leaving it running.
+                if (stopRequested)
+                {
+                    await StopAndDisposeAsync(app, cancellationToken).ConfigureAwait(false);
+                }
+
                 return;
             }
             catch (Exception ex) when (IsAddressInUse(ex))
@@ -165,6 +191,23 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
                 throw;
             }
         }
+    }
+
+    // Fire-and-forget entry point for the app shell: StartAsync failures would otherwise be
+    // unobserved on a discarded task, leaving the live MCP endpoint silently down.
+    public void StartInBackground()
+    {
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await StartAsync().ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                s_logger.LogError(ex, "The agent host endpoint failed to start; the live MCP endpoint is unavailable.");
+            }
+        });
     }
 
     public async Task StopAsync(CancellationToken cancellationToken = default)
@@ -241,9 +284,19 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         return app;
     }
 
+    // Latch _stopRequested and take the app in the same critical section StartAsync uses to publish
+    // it, so a stop during an in-flight startup is never dropped (StartAsync re-checks the latch
+    // before publishing and stops the host itself if it lost the race).
     private WebApplication? TakeApplication()
     {
-        WebApplication? app = Interlocked.Exchange(ref _application, null);
+        WebApplication? app;
+        lock (_lifecycleLock)
+        {
+            _stopRequested = true;
+            app = _application;
+            _application = null;
+        }
+
         EndpointUri = null;
         return app;
     }

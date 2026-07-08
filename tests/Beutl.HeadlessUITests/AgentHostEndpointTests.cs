@@ -136,6 +136,25 @@ public sealed class AgentHostEndpointTests
     }
 
     [AvaloniaTest]
+    public async Task RequestStop_before_start_keeps_the_endpoint_stopped()
+    {
+        await TestReset.ResetShellAsync();
+        var endpoint = new AgentHostEndpoint(new ProjectService(), new EditorService(new ExtensionProvider()));
+
+        // A stop requested before startup must win: StartAsync must not bring the host up afterward.
+        endpoint.RequestStop();
+        await endpoint.StartAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(endpoint.IsRunning, Is.False);
+            Assert.That(endpoint.EndpointUri, Is.Null);
+        });
+
+        await endpoint.StopAsync();
+    }
+
+    [AvaloniaTest]
     public async Task RequestStop_marks_endpoint_stopped_without_awaiting_host_shutdown()
     {
         await TestReset.ResetShellAsync();

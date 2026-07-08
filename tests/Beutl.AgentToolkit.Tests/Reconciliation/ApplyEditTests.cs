@@ -560,6 +560,45 @@ public sealed class ApplyEditTests
         });
     }
 
+    [Test]
+    public void Apply_edit_rejects_reordering_a_flow_operator_before_its_portal()
+    {
+        Scene scene = CreateSceneWithElement(out Element element);
+        var portal = new PortalObject();
+        var group = new DrawableGroup { Name = "group" };
+        element.Objects.Add(portal);
+        element.Objects.Add(group);
+
+        using var session = new AgentToolkitTestSession(scene);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var tools = new EditTools(manager);
+
+        // Reorder the valid [Portal, Group] pair into [Group, Portal] — the group now renders with
+        // no preceding portal, which the final-order validation must reject.
+        JsonObject swap = new()
+        {
+            ["Elements"] = new JsonArray(new JsonObject
+            {
+                ["Id"] = element.Id.ToString(),
+                ["Objects"] = new JsonArray(
+                    new JsonObject { ["Id"] = group.Id.ToString(), ["$index"] = 0 })
+            })
+        };
+
+        ToolResult<ApplyEditResponse> rejected = tools.ApplyEdit(patch: swap, schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rejected.IsSuccess, Is.False);
+            Assert.That(rejected.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(rejected.Error.Message, Does.Contain("PortalObject"));
+            // Rejected before commit: the original valid order is preserved.
+            Assert.That(element.Objects[0], Is.SameAs(portal));
+            Assert.That(element.Objects[1], Is.SameAs(group));
+        });
+    }
+
     private static Scene CreateSceneWithElement(out Element element)
     {
         Scene scene = CreateScene();

@@ -47,6 +47,52 @@ public sealed class AgentSessionManagerConcurrencyTests
     }
 
     [Test]
+    public void Get_composition_plan_validates_against_the_supplied_session_key()
+    {
+        var manager = new AgentSessionManager();
+        const string plannedKey = "File:11111111-1111-1111-1111-111111111111";
+        const string swappedKey = "File:22222222-2222-2222-2222-222222222222";
+        CompositionPlanState state = manager.StoreCompositionPlan(
+            plannedKey, "comp", "seed", new JsonObject(), new JsonObject(), new JsonArray(), new HashSet<Guid>());
+
+        Assert.Multiple(() =>
+        {
+            // The captured (planned) key sees its own plan; a swapped-in key is rejected even though
+            // the plan is the current one under the manager's live key would-be lookup.
+            Assert.That(manager.GetCompositionPlan(state.Id, plannedKey).Id, Is.EqualTo(state.Id));
+            Assert.That(
+                Assert.Throws<AgentToolkit.Reconciliation.ReconcileException>(
+                    () => manager.GetCompositionPlan(state.Id, swappedKey))!.Error.Message,
+                Does.Contain("session"));
+        });
+    }
+
+    [Test]
+    public void Get_quality_baseline_validates_against_the_supplied_session_key()
+    {
+        var manager = new AgentSessionManager();
+        const string plannedKey = "File:11111111-1111-1111-1111-111111111111";
+        const string swappedKey = "File:22222222-2222-2222-2222-222222222222";
+        var baseline = new QualityReviewBaseline(
+            plannedKey,
+            DateTimeOffset.UtcNow,
+            [TimeSpan.Zero],
+            null!,
+            null!,
+            []);
+        manager.StoreQualityReviewBaseline(baseline);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(manager.GetQualityReviewBaseline(plannedKey).SessionKey, Is.EqualTo(plannedKey));
+            Assert.That(
+                Assert.Throws<AgentToolkit.Reconciliation.ReconcileException>(
+                    () => manager.GetQualityReviewBaseline(swappedKey))!.Error.Message,
+                Does.Contain("baseline"));
+        });
+    }
+
+    [Test]
     public async Task Composition_plans_evict_the_oldest_beyond_the_retention_cap()
     {
         var manager = new AgentSessionManager();

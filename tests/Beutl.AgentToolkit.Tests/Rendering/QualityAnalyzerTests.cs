@@ -33,6 +33,20 @@ public sealed class QualityAnalyzerTests
     }
 
     [Test]
+    public async Task Disabled_elements_are_excluded_from_document_quality_checks()
+    {
+        Scene scene = CreateScene();
+        Element disabled = AddText(scene, "BREAKING NEWS NOW", zIndex: 10);
+        disabled.IsEnabled = false;
+
+        QualityReviewResponse result = await AnalyzeAsync(scene, evaluateMotion: false);
+
+        // The renderer/export never show a disabled element, so its all-caps text must not raise a
+        // typography gate issue.
+        Assert.That(result.Metrics.Typography.AllCapsTextCount, Is.EqualTo(0));
+    }
+
+    [Test]
     public async Task Quality_checks_reach_objects_nested_under_a_drawable_group()
     {
         Scene scene = CreateScene();

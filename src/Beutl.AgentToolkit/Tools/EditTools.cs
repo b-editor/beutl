@@ -232,7 +232,11 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
             IEditingSession session = sessions.RequireSession();
             if (!string.IsNullOrWhiteSpace(planId))
             {
-                CompositionPlanState state = sessions.GetCompositionPlan(planId.Trim());
+                // Validate the plan against the captured session's key, not the current one:
+                // ApplyValidated mutates this captured session, so a swap between RequireSession and
+                // the lookup must not let a plan for the swapped-in project apply to this scene.
+                CompositionPlanState state = sessions.GetCompositionPlan(
+                    planId.Trim(), sessions.GetSessionKey(session));
                 ReconcileResult storedResult = _reconciler.ApplyValidated(
                     session,
                     _ => ((JsonObject)state.DesiredDocument.DeepClone(), state.KnownNewIds.ToHashSet()),

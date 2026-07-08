@@ -140,7 +140,7 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
             lifetime.Exit += OnExit;
         }
 
-        _ = _agentHostEndpoint.StartAsync();
+        _agentHostEndpoint.StartInBackground();
     }
 
     public override void Dispose()

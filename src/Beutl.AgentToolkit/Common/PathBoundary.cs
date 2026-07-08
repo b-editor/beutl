@@ -103,11 +103,20 @@ public static class PathBoundary
         {
             return info.ResolveLinkTarget(returnFinalTarget: true);
         }
-        catch (IOException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
         {
-            // A broken final target throws; fall back to the immediate link target, then the link
-            // path itself, so the caller still boundary-checks a resolved location.
-            return info.ResolveLinkTarget(returnFinalTarget: false);
+            // ResolveLinkTarget throws on a broken final target, permission-denied, or an
+            // unsupported filesystem. This runs in workspace-boundary and installer checks, so it
+            // must never propagate: fall back to the immediate link target, then the link path
+            // itself, so the caller still boundary-checks a concrete location instead of crashing.
+            try
+            {
+                return info.ResolveLinkTarget(returnFinalTarget: false);
+            }
+            catch (Exception fallbackEx) when (fallbackEx is IOException or UnauthorizedAccessException or NotSupportedException)
+            {
+                return info;
+            }
         }
     }
 

@@ -2975,7 +2975,9 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
 
     private static IEnumerable<SceneObjectInfo> EnumerateObjects(Scene scene)
     {
-        foreach (Element element in scene.Children)
+        // Disabled elements never reach the renderer/export, so document-only quality gates
+        // (typographyReadTime, elementStructure, …) must not flag content they never show.
+        foreach (Element element in scene.Children.Where(element => element.IsEnabled))
         {
             foreach (EngineObject obj in element.Objects)
             {

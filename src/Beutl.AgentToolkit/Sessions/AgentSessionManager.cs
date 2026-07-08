@@ -209,8 +209,14 @@ public sealed class AgentSessionManager(CreativeMemoryStore? creativeMemory = nu
     private const int MaxRetainedCompositionPlans = 32;
 
     public CompositionPlanState GetCompositionPlan(string planId)
+        => GetCompositionPlan(planId, GetCompositionSessionKey());
+
+    // sessionKey is the key of the session the caller captured and will mutate; validating against
+    // it (not a key re-read now) stops a plan being accepted for a session swapped in mid-call and
+    // then applied to the earlier captured scene.
+    public CompositionPlanState GetCompositionPlan(string planId, string sessionKey)
     {
-        string currentKey = GetCompositionSessionKey();
+        string currentKey = sessionKey;
         CompositionPlanState? state;
         lock (_stateLock)
         {
@@ -258,8 +264,14 @@ public sealed class AgentSessionManager(CreativeMemoryStore? creativeMemory = nu
     }
 
     public QualityReviewBaseline GetQualityReviewBaseline()
+        => GetQualityReviewBaseline(GetCompositionSessionKey());
+
+    // sessionKey is the key of the session the caller captured for rendering; fetching against it
+    // stops a baseline lookup that straddles a session swap from applying one project's baseline to
+    // another project's snapshot.
+    public QualityReviewBaseline GetQualityReviewBaseline(string sessionKey)
     {
-        string currentKey = GetCompositionSessionKey();
+        string currentKey = sessionKey;
         QualityReviewBaseline? baseline;
         lock (_stateLock)
         {
