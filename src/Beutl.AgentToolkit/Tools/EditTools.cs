@@ -639,6 +639,18 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
                 "Use wrapInGroup only for drawable objects such as TextBlock, RectShape, SourceImage, or SourceVideo."));
         }
 
+        if (location.ParentGroup is null && source is IFlowOperator)
+        {
+            // A flow operator placed directly on its element is preceded by its own paired portal.
+            // Wrapping it moves the operator into a new group but leaves that portal behind, orphaned;
+            // wrap one of its child drawables (or move it to another element) instead.
+            throw new ReconcileException(new ToolError(
+                ErrorCode.ValidationRejected,
+                $"Object '{objectId}' is a flow operator on its element, so wrapping it in a new group would orphan its existing portal.",
+                objectId,
+                "Duplicate one of its child drawables with wrapInGroup, or move it into another element without wrapping."));
+        }
+
         JsonObject sourceJson = FindObjectJsonInElements(session.Documents.Read(session.Root), objectId, elementId);
         var newId = Guid.NewGuid();
         Drawable clone = CloneDrawable(sourceJson, newId, session.Root);

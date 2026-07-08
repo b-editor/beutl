@@ -200,6 +200,59 @@ public sealed class QualityAnalyzerTests
     }
 
     [Test]
+    public async Task Disabled_multi_object_element_does_not_trip_the_structure_gate()
+    {
+        Scene scene = CreateScene();
+        Element element = AddText(scene, "Launch notes", zIndex: 10);
+        element.AddObject(new EllipseShape { Name = "Extra accent" });
+        element.IsEnabled = false;
+
+        QualityReviewResponse result = await AnalyzeAsync(scene, evaluateMotion: false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Issues.Where(issue => issue.Category == "elementStructure"), Is.Empty);
+            Assert.That(result.Metrics.Structure.NonFlowMultiObjectElementCount, Is.EqualTo(0));
+        });
+    }
+
+    [Test]
+    public async Task Disabled_second_object_does_not_make_an_element_multi_object()
+    {
+        Scene scene = CreateScene();
+        Element element = AddText(scene, "Launch notes", zIndex: 10);
+        element.AddObject(new EllipseShape { Name = "Disabled accent", IsEnabled = false });
+
+        QualityReviewResponse result = await AnalyzeAsync(scene, evaluateMotion: false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Issues.Where(issue => issue.Category == "elementStructure"), Is.Empty);
+            Assert.That(result.Metrics.Structure.NonFlowMultiObjectElementCount, Is.EqualTo(0));
+        });
+    }
+
+    [Test]
+    public async Task Disabled_object_is_excluded_from_document_quality_checks()
+    {
+        Scene scene = CreateScene();
+        Element element = AddText(scene, "Launch notes", zIndex: 10);
+        element.AddObject(new TextBlock
+        {
+            Name = "hidden caps",
+            Text = { CurrentValue = "BREAKING NEWS NOW" },
+            Size = { CurrentValue = 96 },
+            Fill = { CurrentValue = new SolidColorBrush(Colors.White) },
+            IsEnabled = false
+        });
+
+        QualityReviewResponse result = await AnalyzeAsync(scene, evaluateMotion: false);
+
+        // The renderer skips the disabled TextBlock, so its all-caps text must not reach the gate.
+        Assert.That(result.Metrics.Typography.AllCapsTextCount, Is.EqualTo(0));
+    }
+
+    [Test]
     public async Task Large_unclear_foreground_shape_is_advisory()
     {
         Scene scene = CreateScene();

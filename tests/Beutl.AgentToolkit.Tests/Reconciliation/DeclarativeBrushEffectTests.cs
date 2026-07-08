@@ -4,6 +4,7 @@ using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
+using Beutl.Audio.Effects;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
@@ -117,6 +118,37 @@ public sealed class DeclarativeBrushEffectTests
             Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
             Assert.That(apply.Value!.Valid, Is.True);
             Assert.That(rect.FilterEffect.CurrentValue, Is.Null);
+        });
+    }
+
+    [Test]
+    public void Non_object_list_property_entry_reports_the_actual_field_name_in_the_error_target()
+    {
+        Scene scene = CreateSceneWithRect(out Element element, out _);
+        // EqualizerEffect.Bands is an identity list property whose JSON field name ("Bands") is not the
+        // one inferred from its element type (which would be "Children"): the rejection Target must
+        // name the real property, so agent clients can locate the failing field.
+        var equalizer = new EqualizerEffect();
+        element.AddObject(equalizer);
+        using var session = new AgentToolkitTestSession(scene);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var tools = new EditTools(manager);
+
+        JsonObject desired = session.Documents.Read(session.Root);
+        JsonArray objects = (JsonArray)((JsonObject)((JsonArray)desired["Elements"]!)[0]!)["Objects"]!;
+        JsonObject equalizerJson = (JsonObject)objects.Single(node =>
+            node is JsonObject obj && (string?)obj[nameof(CoreObject.Id)] == equalizer.Id.ToString())!;
+        var bands = (JsonArray)equalizerJson[nameof(EqualizerEffect.Bands)]!;
+        equalizerJson[nameof(EqualizerEffect.Bands)] = new JsonArray(bands[0]!.DeepClone(), JsonValue.Create(42));
+
+        ToolResult<ApplyEditResponse> apply = tools.ApplyEdit(desired: desired, schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(apply.IsSuccess, Is.False);
+            Assert.That(apply.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(apply.Error.Target, Is.EqualTo("Bands[1]"));
         });
     }
 

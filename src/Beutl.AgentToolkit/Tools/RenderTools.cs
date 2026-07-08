@@ -1017,11 +1017,25 @@ public sealed class RenderTools(
         if (explicitTimes is { Count: >= 2 })
         {
             TimeSpan duration = scene.Duration > TimeSpan.Zero ? scene.Duration : TimeSpan.FromSeconds(1);
-            return explicitTimes
+            TimeSpan[] clamped = explicitTimes
                 .Select(time => time > duration ? duration : time)
                 .Distinct()
                 .OrderBy(time => time)
                 .ToArray();
+
+            // Multiple out-of-range times can all clamp to `duration` and collapse to one sample, which
+            // MotionVariationAnalyzer would reject with an unmapped ArgumentException; surface a typed
+            // validation error instead of leaking it.
+            if (clamped.Length < 2)
+            {
+                throw new ReconcileException(new ToolError(
+                    ErrorCode.ValidationRejected,
+                    "timeSeconds must contain at least two distinct times within the scene duration.",
+                    "timeSeconds",
+                    $"Provide two or more sample times inside [0, {duration.TotalSeconds:0.###}] seconds."));
+            }
+
+            return clamped;
         }
 
         int count = Math.Clamp(sampleCount, 2, 8);

@@ -66,7 +66,7 @@ internal sealed class DeclarativeDocumentApplier
 
         if (desired.TryGetPropertyValue("Elements", out JsonNode? elementsNode) && elementsNode is JsonArray elements)
         {
-            ApplyIdentityList(scene.Children, typeof(Element), elements, scene);
+            ApplyIdentityList(scene.Children, typeof(Element), "Elements", elements, scene);
         }
         else
         {
@@ -111,7 +111,7 @@ internal sealed class DeclarativeDocumentApplier
 
         if (desired.TryGetPropertyValue(nameof(Element.Objects), out JsonNode? objectsNode) && objectsNode is JsonArray objects)
         {
-            ApplyIdentityList(element.Objects, typeof(EngineObject), objects, element);
+            ApplyIdentityList(element.Objects, typeof(EngineObject), "Objects", objects, element);
         }
         else
         {
@@ -284,7 +284,7 @@ internal sealed class DeclarativeDocumentApplier
         {
             if (desired.TryGetPropertyValue(listProperty.Name, out JsonNode? node) && node is JsonArray array)
             {
-                ApplyIdentityList(listProperty, listProperty.ElementType, array, target);
+                ApplyIdentityList(listProperty, listProperty.ElementType, listProperty.Name, array, target);
             }
             else
             {
@@ -410,7 +410,7 @@ internal sealed class DeclarativeDocumentApplier
         }
     }
 
-    private static void ApplyIdentityList(IList list, Type elementBaseType, JsonArray desired, CoreObject? owner)
+    private static void ApplyIdentityList(IList list, Type elementBaseType, string fieldName, JsonArray desired, CoreObject? owner)
     {
         if (!IsIdentityArray(desired))
         {
@@ -425,7 +425,7 @@ internal sealed class DeclarativeDocumentApplier
             {
                 // Silently skipping a non-object entry would leave its Id uncollected, so the
                 // removal pass below would then delete other existing children — reject instead.
-                string entryPath = CreateIdentityListItemPath(elementBaseType, desiredIndex);
+                string entryPath = CreateIdentityListItemPath(fieldName, desiredIndex);
                 throw new ReconcileException(new ToolError(
                     ErrorCode.ValidationRejected,
                     $"Identity array entry at '{entryPath}' is not an object.",
@@ -434,7 +434,7 @@ internal sealed class DeclarativeDocumentApplier
             }
 
             CoreObject item;
-            string itemPath = CreateIdentityListItemPath(elementBaseType, desiredIndex);
+            string itemPath = CreateIdentityListItemPath(fieldName, desiredIndex);
             try
             {
                 if (TryGetId(itemJson, out Guid id) && FindById(list, id) is { } existing)
@@ -601,17 +601,8 @@ internal sealed class DeclarativeDocumentApplier
         }
     }
 
-    private static string CreateIdentityListItemPath(Type elementBaseType, int index)
-    {
-        if (elementBaseType == typeof(Element))
-        {
-            return $"Elements[{index}]";
-        }
-
-        return elementBaseType == typeof(EngineObject)
-            ? $"Objects[{index}]"
-            : $"Children[{index}]";
-    }
+    private static string CreateIdentityListItemPath(string fieldName, int index)
+        => $"{fieldName}[{index}]";
 
     private static CoreObject CreateIdentityListItem(JsonObject itemJson, Type elementBaseType)
     {

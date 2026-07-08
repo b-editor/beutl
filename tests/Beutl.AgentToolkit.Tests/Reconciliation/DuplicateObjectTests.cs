@@ -85,6 +85,33 @@ public sealed class DuplicateObjectTests
     }
 
     [Test]
+    public void Duplicate_object_wrap_in_group_rejects_a_direct_flow_operator()
+    {
+        Scene scene = CreateSceneWithElement(out Element element);
+        var group = new DrawableGroup { Name = "Direct group" };
+        group.Children.Add(new RectShape { Name = "inner" });
+        element.AddObject(group);
+        int objectCountBefore = element.Objects.Count;
+
+        using var session = new AgentToolkitTestSession(scene);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var tools = new EditTools(manager);
+
+        ToolResult<DuplicateObjectResponse> result = tools.DuplicateObject(group.Id.ToString(), wrapInGroup: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(result.Error.Message, Does.Contain("flow operator"));
+            // The rejected wrap must not have added a second group or orphaned the existing portal.
+            Assert.That(element.Objects, Has.Count.EqualTo(objectCountBefore));
+            Assert.That(element.Objects.OfType<DrawableGroup>().Single(), Is.SameAs(group));
+        });
+    }
+
+    [Test]
     public void Duplicate_object_wrap_in_group_moves_original_and_copy_into_drawable_group()
     {
         Scene scene = CreateSceneWithElement(out Element element);

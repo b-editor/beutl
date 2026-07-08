@@ -555,8 +555,9 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         bool allowMultiObjectElements,
         List<QualityIssue> issues)
     {
+        // Disabled elements/objects never render, so they must not inflate the structure gate.
         Element[] multiObjectElements = scene.Children
-            .Where(element => element.Objects.Count > 1)
+            .Where(element => element.IsEnabled && element.Objects.Count(obj => obj.IsEnabled) > 1)
             .ToArray();
         Element[] flowMultiObjectElements = multiObjectElements
             .Where(element => element.Objects.Any(obj => obj is IFlowOperator))
@@ -2993,6 +2994,14 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
     // nested TextBlocks/shapes must reach the quality checks, not just the wrapping group object.
     private static IEnumerable<SceneObjectInfo> EnumerateObject(Element element, EngineObject obj)
     {
+        // A disabled object is skipped by the renderer via EngineObject.IsEnabled, and a disabled
+        // flow operator's children never render either, so neither the object nor its subtree may
+        // reach the quality gates.
+        if (!obj.IsEnabled)
+        {
+            yield break;
+        }
+
         yield return new SceneObjectInfo(element, obj);
 
         IEnumerable<EngineObject> children = obj switch

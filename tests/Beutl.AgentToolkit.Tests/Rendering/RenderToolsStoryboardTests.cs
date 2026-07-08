@@ -763,6 +763,34 @@ public sealed class RenderToolsStoryboardTests
     }
 
     [Test]
+    public async Task Evaluate_edit_quality_rejects_times_that_all_clamp_to_a_single_sample()
+    {
+        string workspace = CreateWorkspace();
+        var scene = new Scene(320, 180, "clamp-collapse")
+        {
+            Duration = TimeSpan.FromSeconds(2),
+            Uri = new Uri(Path.Combine(workspace, "Scene.scene"))
+        };
+        AddColorRectElement(scene, workspace, "bg", TimeSpan.Zero, TimeSpan.FromSeconds(2), 320, 180, Colors.Red);
+        using var session = new AgentToolkitTestSession(scene);
+        RenderTools tools = CreateTools(workspace, session);
+
+        // Both times sit past the 2s duration, so each clamps to 2s and Distinct() collapses to one
+        // sample — which must surface as a validation error, not an unmapped analyzer exception.
+        ToolResult<QualityReviewResponse> result = await tools.EvaluateEditQuality(
+            timeSeconds: [5.0, 6.0],
+            sampleCount: 2,
+            cancellationToken: CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(result.Error.Target, Is.EqualTo("timeSeconds"));
+        });
+    }
+
+    [Test]
     public async Task Evaluate_edit_quality_static_layout_false_reports_major_motion_continuity_blocker()
     {
         string workspace = CreateWorkspace();
