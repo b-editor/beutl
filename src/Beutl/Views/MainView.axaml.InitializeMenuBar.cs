@@ -6,7 +6,9 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
 using Beutl.Api.Services;
+using Beutl.Audio;
 using Beutl.Editor;
+using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.Models;
 using Beutl.ProjectSystem;
@@ -49,6 +51,7 @@ public partial class MainView
         }).AddTo(_disposables);
 
         viewModel.MenuBar.DeleteLayer.Subscribe(OnDeleteElement).AddTo(_disposables);
+        viewModel.MenuBar.AutoSplitBySilence.Subscribe(OnAutoSplitBySilence).AddTo(_disposables);
 
         viewModel.MenuBar.Exit.Subscribe(() =>
         {
@@ -134,6 +137,98 @@ public partial class MainView
             {
                 viewModel.GetRequiredService<IElementStructureService>()
                     .Delete(scene, [element]);
+            }
+        }
+    }
+
+    private async void OnAutoSplitBySilence()
+    {
+        if (TryGetSelectedEditViewModel(out EditViewModel? viewModel)
+            && viewModel.GetService<IEditorSelection>()?.SelectedObject.Value is Element
+            && viewModel.FindToolTab<TimelineTabViewModel>() is TimelineTabViewModel timeline)
+        {
+            var thresholdBox = new NumericUpDown
+            {
+                Minimum = -120,
+                Maximum = 0,
+                Value = -40m,
+                Increment = 1m,
+                FormatString = "F0",
+                MinWidth = 220,
+            };
+            var minSilenceBox = new NumericUpDown
+            {
+                Minimum = 0,
+                Maximum = 60000,
+                Value = 300m,
+                Increment = 50m,
+                FormatString = "F0",
+                MinWidth = 220,
+            };
+            var paddingBox = new NumericUpDown
+            {
+                Minimum = 0,
+                Maximum = 60000,
+                Value = 100m,
+                Increment = 50m,
+                FormatString = "F0",
+                MinWidth = 220,
+            };
+            var modeCombo = new ComboBox
+            {
+                ItemsSource = new[]
+                {
+                    Strings.AutoSplitBySilence_ModeSplitOnly,
+                    Strings.AutoSplitBySilence_ModeSplitAndDelete,
+                },
+                SelectedIndex = 0,
+                MinWidth = 220,
+            };
+
+            var content = new StackPanel
+            {
+                Spacing = 8,
+                Margin = new Thickness(4),
+                Children =
+                {
+                    new TextBlock { Text = Strings.AutoSplitBySilence_Threshold },
+                    thresholdBox,
+                    new TextBlock { Text = Strings.AutoSplitBySilence_MinSilenceDuration },
+                    minSilenceBox,
+                    new TextBlock { Text = Strings.AutoSplitBySilence_Padding },
+                    paddingBox,
+                    new TextBlock { Text = Strings.AutoSplitBySilence_Mode },
+                    modeCombo,
+                },
+            };
+
+            var dialog = new ContentDialog
+            {
+                Title = Strings.AutoSplitBySilence,
+                CloseButtonText = Strings.Cancel,
+                PrimaryButtonText = Strings.OK,
+                DefaultButton = ContentDialogButton.Primary,
+                Content = content,
+            };
+
+            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+            {
+                var options = new SilenceDetectionOptions(
+                    (double)(thresholdBox.Value ?? -40m),
+                    TimeSpan.FromMilliseconds((double)(minSilenceBox.Value ?? 300m)),
+                    TimeSpan.FromMilliseconds((double)(paddingBox.Value ?? 100m)));
+                var mode = (SilenceSplitMode)Math.Max(0, modeCombo.SelectedIndex);
+
+                try
+                {
+                    await timeline.AutoSplitBySilenceAsync(options, mode);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Unhandled exception during auto split by silence.");
+                    _ = ex.Handle();
+                    NotificationService.ShowError(Strings.AutoSplitBySilence, MessageStrings.OperationFailed);
+                }
             }
         }
     }

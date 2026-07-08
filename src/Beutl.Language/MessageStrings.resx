@@ -394,4 +394,16 @@ Do you want to restart the application?</value>
   <data name="SceneSettings_ApplyCanceledInputsInvalid" xml:space="preserve">
     <value>Apply was canceled because the scene settings became invalid while pausing playback.</value>
   </data>
+  <data name="AutoSplitBySilence_NoAudioElement" xml:space="preserve">
+    <value>Select an audio element first — auto split by silence needs an element with an audio source.</value>
+  </data>
+  <data name="AutoSplitBySilence_NoSilenceDetected" xml:space="preserve">
+    <value>No silence was detected with the current threshold and duration. Try a higher threshold or a shorter minimum duration.</value>
+  </data>
+  <data name="AutoSplitBySilence_AnalysisFailed" xml:space="preserve">
+    <value>The waveform could not be analyzed for silence.</value>
+  </data>
+  <data name="AutoSplitBySilence_Completed" xml:space="preserve">
+    <value>Split into {0} cuts; removed {1} silent sections.</value>
+  </data>
 </root>

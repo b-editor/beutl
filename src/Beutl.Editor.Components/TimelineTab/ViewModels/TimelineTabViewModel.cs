@@ -6,9 +6,11 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.VisualTree;
 using Beutl.Animation;
+using Beutl.Audio;
 using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.Models;
+using Beutl.Editor.Components.TimelineTab.Services;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Engine;
@@ -1117,6 +1119,90 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         }
 
         targets[0].SplitAt(targets, time);
+    }
+
+    public async Task AutoSplitBySilenceAsync(
+        SilenceDetectionOptions options,
+        SilenceSplitMode mode,
+        CancellationToken cancellationToken = default)
+    {
+        if (EditorContext.GetService<IEditorSelection>()?.SelectedObject.Value is not Element element
+            || FindAudioThumbnailsProvider(element) is not { } provider)
+        {
+            NotificationService.ShowWarning(Strings.AutoSplitBySilence, MessageStrings.AutoSplitBySilence_NoAudioElement);
+            return;
+        }
+
+        TimeSpan duration = element.Range.Duration;
+        if (duration <= TimeSpan.Zero)
+        {
+            NotificationService.ShowWarning(Strings.AutoSplitBySilence, MessageStrings.AutoSplitBySilence_NoSilenceDetected);
+            return;
+        }
+
+        SilenceSplitOutcome outcome;
+        try
+        {
+            const int SamplesPerChunk = 4096;
+            int chunkCount = Math.Clamp((int)(duration.TotalSeconds * 20), 200, 8000);
+
+            var chunks = new List<WaveformChunk>();
+            await foreach (WaveformChunk chunk in provider.GetWaveformChunksAsync(chunkCount, SamplesPerChunk, ThumbnailCacheService.Instance, cancellationToken))
+            {
+                chunks.Add(chunk);
+            }
+
+            IReadOnlyList<SilenceRegion> localRegions = SilenceDetector.Detect(chunks, duration, chunkCount, options);
+            if (localRegions.Count == 0)
+            {
+                NotificationService.ShowInformation(Strings.AutoSplitBySilence, MessageStrings.AutoSplitBySilence_NoSilenceDetected);
+                return;
+            }
+
+            // Detector regions are element-local (0-based); the split service wants scene-timeline coordinates.
+            TimeSpan offset = element.Start;
+            var timelineRegions = new SilenceRegion[localRegions.Count];
+            for (int i = 0; i < localRegions.Count; i++)
+            {
+                timelineRegions[i] = new SilenceRegion(
+                    localRegions[i].Start + offset,
+                    localRegions[i].End + offset);
+            }
+
+            outcome = EditorContext.GetRequiredService<ISilenceSplitService>()
+                .SplitBySilence(Scene, [element], timelineRegions, mode);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Auto split by silence failed while analyzing the waveform.");
+            NotificationService.ShowError(Strings.AutoSplitBySilence, MessageStrings.AutoSplitBySilence_AnalysisFailed);
+            return;
+        }
+
+        if (outcome.SplitCount == 0 && outcome.DeletedCount == 0)
+        {
+            NotificationService.ShowInformation(Strings.AutoSplitBySilence, MessageStrings.AutoSplitBySilence_NoSilenceDetected);
+            return;
+        }
+
+        NotificationService.ShowSuccess(
+            Strings.AutoSplitBySilence,
+            string.Format(MessageStrings.AutoSplitBySilence_Completed, outcome.SplitCount, outcome.DeletedCount));
+    }
+
+    private static IThumbnailsProvider? FindAudioThumbnailsProvider(Element element)
+    {
+        foreach (EngineObject obj in element.Objects)
+        {
+            if (obj is IThumbnailsProvider { ThumbnailsKind: ThumbnailsKind.Audio } provider)
+                return provider;
+        }
+
+        return null;
     }
 
     private sealed class TrackedLayerTopObservable(int layerNum, TimelineTabViewModel timeline)

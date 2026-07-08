@@ -197,4 +197,5 @@ public class ElementStructureServiceTests
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
+
 }

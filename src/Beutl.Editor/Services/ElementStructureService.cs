@@ -36,11 +36,7 @@ public sealed class ElementStructureService : IElementStructureService
         ArgumentNullException.ThrowIfNull(elements);
         if (elements.Count == 0) return;
 
-        foreach (Element element in elements.ToArray())
-        {
-            scene.DeleteChild(element);
-        }
-
+        DeleteCore(scene, elements);
         _historyManager.Commit(CommandNames.DeleteElement);
     }
 
@@ -50,6 +46,25 @@ public sealed class ElementStructureService : IElementStructureService
         ArgumentNullException.ThrowIfNull(targets);
         if (targets.Count == 0 || scene.Uri is null) return SplitOutcome.Empty;
 
+        List<Element> newElements = SplitCore(scene, targets, at);
+        if (newElements.Count == 0) return SplitOutcome.Empty;
+
+        _historyManager.Commit(CommandNames.SplitElement);
+        return new SplitOutcome(newElements);
+    }
+
+    // Deletes without committing — the caller owns the commit boundary so a batch folds into one undo entry.
+    internal static void DeleteCore(Scene scene, IReadOnlyList<Element> elements)
+    {
+        foreach (Element element in elements.ToArray())
+        {
+            scene.DeleteChild(element);
+        }
+    }
+
+    // Splits without committing — the caller owns the commit boundary so a batch folds into one undo entry.
+    internal List<Element> SplitCore(Scene scene, IReadOnlyList<Element> targets, TimeSpan at)
+    {
         int rate = SceneTimeRangeService.GetFrameRate(scene);
         TimeSpan minDuration = TimeSpan.FromSeconds(1d / rate);
         var newElements = new List<Element>();
@@ -99,8 +114,6 @@ public sealed class ElementStructureService : IElementStructureService
             }
         }
 
-        if (newElements.Count == 0) return SplitOutcome.Empty;
-
         foreach ((int index, List<Guid> value) in groupUpdates.OrderByDescending(x => x.Key))
         {
             ImmutableHashSet<Guid> newGroup = [.. value];
@@ -110,8 +123,7 @@ public sealed class ElementStructureService : IElementStructureService
             }
         }
 
-        _historyManager.Commit(CommandNames.SplitElement);
-        return new SplitOutcome(newElements);
+        return newElements;
     }
 
     public GroupOutcome Group(Scene scene, IReadOnlyCollection<Guid> ids)

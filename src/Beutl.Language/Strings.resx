@@ -167,6 +167,27 @@
   <data name="Split" xml:space="preserve">
     <value>Split</value>
   </data>
+  <data name="AutoSplitBySilence" xml:space="preserve">
+    <value>Auto Split by Silence</value>
+  </data>
+  <data name="AutoSplitBySilence_Threshold" xml:space="preserve">
+    <value>Threshold (dB)</value>
+  </data>
+  <data name="AutoSplitBySilence_MinSilenceDuration" xml:space="preserve">
+    <value>Min silence duration (ms)</value>
+  </data>
+  <data name="AutoSplitBySilence_Padding" xml:space="preserve">
+    <value>Padding (ms)</value>
+  </data>
+  <data name="AutoSplitBySilence_Mode" xml:space="preserve">
+    <value>Mode</value>
+  </data>
+  <data name="AutoSplitBySilence_ModeSplitOnly" xml:space="preserve">
+    <value>Split only</value>
+  </data>
+  <data name="AutoSplitBySilence_ModeSplitAndDelete" xml:space="preserve">
+    <value>Split + delete silence</value>
+  </data>
   <data name="Duplicate" xml:space="preserve">
     <value>Duplicate</value>
   </data>
