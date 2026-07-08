@@ -23,9 +23,12 @@ public sealed class ElementResizeService : IElementResizeService
         var oldBounds = ripple ? new Dictionary<Element, (int ZIndex, TimeSpan Start, TimeSpan End)>(requests.Count) : null;
         if (ripple)
         {
+            var resizedSet = new HashSet<Element>(requests.Select(r => r.Element));
             foreach (ElementResizeRequest req in requests)
             {
                 ValidateRippleRequest(req);
+                // Validated against pre-mutation state so a rejected request leaves the scene untouched.
+                ValidateRippleFloor(scene, req, resizedSet);
                 oldBounds![req.Element] = (req.Element.ZIndex, req.Element.Start, req.Element.Range.End);
             }
         }
@@ -101,6 +104,29 @@ public sealed class ElementResizeService : IElementResizeService
         if (req.NewLength <= TimeSpan.Zero)
         {
             throw new ArgumentOutOfRangeException(nameof(ElementResizeRequest.NewLength));
+        }
+    }
+
+    private static void ValidateRippleFloor(Scene scene, ElementResizeRequest req, IReadOnlyCollection<Element> resized)
+    {
+        // Only a same-layer left-edge grow shifts upstream elements left; other edits cannot
+        // drive an upstream Start below zero.
+        if (req.ZIndex != req.Element.ZIndex) return;
+
+        TimeSpan startDelta = req.NewStart - req.Element.Start;
+        if (startDelta >= TimeSpan.Zero) return;
+
+        foreach (Element e in scene.Children)
+        {
+            if (e.ZIndex == req.Element.ZIndex
+                && !resized.Contains(e)
+                && e.Range.End <= req.Element.Start
+                && e.Start + startDelta < TimeSpan.Zero)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(ElementResizeRequest.NewStart),
+                    "Ripple left-shift would move an upstream element before zero.");
+            }
         }
     }
 }

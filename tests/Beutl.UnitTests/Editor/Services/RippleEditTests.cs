@@ -73,18 +73,18 @@ public class RippleEditTests
     [Test]
     public void ShiftBefore_ShiftsSameLayerElementsEndingAtOrBeforeAnchor()
     {
-        Element a = AddElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(2));
-        Element b = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
-        Element c = AddElement(TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(2));
+        Element a = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
+        Element b = AddElement(TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(2));
+        Element c = AddElement(TimeSpan.FromSeconds(6), TimeSpan.FromSeconds(2));
 
-        RippleHelper.ShiftBefore(_scene, zIndex: 0, anchorStart: TimeSpan.FromSeconds(4),
-            delta: TimeSpan.FromSeconds(-2), except: [c]);
+        RippleHelper.ShiftBefore(_scene, zIndex: 0, anchorStart: TimeSpan.FromSeconds(6),
+            delta: TimeSpan.FromSeconds(-2), except: [b]);
 
         Assert.Multiple(() =>
         {
-            Assert.That(a.Start, Is.EqualTo(TimeSpan.FromSeconds(-2)), "a ends before anchor, shifts left by 2");
-            Assert.That(b.Start, Is.EqualTo(TimeSpan.Zero), "b ends at anchor, shifts left by 2");
-            Assert.That(c.Start, Is.EqualTo(TimeSpan.FromSeconds(4)), "c starts at anchor, unchanged");
+            Assert.That(a.Start, Is.EqualTo(TimeSpan.Zero), "a ends before anchor, shifts left by 2");
+            Assert.That(b.Start, Is.EqualTo(TimeSpan.FromSeconds(4)), "b is excluded, unchanged");
+            Assert.That(c.Start, Is.EqualTo(TimeSpan.FromSeconds(6)), "c starts at anchor, unchanged");
         });
     }
 
@@ -235,6 +235,25 @@ public class RippleEditTests
             Assert.That(target.Start, Is.EqualTo(TimeSpan.FromSeconds(4)));
             Assert.That(target.Range.End, Is.EqualTo(TimeSpan.FromSeconds(10)), "right edge stays fixed");
             Assert.That(upstream.Start, Is.EqualTo(TimeSpan.Zero), "upstream pushed left by 2");
+        });
+    }
+
+    [Test]
+    public void Resize_RippleOn_LeftEdgeGrow_ThrowsWhenUpstreamWouldGoNegative()
+    {
+        var resize = new ElementResizeService(_history);
+        Element upstream = AddElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(4), zIndex: 0);
+        Element target = AddElement(TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(4), zIndex: 0);
+
+        // Growing target's left edge to start 2 would push upstream (start 0) to -2.
+        Assert.Throws<ArgumentOutOfRangeException>(() => resize.Resize(_scene,
+            [new ElementResizeRequest(target, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(6), 0)],
+            ripple: true));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(target.Start, Is.EqualTo(TimeSpan.FromSeconds(4)), "rejected before any mutation");
+            Assert.That(upstream.Start, Is.EqualTo(TimeSpan.Zero), "upstream untouched");
         });
     }
 
