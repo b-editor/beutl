@@ -120,12 +120,16 @@ public sealed class RenderTools(
             }
 
             Scene scene = RequireSceneSnapshot();
+            // The snapshot is a Project-detached clone, so its frame-rate lookup would always miss and
+            // fall back to 30 fps; read the rate from the live tree instead.
+            int frameRate = RequireLiveSceneFrameRate();
             int normalizedSubdivisionLevel = NormalizeStoryboardSubdivisionLevel(subdivisionLevel);
             IReadOnlyList<ResolvedStoryboardFrame> resolvedShots = ResolveStoryboardFrames(
                 scene,
                 shots,
                 timeSeconds,
-                normalizedSubdivisionLevel);
+                normalizedSubdivisionLevel,
+                frameRate);
             ValidateStoryboardFrameCount(
                 resolvedShots.Count,
                 normalizedSubdivisionLevel,
@@ -1705,7 +1709,8 @@ public sealed class RenderTools(
         Scene scene,
         StoryboardShotInput[]? shots,
         double[]? timeSeconds,
-        int subdivisionLevel)
+        int subdivisionLevel,
+        int? frameRate = null)
     {
         IReadOnlyList<ResolvedStoryboardShot> anchors = ResolveExplicitStoryboardTimes(scene, timeSeconds)
                                                         ?? ResolveStoryboardShots(scene, shots);
@@ -1721,7 +1726,7 @@ public sealed class RenderTools(
                 .ToArray();
         }
 
-        TimeSpan dedupeTolerance = GetStoryboardDedupeTolerance(scene);
+        TimeSpan dedupeTolerance = GetStoryboardDedupeTolerance(frameRate ?? GetSceneFrameRate(scene));
         ResolvedStoryboardShot[] dedupedAnchors = timeSeconds is null
             ? DeduplicateStoryboardAnchors(anchors, dedupeTolerance)
             : anchors.ToArray();
@@ -1887,9 +1892,8 @@ public sealed class RenderTools(
         return [.. result];
     }
 
-    private static TimeSpan GetStoryboardDedupeTolerance(Scene scene)
+    private static TimeSpan GetStoryboardDedupeTolerance(int frameRate)
     {
-        int frameRate = GetSceneFrameRate(scene);
         return TimeSpan.FromSeconds(0.5d / frameRate);
     }
 
@@ -2069,6 +2073,15 @@ public sealed class RenderTools(
     {
         IEditingSession session = sessions.RequireSession();
         return CreateSceneSnapshot(session);
+    }
+
+    // Reads the frame rate from the live, Project-attached scene; CreateSceneSnapshot returns a clone
+    // detached from its Project, on which the project frame-rate lookup would always miss.
+    private int RequireLiveSceneFrameRate()
+    {
+        IEditingSession session = sessions.RequireSession();
+        return session.ReadOnSession(() =>
+            session.Root is Scene liveScene ? GetSceneFrameRate(liveScene) : DefaultSceneFrameRate);
     }
 
     internal static Scene CreateSceneSnapshot(IEditingSession session)

@@ -242,6 +242,33 @@ public sealed class RenderToolsStoryboardTests
     }
 
     [Test]
+    public void Resolve_storyboard_frames_uses_explicit_frame_rate_for_dedupe_tolerance()
+    {
+        var scene = new Scene(16, 9, "frame-rate") { Duration = TimeSpan.FromSeconds(1) };
+        StoryboardShotInput[] nearDuplicateShots =
+        [
+            new("left", 0),
+            new("near-left", 0.010),
+            new("right", 1)
+        ];
+
+        // At 30 fps the half-frame tolerance is ~16.7 ms, so the 10 ms-apart anchor is deduped away;
+        // at 60 fps it halves to ~8.3 ms, so the same anchor survives.
+        RenderTools.ResolvedStoryboardFrame[] at30 = RenderTools
+            .ResolveStoryboardFrames(scene, nearDuplicateShots, timeSeconds: null, subdivisionLevel: 1, frameRate: 30)
+            .ToArray();
+        RenderTools.ResolvedStoryboardFrame[] at60 = RenderTools
+            .ResolveStoryboardFrames(scene, nearDuplicateShots, timeSeconds: null, subdivisionLevel: 1, frameRate: 60)
+            .ToArray();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(at30.Select(frame => frame.Name), Does.Not.Contain("near-left"));
+            Assert.That(at60.Select(frame => frame.Name), Does.Contain("near-left"));
+        });
+    }
+
+    [Test]
     public void Resolve_storyboard_frames_subdivides_auto_derived_element_midpoints()
     {
         string workspace = CreateWorkspace();
