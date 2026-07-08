@@ -440,9 +440,9 @@ public class EffectReferenceFreezeTests
     // ApplyTo throws unconditionally, so no pre-redesign reference render exists to freeze; the redesign's
     // identity-graph behavior (research D7) is a post-migration change verified by the migration parity task.
     [Test]
+    [Ignore("FallbackFilterEffect had no freezable pre-redesign reference (its legacy ApplyTo threw); its "
+        + "post-redesign identity behavior is covered by the migration parity gate. This documents the census omission.")]
     public void FallbackFilterEffect_HasNoLegacyReference()
     {
-        Assert.Ignore("FallbackFilterEffect.ApplyTo throws on the legacy pipeline; it has no freezable "
-            + "pre-redesign reference. Its post-redesign identity behavior is covered by the migration parity gate.");
     }
 }
