@@ -239,21 +239,44 @@ public class RippleEditTests
     }
 
     [Test]
-    public void Resize_RippleOn_LeftEdgeGrow_ThrowsWhenUpstreamWouldGoNegative()
+    public void Resize_RippleOn_LeftEdgeGrow_ClampsWhenUpstreamWouldGoNegative()
     {
         var resize = new ElementResizeService(_history);
         Element upstream = AddElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(4), zIndex: 0);
         Element target = AddElement(TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(4), zIndex: 0);
 
-        // Growing target's left edge to start 2 would push upstream (start 0) to -2.
-        Assert.Throws<ArgumentOutOfRangeException>(() => resize.Resize(_scene,
+        // Growing target's left edge to start 2 would push upstream (start 0) to -2; the shift is
+        // clamped to zero, so the left edge cannot move (upstream is already at the timeline start).
+        resize.Resize(_scene,
             [new ElementResizeRequest(target, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(6), 0)],
-            ripple: true));
+            ripple: true);
 
         Assert.Multiple(() =>
         {
-            Assert.That(target.Start, Is.EqualTo(TimeSpan.FromSeconds(4)), "rejected before any mutation");
-            Assert.That(upstream.Start, Is.EqualTo(TimeSpan.Zero), "upstream untouched");
+            Assert.That(upstream.Start, Is.EqualTo(TimeSpan.Zero), "upstream stays at the timeline start");
+            Assert.That(target.Start, Is.EqualTo(TimeSpan.FromSeconds(4)), "left edge clamped to the floor");
+            Assert.That(target.Range.End, Is.EqualTo(TimeSpan.FromSeconds(8)), "requested end preserved");
+        });
+    }
+
+    [Test]
+    public void Resize_RippleOn_LeftEdgeGrow_ClampsPartialOverrun()
+    {
+        var resize = new ElementResizeService(_history);
+        Element upstream = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(3), zIndex: 0);
+        Element target = AddElement(TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(4), zIndex: 0);
+
+        // Requesting start 0 would push upstream (start 1) to -3; clamp allows only a 1s left shift
+        // so upstream lands exactly at 0 and target starts at 3.
+        resize.Resize(_scene,
+            [new ElementResizeRequest(target, TimeSpan.Zero, TimeSpan.FromSeconds(8), 0)],
+            ripple: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(upstream.Start, Is.EqualTo(TimeSpan.Zero), "upstream clamped to zero");
+            Assert.That(target.Start, Is.EqualTo(TimeSpan.FromSeconds(3)), "target start clamped by 1s of slack");
+            Assert.That(target.Range.End, Is.EqualTo(TimeSpan.FromSeconds(8)), "requested end preserved");
         });
     }
 

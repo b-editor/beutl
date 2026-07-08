@@ -21,14 +21,15 @@ public sealed class ElementResizeService : IElementResizeService
 
         bool autoAdjustSceneDuration = ripple && GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration;
         var oldBounds = ripple ? new Dictionary<Element, (int ZIndex, TimeSpan Start, TimeSpan End)>(requests.Count) : null;
+        var clamped = ripple ? new Dictionary<Element, (TimeSpan Start, TimeSpan Length)>(requests.Count) : null;
         if (ripple)
         {
             var resizedSet = new HashSet<Element>(requests.Select(r => r.Element));
             foreach (ElementResizeRequest req in requests)
             {
                 ValidateRippleRequest(req);
-                // Validated against pre-mutation state so a rejected request leaves the scene untouched.
-                ValidateRippleFloor(scene, req, resizedSet);
+                // Clamp computed against pre-mutation state so the write loop applies a floor-safe start.
+                clamped![req.Element] = ClampRippleStart(scene, req, resizedSet);
                 oldBounds![req.Element] = (req.Element.ZIndex, req.Element.Start, req.Element.Range.End);
             }
         }
@@ -39,9 +40,10 @@ public sealed class ElementResizeService : IElementResizeService
             // writes are still CoreObjectOperationObserver-recorded for undo.
             foreach (ElementResizeRequest req in requests)
             {
+                (TimeSpan start, TimeSpan length) = clamped![req.Element];
                 req.Element.ZIndex = req.ZIndex;
-                req.Element.Start = req.NewStart;
-                req.Element.Length = req.NewLength;
+                req.Element.Start = start;
+                req.Element.Length = length;
             }
         }
         else
@@ -107,26 +109,33 @@ public sealed class ElementResizeService : IElementResizeService
         }
     }
 
-    private static void ValidateRippleFloor(Scene scene, ElementResizeRequest req, IReadOnlyCollection<Element> resized)
+    // Limits a same-layer left-edge grow so the ripple shift cannot push any upstream element's
+    // Start below zero, keeping the requested end. Clamps rather than throws: UI callers run on an
+    // async-void pointer path, and frame rounding at submission can dip below the preview floor.
+    private static (TimeSpan Start, TimeSpan Length) ClampRippleStart(
+        Scene scene, ElementResizeRequest req, IReadOnlyCollection<Element> resized)
     {
-        // Only a same-layer left-edge grow shifts upstream elements left; other edits cannot
-        // drive an upstream Start below zero.
-        if (req.ZIndex != req.Element.ZIndex) return;
+        if (req.ZIndex != req.Element.ZIndex) return (req.NewStart, req.NewLength);
 
         TimeSpan startDelta = req.NewStart - req.Element.Start;
-        if (startDelta >= TimeSpan.Zero) return;
+        if (startDelta >= TimeSpan.Zero) return (req.NewStart, req.NewLength);
 
+        TimeSpan? minUpstreamStart = null;
         foreach (Element e in scene.Children)
         {
-            if (e.ZIndex == req.Element.ZIndex
-                && !resized.Contains(e)
-                && e.Range.End <= req.Element.Start
-                && e.Start + startDelta < TimeSpan.Zero)
+            if (e.ZIndex == req.Element.ZIndex && !resized.Contains(e) && e.Range.End <= req.Element.Start)
             {
-                throw new ArgumentOutOfRangeException(
-                    nameof(ElementResizeRequest.NewStart),
-                    "Ripple left-shift would move an upstream element before zero.");
+                if (minUpstreamStart is not { } cur || e.Start < cur) minUpstreamStart = e.Start;
             }
         }
+
+        if (minUpstreamStart is not { } floor || startDelta >= -floor)
+        {
+            return (req.NewStart, req.NewLength);
+        }
+
+        TimeSpan clampedStart = req.Element.Start - floor;
+        TimeSpan clampedLength = req.NewStart + req.NewLength - clampedStart;
+        return (clampedStart, clampedLength);
     }
 }
