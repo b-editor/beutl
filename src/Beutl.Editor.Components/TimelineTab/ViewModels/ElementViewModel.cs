@@ -1174,15 +1174,33 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         }
 
         ProxyState? best = null;
+        bool bestIsExact = false;
         foreach (ProxyEntry entry in store.Enumerate())
         {
             if (!string.Equals(entry.Source.AbsolutePath, fingerprint.AbsolutePath, StringComparison.Ordinal))
                 continue;
 
-            ProxyState effective = entry.Source == fingerprint ? entry.State : ProxyState.Stale;
-            best = best is { } current && ProxyStateRank(current) >= ProxyStateRank(effective)
-                ? current
-                : effective;
+            bool isExact = entry.Source == fingerprint;
+            ProxyState effective = isExact ? entry.State : ProxyState.Stale;
+
+            if (best is not { } current)
+            {
+                best = effective;
+                bestIsExact = isExact;
+                continue;
+            }
+
+            // An exact-fingerprint entry reflects the current source, so it always wins over an old
+            // (forced-Stale) entry — otherwise a same-path Stale leftover would outrank the current
+            // fingerprint's Failed and hide the real state. Among equally-exact entries, rank wins.
+            bool takeNew = isExact != bestIsExact
+                ? isExact
+                : ProxyStateRank(effective) > ProxyStateRank(current);
+            if (takeNew)
+            {
+                best = effective;
+                bestIsExact = isExact;
+            }
         }
 
         return best ?? ProxyState.None;

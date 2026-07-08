@@ -41,6 +41,13 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
         if (!File.Exists(sourcePath))
             throw new FileNotFoundException(null, sourcePath);
 
+        // The file at this path can be replaced while the job waits in the queue; encoding the new
+        // bytes but publishing under job.Source (the old fingerprint / proxy path) would report
+        // success yet leave the current fingerprint with no usable proxy and an orphaned entry. Skip
+        // instead — a fresh job keyed on the new fingerprint is enqueued by the normal UI scan.
+        if (ProxyFingerprint.FromFile(sourcePath) != job.Source)
+            throw new ProxyGenerationSkippedException("Source changed since the job was queued.");
+
         if (IsStillImage(sourcePath))
             throw new ProxyGenerationSkippedException("Still images are not eligible for proxy generation.");
 

@@ -101,6 +101,28 @@ public sealed class ProxyGenerationE2ETests
         Assert.That(store.Enumerate(), Is.Empty);
     }
 
+    // The source file is replaced (size/mtime change) after the job was queued, so its current
+    // fingerprint no longer matches job.Source; the generator must skip rather than encode the new
+    // bytes and publish them under the stale fingerprint/path. Throws before any decode.
+    [Test]
+    public void GenerateAsync_SourceChangedSinceQueued_IsSkipped()
+    {
+        string root = CreateRoot();
+        var store = new ProxyStore(root);
+        var generator = new FFmpegProxyGenerator(store);
+        string source = Path.Combine(root, "clip.mov");
+        File.WriteAllBytes(source, [1, 2, 3, 4]);
+        var job = new ProxyJob(ProxyFingerprint.FromFile(source), ProxyPreset.Quarter);
+
+        // Replace the file in place so the current fingerprint differs from job.Source.
+        File.WriteAllBytes(source, [1, 2, 3, 4, 5, 6, 7, 8]);
+        File.SetLastWriteTimeUtc(source, DateTime.UtcNow.AddMinutes(1));
+
+        Assert.ThrowsAsync<ProxyGenerationSkippedException>(
+            async () => await generator.GenerateAsync(job));
+        Assert.That(store.Enumerate(), Is.Empty);
+    }
+
     [Test]
     public void CreateTempPathForOutput_PreservesContainerExtensionForFormatGuess()
     {

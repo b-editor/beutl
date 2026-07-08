@@ -79,6 +79,43 @@ public sealed class ElementViewModelProxyStateTests
         Assert.That(ElementViewModel.ResolveProxyState(store, null, fp), Is.EqualTo(ProxyState.Ready));
     }
 
+    // After an in-place source replace + failed regen, the store holds a same-path Stale leftover
+    // (old fingerprint) and a Failed entry for the current fingerprint. The current fingerprint's
+    // real state must win over the old leftover, even though Stale outranks Failed.
+    [Test]
+    public void ResolveProxyState_ExactFailedEntry_OutranksSamePathStaleLeftover()
+    {
+        ProxyFingerprint current = Fingerprint(size: 1000);
+        ProxyFingerprint outdated = Fingerprint(size: 2000);
+        var store = new FakeProxyStore(
+            Entry(outdated, ProxyState.Ready, ProxyPreset.Half),
+            Entry(current, ProxyState.Failed, ProxyPreset.Quarter));
+
+        Assert.That(ElementViewModel.ResolveProxyState(store, null, current), Is.EqualTo(ProxyState.Failed));
+    }
+
+    [Test]
+    public void ResolveProxyState_ExactReadyEntry_OutranksSamePathStaleLeftover()
+    {
+        ProxyFingerprint current = Fingerprint(size: 1000);
+        ProxyFingerprint outdated = Fingerprint(size: 2000);
+        var store = new FakeProxyStore(
+            Entry(outdated, ProxyState.Ready, ProxyPreset.Half),
+            Entry(current, ProxyState.Ready, ProxyPreset.Quarter));
+
+        Assert.That(ElementViewModel.ResolveProxyState(store, null, current), Is.EqualTo(ProxyState.Ready));
+    }
+
+    [Test]
+    public void ResolveProxyState_OnlyOutdatedEntries_IsStale()
+    {
+        ProxyFingerprint current = Fingerprint(size: 1000);
+        ProxyFingerprint outdated = Fingerprint(size: 2000);
+        var store = new FakeProxyStore(Entry(outdated, ProxyState.Failed));
+
+        Assert.That(ElementViewModel.ResolveProxyState(store, null, current), Is.EqualTo(ProxyState.Stale));
+    }
+
     [Test]
     public void ResolveProxyState_PendingJob_IsGenerating()
     {
