@@ -84,7 +84,7 @@ public sealed partial class LutEffect : FilterEffect
 
         float3 linearToSrgb(float3 c) {
             float3 lo = c * 12.92;
-            float3 hi = 1.055 * pow(c, float3(1.0/2.4)) - 0.055;
+            float3 hi = 1.055 * pow(max(c, float3(0.0)), float3(1.0/2.4)) - 0.055;
             return mix(lo, hi, step(float3(0.0031308), c));
         }
 
