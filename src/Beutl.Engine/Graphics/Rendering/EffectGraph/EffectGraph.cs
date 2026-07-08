@@ -31,7 +31,7 @@ internal sealed class EffectGraph(
     Rect originalBounds,
     float outputScale,
     float workingScale,
-    IReadOnlyList<IDisposable> disposables) : IDisposable
+    IReadOnlyCollection<IDisposable> disposables) : IDisposable
 {
     public IReadOnlyList<EffectNode> Nodes { get; } = nodes;
 

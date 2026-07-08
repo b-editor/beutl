@@ -176,6 +176,48 @@ public class EffectAuthoringTests
         return Rasterize(outputs, s_bounds);
     }
 
+    // ---- Graph-scoped registration dedups by reference so nothing is double-disposed -------------------
+
+    // Binding one resource under two names (or Track-ing a shader also handed to a sampler) registers it through
+    // the same seam Sampler/Child funnel into. Registration dedups by reference, so the shared instance is disposed
+    // exactly once at frame end — never twice.
+    [Test]
+    public void GraphScopedRegistration_DedupsByReference_DisposesSharedInstanceOnce()
+    {
+        var spy = new DisposeSpy();
+        EffectGraphBuilder builder = NewBuilder();
+        builder.Track(spy);
+        builder.Track(spy);
+
+        using (EffectGraph graph = builder.Build())
+        {
+            Assert.That(spy.DisposeCount, Is.EqualTo(0), "disposal is deferred to frame end");
+        }
+
+        Assert.That(spy.DisposeCount, Is.EqualTo(1), "the doubly-registered instance is disposed exactly once");
+    }
+
+    // The Sampler path funnels through the same dedup seam: binding one shader under two sampler names must dispose
+    // it once at frame end without throwing a double-dispose.
+    [Test]
+    public void Sampler_SameShaderUnderTwoNames_DisposesCleanly()
+    {
+        EffectGraphBuilder builder = NewBuilder();
+        SKShader shared = SKShader.CreateColor(new SKColor(10, 20, 30, 255));
+        builder.Sampler("lutA", shared);
+        builder.Sampler("lutB", shared);
+
+        EffectGraph graph = builder.Build();
+        Assert.DoesNotThrow(graph.Dispose, "the shared sampler shader is disposed once, not twice");
+    }
+
+    private sealed class DisposeSpy : IDisposable
+    {
+        public int DisposeCount { get; private set; }
+
+        public void Dispose() => DisposeCount++;
+    }
+
     // ---- A3: a convolution node's declared backward ROI covers the region it samples -------------------
 
     [Test]

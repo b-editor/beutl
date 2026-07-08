@@ -15,7 +15,7 @@ namespace Beutl.Graphics.Effects;
 public sealed class EffectGraphBuilder
 {
     private readonly List<EffectNode> _nodes = [];
-    private readonly List<IDisposable> _disposables = [];
+    private readonly HashSet<IDisposable> _disposables = new(ReferenceEqualityComparer.Instance);
 
     internal EffectGraphBuilder(
         Rect bounds, float outputScale, float workingScale, float maxWorkingScale = float.PositiveInfinity)
@@ -108,7 +108,7 @@ public sealed class EffectGraphBuilder
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentNullException.ThrowIfNull(shader);
-        _disposables.Add(shader);
+        Track(shader);
         return new SamplerBinding(name, shader);
     }
 
@@ -121,16 +121,21 @@ public sealed class EffectGraphBuilder
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentNullException.ThrowIfNull(shader);
-        _disposables.Add(shader);
+        Track(shader);
         return new ChildBinding(name, shader);
     }
 
-    /// <summary>Registers an intermediate per-frame shader (e.g. the pre-local-matrix base of a child) for frame-end disposal.</summary>
-    public SKShader Track(SKShader shader)
+    /// <summary>
+    /// Registers any per-frame disposable (a shader, an <see cref="SKImage"/>, an <see cref="SKPicture"/>, an
+    /// <see cref="SKRuntimeEffect"/>, …) for graph-scoped disposal: the graph disposes it once the frame's plan has
+    /// executed (even if a pass is skipped for an empty ROI). Registering the same instance twice is a no-op, so it
+    /// is disposed exactly once. Returns the argument so it composes fluently.
+    /// </summary>
+    public T Track<T>(T disposable) where T : IDisposable
     {
-        ArgumentNullException.ThrowIfNull(shader);
-        _disposables.Add(shader);
-        return shader;
+        ArgumentNullException.ThrowIfNull(disposable);
+        _disposables.Add(disposable);
+        return disposable;
     }
 
     private EffectGraphBuilder Append(EffectNodeDescriptor descriptor)
