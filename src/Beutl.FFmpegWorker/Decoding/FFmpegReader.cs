@@ -286,8 +286,16 @@ public sealed class FFmpegReader : MediaReader
 
         try
         {
-            int byteCount = width * height * bytesPerPixel;
-            Buffer.MemoryCopy(filterFrame.Data[0], (void*)bmp.Data, byteCount, byteCount);
+            int srcRowBytes = filterFrame.Linesize[0];
+            int dstRowBytes = width * bytesPerPixel;
+            for (int y = 0; y < height; y++)
+            {
+                Buffer.MemoryCopy(
+                    (void*)(filterFrame.Data[0] + y * srcRowBytes),
+                    (void*)((byte*)bmp.Data + y * dstRowBytes),
+                    dstRowBytes,
+                    dstRowBytes);
+            }
         }
         catch
         {
@@ -334,7 +342,13 @@ public sealed class FFmpegReader : MediaReader
             if (byteCount > destination.Length)
                 return false;
 
-            new ReadOnlySpan<byte>(filterFrame.Data[0], byteCount).CopyTo(destination);
+            int srcRowBytes = filterFrame.Linesize[0];
+            int dstRowBytes = width * bytesPerPixel;
+            for (int y = 0; y < height; y++)
+            {
+                new ReadOnlySpan<byte>((void*)(filterFrame.Data[0] + y * srcRowBytes), dstRowBytes)
+                    .CopyTo(destination.Slice(y * dstRowBytes));
+            }
             return true;
         }
         finally
