@@ -68,6 +68,7 @@ internal static class EffectGraphCompiler
                     InputBounds = node.InputBounds,
                     OutputBounds = node.OutputBounds,
                     BackwardBounds = shader.Bounds.GetRequiredInputBounds,
+                    ForwardBounds = shader.Bounds.TransformBounds,
                     IsRenderTimeResolved = shader.Bounds.IsRenderTimeResolved,
                     CoordinateInvariant = shader.IsCoordinateInvariant,
                 });
@@ -80,6 +81,7 @@ internal static class EffectGraphCompiler
                     InputBounds = node.InputBounds,
                     OutputBounds = node.OutputBounds,
                     BackwardBounds = geometry.Bounds.GetRequiredInputBounds,
+                    ForwardBounds = geometry.Bounds.TransformBounds,
                     IsRenderTimeResolved = geometry.Bounds.IsRenderTimeResolved,
                 });
                 i++;
@@ -91,7 +93,8 @@ internal static class EffectGraphCompiler
                 {
                     InputBounds = node.InputBounds,
                     OutputBounds = node.OutputBounds,
-                    BackwardBounds = static r => r,
+                    BackwardBounds = compute.Bounds.GetRequiredInputBounds,
+                    ForwardBounds = compute.Bounds.TransformBounds,
                 });
                 i++;
             }
@@ -280,11 +283,20 @@ internal static class EffectGraphCompiler
             backward = roi => fk(inner(roi));
         }
 
+        Func<Rect, Rect> forward = static r => r;
+        for (int k = start; k < end; k++)
+        {
+            Func<Rect, Rect> fk = ((SkiaFilterNodeDescriptor)nodes[k].Descriptor).Bounds.TransformBounds;
+            Func<Rect, Rect> inner = forward;
+            forward = r => fk(inner(r));
+        }
+
         passes.Add(new SkiaFilterPass(filters.ToImmutable())
         {
             InputBounds = inputBounds,
             OutputBounds = outputBounds,
             BackwardBounds = backward,
+            ForwardBounds = forward,
             IsRenderTimeResolved = renderTime,
         });
         return end;

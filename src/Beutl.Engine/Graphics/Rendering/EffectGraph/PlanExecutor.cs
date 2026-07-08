@@ -206,26 +206,40 @@ internal static class PlanExecutor
             }
         }
 
-        // A coordinate-invariant fused pass is identity: its output bounds are the operation's own bounds. Sizing
-        // from the operation (rather than the pass's described output bounds) both survives an upstream opaque
-        // node that did not advance the builder's logical bounds and sizes each fan-out branch correctly. A
-        // non-invariant whole-source fused pass, whose output rect differs from its input (a channel-shift shader
-        // baked into an expanded rect), is sized/placed by its resolved ROI like a geometry pass.
         bool invariantFused = pass is FusedShaderPass { CoordinateInvariant: true };
         Rect outBounds;
         int width, height;
         float w;
         bool skip;
-        if (invariantFused || !linear)
+        if (invariantFused)
         {
-            outBounds = invariantFused || pass.OutputBounds.IsInvalid ? op.Bounds : pass.OutputBounds;
+            // Identity: output bounds are the operation's own — surviving an upstream opaque node that did not
+            // advance the builder's logical bounds, and sizing each fan-out branch. On the linear path the density
+            // is the carried resolution.WorkingScale (the FR-012/C3.2 clamp carry, review M2); a fan-out branch has
+            // no per-op resolution and re-clamps locally.
+            outBounds = op.Bounds;
+            w = linear
+                ? resolution.WorkingScale
+                : RenderNodeContext.ClampWorkingScaleToBufferBudget(outBounds, workingScale);
+            (width, height) = RenderNodeContext.DeviceBufferSize(outBounds, w);
+            skip = width <= 0 || height <= 0;
+        }
+        else if (!linear)
+        {
+            // Fan-out of a non-invariant pass (a split branch through a Blur/DropShadow/whole-source shader): size
+            // each branch from ITS OWN bounds advanced by the pass's composed forward map. The graph-level
+            // OutputBounds was computed before the split and is wrong for a branch (review B1).
+            Rect forward = pass.ForwardBounds(op.Bounds);
+            outBounds = forward.IsInvalid ? op.Bounds : forward;
             w = RenderNodeContext.ClampWorkingScaleToBufferBudget(outBounds, workingScale);
             (width, height) = RenderNodeContext.DeviceBufferSize(outBounds, w);
             skip = width <= 0 || height <= 0;
         }
         else
         {
-            // Bake window and placement must be the exact rect ResolveResources sized the buffer from.
+            // Linear single-op non-invariant pass: bake window and placement are the exact rect ResolveResources
+            // sized the buffer from. A non-invariant whole-source fused pass whose output rect differs from its
+            // input (a channel-shift shader baked into an expanded rect) is sized/placed by its resolved ROI here.
             outBounds = resolution.OutputRoi.IsInvalid
                 ? (pass.OutputBounds.IsInvalid ? op.Bounds : pass.OutputBounds)
                 : resolution.OutputRoi;

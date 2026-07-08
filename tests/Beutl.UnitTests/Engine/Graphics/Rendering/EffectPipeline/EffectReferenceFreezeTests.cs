@@ -120,6 +120,40 @@ public class EffectReferenceFreezeTests
         Freeze("effect-NodeGraphFilterEffect", MakeNodeGraphHost, requiresCompute: false);
     }
 
+    // A post-redesign determinism reference (NOT a pre-redesign parity gate): a spaced SplitEffect followed by a
+    // non-invariant DropShadow. Pins the review-B1 fix — every fan-out branch is sized/placed from its own bounds
+    // so the outer tiles' shadows are not clipped to the graph-level rect. Frozen from the current pipeline under a
+    // distinct category; it may be regenerated only if the scene's intended output changes.
+    [Test]
+    public void SplitDropShadow_Determinism_FreezesOrMatchesReference()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using Bitmap actual = GoldenImageHarness.RenderAtScale(
+                MakeSplitDropShadowScene(), SceneFixtures.ReferenceSize, 1f);
+            GoldenReferenceStore.FreezeOrAssert("004-review", "chain-SplitDropShadow", actual);
+        });
+    }
+
+    private static Drawable.Resource MakeSplitDropShadowScene()
+    {
+        var split = new SplitEffect();
+        split.HorizontalDivisions.CurrentValue = 3;
+        split.VerticalDivisions.CurrentValue = 1;
+        split.HorizontalSpacing.CurrentValue = 40;
+
+        var shadow = new DropShadow();
+        shadow.Position.CurrentValue = new Point(6, 6);
+        shadow.Sigma.CurrentValue = new Size(3, 3);
+        shadow.Color.CurrentValue = Colors.Black;
+
+        var group = new FilterEffectGroup();
+        group.Children.Add(split);
+        group.Children.Add(shadow);
+        return MakeShape(() => group);
+    }
+
     private static void Freeze(string name, Func<Drawable.Resource> makeResource, bool requiresCompute)
     {
         var context = VulkanTestEnvironment.EnsureAvailable();

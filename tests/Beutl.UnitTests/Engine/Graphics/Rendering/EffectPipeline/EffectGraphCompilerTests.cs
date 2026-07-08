@@ -358,6 +358,35 @@ public class EffectGraphCompilerTests
         });
     }
 
+    // FR-012/C3.2: the resolver clamps and carries the working scale monotonically along the chain. A
+    // coordinate-invariant fused pass must EXECUTE at that carried density, not re-derive w from the effect-boundary
+    // working scale (which discards an upstream clamp). Uses a small maxDimension override so the clamp fires on a
+    // 100-px chain without allocating a 16384-px buffer — the identical carry code path.
+    [Test]
+    public void Execute_InvariantFusedPass_UsesCarriedClampedWorkingScale()
+    {
+        var bounds = new Rect(0, 0, 100, 100);
+        CompiledPlan plan = Compile(NewBuilder(bounds).Shader(Scale(1f)));
+
+        FrameResources res = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale: 1f, maxDimension: 50);
+        float carried = res.Passes[0].WorkingScale;
+        Assert.That(carried, Is.EqualTo(0.5f).Within(1e-4f), "sanity: maxDimension 50 clamps 100 px at w=1 down to w=0.5");
+
+        RenderNodeOperation[] outputs = PlanExecutor.Execute(
+            plan, res, [MakeInput(bounds)], outputScale: 1f, workingScale: 1f,
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null);
+        try
+        {
+            Assert.That(outputs, Has.Length.EqualTo(1));
+            Assert.That(outputs[0].EffectiveScale.Value, Is.EqualTo(carried).Within(1e-4f),
+                "the invariant fused pass executes at the carried clamped density, not the boundary working scale (1.0)");
+        }
+        finally
+        {
+            RenderNodeOperation.DisposeAll(outputs);
+        }
+    }
+
     // ---- End-to-end fused execution (raster, GPU-less) --------------------------------------------------
 
     [Test]

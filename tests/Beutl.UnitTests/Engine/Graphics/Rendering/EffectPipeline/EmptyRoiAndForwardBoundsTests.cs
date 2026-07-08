@@ -126,6 +126,56 @@ public class EmptyRoiAndForwardBoundsTests
         }
     }
 
+    // ---- B1 (cold review): a non-invariant pass after a split sizes each branch from its OWN bounds -----
+
+    // A SplitEffect fans the input into tiles whose bounds extend beyond the input rect (the spacing pushes the
+    // outer tiles out); a following Blur must inflate EACH branch from that branch's own bounds. Sizing every
+    // branch from the graph-level pass OutputBounds (computed pre-split, before the fan-out) collapses the outer
+    // tiles inward and clips their content — legacy applied downstream effects per-target with per-target bounds.
+    [Test]
+    public void SplitThenBlur_SizesEachBranchFromItsOwnBounds()
+    {
+        var group = new FilterEffectGroup();
+        group.Children.Add(new SplitEffect
+        {
+            HorizontalDivisions = { CurrentValue = 3 },
+            VerticalDivisions = { CurrentValue = 1 },
+            HorizontalSpacing = { CurrentValue = 40 },
+        });
+        group.Children.Add(new Blur { Sigma = { CurrentValue = new Size(2, 2) } });
+
+        FilterEffect.Resource resource = group.ToResource(CompositionContext.Default);
+        using var node = new FilterEffectRenderNode(resource);
+        var context = new RenderNodeContext([MakeWhiteRect(s_input)]);
+
+        RenderNodeOperation[] ops = node.Process(context);
+        try
+        {
+            Assert.That(ops, Has.Length.EqualTo(3), "three horizontal tiles fan out");
+
+            // Pre-blur tile bounds: X0=-40, X1=33.33, X2=106.67, each 33.33 wide over y in [0, 100]. Blur sigma 2
+            // inflates each by 3*sigma = 6 on every side, so per-branch bounds become branch0 (-46,-6,45.33,112) and
+            // branch2 (100.67,-6,45.33,112); content extent X in [-46, 146] (a span of ~192 px). The bug collapses
+            // all three to the graph-level blur rect (-6,-6,112,112), a span of only ~112 px.
+            RenderNodeOperation[] byX = ops.OrderBy(o => o.Bounds.X).ToArray();
+            double minX = ops.Min(o => o.Bounds.X);
+            double maxX = ops.Max(o => o.Bounds.Right);
+            Assert.Multiple(() =>
+            {
+                Assert.That(byX[0].Bounds.X, Is.EqualTo(-46f).Within(0.75f), "outer-left branch keeps its own inflated bounds");
+                Assert.That(byX[2].Bounds.Right, Is.EqualTo(146f).Within(0.75f), "outer-right branch keeps its own inflated bounds");
+                foreach (RenderNodeOperation op in ops)
+                    Assert.That(op.Bounds.Height, Is.EqualTo(112f).Within(0.75f), "each branch inflated vertically by 3*sigma");
+                Assert.That(maxX - minX, Is.GreaterThan(180.0),
+                    "content extent spans all three inflated tiles — not collapsed to the graph-level blur rect (~112 px)");
+            });
+        }
+        finally
+        {
+            RenderNodeOperation.DisposeAll(ops);
+        }
+    }
+
     private static RenderNodeOperation MakeWhiteRect(Rect bounds)
         => RenderNodeOperation.CreateLambda(
             bounds,

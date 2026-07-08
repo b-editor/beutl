@@ -39,6 +39,14 @@ public abstract record CompiledPass
     /// <summary>Backward map (required input region for a requested output region); identity for invariant passes.</summary>
     internal Func<Rect, Rect> BackwardBounds { get; init; } = static r => r;
 
+    /// <summary>
+    /// Forward map (output region an input region produces); the composition of the pass's node forward bounds.
+    /// The executor applies it to a fan-out branch's own bounds so each branch is sized from its post-split rect
+    /// rather than the graph-level <see cref="OutputBounds"/> computed before the split (review B1). Identity for
+    /// invariant passes; returns <see cref="Rect.Invalid"/> for a render-time-resolved pass.
+    /// </summary>
+    internal Func<Rect, Rect> ForwardBounds { get; init; } = static r => r;
+
     /// <summary>Set when this pass reads a resource last written by the other backend (C4.2); the only place the executor syncs.</summary>
     public bool SyncBefore { get; init; }
 
