@@ -86,11 +86,17 @@ public static class DecoderRegistry
             pin?.Dispose();
         }
 
-        foreach (IDecoderInfo decoder in GuessDecoder(file))
+        // The original decode can only succeed if the file is present; when a PreferProxy open reached
+        // here because the original was moved/deleted and no proxy resolved, skip it so the caller gets
+        // a clean null (FileNotFound) instead of a decoder-specific open failure.
+        if (File.Exists(file))
         {
-            if (decoder.Open(file, options) is { } reader)
+            foreach (IDecoderInfo decoder in GuessDecoder(file))
             {
-                return reader;
+                if (decoder.Open(file, options) is { } reader)
+                {
+                    return reader;
+                }
             }
         }
 

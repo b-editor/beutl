@@ -36,12 +36,52 @@ public sealed class ProxyResolver : IProxyResolver
             return null;
 
         if (!ProxyFingerprint.TryFromFile(sourceUri.LocalPath, out ProxyFingerprint fingerprint))
-            return null;
+        {
+            // The original was moved/deleted, so it cannot be fingerprinted. A Ready proxy for this
+            // path is still a valid preview stand-in, so resolve by path alone rather than rejecting.
+            // ResolveComparableKey folds/link-resolves the path the same way entries key their source.
+            return ResolveByPath(ProxyFingerprint.ResolveComparableKey(sourceUri.LocalPath), preferredPreset);
+        }
 
         // A mid-session source edit leaves a same-path, different-(size,mtime) entry Ready in the
         // store until the next startup reconcile; surface it as Stale now so the badge refreshes.
         MaybeMarkStaleEntries(fingerprint);
 
+        var candidates = new List<ProxyResolution>();
+        foreach (ProxyPreset preset in ProxyPresetDefinitions.All.Keys)
+        {
+            if (Evaluate(fingerprint, preset) is { } resolution)
+                candidates.Add(resolution);
+        }
+
+        return SelectBest(candidates, preferredPreset);
+    }
+
+    private ProxyResolution? ResolveByPath(string absolutePath, ProxyPreset preferredPreset)
+    {
+        if (string.IsNullOrEmpty(absolutePath))
+            return null;
+
+        // Any (size, mtime) Ready entry for this path is acceptable when the original is gone; there is
+        // no current fingerprint to prefer, so rank every path-matching Ready proxy directly.
+        var candidates = new List<ProxyResolution>();
+        foreach (ProxyEntry entry in _store.Enumerate())
+        {
+            if (entry.State != ProxyState.Ready
+                || !string.Equals(entry.Source.AbsolutePath, absolutePath, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (EvaluateEntry(entry) is { } resolution)
+                candidates.Add(resolution);
+        }
+
+        return SelectBest(candidates, preferredPreset);
+    }
+
+    private ProxyResolution? SelectBest(IReadOnlyList<ProxyResolution> candidates, ProxyPreset preferredPreset)
+    {
         // preferredPreset is a resolve-time density cap, not only a generation-time floor: prefer the
         // densest Ready proxy whose actual decoded density does not exceed the cap, so clamped large
         // sources are ranked by the proxy file that exists rather than by the preset's nominal scale.
@@ -53,11 +93,8 @@ public sealed class ProxyResolver : IProxyResolver
         ProxyResolution? densestWinner = null;
         float densestDensity = -1f;
 
-        foreach (ProxyPreset preset in ProxyPresetDefinitions.All.Keys)
+        foreach (ProxyResolution resolution in candidates)
         {
-            if (Evaluate(fingerprint, preset) is not { } resolution)
-                continue;
-
             float density = resolution.SupplyDensity;
             if (density <= cap + DensityTolerance && density > cappedWinnerDensity)
             {
@@ -115,6 +152,14 @@ public sealed class ProxyResolver : IProxyResolver
         if (entry is not { State: ProxyState.Ready })
             return null;
 
+        return EvaluateEntry(entry);
+    }
+
+    private ProxyResolution? EvaluateEntry(ProxyEntry entry)
+    {
+        if (entry.State != ProxyState.Ready)
+            return null;
+
         if (!TryGetAbsolutePath(entry, out string absolutePath))
             return null;
 
@@ -135,8 +180,8 @@ public sealed class ProxyResolver : IProxyResolver
 
         return new ProxyResolution(
             absolutePath,
-            fingerprint,
-            preset,
+            entry.Source,
+            entry.Preset,
             entry.OriginalLogicalFrameSize,
             entry.ProxyDecodedFrameSize);
     }

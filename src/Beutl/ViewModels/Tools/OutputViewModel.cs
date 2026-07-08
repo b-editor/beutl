@@ -234,10 +234,12 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             return;
         }
 
-        // Off the UI thread: the media walk + per-path File.Exists can stall on many/slow-storage
-        // references right when the user clicks Export.
+        // Snapshot the referenced paths on the UI thread (the scene graph is mutable and not thread-safe),
+        // then run only the per-path File.Exists — which can stall on slow storage — off-thread.
+        IReadOnlySet<string> referencedSources =
+            ExportSourceValidator.CollectRenderableSources(Model, new TimeRange(TimeSpan.Zero, Model.Duration));
         IReadOnlyList<string> missingSources =
-            await Task.Run(() => ExportSourceValidator.GetMissingFileSources(Model));
+            await Task.Run(() => ExportSourceValidator.GetMissingPaths(referencedSources));
         if (missingSources.Count > 0)
         {
             string message = string.Format(

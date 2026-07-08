@@ -1,6 +1,7 @@
 ﻿using Beutl.Audio;
 using Beutl.Editor;
 using Beutl.Graphics;
+using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 
@@ -9,8 +10,10 @@ namespace Beutl.UnitTests.Editor;
 [TestFixture]
 public sealed class ExportSourceValidatorTests
 {
+    private static readonly TimeRange s_wholeScene = new(TimeSpan.Zero, TimeSpan.FromSeconds(10));
+
     [Test]
-    public void GetMissingFileSources_ReturnsMissingSourcesReferencedByScene()
+    public void GetMissingPaths_ReturnsMissingSourcesReferencedByScene()
     {
         string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
@@ -25,7 +28,8 @@ public sealed class ExportSourceValidatorTests
         scene.Children.Add(CreateVideoElement(root, existingPath));
         scene.Children.Add(CreateVideoElement(root, missingPath));
 
-        IReadOnlyList<string> missing = ExportSourceValidator.GetMissingFileSources(scene);
+        IReadOnlySet<string> referenced = ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene);
+        IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(referenced);
 
         Assert.That(missing, Is.EqualTo(new[] { missingPath }));
     }
@@ -34,7 +38,7 @@ public sealed class ExportSourceValidatorTests
     // missing top-level video does; otherwise the resource loader renders blank/silence and export
     // succeeds with missing content.
     [Test]
-    public void GetMissingFileSources_ReportsMissingImageAndSoundInReferencedScene()
+    public void GetMissingPaths_ReportsMissingImageAndSoundInReferencedScene()
     {
         string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
@@ -56,9 +60,86 @@ public sealed class ExportSourceValidatorTests
         };
         scene.Children.Add(ElementWith(root, sceneDrawable));
 
-        IReadOnlyList<string> missing = ExportSourceValidator.GetMissingFileSources(scene);
+        IReadOnlySet<string> referenced = ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene);
+        IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(referenced);
 
         Assert.That(missing, Is.EquivalentTo(new[] { missingImage, missingSound }));
+    }
+
+    // A disabled element never renders (SceneCompositor.SortLayers gates on IsEnabled), so its missing
+    // original must not block export of the rest of the scene.
+    [Test]
+    public void CollectRenderableSources_SkipsDisabledElement()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string missingPath = Path.Combine(root, "missing.mov");
+
+        var scene = new Scene(1920, 1080, string.Empty)
+        {
+            Uri = new Uri(Path.Combine(root, "test.scene")),
+        };
+        Element disabled = CreateVideoElement(root, missingPath);
+        disabled.IsEnabled = false;
+        scene.Children.Add(disabled);
+
+        IReadOnlySet<string> referenced = ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene);
+        IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(referenced);
+
+        Assert.That(missing, Is.Empty);
+    }
+
+    // An element whose time range does not intersect the exported range never renders, so its missing
+    // original must not block export.
+    [Test]
+    public void CollectRenderableSources_SkipsOutOfRangeElement()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string missingPath = Path.Combine(root, "missing.mov");
+
+        var scene = new Scene(1920, 1080, string.Empty)
+        {
+            Uri = new Uri(Path.Combine(root, "test.scene")),
+        };
+        Element outOfRange = CreateVideoElement(root, missingPath);
+        outOfRange.Start = TimeSpan.FromSeconds(20);
+        scene.Children.Add(outOfRange);
+
+        IReadOnlySet<string> referenced = ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene);
+        IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(referenced);
+
+        Assert.That(missing, Is.Empty);
+    }
+
+    // The single-frame overload includes only elements whose range contains the frame time — the
+    // save-frame preflight must not block on sources that are absent at the current frame.
+    [Test]
+    public void CollectRenderableSources_SingleFrame_OnlyIncludesElementsAtThatTime()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string atFrame = Path.Combine(root, "at-frame.mov");
+        string laterOnly = Path.Combine(root, "later-only.mov");
+
+        var scene = new Scene(1920, 1080, string.Empty)
+        {
+            Uri = new Uri(Path.Combine(root, "test.scene")),
+        };
+        Element visible = CreateVideoElement(root, atFrame);
+        visible.Start = TimeSpan.Zero;
+        visible.Length = TimeSpan.FromSeconds(2);
+        scene.Children.Add(visible);
+
+        Element later = CreateVideoElement(root, laterOnly);
+        later.Start = TimeSpan.FromSeconds(5);
+        later.Length = TimeSpan.FromSeconds(2);
+        scene.Children.Add(later);
+
+        IReadOnlySet<string> referenced =
+            ExportSourceValidator.CollectRenderableSources(scene, TimeSpan.FromSeconds(1));
+
+        Assert.That(referenced, Is.EquivalentTo(new[] { atFrame }));
     }
 
     private static Element CreateVideoElement(string root, string sourcePath)

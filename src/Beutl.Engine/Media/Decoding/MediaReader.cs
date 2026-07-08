@@ -33,12 +33,16 @@ public abstract class MediaReader : IDisposable
     {
         ArgumentNullException.ThrowIfNull(file);
         ArgumentNullException.ThrowIfNull(options);
-        if (!File.Exists(file))
+
+        // In PreferProxy mode a Ready proxy can stand in for a moved/deleted original, so defer the
+        // existence check to OpenMediaFile's proxy-resolution path (which keys on the path string, not
+        // the file). Reject up front only when the original is actually required.
+        if (!options.PreferProxy && !File.Exists(file))
         {
             throw new FileNotFoundException(null, file);
         }
 
-        return DecoderRegistry.OpenMediaFile(file, options) ?? throw new Exception();
+        return DecoderRegistry.OpenMediaFile(file, options) ?? throw new FileNotFoundException(null, file);
     }
 
     public abstract bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image);

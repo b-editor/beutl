@@ -31,6 +31,17 @@ public static class ProxySourceEnumerator
     }
 
     /// <summary>
+    /// Enumerates every <see cref="IFileSource"/> reachable from <paramref name="element"/> — the full
+    /// media walk (not just the proxy-eligible video subset). Reaches direct/animated values, node-graph
+    /// adapter inputs, filter-effect subgraphs, presenter/decorator targets, and referenced scenes.
+    /// </summary>
+    public static IEnumerable<IFileSource> EnumerateFileSources(Element element, HashSet<Scene>? visitedScenes = null)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        return EnumerateElementFileSources(element, visitedScenes ?? new HashSet<Scene>(ReferenceEqualityComparer.Instance));
+    }
+
+    /// <summary>
     /// Collects the file-system paths of every <see cref="IFileSource"/> referenced anywhere in
     /// <paramref name="root"/>, regardless of whether each file lives inside or outside the project
     /// directory. Covers the broad <see cref="IFileSource"/> property walk AND every source the

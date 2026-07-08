@@ -146,6 +146,65 @@ public class DecoderRegistryProxyRoutingTests
         Assert.That(reader, Is.Null);
     }
 
+    // Fix #3: a Ready proxy stands in for a moved/deleted original in PreferProxy mode. The original
+    // can no longer be fingerprinted, so the resolver falls back to a path-keyed lookup.
+    [Test]
+    public void OpenMediaFile_WhenOriginalMissingAndPreferProxy_OpensProxy()
+    {
+        using var scope = ProxyRouteScope.Create(originalSize: new PixelSize(100, 100), proxySize: new PixelSize(50, 50));
+        DecoderRegistry.ProxyResolver = new ProxyResolver(scope.Store);
+        File.Delete(scope.OriginalPath);
+
+        using MediaReader? reader = DecoderRegistry.OpenMediaFile(
+            scope.OriginalPath,
+            new MediaOptions(MediaMode.Video) { PreferProxy = true });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(reader, Is.Not.Null);
+            Assert.That(reader!.VideoInfo.FrameSize, Is.EqualTo(new PixelSize(50, 50)));
+            Assert.That(reader.ProxyResolution, Is.Not.Null);
+        });
+    }
+
+    // Fix #3: the same missing original must NOT substitute a proxy when proxy is not preferred (e.g.
+    // export/save-frame forces the original) — there is nothing to open, so the result is null.
+    [Test]
+    public void OpenMediaFile_WhenOriginalMissingAndPreferProxyFalse_ReturnsNull()
+    {
+        using var scope = ProxyRouteScope.Create(originalSize: new PixelSize(100, 100), proxySize: new PixelSize(50, 50));
+        DecoderRegistry.ProxyResolver = new ProxyResolver(scope.Store);
+        File.Delete(scope.OriginalPath);
+
+        using MediaReader? reader = DecoderRegistry.OpenMediaFile(
+            scope.OriginalPath,
+            new MediaOptions(MediaMode.Video) { PreferProxy = false });
+
+        Assert.That(reader, Is.Null);
+    }
+
+    // Fix #3: MediaReader.Open defers the existence check in PreferProxy mode so the proxy fallback can
+    // run; without a preferred proxy the missing original still throws FileNotFound up front.
+    [Test]
+    public void MediaReaderOpen_WhenOriginalMissing_ProxyPreferenceControlsFallback()
+    {
+        using var scope = ProxyRouteScope.Create(originalSize: new PixelSize(100, 100), proxySize: new PixelSize(50, 50));
+        DecoderRegistry.ProxyResolver = new ProxyResolver(scope.Store);
+        File.Delete(scope.OriginalPath);
+
+        using MediaReader reader = MediaReader.Open(
+            scope.OriginalPath,
+            new MediaOptions(MediaMode.Video) { PreferProxy = true });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(reader.ProxyResolution, Is.Not.Null);
+            Assert.That(
+                () => MediaReader.Open(scope.OriginalPath, new MediaOptions(MediaMode.Video) { PreferProxy = false }),
+                Throws.InstanceOf<FileNotFoundException>());
+        });
+    }
+
     [Test]
     public void OpenMediaFile_WhenResolverThrows_FallsBackToOriginal()
     {

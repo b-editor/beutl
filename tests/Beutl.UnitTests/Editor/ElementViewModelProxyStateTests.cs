@@ -321,6 +321,51 @@ public sealed class ElementViewModelProxyStateTests
         Assert.That(ElementViewModel.ElementUsesChangedSource(element, unrelatedKey), Is.False);
     }
 
+    // Fix #2: a video source reachable only through a nested drawable (here a DrawableGroup child, the
+    // same shape as a node-graph/referenced-scene source) still raises Element.Edited when its URI
+    // changes and is matched by ElementUsesChangedSource. That is what lets the badge's Element.Edited
+    // subscription bust the stale fingerprint cache — the top-level ThumbnailsInvalidated never fires
+    // for these sources.
+    [Test]
+    public void NestedSourceUriEdit_RaisesElementEdited_AndIsMatchedByRelevanceGate()
+    {
+        string firstPath = Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}-a.mov");
+        string secondPath = Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}-b.mov");
+        File.WriteAllBytes(firstPath, [1]);
+        File.WriteAllBytes(secondPath, [1]);
+
+        var innerVideo = new SourceVideo();
+        var firstSource = new VideoSource();
+        firstSource.ReadFrom(new Uri(firstPath));
+        innerVideo.Source.CurrentValue = firstSource;
+
+        var group = new DrawableGroup();
+        group.Children.Add(innerVideo);
+
+        var element = new Element
+        {
+            Start = TimeSpan.Zero,
+            Length = TimeSpan.FromSeconds(1),
+            IsEnabled = true,
+            Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.layer")),
+        };
+        element.AddObject(group);
+
+        bool edited = false;
+        element.Edited += (_, _) => edited = true;
+
+        var secondSource = new VideoSource();
+        secondSource.ReadFrom(new Uri(secondPath));
+        innerVideo.Source.CurrentValue = secondSource;
+
+        string newKey = ProxyFingerprint.FromFile(secondPath).AbsolutePath;
+        Assert.Multiple(() =>
+        {
+            Assert.That(edited, Is.True);
+            Assert.That(ElementViewModel.ElementUsesChangedSource(element, newKey), Is.True);
+        });
+    }
+
     private static Element ElementWithVideoSource(string fileName, out string absolutePath)
     {
         absolutePath = Path.Combine(TestContext.CurrentContext.WorkDirectory, fileName);

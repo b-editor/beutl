@@ -37,6 +37,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
     private readonly CompositeDisposable _disposables = [];
     private ImmutableHashSet<Guid>? _elementGroup;
     private readonly Subject<Unit> _thumbnailsInvalidatedSubject = new();
+    private readonly Subject<Unit> _elementEditedSubject = new();
     private CancellationTokenSource? _thumbnailsCts;
     private IThumbnailsProvider? _currentThumbnailsProvider;
     private readonly IThumbnailCacheService _thumbnailCacheService = ThumbnailCacheService.Instance;
@@ -232,6 +233,19 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             .Throttle(TimeSpan.FromMilliseconds(500))
             .ObserveOnUIDispatcher()
             .Subscribe(_ => RefreshProxyState(invalidateFingerprintCache: true))
+            .AddTo(_disposables);
+
+        // A source reachable only through a node graph or referenced scene never raises the top-level
+        // provider's ThumbnailsInvalidated, so its URI edits would leave the fingerprint cache stale and
+        // the badge frozen. Element.Edited fires for those edits too; the URI-set key in
+        // ResolveProxyFingerprints keeps unrelated edits from re-stating.
+        EventHandler editedHandler = (_, _) => _elementEditedSubject.OnNext(Unit.Default);
+        Model.Edited += editedHandler;
+        Disposable.Create(() => Model.Edited -= editedHandler).AddTo(_disposables);
+        _elementEditedSubject
+            .Throttle(TimeSpan.FromMilliseconds(500))
+            .ObserveOnUIDispatcher()
+            .Subscribe(_ => RefreshProxyState())
             .AddTo(_disposables);
 
         RefreshProxyState(invalidateFingerprintCache: true);
@@ -489,6 +503,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             _currentThumbnailsProvider.ThumbnailsInvalidated -= _thumbnailsInvalidatedHandler;
         }
         _thumbnailsInvalidatedSubject.Dispose();
+        _elementEditedSubject.Dispose();
         _visibleRangeSubject.Dispose();
 
         CancelThumbnailsLoading();
@@ -497,7 +512,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         _scrollThumbnailsCts?.Dispose();
         _scrollThumbnailsCts = null;
         if (_lastThumbnailsCacheKey != null)
-            _thumbnailCacheService.Invalidate(_lastThumbnailsCacheKey);
+            Beutl.Graphics.SourceVideo.InvalidateThumbnailCacheKeys(_thumbnailCacheService, _lastThumbnailsCacheKey);
 
         // ThumbnailsDisabledElementsイベントの購読を解除
         Timeline.ThumbnailsDisabledElements.Attached -= OnThumbnailsDisabledElementsAttached;
@@ -869,10 +884,10 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             {
                 _thumbnailsInvalidatedHandler = (_, _) =>
                 {
-                    // 旧キーでキャッシュを無効化
+                    // Strips live under baseKey|original / baseKey|proxy:*, so a bare Invalidate(baseKey) misses them.
                     var oldKey = _lastThumbnailsCacheKey;
                     if (oldKey != null)
-                        _thumbnailCacheService.Invalidate(oldKey);
+                        Beutl.Graphics.SourceVideo.InvalidateThumbnailCacheKeys(_thumbnailCacheService, oldKey);
 
                     // 新しいキーをキャプチャ
                     _lastThumbnailsCacheKey = _currentThumbnailsProvider?.GetThumbnailsCacheKey();

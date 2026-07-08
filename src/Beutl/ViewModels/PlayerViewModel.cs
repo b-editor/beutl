@@ -1912,7 +1912,10 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             // proxy when the original is missing; without this check the render resource path
             // swallows the open failure and the user saves a blank frame with no error. Match the
             // export preflight before spending the render.
-            IReadOnlyList<string> missingSources = Beutl.Editor.ExportSourceValidator.GetMissingFileSources(Scene);
+            IReadOnlySet<string> referencedSources =
+                Beutl.Editor.ExportSourceValidator.CollectRenderableSources(Scene, CurrentFrame.Value);
+            IReadOnlyList<string> missingSources =
+                Beutl.Editor.ExportSourceValidator.GetMissingPaths(referencedSources);
             if (missingSources.Count > 0)
             {
                 throw new InvalidOperationException(string.Format(
