@@ -551,7 +551,10 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             for (int i = LayerHeaders.Count - 1; i >= count; i--)
             {
                 LayerHeaderViewModel item = LayerHeaders[i];
-                if (item.ItemsCount.Value > 0)
+                // A clipless row whose TimelineLayer still carries lock/mute/solo
+                // keeps affecting the editor/compositor; removing its header would
+                // leave no UI to see or clear those flags.
+                if (item.ItemsCount.Value > 0 || HasFlaggedLayerModel(item.Number.Value))
                     break;
 
                 LayerHeaders.RemoveAt(i);
@@ -569,6 +572,10 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             AddLayerHeaders(count);
         }
     }
+
+    private bool HasFlaggedLayerModel(int zIndex)
+        => Scene.Layers.Any(l => l.ZIndex == zIndex
+                                 && (l.IsLocked || l.IsAudioMuted || l.IsVideoMuted || l.IsSolo));
 
     public void ReadFromJson(JsonObject json)
     {

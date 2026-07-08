@@ -69,12 +69,14 @@ public sealed class LayerHeaderViewModel : IDisposable
                     _skipSubscription = true;
                     bool target = !IsEnabled.Value;
                     IsEnabled.Value = target;
-                    bool changed = Timeline.EditorContext.GetRequiredService<ILayerAttributeService>()
+                    Timeline.EditorContext.GetRequiredService<ILayerAttributeService>()
                         .SetEnabled(Timeline.Scene, Number.Value, target);
 
-                    // No element changed (locked or empty row): revert the local
-                    // flip so the header does not show a state the model refused.
-                    if (!changed)
+                    // Claim the target state only when every clip reached it —
+                    // a locked/empty/mixed row (locked clips are skipped by the
+                    // service) must not show a state the model refused.
+                    bool allMatch = _elements.Count > 0 && _elements.All(e => e.Model.IsEnabled == target);
+                    if (!allMatch)
                     {
                         IsEnabled.Value = !target;
                     }
