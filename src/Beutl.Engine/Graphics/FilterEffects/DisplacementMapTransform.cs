@@ -38,7 +38,9 @@ public abstract partial class DisplacementMapTransform : EngineObject
         GradientSpreadMethod spreadMethod, DisplacementMapChannel channel, bool signed);
 
     // Builds the displacement-map child shader over the input rect at the describe-time working density (cross-sampled
-    // at device px, so a w != 1 buffer scales the map's local matrix), owned and disposed by the graph.
+    // at device px, so a w != 1 buffer scales the map's local matrix), owned and disposed by the graph. The map (and
+    // the scale/rotation pivot) is anchored in the FULL-frame device space, so every transform declares a RenderTime
+    // bounds contract: an ROI crop by a downstream deflating pass would shift the map/pivot off the baked buffer (M3).
     private protected static ChildBinding? BuildMapChild(EffectGraphBuilder builder, Brush.Resource map, float w)
     {
         SKShader? raw = new BrushConstructor(
@@ -94,7 +96,7 @@ public partial class DisplacementMapTranslateTransform : DisplacementMapTransfor
 
         builder.Shader(ShaderNodeDescriptor.WholeSource(
             s_describeSource,
-            BoundsContract.Identity,
+            BoundsContract.RenderTime,
             u => u.Float2("uTranslation", r.X * w, r.Y * w)
                   .Int("uChannel", (int)channel)
                   .Int("uSigned", signed ? 1 : 0),
@@ -153,7 +155,7 @@ public partial class DisplacementMapScaleTransform : DisplacementMapTransform
 
         builder.Shader(ShaderNodeDescriptor.WholeSource(
             s_describeSource,
-            BoundsContract.Identity,
+            BoundsContract.RenderTime,
             u => u.Float2("uScale", r.Scale * r.ScaleX / 10000, r.Scale * r.ScaleY / 10000)
                   .Float2("uPivot", (builder.Bounds.Width / 2 + r.CenterX) * w, (builder.Bounds.Height / 2 + r.CenterY) * w)
                   .Int("uChannel", (int)channel)
@@ -210,7 +212,7 @@ public partial class DisplacementMapRotationTransform : DisplacementMapTransform
 
         builder.Shader(ShaderNodeDescriptor.WholeSource(
             s_describeSource,
-            BoundsContract.Identity,
+            BoundsContract.RenderTime,
             u => u.Float("uAngle", MathUtilities.Deg2Rad(r.Rotation))
                   .Float2("uPivot", (builder.Bounds.Width / 2 + r.CenterX) * w, (builder.Bounds.Height / 2 + r.CenterY) * w)
                   .Int("uChannel", (int)channel)
