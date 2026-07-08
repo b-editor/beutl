@@ -200,6 +200,27 @@ public sealed class QualityAnalyzerTests
     }
 
     [Test]
+    public async Task Disabled_flow_operator_does_not_reclassify_a_non_flow_element_as_flow()
+    {
+        Scene scene = CreateScene();
+        Element element = AddText(scene, "Launch notes", zIndex: 10);
+        element.AddObject(new EllipseShape { Name = "Extra accent" });
+        // A disabled DrawableGroup must not make this element read as a flow grouping and escape the
+        // non-flow structure gate: the two visible objects are still an accidental multi-object element.
+        element.AddObject(new DrawableGroup { Name = "Disabled group", IsEnabled = false });
+
+        QualityReviewResponse result = await AnalyzeAsync(scene, evaluateMotion: false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "elementStructure" && issue.Severity == "major"));
+            Assert.That(result.Metrics.Structure.NonFlowMultiObjectElementCount, Is.EqualTo(1));
+            Assert.That(result.Metrics.Structure.FlowMultiObjectElementCount, Is.EqualTo(0));
+        });
+    }
+
+    [Test]
     public async Task Disabled_multi_object_element_does_not_trip_the_structure_gate()
     {
         Scene scene = CreateScene();

@@ -1011,21 +1011,24 @@ public sealed class RenderTools(
             .ToArray();
     }
 
-    private static IReadOnlyList<TimeSpan> ResolveQualitySampleTimes(Scene scene, double[]? timeSeconds, int sampleCount)
+    internal static IReadOnlyList<TimeSpan> ResolveQualitySampleTimes(Scene scene, double[]? timeSeconds, int sampleCount)
     {
         IReadOnlyList<TimeSpan>? explicitTimes = NormalizeQualitySampleTimesOrNull(timeSeconds);
         if (explicitTimes is { Count: >= 2 })
         {
             TimeSpan duration = scene.Duration > TimeSpan.Zero ? scene.Duration : TimeSpan.FromSeconds(1);
+            // TimeRange.Contains excludes the end, so clamp to the last renderable tick rather than the
+            // exclusive Duration, which would sample a blank frame with no active elements.
+            TimeSpan lastRenderable = duration - TimeSpan.FromTicks(1);
             TimeSpan[] clamped = explicitTimes
-                .Select(time => time > duration ? duration : time)
+                .Select(time => time > lastRenderable ? lastRenderable : time)
                 .Distinct()
                 .OrderBy(time => time)
                 .ToArray();
 
-            // Multiple out-of-range times can all clamp to `duration` and collapse to one sample, which
-            // MotionVariationAnalyzer would reject with an unmapped ArgumentException; surface a typed
-            // validation error instead of leaking it.
+            // Multiple out-of-range times can all clamp to the last tick and collapse to one sample,
+            // which MotionVariationAnalyzer would reject with an unmapped ArgumentException; surface a
+            // typed validation error instead of leaking it.
             if (clamped.Length < 2)
             {
                 throw new ReconcileException(new ToolError(
@@ -1507,14 +1510,18 @@ public sealed class RenderTools(
         return string.IsNullOrWhiteSpace(trimmed) ? s_processOutputToken : trimmed;
     }
 
-    private static IReadOnlyList<TimeSpan> ResolveSampleTimes(Scene scene, double[]? timeSeconds, int sampleCount)
+    internal static IReadOnlyList<TimeSpan> ResolveSampleTimes(Scene scene, double[]? timeSeconds, int sampleCount)
     {
         if (timeSeconds is { Length: > 0 })
         {
             TimeSpan duration = scene.Duration > TimeSpan.Zero ? scene.Duration : TimeSpan.FromSeconds(1);
+            // TimeRange.Contains excludes the end, so a sample at exactly Duration renders no active
+            // elements (a blank still). Clamp to the last renderable tick instead of the exclusive end.
+            TimeSpan lastRenderable = duration - TimeSpan.FromTicks(1);
             TimeSpan[] explicitTimes = timeSeconds
                 .Select(seconds => double.IsFinite(seconds) ? Math.Max(0, seconds) : 0)
-                .Select(seconds => TimeSpan.FromSeconds(Math.Min(seconds, duration.TotalSeconds)))
+                .Select(TimeSpan.FromSeconds)
+                .Select(time => time > lastRenderable ? lastRenderable : time)
                 .Distinct()
                 .OrderBy(time => time)
                 .ToArray();

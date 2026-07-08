@@ -63,6 +63,44 @@ public sealed class ReadDocumentTests
     }
 
     [Test]
+    public void Measure_object_bounds_reports_a_nested_drawable_as_unsupported_even_with_a_time_filter()
+    {
+        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var scene = new Scene(320, 180, "nested-measure")
+        {
+            Duration = TimeSpan.FromSeconds(2),
+            Uri = new Uri(Path.Combine(dir, "Scene.scene"))
+        };
+        var group = new DrawableGroup { Name = "wrapper" };
+        var nested = new TextBlock { Name = "nested", Text = { CurrentValue = "Hi" } };
+        group.Children.Add(nested);
+        var element = new Element
+        {
+            Length = TimeSpan.FromSeconds(2),
+            Uri = new Uri(Path.Combine(dir, "element.belm"))
+        };
+        element.AddObject(group);
+        scene.Children.Add(element);
+        using var session = new AgentToolkitTestSession(scene);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var tools = new QueryTools(manager);
+
+        // A time filter must not turn "found but nested (unsupported)" into an empty, successful result.
+        ToolResult<ObjectBoundsMeasurementResponse> result = tools.MeasureObjectBounds(
+            objectId: nested.Id.ToString(),
+            timeSeconds: 0.0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(result.Error.Message, Does.Contain("not a direct object"));
+        });
+    }
+
+    [Test]
     public void Get_schema_accepts_common_low_context_type_aliases()
     {
         var tools = new QueryTools(new AgentSessionManager());

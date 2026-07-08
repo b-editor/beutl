@@ -152,6 +152,35 @@ public sealed class DeclarativeBrushEffectTests
         });
     }
 
+    [Test]
+    public void Null_member_in_a_typed_replacement_list_is_rejected()
+    {
+        Scene scene = CreateSceneWithRect(out Element element, out _);
+        var equalizer = new EqualizerEffect();
+        element.AddObject(equalizer);
+        using var session = new AgentToolkitTestSession(scene);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var tools = new EditTools(manager);
+
+        JsonObject desired = session.Documents.Read(session.Root);
+        JsonArray objects = (JsonArray)((JsonObject)((JsonArray)desired["Elements"]!)[0]!)["Objects"]!;
+        JsonObject equalizerJson = (JsonObject)objects.Single(node =>
+            node is JsonObject obj && (string?)obj[nameof(CoreObject.Id)] == equalizer.Id.ToString())!;
+        // No Id-bearing entries, so this is a wholesale replacement (not an identity merge): a null
+        // member must be rejected rather than inserted for later rendering to dereference.
+        equalizerJson[nameof(EqualizerEffect.Bands)] = new JsonArray((JsonNode?)null);
+
+        ToolResult<ApplyEditResponse> apply = tools.ApplyEdit(desired: desired, schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(apply.IsSuccess, Is.False);
+            Assert.That(apply.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(apply.Error.Target, Is.EqualTo("Bands[0]"));
+        });
+    }
+
     private static LinearGradientBrush CreateGradientBrush()
     {
         return new LinearGradientBrush

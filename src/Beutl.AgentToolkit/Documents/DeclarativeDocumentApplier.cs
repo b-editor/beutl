@@ -414,7 +414,7 @@ internal sealed class DeclarativeDocumentApplier
     {
         if (!IsIdentityArray(desired))
         {
-            ReplaceList(list, elementBaseType, desired);
+            ReplaceList(list, elementBaseType, fieldName, desired);
             return;
         }
 
@@ -580,18 +580,32 @@ internal sealed class DeclarativeDocumentApplier
         }
     }
 
-    private static void ReplaceList(IList list, Type elementBaseType, JsonArray desired)
+    private static void ReplaceList(IList list, Type elementBaseType, string fieldName, JsonArray desired)
     {
+        bool typedObjectList = typeof(ICoreSerializable).IsAssignableFrom(elementBaseType);
         list.Clear();
-        foreach (JsonNode? node in desired)
+        for (int index = 0; index < desired.Count; index++)
         {
+            JsonNode? node = desired[index];
+            if (typedObjectList && node is not JsonObject)
+            {
+                // A wholesale replacement of an object list must not insert a null or primitive member:
+                // the collection accepts it, then rendering/audio paths dereference the null element.
+                string entryPath = CreateIdentityListItemPath(fieldName, index);
+                throw new ReconcileException(new ToolError(
+                    ErrorCode.ValidationRejected,
+                    $"List entry at '{entryPath}' is not an object.",
+                    entryPath,
+                    "Each member of this object list must be a JSON object; remove null/primitive entries."));
+            }
+
             if (node is null)
             {
                 list.Add(null);
                 continue;
             }
 
-            object? item = node is JsonObject obj && typeof(ICoreSerializable).IsAssignableFrom(elementBaseType)
+            object? item = node is JsonObject obj && typedObjectList
                 ? CoreSerializer.DeserializeFromJsonObject(
                     NormalizeCoreSerializableJson(obj, elementBaseType),
                     elementBaseType,

@@ -1043,7 +1043,12 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 "Measure the object without elementId, or use the Element that directly contains the object."));
         }
 
-        if (selectedDrawable is not null && measurements.Count == 0 && !timeFiltered)
+        // A nested (flow/group) drawable exists in the scene but is never a direct element object, so
+        // the loop above measures nothing. Key the unsupported-nesting error on that fact rather than on
+        // timeFiltered — otherwise a time-filtered request silently returns an empty, successful result.
+        bool selectedDrawableIsDirectObject = selectedDrawable is not null
+            && scene.Children.Any(element => element.Objects.Contains(selectedDrawable));
+        if (selectedDrawable is not null && measurements.Count == 0 && !selectedDrawableIsDirectObject)
         {
             throw new ReconcileException(new ToolError(
                 ErrorCode.ValidationRejected,

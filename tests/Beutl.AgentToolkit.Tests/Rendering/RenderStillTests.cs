@@ -288,6 +288,21 @@ public sealed class RenderStillTests
         });
     }
 
+    [Test]
+    public void Contains_gpu_only_content_ignores_a_disabled_scene3d_object()
+    {
+        string dir = CreateWorkspace();
+        Scene enabled = CreateScene(dir, new Scene3D());
+        Scene disabled = CreateScene(dir, new Scene3D { IsEnabled = false });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(StillRenderer.ContainsGpuOnlyContent(enabled), Is.True);
+            // The renderer skips a disabled Scene3D, so it must not force the GPU-only requirement.
+            Assert.That(StillRenderer.ContainsGpuOnlyContent(disabled), Is.False);
+        });
+    }
+
     private static Scene CreateScene(string dir, EngineObject drawable)
     {
         var scene = new Scene(160, 90, "still")

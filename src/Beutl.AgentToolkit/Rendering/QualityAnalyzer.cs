@@ -559,11 +559,14 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         Element[] multiObjectElements = scene.Children
             .Where(element => element.IsEnabled && element.Objects.Count(obj => obj.IsEnabled) > 1)
             .ToArray();
+        // A disabled flow operator does not render, so it must not reclassify an element as a flow
+        // grouping and let it escape the non-flow structure gate; judge flow vs non-flow by enabled
+        // objects only.
         Element[] flowMultiObjectElements = multiObjectElements
-            .Where(element => element.Objects.Any(obj => obj is IFlowOperator))
+            .Where(element => element.Objects.Any(obj => obj.IsEnabled && obj is IFlowOperator))
             .ToArray();
         Element[] nonFlowMultiObjectElements = multiObjectElements
-            .Where(element => element.Objects.All(obj => obj is not IFlowOperator))
+            .Where(element => element.Objects.All(obj => !obj.IsEnabled || obj is not IFlowOperator))
             .ToArray();
 
         Element[] accidentalMultiObjectElements = allowMultiObjectElements

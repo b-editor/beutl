@@ -763,6 +763,25 @@ public sealed class RenderToolsStoryboardTests
     }
 
     [Test]
+    public void Resolve_sample_times_clamp_to_the_last_renderable_tick_not_the_exclusive_end()
+    {
+        var scene = new Scene(320, 180, "clamp-edge") { Duration = TimeSpan.FromSeconds(2) };
+
+        IReadOnlyList<TimeSpan> motion = RenderTools.ResolveSampleTimes(scene, [0.0, 2.0], sampleCount: 2);
+        IReadOnlyList<TimeSpan> quality = RenderTools.ResolveQualitySampleTimes(scene, [0.0, 999.0], sampleCount: 2);
+
+        Assert.Multiple(() =>
+        {
+            // A sample at exactly Duration renders no active elements (Range end is exclusive); both
+            // resolvers must pull it back to the last renderable tick instead.
+            Assert.That(motion[^1], Is.EqualTo(scene.Duration - TimeSpan.FromTicks(1)));
+            Assert.That(motion[^1], Is.LessThan(scene.Duration));
+            Assert.That(quality[^1], Is.EqualTo(scene.Duration - TimeSpan.FromTicks(1)));
+            Assert.That(quality[^1], Is.LessThan(scene.Duration));
+        });
+    }
+
+    [Test]
     public async Task Evaluate_edit_quality_rejects_times_that_all_clamp_to_a_single_sample()
     {
         string workspace = CreateWorkspace();

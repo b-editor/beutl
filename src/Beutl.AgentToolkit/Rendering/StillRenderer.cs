@@ -217,8 +217,33 @@ public sealed class StillRenderer
                 : scene.Duration <= TimeSpan.Zero
                   || (element.Start < windowEnd && element.Start + element.Length > windowStart))
             .SelectMany(element => element.Objects)
-            .Any(obj => obj is Scene3D
-                        || (obj is IHierarchical hierarchical && hierarchical.EnumerateAllChildren<Scene3D>().Any()));
+            .Any(ContainsEnabledGpuContent);
+    }
+
+    // The renderer skips a disabled object (EngineObject.IsEnabled) and everything under it, so a
+    // disabled Scene3D — or a Scene3D under a disabled group — must not force the GPU requirement.
+    // EnumerateAllChildren walks disabled subtrees, so recurse manually and prune them.
+    private static bool ContainsEnabledGpuContent(IHierarchical node)
+    {
+        if (node is EngineObject { IsEnabled: false })
+        {
+            return false;
+        }
+
+        if (node is Scene3D)
+        {
+            return true;
+        }
+
+        foreach (IHierarchical child in node.HierarchicalChildren)
+        {
+            if (ContainsEnabledGpuContent(child))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     internal static async ValueTask<bool> Has3DGraphicsContextAsync(CancellationToken cancellationToken)
