@@ -105,18 +105,24 @@ public static class PathBoundary
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
         {
-            // ResolveLinkTarget throws on a broken final target, permission-denied, or an
-            // unsupported filesystem. This runs in workspace-boundary and installer checks, so it
-            // must never propagate: fall back to the immediate link target, then the link path
-            // itself, so the caller still boundary-checks a concrete location instead of crashing.
-            try
+            // Reaching here means info IS a link (a non-link returns null without throwing) whose
+            // final target could not be followed — broken, permission-denied, or unsupported. Never
+            // propagate (this runs in workspace-boundary/installer checks) and never fall back to the
+            // link's own in-root path, which would fail OPEN and hide a symlink escape. Instead read
+            // the immediate link-target metadata (no filesystem walk) and boundary-check the REAL
+            // destination, resolving a relative target against the link's own directory.
+            string? immediateTarget = info.LinkTarget;
+            if (immediateTarget is null)
             {
-                return info.ResolveLinkTarget(returnFinalTarget: false);
+                return null;
             }
-            catch (Exception fallbackEx) when (fallbackEx is IOException or UnauthorizedAccessException or NotSupportedException)
-            {
-                return info;
-            }
+
+            string absoluteTarget = Path.IsPathRooted(immediateTarget)
+                ? Path.GetFullPath(immediateTarget)
+                : Path.GetFullPath(Path.Combine(Path.GetDirectoryName(info.FullName)!, immediateTarget));
+            return Directory.Exists(absoluteTarget)
+                ? new DirectoryInfo(absoluteTarget)
+                : new FileInfo(absoluteTarget);
         }
     }
 
