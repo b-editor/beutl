@@ -53,8 +53,12 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
 
         using MediaReader reader = OpenSourceReader(sourcePath);
 
-        if (!reader.HasVideo || reader.VideoInfo.NumFrames <= 0)
+        if (!reader.HasVideo)
             throw new ProxyGenerationSkippedException("Source has no video stream.");
+
+        long frameCount = ResolveFrameCount(reader.VideoInfo);
+        if (frameCount <= 0)
+            throw new ProxyGenerationSkippedException("Source has no decodable video frames.");
 
         PixelSize originalSize = reader.VideoInfo.FrameSize;
         if (originalSize.Width <= 0 || originalSize.Height <= 0)
@@ -71,7 +75,7 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
             if (File.Exists(tempPath))
                 File.Delete(tempPath);
 
-            using var frameProvider = new ReaderFrameProvider(reader, job.Progress);
+            using var frameProvider = new ReaderFrameProvider(reader, frameCount, job.Progress);
             using var sampleProvider = new SilentSampleProvider();
             var controller = new FFmpegEncodingControllerProxy(tempPath, new FFmpegEncodingSettings());
             Configure(controller, reader.VideoInfo, proxySize, job.Preset);
@@ -308,6 +312,18 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
     {
         FFmpegInstallNotifier.NotifyMissing();
         return new ProxyGeneratorUnavailableException(ex.Message);
+    }
+
+    // Some containers / variable-frame-rate media report nb_frames == 0 even though they decode
+    // video; derive the count from duration * frame rate so the encode loop (bounded by
+    // FrameProvider.FrameCount) does not produce an empty proxy.
+    internal static long ResolveFrameCount(VideoStreamInfo info)
+    {
+        long frameCount = info.NumFrames;
+        if (frameCount <= 0)
+            frameCount = (long)(info.Duration * info.FrameRate).ToDouble();
+
+        return frameCount;
     }
 
     internal static string CreateTempPathForOutput(string finalPath)
@@ -560,9 +576,10 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
 
     private sealed class ReaderFrameProvider(
         MediaReader reader,
+        long frameCount,
         IProgress<ProxyJobProgress>? progress) : IFrameProvider
     {
-        public long FrameCount => reader.VideoInfo.NumFrames;
+        public long FrameCount => frameCount;
 
         public Rational FrameRate => reader.VideoInfo.FrameRate;
 

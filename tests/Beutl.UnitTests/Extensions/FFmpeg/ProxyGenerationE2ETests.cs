@@ -2,6 +2,7 @@
 using System.Text.Json.Serialization;
 using Beutl.Extensions.FFmpeg.Proxy;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Proxy;
 using Beutl.UnitTests.Engine.Graphics.Rendering;
 
@@ -121,6 +122,28 @@ public sealed class ProxyGenerationE2ETests
         Assert.ThrowsAsync<ProxyGenerationSkippedException>(
             async () => await generator.GenerateAsync(job));
         Assert.That(store.Enumerate(), Is.Empty);
+    }
+
+    // A container/VFR source can report nb_frames == 0 (NumFrames) while still carrying a real
+    // duration; the encode loop is bounded by FrameCount, so the derived count must come from
+    // duration * frame rate rather than skipping the clip or encoding an empty proxy.
+    [Test]
+    public void ResolveFrameCount_ReportedZero_DerivesFromDurationAndFrameRate()
+    {
+        var info = new VideoStreamInfo("h264", 0L, new PixelSize(1920, 1080), new Rational(30, 1))
+        {
+            Duration = new Rational(10, 1), // 10 seconds
+        };
+
+        Assert.That(FFmpegProxyGenerator.ResolveFrameCount(info), Is.EqualTo(300));
+    }
+
+    [Test]
+    public void ResolveFrameCount_ReportedPositive_UsesReportedCount()
+    {
+        var info = new VideoStreamInfo("h264", 120L, new PixelSize(1920, 1080), new Rational(30, 1));
+
+        Assert.That(FFmpegProxyGenerator.ResolveFrameCount(info), Is.EqualTo(120));
     }
 
     [Test]
