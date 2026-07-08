@@ -1,4 +1,7 @@
-﻿using Beutl.Extensions.FFmpeg;
+﻿using System.Reflection;
+
+using Beutl.Extensibility;
+using Beutl.Extensions.FFmpeg;
 using Beutl.Extensions.FFmpeg.Decoding;
 using Beutl.Extensions.FFmpeg.Proxy;
 using Beutl.Media.Decoding;
@@ -10,6 +13,17 @@ namespace Beutl.UnitTests.Extensions.FFmpeg;
 [NonParallelizable]
 public sealed class FFmpegDecoderInfoTests
 {
+    // PackageManager.LoadExtension only instantiates [Export]-marked types, so without the attribute
+    // an external FFmpeg package registers decoders/encoders but never the proxy generator.
+    [Test]
+    public void FFmpegProxyExtension_IsExported()
+    {
+        Assert.That(
+            typeof(FFmpegProxyExtension).GetCustomAttribute<ExportAttribute>(),
+            Is.Not.Null,
+            "FFmpegProxyExtension must be [Export]-marked like the decoding/encoding extensions.");
+    }
+
     [Test]
     public void MarkMissing_ArmsReprobeCooldownBeforeNotifyingListeners()
     {
