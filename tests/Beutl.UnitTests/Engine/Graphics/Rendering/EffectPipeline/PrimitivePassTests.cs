@@ -61,8 +61,7 @@ public class PrimitivePassTests
     public void PixelSortChain_FlushSyncsEqualBackendTransitions()
     {
         var context = VulkanTestEnvironment.EnsureAvailable();
-        if (!context.Supports3DRendering)
-            Assert.Ignore("PixelSort requires a Vulkan compute-capable context (Supports3DRendering == false).");
+        VulkanTestEnvironment.RequireComputeCapable(context, "PixelSort");
 
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
@@ -180,8 +179,7 @@ public class PrimitivePassTests
     public void PixelSortChain_SteadyState_AllocatesNothingAfterWarmup()
     {
         var context = VulkanTestEnvironment.EnsureAvailable();
-        if (!context.Supports3DRendering)
-            Assert.Ignore("PixelSort requires a Vulkan compute-capable context (Supports3DRendering == false).");
+        VulkanTestEnvironment.RequireComputeCapable(context, "PixelSort");
 
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
@@ -236,8 +234,8 @@ public class PrimitivePassTests
     public void NewPass_AllocationFailure_PreviewDropsDeliveryThrows(string kind)
     {
         var context = VulkanTestEnvironment.EnsureAvailable();
-        if (kind == "Compute" && !context.Supports3DRendering)
-            Assert.Ignore("Compute allocation-failure gate requires a Vulkan compute-capable context.");
+        if (kind == "Compute")
+            VulkanTestEnvironment.RequireComputeCapable(context, "Compute allocation-failure gate");
 
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
@@ -313,8 +311,7 @@ public class PrimitivePassTests
     public void Compute_OutputAllocationFailure_PreviewDropsDeliveryThrows()
     {
         var context = VulkanTestEnvironment.EnsureAvailable();
-        if (!context.Supports3DRendering)
-            Assert.Ignore("Compute output-failure gate requires a Vulkan compute-capable context.");
+        VulkanTestEnvironment.RequireComputeCapable(context, "Compute output-failure gate");
 
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
@@ -346,8 +343,7 @@ public class PrimitivePassTests
     public void Compute_ScratchAllocationFailure_PreviewDropsDeliveryThrows()
     {
         var context = VulkanTestEnvironment.EnsureAvailable();
-        if (!context.Supports3DRendering)
-            Assert.Ignore("Compute scratch-failure gate requires a Vulkan compute-capable context.");
+        VulkanTestEnvironment.RequireComputeCapable(context, "Compute scratch-failure gate");
 
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {

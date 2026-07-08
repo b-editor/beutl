@@ -157,10 +157,8 @@ public class EffectReferenceFreezeTests
     private static void Freeze(string name, Func<Drawable.Resource> makeResource, bool requiresCompute)
     {
         var context = VulkanTestEnvironment.EnsureAvailable();
-        if (requiresCompute && !context.Supports3DRendering)
-        {
-            Assert.Ignore($"{name}: requires a Vulkan compute-capable context (Supports3DRendering == false).");
-        }
+        if (requiresCompute)
+            VulkanTestEnvironment.RequireComputeCapable(context, name);
 
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
