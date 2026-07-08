@@ -776,16 +776,18 @@ internal static class PlanExecutor
         if (current.Count == 0)
             return;
 
+        // The composite target density is the boundary working scale clamped to the union, NOT CarriedWorkingScale's
+        // min over the inputs: each branch is redrawn into a fresh boundary-density buffer, so folding to the lowest
+        // input density would permanently downsample a higher-density fan-in layer (a 003 FR-019 mixed-density scene).
+        // The min-carry belongs only where an op's own pixels are re-materialized (single-op passes, split branches).
         Rect union = default;
-        float carried = workingScale;
         for (int i = 0; i < current.Count; i++)
         {
             Point offset = i < pass.InputOffsets.Length ? pass.InputOffsets[i] : default;
             union = union.Union(current[i].Bounds.Translate(offset));
-            carried = CarriedWorkingScale(current[i], carried);
         }
 
-        float w = RenderNodeContext.ClampWorkingScaleToBufferBudget(union, carried);
+        float w = RenderNodeContext.ClampWorkingScaleToBufferBudget(union, workingScale);
         (int bw, int bh) = RenderNodeContext.DeviceBufferSize(union, w);
         if (bw <= 0 || bh <= 0)
         {
