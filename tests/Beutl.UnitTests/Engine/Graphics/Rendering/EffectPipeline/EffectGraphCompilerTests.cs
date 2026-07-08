@@ -1,6 +1,7 @@
 ﻿using System.Collections.Immutable;
 using Beutl.Composition;
 using Beutl.Graphics;
+using Beutl.Graphics.Backend;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
@@ -495,6 +496,124 @@ half4 apply(half4 c) {
             Assert.That(outputs, Has.Length.EqualTo(1));
             Assert.That(outputs[0].EffectiveScale.Value, Is.EqualTo(carried).Within(1e-4f),
                 "the invariant fused pass executes at the carried clamped density, not the boundary working scale (1.0)");
+        }
+        finally
+        {
+            RenderNodeOperation.DisposeAll(outputs);
+        }
+    }
+
+    // B2 (FR-012/C3.2): once an upstream pass clamps w down, no downstream materializing/fan-out pass may raise it
+    // again. The carried ceiling is the incoming op's own EffectiveScale (its pixels only exist at that density). A
+    // maxDimension=50 resolve clamps the leading invariant pass to w=0.5; the executor's per-op re-clamps run at the
+    // default budget (no local clamp on a 100-px op), so pre-fix they re-raise the input density back to the
+    // boundary 1.0. Each test observes the density at the materialization boundary and asserts it stays 0.5.
+
+    [Test]
+    public void Execute_GeometryInputMaterialization_UsesCarriedClampedWorkingScale()
+    {
+        var bounds = new Rect(0, 0, 100, 100);
+        float observed = -1f;
+        var probe = GeometryNodeDescriptor.Create(
+            session => observed = session.Inputs[0].Density.Value,
+            BoundsContract.Identity, structuralToken: "b2-geometry-probe");
+        CompiledPlan plan = Compile(NewBuilder(bounds).Shader(Scale(1f)).Geometry(probe));
+
+        FrameResources res = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale: 1f, maxDimension: 50);
+        float carried = res.Passes[1].WorkingScale;
+        Assert.That(carried, Is.EqualTo(0.5f).Within(1e-4f), "sanity: maxDimension 50 clamps the chain to w=0.5");
+
+        RenderNodeOperation.DisposeAll(PlanExecutor.Execute(
+            plan, res, [MakeInput(bounds)], outputScale: 1f, workingScale: 1f,
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null));
+
+        Assert.That(observed, Is.EqualTo(carried).Within(1e-4f),
+            "the geometry input materializes at the carried clamped density, not the boundary working scale (1.0)");
+    }
+
+    [Test]
+    public void Execute_ComputeCpuFallbackInputMaterialization_UsesCarriedClampedWorkingScale()
+    {
+        if (GraphicsContextFactory.SharedContext is { Supports3DRendering: true })
+        {
+            Assert.Ignore("A live Vulkan context routes compute to the GPU path; this test exercises the CPU fallback carry.");
+        }
+
+        var bounds = new Rect(0, 0, 100, 100);
+        float observed = -1f;
+        var probe = ComputeNodeDescriptor.Create(
+            dispatch: static _ => { }, passCount: 1, ComputeFallback.CpuCallback,
+            cpuCallback: session => observed = session.Inputs[0].Density.Value, structuralToken: "b2-compute-probe");
+        CompiledPlan plan = Compile(NewBuilder(bounds).Shader(Scale(1f)).Compute(probe));
+
+        FrameResources res = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale: 1f, maxDimension: 50);
+        float carried = res.Passes[1].WorkingScale;
+        Assert.That(carried, Is.EqualTo(0.5f).Within(1e-4f), "sanity: maxDimension 50 clamps the chain to w=0.5");
+
+        RenderNodeOperation.DisposeAll(PlanExecutor.Execute(
+            plan, res, [MakeInput(bounds)], outputScale: 1f, workingScale: 1f,
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null));
+
+        Assert.That(observed, Is.EqualTo(carried).Within(1e-4f),
+            "the compute CPU-fallback input materializes at the carried clamped density, not the boundary working scale (1.0)");
+    }
+
+    [Test]
+    public void Execute_SplitInputMaterialization_UsesCarriedClampedWorkingScale()
+    {
+        var bounds = new Rect(0, 0, 100, 100);
+        float observed = -1f;
+        var split = SplitNodeDescriptor.Static(
+            emitter =>
+            {
+                observed = emitter.Input.Density.Value;
+                emitter.Emit(bounds, static _ => { });
+            },
+            branchCount: 1, structuralToken: "b2-split-probe");
+        CompiledPlan plan = Compile(NewBuilder(bounds).Shader(Scale(1f)).Split(split));
+
+        FrameResources res = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale: 1f, maxDimension: 50);
+        float carried = res.Passes[0].WorkingScale;
+        Assert.That(carried, Is.EqualTo(0.5f).Within(1e-4f), "sanity: maxDimension 50 clamps the chain to w=0.5");
+
+        RenderNodeOperation.DisposeAll(PlanExecutor.Execute(
+            plan, res, [MakeInput(bounds)], outputScale: 1f, workingScale: 1f,
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null));
+
+        Assert.That(observed, Is.EqualTo(carried).Within(1e-4f),
+            "the split input materializes at the carried clamped density, not the boundary working scale (1.0)");
+    }
+
+    // Fused-after-split: a fan-out invariant pass (current.Count > 1) sizes each branch by a local re-clamp, not the
+    // resolver's per-pass carry. With two branches carrying w=0.5, the fused pass must keep 0.5, not re-raise to 1.0.
+    [Test]
+    public void Execute_FusedPassAfterSplit_UsesCarriedClampedWorkingScale()
+    {
+        var bounds = new Rect(0, 0, 100, 100);
+        var split = SplitNodeDescriptor.Static(
+            emitter =>
+            {
+                emitter.Emit(bounds, static _ => { });
+                emitter.Emit(bounds, static _ => { });
+            },
+            branchCount: 2, structuralToken: "b2-fanout-probe");
+        CompiledPlan plan = Compile(NewBuilder(bounds).Shader(Scale(1f)).Split(split).Shader(Scale(1f)));
+
+        FrameResources res = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale: 1f, maxDimension: 50);
+        Assert.That(res.Passes[0].WorkingScale, Is.EqualTo(0.5f).Within(1e-4f),
+            "sanity: maxDimension 50 clamps the chain to w=0.5");
+
+        RenderNodeOperation[] outputs = PlanExecutor.Execute(
+            plan, res, [MakeInput(bounds)], outputScale: 1f, workingScale: 1f,
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null);
+        try
+        {
+            Assert.That(outputs, Has.Length.EqualTo(2), "the two split branches survive the fused pass");
+            foreach (RenderNodeOperation output in outputs)
+            {
+                Assert.That(output.EffectiveScale.Value, Is.EqualTo(0.5f).Within(1e-4f),
+                    "the fan-out fused pass executes each branch at the carried clamped density, not the boundary 1.0");
+            }
         }
         finally
         {

@@ -220,7 +220,7 @@ internal static class PlanExecutor
             outBounds = op.Bounds;
             w = linear
                 ? resolution.WorkingScale
-                : RenderNodeContext.ClampWorkingScaleToBufferBudget(outBounds, workingScale);
+                : RenderNodeContext.ClampWorkingScaleToBufferBudget(outBounds, CarriedWorkingScale(op, workingScale));
             (width, height) = RenderNodeContext.DeviceBufferSize(outBounds, w);
             skip = width <= 0 || height <= 0;
         }
@@ -231,7 +231,7 @@ internal static class PlanExecutor
             // OutputBounds was computed before the split and is wrong for a branch (review B1).
             Rect forward = pass.ForwardBounds(op.Bounds);
             outBounds = forward.IsInvalid ? op.Bounds : forward;
-            w = RenderNodeContext.ClampWorkingScaleToBufferBudget(outBounds, workingScale);
+            w = RenderNodeContext.ClampWorkingScaleToBufferBudget(outBounds, CarriedWorkingScale(op, workingScale));
             (width, height) = RenderNodeContext.DeviceBufferSize(outBounds, w);
             skip = width <= 0 || height <= 0;
         }
@@ -255,7 +255,7 @@ internal static class PlanExecutor
             // over nothing is nothing: pass the already-empty op through. When the input is non-empty but the pass's
             // resolved OUTPUT is empty (a shrinking pass, e.g. a fully-closed Clipping), the pass legitimately
             // produces nothing — drop the input rather than leaking it downstream (legacy Apply removed the target).
-            float inW = RenderNodeContext.ClampWorkingScaleToBufferBudget(op.Bounds, workingScale);
+            float inW = RenderNodeContext.ClampWorkingScaleToBufferBudget(op.Bounds, CarriedWorkingScale(op, workingScale));
             (int inBw, int inBh) = RenderNodeContext.DeviceBufferSize(op.Bounds, inW);
             if (inBw <= 0 || inBh <= 0)
                 return op;
@@ -328,6 +328,13 @@ internal static class PlanExecutor
         s_logger.LogWarning("{Message} Preview drops this pass output.", message);
         return null;
     }
+
+    // The density ceiling an operation carries into a downstream re-clamp/materialization (FR-012/C3.2): its pixels
+    // only exist at its own EffectiveScale, so a clamped-down upstream op must never be re-materialized above that —
+    // the boundary working scale alone would re-raise the density an upstream pass already reduced. A vector
+    // (Unbounded) op re-rasterizes at any density, so it takes the full boundary working scale.
+    private static float CarriedWorkingScale(RenderNodeOperation op, float workingScale)
+        => op.EffectiveScale.IsUnbounded ? workingScale : MathF.Min(workingScale, op.EffectiveScale.Value);
 
     private static void ExecuteFused(
         FusedShaderPass pass, RenderTarget target, float w, Rect outBounds,
@@ -527,7 +534,7 @@ internal static class PlanExecutor
         float outputScale, float workingScale, float maxWorkingScale, PipelineDiagnostics? diagnostics,
         RenderTargetPool? pool)
     {
-        float inW = RenderNodeContext.ClampWorkingScaleToBufferBudget(op.Bounds, workingScale);
+        float inW = RenderNodeContext.ClampWorkingScaleToBufferBudget(op.Bounds, CarriedWorkingScale(op, workingScale));
         (int inBw, int inBh) = RenderNodeContext.DeviceBufferSize(op.Bounds, inW);
         if (inBw <= 0 || inBh <= 0)
             return op;
@@ -581,7 +588,7 @@ internal static class PlanExecutor
                 pass, width, height, w, outBounds, op, outputScale, workingScale, maxWorkingScale, diagnostics, pool);
         }
 
-        float inW = RenderNodeContext.ClampWorkingScaleToBufferBudget(op.Bounds, workingScale);
+        float inW = RenderNodeContext.ClampWorkingScaleToBufferBudget(op.Bounds, CarriedWorkingScale(op, workingScale));
         (int inBw, int inBh) = RenderNodeContext.DeviceBufferSize(op.Bounds, inW);
         if (inBw <= 0 || inBh <= 0)
             return op;
@@ -658,7 +665,7 @@ internal static class PlanExecutor
         if (pass.CpuCallback is not { } cpu)
             return op;
 
-        float inW = RenderNodeContext.ClampWorkingScaleToBufferBudget(op.Bounds, workingScale);
+        float inW = RenderNodeContext.ClampWorkingScaleToBufferBudget(op.Bounds, CarriedWorkingScale(op, workingScale));
         (int inBw, int inBh) = RenderNodeContext.DeviceBufferSize(op.Bounds, inW);
         if (inBw <= 0 || inBh <= 0)
             return op;
@@ -720,7 +727,7 @@ internal static class PlanExecutor
                 RenderNodeOperation op = current[i];
                 current[i] = null!;
 
-                float inW = RenderNodeContext.ClampWorkingScaleToBufferBudget(op.Bounds, workingScale);
+                float inW = RenderNodeContext.ClampWorkingScaleToBufferBudget(op.Bounds, CarriedWorkingScale(op, workingScale));
                 (int bw, int bh) = RenderNodeContext.DeviceBufferSize(op.Bounds, inW);
                 if (bw <= 0 || bh <= 0)
                 {
@@ -770,13 +777,15 @@ internal static class PlanExecutor
             return;
 
         Rect union = default;
+        float carried = workingScale;
         for (int i = 0; i < current.Count; i++)
         {
             Point offset = i < pass.InputOffsets.Length ? pass.InputOffsets[i] : default;
             union = union.Union(current[i].Bounds.Translate(offset));
+            carried = CarriedWorkingScale(current[i], carried);
         }
 
-        float w = RenderNodeContext.ClampWorkingScaleToBufferBudget(union, workingScale);
+        float w = RenderNodeContext.ClampWorkingScaleToBufferBudget(union, carried);
         (int bw, int bh) = RenderNodeContext.DeviceBufferSize(union, w);
         if (bw <= 0 || bh <= 0)
         {
