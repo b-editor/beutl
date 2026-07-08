@@ -68,7 +68,9 @@ public sealed class FFmpegDecoderInfoTests
             var generator = new FFmpegProxyGenerator(store);
             string source = Path.Combine(root, "clip.mp4");
             File.WriteAllBytes(source, new byte[64]);
-            var job = new ProxyJob(new ProxyFingerprint(source, 64, DateTime.UtcNow), ProxyPreset.Quarter);
+            // Fingerprint from the file itself so it matches the generator's pre-encode re-stat;
+            // a synthetic mtime would trip the source-changed skip before the missing-FFmpeg path.
+            var job = new ProxyJob(ProxyFingerprint.FromFile(source), ProxyPreset.Quarter);
 
             try
             {
