@@ -74,6 +74,37 @@ public sealed partial class ElementView : UserControl
         return x;
     }
 
+    internal static double CalculateLeftResizeX(
+        double pointerX,
+        double? beforeEndX,
+        double? rippleFloorX,
+        bool ripple)
+    {
+        if (beforeEndX is null) return pointerX;
+
+        double floor = ripple && rippleFloorX is { } f ? f : beforeEndX.Value;
+        return Math.Max(floor, pointerX);
+    }
+
+    // Smallest Start among same-layer elements that end at or before the target's start —
+    // the set ripple pushes left. Its Start hitting 0 bounds how far the left edge can grow.
+    private static TimeSpan? GetLeftmostUpstreamStart(Scene scene, Element element)
+    {
+        TimeSpan? leftmost = null;
+        foreach (Element other in scene.Children)
+        {
+            if (other != element && other.ZIndex == element.ZIndex && other.Range.End <= element.Start)
+            {
+                if (leftmost is not { } cur || other.Start < cur)
+                {
+                    leftmost = other.Start;
+                }
+            }
+        }
+
+        return leftmost;
+    }
+
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
@@ -297,7 +328,9 @@ public sealed partial class ElementView : UserControl
             ElementViewModel ViewModel,
             Element? Before,
             Element? After,
+            TimeSpan RecordedStartTime,
             TimeSpan RecordedEndTime,
+            TimeSpan? LeftmostUpstreamStart,
             TimeSpan? OriginalDuration);
 
         private bool _pressed;
@@ -373,7 +406,14 @@ public sealed partial class ElementView : UserControl
                             else if (_resizeType == AlignmentX.Left && pointerFrame >= TimeSpan.Zero)
                             {
                                 // 左
-                                double x = ctx.Before == null ? point.X : Math.Max(ctx.Before.Range.End.TimeToPixel(scale), point.X);
+                                double? rippleFloorX = ctx.LeftmostUpstreamStart is { } upstreamStart
+                                    ? (ctx.RecordedStartTime - upstreamStart).TimeToPixel(scale)
+                                    : null;
+                                double x = CalculateLeftResizeX(
+                                    point.X,
+                                    ctx.Before?.Range.End.TimeToPixel(scale),
+                                    rippleFloorX,
+                                    viewModel.Timeline.IsRippleEnabled.Value);
 
                                 double endPos = ctx.RecordedEndTime.TimeToPixel(scale);
 
@@ -447,7 +487,9 @@ public sealed partial class ElementView : UserControl
                             ViewModel: elem,
                             Before: elem.Model.GetBefore(elem.Model.ZIndex, elem.Model.Start),
                             After: elem.Model.GetAfter(elem.Model.ZIndex, elem.Model.Range.End),
+                            RecordedStartTime: elem.Model.Start,
                             RecordedEndTime: elem.Model.Range.End,
+                            LeftmostUpstreamStart: GetLeftmostUpstreamStart(viewModel.Scene, elem.Model),
                             OriginalDuration: originalDuration);
                     }).ToArray();
 
@@ -468,7 +510,8 @@ public sealed partial class ElementView : UserControl
                     viewModel.Timeline.SnapBarPosition.Value = null;
                     e.Handled = true;
 
-                    bool ripple = viewModel.Timeline.IsRippleEnabled.Value && _resizeType == AlignmentX.Right;
+                    bool ripple = viewModel.Timeline.IsRippleEnabled.Value
+                        && _resizeType is AlignmentX.Right or AlignmentX.Left;
 
                     if (_resizeContexts.Length == 1)
                     {

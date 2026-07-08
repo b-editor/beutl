@@ -191,7 +191,10 @@
                                            Text="{x:Static lang:Strings.SetEndTime}" />
                         <ui:ToggleMenuFlyoutItem IsChecked="{Binding AutoAdjustSceneDuration.Value, Mode=TwoWay}" Text="{x:Static lang:SettingsStrings.AutoAdjustSceneDuration}" />
                         <ui:ToggleMenuFlyoutItem IsChecked="{Binding IsSnapEnabled.Value, Mode=TwoWay}" Text="{x:Static lang:Strings.TimelineSnap}" />
-                        <ui:ToggleMenuFlyoutItem IsChecked="{CompiledBinding IsRippleEnabled.Value, Mode=TwoWay}" Text="{x:Static lang:Strings.RippleEdit}" />
+                        <ui:ToggleMenuFlyoutItem IsChecked="{CompiledBinding IsRippleEnabled.Value, Mode=TwoWay}"
+                                                 InputGesture="{h:GetCommandGesture ToggleRippleMode,
+                                                                                    ExtensionType={x:Type p:TimelineTabExtension}}"
+                                                 Text="{x:Static lang:Strings.RippleEdit}" />
                         <ui:MenuFlyoutSeparator />
                         <ui:MenuFlyoutItem Click="ShowSceneSettings" Text="{x:Static lang:Strings.Settings}">
                             <ui:MenuFlyoutItem.IconSource>

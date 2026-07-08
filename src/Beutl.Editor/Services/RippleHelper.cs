@@ -25,6 +25,25 @@ internal static class RippleHelper
         }
     }
 
+    public static void ShiftBefore(
+        Scene scene,
+        int zIndex,
+        TimeSpan anchorStart,
+        TimeSpan delta,
+        IReadOnlyCollection<Element> except)
+    {
+        if (delta == TimeSpan.Zero) return;
+
+        Element[] toShift = scene.Children
+            .Where(e => e.ZIndex == zIndex && !except.Contains(e) && e.Range.End <= anchorStart)
+            .ToArray();
+
+        foreach (Element e in toShift)
+        {
+            e.Start += delta;
+        }
+    }
+
     // removed carries each removed element's pre-removal (ZIndex, End, Length),
     // because Scene.RemoveChild mutates Element.ZIndex to -1.
     // OrderByDescending(End) is load-bearing: processing right-to-left keeps

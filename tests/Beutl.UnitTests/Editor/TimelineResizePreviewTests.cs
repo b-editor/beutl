@@ -43,4 +43,52 @@ public class TimelineResizePreviewTests
 
         Assert.That(x, Is.EqualTo(50));
     }
+
+    [Test]
+    public void CalculateLeftResizeX_RippleOff_ClampsToBeforeElement()
+    {
+        double x = ElementView.CalculateLeftResizeX(
+            pointerX: 10,
+            beforeEndX: 40,
+            rippleFloorX: 0,
+            ripple: false);
+
+        Assert.That(x, Is.EqualTo(40));
+    }
+
+    [Test]
+    public void CalculateLeftResizeX_RippleOn_AllowsPastBeforeDownToFloor()
+    {
+        double x = ElementView.CalculateLeftResizeX(
+            pointerX: 10,
+            beforeEndX: 40,
+            rippleFloorX: 0,
+            ripple: true);
+
+        Assert.That(x, Is.EqualTo(10));
+    }
+
+    [Test]
+    public void CalculateLeftResizeX_RippleOn_ClampsToFloor()
+    {
+        double x = ElementView.CalculateLeftResizeX(
+            pointerX: -20,
+            beforeEndX: 40,
+            rippleFloorX: 0,
+            ripple: true);
+
+        Assert.That(x, Is.EqualTo(0));
+    }
+
+    [Test]
+    public void CalculateLeftResizeX_NoBeforeElement_ReturnsPointer()
+    {
+        double x = ElementView.CalculateLeftResizeX(
+            pointerX: 15,
+            beforeEndX: null,
+            rippleFloorX: null,
+            ripple: true);
+
+        Assert.That(x, Is.EqualTo(15));
+    }
 }

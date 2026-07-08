@@ -20,13 +20,13 @@ public sealed class ElementResizeService : IElementResizeService
         if (requests.Count == 0) return;
 
         bool autoAdjustSceneDuration = ripple && GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration;
-        var oldEnds = ripple ? new Dictionary<Element, (int ZIndex, TimeSpan End)>(requests.Count) : null;
+        var oldBounds = ripple ? new Dictionary<Element, (int ZIndex, TimeSpan Start, TimeSpan End)>(requests.Count) : null;
         if (ripple)
         {
             foreach (ElementResizeRequest req in requests)
             {
                 ValidateRippleRequest(req);
-                oldEnds![req.Element] = (req.Element.ZIndex, req.Element.Range.End);
+                oldBounds![req.Element] = (req.Element.ZIndex, req.Element.Start, req.Element.Range.End);
             }
         }
 
@@ -54,12 +54,16 @@ public sealed class ElementResizeService : IElementResizeService
             Element[] resized = requests.Select(r => r.Element).ToArray();
             foreach (ElementResizeRequest req in requests)
             {
-                (int oldZ, TimeSpan oldEnd) = oldEnds![req.Element];
+                (int oldZ, TimeSpan oldStart, TimeSpan oldEnd) = oldBounds![req.Element];
                 if (req.Element.ZIndex != oldZ) continue;
 
-                TimeSpan newEnd = req.Element.Range.End;
-                TimeSpan delta = newEnd - oldEnd;
-                RippleHelper.ShiftAfter(scene, oldZ, oldEnd, delta, resized);
+                // Both run: a pure right-edge resize has startDelta == 0, a pure left-edge
+                // resize has endDelta == 0, so each ShiftX no-ops on the untouched edge.
+                TimeSpan endDelta = req.Element.Range.End - oldEnd;
+                RippleHelper.ShiftAfter(scene, oldZ, oldEnd, endDelta, resized);
+
+                TimeSpan startDelta = req.Element.Start - oldStart;
+                RippleHelper.ShiftBefore(scene, oldZ, oldStart, startDelta, resized);
             }
 
             if (autoAdjustSceneDuration)
