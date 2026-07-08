@@ -139,7 +139,7 @@ public class IpcProviderContractTests
     // provider's frame-validation guards with specific Width/Height/DataLength values.
     private static Task RunMalformedFrameHost(
         NamedPipeServerStream server, int width, int height, int dataLength, CancellationToken ct,
-        int bytesPerPixel = RgbaF16BytesPerPixel)
+        int bytesPerPixel = RgbaF16BytesPerPixel, int colorType = -1)
     {
         return Task.Run(async () =>
         {
@@ -156,6 +156,7 @@ public class IpcProviderContractTests
                     BytesPerPixel = bytesPerPixel,
                     DataLength = dataLength,
                     Premul = false,
+                    ColorType = colorType,
                 });
                 await MessageSerializer.WriteMessageAsync(server, resp, ct);
             }
@@ -372,6 +373,38 @@ public class IpcProviderContractTests
                 Assert.That(bitmap.ColorSpace, Is.EqualTo(BitmapColorSpace.Srgb));
                 Assert.That(bitmap.BytesPerPixel, Is.EqualTo(Bgra8888BytesPerPixel));
                 Assert.That(bitmap.ByteCount, Is.EqualTo(Bgra8888BytesPerPixel));
+            });
+        }
+        finally
+        {
+            await StopHost(hostCts, server, hostTask);
+            DisposeBuffers(buffers);
+        }
+    }
+
+    // Two 8-byte formats share the same byte width; an explicit color type must be honored so an
+    // integer Rgba16161616 frame is not rebuilt as half-float RgbaF16 (which would corrupt colors).
+    [Test]
+    public async Task RenderFrame_WhenWorkerReportsExplicitColorType_UsesItOverByteWidth()
+    {
+        var (server, client) = ConnectPair();
+        var buffers = CreateBuffers();
+        var hostCts = new CancellationTokenSource();
+        var hostTask = RunMalformedFrameHost(
+            server, width: 1, height: 1, dataLength: RgbaF16BytesPerPixel, ct: hostCts.Token,
+            bytesPerPixel: RgbaF16BytesPerPixel, colorType: (int)BitmapColorType.Rgba16161616);
+
+        using var conn = new IpcConnection(client);
+        var provider = new IpcFrameProvider(conn, buffers, frameCount: 1, frameRate: new Rational(30, 1));
+
+        try
+        {
+            using Bitmap bitmap = await provider.RenderFrame(0);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(bitmap.ColorType, Is.EqualTo(BitmapColorType.Rgba16161616));
+                Assert.That(bitmap.ColorSpace, Is.EqualTo(BitmapColorSpace.Srgb));
             });
         }
         finally

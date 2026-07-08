@@ -179,6 +179,40 @@ public class ProxySourceEnumeratorTests
     }
 
     [Test]
+    public void EnumerateVideoSources_RecursesIntoFilterEffectPresenterTarget()
+    {
+        var node = new VideoSourceNode();
+        node.Source.Property!.SetValue(CreateVideoSource("presented-fx.mov"));
+        var graphEffect = new NodeGraphFilterEffect();
+        graphEffect.Model.CurrentValue!.Nodes.Add(node);
+        var presenter = new FilterEffectPresenter();
+        presenter.Target.CurrentValue = graphEffect;
+
+        var drawable = new SourceVideo();
+        ((FilterEffectGroup)drawable.FilterEffect.CurrentValue!).Children.Add(presenter);
+        Element element = ElementWith(drawable);
+
+        Assert.That(FileNames(element), Does.Contain("presented-fx.mov"));
+    }
+
+    [Test]
+    public void EnumerateVideoSources_RecursesIntoDelayAnimationEffectChild()
+    {
+        var node = new VideoSourceNode();
+        node.Source.Property!.SetValue(CreateVideoSource("delayed-fx.mov"));
+        var graphEffect = new NodeGraphFilterEffect();
+        graphEffect.Model.CurrentValue!.Nodes.Add(node);
+        var delay = new DelayAnimationEffect();
+        ((FilterEffectGroup)delay.Effect.CurrentValue!).Children.Add(graphEffect);
+
+        var drawable = new SourceVideo();
+        ((FilterEffectGroup)drawable.FilterEffect.CurrentValue!).Children.Add(delay);
+        Element element = ElementWith(drawable);
+
+        Assert.That(FileNames(element), Does.Contain("delayed-fx.mov"));
+    }
+
+    [Test]
     public void EnumerateVideoSources_RecursesIntoGroupNodeSubgraph()
     {
         var node = new VideoSourceNode();

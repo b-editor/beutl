@@ -134,7 +134,10 @@ public static class ProxySourceEnumerator
             // A VideoSourceNode / ImageSourceNode can live inside a NodeGraphFilterEffect on any
             // drawable's filter chain; the render path evaluates those, so scan them too.
             foreach (IFileSource source in EnumerateFilterEffectGraphSources(
-                drawable.FilterEffect.CurrentValue, visitedFilterEffectGroups, visitedGraphGroups))
+                drawable.FilterEffect.CurrentValue,
+                visitedFilterEffectGroups,
+                visitedGraphGroups,
+                new HashSet<FilterEffect>(ReferenceEqualityComparer.Instance)))
                 yield return source;
 
             switch (drawable)
@@ -304,20 +307,48 @@ public static class ProxySourceEnumerator
     private static IEnumerable<IFileSource> EnumerateFilterEffectGraphSources(
         FilterEffect? effect,
         HashSet<FilterEffectGroup> visitedFilterEffectGroups,
-        HashSet<GraphGroup> visitedGraphGroups)
+        HashSet<GraphGroup> visitedGraphGroups,
+        HashSet<FilterEffect> visitedFilterEffects)
     {
-        if (effect is FilterEffectGroup group && visitedFilterEffectGroups.Add(group))
+        // Presenter/delay targets are reference properties, so a filter chain is user-cyclable;
+        // the visited set makes the recursion terminate.
+        if (effect is null || !visitedFilterEffects.Add(effect))
+            yield break;
+
+        switch (effect)
         {
-            foreach (FilterEffect child in group.Children)
-            {
-                foreach (IFileSource source in EnumerateFilterEffectGraphSources(child, visitedFilterEffectGroups, visitedGraphGroups))
+            case FilterEffectGroup group when visitedFilterEffectGroups.Add(group):
+                foreach (FilterEffect child in group.Children)
+                {
+                    foreach (IFileSource source in EnumerateFilterEffectGraphSources(
+                        child, visitedFilterEffectGroups, visitedGraphGroups, visitedFilterEffects))
+                        yield return source;
+                }
+
+                break;
+
+            case NodeGraphFilterEffect { Model.CurrentValue: { } model }:
+                foreach (IFileSource source in EnumerateGraphSources(model, visitedGraphGroups))
                     yield return source;
-            }
-        }
-        else if (effect is NodeGraphFilterEffect { Model.CurrentValue: { } model })
-        {
-            foreach (IFileSource source in EnumerateGraphSources(model, visitedGraphGroups))
-                yield return source;
+
+                break;
+
+            // FilterEffectPresenter and DelayAnimationEffect render a nested filter effect the
+            // property walk cannot reach, so a NodeGraphFilterEffect source inside them would be
+            // invisible to the Proxies tab, cache invalidation, and export preflight.
+            case FilterEffectPresenter { Target.CurrentValue: { } presented }:
+                foreach (IFileSource source in EnumerateFilterEffectGraphSources(
+                    presented, visitedFilterEffectGroups, visitedGraphGroups, visitedFilterEffects))
+                    yield return source;
+
+                break;
+
+            case DelayAnimationEffect { Effect.CurrentValue: { } delayed }:
+                foreach (IFileSource source in EnumerateFilterEffectGraphSources(
+                    delayed, visitedFilterEffectGroups, visitedGraphGroups, visitedFilterEffects))
+                    yield return source;
+
+                break;
         }
     }
 

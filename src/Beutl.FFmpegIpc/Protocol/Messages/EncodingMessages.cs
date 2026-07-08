@@ -67,6 +67,11 @@ public sealed class ProvideFrameMessage
     public int BytesPerPixel { get; set; }
     public int DataLength { get; set; }
     public bool Premul { get; set; }
+
+    // The frame's BitmapColorType as an int; -1 means unset. BytesPerPixel alone cannot distinguish
+    // two 8-byte formats (half-float RgbaF16 vs integer Rgba16161616), so an explicit color type is
+    // required to reconstruct the bitmap without reinterpreting integer channels as floats.
+    public int ColorType { get; set; } = -1;
 }
 
 public sealed class RequestSampleMessage

@@ -140,6 +140,15 @@ internal sealed class IpcFrameProvider : IFrameProvider
     private static (BitmapColorType ColorType, BitmapColorSpace ColorSpace, int BytesPerPixel) GetFrameFormat(
         ProvideFrameMessage frameInfo)
     {
+        // An explicit color type disambiguates two frames of the same byte width (e.g. half-float
+        // RgbaF16 vs integer Rgba16161616 at 8 bytes). Without it, fall back to inferring from the
+        // byte width (older peers that do not send a color type).
+        if (frameInfo.ColorType >= 0 && Enum.IsDefined((BitmapColorType)frameInfo.ColorType))
+        {
+            var colorType = (BitmapColorType)frameInfo.ColorType;
+            return (colorType, ColorSpaceFor(colorType), frameInfo.BytesPerPixel);
+        }
+
         return frameInfo.BytesPerPixel switch
         {
             Bgra8888BytesPerPixel => (BitmapColorType.Bgra8888, BitmapColorSpace.Srgb, Bgra8888BytesPerPixel),
@@ -147,6 +156,16 @@ internal sealed class IpcFrameProvider : IFrameProvider
             _ => throw new InvalidOperationException(
                 $"Unsupported frame BytesPerPixel {frameInfo.BytesPerPixel}."),
         };
+    }
+
+    private static BitmapColorSpace ColorSpaceFor(BitmapColorType colorType)
+    {
+        // Beutl's render-target frames are linear float; integer formats (SDR and 16-bit integer
+        // HDR alike) are sRGB-encoded.
+        return colorType is BitmapColorType.RgbaF16 or BitmapColorType.RgbaF16Clamped
+            or BitmapColorType.RgbaF32 or BitmapColorType.AlphaF16 or BitmapColorType.RgF16
+            ? BitmapColorSpace.LinearSrgb
+            : BitmapColorSpace.Srgb;
     }
 
     // Test-only probe: lets a Dispose test wait until the in-flight prefetch has actually faulted before

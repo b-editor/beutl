@@ -180,6 +180,30 @@ public class ProxyFingerprintTests
         });
     }
 
+    // A symlink whose target moved/deleted must still resolve to the target key the entry was
+    // registered under, so eviction's protected-source set and store change-matching find it.
+    [Test]
+    public void ResolveComparableKey_BrokenSymlink_ResolvesToMovedTargetKey()
+    {
+        string dir = TestContext.CurrentContext.WorkDirectory;
+        string target = Path.Combine(dir, Guid.NewGuid() + ".mov");
+        string link = Path.Combine(dir, Guid.NewGuid() + ".mov");
+        File.WriteAllBytes(target, [1, 2, 3]);
+        try
+        {
+            File.CreateSymbolicLink(link, target);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or PlatformNotSupportedException)
+        {
+            Assert.Ignore("Symbolic links are not supported in this environment.");
+        }
+
+        string targetKey = ProxyFingerprint.FromFile(link).AbsolutePath;
+        File.Move(target, Path.Combine(dir, Guid.NewGuid() + ".moved"));
+
+        Assert.That(ProxyFingerprint.ResolveComparableKey(link), Is.EqualTo(targetKey));
+    }
+
     [Test]
     public void ResolveComparableKey_OfflineFile_FallsBackToNormalization()
     {
