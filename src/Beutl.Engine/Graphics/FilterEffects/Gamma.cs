@@ -2,45 +2,13 @@
 
 using Beutl.Engine;
 using Beutl.Language;
-using Beutl.Logging;
-using Microsoft.Extensions.Logging;
 
 namespace Beutl.Graphics.Effects;
 
 [Display(Name = nameof(GraphicsStrings.Gamma), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class Gamma : FilterEffect
 {
-    private static readonly ILogger s_logger = Log.CreateLogger<Gamma>();
-    private static readonly SKSLShader? s_shader;
-
-    static Gamma()
-    {
-        string sksl =
-            """
-            uniform shader src;
-            uniform float gamma;
-            uniform float strength;
-
-            half4 main(float2 coord) {
-                half4 c = src.eval(coord);
-                float alpha = c.a;
-                if (alpha <= 0.0001) return half4(0.0);
-                float3 rgb = c.rgb / alpha;
-
-                float3 corrected = pow(max(rgb, float3(0.0)), float3(1.0 / gamma));
-                float3 result = mix(rgb, corrected, strength);
-
-                return half4(half3(result * alpha), half(alpha));
-            }
-            """;
-
-        if (!SKSLShader.TryCreate(sksl, out s_shader, out string? errorText))
-        {
-            s_logger.LogError("Failed to compile gamma shader: {ErrorText}", errorText);
-        }
-    }
-
-    // Fusable snippet form of the shader above; `c` is the premultiplied linear-light source pixel (contract A2).
+    // Fusable snippet; `c` is the premultiplied linear-light source pixel (contract A2).
     private static readonly string s_snippet =
         """
         uniform float gamma;
