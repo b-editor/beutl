@@ -583,7 +583,10 @@ internal sealed class DeclarativeDocumentApplier
     private static void ReplaceList(IList list, Type elementBaseType, string fieldName, JsonArray desired)
     {
         bool typedObjectList = typeof(ICoreSerializable).IsAssignableFrom(elementBaseType);
-        list.Clear();
+        // Validate and deserialize every entry before mutating the target: DocumentAdapter.Write can run
+        // outside a HistoryManager transaction, so a mid-loop throw must not leave the list cleared or
+        // half-rebuilt. Only clear/add once the full replacement is known to be valid.
+        var items = new List<object?>(desired.Count);
         for (int index = 0; index < desired.Count; index++)
         {
             JsonNode? node = desired[index];
@@ -601,16 +604,21 @@ internal sealed class DeclarativeDocumentApplier
 
             if (node is null)
             {
-                list.Add(null);
+                items.Add(null);
                 continue;
             }
 
-            object? item = node is JsonObject obj && typedObjectList
+            items.Add(node is JsonObject obj && typedObjectList
                 ? CoreSerializer.DeserializeFromJsonObject(
                     NormalizeCoreSerializableJson(obj, elementBaseType),
                     elementBaseType,
                     CreateOptions(null))
-                : EnumJsonValueNormalizer.Deserialize(node, elementBaseType, CreateOptions(null));
+                : EnumJsonValueNormalizer.Deserialize(node, elementBaseType, CreateOptions(null)));
+        }
+
+        list.Clear();
+        foreach (object? item in items)
+        {
             list.Add(item);
         }
     }

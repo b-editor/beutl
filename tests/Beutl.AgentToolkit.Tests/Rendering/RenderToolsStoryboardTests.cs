@@ -130,6 +130,27 @@ public sealed class RenderToolsStoryboardTests
     }
 
     [Test]
+    public void Explicit_storyboard_shots_at_the_scene_end_clamp_to_the_last_renderable_tick()
+    {
+        var scene = new Scene(16, 9, "shot-end") { Duration = TimeSpan.FromSeconds(4) };
+
+        RenderTools.ResolvedStoryboardFrame[] fromShots =
+            RenderTools.ResolveStoryboardFrames(scene, [new("end", 4.0)], subdivisionLevel: 0).ToArray();
+        RenderTools.ResolvedStoryboardFrame[] fromTimes =
+            RenderTools.ResolveStoryboardFrames(scene, shots: null, timeSeconds: [4.0], subdivisionLevel: 0).ToArray();
+
+        Assert.Multiple(() =>
+        {
+            // A shot at exactly Duration renders past every element (Range end is exclusive); both the
+            // explicit shots and explicit timeSeconds branches must pull it one tick inside.
+            Assert.That(fromShots[^1].Time, Is.EqualTo(scene.Duration - TimeSpan.FromTicks(1)));
+            Assert.That(fromShots[^1].Time, Is.LessThan(scene.Duration));
+            Assert.That(fromTimes[^1].Time, Is.EqualTo(scene.Duration - TimeSpan.FromTicks(1)));
+            Assert.That(fromTimes[^1].Time, Is.LessThan(scene.Duration));
+        });
+    }
+
+    [Test]
     public void Explicit_shots_reject_out_of_range_non_finite_and_duplicate_times()
     {
         var scene = new Scene(16, 9, "validate") { Duration = TimeSpan.FromSeconds(5) };

@@ -33,7 +33,17 @@ public sealed class AgentSessionManager(CreativeMemoryStore? creativeMemory = nu
     public string GetSessionKey(IEditingSession session)
     {
         ArgumentNullException.ThrowIfNull(session);
-        return $"{session.Source}:{session.ReadOnSession(() => session.Root.Id)}";
+        return BuildSessionKey(session);
+    }
+
+    // Discriminate by the project URI, not just Root.Id: save-as/copy preserves the persisted
+    // Scene.Id, so two distinct file sessions can share Source:Root.Id and cross-contaminate cached
+    // plans and quality baselines. The URI is stable across a live session's volatile SessionId for
+    // the same document; it falls back to Root.Id for an in-memory scene that has no URI yet.
+    private static string BuildSessionKey(IEditingSession session)
+    {
+        return session.ReadOnSession(() =>
+            $"{session.Source}:{session.Root.Uri?.ToString() ?? session.Root.Id.ToString()}");
     }
 
     public void UseSource(ISessionSource source)
@@ -304,7 +314,7 @@ public sealed class AgentSessionManager(CreativeMemoryStore? creativeMemory = nu
         IEditingSession? session = CurrentSession;
         return session is null
             ? "host"
-            : $"{session.Source}:{session.ReadOnSession(() => session.Root.Id)}";
+            : BuildSessionKey(session);
     }
 
     private static string CreateCompositionSeed(string scope)

@@ -1635,7 +1635,7 @@ public sealed class RenderTools(
                         $"render_storyboard shots[{i}].timeSeconds={seconds.ToString(CultureInfo.InvariantCulture)} is outside the scene range 0..{duration.TotalSeconds.ToString(CultureInfo.InvariantCulture)} seconds.");
                 }
 
-                TimeSpan time = TimeSpan.FromSeconds(seconds);
+                TimeSpan time = ClampShotToRenderableRange(TimeSpan.FromSeconds(seconds), duration);
                 if (!seen.Add(time))
                 {
                     throw CreateStoryboardTimeValidationError(
@@ -1675,12 +1675,7 @@ public sealed class RenderTools(
                     relative = TimeSpan.Zero;
                 }
 
-                if (scene.Duration > TimeSpan.Zero && relative >= scene.Duration)
-                {
-                    // Element.Range treats the end as exclusive, so a shot exactly at Duration
-                    // renders past every element; stay one tick inside the scene.
-                    relative = TimeSpan.FromTicks(scene.Duration.Ticks - 1);
-                }
+                relative = ClampShotToRenderableRange(relative, scene.Duration);
 
                 return new ResolvedStoryboardShot(
                     string.IsNullOrWhiteSpace(element.Name) ? element.Id.ToString() : element.Name,
@@ -1817,7 +1812,7 @@ public sealed class RenderTools(
                     $"render_storyboard timeSeconds[{i}]={seconds.ToString(CultureInfo.InvariantCulture)} is outside the scene range 0..{duration.TotalSeconds.ToString(CultureInfo.InvariantCulture)} seconds.");
             }
 
-            TimeSpan time = TimeSpan.FromSeconds(seconds);
+            TimeSpan time = ClampShotToRenderableRange(TimeSpan.FromSeconds(seconds), duration);
             if (!seen.Add(time))
             {
                 throw CreateStoryboardTimeValidationError(
@@ -1831,6 +1826,14 @@ public sealed class RenderTools(
             .OrderBy(shot => shot.Time)
             .ToArray();
     }
+
+    // Element.Range treats its end as exclusive, so a shot exactly at Duration renders past every
+    // element (a blank frame); pull it one tick inside the scene. Truly out-of-range values are
+    // rejected before this by the callers; this only nudges the Duration boundary itself.
+    private static TimeSpan ClampShotToRenderableRange(TimeSpan time, TimeSpan duration)
+        => duration > TimeSpan.Zero && time >= duration
+            ? TimeSpan.FromTicks(duration.Ticks - 1)
+            : time;
 
     private static string CreateExplicitStoryboardTimeName(double seconds)
         => $"t:{seconds.ToString("0.####", CultureInfo.InvariantCulture)}";
