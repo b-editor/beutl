@@ -113,6 +113,21 @@ public static class CollectionReconciler
     {
         if (node is JsonObject obj)
         {
+            // Record EVERY object's Id — root scene and nested property objects included, not just
+            // array items: an Elements member reusing e.g. the scene's own Id corrupts identity the
+            // same way an array-item duplicate does.
+            if (TryGetId(obj, out Guid id) && toleratedIds?.Contains(id) != true)
+            {
+                if (!seenIds.TryAdd(id, path))
+                {
+                    return new ToolError(
+                        ErrorCode.ValidationRejected,
+                        $"Desired document contains Id '{id}' more than once at '{seenIds[id]}' and '{path}'.",
+                        id.ToString(),
+                        "Each Id may appear at most once in the desired document. Remove the duplicate entry, or omit Id so a fresh object is created.");
+                }
+            }
+
             foreach (KeyValuePair<string, JsonNode?> pair in obj.ToArray())
             {
                 if (ValidateNoDuplicateIdsInIdentityArrays(pair.Value, toleratedIds, $"{path}/{pair.Key}", seenIds) is { } error)
@@ -125,22 +140,7 @@ public static class CollectionReconciler
         {
             for (int i = 0; i < array.Count; i++)
             {
-                string itemPath = $"{path}[{i}]";
-                if (array[i] is JsonObject item
-                    && TryGetId(item, out Guid id)
-                    && toleratedIds?.Contains(id) != true)
-                {
-                    if (!seenIds.TryAdd(id, itemPath))
-                    {
-                        return new ToolError(
-                            ErrorCode.ValidationRejected,
-                            $"Desired document contains Id '{id}' more than once at '{seenIds[id]}' and '{itemPath}'.",
-                            id.ToString(),
-                            "Each Id may appear at most once in the desired document. Remove the duplicate entry, or omit Id so a fresh object is created.");
-                    }
-                }
-
-                if (ValidateNoDuplicateIdsInIdentityArrays(array[i], toleratedIds, itemPath, seenIds) is { } error)
+                if (ValidateNoDuplicateIdsInIdentityArrays(array[i], toleratedIds, $"{path}[{i}]", seenIds) is { } error)
                 {
                     return error;
                 }

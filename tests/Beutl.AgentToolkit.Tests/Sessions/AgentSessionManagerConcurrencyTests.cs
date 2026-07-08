@@ -1,11 +1,35 @@
 ﻿using System.Collections.Concurrent;
 using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Sessions;
+using Beutl.AgentToolkit.Tests.Helpers;
+using Beutl.ProjectSystem;
 
 namespace Beutl.AgentToolkit.Tests.Sessions;
 
 public sealed class AgentSessionManagerConcurrencyTests
 {
+    [Test]
+    public void Get_session_key_keys_the_given_session_not_the_current_one()
+    {
+        var sceneA = new Scene(640, 360, "A");
+        var sceneB = new Scene(640, 360, "B");
+        using var sessionA = new AgentToolkitTestSession(sceneA);
+        using var sessionB = new AgentToolkitTestSession(sceneB);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(sessionA));
+
+        string keyA = manager.GetSessionKey(sessionA);
+        Assert.That(keyA, Is.EqualTo(manager.CurrentSessionKey));
+
+        manager.UseSource(new AgentToolkitTestSessionSource(sessionB));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(manager.GetSessionKey(sessionA), Is.EqualTo(keyA));
+            Assert.That(manager.CurrentSessionKey, Is.Not.EqualTo(keyA));
+        });
+    }
+
     [Test]
     public async Task Composition_plans_evict_the_oldest_beyond_the_retention_cap()
     {

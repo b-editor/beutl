@@ -100,6 +100,19 @@ public static class MergePatch
             bool delete = patchItem.TryGetPropertyValue("$delete", out JsonNode? deleteNode)
                           && ReadBool(deleteNode, "$delete");
             bool hasId = TryGetId(patchItem, out Guid id);
+            if (!hasId
+                && patchItem.TryGetPropertyValue(nameof(CoreObject.Id), out JsonNode? idNode)
+                && idNode is not null)
+            {
+                // Treating a malformed Id as an Id-less insert would silently duplicate the object
+                // the caller meant to update, minting a fresh Id over their typo.
+                throw new ReconcileException(new ToolError(
+                    ErrorCode.ValidationRejected,
+                    $"Array member at '{path}[{patchIndex}]' has an Id that is not a Guid string.",
+                    idNode.ToJsonString(),
+                    "Pass the object's exact Id from read_document to update it, or omit Id entirely to insert a new object."));
+            }
+
             int currentIndex = hasId ? IndexOf(result, id) : -1;
 
             if (delete)

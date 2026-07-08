@@ -119,7 +119,7 @@ public sealed class RenderTools(
                     "returnImageContent cannot be combined with background:true; run render_storyboard synchronously when the contact-sheet image block is needed."));
             }
 
-            Scene scene = RequireSceneSnapshot(forceClone: background);
+            Scene scene = RequireSceneSnapshot();
             int normalizedSubdivisionLevel = NormalizeStoryboardSubdivisionLevel(subdivisionLevel);
             IReadOnlyList<ResolvedStoryboardFrame> resolvedShots = ResolveStoryboardFrames(
                 scene,
@@ -359,10 +359,11 @@ public sealed class RenderTools(
         return ExecuteAsync(async () =>
         {
             ValidateVideoType(videoType);
-            Scene scene = RequireSceneSnapshot();
-            // Capture the session key alongside the snapshot: a switch during the render must not file
-            // the baseline under another project's key.
-            string sessionKey = sessions.CurrentSessionKey;
+            IEditingSession snapshotSession = sessions.RequireSession();
+            Scene scene = CreateSceneSnapshot(snapshotSession);
+            // Derive the baseline key from the SAME session the snapshot came from: a session switch
+            // between two active-session reads must not file the baseline under another project's key.
+            string sessionKey = sessions.GetSessionKey(snapshotSession);
             PaletteRoleColor[]? parsedPaletteRoleColors = ParsePaletteRoleColors(paletteRoleColors);
             IReadOnlyList<TimeSpan>? sampleTimes = staticLayout
                 ? NormalizeQualitySampleTimesOrNull(timeSeconds)
@@ -603,10 +604,11 @@ public sealed class RenderTools(
         return ExecuteAsync(async () =>
         {
             ValidateVideoType(videoType);
-            Scene scene = RequireSceneSnapshot();
-            // Capture the session key alongside the snapshot: a switch during the render must not file
-            // the baseline under another project's key.
-            string sessionKey = sessions.CurrentSessionKey;
+            IEditingSession snapshotSession = sessions.RequireSession();
+            Scene scene = CreateSceneSnapshot(snapshotSession);
+            // Derive the baseline key from the SAME session the snapshot came from: a session switch
+            // between two active-session reads must not file the baseline under another project's key.
+            string sessionKey = sessions.GetSessionKey(snapshotSession);
             PaletteRoleColor[]? parsedPaletteRoleColors = ParsePaletteRoleColors(paletteRoleColors);
             IReadOnlyList<TimeSpan> sampleTimes = ResolveSampleTimes(scene, timeSeconds, sampleCount);
             var stills = new List<PreflightStillFrame>(sampleTimes.Count);
@@ -739,10 +741,11 @@ public sealed class RenderTools(
         return ExecuteMcpManyAsync<CompareRevisionsResponse>(async () =>
         {
             QualityReviewBaseline baseline = sessions.GetQualityReviewBaseline();
-            Scene scene = RequireSceneSnapshot();
-            // Capture the session key alongside the snapshot: a switch during the render must not file
-            // the refreshed baseline under another project's key.
-            string sessionKey = sessions.CurrentSessionKey;
+            IEditingSession snapshotSession = sessions.RequireSession();
+            Scene scene = CreateSceneSnapshot(snapshotSession);
+            // Derive the baseline key from the SAME session the snapshot came from: a session switch
+            // between two active-session reads must not file the baseline under another project's key.
+            string sessionKey = sessions.GetSessionKey(snapshotSession);
             IReadOnlyList<string> currentStillPaths = await RenderBaselineStillsAsync(
                 scene,
                 baseline.SampleTimes,
@@ -862,7 +865,7 @@ public sealed class RenderTools(
                     "Provide either crf or bitrate, not both."));
             }
 
-            Scene scene = RequireSceneSnapshot(forceClone: background);
+            Scene scene = RequireSceneSnapshot();
             string resolvedPath = workspace.ResolveForWrite(NormalizeOutputPath(outputPath));
             destructiveGuard.EnsureOverwriteAllowed(resolvedPath, confirmOverwrite);
 
@@ -2007,13 +2010,13 @@ public sealed class RenderTools(
         };
     }
 
-    internal Scene RequireSceneSnapshot(bool forceClone = false)
+    internal Scene RequireSceneSnapshot()
     {
         IEditingSession session = sessions.RequireSession();
-        return CreateSceneSnapshot(session, forceClone);
+        return CreateSceneSnapshot(session);
     }
 
-    internal static Scene CreateSceneSnapshot(IEditingSession session, bool forceClone = false)
+    internal static Scene CreateSceneSnapshot(IEditingSession session)
     {
         ArgumentNullException.ThrowIfNull(session);
 
@@ -2026,13 +2029,9 @@ public sealed class RenderTools(
                     "The current editing session is not attached to a scene."));
             }
 
-            // A background job outlives the request and a later apply_edit can mutate the live scene
-            // while the renderer enumerates it, so background renders must clone file sessions too.
-            if (!forceClone && session.Source != EditingSessionSource.LiveEditor)
-            {
-                return scene;
-            }
-
+            // Renders and analyzers run after ReadOnSession releases the dispatch lock, so a
+            // concurrent apply_edit can mutate the live scene mid-render for ANY session source;
+            // every snapshot must be an isolated clone.
             JsonObject snapshot = session.Documents.Read(scene);
             snapshot.Remove(SchemaVersion.PropertyName);
             if (scene.Uri is { } sceneUri)

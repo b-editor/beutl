@@ -469,7 +469,22 @@ internal sealed class DeclarativeDocumentApplier
                     AssignNewElementUri(scene, element);
                 }
 
-                list.Insert(Math.Min(desiredIndex, list.Count), item);
+                int insertIndex = Math.Min(desiredIndex, list.Count);
+                // Element.AddObject/InsertObject always pair a PortalObject before a flow operator —
+                // it is the content feed the operator renders; inserting one bare would break the
+                // element's render chain, so reject rather than silently minting a portal the desired
+                // document never declared.
+                if (owner is Element && item is IFlowOperator && item is not PortalObject
+                    && (insertIndex == 0 || list[insertIndex - 1] is not PortalObject))
+                {
+                    throw new ReconcileException(new ToolError(
+                        ErrorCode.ValidationRejected,
+                        $"Flow operator '{item.GetType().Name}' at '{itemPath}' is not preceded by a PortalObject.",
+                        item.Id.ToString(),
+                        "Include a PortalObject entry immediately before the flow operator in Objects (Element.AddObject pairs them), or insert the flow operator without reordering an existing pair."));
+                }
+
+                list.Insert(insertIndex, item);
             }
             else if (currentIndex != desiredIndex)
             {

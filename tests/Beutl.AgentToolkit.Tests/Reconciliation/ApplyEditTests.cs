@@ -499,6 +499,67 @@ public sealed class ApplyEditTests
         });
     }
 
+    [Test]
+    public void Apply_edit_rejects_a_flow_operator_inserted_without_a_preceding_portal_object()
+    {
+        Scene scene = CreateSceneWithElement(out Element element);
+        using var session = new AgentToolkitTestSession(scene);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var tools = new EditTools(manager);
+
+        JsonObject bareGroup = new()
+        {
+            ["Elements"] = new JsonArray(new JsonObject
+            {
+                ["Id"] = element.Id.ToString(),
+                ["Objects"] = new JsonArray(new JsonObject
+                {
+                    ["$type"] = IdentityHelper.WriteDiscriminator(typeof(DrawableGroup)),
+                    ["Name"] = "bare group"
+                })
+            })
+        };
+
+        ToolResult<ApplyEditResponse> rejected = tools.ApplyEdit(patch: bareGroup, schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rejected.IsSuccess, Is.False);
+            Assert.That(rejected.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(rejected.Error.Message, Does.Contain("PortalObject"));
+            Assert.That(element.Objects, Is.Empty);
+        });
+
+        JsonObject pairedGroup = new()
+        {
+            ["Elements"] = new JsonArray(new JsonObject
+            {
+                ["Id"] = element.Id.ToString(),
+                ["Objects"] = new JsonArray(
+                    new JsonObject
+                    {
+                        ["$type"] = IdentityHelper.WriteDiscriminator(typeof(PortalObject))
+                    },
+                    new JsonObject
+                    {
+                        ["$type"] = IdentityHelper.WriteDiscriminator(typeof(DrawableGroup)),
+                        ["Name"] = "paired group"
+                    })
+            })
+        };
+
+        ToolResult<ApplyEditResponse> accepted = tools.ApplyEdit(patch: pairedGroup, schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(accepted.IsSuccess, Is.True, accepted.Error?.Message);
+            Assert.That(element.Objects, Has.Count.EqualTo(2));
+            Assert.That(element.Objects[0], Is.InstanceOf<PortalObject>());
+            Assert.That(element.Objects[1], Is.InstanceOf<DrawableGroup>());
+        });
+    }
+
     private static Scene CreateSceneWithElement(out Element element)
     {
         Scene scene = CreateScene();

@@ -38,9 +38,21 @@ public sealed class FileProjectSessionGateway(
 
     public ValueTask<ProjectSessionResult> CreateProjectAsync(ProjectCreateOptions options, CancellationToken cancellationToken = default)
     {
-        FileEditingSession session = fileSessions.CreateProject(options);
+        FileEditingSession session = fileSessions.CreateProjectSession(options);
+        try
+        {
+            session.Save(skipConflictCheck: true);
+        }
+        catch
+        {
+            // The target could not be written; the previous session must stay current instead of
+            // having been swapped out and disposed for a project that never reached disk.
+            session.Dispose();
+            throw;
+        }
+
+        fileSessions.MakeCurrent(session);
         sessions.UseSource(fileSessions);
-        session.Save(skipConflictCheck: true);
         return ValueTask.FromResult(new ProjectSessionResult(session, session.Project));
     }
 

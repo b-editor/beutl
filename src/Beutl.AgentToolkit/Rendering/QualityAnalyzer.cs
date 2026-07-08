@@ -1,6 +1,7 @@
 ﻿using Beutl.AgentToolkit.Design;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
+using Beutl.Audio;
 using Beutl.Collections;
 using Beutl.Composition;
 using Beutl.Engine;
@@ -2978,7 +2979,33 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         {
             foreach (EngineObject obj in element.Objects)
             {
-                yield return new SceneObjectInfo(element, obj);
+                foreach (SceneObjectInfo info in EnumerateObject(element, obj))
+                {
+                    yield return info;
+                }
+            }
+        }
+    }
+
+    // Flow operators (DrawableGroup / DrawableDecorator / SoundGroup) render their children, so the
+    // nested TextBlocks/shapes must reach the quality checks, not just the wrapping group object.
+    private static IEnumerable<SceneObjectInfo> EnumerateObject(Element element, EngineObject obj)
+    {
+        yield return new SceneObjectInfo(element, obj);
+
+        IEnumerable<EngineObject> children = obj switch
+        {
+            DrawableGroup group => group.Children,
+            DrawableDecorator decorator => decorator.Children,
+            SoundGroup soundGroup => soundGroup.Children,
+            _ => []
+        };
+
+        foreach (EngineObject child in children)
+        {
+            foreach (SceneObjectInfo info in EnumerateObject(element, child))
+            {
+                yield return info;
             }
         }
     }

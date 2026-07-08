@@ -157,7 +157,7 @@ public sealed class StillRenderer
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(scene);
-        if (ContainsGpuOnlyContent(scene)
+        if (ContainsGpuOnlyContent(scene, time)
             && !await Has3DGraphicsContextAsync(cancellationToken).ConfigureAwait(false))
         {
             throw new RenderingUnavailableException(
@@ -183,7 +183,7 @@ public sealed class StillRenderer
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(scene);
-        if (ContainsGpuOnlyContent(scene)
+        if (ContainsGpuOnlyContent(scene, time)
             && !await Has3DGraphicsContextAsync(cancellationToken).ConfigureAwait(false))
         {
             throw new RenderingUnavailableException(
@@ -203,11 +203,19 @@ public sealed class StillRenderer
         }, ct: cancellationToken).ConfigureAwait(false);
     }
 
-    internal static bool ContainsGpuOnlyContent(Scene scene)
+    // relativeTime scopes the check to elements active at that scene-relative sample; null checks the
+    // whole visible window [Scene.Start, Scene.Start + Duration) (exports render the full window).
+    // A Scene3D on a disabled or never-rendered element must not force the GPU requirement.
+    internal static bool ContainsGpuOnlyContent(Scene scene, TimeSpan? relativeTime = null)
     {
-        // A Scene3D on a disabled element never renders, so it must not force the GPU requirement.
+        TimeSpan windowStart = scene.Start;
+        TimeSpan windowEnd = scene.Start + scene.Duration;
         return scene.Children
             .Where(element => element.IsEnabled)
+            .Where(element => relativeTime is { } time
+                ? element.Range.Contains(time + scene.Start)
+                : scene.Duration <= TimeSpan.Zero
+                  || (element.Start < windowEnd && element.Start + element.Length > windowStart))
             .SelectMany(element => element.Objects)
             .Any(obj => obj is Scene3D
                         || (obj is IHierarchical hierarchical && hierarchical.EnumerateAllChildren<Scene3D>().Any()));

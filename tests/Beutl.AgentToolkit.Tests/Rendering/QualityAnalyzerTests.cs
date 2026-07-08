@@ -33,6 +33,25 @@ public sealed class QualityAnalyzerTests
     }
 
     [Test]
+    public async Task Quality_checks_reach_objects_nested_under_a_drawable_group()
+    {
+        Scene scene = CreateScene();
+        var group = new DrawableGroup { Name = "wrapped" };
+        group.Children.Add(new TextBlock
+        {
+            Name = "nested text",
+            Text = { CurrentValue = "BREAKING NEWS NOW" },
+            Size = { CurrentValue = 96 },
+            Fill = { CurrentValue = new SolidColorBrush(Colors.White) }
+        });
+        AddObject(scene, "wrapped element", zIndex: 10, group);
+
+        QualityReviewResponse result = await AnalyzeAsync(scene, evaluateMotion: false);
+
+        Assert.That(result.Metrics.Typography.AllCapsTextCount, Is.EqualTo(1));
+    }
+
+    [Test]
     public async Task Mixed_case_text_passes_typography_case_check()
     {
         Scene scene = CreateScene();

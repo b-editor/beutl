@@ -28,6 +28,14 @@ public sealed class AgentSessionManager(CreativeMemoryStore? creativeMemory = nu
 
     public string CurrentSessionKey => GetCompositionSessionKey();
 
+    // Key a SPECIFIC session rather than re-reading the current one, so callers holding a session
+    // reference are immune to a concurrent session switch between two reads.
+    public string GetSessionKey(IEditingSession session)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        return $"{session.Source}:{session.ReadOnSession(() => session.Root.Id)}";
+    }
+
     public void UseSource(ISessionSource source)
     {
         ArgumentNullException.ThrowIfNull(source);

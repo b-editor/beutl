@@ -51,6 +51,22 @@ public sealed class MergePatchTests
     }
 
     [Test]
+    public void Malformed_id_on_an_identity_array_member_is_rejected_instead_of_inserting()
+    {
+        Guid existingId = Guid.NewGuid();
+
+        ReconcileException ex = Assert.Throws<ReconcileException>(() => MergePatchApplier.Apply(
+            JsonNode.Parse($$"""{"Elements":[{"Id":"{{existingId}}"}]}""")!,
+            JsonNode.Parse("""{"Elements":[{"Id":"not-a-guid","Name":"typo"}]}""")!))!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ex.Error.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(ex.Error.Message, Does.Contain("not a Guid"));
+        });
+    }
+
+    [Test]
     public void Nested_directives_inside_replacement_members_are_rejected()
     {
         ReconcileException ex = Assert.Throws<ReconcileException>(() => MergePatchApplier.Apply(

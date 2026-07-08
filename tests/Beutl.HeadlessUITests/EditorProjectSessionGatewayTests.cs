@@ -211,6 +211,39 @@ public class EditorProjectSessionGatewayTests
     }
 
     [AvaloniaTest]
+    public async Task AddScene_rolls_back_the_live_scene_when_the_save_fails()
+    {
+        await TestReset.ResetShellAsync();
+        string projectPath = CreateProjectFilesOnDisk("addscene-rollback", TimeSpan.FromSeconds(4));
+        (EditorProjectSessionGateway gateway, _) = CreateGateway();
+        await gateway.OpenProjectAsync(projectPath);
+        HeadlessTestHelpers.Settle();
+
+        // A directory occupying the project file path makes ProjectOperations.Save throw after the
+        // scene was added to the live project.
+        File.Delete(projectPath);
+        Directory.CreateDirectory(projectPath);
+
+        Exception? failure = null;
+        try
+        {
+            await gateway.AddSceneAsync(new SceneCreateOptions(
+                320, 180, TimeSpan.Zero, TimeSpan.FromSeconds(2), "second-scene"));
+            Assert.Fail("Expected the save to fail.");
+        }
+        catch (Exception ex) when (ex is not AssertionException)
+        {
+            failure = ex;
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(failure, Is.Not.Null);
+            Assert.That(BeutlApplication.Current.Project!.Items.OfType<Scene>().Count(), Is.EqualTo(1));
+        });
+    }
+
+    [AvaloniaTest]
     public async Task AddScene_rejects_saving_a_project_opened_outside_the_workspace()
     {
         await TestReset.ResetShellAsync();

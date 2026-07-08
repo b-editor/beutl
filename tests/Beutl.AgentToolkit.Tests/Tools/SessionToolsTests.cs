@@ -123,6 +123,32 @@ public sealed class SessionToolsTests
     }
 
     [Test]
+    public async Task Failed_create_project_save_keeps_the_previous_session_current()
+    {
+        string root = CreateWorkspace();
+        var manager = new AgentSessionManager();
+        using var source = new FileSessionSource();
+        SessionTools sessionTools = CreateSessionTools(source, manager, root);
+
+        ToolResult<CreateProjectResponse> first = await sessionTools.CreateProject(
+            "first.bep", width: 640, height: 360, frameRate: 30, duration: "00:00:04");
+        Assert.That(first.IsSuccess, Is.True, first.Error?.Message);
+        FileEditingSession firstSession = source.CurrentFileSession!;
+
+        // A directory occupying the target .bep path makes the initial save throw.
+        Directory.CreateDirectory(Path.Combine(root, "broken.bep"));
+        ToolResult<CreateProjectResponse> failed = await sessionTools.CreateProject(
+            "broken.bep", width: 640, height: 360, frameRate: 30, duration: "00:00:04");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(failed.IsSuccess, Is.False);
+            Assert.That(source.CurrentFileSession, Is.SameAs(firstSession));
+            Assert.That(manager.CurrentSession, Is.SameAs(firstSession));
+        });
+    }
+
+    [Test]
     public async Task Failed_save_as_restores_the_original_project_and_scene_uris()
     {
         string root = CreateWorkspace();

@@ -106,6 +106,32 @@ public sealed class ReconcilerIdIntegrityTests
     }
 
     [Test]
+    public void Apply_edit_rejects_an_element_reusing_the_scene_root_id()
+    {
+        Scene scene = CreateSceneWithElement(out Element element);
+
+        using var session = new AgentToolkitTestSession(scene);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var tools = new EditTools(manager);
+
+        JsonObject desired = session.Documents.Read(session.Root);
+        var elementJson = (JsonObject)((JsonArray)desired["Elements"]!)
+            .OfType<JsonObject>()
+            .Single(item => item["Id"]!.GetValue<string>() == element.Id.ToString());
+        elementJson["Id"] = scene.Id.ToString();
+
+        ToolResult<ApplyEditResponse> result = tools.ApplyEdit(desired: desired, schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(result.Error.Message, Does.Contain("more than once"));
+        });
+    }
+
+    [Test]
     public void Apply_edit_still_works_on_document_with_preexisting_duplicate_ids()
     {
         Scene scene = CreateSceneWithElement(out Element element);

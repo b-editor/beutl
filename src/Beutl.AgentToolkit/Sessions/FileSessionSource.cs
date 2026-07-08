@@ -43,12 +43,26 @@ public sealed class FileSessionSource : ISessionSource, IDisposable
 
     public FileEditingSession CreateProject(ProjectCreateOptions options)
     {
+        FileEditingSession session = CreateProjectSession(options);
+        MakeCurrent(session);
+        return session;
+    }
+
+    // Pure factory (no publish): lets the gateway persist the project first, so a failed initial
+    // save does not swap out — and dispose — the previously active session.
+    public FileEditingSession CreateProjectSession(ProjectCreateOptions options)
+    {
         Project project = ProjectOperations.CreateProject(options);
         Scene scene = project.Items.OfType<Scene>().First();
         var session = new FileEditingSession(Guid.NewGuid().ToString("N"), project, scene, DateTime.MinValue);
         session.MarkDirty();
-        SetCurrent(session);
         return session;
+    }
+
+    public void MakeCurrent(FileEditingSession session)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        SetCurrent(session);
     }
 
     // Takes the caller's session instead of re-reading the current one: a concurrent

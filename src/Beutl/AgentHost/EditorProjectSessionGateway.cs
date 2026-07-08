@@ -84,7 +84,17 @@ public sealed class EditorProjectSessionGateway(
             // write leaves no unsaved scene behind in the UI.
             workspace.ResolveForWrite(project.Uri!.LocalPath);
             Scene scene = ProjectOperations.AddScene(project, options);
-            ProjectOperations.Save(project);
+            try
+            {
+                ProjectOperations.Save(project);
+            }
+            catch
+            {
+                // A failed save (permissions, disk, serialization) must not leave the unsaved scene
+                // behind in the live editor with no attached session.
+                project.Items.Remove(scene);
+                throw;
+            }
             // add_scene activates the new scene's tab, so rebind the live session to it; otherwise
             // read_document/apply_edit would keep operating on the previously attached EditViewModel.
             LiveEditingSession session = AttachScene(scene);
