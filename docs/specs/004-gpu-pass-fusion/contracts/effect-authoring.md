@@ -23,6 +23,8 @@ This contract defines what an effect author (built-in, plugin, or script) may re
 
 A snippet (`ShaderNode`) uniform MUST be declared one per statement (`uniform float a; uniform float b;`), never as a comma-separated declarator list (`uniform float a, b;`). The snippet merger prefixes each uniform by name (`feN_`) so adjacent snippets fuse without redefinitions; a multi-declarator list leaves the trailing names unprefixed and silently binds them wrong in a fused program, so `SkslSource.Snippet` rejects it at describe time with a clear error. Fixed-size array uniforms (`uniform float lut[4];`) are single-declarator and remain valid.
 
+> **Merger restrictions (author-honored, not yet validated).** The snippet merger renames per-snippet *uniform/sampler/child* names by the `feN_` prefix, but it does **not** rename **top-level `struct` type names** and does **not** handle a **precision-qualified uniform** declaration (`uniform lowp float x;`). Two fused snippets that each declare a top-level struct of the same name, or that precision-qualify a uniform, may collide or bind wrong in the merged program. There is no in-tree effect that hits either case; until the merger/`SkslSource` validation is extended, a snippet author MUST avoid top-level `struct` declarations and precision-qualified uniforms (declare uniforms unqualified: `uniform float x;`). Whole-source (`ShaderNode` `main`) shaders are exempt — they are never merged.
+
 ## A3. Bounds & ROI obligations
 
 - Every non-invariant node MUST declare `TransformBounds` (forward) and `GetRequiredInputBounds` (backward). Backward MUST cover every input texel the node samples for a given output region; the engine MAY render inputs cropped to exactly that region.
