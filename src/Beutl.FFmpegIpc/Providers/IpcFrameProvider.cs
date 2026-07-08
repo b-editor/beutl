@@ -1,4 +1,6 @@
-﻿using Beutl.Extensibility;
+﻿using System.Collections.Concurrent;
+
+using Beutl.Extensibility;
 using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Protocol.Messages;
 using Beutl.FFmpegIpc.SharedMemory;
@@ -146,7 +148,10 @@ internal sealed class IpcFrameProvider : IFrameProvider
         if (frameInfo.ColorType >= 0 && Enum.IsDefined((BitmapColorType)frameInfo.ColorType))
         {
             var colorType = (BitmapColorType)frameInfo.ColorType;
-            return (colorType, ColorSpaceFor(colorType), frameInfo.BytesPerPixel);
+            // Derive bytes-per-pixel from the color type itself, never the payload: trusting the
+            // payload's BytesPerPixel here would let a peer underreport it, pass the DataLength /
+            // Capacity guards, yet allocate/read a wider BitmapColorType.
+            return (colorType, ColorSpaceFor(colorType), BytesPerPixelOf(colorType));
         }
 
         return frameInfo.BytesPerPixel switch
@@ -157,6 +162,15 @@ internal sealed class IpcFrameProvider : IFrameProvider
                 $"Unsupported frame BytesPerPixel {frameInfo.BytesPerPixel}."),
         };
     }
+
+    private static readonly ConcurrentDictionary<BitmapColorType, int> s_bytesPerPixelCache = new();
+
+    private static int BytesPerPixelOf(BitmapColorType colorType)
+        => s_bytesPerPixelCache.GetOrAdd(colorType, static ct =>
+        {
+            using var probe = new Bitmap(1, 1, ct, BitmapAlphaType.Unpremul, BitmapColorSpace.Srgb);
+            return probe.BytesPerPixel;
+        });
 
     private static BitmapColorSpace ColorSpaceFor(BitmapColorType colorType)
     {

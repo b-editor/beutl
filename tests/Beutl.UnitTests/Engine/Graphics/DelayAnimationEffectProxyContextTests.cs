@@ -38,4 +38,20 @@ public sealed class DelayAnimationEffectProxyContextTests
 
         Assert.That(resource.PreferProxy, Is.False);
     }
+
+    // A proxy-mode toggle must bump Version so RenderNodeCache invalidates; otherwise the delayed
+    // sub-effect keeps replaying cached tiles decoded from the previous source selection.
+    [Test]
+    public void Resource_BumpsVersionWhenProxyPreferenceChanges()
+    {
+        var effect = new DelayAnimationEffect();
+        var resource = (DelayAnimationEffect.Resource)effect.ToResource(
+            new CompositionContext(TimeSpan.Zero) { PreferProxy = false });
+        int before = resource.Version;
+
+        bool updateOnly = false;
+        resource.Update(effect, new CompositionContext(TimeSpan.Zero) { PreferProxy = true }, ref updateOnly);
+
+        Assert.That(resource.Version, Is.GreaterThan(before));
+    }
 }

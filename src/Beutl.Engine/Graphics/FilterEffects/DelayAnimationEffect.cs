@@ -154,11 +154,18 @@ public partial class DelayAnimationEffect : FilterEffect
             }
 
             TimeSpan oldTime = _globalTime;
+            bool oldPreferProxy = _preferProxy;
+            ProxyPreset oldPreferredPreset = _preferredProxyPreset;
             _globalTime = context.Time;
             _disableResourceShare = context.DisableResourceShare;
             _preferProxy = context.PreferProxy;
             _preferredProxyPreset = context.PreferredProxyPreset;
-            if (!updateOnly && oldTime != _globalTime)
+
+            // Bump Version on a proxy-selection change too, or RenderNodeCache would replay stale
+            // tiles and a preview proxy-mode toggle would not reach the delayed sub-effects until an
+            // unrelated invalidation (e.g. a time change) happens.
+            bool proxyChanged = oldPreferProxy != _preferProxy || oldPreferredPreset != _preferredProxyPreset;
+            if (!updateOnly && (oldTime != _globalTime || proxyChanged))
             {
                 Version++;
             }

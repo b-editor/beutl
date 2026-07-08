@@ -234,7 +234,10 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             return;
         }
 
-        IReadOnlyList<string> missingSources = ExportSourceValidator.GetMissingFileSources(Model);
+        // Off the UI thread: the media walk + per-path File.Exists can stall on many/slow-storage
+        // references right when the user clicks Export.
+        IReadOnlyList<string> missingSources =
+            await Task.Run(() => ExportSourceValidator.GetMissingFileSources(Model));
         if (missingSources.Count > 0)
         {
             string message = string.Format(

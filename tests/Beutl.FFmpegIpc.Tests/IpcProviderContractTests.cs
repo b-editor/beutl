@@ -414,6 +414,35 @@ public class IpcProviderContractTests
         }
     }
 
+    // The bytes-per-pixel used for the DataLength/Capacity guards must come from the color type, not
+    // the payload: an under-reported BytesPerPixel (4) with a wider ColorType (8-byte Rgba16161616)
+    // and a matching-lie DataLength must be rejected, not allocate/read a wider bitmap.
+    [Test]
+    public async Task RenderFrame_UnderreportedBytesPerPixelWithWiderColorType_Throws()
+    {
+        var (server, client) = ConnectPair();
+        var buffers = CreateBuffers();
+        var hostCts = new CancellationTokenSource();
+        var hostTask = RunMalformedFrameHost(
+            server, width: 1, height: 1, dataLength: Bgra8888BytesPerPixel, ct: hostCts.Token,
+            bytesPerPixel: Bgra8888BytesPerPixel, colorType: (int)BitmapColorType.Rgba16161616);
+
+        using var conn = new IpcConnection(client);
+        var provider = new IpcFrameProvider(conn, buffers, frameCount: 1, frameRate: new Rational(30, 1));
+
+        try
+        {
+            Assert.That(async () => await provider.RenderFrame(0),
+                Throws.TypeOf<InvalidOperationException>(),
+                "the color type's real 8 bytes/pixel must be used, so a 4-byte DataLength is a mismatch");
+        }
+        finally
+        {
+            await StopHost(hostCts, server, hostTask);
+            DisposeBuffers(buffers);
+        }
+    }
+
     [TestCase(FrameDataLength * 2)]
     [TestCase(FrameDataLength / 2)]
     [TestCase(0)]

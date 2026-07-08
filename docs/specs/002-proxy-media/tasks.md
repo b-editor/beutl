@@ -171,7 +171,7 @@ description: "Implementation tasks for the Proxy Media Workflow feature"
 ### Tests for US3 (NUnit) — write first, ensure they fail
 
 - [x] T048 [P] [US3] ~~Create `tests/Beutl.UnitTests/ProjectSystem/SceneSerializationPreviewSourceModeTests.cs`~~ **Replaced** by `tests/Beutl.UnitTests/Configuration/EditorConfigPreviewSourceModeTests.cs` after the setting moved from `Scene` to global `EditorConfig`.
-- [ ] T049 [P] [US3] Extend `tests/Beutl.UnitTests/ProjectSystem/SceneRendererPreviewRoutingTests.cs` (created in T031): switching `EditorConfig.PreviewSourceMode` to `ForceOriginal` causes subsequent `MediaOptions.PreferProxy` to be `false`; flipping back restores `true`; export path (T024) is unaffected in both states. (Was `Scene.PreviewSourceMode`; updated for the global move. The referenced test file was never created — tracked separately.)
+- [x] T049 [P] [US3] ~~Extend `tests/Beutl.UnitTests/ProjectSystem/SceneRendererPreviewRoutingTests.cs`~~ **Superseded**: the intended routing coverage (switching `EditorConfig.PreviewSourceMode` flips subsequent `MediaOptions.PreferProxy`, export path unaffected) is provided by `tests/Beutl.UnitTests/Configuration/EditorConfigPreviewSourceModeTests.cs` and `tests/Beutl.UnitTests/ProjectSystem/SceneCompositorTests.cs` after the setting moved from `Scene` to global `EditorConfig`; the originally-named `SceneRendererPreviewRoutingTests.cs` was never needed.
 
 ### Implementation for US3
 
