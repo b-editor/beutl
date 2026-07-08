@@ -319,11 +319,13 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
     // FrameProvider.FrameCount) does not produce an empty proxy.
     internal static long ResolveFrameCount(VideoStreamInfo info)
     {
-        long frameCount = info.NumFrames;
-        if (frameCount <= 0)
-            frameCount = (long)(info.Duration * info.FrameRate).ToDouble();
+        if (info.NumFrames > 0)
+            return info.NumFrames;
 
-        return frameCount;
+        // A positive duration * frame rate that truncates to 0 (very short clip or imprecise
+        // metadata) still has at least one frame; don't skip it over rounding.
+        double estimate = (info.Duration * info.FrameRate).ToDouble();
+        return estimate > 0 ? Math.Max(1L, (long)estimate) : 0;
     }
 
     internal static string CreateTempPathForOutput(string finalPath)

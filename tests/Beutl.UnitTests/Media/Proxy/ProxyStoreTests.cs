@@ -207,6 +207,40 @@ public sealed class ProxyStoreTests
         Assert.That(store.TryGet(entry.Source, entry.Preset), Is.EqualTo(entry));
     }
 
+    // A sidecar adopted by background reconciliation (after services are exposed) must raise Changed
+    // so an already-loaded tab/preview reloads the recovered proxy instead of waiting for a manual
+    // refresh.
+    [Test]
+    public async Task ReconcileAsync_AdoptedSidecar_RaisesRegisteredChangedEvent()
+    {
+        string root = CreateRoot();
+        var store = new ProxyStore(root);
+        ProxyEntry entry = CreateEntry(root, "hash/quarter.mp4");
+        string metadataPath = Path.Combine(root, "hash", "meta.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(metadataPath)!);
+        var metadata = new ProxySourceMetadata
+        {
+            Source = entry.Source,
+            Entries = [entry],
+        };
+        File.WriteAllText(metadataPath, JsonSerializer.Serialize(metadata, s_jsonOptions));
+
+        var registered = new List<(ProxyFingerprint Source, ProxyPreset Preset)>();
+        store.Changed += (_, e) =>
+        {
+            if (e.Kind == ProxyStoreChangeKind.Registered)
+                registered.Add((e.Source, e.Preset));
+        };
+
+        await store.ReconcileAsync(CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(store.TryGet(entry.Source, entry.Preset), Is.EqualTo(entry));
+            Assert.That(registered, Does.Contain((entry.Source, entry.Preset)));
+        });
+    }
+
     [Test]
     public async Task ReconcileAsync_AdoptsLegacySingleEntrySidecar()
     {

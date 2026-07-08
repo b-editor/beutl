@@ -138,17 +138,14 @@ public sealed class ProxyEvictionService : IProxyStoreCapInfo
             if (activeGenerations.Contains((entry.Source, entry.Preset)))
                 continue;
 
-            // Two sizes: the on-disk length actually freed (for the disk-pressure goal) and the size
-            // credited toward the cap goal. A shared-store peer can delete the file between the
-            // existence check and the stat; a missing file frees no disk (onDiskBytes = 0) but still
-            // reduces the recorded cap total when its entry is removed, so cap accounting keeps the
-            // recorded size.
-            long? onDiskLength = TryGetFileLength(absolutePath);
-            long onDiskBytes = onDiskLength ?? 0;
-            long capBytes = onDiskLength ?? entry.ProxyFileSizeBytes;
+            // Cap accounting must use the recorded size, because capOverage / GetTotalBytes sum
+            // ProxyFileSizeBytes — crediting a larger on-disk length here could stop the sweep while
+            // the store is still over MaxTotalBytes. Disk accounting uses the actual on-disk length
+            // (0 when the file is already gone, so a missing file frees no disk headroom).
+            long onDiskBytes = TryGetFileLength(absolutePath) ?? 0;
 
             bool isProtected = protectedSources.Contains(entry.Source.AbsolutePath);
-            candidates.Add(new Candidate(entry, capBytes, onDiskBytes, isProtected));
+            candidates.Add(new Candidate(entry, entry.ProxyFileSizeBytes, onDiskBytes, isProtected));
         }
 
         // Non-protected LRU candidates first; open-project proxies only as a last resort.

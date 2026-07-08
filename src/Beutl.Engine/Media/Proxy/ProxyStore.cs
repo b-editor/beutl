@@ -237,10 +237,12 @@ public sealed class ProxyStore : IProxyStore
             List<ProxyEntry> sidecarCandidates = CollectSidecarCandidates(cancellationToken);
 
             HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> changedKeys = [];
+            HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> adoptedKeys;
             List<ProxyEntry> snapshot;
             lock (_lock)
             {
-                changedKeys.UnionWith(MergeSidecarCandidates(sidecarCandidates));
+                adoptedKeys = MergeSidecarCandidates(sidecarCandidates);
+                changedKeys.UnionWith(adoptedKeys);
                 snapshot = [.. _entries.Values];
             }
 
@@ -345,6 +347,21 @@ public sealed class ProxyStore : IProxyStore
             {
                 OnChanged(entry.Source, entry.Preset, ProxyStoreChangeKind.StateChanged);
             }
+
+            // Notify for sidecars adopted after services were exposed, so a tab/preview that already
+            // saw the missing entry reloads the recovered proxy. Skip keys the stat pass above then
+            // removed or marked stale — those already fired their own notification.
+            var supersededKeys = new HashSet<(ProxyFingerprint Source, ProxyPreset Preset)>();
+            foreach (ProxyEntry entry in removedEntries)
+                supersededKeys.Add((entry.Source, entry.Preset));
+            foreach (ProxyEntry entry in changedEntries)
+                supersededKeys.Add((entry.Source, entry.Preset));
+
+            foreach ((ProxyFingerprint source, ProxyPreset preset) in adoptedKeys)
+            {
+                if (!supersededKeys.Contains((source, preset)))
+                    OnChanged(source, preset, ProxyStoreChangeKind.Registered);
+            }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -377,10 +394,7 @@ public sealed class ProxyStore : IProxyStore
             ProxyStoreIndex? index = JsonSerializer.Deserialize<ProxyStoreIndex>(json, s_jsonOptions);
             if (index?.Version != ProxyStoreIndex.CurrentVersion)
             {
-                _entries.Clear();
-                HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> adoptedKeys =
-                    MergeSidecarCandidates(CollectSidecarCandidates(CancellationToken.None));
-                FlushCore(adoptedKeys);
+                RebuildFromSidecars();
                 return;
             }
 
@@ -392,10 +406,25 @@ public sealed class ProxyStore : IProxyStore
         }
         catch
         {
-            _entries.Clear();
+            RebuildFromSidecars();
+        }
+    }
+
+    // Rebuild the in-memory index from meta.json sidecars when index.json is missing/invalid. Guarded
+    // so a filesystem fault (permissions, I/O) during recovery starts the store with an empty index
+    // rather than failing construction and blocking proxy services from starting.
+    private void RebuildFromSidecars()
+    {
+        _entries.Clear();
+        try
+        {
             HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> adoptedKeys =
                 MergeSidecarCandidates(CollectSidecarCandidates(CancellationToken.None));
             FlushCore(adoptedKeys);
+        }
+        catch (Exception ex)
+        {
+            s_logger.LogWarning(ex, "Rebuilding the proxy index from sidecars failed; starting with an empty in-memory index.");
         }
     }
 

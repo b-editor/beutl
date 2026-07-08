@@ -146,6 +146,27 @@ public sealed class ProxyGenerationE2ETests
         Assert.That(FFmpegProxyGenerator.ResolveFrameCount(info), Is.EqualTo(120));
     }
 
+    // A sub-one-frame estimate (very short clip) must floor to 1, not 0, so a valid clip is not
+    // skipped over truncation.
+    [Test]
+    public void ResolveFrameCount_SubOneFrameEstimate_FloorsToOne()
+    {
+        var info = new VideoStreamInfo("h264", 0L, new PixelSize(1920, 1080), new Rational(30, 1))
+        {
+            Duration = new Rational(1, 60), // 1/60 s * 30 fps = 0.5 frames
+        };
+
+        Assert.That(FFmpegProxyGenerator.ResolveFrameCount(info), Is.EqualTo(1));
+    }
+
+    [Test]
+    public void ResolveFrameCount_NoDurationAndNoFrames_IsZero()
+    {
+        var info = new VideoStreamInfo("h264", 0L, new PixelSize(1920, 1080), new Rational(30, 1));
+
+        Assert.That(FFmpegProxyGenerator.ResolveFrameCount(info), Is.EqualTo(0));
+    }
+
     [Test]
     public void CreateTempPathForOutput_PreservesContainerExtensionForFormatGuess()
     {
