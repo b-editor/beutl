@@ -90,6 +90,26 @@ public class EffectGraphCompilerTests
             Is.EqualTo(new[] { typeof(FusedShaderPass), typeof(SkiaFilterPass), typeof(FusedShaderPass) }));
     }
 
+    // N1: a multi-declarator snippet uniform ('uniform float a, b;') escapes the merger's per-name feN_ prefixing,
+    // so it is rejected at snippet construction. Single-declarator and fixed-size array uniforms remain valid.
+    [Test]
+    public void SkslSnippet_MultiDeclaratorUniform_IsRejected()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                () => ShaderNodeDescriptor.Snippet("uniform float a, b;\nhalf4 apply(half4 c){ return half4(c.rgb*a*b, c.a); }"),
+                Throws.ArgumentException,
+                "a comma-separated uniform declarator list is rejected");
+            Assert.DoesNotThrow(
+                () => ShaderNodeDescriptor.Snippet("uniform float a;\nuniform float b;\nhalf4 apply(half4 c){ return c; }"),
+                "single-declarator uniforms are valid");
+            Assert.DoesNotThrow(
+                () => ShaderNodeDescriptor.Snippet("uniform float lut[4];\nhalf4 apply(half4 c){ return c; }"),
+                "a fixed-size array uniform is single-declarator and valid");
+        });
+    }
+
     // ---- Structural key vs parameters -------------------------------------------------------------------
 
     [Test]

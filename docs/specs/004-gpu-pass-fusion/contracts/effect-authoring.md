@@ -21,6 +21,8 @@ This contract defines what an effect author (built-in, plugin, or script) may re
 | `GeometryNode` | `Action<GeometrySession>` + mandatory `BoundsContract` | session canvas + read-only inputs; executor owns target, ROI, sync |
 | `SplitNode`/`CompositeNode` | branch count / composite op | fusion never crosses; branches schedule independently |
 
+A snippet (`ShaderNode`) uniform MUST be declared one per statement (`uniform float a; uniform float b;`), never as a comma-separated declarator list (`uniform float a, b;`). The snippet merger prefixes each uniform by name (`feN_`) so adjacent snippets fuse without redefinitions; a multi-declarator list leaves the trailing names unprefixed and silently binds them wrong in a fused program, so `SkslSource.Snippet` rejects it at describe time with a clear error. Fixed-size array uniforms (`uniform float lut[4];`) are single-declarator and remain valid.
+
 ## A3. Bounds & ROI obligations
 
 - Every non-invariant node MUST declare `TransformBounds` (forward) and `GetRequiredInputBounds` (backward). Backward MUST cover every input texel the node samples for a given output region; the engine MAY render inputs cropped to exactly that region.

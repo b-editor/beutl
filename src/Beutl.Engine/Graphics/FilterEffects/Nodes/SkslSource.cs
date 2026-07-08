@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using System.Text.RegularExpressions;
 
 namespace Beutl.Graphics.Effects;
 
@@ -18,8 +19,14 @@ public enum SkslSourceKind
 /// so two effects sharing a source string share a compiled program. The source is treated as <em>structure</em>:
 /// authors must never bake parameter values into it (A4) or the program cache and structural key are defeated.
 /// </summary>
-public sealed record SkslSource
+public sealed partial record SkslSource
 {
+    // A uniform declaration whose declarator list continues past the first name (`uniform float a, b;`). The snippet
+    // merger prefixes uniforms by name (feN_) one declarator at a time, so a multi-declarator list would leave the
+    // trailing names unprefixed — silently binding them wrong in a fused program (A2). Rejected at snippet construction.
+    [GeneratedRegex(@"uniform\s+[A-Za-z_][A-Za-z0-9_]*\s+[A-Za-z_][A-Za-z0-9_]*\s*(?:\[\s*\d+\s*\])?\s*,")]
+    private static partial Regex MultiDeclaratorUniformRegex();
+
     private SkslSource(string source, SkslSourceKind kind)
     {
         Source = source;
@@ -36,10 +43,24 @@ public sealed record SkslSource
     /// <summary>A stable 64-bit content hash (hex) of <see cref="Source"/>. Equal sources hash equal on every run and machine.</summary>
     public string IdentityHash { get; }
 
-    /// <summary>Wraps a <c>half4 apply(half4 c)</c> snippet source. Must be non-empty.</summary>
+    /// <summary>
+    /// Wraps a <c>half4 apply(half4 c)</c> snippet source. Must be non-empty. Each uniform must be declared in its
+    /// own statement (single declarator): a comma-separated list is rejected because it would escape the fused
+    /// snippet merger's per-name prefixing (A2).
+    /// </summary>
     public static SkslSource Snippet(string source)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(source);
+        if (MultiDeclaratorUniformRegex().IsMatch(source))
+        {
+            throw new ArgumentException(
+                "A fusable snippet must declare each uniform in its own statement (e.g. 'uniform float a; "
+                + "uniform float b;'), not as a comma-separated list ('uniform float a, b;'): the snippet merger "
+                + "prefixes uniforms by name (feN_) and a multi-declarator list escapes prefixing, silently "
+                + "binding the trailing uniforms wrong in a fused program (contract A2).",
+                nameof(source));
+        }
+
         return new SkslSource(source, SkslSourceKind.Snippet);
     }
 
