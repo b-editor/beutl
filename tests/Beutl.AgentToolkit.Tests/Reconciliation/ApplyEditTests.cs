@@ -561,6 +561,40 @@ public sealed class ApplyEditTests
     }
 
     [Test]
+    public void Apply_edit_rejects_a_non_object_identity_array_entry_instead_of_deleting_siblings()
+    {
+        Scene scene = CreateSceneWithElement(out Element element);
+        element.AddObject(new RectShape { Name = "keep" });
+        Guid keptId = element.Objects[0].Id;
+
+        using var session = new AgentToolkitTestSession(scene);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var tools = new EditTools(manager);
+
+        // A null entry alongside a kept Id must be rejected — silently skipping it would let the
+        // removal pass delete the kept object.
+        JsonObject malformed = new()
+        {
+            ["Elements"] = new JsonArray(new JsonObject
+            {
+                ["Id"] = element.Id.ToString(),
+                ["Objects"] = new JsonArray(null, new JsonObject { ["Id"] = keptId.ToString() })
+            })
+        };
+
+        ToolResult<ApplyEditResponse> rejected = tools.ApplyEdit(desired: malformed, schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rejected.IsSuccess, Is.False);
+            Assert.That(rejected.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(element.Objects, Has.Count.EqualTo(1));
+            Assert.That(element.Objects[0].Id, Is.EqualTo(keptId));
+        });
+    }
+
+    [Test]
     public void Apply_edit_rejects_reordering_a_flow_operator_before_its_portal()
     {
         Scene scene = CreateSceneWithElement(out Element element);

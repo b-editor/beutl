@@ -69,7 +69,9 @@ public sealed class EditorProjectSessionGateway(
         return await OpenProjectAsync(fullPath, cancellationToken).ConfigureAwait(false);
     }
 
-    public async ValueTask<ProjectSceneResult> AddSceneAsync(SceneCreateOptions options, CancellationToken cancellationToken = default)
+    // activeSession is unused here: the in-app host always edits the single open editor project, so
+    // there is no separate file session to swap; the interface passes it for the file-backed host.
+    public async ValueTask<ProjectSceneResult> AddSceneAsync(IEditingSession activeSession, SceneCreateOptions options, CancellationToken cancellationToken = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {

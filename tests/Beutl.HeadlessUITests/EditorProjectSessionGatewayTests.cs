@@ -192,10 +192,10 @@ public class EditorProjectSessionGatewayTests
         await TestReset.ResetShellAsync();
         string projectFile = CreateProjectFilesOnDisk("gateway-addscene", TimeSpan.FromSeconds(4));
         (EditorProjectSessionGateway gateway, _) = CreateGateway();
-        await gateway.OpenProjectAsync(projectFile);
+        ProjectSessionResult opened = await gateway.OpenProjectAsync(projectFile);
         HeadlessTestHelpers.Settle();
 
-        ProjectSceneResult added = await gateway.AddSceneAsync(new SceneCreateOptions(
+        ProjectSceneResult added = await gateway.AddSceneAsync(opened.Session, new SceneCreateOptions(
             320, 180, TimeSpan.Zero, TimeSpan.FromSeconds(2), "second-scene"));
         HeadlessTestHelpers.Settle();
 
@@ -216,7 +216,7 @@ public class EditorProjectSessionGatewayTests
         await TestReset.ResetShellAsync();
         string projectPath = CreateProjectFilesOnDisk("addscene-rollback", TimeSpan.FromSeconds(4));
         (EditorProjectSessionGateway gateway, _) = CreateGateway();
-        await gateway.OpenProjectAsync(projectPath);
+        ProjectSessionResult opened = await gateway.OpenProjectAsync(projectPath);
         HeadlessTestHelpers.Settle();
         string[] originalSceneUris = BeutlApplication.Current.Project!.Items.OfType<Scene>()
             .Select(s => s.Uri!.LocalPath)
@@ -230,7 +230,7 @@ public class EditorProjectSessionGatewayTests
         Exception? failure = null;
         try
         {
-            await gateway.AddSceneAsync(new SceneCreateOptions(
+            await gateway.AddSceneAsync(opened.Session, new SceneCreateOptions(
                 320, 180, TimeSpan.Zero, TimeSpan.FromSeconds(2), "second-scene"));
             Assert.Fail("Expected the save to fail.");
         }
@@ -264,13 +264,13 @@ public class EditorProjectSessionGatewayTests
                 outsideProject, 640, 360, 30, TimeSpan.FromSeconds(4)));
             ProjectOperations.Save(project);
             (EditorProjectSessionGateway gateway, _) = CreateGateway();
-            await gateway.OpenProjectAsync(outsideProject);
+            ProjectSessionResult opened = await gateway.OpenProjectAsync(outsideProject);
             HeadlessTestHelpers.Settle();
 
             WorkspaceBoundaryException? rejection = null;
             try
             {
-                await gateway.AddSceneAsync(new SceneCreateOptions(
+                await gateway.AddSceneAsync(opened.Session, new SceneCreateOptions(
                     320, 180, TimeSpan.Zero, TimeSpan.FromSeconds(2), "second-scene"));
                 Assert.Fail("Expected a workspace-boundary rejection.");
             }

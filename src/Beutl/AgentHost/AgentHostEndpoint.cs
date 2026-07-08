@@ -154,7 +154,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
                     .Addresses
                     .Single();
 
-                EndpointUri = new Uri(new Uri(address), "/mcp");
+                var endpointUri = new Uri(new Uri(address), "/mcp");
 
                 bool stopRequested;
                 lock (_lifecycleLock)
@@ -163,6 +163,10 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
                     if (!stopRequested)
                     {
                         _application = app;
+                        // Publish EndpointUri only after the stop check: TakeApplication already
+                        // cleared it (while still null), so setting it before this check would leave
+                        // a dead URL visible to the settings page after a stop-during-startup race.
+                        EndpointUri = endpointUri;
                     }
                 }
 

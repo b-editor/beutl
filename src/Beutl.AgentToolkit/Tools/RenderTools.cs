@@ -1594,17 +1594,41 @@ public sealed class RenderTools(
     {
         if (shots is { Length: > 0 })
         {
-            ResolvedStoryboardShot[] explicitShots = shots
-                .Where(shot => double.IsFinite(shot.TimeSeconds))
-                .Select((shot, index) => new ResolvedStoryboardShot(
-                    string.IsNullOrWhiteSpace(shot.Name) ? $"shot-{index + 1}" : shot.Name.Trim(),
-                    TimeSpan.FromSeconds(Math.Max(0, shot.TimeSeconds))))
+            // Validate explicit shots up front (finite, in-range, non-duplicate) instead of silently
+            // filtering/clamping — a typo like a 30s shot in a 5s scene must fail like the
+            // timeSeconds path does, not render a blank/misleading frame.
+            TimeSpan duration = scene.Duration > TimeSpan.Zero ? scene.Duration : TimeSpan.FromSeconds(1);
+            var seen = new HashSet<TimeSpan>();
+            var explicitShots = new List<ResolvedStoryboardShot>(shots.Length);
+            for (int i = 0; i < shots.Length; i++)
+            {
+                double seconds = shots[i].TimeSeconds;
+                if (!double.IsFinite(seconds))
+                {
+                    throw CreateStoryboardTimeValidationError($"render_storyboard shots[{i}].timeSeconds must be finite.");
+                }
+
+                if (seconds < 0 || seconds > duration.TotalSeconds)
+                {
+                    throw CreateStoryboardTimeValidationError(
+                        $"render_storyboard shots[{i}].timeSeconds={seconds.ToString(CultureInfo.InvariantCulture)} is outside the scene range 0..{duration.TotalSeconds.ToString(CultureInfo.InvariantCulture)} seconds.");
+                }
+
+                TimeSpan time = TimeSpan.FromSeconds(seconds);
+                if (!seen.Add(time))
+                {
+                    throw CreateStoryboardTimeValidationError(
+                        $"render_storyboard shots contains duplicate time {seconds.ToString(CultureInfo.InvariantCulture)}.");
+                }
+
+                explicitShots.Add(new ResolvedStoryboardShot(
+                    string.IsNullOrWhiteSpace(shots[i].Name) ? $"shot-{i + 1}" : shots[i].Name.Trim(),
+                    time));
+            }
+
+            return explicitShots
                 .OrderBy(shot => shot.Time)
                 .ToArray();
-            if (explicitShots.Length > 0)
-            {
-                return explicitShots;
-            }
         }
 
         ResolvedStoryboardShot[] derivedShots = scene.Children

@@ -659,21 +659,41 @@ public sealed class StillRenderer
 
             foreach (EngineObject obj in element.Objects)
             {
-                if (obj is not TextBlock textBlock || !textBlock.IsEnabled)
-                {
-                    continue;
-                }
-
-                if (renderer.GetBoundary(textBlock) is { } bounds
-                    && bounds.Width > 0
-                    && bounds.Height > 0)
-                {
-                    result.Add(new RenderedTextBounds(element, textBlock, bounds));
-                }
+                CollectRenderedTextBounds(element, obj, renderer, result);
             }
         }
 
         return result;
+    }
+
+    // Flow operators (DrawableGroup / DrawableDecorator) render their children, so text nested under
+    // a group (e.g. after duplicate_object(wrapInGroup:true)) must still be measured — otherwise
+    // rendered contrast / eye-trace checks ignore grouped text that is actually on screen.
+    private static void CollectRenderedTextBounds(
+        Element element,
+        EngineObject obj,
+        SceneRenderer renderer,
+        List<RenderedTextBounds> result)
+    {
+        if (obj is TextBlock textBlock && textBlock.IsEnabled
+            && renderer.GetBoundary(textBlock) is { } bounds
+            && bounds.Width > 0
+            && bounds.Height > 0)
+        {
+            result.Add(new RenderedTextBounds(element, textBlock, bounds));
+        }
+
+        IEnumerable<EngineObject> children = obj switch
+        {
+            DrawableGroup group => group.Children,
+            DrawableDecorator decorator => decorator.Children,
+            _ => []
+        };
+
+        foreach (EngineObject child in children)
+        {
+            CollectRenderedTextBounds(element, child, renderer, result);
+        }
     }
 
     private static int GetColorByteCount(BitmapColorType colorType, int bytesPerPixel)

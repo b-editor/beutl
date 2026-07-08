@@ -83,6 +83,32 @@ public sealed class RenderToolsStoryboardTests
     }
 
     [Test]
+    public void Explicit_shots_reject_out_of_range_non_finite_and_duplicate_times()
+    {
+        var scene = new Scene(16, 9, "validate") { Duration = TimeSpan.FromSeconds(5) };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                Assert.Throws<ReconcileException>(() =>
+                    RenderTools.ResolveStoryboardFrames(scene, [new("late", 30)], 0))!.Error.Code,
+                Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(
+                Assert.Throws<ReconcileException>(() =>
+                    RenderTools.ResolveStoryboardFrames(scene, [new("neg", -1)], 0))!.Error.Code,
+                Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(
+                Assert.Throws<ReconcileException>(() =>
+                    RenderTools.ResolveStoryboardFrames(scene, [new("nan", double.NaN)], 0))!.Error.Code,
+                Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(
+                Assert.Throws<ReconcileException>(() =>
+                    RenderTools.ResolveStoryboardFrames(scene, [new("a", 2), new("b", 2)], 0))!.Error.Code,
+                Is.EqualTo(ErrorCode.ValidationRejected));
+        });
+    }
+
+    [Test]
     public void Resolve_storyboard_frames_subdivides_explicit_shots_at_binary_points()
     {
         var scene = new Scene(16, 9, "subdivision") { Duration = TimeSpan.FromSeconds(1) };

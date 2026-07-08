@@ -17,7 +17,10 @@ public interface IProjectSessionGateway
 
     ValueTask<ProjectSessionResult> CreateProjectAsync(ProjectCreateOptions options, CancellationToken cancellationToken = default);
 
-    ValueTask<ProjectSceneResult> AddSceneAsync(SceneCreateOptions options, CancellationToken cancellationToken = default);
+    // activeSession is the session SessionTools already validated for this request; the gateway must
+    // operate on it rather than re-reading the current session, so a concurrent open/create swap
+    // cannot retarget add_scene to a different project.
+    ValueTask<ProjectSceneResult> AddSceneAsync(IEditingSession activeSession, SceneCreateOptions options, CancellationToken cancellationToken = default);
 }
 
 public sealed class FileProjectSessionGateway(
@@ -56,10 +59,13 @@ public sealed class FileProjectSessionGateway(
         return ValueTask.FromResult(new ProjectSessionResult(session, session.Project));
     }
 
-    public ValueTask<ProjectSceneResult> AddSceneAsync(SceneCreateOptions options, CancellationToken cancellationToken = default)
+    public ValueTask<ProjectSceneResult> AddSceneAsync(IEditingSession activeSession, SceneCreateOptions options, CancellationToken cancellationToken = default)
     {
-        FileEditingSession session = fileSessions.CurrentFileSession
-            ?? throw new InvalidOperationException("No file editing session is open.");
+        if (activeSession is not FileEditingSession session)
+        {
+            throw new InvalidOperationException("add_scene requires a file editing session.");
+        }
+
         Scene scene = null!;
         // Route the add and active-scene switch through the session dispatcher so a concurrent apply_edit
         // cannot observe Project.Items mid-mutation or race SetActiveScene's recording-pipeline swap.

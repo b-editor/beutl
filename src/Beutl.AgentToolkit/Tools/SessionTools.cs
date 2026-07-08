@@ -121,9 +121,10 @@ public sealed class SessionTools(
     {
         return ExecuteAsync(async () =>
         {
-            RequireActiveSession(session);
+            IEditingSession activeSession = RequireActiveSession(session);
             ValidateProjectSettings(width, height, frameRate: 1);
             ProjectSceneResult result = await projects.AddSceneAsync(
+                activeSession,
                 new SceneCreateOptions(
                     width,
                     height,

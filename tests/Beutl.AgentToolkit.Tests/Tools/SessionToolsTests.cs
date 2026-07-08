@@ -386,6 +386,39 @@ public sealed class SessionToolsTests
         });
     }
 
+    [Test]
+    public async Task Add_scene_operates_on_the_passed_session_not_the_current_one()
+    {
+        string root = CreateWorkspace();
+        var manager = new AgentSessionManager();
+        using var source = new FileSessionSource();
+        var gateway = new FileProjectSessionGateway(source, manager, new WorkspaceGuard(root));
+
+        FileEditingSession sessionB = source.CreateProject(new ProjectCreateOptions(
+            Path.Combine(root, "b.bep"), 640, 360, 30, TimeSpan.FromSeconds(4)));
+        sessionB.Save(skipConflictCheck: true);
+
+        // The gateway uses the passed session, not the current one: add_scene targets B, and B is
+        // the only scene collection mutated.
+        ProjectSceneResult result = await gateway.AddSceneAsync(
+            sessionB, new SceneCreateOptions(320, 240, TimeSpan.Zero, TimeSpan.FromSeconds(2), "added"));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Session, Is.SameAs(sessionB));
+            Assert.That(sessionB.Project.Items.OfType<Scene>().Count(), Is.EqualTo(2));
+        });
+
+        // A session swapped out of the source is disposed, so add_scene authorized for it is
+        // rejected rather than silently retargeting the new current project.
+        FileEditingSession sessionC = source.CreateProject(new ProjectCreateOptions(
+            Path.Combine(root, "c.bep"), 640, 360, 30, TimeSpan.FromSeconds(4)));
+        sessionC.Save(skipConflictCheck: true);
+
+        Assert.ThrowsAsync<SessionUnavailableException>(async () => await gateway.AddSceneAsync(
+            sessionB, new SceneCreateOptions(320, 240, TimeSpan.Zero, TimeSpan.FromSeconds(2), "stale")));
+    }
+
     private static SessionTools CreateSessionTools(FileSessionSource source, AgentSessionManager manager, string root)
     {
         var workspace = new WorkspaceGuard(root);
@@ -422,6 +455,7 @@ public sealed class SessionToolsTests
         }
 
         public ValueTask<ProjectSceneResult> AddSceneAsync(
+            IEditingSession activeSession,
             SceneCreateOptions options,
             CancellationToken cancellationToken = default)
         {

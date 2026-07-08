@@ -423,7 +423,13 @@ internal sealed class DeclarativeDocumentApplier
         {
             if (desired[desiredIndex] is not JsonObject itemJson)
             {
-                continue;
+                // Silently skipping a non-object entry would leave its Id uncollected, so the
+                // removal pass below would then delete other existing children — reject instead.
+                throw new ReconcileException(new ToolError(
+                    ErrorCode.ValidationRejected,
+                    $"Identity array entry at '{CreateIdentityListItemPath(elementBaseType, desiredIndex)}' is not an object.",
+                    null,
+                    "Each identity-array member must be a JSON object with an optional Id; remove null/primitive entries."));
             }
 
             CoreObject item;
