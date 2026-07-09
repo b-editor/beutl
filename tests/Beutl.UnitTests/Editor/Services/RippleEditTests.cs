@@ -424,6 +424,29 @@ public class RippleEditTests
     }
 
     [Test]
+    public void Resize_RippleOn_LeftEdgeGrow_LockedUpstream_DoesNotTightenClamp()
+    {
+        var resize = new ElementResizeService(_history);
+        Element lockedUpstream = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), zIndex: 0);
+        Element freeUpstream = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2), zIndex: 0);
+        Element target = AddElement(TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(4), zIndex: 0);
+        lockedUpstream.IsLocked = true;
+
+        // The locked element (earliest start = 1) must not tighten the clamp floor, since ShiftBefore
+        // never moves it. Only the free upstream (start 2) bounds the grow, so start 2 is allowed.
+        resize.Resize(_scene,
+            [new ElementResizeRequest(target, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(6), 0)],
+            ripple: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(target.Start, Is.EqualTo(TimeSpan.FromSeconds(2)), "not clamped by the locked upstream");
+            Assert.That(freeUpstream.Start, Is.EqualTo(TimeSpan.Zero), "free upstream shifts left by 2");
+            Assert.That(lockedUpstream.Start, Is.EqualTo(TimeSpan.FromSeconds(1)), "locked upstream stays put");
+        });
+    }
+
+    [Test]
     public void Exclude_RippleOn_GroupedFollower_ShiftsWithSameLayer()
     {
         // A grouped follower shares a group with the removed element but sits after it.

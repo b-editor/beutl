@@ -120,10 +120,13 @@ public sealed class ElementResizeService : IElementResizeService
         TimeSpan startDelta = req.NewStart - req.Element.Start;
         if (startDelta >= TimeSpan.Zero) return (req.NewStart, req.NewLength);
 
+        // Match ShiftBefore's eligibility: a locked upstream element is never shifted,
+        // so it must not tighten the floor (else it would clamp a valid left-edge grow).
         TimeSpan? minUpstreamStart = null;
         foreach (Element e in scene.Children)
         {
-            if (e.ZIndex == req.Element.ZIndex && !resized.Contains(e) && e.Range.End <= req.Element.Start)
+            if (e.ZIndex == req.Element.ZIndex && !resized.Contains(e) && !e.IsLocked
+                && e.Range.End <= req.Element.Start)
             {
                 if (minUpstreamStart is not { } cur || e.Start < cur) minUpstreamStart = e.Start;
             }
