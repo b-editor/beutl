@@ -316,6 +316,42 @@ public sealed class ProxiesTabViewModelTests
         }
     }
 
+    // If the newest same-path source has only a Failed entry (regeneration failed) while an older Ready
+    // proxy lingers, the row must bind to the newest source's state, not the stale older Ready — matching
+    // the preview, which serves no proxy for the current source.
+    [Test]
+    public void Refresh_OfflineSourceWithNewerFailedVersion_BindsNewestNotOldReady()
+    {
+        string root = CreateRoot();
+        string sourcePath = CreateSourceFile(root, "offline.mov", 1024);
+        var store = new ProxyStore(Path.Combine(root, "proxies"));
+        ProxyFingerprint newFp = ProxyFingerprint.FromFile(sourcePath);
+        ProxyFingerprint oldFp = newFp with
+        {
+            FileSizeBytes = newFp.FileSizeBytes + 4096,
+            MtimeUtc = newFp.MtimeUtc.AddMinutes(-10),
+        };
+        var oldTime = new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var newTime = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        // Older source: a Ready proxy generated earlier. Newer source: only a Failed entry, generated later.
+        RegisterProxyEntry(store, new ProxyEntry(
+            oldFp, ProxyPreset.Quarter, ProxyState.Ready, "hash/old-ready.mp4", 512,
+            new PixelSize(1920, 1080), new PixelSize(480, 270), oldTime, oldTime, null));
+        RegisterProxyEntry(store, new ProxyEntry(
+            newFp, ProxyPreset.Quarter, ProxyState.Failed, "hash/new-failed.mp4", 0,
+            new PixelSize(1920, 1080), new PixelSize(480, 270), newTime, newTime, "boom"));
+        File.Delete(sourcePath);
+
+        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
+
+        ProxyClipViewModel clip = viewModel.Clips.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(clip.Source, Is.EqualTo(newFp), "the row must bind to the newest source, not the stale older Ready");
+            Assert.That(clip.IsReady.Value, Is.False);
+        });
+    }
+
     // With multiple Ready entries for an offline path, the row must bind to the fingerprint preview
     // decoding picks: the densest within the default-preset density cap (mirroring ProxyResolver), not
     // simply the densest overall.

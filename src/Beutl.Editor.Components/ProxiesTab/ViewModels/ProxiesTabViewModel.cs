@@ -738,26 +738,30 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
     private static ProxyEntry? SelectOfflineEntry(IEnumerable<ProxyEntry> pathMatches, ProxyPreset preferredPreset)
     {
         List<ProxyEntry> candidates = [.. pathMatches];
+        if (candidates.Count == 0)
+            return null;
 
-        // Restrict Ready entries to the newest source version before density ranking, mirroring
-        // ProxyResolver.ResolveByPath: after an original is replaced and re-proxied, an older
-        // fingerprint's Ready entry can linger, and density-only ranking would bind the row to it
-        // while preview decodes the newest fingerprint.
-        List<ProxyEntry> ready = [.. candidates.Where(e => e.State == ProxyState.Ready)];
-        if (ready.Count > 0)
-        {
-            DateTime NewestForSource(ProxyFingerprint s) => ready.Where(e => e.Source == s).Max(e => e.GeneratedAtUtc);
-            ProxyFingerprint newest = ready.OrderByDescending(e => NewestForSource(e.Source)).First().Source;
-            ready = [.. ready.Where(e => e.Source == newest)];
-        }
+        // Choose the newest source version across ALL candidates (any state), then confine the whole
+        // selection to that source — mirroring ProxyResolver.ResolveByPath. A newer Failed/Stale entry for
+        // a replaced source must outrank an older Ready proxy of a stale fingerprint, so the row reflects
+        // the current source's state instead of binding delete/regenerate to content preview won't decode.
+        DateTime NewestForSource(ProxyFingerprint s) => candidates.Where(e => e.Source == s).Max(e => e.GeneratedAtUtc);
+        ProxyFingerprint newest = candidates
+            .OrderByDescending(e => NewestForSource(e.Source))
+            .ThenByDescending(e => e.Source.MtimeUtc)
+            .First().Source;
+        List<ProxyEntry> fromNewest = [.. candidates.Where(e => e.Source == newest)];
 
         float cap = ProxyPresetDefinitions.Get(preferredPreset).Scale;
         ProxyEntry? cappedWinner = null;
         float cappedDensity = -1f;
         ProxyEntry? densestWinner = null;
         float densestDensity = -1f;
-        foreach (ProxyEntry entry in ready)
+        foreach (ProxyEntry entry in fromNewest)
         {
+            if (entry.State != ProxyState.Ready)
+                continue;
+
             float density = SupplyDensityOf(entry);
             if (density <= cap + DensityTolerance && density > cappedDensity)
             {
@@ -772,7 +776,7 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
             }
         }
 
-        return cappedWinner ?? densestWinner ?? candidates
+        return cappedWinner ?? densestWinner ?? fromNewest
             .OrderBy(entry => OfflineEntryRank(entry.State))
             .ThenByDescending(entry => (long)entry.ProxyDecodedFrameSize.Width * entry.ProxyDecodedFrameSize.Height)
             .ThenByDescending(entry => entry.GeneratedAtUtc)

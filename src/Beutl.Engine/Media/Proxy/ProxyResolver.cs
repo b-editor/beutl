@@ -12,7 +12,7 @@ public sealed class ProxyResolver : IProxyResolver
     private readonly IProxyStore _store;
     private readonly ConcurrentDictionary<string, int> _pins = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, long> _sourceVersions = new(StringComparer.Ordinal);
-    private readonly ConcurrentDictionary<string, DateTime> _stalenessLastChecked = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, (DateTime Time, ProxyFingerprint Fingerprint)> _stalenessLastChecked = new(StringComparer.Ordinal);
 
     public ProxyResolver(IProxyStore store)
     {
@@ -83,8 +83,11 @@ public sealed class ProxyResolver : IProxyResolver
         DateTime newestGeneratedForSource(ProxyFingerprint source) =>
             matches.Where(m => m.Source == source).Max(m => m.GeneratedAtUtc);
 
+        // Rank by newest generation, then newer source mtime as a stable tiebreak (a replaced original
+        // has a newer mtime even if two proxies happen to share a generation timestamp).
         ProxyFingerprint newestSource = matches
             .OrderByDescending(m => newestGeneratedForSource(m.Source))
+            .ThenByDescending(m => m.Source.MtimeUtc)
             .First().Source;
 
         var candidates = matches
@@ -208,13 +211,18 @@ public sealed class ProxyResolver : IProxyResolver
             return;
 
         DateTime nowUtc = DateTime.UtcNow;
-        if (_stalenessLastChecked.TryGetValue(path, out DateTime last)
-            && nowUtc - last < s_stalenessCheckInterval)
+        // Throttle repeat scans of the same path, but only while the source fingerprint is unchanged: a
+        // source replaced within the interval yields a new fingerprint, and skipping the scan would leave
+        // its now-outdated Ready proxy marked Ready until the interval elapses (and never, if the source
+        // then goes offline), letting offline ResolveByPath serve stale content.
+        if (_stalenessLastChecked.TryGetValue(path, out (DateTime Time, ProxyFingerprint Fingerprint) last)
+            && nowUtc - last.Time < s_stalenessCheckInterval
+            && last.Fingerprint == current)
         {
             return;
         }
 
-        _stalenessLastChecked[path] = nowUtc;
+        _stalenessLastChecked[path] = (nowUtc, current);
 
         // Filter the full enumeration by source path. The throttle above bounds how often this runs
         // per path, so a linear scan is acceptable here without a dedicated path index in the store.

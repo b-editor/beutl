@@ -192,7 +192,7 @@ public static class ProxySourceEnumerator
         TimeRange? localRange = null)
     {
         // Direct IFileSource-valued properties (current + animated): SourceVideo/SourceImage/SourceSound.
-        foreach (IFileSource source in EnumeratePropertyFileSources(obj, localRange))
+        foreach (IFileSource source in EnumeratePropertyFileSources(obj, localRange, skipDisabledElements))
             yield return source;
 
         if (obj is Drawable drawable)
@@ -216,11 +216,15 @@ public static class ProxySourceEnumerator
 
                     break;
 
-                case SceneDrawable { ReferencedScene.CurrentValue: { } referencedScene }:
+                case SceneDrawable { ReferencedScene.CurrentValue: { } referencedScene } sceneDrawable:
                     // A SceneDrawable renders only the referenced scene's graphics, never its audio, so
                     // narrow the descent to Graphics regardless of the outer target: an audio-only
                     // original missing inside a graphically-embedded scene must not block a video export.
-                    foreach (IFileSource source in EnumerateReferencedSceneSources(referencedScene, visitedScenes, skipDisabledElements, CompositionTarget.Graphics))
+                    // It evaluates the referenced scene at time - sceneDrawable.Start, so map the window
+                    // into referenced-scene time for the inner keyframe filter.
+                    foreach (IFileSource source in EnumerateReferencedSceneSources(
+                        referencedScene, visitedScenes, skipDisabledElements, CompositionTarget.Graphics,
+                        localRange?.SubtractStart(sceneDrawable.Start)))
                         yield return source;
 
                     break;
@@ -276,8 +280,11 @@ public static class ProxySourceEnumerator
                 case DrawablePresenter { Target.CurrentValue: { } presented }:
                     if ((!skipDisabledElements || presented.IsEnabled) && visitedTargets.Add(presented))
                     {
+                        // A presenter forwards the same composition time to its target (no remap), so the
+                        // render window maps directly — thread localRange through, unlike the time
+                        // controller above.
                         foreach (IFileSource source in EnumerateObjectFileSources(
-                            presented, visitedScenes, visitedGraphGroups, visitedFilterEffectGroups, visitedTargets, skipDisabledElements, renderTarget))
+                            presented, visitedScenes, visitedGraphGroups, visitedFilterEffectGroups, visitedTargets, skipDisabledElements, renderTarget, localRange))
                             yield return source;
                     }
 
@@ -329,7 +336,8 @@ public static class ProxySourceEnumerator
     }
 
     private static IEnumerable<IFileSource> EnumerateReferencedSceneSources(
-        Scene scene, HashSet<(Scene, CompositionTarget?)> visitedScenes, bool skipDisabledElements, CompositionTarget? renderTarget)
+        Scene scene, HashSet<(Scene, CompositionTarget?)> visitedScenes, bool skipDisabledElements, CompositionTarget? renderTarget,
+        TimeRange? sceneWindow = null)
     {
         // Scene references are user-constructible and can cycle; the visited set makes the walk
         // terminate (render-time Enter/Exit is the only other guard). Key by (scene, renderTarget): the
@@ -341,26 +349,34 @@ public static class ProxySourceEnumerator
         foreach (Element child in scene.Children)
         {
             // A disabled child never renders through SceneCompositor.SortLayers, so export preflight
-            // must not demand its original file exist. Time-range filtering through the SceneDrawable's
-            // remap is out of scope; only the render-independent IsEnabled gate is applied here.
+            // must not demand its original file exist; the render-independent IsEnabled gate applies here.
             if (skipDisabledElements && !child.IsEnabled)
                 continue;
 
-            foreach (IFileSource source in EnumerateElementFileSources(child, visitedScenes, skipDisabledElements, renderTarget))
+            // sceneWindow is in referenced-scene time; each child samples its own animations at
+            // scene-time - child.Start, so convert to child-local time for the keyframe filter.
+            TimeRange? childWindow = sceneWindow?.SubtractStart(child.Start);
+            foreach (IFileSource source in EnumerateElementFileSources(child, visitedScenes, skipDisabledElements, renderTarget, childWindow))
                 yield return source;
         }
     }
 
-    private static IEnumerable<IFileSource> EnumeratePropertyFileSources(EngineObject obj, TimeRange? localRange = null)
+    private static IEnumerable<IFileSource> EnumeratePropertyFileSources(
+        EngineObject obj, TimeRange? localRange = null, bool skipDisabledElements = false, HashSet<EngineObject>? visitedValues = null)
     {
+        visitedValues ??= new HashSet<EngineObject>(ReferenceEqualityComparer.Instance);
+
         foreach (IProperty property in obj.Properties)
         {
             // A property animated by >=1 keyframe is sampled from its animation, never its base
             // CurrentValue, so when range-filtering to a render window the base must not block export —
             // its file is never opened. Without a window (proxy/badge scan) keep the base too.
             bool baseOverridden = localRange is not null && AnimationSuppliesValue(property.Animation);
-            if (!baseOverridden && property.CurrentValue is IFileSource fileSource)
-                yield return fileSource;
+            if (!baseOverridden)
+            {
+                foreach (IFileSource source in EnumeratePropertyValueFileSources(property.CurrentValue, localRange, skipDisabledElements, visitedValues))
+                    yield return source;
+            }
 
             // Rendering (and the proxy scanner) consume animated file-source values too, so media
             // referenced only from keyframes must be enumerated as well.
@@ -373,9 +389,35 @@ public static class ProxySourceEnumerator
             if (prop.PropertyType.IsValueType)
                 continue;
 
-            if (obj.GetValue(prop) is IFileSource fileSource)
-                yield return fileSource;
+            foreach (IFileSource source in EnumeratePropertyValueFileSources(obj.GetValue(prop), localRange, skipDisabledElements, visitedValues))
+                yield return source;
         }
+    }
+
+    // A property value that is itself an IFileSource is the direct case; a value that is an EngineObject
+    // (an ImageBrush holding ImageBrush.Source, a LutEffect holding LutEffect.Source, …) holds rendered
+    // file sources on its own properties, so recurse. Structural objects (drawables, sounds, scenes,
+    // elements, graph nodes) are deliberately NOT recursed here: they have dedicated walks with their own
+    // disabled/target/window guards, and re-walking them through the property graph would bypass those.
+    private static IEnumerable<IFileSource> EnumeratePropertyValueFileSources(
+        object? value, TimeRange? localRange, bool skipDisabledElements, HashSet<EngineObject> visitedValues)
+    {
+        if (value is IFileSource fileSource)
+        {
+            yield return fileSource;
+            yield break;
+        }
+
+        if (value is not EngineObject engineObject
+            || value is Drawable or Sound or Scene or Element or GraphNode
+            || (skipDisabledElements && !engineObject.IsEnabled)
+            || !visitedValues.Add(engineObject))
+        {
+            yield break;
+        }
+
+        foreach (IFileSource source in EnumeratePropertyFileSources(engineObject, localRange, skipDisabledElements, visitedValues))
+            yield return source;
     }
 
     private static IEnumerable<IFileSource> EnumerateGraphSources(
@@ -401,22 +443,32 @@ public static class ProxySourceEnumerator
 
     private static IEnumerable<IFileSource> EnumerateNodeInputSources(GraphNode node, TimeRange? localRange = null)
     {
+        // GraphSnapshot.LoadAnimatedValues evaluates a node's non-global input animations at
+        // time - node.Start, so shift the window into node-local time before filtering; without this an
+        // in-window keyframe on a time-offset node could be wrongly dropped.
+        TimeRange? nodeWindow = localRange?.SubtractStart(node.Start);
+
         foreach (INodeMember member in node.Items)
         {
-            if (member is not IInputPort { Property: { } property })
+            if (member is not IInputPort inputPort || inputPort.Property is not { } property)
+                continue;
+
+            // A connected input's value comes from the upstream node (LoadAnimatedValues skips it), so
+            // this port's own base/animation is never opened — the upstream node reports its sources.
+            if (inputPort.Connection.Value is not null)
                 continue;
 
             IAnimation? animation = (property as IAnimatablePropertyAdapter)?.Animation;
 
             // Like the EngineObject property walk: when range-filtering, the render samples an input's
             // animation, not its base value, so an overridden stale base must not block export.
-            bool baseOverridden = localRange is not null && AnimationSuppliesValue(animation);
+            bool baseOverridden = nodeWindow is not null && AnimationSuppliesValue(animation);
             if (!baseOverridden && property.GetValue() is IFileSource current)
                 yield return current;
 
             if (animation is not null)
             {
-                foreach (IFileSource source in EnumerateAnimatedFileSources(animation, localRange))
+                foreach (IFileSource source in EnumerateAnimatedFileSources(animation, nodeWindow))
                     yield return source;
             }
         }
@@ -462,8 +514,10 @@ public static class ProxySourceEnumerator
             // property walk cannot reach, so a NodeGraphFilterEffect source inside them would be
             // invisible to the Proxies tab, cache invalidation, and export preflight.
             case FilterEffectPresenter { Target.CurrentValue: { } presented }:
+                // A presenter applies its target with the same context (no time remap), so the render
+                // window maps directly — thread localRange, unlike the delay effect below.
                 foreach (IFileSource source in EnumerateFilterEffectGraphSources(
-                    presented, visitedFilterEffectGroups, visitedGraphGroups, visitedFilterEffects, skipDisabledElements))
+                    presented, visitedFilterEffectGroups, visitedGraphGroups, visitedFilterEffects, skipDisabledElements, localRange))
                     yield return source;
 
                 break;

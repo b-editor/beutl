@@ -283,6 +283,28 @@ public class ProxyResolverTests
     }
 
     [Test]
+    public void MaybeMarkStale_NotThrottled_WhenFingerprintChangedWithinInterval()
+    {
+        string source = CreateSourceFile();
+        ProxyEntry entry = RegisterProxy(source, ProxyPreset.Quarter, new PixelSize(100, 80), new PixelSize(25, 20));
+        ProxyFingerprint original = entry.Source;
+
+        // First resolve records the last-checked (time, fingerprint) for this path.
+        _resolver.Resolve(new Uri(source), ProxyPreset.Quarter);
+
+        // Replace the source within the throttle interval: a new (size, mtime) yields a new fingerprint.
+        File.WriteAllBytes(source, [1, 2, 3, 4, 5, 6, 7, 8, 9]);
+        File.SetLastWriteTimeUtc(source, original.MtimeUtc.AddSeconds(30));
+
+        // A time-only throttle would skip the stale scan here; the fingerprint-keyed throttle re-scans
+        // because the fingerprint changed, so the outdated Ready entry is transitioned to Stale.
+        _resolver.Resolve(new Uri(source), ProxyPreset.Quarter);
+
+        ProxyEntry? surfaced = _store.TryGet(original, ProxyPreset.Quarter);
+        Assert.That(surfaced!.State, Is.EqualTo(ProxyState.Stale));
+    }
+
+    [Test]
     public void ResolveByPath_NewerFailedSource_DoesNotServeOlderReadyProxy()
     {
         string source = CreateSourceFile();

@@ -3,6 +3,7 @@ using Beutl.Audio;
 using Beutl.Editor;
 using Beutl.Extensibility;
 using Beutl.Graphics;
+using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.NodeGraph;
@@ -535,6 +536,30 @@ public sealed class ExportSourceValidatorTests
             ExportSourceValidator.CollectRenderableSources(scene, new TimeRange(TimeSpan.FromSeconds(6), TimeSpan.FromSeconds(4))));
 
         Assert.That(missing, Is.Empty);
+    }
+
+    // A rendered source nested inside an EngineObject-valued property (a Shape's Fill ImageBrush holding
+    // ImageBrush.Source) is opened at render, so a missing such file must be preflighted, not slip past.
+    [Test]
+    public void CollectRenderableSources_ReportsMissingSourceInsideBrushProperty()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string missingImage = Path.Combine(root, "brush.png");
+
+        var brush = new ImageBrush();
+        var imageSource = new ImageSource();
+        imageSource.ReadFrom(new Uri(missingImage));
+        brush.Source.CurrentValue = imageSource;
+        var shape = new RectShape();
+        shape.Fill.CurrentValue = brush;
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
+        scene.Children.Add(ElementWith(root, shape));
+
+        IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
+            ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene));
+
+        Assert.That(missing, Is.EqualTo(new[] { missingImage }));
     }
 
     private static SourceSound SoundDrawable(string sourcePath)
