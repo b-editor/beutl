@@ -7,8 +7,8 @@ using Beutl.ProjectSystem;
 using Beutl.ViewModels;
 using Beutl.Views;
 using FluentAvalonia.UI.Controls;
-using Icon = FluentIcons.Common.Icon;
 using FluentIconSource = FluentIcons.Avalonia.Fluent.FluentIconSource;
+using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.Services.PrimitiveImpls;
 

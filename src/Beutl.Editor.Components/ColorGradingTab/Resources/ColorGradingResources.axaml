@@ -86,6 +86,7 @@
                     <icons:FluentIcon Name="PART_SymbolIcon"
                                       HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                       VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                      FontSize="{TemplateBinding FontSize}"
                                       Icon="Edit" />
                 </Border>
             </ControlTemplate>

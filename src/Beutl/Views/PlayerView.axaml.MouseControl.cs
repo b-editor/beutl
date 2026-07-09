@@ -1006,7 +1006,7 @@ public partial class PlayerView
                     var saveAsImage = new MenuFlyoutItem()
                     {
                         Text = Strings.SaveAsImage,
-                        IconSource = new FluentIconSource() { Icon = Icon.SaveEdit }
+                        IconSource = new FluentIconSource() { Icon = Icon.SaveImage }
                     };
                     copyAsString.Click += (s, e) =>
                     {
