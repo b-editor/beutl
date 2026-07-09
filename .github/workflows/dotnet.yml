@@ -14,6 +14,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # ubuntu-latest ships ~19GB of pre-installed tooling this .NET-only job never
+      # uses (Android SDK, Haskell/GHC, CodeQL, cached Docker images). When a runner
+      # starts with little headroom the build+test+coverage run exhausts the disk and
+      # aborts with "No space left on device". Reclaiming it up front keeps the job's
+      # free space consistent across runners.
+      - name: Free disk space
+        run: |
+          df -h /
+          sudo rm -rf /usr/local/lib/android /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force || true
+          df -h /
+
       - name: Checkout
         uses: actions/checkout@v7
         with:
