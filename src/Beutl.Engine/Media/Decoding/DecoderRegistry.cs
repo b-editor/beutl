@@ -61,7 +61,7 @@ public static class DecoderRegistry
             IDisposable? pin = null;
             try
             {
-                var sourceUri = new Uri(Path.GetFullPath(file));
+                var sourceUri = ToFileUri(file);
                 if (resolver.Resolve(sourceUri, options.PreferredProxyPreset) is { } resolution)
                 {
                     pin = resolver.Pin(resolution);
@@ -101,6 +101,19 @@ public static class DecoderRegistry
         }
 
         return null;
+    }
+
+    // Build an escaped file URI for the resolver: new Uri(rawPath) parses URI-reserved chars in the
+    // filename (# fragment, ? query) as delimiters, so LocalPath would drop them and no longer match
+    // the path ProxyFingerprint.FromFile stored — the proxy would never resolve for such files.
+    internal static Uri ToFileUri(string file)
+    {
+        return new UriBuilder
+        {
+            Scheme = Uri.UriSchemeFile,
+            Host = string.Empty,
+            Path = Path.GetFullPath(file),
+        }.Uri;
     }
 
     public static IDecoderInfo[] GuessDecoder(string file)

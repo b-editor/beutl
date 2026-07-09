@@ -1,4 +1,5 @@
-﻿using Beutl.IO;
+﻿using Beutl.Composition;
+using Beutl.IO;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 
@@ -14,7 +15,7 @@ public static class ExportSourceValidator
     /// <see cref="GetMissingPaths"/>.
     /// </summary>
     public static IReadOnlySet<string> CollectRenderableSources(Scene scene, TimeSpan time)
-        => CollectRenderableSources(scene, element => element.Range.Contains(time));
+        => CollectRenderableSources(scene, element => element.Range.Contains(time), CompositionTarget.Graphics);
 
     /// <summary>
     /// Collects the referenced media paths that can actually be rendered anywhere in
@@ -26,7 +27,8 @@ public static class ExportSourceValidator
     public static IReadOnlySet<string> CollectRenderableSources(Scene scene, TimeRange range)
         => CollectRenderableSources(scene, element => element.Range.Intersects(range));
 
-    private static IReadOnlySet<string> CollectRenderableSources(Scene scene, Func<Element, bool> inRange)
+    private static IReadOnlySet<string> CollectRenderableSources(
+        Scene scene, Func<Element, bool> inRange, CompositionTarget? renderTarget = null)
     {
         ArgumentNullException.ThrowIfNull(scene);
 
@@ -38,7 +40,7 @@ public static class ExportSourceValidator
                 continue;
 
             foreach (IFileSource source in ProxySourceEnumerator.EnumerateFileSources(
-                element, visitedScenes, skipDisabledElements: true))
+                element, visitedScenes, skipDisabledElements: true, renderTarget))
             {
                 if (source.Uri is { IsFile: true } uri)
                     paths.Add(uri.LocalPath);

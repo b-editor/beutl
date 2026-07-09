@@ -236,8 +236,10 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
         // Snapshot the referenced paths on the UI thread (the scene graph is mutable and not thread-safe),
         // then run only the per-path File.Exists — which can stall on slow storage — off-thread.
+        // Export renders [Scene.Start, Scene.Start + Duration) (FrameProviderImpl/SampleProviderImpl add
+        // Scene.Start), so the preflight must scan the same interval — not [0, Duration).
         IReadOnlySet<string> referencedSources =
-            ExportSourceValidator.CollectRenderableSources(Model, new TimeRange(TimeSpan.Zero, Model.Duration));
+            ExportSourceValidator.CollectRenderableSources(Model, new TimeRange(Model.Start, Model.Duration));
         IReadOnlyList<string> missingSources =
             await Task.Run(() => ExportSourceValidator.GetMissingPaths(referencedSources));
         if (missingSources.Count > 0)

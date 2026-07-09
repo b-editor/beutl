@@ -246,6 +246,27 @@ public class DecoderRegistryProxyRoutingTests
         });
     }
 
+    // Fix #6: new Uri(rawPath) parses URI-reserved chars (#, ?) in a filename as delimiters, dropping
+    // them from LocalPath so it no longer matches the path ProxyFingerprint stored; the escaped file
+    // URI must round-trip the full path so those clips still resolve their proxy.
+    [Test]
+    [TestCase("clip#1.mov")]
+    [TestCase("clip?1.mov")]
+    [TestCase("plain.mov")]
+    public void ToFileUri_RoundTripsReservedCharsInLocalPath(string fileName)
+    {
+        string path = Path.Combine(TestContext.CurrentContext.WorkDirectory, fileName);
+        string full = Path.GetFullPath(path);
+
+        Uri uri = DecoderRegistry.ToFileUri(path);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(uri.IsFile, Is.True);
+            Assert.That(uri.LocalPath, Is.EqualTo(full));
+        });
+    }
+
     private static string CreateTestVideoFileWithBytes(int width, int height)
     {
         string path = TestMediaHelper.CreateTestVideoFile(width, height, new Rational(30, 1), 30);

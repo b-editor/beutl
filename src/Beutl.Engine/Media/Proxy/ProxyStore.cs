@@ -600,16 +600,14 @@ public sealed class ProxyStore : IProxyStore
 
         using (indexLock)
         {
-            if (!TryReadIndexEntriesFromDisk(out List<ProxyEntry> diskEntries))
+            if (!TryReadIndexEntriesFromDisk(out List<ProxyEntry> diskEntries, out Exception? readFailure))
             {
                 // index.json exists but is unreadable/corrupt. Seeding the merge from an empty disk view
                 // would drop every in-memory entry not in this flush and write that partial index back,
                 // destroying valid state. Degrade instead: keep serving memory and replay on a later
-                // flush (startup already rebuilds from sidecars when the index is unreadable).
-                DegradePersistence(
-                    changedKeys,
-                    removedKeys,
-                    new IOException($"Proxy index at '{_indexPath}' is unreadable or has an unexpected version."));
+                // flush (startup already rebuilds from sidecars when the index is unreadable). Preserve
+                // the real read exception as the logged cause for diagnosis.
+                DegradePersistence(changedKeys, removedKeys, readFailure);
                 return;
             }
 
@@ -828,9 +826,10 @@ public sealed class ProxyStore : IProxyStore
     // on-disk content is unknown, so FlushCore must not overwrite it and drop valid in-memory entries.
     // A missing file (fresh store) and an old-version index (intentionally discarded and upgraded on
     // load) are both legitimate empty reads, not failures.
-    private bool TryReadIndexEntriesFromDisk(out List<ProxyEntry> entries)
+    private bool TryReadIndexEntriesFromDisk(out List<ProxyEntry> entries, out Exception? failure)
     {
         entries = [];
+        failure = null;
         if (!File.Exists(_indexPath))
             return true;
 
@@ -839,8 +838,9 @@ public sealed class ProxyStore : IProxyStore
         {
             index = JsonSerializer.Deserialize<ProxyStoreIndex>(File.ReadAllText(_indexPath), s_jsonOptions);
         }
-        catch
+        catch (Exception ex)
         {
+            failure = ex;
             return false;
         }
 

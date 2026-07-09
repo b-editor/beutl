@@ -176,14 +176,103 @@ public sealed class ExportSourceValidatorTests
         Assert.That(missing, Is.EqualTo(new[] { missingEnabled }));
     }
 
-    private static Element CreateVideoElement(string root, string sourcePath)
+    // Fix #3: an enabled element can hold a disabled object; the render path (Element.CollectObjects)
+    // skips disabled objects before opening media, so a missing file on a disabled object must not
+    // block export even though its owning element renders.
+    [Test]
+    public void CollectRenderableSources_SkipsDisabledObjectInEnabledElement()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string enabledMissing = Path.Combine(root, "enabled.mov");
+        string disabledMissing = Path.Combine(root, "disabled.mov");
+
+        SourceVideo enabled = VideoDrawable(enabledMissing);
+        SourceVideo disabled = VideoDrawable(disabledMissing);
+        disabled.IsEnabled = false;
+        var element = new Element
+        {
+            Start = TimeSpan.Zero,
+            Length = TimeSpan.FromSeconds(1),
+            IsEnabled = true,
+            Uri = new Uri(Path.Combine(root, $"{Guid.NewGuid():N}.layer")),
+        };
+        element.AddObject(enabled);
+        element.AddObject(disabled);
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
+        scene.Children.Add(element);
+
+        IReadOnlySet<string> referenced = ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene);
+        IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(referenced);
+
+        Assert.That(missing, Is.EqualTo(new[] { enabledMissing }));
+    }
+
+    // Fix #4: save-frame renders graphics only (EvaluateGraphics filters CompositionTarget.Audio via
+    // Element.CollectObjects), so a missing audio original must not block a still image; a full export
+    // (which composes audio) still requires it.
+    [Test]
+    public void CollectRenderableSources_SingleFrame_ExcludesAudioSourcesButExportIncludesThem()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string missingVideo = Path.Combine(root, "missing.mov");
+        string missingSound = Path.Combine(root, "missing.mp3");
+
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
+        scene.Children.Add(CreateVideoElement(root, missingVideo));
+        scene.Children.Add(CreateSoundElement(root, missingSound));
+
+        IReadOnlyList<string> frame = ExportSourceValidator.GetMissingPaths(
+            ExportSourceValidator.CollectRenderableSources(scene, TimeSpan.Zero));
+        IReadOnlyList<string> export = ExportSourceValidator.GetMissingPaths(
+            ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(frame, Is.EqualTo(new[] { missingVideo }));
+            Assert.That(export, Is.EquivalentTo(new[] { missingVideo, missingSound }));
+        });
+    }
+
+    // Fix #5: export renders [Scene.Start, Scene.Start + Duration); a preflight range that starts at
+    // Scene.Start includes clips in the exported segment and excludes ones entirely before it.
+    [Test]
+    public void CollectRenderableSources_RangeStartingAtSceneStart_TracksExportedSegment()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string beforeStart = Path.Combine(root, "before.mov");
+        string inSegment = Path.Combine(root, "in-segment.mov");
+
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
+        Element before = CreateVideoElement(root, beforeStart);
+        before.Start = TimeSpan.Zero;
+        before.Length = TimeSpan.FromSeconds(2);
+        scene.Children.Add(before);
+        Element inside = CreateVideoElement(root, inSegment);
+        inside.Start = TimeSpan.FromSeconds(5);
+        inside.Length = TimeSpan.FromSeconds(2);
+        scene.Children.Add(inside);
+
+        IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
+            ExportSourceValidator.CollectRenderableSources(
+                scene, new TimeRange(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5))));
+
+        Assert.That(missing, Is.EqualTo(new[] { inSegment }));
+    }
+
+    private static SourceVideo VideoDrawable(string sourcePath)
     {
         var source = new VideoSource();
         source.ReadFrom(new Uri(sourcePath));
         var drawable = new SourceVideo();
         drawable.Source.CurrentValue = source;
-        return ElementWith(root, drawable);
+        return drawable;
     }
+
+    private static Element CreateVideoElement(string root, string sourcePath)
+        => ElementWith(root, VideoDrawable(sourcePath));
 
     private static Element CreateImageElement(string root, string sourcePath)
     {
