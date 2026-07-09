@@ -293,10 +293,13 @@ public static class ProxySourceEnumerator
         }
 
         // A SceneSound is a Sound (not a Drawable), so it is not covered by the Drawable switch above;
-        // its referenced scene contributes only audio to the render, so narrow the descent to Audio.
-        if (obj is SceneSound { ReferencedScene.CurrentValue: { } soundScene })
+        // its referenced scene contributes only audio to the render, so narrow the descent to Audio. It
+        // evaluates the scene at time - sceneSound.Start, so map the window into referenced-scene time.
+        if (obj is SceneSound { ReferencedScene.CurrentValue: { } soundScene } sceneSound)
         {
-            foreach (IFileSource source in EnumerateReferencedSceneSources(soundScene, visitedScenes, skipDisabledElements, CompositionTarget.Audio))
+            foreach (IFileSource source in EnumerateReferencedSceneSources(
+                soundScene, visitedScenes, skipDisabledElements, CompositionTarget.Audio,
+                localRange?.SubtractStart(sceneSound.Start)))
                 yield return source;
         }
 
@@ -390,7 +393,7 @@ public static class ProxySourceEnumerator
 
             // Rendering (and the proxy scanner) consume animated file-source values too, so media
             // referenced only from keyframes must be enumerated as well.
-            foreach (IFileSource animated in EnumerateAnimatedFileSources(property.Animation, localRange))
+            foreach (IFileSource animated in EnumerateAnimatedFileSources(property.Animation, localRange, skipDisabledElements, visitedValues))
                 yield return animated;
         }
 
@@ -405,10 +408,12 @@ public static class ProxySourceEnumerator
     }
 
     // A property value that is itself an IFileSource is the direct case; a value that is an EngineObject
-    // (an ImageBrush holding ImageBrush.Source, a LutEffect holding LutEffect.Source, …) holds rendered
-    // file sources on its own properties, so recurse. Structural objects (drawables, sounds, scenes,
-    // elements, graph nodes) are deliberately NOT recursed here: they have dedicated walks with their own
-    // disabled/target/window guards, and re-walking them through the property graph would bypass those.
+    // (an ImageBrush holding ImageBrush.Source, a LutEffect holding LutEffect.Source, an
+    // AudioVisualizerDrawable holding a SourceSound, …) holds rendered file sources on its own properties,
+    // so recurse. Only the structural navigators with dedicated guarded walks are NOT recursed here —
+    // drawables, referenced-scene sounds (SceneSound/SoundGroup), scenes, elements, graph nodes — since
+    // re-walking them through the property graph would bypass their disabled/target/window guards. A plain
+    // value Sound (a visualizer's Source) has no such walk, so it must be recursed.
     private static IEnumerable<IFileSource> EnumeratePropertyValueFileSources(
         object? value, TimeRange? localRange, bool skipDisabledElements, HashSet<EngineObject> visitedValues)
     {
@@ -419,7 +424,7 @@ public static class ProxySourceEnumerator
         }
 
         if (value is not EngineObject engineObject
-            || value is Drawable or Sound or Scene or Element or GraphNode
+            || value is Drawable or SceneSound or SoundGroup or Scene or Element or GraphNode
             || (skipDisabledElements && !engineObject.IsEnabled)
             || !visitedValues.Add(engineObject))
         {
@@ -507,6 +512,15 @@ public static class ProxySourceEnumerator
             case FilterEffectGroup group when visitedFilterEffectGroups.Add(group):
                 foreach (FilterEffect child in group.Children)
                 {
+                    if (skipDisabledElements && !child.IsEnabled)
+                        continue;
+
+                    // A child effect can carry an ordinary file-source property (LutEffect.Source) the
+                    // graph walker below never sees, so walk its own properties too. The Children list is
+                    // not an EngineObject-valued property, so the #19 property recursion cannot reach here.
+                    foreach (IFileSource source in EnumeratePropertyFileSources(child, localRange, skipDisabledElements))
+                        yield return source;
+
                     foreach (IFileSource source in EnumerateFilterEffectGraphSources(
                         child, visitedFilterEffectGroups, visitedGraphGroups, visitedFilterEffects, skipDisabledElements, localRange))
                         yield return source;
@@ -541,13 +555,20 @@ public static class ProxySourceEnumerator
         }
     }
 
+    // The base CurrentValue is overridden only when the animation supplies a value at every sample: a
+    // null-valued keyframe makes GetAnimatedValue return null and the render falls back to the base
+    // (GetAnimatedValue(...) ?? CurrentValue), so any null keyframe keeps the base in play.
     private static bool AnimationSuppliesValue(IAnimation? animation)
-        => animation is KeyFrameAnimation { KeyFrames.Count: > 0 };
+        => animation is KeyFrameAnimation { KeyFrames.Count: > 0 } keyFrameAnimation
+           && keyFrameAnimation.KeyFrames.All(k => k.Value is not null);
 
-    private static IEnumerable<IFileSource> EnumerateAnimatedFileSources(IAnimation? animation, TimeRange? localRange = null)
+    private static IEnumerable<IFileSource> EnumerateAnimatedFileSources(
+        IAnimation? animation, TimeRange? localRange = null, bool skipDisabledElements = false, HashSet<EngineObject>? visitedValues = null)
     {
         if (animation is not KeyFrameAnimation keyFrameAnimation)
             yield break;
+
+        visitedValues ??= new HashSet<EngineObject>(ReferenceEqualityComparer.Instance);
 
         // Global-clock keyframes use scene time, but localRange is expressed in the element's local
         // time, so range-filtering them with a local window would drop keyframes that are actually
@@ -557,24 +578,32 @@ public static class ProxySourceEnumerator
         IReadOnlyList<IKeyFrame> keyFrames = keyFrameAnimation.KeyFrames;
         for (int i = 0; i < keyFrames.Count; i++)
         {
-            if (keyFrames[i].Value is not IFileSource source)
+            // A keyframe value is either a direct IFileSource or an EngineObject holding nested sources
+            // (an animated Fill switching to an ImageBrush, an animated LutEffect, …); a null value
+            // contributes nothing (the render falls back to the base, handled by AnimationSuppliesValue).
+            if (keyFrames[i].Value is not { } value)
                 continue;
 
             // With no render window every keyframe value counts (proxy scan / badge enumeration). With
             // one, keep a keyframe only if a sample inside the window could resolve to it. For an object
             // value (IFileSource) KeyFrameAnimation.Interpolate returns the NEXT keyframe's value, so
-            // keyframe i is the sampled value only on [previous key time, this key time) — the last one
-            // holds forward to +inf. Both the span end and the half-open window end are exclusive, so use
-            // <= to drop a keyframe governing [.., Start) after a switch exactly at the window start.
+            // keyframe i is the sampled value on the half-open span [previous key time, this key time) —
+            // the last one holds forward to +inf. A zero-duration window is a point sample {Start} (kept
+            // iff the point lies in the span), NOT an empty half-open range; a non-empty window keeps the
+            // span iff the two half-open intervals overlap.
             if (window is { } range)
             {
                 TimeSpan spanStart = i > 0 ? keyFrames[i - 1].KeyTime : TimeSpan.MinValue;
                 TimeSpan spanEnd = i < keyFrames.Count - 1 ? keyFrames[i].KeyTime : TimeSpan.MaxValue;
-                if (spanEnd <= range.Start || range.End <= spanStart)
+                bool keep = range.Duration <= TimeSpan.Zero
+                    ? spanStart <= range.Start && range.Start < spanEnd
+                    : spanStart < range.End && range.Start < spanEnd;
+                if (!keep)
                     continue;
             }
 
-            yield return source;
+            foreach (IFileSource source in EnumeratePropertyValueFileSources(value, localRange, skipDisabledElements, visitedValues))
+                yield return source;
         }
     }
 }

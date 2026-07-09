@@ -567,6 +567,69 @@ public sealed class ExportSourceValidatorTests
         Assert.That(missing, Is.EqualTo(new[] { missingImage }));
     }
 
+    // A single-frame preflight is a point sample, not an empty half-open window: at the exact key time
+    // the animator samples the NEXT key (its span starts there), which must not be dropped.
+    [Test]
+    public void CollectRenderableSources_SingleFrameAtKeyframeTime_KeepsActiveKeyframe()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string a = Path.Combine(root, "a.mov");
+        string b = Path.Combine(root, "b.mov");
+        string missingC = Path.Combine(root, "c.mov");
+        File.WriteAllBytes(a, [1]);
+        File.WriteAllBytes(b, [1]);
+
+        var drawable = new SourceVideo();
+        var animation = new KeyFrameAnimation<VideoSource?>();
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.Zero, Value = MakeVideoSource(a) });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.FromSeconds(5), Value = MakeVideoSource(b) });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.FromSeconds(10), Value = MakeVideoSource(missingC) });
+        drawable.Source.Animation = animation;
+        var element = new Element
+        {
+            Start = TimeSpan.Zero,
+            Length = TimeSpan.FromSeconds(15),
+            IsEnabled = true,
+            Uri = new Uri(Path.Combine(root, $"{Guid.NewGuid():N}.layer")),
+        };
+        element.AddObject(drawable);
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
+        scene.Children.Add(element);
+
+        // At the exact frame t=5s the animator samples the next key (missing c), whose span [5s, +inf)
+        // contains the point; a half-open window would drop it as an empty range.
+        IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
+            ExportSourceValidator.CollectRenderableSources(scene, TimeSpan.FromSeconds(5)));
+
+        Assert.That(missing, Is.EqualTo(new[] { missingC }));
+    }
+
+    // A null-valued keyframe makes GetAnimatedValue fall back to the base CurrentValue, so the base
+    // must not be suppressed as overridden — its missing file still blocks export.
+    [Test]
+    public void CollectRenderableSources_AnimationWithNullKeyframe_KeepsBaseSource()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string missingBase = Path.Combine(root, "base.mov");
+
+        var drawable = new SourceVideo();
+        drawable.Source.CurrentValue = MakeVideoSource(missingBase);
+        var animation = new KeyFrameAnimation<VideoSource?>();
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.Zero, Value = null });
+        drawable.Source.Animation = animation;
+        Element element = ElementWith(root, drawable);
+        element.Length = TimeSpan.FromSeconds(10);
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
+        scene.Children.Add(element);
+
+        IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
+            ExportSourceValidator.CollectRenderableSources(scene, new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10))));
+
+        Assert.That(missing, Is.EqualTo(new[] { missingBase }));
+    }
+
     private static SourceSound SoundDrawable(string sourcePath)
     {
         var source = new SoundSource();
