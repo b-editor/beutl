@@ -231,6 +231,39 @@ public sealed class ProxyStoreTests
         });
     }
 
+    // A corrupt index.json must be repaired from the sidecars at construction, not merely served from
+    // memory: FlushCore refuses to overwrite an unreadable index, so without discarding the corrupt file
+    // first the rebuilt snapshot never reaches disk and every later flush keeps degrading.
+    [Test]
+    public void Construct_WithCorruptIndex_RepairsIndexOnDiskFromSidecars()
+    {
+        string root = CreateRoot();
+        ProxyEntry entry = CreateEntry(root, "hash/quarter.mp4");
+        string metadataPath = Path.Combine(root, "hash", "meta.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(metadataPath)!);
+        var metadata = new ProxySourceMetadata
+        {
+            Source = entry.Source,
+            Entries = [entry],
+        };
+        File.WriteAllText(metadataPath, JsonSerializer.Serialize(metadata, s_jsonOptions));
+        File.WriteAllText(Path.Combine(root, "index.json"), "{not valid json");
+
+        var store = new ProxyStore(root);
+
+        string repairedJson = File.ReadAllText(Path.Combine(root, "index.json"));
+        ProxyStoreIndex? repaired = JsonSerializer.Deserialize<ProxyStoreIndex>(repairedJson, s_jsonOptions);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(store.TryGet(entry.Source, entry.Preset), Is.EqualTo(entry));
+            Assert.That(repaired, Is.Not.Null, "index.json must be valid JSON after the rebuild");
+            Assert.That(repaired!.Version, Is.EqualTo(ProxyStoreIndex.CurrentVersion));
+            Assert.That(repaired.Entries, Has.Member(entry));
+            Assert.That(store.IsPersistenceDegraded, Is.False, "the repaired index must not leave the store degraded");
+        });
+    }
+
     // A sidecar adopted by background reconciliation (after services are exposed) must raise Changed
     // so an already-loaded tab/preview reloads the recovered proxy instead of waiting for a manual
     // refresh.

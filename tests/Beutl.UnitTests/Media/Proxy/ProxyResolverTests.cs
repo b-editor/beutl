@@ -180,6 +180,27 @@ public class ProxyResolverTests
         });
     }
 
+    // An offline original cannot be fingerprinted, but its normalized path key still identifies its
+    // store version, so a reader opened before its proxy existed reopens when one is registered.
+    [Test]
+    public void GetSourceVersion_ByPathKey_TracksBumpsAfterOriginalDeleted()
+    {
+        string source = CreateSourceFile();
+        RegisterProxy(source, ProxyPreset.Quarter, new PixelSize(100, 80), new PixelSize(25, 20));
+        ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(source);
+        long expected = _resolver.GetSourceVersion(fingerprint);
+
+        File.Delete(source);
+        string pathKey = ProxyFingerprint.ResolveComparableKey(source);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(expected, Is.GreaterThan(0));
+            Assert.That(_resolver.GetSourceVersion(pathKey), Is.EqualTo(expected),
+                "the path-keyed version must match the fingerprint-keyed one for an offline original");
+        });
+    }
+
     // Every successful Resolve calls Touch; if Touched bumped the version, resolve → touch →
     // version-bump → reader-reopen → resolve would loop on the preview hot path.
     [Test]

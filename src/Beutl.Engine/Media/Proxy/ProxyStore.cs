@@ -406,16 +406,23 @@ public sealed class ProxyStore : IProxyStore
         }
         catch
         {
-            RebuildFromSidecars();
+            // FlushCore refuses to overwrite an unreadable index (it cannot distinguish corruption from
+            // a concurrent writer), so the rebuild must discard the corrupt file first or the snapshot
+            // never reaches disk and every later flush keeps degrading. Safe here: construction is
+            // single-threaded and the store is not yet serving.
+            RebuildFromSidecars(discardCorruptIndex: true);
         }
     }
 
     // Rebuild the in-memory index from meta.json sidecars when index.json is missing/invalid. Guarded
     // so a filesystem fault (permissions, I/O) during recovery starts the store with an empty index
     // rather than failing construction and blocking proxy services from starting.
-    private void RebuildFromSidecars()
+    private void RebuildFromSidecars(bool discardCorruptIndex = false)
     {
         _entries.Clear();
+        if (discardCorruptIndex)
+            TryDelete(_indexPath);
+
         try
         {
             HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> adoptedKeys =

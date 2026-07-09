@@ -710,7 +710,16 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
         }
 
         string normalizedPath = NormalizeSourcePath(path);
-        ProxyEntry? existing = storeEntries.FirstOrDefault(entry => entry.Source.AbsolutePath == normalizedPath);
+        // Same-path entries can differ by fingerprint and state (an older Failed/Stale next to a newer
+        // Ready one). Rank Ready ahead of stale/failed like the resolver's offline path selection, then
+        // by decoded density, so the row binds to the fingerprint the preview will actually decode
+        // rather than whichever entry happens to enumerate first.
+        ProxyEntry? existing = storeEntries
+            .Where(entry => entry.Source.AbsolutePath == normalizedPath)
+            .OrderBy(entry => OfflineEntryRank(entry.State))
+            .ThenByDescending(entry => (long)entry.ProxyDecodedFrameSize.Width * entry.ProxyDecodedFrameSize.Height)
+            .ThenByDescending(entry => entry.GeneratedAtUtc)
+            .FirstOrDefault();
         if (existing == null || !seenPaths.Add(existing.Source.AbsolutePath))
         {
             item = default;
@@ -720,6 +729,18 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
         item = (path, existing.Source);
         return true;
     }
+
+    // Ready first (a usable stand-in), then Stale, then in-progress, then failed/absent last. Mirrors
+    // ProxyResolver's offline preference so the tab and the preview agree on which entry wins.
+    private static int OfflineEntryRank(ProxyState state) => state switch
+    {
+        ProxyState.Ready => 0,
+        ProxyState.Stale => 1,
+        ProxyState.Partial => 2,
+        ProxyState.Generating => 3,
+        ProxyState.Failed => 4,
+        _ => 5,
+    };
 
     private static string NormalizeSourcePath(string path)
     {

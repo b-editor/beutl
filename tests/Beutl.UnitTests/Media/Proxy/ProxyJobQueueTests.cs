@@ -211,7 +211,6 @@ public class ProxyJobQueueTests
         await using var queue = new ProxyJobQueue(
             generator,
             store,
-            capacity: 256,
             minUnavailableBackoff: TimeSpan.FromMilliseconds(20),
             maxUnavailableBackoff: TimeSpan.FromMilliseconds(40));
         ProxyFingerprint source = CreateFingerprint("recover.mov");
@@ -269,13 +268,13 @@ public class ProxyJobQueueTests
     }
 
     [Test]
-    public async Task EnqueueAsync_CancelWhileWriteBlocked_NeverDispatchesTheJob()
+    public async Task EnqueueAsync_AlreadyCanceledToken_NeverDispatchesTheJob()
     {
-        // capacity 1: the worker is occupied and one permit is buffered, so this enqueue's WriteAsync
-        // blocks with the item unpublished. Canceling it must remove the item cleanly without ever
-        // dispatching it, and the queue must keep processing the buffered job.
+        // Enqueue is non-blocking (a full channel drops the wake permit, it never blocks), so there is
+        // no cancel-mid-write. A token already canceled at enqueue must still be rejected before the job
+        // can dispatch, and the queue must keep processing the buffered job.
         var generator = new ControlledBlockingGenerator();
-        await using var queue = new ProxyJobQueue(generator, capacity: 1);
+        await using var queue = new ProxyJobQueue(generator);
         ProxyFingerprint running = CreateFingerprint("running.mov");
         ProxyFingerprint bulk = CreateFingerprint("bulk.mov");
         ProxyFingerprint canceled = CreateFingerprint("canceled.mov");
@@ -286,9 +285,9 @@ public class ProxyJobQueueTests
         await queue.EnqueueAsync(bulk, ProxyPreset.Quarter);
 
         using var cts = new CancellationTokenSource();
-        Task<ProxyJob> canceledEnqueue = queue.EnqueueAsync(canceled, ProxyPreset.Quarter, priority: 10, cts.Token).AsTask();
         cts.Cancel();
-        Assert.CatchAsync<OperationCanceledException>(async () => await canceledEnqueue);
+        Assert.CatchAsync<OperationCanceledException>(
+            async () => await queue.EnqueueAsync(canceled, ProxyPreset.Quarter, priority: 10, cts.Token));
 
         generator.ReleaseOne();
         await generator.WaitForStartedCountAsync(2);
@@ -296,7 +295,43 @@ public class ProxyJobQueueTests
         await WaitForTerminalAsync(runningJob);
 
         Assert.That(generator.StartedSources, Does.Not.Contain(canceled),
-            "a canceled enqueue whose permit was never reserved must not dispatch its job");
+            "an enqueue with an already-canceled token must not dispatch its job");
+    }
+
+    [Test]
+    public async Task GenerateBulk_WhileGeneratorUnavailable_DoesNotBlockEnqueue()
+    {
+        // Regression for the bounded-channel deadlock: the single drain loop parks on generator
+        // unavailability backoff, so a large sequential bulk enqueue must still complete instead of
+        // blocking on a full channel. Every job is registered as Queued, and when availability returns
+        // they all run.
+        string root = CreateRoot();
+        var store = new ProxyStore(root);
+        var generator = new ToggleAvailabilityGenerator();
+        await using var queue = new ProxyJobQueue(
+            generator,
+            store,
+            minUnavailableBackoff: TimeSpan.FromSeconds(30),
+            maxUnavailableBackoff: TimeSpan.FromSeconds(30));
+
+        var enqueueAll = Task.Run(async () =>
+        {
+            var jobs = new List<ProxyJob>();
+            for (int i = 0; i < 32; i++)
+                jobs.Add(await queue.EnqueueAsync(CreateFingerprint($"bulk-{i}.mov"), ProxyPreset.Quarter));
+
+            return jobs;
+        });
+
+        // Under the old bounded blocking write this hung once the queue filled while the drain parked.
+        List<ProxyJob> queued = await enqueueAll.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(queued, Has.Count.EqualTo(32));
+
+        generator.SetAvailable();
+        foreach (ProxyJob job in queued)
+            await WaitForTerminalAsync(job);
+
+        Assert.That(queued.Select(static j => j.Status), Is.All.EqualTo(ProxyJobStatus.Succeeded));
     }
 
     [Test]
@@ -498,7 +533,6 @@ public class ProxyJobQueueTests
         await using var queue = new ProxyJobQueue(
             generator,
             store: null,
-            capacity: 256,
             minUnavailableBackoff: TimeSpan.FromSeconds(30),
             maxUnavailableBackoff: TimeSpan.FromSeconds(30));
 
@@ -533,7 +567,6 @@ public class ProxyJobQueueTests
         await using var queue = new ProxyJobQueue(
             (Func<IProxyGenerator?>)Provider,
             store: null,
-            capacity: 256,
             minUnavailableBackoff: TimeSpan.FromMilliseconds(20),
             maxUnavailableBackoff: TimeSpan.FromMilliseconds(40));
         ProxyFingerprint firstSource = CreateFingerprint("lazy-first.mov");
@@ -549,11 +582,11 @@ public class ProxyJobQueueTests
     }
 
     [Test]
-    public async Task EnqueueAsync_CanceledWhileChannelFull_CompletesJobAsCanceled()
+    public async Task EnqueueAsync_AlreadyCanceledToken_CompletesJobAsCanceled()
     {
         var generator = new BlockingGenerator();
-        await using var queue = new ProxyJobQueue(generator, capacity: 1);
-        ProxyFingerprint blockedSource = CreateFingerprint("write-canceled-blocked.mov");
+        await using var queue = new ProxyJobQueue(generator);
+        ProxyFingerprint canceledSource = CreateFingerprint("precanceled.mov");
         var canceledJobs = new List<ProxyJob>();
         queue.JobChanged += (_, e) =>
         {
@@ -566,86 +599,57 @@ public class ProxyJobQueueTests
             }
         };
 
-        // The first job parks inside the generator and the second occupies the single channel
-        // slot, so the third write blocks until its token is canceled.
-        await queue.EnqueueAsync(CreateFingerprint("write-canceled-running.mov"), ProxyPreset.Quarter);
-        await queue.EnqueueAsync(CreateFingerprint("write-canceled-buffered.mov"), ProxyPreset.Quarter);
+        await queue.EnqueueAsync(CreateFingerprint("precancel-running.mov"), ProxyPreset.Quarter);
 
         using var cts = new CancellationTokenSource();
-        ValueTask<ProxyJob> blocked = queue.EnqueueAsync(blockedSource, ProxyPreset.Quarter, cancellationToken: cts.Token);
         cts.Cancel();
+        Assert.CatchAsync<OperationCanceledException>(
+            async () => await queue.EnqueueAsync(canceledSource, ProxyPreset.Quarter, cancellationToken: cts.Token));
 
-        Assert.CatchAsync<OperationCanceledException>(async () => await blocked);
-
-        ProxyJob? blockedJob;
+        ProxyJob? canceledJob;
         lock (canceledJobs)
         {
-            blockedJob = canceledJobs.FirstOrDefault(j => j.Source == blockedSource);
+            canceledJob = canceledJobs.FirstOrDefault(j => j.Source == canceledSource);
         }
 
         Assert.Multiple(() =>
         {
-            Assert.That(blockedJob, Is.Not.Null);
-            Assert.That(blockedJob!.Status, Is.EqualTo(ProxyJobStatus.Canceled));
-            Assert.That(queue.Pending().Select(j => j.Source), Does.Not.Contain(blockedSource));
+            Assert.That(canceledJob, Is.Not.Null);
+            Assert.That(canceledJob!.Status, Is.EqualTo(ProxyJobStatus.Canceled));
+            Assert.That(queue.Pending().Select(j => j.Source), Does.Not.Contain(canceledSource));
         });
         generator.Release();
     }
 
     [Test]
-    public async Task DisposeAsync_WhileEnqueueBlockedOnFullChannel_CompletesBlockedJobAsCanceled()
+    public async Task DisposeAsync_AfterMultipleEnqueues_CancelsEveryQueuedJob()
     {
         var generator = new BlockingGenerator();
-        var queue = new ProxyJobQueue(generator, capacity: 1);
-        ProxyFingerprint blockedSource = CreateFingerprint("dispose-blocked.mov");
-        var canceledJobs = new List<ProxyJob>();
-        queue.JobChanged += (_, e) =>
-        {
-            if (e.Kind == ProxyJobChangeKind.Canceled)
-            {
-                lock (canceledJobs)
-                {
-                    canceledJobs.Add(e.Job);
-                }
-            }
-        };
+        var queue = new ProxyJobQueue(generator);
 
         ProxyJob running = await queue.EnqueueAsync(CreateFingerprint("dispose-running.mov"), ProxyPreset.Quarter);
         ProxyJob buffered = await queue.EnqueueAsync(CreateFingerprint("dispose-buffered.mov"), ProxyPreset.Quarter);
-        ValueTask<ProxyJob> blocked = queue.EnqueueAsync(blockedSource, ProxyPreset.Quarter);
+        ProxyJob extra = await queue.EnqueueAsync(CreateFingerprint("dispose-extra.mov"), ProxyPreset.Quarter);
 
         await queue.DisposeAsync();
 
-        // DisposeAsync cancels the item (its token is linked into the write) and completes the
-        // channel; the blocked write observes whichever wins the race, so either is acceptable.
-        Assert.That(
-            async () => await blocked,
-            Throws.InstanceOf<OperationCanceledException>().Or.InstanceOf<ChannelClosedException>());
-
-        ProxyJob? blockedJob;
-        lock (canceledJobs)
-        {
-            blockedJob = canceledJobs.FirstOrDefault(j => j.Source == blockedSource);
-        }
-
+        // Dispose's leftover sweep must cancel every queued job so nothing is left non-terminal.
         Assert.Multiple(() =>
         {
             Assert.That(running.Status, Is.EqualTo(ProxyJobStatus.Canceled));
             Assert.That(buffered.Status, Is.EqualTo(ProxyJobStatus.Canceled));
-            Assert.That(blockedJob, Is.Not.Null);
-            Assert.That(blockedJob!.Status, Is.EqualTo(ProxyJobStatus.Canceled));
+            Assert.That(extra.Status, Is.EqualTo(ProxyJobStatus.Canceled));
             Assert.That(queue.Pending(), Is.Empty);
         });
     }
 
-    // Pins the drain-side publish: dequeuing a permit proves its write completed, so the drain must
-    // not skip the item (and waste the permit) just because the enqueuer's post-write continuation
-    // has not run yet — that race left jobs stranded at Queued under a full-channel burst.
+    // A concurrent enqueue burst must leave no job stranded at Queued: every item gets a wake permit
+    // (unbounded write) and is published before it is written, so the single drain dispatches each one.
     [Test]
-    public async Task EnqueueAsync_BurstOverFullChannel_AllJobsReachTerminal()
+    public async Task EnqueueAsync_ConcurrentBurst_AllJobsReachTerminal()
     {
         var generator = new RecordingGenerator();
-        await using var queue = new ProxyJobQueue(generator, capacity: 1);
+        await using var queue = new ProxyJobQueue(generator);
 
         Task<ProxyJob>[] enqueues = [.. Enumerable.Range(0, 16)
             .Select(n => queue.EnqueueAsync(CreateFingerprint($"burst-{n}.mov"), ProxyPreset.Quarter).AsTask())];
@@ -665,7 +669,7 @@ public class ProxyJobQueueTests
         for (int i = 0; i < 50; i++)
         {
             var generator = new RecordingGenerator();
-            var queue = new ProxyJobQueue(generator, capacity: 1);
+            var queue = new ProxyJobQueue(generator);
             var seenJobs = new List<ProxyJob>();
             queue.JobChanged += (_, e) =>
             {
@@ -784,6 +788,44 @@ public class ProxyJobQueueTests
             Assert.That(first.Status, Is.EqualTo(ProxyJobStatus.Failed));
             Assert.That(second.Status, Is.EqualTo(ProxyJobStatus.Failed));
             Assert.That(second.Error, Is.InstanceOf<InvalidOperationException>());
+        });
+    }
+
+    [Test]
+    public async Task InvalidateGenerator_ReResolvesProviderAndDropsPreviousGenerator()
+    {
+        var first = new RecordingGenerator();
+        var second = new RecordingGenerator();
+        int calls = 0;
+        IProxyGenerator? Provider()
+        {
+            int n = Interlocked.Increment(ref calls);
+            return n == 1 ? first : second;
+        }
+
+        await using var queue = new ProxyJobQueue((Func<IProxyGenerator?>)Provider, store: null);
+        ProxyFingerprint beforeSource = CreateFingerprint("before-invalidate.mov");
+        ProxyFingerprint afterSource = CreateFingerprint("after-invalidate.mov");
+
+        ProxyJob before = await queue.EnqueueAsync(beforeSource, ProxyPreset.Quarter);
+        await WaitForTerminalAsync(before);
+
+        // Simulates a proxy extension unloading: the cached generator must be dropped so the next
+        // dispatch re-resolves from the provider instead of rooting/invoking the removed generator.
+        queue.InvalidateGenerator();
+
+        ProxyJob after = await queue.EnqueueAsync(afterSource, ProxyPreset.Quarter);
+        await WaitForTerminalAsync(after);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(before.Status, Is.EqualTo(ProxyJobStatus.Succeeded));
+            Assert.That(after.Status, Is.EqualTo(ProxyJobStatus.Succeeded));
+            Assert.That(first.Sources, Does.Contain(beforeSource));
+            Assert.That(first.Sources, Does.Not.Contain(afterSource),
+                "after invalidation the queue must not reuse the first generator");
+            Assert.That(second.Sources, Does.Contain(afterSource),
+                "the re-resolved generator must handle the post-invalidation job");
         });
     }
 

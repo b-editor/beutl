@@ -24,6 +24,29 @@ public sealed class FFmpegProxyGeneratorPublishTests
         Assert.That(controller.VideoSettings.Options.Any(o => o.Name == "level"), Is.False);
     }
 
+    // An animated APNG/GIF/WebP is exposed as multi-frame video by the animated-image readers, so the
+    // extension guard must not reject it before opening a reader; only genuinely single-frame formats
+    // (jpg/bmp/tiff) are skipped up front, and stillness for the animatable containers is decided later
+    // by frame count.
+    [TestCase("clip.gif", false, true)]
+    [TestCase("clip.webp", false, true)]
+    [TestCase("clip.png", false, true)]
+    [TestCase("photo.jpg", true, false)]
+    [TestCase("photo.jpeg", true, false)]
+    [TestCase("photo.bmp", true, false)]
+    [TestCase("photo.tif", true, false)]
+    [TestCase("photo.tiff", true, false)]
+    [TestCase("movie.mov", false, false)]
+    [TestCase("movie.mp4", false, false)]
+    public void ImageClassification_SplitsAlwaysStillFromAnimatable(string fileName, bool alwaysStill, bool animatable)
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(FFmpegProxyGenerator.IsAlwaysStillImage(fileName), Is.EqualTo(alwaysStill));
+            Assert.That(FFmpegProxyGenerator.IsAnimatableImage(fileName), Is.EqualTo(animatable));
+        });
+    }
+
     [Test]
     public async Task MoveWithRetryAsync_RetriesTransientFailuresThenSucceeds()
     {

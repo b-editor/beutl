@@ -48,7 +48,7 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
         if (ProxyFingerprint.FromFile(sourcePath) != job.Source)
             throw new ProxyGenerationSkippedException("Source changed since the job was queued.");
 
-        if (IsStillImage(sourcePath))
+        if (IsAlwaysStillImage(sourcePath))
             throw new ProxyGenerationSkippedException("Still images are not eligible for proxy generation.");
 
         using MediaReader reader = OpenSourceReader(sourcePath);
@@ -59,6 +59,12 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
         long frameCount = ResolveFrameCount(reader.VideoInfo);
         if (frameCount <= 0)
             throw new ProxyGenerationSkippedException("Source has no decodable video frames.");
+
+        // An APNG/GIF/WebP container is exposed as video by the animated-image readers; only its
+        // multi-frame form is an expensive timeline source worth proxying. A single-frame one is a
+        // still image, so skip it here — the frame count, not the extension, decides.
+        if (frameCount <= 1 && IsAnimatableImage(sourcePath))
+            throw new ProxyGenerationSkippedException("Still images are not eligible for proxy generation.");
 
         PixelSize originalSize = reader.VideoInfo.FrameSize;
         if (originalSize.Width <= 0 || originalSize.Height <= 0)
@@ -297,16 +303,23 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
         return Math.Max(2, rounded);
     }
 
-    private static bool IsStillImage(string path)
+    // Formats that can only ever hold one frame: reject them without paying to open a reader.
+    internal static bool IsAlwaysStillImage(string path)
     {
-        return Path.GetExtension(path).ToLowerInvariant() is ".png"
-            or ".jpg"
+        return Path.GetExtension(path).ToLowerInvariant() is ".jpg"
             or ".jpeg"
             or ".bmp"
-            or ".gif"
-            or ".webp"
             or ".tif"
             or ".tiff";
+    }
+
+    // Image containers that may be animated (APNG / GIF / WebP): stillness is decided by frame count
+    // after opening the reader, not by the extension.
+    internal static bool IsAnimatableImage(string path)
+    {
+        return Path.GetExtension(path).ToLowerInvariant() is ".png"
+            or ".gif"
+            or ".webp";
     }
 
     private static ProxyGeneratorUnavailableException CreateUnavailableException(Exception ex)

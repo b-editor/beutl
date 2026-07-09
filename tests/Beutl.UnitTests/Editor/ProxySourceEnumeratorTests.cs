@@ -123,6 +123,60 @@ public class ProxySourceEnumeratorTests
         Assert.That(FileNames(element), Does.Contain("presented.mov"));
     }
 
+    // The render path skips a disabled nested child (DrawableGroup.OnDraw -> DrawDrawable ->
+    // Drawable.Render), so export preflight (skipDisabledElements) must not demand its file either.
+    [Test]
+    public void EnumerateFileSources_SkipDisabled_ExcludesDisabledDrawableGroupChild()
+    {
+        var enabled = new SourceVideo();
+        enabled.Source.CurrentValue = CreateVideoSource("enabled-child.mov");
+        var disabled = new SourceVideo { IsEnabled = false };
+        disabled.Source.CurrentValue = CreateVideoSource("disabled-child.mov");
+        var group = new DrawableGroup();
+        group.Children.Add(enabled);
+        group.Children.Add(disabled);
+        Element element = ElementWith(group);
+
+        IEnumerable<string> preflight = ProxySourceEnumerator
+            .EnumerateFileSources(element, skipDisabledElements: true)
+            .OfType<VideoSource>().Select(FileName);
+        IEnumerable<string> full = ProxySourceEnumerator
+            .EnumerateFileSources(element)
+            .OfType<VideoSource>().Select(FileName);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(preflight, Does.Contain("enabled-child.mov"));
+            Assert.That(preflight, Does.Not.Contain("disabled-child.mov"));
+            Assert.That(full, Does.Contain("disabled-child.mov"),
+                "without the skip flag a disabled child still contributes a source");
+        });
+    }
+
+    // A disabled presenter target is not rendered either, so the same skip applies before descending
+    // into a DrawablePresenter/DrawableTimeController target.
+    [Test]
+    public void EnumerateFileSources_SkipDisabled_ExcludesDisabledPresenterTarget()
+    {
+        var disabled = new SourceVideo { IsEnabled = false };
+        disabled.Source.CurrentValue = CreateVideoSource("disabled-target.mov");
+        var presenter = new DrawablePresenter();
+        presenter.Target.CurrentValue = disabled;
+        Element element = ElementWith(presenter);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                ProxySourceEnumerator.EnumerateFileSources(element, skipDisabledElements: true)
+                    .OfType<VideoSource>().Select(FileName),
+                Does.Not.Contain("disabled-target.mov"));
+            Assert.That(
+                ProxySourceEnumerator.EnumerateFileSources(element)
+                    .OfType<VideoSource>().Select(FileName),
+                Does.Contain("disabled-target.mov"));
+        });
+    }
+
     // Target is a reference property, so a user can point a presenter at its own ancestor;
     // the visited-target set must terminate the walk instead of recursing forever. The cycle is
     // wired silently (reflection) because completing it through the property setter trips a

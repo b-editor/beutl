@@ -85,6 +85,41 @@ public class ProxyGeneratorRegistryTests
         });
     }
 
+    [Test]
+    public void Changed_FiresOnRegisterAndOnEffectiveUnregister()
+    {
+        var factory = new StubFactory();
+        _registered.Add(factory);
+        int changed = 0;
+        void Handler(object? sender, EventArgs e) => Interlocked.Increment(ref changed);
+        ProxyGeneratorRegistry.Changed += Handler;
+        try
+        {
+            ProxyGeneratorRegistry.Register(factory);
+            int afterRegister = changed;
+
+            bool removed = ProxyGeneratorRegistry.Unregister(factory);
+            int afterUnregister = changed;
+            _registered.Remove(factory);
+
+            // Unregistering something not registered must not fire Changed (no effective change).
+            bool removedAgain = ProxyGeneratorRegistry.Unregister(factory);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(afterRegister, Is.EqualTo(1), "Register must raise Changed");
+                Assert.That(removed, Is.True);
+                Assert.That(afterUnregister, Is.EqualTo(2), "an effective Unregister must raise Changed");
+                Assert.That(removedAgain, Is.False);
+                Assert.That(changed, Is.EqualTo(2), "a no-op Unregister must not raise Changed");
+            });
+        }
+        finally
+        {
+            ProxyGeneratorRegistry.Changed -= Handler;
+        }
+    }
+
     private sealed class StubFactory : IProxyGeneratorFactory
     {
         public IProxyGenerator Create(IProxyStore store)

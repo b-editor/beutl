@@ -88,12 +88,14 @@ public sealed class ProxyGenerationE2ETests
     }
 
     [Test]
-    public void GenerateAsync_StillImageSource_IsSkipped()
+    public void GenerateAsync_AlwaysStillImageSource_IsSkippedBeforeOpeningReader()
     {
         string root = CreateRoot();
         var store = new ProxyStore(root);
         var generator = new FFmpegProxyGenerator(store);
-        string source = Path.Combine(root, "still.png");
+        // A JPEG can only be a single frame, so it is rejected by extension without opening a reader
+        // (unlike an animatable APNG/GIF/WebP, whose stillness is decided by decoded frame count).
+        string source = Path.Combine(root, "still.jpg");
         File.WriteAllBytes(source, [1, 2, 3, 4]);
         var job = new ProxyJob(ProxyFingerprint.FromFile(source), ProxyPreset.Quarter);
 

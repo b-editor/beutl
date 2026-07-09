@@ -236,6 +236,42 @@ public sealed class ProxiesTabViewModelTests
         });
     }
 
+    // With the original offline and several same-path entries, the row must bind to the Ready proxy
+    // (ranked like the resolver) rather than an earlier-enumerated Failed/Stale entry, so its state and
+    // per-row delete/regenerate target the usable proxy.
+    [Test]
+    public void Refresh_OfflineSourceWithMultipleEntries_BindsRowToReadyEntry()
+    {
+        string root = CreateRoot();
+        string sourcePath = CreateSourceFile(root, "offline.mov", 1024);
+        var store = new ProxyStore(Path.Combine(root, "proxies"));
+        ProxyFingerprint readyFp = ProxyFingerprint.FromFile(sourcePath);
+        // Same path, older size/mtime: a distinct fingerprint keyed on the same AbsolutePath.
+        ProxyFingerprint failedFp = readyFp with
+        {
+            FileSizeBytes = readyFp.FileSizeBytes + 4096,
+            MtimeUtc = readyFp.MtimeUtc.AddMinutes(-10),
+        };
+        DateTime now = DateTime.UtcNow;
+        // Register the Failed entry first so a naive FirstOrDefault would bind the row to it.
+        RegisterProxyEntry(store, new ProxyEntry(
+            failedFp, ProxyPreset.Quarter, ProxyState.Failed, "hash/failed.mp4", 256,
+            new PixelSize(1920, 1080), new PixelSize(480, 270), now, now, "boom"));
+        RegisterProxyEntry(store, new ProxyEntry(
+            readyFp, ProxyPreset.Quarter, ProxyState.Ready, "hash/ready.mp4", 512,
+            new PixelSize(1920, 1080), new PixelSize(480, 270), now, now, null));
+        File.Delete(sourcePath);
+
+        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
+
+        ProxyClipViewModel clip = viewModel.Clips.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(clip.Source, Is.EqualTo(readyFp), "the offline row must bind to the Ready entry, not the earlier Failed one");
+            Assert.That(clip.IsReady.Value, Is.True);
+        });
+    }
+
     [Test]
     public void Refresh_IncludesAnimatedSourceVideoValues()
     {

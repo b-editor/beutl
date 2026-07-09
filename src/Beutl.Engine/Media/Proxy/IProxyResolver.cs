@@ -22,6 +22,18 @@ public interface IProxyResolver
     /// </param>
     long GetSourceVersion(ProxyFingerprint source);
 
+    /// <summary>
+    /// Path-keyed form of <see cref="GetSourceVersion(ProxyFingerprint)"/> for an original that can no
+    /// longer be fingerprinted (moved / deleted) but may still gain a proxy while a reader is open.
+    /// <paramref name="absolutePath"/> is the normalized source key — a
+    /// <see cref="ProxyFingerprint.AbsolutePath"/> or <see cref="ProxyFingerprint.ResolveComparableKey"/>
+    /// result. The default forwards to the fingerprint overload, which keys on the same
+    /// <see cref="ProxyFingerprint.AbsolutePath"/>, so existing resolvers need no change; the built-in
+    /// resolver looks the path up directly.
+    /// </summary>
+    long GetSourceVersion(string absolutePath)
+        => GetSourceVersion(new ProxyFingerprint { AbsolutePath = absolutePath });
+
     IDisposable Pin(ProxyResolution resolution);
 
     /// <summary>

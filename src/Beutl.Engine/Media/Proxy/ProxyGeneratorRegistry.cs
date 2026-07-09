@@ -24,6 +24,14 @@ public static class ProxyGeneratorRegistry
     private static readonly List<IProxyGeneratorFactory> s_factories = [];
     private static readonly object s_lock = new();
 
+    /// <summary>
+    /// Raised after the set of registered factories changes. A composition root that caches a resolved
+    /// generator (e.g. <c>ProxyJobQueue</c>) subscribes to drop its cache so it neither keeps rooting an
+    /// unregistered factory's generator nor keeps invoking one whose extension unloaded. Fired outside
+    /// the internal lock, so a handler may safely re-enter <see cref="Enumerate"/>.
+    /// </summary>
+    public static event EventHandler? Changed;
+
     public static void Register(IProxyGeneratorFactory factory)
     {
         ArgumentNullException.ThrowIfNull(factory);
@@ -31,15 +39,23 @@ public static class ProxyGeneratorRegistry
         {
             s_factories.Add(factory);
         }
+
+        Changed?.Invoke(null, EventArgs.Empty);
     }
 
     public static bool Unregister(IProxyGeneratorFactory factory)
     {
         ArgumentNullException.ThrowIfNull(factory);
+        bool removed;
         lock (s_lock)
         {
-            return s_factories.Remove(factory);
+            removed = s_factories.Remove(factory);
         }
+
+        if (removed)
+            Changed?.Invoke(null, EventArgs.Empty);
+
+        return removed;
     }
 
     /// <summary>Snapshot of registered factories in registration order. The first registered factory

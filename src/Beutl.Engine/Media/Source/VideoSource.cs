@@ -50,7 +50,10 @@ public sealed class VideoSource : MediaSource
         private bool _loadedPreferProxy;
         private ProxyPreset _loadedPreferredProxyPreset;
         private long _loadedProxyResolverVersion;
-        private ProxyFingerprint? _proxyVersionSource;
+        // Normalized source key (ProxyFingerprint.AbsolutePath) used to observe proxy-version bumps for
+        // this source. Kept as the path key, not a live fingerprint, so a missing original still tracks
+        // versions and reopens when a proxy is registered for its path.
+        private string? _proxyVersionSource;
 
         public TimeSpan Duration { get; private set; }
 
@@ -112,11 +115,14 @@ public sealed class VideoSource : MediaSource
                 _counter = null;
                 ProxyResolution = null;
 
-                // Refresh the per-source fingerprint for the current URI, then re-read
-                // this source's version so the reload baseline matches the new source.
-                _proxyVersionSource = context.PreferProxy
-                    && ProxyFingerprint.TryFromFile(videoSource.Uri.LocalPath, out ProxyFingerprint sourceFingerprint)
-                    ? sourceFingerprint
+                // Refresh the per-source key for the current URI, then re-read this source's version so
+                // the reload baseline matches the new source. A missing original cannot be fingerprinted,
+                // but ResolveComparableKey still yields the path key the store bumps, so an offline reader
+                // observes a proxy that is registered for its path after it opened.
+                _proxyVersionSource = context.PreferProxy && videoSource.Uri.IsFile
+                    ? ProxyFingerprint.TryFromFile(videoSource.Uri.LocalPath, out ProxyFingerprint sourceFingerprint)
+                        ? sourceFingerprint.AbsolutePath
+                        : ProxyFingerprint.ResolveComparableKey(videoSource.Uri.LocalPath)
                     : null;
                 proxyResolverVersion = proxyResolver is not null && _proxyVersionSource is { } refreshedSource
                     ? proxyResolver.GetSourceVersion(refreshedSource)
@@ -190,17 +196,6 @@ public sealed class VideoSource : MediaSource
                 }
 
                 ProxyResolution = _counter.Value.ProxyResolution;
-
-                // A moved/deleted original could not be fingerprinted above, so _proxyVersionSource is
-                // null and this reader would never observe store-version bumps for the proxy it opened.
-                // Adopt the resolved proxy's source key (same AbsolutePath the store bumps) so a later
-                // Register/Replace/Delete of that proxy invalidates this reader instead of reusing a
-                // stale one until the resource is recreated.
-                if (_proxyVersionSource is null && ProxyResolution is { } resolvedProxy)
-                {
-                    _proxyVersionSource = resolvedProxy.Source;
-                    proxyResolverVersion = proxyResolver?.GetSourceVersion(resolvedProxy.Source) ?? 0;
-                }
 
                 Duration = TimeSpan.FromSeconds(_counter.Value.VideoInfo.Duration.ToDouble());
                 FrameRate = _counter.Value.VideoInfo.FrameRate;

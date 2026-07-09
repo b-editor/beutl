@@ -12,6 +12,7 @@ public sealed class ProxyJobQueue : IProxyJobQueue
     private readonly Func<IProxyGenerator?> _generatorProvider;
     private IProxyGenerator? _generator;
     private IProxyGeneratorAvailability? _generatorAvailability;
+    private long _generatorVersion;
     private readonly IProxyStore? _store;
     private readonly Channel<WorkItem> _channel;
     private readonly CancellationTokenSource _disposeCts = new();
@@ -25,23 +26,22 @@ public sealed class ProxyJobQueue : IProxyJobQueue
     private int _consecutiveUnavailable;
     private bool _disposed;
 
-    public ProxyJobQueue(IProxyGenerator generator, int capacity = 256)
-        : this(EagerProvider(generator), store: null, capacity)
+    public ProxyJobQueue(IProxyGenerator generator)
+        : this(EagerProvider(generator), store: null)
     {
     }
 
-    public ProxyJobQueue(IProxyGenerator generator, IProxyStore? store, int capacity = 256)
-        : this(EagerProvider(generator), store, capacity, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(30))
+    public ProxyJobQueue(IProxyGenerator generator, IProxyStore? store)
+        : this(EagerProvider(generator), store, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(30))
     {
     }
 
     internal ProxyJobQueue(
         IProxyGenerator generator,
         IProxyStore? store,
-        int capacity,
         TimeSpan minUnavailableBackoff,
         TimeSpan maxUnavailableBackoff)
-        : this(EagerProvider(generator), store, capacity, minUnavailableBackoff, maxUnavailableBackoff)
+        : this(EagerProvider(generator), store, minUnavailableBackoff, maxUnavailableBackoff)
     {
     }
 
@@ -53,20 +53,18 @@ public sealed class ProxyJobQueue : IProxyJobQueue
     /// null to signal "not yet registered"; such jobs stay queued and the drain loop re-probes, so a
     /// job queued before extension registration is not lost.
     /// </summary>
-    public ProxyJobQueue(Func<IProxyGenerator?> generatorProvider, IProxyStore? store, int capacity = 256)
-        : this(generatorProvider, store, capacity, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(30))
+    public ProxyJobQueue(Func<IProxyGenerator?> generatorProvider, IProxyStore? store)
+        : this(generatorProvider, store, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(30))
     {
     }
 
     internal ProxyJobQueue(
         Func<IProxyGenerator?> generatorProvider,
         IProxyStore? store,
-        int capacity,
         TimeSpan minUnavailableBackoff,
         TimeSpan maxUnavailableBackoff)
     {
         ArgumentNullException.ThrowIfNull(generatorProvider);
-        ArgumentOutOfRangeException.ThrowIfLessThan(capacity, 1);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(minUnavailableBackoff, TimeSpan.Zero);
         ArgumentOutOfRangeException.ThrowIfLessThan(maxUnavailableBackoff, minUnavailableBackoff);
 
@@ -74,9 +72,13 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         _store = store;
         _minUnavailableBackoff = minUnavailableBackoff;
         _maxUnavailableBackoff = maxUnavailableBackoff;
-        _channel = Channel.CreateBounded<WorkItem>(new BoundedChannelOptions(capacity)
+        // Unbounded: each queued item needs exactly one wake permit, and the drain (single reader,
+        // MaxConcurrency 1) consumes one per dispatch. Items already live in _items — deduplicated by
+        // (source, preset) — so the channel is a pure wake signal, not the memory bound. A bounded
+        // channel would instead deadlock a bulk enqueue: the single drain parks on generator
+        // unavailability, the channel fills, and the sequential producer blocks forever on the write.
+        _channel = Channel.CreateUnbounded<WorkItem>(new UnboundedChannelOptions
         {
-            FullMode = BoundedChannelFullMode.Wait,
             SingleReader = true,
             SingleWriter = false,
         });
@@ -91,30 +93,76 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         return () => generator;
     }
 
-    // Resolves and caches the generator on first dispatch (single-threaded: the drain task is the
-    // only caller). The availability subscription is taken out here so an extension-registered
+    // Resolves and caches the generator on first dispatch. The drain task is the only caller, but
+    // InvalidateGenerator can run concurrently from the registry-changed callback, so the shared fields
+    // are guarded by _lock. The availability subscription is taken out here so an extension-registered
     // generator that loads after the queue is constructed still drives the queue's resume/backoff.
     private IProxyGenerator? ResolveGenerator()
     {
-        if (_generator is { } resolved)
-            return resolved;
+        long version;
+        lock (_lock)
+        {
+            if (_generator is { } cached)
+                return cached;
 
+            version = _generatorVersion;
+        }
+
+        // Resolve outside _lock: the provider enumerates ProxyGeneratorRegistry (its own lock) and may
+        // run plugin code, so holding _lock here risks a lock-order deadlock against InvalidateGenerator.
         IProxyGenerator? generator = _generatorProvider();
         if (generator is null)
             return null;
 
-        _generator = generator;
-        _generatorAvailability = generator as IProxyGeneratorAvailability;
-        if (_generatorAvailability != null)
-            _generatorAvailability.AvailabilityChanged += OnGeneratorAvailabilityChanged;
-        return generator;
+        lock (_lock)
+        {
+            if (_generator is { } raced)
+                return raced;
+
+            if (_generatorVersion != version)
+                // Invalidated while we were resolving: the generator we got may be the just-removed one.
+                // Discard it (do not cache/subscribe) so the next dispatch re-resolves against the
+                // current registry; the drain treats null as "no generator yet" and retries.
+                return null;
+
+            _generator = generator;
+            _generatorAvailability = generator as IProxyGeneratorAvailability;
+            if (_generatorAvailability != null)
+                _generatorAvailability.AvailabilityChanged += OnGeneratorAvailabilityChanged;
+            return generator;
+        }
+    }
+
+    /// <summary>
+    /// Drops the cached generator so the next dispatch re-resolves it from the provider. A composition
+    /// root calls this when its provider's result changes — e.g. a proxy extension unloads and its
+    /// factory leaves <see cref="ProxyGeneratorRegistry"/> — so the queue neither keeps a strong
+    /// reference to the removed generator (blocking the extension's collection) nor keeps invoking it.
+    /// Idempotent and safe to call from any thread.
+    /// </summary>
+    public void InvalidateGenerator()
+    {
+        IProxyGeneratorAvailability? previous;
+        lock (_lock)
+        {
+            _generatorVersion++;
+            previous = _generatorAvailability;
+            _generator = null;
+            _generatorAvailability = null;
+        }
+
+        if (previous != null)
+            previous.AvailabilityChanged -= OnGeneratorAvailabilityChanged;
     }
 
     public int MaxConcurrency => 1;
 
     public event EventHandler<ProxyJobChangedEventArgs>? JobChanged;
 
-    public async ValueTask<ProxyJob> EnqueueAsync(
+    // Synchronous despite the ValueTask return: the item is registered under the lock and the channel
+    // write is a non-blocking TryWrite, so there is nothing to await. The Async name and ValueTask
+    // signature are kept to satisfy IProxyJobQueue and leave room for a future awaiting implementation.
+    public ValueTask<ProxyJob> EnqueueAsync(
         ProxyFingerprint source,
         ProxyPreset preset,
         int priority = 0,
@@ -175,36 +223,34 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         {
             if (promoted)
                 OnJobChanged(existingJob, ProxyJobChangeKind.Enqueued);
-            return existingJob;
+            return new ValueTask<ProxyJob>(existingJob);
         }
 
         WorkItem item = newItem!;
-        try
+        if (cancellationToken.IsCancellationRequested || item.Token.IsCancellationRequested)
         {
-            // Link the item's own token so a Cancel/CancelAll while the write is parked on a full
-            // channel aborts the write instead of publishing a job that was already canceled and
-            // removed (which would fire a spurious Enqueued and return false success to the caller).
-            using var writeCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, item.Token);
-            await _channel.Writer.WriteAsync(item, writeCts.Token);
-            lock (_lock)
-            {
-                item.Published = true;
-            }
-
-            OnJobChanged(item.Job, ProxyJobChangeKind.Enqueued);
-            return item.Job;
-        }
-        catch
-        {
-            // The item was never published, so no dispatcher could have started it; removing and
-            // disposing it here cannot race a running generation. Complete the job first: a
-            // deduplicated caller may already hold this ProxyJob, and without a terminal
-            // transition it would stay Queued forever with no further JobChanged.
+            // Already canceled at enqueue (caller token or a Dispose/CancelAll that beat us here): do
+            // not publish a job. Complete it first so a deduplicated caller holding this ProxyJob sees a
+            // terminal transition instead of a permanent Queued.
             CompleteCanceled(item);
             Remove(item);
             item.Dispose();
-            throw;
+            cancellationToken.ThrowIfCancellationRequested();
+            throw new OperationCanceledException(item.Token);
         }
+
+        // The item is already tracked in _items, so the channel entry is only the wake permit the drain
+        // consumes to dispatch it. Publish before the write so a permit read cannot race an unpublished
+        // item. TryWrite on the unbounded channel always succeeds and never blocks, so a bulk
+        // GenerateAll cannot deadlock the caller even while the drain is parked on unavailability.
+        lock (_lock)
+        {
+            item.Published = true;
+        }
+
+        _channel.Writer.TryWrite(item);
+        OnJobChanged(item.Job, ProxyJobChangeKind.Enqueued);
+        return new ValueTask<ProxyJob>(item.Job);
     }
 
     public IReadOnlyList<ProxyJob> Pending()
@@ -273,10 +319,8 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         // priority (not by which entry was read), so a high-priority enqueue can jump a bulk run.
         await foreach (WorkItem permitItem in _channel.Reader.ReadAllAsync())
         {
-            // Dequeuing the permit proves its WriteAsync durably completed, so publish here too:
-            // the enqueuer's own post-write continuation can lose the race to this read, and
-            // skipping the still-unpublished item would waste its only permit, stranding the job
-            // at Queued forever.
+            // The enqueuer publishes before writing the permit, so this is normally already set;
+            // re-assert it idempotently so a permit read can never observe an unpublished item.
             lock (_lock)
             {
                 permitItem.Published = true;
@@ -625,9 +669,9 @@ public sealed class ProxyJobQueue : IProxyJobQueue
 
         public ProxyJob Job { get; } = job;
 
-        // Guarded by the queue's _lock (not this WorkItem's _lock). Set true only after the item's
-        // channel permit is durably queued; TakeNextDispatchable ignores unpublished items so a job
-        // can never start before its capacity is reserved.
+        // Guarded by the queue's _lock (not this WorkItem's _lock). Set true once the item is fully
+        // registered, immediately before its wake permit is written; TakeNextDispatchable ignores
+        // unpublished items so a partially-constructed job can never be dispatched.
         public bool Published { get; set; }
 
         public CancellationTokenSource Cancellation { get; } = cancellation;

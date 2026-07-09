@@ -38,7 +38,13 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
         Queue = queue;
         EvictionService = evictionService;
         Queue.JobChanged += OnJobChanged;
+        // A proxy extension registers its generator factory after this queue is built and unregisters it
+        // on unload; drop the queue's cached generator on either so it re-resolves and never keeps
+        // rooting or invoking an unloaded extension's generator.
+        ProxyGeneratorRegistry.Changed += OnGeneratorRegistryChanged;
     }
+
+    private void OnGeneratorRegistryChanged(object? sender, EventArgs e) => Queue.InvalidateGenerator();
 
     public static ProxyMediaServices? Current { get; private set; }
 
@@ -116,6 +122,8 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
         // Signal the drain-path sweep to stop marshaling source collection to the UI thread before we
         // await the queue drain below, so shutdown cannot deadlock on the UI thread.
         s_disposing = true;
+        // Unsubscribe before disposing the queue so a late registry change cannot race Queue disposal.
+        ProxyGeneratorRegistry.Changed -= OnGeneratorRegistryChanged;
         Queue.JobChanged -= OnJobChanged;
         if (ReferenceEquals(DecoderRegistry.ProxyResolver, Resolver))
             DecoderRegistry.ProxyResolver = null;

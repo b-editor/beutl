@@ -208,6 +208,11 @@ public static class ProxySourceEnumerator
                 case DrawableGroup group:
                     foreach (Drawable child in group.Children)
                     {
+                        // The nested render path (DrawableGroup.OnDraw -> DrawDrawable -> Drawable.Render)
+                        // skips a disabled child, so preflight must not demand its file either.
+                        if (skipDisabledElements && !child.IsEnabled)
+                            continue;
+
                         foreach (IFileSource source in EnumerateObjectFileSources(
                             child, visitedScenes, visitedGraphGroups, visitedFilterEffectGroups, visitedTargets, skipDisabledElements, renderTarget))
                             yield return source;
@@ -220,10 +225,14 @@ public static class ProxySourceEnumerator
                 // reach, so a SourceVideo placed in them would otherwise be invisible to the Proxies
                 // tab, badges, and cache invalidation. Target is a reference property (not
                 // ownership), so target chains are user-cyclable — the visited set makes the
-                // recursion terminate.
+                // recursion terminate. A disabled nested drawable is skipped by the render path, so the
+                // same skipDisabledElements gate applies before descending.
                 case DrawableDecorator decorator:
                     foreach (Drawable child in decorator.Children)
                     {
+                        if (skipDisabledElements && !child.IsEnabled)
+                            continue;
+
                         foreach (IFileSource source in EnumerateObjectFileSources(
                             child, visitedScenes, visitedGraphGroups, visitedFilterEffectGroups, visitedTargets, skipDisabledElements, renderTarget))
                             yield return source;
@@ -232,7 +241,7 @@ public static class ProxySourceEnumerator
                     break;
 
                 case DrawableTimeController { Target.CurrentValue: { } target }:
-                    if (visitedTargets.Add(target))
+                    if ((!skipDisabledElements || target.IsEnabled) && visitedTargets.Add(target))
                     {
                         foreach (IFileSource source in EnumerateObjectFileSources(
                             target, visitedScenes, visitedGraphGroups, visitedFilterEffectGroups, visitedTargets, skipDisabledElements, renderTarget))
@@ -242,7 +251,7 @@ public static class ProxySourceEnumerator
                     break;
 
                 case DrawablePresenter { Target.CurrentValue: { } presented }:
-                    if (visitedTargets.Add(presented))
+                    if ((!skipDisabledElements || presented.IsEnabled) && visitedTargets.Add(presented))
                     {
                         foreach (IFileSource source in EnumerateObjectFileSources(
                             presented, visitedScenes, visitedGraphGroups, visitedFilterEffectGroups, visitedTargets, skipDisabledElements, renderTarget))
