@@ -10,7 +10,7 @@ namespace Beutl.Editor.Services;
 /// </summary>
 public interface IElementResizeService
 {
-    void Resize(Scene scene, IReadOnlyList<ElementResizeRequest> requests);
+    void Resize(Scene scene, IReadOnlyList<ElementResizeRequest> requests, bool ripple = false);
 }
 
 public readonly record struct ElementResizeRequest(

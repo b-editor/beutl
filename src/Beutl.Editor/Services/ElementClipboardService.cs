@@ -61,7 +61,7 @@ public sealed class ElementClipboardService : IElementClipboardService
         return await _clipboard.SetAsync(entries);
     }
 
-    public async Task<bool> CutAsync(Scene scene, IReadOnlyList<Element> elements)
+    public async Task<bool> CutAsync(Scene scene, IReadOnlyList<Element> elements, bool ripple = false)
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(elements);
@@ -77,11 +77,7 @@ public sealed class ElementClipboardService : IElementClipboardService
             return false;
         }
 
-        foreach (Element element in elements.ToArray())
-        {
-            scene.RemoveChild(element);
-        }
-
+        RippleHelper.RemoveAndShiftAfter(scene, elements, ripple, scene.RemoveChild);
         _historyManager.Commit(CommandNames.CutElement);
         return true;
     }

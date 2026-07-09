@@ -153,6 +153,12 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         IsSnapEnabled.Subscribe(b => editorConfig.IsTimelineSnapEnabled = b)
             .DisposeWith(_disposables);
 
+        IsRippleEnabled = editorConfig.GetObservable(EditorConfig.IsRippleEnabledProperty)
+            .ToReactiveProperty()
+            .DisposeWith(_disposables);
+        IsRippleEnabled.Subscribe(b => editorConfig.IsRippleEnabled = b)
+            .DisposeWith(_disposables);
+
         IsLockCacheButtonEnabled = HoveredCacheBlock.Select(v => v is { IsLocked: false })
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
@@ -310,6 +316,8 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
     public ReactiveProperty<bool> AutoAdjustSceneDuration { get; }
 
     public ReactiveProperty<bool> IsSnapEnabled { get; }
+
+    public ReactiveProperty<bool> IsRippleEnabled { get; }
 
     public ReactivePropertySlim<double?> SnapBarPosition { get; } = new();
 
@@ -906,7 +914,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             "ToggleGroup" => SelectedElements.FirstOrDefault() is { } first
                 && (first.CanUngroupSelectedElements() || first.CanGroupSelectedElements()),
             "ExitRazorMode" => IsRazorMode.Value,
-            "Paste" or "SetStartTime" or "SetEndTime" or "ToggleRazorMode" => true,
+            "Paste" or "SetStartTime" or "SetEndTime" or "ToggleRazorMode" or "ToggleRippleMode" => true,
             // Rename / Split など Execute で対応 case が無いコマンドは false を返し、
             // パレットやショートカット経路で誤って enabled として扱われないようにする。
             _ => false,
@@ -986,6 +994,14 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
                 break;
             case "ToggleRazorMode" when !IsTextInputFocused(execution.KeyEventArgs):
                 IsRazorMode.Value = !IsRazorMode.Value;
+                if (execution.KeyEventArgs != null)
+                {
+                    execution.KeyEventArgs.Handled = true;
+                }
+
+                break;
+            case "ToggleRippleMode" when !IsTextInputFocused(execution.KeyEventArgs):
+                IsRippleEnabled.Value = !IsRippleEnabled.Value;
                 if (execution.KeyEventArgs != null)
                 {
                     execution.KeyEventArgs.Handled = true;

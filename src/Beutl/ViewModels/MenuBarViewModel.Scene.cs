@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
+using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.SceneSettingsTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
@@ -104,7 +105,7 @@ public partial class MenuBarViewModel
             && viewModel.GetService<IEditorSelection>()?.SelectedObject.Value is Element element)
         {
             viewModel.GetRequiredService<IElementStructureService>()
-                .Exclude(scene, [element]);
+                .Exclude(scene, [element], GlobalConfiguration.Instance.EditorConfig.IsRippleEnabled);
         }
     }
 
@@ -115,7 +116,7 @@ public partial class MenuBarViewModel
             && viewModel.GetService<IEditorSelection>()?.SelectedObject.Value is Element element)
         {
             await viewModel.GetRequiredService<IElementClipboardService>()
-                .CutAsync(scene, [element]);
+                .CutAsync(scene, [element], GlobalConfiguration.Instance.EditorConfig.IsRippleEnabled);
         }
     }
 

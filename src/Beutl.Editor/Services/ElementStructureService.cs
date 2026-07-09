@@ -16,31 +16,23 @@ public sealed class ElementStructureService : IElementStructureService
         _historyManager = historyManager ?? throw new ArgumentNullException(nameof(historyManager));
     }
 
-    public void Exclude(Scene scene, IReadOnlyList<Element> elements)
+    public void Exclude(Scene scene, IReadOnlyList<Element> elements, bool ripple = false)
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(elements);
         if (elements.Count == 0) return;
 
-        foreach (Element element in elements.ToArray())
-        {
-            scene.RemoveChild(element);
-        }
-
+        RippleHelper.RemoveAndShiftAfter(scene, elements, ripple, scene.RemoveChild);
         _historyManager.Commit(CommandNames.RemoveElement);
     }
 
-    public void Delete(Scene scene, IReadOnlyList<Element> elements)
+    public void Delete(Scene scene, IReadOnlyList<Element> elements, bool ripple = false)
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(elements);
         if (elements.Count == 0) return;
 
-        foreach (Element element in elements.ToArray())
-        {
-            scene.DeleteChild(element);
-        }
-
+        RippleHelper.RemoveAndShiftAfter(scene, elements, ripple, scene.DeleteChild);
         _historyManager.Commit(CommandNames.DeleteElement);
     }
 

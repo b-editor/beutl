@@ -1,4 +1,5 @@
-﻿using Beutl.Editor;
+﻿using Beutl.Configuration;
+using Beutl.Editor;
 using Beutl.Editor.Services;
 using Beutl.ProjectSystem;
 using Beutl.UnitTests.TestInfrastructure;
@@ -109,5 +110,97 @@ public class ElementResizeServiceTests
             Assert.That(element.ZIndex, Is.EqualTo(2));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
+    }
+
+    [Test]
+    public void Resize_RippleOn_NegativeStart_ThrowsBeforeMutation()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        int before = _history.UndoCount;
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            _service.Resize(_scene,
+                [new ElementResizeRequest(element, TimeSpan.FromSeconds(-1), TimeSpan.FromSeconds(2), 0)],
+                ripple: true));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(element.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
+    public void Resize_RippleOn_ZeroLength_ThrowsBeforeMutation()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        int before = _history.UndoCount;
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            _service.Resize(_scene,
+                [new ElementResizeRequest(element, TimeSpan.FromSeconds(1), TimeSpan.Zero, 0)],
+                ripple: true));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(element.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
+    public void Resize_RippleOn_InvalidSecondRequest_ThrowsBeforeAnyMutation()
+    {
+        Element valid = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 0);
+        Element invalid = AddElement(TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(2), zIndex: 1);
+        int before = _history.UndoCount;
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            _service.Resize(_scene,
+            [
+                new ElementResizeRequest(valid, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(5), 0),
+                new ElementResizeRequest(invalid, TimeSpan.FromSeconds(4), TimeSpan.Zero, 1),
+            ],
+            ripple: true));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(valid.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(valid.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(invalid.Start, Is.EqualTo(TimeSpan.FromSeconds(4)));
+            Assert.That(invalid.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
+    public void Resize_RippleOn_AutoAdjustsSceneDurationAfterFollowerShift()
+    {
+        bool original = GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration;
+        GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration = true;
+
+        try
+        {
+            _scene.Duration = TimeSpan.FromSeconds(4);
+            Element target = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2), zIndex: 0);
+            Element follower = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2), zIndex: 0);
+
+            _service.Resize(_scene,
+                [new ElementResizeRequest(target, TimeSpan.Zero, TimeSpan.FromSeconds(5), 0)],
+                ripple: true);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(target.Range.End, Is.EqualTo(TimeSpan.FromSeconds(5)));
+                Assert.That(follower.Range.End, Is.EqualTo(TimeSpan.FromSeconds(7)));
+                Assert.That(_scene.Duration, Is.EqualTo(TimeSpan.FromSeconds(7)));
+            });
+        }
+        finally
+        {
+            GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration = original;
+        }
     }
 }

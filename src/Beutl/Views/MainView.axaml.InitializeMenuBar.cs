@@ -6,6 +6,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
 using Beutl.Api.Services;
+using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.Services;
 using Beutl.Models;
@@ -133,7 +134,7 @@ public partial class MainView
             if (await dialog.ShowAsync() == ContentDialogResult.Primary)
             {
                 viewModel.GetRequiredService<IElementStructureService>()
-                    .Delete(scene, [element]);
+                    .Delete(scene, [element], GlobalConfiguration.Instance.EditorConfig.IsRippleEnabled);
             }
         }
     }

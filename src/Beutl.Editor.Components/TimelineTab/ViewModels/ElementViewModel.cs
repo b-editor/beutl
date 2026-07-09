@@ -426,18 +426,33 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         Width.Value = width;
     }
 
-    public async Task SubmitViewModelChanges()
+    // Ripple shifts the dragged edge's delta onto neighbours, so the untouched edge must carry its
+    // exact model coordinate — re-deriving it through a lossy pixel->frame round-trip would leak a
+    // sub-frame delta onto the wrong side for an off-frame clip and ripple the wrong neighbours.
+    internal static (TimeSpan Start, TimeSpan Length) ResolveRippleResizeBounds(
+        bool leftEdge, TimeSpan roundedStart, TimeSpan roundedLength, TimeSpan modelStart, TimeSpan modelEnd)
+    {
+        return leftEdge
+            ? (roundedStart, modelEnd - roundedStart)
+            : (modelStart, roundedLength);
+    }
+
+    public async Task SubmitViewModelChanges(bool ripple = false, bool leftEdge = false)
     {
         PrepareAnimationContext context = PrepareAnimation();
 
         float scale = Timeline.Options.Value.Scale;
         int rate = Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
-        TimeSpan start = BorderMargin.Value.Left.PixelToTimeSpan(scale).RoundToRate(rate);
-        TimeSpan length = Width.Value.PixelToTimeSpan(scale).RoundToRate(rate);
+        TimeSpan roundedStart = BorderMargin.Value.Left.PixelToTimeSpan(scale).RoundToRate(rate);
+        TimeSpan roundedLength = Width.Value.PixelToTimeSpan(scale).RoundToRate(rate);
+        (TimeSpan start, TimeSpan length) = ripple
+            ? ResolveRippleResizeBounds(leftEdge, roundedStart, roundedLength, Model.Start, Model.Range.End)
+            : (roundedStart, roundedLength);
         int zindex = Timeline.ToLayerNumber(Margin.Value);
 
-        Scene.MoveChild(zindex, start, length, Model);
-        Timeline.EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.MoveElement);
+        var request = new ElementResizeRequest(Model, start, length, zindex);
+        Timeline.EditorContext.GetRequiredService<IElementResizeService>()
+            .Resize(Scene, [request], ripple);
 
         await AnimationRequest(context);
     }
@@ -474,13 +489,15 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
     private void OnExclude()
     {
         Element[] targets = GetGroupOrSelectedElements().Select(e => e.Model).ToArray();
-        Timeline.EditorContext.GetRequiredService<IElementStructureService>().Exclude(Scene, targets);
+        Timeline.EditorContext.GetRequiredService<IElementStructureService>()
+            .Exclude(Scene, targets, Timeline.IsRippleEnabled.Value);
     }
 
     private void OnDelete()
     {
         Element[] targets = GetGroupOrSelectedElements().Select(e => e.Model).ToArray();
-        Timeline.EditorContext.GetRequiredService<IElementStructureService>().Delete(Scene, targets);
+        Timeline.EditorContext.GetRequiredService<IElementStructureService>()
+            .Delete(Scene, targets, Timeline.IsRippleEnabled.Value);
     }
 
     private void OnBringAnimationToTop()
@@ -560,7 +577,8 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
     {
         Element[] models = GetGroupOrSelectedElements().Select(e => e.Model).ToArray();
         if (models.Length == 0) return;
-        await Timeline.EditorContext.GetRequiredService<IElementClipboardService>().CutAsync(Scene, models);
+        await Timeline.EditorContext.GetRequiredService<IElementClipboardService>()
+            .CutAsync(Scene, models, Timeline.IsRippleEnabled.Value);
     }
 
     public void SplitAt(TimeSpan timeSpan)
@@ -603,8 +621,9 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             int rate = Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
             TimeSpan duration = timeSpan.FloorToRate(rate);
 
+            bool ripple = Timeline.IsRippleEnabled.Value;
             Element? after = Model.GetAfter(Model.ZIndex, Model.Range.End);
-            if (after != null)
+            if (!ripple && after != null)
             {
                 TimeSpan delta = after.Start - Model.Start;
                 if (delta < duration)
@@ -613,8 +632,9 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
                 }
             }
 
-            Scene.MoveChild(Model.ZIndex, Model.Start, duration, Model);
-            Timeline.EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.MoveElement);
+            var request = new ElementResizeRequest(Model, Model.Start, duration, Model.ZIndex);
+            Timeline.EditorContext.GetRequiredService<IElementResizeService>()
+                .Resize(Scene, [request], ripple);
 
             await AnimationRequest(context);
         }

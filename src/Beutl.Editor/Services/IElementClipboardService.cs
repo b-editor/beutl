@@ -18,7 +18,7 @@ public interface IElementClipboardService
     /// </summary>
     Task<bool> CopyAsync(IReadOnlyList<Element> elements);
 
-    Task<bool> CutAsync(Scene scene, IReadOnlyList<Element> elements);
+    Task<bool> CutAsync(Scene scene, IReadOnlyList<Element> elements, bool ripple = false);
 
     Task<ElementPasteOutcome> PasteAsync(Scene scene, TimeSpan clickedFrame, int clickedLayer);
 }
