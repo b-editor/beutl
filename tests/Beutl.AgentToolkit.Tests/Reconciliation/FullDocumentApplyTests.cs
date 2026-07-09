@@ -352,6 +352,78 @@ public sealed class FullDocumentApplyTests
         });
     }
 
+    [Test]
+    public void Full_document_with_a_non_positive_scene_duration_is_rejected()
+    {
+        using var session = TestEditingSession.Create(new Scene(1920, 1080, "Scene"));
+        var reconciler = new Reconciler();
+        JsonObject desired = session.Documents.Read(session.Scene);
+        desired[nameof(Scene.Duration)] = TimeSpan.Zero.ToString("c");
+
+        ReconcileException ex = Assert.Throws<ReconcileException>(() => reconciler.Plan(session, desired))!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ex.Error.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(ex.Error.Message, Does.Contain("duration"));
+        });
+    }
+
+    [Test]
+    public void Editing_an_existing_element_to_an_invalid_timeline_is_rejected()
+    {
+        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var scene = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
+        var element = new Element
+        {
+            Name = "Intro",
+            Start = TimeSpan.FromSeconds(1),
+            Length = TimeSpan.FromSeconds(2),
+            Uri = new Uri(Path.Combine(dir, "first.belm"))
+        };
+        scene.Children.Add(element);
+        using var session = TestEditingSession.Create(scene);
+        var reconciler = new Reconciler();
+
+        JsonObject desired = session.Documents.Read(session.Scene);
+        ((JsonArray)desired["Elements"]!)[0]!.AsObject()[nameof(Element.Start)] = TimeSpan.FromSeconds(-1).ToString("c");
+
+        ReconcileException ex = Assert.Throws<ReconcileException>(() => reconciler.Plan(session, desired))!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ex.Error.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(ex.Error.Message, Does.Contain("Intro"));
+            Assert.That(ex.Error.Message, Does.Contain("Start"));
+            Assert.That(session.Scene.Children[0].Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
+        });
+    }
+
+    [Test]
+    public void Dry_run_plan_does_not_create_element_sidecar_directories()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        // A scene Uri whose directory does not exist stands in for a hand-edited/untrusted path.
+        string sceneDir = Path.Combine(root, "unwritten");
+        var scene = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(sceneDir, "Scene.scene")) };
+        using var session = TestEditingSession.Create(scene);
+        var reconciler = new Reconciler();
+
+        JsonObject desired = session.Documents.Read(session.Scene);
+        ((JsonArray)desired["Elements"]!).Add(new JsonObject
+        {
+            ["$type"] = IdentityHelper.WriteDiscriminator(typeof(Element)),
+            [nameof(Element.Start)] = TimeSpan.Zero.ToString("c"),
+            [nameof(Element.Length)] = TimeSpan.FromSeconds(1).ToString("c")
+        });
+
+        reconciler.Plan(session, desired);
+
+        Assert.That(Directory.Exists(sceneDir), Is.False, "Plan (dry-run) must not create sidecar directories.");
+    }
+
     private sealed class TestEditingSession : IEditingSession, IDisposable
     {
         private readonly RecordingPipeline _recording;

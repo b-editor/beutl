@@ -179,7 +179,7 @@ public sealed class ProjectOperationsTests
     }
 
     [Test]
-    public void EnsureElementUrisWithinProject_RehomesOutOfProjectSceneUri_KeepingWritesInProject()
+    public void NormalizeSidecarUrisWithinProject_RehomesOutOfProjectUris_WithoutTouchingTheFilesystem()
     {
         Project project = ProjectOperations.CreateProject(new ProjectCreateOptions(
             Path.Combine(_tempRoot, "proj.bep"),
@@ -202,8 +202,9 @@ public sealed class ProjectOperationsTests
         };
         scene.Children.Add(element);
 
-        ProjectOperations.EnsureElementUrisWithinProject(scene);
+        ProjectOperations.NormalizeSidecarUrisWithinProject(scene);
 
+        string rehomedSceneDir = Path.GetDirectoryName(scene.Uri!.LocalPath)!;
         Assert.Multiple(() =>
         {
             Assert.That(
@@ -216,6 +217,7 @@ public sealed class ProjectOperationsTests
                 Is.True,
                 $"Element sidecar must be inside the project, got: {element.Uri!.LocalPath}");
             Assert.That(Directory.Exists(outsideDir), Is.False, "No out-of-project directory may be created.");
+            Assert.That(Directory.Exists(rehomedSceneDir), Is.False, "URI normalization must not create directories.");
         });
     }
 }

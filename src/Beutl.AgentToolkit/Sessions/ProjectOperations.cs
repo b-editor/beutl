@@ -216,10 +216,11 @@ public static class ProjectOperations
                || string.Equals(full, root, comparison);
     }
 
-    // Save rehomes out-of-project sidecar URIs before writing; apply_edit ensures element URIs without
-    // that Save, so a hand-edited scene Uri escaping the project directory would let EnsureElementUris
-    // create and write to an out-of-project directory. Rehome/regenerate inside the project first.
-    internal static void EnsureElementUrisWithinProject(Scene scene)
+    // apply_edit must have no filesystem side effects (a dry-run/rejected edit must leave the disk
+    // untouched, and apply must not require a writable path), so this only rehomes out-of-project
+    // scene/element sidecar URIs to in-project *values* — keeping the eventual Save in the project
+    // tree even for a hand-edited escaping scene Uri — and leaves directory creation to Save.
+    internal static void NormalizeSidecarUrisWithinProject(Scene scene)
     {
         ArgumentNullException.ThrowIfNull(scene);
 
@@ -231,13 +232,17 @@ public static class ProjectOperations
             EnsureSceneUri(project, scene);
         }
 
-        EnsureElementUris(scene);
+        AssignMissingElementUris(scene, createDirectory: false);
     }
 
     internal static void EnsureElementUris(Scene scene)
     {
         ArgumentNullException.ThrowIfNull(scene);
+        AssignMissingElementUris(scene, createDirectory: true);
+    }
 
+    private static void AssignMissingElementUris(Scene scene, bool createDirectory)
+    {
         if (scene.Uri is null)
         {
             throw new InvalidOperationException("Scene must have a Uri before its elements can be saved.");
@@ -245,7 +250,10 @@ public static class ProjectOperations
 
         string sceneDirectory = Path.GetDirectoryName(scene.Uri.LocalPath)
                                 ?? throw new InvalidOperationException("Scene Uri must have a directory.");
-        Directory.CreateDirectory(sceneDirectory);
+        if (createDirectory)
+        {
+            Directory.CreateDirectory(sceneDirectory);
+        }
 
         foreach (Element element in scene.Children)
         {

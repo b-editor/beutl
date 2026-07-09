@@ -89,7 +89,8 @@ public sealed class Reconciler
         var validation = new List<ValidationOutcome>();
         CompareObject(session.Root, currentDocument, desiredDocument, "$", changes, validation);
         ValidateInsertedSubtrees(sandboxRoot, changes, validation);
-        ValidateSceneFrameSize(sandboxRoot, validation);
+        ValidateChangedElementTimelines(sandboxRoot, changes, validation);
+        ValidateSceneInvariants(sandboxRoot, validation);
         AddRelativeKeyFrameRangeWarnings(desiredDocument, validation);
 
         if (validation.FirstOrDefault(item => item.Status == ValidationStatus.Rejected) is { } rejected)
@@ -335,7 +336,7 @@ public sealed class Reconciler
                 session.Documents.Write(session.Root, desiredDocument);
                 if (session.Root is Scene scene)
                 {
-                    ProjectOperations.EnsureElementUrisWithinProject(scene);
+                    ProjectOperations.NormalizeSidecarUrisWithinProject(scene);
                 }
             },
             "Agent edit");
@@ -534,7 +535,7 @@ public sealed class Reconciler
         if (CollectionReconciler.TryGetId(node, out Guid nodeId)
             && IdentityHelper.FindById(sandboxRoot, nodeId) is Element element)
         {
-            ValidateInsertedElementTimeline(element, validation);
+            ValidateElementTimeline(element, validation);
         }
 
         foreach (KeyValuePair<string, JsonNode?> pair in node)
@@ -563,7 +564,31 @@ public sealed class Reconciler
         }
     }
 
-    private static void ValidateInsertedElementTimeline(Element element, List<ValidationOutcome> validation)
+    // Element.Start/Length carry no property validator, so a patch that edits an existing element's
+    // timing (not just an insert) can persist a negative Start or non-positive Length that the
+    // add/move tools reject. Validate every element whose timing changed against the applied sandbox.
+    private static void ValidateChangedElementTimelines(
+        CoreObject sandboxRoot,
+        List<ChangeSetEntry> changes,
+        List<ValidationOutcome> validation)
+    {
+        var seen = new HashSet<Guid>();
+        foreach (ChangeSetEntry change in changes)
+        {
+            if (change.Operation == ChangeOperations.SetProperty
+                && change.TargetId is { } id
+                && (change.Path.EndsWith("/Start", StringComparison.Ordinal)
+                    || change.Path.EndsWith("/Length", StringComparison.Ordinal))
+                && Guid.TryParse(id, out Guid guid)
+                && seen.Add(guid)
+                && IdentityHelper.FindById(sandboxRoot, guid) is Element element)
+            {
+                ValidateElementTimeline(element, validation);
+            }
+        }
+    }
+
+    private static void ValidateElementTimeline(Element element, List<ValidationOutcome> validation)
     {
         string identity = string.IsNullOrWhiteSpace(element.Name)
             ? element.Id.ToString()
@@ -585,17 +610,30 @@ public sealed class Reconciler
         }
     }
 
-    // A full desired document or merge patch can set Scene Width/Height to a non-positive value that
-    // create_project/add_scene would reject on their own inputs but no per-property validator covers
-    // here, so an impossible canvas size would otherwise reach render/export.
-    private static void ValidateSceneFrameSize(CoreObject sandboxRoot, List<ValidationOutcome> validation)
+    // A full desired document or merge patch can set Scene Width/Height/Duration to a non-positive
+    // value that create_project/add_scene reject on their own inputs but no per-property validator
+    // covers here, so an impossible canvas size or zero-length scene would reach render/export.
+    private static void ValidateSceneInvariants(CoreObject sandboxRoot, List<ValidationOutcome> validation)
     {
-        if (sandboxRoot is Scene scene && (scene.FrameSize.Width <= 0 || scene.FrameSize.Height <= 0))
+        if (sandboxRoot is not Scene scene)
+        {
+            return;
+        }
+
+        if (scene.FrameSize.Width <= 0 || scene.FrameSize.Height <= 0)
         {
             validation.Add(ValidationOutcome.Rejected(
                 $"{scene.FrameSize.Width}x{scene.FrameSize.Height}",
                 $"Scene frame size '{scene.FrameSize.Width}x{scene.FrameSize.Height}' must be positive.",
                 "Set Width and Height to positive pixel values before applying."));
+        }
+
+        if (scene.Duration <= TimeSpan.Zero)
+        {
+            validation.Add(ValidationOutcome.Rejected(
+                scene.Duration.ToString("c"),
+                $"Scene duration '{scene.Duration:c}' must be positive.",
+                "Set a positive Duration before applying."));
         }
     }
 

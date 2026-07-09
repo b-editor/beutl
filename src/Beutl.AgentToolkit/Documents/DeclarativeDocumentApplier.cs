@@ -727,9 +727,10 @@ internal sealed class DeclarativeDocumentApplier
             throw new InvalidOperationException("Scene must have a Uri before elements can be inserted.");
         }
 
+        // Assign a URI value only. This runs inside the validation sandbox (a dry-run) and before the
+        // apply-time rehome, so it must not touch the filesystem; the directory is created at Save.
         string sceneDirectory = Path.GetDirectoryName(scene.Uri.LocalPath)
                                 ?? throw new InvalidOperationException("Scene Uri must have a directory.");
-        Directory.CreateDirectory(sceneDirectory);
 
         string path = Path.Combine(sceneDirectory, $"{element.Id:N}.{EditorConstants.ElementFileExtension}");
         for (int index = 1; File.Exists(path) || scene.Children.Any(item => item.Uri?.LocalPath == path); index++)
