@@ -350,7 +350,7 @@ public class RippleEditTests
     }
 
     [Test]
-    public void ShiftAfter_LockedFollower_StaysAnchored()
+    public void ShiftAfter_LockedFollower_BlocksLaterUnlocked()
     {
         Element a = AddElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(2));
         Element locked = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
@@ -363,7 +363,28 @@ public class RippleEditTests
         Assert.Multiple(() =>
         {
             Assert.That(locked.Start, Is.EqualTo(TimeSpan.FromSeconds(2)), "locked follower must not move");
-            Assert.That(free.Start, Is.EqualTo(TimeSpan.FromSeconds(2)), "unlocked follower shifts left by 2");
+            Assert.That(free.Start, Is.EqualTo(TimeSpan.FromSeconds(4)),
+                "a locked clip blocks the ripple, so the later unlocked follower is not pulled onto it");
+        });
+    }
+
+    [Test]
+    public void Delete_RippleOn_LockedClipBeforeFollower_StopsRipple()
+    {
+        var structure = new ElementStructureService(_history);
+        Element removed = AddElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(10), zIndex: 0);
+        Element locked = AddElement(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(10), zIndex: 0);
+        Element free = AddElement(TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(10), zIndex: 0);
+        locked.IsLocked = true;
+
+        structure.Delete(_scene, [removed], ripple: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_scene.Children, Does.Not.Contain(removed));
+            Assert.That(locked.Start, Is.EqualTo(TimeSpan.FromSeconds(10)), "locked clip is an immovable anchor");
+            Assert.That(free.Start, Is.EqualTo(TimeSpan.FromSeconds(20)),
+                "ripple stops at the locked clip; the later unlocked clip is not shifted over it");
         });
     }
 

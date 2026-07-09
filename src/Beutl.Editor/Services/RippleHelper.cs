@@ -1,4 +1,5 @@
-﻿using Beutl.ProjectSystem;
+﻿using Beutl.Media;
+using Beutl.ProjectSystem;
 
 namespace Beutl.Editor.Services;
 
@@ -18,13 +19,17 @@ internal static class RippleHelper
         // A locked follower stays anchored — shifting it would bypass the lock.
         if (scene.IsLayerLocked(zIndex)) return;
 
-        Element[] toShift = scene.Children
-            .Where(e => e.ZIndex == zIndex && !except.Contains(e) && e.Start >= anchorEnd
-                        && !e.IsLocked)
+        Element[] lockedOnLayer = scene.Children
+            .Where(e => e.ZIndex == zIndex && e.IsLocked)
             .ToArray();
 
-        foreach (Element e in toShift)
+        foreach (Element e in scene.Children)
         {
+            if (e.ZIndex != zIndex || except.Contains(e) || e.IsLocked || e.Start < anchorEnd) continue;
+
+            TimeRange shifted = e.Range.WithStart(e.Start + delta);
+            if (Array.Exists(lockedOnLayer, l => shifted.Intersects(l.Range))) continue;
+
             e.Start += delta;
         }
     }
