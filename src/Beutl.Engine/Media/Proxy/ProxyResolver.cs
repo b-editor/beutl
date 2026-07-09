@@ -61,9 +61,12 @@ public sealed class ProxyResolver : IProxyResolver
         if (string.IsNullOrEmpty(absolutePath))
             return null;
 
-        // Any (size, mtime) Ready entry for this path is acceptable when the original is gone; there is
-        // no current fingerprint to prefer, so rank every path-matching Ready proxy directly.
-        var candidates = new List<ProxyResolution>();
+        // The original is gone, so there is no current fingerprint to match. Collect every path-matching
+        // Ready proxy, but keep only those from the newest source version: after an original is replaced
+        // and re-proxied, an older fingerprint's entry can still be Ready (not yet reconciled to Stale),
+        // and ranking purely by density would preview that stale content when it is the same/denser
+        // preset. Group by source fingerprint, keep the group generated most recently, then density-rank.
+        var matches = new List<(ProxyFingerprint Source, DateTime GeneratedAtUtc, ProxyResolution Resolution)>();
         foreach (ProxyEntry entry in _store.Enumerate())
         {
             if (entry.State != ProxyState.Ready
@@ -73,8 +76,23 @@ public sealed class ProxyResolver : IProxyResolver
             }
 
             if (EvaluateEntry(entry) is { } resolution)
-                candidates.Add(resolution);
+                matches.Add((entry.Source, entry.GeneratedAtUtc, resolution));
         }
+
+        if (matches.Count == 0)
+            return null;
+
+        DateTime newestGeneratedForSource(ProxyFingerprint source) =>
+            matches.Where(m => m.Source == source).Max(m => m.GeneratedAtUtc);
+
+        ProxyFingerprint newestSource = matches
+            .OrderByDescending(m => newestGeneratedForSource(m.Source))
+            .First().Source;
+
+        var candidates = matches
+            .Where(m => m.Source == newestSource)
+            .Select(m => m.Resolution)
+            .ToList();
 
         return SelectBest(candidates, preferredPreset);
     }

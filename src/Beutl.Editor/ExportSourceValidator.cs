@@ -15,7 +15,8 @@ public static class ExportSourceValidator
     /// <see cref="GetMissingPaths"/>.
     /// </summary>
     public static IReadOnlySet<string> CollectRenderableSources(Scene scene, TimeSpan time)
-        => CollectRenderableSources(scene, element => element.Range.Contains(time), CompositionTarget.Graphics);
+        => CollectRenderableSources(
+            scene, new TimeRange(time, TimeSpan.Zero), element => element.Range.Contains(time), CompositionTarget.Graphics);
 
     /// <summary>
     /// Collects the referenced media paths that can actually be rendered anywhere in
@@ -25,10 +26,10 @@ public static class ExportSourceValidator
     /// <see cref="GetMissingPaths"/>.
     /// </summary>
     public static IReadOnlySet<string> CollectRenderableSources(Scene scene, TimeRange range)
-        => CollectRenderableSources(scene, element => element.Range.Intersects(range));
+        => CollectRenderableSources(scene, range, element => element.Range.Intersects(range));
 
     private static IReadOnlySet<string> CollectRenderableSources(
-        Scene scene, Func<Element, bool> inRange, CompositionTarget? renderTarget = null)
+        Scene scene, TimeRange sceneWindow, Func<Element, bool> inRange, CompositionTarget? renderTarget = null)
     {
         ArgumentNullException.ThrowIfNull(scene);
 
@@ -39,8 +40,11 @@ public static class ExportSourceValidator
             if (!element.IsEnabled || !inRange(element))
                 continue;
 
+            // The render window in the element's local time (keyframe times are element-local): an
+            // out-of-window animated source keyframe is then dropped as unreachable for this render.
+            TimeRange localRange = sceneWindow.SubtractStart(element.Start);
             foreach (IFileSource source in ProxySourceEnumerator.EnumerateFileSources(
-                element, visitedScenes, skipDisabledElements: true, renderTarget))
+                element, visitedScenes, skipDisabledElements: true, renderTarget, localRange))
             {
                 if (source.Uri is { IsFile: true } uri)
                     paths.Add(uri.LocalPath);

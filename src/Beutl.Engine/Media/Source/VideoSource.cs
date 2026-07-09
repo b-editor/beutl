@@ -15,7 +15,10 @@ public sealed class VideoSource : MediaSource
     // The proxy version/preset the shared reader above was opened with. A fresh Resource compares the
     // current context against THESE (not its own default-valued loaded fields) to decide reuse.
     private long _sharedReaderProxyVersion;
-    private ProxyPreset _sharedReaderProxyPreset;
+    // int-backed for Volatile.Read/Write: paired with _sharedReaderProxyVersion in the reuse predicate,
+    // so it must not be observable stale relative to a fresh version (else a reader opened for a
+    // different preset is reused).
+    private int _sharedReaderProxyPreset;
 
     public VideoSource()
     {
@@ -132,7 +135,7 @@ public sealed class VideoSource : MediaSource
                 bool canReuseShared = !context.DisableResourceShare
                     && (!context.PreferProxy
                         || (Volatile.Read(ref videoSource._sharedReaderProxyVersion) == proxyResolverVersion
-                            && videoSource._sharedReaderProxyPreset == context.PreferredProxyPreset));
+                            && (ProxyPreset)Volatile.Read(ref videoSource._sharedReaderProxyPreset) == context.PreferredProxyPreset));
                 if (canReuseShared)
                 {
                     var localRef = Volatile.Read(ref videoSource._mediaReaderRef);
@@ -179,7 +182,9 @@ public sealed class VideoSource : MediaSource
                         {
                             // Record the version/preset this shared reader was opened with, before
                             // publishing it, so a later fresh Resource can validate reuse against it.
-                            videoSource._sharedReaderProxyPreset = context.PreferredProxyPreset;
+                            // Preset first, then version: a reader observing the fresh version is then
+                            // guaranteed to also see the matching preset.
+                            Volatile.Write(ref videoSource._sharedReaderProxyPreset, (int)context.PreferredProxyPreset);
                             Volatile.Write(ref videoSource._sharedReaderProxyVersion, proxyResolverVersion);
                             Volatile.Write(ref videoSource._mediaReaderRef, new(_counter));
                         }

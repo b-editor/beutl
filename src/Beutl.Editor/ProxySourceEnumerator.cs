@@ -5,6 +5,7 @@ using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.IO;
+using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes.Group;
@@ -47,18 +48,28 @@ public static class ProxySourceEnumerator
     /// <see cref="CompositionTarget.Graphics"/> so a missing audio original does not block a still image;
     /// full export leaves it null so both graphics and audio sources are required.
     /// </param>
+    /// <param name="localRange">
+    /// When set, animated <see cref="IFileSource"/> keyframes whose governing span falls entirely
+    /// outside this render window (expressed in the element's local time) are dropped, so a
+    /// since-replaced source referenced only by an out-of-window keyframe does not block a save-frame
+    /// or partial-range export. Left null by callers with no render window (proxy scan / badge
+    /// enumeration) and reset to null wherever descent crosses a time remap (referenced scenes, time
+    /// controllers, presenters, node graphs), which keeps those paths at the conservative full walk.
+    /// </param>
     public static IEnumerable<IFileSource> EnumerateFileSources(
         Element element,
         HashSet<Scene>? visitedScenes = null,
         bool skipDisabledElements = false,
-        CompositionTarget? renderTarget = null)
+        CompositionTarget? renderTarget = null,
+        TimeRange? localRange = null)
     {
         ArgumentNullException.ThrowIfNull(element);
         return EnumerateElementFileSources(
             element,
             visitedScenes ?? new HashSet<Scene>(ReferenceEqualityComparer.Instance),
             skipDisabledElements,
-            renderTarget);
+            renderTarget,
+            localRange);
     }
 
     /// <summary>
@@ -137,7 +148,8 @@ public static class ProxySourceEnumerator
         Element element,
         HashSet<Scene> visitedScenes,
         bool skipDisabledElements = false,
-        CompositionTarget? renderTarget = null)
+        CompositionTarget? renderTarget = null,
+        TimeRange? localRange = null)
     {
         foreach (EngineObject obj in element.Objects)
         {
@@ -160,7 +172,8 @@ public static class ProxySourceEnumerator
                 new HashSet<FilterEffectGroup>(ReferenceEqualityComparer.Instance),
                 new HashSet<Drawable>(ReferenceEqualityComparer.Instance),
                 skipDisabledElements,
-                renderTarget))
+                renderTarget,
+                localRange))
             {
                 yield return source;
             }
@@ -174,10 +187,11 @@ public static class ProxySourceEnumerator
         HashSet<FilterEffectGroup> visitedFilterEffectGroups,
         HashSet<Drawable> visitedTargets,
         bool skipDisabledElements,
-        CompositionTarget? renderTarget)
+        CompositionTarget? renderTarget,
+        TimeRange? localRange = null)
     {
         // Direct IFileSource-valued properties (current + animated): SourceVideo/SourceImage/SourceSound.
-        foreach (IFileSource source in EnumeratePropertyFileSources(obj))
+        foreach (IFileSource source in EnumeratePropertyFileSources(obj, localRange))
             yield return source;
 
         if (obj is Drawable drawable)
@@ -201,7 +215,10 @@ public static class ProxySourceEnumerator
                     break;
 
                 case SceneDrawable { ReferencedScene.CurrentValue: { } referencedScene }:
-                    foreach (IFileSource source in EnumerateReferencedSceneSources(referencedScene, visitedScenes, skipDisabledElements, renderTarget))
+                    // A SceneDrawable renders only the referenced scene's graphics, never its audio, so
+                    // narrow the descent to Graphics regardless of the outer target: an audio-only
+                    // original missing inside a graphically-embedded scene must not block a video export.
+                    foreach (IFileSource source in EnumerateReferencedSceneSources(referencedScene, visitedScenes, skipDisabledElements, CompositionTarget.Graphics))
                         yield return source;
 
                     break;
@@ -215,7 +232,7 @@ public static class ProxySourceEnumerator
                             continue;
 
                         foreach (IFileSource source in EnumerateObjectFileSources(
-                            child, visitedScenes, visitedGraphGroups, visitedFilterEffectGroups, visitedTargets, skipDisabledElements, renderTarget))
+                            child, visitedScenes, visitedGraphGroups, visitedFilterEffectGroups, visitedTargets, skipDisabledElements, renderTarget, localRange))
                             yield return source;
                     }
 
@@ -264,10 +281,10 @@ public static class ProxySourceEnumerator
         }
 
         // A SceneSound is a Sound (not a Drawable), so it is not covered by the Drawable switch above;
-        // its referenced scene still contributes renderable media and must be descended.
+        // its referenced scene contributes only audio to the render, so narrow the descent to Audio.
         if (obj is SceneSound { ReferencedScene.CurrentValue: { } soundScene })
         {
-            foreach (IFileSource source in EnumerateReferencedSceneSources(soundScene, visitedScenes, skipDisabledElements, renderTarget))
+            foreach (IFileSource source in EnumerateReferencedSceneSources(soundScene, visitedScenes, skipDisabledElements, CompositionTarget.Audio))
                 yield return source;
         }
     }
@@ -311,7 +328,7 @@ public static class ProxySourceEnumerator
         }
     }
 
-    private static IEnumerable<IFileSource> EnumeratePropertyFileSources(EngineObject obj)
+    private static IEnumerable<IFileSource> EnumeratePropertyFileSources(EngineObject obj, TimeRange? localRange = null)
     {
         foreach (IProperty property in obj.Properties)
         {
@@ -320,7 +337,7 @@ public static class ProxySourceEnumerator
 
             // Rendering (and the proxy scanner) consume animated file-source values too, so media
             // referenced only from keyframes must be enumerated as well.
-            foreach (IFileSource animated in EnumerateAnimatedFileSources(property.Animation))
+            foreach (IFileSource animated in EnumerateAnimatedFileSources(property.Animation, localRange))
                 yield return animated;
         }
 
@@ -426,15 +443,31 @@ public static class ProxySourceEnumerator
         }
     }
 
-    private static IEnumerable<IFileSource> EnumerateAnimatedFileSources(IAnimation? animation)
+    private static IEnumerable<IFileSource> EnumerateAnimatedFileSources(IAnimation? animation, TimeRange? localRange = null)
     {
         if (animation is not KeyFrameAnimation keyFrameAnimation)
             yield break;
 
-        foreach (IKeyFrame keyFrame in keyFrameAnimation.KeyFrames)
+        IReadOnlyList<IKeyFrame> keyFrames = keyFrameAnimation.KeyFrames;
+        for (int i = 0; i < keyFrames.Count; i++)
         {
-            if (keyFrame.Value is IFileSource source)
-                yield return source;
+            if (keyFrames[i].Value is not IFileSource source)
+                continue;
+
+            // With no render window every keyframe value counts (proxy scan / badge enumeration). With
+            // one, keep a keyframe only if a sample inside the window could resolve to it: its value
+            // governs the sorted span [previous keyframe, next keyframe], so drop it only when that
+            // span lies wholly outside the window. Conservative on both open ends so a value that could
+            // still be sampled is never excluded — a wrong exclusion would fail the render, not preflight.
+            if (localRange is { } range)
+            {
+                TimeSpan spanStart = i > 0 ? keyFrames[i - 1].KeyTime : TimeSpan.MinValue;
+                TimeSpan spanEnd = i < keyFrames.Count - 1 ? keyFrames[i + 1].KeyTime : TimeSpan.MaxValue;
+                if (spanEnd < range.Start || range.End < spanStart)
+                    continue;
+            }
+
+            yield return source;
         }
     }
 }

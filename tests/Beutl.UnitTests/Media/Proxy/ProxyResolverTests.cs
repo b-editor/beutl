@@ -254,6 +254,35 @@ public class ProxyResolverTests
     }
 
     [Test]
+    public void ResolveByPath_PrefersNewestSourceVersion_OverDensity()
+    {
+        string source = CreateSourceFile();
+        ProxyFingerprint baseFp = ProxyFingerprint.FromFile(source);
+
+        // Older original: a denser Half proxy, generated earlier.
+        ProxyFingerprint oldFp = baseFp with { FileSizeBytes = 100, MtimeUtc = new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc) };
+        RegisterProxyEntry(oldFp, ProxyPreset.Half, new PixelSize(100, 80), new PixelSize(50, 40),
+            new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+
+        // Newer original for the same path: a less-dense Quarter proxy, generated later.
+        ProxyFingerprint newFp = baseFp with { FileSizeBytes = 200, MtimeUtc = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) };
+        RegisterProxyEntry(newFp, ProxyPreset.Quarter, new PixelSize(100, 80), new PixelSize(25, 20),
+            new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+
+        // Original gone → offline path-keyed resolve. Half is under the density cap and denser, so
+        // density-only ranking would pick the OLD entry; the newest-source filter must beat that.
+        File.Delete(source);
+        ProxyResolution? result = _resolver.Resolve(new Uri(source), ProxyPreset.Half);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result!.Source, Is.EqualTo(newFp), "the newest source version must win over a denser older proxy");
+            Assert.That(result.Preset, Is.EqualTo(ProxyPreset.Quarter));
+        });
+    }
+
+    [Test]
     public void Pin_ReferenceCountsPath()
     {
         string source = CreateSourceFile();
@@ -480,6 +509,34 @@ public class ProxyResolverTests
             proxySize,
             now,
             now,
+            null);
+
+        _store.Register(entry);
+        return entry;
+    }
+
+    private ProxyEntry RegisterProxyEntry(
+        ProxyFingerprint source,
+        ProxyPreset preset,
+        PixelSize originalSize,
+        PixelSize proxySize,
+        DateTime generatedAtUtc)
+    {
+        string relative = Path.Combine(Guid.NewGuid().ToString("N"), $"{preset}.mp4");
+        string path = Path.Combine(_root, relative);
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllBytes(path, [1, 2, 3]);
+
+        var entry = new ProxyEntry(
+            source,
+            preset,
+            ProxyState.Ready,
+            relative.Replace(Path.DirectorySeparatorChar, '/'),
+            3,
+            originalSize,
+            proxySize,
+            generatedAtUtc,
+            generatedAtUtc,
             null);
 
         _store.Register(entry);

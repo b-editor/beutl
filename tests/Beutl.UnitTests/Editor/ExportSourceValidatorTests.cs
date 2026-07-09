@@ -1,4 +1,5 @@
-﻿using Beutl.Audio;
+﻿using Beutl.Animation;
+using Beutl.Audio;
 using Beutl.Editor;
 using Beutl.Graphics;
 using Beutl.Media;
@@ -34,11 +35,11 @@ public sealed class ExportSourceValidatorTests
         Assert.That(missing, Is.EqualTo(new[] { missingPath }));
     }
 
-    // A missing image/audio original held inside a referenced scene must block export the same way a
-    // missing top-level video does; otherwise the resource loader renders blank/silence and export
-    // succeeds with missing content.
+    // A SceneDrawable renders only the referenced scene's graphics (SceneDrawable.EvaluateGraphics), so
+    // a missing image inside it blocks export, but an audio-only Sound the video render never opens must
+    // not — even for a full export. A SceneSound (below) is what pulls that scene's audio.
     [Test]
-    public void GetMissingPaths_ReportsMissingImageAndSoundInReferencedScene()
+    public void GetMissingPaths_GraphicallyEmbeddedScene_ReportsImageButNotAudioOnlySound()
     {
         string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
@@ -63,7 +64,38 @@ public sealed class ExportSourceValidatorTests
         IReadOnlySet<string> referenced = ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene);
         IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(referenced);
 
-        Assert.That(missing, Is.EquivalentTo(new[] { missingImage, missingSound }));
+        Assert.That(missing, Is.EqualTo(new[] { missingImage }));
+    }
+
+    // A SceneSound renders only the referenced scene's audio (SceneSound.EvaluateAudio), so its missing
+    // sound blocks export while the scene's graphics-only image, which this embed never renders, does not.
+    [Test]
+    public void GetMissingPaths_AudiallyEmbeddedScene_ReportsSoundButNotGraphicsOnlyImage()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string missingImage = Path.Combine(root, "missing.png");
+        string missingSound = Path.Combine(root, "missing.mp3");
+
+        var childScene = new Scene(1920, 1080, string.Empty)
+        {
+            Uri = new Uri(Path.Combine(root, "child.scene")),
+        };
+        childScene.Children.Add(CreateImageElement(root, missingImage));
+        childScene.Children.Add(CreateSoundElement(root, missingSound));
+
+        var sceneSound = new SceneSound();
+        sceneSound.ReferencedScene.CurrentValue = childScene;
+        var scene = new Scene(1920, 1080, string.Empty)
+        {
+            Uri = new Uri(Path.Combine(root, "root.scene")),
+        };
+        scene.Children.Add(ElementWith(root, sceneSound));
+
+        IReadOnlySet<string> referenced = ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene);
+        IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(referenced);
+
+        Assert.That(missing, Is.EqualTo(new[] { missingSound }));
     }
 
     // A disabled element never renders (SceneCompositor.SortLayers gates on IsEnabled), so its missing
@@ -262,12 +294,58 @@ public sealed class ExportSourceValidatorTests
         Assert.That(missing, Is.EqualTo(new[] { inSegment }));
     }
 
-    private static SourceVideo VideoDrawable(string sourcePath)
+    // An animated Source keyframe referencing a since-replaced file must be filtered to the render
+    // window: a window entirely after the switch never samples the old file, so it must not block a
+    // partial-range export, while a window covering both keyframes still requires it.
+    [Test]
+    public void CollectRenderableSources_FiltersAnimatedSourceKeyframesToRenderWindow()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string oldMissing = Path.Combine(root, "old.mov");
+        string newExisting = Path.Combine(root, "new.mov");
+        File.WriteAllBytes(newExisting, [1]);
+
+        var drawable = new SourceVideo();
+        var animation = new KeyFrameAnimation<VideoSource?>();
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.Zero, Value = MakeVideoSource(oldMissing) });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.FromSeconds(5), Value = MakeVideoSource(newExisting) });
+        drawable.Source.Animation = animation;
+
+        var element = new Element
+        {
+            Start = TimeSpan.Zero,
+            Length = TimeSpan.FromSeconds(10),
+            IsEnabled = true,
+            Uri = new Uri(Path.Combine(root, $"{Guid.NewGuid():N}.layer")),
+        };
+        element.AddObject(drawable);
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
+        scene.Children.Add(element);
+
+        IReadOnlyList<string> wholeRange = ExportSourceValidator.GetMissingPaths(
+            ExportSourceValidator.CollectRenderableSources(scene, new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10))));
+        IReadOnlyList<string> afterSwitch = ExportSourceValidator.GetMissingPaths(
+            ExportSourceValidator.CollectRenderableSources(scene, new TimeRange(TimeSpan.FromSeconds(6), TimeSpan.FromSeconds(4))));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(wholeRange, Is.EqualTo(new[] { oldMissing }));
+            Assert.That(afterSwitch, Is.Empty);
+        });
+    }
+
+    private static VideoSource MakeVideoSource(string sourcePath)
     {
         var source = new VideoSource();
         source.ReadFrom(new Uri(sourcePath));
+        return source;
+    }
+
+    private static SourceVideo VideoDrawable(string sourcePath)
+    {
         var drawable = new SourceVideo();
-        drawable.Source.CurrentValue = source;
+        drawable.Source.CurrentValue = MakeVideoSource(sourcePath);
         return drawable;
     }
 
