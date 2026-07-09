@@ -1,5 +1,6 @@
 ﻿using Beutl.Animation;
 using Beutl.Animation.Easings;
+using Beutl.Collections;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Engine.Expressions;
@@ -10,6 +11,25 @@ namespace Beutl.UnitTests.Engine;
 [TestFixture]
 public class AnimatablePropertyTests
 {
+    private sealed class TestHierarchicalRoot : Hierarchical, IHierarchicalRoot, IModifiableHierarchical
+    {
+        public new ICoreList<IHierarchical> HierarchicalChildren => base.HierarchicalChildren;
+
+        public event EventHandler<IHierarchical>? DescendantAttached;
+
+        public event EventHandler<IHierarchical>? DescendantDetached;
+
+        public void OnDescendantAttached(IHierarchical descendant)
+        {
+            DescendantAttached?.Invoke(this, descendant);
+        }
+
+        public void OnDescendantDetached(IHierarchical descendant)
+        {
+            DescendantDetached?.Invoke(this, descendant);
+        }
+    }
+
     private static AnimatableProperty<T> Make<T>(T defaultValue, string name = "Value")
     {
         var property = new AnimatableProperty<T>(defaultValue);
@@ -135,7 +155,7 @@ public class AnimatablePropertyTests
     }
 
     [Test]
-    public void GetValue_WithRelativeAnimation_UsesLogicalParentTimeRangeWithoutRootAttachment()
+    public void GetValue_WithRelativeAnimation_UsesLogicalParentTimeRange()
     {
         var owner = new TestEngineObjectForProperty();
         var property = Make(0);
@@ -147,6 +167,9 @@ public class AnimatablePropertyTests
             Length = TimeSpan.FromSeconds(2)
         };
         element.AddObject(owner);
+        // Attaching to a root caches the parent reference the local clock anchors to.
+        var root = new TestHierarchicalRoot();
+        root.HierarchicalChildren.Add(element);
 
         int midpoint = property.GetValue(new CompositionContext(TimeSpan.FromSeconds(5.5)));
 
