@@ -142,6 +142,40 @@ public sealed class ExportSourceValidatorTests
         Assert.That(referenced, Is.EquivalentTo(new[] { atFrame }));
     }
 
+    // Fix #2: a disabled clip inside a referenced scene never renders (SceneCompositor.SortLayers gates
+    // on IsEnabled within the referenced scene too), so its missing original must not block export while
+    // an enabled sibling's missing original still does.
+    [Test]
+    public void CollectRenderableSources_SkipsDisabledElementInReferencedScene()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string missingEnabled = Path.Combine(root, "enabled.png");
+        string missingDisabled = Path.Combine(root, "disabled.png");
+
+        var childScene = new Scene(1920, 1080, string.Empty)
+        {
+            Uri = new Uri(Path.Combine(root, "child.scene")),
+        };
+        childScene.Children.Add(CreateImageElement(root, missingEnabled));
+        Element disabled = CreateImageElement(root, missingDisabled);
+        disabled.IsEnabled = false;
+        childScene.Children.Add(disabled);
+
+        var sceneDrawable = new SceneDrawable();
+        sceneDrawable.ReferencedScene.CurrentValue = childScene;
+        var scene = new Scene(1920, 1080, string.Empty)
+        {
+            Uri = new Uri(Path.Combine(root, "root.scene")),
+        };
+        scene.Children.Add(ElementWith(root, sceneDrawable));
+
+        IReadOnlySet<string> referenced = ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene);
+        IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(referenced);
+
+        Assert.That(missing, Is.EqualTo(new[] { missingEnabled }));
+    }
+
     private static Element CreateVideoElement(string root, string sourcePath)
     {
         var source = new VideoSource();

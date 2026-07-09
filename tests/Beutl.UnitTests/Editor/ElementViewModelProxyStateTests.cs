@@ -366,6 +366,34 @@ public sealed class ElementViewModelProxyStateTests
         });
     }
 
+    // Fix #7: when the original is moved/deleted, TryFromFile fails; the badge must still track the
+    // proxy the preview uses by adopting a path-matched Ready entry's own fingerprint (exact ⇒ Ready).
+    [Test]
+    public void ResolveSourceFingerprint_MissingOriginalWithReadyProxy_ReturnsEntrySourceAsReady()
+    {
+        string missing = Path.Combine(Path.GetTempPath(), $"missing-{Guid.NewGuid():N}.mov");
+        var fp = new ProxyFingerprint(missing, 4096, DateTime.UtcNow);
+        var store = new FakeProxyStore(Entry(fp, ProxyState.Ready));
+
+        ProxyFingerprint? resolved = ElementViewModel.ResolveSourceFingerprint(store, new Uri(missing));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(resolved, Is.EqualTo(fp));
+            Assert.That(ElementViewModel.ResolveProxyState(store, null, resolved!.Value), Is.EqualTo(ProxyState.Ready));
+        });
+    }
+
+    [Test]
+    public void ResolveSourceFingerprint_MissingOriginalWithoutReadyProxy_ReturnsNull()
+    {
+        string missing = Path.Combine(Path.GetTempPath(), $"missing-{Guid.NewGuid():N}.mov");
+        var fp = new ProxyFingerprint(missing, 4096, DateTime.UtcNow);
+        var store = new FakeProxyStore(Entry(fp, ProxyState.Failed));
+
+        Assert.That(ElementViewModel.ResolveSourceFingerprint(store, new Uri(missing)), Is.Null);
+    }
+
     private static Element ElementWithVideoSource(string fileName, out string absolutePath)
     {
         absolutePath = Path.Combine(TestContext.CurrentContext.WorkDirectory, fileName);

@@ -79,10 +79,13 @@ public readonly record struct ProxyFingerprint
         }
     }
 
-    // The key by which a path matches a store entry / change event. Entries key their source through
-    // FromFile (which resolves the final symlink target before folding), so a path referenced via a
-    // symlink must resolve the same way; falls back to plain normalization for offline media.
-    internal static string ResolveComparableKey(string path)
+    /// <summary>
+    /// The key by which a path matches a store entry / change event (<see cref="AbsolutePath"/>).
+    /// Entries key their source through <see cref="FromFile"/> (which resolves the final symlink target
+    /// before folding), so a path referenced via a symlink resolves the same way; falls back to plain
+    /// normalization for offline media whose original can no longer be stat-ed.
+    /// </summary>
+    public static string ResolveComparableKey(string path)
     {
         if (TryFromFile(path, out ProxyFingerprint fingerprint))
             return fingerprint.AbsolutePath;

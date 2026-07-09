@@ -37,7 +37,8 @@ public static class ExportSourceValidator
             if (!element.IsEnabled || !inRange(element))
                 continue;
 
-            foreach (IFileSource source in ProxySourceEnumerator.EnumerateFileSources(element, visitedScenes))
+            foreach (IFileSource source in ProxySourceEnumerator.EnumerateFileSources(
+                element, visitedScenes, skipDisabledElements: true))
             {
                 if (source.Uri is { IsFile: true } uri)
                     paths.Add(uri.LocalPath);

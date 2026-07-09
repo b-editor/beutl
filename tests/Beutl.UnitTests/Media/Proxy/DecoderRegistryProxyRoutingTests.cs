@@ -164,6 +164,11 @@ public class DecoderRegistryProxyRoutingTests
             Assert.That(reader, Is.Not.Null);
             Assert.That(reader!.VideoInfo.FrameSize, Is.EqualTo(new PixelSize(50, 50)));
             Assert.That(reader.ProxyResolution, Is.Not.Null);
+            // Fix #5: the resolution's source key equals the store's version-bump key for this path, so
+            // a reader that adopts it (VideoSource) still observes proxy register/replace/delete events.
+            Assert.That(
+                reader.ProxyResolution!.Source.AbsolutePath,
+                Is.EqualTo(ProxyFingerprint.ResolveComparableKey(scope.OriginalPath)));
         });
     }
 

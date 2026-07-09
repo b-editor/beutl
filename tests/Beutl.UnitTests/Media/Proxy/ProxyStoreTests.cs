@@ -207,6 +207,30 @@ public sealed class ProxyStoreTests
         Assert.That(store.TryGet(entry.Source, entry.Preset), Is.EqualTo(entry));
     }
 
+    // Fix #6: a flush must not drop valid in-memory entries just because index.json became unreadable.
+    // Without the degrade path, registering the second entry would reseed _entries from the corrupt
+    // (empty) disk view and lose the first entry, then write that partial index back.
+    [Test]
+    public void Register_WhenIndexUnreadable_PreservesExistingInMemoryEntries()
+    {
+        string root = CreateRoot();
+        var store = new ProxyStore(root);
+        ProxyEntry first = CreateEntry(root, "quarter.mp4");
+        store.Register(first);
+
+        File.WriteAllText(Path.Combine(root, "index.json"), "{corrupt");
+
+        ProxyEntry second = CreateEntry(root, "half.mp4");
+        store.Register(second);
+
+        IReadOnlyList<ProxyEntry> entries = store.Enumerate();
+        Assert.Multiple(() =>
+        {
+            Assert.That(entries, Has.Member(first));
+            Assert.That(entries, Has.Member(second));
+        });
+    }
+
     // A sidecar adopted by background reconciliation (after services are exposed) must raise Changed
     // so an already-loaded tab/preview reloads the recovered proxy instead of waiting for a manual
     // refresh.

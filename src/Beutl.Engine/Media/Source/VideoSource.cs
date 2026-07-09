@@ -190,6 +190,18 @@ public sealed class VideoSource : MediaSource
                 }
 
                 ProxyResolution = _counter.Value.ProxyResolution;
+
+                // A moved/deleted original could not be fingerprinted above, so _proxyVersionSource is
+                // null and this reader would never observe store-version bumps for the proxy it opened.
+                // Adopt the resolved proxy's source key (same AbsolutePath the store bumps) so a later
+                // Register/Replace/Delete of that proxy invalidates this reader instead of reusing a
+                // stale one until the resource is recreated.
+                if (_proxyVersionSource is null && ProxyResolution is { } resolvedProxy)
+                {
+                    _proxyVersionSource = resolvedProxy.Source;
+                    proxyResolverVersion = proxyResolver?.GetSourceVersion(resolvedProxy.Source) ?? 0;
+                }
+
                 Duration = TimeSpan.FromSeconds(_counter.Value.VideoInfo.Duration.ToDouble());
                 FrameRate = _counter.Value.VideoInfo.FrameRate;
                 FrameSize = _counter.Value.VideoInfo.FrameSize;

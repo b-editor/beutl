@@ -239,7 +239,13 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         // provider's ThumbnailsInvalidated, so its URI edits would leave the fingerprint cache stale and
         // the badge frozen. Element.Edited fires for those edits too; the URI-set key in
         // ResolveProxyFingerprints keeps unrelated edits from re-stating.
-        EventHandler editedHandler = (_, _) => _elementEditedSubject.OnNext(Unit.Default);
+        // Dispose() disposes _elementEditedSubject before _disposables removes this handler, so guard
+        // against a teardown-time Edited raising OnNext on the disposed subject.
+        EventHandler editedHandler = (_, _) =>
+        {
+            if (!_isDisposed)
+                _elementEditedSubject.OnNext(Unit.Default);
+        };
         Model.Edited += editedHandler;
         Disposable.Create(() => Model.Edited -= editedHandler).AddTo(_disposables);
         _elementEditedSubject
@@ -1006,9 +1012,35 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             invalidateCache,
             ref _proxySourceKey,
             ref _proxyFingerprints,
-            static u => ProxyFingerprint.TryFromFile(u.LocalPath, out ProxyFingerprint fingerprint)
-                ? fingerprint
-                : null);
+            StatOrProxyFallback);
+    }
+
+    private ProxyFingerprint? StatOrProxyFallback(Uri uri)
+        => ResolveSourceFingerprint(_proxyStore, uri);
+
+    // Prefer-proxy preview can open a Ready proxy after the original is moved/deleted. TryFromFile then
+    // fails, and dropping that URI would hide the badge and filter out the proxy's own store/job events.
+    // Fall back to the resolved proxy entry's own fingerprint (exact, so the badge reads Ready) keyed on
+    // this path's comparable key — the same one the resolver matches for missing originals.
+    internal static ProxyFingerprint? ResolveSourceFingerprint(IProxyStore? store, Uri uri)
+    {
+        if (ProxyFingerprint.TryFromFile(uri.LocalPath, out ProxyFingerprint fingerprint))
+            return fingerprint;
+
+        if (store is null)
+            return null;
+
+        string key = ProxyFingerprint.ResolveComparableKey(uri.LocalPath);
+        foreach (ProxyEntry entry in store.Enumerate())
+        {
+            if (entry.State == ProxyState.Ready
+                && string.Equals(entry.Source.AbsolutePath, key, StringComparison.Ordinal))
+            {
+                return entry.Source;
+            }
+        }
+
+        return null;
     }
 
     // Keyed on the ordered set of source URIs so high-frequency store/queue refreshes never re-stat

@@ -222,7 +222,7 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
         }
     }
 
-    private static void Configure(
+    internal static void Configure(
         FFmpegEncodingControllerProxy controller,
         VideoStreamInfo videoInfo,
         PixelSize proxySize,
@@ -239,7 +239,8 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
         videoSettings.Options.Add(new AdditionalOption("crf", parameters.Crf.ToString()));
         videoSettings.Options.Add(new AdditionalOption("tune", parameters.Tune));
         videoSettings.Options.Add(new AdditionalOption("profile", "high"));
-        videoSettings.Options.Add(new AdditionalOption("level", "4.0"));
+        // No fixed level: a hard cap (e.g. 4.0) rejects legal high-FPS proxies such as 1080p60 from a
+        // 4K60 source. libx264 derives a valid level from the frame size and rate.
     }
 
     internal static PixelSize CalculateProxySize(PixelSize original, ProxyPreset preset)

@@ -1,6 +1,8 @@
-﻿using Beutl.Extensions.FFmpeg.Proxy;
+﻿using Beutl.Extensions.FFmpeg.Encoding;
+using Beutl.Extensions.FFmpeg.Proxy;
 using Beutl.FFmpegIpc;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Proxy;
 
 namespace Beutl.UnitTests.Extensions.FFmpeg;
@@ -8,6 +10,20 @@ namespace Beutl.UnitTests.Extensions.FFmpeg;
 [TestFixture]
 public sealed class FFmpegProxyGeneratorPublishTests
 {
+    // Fix #4: a hard-coded H.264 level (4.0) rejects legal high-FPS proxies — a 4K60 source encodes a
+    // 1080p60 proxy that exceeds level 4.0's macroblock rate. No level is set so libx264 picks one.
+    [Test]
+    public void Configure_DoesNotForceH264Level()
+    {
+        var controller = new FFmpegEncodingControllerProxy(
+            Path.Combine(CreateRoot(), "proxy.mp4"), new FFmpegEncodingSettings());
+        var videoInfo = new VideoStreamInfo("h264", numFrames: 60, new PixelSize(3840, 2160), new Rational(60, 1));
+
+        FFmpegProxyGenerator.Configure(controller, videoInfo, new PixelSize(1920, 1080), ProxyPreset.Half);
+
+        Assert.That(controller.VideoSettings.Options.Any(o => o.Name == "level"), Is.False);
+    }
+
     [Test]
     public async Task MoveWithRetryAsync_RetriesTransientFailuresThenSucceeds()
     {

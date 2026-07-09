@@ -600,6 +600,19 @@ public sealed class ProxyStore : IProxyStore
 
         using (indexLock)
         {
+            if (!TryReadIndexEntriesFromDisk(out List<ProxyEntry> diskEntries))
+            {
+                // index.json exists but is unreadable/corrupt. Seeding the merge from an empty disk view
+                // would drop every in-memory entry not in this flush and write that partial index back,
+                // destroying valid state. Degrade instead: keep serving memory and replay on a later
+                // flush (startup already rebuilds from sidecars when the index is unreadable).
+                DegradePersistence(
+                    changedKeys,
+                    removedKeys,
+                    new IOException($"Proxy index at '{_indexPath}' is unreadable or has an unexpected version."));
+                return;
+            }
+
             HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> effectiveRemoved = [.. _pendingRemoveKeys];
             if (removedKeys != null)
                 effectiveRemoved.UnionWith(removedKeys);
@@ -610,7 +623,7 @@ public sealed class ProxyStore : IProxyStore
             effectiveChanged.ExceptWith(effectiveRemoved);
 
             Dictionary<(ProxyFingerprint Source, ProxyPreset Preset), ProxyEntry> merged = [];
-            foreach (ProxyEntry entry in ReadIndexEntriesFromDisk())
+            foreach (ProxyEntry entry in diskEntries)
             {
                 var key = GetKey(entry);
                 if (effectiveRemoved.Contains(key))
@@ -730,7 +743,7 @@ public sealed class ProxyStore : IProxyStore
         {
             s_logger.LogWarning(
                 cause,
-                "Proxy index write to '{IndexPath}' failed; skipping durable persistence and serving in-memory state until a later flush succeeds.",
+                "Proxy index persistence for '{IndexPath}' failed; skipping durable persistence and serving in-memory state until a later flush succeeds.",
                 _indexPath);
         }
     }
@@ -811,10 +824,15 @@ public sealed class ProxyStore : IProxyStore
         }
     }
 
-    private IEnumerable<ProxyEntry> ReadIndexEntriesFromDisk()
+    // Returns false only when index.json exists but cannot be deserialized (corrupt / truncated): the
+    // on-disk content is unknown, so FlushCore must not overwrite it and drop valid in-memory entries.
+    // A missing file (fresh store) and an old-version index (intentionally discarded and upgraded on
+    // load) are both legitimate empty reads, not failures.
+    private bool TryReadIndexEntriesFromDisk(out List<ProxyEntry> entries)
     {
+        entries = [];
         if (!File.Exists(_indexPath))
-            yield break;
+            return true;
 
         ProxyStoreIndex? index;
         try
@@ -823,17 +841,19 @@ public sealed class ProxyStore : IProxyStore
         }
         catch
         {
-            yield break;
+            return false;
         }
 
         if (index?.Version != ProxyStoreIndex.CurrentVersion)
-            yield break;
+            return true;
 
         foreach (ProxyEntry entry in index.Entries)
         {
             if (TryValidateEntry(entry))
-                yield return entry;
+                entries.Add(entry);
         }
+
+        return true;
     }
 
     private FileStream? AcquireIndexLock(out Exception? failure)

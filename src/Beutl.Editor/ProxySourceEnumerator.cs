@@ -35,10 +35,17 @@ public static class ProxySourceEnumerator
     /// media walk (not just the proxy-eligible video subset). Reaches direct/animated values, node-graph
     /// adapter inputs, filter-effect subgraphs, presenter/decorator targets, and referenced scenes.
     /// </summary>
-    public static IEnumerable<IFileSource> EnumerateFileSources(Element element, HashSet<Scene>? visitedScenes = null)
+    /// <param name="skipDisabledElements">
+    /// When true, elements with <see cref="Element.IsEnabled"/> == false inside referenced scenes are
+    /// skipped (they never render). Export preflight passes true; proxy generation / badge enumeration
+    /// leaves it false so a disabled clip still contributes a proxy source.
+    /// </param>
+    public static IEnumerable<IFileSource> EnumerateFileSources(
+        Element element, HashSet<Scene>? visitedScenes = null, bool skipDisabledElements = false)
     {
         ArgumentNullException.ThrowIfNull(element);
-        return EnumerateElementFileSources(element, visitedScenes ?? new HashSet<Scene>(ReferenceEqualityComparer.Instance));
+        return EnumerateElementFileSources(
+            element, visitedScenes ?? new HashSet<Scene>(ReferenceEqualityComparer.Instance), skipDisabledElements);
     }
 
     /// <summary>
@@ -113,7 +120,8 @@ public static class ProxySourceEnumerator
             paths.Add(uri.LocalPath);
     }
 
-    private static IEnumerable<IFileSource> EnumerateElementFileSources(Element element, HashSet<Scene> visitedScenes)
+    private static IEnumerable<IFileSource> EnumerateElementFileSources(
+        Element element, HashSet<Scene> visitedScenes, bool skipDisabledElements = false)
     {
         foreach (EngineObject obj in element.Objects)
         {
@@ -122,7 +130,8 @@ public static class ProxySourceEnumerator
                 visitedScenes,
                 new HashSet<GraphGroup>(ReferenceEqualityComparer.Instance),
                 new HashSet<FilterEffectGroup>(ReferenceEqualityComparer.Instance),
-                new HashSet<Drawable>(ReferenceEqualityComparer.Instance)))
+                new HashSet<Drawable>(ReferenceEqualityComparer.Instance),
+                skipDisabledElements))
             {
                 yield return source;
             }
@@ -134,7 +143,8 @@ public static class ProxySourceEnumerator
         HashSet<Scene> visitedScenes,
         HashSet<GraphGroup> visitedGraphGroups,
         HashSet<FilterEffectGroup> visitedFilterEffectGroups,
-        HashSet<Drawable> visitedTargets)
+        HashSet<Drawable> visitedTargets,
+        bool skipDisabledElements)
     {
         // Direct IFileSource-valued properties (current + animated): SourceVideo/SourceImage/SourceSound.
         foreach (IFileSource source in EnumeratePropertyFileSources(obj))
@@ -160,7 +170,7 @@ public static class ProxySourceEnumerator
                     break;
 
                 case SceneDrawable { ReferencedScene.CurrentValue: { } referencedScene }:
-                    foreach (IFileSource source in EnumerateReferencedSceneSources(referencedScene, visitedScenes))
+                    foreach (IFileSource source in EnumerateReferencedSceneSources(referencedScene, visitedScenes, skipDisabledElements))
                         yield return source;
 
                     break;
@@ -169,7 +179,7 @@ public static class ProxySourceEnumerator
                     foreach (Drawable child in group.Children)
                     {
                         foreach (IFileSource source in EnumerateObjectFileSources(
-                            child, visitedScenes, visitedGraphGroups, visitedFilterEffectGroups, visitedTargets))
+                            child, visitedScenes, visitedGraphGroups, visitedFilterEffectGroups, visitedTargets, skipDisabledElements))
                             yield return source;
                     }
 
@@ -185,7 +195,7 @@ public static class ProxySourceEnumerator
                     foreach (Drawable child in decorator.Children)
                     {
                         foreach (IFileSource source in EnumerateObjectFileSources(
-                            child, visitedScenes, visitedGraphGroups, visitedFilterEffectGroups, visitedTargets))
+                            child, visitedScenes, visitedGraphGroups, visitedFilterEffectGroups, visitedTargets, skipDisabledElements))
                             yield return source;
                     }
 
@@ -195,7 +205,7 @@ public static class ProxySourceEnumerator
                     if (visitedTargets.Add(target))
                     {
                         foreach (IFileSource source in EnumerateObjectFileSources(
-                            target, visitedScenes, visitedGraphGroups, visitedFilterEffectGroups, visitedTargets))
+                            target, visitedScenes, visitedGraphGroups, visitedFilterEffectGroups, visitedTargets, skipDisabledElements))
                             yield return source;
                     }
 
@@ -205,7 +215,7 @@ public static class ProxySourceEnumerator
                     if (visitedTargets.Add(presented))
                     {
                         foreach (IFileSource source in EnumerateObjectFileSources(
-                            presented, visitedScenes, visitedGraphGroups, visitedFilterEffectGroups, visitedTargets))
+                            presented, visitedScenes, visitedGraphGroups, visitedFilterEffectGroups, visitedTargets, skipDisabledElements))
                             yield return source;
                     }
 
@@ -217,7 +227,7 @@ public static class ProxySourceEnumerator
         // its referenced scene still contributes renderable media and must be descended.
         if (obj is SceneSound { ReferencedScene.CurrentValue: { } soundScene })
         {
-            foreach (IFileSource source in EnumerateReferencedSceneSources(soundScene, visitedScenes))
+            foreach (IFileSource source in EnumerateReferencedSceneSources(soundScene, visitedScenes, skipDisabledElements))
                 yield return source;
         }
     }
@@ -240,7 +250,8 @@ public static class ProxySourceEnumerator
         }
     }
 
-    private static IEnumerable<IFileSource> EnumerateReferencedSceneSources(Scene scene, HashSet<Scene> visitedScenes)
+    private static IEnumerable<IFileSource> EnumerateReferencedSceneSources(
+        Scene scene, HashSet<Scene> visitedScenes, bool skipDisabledElements)
     {
         // Scene references are user-constructible and can cycle; the visited set makes the walk
         // terminate (render-time Enter/Exit is the only other guard).
@@ -249,7 +260,13 @@ public static class ProxySourceEnumerator
 
         foreach (Element child in scene.Children)
         {
-            foreach (IFileSource source in EnumerateElementFileSources(child, visitedScenes))
+            // A disabled child never renders through SceneCompositor.SortLayers, so export preflight
+            // must not demand its original file exist. Time-range filtering through the SceneDrawable's
+            // remap is out of scope; only the render-independent IsEnabled gate is applied here.
+            if (skipDisabledElements && !child.IsEnabled)
+                continue;
+
+            foreach (IFileSource source in EnumerateElementFileSources(child, visitedScenes, skipDisabledElements))
                 yield return source;
         }
     }
