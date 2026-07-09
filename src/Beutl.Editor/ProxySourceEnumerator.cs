@@ -252,8 +252,11 @@ public static class ProxySourceEnumerator
                         if (skipDisabledElements && !child.IsEnabled)
                             continue;
 
+                        // A decorator renders its children at the same composition time (it pushes only
+                        // transform/opacity/effect, never remaps time), so the render window still maps
+                        // directly — thread localRange through, unlike the time-remapping cases below.
                         foreach (IFileSource source in EnumerateObjectFileSources(
-                            child, visitedScenes, visitedGraphGroups, visitedFilterEffectGroups, visitedTargets, skipDisabledElements, renderTarget))
+                            child, visitedScenes, visitedGraphGroups, visitedFilterEffectGroups, visitedTargets, skipDisabledElements, renderTarget, localRange))
                             yield return source;
                     }
 
@@ -487,14 +490,15 @@ public static class ProxySourceEnumerator
 
             // With no render window every keyframe value counts (proxy scan / badge enumeration). With
             // one, keep a keyframe only if a sample inside the window could resolve to it: its value
-            // governs the sorted span [previous keyframe, next keyframe], so drop it only when that
-            // span lies wholly outside the window. Conservative on both open ends so a value that could
-            // still be sampled is never excluded — a wrong exclusion would fail the render, not preflight.
+            // governs the sorted span [previous keyframe, next keyframe), so drop it only when that
+            // span lies wholly outside the window. The render window is half-open [Start, End) and the
+            // next keyframe takes over at its exact key time, so the span end and range end are both
+            // exclusive — use <= so a keyframe governing [.., Start) after a switch at Start is dropped.
             if (window is { } range)
             {
                 TimeSpan spanStart = i > 0 ? keyFrames[i - 1].KeyTime : TimeSpan.MinValue;
                 TimeSpan spanEnd = i < keyFrames.Count - 1 ? keyFrames[i + 1].KeyTime : TimeSpan.MaxValue;
-                if (spanEnd < range.Start || range.End < spanStart)
+                if (spanEnd <= range.Start || range.End <= spanStart)
                     continue;
             }
 

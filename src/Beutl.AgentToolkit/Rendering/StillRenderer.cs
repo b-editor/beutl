@@ -167,7 +167,10 @@ public sealed class StillRenderer
         float normalizedScale = float.IsFinite(renderScale) && renderScale > 0f ? renderScale : 1f;
         return await RenderThread.Dispatcher.InvokeAsync(() =>
         {
-            using var renderer = new SceneRenderer(scene, normalizedScale, disableResourceShare: true);
+            // Agent still render is a final output, so force original media (proxies are preview-only);
+            // otherwise the default PreferProxy setting would decode cached proxies here.
+            using var renderer = new SceneRenderer(
+                scene, normalizedScale, disableResourceShare: true, maxWorkingScale: float.PositiveInfinity, forceOriginalSource: true);
             renderer.CacheOptions = RenderCacheOptions.Disabled;
 
             var frame = renderer.Compositor.EvaluateGraphics(time + scene.Start);
@@ -193,7 +196,10 @@ public sealed class StillRenderer
         float normalizedScale = float.IsFinite(renderScale) && renderScale > 0f ? renderScale : 1f;
         return await RenderThread.Dispatcher.InvokeAsync(() =>
         {
-            using var renderer = new SceneRenderer(scene, normalizedScale, disableResourceShare: true);
+            // Agent still render is a final output, so force original media (proxies are preview-only);
+            // otherwise the default PreferProxy setting would decode cached proxies here.
+            using var renderer = new SceneRenderer(
+                scene, normalizedScale, disableResourceShare: true, maxWorkingScale: float.PositiveInfinity, forceOriginalSource: true);
             renderer.CacheOptions = RenderCacheOptions.Disabled;
 
             var frame = renderer.Compositor.EvaluateGraphics(time + scene.Start);

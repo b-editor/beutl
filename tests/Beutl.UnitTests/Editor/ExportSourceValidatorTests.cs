@@ -448,6 +448,63 @@ public sealed class ExportSourceValidatorTests
         Assert.That(missing, Is.Empty);
     }
 
+    // The render window is half-open [Start, End) and the next keyframe takes over at its exact key
+    // time, so a source that switches exactly at the window start must not report the outgoing file.
+    [Test]
+    public void CollectRenderableSources_SourceSwitchExactlyAtWindowStart_DropsOutgoingKeyframe()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string outgoingMissing = Path.Combine(root, "outgoing.mov");
+        string incoming = Path.Combine(root, "incoming.mov");
+        File.WriteAllBytes(incoming, [1]);
+
+        var drawable = new SourceVideo();
+        var animation = new KeyFrameAnimation<VideoSource?>();
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.Zero, Value = MakeVideoSource(outgoingMissing) });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.FromSeconds(5), Value = MakeVideoSource(incoming) });
+        drawable.Source.Animation = animation;
+        Element element = ElementWith(root, drawable);
+        element.Length = TimeSpan.FromSeconds(10);
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
+        scene.Children.Add(element);
+
+        // Export [5s, 10s): the outgoing key governs [.., 5s) and is not sampled, so it must be dropped.
+        IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
+            ExportSourceValidator.CollectRenderableSources(scene, new TimeRange(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5))));
+
+        Assert.That(missing, Is.Empty);
+    }
+
+    // A DrawableDecorator renders its children at the same composition time, so the render window still
+    // maps directly — an out-of-window animated keyframe under a decorator must be dropped, not reported.
+    [Test]
+    public void CollectRenderableSources_AnimatedSourceInDecorator_FiltersToRenderWindow()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string oldMissing = Path.Combine(root, "old.mov");
+        string newExisting = Path.Combine(root, "new.mov");
+        File.WriteAllBytes(newExisting, [1]);
+
+        var child = new SourceVideo();
+        var animation = new KeyFrameAnimation<VideoSource?>();
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.Zero, Value = MakeVideoSource(oldMissing) });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.FromSeconds(5), Value = MakeVideoSource(newExisting) });
+        child.Source.Animation = animation;
+        var decorator = new DrawableDecorator();
+        decorator.Children.Add(child);
+        Element element = ElementWith(root, decorator);
+        element.Length = TimeSpan.FromSeconds(10);
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
+        scene.Children.Add(element);
+
+        IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
+            ExportSourceValidator.CollectRenderableSources(scene, new TimeRange(TimeSpan.FromSeconds(6), TimeSpan.FromSeconds(4))));
+
+        Assert.That(missing, Is.Empty);
+    }
+
     private static SourceSound SoundDrawable(string sourcePath)
     {
         var source = new SoundSource();
