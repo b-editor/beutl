@@ -50,8 +50,15 @@
                       IsChecked="{Binding IsLocked.Value, Mode=OneWay}"
                       Theme="{StaticResource LayerHeaderToggleButtonStyle}"
                       ToolTip.Tip="{x:Static lang:Strings.Lock}">
-            <icons:SymbolIcon FontSize="14"
-                              Symbol="LockClosed" />
+            <icons:SymbolIcon FontSize="14" />
+            <ToggleButton.Styles>
+                <Style Selector="Button > icons|SymbolIcon">
+                    <Setter Property="Symbol" Value="LockOpen" />
+                </Style>
+                <Style Selector="Button:checked > icons|SymbolIcon">
+                    <Setter Property="Symbol" Value="LockClosed" />
+                </Style>
+            </ToggleButton.Styles>
         </ToggleButton>
 
         <ToggleButton Grid.Column="2"
@@ -64,9 +71,11 @@
                       IsChecked="{Binding IsVideoMuted.Value, Mode=OneWay}"
                       Theme="{StaticResource LayerHeaderToggleButtonStyle}"
                       ToolTip.Tip="{x:Static lang:Strings.Video}">
-            <icons:SymbolIcon FontSize="14"
-                              Symbol="Video" />
+            <icons:SymbolIcon FontSize="14" />
             <ToggleButton.Styles>
+                <Style Selector="Button > icons|SymbolIcon">
+                    <Setter Property="Symbol" Value="Video" />
+                </Style>
                 <Style Selector="Button:checked > icons|SymbolIcon">
                     <Setter Property="Symbol" Value="VideoOff" />
                 </Style>
@@ -78,9 +87,11 @@
                       IsChecked="{Binding IsAudioMuted.Value, Mode=OneWay}"
                       Theme="{StaticResource LayerHeaderToggleButtonStyle}"
                       ToolTip.Tip="{x:Static lang:Strings.Audio}">
-            <icons:SymbolIcon FontSize="14"
-                              Symbol="Speaker1" />
+            <icons:SymbolIcon FontSize="14" />
             <ToggleButton.Styles>
+                <Style Selector="Button > icons|SymbolIcon">
+                    <Setter Property="Symbol" Value="Speaker1" />
+                </Style>
                 <Style Selector="Button:checked > icons|SymbolIcon">
                     <Setter Property="Symbol" Value="SpeakerMute" />
                 </Style>
@@ -94,6 +105,11 @@
                       ToolTip.Tip="{x:Static lang:Strings.Solo}">
             <icons:SymbolIcon FontSize="14"
                               Symbol="Star" />
+            <ToggleButton.Styles>
+                <Style Selector="Button:checked > icons|SymbolIcon">
+                    <Setter Property="IconVariant" Value="Filled" />
+                </Style>
+            </ToggleButton.Styles>
         </ToggleButton>
 
         <ui:ColorPickerButton Grid.Column="6"
