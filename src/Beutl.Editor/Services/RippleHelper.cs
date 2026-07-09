@@ -15,10 +15,12 @@ internal static class RippleHelper
     {
         if (delta == TimeSpan.Zero) return;
 
-        // A locked follower stays anchored — shifting its Start would bypass the lock.
+        // A locked follower stays anchored — shifting it would bypass the lock.
+        if (scene.IsLayerLocked(zIndex)) return;
+
         Element[] toShift = scene.Children
             .Where(e => e.ZIndex == zIndex && !except.Contains(e) && e.Start >= anchorEnd
-                        && !scene.IsElementLocked(e))
+                        && !e.IsLocked)
             .ToArray();
 
         foreach (Element e in toShift)
@@ -36,10 +38,12 @@ internal static class RippleHelper
     {
         if (delta == TimeSpan.Zero) return;
 
-        // A locked neighbor stays anchored — shifting its Start would bypass the lock.
+        // A locked neighbor stays anchored — shifting it would bypass the lock.
+        if (scene.IsLayerLocked(zIndex)) return;
+
         Element[] toShift = scene.Children
             .Where(e => e.ZIndex == zIndex && !except.Contains(e) && e.Range.End <= anchorStart
-                        && !scene.IsElementLocked(e))
+                        && !e.IsLocked)
             .ToArray();
 
         foreach (Element e in toShift)
