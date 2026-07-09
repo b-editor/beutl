@@ -117,6 +117,12 @@ public sealed class ElementClipboardService : IElementClipboardService
 
     private async Task<ElementPasteOutcome> PasteElementsAsync(Scene scene, TimeSpan clickedFrame, int clickedLayer)
     {
+        if (scene.IsLayerLocked(clickedLayer))
+        {
+            s_logger.LogWarning("PasteElementsAsync skipped: layer {Layer} is locked.", clickedLayer);
+            return ElementPasteOutcome.Empty;
+        }
+
         string? json = await _clipboard.TryGetStringAsync(BeutlClipboardFormats.Elements);
         if (json is null) return ElementPasteOutcome.Empty;
         if (ClipboardJson.TryParse(json) is not JsonArray array || array.Count == 0)

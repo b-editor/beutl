@@ -223,6 +223,27 @@ public class ElementClipboardServiceTests
     }
 
     [Test]
+    public async Task PasteAsync_ElementsFormat_LockedTargetLayer_IsRefused()
+    {
+        Element e1 = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), 0);
+        Element e2 = AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(2), 0);
+        var array = new System.Text.Json.Nodes.JsonArray(
+            CoreSerializer.SerializeToJsonObject(e1),
+            CoreSerializer.SerializeToJsonObject(e2));
+        _clipboard.SetSingle(BeutlClipboardFormats.Elements, array.ToJsonString());
+        _scene.Layers.Add(new TimelineLayer { ZIndex = 3, IsLocked = true });
+        int childrenBefore = _scene.Children.Count;
+
+        ElementPasteOutcome outcome = await _service.PasteAsync(_scene, TimeSpan.FromSeconds(20), 3);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome.Pasted, Is.False);
+            Assert.That(_scene.Children.Count, Is.EqualTo(childrenBefore));
+        });
+    }
+
+    [Test]
     public async Task CopyAsync_ExposesPlainTextAlongsideElementJson()
     {
         Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));

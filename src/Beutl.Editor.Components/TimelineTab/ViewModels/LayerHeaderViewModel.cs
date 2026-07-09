@@ -72,10 +72,8 @@ public sealed class LayerHeaderViewModel : IDisposable
                     Timeline.EditorContext.GetRequiredService<ILayerAttributeService>()
                         .SetEnabled(Timeline.Scene, Number.Value, target);
 
-                    // Claim the target state only when every clip reached it —
-                    // a locked/empty/mixed row (locked clips are skipped by the
-                    // service) must not show a state the model refused.
-                    bool allMatch = _elements.Count > 0 && _elements.All(e => e.Model.IsEnabled == target);
+                    bool allMatch = ShouldClaimEnabledState(
+                        _elements.Select(e => (e.IsEditable.Value, e.Model.IsEnabled)), target);
                     if (!allMatch)
                     {
                         IsEnabled.Value = !target;
@@ -202,6 +200,22 @@ public sealed class LayerHeaderViewModel : IDisposable
     public ReactiveCommand ToggleVideoMuteCommand { get; }
 
     public ReactiveCommand ToggleSoloCommand { get; }
+
+    // The service skips locked clips, so they are excluded here and the header
+    // claims the state only when at least one editable clip reached the target.
+    internal static bool ShouldClaimEnabledState(
+        IEnumerable<(bool IsEditable, bool IsEnabled)> clips, bool target)
+    {
+        bool anyEditable = false;
+        foreach ((bool isEditable, bool isEnabled) in clips)
+        {
+            if (!isEditable) continue;
+            if (isEnabled != target) return false;
+            anyEditable = true;
+        }
+
+        return anyEditable;
+    }
 
     public void UpdateZIndex(int layerNum)
     {

@@ -350,6 +350,80 @@ public class RippleEditTests
     }
 
     [Test]
+    public void ShiftAfter_LockedFollower_StaysAnchored()
+    {
+        Element a = AddElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(2));
+        Element locked = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
+        Element free = AddElement(TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(2));
+        locked.IsLocked = true;
+
+        RippleHelper.ShiftAfter(_scene, zIndex: 0, anchorEnd: TimeSpan.FromSeconds(2),
+            delta: TimeSpan.FromSeconds(-2), except: [a]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(locked.Start, Is.EqualTo(TimeSpan.FromSeconds(2)), "locked follower must not move");
+            Assert.That(free.Start, Is.EqualTo(TimeSpan.FromSeconds(2)), "unlocked follower shifts left by 2");
+        });
+    }
+
+    [Test]
+    public void ShiftBefore_LockedUpstream_StaysAnchored()
+    {
+        Element locked = AddElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(2));
+        Element free = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
+        Element target = AddElement(TimeSpan.FromSeconds(6), TimeSpan.FromSeconds(2));
+        locked.IsLocked = true;
+
+        RippleHelper.ShiftBefore(_scene, zIndex: 0, anchorStart: TimeSpan.FromSeconds(6),
+            delta: TimeSpan.FromSeconds(-2), except: [target]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(locked.Start, Is.EqualTo(TimeSpan.Zero), "locked upstream must not move");
+            Assert.That(free.Start, Is.EqualTo(TimeSpan.Zero), "unlocked upstream shifts left by 2");
+        });
+    }
+
+    [Test]
+    public void Delete_RippleOn_DoesNotShiftLockedFollower()
+    {
+        var structure = new ElementStructureService(_history);
+        Element removed = AddElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(2), zIndex: 0);
+        Element lockedFollower = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2), zIndex: 0);
+        lockedFollower.IsLocked = true;
+
+        structure.Delete(_scene, [removed], ripple: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_scene.Children, Does.Not.Contain(removed));
+            Assert.That(lockedFollower.Start, Is.EqualTo(TimeSpan.FromSeconds(2)),
+                "ripple close-gap must not bypass the follower's lock");
+        });
+    }
+
+    [Test]
+    public void Resize_RippleOn_RightEdgeGrow_DoesNotShiftLockedFollower()
+    {
+        var resize = new ElementResizeService(_history);
+        Element target = AddElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(2), zIndex: 0);
+        Element lockedFollower = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2), zIndex: 0);
+        lockedFollower.IsLocked = true;
+
+        resize.Resize(_scene,
+            [new ElementResizeRequest(target, TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(5), 0)],
+            ripple: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(target.Length, Is.EqualTo(TimeSpan.FromSeconds(5)));
+            Assert.That(lockedFollower.Start, Is.EqualTo(TimeSpan.FromSeconds(2)),
+                "ripple resize must not bypass the neighbor's lock");
+        });
+    }
+
+    [Test]
     public void Exclude_RippleOn_GroupedFollower_ShiftsWithSameLayer()
     {
         // A grouped follower shares a group with the removed element but sits after it.
