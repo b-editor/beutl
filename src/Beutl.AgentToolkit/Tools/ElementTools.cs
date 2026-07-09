@@ -142,8 +142,9 @@ public sealed class ElementTools(AgentSessionManager sessions) : ToolBase
             }
 
             IEditingSession session = sessions.RequireSession();
-            JsonNode? removed = null;
-            ReconcileResult result = _reconciler.ApplyFromCurrent(session, current =>
+            // Removing the Id from the array already yields a RemoveChild in the reconciled plan;
+            // do not append a second one (it would double-count the deletion in ChangeCount).
+            return _reconciler.ApplyFromCurrent(session, current =>
             {
                 JsonArray elements = GetElements(current);
                 int index = IndexOf(elements, elementId);
@@ -152,17 +153,9 @@ public sealed class ElementTools(AgentSessionManager sessions) : ToolBase
                     throw StaleElement(elementId);
                 }
 
-                removed = elements[index]?.DeepClone();
                 elements.RemoveAt(index);
                 return (current, null);
             });
-            return result with
-            {
-                Plan = result.Plan with
-                {
-                    Changes = [.. result.Plan.Changes, new ChangeSetEntry(ChangeOperations.RemoveChild, "$/Elements", elementId, removed)]
-                }
-            };
         });
     }
 

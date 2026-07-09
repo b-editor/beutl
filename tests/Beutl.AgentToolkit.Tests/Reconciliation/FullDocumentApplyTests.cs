@@ -310,6 +310,48 @@ public sealed class FullDocumentApplyTests
         });
     }
 
+    [Test]
+    public void Full_document_with_a_non_positive_frame_size_is_rejected()
+    {
+        using var session = TestEditingSession.Create(new Scene(1920, 1080, "Scene"));
+        var reconciler = new Reconciler();
+        JsonObject desired = session.Documents.Read(session.Scene);
+        desired["Width"] = 0;
+
+        ReconcileException ex = Assert.Throws<ReconcileException>(() => reconciler.Plan(session, desired))!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ex.Error.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(ex.Error.Message, Does.Contain("frame size"));
+            Assert.That(session.Scene.FrameSize.Width, Is.EqualTo(1920));
+        });
+    }
+
+    [Test]
+    public void Inserted_element_with_an_invalid_timeline_names_the_element_in_the_rejection()
+    {
+        using var session = TestEditingSession.Create(new Scene(1920, 1080, "Scene"));
+        var reconciler = new Reconciler();
+        JsonObject desired = session.Documents.Read(session.Scene);
+        ((JsonArray)desired["Elements"]!).Add(new JsonObject
+        {
+            ["$type"] = IdentityHelper.WriteDiscriminator(typeof(Element)),
+            [nameof(CoreObject.Name)] = "Intro",
+            [nameof(Element.Start)] = TimeSpan.FromSeconds(-1).ToString("c"),
+            [nameof(Element.Length)] = TimeSpan.FromSeconds(1).ToString("c")
+        });
+
+        ReconcileException ex = Assert.Throws<ReconcileException>(() => reconciler.Plan(session, desired))!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ex.Error.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(ex.Error.Message, Does.Contain("Intro"));
+            Assert.That(ex.Error.Message, Does.Contain("Start"));
+        });
+    }
+
     private sealed class TestEditingSession : IEditingSession, IDisposable
     {
         private readonly RecordingPipeline _recording;

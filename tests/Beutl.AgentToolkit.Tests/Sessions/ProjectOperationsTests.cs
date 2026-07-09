@@ -177,4 +177,45 @@ public sealed class ProjectOperationsTests
     {
         Assert.That(ProjectOperations.IsValidSceneName(name), Is.True);
     }
+
+    [Test]
+    public void EnsureElementUrisWithinProject_RehomesOutOfProjectSceneUri_KeepingWritesInProject()
+    {
+        Project project = ProjectOperations.CreateProject(new ProjectCreateOptions(
+            Path.Combine(_tempRoot, "proj.bep"),
+            Width: 1920,
+            Height: 1080,
+            FrameRate: 30,
+            Duration: TimeSpan.FromSeconds(10)));
+
+        string projectDir = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+        Scene scene = project.Items.OfType<Scene>().First();
+
+        // Simulate apply_edit against a hand-edited project whose scene and element sidecars both
+        // escape the project tree.
+        string outsideDir = Path.Combine(Path.GetTempPath(), "escape-" + Guid.NewGuid().ToString("N"));
+        scene.Uri = new Uri(Path.Combine(outsideDir, "escape.scene"));
+        var element = new Element
+        {
+            Length = TimeSpan.FromSeconds(1),
+            Uri = new Uri(Path.Combine(outsideDir, "escape.belm"))
+        };
+        scene.Children.Add(element);
+
+        ProjectOperations.EnsureElementUrisWithinProject(scene);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                Path.GetFullPath(scene.Uri!.LocalPath).StartsWith(projectDir, PathComparison.ForCurrentPlatform),
+                Is.True,
+                $"Scene sidecar must be rehomed inside the project, got: {scene.Uri.LocalPath}");
+            Assert.That(element.Uri, Is.Not.Null);
+            Assert.That(
+                Path.GetFullPath(element.Uri!.LocalPath).StartsWith(projectDir, PathComparison.ForCurrentPlatform),
+                Is.True,
+                $"Element sidecar must be inside the project, got: {element.Uri!.LocalPath}");
+            Assert.That(Directory.Exists(outsideDir), Is.False, "No out-of-project directory may be created.");
+        });
+    }
 }

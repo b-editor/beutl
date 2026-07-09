@@ -9,7 +9,6 @@ using Beutl.AgentToolkit.Workspace;
 using Beutl.Configuration;
 using Beutl.Logging;
 using Beutl.Services;
-using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Hosting;
@@ -17,6 +16,7 @@ using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Server;
 
 namespace Beutl.AgentHost;

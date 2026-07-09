@@ -89,6 +89,7 @@ public sealed class Reconciler
         var validation = new List<ValidationOutcome>();
         CompareObject(session.Root, currentDocument, desiredDocument, "$", changes, validation);
         ValidateInsertedSubtrees(sandboxRoot, changes, validation);
+        ValidateSceneFrameSize(sandboxRoot, validation);
         AddRelativeKeyFrameRangeWarnings(desiredDocument, validation);
 
         if (validation.FirstOrDefault(item => item.Status == ValidationStatus.Rejected) is { } rejected)
@@ -334,7 +335,7 @@ public sealed class Reconciler
                 session.Documents.Write(session.Root, desiredDocument);
                 if (session.Root is Scene scene)
                 {
-                    ProjectOperations.EnsureElementUris(scene);
+                    ProjectOperations.EnsureElementUrisWithinProject(scene);
                 }
             },
             "Agent edit");
@@ -564,20 +565,37 @@ public sealed class Reconciler
 
     private static void ValidateInsertedElementTimeline(Element element, List<ValidationOutcome> validation)
     {
+        string identity = string.IsNullOrWhiteSpace(element.Name)
+            ? element.Id.ToString()
+            : $"'{element.Name}' ({element.Id})";
         if (element.Start < TimeSpan.Zero)
         {
             validation.Add(ValidationOutcome.Rejected(
                 element.Start.ToString("c"),
-                $"Element Start '{element.Start:c}' must be non-negative.",
-                null));
+                $"Element {identity} Start '{element.Start:c}' must be non-negative.",
+                $"Set a non-negative Start on element {element.Id}."));
         }
 
         if (element.Length <= TimeSpan.Zero)
         {
             validation.Add(ValidationOutcome.Rejected(
                 element.Length.ToString("c"),
-                $"Element Length '{element.Length:c}' must be positive.",
-                null));
+                $"Element {identity} Length '{element.Length:c}' must be positive.",
+                $"Set a positive Length on element {element.Id}."));
+        }
+    }
+
+    // A full desired document or merge patch can set Scene Width/Height to a non-positive value that
+    // create_project/add_scene would reject on their own inputs but no per-property validator covers
+    // here, so an impossible canvas size would otherwise reach render/export.
+    private static void ValidateSceneFrameSize(CoreObject sandboxRoot, List<ValidationOutcome> validation)
+    {
+        if (sandboxRoot is Scene scene && (scene.FrameSize.Width <= 0 || scene.FrameSize.Height <= 0))
+        {
+            validation.Add(ValidationOutcome.Rejected(
+                $"{scene.FrameSize.Width}x{scene.FrameSize.Height}",
+                $"Scene frame size '{scene.FrameSize.Width}x{scene.FrameSize.Height}' must be positive.",
+                "Set Width and Height to positive pixel values before applying."));
         }
     }
 

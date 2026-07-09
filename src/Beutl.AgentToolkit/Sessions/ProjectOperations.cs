@@ -1,4 +1,5 @@
-﻿using Beutl.AgentToolkit.Common;
+﻿using Beutl;
+using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.Editor;
 using Beutl.ProjectSystem;
@@ -213,6 +214,24 @@ public static class ProjectOperations
         StringComparison comparison = PathComparison.ForCurrentPlatform;
         return full.StartsWith(root + Path.DirectorySeparatorChar, comparison)
                || string.Equals(full, root, comparison);
+    }
+
+    // Save rehomes out-of-project sidecar URIs before writing; apply_edit ensures element URIs without
+    // that Save, so a hand-edited scene Uri escaping the project directory would let EnsureElementUris
+    // create and write to an out-of-project directory. Rehome/regenerate inside the project first.
+    internal static void EnsureElementUrisWithinProject(Scene scene)
+    {
+        ArgumentNullException.ThrowIfNull(scene);
+
+        if (scene.FindHierarchicalParent<Project>() is { Uri: { } projectUri } project)
+        {
+            string projectDirectory = Path.GetDirectoryName(projectUri.LocalPath)
+                                      ?? throw new InvalidOperationException("Project Uri must have a directory.");
+            RehomeSidecarsOutsideProject(project, projectDirectory, scene);
+            EnsureSceneUri(project, scene);
+        }
+
+        EnsureElementUris(scene);
     }
 
     internal static void EnsureElementUris(Scene scene)

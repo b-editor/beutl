@@ -1,5 +1,6 @@
 ﻿using System.Globalization;
 using Beutl.AgentToolkit.Common;
+using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
@@ -191,6 +192,31 @@ public sealed class AddElementToolTests
         {
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(scene.Children[0].Objects[0], Is.TypeOf<RoundedRectShape>());
+        });
+    }
+
+    [Test]
+    public void Remove_element_reports_exactly_one_removal()
+    {
+        var scene = new Scene(1920, 1080, "Scene");
+        using var session = new AgentToolkitTestSession(scene);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var tools = new ElementTools(manager);
+        Assert.That(tools.AddElement(0, 1, 0, "shape", shape: "rect").IsSuccess, Is.True);
+        string elementId = scene.Children[0].Id.ToString();
+
+        var result = tools.RemoveElement(elementId, confirmDelete: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+            Assert.That(scene.Children, Is.Empty);
+            var removals = result.Value!.Plan.Changes
+                .Where(change => change.Operation == ChangeOperations.RemoveChild
+                                 && change.TargetId == elementId)
+                .ToList();
+            Assert.That(removals, Has.Count.EqualTo(1));
         });
     }
 }
