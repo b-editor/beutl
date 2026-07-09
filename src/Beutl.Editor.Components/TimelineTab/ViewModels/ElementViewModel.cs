@@ -426,14 +426,28 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         Width.Value = width;
     }
 
-    public async Task SubmitViewModelChanges(bool ripple = false)
+    // Ripple shifts the dragged edge's delta onto neighbours, so the untouched edge must carry its
+    // exact model coordinate — re-deriving it through a lossy pixel->frame round-trip would leak a
+    // sub-frame delta onto the wrong side for an off-frame clip and ripple the wrong neighbours.
+    internal static (TimeSpan Start, TimeSpan Length) ResolveRippleResizeBounds(
+        bool leftEdge, TimeSpan roundedStart, TimeSpan roundedLength, TimeSpan modelStart, TimeSpan modelEnd)
+    {
+        return leftEdge
+            ? (roundedStart, modelEnd - roundedStart)
+            : (modelStart, roundedLength);
+    }
+
+    public async Task SubmitViewModelChanges(bool ripple = false, bool leftEdge = false)
     {
         PrepareAnimationContext context = PrepareAnimation();
 
         float scale = Timeline.Options.Value.Scale;
         int rate = Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
-        TimeSpan start = BorderMargin.Value.Left.PixelToTimeSpan(scale).RoundToRate(rate);
-        TimeSpan length = Width.Value.PixelToTimeSpan(scale).RoundToRate(rate);
+        TimeSpan roundedStart = BorderMargin.Value.Left.PixelToTimeSpan(scale).RoundToRate(rate);
+        TimeSpan roundedLength = Width.Value.PixelToTimeSpan(scale).RoundToRate(rate);
+        (TimeSpan start, TimeSpan length) = ripple
+            ? ResolveRippleResizeBounds(leftEdge, roundedStart, roundedLength, Model.Start, Model.Range.End)
+            : (roundedStart, roundedLength);
         int zindex = Timeline.ToLayerNumber(Margin.Value);
 
         var request = new ElementResizeRequest(Model, start, length, zindex);

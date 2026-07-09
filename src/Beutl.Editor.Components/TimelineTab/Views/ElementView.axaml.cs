@@ -512,10 +512,11 @@ public sealed partial class ElementView : UserControl
 
                     bool ripple = viewModel.Timeline.IsRippleEnabled.Value
                         && _resizeType is AlignmentX.Right or AlignmentX.Left;
+                    bool leftEdge = _resizeType == AlignmentX.Left;
 
                     if (_resizeContexts.Length == 1)
                     {
-                        await viewModel.SubmitViewModelChanges(ripple);
+                        await viewModel.SubmitViewModelChanges(ripple, leftEdge);
                     }
                     else if (_resizeContexts.Length > 1)
                     {
@@ -530,8 +531,12 @@ public sealed partial class ElementView : UserControl
                         for (int i = 0; i < _resizeContexts.Length; i++)
                         {
                             ElementResizeContext ctx = _resizeContexts[i];
-                            TimeSpan newStart = ctx.ViewModel.BorderMargin.Value.Left.PixelToTimeSpan(scale).RoundToRate(rate);
-                            TimeSpan newLength = ctx.ViewModel.Width.Value.PixelToTimeSpan(scale).RoundToRate(rate);
+                            TimeSpan roundedStart = ctx.ViewModel.BorderMargin.Value.Left.PixelToTimeSpan(scale).RoundToRate(rate);
+                            TimeSpan roundedLength = ctx.ViewModel.Width.Value.PixelToTimeSpan(scale).RoundToRate(rate);
+                            (TimeSpan newStart, TimeSpan newLength) = ripple
+                                ? ElementViewModel.ResolveRippleResizeBounds(
+                                    leftEdge, roundedStart, roundedLength, ctx.RecordedStartTime, ctx.RecordedEndTime)
+                                : (roundedStart, roundedLength);
                             int zindex = viewModel.Timeline.ToLayerNumber(ctx.ViewModel.Margin.Value);
                             requests[i] = new ElementResizeRequest(ctx.ViewModel.Model, newStart, newLength, zindex);
                         }
