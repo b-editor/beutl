@@ -78,6 +78,17 @@ public sealed class VideoExporter(EncoderRegistration encoders)
             controller.AudioSettings.Channels = 2;
             ApplyQualitySettings(controller.VideoSettings, crf, bitrate);
 
+            // A final export forces original media (no proxy fallback), so a missing original would encode
+            // a blank/silent segment instead of failing. Preflight the exported range's renderable sources
+            // (graphics + audio) and fail fast, matching the save-frame/export guard.
+            IReadOnlyList<string> missingSources = Beutl.Editor.ExportSourceValidator.GetMissingPaths(
+                Beutl.Editor.ExportSourceValidator.CollectRenderableSources(scene, new TimeRange(scene.Start, scene.Duration)));
+            if (missingSources.Count > 0)
+            {
+                throw new RenderingUnavailableException(
+                    $"Missing source files required to export: {string.Join(", ", missingSources)}");
+            }
+
             // Video export is a final output, so force original media (proxies are preview-only);
             // otherwise the default PreferProxy setting would encode from cached proxies here.
             using var renderer = new SceneRenderer(

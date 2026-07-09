@@ -339,25 +339,35 @@ public static class ProxySourceEnumerator
         Scene scene, HashSet<(Scene, CompositionTarget?)> visitedScenes, bool skipDisabledElements, CompositionTarget? renderTarget,
         TimeRange? sceneWindow = null)
     {
-        // Scene references are user-constructible and can cycle; the visited set makes the walk
-        // terminate (render-time Enter/Exit is the only other guard). Key by (scene, renderTarget): the
-        // same scene can be reached once as a SceneDrawable (Graphics) and once as a SceneSound (Audio),
-        // and each facet's media must be preflighted, so a Graphics visit must not suppress the Audio one.
-        if (!visitedScenes.Add((scene, renderTarget)))
+        // Scene references are user-constructible and can cycle. Guard with a recursion STACK, not a
+        // global visited set: dedup only scenes currently on the descent path (remove on exit) so a
+        // reference cycle terminates, while the same scene reached again from a sibling embed — with its
+        // own render window — is still traversed. A global set would suppress the second windowed visit
+        // and miss a source only that window requires. Key by (scene, renderTarget) so a SceneDrawable
+        // (Graphics) and a SceneSound (Audio) embed of one scene each preflight their own facet.
+        (Scene, CompositionTarget?) key = (scene, renderTarget);
+        if (!visitedScenes.Add(key))
             yield break;
 
-        foreach (Element child in scene.Children)
+        try
         {
-            // A disabled child never renders through SceneCompositor.SortLayers, so export preflight
-            // must not demand its original file exist; the render-independent IsEnabled gate applies here.
-            if (skipDisabledElements && !child.IsEnabled)
-                continue;
+            foreach (Element child in scene.Children)
+            {
+                // A disabled child never renders through SceneCompositor.SortLayers, so export preflight
+                // must not demand its original file exist; the render-independent IsEnabled gate applies.
+                if (skipDisabledElements && !child.IsEnabled)
+                    continue;
 
-            // sceneWindow is in referenced-scene time; each child samples its own animations at
-            // scene-time - child.Start, so convert to child-local time for the keyframe filter.
-            TimeRange? childWindow = sceneWindow?.SubtractStart(child.Start);
-            foreach (IFileSource source in EnumerateElementFileSources(child, visitedScenes, skipDisabledElements, renderTarget, childWindow))
-                yield return source;
+                // sceneWindow is in referenced-scene time; each child samples its own animations at
+                // scene-time - child.Start, so convert to child-local time for the keyframe filter.
+                TimeRange? childWindow = sceneWindow?.SubtractStart(child.Start);
+                foreach (IFileSource source in EnumerateElementFileSources(child, visitedScenes, skipDisabledElements, renderTarget, childWindow))
+                    yield return source;
+            }
+        }
+        finally
+        {
+            visitedScenes.Remove(key);
         }
     }
 
@@ -551,15 +561,15 @@ public static class ProxySourceEnumerator
                 continue;
 
             // With no render window every keyframe value counts (proxy scan / badge enumeration). With
-            // one, keep a keyframe only if a sample inside the window could resolve to it: its value
-            // governs the sorted span [previous keyframe, next keyframe), so drop it only when that
-            // span lies wholly outside the window. The render window is half-open [Start, End) and the
-            // next keyframe takes over at its exact key time, so the span end and range end are both
-            // exclusive — use <= so a keyframe governing [.., Start) after a switch at Start is dropped.
+            // one, keep a keyframe only if a sample inside the window could resolve to it. For an object
+            // value (IFileSource) KeyFrameAnimation.Interpolate returns the NEXT keyframe's value, so
+            // keyframe i is the sampled value only on [previous key time, this key time) — the last one
+            // holds forward to +inf. Both the span end and the half-open window end are exclusive, so use
+            // <= to drop a keyframe governing [.., Start) after a switch exactly at the window start.
             if (window is { } range)
             {
                 TimeSpan spanStart = i > 0 ? keyFrames[i - 1].KeyTime : TimeSpan.MinValue;
-                TimeSpan spanEnd = i < keyFrames.Count - 1 ? keyFrames[i + 1].KeyTime : TimeSpan.MaxValue;
+                TimeSpan spanEnd = i < keyFrames.Count - 1 ? keyFrames[i].KeyTime : TimeSpan.MaxValue;
                 if (spanEnd <= range.Start || range.End <= spanStart)
                     continue;
             }

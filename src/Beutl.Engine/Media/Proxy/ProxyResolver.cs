@@ -80,13 +80,15 @@ public sealed class ProxyResolver : IProxyResolver
         if (matches.Count == 0)
             return null;
 
-        DateTime newestGeneratedForSource(ProxyFingerprint source) =>
-            matches.Where(m => m.Source == source).Max(m => m.GeneratedAtUtc);
-
-        // Rank by newest generation, then newer source mtime as a stable tiebreak (a replaced original
-        // has a newer mtime even if two proxies happen to share a generation timestamp).
+        // Precompute newest generation per source once rather than re-scanning inside the sort comparer
+        // (O(n²) on a path with many accumulated versions/presets). Rank by newest generation, then newer
+        // source mtime as a stable tiebreak (a replaced original has a newer mtime even if two proxies
+        // happen to share a generation timestamp).
+        Dictionary<ProxyFingerprint, DateTime> newestBySource = matches
+            .GroupBy(m => m.Source)
+            .ToDictionary(g => g.Key, g => g.Max(m => m.GeneratedAtUtc));
         ProxyFingerprint newestSource = matches
-            .OrderByDescending(m => newestGeneratedForSource(m.Source))
+            .OrderByDescending(m => newestBySource[m.Source])
             .ThenByDescending(m => m.Source.MtimeUtc)
             .First().Source;
 

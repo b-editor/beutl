@@ -745,9 +745,13 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
         // selection to that source — mirroring ProxyResolver.ResolveByPath. A newer Failed/Stale entry for
         // a replaced source must outrank an older Ready proxy of a stale fingerprint, so the row reflects
         // the current source's state instead of binding delete/regenerate to content preview won't decode.
-        DateTime NewestForSource(ProxyFingerprint s) => candidates.Where(e => e.Source == s).Max(e => e.GeneratedAtUtc);
+        // Precompute newest generation per source once (a linear group) rather than re-scanning inside
+        // the sort comparer, which would be O(n²) on a path with many accumulated versions/presets.
+        Dictionary<ProxyFingerprint, DateTime> newestBySource = candidates
+            .GroupBy(e => e.Source)
+            .ToDictionary(g => g.Key, g => g.Max(e => e.GeneratedAtUtc));
         ProxyFingerprint newest = candidates
-            .OrderByDescending(e => NewestForSource(e.Source))
+            .OrderByDescending(e => newestBySource[e.Source])
             .ThenByDescending(e => e.Source.MtimeUtc)
             .First().Source;
         List<ProxyEntry> fromNewest = [.. candidates.Where(e => e.Source == newest)];

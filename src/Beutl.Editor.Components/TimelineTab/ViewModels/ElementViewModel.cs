@@ -1032,13 +1032,22 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         string key = ProxyFingerprint.ResolveComparableKey(uri.LocalPath);
         if (store is not null)
         {
-            foreach (ProxyEntry entry in store.Enumerate())
+            // Choose the newest same-path source across all states, then return a Ready fingerprint only
+            // from that source — matching ProxyResolver.ResolveByPath, so the badge does not report Ready
+            // off a stale older proxy when a newer regeneration failed for the current source.
+            List<ProxyEntry> pathEntries = [.. store.Enumerate()
+                .Where(e => string.Equals(e.Source.AbsolutePath, key, StringComparison.Ordinal))];
+            if (pathEntries.Count > 0)
             {
-                if (entry.State == ProxyState.Ready
-                    && string.Equals(entry.Source.AbsolutePath, key, StringComparison.Ordinal))
-                {
-                    return entry.Source;
-                }
+                Dictionary<ProxyFingerprint, DateTime> newestBySource = pathEntries
+                    .GroupBy(e => e.Source)
+                    .ToDictionary(g => g.Key, g => g.Max(e => e.GeneratedAtUtc));
+                ProxyFingerprint newest = pathEntries
+                    .OrderByDescending(e => newestBySource[e.Source])
+                    .ThenByDescending(e => e.Source.MtimeUtc)
+                    .First().Source;
+                if (pathEntries.Any(e => e.Source == newest && e.State == ProxyState.Ready))
+                    return newest;
             }
         }
 

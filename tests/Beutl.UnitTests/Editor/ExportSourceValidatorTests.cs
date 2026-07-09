@@ -298,28 +298,31 @@ public sealed class ExportSourceValidatorTests
         Assert.That(missing, Is.EqualTo(new[] { inSegment }));
     }
 
-    // An animated Source keyframe referencing a since-replaced file must be filtered to the render
-    // window: a window entirely after the switch never samples the old file, so it must not block a
-    // partial-range export, while a window covering both keyframes still requires it.
+    // An animated Source keyframe is filtered to the render window. For an object value the animator
+    // samples the NEXT keyframe's value, so the middle key (missing) governs [0s, 5s): a window inside
+    // that span requires it, while a window entirely after it (sampling the later key) must not.
     [Test]
     public void CollectRenderableSources_FiltersAnimatedSourceKeyframesToRenderWindow()
     {
         string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
-        string oldMissing = Path.Combine(root, "old.mov");
-        string newExisting = Path.Combine(root, "new.mov");
-        File.WriteAllBytes(newExisting, [1]);
+        string startExisting = Path.Combine(root, "start.mov");
+        string midMissing = Path.Combine(root, "mid.mov");
+        string endExisting = Path.Combine(root, "end.mov");
+        File.WriteAllBytes(startExisting, [1]);
+        File.WriteAllBytes(endExisting, [1]);
 
         var drawable = new SourceVideo();
         var animation = new KeyFrameAnimation<VideoSource?>();
-        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.Zero, Value = MakeVideoSource(oldMissing) });
-        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.FromSeconds(5), Value = MakeVideoSource(newExisting) });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.Zero, Value = MakeVideoSource(startExisting) });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.FromSeconds(5), Value = MakeVideoSource(midMissing) });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.FromSeconds(10), Value = MakeVideoSource(endExisting) });
         drawable.Source.Animation = animation;
 
         var element = new Element
         {
             Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(10),
+            Length = TimeSpan.FromSeconds(15),
             IsEnabled = true,
             Uri = new Uri(Path.Combine(root, $"{Guid.NewGuid():N}.layer")),
         };
@@ -327,15 +330,17 @@ public sealed class ExportSourceValidatorTests
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
         scene.Children.Add(element);
 
-        IReadOnlyList<string> wholeRange = ExportSourceValidator.GetMissingPaths(
-            ExportSourceValidator.CollectRenderableSources(scene, new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10))));
-        IReadOnlyList<string> afterSwitch = ExportSourceValidator.GetMissingPaths(
+        // [0s, 3s) is inside the mid key's [0s, 5s) span → the missing mid file is required.
+        IReadOnlyList<string> inMidSpan = ExportSourceValidator.GetMissingPaths(
+            ExportSourceValidator.CollectRenderableSources(scene, new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(3))));
+        // [6s, 10s) samples only the end key → the mid file is not required.
+        IReadOnlyList<string> afterMid = ExportSourceValidator.GetMissingPaths(
             ExportSourceValidator.CollectRenderableSources(scene, new TimeRange(TimeSpan.FromSeconds(6), TimeSpan.FromSeconds(4))));
 
         Assert.Multiple(() =>
         {
-            Assert.That(wholeRange, Is.EqualTo(new[] { oldMissing }));
-            Assert.That(afterSwitch, Is.Empty);
+            Assert.That(inMidSpan, Is.EqualTo(new[] { midMissing }));
+            Assert.That(afterMid, Is.Empty);
         });
     }
 
