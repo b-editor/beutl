@@ -23,12 +23,15 @@ internal static class RippleHelper
             .Where(e => e.ZIndex == zIndex && e.IsLocked)
             .ToArray();
 
-        foreach (Element e in scene.Children)
-        {
-            if (e.ZIndex != zIndex || except.Contains(e) || e.IsLocked || e.Start < anchorEnd) continue;
+        Element[] candidates = scene.Children
+            .Where(e => e.ZIndex == zIndex && !except.Contains(e) && !e.IsLocked && e.Start >= anchorEnd)
+            .OrderBy(e => e.Start)
+            .ToArray();
 
+        foreach (Element e in candidates)
+        {
             TimeRange shifted = e.Range.WithStart(e.Start + delta);
-            if (Array.Exists(lockedOnLayer, l => shifted.Intersects(l.Range))) continue;
+            if (Array.Exists(lockedOnLayer, l => shifted.Intersects(l.Range))) break;
 
             e.Start += delta;
         }

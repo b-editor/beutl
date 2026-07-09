@@ -369,6 +369,28 @@ public class RippleEditTests
     }
 
     [Test]
+    public void ShiftAfter_LockedClip_StopsPropagationToLaterFollowers()
+    {
+        Element a = AddElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(2));
+        Element locked = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
+        Element free1 = AddElement(TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(2));
+        Element free2 = AddElement(TimeSpan.FromSeconds(6), TimeSpan.FromSeconds(2));
+        locked.IsLocked = true;
+
+        RippleHelper.ShiftAfter(_scene, zIndex: 0, anchorEnd: TimeSpan.FromSeconds(2),
+            delta: TimeSpan.FromSeconds(-2), except: [a]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(locked.Start, Is.EqualTo(TimeSpan.FromSeconds(2)), "locked clip must not move");
+            Assert.That(free1.Start, Is.EqualTo(TimeSpan.FromSeconds(4)),
+                "free1 is blocked by the locked clip and stays put");
+            Assert.That(free2.Start, Is.EqualTo(TimeSpan.FromSeconds(6)),
+                "propagation stops at the locked clip, so free2 is not shifted into free1");
+        });
+    }
+
+    [Test]
     public void Delete_RippleOn_LockedClipBeforeFollower_StopsRipple()
     {
         var structure = new ElementStructureService(_history);
