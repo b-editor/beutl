@@ -31,7 +31,7 @@
 
                     <Grid Grid.Row="1" RowDefinitions="Auto,Auto">
                         <Grid.Styles>
-                            <Style Selector="icons|SymbolIcon">
+                            <Style Selector="icons|FluentIcon">
                                 <Setter Property="FontSize" Value="20" />
                             </Style>
                             <Style Selector="TextBox.invalid">
@@ -118,13 +118,13 @@
                             <Button Name="PART_StartButton"
                                     Grid.Column="1"
                                     Theme="{StaticResource TransparentButton}">
-                                <icons:SymbolIcon Symbol="Previous" />
+                                <icons:FluentIcon Icon="Previous" />
                             </Button>
 
                             <RepeatButton Name="PART_PreviousButton"
                                           Grid.Column="2"
                                           Theme="{StaticResource TransparentButton}">
-                                <icons:SymbolIcon Symbol="Rewind" />
+                                <icons:FluentIcon Icon="Rewind" />
                             </RepeatButton>
 
                             <ToggleButton Name="PART_PlayButton"
@@ -135,14 +135,14 @@
                                     <Style Selector="ToggleButton">
                                         <Setter Property="Content">
                                             <Template>
-                                                <icons:SymbolIcon Symbol="Play" />
+                                                <icons:FluentIcon Icon="Play" />
                                             </Template>
                                         </Setter>
                                     </Style>
                                     <Style Selector="ToggleButton:checked">
                                         <Setter Property="Content">
                                             <Template>
-                                                <icons:SymbolIcon Symbol="Pause" />
+                                                <icons:FluentIcon Icon="Pause" />
                                             </Template>
                                         </Setter>
                                     </Style>
@@ -152,13 +152,13 @@
                             <RepeatButton Name="PART_NextButton"
                                           Grid.Column="4"
                                           Theme="{StaticResource TransparentButton}">
-                                <icons:SymbolIcon Symbol="FastForward" />
+                                <icons:FluentIcon Icon="FastForward" />
                             </RepeatButton>
 
                             <Button Name="PART_EndButton"
                                     Grid.Column="5"
                                     Theme="{StaticResource TransparentButton}">
-                                <icons:SymbolIcon Symbol="Next" />
+                                <icons:FluentIcon Icon="Next" />
                             </Button>
 
                             <ToggleButton Name="PART_LoopButton"
@@ -166,7 +166,7 @@
                                           IsChecked="{TemplateBinding IsLoopEnabled, Mode=TwoWay}"
                                           Theme="{StaticResource TransparentToggleButton}"
                                           ToolTip.Tip="Loop">
-                                <icons:SymbolIcon Symbol="ArrowRepeat1" />
+                                <icons:FluentIcon Icon="ArrowRepeat1" />
                             </ToggleButton>
                         </StackPanel>
                     </Grid>

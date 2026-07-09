@@ -16,6 +16,9 @@ using FluentAvalonia.UI.Controls;
 
 using Microsoft.Extensions.Logging;
 
+using FluentIcon = FluentIcons.Avalonia.Fluent.FluentIcon;
+using Icon = FluentIcons.Common.Icon;
+
 namespace Beutl.Views;
 
 public partial class PlayerView
@@ -33,9 +36,9 @@ public partial class PlayerView
         _saveFrameAsImage = new MenuItem
         {
             Header = Strings.SaveFrameAsImage,
-            Icon = new SymbolIcon
+            Icon = new FluentIcon
             {
-                Symbol = Symbol.Image
+                Icon = Icon.Image
             },
         };
         _saveFrameAsImage.Click += OnSaveFrameAsImageClick;

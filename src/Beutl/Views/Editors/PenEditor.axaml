@@ -38,7 +38,7 @@
                             <ui:MenuFlyoutItem Click="DeleteClick" Text="{x:Static lang:Strings.Remove}" />
                         </ui:FAMenuFlyout>
                     </Button.ContextFlyout>
-                    <icons:SymbolIcon Symbol="Compose" />
+                    <icons:FluentIcon Icon="Compose" />
                 </Button>
             </ToggleButton.Tag>
         </ToggleButton>

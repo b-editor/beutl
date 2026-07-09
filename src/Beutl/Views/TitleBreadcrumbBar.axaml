@@ -4,6 +4,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:ui="clr-namespace:FluentAvalonia.UI.Controls;assembly=FluentAvalonia"
              xmlns:viewModels="using:Beutl.ViewModels"
              x:Name="Root"
@@ -40,9 +41,9 @@
                    Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                    Text="{Binding ProjectName.Value}" />
 
-        <ui:SymbolIcon VerticalAlignment="Center"
-                       IsVisible="{Binding IsProjectOpened.Value}"
-                       Symbol="ChevronRight" />
+        <icons:FluentIcon VerticalAlignment="Center"
+                          IsVisible="{Binding IsProjectOpened.Value}"
+                          Icon="ChevronRight" />
 
         <Button Name="FileButton"
                 VerticalAlignment="Center"
@@ -76,16 +77,16 @@
                                                 Command="{ReflectionBinding #Root.DataContext.CloseOrRemoveFile}"
                                                 CommandParameter="{Binding .}"
                                                 Theme="{StaticResource TransparentButton}">
-                                            <ui:SymbolIcon Classes.delete="{ReflectionBinding #Root.DataContext.IsProjectOpened.Value}">
-                                                <ui:SymbolIcon.Styles>
-                                                    <Style Selector="ui|SymbolIcon">
-                                                        <Setter Property="Symbol" Value="Clear" />
+                                            <icons:FluentIcon Classes.delete="{ReflectionBinding #Root.DataContext.IsProjectOpened.Value}">
+                                                <icons:FluentIcon.Styles>
+                                                    <Style Selector="icons|FluentIcon">
+                                                        <Setter Property="Icon" Value="Dismiss" />
                                                     </Style>
-                                                    <Style Selector="ui|SymbolIcon.delete">
-                                                        <Setter Property="Symbol" Value="Delete" />
+                                                    <Style Selector="icons|FluentIcon.delete">
+                                                        <Setter Property="Icon" Value="Delete" />
                                                     </Style>
-                                                </ui:SymbolIcon.Styles>
-                                            </ui:SymbolIcon>
+                                                </icons:FluentIcon.Styles>
+                                            </icons:FluentIcon>
                                         </Button>
                                     </Grid>
                                 </DataTemplate>

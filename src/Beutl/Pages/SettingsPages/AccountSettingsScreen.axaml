@@ -29,9 +29,9 @@
                         CornerRadius="32"
                         IsVisible="{Binding ProfileImage.Value, Converter={x:Static StringConverters.IsNullOrEmpty}}">
 
-                    <icons:SymbolIcon VerticalAlignment="Center"
+                    <icons:FluentIcon VerticalAlignment="Center"
                                       FontSize="30"
-                                      Symbol="Person" />
+                                      Icon="Person" />
                 </Border>
                 <asyncImage:AdvancedImage Width="64"
                                           Height="64"
@@ -62,7 +62,7 @@
                         Command="{Binding SignOut}"
                         Theme="{StaticResource TransparentButton}">
                     <Grid ColumnDefinitions="Auto,8,Auto">
-                        <icons:SymbolIcon FontSize="20" Symbol="SignOut" />
+                        <icons:FluentIcon FontSize="20" Icon="SignOut" />
                         <TextBlock Grid.Column="2"
                                    VerticalAlignment="Center"
                                    FontSize="12"
@@ -77,7 +77,7 @@
                                       NavigationCommand="{Binding OpenAccountSettings}">
 
                 <ctrls:OptionsDisplayItem.Icon>
-                    <icons:SymbolIcon Symbol="Open" />
+                    <icons:FluentIcon Icon="Open" />
                 </ctrls:OptionsDisplayItem.Icon>
             </ctrls:OptionsDisplayItem>
         </StackPanel>

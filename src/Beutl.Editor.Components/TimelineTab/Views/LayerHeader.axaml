@@ -35,9 +35,9 @@
                     <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
                 </Style>
             </Border.Styles>
-            <icons:SymbolIcon VerticalAlignment="Center"
+            <icons:FluentIcon VerticalAlignment="Center"
                               FontSize="14"
-                              Symbol="ReOrderDotsVertical" />
+                              Icon="ReOrderDotsVertical" />
         </Border>
 
         <ToggleButton Grid.Column="1"

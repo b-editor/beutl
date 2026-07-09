@@ -132,7 +132,7 @@
                                                       IsVisible="{Binding IsRemote}" />
                                         </ContextMenu>
                                     </Button.ContextMenu>
-                                    <icons:SymbolIcon FontSize="20" Symbol="MoreHorizontal" />
+                                    <icons:FluentIcon FontSize="20" Icon="MoreHorizontal" />
                                 </Button>
                             </Grid>
                         </Button>

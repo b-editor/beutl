@@ -1,6 +1,7 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:local="using:Beutl.Controls.PropertyEditors"
+                    xmlns:icons="using:FluentIcons.Avalonia.Fluent"
                     xmlns:ui="clr-namespace:FluentAvalonia.UI.Controls;assembly=FluentAvalonia"
                     x:CompileBindings="True">
     <Design.PreviewWith>
@@ -75,7 +76,7 @@
                                             HorizontalAlignment="Stretch"
                                             VerticalAlignment="Stretch"
                                             Theme="{StaticResource FlyoutAcceptDismiss}">
-                                        <ui:SymbolIcon FontSize="18" Symbol="Checkmark" />
+                                        <icons:FluentIcon FontSize="18" Icon="Checkmark" />
                                     </Button>
                                     <Button Name="DismissButton"
                                             Grid.Column="1"
@@ -83,7 +84,7 @@
                                             HorizontalAlignment="Stretch"
                                             VerticalAlignment="Stretch"
                                             Theme="{StaticResource FlyoutAcceptDismiss}">
-                                        <ui:SymbolIcon FontSize="16" Symbol="Dismiss" />
+                                        <icons:FluentIcon FontSize="16" Icon="Dismiss" />
                                     </Button>
                                 </Grid>
 

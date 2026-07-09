@@ -9,6 +9,7 @@ using FluentAvalonia.UI.Media.Animation;
 using FluentAvalonia.UI.Navigation;
 using FluentAvalonia.UI.Windowing;
 using Microsoft.Extensions.Logging;
+using FluentIconSource = FluentIcons.Avalonia.Fluent.FluentIconSource;
 
 namespace Beutl.Pages;
 
@@ -89,39 +90,39 @@ public sealed partial class SettingsDialog : AppWindow
             {
                 Content = SettingsStrings.Account,
                 Tag = typeof(AccountSettingsPage),
-                IconSource = new SymbolIconSource { Symbol = Symbol.People }
+                IconSource = new FluentIconSource { Icon = FluentIcons.Common.Icon.People }
             },
             new NavigationViewItem()
             {
                 Content = Strings.View,
                 Tag = typeof(ViewSettingsPage),
-                IconSource = new SymbolIconSource { Symbol = Symbol.View }
+                IconSource = new FluentIconSource { Icon = FluentIcons.Common.Icon.Eye }
             },
             new NavigationViewItem()
             {
                 Content = Strings.Editor,
                 Tag = typeof(EditorSettingsPage),
-                IconSource = new SymbolIconSource { Symbol = Symbol.Edit }
+                IconSource = new FluentIconSource { Icon = FluentIcons.Common.Icon.Edit }
             },
             new NavigationViewItem()
             {
                 Content = SettingsStrings.Keymap,
                 Tag = typeof(KeyMapSettingsPage),
-                IconSource = new SymbolIconSource { Symbol = Symbol.Keyboard }
+                IconSource = new FluentIconSource { Icon = FluentIcons.Common.Icon.Keyboard }
             },
             new NavigationViewItem()
             {
                 Content = SettingsStrings.Font,
                 Tag = typeof(FontSettingsPage),
-                IconSource = new SymbolIconSource { Symbol = Symbol.Font }
+                IconSource = new FluentIconSource { Icon = FluentIcons.Common.Icon.TextFont }
             },
             new NavigationViewItem()
             {
                 Content = Strings.Extensions,
                 Tag = typeof(ExtensionsSettingsPage),
-                IconSource = new FluentIcons.Avalonia.Fluent.SymbolIconSource()
+                IconSource = new FluentIconSource()
                 {
-                    Symbol = FluentIcons.Common.Symbol.PuzzlePiece
+                    Icon = FluentIcons.Common.Icon.PuzzlePiece
                 }
             },
             new NavigationViewItem()
@@ -137,9 +138,9 @@ public sealed partial class SettingsDialog : AppWindow
             {
                 Content = Strings.Info,
                 Tag = typeof(InformationPage),
-                IconSource = new FluentIcons.Avalonia.Fluent.SymbolIconSource()
+                IconSource = new FluentIconSource()
                 {
-                    Symbol = FluentIcons.Common.Symbol.Info
+                    Icon = FluentIcons.Common.Icon.Info
                 }
             }
         ];

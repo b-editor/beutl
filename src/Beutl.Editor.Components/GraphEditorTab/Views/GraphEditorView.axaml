@@ -60,17 +60,17 @@
                     <ContextMenu>
                         <MenuItem Command="{Binding CopyAllKeyFramesCommand}" Header="{x:Static lang:Strings.CopyAll}">
                             <MenuItem.Icon>
-                                <icons:SymbolIcon Symbol="DocumentCopy" />
+                                <icons:FluentIcon Icon="DocumentCopy" />
                             </MenuItem.Icon>
                         </MenuItem>
                         <MenuItem Command="{Binding PasteKeyFrameAtCurrentPositionCommand}" Header="{x:Static lang:Strings.Paste}">
                             <MenuItem.Icon>
-                                <icons:SymbolIcon Symbol="ClipboardPaste" />
+                                <icons:FluentIcon Icon="ClipboardPaste" />
                             </MenuItem.Icon>
                         </MenuItem>
                         <MenuItem Header="{x:Static lang:Strings.TimelineZoom}" MenuItem.Click="ZoomClick">
                             <MenuItem.Icon>
-                                <icons:SymbolIcon Symbol="ZoomIn" />
+                                <icons:FluentIcon Icon="ZoomIn" />
                             </MenuItem.Icon>
                             <MenuItem CommandParameter="8.75" Header="875%" />
                             <MenuItem CommandParameter="7.0" Header="700%" />
@@ -116,7 +116,7 @@
                         </MenuItem>
                         <MenuItem Click="ShowBpmGridFlyout" Header="{x:Static lang:Strings.BpmGrid}">
                             <MenuItem.Icon>
-                                <icons:SymbolIcon Symbol="MusicNote1" />
+                                <icons:FluentIcon Icon="MusicNote1" />
                             </MenuItem.Icon>
                         </MenuItem>
                         <MenuItem Command="{Binding ToggleUseGlobalClock}"

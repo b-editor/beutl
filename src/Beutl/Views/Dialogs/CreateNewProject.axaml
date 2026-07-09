@@ -30,7 +30,7 @@
                 <TextBox Text="{CompiledBinding Location.Value, Mode=TwoWay}">
                     <TextBox.InnerRightContent>
                         <Button Click="PickLocation" Theme="{StaticResource TransparentButton}">
-                            <icons:SymbolIcon Symbol="OpenFolder" />
+                            <icons:FluentIcon Icon="OpenFolder" />
                         </Button>
                     </TextBox.InnerRightContent>
                 </TextBox>

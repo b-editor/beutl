@@ -3,6 +3,7 @@
                     xmlns:behaviors="using:Beutl.Controls.Behaviors"
                     xmlns:lang="using:Beutl.Language"
                     xmlns:local="using:Beutl.Controls.PropertyEditors"
+                    xmlns:icons="using:FluentIcons.Avalonia.Fluent"
                     xmlns:ui="using:FluentAvalonia.UI.Controls"
                     x:CompileBindings="True">
     <Design.PreviewWith>
@@ -67,7 +68,7 @@
                                 </ToggleButton>
                                 <ToggleButton Name="DrawableBrushTabButton">
                                     <Border Classes="icon">
-                                        <ui:SymbolIcon Symbol="ImageFilled" />
+                                        <icons:FluentIcon Icon="Image" />
                                     </Border>
                                 </ToggleButton>
                                 <ToggleButton Name="PaletteTabButton">
@@ -102,7 +103,7 @@
                                             HorizontalAlignment="Stretch"
                                             VerticalAlignment="Stretch"
                                             Theme="{StaticResource FlyoutAcceptDismiss}">
-                                        <ui:SymbolIcon FontSize="18" Symbol="Checkmark" />
+                                        <icons:FluentIcon FontSize="18" Icon="Checkmark" />
                                     </Button>
                                     <Button Name="DismissButton"
                                             Grid.Column="1"
@@ -110,7 +111,7 @@
                                             HorizontalAlignment="Stretch"
                                             VerticalAlignment="Stretch"
                                             Theme="{StaticResource FlyoutAcceptDismiss}">
-                                        <ui:SymbolIcon FontSize="16" Symbol="Dismiss" />
+                                        <icons:FluentIcon FontSize="16" Icon="Dismiss" />
                                     </Button>
                                 </Grid>
 
@@ -263,7 +264,7 @@
                         <Setter Property="RadiusX" Value="1" />
                         <Setter Property="RadiusY" Value="1" />
                     </Style>
-                    <Style Selector="^ &gt; ui|SymbolIcon">
+                    <Style Selector="^ &gt; icons|FluentIcon">
                         <Setter Property="Width" Value="12" />
                         <Setter Property="Height" Value="12" />
                     </Style>

@@ -24,7 +24,7 @@
                             HorizontalContentAlignment="Center"
                             VerticalContentAlignment="Center"
                             Theme="{StaticResource TransparentButton}">
-                        <icons:SymbolIcon Symbol="Compose" />
+                        <icons:FluentIcon Icon="Compose" />
                     </Button>
 
                 </ToggleButton.Tag>-->
@@ -44,7 +44,7 @@
         <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
         <Setter Property="Tag">
             <Template>
-                <icons:SymbolIcon Margin="0,1,0,0" Symbol="ReOrderDotsVertical" />
+                <icons:FluentIcon Margin="0,1,0,0" Icon="ReOrderDotsVertical" />
             </Template>
         </Setter>
         <Setter Property="Template">
@@ -146,7 +146,7 @@
         <Setter Property="Cursor" Value="SizeNorthSouth" />
         <Setter Property="Child">
             <Template>
-                <icons:SymbolIcon VerticalAlignment="Center" Symbol="ReOrderDotsVertical" />
+                <icons:FluentIcon VerticalAlignment="Center" Icon="ReOrderDotsVertical" />
             </Template>
         </Setter>
 

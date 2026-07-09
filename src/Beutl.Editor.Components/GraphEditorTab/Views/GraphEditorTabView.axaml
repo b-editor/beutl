@@ -4,6 +4,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:view="using:Beutl.Editor.Components.GraphEditorTab.Views"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:viewModels="using:Beutl.Editor.Components.GraphEditorTab.ViewModels"
              xmlns:lang="using:Beutl.Language"
@@ -29,7 +30,7 @@
                     </Style>
                 </StackPanel.Styles>
                 <Button Command="{Binding Refresh}" Theme="{StaticResource TransparentButton}">
-                    <ui:SymbolIcon Symbol="Refresh" />
+                    <icons:FluentIcon Icon="ArrowClockwise" />
                 </Button>
                 <RadioButton Click="ToggleDragModeClick"
                              GroupName="PathEditor_DragMode"

@@ -8,6 +8,8 @@ using FluentAvalonia.Core;
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Controls.Primitives;
 using Reactive.Bindings;
+using FluentIcon = FluentIcons.Avalonia.Fluent.FluentIcon;
+using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.Pages.SettingsPages;
 
@@ -69,7 +71,7 @@ public sealed class KeyMapFlyout : PickerFlyoutBase
         textBox.IsReadOnly = true;
         var deleteButton = new Button
         {
-            Content = new SymbolIcon { Symbol = Symbol.Delete },
+            Content = new FluentIcon { Icon = Icon.Delete },
             Theme = Application.Current?.FindResource("TransparentButton") as ControlTheme,
             Margin = new(4, 0, 0, 0)
         };

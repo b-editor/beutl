@@ -11,14 +11,13 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
-
 using Beutl.Language;
 using Beutl.Reactive;
 using Beutl.Utilities;
-
 using FluentAvalonia.UI.Controls;
-
 using Reactive.Bindings.Extensions;
+using FluentIconSource = FluentIcons.Avalonia.Fluent.FluentIconSource;
+using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.Controls.PropertyEditors;
 
@@ -378,9 +377,9 @@ public class GradientStopsSlider : TemplatedControl
                 _deleteMenuItem = new MenuFlyoutItem
                 {
                     Text = Strings.Delete,
-                    IconSource = new SymbolIconSource
+                    IconSource = new FluentIconSource
                     {
-                        Symbol = Symbol.Delete
+                        Icon = Icon.Delete
                     }
                 };
                 _deleteMenuItem.Click += (s, e) =>

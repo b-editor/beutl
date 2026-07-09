@@ -4,6 +4,7 @@
                     xmlns:conv="using:FluentAvalonia.Converters"
                     xmlns:lang="using:Beutl.Language"
                     xmlns:sty="using:FluentAvalonia.Styling"
+                    xmlns:icons="using:FluentIcons.Avalonia.Fluent"
                     xmlns:ui="using:FluentAvalonia.UI.Controls"
                     xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
                     x:CompileBindings="True">
@@ -571,10 +572,10 @@
                                                                   Mode=TwoWay}"
                                       IsVisible="{TemplateBinding IsMoreButtonVisible}"
                                       Theme="{StaticResource ColorPickerMoreButtonStyle}">
-                            <ui:SymbolIcon Name="MoreButtonIcon"
-                                           VerticalAlignment="Center"
-                                           FontSize="20"
-                                           Symbol="ChevronLeft" />
+                            <icons:FluentIcon Name="MoreButtonIcon"
+                                              VerticalAlignment="Center"
+                                              FontSize="20"
+                                              Icon="ChevronLeft" />
                         </ToggleButton>
 
                         <StackPanel Name="TextEntryArea"
@@ -916,7 +917,7 @@
                 </Style>
             </Style>
 
-            <Style Selector="^ /template/ ui|SymbolIcon#MoreButtonIcon">
+            <Style Selector="^ /template/ icons|FluentIcon#MoreButtonIcon">
                 <Setter Property="RenderTransform" Value="rotate(180deg)" />
             </Style>
         </Style>

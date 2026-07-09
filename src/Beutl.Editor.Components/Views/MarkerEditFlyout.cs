@@ -7,6 +7,8 @@ using Beutl.Editor.Components.Helpers;
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Controls.Primitives;
 using AvaColor = Avalonia.Media.Color;
+using FluentIcon = FluentIcons.Avalonia.Fluent.FluentIcon;
+using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.Editor.Components.Views;
 
@@ -88,7 +90,7 @@ public sealed class MarkerEditFlyout : PickerFlyoutBase
                 Spacing = 6,
                 Children =
                 {
-                    new SymbolIcon { Symbol = Symbol.Delete, FontSize = 14 },
+                    new FluentIcon { Icon = Icon.Delete, FontSize = 14 },
                     new TextBlock { Text = Strings.Delete, VerticalAlignment = VerticalAlignment.Center },
                 },
             },

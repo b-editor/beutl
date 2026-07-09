@@ -30,7 +30,7 @@
                     Background="Transparent"
                     BorderThickness="0"
                     Click="PickLocation">
-                <icons:SymbolIcon Symbol="OpenFolder" />
+                <icons:FluentIcon Icon="OpenFolder" />
             </Button>
         </Panel>
 

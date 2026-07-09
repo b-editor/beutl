@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:viewModel="using:Beutl.Editor.Components.ObjectPropertyTab.ViewModels"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
@@ -15,7 +16,7 @@
                         Padding="8"
                         BorderThickness="0"
                         Background="Transparent">
-                    <ui:SymbolIcon Symbol="Back" FontSize="16" />
+                    <icons:FluentIcon Icon="ArrowLeft" FontSize="16" />
                 </Button>
             </StackPanel>
 

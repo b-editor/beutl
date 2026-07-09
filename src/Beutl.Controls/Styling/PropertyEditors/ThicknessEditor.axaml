@@ -47,13 +47,13 @@
                                         BorderBrush="{DynamicResource TextControlBorderBrush}"
                                         BorderThickness="{DynamicResource TextControlBorderThemeThickness}"
                                         CornerRadius="{DynamicResource ControlCornerRadius}" />
-                                <icons:SymbolIcon Name="PART_SelectedSide"
+                                <icons:FluentIcon Name="PART_SelectedSide"
                                                   Width="16"
                                                   Height="16"
                                                   Margin="8,0,12,2"
                                                   ClipToBounds="False"
                                                   FontSize="18"
-                                                  Symbol="BorderNone" />
+                                                  Icon="BorderNone" />
 
                                 <TextBox x:Name="PART_InnerFirstTextBox"
                                          Grid.Column="1"
@@ -138,13 +138,13 @@
                                             BorderBrush="{DynamicResource TextControlBorderBrush}"
                                             BorderThickness="{DynamicResource TextControlBorderThemeThickness}"
                                             CornerRadius="{DynamicResource ControlCornerRadius}" />
-                                    <icons:SymbolIcon Name="PART_SelectedSide"
+                                    <icons:FluentIcon Name="PART_SelectedSide"
                                                       Width="16"
                                                       Height="16"
                                                       Margin="8,0,12,2"
                                                       ClipToBounds="False"
                                                       FontSize="18"
-                                                      Symbol="BorderNone" />
+                                                      Icon="BorderNone" />
 
                                     <TextBox x:Name="PART_InnerFirstTextBox"
                                              Grid.Column="1"
@@ -192,7 +192,7 @@
                                     Padding="0"
                                     Classes="size-24x24"
                                     Theme="{StaticResource TransparentButton}">
-                                <icons:SymbolIcon Symbol="Delete" />
+                                <icons:FluentIcon Icon="Delete" />
                             </Button>
                         </Grid>
                     </Border>
@@ -239,12 +239,12 @@
                                                 BorderThickness="{DynamicResource TextControlBorderThemeThickness}"
                                                 CornerRadius="{DynamicResource ControlCornerRadius}" />
 
-                                        <icons:SymbolIcon Width="16"
+                                        <icons:FluentIcon Width="16"
                                                           Height="16"
                                                           Margin="8,0,12,2"
                                                           ClipToBounds="False"
                                                           FontSize="18"
-                                                          Symbol="BorderOutside" />
+                                                          Icon="BorderOutside" />
 
                                         <TextBox x:Name="PART_InnerFirstTextBox"
                                                  Grid.Column="1"
@@ -364,12 +364,12 @@
                                             BorderBrush="{DynamicResource TextControlBorderBrush}"
                                             BorderThickness="{DynamicResource TextControlBorderThemeThickness}"
                                             CornerRadius="{DynamicResource ControlCornerRadius}" />
-                                    <icons:SymbolIcon Width="16"
+                                    <icons:FluentIcon Width="16"
                                                       Height="16"
                                                       Margin="8,0,12,2"
                                                       ClipToBounds="False"
                                                       FontSize="18"
-                                                      Symbol="BorderOutside" />
+                                                      Icon="BorderOutside" />
 
                                     <TextBox x:Name="PART_InnerFirstTextBox"
                                              Grid.Column="1"
@@ -405,17 +405,17 @@
             </Setter>
         </Style>
 
-        <Style Selector="^:focus-1st-textbox /template/ icons|SymbolIcon#PART_SelectedSide">
-            <Setter Property="Symbol" Value="BorderLeft" />
+        <Style Selector="^:focus-1st-textbox /template/ icons|FluentIcon#PART_SelectedSide">
+            <Setter Property="Icon" Value="BorderLeft" />
         </Style>
-        <Style Selector="^:focus-2nd-textbox /template/ icons|SymbolIcon#PART_SelectedSide">
-            <Setter Property="Symbol" Value="BorderTop" />
+        <Style Selector="^:focus-2nd-textbox /template/ icons|FluentIcon#PART_SelectedSide">
+            <Setter Property="Icon" Value="BorderTop" />
         </Style>
-        <Style Selector="^:focus-3rd-textbox /template/ icons|SymbolIcon#PART_SelectedSide">
-            <Setter Property="Symbol" Value="BorderRight" />
+        <Style Selector="^:focus-3rd-textbox /template/ icons|FluentIcon#PART_SelectedSide">
+            <Setter Property="Icon" Value="BorderRight" />
         </Style>
-        <Style Selector="^:focus-4th-textbox /template/ icons|SymbolIcon#PART_SelectedSide">
-            <Setter Property="Symbol" Value="BorderBottom" />
+        <Style Selector="^:focus-4th-textbox /template/ icons|FluentIcon#PART_SelectedSide">
+            <Setter Property="Icon" Value="BorderBottom" />
         </Style>
 
         <Style Selector="^:border-pointerover /template/ Border#PART_BackgroundBorder">

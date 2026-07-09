@@ -34,7 +34,7 @@
                                     Navigates="True"
                                     NavigationRequested="OpenContext">
                     <OptionsDisplayItem.Icon>
-                        <icons:SymbolIcon Symbol="New" />
+                        <icons:FluentIcon Icon="New" />
                     </OptionsDisplayItem.Icon>
                     <OptionsDisplayItem.ContextMenu>
                         <ContextMenu Placement="AnchorAndGravity"
@@ -52,7 +52,7 @@
                                     Navigates="True"
                                     NavigationRequested="OpenContext">
                     <OptionsDisplayItem.Icon>
-                        <icons:SymbolIcon Symbol="Open" />
+                        <icons:FluentIcon Icon="Open" />
                     </OptionsDisplayItem.Icon>
                     <OptionsDisplayItem.ContextMenu>
                         <ContextMenu Placement="AnchorAndGravity"
@@ -70,7 +70,7 @@
                                     Navigates="True"
                                     NavigationRequested="StartTutorial_Click">
                     <OptionsDisplayItem.Icon>
-                        <ui:SymbolIcon Symbol="Help" />
+                        <icons:FluentIcon Icon="QuestionCircle" />
                     </OptionsDisplayItem.Icon>
                 </OptionsDisplayItem>
             </WrapPanel>
@@ -164,10 +164,10 @@
                     AutomationProperties.Name="{x:Static lang:Strings.Website}"
                     Tag="Url"
                     ToolTip.Tip="{x:Static lang:Strings.Website}">
-                <ui:SymbolIcon Width="24"
-                               Height="24"
-                               FontSize="20"
-                               Symbol="Link" />
+                <icons:FluentIcon Width="24"
+                                  Height="24"
+                                  FontSize="20"
+                                  Icon="Link" />
             </Button>
         </StackPanel>
     </Grid>

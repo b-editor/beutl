@@ -14,6 +14,9 @@ using Beutl.Language;
 
 using FluentAvalonia.UI.Controls;
 
+using FluentIcon = FluentIcons.Avalonia.Fluent.FluentIcon;
+using Icon = FluentIcons.Common.Icon;
+
 namespace Beutl.Controls;
 
 public sealed class DirectoryTreeView : TreeView
@@ -48,45 +51,45 @@ public sealed class DirectoryTreeView : TreeView
         _open = new MenuItem
         {
             Header = Strings.Open,
-            Icon = new SymbolIcon
+            Icon = new FluentIcon
             {
-                Symbol = Symbol.Open,
+                Icon = Icon.Open,
                 FontSize = 20,
             }
         };
         _copy = new MenuItem
         {
             Header = Strings.Copy,
-            Icon = new SymbolIcon
+            Icon = new FluentIcon
             {
-                Symbol = Symbol.Copy,
+                Icon = Icon.Copy,
                 FontSize = 20,
             }
         };
         _remove = new MenuItem
         {
             Header = Strings.Remove,
-            Icon = new SymbolIcon
+            Icon = new FluentIcon
             {
-                Symbol = Symbol.Delete,
+                Icon = Icon.Delete,
                 FontSize = 20,
             }
         };
         _rename = new MenuItem
         {
             Header = Strings.Rename,
-            Icon = new SymbolIcon
+            Icon = new FluentIcon
             {
-                Symbol = Symbol.Rename,
+                Icon = Icon.Rename,
                 FontSize = 20,
             }
         };
         _addfolder = new MenuItem
         {
             Header = Strings.NewFolder,
-            Icon = new SymbolIcon
+            Icon = new FluentIcon
             {
-                Symbol = Symbol.Folder,
+                Icon = Icon.Folder,
                 FontSize = 20,
             }
         };

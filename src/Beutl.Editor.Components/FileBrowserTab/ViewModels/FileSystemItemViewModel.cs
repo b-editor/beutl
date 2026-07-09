@@ -3,7 +3,7 @@ using Avalonia.Media.Imaging;
 using Beutl.Editor.Components.FileBrowserTab.Services;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
-using Symbol = FluentIcons.Common.Symbol;
+using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.Editor.Components.FileBrowserTab.ViewModels;
 
@@ -58,7 +58,7 @@ public class FileSystemItemViewModel : IDisposable
 
     public string Extension { get; }
 
-    public Symbol IconSymbol { get; }
+    public Icon IconSymbol { get; }
 
     public ObservableCollection<FileSystemItemViewModel>? Children { get; }
 
@@ -130,46 +130,46 @@ public class FileSystemItemViewModel : IDisposable
         }
     }
 
-    private Symbol GetIconSymbol()
+    private Icon GetIconSymbol()
     {
         if (IsDirectory)
         {
-            return Symbol.Folder;
+            return Icon.Folder;
         }
 
         return Extension switch
         {
             // Image files
             ".png" or ".jpg" or ".jpeg" or ".gif" or ".bmp" or ".webp" or ".ico" or ".tiff" or ".tif" =>
-                Symbol.Image,
+                Icon.Image,
 
             // Video files
             ".mp4" or ".avi" or ".mov" or ".mkv" or ".wmv" or ".flv" or ".webm" =>
-                Symbol.Video,
+                Icon.Video,
 
             // Audio files
             ".mp3" or ".wav" or ".ogg" or ".flac" or ".aac" or ".wma" or ".m4a" =>
-                Symbol.MusicNote1,
+                Icon.MusicNote1,
 
             // Document files
-            ".pdf" => Symbol.DocumentPdf,
-            ".doc" or ".docx" => Symbol.Document,
-            ".txt" or ".md" or ".json" or ".xml" or ".yaml" or ".yml" => Symbol.DocumentText,
+            ".pdf" => Icon.DocumentPdf,
+            ".doc" or ".docx" => Icon.Document,
+            ".txt" or ".md" or ".json" or ".xml" or ".yaml" or ".yml" => Icon.DocumentText,
 
             // Code files
             ".cs" or ".fs" or ".vb" or ".py" or ".js" or ".ts" or ".html" or ".css" or ".xaml" or ".axaml" =>
-                Symbol.Code,
+                Icon.Code,
 
             // Archive files
             ".zip" or ".rar" or ".7z" or ".tar" or ".gz" =>
-                Symbol.FolderZip,
+                Icon.FolderZip,
 
             // Beutl project files
-            ".bepj" => Symbol.Folder,
-            ".besc" => Symbol.Filmstrip,
+            ".bepj" => Icon.Folder,
+            ".besc" => Icon.Filmstrip,
 
             // Default
-            _ => Symbol.Document
+            _ => Icon.Document
         };
     }
 

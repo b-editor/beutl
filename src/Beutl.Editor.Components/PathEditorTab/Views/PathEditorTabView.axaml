@@ -131,7 +131,7 @@
                           HorizontalAlignment="Center"
                           IsChecked="True"
                           Theme="{StaticResource TransparentToggleButton}">
-                <icons:SymbolIcon Symbol="InkStroke" />
+                <icons:FluentIcon Icon="InkStroke" />
             </ToggleButton>
             <ToggleButton Name="FillToggleButton"
                           Margin="0,4,0,0"
@@ -139,7 +139,7 @@
                           HorizontalAlignment="Center"
                           IsChecked="True"
                           Theme="{StaticResource TransparentToggleButton}">
-                <icons:SymbolIcon Symbol="InkingToolAccent" />
+                <icons:FluentIcon Icon="InkingToolAccent" />
             </ToggleButton>
         </StackPanel>
     </Panel>

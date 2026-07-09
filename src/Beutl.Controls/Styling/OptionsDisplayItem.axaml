@@ -1,6 +1,7 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:local="using:Beutl.Controls"
+                    xmlns:icons="using:FluentIcons.Avalonia.Fluent"
                     xmlns:ui="using:FluentAvalonia.UI.Controls">
     <!--  https://github.com/amwx/FluentAvalonia/blob/master/FluentAvaloniaSamples/Styles/OptionsDisplayItemStyles.axaml  -->
     <Design.PreviewWith>
@@ -96,9 +97,9 @@
                                     VerticalAlignment="Center"
                                     CornerRadius="{DynamicResource ControlCornerRadius}">
 
-                                <ui:SymbolIcon Name="Chevron"
-                                               Margin="4,4"
-                                               FontSize="20" />
+                                <icons:FluentIcon Name="Chevron"
+                                                  Margin="4,4"
+                                                  FontSize="20" />
                             </Border>
                         </Grid>
                     </Border>
@@ -121,7 +122,7 @@
         <Style Selector="^ /template/ Viewbox#IconHost">
             <Setter Property="IsVisible" Value="False" />
         </Style>
-        <Style Selector="^ /template/ ui|SymbolIcon#Chevron">
+        <Style Selector="^ /template/ icons|FluentIcon#Chevron">
             <Setter Property="IsVisible" Value="False" />
         </Style>
         <Style Selector="^ /template/ ContentPresenter#ExpandedContentPresenter">
@@ -146,9 +147,9 @@
         </Style>
 
         <Style Selector="^:navigates">
-            <Style Selector="^ /template/ ui|SymbolIcon#Chevron">
+            <Style Selector="^ /template/ icons|FluentIcon#Chevron">
                 <Setter Property="IsVisible" Value="True" />
-                <Setter Property="Symbol" Value="ChevronRight" />
+                <Setter Property="Icon" Value="ChevronRight" />
             </Style>
         </Style>
 
@@ -157,9 +158,9 @@
         </Style>
 
         <Style Selector="^:expands">
-            <Style Selector="^ /template/ ui|SymbolIcon#Chevron">
+            <Style Selector="^ /template/ icons|FluentIcon#Chevron">
                 <Setter Property="IsVisible" Value="True" />
-                <Setter Property="Symbol" Value="ChevronDown" />
+                <Setter Property="Icon" Value="ChevronDown" />
                 <Setter Property="RenderTransform" Value="rotate(0deg)" />
                 <Setter Property="Transitions">
                     <Transitions>
@@ -170,8 +171,8 @@
         </Style>
 
         <Style Selector="^:expanded">
-            <Style Selector="^ /template/ ui|SymbolIcon#Chevron">
-                <!--<Setter Property="Symbol" Value="ChevronUp" />-->
+            <Style Selector="^ /template/ icons|FluentIcon#Chevron">
+                <!--<Setter Property="Icon" Value="ChevronUp" />-->
                 <Setter Property="RenderTransform" Value="rotate(180deg)" />
             </Style>
             <Style Selector="^ /template/ ContentPresenter#ExpandedContentPresenter">

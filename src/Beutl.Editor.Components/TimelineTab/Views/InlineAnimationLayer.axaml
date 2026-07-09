@@ -21,17 +21,17 @@
         <ContextMenu>
             <MenuItem Command="{Binding CopyAllKeyFramesCommand}" Header="{x:Static lang:Strings.CopyAll}">
                 <MenuItem.Icon>
-                    <icons:SymbolIcon Symbol="Copy" />
+                    <icons:FluentIcon Icon="Copy" />
                 </MenuItem.Icon>
             </MenuItem>
             <MenuItem Command="{Binding PasteKeyFrameAtCurrentPositionCommand}" Header="{x:Static lang:Strings.Paste}">
                 <MenuItem.Icon>
-                    <icons:SymbolIcon Symbol="ClipboardPaste" />
+                    <icons:FluentIcon Icon="ClipboardPaste" />
                 </MenuItem.Icon>
             </MenuItem>
             <MenuItem Command="{Binding DeleteCurrentAnimationCommand}" Header="{x:Static lang:Strings.Delete}">
                 <MenuItem.Icon>
-                    <icons:SymbolIcon Symbol="Delete" />
+                    <icons:FluentIcon Icon="Delete" />
                 </MenuItem.Icon>
             </MenuItem>
         </ContextMenu>
@@ -77,17 +77,17 @@
                             <ContextMenu>
                                 <MenuItem Command="{Binding CopyCommand}" Header="{x:Static lang:Strings.Copy}">
                                     <MenuItem.Icon>
-                                        <icons:SymbolIcon Symbol="Copy" />
+                                        <icons:FluentIcon Icon="Copy" />
                                     </MenuItem.Icon>
                                 </MenuItem>
                                 <MenuItem Command="{Binding PasteCommand}" Header="{x:Static lang:Strings.Paste}">
                                     <MenuItem.Icon>
-                                        <icons:SymbolIcon Symbol="ClipboardPaste" />
+                                        <icons:FluentIcon Icon="ClipboardPaste" />
                                     </MenuItem.Icon>
                                 </MenuItem>
                                 <MenuItem Command="{Binding RemoveCommand}" Header="{x:Static lang:Strings.Delete}">
                                     <MenuItem.Icon>
-                                        <icons:SymbolIcon Symbol="Delete" />
+                                        <icons:FluentIcon Icon="Delete" />
                                     </MenuItem.Icon>
                                 </MenuItem>
                             </ContextMenu>

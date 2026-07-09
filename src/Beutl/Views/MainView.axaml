@@ -57,7 +57,7 @@
                     <!--  新規作成  -->
                     <MenuItem Header="{x:Static lang:Strings.CreateNew}">
                         <MenuItem.Icon>
-                            <icons:SymbolIcon Symbol="New" />
+                            <icons:FluentIcon Icon="New" />
                         </MenuItem.Icon>
                         <!--  プロジェクト  -->
                         <MenuItem Command="{CompiledBinding MenuBar.CreateNewProject}"
@@ -74,7 +74,7 @@
                     <!--  開く  -->
                     <MenuItem Header="{x:Static lang:Strings.Open}">
                         <MenuItem.Icon>
-                            <icons:SymbolIcon Symbol="Open" />
+                            <icons:FluentIcon Icon="Open" />
                         </MenuItem.Icon>
                         <!--  プロジェクト  -->
                         <MenuItem Command="{CompiledBinding MenuBar.OpenProject}"
@@ -102,7 +102,7 @@
                                                                  ExtensionType={x:Type p:MainViewExtension}}"
                               IsEnabled="{CompiledBinding IsProjectOpened.Value}">
                         <MenuItem.Icon>
-                            <icons:SymbolIcon Symbol="Save" />
+                            <icons:FluentIcon Icon="Save" />
                         </MenuItem.Icon>
                     </MenuItem>
                     <!--  すべて保存  -->
@@ -112,7 +112,7 @@
                                                                  ExtensionType={x:Type p:MainViewExtension}}"
                               IsEnabled="{CompiledBinding IsProjectOpened.Value}">
                         <MenuItem.Icon>
-                            <icons:SymbolIcon Symbol="SaveMultiple" />
+                            <icons:FluentIcon Icon="SaveMultiple" />
                         </MenuItem.Icon>
                     </MenuItem>
                     <Separator />
@@ -121,14 +121,14 @@
                               Header="{x:Static lang:Strings.ExportProject}"
                               IsEnabled="{CompiledBinding IsProjectOpened.Value}">
                         <MenuItem.Icon>
-                            <icons:SymbolIcon Symbol="ArrowExport" />
+                            <icons:FluentIcon Icon="ArrowExport" />
                         </MenuItem.Icon>
                     </MenuItem>
                     <!--  プロジェクトをインポート  -->
                     <MenuItem Command="{CompiledBinding MenuBar.ImportProject}"
                               Header="{x:Static lang:Strings.ImportProject}">
                         <MenuItem.Icon>
-                            <icons:SymbolIcon Symbol="ArrowImport" />
+                            <icons:FluentIcon Icon="ArrowImport" />
                         </MenuItem.Icon>
                     </MenuItem>
                     <Separator />
@@ -154,7 +154,7 @@
                                                                  ExtensionType={x:Type p:MainViewExtension}}"
                               IsEnabled="{CompiledBinding IsProjectOpened.Value}">
                         <MenuItem.Icon>
-                            <icons:SymbolIcon Symbol="ArrowUndo" />
+                            <icons:FluentIcon Icon="ArrowUndo" />
                         </MenuItem.Icon>
                     </MenuItem>
                     <!--  やり直し  -->
@@ -164,7 +164,7 @@
                                                                  ExtensionType={x:Type p:MainViewExtension}}"
                               IsEnabled="{CompiledBinding IsProjectOpened.Value}">
                         <MenuItem.Icon>
-                            <icons:SymbolIcon Symbol="ArrowRedo" />
+                            <icons:FluentIcon Icon="ArrowRedo" />
                         </MenuItem.Icon>
                     </MenuItem>
                 </MenuItem>
@@ -250,7 +250,7 @@
                         Click="OpenFeedbackClick"
                         ToolTip.Tip="{x:Static lang:Strings.Feedback}"
                         Theme="{StaticResource TitleBarButtonStyle}">
-                    <icons:SymbolIcon Symbol="Chat" Margin="0,0,0,2" />
+                    <icons:FluentIcon Icon="Chat" Margin="0,0,0,2" />
                 </Button>
 
                 <Button x:Name="OpenNotificationsButton"
@@ -267,9 +267,9 @@
                         </Flyout>
                     </Button.Flyout>
                     <Panel>
-                        <ui:SymbolIcon HorizontalAlignment="Center"
-                                       VerticalAlignment="Center"
-                                       Symbol="Alert" />
+                        <icons:FluentIcon HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"
+                                          Icon="Alert" />
                         <ui:InfoBadge Width="8"
                                       Height="8"
                                       Margin="0,4,4,0"

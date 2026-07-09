@@ -37,16 +37,16 @@
                     </Style>
                 </StackPanel.Styles>
                 <RadioButton AutomationProperties.Name="{x:Static lang:Strings.Move}" IsChecked="{Binding IsMoveMode.Value}" ToolTip.Tip="{x:Static lang:Strings.Move}">
-                    <icons:SymbolIcon FontSize="16" Symbol="Cursor" />
+                    <icons:FluentIcon Icon="Cursor" />
                 </RadioButton>
                 <RadioButton AutomationProperties.Name="{x:Static lang:Strings.Hand}" IsChecked="{Binding IsHandMode.Value}" ToolTip.Tip="{x:Static lang:Strings.Hand}">
-                    <icons:SymbolIcon FontSize="16" Symbol="HandLeft" />
+                    <icons:FluentIcon Icon="HandLeft" />
                 </RadioButton>
                 <RadioButton AutomationProperties.Name="{x:Static lang:Strings.CropSelection}" IsChecked="{Binding IsCropMode.Value}" ToolTip.Tip="{x:Static lang:Strings.CropSelection}">
-                    <icons:SymbolIcon FontSize="16" Symbol="Crop" />
+                    <icons:FluentIcon Icon="Crop" />
                 </RadioButton>
                 <RadioButton AutomationProperties.Name="{x:Static lang:Strings.Camera3DControl}" IsChecked="{Binding IsCameraMode.Value}" ToolTip.Tip="{x:Static lang:Strings.Camera3DControl}">
-                    <icons:SymbolIcon FontSize="16" Symbol="Video" />
+                    <icons:FluentIcon Icon="Video" />
                 </RadioButton>
                 <!--  Gizmo Mode Selection (visible only in Camera Mode)  -->
                 <Border Margin="0,8,0,0"
@@ -59,21 +59,21 @@
                              IsVisible="{Binding IsCameraMode.Value}"
                              AutomationProperties.Name="{x:Static lang:Strings.Gizmo_Translate}"
                              ToolTip.Tip="{x:Static lang:Strings.Gizmo_Translate}">
-                    <icons:SymbolIcon FontSize="16" Symbol="ArrowMove" />
+                    <icons:FluentIcon Icon="ArrowMove" />
                 </RadioButton>
                 <RadioButton GroupName="GizmoMode"
                              IsChecked="{Binding SelectedGizmoMode.Value, Converter={x:Static converters:GizmoModeConverters.IsRotate}}"
                              IsVisible="{Binding IsCameraMode.Value}"
                              AutomationProperties.Name="{x:Static lang:Strings.Gizmo_Rotate}"
                              ToolTip.Tip="{x:Static lang:Strings.Gizmo_Rotate}">
-                    <icons:SymbolIcon FontSize="16" Symbol="ArrowRotateClockwise" />
+                    <icons:FluentIcon Icon="ArrowRotateClockwise" />
                 </RadioButton>
                 <RadioButton GroupName="GizmoMode"
                              IsChecked="{Binding SelectedGizmoMode.Value, Converter={x:Static converters:GizmoModeConverters.IsScale}}"
                              IsVisible="{Binding IsCameraMode.Value}"
                              AutomationProperties.Name="{x:Static lang:Strings.Gizmo_Scale}"
                              ToolTip.Tip="{x:Static lang:Strings.Gizmo_Scale}">
-                    <icons:SymbolIcon FontSize="16" Symbol="ArrowExpand" />
+                    <icons:FluentIcon Icon="ArrowExpand" />
                 </RadioButton>
                 <Border Margin="0,8,0,0"
                         BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
@@ -128,13 +128,13 @@
             </StackPanel>
         </Player.InnerLeftContent>
         <Player.InnerRightContent>
-            <Button Padding="7,6,5,6"
+            <Button Padding="5,6,5,6"
                     VerticalAlignment="Top"
                     Command="{Binding OpenPreviewSettings}"
                     Theme="{StaticResource TransparentButton}"
                     AutomationProperties.Name="{x:Static lang:Strings.PreviewSettings}"
                     ToolTip.Tip="{x:Static lang:Strings.PreviewSettings}">
-                <icons:SymbolIcon FontSize="16" Symbol="Settings" />
+                <icons:FluentIcon Icon="Settings" />
             </Button>
         </Player.InnerRightContent>
         <Player.Content>

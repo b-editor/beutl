@@ -130,9 +130,9 @@
                 IsVisible="{CompiledBinding IsRazorMode.Value}"
                 ZIndex="100">
             <StackPanel Orientation="Horizontal" Spacing="4">
-                <icons:SymbolIcon FontSize="14"
+                <icons:FluentIcon FontSize="14"
                                   Foreground="White"
-                                  Symbol="Cut" />
+                                  Icon="Cut" />
                 <TextBlock FontSize="12"
                            FontWeight="SemiBold"
                            Foreground="White"
@@ -164,7 +164,7 @@
                                                                                     ExtensionType={x:Type p:TimelineTabExtension}}"
                                                  Text="{x:Static lang:Strings.RazorTool}">
                             <ui:ToggleMenuFlyoutItem.IconSource>
-                                <icons:SymbolIconSource Symbol="Cut" />
+                                <icons:FluentIconSource Icon="Cut" />
                             </ui:ToggleMenuFlyoutItem.IconSource>
                         </ui:ToggleMenuFlyoutItem>
                         <ui:MenuFlyoutSeparator />
@@ -172,14 +172,14 @@
                         <ui:MenuFlyoutSubItem x:Name="AddFromTemplateSubMenu" Text="{x:Static lang:Strings.AddFromTemplate}" />
                         <ui:MenuFlyoutItem Click="AddAdjustmentLayerClick" Text="{x:Static lang:Strings.AddAdjustmentLayer}">
                             <ui:MenuFlyoutItem.IconSource>
-                                <icons:SymbolIconSource Symbol="Color" />
+                                <icons:FluentIconSource Icon="Color" />
                             </ui:MenuFlyoutItem.IconSource>
                         </ui:MenuFlyoutItem>
                         <ui:MenuFlyoutItem Command="{CompiledBinding Paste}"
                                            InputGesture="{h:GetCommandGesture Paste}"
                                            Text="{x:Static lang:Strings.Paste}">
                             <ui:MenuFlyoutItem.IconSource>
-                                <icons:SymbolIconSource Symbol="ClipboardPaste" />
+                                <icons:FluentIconSource Icon="ClipboardPaste" />
                             </ui:MenuFlyoutItem.IconSource>
                         </ui:MenuFlyoutItem>
                         <ui:MenuFlyoutSeparator />
@@ -198,19 +198,19 @@
                         <ui:MenuFlyoutSeparator />
                         <ui:MenuFlyoutItem Click="ShowSceneSettings" Text="{x:Static lang:Strings.Settings}">
                             <ui:MenuFlyoutItem.IconSource>
-                                <icons:SymbolIconSource Symbol="Settings" />
+                                <icons:FluentIconSource Icon="Settings" />
                             </ui:MenuFlyoutItem.IconSource>
                         </ui:MenuFlyoutItem>
                         <ui:MenuFlyoutItem x:Name="BpmGridMenuItem"
                                            Click="ShowBpmGridFlyout"
                                            Text="{x:Static lang:Strings.BpmGrid}">
                             <ui:MenuFlyoutItem.IconSource>
-                                <icons:SymbolIconSource Symbol="MusicNote1" />
+                                <icons:FluentIconSource Icon="MusicNote1" />
                             </ui:MenuFlyoutItem.IconSource>
                         </ui:MenuFlyoutItem>
                         <ui:MenuFlyoutSubItem Text="{x:Static lang:Strings.TimelineZoom}">
                             <ui:MenuFlyoutSubItem.IconSource>
-                                <icons:SymbolIconSource Symbol="ZoomIn" />
+                                <icons:FluentIconSource Icon="ZoomIn" />
                             </ui:MenuFlyoutSubItem.IconSource>
                             <ui:MenuFlyoutItem Click="ZoomClick"
                                                CommandParameter="2.0"

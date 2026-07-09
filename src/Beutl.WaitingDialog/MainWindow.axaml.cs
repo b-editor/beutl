@@ -11,7 +11,7 @@ using Avalonia.Threading;
 using FluentAvalonia.Styling;
 using FluentAvalonia.UI.Windowing;
 
-using Symbol = FluentIcons.Common.Symbol;
+using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.WaitingDialog;
 
@@ -66,13 +66,13 @@ public partial class MainWindow : AppWindow
         }
 
         string? icon = result.GetValue(iconOption);
-        if (icon != null && Enum.TryParse(icon, out Symbol iconSymbol))
+        if (icon != null && Enum.TryParse(icon, out Icon iconSymbol))
         {
             subheaderRoot.IsVisible = true;
             iconHost.IsVisible = true;
-            iconSourceElement.IconSource = new FluentIcons.Avalonia.Fluent.SymbolIconSource
+            iconSourceElement.IconSource = new FluentIcons.Avalonia.Fluent.FluentIconSource
             {
-                Symbol = iconSymbol,
+                Icon = iconSymbol,
             };
         }
 

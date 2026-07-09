@@ -7,6 +7,7 @@
                        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
                        xmlns:models="using:Beutl.PackageTools.UI.Models"
                        xmlns:res="using:Beutl.PackageTools.UI.Resources"
+                       xmlns:icons="using:FluentIcons.Avalonia.Fluent"
                        xmlns:ui="using:FluentAvalonia.UI.Controls"
                        xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
                        xmlns:viewModels="using:Beutl.PackageTools.UI.ViewModels"
@@ -40,15 +41,15 @@
                     <Grid HorizontalAlignment="Left" ColumnDefinitions="*,6,Auto">
                         <TextBlock Text="{Binding Id}" TextTrimming="CharacterEllipsis" />
                         <StackPanel Grid.Column="2" Orientation="Horizontal">
-                            <ui:SymbolIcon Symbol="Folder">
-                                <ui:SymbolIcon.IsVisible>
+                            <icons:FluentIcon Icon="Folder">
+                                <icons:FluentIcon.IsVisible>
                                     <MultiBinding Converter="{x:Static BoolConverters.Or}">
                                         <Binding Converter="{x:Static BoolConverters.Not}" Path="IsRemote" />
                                         <Binding Path="Conflict" />
                                     </MultiBinding>
-                                </ui:SymbolIcon.IsVisible>
-                            </ui:SymbolIcon>
-                            <ui:SymbolIcon IsVisible="{Binding IsRemote}" Symbol="Cloud" />
+                                </icons:FluentIcon.IsVisible>
+                            </icons:FluentIcon>
+                            <icons:FluentIcon IsVisible="{Binding IsRemote}" Icon="Cloud" />
                         </StackPanel>
                     </Grid>
 

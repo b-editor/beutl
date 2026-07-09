@@ -64,7 +64,7 @@
                                                                             ExtensionType={x:Type p:TimelineTabExtension}}"
                                          Text="{x:Static lang:Strings.RazorTool}">
                     <ui:ToggleMenuFlyoutItem.IconSource>
-                        <icons:SymbolIconSource Symbol="Cut" />
+                        <icons:FluentIconSource Icon="Cut" />
                     </ui:ToggleMenuFlyoutItem.IconSource>
                 </ui:ToggleMenuFlyoutItem>
                 <ui:ToggleMenuFlyoutItem IsChecked="{Binding Timeline.IsRippleEnabled.Value, Mode=TwoWay}"
@@ -74,7 +74,7 @@
                 <ui:MenuFlyoutSeparator />
                 <ui:MenuFlyoutItem Command="{Binding Split}" Text="{x:Static lang:Strings.Split}">
                     <ui:MenuFlyoutItem.IconSource>
-                        <icons:SymbolIconSource Symbol="SplitVertical" />
+                        <icons:FluentIconSource Icon="SplitVertical" />
                     </ui:MenuFlyoutItem.IconSource>
                 </ui:MenuFlyoutItem>
                 <ui:MenuFlyoutItem x:Name="splitByCurrent"
@@ -87,7 +87,7 @@
                                                                       ExtensionType={x:Type p:TimelineTabExtension}}"
                                    Text="{x:Static lang:Strings.Cut}">
                     <ui:MenuFlyoutItem.IconSource>
-                        <icons:SymbolIconSource Symbol="Cut" />
+                        <icons:FluentIconSource Icon="Cut" />
                     </ui:MenuFlyoutItem.IconSource>
                 </ui:MenuFlyoutItem>
                 <ui:MenuFlyoutItem Command="{Binding Copy}"
@@ -95,7 +95,7 @@
                                                                       ExtensionType={x:Type p:TimelineTabExtension}}"
                                    Text="{x:Static lang:Strings.Copy}">
                     <ui:MenuFlyoutItem.IconSource>
-                        <icons:SymbolIconSource Symbol="Copy" />
+                        <icons:FluentIconSource Icon="Copy" />
                     </ui:MenuFlyoutItem.IconSource>
                 </ui:MenuFlyoutItem>
                 <ui:MenuFlyoutItem Command="{Binding Delete}"
@@ -103,7 +103,7 @@
                                                                       ExtensionType={x:Type p:TimelineTabExtension}}"
                                    Text="{x:Static lang:Strings.Delete}">
                     <ui:MenuFlyoutItem.IconSource>
-                        <icons:SymbolIconSource Symbol="DeleteDismiss" />
+                        <icons:FluentIconSource Icon="DeleteDismiss" />
                     </ui:MenuFlyoutItem.IconSource>
                 </ui:MenuFlyoutItem>
                 <ui:MenuFlyoutItem Command="{Binding Exclude}"
@@ -111,7 +111,7 @@
                                                                       ExtensionType={x:Type p:TimelineTabExtension}}"
                                    Text="{x:Static lang:Strings.Exclude}">
                     <ui:MenuFlyoutItem.IconSource>
-                        <icons:SymbolIconSource Symbol="Delete" />
+                        <icons:FluentIconSource Icon="Delete" />
                     </ui:MenuFlyoutItem.IconSource>
                 </ui:MenuFlyoutItem>
                 <ui:MenuFlyoutItem x:Name="groupSelectedElements"
@@ -125,7 +125,7 @@
                                                                       ExtensionType={x:Type p:TimelineTabExtension}}"
                                    Text="{x:Static lang:Strings.Rename}">
                     <ui:MenuFlyoutItem.IconSource>
-                        <icons:SymbolIconSource Symbol="Rename" />
+                        <icons:FluentIconSource Icon="Rename" />
                     </ui:MenuFlyoutItem.IconSource>
                 </ui:MenuFlyoutItem>
                 <ui:MenuFlyoutItem x:Name="change2OriginalDuration"
@@ -142,7 +142,7 @@
                 <ui:MenuFlyoutSeparator />
                 <ui:MenuFlyoutItem Click="SaveAsTemplate_Click" Text="{x:Static lang:Strings.SaveAsTemplate}">
                     <ui:MenuFlyoutItem.IconSource>
-                        <icons:SymbolIconSource Symbol="DocumentCopy" />
+                        <icons:FluentIconSource Icon="DocumentCopy" />
                     </ui:MenuFlyoutItem.IconSource>
                 </ui:MenuFlyoutItem>
                 <ui:MenuFlyoutSeparator />

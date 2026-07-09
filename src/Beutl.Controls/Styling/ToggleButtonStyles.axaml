@@ -9,13 +9,13 @@
 
             <StackPanel Orientation="Horizontal">
                 <RadioButton Theme="{DynamicResource ColorPickerTypeTransparentToggleButtonStyle}">
-                    <ui:SymbolIcon Symbol="Accept" />
+                    <icons:FluentIcon Icon="Checkmark" />
                 </RadioButton>
                 <RadioButton Theme="{DynamicResource ColorPickerTypeTransparentToggleButtonStyle}">
-                    <ui:SymbolIcon Symbol="Accept" />
+                    <icons:FluentIcon Icon="Checkmark" />
                 </RadioButton>
                 <RadioButton Theme="{DynamicResource ColorPickerTypeTransparentToggleButtonStyle}">
-                    <ui:SymbolIcon Symbol="Accept" />
+                    <icons:FluentIcon Icon="Checkmark" />
                 </RadioButton>
             </StackPanel>
         </Border>
@@ -43,16 +43,17 @@
                         BorderBrush="{TemplateBinding BorderBrush}"
                         BorderThickness="{TemplateBinding BorderThickness}"
                         CornerRadius="{TemplateBinding CornerRadius}">
-                    <icons:SymbolIcon Name="PART_SymbolIcon"
+                    <icons:FluentIcon Name="PART_SymbolIcon"
                                       HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                       VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
-                                      Symbol="EyeOff" />
+                                      FontSize="{TemplateBinding FontSize}"
+                                      Icon="EyeOff" />
                 </Border>
             </ControlTemplate>
         </Setter>
 
-        <Style Selector="^:checked /template/ icons|SymbolIcon#PART_SymbolIcon">
-            <Setter Property="Symbol" Value="Eye" />
+        <Style Selector="^:checked /template/ icons|FluentIcon#PART_SymbolIcon">
+            <Setter Property="Icon" Value="Eye" />
         </Style>
 
         <Style Selector="^:pointerover /template/ Border#PART_Root">
@@ -62,14 +63,14 @@
         <Style Selector="^:pressed /template/ Border#PART_Root">
             <Setter Property="Background" Value="{DynamicResource SubtleFillColorTertiaryBrush}" />
         </Style>
-        <Style Selector="^:pressed /template/ icons|SymbolIcon#PART_SymbolIcon">
+        <Style Selector="^:pressed /template/ icons|FluentIcon#PART_SymbolIcon">
             <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
         </Style>
 
         <Style Selector="^:disabled /template/ Border#PART_Root">
             <Setter Property="Background" Value="{DynamicResource SubtleFillColorDisabledBrush}" />
         </Style>
-        <Style Selector="^:disabled /template/ icons|SymbolIcon#PART_SymbolIcon">
+        <Style Selector="^:disabled /template/ icons|FluentIcon#PART_SymbolIcon">
             <Setter Property="Foreground" Value="{DynamicResource TextFillColorDisabledBrush}" />
         </Style>
     </ControlTheme>
