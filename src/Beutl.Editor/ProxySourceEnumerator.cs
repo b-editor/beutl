@@ -204,13 +204,14 @@ public static class ProxySourceEnumerator
                 visitedFilterEffectGroups,
                 visitedGraphGroups,
                 new HashSet<FilterEffect>(ReferenceEqualityComparer.Instance),
-                skipDisabledElements))
+                skipDisabledElements,
+                localRange))
                 yield return source;
 
             switch (drawable)
             {
                 case NodeGraphDrawable { Model.CurrentValue: { } model }:
-                    foreach (IFileSource source in EnumerateGraphSources(model, visitedGraphGroups))
+                    foreach (IFileSource source in EnumerateGraphSources(model, visitedGraphGroups, localRange))
                         yield return source;
 
                     break;
@@ -377,39 +378,45 @@ public static class ProxySourceEnumerator
         }
     }
 
-    private static IEnumerable<IFileSource> EnumerateGraphSources(GraphModel model, HashSet<GraphGroup> visitedGraphGroups)
+    private static IEnumerable<IFileSource> EnumerateGraphSources(
+        GraphModel model, HashSet<GraphGroup> visitedGraphGroups, TimeRange? localRange = null)
     {
         foreach (GraphNode node in model.Nodes)
         {
             // Every input port whose value is an IFileSource — VideoSourceNode.Source, ImageSourceNode.Source,
             // and a GroupNode's outer-boundary inputs alike. Gating on the value type (not a specific node
             // type) keeps this uniform across all source-carrying nodes.
-            foreach (IFileSource source in EnumerateNodeInputSources(node))
+            foreach (IFileSource source in EnumerateNodeInputSources(node, localRange))
                 yield return source;
 
             // A user-constructed GroupNode can reference a GraphGroup that (transitively) contains the
             // same GroupNode, producing an infinite walk. The visited set makes the recursion terminate.
             if (node is GroupNode groupNode && visitedGraphGroups.Add(groupNode.Group))
             {
-                foreach (IFileSource source in EnumerateGraphSources(groupNode.Group, visitedGraphGroups))
+                foreach (IFileSource source in EnumerateGraphSources(groupNode.Group, visitedGraphGroups, localRange))
                     yield return source;
             }
         }
     }
 
-    private static IEnumerable<IFileSource> EnumerateNodeInputSources(GraphNode node)
+    private static IEnumerable<IFileSource> EnumerateNodeInputSources(GraphNode node, TimeRange? localRange = null)
     {
         foreach (INodeMember member in node.Items)
         {
             if (member is not IInputPort { Property: { } property })
                 continue;
 
-            if (property.GetValue() is IFileSource current)
+            IAnimation? animation = (property as IAnimatablePropertyAdapter)?.Animation;
+
+            // Like the EngineObject property walk: when range-filtering, the render samples an input's
+            // animation, not its base value, so an overridden stale base must not block export.
+            bool baseOverridden = localRange is not null && AnimationSuppliesValue(animation);
+            if (!baseOverridden && property.GetValue() is IFileSource current)
                 yield return current;
 
-            if (property is IAnimatablePropertyAdapter { Animation: { } animation })
+            if (animation is not null)
             {
-                foreach (IFileSource source in EnumerateAnimatedFileSources(animation))
+                foreach (IFileSource source in EnumerateAnimatedFileSources(animation, localRange))
                     yield return source;
             }
         }
@@ -420,7 +427,8 @@ public static class ProxySourceEnumerator
         HashSet<FilterEffectGroup> visitedFilterEffectGroups,
         HashSet<GraphGroup> visitedGraphGroups,
         HashSet<FilterEffect> visitedFilterEffects,
-        bool skipDisabledElements)
+        bool skipDisabledElements,
+        TimeRange? localRange = null)
     {
         // Presenter/delay targets are reference properties, so a filter chain is user-cyclable;
         // the visited set makes the recursion terminate.
@@ -438,14 +446,14 @@ public static class ProxySourceEnumerator
                 foreach (FilterEffect child in group.Children)
                 {
                     foreach (IFileSource source in EnumerateFilterEffectGraphSources(
-                        child, visitedFilterEffectGroups, visitedGraphGroups, visitedFilterEffects, skipDisabledElements))
+                        child, visitedFilterEffectGroups, visitedGraphGroups, visitedFilterEffects, skipDisabledElements, localRange))
                         yield return source;
                 }
 
                 break;
 
             case NodeGraphFilterEffect { Model.CurrentValue: { } model }:
-                foreach (IFileSource source in EnumerateGraphSources(model, visitedGraphGroups))
+                foreach (IFileSource source in EnumerateGraphSources(model, visitedGraphGroups, localRange))
                     yield return source;
 
                 break;

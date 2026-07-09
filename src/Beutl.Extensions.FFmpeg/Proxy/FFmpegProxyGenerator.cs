@@ -314,10 +314,12 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
     }
 
     // Image containers that may be animated (APNG / GIF / WebP): stillness is decided by frame count
-    // after opening the reader, not by the extension.
+    // after opening the reader, not by the extension. `.apng` is included because AnimatedPngDecoderInfo
+    // advertises it too, so a single-frame .apng must also be frame-count-checked rather than proxied.
     internal static bool IsAnimatableImage(string path)
     {
         return Path.GetExtension(path).ToLowerInvariant() is ".png"
+            or ".apng"
             or ".gif"
             or ".webp";
     }

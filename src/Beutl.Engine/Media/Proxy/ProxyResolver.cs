@@ -61,22 +61,20 @@ public sealed class ProxyResolver : IProxyResolver
         if (string.IsNullOrEmpty(absolutePath))
             return null;
 
-        // The original is gone, so there is no current fingerprint to match. Collect every path-matching
-        // Ready proxy, but keep only those from the newest source version: after an original is replaced
-        // and re-proxied, an older fingerprint's entry can still be Ready (not yet reconciled to Stale),
-        // and ranking purely by density would preview that stale content when it is the same/denser
-        // preset. Group by source fingerprint, keep the group generated most recently, then density-rank.
-        var matches = new List<(ProxyFingerprint Source, DateTime GeneratedAtUtc, ProxyResolution Resolution)>();
+        // The original is gone, so there is no current fingerprint to match. Determine the newest source
+        // version from ALL same-path entries regardless of state, then serve a Ready proxy only from that
+        // source: after an original is replaced, a failed regeneration records a newer Failed/Stale entry
+        // for the new fingerprint while an older Ready proxy for the same path lingers. Ranking only Ready
+        // entries would miss that newer source and preview the stale older proxy; including every state in
+        // the version choice makes an unproxied-but-newer source win, yielding no proxy (fall to original).
+        var matches = new List<(ProxyFingerprint Source, DateTime GeneratedAtUtc, ProxyResolution? Resolution)>();
         foreach (ProxyEntry entry in _store.Enumerate())
         {
-            if (entry.State != ProxyState.Ready
-                || !string.Equals(entry.Source.AbsolutePath, absolutePath, StringComparison.Ordinal))
-            {
+            if (!string.Equals(entry.Source.AbsolutePath, absolutePath, StringComparison.Ordinal))
                 continue;
-            }
 
-            if (EvaluateEntry(entry) is { } resolution)
-                matches.Add((entry.Source, entry.GeneratedAtUtc, resolution));
+            ProxyResolution? resolution = entry.State == ProxyState.Ready ? EvaluateEntry(entry) : null;
+            matches.Add((entry.Source, entry.GeneratedAtUtc, resolution));
         }
 
         if (matches.Count == 0)
@@ -90,8 +88,8 @@ public sealed class ProxyResolver : IProxyResolver
             .First().Source;
 
         var candidates = matches
-            .Where(m => m.Source == newestSource)
-            .Select(m => m.Resolution)
+            .Where(m => m.Source == newestSource && m.Resolution is not null)
+            .Select(m => m.Resolution!)
             .ToList();
 
         return SelectBest(candidates, preferredPreset);

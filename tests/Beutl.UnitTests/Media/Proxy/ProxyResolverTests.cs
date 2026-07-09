@@ -283,6 +283,32 @@ public class ProxyResolverTests
     }
 
     [Test]
+    public void ResolveByPath_NewerFailedSource_DoesNotServeOlderReadyProxy()
+    {
+        string source = CreateSourceFile();
+        ProxyFingerprint baseFp = ProxyFingerprint.FromFile(source);
+
+        // Older source version: a Ready proxy generated earlier.
+        ProxyFingerprint oldFp = baseFp with { FileSizeBytes = 100, MtimeUtc = new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc) };
+        RegisterProxyEntry(oldFp, ProxyPreset.Quarter, new PixelSize(100, 80), new PixelSize(25, 20),
+            new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+
+        // Newer source version (same path): only a Failed entry (regeneration failed), generated later.
+        ProxyFingerprint newFp = baseFp with { FileSizeBytes = 200, MtimeUtc = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) };
+        var newTime = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        _store.Register(new ProxyEntry(
+            newFp, ProxyPreset.Quarter, ProxyState.Failed, "hash/failed.mp4", 0,
+            new PixelSize(100, 80), new PixelSize(25, 20), newTime, newTime, "boom"));
+
+        // Original gone → offline path-keyed resolve. The newest source has no Ready proxy, so the
+        // stale older Ready must not be served (returns null → fall back to original).
+        File.Delete(source);
+        ProxyResolution? result = _resolver.Resolve(new Uri(source), ProxyPreset.Quarter);
+
+        Assert.That(result, Is.Null, "a newer failed source must not let an older Ready proxy win the version choice");
+    }
+
+    [Test]
     public void Pin_ReferenceCountsPath()
     {
         string source = CreateSourceFile();

@@ -31,6 +31,7 @@ public sealed class FFmpegProxyGeneratorPublishTests
     [TestCase("clip.gif", false, true)]
     [TestCase("clip.webp", false, true)]
     [TestCase("clip.png", false, true)]
+    [TestCase("clip.apng", false, true)]
     [TestCase("photo.jpg", true, false)]
     [TestCase("photo.jpeg", true, false)]
     [TestCase("photo.bmp", true, false)]

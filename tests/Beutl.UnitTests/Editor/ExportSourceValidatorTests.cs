@@ -1,9 +1,12 @@
 ﻿using Beutl.Animation;
 using Beutl.Audio;
 using Beutl.Editor;
+using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Media.Source;
+using Beutl.NodeGraph;
+using Beutl.NodeGraph.Nodes;
 using Beutl.ProjectSystem;
 
 namespace Beutl.UnitTests.Editor;
@@ -495,6 +498,35 @@ public sealed class ExportSourceValidatorTests
         var decorator = new DrawableDecorator();
         decorator.Children.Add(child);
         Element element = ElementWith(root, decorator);
+        element.Length = TimeSpan.FromSeconds(10);
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
+        scene.Children.Add(element);
+
+        IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
+            ExportSourceValidator.CollectRenderableSources(scene, new TimeRange(TimeSpan.FromSeconds(6), TimeSpan.FromSeconds(4))));
+
+        Assert.That(missing, Is.Empty);
+    }
+
+    // Node-graph input-port animations must honour the render window too: an out-of-window keyframe on
+    // a VideoSourceNode input must be dropped, so a since-replaced file it references cannot block export.
+    [Test]
+    public void CollectRenderableSources_AnimatedNodeGraphInput_FiltersToRenderWindow()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string oldMissing = Path.Combine(root, "old.mov");
+        string newExisting = Path.Combine(root, "new.mov");
+        File.WriteAllBytes(newExisting, [1]);
+
+        var node = new VideoSourceNode();
+        var animation = new KeyFrameAnimation<VideoSource?>();
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.Zero, Value = MakeVideoSource(oldMissing) });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.FromSeconds(5), Value = MakeVideoSource(newExisting) });
+        ((IAnimatablePropertyAdapter<VideoSource?>)node.Source.Property!).Animation = animation;
+        var drawable = new NodeGraphDrawable();
+        drawable.Model.CurrentValue!.Nodes.Add(node);
+        Element element = ElementWith(root, drawable);
         element.Length = TimeSpan.FromSeconds(10);
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
         scene.Children.Add(element);
