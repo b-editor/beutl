@@ -4,6 +4,15 @@
         xmlns:core="using:Dock.Model.Core"
         xmlns:dmc="using:Dock.Model.Controls">
     <Styles.Resources>
+        <!--  The default Fluent theme hides PART_ItemsPresenter on :singleitem; keep the lone tab visible so it can be dragged to another zone.  -->
+        <ControlTheme x:Key="{x:Type ToolTabStrip}"
+                      BasedOn="{StaticResource {x:Type ToolTabStrip}}"
+                      TargetType="ToolTabStrip">
+            <Style Selector="^:singleitem /template/ ItemsPresenter#PART_ItemsPresenter">
+                <Setter Property="IsVisible" Value="True" />
+            </Style>
+        </ControlTheme>
+
         <ControlTheme x:Key="{x:Type ToolControl}"
                       x:DataType="dmc:IToolDock"
                       TargetType="ToolControl">
@@ -141,11 +150,6 @@
         <Style Selector="^:pointerover /template/ Border#PART_Border">
             <Setter Property="IsVisible" Value="True" />
         </Style>
-    </Style>
-
-    <!--  Always show the single tab so users can drag it to another zone.  -->
-    <Style Selector="ToolTabStrip:singleitem /template/ ItemsPresenter#PART_ItemsPresenter">
-        <Setter Property="IsVisible" Value="True" />
     </Style>
 
     <!--  Tab item states: only Foreground + BorderBrush change between states  -->
