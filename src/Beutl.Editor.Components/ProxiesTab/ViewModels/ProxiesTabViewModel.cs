@@ -45,6 +45,9 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
     private const int ForegroundGenerationPriority = 1;
     private const int BulkGenerationPriority = 0;
 
+    // Matches ProxyResolver.DensityTolerance so the tab's offline ranking clamps identically.
+    private const float DensityTolerance = 1e-6f;
+
     private readonly CompositeDisposable _disposables = [];
     private readonly SerialDisposable _sceneEditedSubscriptions = new();
     private readonly Scene _scene;
@@ -652,6 +655,7 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
         HashSet<string> seenPaths = new(StringComparer.Ordinal);
         HashSet<Scene> seenScenes = new(ReferenceEqualityComparer.Instance);
         ProxyEntry[] storeEntries = [.. _store?.Enumerate() ?? []];
+        ProxyPreset preferredPreset = ToPreset(_config.DefaultPreset);
 
         // The totals and the delete action are labelled project-wide, so scan every scene in the
         // open project (not just the edited one); a clip used only by another scene must count too.
@@ -664,7 +668,7 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
             {
                 foreach (VideoSource source in ProxySourceEnumerator.EnumerateVideoSources(element, seenScenes))
                 {
-                    if (TryGetVideoSource(source, storeEntries, seenPaths, out var item))
+                    if (TryGetVideoSource(source, storeEntries, seenPaths, preferredPreset, out var item))
                         yield return item;
                 }
             }
@@ -688,6 +692,7 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
         VideoSource? source,
         IReadOnlyList<ProxyEntry> storeEntries,
         HashSet<string> seenPaths,
+        ProxyPreset preferredPreset,
         out (string Path, ProxyFingerprint Fingerprint) item)
     {
         if (source is not { HasUri: true } || source.Uri is not { IsFile: true } uri)
@@ -710,16 +715,9 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
         }
 
         string normalizedPath = NormalizeSourcePath(path);
-        // Same-path entries can differ by fingerprint and state (an older Failed/Stale next to a newer
-        // Ready one). Rank Ready ahead of stale/failed like the resolver's offline path selection, then
-        // by decoded density, so the row binds to the fingerprint the preview will actually decode
-        // rather than whichever entry happens to enumerate first.
-        ProxyEntry? existing = storeEntries
-            .Where(entry => entry.Source.AbsolutePath == normalizedPath)
-            .OrderBy(entry => OfflineEntryRank(entry.State))
-            .ThenByDescending(entry => (long)entry.ProxyDecodedFrameSize.Width * entry.ProxyDecodedFrameSize.Height)
-            .ThenByDescending(entry => entry.GeneratedAtUtc)
-            .FirstOrDefault();
+        ProxyEntry? existing = SelectOfflineEntry(
+            storeEntries.Where(entry => entry.Source.AbsolutePath == normalizedPath),
+            preferredPreset);
         if (existing == null || !seenPaths.Add(existing.Source.AbsolutePath))
         {
             item = default;
@@ -728,6 +726,56 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
 
         item = (path, existing.Source);
         return true;
+    }
+
+    // Pick the offline row's entry the same way preview decoding will. Among path-matching Ready
+    // entries, mirror ProxyResolver.SelectBest: prefer the densest whose supply density is within the
+    // preferred-preset cap, else the densest overall — so the row binds to the fingerprint playback
+    // actually decodes. Only when no Ready proxy exists does it fall back to stale/failed metadata
+    // (ranked by state) so the offline clip still surfaces a row.
+    private static ProxyEntry? SelectOfflineEntry(IEnumerable<ProxyEntry> pathMatches, ProxyPreset preferredPreset)
+    {
+        List<ProxyEntry> candidates = [.. pathMatches];
+        float cap = ProxyPresetDefinitions.Get(preferredPreset).Scale;
+        ProxyEntry? cappedWinner = null;
+        float cappedDensity = -1f;
+        ProxyEntry? densestWinner = null;
+        float densestDensity = -1f;
+        foreach (ProxyEntry entry in candidates)
+        {
+            if (entry.State != ProxyState.Ready)
+                continue;
+
+            float density = SupplyDensityOf(entry);
+            if (density <= cap + DensityTolerance && density > cappedDensity)
+            {
+                cappedWinner = entry;
+                cappedDensity = density;
+            }
+
+            if (density > densestDensity)
+            {
+                densestWinner = entry;
+                densestDensity = density;
+            }
+        }
+
+        return cappedWinner ?? densestWinner ?? candidates
+            .OrderBy(entry => OfflineEntryRank(entry.State))
+            .ThenByDescending(entry => (long)entry.ProxyDecodedFrameSize.Width * entry.ProxyDecodedFrameSize.Height)
+            .ThenByDescending(entry => entry.GeneratedAtUtc)
+            .FirstOrDefault();
+    }
+
+    // Mirrors ProxyResolution.SupplyDensity (long-edge ratio) so the tab ranks Ready entries exactly as
+    // the resolver does; ProxyEntry already stores both frame sizes.
+    private static float SupplyDensityOf(ProxyEntry entry)
+    {
+        int originalLongEdge = Math.Max(entry.OriginalLogicalFrameSize.Width, entry.OriginalLogicalFrameSize.Height);
+        int proxyLongEdge = Math.Max(entry.ProxyDecodedFrameSize.Width, entry.ProxyDecodedFrameSize.Height);
+        return originalLongEdge == 0 || proxyLongEdge == 0
+            ? 1f
+            : (float)proxyLongEdge / originalLongEdge;
     }
 
     // Ready first (a usable stand-in), then Stale, then in-progress, then failed/absent last. Mirrors

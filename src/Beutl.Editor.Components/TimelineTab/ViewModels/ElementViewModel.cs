@@ -1020,27 +1020,29 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     // Prefer-proxy preview can open a Ready proxy after the original is moved/deleted. TryFromFile then
     // fails, and dropping that URI would hide the badge and filter out the proxy's own store/job events.
-    // Fall back to the resolved proxy entry's own fingerprint (exact, so the badge reads Ready) keyed on
-    // this path's comparable key — the same one the resolver matches for missing originals.
+    // Prefer the resolved Ready entry's own fingerprint (exact, so the badge reads Ready); otherwise fall
+    // back to the path key so the offline source is still tracked before any proxy exists — a proxy
+    // registered for this path then matches the store event and refreshes the badge/filmstrip, instead
+    // of the URI staying absent from the cache until the view is rebuilt.
     internal static ProxyFingerprint? ResolveSourceFingerprint(IProxyStore? store, Uri uri)
     {
         if (ProxyFingerprint.TryFromFile(uri.LocalPath, out ProxyFingerprint fingerprint))
             return fingerprint;
 
-        if (store is null)
-            return null;
-
         string key = ProxyFingerprint.ResolveComparableKey(uri.LocalPath);
-        foreach (ProxyEntry entry in store.Enumerate())
+        if (store is not null)
         {
-            if (entry.State == ProxyState.Ready
-                && string.Equals(entry.Source.AbsolutePath, key, StringComparison.Ordinal))
+            foreach (ProxyEntry entry in store.Enumerate())
             {
-                return entry.Source;
+                if (entry.State == ProxyState.Ready
+                    && string.Equals(entry.Source.AbsolutePath, key, StringComparison.Ordinal))
+                {
+                    return entry.Source;
+                }
             }
         }
 
-        return null;
+        return ProxyFingerprint.ForPathKey(uri.LocalPath);
     }
 
     // Keyed on the ordered set of source URIs so high-frequency store/queue refreshes never re-stat

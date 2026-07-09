@@ -188,7 +188,8 @@ public static class ProxySourceEnumerator
                 drawable.FilterEffect.CurrentValue,
                 visitedFilterEffectGroups,
                 visitedGraphGroups,
-                new HashSet<FilterEffect>(ReferenceEqualityComparer.Instance)))
+                new HashSet<FilterEffect>(ReferenceEqualityComparer.Instance),
+                skipDisabledElements))
                 yield return source;
 
             switch (drawable)
@@ -375,11 +376,17 @@ public static class ProxySourceEnumerator
         FilterEffect? effect,
         HashSet<FilterEffectGroup> visitedFilterEffectGroups,
         HashSet<GraphGroup> visitedGraphGroups,
-        HashSet<FilterEffect> visitedFilterEffects)
+        HashSet<FilterEffect> visitedFilterEffects,
+        bool skipDisabledElements)
     {
         // Presenter/delay targets are reference properties, so a filter chain is user-cyclable;
         // the visited set makes the recursion terminate.
         if (effect is null || !visitedFilterEffects.Add(effect))
+            yield break;
+
+        // FilterEffectRenderNode returns its input unchanged for a disabled effect, so a source inside
+        // a disabled filter (or filter group) never renders; export preflight must not demand its file.
+        if (skipDisabledElements && !effect.IsEnabled)
             yield break;
 
         switch (effect)
@@ -388,7 +395,7 @@ public static class ProxySourceEnumerator
                 foreach (FilterEffect child in group.Children)
                 {
                     foreach (IFileSource source in EnumerateFilterEffectGraphSources(
-                        child, visitedFilterEffectGroups, visitedGraphGroups, visitedFilterEffects))
+                        child, visitedFilterEffectGroups, visitedGraphGroups, visitedFilterEffects, skipDisabledElements))
                         yield return source;
                 }
 
@@ -405,14 +412,14 @@ public static class ProxySourceEnumerator
             // invisible to the Proxies tab, cache invalidation, and export preflight.
             case FilterEffectPresenter { Target.CurrentValue: { } presented }:
                 foreach (IFileSource source in EnumerateFilterEffectGraphSources(
-                    presented, visitedFilterEffectGroups, visitedGraphGroups, visitedFilterEffects))
+                    presented, visitedFilterEffectGroups, visitedGraphGroups, visitedFilterEffects, skipDisabledElements))
                     yield return source;
 
                 break;
 
             case DelayAnimationEffect { Effect.CurrentValue: { } delayed }:
                 foreach (IFileSource source in EnumerateFilterEffectGraphSources(
-                    delayed, visitedFilterEffectGroups, visitedGraphGroups, visitedFilterEffects))
+                    delayed, visitedFilterEffectGroups, visitedGraphGroups, visitedFilterEffects, skipDisabledElements))
                     yield return source;
 
                 break;

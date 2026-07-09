@@ -177,6 +177,33 @@ public class ProxySourceEnumeratorTests
         });
     }
 
+    // FilterEffectRenderNode returns its input for a disabled effect, so a media source inside a
+    // disabled filter effect never renders; export preflight must not demand its file either.
+    [Test]
+    public void EnumerateFileSources_SkipDisabled_ExcludesSourceInsideDisabledFilterEffect()
+    {
+        var node = new VideoSourceNode();
+        node.Source.Property!.SetValue(CreateVideoSource("disabled-fx.mov"));
+        var graphEffect = new NodeGraphFilterEffect { IsEnabled = false };
+        graphEffect.Model.CurrentValue!.Nodes.Add(node);
+        var drawable = new SourceVideo();
+        ((FilterEffectGroup)drawable.FilterEffect.CurrentValue!).Children.Add(graphEffect);
+        Element element = ElementWith(drawable);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                ProxySourceEnumerator.EnumerateFileSources(element, skipDisabledElements: true)
+                    .OfType<VideoSource>().Select(FileName),
+                Does.Not.Contain("disabled-fx.mov"));
+            Assert.That(
+                ProxySourceEnumerator.EnumerateFileSources(element)
+                    .OfType<VideoSource>().Select(FileName),
+                Does.Contain("disabled-fx.mov"),
+                "without the skip flag a disabled filter-effect source still contributes");
+        });
+    }
+
     // Target is a reference property, so a user can point a presenter at its own ancestor;
     // the visited-target set must terminate the walk instead of recursing forever. The cycle is
     // wired silently (reflection) because completing it through the property setter trips a

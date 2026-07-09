@@ -1,4 +1,8 @@
-﻿namespace Beutl.Media.Proxy;
+﻿using Beutl.Logging;
+
+using Microsoft.Extensions.Logging;
+
+namespace Beutl.Media.Proxy;
 
 /// <summary>
 /// Creates an <see cref="IProxyGenerator"/> bound to a specific <see cref="IProxyStore"/>. A factory
@@ -21,6 +25,7 @@ public interface IProxyGeneratorFactory
 /// </summary>
 public static class ProxyGeneratorRegistry
 {
+    private static readonly ILogger s_logger = Log.CreateLogger(nameof(ProxyGeneratorRegistry));
     private static readonly List<IProxyGeneratorFactory> s_factories = [];
     private static readonly object s_lock = new();
 
@@ -40,7 +45,7 @@ public static class ProxyGeneratorRegistry
             s_factories.Add(factory);
         }
 
-        Changed?.Invoke(null, EventArgs.Empty);
+        RaiseChanged();
     }
 
     public static bool Unregister(IProxyGeneratorFactory factory)
@@ -53,9 +58,30 @@ public static class ProxyGeneratorRegistry
         }
 
         if (removed)
-            Changed?.Invoke(null, EventArgs.Empty);
+            RaiseChanged();
 
         return removed;
+    }
+
+    // Isolate each subscriber: a throwing Changed handler (during extension load/unload) must not abort
+    // the registry mutation or prevent the other subscribers — e.g. the queue's cache invalidation —
+    // from running.
+    private static void RaiseChanged()
+    {
+        if (Changed is not { } handler)
+            return;
+
+        foreach (Delegate subscriber in handler.GetInvocationList())
+        {
+            try
+            {
+                ((EventHandler)subscriber)(null, EventArgs.Empty);
+            }
+            catch (Exception ex)
+            {
+                s_logger.LogWarning(ex, "A ProxyGeneratorRegistry.Changed subscriber threw; continuing with the rest.");
+            }
+        }
     }
 
     /// <summary>Snapshot of registered factories in registration order. The first registered factory

@@ -65,6 +65,19 @@ public readonly record struct ProxyFingerprint
         return new ProxyFingerprint(info.FullName, info.Length, info.LastWriteTimeUtc);
     }
 
+    /// <summary>
+    /// A fingerprint carrying only the normalized source key (<see cref="ResolveComparableKey"/>) for an
+    /// offline original that cannot be stat-ed. It is NOT a content fingerprint — <see cref="FileSizeBytes"/>
+    /// and <see cref="MtimeUtc"/> are unset — so use it ONLY for <see cref="AbsolutePath"/>-based tracking
+    /// or lookup (e.g. matching a store change event by path). Never register it or compare it for
+    /// staleness; a real entry keyed on the same path has a different size/mtime and will not equal it.
+    /// </summary>
+    public static ProxyFingerprint ForPathKey(string path)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        return new ProxyFingerprint { AbsolutePath = ResolveComparableKey(path) };
+    }
+
     public static bool TryFromFile(string path, out ProxyFingerprint fingerprint)
     {
         try

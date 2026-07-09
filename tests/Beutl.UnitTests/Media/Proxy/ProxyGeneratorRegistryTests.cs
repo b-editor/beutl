@@ -120,6 +120,38 @@ public class ProxyGeneratorRegistryTests
         }
     }
 
+    [Test]
+    public void Changed_ThrowingSubscriber_DoesNotAbortRegistryOrStarveOtherSubscribers()
+    {
+        var factory = new StubFactory();
+        _registered.Add(factory);
+        int goodRuns = 0;
+        void Throwing(object? sender, EventArgs e) => throw new InvalidOperationException("bad subscriber");
+        void Good(object? sender, EventArgs e) => Interlocked.Increment(ref goodRuns);
+        ProxyGeneratorRegistry.Changed += Throwing;
+        ProxyGeneratorRegistry.Changed += Good;
+        try
+        {
+            Assert.DoesNotThrow(() => ProxyGeneratorRegistry.Register(factory),
+                "a throwing Changed subscriber must not abort the registry mutation");
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(goodRuns, Is.EqualTo(1), "the second subscriber must still run after the first throws");
+                Assert.That(ProxyGeneratorRegistry.Enumerate(), Does.Contain(factory));
+            });
+
+            Assert.DoesNotThrow(() => ProxyGeneratorRegistry.Unregister(factory));
+            _registered.Remove(factory);
+            Assert.That(goodRuns, Is.EqualTo(2), "Unregister must also isolate the throwing subscriber");
+        }
+        finally
+        {
+            ProxyGeneratorRegistry.Changed -= Throwing;
+            ProxyGeneratorRegistry.Changed -= Good;
+        }
+    }
+
     private sealed class StubFactory : IProxyGeneratorFactory
     {
         public IProxyGenerator Create(IProxyStore store)

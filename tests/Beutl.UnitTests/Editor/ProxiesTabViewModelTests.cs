@@ -272,6 +272,49 @@ public sealed class ProxiesTabViewModelTests
         });
     }
 
+    // With multiple Ready entries for an offline path, the row must bind to the fingerprint preview
+    // decoding picks: the densest within the default-preset density cap (mirroring ProxyResolver), not
+    // simply the densest overall.
+    [Test]
+    public void Refresh_OfflineSourceWithMultipleReadyEntries_BindsWithinDefaultPresetDensityCap()
+    {
+        string root = CreateRoot();
+        string sourcePath = CreateSourceFile(root, "offline.mov", 1024);
+        var store = new ProxyStore(Path.Combine(root, "proxies"));
+        ProxyFingerprint quarterFp = ProxyFingerprint.FromFile(sourcePath);
+        // Same path, distinct fingerprint (older size/mtime) for the denser Half proxy.
+        ProxyFingerprint halfFp = quarterFp with
+        {
+            FileSizeBytes = quarterFp.FileSizeBytes + 4096,
+            MtimeUtc = quarterFp.MtimeUtc.AddMinutes(-10),
+        };
+        DateTime now = DateTime.UtcNow;
+        // Quarter density 0.25 (480/1920), Half density 0.5 (960/1920). Register the denser Half first.
+        RegisterProxyEntry(store, new ProxyEntry(
+            halfFp, ProxyPreset.Half, ProxyState.Ready, "hash/half.mp4", 768,
+            new PixelSize(1920, 1080), new PixelSize(960, 540), now, now, null));
+        RegisterProxyEntry(store, new ProxyEntry(
+            quarterFp, ProxyPreset.Quarter, ProxyState.Ready, "hash/quarter.mp4", 512,
+            new PixelSize(1920, 1080), new PixelSize(480, 270), now, now, null));
+        File.Delete(sourcePath);
+
+        ProxyStoreConfig config = GlobalConfiguration.Instance.ProxyStoreConfig;
+        int originalDefault = config.DefaultPreset;
+        try
+        {
+            // Cap at Quarter (density 0.25): the capped pick is the Quarter proxy, not the denser Half.
+            config.DefaultPreset = (int)ProxyPreset.Quarter;
+            using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
+
+            Assert.That(viewModel.Clips.Single().Source, Is.EqualTo(quarterFp),
+                "the row must bind to the density-capped Quarter proxy preview would decode, not the densest Half");
+        }
+        finally
+        {
+            config.DefaultPreset = originalDefault;
+        }
+    }
+
     [Test]
     public void Refresh_IncludesAnimatedSourceVideoValues()
     {

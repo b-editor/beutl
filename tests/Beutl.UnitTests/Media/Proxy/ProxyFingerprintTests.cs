@@ -214,6 +214,24 @@ public class ProxyFingerprintTests
             Is.EqualTo(ProxyFingerprint.NormalizeAbsolutePath(missing)));
     }
 
+    // ForPathKey is a tracking-only fingerprint: it carries the comparable path key (for AbsolutePath
+    // lookups) but leaves size/mtime unset, so it must NOT equal a real content fingerprint for the same
+    // path — a real entry has a concrete size/mtime and would otherwise be mistaken for it.
+    [Test]
+    public void ForPathKey_CarriesComparableKey_ButDoesNotEqualContentFingerprint()
+    {
+        string missing = CreatePath(Guid.NewGuid() + ".mov");
+
+        ProxyFingerprint key = ProxyFingerprint.ForPathKey(missing);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(key.AbsolutePath, Is.EqualTo(ProxyFingerprint.ResolveComparableKey(missing)));
+            Assert.That(key.FileSizeBytes, Is.EqualTo(0));
+            Assert.That(key, Is.Not.EqualTo(new ProxyFingerprint(missing, 4096, DateTime.UtcNow)));
+        });
+    }
+
     private static string CreatePath(string fileName)
     {
         return Path.Combine(TestContext.CurrentContext.WorkDirectory, fileName);

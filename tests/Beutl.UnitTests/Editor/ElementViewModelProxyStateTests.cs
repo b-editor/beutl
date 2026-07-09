@@ -384,14 +384,42 @@ public sealed class ElementViewModelProxyStateTests
         });
     }
 
+    // A missing original with no Ready proxy must still resolve to a path-key fingerprint so the source
+    // stays tracked; otherwise a proxy registered for this path later is filtered out of the cached
+    // change gate and the badge/filmstrip never refreshes until the view is rebuilt.
     [Test]
-    public void ResolveSourceFingerprint_MissingOriginalWithoutReadyProxy_ReturnsNull()
+    public void ResolveSourceFingerprint_MissingOriginalWithoutReadyProxy_TracksPathKey()
     {
         string missing = Path.Combine(Path.GetTempPath(), $"missing-{Guid.NewGuid():N}.mov");
         var fp = new ProxyFingerprint(missing, 4096, DateTime.UtcNow);
         var store = new FakeProxyStore(Entry(fp, ProxyState.Failed));
 
-        Assert.That(ElementViewModel.ResolveSourceFingerprint(store, new Uri(missing)), Is.Null);
+        ProxyFingerprint? resolved = ElementViewModel.ResolveSourceFingerprint(store, new Uri(missing));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(resolved, Is.Not.Null, "the offline source must stay tracked, not dropped");
+            Assert.That(
+                resolved!.Value.AbsolutePath,
+                Is.EqualTo(ProxyFingerprint.ResolveComparableKey(missing)),
+                "tracking must key on the path a later Registered event will match");
+        });
+    }
+
+    [Test]
+    public void ResolveSourceFingerprint_MissingOriginalWithNoStoreEntry_StillTracksPathKey()
+    {
+        string missing = Path.Combine(Path.GetTempPath(), $"missing-{Guid.NewGuid():N}.mov");
+        var store = new FakeProxyStore();
+
+        ProxyFingerprint? resolved = ElementViewModel.ResolveSourceFingerprint(store, new Uri(missing));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(resolved, Is.Not.Null);
+            Assert.That(resolved!.Value.AbsolutePath, Is.EqualTo(ProxyFingerprint.ResolveComparableKey(missing)));
+            Assert.That(ElementViewModel.ResolveProxyState(store, null, resolved.Value), Is.EqualTo(ProxyState.None));
+        });
     }
 
     private static Element ElementWithVideoSource(string fileName, out string absolutePath)
