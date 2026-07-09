@@ -232,7 +232,13 @@ public static class ProjectOperations
             EnsureSceneUri(project, scene);
         }
 
-        AssignMissingElementUris(scene, createDirectory: false);
+        // A live/unsaved scene may still have no Uri (no parent project Uri to derive one from), so
+        // there is nowhere to home sidecars yet; skip rather than throw. Save assigns element URIs
+        // once the scene has one.
+        if (scene.Uri is not null)
+        {
+            AssignMissingElementUris(scene, createDirectory: false);
+        }
     }
 
     internal static void EnsureElementUris(Scene scene)

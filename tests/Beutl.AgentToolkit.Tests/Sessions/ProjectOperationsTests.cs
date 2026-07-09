@@ -220,4 +220,14 @@ public sealed class ProjectOperationsTests
             Assert.That(Directory.Exists(rehomedSceneDir), Is.False, "URI normalization must not create directories.");
         });
     }
+
+    [Test]
+    public void NormalizeSidecarUrisWithinProject_DoesNotThrow_WhenSceneHasNoUri()
+    {
+        // A live/unsaved scene not attached to a project has no Uri to home sidecars into; without the
+        // guard AssignMissingElementUris throws InvalidOperationException on the null Uri.
+        var scene = new Scene(1920, 1080, "Scene");
+
+        Assert.DoesNotThrow(() => ProjectOperations.NormalizeSidecarUrisWithinProject(scene));
+    }
 }
