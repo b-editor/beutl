@@ -322,7 +322,9 @@ public sealed partial class ElementView : UserControl
 
     private void OnColorPickerFlyoutConfirmed(ColorPickerFlyout sender, EventArgs args)
     {
-        if (DataContext is ElementViewModel viewModel)
+        // Re-check editability at confirm time: the clip or its layer may have been locked while the
+        // picker was open, and the open-time guard alone would let the confirm persist onto locked content.
+        if (DataContext is ElementViewModel { IsEditable.Value: true } viewModel)
         {
             viewModel.Color.Value = sender.ColorPicker.Color;
         }

@@ -493,6 +493,24 @@ public class RippleEditTests
     }
 
     [Test]
+    public void Resize_RippleOn_StartPastLockedFollower_DoesNotProduceNegativeLength()
+    {
+        var resize = new ElementResizeService(_history);
+        Element target = AddElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(2), zIndex: 0);
+        Element locked = AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(2), zIndex: 0);
+        locked.IsLocked = true;
+
+        // Contrived request: the element both jumps right (start 10) and grows (end 23) past the locked
+        // follower. The end-clamp point (3) sits left of the new start, so an unguarded clamp would
+        // yield a negative length; the guard keeps the requested positive length instead of corrupting.
+        resize.Resize(_scene,
+            [new ElementResizeRequest(target, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(13), 0)],
+            ripple: true);
+
+        Assert.That(target.Length, Is.EqualTo(TimeSpan.FromSeconds(13)));
+    }
+
+    [Test]
     public void ShiftBefore_LeftEdgeTrim_StopsPullAtLockedUpstream()
     {
         Element free = AddElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(2));
@@ -500,14 +518,14 @@ public class RippleEditTests
         Element target = AddElement(TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(2));
         locked.IsLocked = true;
 
-        // Left-edge trim of target (start 4 -> 6) pulls upstream clips right; the free clip would
-        // land on the locked clip at [2,4], so the pull stops and it stays put.
+        // Left-edge trim of target (start 4 -> 6) pulls upstream clips right; shifting the free clip
+        // right would land it on the locked clip at [2,4], so the pull stops and it holds its start of 0.
         RippleHelper.ShiftBefore(_scene, zIndex: 0, anchorStart: TimeSpan.FromSeconds(4),
             delta: TimeSpan.FromSeconds(2), except: [target]);
 
         Assert.Multiple(() =>
         {
-            Assert.That(free.Start, Is.EqualTo(TimeSpan.Zero), "free upstream is blocked by the locked clip");
+            Assert.That(free.Start, Is.EqualTo(TimeSpan.Zero), "free upstream is blocked by the locked clip, not pulled right");
             Assert.That(locked.Start, Is.EqualTo(TimeSpan.FromSeconds(2)), "locked clip must not move");
         });
     }

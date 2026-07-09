@@ -120,7 +120,7 @@ public sealed class ElementStructureService : IElementStructureService
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(ids);
-        ids = FilterUnlockedIds(scene, ids);
+        ids = FilterStrandingIds(scene, FilterUnlockedIds(scene, ids));
         if (ids.Count == 0) return GroupOutcome.NotCreated;
 
         // Remove ids from existing groups first — with a single id this acts as
@@ -152,7 +152,7 @@ public sealed class ElementStructureService : IElementStructureService
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(ids);
-        ids = FilterUnlockedIds(scene, ids);
+        ids = FilterStrandingIds(scene, FilterUnlockedIds(scene, ids));
         if (ids.Count == 0) return;
 
         if (RemoveIdsFromGroups(scene, ids))
@@ -162,7 +162,37 @@ public sealed class ElementStructureService : IElementStructureService
     }
 
     private static bool RemoveIdsFromGroups(Scene scene, IReadOnlyCollection<Guid> ids)
-        => scene.RemoveElementsFromGroups(ids, preserveLockedSurvivors: true);
+        => scene.RemoveElementsFromGroups(ids);
+
+    // Refuses to pull an editable member out of a group when that would leave the group with only a
+    // locked survivor: disbanding it would silently change the locked member's grouping. Such ids are
+    // dropped from the request so the group is left intact. Only structural regroups (Ungroup/Group)
+    // use this — removal ops (Delete/Exclude/Cut) must always prune a removed element's id.
+    private static IReadOnlyCollection<Guid> FilterStrandingIds(Scene scene, IReadOnlyCollection<Guid> ids)
+    {
+        if (ids.Count == 0) return ids;
+
+        HashSet<Guid>? refused = null;
+        foreach (ImmutableHashSet<Guid> group in scene.Groups)
+        {
+            if (!group.Overlaps(ids)) continue;
+
+            ImmutableHashSet<Guid> survivors = group.Except(ids);
+            if (survivors.Count >= 2) continue;
+
+            if (survivors.Any(id => scene.Children.FirstOrDefault(c => c.Id == id) is { } el
+                                    && scene.IsElementLocked(el)))
+            {
+                foreach (Guid id in group)
+                {
+                    if (ids.Contains(id)) (refused ??= []).Add(id);
+                }
+            }
+        }
+
+        if (refused is null) return ids;
+        return ids.Where(id => !refused.Contains(id)).ToArray();
+    }
 
     // Ids with no matching element cannot be locked and pass through unchanged.
     private static IReadOnlyCollection<Guid> FilterUnlockedIds(Scene scene, IReadOnlyCollection<Guid> ids)

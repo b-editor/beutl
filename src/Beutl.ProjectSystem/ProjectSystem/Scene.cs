@@ -189,10 +189,8 @@ public class Scene : ProjectItem, INotifyEdited
     }
 
     // Prunes ids from every group and disbands any group left with fewer than two
-    // members. Returns true if any group changed. When preserveLockedSurvivors is set,
-    // a group whose sole remaining member is locked is left untouched, so a structural
-    // regroup of an editable member cannot silently change a locked member's grouping.
-    public bool RemoveElementsFromGroups(IReadOnlyCollection<Guid> ids, bool preserveLockedSurvivors = false)
+    // members. Returns true if any group changed.
+    public bool RemoveElementsFromGroups(IReadOnlyCollection<Guid> ids)
     {
         ArgumentNullException.ThrowIfNull(ids);
         bool removed = false;
@@ -208,11 +206,6 @@ public class Scene : ProjectItem, INotifyEdited
             }
             else
             {
-                if (preserveLockedSurvivors && updated.Any(SurvivorIsLocked))
-                {
-                    continue;
-                }
-
                 Groups.RemoveAt(i);
             }
 
@@ -220,9 +213,6 @@ public class Scene : ProjectItem, INotifyEdited
         }
 
         return removed;
-
-        bool SurvivorIsLocked(Guid id)
-            => Children.FirstOrDefault(c => c.Id == id) is { } survivor && IsElementLocked(survivor);
     }
 
     // element.FileNameが既に設定されている状態

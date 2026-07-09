@@ -190,6 +190,10 @@ public sealed class ElementResizeService : IElementResizeService
         if (newEnd <= maxEnd) return length;
 
         TimeSpan clampedEnd = maxEnd > oldEnd ? maxEnd : oldEnd;
-        return clampedEnd - start;
+        // A start past the clamp point (e.g. the element also moved right onto the lock) would make
+        // the clamped length non-positive and corrupt the range; leave the length to the caller's
+        // move validation instead of forcing a bad value here.
+        TimeSpan clampedLength = clampedEnd - start;
+        return clampedLength > TimeSpan.Zero ? clampedLength : length;
     }
 }
