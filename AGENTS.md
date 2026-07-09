@@ -37,7 +37,8 @@ Claude Code skills are provided as `/beutl-build`, `/beutl-test`, `/beutl-format
 | `Beutl.ProjectSystem` | Project / document persistence |
 | `Beutl.Editor` | Non-UI editor logic — undo/redo, packaging, editing-pipeline services (no Avalonia) |
 | `Beutl.Editor.Components`, `Beutl.Controls` | Avalonia UI layer (views / controls / ViewModels) |
-| `Beutl.Extensibility` | Plugin abstractions |
+| `Beutl.Extensibility.Abstractions` | Lightweight base extension contracts (`Extension` / `ExtensionSettings` / `ExportAttribute`); depends only on `Beutl.Core` + `Beutl.Configuration` so a plugin can target the thin surface without the full UI/media assembly |
+| `Beutl.Extensibility` | Plugin abstractions — UI / media / property-editor contracts layered on top of `Beutl.Extensibility.Abstractions` |
 | `Beutl.NodeGraph` | Node editor |
 | `Beutl.FFmpegIpc` | **MIT** IPC layer (transport: Protocol / Transport / SharedMemory). Also hosts the IPC client providers under `Providers/`, which translate frame/sample messages into `Beutl.Media` / `Beutl.Extensibility` types; that adapter role is why this project deliberately takes `ProjectReference`s to `Beutl.Engine` + `Beutl.Extensibility` rather than staying dependency-free. |
 | `Beutl.FFmpegWorker` | **GPL** separate process; reach it only via IPC |

@@ -32,6 +32,7 @@
   <PropertyGroup>
     <BeutlAutoReferenceAll Condition="'$(BeutlAutoReferenceAll)' == ''">true</BeutlAutoReferenceAll>
     <BeutlAutoReferenceExtensibility Condition="'$(BeutlAutoReferenceExtensibility)' == ''">$(BeutlAutoReferenceAll)</BeutlAutoReferenceExtensibility>
+    <BeutlAutoReferenceExtensibilityAbstractions Condition="'$(BeutlAutoReferenceExtensibilityAbstractions)' == ''">$(BeutlAutoReferenceAll)</BeutlAutoReferenceExtensibilityAbstractions>
     <BeutlAutoReferenceProjectSystem Condition="'$(BeutlAutoReferenceProjectSystem)' == ''">$(BeutlAutoReferenceAll)</BeutlAutoReferenceProjectSystem>
     <BeutlAutoReferenceNodeGraph Condition="'$(BeutlAutoReferenceNodeGraph)' == ''">$(BeutlAutoReferenceAll)</BeutlAutoReferenceNodeGraph>
     <BeutlAutoReferenceEditor Condition="'$(BeutlAutoReferenceEditor)' == ''">$(BeutlAutoReferenceAll)</BeutlAutoReferenceEditor>
@@ -40,6 +41,9 @@
 
   <ItemGroup Condition="'$(_PreventCopyInternalPackages)' == 'true'">
     <PackageReference Include="Beutl.Extensibility" Version="$(BeutlPackagesVersion)" ExcludeAssets="runtime;native" Condition="'$(BeutlAutoReferenceExtensibility)' == 'true'" />
+    <!-- Reference directly even when it arrives transitively, so ExcludeAssets suppresses the
+         host-provided runtime asset under sideload. -->
+    <PackageReference Include="Beutl.Extensibility.Abstractions" Version="$(BeutlPackagesVersion)" ExcludeAssets="runtime;native" Condition="'$(BeutlAutoReferenceExtensibilityAbstractions)' == 'true' or '$(BeutlAutoReferenceExtensibility)' == 'true'" />
     <PackageReference Include="Beutl.ProjectSystem" Version="$(BeutlPackagesVersion)" ExcludeAssets="runtime;native" Condition="'$(BeutlAutoReferenceProjectSystem)' == 'true'" />
     <PackageReference Include="Beutl.NodeGraph" Version="$(BeutlPackagesVersion)" ExcludeAssets="runtime;native" Condition="'$(BeutlAutoReferenceNodeGraph)' == 'true'" />
     <PackageReference Include="Beutl.Editor" Version="$(BeutlPackagesVersion)" ExcludeAssets="runtime;native" Condition="'$(BeutlAutoReferenceEditor)' == 'true'" />
@@ -54,6 +58,8 @@
 
   <ItemGroup Condition="'$(_PreventCopyInternalPackages)' != 'true'">
     <PackageReference Include="Beutl.Extensibility" Version="$(BeutlPackagesVersion)" Condition="'$(BeutlAutoReferenceExtensibility)' == 'true'" />
+    <!-- Thin author only; otherwise Beutl.Extensibility brings it transitively. -->
+    <PackageReference Include="Beutl.Extensibility.Abstractions" Version="$(BeutlPackagesVersion)" Condition="'$(BeutlAutoReferenceExtensibilityAbstractions)' == 'true' and '$(BeutlAutoReferenceExtensibility)' != 'true'" />
     <PackageReference Include="Beutl.ProjectSystem" Version="$(BeutlPackagesVersion)" Condition="'$(BeutlAutoReferenceProjectSystem)' == 'true'" />
     <PackageReference Include="Beutl.NodeGraph" Version="$(BeutlPackagesVersion)" Condition="'$(BeutlAutoReferenceNodeGraph)' == 'true'" />
     <PackageReference Include="Beutl.Editor" Version="$(BeutlPackagesVersion)" Condition="'$(BeutlAutoReferenceEditor)' == 'true'" />
