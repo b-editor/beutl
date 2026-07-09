@@ -335,6 +335,128 @@ public sealed class ExportSourceValidatorTests
         });
     }
 
+    // The visited-scene set is keyed by (scene, target): the same scene embedded once as a
+    // SceneDrawable (Graphics) and once as a SceneSound (Audio) must have BOTH facets preflighted, so
+    // a Graphics visit must not suppress the Audio one (or vice versa).
+    [Test]
+    public void GetMissingPaths_SameSceneAsDrawableAndSound_ReportsBothFacets()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string missingImage = Path.Combine(root, "missing.png");
+        string missingSound = Path.Combine(root, "missing.mp3");
+
+        var childScene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "child.scene")) };
+        childScene.Children.Add(CreateImageElement(root, missingImage));
+        childScene.Children.Add(CreateSoundElement(root, missingSound));
+
+        var sceneDrawable = new SceneDrawable();
+        sceneDrawable.ReferencedScene.CurrentValue = childScene;
+        var sceneSound = new SceneSound();
+        sceneSound.ReferencedScene.CurrentValue = childScene;
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "root.scene")) };
+        scene.Children.Add(ElementWith(root, sceneDrawable));
+        scene.Children.Add(ElementWith(root, sceneSound));
+
+        IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
+            ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene));
+
+        Assert.That(missing, Is.EquivalentTo(new[] { missingImage, missingSound }));
+    }
+
+    // A SoundGroup renders its child Sounds through SoundGroup.Compose (the audio analogue of a
+    // DrawableGroup), so a missing original nested in one must be preflighted, not surface at encode.
+    [Test]
+    public void GetMissingPaths_ReportsMissingSoundNestedInSoundGroup()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string missingSound = Path.Combine(root, "missing.mp3");
+
+        var group = new SoundGroup();
+        group.Children.Add(SoundDrawable(missingSound));
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
+        scene.Children.Add(ElementWith(root, group));
+
+        IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
+            ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene));
+
+        Assert.That(missing, Is.EqualTo(new[] { missingSound }));
+    }
+
+    // Global-clock keyframes use scene time, not element-local time, so a source key sampled inside the
+    // exported interval must not be dropped by subtracting the element start; it must still block export.
+    [Test]
+    public void CollectRenderableSources_GlobalClockAnimatedSource_NotDroppedByLocalWindow()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string existing = Path.Combine(root, "existing.mov");
+        string missingAtGlobal12 = Path.Combine(root, "missing.mov");
+        File.WriteAllBytes(existing, [1]);
+
+        var drawable = new SourceVideo();
+        var animation = new KeyFrameAnimation<VideoSource?> { UseGlobalClock = true };
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.FromSeconds(11), Value = MakeVideoSource(existing) });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.FromSeconds(12), Value = MakeVideoSource(missingAtGlobal12) });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.FromSeconds(13), Value = MakeVideoSource(existing) });
+        drawable.Source.Animation = animation;
+
+        var element = new Element
+        {
+            Start = TimeSpan.FromSeconds(10),
+            Length = TimeSpan.FromSeconds(10),
+            IsEnabled = true,
+            Uri = new Uri(Path.Combine(root, $"{Guid.NewGuid():N}.layer")),
+        };
+        element.AddObject(drawable);
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
+        scene.Children.Add(element);
+
+        // Export [10s, 20s] samples the global key at 12s; subtracting the 10s element start would map
+        // the local window to [0,10] and wrongly drop the 12s key.
+        IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
+            ExportSourceValidator.CollectRenderableSources(scene, new TimeRange(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(10))));
+
+        Assert.That(missing, Is.EqualTo(new[] { missingAtGlobal12 }));
+    }
+
+    // When a property is animated by keyframes, the render samples the animation, not the base
+    // CurrentValue, so a stale missing base must not block export while the keyframed values exist.
+    [Test]
+    public void CollectRenderableSources_AnimatedProperty_DoesNotReportOverriddenBaseValue()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string missingBase = Path.Combine(root, "old-base.mov");
+        string keyframed = Path.Combine(root, "keyframed.mov");
+        File.WriteAllBytes(keyframed, [1]);
+
+        var drawable = new SourceVideo();
+        drawable.Source.CurrentValue = MakeVideoSource(missingBase);
+        var animation = new KeyFrameAnimation<VideoSource?>();
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.Zero, Value = MakeVideoSource(keyframed) });
+        drawable.Source.Animation = animation;
+        Element element = ElementWith(root, drawable);
+        element.Length = TimeSpan.FromSeconds(10);
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
+        scene.Children.Add(element);
+
+        IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
+            ExportSourceValidator.CollectRenderableSources(scene, new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10))));
+
+        Assert.That(missing, Is.Empty);
+    }
+
+    private static SourceSound SoundDrawable(string sourcePath)
+    {
+        var source = new SoundSource();
+        source.ReadFrom(new Uri(sourcePath));
+        var sound = new SourceSound();
+        sound.Source.CurrentValue = source;
+        return sound;
+    }
+
     private static VideoSource MakeVideoSource(string sourcePath)
     {
         var source = new VideoSource();

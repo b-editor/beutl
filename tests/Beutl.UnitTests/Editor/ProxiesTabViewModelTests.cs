@@ -272,6 +272,50 @@ public sealed class ProxiesTabViewModelTests
         });
     }
 
+    // With Ready entries from different source versions for the same offline path, the row must bind to
+    // the newest version (mirroring ProxyResolver.ResolveByPath), even when an older version's proxy is
+    // denser — otherwise delete/regenerate would target a stale proxy the preview no longer decodes.
+    [Test]
+    public void Refresh_OfflineSourceWithReadyEntriesFromDifferentVersions_BindsNewest()
+    {
+        string root = CreateRoot();
+        string sourcePath = CreateSourceFile(root, "offline.mov", 1024);
+        var store = new ProxyStore(Path.Combine(root, "proxies"));
+        ProxyFingerprint newFp = ProxyFingerprint.FromFile(sourcePath);
+        // Older source version (distinct size/mtime), a denser Half proxy generated earlier.
+        ProxyFingerprint oldFp = newFp with
+        {
+            FileSizeBytes = newFp.FileSizeBytes + 4096,
+            MtimeUtc = newFp.MtimeUtc.AddMinutes(-10),
+        };
+        var oldTime = new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var newTime = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        RegisterProxyEntry(store, new ProxyEntry(
+            oldFp, ProxyPreset.Half, ProxyState.Ready, "hash/old-half.mp4", 768,
+            new PixelSize(1920, 1080), new PixelSize(960, 540), oldTime, oldTime, null));
+        RegisterProxyEntry(store, new ProxyEntry(
+            newFp, ProxyPreset.Quarter, ProxyState.Ready, "hash/new-quarter.mp4", 512,
+            new PixelSize(1920, 1080), new PixelSize(480, 270), newTime, newTime, null));
+        File.Delete(sourcePath);
+
+        ProxyStoreConfig config = GlobalConfiguration.Instance.ProxyStoreConfig;
+        int originalDefault = config.DefaultPreset;
+        try
+        {
+            // Default preset Half: the denser old Half is under the cap, so density-only ranking would
+            // bind the old version; the newest-version filter must beat that and bind the new Quarter.
+            config.DefaultPreset = (int)ProxyPreset.Half;
+            using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
+
+            ProxyClipViewModel clip = viewModel.Clips.Single();
+            Assert.That(clip.Source, Is.EqualTo(newFp), "the row must bind to the newest source version, not a denser older proxy");
+        }
+        finally
+        {
+            config.DefaultPreset = originalDefault;
+        }
+    }
+
     // With multiple Ready entries for an offline path, the row must bind to the fingerprint preview
     // decoding picks: the densest within the default-preset density cap (mirroring ProxyResolver), not
     // simply the densest overall.
@@ -281,20 +325,15 @@ public sealed class ProxiesTabViewModelTests
         string root = CreateRoot();
         string sourcePath = CreateSourceFile(root, "offline.mov", 1024);
         var store = new ProxyStore(Path.Combine(root, "proxies"));
-        ProxyFingerprint quarterFp = ProxyFingerprint.FromFile(sourcePath);
-        // Same path, distinct fingerprint (older size/mtime) for the denser Half proxy.
-        ProxyFingerprint halfFp = quarterFp with
-        {
-            FileSizeBytes = quarterFp.FileSizeBytes + 4096,
-            MtimeUtc = quarterFp.MtimeUtc.AddMinutes(-10),
-        };
+        ProxyFingerprint sourceFp = ProxyFingerprint.FromFile(sourcePath);
         DateTime now = DateTime.UtcNow;
-        // Quarter density 0.25 (480/1920), Half density 0.5 (960/1920). Register the denser Half first.
+        // One source version, two Ready presets keyed on the same fingerprint: Quarter density 0.25
+        // (480/1920), Half density 0.5 (960/1920). Register the denser Half first.
         RegisterProxyEntry(store, new ProxyEntry(
-            halfFp, ProxyPreset.Half, ProxyState.Ready, "hash/half.mp4", 768,
+            sourceFp, ProxyPreset.Half, ProxyState.Ready, "hash/half.mp4", 768,
             new PixelSize(1920, 1080), new PixelSize(960, 540), now, now, null));
         RegisterProxyEntry(store, new ProxyEntry(
-            quarterFp, ProxyPreset.Quarter, ProxyState.Ready, "hash/quarter.mp4", 512,
+            sourceFp, ProxyPreset.Quarter, ProxyState.Ready, "hash/quarter.mp4", 512,
             new PixelSize(1920, 1080), new PixelSize(480, 270), now, now, null));
         File.Delete(sourcePath);
 
@@ -306,7 +345,7 @@ public sealed class ProxiesTabViewModelTests
             config.DefaultPreset = (int)ProxyPreset.Quarter;
             using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
 
-            Assert.That(viewModel.Clips.Single().Source, Is.EqualTo(quarterFp),
+            Assert.That(viewModel.Clips.Single().Preset.Value, Is.EqualTo(ProxyPreset.Quarter),
                 "the row must bind to the density-capped Quarter proxy preview would decode, not the densest Half");
         }
         finally

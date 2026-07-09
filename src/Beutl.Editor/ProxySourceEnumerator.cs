@@ -1,4 +1,5 @@
 ﻿using Beutl.Animation;
+using Beutl.Audio;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Extensibility;
@@ -25,10 +26,10 @@ public static class ProxySourceEnumerator
     /// direct/animated <see cref="SourceVideo"/> values, node-graph adapter inputs, filter-effect
     /// subgraphs, and referenced scenes.
     /// </summary>
-    public static IEnumerable<VideoSource> EnumerateVideoSources(Element element, HashSet<Scene>? visitedScenes = null)
+    public static IEnumerable<VideoSource> EnumerateVideoSources(Element element, HashSet<(Scene, CompositionTarget?)>? visitedScenes = null)
     {
         ArgumentNullException.ThrowIfNull(element);
-        return EnumerateElementFileSources(element, visitedScenes ?? new HashSet<Scene>(ReferenceEqualityComparer.Instance))
+        return EnumerateElementFileSources(element, visitedScenes ?? new HashSet<(Scene, CompositionTarget?)>())
             .OfType<VideoSource>();
     }
 
@@ -58,7 +59,7 @@ public static class ProxySourceEnumerator
     /// </param>
     public static IEnumerable<IFileSource> EnumerateFileSources(
         Element element,
-        HashSet<Scene>? visitedScenes = null,
+        HashSet<(Scene, CompositionTarget?)>? visitedScenes = null,
         bool skipDisabledElements = false,
         CompositionTarget? renderTarget = null,
         TimeRange? localRange = null)
@@ -66,7 +67,7 @@ public static class ProxySourceEnumerator
         ArgumentNullException.ThrowIfNull(element);
         return EnumerateElementFileSources(
             element,
-            visitedScenes ?? new HashSet<Scene>(ReferenceEqualityComparer.Instance),
+            visitedScenes ?? new HashSet<(Scene, CompositionTarget?)>(),
             skipDisabledElements,
             renderTarget,
             localRange);
@@ -113,7 +114,7 @@ public static class ProxySourceEnumerator
         // not an EngineObject property), including ports inside referenced scenes, so descend the
         // element walk here too. A shared visited-scene set resolves cross-element references to the
         // same scene once.
-        var visitedScenes = new HashSet<Scene>(ReferenceEqualityComparer.Instance);
+        var visitedScenes = new HashSet<(Scene, CompositionTarget?)>();
         foreach (Element element in allChildren.OfType<Element>())
         {
             foreach (IFileSource source in EnumerateElementFileSources(element, visitedScenes))
@@ -146,7 +147,7 @@ public static class ProxySourceEnumerator
 
     private static IEnumerable<IFileSource> EnumerateElementFileSources(
         Element element,
-        HashSet<Scene> visitedScenes,
+        HashSet<(Scene, CompositionTarget?)> visitedScenes,
         bool skipDisabledElements = false,
         CompositionTarget? renderTarget = null,
         TimeRange? localRange = null)
@@ -182,7 +183,7 @@ public static class ProxySourceEnumerator
 
     private static IEnumerable<IFileSource> EnumerateObjectFileSources(
         EngineObject obj,
-        HashSet<Scene> visitedScenes,
+        HashSet<(Scene, CompositionTarget?)> visitedScenes,
         HashSet<GraphGroup> visitedGraphGroups,
         HashSet<FilterEffectGroup> visitedFilterEffectGroups,
         HashSet<Drawable> visitedTargets,
@@ -287,6 +288,22 @@ public static class ProxySourceEnumerator
             foreach (IFileSource source in EnumerateReferencedSceneSources(soundScene, visitedScenes, skipDisabledElements, CompositionTarget.Audio))
                 yield return source;
         }
+
+        // A SoundGroup renders its child Sounds through SoundGroup.Compose (the audio analogue of a
+        // DrawableGroup), so a SourceSound/SceneSound nested in one is only reachable by walking the
+        // group's Children; the property walk above cannot see them.
+        if (obj is SoundGroup soundGroup)
+        {
+            foreach (Sound child in soundGroup.Children)
+            {
+                if (skipDisabledElements && !child.IsEnabled)
+                    continue;
+
+                foreach (IFileSource source in EnumerateObjectFileSources(
+                    child, visitedScenes, visitedGraphGroups, visitedFilterEffectGroups, visitedTargets, skipDisabledElements, renderTarget, localRange))
+                    yield return source;
+            }
+        }
     }
 
     private static IEnumerable<IHierarchical> EnumerateAllChildrenCycleSafe(IHierarchical root)
@@ -308,11 +325,13 @@ public static class ProxySourceEnumerator
     }
 
     private static IEnumerable<IFileSource> EnumerateReferencedSceneSources(
-        Scene scene, HashSet<Scene> visitedScenes, bool skipDisabledElements, CompositionTarget? renderTarget)
+        Scene scene, HashSet<(Scene, CompositionTarget?)> visitedScenes, bool skipDisabledElements, CompositionTarget? renderTarget)
     {
         // Scene references are user-constructible and can cycle; the visited set makes the walk
-        // terminate (render-time Enter/Exit is the only other guard).
-        if (!visitedScenes.Add(scene))
+        // terminate (render-time Enter/Exit is the only other guard). Key by (scene, renderTarget): the
+        // same scene can be reached once as a SceneDrawable (Graphics) and once as a SceneSound (Audio),
+        // and each facet's media must be preflighted, so a Graphics visit must not suppress the Audio one.
+        if (!visitedScenes.Add((scene, renderTarget)))
             yield break;
 
         foreach (Element child in scene.Children)
@@ -332,7 +351,11 @@ public static class ProxySourceEnumerator
     {
         foreach (IProperty property in obj.Properties)
         {
-            if (property.CurrentValue is IFileSource fileSource)
+            // A property animated by >=1 keyframe is sampled from its animation, never its base
+            // CurrentValue, so when range-filtering to a render window the base must not block export —
+            // its file is never opened. Without a window (proxy/badge scan) keep the base too.
+            bool baseOverridden = localRange is not null && AnimationSuppliesValue(property.Animation);
+            if (!baseOverridden && property.CurrentValue is IFileSource fileSource)
                 yield return fileSource;
 
             // Rendering (and the proxy scanner) consume animated file-source values too, so media
@@ -443,10 +466,18 @@ public static class ProxySourceEnumerator
         }
     }
 
+    private static bool AnimationSuppliesValue(IAnimation? animation)
+        => animation is KeyFrameAnimation { KeyFrames.Count: > 0 };
+
     private static IEnumerable<IFileSource> EnumerateAnimatedFileSources(IAnimation? animation, TimeRange? localRange = null)
     {
         if (animation is not KeyFrameAnimation keyFrameAnimation)
             yield break;
+
+        // Global-clock keyframes use scene time, but localRange is expressed in the element's local
+        // time, so range-filtering them with a local window would drop keyframes that are actually
+        // sampled. Fall back to the broad walk (every keyframe) for that case.
+        TimeRange? window = keyFrameAnimation.UseGlobalClock ? null : localRange;
 
         IReadOnlyList<IKeyFrame> keyFrames = keyFrameAnimation.KeyFrames;
         for (int i = 0; i < keyFrames.Count; i++)
@@ -459,7 +490,7 @@ public static class ProxySourceEnumerator
             // governs the sorted span [previous keyframe, next keyframe], so drop it only when that
             // span lies wholly outside the window. Conservative on both open ends so a value that could
             // still be sampled is never excluded — a wrong exclusion would fail the render, not preflight.
-            if (localRange is { } range)
+            if (window is { } range)
             {
                 TimeSpan spanStart = i > 0 ? keyFrames[i - 1].KeyTime : TimeSpan.MinValue;
                 TimeSpan spanEnd = i < keyFrames.Count - 1 ? keyFrames[i + 1].KeyTime : TimeSpan.MaxValue;

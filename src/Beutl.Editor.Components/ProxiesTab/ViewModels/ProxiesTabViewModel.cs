@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Reactive.Disposables;
 using Avalonia.Threading;
 using Beutl.Animation;
+using Beutl.Composition;
 using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Engine;
@@ -654,6 +655,7 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
     {
         HashSet<string> seenPaths = new(StringComparer.Ordinal);
         HashSet<Scene> seenScenes = new(ReferenceEqualityComparer.Instance);
+        HashSet<(Scene, CompositionTarget?)> visitedRefScenes = [];
         ProxyEntry[] storeEntries = [.. _store?.Enumerate() ?? []];
         ProxyPreset preferredPreset = ToPreset(_config.DefaultPreset);
 
@@ -666,7 +668,7 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
 
             foreach (Element element in scene.Children)
             {
-                foreach (VideoSource source in ProxySourceEnumerator.EnumerateVideoSources(element, seenScenes))
+                foreach (VideoSource source in ProxySourceEnumerator.EnumerateVideoSources(element, visitedRefScenes))
                 {
                     if (TryGetVideoSource(source, storeEntries, seenPaths, preferredPreset, out var item))
                         yield return item;
@@ -736,16 +738,26 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
     private static ProxyEntry? SelectOfflineEntry(IEnumerable<ProxyEntry> pathMatches, ProxyPreset preferredPreset)
     {
         List<ProxyEntry> candidates = [.. pathMatches];
+
+        // Restrict Ready entries to the newest source version before density ranking, mirroring
+        // ProxyResolver.ResolveByPath: after an original is replaced and re-proxied, an older
+        // fingerprint's Ready entry can linger, and density-only ranking would bind the row to it
+        // while preview decodes the newest fingerprint.
+        List<ProxyEntry> ready = [.. candidates.Where(e => e.State == ProxyState.Ready)];
+        if (ready.Count > 0)
+        {
+            DateTime NewestForSource(ProxyFingerprint s) => ready.Where(e => e.Source == s).Max(e => e.GeneratedAtUtc);
+            ProxyFingerprint newest = ready.OrderByDescending(e => NewestForSource(e.Source)).First().Source;
+            ready = [.. ready.Where(e => e.Source == newest)];
+        }
+
         float cap = ProxyPresetDefinitions.Get(preferredPreset).Scale;
         ProxyEntry? cappedWinner = null;
         float cappedDensity = -1f;
         ProxyEntry? densestWinner = null;
         float densestDensity = -1f;
-        foreach (ProxyEntry entry in candidates)
+        foreach (ProxyEntry entry in ready)
         {
-            if (entry.State != ProxyState.Ready)
-                continue;
-
             float density = SupplyDensityOf(entry);
             if (density <= cap + DensityTolerance && density > cappedDensity)
             {

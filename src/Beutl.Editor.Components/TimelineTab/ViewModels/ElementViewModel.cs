@@ -1102,7 +1102,12 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         if (!ElementUsesChangedSourceCached(e.Source.AbsolutePath))
             return;
 
-        RefreshProxyState();
+        // A store registration/state change/delete can flip which entry ResolveSourceFingerprint
+        // picks — in particular it turns an offline ForPathKey fingerprint (cached before any Ready
+        // proxy existed) into the Ready entry's exact fingerprint, or back — so re-resolve the cache;
+        // otherwise the row stays Stale until an unrelated edit invalidates it. Store events are
+        // per-source (already relevance-gated), not the high-frequency queue refresh, so re-stat here.
+        RefreshProxyState(invalidateFingerprintCache: true);
     }
 
     private void OnProxyStoreChangedForThumbnails(ProxyStoreChangedEventArgs e)

@@ -34,7 +34,7 @@ public static class ExportSourceValidator
         ArgumentNullException.ThrowIfNull(scene);
 
         var paths = new HashSet<string>(StringComparer.Ordinal);
-        var visitedScenes = new HashSet<Scene>(ReferenceEqualityComparer.Instance);
+        var visitedScenes = new HashSet<(Scene, CompositionTarget?)>();
         foreach (Element element in scene.Children)
         {
             if (!element.IsEnabled || !inRange(element))
