@@ -1,13 +1,34 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Documents;
 using Beutl.AgentToolkit.Reconciliation;
+using Beutl.Animation;
 using Beutl.Audio.Effects;
+using Beutl.Graphics.Shapes;
 using Beutl.ProjectSystem;
 
 namespace Beutl.AgentToolkit.Tests.Documents;
 
 public class DocumentRoundTripTests
 {
+    [Test]
+    public void Write_with_a_present_non_object_animations_map_is_rejected_without_clearing_animations()
+    {
+        var text = new TextBlock { Text = { CurrentValue = "Title" } };
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 0 }, out _);
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 100 }, out _);
+        text.Opacity.Animation = animation;
+        var adapter = new DocumentAdapter();
+
+        JsonObject document = adapter.Read(text);
+        // A present-but-non-object Animations map is malformed, not an omission; it must be rejected
+        // instead of clearing every animatable property's animation.
+        document["Animations"] = new JsonArray();
+
+        Assert.Throws<ReconcileException>(() => adapter.Write(text, document));
+        Assert.That(text.Opacity.Animation, Is.SameAs(animation));
+    }
+
     [Test]
     public void Write_with_a_present_non_array_child_list_is_rejected_without_clearing_the_list()
     {

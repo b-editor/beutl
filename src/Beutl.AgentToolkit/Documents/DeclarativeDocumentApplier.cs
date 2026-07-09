@@ -295,7 +295,7 @@ internal sealed class DeclarativeDocumentApplier
     private static void ApplyAnimations(EngineObject target, JsonObject desired)
     {
         JsonObject? animations = desired.TryGetPropertyValue("Animations", out JsonNode? animationsNode)
-            ? animationsNode as JsonObject
+            ? RequireObjectMember(animationsNode, "Animations")
             : null;
 
         if (animations is not null)
@@ -370,7 +370,7 @@ internal sealed class DeclarativeDocumentApplier
     private static void ApplyExpressions(EngineObject target, JsonObject desired)
     {
         JsonObject? expressions = desired.TryGetPropertyValue("Expressions", out JsonNode? expressionsNode)
-            ? expressionsNode as JsonObject
+            ? RequireObjectMember(expressionsNode, "Expressions")
             : null;
 
         if (expressions is not null)
@@ -639,6 +639,22 @@ internal sealed class DeclarativeDocumentApplier
             $"'{fieldName}' must be a JSON array.",
             fieldName,
             $"Provide '{fieldName}' as an array of members, or omit it entirely to clear the list."));
+    }
+
+    // A present but non-object map value is a malformed document, not an intentional omission: treating
+    // it as "clear" (the absent-property branch) would silently wipe every animation/expression on a typo.
+    private static JsonObject RequireObjectMember(JsonNode? node, string fieldName)
+    {
+        if (node is JsonObject obj)
+        {
+            return obj;
+        }
+
+        throw new ReconcileException(new ToolError(
+            ErrorCode.ValidationRejected,
+            $"'{fieldName}' must be a JSON object.",
+            fieldName,
+            $"Provide '{fieldName}' as an object keyed by property name, or omit it entirely to clear it."));
     }
 
     private static CoreObject CreateIdentityListItem(JsonObject itemJson, Type elementBaseType)

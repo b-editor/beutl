@@ -1020,6 +1020,17 @@ public sealed class RenderTools(
     internal static IReadOnlyList<TimeSpan> ResolveQualitySampleTimes(Scene scene, double[]? timeSeconds, int sampleCount)
     {
         IReadOnlyList<TimeSpan>? explicitTimes = NormalizeQualitySampleTimesOrNull(timeSeconds);
+        if (explicitTimes is not null && explicitTimes.Count < 2)
+        {
+            // A caller-supplied list that collapses to fewer than two distinct finite times must be
+            // rejected, not silently replaced with auto-generated samples the caller never asked for.
+            throw new ReconcileException(new ToolError(
+                ErrorCode.ValidationRejected,
+                "timeSeconds must contain at least two distinct finite sample times.",
+                "timeSeconds",
+                "Provide two or more distinct sample times, or omit timeSeconds to use auto-generated samples."));
+        }
+
         if (explicitTimes is { Count: >= 2 })
         {
             TimeSpan duration = scene.Duration > TimeSpan.Zero ? scene.Duration : TimeSpan.FromSeconds(1);

@@ -269,6 +269,22 @@ public sealed class RenderToolsStoryboardTests
     }
 
     [Test]
+    public void Resolve_quality_sample_times_rejects_an_explicit_list_with_fewer_than_two_distinct_times()
+    {
+        var scene = new Scene(16, 9, "quality") { Duration = TimeSpan.FromSeconds(4) };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(() => RenderTools.ResolveQualitySampleTimes(scene, [1.0], sampleCount: 4),
+                Throws.TypeOf<ReconcileException>());
+            Assert.That(() => RenderTools.ResolveQualitySampleTimes(scene, [1.0, 1.0], sampleCount: 4),
+                Throws.TypeOf<ReconcileException>());
+            // An omitted list still falls back to auto-generated samples.
+            Assert.That(RenderTools.ResolveQualitySampleTimes(scene, null, sampleCount: 4), Has.Count.EqualTo(4));
+        });
+    }
+
+    [Test]
     public void Get_scene_frame_rate_reads_the_project_variable_and_defaults_to_30_when_detached()
     {
         var attached = new Scene(16, 9, "attached") { Duration = TimeSpan.FromSeconds(1) };

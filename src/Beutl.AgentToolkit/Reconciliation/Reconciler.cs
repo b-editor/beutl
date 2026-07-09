@@ -82,11 +82,13 @@ public sealed class Reconciler
             throw new ReconcileException(error);
         }
 
-        ValidateNoNewFallbackObjects(session, currentDocument, desiredDocument);
+        CoreObject sandboxRoot = BuildValidationSandbox(session, currentDocument, desiredDocument);
+        ValidateNoNewFallbackObjects(session, sandboxRoot);
 
         var changes = new List<ChangeSetEntry>();
         var validation = new List<ValidationOutcome>();
         CompareObject(session.Root, currentDocument, desiredDocument, "$", changes, validation);
+        ValidateInsertedSubtrees(sandboxRoot, changes, validation);
         AddRelativeKeyFrameRangeWarnings(desiredDocument, validation);
 
         if (validation.FirstOrDefault(item => item.Status == ValidationStatus.Rejected) is { } rejected)
@@ -471,12 +473,13 @@ public sealed class Reconciler
         return null;
     }
 
-    private static void ValidateNoNewFallbackObjects(
+    // Applies the full desired document to a throwaway clone of the current root, so newly inserted
+    // subtrees exist and are findable by Id here — unlike the live root the diff runs against.
+    private static CoreObject BuildValidationSandbox(
         IEditingSession session,
         JsonObject currentDocument,
         JsonObject desiredDocument)
     {
-        HashSet<Guid> existingFallbackIds = CollectFallbackIds(session.Root);
         CoreObject sandboxRoot = CloneCurrentRoot(session, currentDocument);
         JsonObject payload = (JsonObject)desiredDocument.DeepClone();
         payload.Remove(SchemaVersion.PropertyName);
@@ -498,6 +501,89 @@ public sealed class Reconciler
                 "Call get_schema for the concrete type, then retry apply_edit with the serialized property shapes returned by the schema."));
         }
 
+        return sandboxRoot;
+    }
+
+    // Inserted subtrees never reach CompareObject (CompareArray records the InsertChild and continues),
+    // so their properties are otherwise unvalidated. Re-run per-property validation against the sandbox,
+    // where the insert has been applied and is findable by Id, so a new Element/Object with an invalid
+    // Start/Length (or any validator-constrained property) is rejected instead of saved.
+    private static void ValidateInsertedSubtrees(
+        CoreObject sandboxRoot,
+        List<ChangeSetEntry> changes,
+        List<ValidationOutcome> validation)
+    {
+        foreach (ChangeSetEntry change in changes)
+        {
+            if (change.Operation == ChangeOperations.InsertChild && change.NewValue is JsonObject inserted)
+            {
+                ValidateInsertedNode(sandboxRoot, inserted, validation);
+            }
+        }
+    }
+
+    private static void ValidateInsertedNode(
+        CoreObject sandboxRoot,
+        JsonObject node,
+        List<ValidationOutcome> validation)
+    {
+        // Element.Start/Length carry no property validator (the add/move tools reject bad values with an
+        // explicit check), so validate the applied sandbox element directly; otherwise a patch could
+        // insert an element with a negative Start or non-positive Length.
+        if (CollectionReconciler.TryGetId(node, out Guid nodeId)
+            && IdentityHelper.FindById(sandboxRoot, nodeId) is Element element)
+        {
+            ValidateInsertedElementTimeline(element, validation);
+        }
+
+        foreach (KeyValuePair<string, JsonNode?> pair in node)
+        {
+            if (ShouldSkip(pair.Key))
+            {
+                continue;
+            }
+
+            switch (pair.Value)
+            {
+                case JsonObject childObject:
+                    ValidateInsertedNode(sandboxRoot, childObject, validation);
+                    break;
+                case JsonArray childArray:
+                    foreach (JsonObject childItem in childArray.OfType<JsonObject>())
+                    {
+                        ValidateInsertedNode(sandboxRoot, childItem, validation);
+                    }
+
+                    break;
+                default:
+                    AddValidation(sandboxRoot, node, pair.Key, pair.Value, validation);
+                    break;
+            }
+        }
+    }
+
+    private static void ValidateInsertedElementTimeline(Element element, List<ValidationOutcome> validation)
+    {
+        if (element.Start < TimeSpan.Zero)
+        {
+            validation.Add(ValidationOutcome.Rejected(
+                element.Start.ToString("c"),
+                $"Element Start '{element.Start:c}' must be non-negative.",
+                null));
+        }
+
+        if (element.Length <= TimeSpan.Zero)
+        {
+            validation.Add(ValidationOutcome.Rejected(
+                element.Length.ToString("c"),
+                $"Element Length '{element.Length:c}' must be positive.",
+                null));
+        }
+    }
+
+    private static void ValidateNoNewFallbackObjects(IEditingSession session, CoreObject sandboxRoot)
+    {
+        HashSet<Guid> existingFallbackIds = CollectFallbackIds(session.Root);
         if (FindFirstNewFallback(sandboxRoot, "$", existingFallbackIds) is { } occurrence)
         {
             string typeDetail = string.IsNullOrWhiteSpace(occurrence.FallbackTypeName)

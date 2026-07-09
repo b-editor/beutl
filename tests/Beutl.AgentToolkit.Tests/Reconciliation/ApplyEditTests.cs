@@ -46,6 +46,35 @@ public sealed class ApplyEditTests
     }
 
     [Test]
+    public void Apply_edit_rejects_an_inserted_element_with_a_negative_start_without_mutation()
+    {
+        Scene scene = CreateSceneWithElement(out _);
+        using var session = new AgentToolkitTestSession(scene);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var tools = new EditTools(manager);
+        int originalCount = scene.Children.Count;
+
+        JsonObject desired = session.Documents.Read(scene);
+        ((JsonArray)desired["Elements"]!).Add(new JsonObject
+        {
+            ["$type"] = "[Beutl.ProjectSystem]:Element",
+            [nameof(CoreObject.Name)] = "Negative start element",
+            [nameof(Element.Start)] = TimeSpan.FromSeconds(-1).ToString("c"),
+            [nameof(Element.Length)] = TimeSpan.FromSeconds(2).ToString("c")
+        });
+
+        ToolResult<ApplyEditResponse> apply = tools.ApplyEdit(desired: desired, schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(apply.IsSuccess, Is.False);
+            Assert.That(apply.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(scene.Children, Has.Count.EqualTo(originalCount));
+        });
+    }
+
+    [Test]
     public void Apply_edit_applies_desired_document_directly()
     {
         Scene scene = CreateSceneWithElement(out Element element);
