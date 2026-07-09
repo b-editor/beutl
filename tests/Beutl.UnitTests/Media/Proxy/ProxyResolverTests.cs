@@ -157,26 +157,26 @@ public class ProxyResolverTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(_resolver.GetSourceVersion(fingerprintA), Is.EqualTo(0));
-            Assert.That(_resolver.GetSourceVersion(fingerprintB), Is.EqualTo(0));
+            Assert.That(_resolver.GetSourceVersion(fingerprintA.AbsolutePath), Is.EqualTo(0));
+            Assert.That(_resolver.GetSourceVersion(fingerprintB.AbsolutePath), Is.EqualTo(0));
         });
 
         RegisterProxy(sourceA, ProxyPreset.Quarter, new PixelSize(100, 80), new PixelSize(25, 20));
 
-        long versionA = _resolver.GetSourceVersion(fingerprintA);
+        long versionA = _resolver.GetSourceVersion(fingerprintA.AbsolutePath);
         Assert.Multiple(() =>
         {
             Assert.That(versionA, Is.GreaterThan(0));
-            Assert.That(_resolver.GetSourceVersion(fingerprintB), Is.EqualTo(0));
+            Assert.That(_resolver.GetSourceVersion(fingerprintB.AbsolutePath), Is.EqualTo(0));
         });
 
         // A real state change to A must keep advancing A's version (SC-003) ...
         _store.TryTransition(fingerprintA, ProxyPreset.Quarter, ProxyState.Stale);
         Assert.Multiple(() =>
         {
-            Assert.That(_resolver.GetSourceVersion(fingerprintA), Is.GreaterThan(versionA));
+            Assert.That(_resolver.GetSourceVersion(fingerprintA.AbsolutePath), Is.GreaterThan(versionA));
             // ... without ever touching B.
-            Assert.That(_resolver.GetSourceVersion(fingerprintB), Is.EqualTo(0));
+            Assert.That(_resolver.GetSourceVersion(fingerprintB.AbsolutePath), Is.EqualTo(0));
         });
     }
 
@@ -188,7 +188,7 @@ public class ProxyResolverTests
         string source = CreateSourceFile();
         RegisterProxy(source, ProxyPreset.Quarter, new PixelSize(100, 80), new PixelSize(25, 20));
         ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(source);
-        long expected = _resolver.GetSourceVersion(fingerprint);
+        long expected = _resolver.GetSourceVersion(fingerprint.AbsolutePath);
 
         File.Delete(source);
         string pathKey = ProxyFingerprint.ResolveComparableKey(source);
@@ -209,11 +209,11 @@ public class ProxyResolverTests
         string source = CreateSourceFile();
         ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(source);
         RegisterProxy(source, ProxyPreset.Quarter, new PixelSize(100, 80), new PixelSize(25, 20));
-        long version = _resolver.GetSourceVersion(fingerprint);
+        long version = _resolver.GetSourceVersion(fingerprint.AbsolutePath);
 
         _store.Touch(fingerprint, ProxyPreset.Quarter, DateTime.UtcNow);
 
-        Assert.That(_resolver.GetSourceVersion(fingerprint), Is.EqualTo(version));
+        Assert.That(_resolver.GetSourceVersion(fingerprint.AbsolutePath), Is.EqualTo(version));
     }
 
     [Test]

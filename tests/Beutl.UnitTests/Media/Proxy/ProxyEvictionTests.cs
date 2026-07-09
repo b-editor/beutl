@@ -396,7 +396,7 @@ public class ProxyEvictionTests
 
         public ProxyResolution? Resolve(Uri sourceUri, ProxyPreset preferredPreset) => null;
 
-        public long GetSourceVersion(ProxyFingerprint source) => 0;
+        public long GetSourceVersion(string absolutePath) => 0;
 
         public IDisposable Pin(ProxyResolution resolution) => throw new NotSupportedException();
     }

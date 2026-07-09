@@ -21,8 +21,6 @@ public sealed class ProxyResolver : IProxyResolver
         _store.Changed += OnStoreChanged;
     }
 
-    public long GetSourceVersion(ProxyFingerprint source) => GetSourceVersion(source.AbsolutePath);
-
     public long GetSourceVersion(string absolutePath)
     {
         return !string.IsNullOrEmpty(absolutePath) && _sourceVersions.TryGetValue(absolutePath, out long version)

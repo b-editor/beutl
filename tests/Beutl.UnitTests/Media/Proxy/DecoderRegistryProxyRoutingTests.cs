@@ -289,7 +289,7 @@ public class DecoderRegistryProxyRoutingTests
                 new PixelSize(50, 50));
         }
 
-        public long GetSourceVersion(ProxyFingerprint source) => 0;
+        public long GetSourceVersion(string absolutePath) => 0;
 
         public IDisposable Pin(ProxyResolution resolution) => throw new InvalidOperationException("pin failure");
 

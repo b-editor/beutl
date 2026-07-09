@@ -14,25 +14,14 @@ public interface IProxyResolver
     /// The first observed value for a source with no recorded changes is <c>0</c>;
     /// subsequent bumps yield <c>1, 2, 3, …</c>.
     /// </summary>
-    /// <param name="source">
-    /// Fingerprint of the original media file. Keying on <see cref="ProxyFingerprint"/>
-    /// (whose <see cref="ProxyFingerprint.AbsolutePath"/> is already symlink-resolved and
-    /// normalized) keeps the resolver's path rules internal, so callers never have to
-    /// reproduce them on a raw path.
+    /// <param name="absolutePath">
+    /// Normalized source key — a <see cref="ProxyFingerprint.AbsolutePath"/> or a
+    /// <see cref="ProxyFingerprint.ResolveComparableKey"/> result. A path key (not a
+    /// <see cref="ProxyFingerprint"/>) is the honest contract: the motivating case is an original that
+    /// moved / was deleted and so cannot be fingerprinted, yet may still gain a proxy while a reader is
+    /// open. Callers cache the normalized key to avoid re-stat-ing the source on every call.
     /// </param>
-    long GetSourceVersion(ProxyFingerprint source);
-
-    /// <summary>
-    /// Path-keyed form of <see cref="GetSourceVersion(ProxyFingerprint)"/> for an original that can no
-    /// longer be fingerprinted (moved / deleted) but may still gain a proxy while a reader is open.
-    /// <paramref name="absolutePath"/> is the normalized source key — a
-    /// <see cref="ProxyFingerprint.AbsolutePath"/> or <see cref="ProxyFingerprint.ResolveComparableKey"/>
-    /// result. The default forwards to the fingerprint overload, which keys on the same
-    /// <see cref="ProxyFingerprint.AbsolutePath"/>, so existing resolvers need no change; the built-in
-    /// resolver looks the path up directly.
-    /// </summary>
-    long GetSourceVersion(string absolutePath)
-        => GetSourceVersion(new ProxyFingerprint { AbsolutePath = absolutePath });
+    long GetSourceVersion(string absolutePath);
 
     IDisposable Pin(ProxyResolution resolution);
 
