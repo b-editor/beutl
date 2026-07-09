@@ -301,6 +301,26 @@ public class RippleEditTests
     }
 
     [Test]
+    public void Resize_RippleOn_ThrowsWhenClampWouldMakeLengthNonPositive()
+    {
+        var resize = new ElementResizeService(_history);
+        Element upstream = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(3), zIndex: 0);
+        Element target = AddElement(TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(4), zIndex: 0);
+
+        // Incoherent request (end 0.5s sits before the clamped start 3s): keeping upstream >= 0
+        // and the requested end cannot yield a positive length. Not reachable from the UI (end fixed).
+        Assert.Throws<ArgumentOutOfRangeException>(() => resize.Resize(_scene,
+            [new ElementResizeRequest(target, TimeSpan.Zero, TimeSpan.FromSeconds(0.5), 0)],
+            ripple: true));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(target.Start, Is.EqualTo(TimeSpan.FromSeconds(4)), "rejected before any mutation");
+            Assert.That(upstream.Start, Is.EqualTo(TimeSpan.FromSeconds(1)), "upstream untouched");
+        });
+    }
+
+    [Test]
     public void Resize_RippleOff_PreservesTraditionalBehavior()
     {
         var resize = new ElementResizeService(_history);

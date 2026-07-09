@@ -136,6 +136,15 @@ public sealed class ElementResizeService : IElementResizeService
 
         TimeSpan clampedStart = req.Element.Start - floor;
         TimeSpan clampedLength = req.NewStart + req.NewLength - clampedStart;
+        if (clampedLength <= TimeSpan.Zero)
+        {
+            // Requested end sits before the floor: keeping upstream >= 0 and the end while staying
+            // positive is impossible. A left-edge resize keeps the end, so the UI never reaches this.
+            throw new ArgumentOutOfRangeException(
+                nameof(ElementResizeRequest.NewLength),
+                "Ripple left-shift cannot preserve the requested end with a positive length.");
+        }
+
         return (clampedStart, clampedLength);
     }
 }
