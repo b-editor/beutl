@@ -167,7 +167,7 @@ public sealed class FFmpegReaderProxy : MediaReader
 
     private bool ReadAudioChunked(int start, int length, int chunkSize, [NotNullWhen(true)] out Ref<IPcm>? sound)
     {
-        var result = new Pcm<Stereo32BitFloat>(AudioInfo.SampleRate, length);
+        var scratch = new Pcm<Stereo32BitFloat>(AudioInfo.SampleRate, length);
         try
         {
             int offset = 0;
@@ -177,7 +177,8 @@ public sealed class FFmpegReaderProxy : MediaReader
 
                 if (!ReadAudioCore(start + offset, currentChunk, out Ref<IPcm>? chunkRef))
                 {
-                    result.Dispose();
+                    // A genuine failure (IPC error / disposed) aborts the whole request.
+                    scratch.Dispose();
                     sound = null;
                     return false;
                 }
@@ -185,18 +186,34 @@ public sealed class FFmpegReaderProxy : MediaReader
                 using (chunkRef)
                 {
                     var chunk = (Pcm<Stereo32BitFloat>)chunkRef.Value;
-                    // チャンクデータをコピー
-                    chunk.DataSpan.CopyTo(result.DataSpan.Slice(offset, chunk.NumSamples));
+                    // NumSamples == 0 is the ReadAudio end-of-stream signal: stop without advancing
+                    // offset and report exactly the frames decoded so far.
+                    if (chunk.NumSamples == 0)
+                        break;
+
+                    chunk.DataSpan.CopyTo(scratch.DataSpan.Slice(offset, chunk.NumSamples));
                     offset += chunk.NumSamples;
                 }
             }
 
-            sound = Ref<IPcm>.Create(result);
+            if (offset == length)
+            {
+                sound = Ref<IPcm>.Create(scratch);
+            }
+            else
+            {
+                // Trim the trailing over-allocation so callers see the real decoded length
+                // (NumSamples == offset), not a zero-filled tail.
+                var trimmed = new Pcm<Stereo32BitFloat>(AudioInfo.SampleRate, offset);
+                scratch.DataSpan.Slice(0, offset).CopyTo(trimmed.DataSpan);
+                scratch.Dispose();
+                sound = Ref<IPcm>.Create(trimmed);
+            }
             return true;
         }
         catch
         {
-            result?.Dispose();
+            scratch.Dispose();
             throw;
         }
     }
