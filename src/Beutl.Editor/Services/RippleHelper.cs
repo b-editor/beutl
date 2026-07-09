@@ -54,6 +54,27 @@ internal static class RippleHelper
                         && !e.IsLocked)
             .ToArray();
 
+        // A left-edge trim (delta > 0) pulls upstream clips right onto a locked anchor, so it must
+        // stop at the first blocker (nearest-to-anchor first, halting the clips behind it). A
+        // left-edge grow (delta < 0) pushes them left, where the timeline floor is the caller's
+        // ClampRippleStart and locked clips are already out of the shift set.
+        if (delta > TimeSpan.Zero)
+        {
+            Element[] lockedOnLayer = scene.Children
+                .Where(e => e.ZIndex == zIndex && e.IsLocked)
+                .ToArray();
+
+            foreach (Element e in toShift.OrderByDescending(e => e.Start))
+            {
+                TimeRange shifted = e.Range.WithStart(e.Start + delta);
+                if (Array.Exists(lockedOnLayer, l => shifted.Intersects(l.Range))) break;
+
+                e.Start += delta;
+            }
+
+            return;
+        }
+
         foreach (Element e in toShift)
         {
             e.Start += delta;

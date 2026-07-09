@@ -447,22 +447,68 @@ public class RippleEditTests
     }
 
     [Test]
-    public void Resize_RippleOn_RightEdgeGrow_DoesNotShiftLockedFollower()
+    public void Resize_RippleOn_RightEdgeGrow_ClampsAtLockedFollower()
     {
         var resize = new ElementResizeService(_history);
         Element target = AddElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(2), zIndex: 0);
         Element lockedFollower = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2), zIndex: 0);
         lockedFollower.IsLocked = true;
 
+        // Growing target's right edge from 2 to 5 would overlap the immovable locked follower at
+        // [2,4]; the grow is clamped to the lock's start so nothing lands on it.
         resize.Resize(_scene,
             [new ElementResizeRequest(target, TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(5), 0)],
             ripple: true);
 
         Assert.Multiple(() =>
         {
-            Assert.That(target.Length, Is.EqualTo(TimeSpan.FromSeconds(5)));
+            Assert.That(target.Range.End, Is.EqualTo(TimeSpan.FromSeconds(2)),
+                "right edge clamped to the locked follower's start");
             Assert.That(lockedFollower.Start, Is.EqualTo(TimeSpan.FromSeconds(2)),
                 "ripple resize must not bypass the neighbor's lock");
+        });
+    }
+
+    [Test]
+    public void Resize_RippleOn_RightEdgeGrow_ClampsRunToTouchLockedFollower()
+    {
+        var resize = new ElementResizeService(_history);
+        Element target = AddElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(2), zIndex: 0);
+        Element free = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2), zIndex: 0);
+        Element lockedFollower = AddElement(TimeSpan.FromSeconds(6), TimeSpan.FromSeconds(2), zIndex: 0);
+        lockedFollower.IsLocked = true;
+
+        // A free follower sits between target and the locked clip; the grow may advance only until
+        // that free follower's right edge touches the lock at 6, so target stops at end 4.
+        resize.Resize(_scene,
+            [new ElementResizeRequest(target, TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(10), 0)],
+            ripple: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(target.Range.End, Is.EqualTo(TimeSpan.FromSeconds(4)), "grow stops short of the lock");
+            Assert.That(free.Start, Is.EqualTo(TimeSpan.FromSeconds(4)), "free follower shifted right to touch the lock");
+            Assert.That(lockedFollower.Start, Is.EqualTo(TimeSpan.FromSeconds(6)), "locked follower stays put");
+        });
+    }
+
+    [Test]
+    public void ShiftBefore_LeftEdgeTrim_StopsPullAtLockedUpstream()
+    {
+        Element free = AddElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(2));
+        Element locked = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
+        Element target = AddElement(TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(2));
+        locked.IsLocked = true;
+
+        // Left-edge trim of target (start 4 -> 6) pulls upstream clips right; the free clip would
+        // land on the locked clip at [2,4], so the pull stops and it stays put.
+        RippleHelper.ShiftBefore(_scene, zIndex: 0, anchorStart: TimeSpan.FromSeconds(4),
+            delta: TimeSpan.FromSeconds(2), except: [target]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(free.Start, Is.EqualTo(TimeSpan.Zero), "free upstream is blocked by the locked clip");
+            Assert.That(locked.Start, Is.EqualTo(TimeSpan.FromSeconds(2)), "locked clip must not move");
         });
     }
 

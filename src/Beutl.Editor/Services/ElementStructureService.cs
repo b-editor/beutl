@@ -162,7 +162,7 @@ public sealed class ElementStructureService : IElementStructureService
     }
 
     private static bool RemoveIdsFromGroups(Scene scene, IReadOnlyCollection<Guid> ids)
-        => scene.RemoveElementsFromGroups(ids);
+        => scene.RemoveElementsFromGroups(ids, preserveLockedSurvivors: true);
 
     // Ids with no matching element cannot be locked and pass through unchanged.
     private static IReadOnlyCollection<Guid> FilterUnlockedIds(Scene scene, IReadOnlyCollection<Guid> ids)

@@ -275,6 +275,48 @@ public class ElementStructureServiceTests
     }
 
     [Test]
+    public void Ungroup_EditableMember_KeepsGroupWhenOnlyLockedMemberWouldRemain()
+    {
+        Element editable = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element locked = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
+        _service.Group(_scene, [editable.Id, locked.Id]);
+        locked.IsLocked = true;
+        int before = _history.UndoCount;
+
+        // Disbanding the two-member group would strand the locked member, silently changing its
+        // grouping; the ungroup of the editable member must no-op instead.
+        _service.Ungroup(_scene, [editable.Id]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_scene.Groups, Has.Count.EqualTo(1));
+            Assert.That(_scene.Groups[0], Is.EquivalentTo(new[] { editable.Id, locked.Id }));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
+    public void Group_SingleEditableMember_KeepsGroupWhenOnlyLockedMemberWouldRemain()
+    {
+        Element editable = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element locked = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
+        _service.Group(_scene, [editable.Id, locked.Id]);
+        locked.IsLocked = true;
+        int before = _history.UndoCount;
+
+        // A single-id Group acts as "ungroup this element"; it must not strand the locked member.
+        GroupOutcome outcome = _service.Group(_scene, [editable.Id]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome.Created, Is.False);
+            Assert.That(_scene.Groups, Has.Count.EqualTo(1));
+            Assert.That(_scene.Groups[0], Is.EquivalentTo(new[] { editable.Id, locked.Id }));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
     public void Delete_LockedElement_IsSkipped()
     {
         Element locked = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));

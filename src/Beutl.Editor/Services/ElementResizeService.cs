@@ -29,7 +29,9 @@ public sealed class ElementResizeService : IElementResizeService
             {
                 ValidateRippleRequest(req);
                 // Clamp computed against pre-mutation state so the write loop applies a floor-safe start.
-                clamped![req.Element] = ClampRippleStart(scene, req, resizedSet);
+                (TimeSpan start, TimeSpan length) = ClampRippleStart(scene, req, resizedSet);
+                length = ClampRippleEnd(scene, req, start, length, resizedSet);
+                clamped![req.Element] = (start, length);
                 oldBounds![req.Element] = (req.Element.ZIndex, req.Element.Start, req.Element.Range.End);
             }
         }
@@ -149,5 +151,45 @@ public sealed class ElementResizeService : IElementResizeService
         }
 
         return (clampedStart, clampedLength);
+    }
+
+    // Limits a same-layer right-edge grow so the ripple shift cannot push any follower onto a
+    // locked follower, which stays anchored. The rightmost non-locked follower before the lock
+    // hits it first, so the growing run may only advance until that clip touches the lock.
+    private static TimeSpan ClampRippleEnd(
+        Scene scene, ElementResizeRequest req, TimeSpan start, TimeSpan length, IReadOnlyCollection<Element> resized)
+    {
+        if (req.ZIndex != req.Element.ZIndex) return length;
+
+        TimeSpan oldEnd = req.Element.Range.End;
+        TimeSpan newEnd = start + length;
+        if (newEnd <= oldEnd) return length;
+
+        TimeSpan? nearestLockedStart = null;
+        foreach (Element e in scene.Children)
+        {
+            if (e.ZIndex == req.Element.ZIndex && e.IsLocked && e.Start >= oldEnd)
+            {
+                if (nearestLockedStart is not { } cur || e.Start < cur) nearestLockedStart = e.Start;
+            }
+        }
+
+        if (nearestLockedStart is not { } lockStart) return length;
+
+        TimeSpan blockingEnd = oldEnd;
+        foreach (Element e in scene.Children)
+        {
+            if (e.ZIndex == req.Element.ZIndex && !e.IsLocked && !resized.Contains(e)
+                && e.Start >= oldEnd && e.Start < lockStart && e.Range.End > blockingEnd)
+            {
+                blockingEnd = e.Range.End;
+            }
+        }
+
+        TimeSpan maxEnd = oldEnd + (lockStart - blockingEnd);
+        if (newEnd <= maxEnd) return length;
+
+        TimeSpan clampedEnd = maxEnd > oldEnd ? maxEnd : oldEnd;
+        return clampedEnd - start;
     }
 }
