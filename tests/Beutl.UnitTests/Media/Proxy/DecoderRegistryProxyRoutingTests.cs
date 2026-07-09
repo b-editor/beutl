@@ -246,6 +246,46 @@ public class DecoderRegistryProxyRoutingTests
         });
     }
 
+    // A generated proxy carries silent audio, so an audio-bearing open (Audio or AudioVideo) must not
+    // substitute it — the caller would otherwise decode silent tracks. Only video-only opens proxy.
+    [Test]
+    public void OpenMediaFile_WhenPreferProxyButAudioRequest_DoesNotSubstituteProxy()
+    {
+        using var scope = ProxyRouteScope.Create(originalSize: new PixelSize(100, 100), proxySize: new PixelSize(50, 50));
+        DecoderRegistry.ProxyResolver = new ProxyResolver(scope.Store);
+
+        using MediaReader? reader = DecoderRegistry.OpenMediaFile(
+            scope.OriginalPath,
+            new MediaOptions(MediaMode.Audio) { PreferProxy = true });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(reader, Is.Not.Null);
+            Assert.That(reader!.ProxyResolution, Is.Null);
+        });
+    }
+
+    // A present-but-undecodable file must not be misreported as missing: OpenMediaFile returns null
+    // for both a missing file and an unsupported one, so MediaReader.Open distinguishes them and
+    // throws UnsupportedMediaException only when the file exists but no decoder could open it.
+    [Test]
+    public void MediaReaderOpen_WhenFileExistsButUnsupported_ThrowsUnsupportedMediaException()
+    {
+        string unsupported = Path.Combine(TestContext.CurrentContext.WorkDirectory, $"unsupported-{Guid.NewGuid():N}.txt");
+        File.WriteAllBytes(unsupported, [1, 2, 3, 4]);
+        try
+        {
+            Assert.That(
+                () => MediaReader.Open(unsupported, new MediaOptions(MediaMode.Video) { PreferProxy = false }),
+                Throws.InstanceOf<UnsupportedMediaException>());
+        }
+        finally
+        {
+            if (File.Exists(unsupported))
+                File.Delete(unsupported);
+        }
+    }
+
     // Fix #6: new Uri(rawPath) parses URI-reserved chars (#, ?) in a filename as delimiters, dropping
     // them from LocalPath so it no longer matches the path ProxyFingerprint stored; the escaped file
     // URI must round-trip the full path so those clips still resolve their proxy.

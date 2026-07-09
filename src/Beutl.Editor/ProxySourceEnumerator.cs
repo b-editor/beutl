@@ -216,15 +216,18 @@ public static class ProxySourceEnumerator
 
                     break;
 
-                case SceneDrawable { ReferencedScene.CurrentValue: { } referencedScene } sceneDrawable:
+                case SceneDrawable { ReferencedScene.CurrentValue: { } referencedScene }:
                     // A SceneDrawable renders only the referenced scene's graphics, never its audio, so
                     // narrow the descent to Graphics regardless of the outer target: an audio-only
                     // original missing inside a graphically-embedded scene must not block a video export.
-                    // It evaluates the referenced scene at time - sceneDrawable.Start, so map the window
-                    // into referenced-scene time for the inner keyframe filter.
+                    // It evaluates the referenced scene at (clock - sceneDrawable.Start); sceneDrawable.Start
+                    // is element.Start (objects are time-anchored to their element), so the referenced scene
+                    // runs in element-local time — the same space localRange is already expressed in. Thread
+                    // localRange directly; subtracting sceneDrawable.Start here would double-shift by
+                    // element.Start and drop in-window keyframes for non-zero-start elements.
                     foreach (IFileSource source in EnumerateReferencedSceneSources(
                         referencedScene, visitedScenes, skipDisabledElements, CompositionTarget.Graphics,
-                        localRange?.SubtractStart(sceneDrawable.Start)))
+                        localRange))
                         yield return source;
 
                     break;
@@ -293,13 +296,14 @@ public static class ProxySourceEnumerator
         }
 
         // A SceneSound is a Sound (not a Drawable), so it is not covered by the Drawable switch above;
-        // its referenced scene contributes only audio to the render, so narrow the descent to Audio. It
-        // evaluates the scene at time - sceneSound.Start, so map the window into referenced-scene time.
-        if (obj is SceneSound { ReferencedScene.CurrentValue: { } soundScene } sceneSound)
+        // its referenced scene contributes only audio to the render, so narrow the descent to Audio. Its
+        // audio graph (ClipNode, then Shift(OffsetPosition) and Speed) remaps element-local time before
+        // the referenced scene is sampled, so localRange cannot express the sampled window; drop to the
+        // conservative full walk (null window) like the other time-remapping descents.
+        if (obj is SceneSound { ReferencedScene.CurrentValue: { } soundScene })
         {
             foreach (IFileSource source in EnumerateReferencedSceneSources(
-                soundScene, visitedScenes, skipDisabledElements, CompositionTarget.Audio,
-                localRange?.SubtractStart(sceneSound.Start)))
+                soundScene, visitedScenes, skipDisabledElements, CompositionTarget.Audio))
                 yield return source;
         }
 
@@ -555,9 +559,12 @@ public static class ProxySourceEnumerator
         }
     }
 
-    // The base CurrentValue is overridden only when the animation supplies a value at every sample: a
-    // null-valued keyframe makes GetAnimatedValue return null and the render falls back to the base
-    // (GetAnimatedValue(...) ?? CurrentValue), so any null keyframe keeps the base in play.
+    // Conservative: treat the base CurrentValue as in-play unless every keyframe is non-null.
+    // KeyFrameAnimation.Interpolate returns the non-null neighbour when only one side of a pair is
+    // null, so a lone null keyframe does not always make GetAnimatedValue return null — but it CAN
+    // (a trailing/sole null keyframe, or a span of consecutive nulls), and pinpointing exactly when
+    // would risk dropping a base the render falls back to (GetAnimatedValue(...) ?? CurrentValue).
+    // Over-reporting the base is the safe direction: it never omits a file the render opens.
     private static bool AnimationSuppliesValue(IAnimation? animation)
         => animation is KeyFrameAnimation { KeyFrames.Count: > 0 } keyFrameAnimation
            && keyFrameAnimation.KeyFrames.All(k => k.Value is not null);

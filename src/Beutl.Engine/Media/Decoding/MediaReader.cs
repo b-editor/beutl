@@ -42,7 +42,20 @@ public abstract class MediaReader : IDisposable
             throw new FileNotFoundException(null, file);
         }
 
-        return DecoderRegistry.OpenMediaFile(file, options) ?? throw new FileNotFoundException(null, file);
+        MediaReader? reader = DecoderRegistry.OpenMediaFile(file, options);
+        if (reader is not null)
+        {
+            return reader;
+        }
+
+        // OpenMediaFile returns null both when the file is missing and when no registered decoder can
+        // open it; distinguish them so an unsupported-but-present file is not reported as missing.
+        if (File.Exists(file))
+        {
+            throw new UnsupportedMediaException($"No registered decoder could open '{file}'.", file);
+        }
+
+        throw new FileNotFoundException(null, file);
     }
 
     public abstract bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image);

@@ -3,6 +3,7 @@ using Beutl.AgentToolkit.Rendering;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Workspace;
 using Beutl.Logging;
+using Beutl.Media.Decoding;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.AgentToolkit.Common;
@@ -31,6 +32,7 @@ internal static class ToolErrorMapper
             SessionUnavailableException ex => ex.ToError(),
             RenderingUnavailableException ex => new ToolError(ex.Code, ex.Message),
             CodecUnavailableException ex => new ToolError(ex.Code, ex.Message),
+            UnsupportedMediaException ex => new ToolError(ErrorCode.MediaUnsupported, ex.Message, ex.FileName),
             FileNotFoundException ex => new ToolError(ErrorCode.MediaNotFound, ex.Message, ex.FileName),
             _ => MapUnexpected(exception)
         };

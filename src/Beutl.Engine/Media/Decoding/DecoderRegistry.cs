@@ -55,8 +55,10 @@ public static class DecoderRegistry
     public static MediaReader? OpenMediaFile(string file, MediaOptions options)
     {
         // Proxy is best-effort and must never break original playback: any proxy-side fault
-        // degrades to the original-decode path below.
-        if (options.PreferProxy && ProxyResolver is { } resolver)
+        // degrades to the original-decode path below. A generated proxy carries silent audio (the
+        // FFmpeg generator feeds SilentSampleProvider), so substitute it only for video-only opens;
+        // an Audio/AudioVideo request keeps reading the original audio track.
+        if (options.PreferProxy && options.StreamsToLoad == MediaMode.Video && ProxyResolver is { } resolver)
         {
             IDisposable? pin = null;
             try

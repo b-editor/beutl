@@ -630,6 +630,58 @@ public sealed class ExportSourceValidatorTests
         Assert.That(missing, Is.EqualTo(new[] { missingBase }));
     }
 
+    // The window handed to a SceneDrawable's referenced scene is already element-local (sceneWindow -
+    // element.Start); subtracting sceneDrawable.Start again double-shifts it and drops in-window
+    // keyframes for a non-zero-start element. The inner key at 2s sits inside the [0,10] local window
+    // and must be reported — a double-subtraction would map the window to [-10,0] and drop it.
+    [Test]
+    public void CollectRenderableSources_NonZeroStartElement_ReferencedSceneWindowNotDoubleShifted()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string existing = Path.Combine(root, "existing.mov");
+        string missingAt2s = Path.Combine(root, "at-2s.mov");
+        File.WriteAllBytes(existing, [1]);
+
+        var childDrawable = new SourceVideo();
+        var animation = new KeyFrameAnimation<VideoSource?>();
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.Zero, Value = MakeVideoSource(existing) });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.FromSeconds(2), Value = MakeVideoSource(missingAt2s) });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.FromSeconds(8), Value = MakeVideoSource(existing) });
+        childDrawable.Source.Animation = animation;
+        var childElement = new Element
+        {
+            Start = TimeSpan.Zero,
+            Length = TimeSpan.FromSeconds(10),
+            IsEnabled = true,
+            Uri = new Uri(Path.Combine(root, $"{Guid.NewGuid():N}.layer")),
+        };
+        childElement.AddObject(childDrawable);
+        var childScene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "child.scene")) };
+        childScene.Children.Add(childElement);
+
+        var sceneDrawable = new SceneDrawable();
+        sceneDrawable.ReferencedScene.CurrentValue = childScene;
+        var outerElement = new Element
+        {
+            Start = TimeSpan.FromSeconds(10),
+            Length = TimeSpan.FromSeconds(10),
+            IsEnabled = true,
+            Uri = new Uri(Path.Combine(root, $"{Guid.NewGuid():N}.layer")),
+        };
+        outerElement.AddObject(sceneDrawable);
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "root.scene")) };
+        scene.Children.Add(outerElement);
+
+        // Export [10s, 20s]: the outer element's local window [0,10] is also the referenced scene's
+        // window, so the inner key at 2s stays in window. Subtracting the 10s element start again would
+        // shift it to [-10,0] and drop the missing key.
+        IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
+            ExportSourceValidator.CollectRenderableSources(scene, new TimeRange(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(10))));
+
+        Assert.That(missing, Is.EqualTo(new[] { missingAt2s }));
+    }
+
     private static SourceSound SoundDrawable(string sourcePath)
     {
         var source = new SoundSource();

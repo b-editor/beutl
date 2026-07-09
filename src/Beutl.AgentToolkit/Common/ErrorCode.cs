@@ -5,6 +5,7 @@ public static class ErrorCode
     public const string WorkspaceBoundary = "workspace_boundary";
     public const string ValidationRejected = "validation_rejected";
     public const string MediaNotFound = "media_not_found";
+    public const string MediaUnsupported = "media_unsupported";
     public const string UnknownType = "unknown_type";
     public const string StaleHandle = "stale_handle";
     public const string RenderingUnavailable = "rendering_unavailable";

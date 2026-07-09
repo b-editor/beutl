@@ -26,6 +26,7 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
 
     private bool _disposed;
     private int _diskPressureSweepActive;
+    private IDisposable? _storeRootSubscription;
 
     private ProxyMediaServices(
         ProxyStore store,
@@ -48,13 +49,13 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
 
     public static ProxyMediaServices? Current { get; private set; }
 
-    public ProxyStore Store { get; }
+    public ProxyStore Store { get; private set; }
 
-    public ProxyResolver Resolver { get; }
+    public ProxyResolver Resolver { get; private set; }
 
-    public ProxyJobQueue Queue { get; }
+    public ProxyJobQueue Queue { get; private set; }
 
-    public ProxyEvictionService EvictionService { get; }
+    public ProxyEvictionService EvictionService { get; private set; }
 
     public static ProxyMediaServices Initialize(GlobalConfiguration configuration)
     {
@@ -64,54 +65,104 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
             return existing;
 
         ProxyStoreConfig config = configuration.ProxyStoreConfig;
-        var store = new ProxyStore(config.StoreRootPath);
+        var (store, resolver, queue, eviction) = BuildServices(config.StoreRootPath, config.MaxTotalBytes);
+        var services = new ProxyMediaServices(store, resolver, queue, eviction);
+        s_disposing = false;
+        Current = services;
+        DecoderRegistry.ProxyResolver = resolver;
+
+        // The store path is captured at construction, so observe it: a runtime change rebuilds the
+        // live store/resolver/queue/eviction against the new path instead of leaving Generate/Delete/
+        // Resolve on the startup directory. The setter fires on the UI thread and ReinitializeStore
+        // swaps synchronously, so consumers re-fetching Current?.Store never see a torn mix.
+        services._storeRootSubscription = config.GetObservable(ProxyStoreConfig.StoreRootPathProperty)
+            .Subscribe(_ => services.ReinitializeStore(config.StoreRootPath, config.MaxTotalBytes));
+
+        _ = Task.Run(() => ReconcileAndSweepAsync(store, eviction));
+
+        return services;
+    }
+
+    private static (ProxyStore Store, ProxyResolver Resolver, ProxyJobQueue Queue, ProxyEvictionService Eviction)
+        BuildServices(string storeRootPath, long maxTotalBytes)
+    {
+        var store = new ProxyStore(storeRootPath);
         var resolver = new ProxyResolver(store);
         ProxyJobQueue queue = null!;
         var eviction = new ProxyEvictionService(
             store,
             resolver,
-            config.MaxTotalBytes,
+            maxTotalBytes,
             result => NotificationService.ShowInformation(
                 "Proxy media",
                 $"Evicted {result.RemovedCount} proxy file(s), reclaimed {FormatBytes(result.ReclaimedBytes)}."),
             minFreeDiskBytes: DefaultMinFreeDiskBytes,
             openProjectSourceProvider: CollectOpenProjectSources,
             activeGenerationProvider: () => CollectActiveGenerations(queue));
+        queue = new ProxyJobQueue(ResolveGeneratorFactory(store, eviction), store);
+        return (store, resolver, queue, eviction);
+    }
 
-        // The generator is resolved lazily from ProxyGeneratorRegistry on the first job dispatch:
-        // the FFmpeg proxy extension registers its factory during the startup extension-load task,
-        // which runs AFTER RegisterServices builds this queue, so the registry is still empty here.
-        // Returning null while empty lets the queue re-probe and pick up a generator that registers
-        // later (a plugin, or the built-in FFmpeg factory once its extension loads).
-        IProxyGenerator? ResolveGenerator()
+    // The generator is resolved lazily from ProxyGeneratorRegistry on the first job dispatch: the
+    // FFmpeg proxy extension registers its factory during the startup extension-load task, which runs
+    // AFTER RegisterServices builds this queue, so the registry is still empty here. Returning null
+    // while empty lets the queue re-probe and pick up a generator that registers later (a plugin, or
+    // the built-in FFmpeg factory once its extension loads). The disk-headroom wrapper runs in the
+    // dispatch path (right before the encoder writes) so a low-disk store does not fail the first job
+    // eviction could have made room for; the availability-aware variant is a distinct type because the
+    // queue type-tests for IProxyGeneratorAvailability — wrapping without it would fabricate a signal.
+    private static Func<IProxyGenerator?> ResolveGeneratorFactory(ProxyStore store, ProxyEvictionService eviction)
+    {
+        return () =>
         {
             IProxyGeneratorFactory? factory = ProxyGeneratorRegistry.Enumerate().FirstOrDefault();
             if (factory is null)
                 return null;
 
             IProxyGenerator generator = factory.Create(store);
-            // Free disk headroom in the dispatch path (right before the encoder writes) rather than
-            // only as a fire-and-forget task on Enqueue, so a low-disk store does not fail the first
-            // job eviction could have made room for. The availability-aware wrapper is a distinct
-            // type because the queue detects IProxyGeneratorAvailability by type test — exposing it
-            // over an inner generator without a signal would fabricate one and change the queue's
-            // unavailable semantics.
             return generator is IProxyGeneratorAvailability
                 ? new AvailabilityAwareDiskHeadroomProxyGenerator(generator, eviction)
                 : new DiskHeadroomProxyGenerator(generator, eviction);
+        };
+    }
+
+    private void ReinitializeStore(string storeRootPath, long maxTotalBytes)
+    {
+        if (_disposed)
+            return;
+
+        // Swap on this (the config setter's) thread so consumers re-fetching Current?.Store never
+        // observe a torn mix. The old queue is drained off-thread: its drain path marshals
+        // project-graph reads through the UI thread, so awaiting it here would deadlock like shutdown.
+        var (newStore, newResolver, newQueue, newEviction) = BuildServices(storeRootPath, maxTotalBytes);
+        ProxyJobQueue oldQueue = Queue;
+        ProxyResolver oldResolver = Resolver;
+
+        oldQueue.JobChanged -= OnJobChanged;
+        Store = newStore;
+        Resolver = newResolver;
+        Queue = newQueue;
+        EvictionService = newEviction;
+        newQueue.JobChanged += OnJobChanged;
+        if (ReferenceEquals(DecoderRegistry.ProxyResolver, oldResolver))
+        {
+            DecoderRegistry.ProxyResolver = newResolver;
         }
 
-        queue = new ProxyJobQueue(ResolveGenerator, store);
-
-        var services = new ProxyMediaServices(store, resolver, queue, eviction);
-        s_disposing = false;
-        Current = services;
-        DecoderRegistry.ProxyResolver = resolver;
-
-        _ = Task.Run(() => ReconcileAndSweepAsync(store, eviction));
-
-        return services;
+        _ = Task.Run(() => ReconcileAndSweepAsync(newStore, newEviction));
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await oldQueue.DisposeAsync().ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                s_logger.LogWarning(ex, "Disposing the previous proxy queue after a store-root change failed.");
+            }
+        });
     }
+
 
     public async ValueTask DisposeAsync()
     {
@@ -125,6 +176,7 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
         // Unsubscribe before disposing the queue so a late registry change cannot race Queue disposal.
         ProxyGeneratorRegistry.Changed -= OnGeneratorRegistryChanged;
         Queue.JobChanged -= OnJobChanged;
+        _storeRootSubscription?.Dispose();
         if (ReferenceEquals(DecoderRegistry.ProxyResolver, Resolver))
             DecoderRegistry.ProxyResolver = null;
 
