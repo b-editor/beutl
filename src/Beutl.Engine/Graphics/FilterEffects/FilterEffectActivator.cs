@@ -81,6 +81,32 @@ public sealed class FilterEffectActivator(
             for (int i = 0; i < CurrentTargets.Count; i++)
             {
                 EffectTarget target = CurrentTargets[i];
+                Rect originalBounds = target.OriginalBounds;
+                if (IsEmptyBounds(originalBounds))
+                {
+                    // An empty target has nothing to render; drop it in every mode (it is not an
+                    // allocation failure), so degenerate glyph/GPU no-op cases do not fail delivery.
+                    target.Dispose();
+                    CurrentTargets.RemoveAt(i);
+                    i--;
+                    continue;
+                }
+
+                if (!IsAllocatableBounds(originalBounds))
+                {
+                    // Non-finite/negative bounds cannot be allocated (and would crash the native
+                    // allocator), so never reach it: delivery fails fast, preview drops the target.
+                    s_logger.LogWarning(
+                        "Effect flush buffer allocation failed (non-allocatable bounds {Bounds}); preview drops this target, delivery render fails fast.",
+                        originalBounds);
+                    target.Dispose();
+                    ThrowIfDeliveryAllocationFailure(
+                        $"Effect flush buffer allocation failed (non-allocatable bounds {originalBounds}).");
+                    CurrentTargets.RemoveAt(i);
+                    i--;
+                    continue;
+                }
+
                 float w = WorkingScale;
                 int bw = w == 1f ? (int)target.OriginalBounds.Width : (int)MathF.Ceiling(target.OriginalBounds.Width * w);
                 int bh = w == 1f ? (int)target.OriginalBounds.Height : (int)MathF.Ceiling(target.OriginalBounds.Height * w);
@@ -109,7 +135,6 @@ public sealed class FilterEffectActivator(
                 }
                 else
                 {
-                    Rect originalBounds = target.OriginalBounds;
                     // The layer would silently vanish from the output otherwise — make the failure visible.
                     s_logger.LogWarning(
                         "Effect flush buffer allocation failed ({Width}x{Height} px, w {WorkingScale}, bounds {Bounds}); preview drops this target, delivery render fails fast.",
@@ -136,6 +161,23 @@ public sealed class FilterEffectActivator(
             throw new InvalidOperationException(message);
         }
     }
+
+    private static bool IsAllocatableBounds(Rect bounds)
+        => double.IsFinite(bounds.X)
+           && double.IsFinite(bounds.Y)
+           && double.IsFinite(bounds.Width)
+           && double.IsFinite(bounds.Height)
+           && bounds.Width > 0
+           && bounds.Height > 0;
+
+    // A finite, non-negative target with a zero extent: renderable-but-empty, distinct from the
+    // negative/non-finite bounds IsAllocatableBounds rejects as an allocation failure.
+    private static bool IsEmptyBounds(Rect bounds)
+        => double.IsFinite(bounds.Width)
+           && double.IsFinite(bounds.Height)
+           && bounds.Width >= 0
+           && bounds.Height >= 0
+           && (bounds.Width == 0 || bounds.Height == 0);
 
     // 最小単位である'IFEItem'の数がわからないので 'count'は'nullable'
     public void Apply(FilterEffectContext context)

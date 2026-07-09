@@ -34,6 +34,7 @@ public class FFmpegControlledEncodingExtension : ControllableEncodingExtension
 
     public override void Load()
     {
+        FFmpegInstallNotifier.HookLibraryState();
         base.Load();
     }
 }

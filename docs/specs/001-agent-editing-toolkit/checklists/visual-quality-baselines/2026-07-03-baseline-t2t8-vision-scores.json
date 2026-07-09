@@ -1,0 +1,388 @@
+{
+  "runId": "2026-07-03T093833Z-baseline-t2t8",
+  "scoredAt": "2026-07-03T11:20:20Z",
+  "briefs": [
+    {
+      "brief": "01-editor-title-sequence",
+      "contactSheetPath": "agent-output/benchmark/2026-07-03T093833Z-baseline-t2t8/01-editor-title-sequence/storyboard-contact-sheet.png",
+      "scores": {
+        "paletteHarmony": 4,
+        "typographicHierarchy": 3,
+        "compositionWhitespace": 3,
+        "layerDensityDepth": 2,
+        "backgroundRichness": 3,
+        "motionArc": 3
+      },
+      "findings": [
+        {
+          "axis": "paletteHarmony",
+          "score": 4,
+          "evidence": "Consistent deep navy field with a warm amber corner glow and a single orange ruler/index accent across all 13 frames; no clashing hues or default-palette colors.",
+          "editDirective": "Push the amber corner glow slightly cooler or reduce its saturation about 10% in the final lockup frames so the resolve reads calmer than the chapter frames."
+        },
+        {
+          "axis": "layerDensityDepth",
+          "score": 2,
+          "evidence": "Every frame contains only three planes: the gradient background, the thin ruler strip at the bottom, and one centered text block; there is no midground element anywhere in the strip.",
+          "editDirective": "Add a low-opacity midground layer (e.g. large ghosted numeral or faint timeline clip blocks at 5-8% opacity) behind the chapter words Compose/Animate/Render."
+        },
+        {
+          "axis": "motionArc",
+          "score": 3,
+          "evidence": "The strip reads intro -> 01/02/03 chapters -> Beutl lockup, but frame at 00:05.000 is completely empty except the ruler (a dead beat), and three consecutive Animate frames are nearly identical.",
+          "editDirective": "Overlap the outgoing 02 Animate exit with the incoming 03 Render entrance so no fully empty frame exists between chapters; retime the Animate hold from ~0.45s of identical frames to a single sampled pose."
+        },
+        {
+          "axis": "typographicHierarchy",
+          "score": 3,
+          "evidence": "Kicker/title/tagline/index roles are distinct (small tracked caps, large title, orange index numerals), but everything is one centered generic sans with uniform weight.",
+          "editDirective": "Introduce a second weight: set the chapter words (Compose/Animate/Render) in a heavier cut and drop the index numeral to 60% size, tightening the numeral-to-word gap."
+        }
+      ]
+    },
+    {
+      "brief": "02-logo-reveal-material-light",
+      "contactSheetPath": "agent-output/benchmark/2026-07-03T093833Z-baseline-t2t8/02-logo-reveal-material-light/storyboard-contact-sheet.png",
+      "scores": {
+        "paletteHarmony": 3,
+        "typographicHierarchy": 3,
+        "compositionWhitespace": 3,
+        "layerDensityDepth": 3,
+        "backgroundRichness": 3,
+        "motionArc": 4
+      },
+      "findings": [
+        {
+          "axis": "motionArc",
+          "score": 4,
+          "evidence": "The 8 frames read a complete labeled arc: anticipation glow, light sweep, mark reveal, settle overshoot, settle, text rise, hold, hold breath; the overshoot pose at 2.7s implies easing.",
+          "editDirective": "Differentiate the final two frames (4.8s hold vs 5.6s hold breath are near-identical): add a 2-3% scale breath or a slow light-blob drift on the last hold so the resolve is visible in the strip."
+        },
+        {
+          "axis": "paletteHarmony",
+          "score": 3,
+          "evidence": "Gold/pale-blue split diamond on a dark field is coherent, but the background light blobs render as muddy brown-grey masses rather than clean warm light, dulling the gold.",
+          "editDirective": "Raise the background blob chroma toward the logo's gold hue and lower its brown component (shift hue from ~35deg murky brown to ~45deg amber, +15% saturation) so backdrop and mark share one temperature."
+        },
+        {
+          "axis": "compositionWhitespace",
+          "score": 3,
+          "evidence": "The 2.3s reveal frame has a hard bright vertical band clipped at the right frame edge, and the persistent thin white streak hanging below the diamond reads as a smear artifact rather than an intentional light element.",
+          "editDirective": "Fade the sweep band out fully before the mark-in shot, and either shorten the vertical streak so it terminates at the diamond's lower vertex or blur it into a soft caustic so it reads as reflected light."
+        },
+        {
+          "axis": "typographicHierarchy",
+          "score": 3,
+          "evidence": "Lumina plus Creative Studio lockup is clean but very small relative to the frame; the tagline's blue-grey ink nearly vanishes into the dark background.",
+          "editDirective": "Scale the lockup up ~30% and lift the tagline value (same hue, +25% lightness) so both lines survive the dark backdrop at contact-sheet size."
+        }
+      ]
+    },
+    {
+      "brief": "03-data-infographic-shift",
+      "contactSheetPath": "agent-output/benchmark/2026-07-03T093833Z-baseline-t2t8/03-data-infographic-shift/storyboard-contact-sheet.png",
+      "scores": {
+        "paletteHarmony": 3,
+        "typographicHierarchy": 3,
+        "compositionWhitespace": 3,
+        "layerDensityDepth": 2,
+        "backgroundRichness": 2,
+        "motionArc": 2
+      },
+      "findings": [
+        {
+          "axis": "motionArc",
+          "score": 2,
+          "evidence": "Three of the nine sampled frames (00:02, 00:06, 00:08) are almost completely empty pink fields — every stat card fully exits before the next enters, so the strip reads as beat / blank / beat / blank.",
+          "editDirective": "Overlap transitions: keep the Manual/Assisted column labels persistent across all three stat beats and slide only the numerals and bars, eliminating the fully-blank in-between states."
+        },
+        {
+          "axis": "layerDensityDepth",
+          "score": 2,
+          "evidence": "Frames contain only the flat gradient, hairline grid rules, one gray bar, one olive bar, and text; there is no card surface, shadow, or midground element grouping each stat.",
+          "editDirective": "Put each stat pair on a subtle card: a white rounded rectangle at 60% opacity with a 1px darker edge behind the numerals and bars, creating a background/card/content stack."
+        },
+        {
+          "axis": "backgroundRichness",
+          "score": 2,
+          "evidence": "The backdrop is a single pale pink linear gradient with faint hairlines; at three sampled moments it is the only thing on screen and reads as an unfinished slide.",
+          "editDirective": "Add a barely-visible dot grid or 2% noise texture plus a soft radial vignette in the pink field so empty regions still carry material."
+        },
+        {
+          "axis": "paletteHarmony",
+          "score": 3,
+          "evidence": "Dusty pink plus olive/khaki plus gray is unusual and consistently applied, but the olive accent sits close to the pink in value, so accent bars barely separate from the field.",
+          "editDirective": "Darken the olive accent two steps (toward #5a5f1e) or lighten the background 5% so the accent bar hits at least 3:1 contrast against the pink."
+        }
+      ]
+    },
+    {
+      "brief": "04-product-promo-fast-beat",
+      "contactSheetPath": "agent-output/benchmark/2026-07-03T093833Z-baseline-t2t8/04-product-promo-fast-beat/storyboard-contact-sheet.png",
+      "scores": {
+        "paletteHarmony": 3,
+        "typographicHierarchy": 3,
+        "compositionWhitespace": 3,
+        "layerDensityDepth": 2,
+        "backgroundRichness": 2,
+        "motionArc": 1
+      },
+      "findings": [
+        {
+          "axis": "motionArc",
+          "score": 1,
+          "evidence": "29 sampled frames are virtually identical — 'Automate the timeline' sits centered in the same position throughout; the only visible changes are the diagonal teal streak vanishing after frame 5 and a tiny tagline appearing near the end. For a fast-beat promo the strip shows no beats at all.",
+          "editDirective": "Rebuild the timeline as 4-6 distinct beats: alternate the headline position/scale per beat (word swap or scale punch on each downbeat), and re-fire the diagonal light streak as a per-beat wipe instead of a single opening sweep."
+        },
+        {
+          "axis": "layerDensityDepth",
+          "score": 2,
+          "evidence": "After the opening streak exits, every frame is just the dark field, two rows of small teal diamond dots, faint grid lines, and the centered text — no midground product imagery or moving accents for the entire remainder.",
+          "editDirective": "Add a midground layer of timeline-clip rectangles (the product metaphor) that slide horizontally behind the headline, at 15-20% opacity in the brand teal."
+        },
+        {
+          "axis": "backgroundRichness",
+          "score": 2,
+          "evidence": "The background is a near-flat black-green with a barely perceptible vignette; the single teal streak that gives it life is gone within the first five frames.",
+          "editDirective": "Keep a slow-moving soft teal gradient sweep looping across the background for the whole duration (10-15% opacity, 4s period) so the field never returns to flat black."
+        },
+        {
+          "axis": "typographicHierarchy",
+          "score": 3,
+          "evidence": "The two-line headline is bold and readable, but the closing 'Beutl — Timeline Automation' tagline renders at a size that is barely legible on the sheet and competes with the dot rows around it.",
+          "editDirective": "Double the tagline point size, clear the diamond dots within its safe area, and give it the teal accent color to establish a clear second hierarchy level."
+        }
+      ]
+    },
+    {
+      "brief": "05-lyric-video-typographic-pulse",
+      "contactSheetPath": "agent-output/benchmark/2026-07-03T093833Z-baseline-t2t8/05-lyric-video-typographic-pulse/storyboard-contact-sheet.png",
+      "scores": {
+        "paletteHarmony": 3,
+        "typographicHierarchy": 3,
+        "compositionWhitespace": 2,
+        "layerDensityDepth": 2,
+        "backgroundRichness": 2,
+        "motionArc": 3
+      },
+      "findings": [
+        {
+          "axis": "compositionWhitespace",
+          "score": 2,
+          "evidence": "'the light' sits directly on the thin rectangle border at the frame's lower-left with the diagonal accent line crossing and clipping past the border and the canvas edge; word placements jump between frames with no consistent grid (top-left, right-center, bottom-left).",
+          "editDirective": "Snap each lyric fragment to a 3x3 grid inside the rectangle with a fixed inset margin, and terminate the diagonal accent line at the rectangle border instead of letting it cross into the outer canvas."
+        },
+        {
+          "axis": "backgroundRichness",
+          "score": 2,
+          "evidence": "The field is a flat off-white with only the hairline rectangle; seven-plus frames are dominated by empty paper, and the 4.5s sample shows nothing but the empty rectangle.",
+          "editDirective": "Add a faint warm paper grain plus a very soft radial center glow (2-3% value shift), and let the rectangle border thicken or tint on each lyric pulse so the surface participates in the beat."
+        },
+        {
+          "axis": "typographicHierarchy",
+          "score": 3,
+          "evidence": "Word-by-word sequencing works (verbs black and large, objects indigo and small, gray in-betweens imply cross-fades), but all words share one weight so the promised 'pulse' between hero verbs and echo objects is weak.",
+          "editDirective": "Set the hero verbs (build, bend) in a heavy/black weight at 1.5x current size and keep echo objects in the light weight, so the verb/object alternation reads as a size-weight pulse."
+        },
+        {
+          "axis": "motionArc",
+          "score": 3,
+          "evidence": "The strip reads build -> the frame -> bend -> the light -> combined lockup, a legible verse-to-chorus arc, but one sampled frame (00:04.500) is an entirely empty paper beat and the final three lockup frames are identical.",
+          "editDirective": "Bridge the 4.3-5.0s gap by letting 'bend' morph or slide toward its final lockup position instead of exiting fully, and add a subtle scale settle on the final lockup so the last frames differ."
+        }
+      ]
+    },
+    {
+      "brief": "06-countdown-technical-event",
+      "contactSheetPath": "agent-output/benchmark/2026-07-03T093833Z-baseline-t2t8/06-countdown-technical-event/storyboard-contact-sheet.png",
+      "scores": {
+        "paletteHarmony": 4,
+        "typographicHierarchy": 4,
+        "compositionWhitespace": 3,
+        "layerDensityDepth": 3,
+        "backgroundRichness": 3,
+        "motionArc": 4
+      },
+      "findings": [
+        {
+          "axis": "motionArc",
+          "score": 4,
+          "evidence": "The countdown gives each numeral a distinct treatment (5 scan-wipe with ghost, 4 flip-roll, 3 italic fracture-split, 2 pressure-compress, 1 punch-zoom) and resolves on a chartreuse LIVE with 'Signal locked' — clear variety and a real payoff.",
+          "editDirective": "Fix the dead beat at 00:05.500 where the frame holds only a small bracket and rules with no numeral — bring numeral 1's entrance forward so the punch-zoom starts before 2 has fully exited."
+        },
+        {
+          "axis": "typographicHierarchy",
+          "score": 4,
+          "evidence": "Three clear roles throughout: tracked T-MINUS caption, dominant white numeral, chartreuse rules/ruler; the LIVE resolve swaps the numeral for the accent color to mark the state change.",
+          "editDirective": "The 'Signal locked' subline at 6.7s is nearly invisible grey; raise it to the chartreuse at 70% opacity to keep the two-level lockup readable."
+        },
+        {
+          "axis": "compositionWhitespace",
+          "score": 3,
+          "evidence": "Numerals drift between center-left and center-right frame to frame (4 sits right in one shot, left in the next) without an anchoring device, so the strip's focal point wanders.",
+          "editDirective": "Lock the numeral's optical center to one anchor (or a deliberate left-to-right march per count) and let only the rules change length, so the wander becomes readable staging."
+        },
+        {
+          "axis": "layerDensityDepth",
+          "score": 3,
+          "evidence": "Dark gradient with faint red corner glow, chartreuse rules, tick ruler, caption and numeral — a working set of planes, but there is no true midground texture (no grid, telemetry, or scan detail behind the numerals).",
+          "editDirective": "Add a 4-6% opacity technical grid or telemetry readout column in the empty right third to give the T-MINUS staging a midground."
+        }
+      ]
+    },
+    {
+      "brief": "07-tech-explainer-opener",
+      "contactSheetPath": "agent-output/benchmark/2026-07-03T093833Z-baseline-t2t8/07-tech-explainer-opener/storyboard-contact-sheet.png",
+      "scores": {
+        "paletteHarmony": 3,
+        "typographicHierarchy": 3,
+        "compositionWhitespace": 3,
+        "layerDensityDepth": 3,
+        "backgroundRichness": 3,
+        "motionArc": 2
+      },
+      "findings": [
+        {
+          "axis": "motionArc",
+          "score": 2,
+          "evidence": "Across all 17 frames the triangle diagram never changes size, position, or state — only the label below it swaps (Sample -> Stable -> Resolution-Independent Rendering) and vertex dots appear once; many adjacent frames are pixel-identical.",
+          "editDirective": "Make the diagram tell the story: animate the grid subdividing to a finer density on 'Sample', re-rasterize/thicken the triangle stroke on 'Stable', and scale the whole diagram up cleanly for the title beat so each label change has a visual event."
+        },
+        {
+          "axis": "layerDensityDepth",
+          "score": 3,
+          "evidence": "Paper field, faint grid, corner brackets, triangle with orange vertex dots, kicker and label — a coherent diagram stack, but the right half of every frame is an empty warm gradient with no content.",
+          "editDirective": "Balance the frame by placing a secondary element in the right third (e.g. a small pixel-grid inset showing the sampled triangle) at 30% scale."
+        },
+        {
+          "axis": "typographicHierarchy",
+          "score": 3,
+          "evidence": "Tracked kicker 'Rendering Pipeline', mid-size labels, and a two-line title with a grey-to-black weight shift on 'Rendering' — functional but every element is the same centered generic sans.",
+          "editDirective": "Differentiate the label role from the title role: set Sample/Stable in tracked caps matching the kicker, and reserve the large mixed-case setting for the final title only."
+        }
+      ]
+    },
+    {
+      "brief": "08-flat-background-rescue",
+      "contactSheetPath": "agent-output/benchmark/2026-07-03T093833Z-baseline-t2t8/08-flat-background-rescue/storyboard-contact-sheet.png",
+      "scores": {
+        "paletteHarmony": 3,
+        "typographicHierarchy": 3,
+        "compositionWhitespace": 3,
+        "layerDensityDepth": 4,
+        "backgroundRichness": 4,
+        "motionArc": 3
+      },
+      "findings": [
+        {
+          "axis": "backgroundRichness",
+          "score": 4,
+          "evidence": "The rescued backdrop is genuinely layered — deep green upper atmosphere, a mauve horizontal nebula band, soft vignetting, and scattered motes of varying size and brightness — directly answering the flat-background brief.",
+          "editDirective": "Break the perfectly horizontal band edge with 1-2 subtle luminance ripples so it reads as atmosphere rather than a screen-wide linear gradient strip."
+        },
+        {
+          "axis": "layerDensityDepth",
+          "score": 4,
+          "evidence": "Clear back/mid/fore stack: gradient atmosphere behind, motes at varying scales implying parallax depth in the midground, hero lockup in front.",
+          "editDirective": "Add a slight blur to the largest (nearest) motes to complete the depth-of-field cue that the size variation already implies."
+        },
+        {
+          "axis": "paletteHarmony",
+          "score": 3,
+          "evidence": "Desaturated green and mauve is moody but the two hues meet in a muddy grey transition zone across the band edge, and the pink underline accent is close to invisible against the mauve band.",
+          "editDirective": "Insert a narrow warmer transition hue between the green and mauve regions, and brighten the pink rule accent ~20% so it separates from the band it sits over."
+        },
+        {
+          "axis": "motionArc",
+          "score": 3,
+          "evidence": "Labeled stages (void emerges, atmosphere + motes, rule draws in, hero emerging, settle, lockup, parallax hold, final resolve) read well, but the last three frames are visually indistinguishable — the claimed parallax drift is invisible in the strip.",
+          "editDirective": "Make the hold earn its frames: drift the mote field 3-4% and let the band brighten slightly between 5.1s and 5.9s so the parallax hold and final resolve are distinct poses."
+        }
+      ]
+    },
+    {
+      "brief": "09-palette-discipline-challenge",
+      "contactSheetPath": "agent-output/benchmark/2026-07-03T093833Z-baseline-t2t8/09-palette-discipline-challenge/storyboard-contact-sheet.png",
+      "scores": {
+        "paletteHarmony": 4,
+        "typographicHierarchy": 3,
+        "compositionWhitespace": 3,
+        "layerDensityDepth": 2,
+        "backgroundRichness": 3,
+        "motionArc": 4
+      },
+      "findings": [
+        {
+          "axis": "paletteHarmony",
+          "score": 4,
+          "evidence": "Exactly one accent — a purple band on a hairline rule — against a pale lilac gradient and black type; the accent blooms and then disciplines down, which is the brief's premise executed in color.",
+          "editDirective": "The stray small purple square that appears at the far left in the last two frames is a second unexplained accent instance; remove it or merge it into the vertical hairline as its terminal."
+        },
+        {
+          "axis": "motionArc",
+          "score": 4,
+          "evidence": "Labeled beats form a real narrative: Color reveals, the accent band blooms wide at 2.6s, Noise enters as the band disciplines down to a short strict segment, caption resolves, final hold — the motion itself argues the concept.",
+          "editDirective": "Frames 5 and 6 are near-identical; add a final micro-event (accent band settling 2px narrower or caption fading up in two steps) so the hold differs from the resolve."
+        },
+        {
+          "axis": "layerDensityDepth",
+          "score": 2,
+          "evidence": "Every frame is only the gradient field, two hairlines, the text stack, and the accent band — no midground surface, texture, or secondary object anywhere.",
+          "editDirective": "Add one disciplined midground element in the same ink — e.g. a large 3% opacity purple circle arc behind the text stack — to give depth without adding a color."
+        },
+        {
+          "axis": "typographicHierarchy",
+          "score": 3,
+          "evidence": "'Color' and 'Noise' render at nearly the same size with the tracked 'without' between them, so the stack reads as three equal beats rather than a hierarchy; the gap between 'Color' and 'without' is much larger than between 'without' and 'Noise' in mid frames.",
+          "editDirective": "Set 'Noise' one optical step smaller than 'Color' (or shift it to the accent purple) and equalize the vertical rhythm of the three-line stack."
+        }
+      ]
+    },
+    {
+      "brief": "10-minimal-not-sparse",
+      "contactSheetPath": "agent-output/benchmark/2026-07-03T093833Z-baseline-t2t8/10-minimal-not-sparse/storyboard-contact-sheet.png",
+      "scores": {
+        "paletteHarmony": 3,
+        "typographicHierarchy": 4,
+        "compositionWhitespace": 3,
+        "layerDensityDepth": 2,
+        "backgroundRichness": 2,
+        "motionArc": 3
+      },
+      "findings": [
+        {
+          "axis": "layerDensityDepth",
+          "score": 2,
+          "evidence": "The brief is 'minimal, not sparse', yet every frame holds only a grain field and the small centered Quiet/Power lockup — the first frame is entirely empty black; there is no midground element, texture object, or accent structure anywhere.",
+          "editDirective": "Add one quiet midground device consistent with the concept — e.g. an ultra-low-contrast concentric glow or a large ghosted 'P' at 3% opacity behind the lockup — so minimal stops reading as empty."
+        },
+        {
+          "axis": "backgroundRichness",
+          "score": 2,
+          "evidence": "The backdrop is uniform dark grain with only a faint blue gradient at the top edge; large areas of every frame are featureless near-black.",
+          "editDirective": "Introduce a soft radial pool of light centered behind the lockup (5-8% luminance lift, wide falloff) so the composition has a lit stage rather than a void."
+        },
+        {
+          "axis": "typographicHierarchy",
+          "score": 4,
+          "evidence": "The size inversion — tracked small-caps 'Quiet' over a hairline rule above the large 'Power' with a short gold underline — is a deliberate, brief-specific hierarchy that reads instantly at sheet size.",
+          "editDirective": "Nudge the gold accent underline to match the optical width of 'Power's' stem group (it currently floats short and slightly off-center under the 'w')."
+        },
+        {
+          "axis": "motionArc",
+          "score": 3,
+          "evidence": "Build order is legible (black, rule draws, Quiet rises, Power reveals, accent draws, resolve) but the strip spends its first quarter almost entirely black and the last two frames are identical.",
+          "editDirective": "Compress the opening black and rule beats from ~2.5s to ~1.2s and use the reclaimed time for a visible settle on the lockup (scale 102%->100%) so the resolve frame differs from the hold."
+        }
+      ]
+    }
+  ],
+  "axisAverages": {
+    "paletteHarmony": 3.3,
+    "typographicHierarchy": 3.2,
+    "compositionWhitespace": 2.9,
+    "layerDensityDepth": 2.5,
+    "backgroundRichness": 2.7,
+    "motionArc": 2.9
+  }
+}

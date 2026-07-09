@@ -420,7 +420,7 @@ public class EffectScaleParityTests
     [Test]
     public void SkslBorderScript_CompilesAndApplies()
     {
-        Assert.That(SKSLScriptEffect.ValidateScript(SkslBorderScript), Is.Null, "SKSL border script must compile");
+        Assert.That(new SKSLScriptEffect().ValidateScript(SkslBorderScript).Error, Is.Null, "SKSL border script must compile");
 
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>

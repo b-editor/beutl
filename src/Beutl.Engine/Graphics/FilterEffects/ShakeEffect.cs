@@ -60,9 +60,22 @@ public partial class ShakeEffect : FilterEffect
                     float randomY = data.random.Perlin(b, a);
                     randomX = (randomX - 0.5F) * 2F * data.strengthX;
                     randomY = (randomY - 0.5F) * 2F * data.strengthY;
+                    randomX = ClampOffset(randomX);
+                    randomY = ClampOffset(randomY);
                     target.Bounds = target.Bounds.Translate(new Vector(randomX, randomY));
                 });
             });
+    }
+
+    private static float ClampOffset(float value)
+    {
+        const float maxOffset = 100_000f;
+        if (!float.IsFinite(value))
+        {
+            return 0;
+        }
+
+        return Math.Clamp(value, -maxOffset, maxOffset);
     }
 
     public override Resource ToResource(CompositionContext context)

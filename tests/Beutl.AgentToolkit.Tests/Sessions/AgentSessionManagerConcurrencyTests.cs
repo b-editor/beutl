@@ -1,0 +1,189 @@
+﻿using System.Collections.Concurrent;
+using System.Text.Json.Nodes;
+using Beutl.AgentToolkit.Sessions;
+using Beutl.AgentToolkit.Tests.Helpers;
+using Beutl.ProjectSystem;
+
+namespace Beutl.AgentToolkit.Tests.Sessions;
+
+public sealed class AgentSessionManagerConcurrencyTests
+{
+    [Test]
+    public void Get_session_key_keys_the_given_session_not_the_current_one()
+    {
+        var sceneA = new Scene(640, 360, "A");
+        var sceneB = new Scene(640, 360, "B");
+        using var sessionA = new AgentToolkitTestSession(sceneA);
+        using var sessionB = new AgentToolkitTestSession(sceneB);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(sessionA));
+
+        string keyA = manager.GetSessionKey(sessionA);
+        Assert.That(keyA, Is.EqualTo(manager.CurrentSessionKey));
+
+        manager.UseSource(new AgentToolkitTestSessionSource(sessionB));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(manager.GetSessionKey(sessionA), Is.EqualTo(keyA));
+            Assert.That(manager.CurrentSessionKey, Is.Not.EqualTo(keyA));
+        });
+    }
+
+    [Test]
+    public void Composition_plans_are_stored_under_the_supplied_session_key()
+    {
+        var manager = new AgentSessionManager();
+
+        // The plan is keyed by the session it was BUILT against; a different current session must
+        // see it as moved, not as its own plan.
+        CompositionPlanState state = manager.StoreCompositionPlan(
+            "File:11111111-1111-1111-1111-111111111111",
+            "comp", "seed", new JsonObject(), new JsonObject(), new JsonArray(), new HashSet<Guid>());
+
+        var ex = Assert.Throws<AgentToolkit.Reconciliation.ReconcileException>(
+            () => manager.GetCompositionPlan(state.Id))!;
+        Assert.That(ex.Error.Message, Does.Contain("session"));
+    }
+
+    [Test]
+    public void Get_composition_plan_validates_against_the_supplied_session_key()
+    {
+        var manager = new AgentSessionManager();
+        const string plannedKey = "File:11111111-1111-1111-1111-111111111111";
+        const string swappedKey = "File:22222222-2222-2222-2222-222222222222";
+        CompositionPlanState state = manager.StoreCompositionPlan(
+            plannedKey, "comp", "seed", new JsonObject(), new JsonObject(), new JsonArray(), new HashSet<Guid>());
+
+        Assert.Multiple(() =>
+        {
+            // The captured (planned) key sees its own plan; a swapped-in key is rejected even though
+            // the plan is the current one under the manager's live key would-be lookup.
+            Assert.That(manager.GetCompositionPlan(state.Id, plannedKey).Id, Is.EqualTo(state.Id));
+            Assert.That(
+                Assert.Throws<AgentToolkit.Reconciliation.ReconcileException>(
+                    () => manager.GetCompositionPlan(state.Id, swappedKey))!.Error.Message,
+                Does.Contain("session"));
+        });
+    }
+
+    [Test]
+    public void Get_quality_baseline_validates_against_the_supplied_session_key()
+    {
+        var manager = new AgentSessionManager();
+        const string plannedKey = "File:11111111-1111-1111-1111-111111111111";
+        const string swappedKey = "File:22222222-2222-2222-2222-222222222222";
+        var baseline = new QualityReviewBaseline(
+            plannedKey,
+            DateTimeOffset.UtcNow,
+            [TimeSpan.Zero],
+            null!,
+            null!,
+            []);
+        manager.StoreQualityReviewBaseline(baseline);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(manager.GetQualityReviewBaseline(plannedKey).SessionKey, Is.EqualTo(plannedKey));
+            Assert.That(
+                Assert.Throws<AgentToolkit.Reconciliation.ReconcileException>(
+                    () => manager.GetQualityReviewBaseline(swappedKey))!.Error.Message,
+                Does.Contain("baseline"));
+        });
+    }
+
+    [Test]
+    public async Task Composition_plans_evict_the_oldest_beyond_the_retention_cap()
+    {
+        var manager = new AgentSessionManager();
+
+        CompositionPlanState first = manager.StoreCompositionPlan(
+            manager.CurrentSessionKey,
+            "comp", "seed", new JsonObject(), new JsonObject(), new JsonArray(), new HashSet<Guid>());
+        await Task.Delay(10);
+        for (int i = 0; i < 32; i++)
+        {
+            manager.StoreCompositionPlan(
+                manager.CurrentSessionKey,
+                "comp", "seed", new JsonObject(), new JsonObject(), new JsonArray(), new HashSet<Guid>());
+        }
+
+        Assert.Throws<AgentToolkit.Reconciliation.ReconcileException>(
+            () => manager.GetCompositionPlan(first.Id));
+    }
+
+    [Test]
+    public void Concurrent_plan_store_get_remove_does_not_throw_or_corrupt()
+    {
+        var manager = new AgentSessionManager();
+        using var source = new FileSessionSource();
+        manager.UseSource(source);
+
+        const int threads = 8;
+        const int perThread = 100;
+        var exceptions = new ConcurrentQueue<Exception>();
+        var plans = new ConcurrentBag<string>();
+
+        Task[] tasks = Enumerable.Range(0, threads).Select(_ => Task.Run(() =>
+        {
+            for (int i = 0; i < perThread; i++)
+            {
+                try
+                {
+                    CompositionPlanState state = manager.StoreCompositionPlan(
+                        manager.CurrentSessionKey,
+                        "comp",
+                        "seed",
+                        new JsonObject(),
+                        new JsonObject(),
+                        new JsonArray(),
+                        new HashSet<Guid>());
+                    plans.Add(state.Id);
+                    manager.GetCompositionPlan(state.Id);
+                    manager.RecordCompositionUse("comp");
+                    manager.RemoveCompositionPlan(state.Id);
+                }
+                catch (Exception ex)
+                {
+                    exceptions.Enqueue(ex);
+                }
+            }
+        })).ToArray();
+        Task.WaitAll(tasks);
+
+        Assert.That(exceptions, Is.Empty, () => string.Join("\n", exceptions.Select(e => e.ToString())));
+        Assert.That(plans.Count, Is.EqualTo(threads * perThread));
+    }
+
+    [Test]
+    public void Concurrent_recent_composition_reads_and_writes_do_not_throw()
+    {
+        var manager = new AgentSessionManager();
+        using var source = new FileSessionSource();
+        manager.UseSource(source);
+
+        const int threads = 8;
+        const int perThread = 100;
+        var exceptions = new ConcurrentQueue<Exception>();
+
+        Task[] tasks = Enumerable.Range(0, threads).Select(index => Task.Run(() =>
+        {
+            for (int i = 0; i < perThread; i++)
+            {
+                try
+                {
+                    manager.RecordCompositionUse($"comp-{index % 4}");
+                    manager.GetRecentCompositions();
+                    manager.GetAvoidedCompositions();
+                }
+                catch (Exception ex)
+                {
+                    exceptions.Enqueue(ex);
+                }
+            }
+        })).ToArray();
+        Task.WaitAll(tasks);
+
+        Assert.That(exceptions, Is.Empty, () => string.Join("\n", exceptions.Select(e => e.ToString())));
+    }
+}

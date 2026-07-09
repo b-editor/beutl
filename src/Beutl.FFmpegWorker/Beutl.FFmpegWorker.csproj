@@ -27,10 +27,10 @@
        The FFmpeg-calling types (FFmpegReader / FFmpegEncodingController / ColorSpaceHelper)
        now live in this project directly and are picked up by the default glob. -->
   <ItemGroup>
-    <Compile Include="..\Beutl.Extensions.FFmpeg\Encoding\CodecRecord.cs" Link="Linked\CodecRecord.cs" />
-    <Compile Include="..\Beutl.Extensions.FFmpeg\Encoding\FFmpegEncodingSettings.cs" Link="Linked\FFmpegEncodingSettings.cs" />
-    <Compile Include="..\Beutl.Extensions.FFmpeg\Encoding\FFmpegVideoEncoderSettings.cs" Link="Linked\FFmpegVideoEncoderSettings.cs" />
-    <Compile Include="..\Beutl.Extensions.FFmpeg\Encoding\FFmpegAudioEncoderSettings.cs" Link="Linked\FFmpegAudioEncoderSettings.cs" />
+    <Compile Include="..\Beutl.Extensions.FFmpeg.Core\Encoding\CodecRecord.cs" Link="Linked\CodecRecord.cs" />
+    <Compile Include="..\Beutl.Extensions.FFmpeg.Core\Encoding\FFmpegEncodingSettings.cs" Link="Linked\FFmpegEncodingSettings.cs" />
+    <Compile Include="..\Beutl.Extensions.FFmpeg.Core\Encoding\FFmpegVideoEncoderSettings.cs" Link="Linked\FFmpegVideoEncoderSettings.cs" />
+    <Compile Include="..\Beutl.Extensions.FFmpeg.Core\Encoding\FFmpegAudioEncoderSettings.cs" Link="Linked\FFmpegAudioEncoderSettings.cs" />
     <Compile Include="..\Beutl.Extensions.FFmpeg\Decoding\FFmpegDecodingSettings.cs" Link="Linked\FFmpegDecodingSettings.cs" />
     <Compile Include="..\Beutl.Extensions.FFmpeg\Decoding\FFmpegFrameValidation.cs" Link="Linked\FFmpegFrameValidation.cs" />
     <Compile Include="..\Beutl.Extensions.FFmpeg\Decoding\FFmpegSeekDecision.cs" Link="Linked\FFmpegSeekDecision.cs" />

@@ -391,4 +391,205 @@
     <value>プレビュープレーヤーにHDRレンダリングを使用します（マウス操作などが制限されます）</value>
     <comment/>
   </data>
+  <data name="AiAgents" xml:space="preserve">
+    <value>AI エージェント</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_PageDescription" xml:space="preserve">
+    <value>AI コーディングエージェント（Claude Code など）で Beutl プロジェクトを編集できるように、スキル・サブエージェント・MCP サーバー設定をエージェントのフォルダーへインストールします。</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Target" xml:space="preserve">
+    <value>インストール先</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_WorkspaceRoot" xml:space="preserve">
+    <value>ワークスペースルート</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_WorkspaceRoot_Description" xml:space="preserve">
+    <value>MCP サーバーにプロジェクトの作成・編集を許可するフォルダー</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Components" xml:space="preserve">
+    <value>コンポーネント</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Skills" xml:space="preserve">
+    <value>スキル</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Skills_Description" xml:space="preserve">
+    <value>エージェントが必要に応じて読み込む Beutl 編集ノウハウ</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Subagents" xml:space="preserve">
+    <value>サブエージェント</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Subagents_Description" xml:space="preserve">
+    <value>タイムライン・ルック・品質レビュー用の専用エージェント定義</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_StdioMcp" xml:space="preserve">
+    <value>Stdio MCP サーバー</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_StdioMcp_Description" xml:space="preserve">
+    <value>（オプション）GUI を起動せずにプロジェクトファイルを編集するヘッドレスサーバー</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_LiveMcp" xml:space="preserve">
+    <value>Live MCP サーバー</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_LiveMcp_Description" xml:space="preserve">
+    <value>（推奨）実行中のエディタに接続し、編集をプレビューやアンドゥ履歴へ即時反映します</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_LiveMcp_NotRunning" xml:space="preserve">
+    <value>Live MCP エンドポイントは起動していません</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_LiveMcpUrl" xml:space="preserve">
+    <value>Live MCP URL</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_LiveMcpUrl_Description" xml:space="preserve">
+    <value>MCP クライアント用の接続 URL。下の認証ヘッダーを全リクエストに付与してください（ヘッダーはパスワードと同様に扱ってください）</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Advanced" xml:space="preserve">
+    <value>詳細設定</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Advanced_Description" xml:space="preserve">
+    <value>フォルダー名や MCP 設定ファイルの上書きと、stdio サーバーのコマンドライン。空欄の項目は選択中エージェントの既定値が使われます</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_SkillsDirectory" xml:space="preserve">
+    <value>スキルフォルダー</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_SubagentsDirectory" xml:space="preserve">
+    <value>サブエージェントフォルダー</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_McpConfigFileName" xml:space="preserve">
+    <value>MCP 設定ファイル</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_McpServersPropertyName" xml:space="preserve">
+    <value>servers プロパティ</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_McpCommand" xml:space="preserve">
+    <value>コマンド</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_McpArguments" xml:space="preserve">
+    <value>引数（1 行に 1 つ）</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Install" xml:space="preserve">
+    <value>インストール</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_InstallCompleted" xml:space="preserve">
+    <value>{0} 個のファイルをインストールしました。</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_InstalledFiles" xml:space="preserve">
+    <value>インストールされたファイル</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_SelectWorkspaceRoot" xml:space="preserve">
+    <value>ワークスペースルートを選択</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Agent" xml:space="preserve">
+    <value>エージェント</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Agent_Description" xml:space="preserve">
+    <value>ツールキットのインストール先となる AI コーディングエージェント（フォルダー規約はエージェントごとに追従します）</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Agent_Custom" xml:space="preserve">
+    <value>カスタム（パスを手動指定）</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Scope" xml:space="preserve">
+    <value>インストール範囲</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Scope_Description" xml:space="preserve">
+    <value>「プロジェクト」はプロジェクトフォルダーへ、「グローバル」はユーザープロファイルへインストールします</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Scope_Project" xml:space="preserve">
+    <value>プロジェクト</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Scope_Global" xml:space="preserve">
+    <value>グローバル（ユーザープロファイル）</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_ProjectFolder" xml:space="preserve">
+    <value>プロジェクトフォルダー</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_ProjectFolder_Description" xml:space="preserve">
+    <value>エージェントを実行するリポジトリ／プロジェクトのフォルダー</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_SelectProjectFolder" xml:space="preserve">
+    <value>プロジェクトフォルダーを選択</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_ProjectFolderMissing" xml:space="preserve">
+    <value>先にプロジェクトフォルダーを選択してください。</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Destinations" xml:space="preserve">
+    <value>インストール先パス</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Destinations_Description" xml:space="preserve">
+    <value>選択中のエージェントと範囲での各コンポーネントの配置先</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_NotSupported" xml:space="preserve">
+    <value>このエージェントでは未対応</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_McpManual" xml:space="preserve">
+    <value>このエージェントの MCP 設定は自動書き込みに対応していません。エージェント側の設定で MCP サーバーを手動登録してください。</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_CliFailed" xml:space="preserve">
+    <value>エージェントの CLI による MCP 登録に失敗しました。次のコマンドを手動で実行してください:
+{0}</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_StdioMissing" xml:space="preserve">
+    <value>stdio MCP サーバーの実行ファイルがアプリと同じ場所に見つかりませんでした。詳細設定でコマンドを指定するか、Beutl を再インストールしてください。</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_LiveMcpAuthHeader" xml:space="preserve">
+    <value>認証ヘッダー</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_UpdateAvailable_Title" xml:space="preserve">
+    <value>AI エージェント用アセットの更新</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_UpdateAvailable_Content" xml:space="preserve">
+    <value>このバージョンの Beutl には、インストール済みのものより新しいスキル／サブエージェントが同梱されています。保存済みの設定で今すぐ再インストールしますか？（配布先で手動編集したファイルは上書きされます）</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_Reinstall" xml:space="preserve">
+    <value>再インストール</value>
+    <comment/>
+  </data>
 </root>

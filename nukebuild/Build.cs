@@ -114,8 +114,36 @@ class Build : NukeBuild
                     .ForEach(t => t.Source.Copy(t.Target));
             }
 
-            // The 3 sub-exes above flat-copy only their own Beutl.<Name>* files because the rest of
-            // their closure is a subset of the app's shared assemblies. The GPL worker is the
+            // The MCP stdio server is an MIT helper exe, but unlike the UI helper exes above it
+            // carries private MCP/hosting dependencies that are not guaranteed to be in the app's
+            // closure. Merge its whole publish output with FileSkip, like the worker layout below,
+            // while keeping it in the MIT side of the tree.
+            string[] fullClosureSubProjects =
+            [
+                "Beutl.AgentToolkit.Mcp",
+            ];
+            foreach (string item in fullClosureSubProjects)
+            {
+                AbsolutePath output = OutputDirectory / item;
+                output.CreateOrCleanDirectory();
+                DotNetPublish(s => s
+                    .When(_ => Runtime != null, s => s
+                        .SetRuntime(Runtime)
+                        .SetSelfContained(SelfContained))
+                    .SetFramework(tfm)
+                    .EnableNoRestore()
+                    .SetConfiguration(Configuration)
+                    .SetVersions(Version, AssemblyVersion, InformationalVersion)
+                    .SetProject(SourceDirectory / item / $"{item}.csproj")
+                    .SetOutput(output));
+
+                output.GlobFiles("**/*")
+                    .Select(p => (Source: p, Target: mainOutput / output.GetRelativePathTo(p)))
+                    .ForEach(t => t.Source.Copy(t.Target, ExistsPolicy.FileSkip));
+            }
+
+            // The UI helper exes above flat-copy only their own Beutl.<Name>* files because the rest
+            // of their closure is a subset of the app's shared assemblies. The GPL worker is the
             // exception: it carries private deps (FFmpeg.AutoGen, FFmpegSharp) absent from the app's
             // MIT set, so copying only Beutl.FFmpegWorker* strands them and the worker dies with a
             // FileNotFoundException at startup. Copy its whole closure with FileSkip instead — the
@@ -138,6 +166,27 @@ class Build : NukeBuild
                 .SetOutput(workerOutput));
             workerOutput.GlobFiles("**/*")
                 .Select(p => (Source: p, Target: mainOutput / workerOutput.GetRelativePathTo(p)))
+                .ForEach(t => t.Source.Copy(t.Target, ExistsPolicy.FileSkip));
+
+            // The stdio MCP server ships with the app so the AI-agents settings page resolves a
+            // real binary (AgentToolkitMcpServerLocator) instead of falling back to a source-tree
+            // `dotnet run`, which cannot work on end-user machines. Same flat FileSkip merge as
+            // the worker: the app's shared assemblies stay canonical, only the server's identity
+            // and its private MCP-SDK deps are added. BundleApp does the same for the macOS bundle.
+            AbsolutePath mcpServerOutput = OutputDirectory / "Beutl.AgentToolkit.Mcp";
+            mcpServerOutput.CreateOrCleanDirectory();
+            DotNetPublish(s => s
+                .When(_ => Runtime != null, s => s
+                    .SetRuntime(Runtime)
+                    .SetSelfContained(SelfContained))
+                .SetFramework(tfm)
+                .EnableNoRestore()
+                .SetConfiguration(Configuration)
+                .SetVersions(Version, AssemblyVersion, InformationalVersion)
+                .SetProject(SourceDirectory / "Beutl.AgentToolkit.Mcp" / "Beutl.AgentToolkit.Mcp.csproj")
+                .SetOutput(mcpServerOutput));
+            mcpServerOutput.GlobFiles("**/*")
+                .Select(p => (Source: p, Target: mainOutput / mcpServerOutput.GetRelativePathTo(p)))
                 .ForEach(t => t.Source.Copy(t.Target, ExistsPolicy.FileSkip));
         });
 
@@ -228,6 +277,22 @@ class Build : NukeBuild
             bundleContents.GlobFiles("Beutl.FFmpegWorker*").ForEach(p => p.DeleteFile());
             workerOutput.GlobFiles("**/*")
                 .Select(p => (Source: p, Target: bundleContents / workerOutput.GetRelativePathTo(p)))
+                .ForEach(t => t.Source.Copy(t.Target, ExistsPolicy.FileSkip));
+
+            AbsolutePath mcpProj = SourceDirectory / "Beutl.AgentToolkit.Mcp" / "Beutl.AgentToolkit.Mcp.csproj";
+            AbsolutePath mcpOutput = OutputDirectory / "Beutl.AgentToolkit.Mcp";
+            mcpOutput.CreateOrCleanDirectory();
+            DotNetPublish(s => s
+                .SetRuntime(Runtime)
+                .SetSelfContained(true)
+                .SetFramework(tfm)
+                .SetConfiguration(Configuration)
+                .SetVersions(Version, AssemblyVersion, InformationalVersion)
+                .SetProject(mcpProj)
+                .SetOutput(mcpOutput));
+
+            mcpOutput.GlobFiles("**/*")
+                .Select(p => (Source: p, Target: bundleContents / mcpOutput.GetRelativePathTo(p)))
                 .ForEach(t => t.Source.Copy(t.Target, ExistsPolicy.FileSkip));
         });
 

@@ -85,6 +85,32 @@ public class PixelSortEffectTests
         });
     }
 
+    [TestCase(float.PositiveInfinity, ExpectedResult = true)]
+    [TestCase(2f, ExpectedResult = false)]
+    [TestCase(1f, ExpectedResult = false)]
+    public bool ShouldRethrowPassFailure_rethrows_shader_failures_only_on_delivery(float maxWorkingScale)
+        => PixelSortEffect.ShouldRethrowPassFailure(new InvalidOperationException("pass failed"), maxWorkingScale);
+
+    [Test]
+    public void ShouldRethrowPassFailure_always_rethrows_cancellation()
+    {
+        Assert.That(
+            PixelSortEffect.ShouldRethrowPassFailure(new OperationCanceledException(), 2f),
+            Is.True);
+    }
+
+    [Test]
+    public void ThrowIfDeliveryAllocationFailure_fails_delivery_and_degrades_preview()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<InvalidOperationException>(
+                () => PixelSortEffect.ThrowIfDeliveryAllocationFailure(float.PositiveInfinity, 0));
+            Assert.DoesNotThrow(
+                () => PixelSortEffect.ThrowIfDeliveryAllocationFailure(2f, 0));
+        });
+    }
+
     private static RenderTarget? CreateGradientTarget(int width, int height)
     {
         var target = RenderTarget.Create(width, height);

@@ -1,0 +1,34 @@
+{
+  "runId": "2026-07-03T165727Z-low-effort-bde",
+  "baselineRunId": "2026-07-03T093833Z-baseline-t2t8",
+  "toolkitCommit": "0151a7579",
+  "scorer": "claude-fable-5 (independent rescoring, contact sheets @1400px)",
+  "axes": ["paletteHarmony", "typographicHierarchy", "compositionWhitespace", "layerDensityDepth", "backgroundRichness", "motionArc"],
+  "scores": {
+    "01-editor-title-sequence": [4, 4, 3, 3, 3, 4],
+    "02-logo-reveal-material-light": [4, 4, 4, 4, 4, 4],
+    "03-data-infographic-shift": [4, 4, 4, 3, 3, 4],
+    "04-product-promo-fast-beat": [4, 4, 3, 3, 3, 4],
+    "05-lyric-video-typographic-pulse": [4, 4, 4, 3, 3, 4],
+    "06-countdown-technical-event": [4, 4, 4, 3, 3, 4],
+    "07-tech-explainer-opener": [4, 3, 3, 3, 3, 4],
+    "08-flat-background-rescue": [4, 4, 4, 4, 4, 3],
+    "09-palette-discipline-challenge": [4, 4, 4, 3, 3, 3],
+    "10-minimal-not-sparse": [4, 4, 4, 3, 3, 3]
+  },
+  "averages": [4.0, 3.9, 3.7, 3.2, 3.2, 3.7],
+  "baselineAverages": [3.3, 3.2, 2.9, 2.5, 2.7, 2.9],
+  "diversityCheck": {
+    "brief": "01-editor-title-sequence",
+    "run1Concept": "Strata (dark warm ground, horizontal track-band splice assembly, coral accent)",
+    "rerunConcept": "Ordered Assembly (light editorial field, directional word-lock into column grid, crimson accent)",
+    "structurallyDistinct": true,
+    "mechanismAssisted": "record_creative_direction/recentToAvoid"
+  },
+  "convergence": {
+    "convergedRuns": 10,
+    "unconvergedRuns": 0,
+    "pass0Exits": 5,
+    "pass1Exits": 5
+  }
+}

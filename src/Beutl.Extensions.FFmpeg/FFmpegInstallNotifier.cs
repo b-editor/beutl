@@ -9,13 +9,21 @@ internal static class FFmpegInstallNotifier
 {
     private const long ThrottleMs = 10_000;
     private static long s_lastNotifiedTicks;
-    private static volatile bool s_librariesMissing;
+    private static int s_hooked;
 
-    public static bool IsLibrariesMissing => s_librariesMissing;
+    public static bool IsLibrariesMissing => FFmpegLibraryState.IsLibrariesMissing;
+
+    public static void HookLibraryState()
+    {
+        if (Interlocked.Exchange(ref s_hooked, 1) != 0)
+            return;
+
+        FFmpegLibraryState.LibrariesMissing += (_, _) => NotifyMissing();
+    }
 
     public static void NotifyMissing()
     {
-        s_librariesMissing = true;
+        FFmpegLibraryState.MarkMissing();
         if (!TryAcquireNotifySlot(Environment.TickCount64))
             return;
 
@@ -40,13 +48,13 @@ internal static class FFmpegInstallNotifier
 
     public static void MarkInstalled()
     {
-        s_librariesMissing = false;
+        FFmpegLibraryState.MarkInstalled();
         Interlocked.Exchange(ref s_lastNotifiedTicks, 0);
     }
 
     public static void MarkMissing()
     {
-        s_librariesMissing = true;
+        FFmpegLibraryState.MarkMissing();
     }
 
     private static void ShowInstallDialog()

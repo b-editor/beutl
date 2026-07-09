@@ -41,6 +41,8 @@ public sealed class GlobalConfiguration
 
     public TutorialConfig TutorialConfig { get; } = new();
 
+    public AiAgentConfig AiAgentConfig { get; } = new();
+
     [AllowNull]
     public string LastStartedVersion { get; private set; } = BeutlApplication.Version;
 
@@ -76,6 +78,8 @@ public sealed class GlobalConfiguration
             json["Graphics"] = CoreSerializer.SerializeToJsonObject(GraphicsConfig);
 
             json["Tutorial"] = CoreSerializer.SerializeToJsonObject(TutorialConfig);
+
+            json["AiAgent"] = CoreSerializer.SerializeToJsonObject(AiAgentConfig);
 
             json.JsonSave(file);
         }
@@ -130,6 +134,9 @@ public sealed class GlobalConfiguration
                 if (json["Tutorial"] is JsonObject tutorial)
                     Deserialize(TutorialConfig, tutorial);
 
+                if (json["AiAgent"] is JsonObject aiAgent)
+                    Deserialize(AiAgentConfig, aiAgent);
+
                 if (json["Version"] is JsonValue version
                     && version.TryGetValue(out string? versionString))
                 {
@@ -153,6 +160,7 @@ public sealed class GlobalConfiguration
         TelemetryConfig.ConfigurationChanged += OnConfigurationChanged;
         EditorConfig.ConfigurationChanged += OnConfigurationChanged;
         TutorialConfig.ConfigurationChanged += OnConfigurationChanged;
+        AiAgentConfig.ConfigurationChanged += OnConfigurationChanged;
     }
 
     private void RemoveHandlers()
@@ -165,6 +173,7 @@ public sealed class GlobalConfiguration
         TelemetryConfig.ConfigurationChanged -= OnConfigurationChanged;
         EditorConfig.ConfigurationChanged -= OnConfigurationChanged;
         TutorialConfig.ConfigurationChanged -= OnConfigurationChanged;
+        AiAgentConfig.ConfigurationChanged -= OnConfigurationChanged;
     }
 
     private void OnConfigurationChanged(object? sender, EventArgs e)

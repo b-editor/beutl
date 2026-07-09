@@ -14,21 +14,33 @@ public sealed class ScriptEditorViewModel : ValueEditorViewModel<string?>
         GLSL,
     }
 
+    private readonly IScriptCompilableEffect? _validator;
+
     public ScriptEditorViewModel(IPropertyAdapter<string?> property)
         : base(property)
     {
         DetectedScriptType = DetectScriptType(property.ImplementedType);
+        _validator = Activator.CreateInstance(property.ImplementedType) as IScriptCompilableEffect;
 
         Value
             .Throttle(TimeSpan.FromMilliseconds(500))
             .Select(script => Observable.Start(() => ValidateScript(script)))
             .Switch()
             .ObserveOnUIDispatcher()
-            .Subscribe(error => CompileError.Value = error)
+            .Subscribe(result =>
+            {
+                CompileError.Value = result.Status == ScriptCompilationStatus.Failed ? result.Error : null;
+                ValidationNotice.Value = result.Status == ScriptCompilationStatus.Unavailable
+                    ? MessageStrings.ScriptValidationUnavailable
+                    : null;
+            })
             .DisposeWith(Disposables);
     }
 
     public ReactivePropertySlim<string?> CompileError { get; } = new();
+
+    // Distinct from CompileError: "could not check" must not read as a failure or a success.
+    public ReactivePropertySlim<string?> ValidationNotice { get; } = new();
 
     public ScriptType DetectedScriptType { get; }
 
@@ -41,17 +53,11 @@ public sealed class ScriptEditorViewModel : ValueEditorViewModel<string?>
         return ScriptType.CSharp;
     }
 
-    private string? ValidateScript(string? script)
+    private ScriptCompilationResult ValidateScript(string? script)
     {
-        if (string.IsNullOrWhiteSpace(script))
-            return null;
+        if (string.IsNullOrWhiteSpace(script) || _validator is null)
+            return ScriptCompilationResult.Compiled;
 
-        return DetectedScriptType switch
-        {
-            ScriptType.CSharp => CSharpScriptEffect.ValidateScript(script),
-            ScriptType.SKSL => SKSLScriptEffect.ValidateScript(script),
-            ScriptType.GLSL => GLSLScriptEffect.ValidateScript(script),
-            _ => null,
-        };
+        return _validator.ValidateScript(script);
     }
 }

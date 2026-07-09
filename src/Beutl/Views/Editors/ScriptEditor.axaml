@@ -29,5 +29,11 @@
                              Margin="8,0,32,0"
                              IsVisible="{Binding CompileError.Value,
                                         Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+        <SelectableTextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                             Text="{Binding ValidationNotice.Value}"
+                             TextWrapping="WrapWithOverflow"
+                             Margin="8,0,32,0"
+                             IsVisible="{Binding ValidationNotice.Value,
+                                        Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
     </StackPanel>
 </UserControl>

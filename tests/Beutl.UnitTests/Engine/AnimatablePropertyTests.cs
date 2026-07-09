@@ -3,6 +3,7 @@ using Beutl.Animation.Easings;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Engine.Expressions;
+using Beutl.ProjectSystem;
 
 namespace Beutl.UnitTests.Engine;
 
@@ -131,6 +132,25 @@ public class AnimatablePropertyTests
         var midpoint = property.GetValue(new CompositionContext(TimeSpan.FromSeconds(0.5)));
 
         Assert.That(midpoint, Is.InRange(40, 60));
+    }
+
+    [Test]
+    public void GetValue_WithRelativeAnimation_UsesLogicalParentTimeRangeWithoutRootAttachment()
+    {
+        var owner = new TestEngineObjectForProperty();
+        var property = Make(0);
+        property.SetOwnerObject(owner);
+        property.Animation = CreateLinearAnimation(100, 0, 1.0);
+        var element = new Element
+        {
+            Start = TimeSpan.FromSeconds(5),
+            Length = TimeSpan.FromSeconds(2)
+        };
+        element.AddObject(owner);
+
+        int midpoint = property.GetValue(new CompositionContext(TimeSpan.FromSeconds(5.5)));
+
+        Assert.That(midpoint, Is.EqualTo(50));
     }
 
     [Test]

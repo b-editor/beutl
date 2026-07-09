@@ -65,6 +65,8 @@
     <PackageReference Include="FluentIcons.Avalonia.Fluent" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Microsoft.Extensions.Logging" />
+    <PackageReference Include="ModelContextProtocol" />
+    <PackageReference Include="ModelContextProtocol.AspNetCore" />
     <PackageReference Include="OpenTelemetry" />
     <PackageReference Include="PanelExtension" />
     <PackageReference Include="ReactiveProperty" />
@@ -84,7 +86,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Beutl.Api\Beutl.Api.csproj" />
+    <ProjectReference Include="..\Beutl.AgentToolkit\Beutl.AgentToolkit.csproj" />
     <ProjectReference Include="..\Beutl.Controls\Beutl.Controls.csproj" />
     <ProjectReference Include="..\Beutl.Editor\Beutl.Editor.csproj" />
     <ProjectReference Include="..\Beutl.Editor.Components\Beutl.Editor.Components.csproj" />
