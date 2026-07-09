@@ -64,9 +64,9 @@ internal sealed class DeclarativeDocumentApplier
             : scene.FrameSize.Height;
         scene.FrameSize = new PixelSize(width, height);
 
-        if (desired.TryGetPropertyValue("Elements", out JsonNode? elementsNode) && elementsNode is JsonArray elements)
+        if (desired.TryGetPropertyValue("Elements", out JsonNode? elementsNode))
         {
-            ApplyIdentityList(scene.Children, typeof(Element), "Elements", elements, scene);
+            ApplyIdentityList(scene.Children, typeof(Element), "Elements", RequireArrayMember(elementsNode, "Elements"), scene);
         }
         else
         {
@@ -109,9 +109,9 @@ internal sealed class DeclarativeDocumentApplier
         CoreSerializer.PopulateFromJsonObject(element, element.GetType(), payload, CreateOptions(element));
         ClearAbsentRegisteredObjectProperties(element, desired, payload);
 
-        if (desired.TryGetPropertyValue(nameof(Element.Objects), out JsonNode? objectsNode) && objectsNode is JsonArray objects)
+        if (desired.TryGetPropertyValue(nameof(Element.Objects), out JsonNode? objectsNode))
         {
-            ApplyIdentityList(element.Objects, typeof(EngineObject), "Objects", objects, element);
+            ApplyIdentityList(element.Objects, typeof(EngineObject), "Objects", RequireArrayMember(objectsNode, "Objects"), element);
         }
         else
         {
@@ -150,10 +150,9 @@ internal sealed class DeclarativeDocumentApplier
         CoreSerializer.PopulateFromJsonObject(animation, animation.GetType(), payload, CreateOptions(animation));
         ClearAbsentRegisteredObjectProperties(animation, desired, payload);
 
-        if (desired.TryGetPropertyValue(nameof(KeyFrameAnimation.KeyFrames), out JsonNode? keyframesNode)
-            && keyframesNode is JsonArray keyframes)
+        if (desired.TryGetPropertyValue(nameof(KeyFrameAnimation.KeyFrames), out JsonNode? keyframesNode))
         {
-            ApplyKeyFrameList(animation.KeyFrames, keyframes);
+            ApplyKeyFrameList(animation.KeyFrames, RequireArrayMember(keyframesNode, nameof(KeyFrameAnimation.KeyFrames)));
         }
         else
         {
@@ -282,9 +281,9 @@ internal sealed class DeclarativeDocumentApplier
     {
         foreach (IListProperty listProperty in target.Properties.OfType<IListProperty>())
         {
-            if (desired.TryGetPropertyValue(listProperty.Name, out JsonNode? node) && node is JsonArray array)
+            if (desired.TryGetPropertyValue(listProperty.Name, out JsonNode? node))
             {
-                ApplyIdentityList(listProperty, listProperty.ElementType, listProperty.Name, array, target);
+                ApplyIdentityList(listProperty, listProperty.ElementType, listProperty.Name, RequireArrayMember(node, listProperty.Name), target);
             }
             else
             {
@@ -625,6 +624,22 @@ internal sealed class DeclarativeDocumentApplier
 
     private static string CreateIdentityListItemPath(string fieldName, int index)
         => $"{fieldName}[{index}]";
+
+    // A present but non-array child-list value is a malformed document, not an intentional omission:
+    // treating it as "clear" (the absent-property branch) would silently erase the whole list on a typo.
+    private static JsonArray RequireArrayMember(JsonNode? node, string fieldName)
+    {
+        if (node is JsonArray array)
+        {
+            return array;
+        }
+
+        throw new ReconcileException(new ToolError(
+            ErrorCode.ValidationRejected,
+            $"'{fieldName}' must be a JSON array.",
+            fieldName,
+            $"Provide '{fieldName}' as an array of members, or omit it entirely to clear the list."));
+    }
 
     private static CoreObject CreateIdentityListItem(JsonObject itemJson, Type elementBaseType)
     {

@@ -119,10 +119,12 @@ public sealed class RenderTools(
                     "returnImageContent cannot be combined with background:true; run render_storyboard synchronously when the contact-sheet image block is needed."));
             }
 
-            Scene scene = RequireSceneSnapshot();
-            // The snapshot is a Project-detached clone, so its frame-rate lookup would always miss and
-            // fall back to 30 fps; read the rate from the live tree instead.
-            int frameRate = RequireLiveSceneFrameRate();
+            // Capture the session once so a concurrent swap cannot pair an old-session snapshot with a
+            // new-session frame rate. The rate comes from the live tree because the snapshot is a
+            // Project-detached clone whose own frame-rate lookup would always miss.
+            IEditingSession session = sessions.RequireSession();
+            Scene scene = CreateSceneSnapshot(session);
+            int frameRate = ReadSessionFrameRate(session);
             int normalizedSubdivisionLevel = NormalizeStoryboardSubdivisionLevel(subdivisionLevel);
             IReadOnlyList<ResolvedStoryboardFrame> resolvedShots = ResolveStoryboardFrames(
                 scene,
@@ -1897,7 +1899,7 @@ public sealed class RenderTools(
         return TimeSpan.FromSeconds(0.5d / frameRate);
     }
 
-    private static int GetSceneFrameRate(Scene scene)
+    internal static int GetSceneFrameRate(Scene scene)
     {
         Project? project = scene.FindHierarchicalParent<Project>();
         if (project?.Variables.TryGetValue(ProjectVariableKeys.FrameRate, out string? value) == true
@@ -2075,11 +2077,11 @@ public sealed class RenderTools(
         return CreateSceneSnapshot(session);
     }
 
-    // Reads the frame rate from the live, Project-attached scene; CreateSceneSnapshot returns a clone
-    // detached from its Project, on which the project frame-rate lookup would always miss.
-    private int RequireLiveSceneFrameRate()
+    // Reads the frame rate from the given session's live, Project-attached scene; CreateSceneSnapshot
+    // returns a clone detached from its Project, on which the project frame-rate lookup would always
+    // miss. Takes the same session the snapshot was read from so the two cannot straddle a swap.
+    private static int ReadSessionFrameRate(IEditingSession session)
     {
-        IEditingSession session = sessions.RequireSession();
         return session.ReadOnSession(() =>
             session.Root is Scene liveScene ? GetSceneFrameRate(liveScene) : DefaultSceneFrameRate);
     }

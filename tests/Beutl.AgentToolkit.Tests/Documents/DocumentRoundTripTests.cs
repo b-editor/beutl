@@ -2,11 +2,30 @@
 using Beutl.AgentToolkit.Documents;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.Audio.Effects;
+using Beutl.ProjectSystem;
 
 namespace Beutl.AgentToolkit.Tests.Documents;
 
 public class DocumentRoundTripTests
 {
+    [Test]
+    public void Write_with_a_present_non_array_child_list_is_rejected_without_clearing_the_list()
+    {
+        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var scene = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
+        scene.Children.Add(new Element { Length = TimeSpan.FromSeconds(1), Uri = new Uri(Path.Combine(dir, "first.belm")) });
+        var adapter = new DocumentAdapter();
+
+        JsonObject document = adapter.Read(scene);
+        // A present-but-non-array Elements is a malformed document, not an intentional omission; it
+        // must be rejected instead of falling through to the clear branch and erasing the timeline.
+        document["Elements"] = new JsonObject();
+
+        Assert.Throws<ReconcileException>(() => adapter.Write(scene, document));
+        Assert.That(scene.Children, Has.Count.EqualTo(1));
+    }
+
     [Test]
     public void Write_with_an_invalid_typed_list_member_leaves_the_original_list_intact()
     {

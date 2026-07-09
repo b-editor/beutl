@@ -269,6 +269,23 @@ public sealed class RenderToolsStoryboardTests
     }
 
     [Test]
+    public void Get_scene_frame_rate_reads_the_project_variable_and_defaults_to_30_when_detached()
+    {
+        var attached = new Scene(16, 9, "attached") { Duration = TimeSpan.FromSeconds(1) };
+        var project = new Project();
+        project.Variables[ProjectVariableKeys.FrameRate] = "60";
+        project.Items.Add(attached);
+
+        var detached = new Scene(16, 9, "detached") { Duration = TimeSpan.FromSeconds(1) };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(RenderTools.GetSceneFrameRate(attached), Is.EqualTo(60));
+            Assert.That(RenderTools.GetSceneFrameRate(detached), Is.EqualTo(30));
+        });
+    }
+
+    [Test]
     public void Resolve_storyboard_frames_subdivides_auto_derived_element_midpoints()
     {
         string workspace = CreateWorkspace();
