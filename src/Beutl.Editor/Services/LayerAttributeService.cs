@@ -13,25 +13,6 @@ public sealed class LayerAttributeService : ILayerAttributeService
         _historyManager = historyManager ?? throw new ArgumentNullException(nameof(historyManager));
     }
 
-    public bool SetEnabled(Scene scene, int zIndex, bool newEnabled)
-    {
-        ArgumentNullException.ThrowIfNull(scene);
-
-        bool changed = false;
-        foreach (Element element in scene.Children)
-        {
-            if (element.ZIndex != zIndex || element.IsEnabled == newEnabled) continue;
-            if (scene.IsElementLocked(element)) continue;
-            element.IsEnabled = newEnabled;
-            changed = true;
-        }
-
-        if (!changed) return false;
-
-        _historyManager.Commit(CommandNames.ChangeLayerEnabled);
-        return true;
-    }
-
     public bool SetColor(Scene scene, int zIndex, Color color, string defaultName)
     {
         ArgumentNullException.ThrowIfNull(scene);

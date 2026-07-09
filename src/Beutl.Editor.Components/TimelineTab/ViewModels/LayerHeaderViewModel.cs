@@ -14,10 +14,7 @@ namespace Beutl.Editor.Components.TimelineTab.ViewModels;
 public sealed class LayerHeaderViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = [];
-    private readonly List<ElementViewModel> _elements = [];
     private readonly ReactivePropertySlim<TimelineLayer?> _model = new();
-    private IDisposable? _elementsSubscription;
-    private bool _skipSubscription;
 
     public LayerHeaderViewModel(int num, TimelineTabViewModel timeline)
     {
@@ -60,30 +57,6 @@ public sealed class LayerHeaderViewModel : IDisposable
         HasItems = ItemsCount.Select(i => i > 0)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
-
-        SwitchEnabledCommand = new ReactiveCommand()
-            .WithSubscribe(() =>
-            {
-                try
-                {
-                    _skipSubscription = true;
-                    bool target = !IsEnabled.Value;
-                    IsEnabled.Value = target;
-                    Timeline.EditorContext.GetRequiredService<ILayerAttributeService>()
-                        .SetEnabled(Timeline.Scene, Number.Value, target);
-
-                    bool allMatch = ShouldClaimEnabledState(
-                        _elements.Select(e => (e.IsEditable.Value, e.Model.IsEnabled)), target);
-                    if (!allMatch)
-                    {
-                        IsEnabled.Value = !target;
-                    }
-                }
-                finally
-                {
-                    _skipSubscription = false;
-                }
-            });
 
         ToggleLockCommand = new ReactiveCommand()
             .WithSubscribe(() => ToggleLayerFlag(IsLocked, (s, scene, n, v) => s.SetLocked(scene, n, v)));
@@ -173,8 +146,6 @@ public sealed class LayerHeaderViewModel : IDisposable
 
     public ReactiveProperty<string> Name { get; }
 
-    public ReactiveProperty<bool> IsEnabled { get; } = new(true);
-
     public ReactiveProperty<bool> IsLocked { get; }
 
     public ReactiveProperty<bool> IsAudioMuted { get; }
@@ -191,8 +162,6 @@ public sealed class LayerHeaderViewModel : IDisposable
 
     public CoreList<InlineAnimationLayerViewModel> Inlines { get; } = new() { ResetBehavior = ResetBehavior.Remove };
 
-    public ReactiveCommand SwitchEnabledCommand { get; }
-
     public ReactiveCommand ToggleLockCommand { get; }
 
     public ReactiveCommand ToggleAudioMuteCommand { get; }
@@ -200,22 +169,6 @@ public sealed class LayerHeaderViewModel : IDisposable
     public ReactiveCommand ToggleVideoMuteCommand { get; }
 
     public ReactiveCommand ToggleSoloCommand { get; }
-
-    // The service skips locked clips, so they are excluded here and the header
-    // claims the state only when at least one editable clip reached the target.
-    internal static bool ShouldClaimEnabledState(
-        IEnumerable<(bool IsEditable, bool IsEnabled)> clips, bool target)
-    {
-        bool anyEditable = false;
-        foreach ((bool isEditable, bool isEnabled) in clips)
-        {
-            if (!isEditable) continue;
-            if (isEnabled != target) return false;
-            anyEditable = true;
-        }
-
-        return anyEditable;
-    }
 
     public void UpdateZIndex(int layerNum)
     {
@@ -231,36 +184,9 @@ public sealed class LayerHeaderViewModel : IDisposable
         PosY.Value = 0;
     }
 
-    public void ElementAdded(ElementViewModel element)
-    {
-        ItemsCount.Value++;
-        _elements.Add(element);
-        BuildSubscription();
-    }
+    public void ElementAdded(ElementViewModel element) => ItemsCount.Value++;
 
-    public void ElementRemoved(ElementViewModel element)
-    {
-        ItemsCount.Value--;
-        _elements.Remove(element);
-        BuildSubscription();
-    }
-
-    private void BuildSubscription()
-    {
-        _elementsSubscription?.Dispose();
-        _elementsSubscription = null;
-        if (_elements.Count == 0)
-        {
-            IsEnabled.Value = true;
-            return;
-        }
-
-        _elementsSubscription = _elements.Select(obj => obj.IsEnabled.Select(b => (bool?)b))
-            .Aggregate((x, y) => x.CombineLatest(y)
-                .Select(t => t.First == t.Second ? t.First : null))
-            .Where(b => b.HasValue && !_skipSubscription)
-            .Subscribe(b => IsEnabled.Value = b!.Value);
-    }
+    public void ElementRemoved(ElementViewModel element) => ItemsCount.Value--;
 
     public void Dispose()
     {

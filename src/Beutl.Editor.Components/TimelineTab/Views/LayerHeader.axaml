@@ -26,7 +26,6 @@
             <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="Auto" />
-            <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="*" MinWidth="100" />
         </Grid.ColumnDefinitions>
         <Border x:Name="border"
@@ -50,69 +49,64 @@
                       IsChecked="{Binding IsLocked.Value, Mode=OneWay}"
                       Theme="{StaticResource LayerHeaderToggleButtonStyle}"
                       ToolTip.Tip="{x:Static lang:Strings.Lock}">
-            <icons:SymbolIcon FontSize="14" />
             <ToggleButton.Styles>
-                <Style Selector="Button > icons|SymbolIcon">
+                <Style Selector="ToggleButton > icons|SymbolIcon">
                     <Setter Property="Symbol" Value="LockOpen" />
                 </Style>
-                <Style Selector="Button:checked > icons|SymbolIcon">
+                <Style Selector="ToggleButton:checked > icons|SymbolIcon">
                     <Setter Property="Symbol" Value="LockClosed" />
                 </Style>
             </ToggleButton.Styles>
+            <icons:SymbolIcon FontSize="14" />
         </ToggleButton>
 
         <ToggleButton Grid.Column="2"
-                      Command="{Binding SwitchEnabledCommand}"
-                      IsChecked="{Binding IsEnabled.Value, Mode=OneWay}"
-                      Theme="{StaticResource VisibilityToggleButtonStyle}" />
-
-        <ToggleButton Grid.Column="3"
                       Command="{Binding ToggleVideoMuteCommand}"
                       IsChecked="{Binding IsVideoMuted.Value, Mode=OneWay}"
                       Theme="{StaticResource LayerHeaderToggleButtonStyle}"
                       ToolTip.Tip="{x:Static lang:Strings.Video}">
-            <icons:SymbolIcon FontSize="14" />
             <ToggleButton.Styles>
-                <Style Selector="Button > icons|SymbolIcon">
+                <Style Selector="ToggleButton > icons|SymbolIcon">
                     <Setter Property="Symbol" Value="Video" />
                 </Style>
-                <Style Selector="Button:checked > icons|SymbolIcon">
+                <Style Selector="ToggleButton:checked > icons|SymbolIcon">
                     <Setter Property="Symbol" Value="VideoOff" />
                 </Style>
             </ToggleButton.Styles>
+            <icons:SymbolIcon FontSize="14" />
         </ToggleButton>
 
-        <ToggleButton Grid.Column="4"
+        <ToggleButton Grid.Column="3"
                       Command="{Binding ToggleAudioMuteCommand}"
                       IsChecked="{Binding IsAudioMuted.Value, Mode=OneWay}"
                       Theme="{StaticResource LayerHeaderToggleButtonStyle}"
                       ToolTip.Tip="{x:Static lang:Strings.Audio}">
-            <icons:SymbolIcon FontSize="14" />
             <ToggleButton.Styles>
-                <Style Selector="Button > icons|SymbolIcon">
+                <Style Selector="ToggleButton > icons|SymbolIcon">
                     <Setter Property="Symbol" Value="Speaker1" />
                 </Style>
-                <Style Selector="Button:checked > icons|SymbolIcon">
+                <Style Selector="ToggleButton:checked > icons|SymbolIcon">
                     <Setter Property="Symbol" Value="SpeakerMute" />
                 </Style>
             </ToggleButton.Styles>
+            <icons:SymbolIcon FontSize="14" />
         </ToggleButton>
 
-        <ToggleButton Grid.Column="5"
+        <ToggleButton Grid.Column="4"
                       Command="{Binding ToggleSoloCommand}"
                       IsChecked="{Binding IsSolo.Value, Mode=OneWay}"
                       Theme="{StaticResource LayerHeaderToggleButtonStyle}"
                       ToolTip.Tip="{x:Static lang:Strings.Solo}">
-            <icons:SymbolIcon FontSize="14"
-                              Symbol="Star" />
             <ToggleButton.Styles>
-                <Style Selector="Button:checked > icons|SymbolIcon">
+                <Style Selector="ToggleButton:checked > icons|SymbolIcon">
                     <Setter Property="IconVariant" Value="Filled" />
                 </Style>
             </ToggleButton.Styles>
+            <icons:SymbolIcon FontSize="14"
+                              Symbol="Star" />
         </ToggleButton>
 
-        <ui:ColorPickerButton Grid.Column="6"
+        <ui:ColorPickerButton Grid.Column="5"
                               MinHeight="{DynamicResource LayerHeight}"
                               CustomPaletteColors="{StaticResource PaletteColors}"
                               FlyoutConfirmed="OnColorChanged"
@@ -122,13 +116,13 @@
                               Color="{Binding Color.Value, Mode=OneWay}" />
 
         <TextBox x:Name="NameTextBox"
-                 Grid.Column="7"
+                 Grid.Column="6"
                  Theme="{StaticResource LayerHeaderNameTextBoxTheme}"
                  InputMethod.IsInputMethodEnabled="True"
                  Text="{Binding Name.Value}" />
 
         <ItemsControl Grid.Row="1"
-                      Grid.ColumnSpan="8"
+                      Grid.ColumnSpan="7"
                       ItemsSource="{CompiledBinding Inlines}">
             <ItemsControl.ItemTemplate>
                 <DataTemplate>

@@ -29,9 +29,6 @@ public class LayerAttributeServiceTests
         _harness.Dispose();
     }
 
-    private Element AddElement(int zIndex, bool isEnabled = true)
-        => _harness.AddElement(zIndex, isEnabled);
-
     private bool SetFlag(string flag, int zIndex, bool value)
     {
         return flag switch
@@ -60,79 +57,6 @@ public class LayerAttributeServiceTests
     public void Constructor_NullHistoryManager_Throws()
     {
         Assert.Throws<ArgumentNullException>(() => new LayerAttributeService(null!));
-    }
-
-    [Test]
-    public void SetEnabled_FlipsOnlyDifferingElements_AndCommits()
-    {
-        Element a = AddElement(2, isEnabled: true);
-        Element b = AddElement(2, isEnabled: false);
-        Element other = AddElement(5, isEnabled: true);
-        int before = _history.UndoCount;
-
-        bool changed = _service.SetEnabled(_scene, 2, newEnabled: false);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(changed, Is.True);
-            // Only the differing element flipped; already-false and other-layer ones untouched.
-            Assert.That(a.IsEnabled, Is.False);
-            Assert.That(b.IsEnabled, Is.False);
-            Assert.That(other.IsEnabled, Is.True);
-            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
-        });
-    }
-
-    [Test]
-    public void SetEnabled_AllAlreadyMatch_DoesNotCommit()
-    {
-        Element a = AddElement(2, isEnabled: true);
-        Element b = AddElement(2, isEnabled: true);
-        int before = _history.UndoCount;
-
-        bool changed = _service.SetEnabled(_scene, 2, newEnabled: true);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(changed, Is.False);
-            Assert.That(a.IsEnabled, Is.True);
-            Assert.That(b.IsEnabled, Is.True);
-            Assert.That(_history.UndoCount, Is.EqualTo(before));
-        });
-    }
-
-    [Test]
-    public void SetEnabled_LockedElement_IsSkipped()
-    {
-        Element locked = AddElement(2, isEnabled: true);
-        locked.IsLocked = true;
-        Element free = AddElement(2, isEnabled: true);
-
-        bool changed = _service.SetEnabled(_scene, 2, newEnabled: false);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(changed, Is.True);
-            Assert.That(locked.IsEnabled, Is.True);
-            Assert.That(free.IsEnabled, Is.False);
-        });
-    }
-
-    [Test]
-    public void SetEnabled_LayerLocked_DoesNotCommit()
-    {
-        Element element = AddElement(2, isEnabled: true);
-        _scene.Layers.Add(new TimelineLayer { ZIndex = 2, IsLocked = true });
-        int before = _history.UndoCount;
-
-        bool changed = _service.SetEnabled(_scene, 2, newEnabled: false);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(changed, Is.False);
-            Assert.That(element.IsEnabled, Is.True);
-            Assert.That(_history.UndoCount, Is.EqualTo(before));
-        });
     }
 
     [Test]

@@ -74,9 +74,6 @@
   <data name="MoveLayer" xml:space="preserve">
     <value>Move Layer</value>
   </data>
-  <data name="ChangeLayerEnabled" xml:space="preserve">
-    <value>Change Layer Enabled</value>
-  </data>
   <data name="ChangeLayerColor" xml:space="preserve">
     <value>Change Layer Color</value>
   </data>

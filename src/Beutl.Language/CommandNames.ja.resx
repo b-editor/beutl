@@ -69,9 +69,6 @@
   <data name="MoveLayer" xml:space="preserve">
     <value>レイヤーを移動</value>
   </data>
-  <data name="ChangeLayerEnabled" xml:space="preserve">
-    <value>レイヤーの有効/無効を変更</value>
-  </data>
   <data name="ChangeLayerColor" xml:space="preserve">
     <value>レイヤーの色を変更</value>
   </data>

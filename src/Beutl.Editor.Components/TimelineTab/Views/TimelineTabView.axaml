@@ -69,24 +69,6 @@
                         Subtitle="{x:Static lang:Strings.RightClickToOperateCache}"
                         Target="{Binding #Scale}" />
 
-        <Grid ClipToBounds="True">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="12" />
-                <ColumnDefinition Width="38" />
-                <ColumnDefinition Width="60" />
-                <ColumnDefinition Width="*" MinWidth="100" />
-            </Grid.ColumnDefinitions>
-            <Grid.Styles>
-                <Style Selector="Label">
-                    <Setter Property="Padding" Value="10,0,0,0" />
-                    <Setter Property="HorizontalAlignment" Value="Stretch" />
-                    <Setter Property="VerticalAlignment" Value="Stretch" />
-                    <Setter Property="VerticalContentAlignment" Value="Center" />
-                </Style>
-            </Grid.Styles>
-            <Label Grid.Column="3" Content="{x:Static lang:Strings.Name}" />
-        </Grid>
-
         <ScrollViewer x:Name="PaneScroll"
                       Grid.Row="1"
                       BringIntoViewOnFocusChange="False"

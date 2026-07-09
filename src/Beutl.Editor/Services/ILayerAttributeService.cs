@@ -4,18 +4,12 @@ using Beutl.ProjectSystem;
 namespace Beutl.Editor.Services;
 
 /// <summary>
-/// Layer-level attribute writes (toggle every element at a zIndex, recolor a
+/// Layer-level attribute writes (lock / mute / solo a zIndex, recolor a
 /// <see cref="TimelineLayer"/>). Lazy-creates the <see cref="TimelineLayer"/>
 /// when none exists yet — otherwise recoloring an unrecorded layer silently fails.
 /// </summary>
 public interface ILayerAttributeService
 {
-    /// <summary>Sets <see cref="Element.IsEnabled"/> = <paramref name="newEnabled"/>
-    /// on every differing element at <paramref name="zIndex"/>. Returns true and
-    /// commits <c>ChangeLayerEnabled</c> when at least one was mutated; otherwise
-    /// false and no commit.</summary>
-    bool SetEnabled(Scene scene, int zIndex, bool newEnabled);
-
     /// <summary>Sets <see cref="TimelineLayer.Color"/> for the layer at
     /// <paramref name="zIndex"/>, creating the model on demand. Returns true and
     /// commits <c>ChangeLayerColor</c> when the model was created or recolored;
