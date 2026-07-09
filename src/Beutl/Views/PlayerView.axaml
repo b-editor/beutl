@@ -128,7 +128,7 @@
             </StackPanel>
         </Player.InnerLeftContent>
         <Player.InnerRightContent>
-            <Button Padding="7,6,5,6"
+            <Button Padding="5,6,5,6"
                     VerticalAlignment="Top"
                     Command="{Binding OpenPreviewSettings}"
                     Theme="{StaticResource TransparentButton}"
