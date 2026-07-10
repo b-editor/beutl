@@ -52,11 +52,13 @@ public partial class DisplacementMapEffect : FilterEffect
 
         if (r.ShowDisplacementMap)
         {
-            // The map-preview path draws the displacement brush over the identity output rect (research D7: the mask
-            // composition part is a geometry node); the executor owns the buffer, clear and sync.
+            // The map-preview path anchors the displacement brush to the FULL output rect (`new Rect(session.Bounds
+            // .Size)`), exactly as the real transform passes anchor the map in full-frame device space and declare
+            // RenderTime (DisplacementMapTransform). Identity would let a downstream deflating pass ROI-crop this to an
+            // OFFSET sub-rect and re-anchor the brush there (A3); RenderTime keeps it baking full-frame.
             builder.Geometry(GeometryNodeDescriptor.Create(
                 session => DrawDisplacementMap(session, displacementMap),
-                BoundsContract.Identity,
+                BoundsContract.RenderTime,
                 structuralToken: nameof(DisplacementMapEffect) + ".Show"));
         }
         else if (r.Transform is { } transform)

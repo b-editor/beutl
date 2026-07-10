@@ -32,11 +32,13 @@ public partial class FlatShadow : FilterEffect
     {
         var r = (Resource)resource;
         var data = (r.Angle, r.Length, r.Brush, r.ShadowOnly);
-        // The bounds contract is the legacy TransformBounds (the shadow extrusion expands the bounds); backward is
-        // identity — the extrusion samples only the input the forward map already covers.
+        // Forward is the legacy TransformBounds (the extrusion expands the bounds). Backward must cover the whole
+        // extrusion band: a shadow texel at output p is the input silhouette swept from p back along the extrusion
+        // vector, so producing output region `rect` samples input over `rect ∪ (rect − extrusionVector)` (A3). An
+        // identity backward under-claims and can crop an upstream pass below the extrusion source.
         builder.Geometry(GeometryNodeDescriptor.Create(
             session => ApplyGeometry(session, data),
-            BoundsContract.Create(rect => TransformBounds(data, rect), static r => r),
+            BoundsContract.Create(rect => TransformBounds(data, rect), rect => RequiredInputBounds(data, rect)),
             structuralToken: nameof(FlatShadow)));
     }
 
@@ -84,11 +86,20 @@ public partial class FlatShadow : FilterEffect
         float w = input.Density.IsUnbounded ? 1f : input.Density.Value;
         float wOut = session.WorkingScale;
 
+        // The device-space math below is authored relative to the un-cropped OutputBounds origin. A downstream
+        // deflating pass can ROI-crop this pass so session.Bounds is an OFFSET sub-rect of that; bridge the origin
+        // (like Clipping) so content still registers to the actual buffer. Zero when un-cropped (golden parity).
+        Rect outputBounds = TransformBounds(data, input.Bounds);
+        float bridgeX = (float)(outputBounds.X - session.Bounds.X) * wOut;
+        float bridgeY = (float)(outputBounds.Y - session.Bounds.Y) * wOut;
+        bool bridged = bridgeX != 0 || bridgeY != 0;
+
         using var paint = new SKPaint { Color = SKColors.White, IsAntialias = true, Style = SKPaintStyle.Fill };
         using var brushPaint = new SKPaint();
         using SKPath path = CreatePath(srcBitmap);
 
         using (newCanvas.PushDeviceSpace())
+        using (bridged ? newCanvas.PushTransform(Matrix.CreateTranslation(bridgeX, bridgeY)) : default)
         using (w == wOut ? default : newCanvas.PushTransform(Matrix.CreateScale(wOut / w, wOut / w)))
         using (newCanvas.PushTransform(Matrix.CreateTranslation((x2Abs - x2) / 2 * w, (y2Abs - y2) / 2 * w)))
         {
@@ -109,6 +120,7 @@ public partial class FlatShadow : FilterEffect
         if (!data.ShadowOnly)
         {
             using (newCanvas.PushDeviceSpace())
+            using (bridged ? newCanvas.PushTransform(Matrix.CreateTranslation(bridgeX, bridgeY)) : default)
             using (w == wOut ? default : newCanvas.PushTransform(Matrix.CreateScale(wOut / w, wOut / w)))
             {
                 input.Draw(newCanvas, new Point((x2Abs - x2) / 2 * w, (y2Abs - y2) / 2 * w));
@@ -130,5 +142,14 @@ public partial class FlatShadow : FilterEffect
         float height = rect.Height + yAbs;
 
         return new Rect(rect.X - (xAbs - x) / 2, rect.Y - (yAbs - y) / 2, width, height);
+    }
+
+    private static Rect RequiredInputBounds(
+        (float Angle, float Length, Brush.Resource? Brush, bool ShadowOnly) data, Rect rect)
+    {
+        float length = data.Length;
+        float radian = MathUtilities.Deg2Rad(data.Angle);
+        var extrusion = new Vector(length * MathF.Cos(radian), length * MathF.Sin(radian));
+        return rect.Union(rect.Translate(-extrusion));
     }
 }

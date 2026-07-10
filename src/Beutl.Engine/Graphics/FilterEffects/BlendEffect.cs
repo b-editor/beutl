@@ -40,9 +40,13 @@ public sealed partial class BlendEffect : FilterEffect
         }
 
         Brush.Resource? brush = r.Brush;
+        // The brush is anchored to the FULL effect output rect (the input blit at the origin, the fill over
+        // `new Rect(session.Bounds.Size)`). A downstream deflating pass would ROI-crop this pass to an OFFSET sub-rect,
+        // shifting the input blit and re-anchoring the brush into that sub-rect (A3). RenderTime keeps it baking
+        // full-frame — the same choice MosaicEffect makes for its full-frame-anchored grid — forgoing the ROI benefit.
         builder.Geometry(GeometryNodeDescriptor.Create(
             session => ApplyBrushBlend(session, brush, blendMode),
-            BoundsContract.Identity,
+            BoundsContract.RenderTime,
             structuralToken: nameof(BlendEffect)));
     }
 
