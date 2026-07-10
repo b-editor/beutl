@@ -196,6 +196,7 @@ public sealed class SceneCompositor : ICompositor
         }
     }
 
+    // timeRangeに掛かるElementを、solo/muteでフィルタしつつZIndex順に振り分ける
     private void SortLayers(TimeRange timeRange, PooledList<Element> currentElements, CompositionTarget target)
     {
         LayerSnapshot snapshot = GetLayerSnapshot();

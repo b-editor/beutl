@@ -128,6 +128,16 @@ public sealed class ElementResizeService : IElementResizeService
         TimeSpan startDelta = req.NewStart - req.Element.Start;
         if (startDelta >= TimeSpan.Zero) return (req.NewStart, req.NewLength);
 
+        // Collect the layer's locked-clip ends once and sort them; a locked clip is an immovable
+        // barrier the upstream shift cannot cross, so each clip's floor is one binary search.
+        var lockedEnds = new List<TimeSpan>();
+        foreach (Element e in scene.Children)
+        {
+            if (e.ZIndex == req.Element.ZIndex && e.IsLocked) lockedEnds.Add(e.Range.End);
+        }
+
+        lockedEnds.Sort();
+
         // Every upstream clip shifts left by the same delta, so the grow is bounded by the tightest
         // room: each clip can move left only to the timeline start or the end of the nearest locked
         // clip in front of it (locked clips are immovable and must not be overlapped).
@@ -140,17 +150,7 @@ public sealed class ElementResizeService : IElementResizeService
                 continue;
             }
 
-            TimeSpan floor = TimeSpan.Zero;
-            foreach (Element l in scene.Children)
-            {
-                if (l.ZIndex == req.Element.ZIndex && l.IsLocked && l.Range.End <= e.Start
-                    && l.Range.End > floor)
-                {
-                    floor = l.Range.End;
-                }
-            }
-
-            TimeSpan room = e.Start - floor;
+            TimeSpan room = e.Start - NearestLockedEndAtOrBefore(lockedEnds, e.Start);
             if (maxGrow is not { } cur || room < cur) maxGrow = room;
         }
 
@@ -171,6 +171,29 @@ public sealed class ElementResizeService : IElementResizeService
         }
 
         return (clampedStart, clampedLength);
+    }
+
+    // Largest end in the sorted list that is at or before start, or zero (the timeline floor) when
+    // none qualifies.
+    private static TimeSpan NearestLockedEndAtOrBefore(List<TimeSpan> sortedEnds, TimeSpan start)
+    {
+        int lo = 0, hi = sortedEnds.Count - 1;
+        TimeSpan floor = TimeSpan.Zero;
+        while (lo <= hi)
+        {
+            int mid = (lo + hi) >>> 1;
+            if (sortedEnds[mid] <= start)
+            {
+                floor = sortedEnds[mid];
+                lo = mid + 1;
+            }
+            else
+            {
+                hi = mid - 1;
+            }
+        }
+
+        return floor;
     }
 
     // Limits a same-layer right-edge grow so the ripple shift cannot push any follower onto a
