@@ -918,24 +918,54 @@ public class SceneGapTests
     }
 
     [Test]
-    public void FindNextGap_GapBeyondSearchEnd_Ignored()
+    public void FindNextGap_GapStraddlingSearchEnd_ReturnsClampedVisiblePortion()
     {
         string basePath = GetTempPath();
         try
         {
             Scene scene = CreateScene(basePath);
-            // Elements left beyond a shortened scene form a gap 10s-100s; bounding the search to a
-            // 30s scene end must reject it so navigation reports no gap instead of clamping.
+            // A far-right element leaves a gap 10s-100s that straddles a 30s scene end. Its visible
+            // portion 10s-30s is empty space inside the scene, so the search returns the clamped gap;
+            // without a search range the full 10s-90s gap is returned.
             scene.Children.Add(CreateElement(basePath, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(9)));
             scene.Children.Add(CreateElement(basePath, TimeSpan.FromSeconds(100), TimeSpan.FromSeconds(10)));
 
             var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(30));
             Assert.Multiple(() =>
             {
-                Assert.That(scene.FindNextGap(TimeSpan.Zero, range), Is.Null);
+                Assert.That(
+                    scene.FindNextGap(TimeSpan.Zero, range),
+                    Is.EqualTo(new TimeRange(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(20))));
                 Assert.That(
                     scene.FindNextGap(TimeSpan.Zero),
                     Is.EqualTo(new TimeRange(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(90))));
+            });
+        }
+        finally
+        {
+            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+        }
+    }
+
+    [Test]
+    public void FindGap_GapStraddlingBothEnds_ReturnsClampedVisiblePortion()
+    {
+        string basePath = GetTempPath();
+        try
+        {
+            Scene scene = CreateScene(basePath);
+            // The only elements end at 10s and start at 100s, so the gap 10s-100s covers the whole
+            // active range 50s-80s. Navigation from either side must reach it through the clamped
+            // visible portion 50s-80s rather than reporting no gap.
+            scene.Children.Add(CreateElement(basePath, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5)));
+            scene.Children.Add(CreateElement(basePath, TimeSpan.FromSeconds(100), TimeSpan.FromSeconds(5)));
+            var range = new TimeRange(TimeSpan.FromSeconds(50), TimeSpan.FromSeconds(30));
+            var clamped = new TimeRange(TimeSpan.FromSeconds(50), TimeSpan.FromSeconds(30));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(scene.FindNextGap(TimeSpan.FromSeconds(40), range), Is.EqualTo(clamped));
+                Assert.That(scene.FindPreviousGap(TimeSpan.FromSeconds(90), range), Is.EqualTo(clamped));
             });
         }
         finally

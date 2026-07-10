@@ -442,16 +442,17 @@ public class Scene : ProjectItem, INotifyEdited
     /// gap exists.
     /// </summary>
     /// <param name="searchRange">
-    /// When set, only gaps that lie entirely within this range are considered, so
-    /// navigation stays within the active scene range and does not target the
-    /// trailing space left by elements beyond a shortened or offset scene.
+    /// When set, each gap is clamped to its intersection with this range and gaps that do not
+    /// intersect it are dropped, so navigation stays within the active scene range yet a gap that
+    /// merely straddles the range (its ends lie beyond a shortened or offset scene) is still reachable
+    /// through its visible portion. The returned range is the clamped, visible gap.
     /// </param>
     public TimeRange? FindNextGap(TimeSpan currentTime, TimeRange? searchRange = null)
     {
         return EnumerateGaps()
-            .Where(g => g.Range.Start > currentTime && Contains(searchRange, g.Range))
-            .OrderBy(g => g.Range.Start)
-            .Select(g => (TimeRange?)g.Range)
+            .Select(g => ClampToRange(g.Range, searchRange))
+            .Where(r => r is { } v && v.Start > currentTime)
+            .OrderBy(r => r!.Value.Start)
             .FirstOrDefault();
     }
 
@@ -461,22 +462,30 @@ public class Scene : ProjectItem, INotifyEdited
     /// gap exists.
     /// </summary>
     /// <param name="searchRange">
-    /// When set, only gaps that lie entirely within this range are considered, so
-    /// navigation stays within the active scene range.
+    /// When set, each gap is clamped to its intersection with this range and gaps that do not
+    /// intersect it are dropped, so a gap straddling the range stays reachable through its visible
+    /// portion. The returned range is the clamped, visible gap.
     /// </param>
     public TimeRange? FindPreviousGap(TimeSpan currentTime, TimeRange? searchRange = null)
     {
         return EnumerateGaps()
-            .Where(g => g.Range.End < currentTime && Contains(searchRange, g.Range))
-            .OrderByDescending(g => g.Range.End)
-            .Select(g => (TimeRange?)g.Range)
+            .Select(g => ClampToRange(g.Range, searchRange))
+            .Where(r => r is { } v && v.End < currentTime)
+            .OrderByDescending(r => r!.Value.End)
             .FirstOrDefault();
     }
 
-    // Inclusive at both ends, unlike the half-open TimeRange.Contains: a gap touching
-    // the searched range's end must still count as inside it.
-    private static bool Contains(TimeRange? range, TimeRange gap)
-        => range is not { } r || (gap.Start >= r.Start && gap.End <= r.End);
+    // The part of gap visible inside range, or null when they do not overlap. Boundaries are inclusive
+    // at the endpoints (a gap touching an edge keeps that touch), so a straddling gap contributes only
+    // its in-range slice rather than being dropped for not being wholly contained.
+    private static TimeRange? ClampToRange(TimeRange gap, TimeRange? range)
+    {
+        if (range is not { } r) return gap;
+
+        TimeSpan start = gap.Start > r.Start ? gap.Start : r.Start;
+        TimeSpan end = gap.End < r.End ? gap.End : r.End;
+        return end > start ? new TimeRange(start, end - start) : null;
+    }
 
     public override void Serialize(ICoreSerializationContext context)
     {
