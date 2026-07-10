@@ -1245,6 +1245,34 @@ public sealed class ExportSourceValidatorTests
         Assert.That(missing, Does.Contain(missingVideo));
     }
 
+    // A disabled drawable never renders, so export preflight (skipDisabledElements) must not demand its
+    // file even when it is reached through a node input — the node walk must honour that gate, not hard-
+    // code it off.
+    [Test]
+    public void CollectRenderableSources_DisabledDrawableInNodeInput_IsNotReported()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string missingVideo = Path.Combine(root, "disabled-node-brush.mov");
+
+        SourceVideo disabledInner = VideoDrawable(missingVideo);
+        disabledInner.IsEnabled = false;
+        var brush = new DrawableBrush();
+        brush.Drawable.CurrentValue = disabledInner;
+        var node = new Beutl.NodeGraph.Nodes.GeometryShapeNode();
+        node.Fill.Property!.SetValue(brush);
+        var drawable = new NodeGraphDrawable();
+        drawable.Model.CurrentValue!.Nodes.Add(node);
+
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "root.scene")) };
+        scene.Children.Add(ElementWith(root, drawable));
+
+        IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
+            ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene));
+
+        Assert.That(missing, Does.Not.Contain(missingVideo));
+    }
+
     // A reference-expression whose target property value is a DrawableBrush resolves at render, so the
     // expression walk must thread the walk context and dispatch the nested Drawable. The holder is reachable
     // by id but not walked as a scene element, so the only path to its media is the expression.

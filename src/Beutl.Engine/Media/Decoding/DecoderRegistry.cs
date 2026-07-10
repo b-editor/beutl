@@ -13,9 +13,17 @@ public static class DecoderRegistry
     private static readonly List<IDecoderInfo> s_ordered = [];
     private static readonly object s_lock = new();
 
-    // Set once at startup (ProxyMediaServices.Initialize) and cleared on shutdown; read unsynchronized
-    // on the decode path. Not intended for concurrent reassignment while renders are in flight.
-    public static IProxyResolver? ProxyResolver { get; set; }
+    private static IProxyResolver? s_proxyResolver;
+
+    // Written from the UI thread (ProxyMediaServices.Initialize / ReinitializeStore) and read
+    // unsynchronized on background decode threads. Volatile access gives the store-root swap prompt
+    // cross-thread visibility so a decode thread cannot keep reading a register-cached old resolver
+    // (notably on ARM64) after the swap.
+    public static IProxyResolver? ProxyResolver
+    {
+        get => Volatile.Read(ref s_proxyResolver);
+        set => Volatile.Write(ref s_proxyResolver, value);
+    }
 
     static DecoderRegistry()
     {

@@ -225,7 +225,7 @@ public static class ProxySourceEnumerator
             switch (drawable)
             {
                 case NodeGraphDrawable { Model.CurrentValue: { } model }:
-                    foreach (IFileSource source in EnumerateGraphSources(model, visitedGraphGroups, localRange, sceneWindow: sceneWindow, walkContext: walkContext))
+                    foreach (IFileSource source in EnumerateGraphSources(model, visitedGraphGroups, localRange, sceneWindow: sceneWindow, walkContext: walkContext, skipDisabledElements: skipDisabledElements))
                         yield return source;
 
                     break;
@@ -634,7 +634,7 @@ public static class ProxySourceEnumerator
 
     private static IEnumerable<IFileSource> EnumerateGraphSources(
         GraphModel model, HashSet<GraphGroup> visitedGraphGroups, TimeRange? localRange = null, HashSet<EngineObject>? visitedValues = null,
-        TimeRange? sceneWindow = null, ObjectWalkContext? walkContext = null)
+        TimeRange? sceneWindow = null, ObjectWalkContext? walkContext = null, bool skipDisabledElements = false)
     {
         visitedValues ??= new HashSet<EngineObject>(ReferenceEqualityComparer.Instance);
 
@@ -643,21 +643,22 @@ public static class ProxySourceEnumerator
             // Every input port whose value is an IFileSource — VideoSourceNode.Source, ImageSourceNode.Source,
             // and a GroupNode's outer-boundary inputs alike. Gating on the value type (not a specific node
             // type) keeps this uniform across all source-carrying nodes.
-            foreach (IFileSource source in EnumerateNodeInputSources(node, localRange, visitedValues, sceneWindow, walkContext))
+            foreach (IFileSource source in EnumerateNodeInputSources(node, localRange, visitedValues, sceneWindow, walkContext, skipDisabledElements))
                 yield return source;
 
             // A user-constructed GroupNode can reference a GraphGroup that (transitively) contains the
             // same GroupNode, producing an infinite walk. The visited set makes the recursion terminate.
             if (node is GroupNode groupNode && visitedGraphGroups.Add(groupNode.Group))
             {
-                foreach (IFileSource source in EnumerateGraphSources(groupNode.Group, visitedGraphGroups, localRange, visitedValues, sceneWindow, walkContext))
+                foreach (IFileSource source in EnumerateGraphSources(groupNode.Group, visitedGraphGroups, localRange, visitedValues, sceneWindow, walkContext, skipDisabledElements))
                     yield return source;
             }
         }
     }
 
     private static IEnumerable<IFileSource> EnumerateNodeInputSources(
-        GraphNode node, TimeRange? localRange, HashSet<EngineObject> visitedValues, TimeRange? sceneWindow, ObjectWalkContext? walkContext = null)
+        GraphNode node, TimeRange? localRange, HashSet<EngineObject> visitedValues, TimeRange? sceneWindow, ObjectWalkContext? walkContext = null,
+        bool skipDisabledElements = false)
     {
         // GraphSnapshot.LoadAnimatedValues evaluates a node's non-global input animations at
         // time - node.Start, so shift the window into node-local time before filtering; without this an
@@ -685,13 +686,13 @@ public static class ProxySourceEnumerator
                 // The current value can be a direct IFileSource or an EngineObject holding nested
                 // sources (GeometryShapeNode.Fill set to an ImageBrush that ToResource opens), so route
                 // it through the same recursion the animated values use.
-                foreach (IFileSource source in EnumeratePropertyValueFileSources(property.GetValue(), nodeWindow, skipDisabledElements: false, visitedValues, walkContext))
+                foreach (IFileSource source in EnumeratePropertyValueFileSources(property.GetValue(), nodeWindow, skipDisabledElements, visitedValues, walkContext))
                     yield return source;
             }
 
             if (animation is not null)
             {
-                foreach (IFileSource source in EnumerateAnimatedFileSources(animation, nodeWindow, visitedValues: visitedValues, sceneWindow: sceneWindow, walkContext: walkContext))
+                foreach (IFileSource source in EnumerateAnimatedFileSources(animation, nodeWindow, skipDisabledElements, visitedValues: visitedValues, sceneWindow: sceneWindow, walkContext: walkContext))
                     yield return source;
             }
         }
@@ -739,7 +740,7 @@ public static class ProxySourceEnumerator
                 break;
 
             case NodeGraphFilterEffect { Model.CurrentValue: { } model }:
-                foreach (IFileSource source in EnumerateGraphSources(model, visitedGraphGroups, localRange, sceneWindow: sceneWindow, walkContext: walkContext))
+                foreach (IFileSource source in EnumerateGraphSources(model, visitedGraphGroups, localRange, sceneWindow: sceneWindow, walkContext: walkContext, skipDisabledElements: skipDisabledElements))
                     yield return source;
 
                 break;

@@ -88,6 +88,13 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
 
             await controller.Encode(frameProvider, sampleProvider, job.CancellationToken);
 
+            // The source can be replaced between the initial fingerprint check and here (a long encode,
+            // then a rename from another process on Unix/macOS). Re-stat before publishing so we never
+            // publish a Ready proxy for bytes that no longer match the current source — a stale same-path
+            // proxy the path resolver could later select once the original becomes unavailable.
+            if (ProxyFingerprint.FromFile(sourcePath) != job.Source)
+                throw new ProxyGenerationSkippedException("Source changed during encoding.");
+
             await PublishAsync(tempPath, finalPath, job, relative, originalSize, proxySize, job.CancellationToken);
         });
     }

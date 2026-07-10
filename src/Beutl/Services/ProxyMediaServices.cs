@@ -369,13 +369,13 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
         }
     }
 
-    private static void SweepForDiskPressureBestEffort(ProxyEvictionService eviction)
+    private static void SweepForDiskPressureBestEffort(ProxyEvictionService eviction, long additionalBytesNeeded = 0)
     {
         try
         {
             // Routine pre-job headroom sweep: evict silently. Cap-overage notifications
             // are surfaced by the post-Succeeded/startup Sweep instead.
-            eviction.SweepForDiskPressure(notify: false);
+            eviction.SweepForDiskPressure(additionalBytesNeeded, notify: false);
         }
         catch (Exception ex)
         {
@@ -446,7 +446,10 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
     {
         public ValueTask GenerateAsync(ProxyJob job)
         {
-            SweepForDiskPressureBestEffort(eviction);
+            // Reserve room for the pending proxy before encoding so a store with only the fixed headroom
+            // free does not fail mid-encode with disk-full when it could have evicted first. The proxy is a
+            // downscaled re-encode, so the source size is a conservative upper bound for the reservation.
+            SweepForDiskPressureBestEffort(eviction, additionalBytesNeeded: job.Source.FileSizeBytes);
             return inner.GenerateAsync(job);
         }
     }

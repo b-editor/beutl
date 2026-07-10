@@ -33,7 +33,10 @@ namespace Beutl.Composition;
 /// </remarks>
 public class CompositionContext(TimeSpan time)
 {
-    public static CompositionContext Default { get; } = new(TimeSpan.Zero);
+    // A fresh instance per access, not a shared singleton: Time / DisableResourceShare / PreferProxy /
+    // PreferredProxyPreset are all mutable, so a caller that writes to a context it received must not be
+    // able to corrupt a global baseline for every other render.
+    public static CompositionContext Default => new(TimeSpan.Zero);
 
     public IList<EngineObject.Resource>? Flow { get; set; }
 
