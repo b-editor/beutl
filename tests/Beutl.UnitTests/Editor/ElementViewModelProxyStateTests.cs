@@ -280,13 +280,15 @@ public sealed class ElementViewModelProxyStateTests
     public bool AffectsProxyIndicator_ProgressedIsSkippedOthersTrigger(ProxyJobChangeKind kind)
         => ElementViewModel.AffectsProxyIndicator(kind);
 
-    // C1: the badge refresh must skip Touched (an LRU bump on reader-open that does not change
-    // state), otherwise every clip's badge re-walks the store on every reader-open during bulk
-    // generate. Registered/StateChanged/Deleted are the state-changing kinds that warrant a refresh.
+    // C1: the badge and filmstrip refresh (both gate on this) must skip Touched (an LRU bump on reader-
+    // open that does not change state), otherwise every clip re-walks the store on every reader-open
+    // during bulk generate. Registered/StateChanged/Deleted change which proxy a source resolves to, and
+    // Reset (store swap) moves the whole store, so all four warrant a refresh.
     [Test]
     [TestCase(ProxyStoreChangeKind.Registered, ExpectedResult = true)]
     [TestCase(ProxyStoreChangeKind.StateChanged, ExpectedResult = true)]
     [TestCase(ProxyStoreChangeKind.Deleted, ExpectedResult = true)]
+    [TestCase(ProxyStoreChangeKind.Reset, ExpectedResult = true)]
     [TestCase(ProxyStoreChangeKind.Touched, ExpectedResult = false)]
     public bool AffectsProxyBadge_TouchedExcludedOthersIncluded(ProxyStoreChangeKind kind)
         => ElementViewModel.AffectsProxyBadge(kind);

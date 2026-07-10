@@ -3,6 +3,7 @@ using Beutl.Audio;
 using Beutl.Editor;
 using Beutl.Extensibility;
 using Beutl.Graphics;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using Beutl.Media.Source;
@@ -1009,6 +1010,134 @@ public sealed class ExportSourceValidatorTests
             missing = ExportSourceValidator.GetMissingPaths(
                 ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene)));
         Assert.That(missing, Does.Not.Contain(missingCurrent));
+    }
+
+    // A reference-expression whose target id cannot be resolved evaluates to DefaultValue (null), so
+    // IProperty.GetValue never samples the stale CurrentValue while the expression is set. A presenter
+    // Target with a broken reference and a CurrentValue holding a missing file must therefore not report
+    // that file — the render opens nothing.
+    [Test]
+    public void CollectRenderableSources_UnresolvablePresenterTargetExpression_DoesNotReportCurrentValueFile()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string missingCurrent = Path.Combine(root, "current.mov");
+
+        var presenter = new DrawablePresenter();
+        presenter.Target.CurrentValue = VideoDrawable(missingCurrent);
+        presenter.Target.Expression = Beutl.Engine.Expressions.Expression.CreateReference<Drawable>(Guid.NewGuid());
+
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
+        scene.Children.Add(ElementWith(root, presenter));
+        var hierarchyRoot = new TestHierarchicalRoot();
+        hierarchyRoot.HierarchicalChildren.Add(scene);
+
+        IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
+            ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene));
+
+        Assert.That(missing, Does.Not.Contain(missingCurrent));
+    }
+
+    // DrawableTimeController.PostUpdate renders context.Get(Target); with a broken reference the effective
+    // target is DefaultValue (null), so the stale CurrentValue target's missing file must not be reported.
+    [Test]
+    public void CollectRenderableSources_UnresolvableTimeControllerTargetExpression_DoesNotReportCurrentValueFile()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string missingCurrent = Path.Combine(root, "current.mov");
+
+        var controller = new DrawableTimeController();
+        controller.Target.CurrentValue = VideoDrawable(missingCurrent);
+        controller.Target.Expression = Beutl.Engine.Expressions.Expression.CreateReference<Drawable>(Guid.NewGuid());
+
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
+        scene.Children.Add(ElementWith(root, controller));
+        var hierarchyRoot = new TestHierarchicalRoot();
+        hierarchyRoot.HierarchicalChildren.Add(scene);
+
+        IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
+            ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene));
+
+        Assert.That(missing, Does.Not.Contain(missingCurrent));
+    }
+
+    // FilterEffectPresenter and DelayAnimationEffect render their generated resource target from the
+    // effective property value; a broken reference evaluates to DefaultValue, so a missing media source
+    // inside the stale CurrentValue filter must not be reported.
+    [Test]
+    public void CollectRenderableSources_UnresolvableFilterTargetExpression_DoesNotReportCurrentValueFile()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string presenterMissing = Path.Combine(root, "presenter-fx.mov");
+        string delayMissing = Path.Combine(root, "delay-fx.mov");
+
+        var presenter = new Beutl.Graphics.Effects.FilterEffectPresenter();
+        presenter.Target.CurrentValue = FilterWithMissingSource(presenterMissing);
+        presenter.Target.Expression = Beutl.Engine.Expressions.Expression.CreateReference<FilterEffect>(Guid.NewGuid());
+
+        var delay = new Beutl.Graphics.Effects.DelayAnimationEffect();
+        delay.Effect.CurrentValue = FilterWithMissingSource(delayMissing);
+        delay.Effect.Expression = Beutl.Engine.Expressions.Expression.CreateReference<FilterEffect>(Guid.NewGuid());
+
+        var drawable = new SourceVideo();
+        var group = (FilterEffectGroup)drawable.FilterEffect.CurrentValue!;
+        group.Children.Add(presenter);
+        group.Children.Add(delay);
+
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
+        scene.Children.Add(ElementWith(root, drawable));
+        var hierarchyRoot = new TestHierarchicalRoot();
+        hierarchyRoot.HierarchicalChildren.Add(scene);
+
+        IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
+            ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene));
+
+        Assert.That(missing, Does.Not.Contain(presenterMissing).And.Not.Contain(delayMissing));
+    }
+
+    // SceneDrawable/SceneSound composite the effective ReferencedScene value; a broken reference evaluates
+    // to DefaultValue, so missing media inside the stale CurrentValue scene must not be reported.
+    [Test]
+    public void CollectRenderableSources_UnresolvableReferencedSceneExpression_DoesNotReportCurrentValueMedia()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string missingImage = Path.Combine(root, "child.png");
+        string missingSound = Path.Combine(root, "child.mp3");
+
+        var childScene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "child.scene")) };
+        childScene.Children.Add(CreateImageElement(root, missingImage));
+        childScene.Children.Add(CreateSoundElement(root, missingSound));
+
+        var sceneDrawable = new SceneDrawable();
+        sceneDrawable.ReferencedScene.CurrentValue = childScene;
+        sceneDrawable.ReferencedScene.Expression = Beutl.Engine.Expressions.Expression.CreateReference<Scene>(Guid.NewGuid());
+
+        var sceneSound = new SceneSound();
+        sceneSound.ReferencedScene.CurrentValue = childScene;
+        sceneSound.ReferencedScene.Expression = Beutl.Engine.Expressions.Expression.CreateReference<Scene>(Guid.NewGuid());
+
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "root.scene")) };
+        scene.Children.Add(ElementWith(root, sceneDrawable));
+        scene.Children.Add(ElementWith(root, sceneSound));
+        var hierarchyRoot = new TestHierarchicalRoot();
+        hierarchyRoot.HierarchicalChildren.Add(scene);
+
+        IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
+            ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene));
+
+        Assert.That(missing, Does.Not.Contain(missingImage).And.Not.Contain(missingSound));
+    }
+
+    private static Beutl.Graphics.Effects.FilterEffect FilterWithMissingSource(string missingPath)
+    {
+        var node = new Beutl.NodeGraph.Nodes.VideoSourceNode();
+        node.Source.Property!.SetValue(MakeVideoSource(missingPath));
+        var graphEffect = new Beutl.NodeGraph.NodeGraphFilterEffect();
+        graphEffect.Model.CurrentValue!.Nodes.Add(node);
+        return graphEffect;
     }
 
     private static SourceSound SoundDrawable(string sourcePath)

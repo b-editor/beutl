@@ -198,7 +198,9 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
         newQueue.JobChanged += OnJobChanged;
         // Repoint the facades (and their forwarded event subscriptions) at the new backing services so
         // an open editor's cached IProxyStore/Queue keeps hitting the current store, not the disposed one.
-        StoreFacade.Swap(newStore);
+        // StoreFacade.Swap raises a synchronous Reset; a Reset handler (badge/filmstrip refresh) reads the
+        // Queue/Resolver facades, so repoint those — and DecoderRegistry.ProxyResolver — first and swap the
+        // store last, or the handler recomputes against the old queue/resolver.
         ResolverFacade.Swap(newResolver);
         QueueFacade.Swap(newQueue);
         CapInfoFacade.Swap(newEviction);
@@ -206,6 +208,8 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
         {
             DecoderRegistry.ProxyResolver = newResolver;
         }
+
+        StoreFacade.Swap(newStore);
 
         _ = Task.Run(() => ReconcileAndSweepAsync(newStore, newEviction));
         _ = Task.Run(async () =>

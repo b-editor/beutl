@@ -224,7 +224,8 @@ public static class ProxySourceEnumerator
 
                     break;
 
-                case SceneDrawable { ReferencedScene.CurrentValue: { } referencedScene }:
+                case SceneDrawable sceneDrawable
+                    when ResolveExpressionValue<Scene>(sceneDrawable, sceneDrawable.ReferencedScene) is { } referencedScene:
                     // A SceneDrawable renders only the referenced scene's graphics, never its audio, so
                     // narrow the descent to Graphics regardless of the outer target: an audio-only
                     // original missing inside a graphically-embedded scene must not block a video export.
@@ -281,11 +282,13 @@ public static class ProxySourceEnumerator
 
                     break;
 
-                case DrawableTimeController { Target.CurrentValue: { } target }:
+                case DrawableTimeController controller
+                    when ResolveExpressionValue<Drawable>(controller, controller.Target) is { } target:
                     if ((!skipDisabledElements || target.IsEnabled) && visitedTargets.Add(target))
                     {
                         // A time controller remaps composition time, so neither the element-local window
                         // nor the scene-time window still maps — drop both to the conservative full walk.
+                        // PostUpdate renders context.Get(Target), so resolve an expression-supplied one.
                         foreach (IFileSource source in EnumerateObjectFileSources(
                             target, visitedScenes, visitedGraphGroups, visitedFilterEffectGroups, visitedTargets, skipDisabledElements, renderTarget))
                             yield return source;
@@ -316,7 +319,8 @@ public static class ProxySourceEnumerator
         // the identity map (OffsetPosition == 0, Speed == 100, neither animated) those nodes are pass-
         // through, so the referenced scene sees the element-local window and localRange maps directly;
         // any real remap makes the window unexpressible, so fall back to the conservative full walk.
-        if (obj is SceneSound { ReferencedScene.CurrentValue: { } soundScene } sceneSound)
+        if (obj is SceneSound sceneSound
+            && ResolveExpressionValue<Scene>(sceneSound, sceneSound.ReferencedScene) is { } soundScene)
         {
             TimeRange? soundWindow = IsIdentityAudioMap(sceneSound) ? localRange : null;
             foreach (IFileSource source in EnumerateReferencedSceneSources(
@@ -689,16 +693,19 @@ public static class ProxySourceEnumerator
             // FilterEffectPresenter and DelayAnimationEffect render a nested filter effect the
             // property walk cannot reach, so a NodeGraphFilterEffect source inside them would be
             // invisible to the Proxies tab, cache invalidation, and export preflight.
-            case FilterEffectPresenter { Target.CurrentValue: { } presented }:
+            case FilterEffectPresenter presenter
+                when ResolveExpressionValue<FilterEffect>(presenter, presenter.Target) is { } presented:
                 // A presenter applies its target with the same context (no time remap), so the render
-                // window maps directly — thread localRange, unlike the delay effect below.
+                // window maps directly — thread localRange, unlike the delay effect below. The resource
+                // renders the effective Target, so resolve an expression-supplied one.
                 foreach (IFileSource source in EnumerateFilterEffectGraphSources(
                     presented, visitedFilterEffectGroups, visitedGraphGroups, visitedFilterEffects, skipDisabledElements, localRange, sceneWindow))
                     yield return source;
 
                 break;
 
-            case DelayAnimationEffect { Effect.CurrentValue: { } delayed }:
+            case DelayAnimationEffect delay
+                when ResolveExpressionValue<FilterEffect>(delay, delay.Effect) is { } delayed:
                 foreach (IFileSource source in EnumerateFilterEffectGraphSources(
                     delayed, visitedFilterEffectGroups, visitedGraphGroups, visitedFilterEffects, skipDisabledElements))
                     yield return source;
@@ -726,9 +733,11 @@ public static class ProxySourceEnumerator
            && sceneSound.Speed.Animation is null
            && sceneSound.Speed.CurrentValue == 100f;
 
-    // GetValue evaluates a reference-expression ahead of the base value, so resolve the reference
-    // (id/path lookup, no evaluation) first and fall back to CurrentValue only when unresolvable. A
-    // StringExpression (arbitrary C#) is not resolvable and falls through to CurrentValue.
+    // GetValue evaluates a reference-expression ahead of the base value and never samples CurrentValue
+    // while an expression is set, so resolve the reference (id/path lookup, no evaluation) and mirror the
+    // evaluator: an unresolvable reference yields DefaultValue, never the stale base. Only a non-reference
+    // expression (a StringExpression, arbitrary C#) — which this walk cannot evaluate — best-efforts to
+    // CurrentValue.
     private static T? ResolveExpressionValue<T>(EngineObject owner, IProperty property, HashSet<IProperty>? visited = null)
         where T : class
     {
@@ -740,19 +749,25 @@ public static class ProxySourceEnumerator
         if (!visited.Add(property))
             return property.DefaultValue as T;
 
-        if (property.Expression is IReferenceExpression reference
-            && owner.FindHierarchicalRoot() is ICoreObject root
-            && root.FindById(reference.ObjectId) is { } resolved)
+        if (property.Expression is IReferenceExpression reference)
         {
-            if (!reference.HasPropertyPath)
-                return resolved as T ?? property.CurrentValue as T;
-
-            if (resolved is EngineObject target
-                && target.Properties.FirstOrDefault(
-                    p => string.Equals(p.Name, reference.PropertyPath, StringComparison.OrdinalIgnoreCase)) is { } targetProperty)
+            if (owner.FindHierarchicalRoot() is ICoreObject root
+                && root.FindById(reference.ObjectId) is { } resolved)
             {
-                return ResolveExpressionValue<T>(target, targetProperty, visited);
+                if (!reference.HasPropertyPath)
+                    return resolved as T ?? property.DefaultValue as T;
+
+                if (resolved is EngineObject target
+                    && target.Properties.FirstOrDefault(
+                        p => string.Equals(p.Name, reference.PropertyPath, StringComparison.OrdinalIgnoreCase)) is { } targetProperty)
+                {
+                    return ResolveExpressionValue<T>(target, targetProperty, visited);
+                }
             }
+
+            // Reference present but unresolvable (missing id/path, or a non-EngineObject on the path):
+            // the evaluator returns DefaultValue, so a stale CurrentValue must not leak into preflight.
+            return property.DefaultValue as T;
         }
 
         return property.CurrentValue as T;

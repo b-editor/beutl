@@ -1127,8 +1127,10 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         // Filmstrip thumbnails are cached without proxy availability in the key, so a proxy
         // registered/deleted/changed for this element's source (in prefer-proxy mode) leaves the
         // strip decoded from the previous path until an unrelated edit; drop the cache and re-render.
-        if (!PreferProxyForThumbnails
-            || e.Kind is not (ProxyStoreChangeKind.Registered or ProxyStoreChangeKind.StateChanged or ProxyStoreChangeKind.Deleted))
+        // A store swap (Reset) moves the whole store — the same invalidating kinds as the badge — so share
+        // that gate, and (like the badge path) bypass the per-source relevance check for a Reset, which
+        // carries no specific Source.
+        if (!PreferProxyForThumbnails || !AffectsProxyBadge(e.Kind))
         {
             return;
         }
@@ -1139,7 +1141,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             return;
         }
 
-        if (!ElementUsesChangedSourceCached(e.Source.AbsolutePath))
+        if (e.Kind != ProxyStoreChangeKind.Reset && !ElementUsesChangedSourceCached(e.Source.AbsolutePath))
         {
             return;
         }

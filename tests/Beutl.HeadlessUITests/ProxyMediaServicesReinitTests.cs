@@ -235,6 +235,45 @@ public sealed class ProxyMediaServicesReinitTests
     }
 
     [AvaloniaTest]
+    public void Store_reset_fires_after_resolver_and_queue_facades_repoint()
+    {
+        ProxyStoreConfig config = GlobalConfiguration.Instance.ProxyStoreConfig;
+        (string Root, long Cap) prior = Snapshot(config);
+        string first = Path.Combine(Path.GetTempPath(), $"proxy-reinit-{Guid.NewGuid():N}");
+        string second = Path.Combine(Path.GetTempPath(), $"proxy-reinit-{Guid.NewGuid():N}");
+        config.StoreRootPath = first;
+
+        ProxyMediaServices services = ProxyMediaServices.Initialize(GlobalConfiguration.Instance);
+        string sourceKey = Path.Combine(first, "clip.mov");
+        long versionBefore = services.ResolverFacade.GetSourceVersion(sourceKey);
+        long versionAtReset = long.MinValue;
+        void Handler(object? sender, ProxyStoreChangedEventArgs e)
+        {
+            // A Reset handler (badge/filmstrip refresh) recomputes through the Queue/Resolver facades, so
+            // the store swap must fire Reset only after those repoint. If Reset fired first, the resolver
+            // facade would still serve the old store's version here.
+            if (e.Kind == ProxyStoreChangeKind.Reset)
+                versionAtReset = services.ResolverFacade.GetSourceVersion(sourceKey);
+        }
+
+        services.StoreFacade.Changed += Handler;
+        try
+        {
+            config.StoreRootPath = second;
+
+            Assert.That(versionAtReset, Is.GreaterThan(versionBefore));
+        }
+        finally
+        {
+            services.StoreFacade.Changed -= Handler;
+            services.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            Restore(config, prior);
+            TryDelete(first);
+            TryDelete(second);
+        }
+    }
+
+    [AvaloniaTest]
     public void Store_swap_completes_even_if_a_Reset_subscriber_throws()
     {
         ProxyStoreConfig config = GlobalConfiguration.Instance.ProxyStoreConfig;
