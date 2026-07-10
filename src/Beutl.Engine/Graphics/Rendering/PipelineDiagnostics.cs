@@ -56,6 +56,13 @@ public sealed class PipelineDiagnostics
     /// </summary>
     public long PrefixCacheHits { get; internal set; }
 
+    /// <summary>
+    /// C8/C9: each composite branch drawn through a full-canvas <c>SaveLayer</c>. Only blend modes that do not
+    /// preserve the destination under a transparent source need one; a src-over branch draws directly (or through
+    /// a branch-bounded layer when a C9 color-filter fold applies), so src-over composites keep this at zero.
+    /// </summary>
+    public long CompositeLayerSaves { get; internal set; }
+
     /// <summary>Takes an immutable copy of the current counter values for test assertions.</summary>
     public PipelineDiagnosticsSnapshot Snapshot() => new(
         GpuPasses,
@@ -66,7 +73,8 @@ public sealed class PipelineDiagnostics
         FlushSyncs,
         PlanCompilations,
         ProgramCreations,
-        PrefixCacheHits);
+        PrefixCacheHits,
+        CompositeLayerSaves);
 
     /// <summary>Resets every counter to zero. Engine-internal (test API); never exposed to authoring callbacks.</summary>
     internal void Reset()
@@ -80,6 +88,7 @@ public sealed class PipelineDiagnostics
         PlanCompilations = 0;
         ProgramCreations = 0;
         PrefixCacheHits = 0;
+        CompositeLayerSaves = 0;
     }
 }
 
@@ -93,4 +102,5 @@ public readonly record struct PipelineDiagnosticsSnapshot(
     long FlushSyncs,
     long PlanCompilations,
     long ProgramCreations,
-    long PrefixCacheHits);
+    long PrefixCacheHits,
+    long CompositeLayerSaves);

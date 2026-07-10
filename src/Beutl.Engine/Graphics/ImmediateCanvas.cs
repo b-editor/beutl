@@ -639,8 +639,12 @@ public partial class ImmediateCanvas : IDisposable, IPopable
     public PushedState PushBlendMode(BlendMode blendMode) => PushBlendMode(blendMode, colorFilter: null);
 
     // The color filter, when set, transforms the layer's pixels before the blend (the composite-fold path, C9);
-    // the caller owns the filter's lifetime — disposing the paint on Pop does not free it.
-    internal PushedState PushBlendMode(BlendMode blendMode, SKColorFilter? colorFilter)
+    // the caller owns the filter's lifetime — disposing the paint on Pop does not free it. `layerBounds` limits
+    // the SaveLayer to that rect (in the current canvas space); Skia widens the layer itself when the filter
+    // affects transparent black, so a bounded layer never changes pixels — it only avoids the full-canvas
+    // round trip. Callers must not bound the layer under a blend mode that alters the destination where the
+    // source is transparent.
+    internal PushedState PushBlendMode(BlendMode blendMode, SKColorFilter? colorFilter, Rect? layerBounds = null)
     {
         VerifyAccess();
         BlendMode tmp = BlendMode;
@@ -649,7 +653,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         paint.BlendMode = (SKBlendMode)blendMode;
         paint.ColorFilter = colorFilter;
 
-        int count = Canvas.SaveLayer(paint);
+        int count = layerBounds is { } bounds ? Canvas.SaveLayer(bounds.ToSKRect(), paint) : Canvas.SaveLayer(paint);
         _states.Push(new CanvasPushedState.BlendModePushedState(tmp, count, paint));
         return new PushedState(this, _states.Count);
     }

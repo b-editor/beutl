@@ -857,13 +857,36 @@ internal static class PlanExecutor
             canvas.Clear();
             using (canvas.PushTransform(Matrix.CreateTranslation(-union.X, -union.Y)))
             {
+                // Src-over preserves the destination wherever the branch is transparent, so the full-canvas
+                // SaveLayer PushBlendMode takes is pure overhead there: one whole-target round trip per branch
+                // (~9x the branch area on a 3x3 split). A src-over branch draws directly; a C9 fold filter rides
+                // a branch-bounded layer (Skia widens it itself if the filter affects transparent black). Any
+                // other blend mode keeps the full-canvas layer — e.g. Multiply zeroes the destination where the
+                // source is transparent, so the layer's extent is semantically load-bearing (§C8/§C9).
                 for (int i = 0; i < current.Count; i++)
                 {
                     Point offset = i < pass.InputOffsets.Length ? pass.InputOffsets[i] : default;
-                    using (canvas.PushBlendMode(pass.BlendMode, branchFilter))
                     using (canvas.PushTransform(Matrix.CreateTranslation(offset.X, offset.Y)))
                     {
-                        current[i].Render(canvas);
+                        if (pass.BlendMode == BlendMode.SrcOver)
+                        {
+                            if (branchFilter == null)
+                            {
+                                current[i].Render(canvas);
+                            }
+                            else
+                            {
+                                using (canvas.PushBlendMode(pass.BlendMode, branchFilter, current[i].Bounds))
+                                    current[i].Render(canvas);
+                            }
+                        }
+                        else
+                        {
+                            if (diagnostics != null)
+                                diagnostics.CompositeLayerSaves++;
+                            using (canvas.PushBlendMode(pass.BlendMode, branchFilter))
+                                current[i].Render(canvas);
+                        }
                     }
                 }
             }

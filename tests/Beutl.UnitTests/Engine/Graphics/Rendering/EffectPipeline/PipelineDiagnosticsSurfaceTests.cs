@@ -24,6 +24,7 @@ public class PipelineDiagnosticsSurfaceTests
         nameof(PipelineDiagnostics.PlanCompilations),
         nameof(PipelineDiagnostics.ProgramCreations),
         nameof(PipelineDiagnostics.PrefixCacheHits),
+        nameof(PipelineDiagnostics.CompositeLayerSaves),
     ];
 
     [Test]

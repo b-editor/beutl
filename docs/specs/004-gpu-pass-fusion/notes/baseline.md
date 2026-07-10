@@ -144,6 +144,30 @@ frames (SC-002 gate) — asserted exactly in NUnit rather than tabulated here.
   mutable — a redesign whose correctness risk (bridged-effect staleness, sampler freshness, NestedGraph re-describe)
   is not justified for the ~1–2 KB/frame at stake; the counter gates (SC-002) remain exact either way.
 
+- **SplitTree regression — RE-OPENED and CLOSED again (composite draw path, 2026-07-10).** A later idle-machine,
+  alternating A/B re-measurement (3 rounds per side, medians of the in-process 7-iteration medians, NoEffect as the
+  noise-floor control) showed the C9-fold closure verdict above rested on a legacy number inflated by the contended
+  session: the legacy pipeline actually renders SplitTree 4K in ~23.1 ms on this machine (not 40.7 ms), so the fused
+  pipeline at 43.9-45.6 ms was a genuine ~2× regression at 4K even though it was ~37% faster at 1080p. Two causes,
+  both fixed:
+
+  1. **Benchmark harness (measurement error).** The suite rendered through a `RenderNodeProcessor` with **no
+     `RenderTargetPool`**, so every effect-pass acquire paid a fresh Vulkan allocation each frame (~190 MB/frame for
+     SplitTree 4K) — a cost the production `Renderer` (one pool per renderer, trimmed per frame) never pays in
+     steady state. The legacy pipeline has no pool concept, so only the fused side was penalized. The suite now
+     mirrors the production loop (one persistent pool + per-frame `Trim`). This alone: 45.6 → 37.6 ms.
+  2. **Composite full-canvas `SaveLayer` per branch (real regression).** Per-pass timing showed the remaining gap was
+     the `CompositePass` alone: ~21 ms at 4K, because `PushBlendMode` opened a **full-canvas** `SaveLayer` for every
+     branch draw — 9 whole-target round trips (~1.1 GB/frame of layer traffic at 4K) to draw 9 part-sized tiles. The
+     legacy composite drew parts directly. Fixed by the blend-mode-dependent branch draw path (C9.5): src-over
+     branches draw directly (fold filters ride a branch-bounded layer); only non-dst-preserving blend modes keep the
+     full-canvas layer, now counted by `CompositeLayerSaves` and pinned in `CompositeDrawPathTests`.
+
+  *Measurement (idle machine, BDN in-process, 7 iterations, medians):* SplitTree 1080p **9.75 ms** (legacy 13.58,
+  −28%), SplitTree 4K **21.70 ms** (legacy 23.13, −6%; was 45.60 before the two fixes). The frozen `chain-SplitTree`
+  parity reference and the full golden census still pass **un-regenerated**. The single-scene deltas quoted in the
+  step-6 table above predate both fixes and understate the fused pipeline; the counter columns are unaffected.
+
 ## Pass-prefix output caching (C10) — restored per-child granularity
 
 Fusion (SC-001) folds an effect group into **one** render node, which was necessary for cross-effect fusion but
