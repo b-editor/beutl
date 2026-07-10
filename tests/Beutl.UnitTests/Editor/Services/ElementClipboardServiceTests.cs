@@ -167,6 +167,23 @@ public class ElementClipboardServiceTests
     }
 
     [Test]
+    public async Task PasteAsync_Bitmap_LockDuringClipboardRead_IsRefused()
+    {
+        _clipboard.SetBitmap([1, 2, 3, 4]);
+        int childrenBefore = _scene.Children.Count;
+        // The destination row is locked while the clipboard read is in-flight, after the pre-await guard.
+        _clipboard.OnTryGetBitmap = () => _scene.Layers.Add(new TimelineLayer { ZIndex = 2, IsLocked = true });
+
+        ElementPasteOutcome outcome = await _service.PasteAsync(_scene, TimeSpan.FromSeconds(5), 2);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome.Pasted, Is.False, "a row locked mid-paste is refused");
+            Assert.That(_scene.Children.Count, Is.EqualTo(childrenBefore), "no element added");
+        });
+    }
+
+    [Test]
     public async Task PasteAsync_NoMatchingFormat_ReturnsEmpty()
     {
         ElementPasteOutcome outcome = await _service.PasteAsync(_scene, TimeSpan.Zero, 0);

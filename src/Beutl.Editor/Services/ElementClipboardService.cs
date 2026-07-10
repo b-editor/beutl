@@ -261,6 +261,15 @@ public sealed class ElementClipboardService : IElementClipboardService
         string imageFile = RandomFileNameGenerator.Generate(resDir, "png");
         await File.WriteAllBytesAsync(imageFile, png.Value.ToArray());
 
+        // The file write is another await; re-check the lock before the scene mutation and delete the
+        // just-written resource so a row locked during the write leaves no element and no orphan file.
+        if (scene.IsLayerLocked(clickedLayer))
+        {
+            s_logger.LogWarning("PasteBitmapAsync skipped: layer {Layer} was locked during paste.", clickedLayer);
+            File.Delete(imageFile);
+            return ElementPasteOutcome.Empty;
+        }
+
         var sourceImage = new SourceImage();
         sourceImage.Source.CurrentValue = ImageSource.Open(imageFile);
         var newElement = new Element
