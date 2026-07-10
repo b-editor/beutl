@@ -555,6 +555,131 @@ public class SceneGapTests
     }
 
     [Test]
+    public void CloseGapAfter_LockedLayer_ReturnsFalse()
+    {
+        string basePath = GetTempPath();
+        try
+        {
+            Scene scene = CreateScene(basePath);
+            scene.Layers.Add(new TimelineLayer { ZIndex = 0, IsLocked = true });
+            Element a = CreateElement(basePath, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+            Element b = CreateElement(basePath, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
+            scene.Children.Add(a);
+            scene.Children.Add(b);
+
+            bool closed = scene.CloseGapAfter(a);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(closed, Is.False);
+                Assert.That(b.Start, Is.EqualTo(TimeSpan.FromSeconds(5)));
+            });
+        }
+        finally
+        {
+            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+        }
+    }
+
+    [Test]
+    public void CloseGapAfter_LockedFollowerBlocksShift_ReturnsFalse()
+    {
+        string basePath = GetTempPath();
+        try
+        {
+            Scene scene = CreateScene(basePath);
+            // Anchor [1s..3s], gap 3s-5s, then a locked block [5s..15s], then [16s..18s]. The only
+            // unlocked follower would land on the locked block when shifted left, so nothing moves.
+            Element anchor = CreateElement(basePath, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+            Element locked = CreateElement(basePath, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(10));
+            locked.IsLocked = true;
+            Element trailing = CreateElement(basePath, TimeSpan.FromSeconds(16), TimeSpan.FromSeconds(2));
+            scene.Children.Add(anchor);
+            scene.Children.Add(locked);
+            scene.Children.Add(trailing);
+
+            bool closed = scene.CloseGapAfter(anchor);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(closed, Is.False);
+                Assert.That(locked.Start, Is.EqualTo(TimeSpan.FromSeconds(5)));
+                Assert.That(trailing.Start, Is.EqualTo(TimeSpan.FromSeconds(16)));
+            });
+        }
+        finally
+        {
+            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+        }
+    }
+
+    [Test]
+    public void CloseAllGaps_SkipsLockedLayer()
+    {
+        string basePath = GetTempPath();
+        try
+        {
+            Scene scene = CreateScene(basePath);
+            scene.Layers.Add(new TimelineLayer { ZIndex = 0, IsLocked = true });
+            Element locked0 = CreateElement(basePath, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), zIndex: 0);
+            Element locked1 = CreateElement(basePath, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(1), zIndex: 0);
+            Element open0 = CreateElement(basePath, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), zIndex: 1);
+            Element open1 = CreateElement(basePath, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(1), zIndex: 1);
+            scene.Children.Add(locked0);
+            scene.Children.Add(locked1);
+            scene.Children.Add(open0);
+            scene.Children.Add(open1);
+
+            int closed = scene.CloseAllGaps();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(closed, Is.EqualTo(1));
+                Assert.That(locked1.Start, Is.EqualTo(TimeSpan.FromSeconds(5)));
+                Assert.That(open1.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            });
+        }
+        finally
+        {
+            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+        }
+    }
+
+    [Test]
+    public void CloseAllGaps_LockedElementActsAsBarrier()
+    {
+        string basePath = GetTempPath();
+        try
+        {
+            Scene scene = CreateScene(basePath);
+            // [0s..2s], gap 2s-4s, locked [4s..6s], gap 6s-8s, [8s..10s]. The trailing clip closes
+            // the gap after the locked block (down to 6s) but cannot pass it, so the gap before the
+            // locked block stays open.
+            Element a = CreateElement(basePath, TimeSpan.Zero, TimeSpan.FromSeconds(2));
+            Element locked = CreateElement(basePath, TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(2));
+            locked.IsLocked = true;
+            Element c = CreateElement(basePath, TimeSpan.FromSeconds(8), TimeSpan.FromSeconds(2));
+            scene.Children.Add(a);
+            scene.Children.Add(locked);
+            scene.Children.Add(c);
+
+            int closed = scene.CloseAllGaps();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(closed, Is.EqualTo(1));
+                Assert.That(a.Start, Is.EqualTo(TimeSpan.Zero));
+                Assert.That(locked.Start, Is.EqualTo(TimeSpan.FromSeconds(4)));
+                Assert.That(c.Start, Is.EqualTo(TimeSpan.FromSeconds(6)));
+            });
+        }
+        finally
+        {
+            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+        }
+    }
+
+    [Test]
     public void FindNextGap_ReturnsNextGap()
     {
         string basePath = GetTempPath();

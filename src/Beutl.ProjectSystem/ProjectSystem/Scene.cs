@@ -303,12 +303,17 @@ public class Scene : ProjectItem, INotifyEdited
     }
 
     /// <summary>
-    /// Closes the gap immediately after <paramref name="anchor"/> on
-    /// <paramref name="anchor"/>'s ZIndex by shifting all subsequent elements on
-    /// that ZIndex left by the gap size. Returns <see langword="false"/> when
-    /// there is no gap after the anchor (no next element, or the next element
-    /// touches or overlaps the anchor). Does not commit history; the caller owns
-    /// the single <c>HistoryManager.Commit</c> boundary.
+    /// Closes the first gap after the continuous-coverage run containing
+    /// <paramref name="anchor"/> on <paramref name="anchor"/>'s ZIndex by
+    /// shifting the subsequent unlocked elements on that ZIndex left by the gap
+    /// size. An overlapping peer that extends the run past the anchor moves the
+    /// target gap to the run's covered end. Returns <see langword="false"/> when
+    /// there is no gap after the run (no next element, or the next element
+    /// touches or overlaps the run), when the layer is locked, or when a locked
+    /// element blocks every shiftable follower. Locked layers and locked
+    /// elements are never moved; a locked element acts as an immovable barrier
+    /// that halts the shift. Does not commit history; the caller owns the single
+    /// <c>HistoryManager.Commit</c> boundary.
     /// </summary>
     public bool CloseGapAfter(Element anchor)
     {
@@ -317,6 +322,9 @@ public class Scene : ProjectItem, INotifyEdited
             return false;
 
         int z = anchor.ZIndex;
+        // A locked layer's elements must not move, matching the other timeline mutation services.
+        if (IsLayerLocked(z)) return false;
+
         List<Element> sorted = Children
             .Where(e => e.ZIndex == z)
             .OrderBy(e => e.Start)
@@ -335,9 +343,7 @@ public class Scene : ProjectItem, INotifyEdited
             {
                 if (anchorInRun)
                 {
-                    Element[] toShift = Children
-                        .Where(e => e.ZIndex == z && e.Start >= cur.Start)
-                        .ToArray();
+                    Element[] toShift = ShiftableAfter(z, cur.Start, coveredEnd - cur.Start);
                     return toShift.Length != 0 && MoveChildrenAndDetectChange(toShift, coveredEnd - cur.Start);
                 }
 
@@ -358,8 +364,10 @@ public class Scene : ProjectItem, INotifyEdited
     /// Closes every gap between elements on every ZIndex (the space before the
     /// first element on a ZIndex is not closed). Returns the number of gaps
     /// closed. Gaps are closed right-to-left within each ZIndex so earlier
-    /// closes do not shift elements that later closes depend on. Does not
-    /// commit history; the caller owns the single commit boundary.
+    /// closes do not shift elements that later closes depend on. Locked layers
+    /// are skipped and locked elements are never moved; a locked element acts as
+    /// an immovable barrier that halts the shift. Does not commit history; the
+    /// caller owns the single commit boundary.
     /// </summary>
     public int CloseAllGaps()
     {
@@ -369,15 +377,15 @@ public class Scene : ProjectItem, INotifyEdited
         int closed = 0;
         foreach (IGrouping<int, SceneGap> zGroup in gaps.GroupBy(g => g.ZIndex))
         {
+            if (IsLayerLocked(zGroup.Key)) continue;
+
             foreach (SceneGap gap in zGroup.OrderByDescending(g => g.Range.Start))
             {
-                Element[] toShift = Children
-                    .Where(e => e.ZIndex == zGroup.Key && e.Start >= gap.Range.End)
-                    .ToArray();
-                if (toShift.Length == 0) continue;
-
                 TimeSpan delta = -gap.Range.Duration;
                 if (delta == TimeSpan.Zero) continue;
+
+                Element[] toShift = ShiftableAfter(zGroup.Key, gap.Range.End, delta);
+                if (toShift.Length == 0) continue;
 
                 if (MoveChildrenAndDetectChange(toShift, delta))
                 {
@@ -387,6 +395,32 @@ public class Scene : ProjectItem, INotifyEdited
         }
 
         return closed;
+    }
+
+    // The unlocked elements on the layer at or after fromStart that can slide by deltaStart without
+    // any of them landing on a locked element, in shift order. A locked element is an immovable
+    // barrier: once a follower's shifted range would intersect one, the shift stops there. Mirrors
+    // RippleHelper so gap-close honors the same lock guarantees as the other timeline mutations.
+    private Element[] ShiftableAfter(int zIndex, TimeSpan fromStart, TimeSpan deltaStart)
+    {
+        if (IsLayerLocked(zIndex)) return [];
+
+        Element[] lockedOnLayer = Children
+            .Where(e => e.ZIndex == zIndex && e.IsLocked)
+            .ToArray();
+
+        var result = new List<Element>();
+        foreach (Element e in Children
+            .Where(e => e.ZIndex == zIndex && !e.IsLocked && e.Start >= fromStart)
+            .OrderBy(e => e.Start))
+        {
+            TimeRange shifted = e.Range.WithStart(e.Start + deltaStart);
+            if (Array.Exists(lockedOnLayer, l => shifted.Intersects(l.Range))) break;
+
+            result.Add(e);
+        }
+
+        return [.. result];
     }
 
     private bool MoveChildrenAndDetectChange(Element[] elements, TimeSpan deltaStart)

@@ -143,10 +143,10 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         SetEndTimeToPointerPosition.Subscribe(OnSetEndTimeToPointerPosition);
         SetStartTimeToCurrentTime.Subscribe(OnSetStartTimeToCurrentTime);
         SetEndTimeToCurrentTime.Subscribe(OnSetEndTimeToCurrentTime);
-        CloseGap = new ReactiveCommandSlim().WithSubscribe(CloseSelectedGap);
-        CloseAllGaps = new ReactiveCommandSlim().WithSubscribe(CloseAllSceneGaps);
-        GoToNextGap = new ReactiveCommandSlim().WithSubscribe(() => GoToGap(forward: true));
-        GoToPreviousGap = new ReactiveCommandSlim().WithSubscribe(() => GoToGap(forward: false));
+        CloseGap = new ReactiveCommandSlim().WithSubscribe(CloseSelectedGap).DisposeWith(_disposables);
+        CloseAllGaps = new ReactiveCommandSlim().WithSubscribe(CloseAllSceneGaps).DisposeWith(_disposables);
+        GoToNextGap = new ReactiveCommandSlim().WithSubscribe(() => GoToGap(forward: true)).DisposeWith(_disposables);
+        GoToPreviousGap = new ReactiveCommandSlim().WithSubscribe(() => GoToGap(forward: false)).DisposeWith(_disposables);
         EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
 
         AutoAdjustSceneDuration = editorConfig.GetObservable(EditorConfig.AutoAdjustSceneDurationProperty)
