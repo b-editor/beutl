@@ -42,9 +42,11 @@ internal class NodeGraphFilterEffectRenderNode(NodeGraphFilterEffect.Resource re
         var allResults = new List<RenderNodeOperation>();
         foreach (RenderNode outputNode in outputRenderNodes)
         {
-            // Forward the working-scale ceiling into the output subtree.
+            // Thread the parent's diagnostics/pool (not just the scale ceiling): hosted effects must count on the
+            // owning renderer's PipelineDiagnostics (FR-017) and share its RenderTargetPool (FR-006).
             var processor = new RenderNodeProcessor(
-                outputNode, context.IsRenderCacheEnabled, context.OutputScale, context.MaxWorkingScale);
+                outputNode, context.IsRenderCacheEnabled, context.OutputScale, context.MaxWorkingScale,
+                context.Diagnostics, context.Pool);
             allResults.AddRange(processor.PullToRoot());
         }
 

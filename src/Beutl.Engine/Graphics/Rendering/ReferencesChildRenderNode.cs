@@ -22,9 +22,11 @@ public class ReferencesChildRenderNode(RenderNode? child) : RenderNode
     {
         if (Child != null && !Child.IsDisposed)
         {
-            // Forward the working-scale ceiling into the nested pull.
+            // Thread the parent's diagnostics/pool (not just the scale ceiling): a referenced subtree must count
+            // on the owning renderer's PipelineDiagnostics (FR-017) and share its RenderTargetPool (FR-006).
             var processor = new RenderNodeProcessor(
-                Child, context.IsRenderCacheEnabled, context.OutputScale, context.MaxWorkingScale);
+                Child, context.IsRenderCacheEnabled, context.OutputScale, context.MaxWorkingScale,
+                context.Diagnostics, context.Pool);
             return processor.PullToRoot();
         }
 
