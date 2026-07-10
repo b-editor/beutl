@@ -297,6 +297,8 @@ public sealed class ProxyMediaServicesReinitTests
                 Assert.That(services.Store, Is.SameAs(storeBefore));
                 Assert.That(services.Store.StoreRootPath, Is.EqualTo(Path.GetFullPath(good)));
                 Assert.That(services.StoreFacade.StoreRootPath, Is.EqualTo(Path.GetFullPath(good)));
+                // The rejected path must be reverted so GlobalConfiguration's auto-save does not persist it.
+                Assert.That(config.StoreRootPath, Is.EqualTo(Path.GetFullPath(good)));
             });
         }
         finally
@@ -304,6 +306,38 @@ public sealed class ProxyMediaServicesReinitTests
             services.DisposeAsync().AsTask().GetAwaiter().GetResult();
             Restore(config, prior);
             TryDelete(good);
+            try { File.Delete(badFile); } catch { /* best-effort test cleanup */ }
+        }
+    }
+
+    [AvaloniaTest]
+    public void Initialize_invalidPersistedPath_fallsBackToDefaultStore()
+    {
+        ProxyStoreConfig config = GlobalConfiguration.Instance.ProxyStoreConfig;
+        (string Root, long Cap) prior = Snapshot(config);
+        // A bad store path persisted to settings.json from a previous session: startup must still bring up
+        // proxy services (on the default location) rather than leaving Current null until another restart.
+        string badFile = Path.Combine(Path.GetTempPath(), $"proxy-init-file-{Guid.NewGuid():N}");
+        File.WriteAllBytes(badFile, [1]);
+        config.StoreRootPath = badFile;
+
+        ProxyMediaServices services = null!;
+        try
+        {
+            Assert.DoesNotThrow(() => services = ProxyMediaServices.Initialize(GlobalConfiguration.Instance));
+
+            string defaultRoot = Path.GetFullPath(ProxyStoreConfig.DefaultStoreRootPath);
+            Assert.Multiple(() =>
+            {
+                Assert.That(ProxyMediaServices.Current, Is.Not.Null);
+                Assert.That(services.Store.StoreRootPath, Is.EqualTo(defaultRoot));
+                Assert.That(config.StoreRootPath, Is.EqualTo(defaultRoot), "the bad persisted path must be repaired to the default");
+            });
+        }
+        finally
+        {
+            services?.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            Restore(config, prior);
             try { File.Delete(badFile); } catch { /* best-effort test cleanup */ }
         }
     }

@@ -363,7 +363,7 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
     // Backing up the existing proxy hits the same Windows sharing violation the temp->final move
     // does when preview playback still holds the old proxy open, so it goes through the same bounded
     // retry (the backup path is a fresh GUID, so the move never overwrites).
-    private static async Task<string?> MoveExistingFileToBackupWithRetryAsync(
+    internal static async Task<string?> MoveExistingFileToBackupWithRetryAsync(
         string path,
         CancellationToken ct,
         Func<string, string, bool>? moveAttempt = null)
@@ -373,7 +373,27 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
 
         string backupPath = CreateBackupPathForOutput(path);
         await MoveWithRetryAsync(path, backupPath, ct, moveAttempt);
+        StampBackupWriteTime(backupPath);
         return backupPath;
+    }
+
+    // The backup is made by moving the existing proxy, which keeps its (possibly old) mtime. Reconcile's
+    // orphan cleanup ages backups by mtime, so an unstamped fresh backup could immediately look old enough
+    // to reclaim and be deleted while a regenerate still needs it for rollback. Stamp it to now so it ages
+    // from creation, exactly like an in-flight temp file.
+    private static void StampBackupWriteTime(string backupPath)
+    {
+        try
+        {
+            if (File.Exists(backupPath))
+                File.SetLastWriteTimeUtc(backupPath, DateTime.UtcNow);
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
     }
 
     private static string? CopyExistingFileToBackup(string path)

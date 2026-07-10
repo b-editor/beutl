@@ -297,6 +297,30 @@ public sealed class FFmpegProxyGeneratorPublishTests
     }
 
     [Test]
+    public async Task MoveExistingFileToBackupWithRetryAsync_StampsBackupWithRecentWriteTime()
+    {
+        string root = CreateRoot();
+        string proxy = Path.Combine(root, "quarter.mp4");
+        File.WriteAllBytes(proxy, [1, 2, 3]);
+        // The proxy was generated long ago; a plain move preserves that old mtime, which reconcile's
+        // age-based orphan cleanup would then treat as immediately reclaimable while a regenerate still
+        // needs the backup for rollback.
+        File.SetLastWriteTimeUtc(proxy, DateTime.UtcNow.AddHours(-48));
+
+        string? backup = await FFmpegProxyGenerator.MoveExistingFileToBackupWithRetryAsync(proxy, CancellationToken.None);
+
+        Assert.That(backup, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.Exists(backup!), Is.True);
+            Assert.That(
+                File.GetLastWriteTimeUtc(backup!),
+                Is.GreaterThan(DateTime.UtcNow.AddHours(-1)),
+                "the backup must be stamped to now so reconcile does not reclaim a live rollback backup");
+        });
+    }
+
+    [Test]
     public void PublishAsync_RetriesTransientBackupMoveFailureThenRegisters()
     {
         string root = CreateRoot();

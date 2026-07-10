@@ -31,6 +31,8 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
     private bool _disposed;
     private int _diskPressureSweepActive;
     private IDisposable? _configSubscription;
+    // The live config, so a rejected store-root rebuild can revert the persisted path to the last-good one.
+    private ProxyStoreConfig? _config;
     // Monotonically increasing base for each rebuilt resolver's source versions, so a store-root swap
     // makes every open reader observe a version bump and reopen against the new store.
     private long _resolverVersionOffset;
@@ -86,8 +88,8 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
             return existing;
 
         ProxyStoreConfig config = configuration.ProxyStoreConfig;
-        var (store, resolver, queue, eviction) = BuildServices(config.StoreRootPath, config.MaxTotalBytes, resolverVersionOffset: 0);
-        var services = new ProxyMediaServices(store, resolver, queue, eviction);
+        var (store, resolver, queue, eviction) = BuildServicesWithFallback(config);
+        var services = new ProxyMediaServices(store, resolver, queue, eviction) { _config = config };
         s_disposing = false;
         Current = services;
         DecoderRegistry.ProxyResolver = resolver;
@@ -126,6 +128,37 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
             activeGenerationProvider: () => CollectActiveGenerations(queue));
         queue = new ProxyJobQueue(ResolveGeneratorFactory(store, eviction), store);
         return (store, resolver, queue, eviction);
+    }
+
+    // Case-insensitive on Windows/macOS, whose filesystems are, so a case-only difference is not a move.
+    private static StringComparison StorePathComparison
+        => OperatingSystem.IsWindows() || OperatingSystem.IsMacOS()
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+
+    private static (ProxyStore Store, ProxyResolver Resolver, ProxyJobQueue Queue, ProxyEvictionService Eviction)
+        BuildServicesWithFallback(ProxyStoreConfig config)
+    {
+        try
+        {
+            return BuildServices(config.StoreRootPath, config.MaxTotalBytes, resolverVersionOffset: 0);
+        }
+        catch (Exception ex)
+        {
+            // A persisted store path can be unusable (an existing file, permission-denied). Fall back to
+            // the default location so proxy services still initialize and the config subscriptions install
+            // — the user can correct the path in Settings without a restart — and repair the persisted
+            // value. If the default itself is the unusable path there is nothing better, so rethrow.
+            if (string.Equals(config.StoreRootPath, Path.GetFullPath(ProxyStoreConfig.DefaultStoreRootPath), StorePathComparison))
+                throw;
+
+            s_logger.LogWarning(ex, "Opening the proxy store at '{Path}' failed; falling back to the default location.", config.StoreRootPath);
+            NotificationService.ShowWarning(
+                "Proxy media",
+                "The proxy store location could not be opened. Using the default location instead.");
+            config.StoreRootPath = ProxyStoreConfig.DefaultStoreRootPath;
+            return BuildServices(config.StoreRootPath, config.MaxTotalBytes, resolverVersionOffset: 0);
+        }
     }
 
     // The generator is resolved lazily from ProxyGeneratorRegistry on the first job dispatch: the
@@ -169,12 +202,9 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
 
         // The config observable can fire more than once for a single edit; a rebuild for the path the
         // live store already serves would needlessly dispose the queue (cancelling in-flight jobs) and
-        // re-emit a Reset. Compare the resolved paths — case-insensitively on Windows/macOS, whose
-        // filesystems are — and skip a no-op, so a case-only difference is not treated as a move.
-        StringComparison pathComparison = OperatingSystem.IsWindows() || OperatingSystem.IsMacOS()
-            ? StringComparison.OrdinalIgnoreCase
-            : StringComparison.Ordinal;
-        if (string.Equals(Store.StoreRootPath, Path.GetFullPath(storeRootPath), pathComparison))
+        // re-emit a Reset. Compare the resolved paths and skip a no-op, so a case-only difference is not
+        // treated as a move.
+        if (string.Equals(Store.StoreRootPath, Path.GetFullPath(storeRootPath), StorePathComparison))
         {
             UpdateEvictionCap(maxTotalBytes);
             return;
@@ -203,6 +233,11 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
             NotificationService.ShowWarning(
                 "Proxy media",
                 $"The proxy store location '{storeRootPath}' could not be opened. Keeping the previous location.");
+            // Revert the persisted path to the last-good one so GlobalConfiguration's auto-save does not
+            // write an unopenable store path to settings.json, which would fail proxy init on next launch.
+            // The revert re-enters here with the current path and no-ops on the equality guard above.
+            if (_config is { } config && !string.Equals(config.StoreRootPath, Store.StoreRootPath, StorePathComparison))
+                config.StoreRootPath = Store.StoreRootPath;
             return;
         }
 

@@ -198,7 +198,11 @@ public static class ProxySourceEnumerator
         TimeRange? sceneWindow = null)
     {
         // Direct IFileSource-valued properties (current + animated): SourceVideo/SourceImage/SourceSound.
-        foreach (IFileSource source in EnumeratePropertyFileSources(obj, localRange, skipDisabledElements, sceneWindow: sceneWindow))
+        // Thread the walk context so a rendered structural value reachable only as a property (a
+        // DrawableBrush's Drawable, a visualizer's SceneSound) dispatches through the guarded walks.
+        foreach (IFileSource source in EnumeratePropertyFileSources(
+            obj, localRange, skipDisabledElements, sceneWindow: sceneWindow,
+            walkContext: new ObjectWalkContext(visitedScenes, visitedGraphGroups, visitedFilterEffectGroups, visitedTargets, renderTarget, sceneWindow)))
             yield return source;
 
         if (obj is Drawable drawable)
@@ -389,7 +393,7 @@ public static class ProxySourceEnumerator
                 // SortLayers only composes a child whose range intersects the sampled time, so a child
                 // entirely outside the referenced-scene window never renders — skip it before descending
                 // (the windowed keyframe filter alone does not gate a direct, unanimated child source).
-                if (skipDisabledElements && referencedSceneWindow is { } window && !child.Range.Intersects(window))
+                if (skipDisabledElements && referencedSceneWindow is { } window && !RangeOverlapsWindow(child.Range, window))
                     continue;
 
                 // referencedSceneWindow is in referenced-scene time; each child samples its own local
@@ -406,9 +410,15 @@ public static class ProxySourceEnumerator
         }
     }
 
+    // SortLayers point-samples with Contains(time), so a save-frame preflight's zero-duration window
+    // (IsEmpty) still renders a child active at window.Start even though Intersects is false for an empty
+    // range. Test point-containment for an empty window; the usual overlap otherwise.
+    private static bool RangeOverlapsWindow(TimeRange range, TimeRange window)
+        => window.IsEmpty ? range.Contains(window.Start) : range.Intersects(window);
+
     private static IEnumerable<IFileSource> EnumeratePropertyFileSources(
         EngineObject obj, TimeRange? localRange = null, bool skipDisabledElements = false, HashSet<EngineObject>? visitedValues = null,
-        TimeRange? sceneWindow = null)
+        TimeRange? sceneWindow = null, ObjectWalkContext? walkContext = null)
     {
         visitedValues ??= new HashSet<EngineObject>(ReferenceEqualityComparer.Instance);
 
@@ -433,7 +443,7 @@ public static class ProxySourceEnumerator
             bool baseOverridden = localRange is not null && (expressionOverrides || AnimationSuppliesValue(property.Animation));
             if (!baseOverridden)
             {
-                foreach (IFileSource source in EnumeratePropertyValueFileSources(property.CurrentValue, localRange, skipDisabledElements, visitedValues))
+                foreach (IFileSource source in EnumeratePropertyValueFileSources(property.CurrentValue, localRange, skipDisabledElements, visitedValues, walkContext))
                     yield return source;
             }
 
@@ -452,7 +462,7 @@ public static class ProxySourceEnumerator
             if (prop.PropertyType.IsValueType)
                 continue;
 
-            foreach (IFileSource source in EnumeratePropertyValueFileSources(obj.GetValue(prop), localRange, skipDisabledElements, visitedValues))
+            foreach (IFileSource source in EnumeratePropertyValueFileSources(obj.GetValue(prop), localRange, skipDisabledElements, visitedValues, walkContext))
                 yield return source;
         }
     }
@@ -464,12 +474,53 @@ public static class ProxySourceEnumerator
     // drawables, referenced-scene sounds (SceneSound), scenes, elements, graph nodes — since re-walking
     // them through the property graph would bypass their disabled/target/window guards. A plain value
     // Sound (a visualizer's Source) has no such walk, so it must be recursed.
+    // Carries the object walk's guarded-navigator state into the property-value recursion so a rendered
+    // structural value reachable only as a property (a DrawableBrush's Drawable, a visualizer's SceneSound)
+    // can be dispatched through the same guarded walks the structural navigator uses.
+    private sealed record ObjectWalkContext(
+        HashSet<(Scene, CompositionTarget?)> VisitedScenes,
+        HashSet<GraphGroup> VisitedGraphGroups,
+        HashSet<FilterEffectGroup> VisitedFilterEffectGroups,
+        HashSet<Drawable> VisitedTargets,
+        CompositionTarget? RenderTarget,
+        TimeRange? SceneWindow);
+
     private static IEnumerable<IFileSource> EnumeratePropertyValueFileSources(
-        object? value, TimeRange? localRange, bool skipDisabledElements, HashSet<EngineObject> visitedValues)
+        object? value, TimeRange? localRange, bool skipDisabledElements, HashSet<EngineObject> visitedValues,
+        ObjectWalkContext? walkContext = null)
     {
         if (value is IFileSource fileSource)
         {
             yield return fileSource;
+            yield break;
+        }
+
+        // A DrawableBrush paints an area with a nested Drawable that BrushConstructor renders when the
+        // owning shape draws; it is reachable only as a property value, so route it through the guarded
+        // drawable walk. VisitedTargets stops a structurally-reached drawable being walked twice.
+        if (walkContext is { } brushContext && value is DrawableBrush brush
+            && ResolveExpressionValue<Drawable>(brush, brush.Drawable) is { } brushDrawable
+            && (!skipDisabledElements || brushDrawable.IsEnabled)
+            && brushContext.VisitedTargets.Add(brushDrawable))
+        {
+            foreach (IFileSource source in EnumerateObjectFileSources(
+                brushDrawable, brushContext.VisitedScenes, brushContext.VisitedGraphGroups,
+                brushContext.VisitedFilterEffectGroups, brushContext.VisitedTargets, skipDisabledElements,
+                brushContext.RenderTarget, localRange, brushContext.SceneWindow))
+                yield return source;
+            // Fall through so the brush's own remaining properties (Transform, …) are still walked.
+        }
+
+        // A SceneSound held as a property value (an audio visualizer's Source) contributes only its
+        // referenced scene's audio; the structural `obj is SceneSound` walk never fires for a value.
+        if (walkContext is { } soundContext && value is SceneSound sceneSound
+            && ResolveExpressionValue<Scene>(sceneSound, sceneSound.ReferencedScene) is { } referencedScene)
+        {
+            TimeRange? soundWindow = IsIdentityAudioMap(sceneSound) ? localRange : null;
+            foreach (IFileSource source in EnumerateReferencedSceneSources(
+                referencedScene, soundContext.VisitedScenes, skipDisabledElements, CompositionTarget.Audio, soundWindow, soundWindow))
+                yield return source;
+
             yield break;
         }
 
@@ -487,7 +538,7 @@ public static class ProxySourceEnumerator
                 if (skipDisabledElements && !child.IsEnabled)
                     continue;
 
-                foreach (IFileSource source in EnumeratePropertyValueFileSources(child, localRange, skipDisabledElements, visitedValues))
+                foreach (IFileSource source in EnumeratePropertyValueFileSources(child, localRange, skipDisabledElements, visitedValues, walkContext))
                     yield return source;
             }
 
@@ -502,7 +553,7 @@ public static class ProxySourceEnumerator
             yield break;
         }
 
-        foreach (IFileSource source in EnumeratePropertyFileSources(engineObject, localRange, skipDisabledElements, visitedValues))
+        foreach (IFileSource source in EnumeratePropertyFileSources(engineObject, localRange, skipDisabledElements, visitedValues, walkContext?.SceneWindow, walkContext))
             yield return source;
     }
 

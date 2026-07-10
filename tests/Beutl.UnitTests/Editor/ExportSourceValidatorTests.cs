@@ -1140,6 +1140,86 @@ public sealed class ExportSourceValidatorTests
         return graphEffect;
     }
 
+    // A save-frame preflight passes a zero-duration window; the referenced-scene child gate must
+    // point-sample (Contains) like SortLayers, or a child active at the sampled time is wrongly skipped
+    // and its missing media escapes preflight.
+    [Test]
+    public void CollectRenderableSources_SaveFrame_ReferencedSceneChildAtSampleTime_IsReported()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string missingImage = Path.Combine(root, "child.png");
+
+        var childScene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "child.scene")) };
+        Element child = CreateImageElement(root, missingImage);
+        child.Start = TimeSpan.Zero;
+        child.Length = TimeSpan.FromSeconds(5);
+        childScene.Children.Add(child);
+
+        var sceneDrawable = new SceneDrawable();
+        sceneDrawable.ReferencedScene.CurrentValue = childScene;
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "root.scene")) };
+        Element outer = ElementWith(root, sceneDrawable);
+        outer.Start = TimeSpan.Zero;
+        outer.Length = TimeSpan.FromSeconds(10);
+        scene.Children.Add(outer);
+
+        IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
+            ExportSourceValidator.CollectRenderableSources(scene, TimeSpan.FromSeconds(1)));
+
+        Assert.That(missing, Does.Contain(missingImage));
+    }
+
+    // An AudioVisualizerDrawable.Source that is a SceneSound composes the referenced scene's audio to draw
+    // its waveform; the structural SceneSound audio walk never fires for a property value, so preflight
+    // must dispatch it or the referenced scene's missing audio is missed.
+    [Test]
+    public void CollectRenderableSources_VisualizerSceneSoundSource_ReportsReferencedAudio()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string missingSound = Path.Combine(root, "vis.mp3");
+
+        var childScene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "child.scene")) };
+        childScene.Children.Add(CreateSoundElement(root, missingSound));
+
+        var sceneSound = new SceneSound();
+        sceneSound.ReferencedScene.CurrentValue = childScene;
+        var visualizer = new Beutl.Graphics.AudioVisualizers.AudioWaveformDrawable();
+        visualizer.Source.CurrentValue = sceneSound;
+
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "root.scene")) };
+        scene.Children.Add(ElementWith(root, visualizer));
+
+        IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
+            ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene));
+
+        Assert.That(missing, Does.Contain(missingSound));
+    }
+
+    // A DrawableBrush paints a shape with a nested Drawable that BrushConstructor renders; it is reachable
+    // only as a property value, so preflight must dispatch it or a missing source inside it is missed.
+    [Test]
+    public void CollectRenderableSources_DrawableBrushDrawable_ReportsNestedSource()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string missingVideo = Path.Combine(root, "brush.mov");
+
+        var brush = new DrawableBrush();
+        brush.Drawable.CurrentValue = VideoDrawable(missingVideo);
+        var shape = new RectShape();
+        shape.Fill.CurrentValue = brush;
+
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "root.scene")) };
+        scene.Children.Add(ElementWith(root, shape));
+
+        IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
+            ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene));
+
+        Assert.That(missing, Does.Contain(missingVideo));
+    }
+
     private static SourceSound SoundDrawable(string sourcePath)
     {
         var source = new SoundSource();
