@@ -34,6 +34,7 @@ public class BrushConstructorCanCreateShaderTests
             AssertParity(Gradient(2), "gradient with stops");
             AssertParity(Gradient(0), "gradient with no stops");
             AssertParity(Perlin(), "perlin noise");
+            AssertParity(Perlin((PerlinNoiseType)999), "perlin noise with an out-of-range type");
             AssertParity(DrawableBrushResource(drawable: null), "drawable brush with no drawable");
             AssertParity(Presenter(new SolidColorBrush(Colors.Red)), "presenter to a solid");
             AssertParity(Presenter(null), "presenter with no target");
@@ -87,8 +88,12 @@ public class BrushConstructorCanCreateShaderTests
         return (Brush.Resource)brush.ToResource(CompositionContext.Default);
     }
 
-    private static Brush.Resource Perlin()
-        => (Brush.Resource)new PerlinNoiseBrush().ToResource(CompositionContext.Default);
+    private static Brush.Resource Perlin(PerlinNoiseType type = PerlinNoiseType.Turbulence)
+    {
+        var brush = new PerlinNoiseBrush();
+        brush.PerlinNoiseType.CurrentValue = type;
+        return (Brush.Resource)brush.ToResource(CompositionContext.Default);
+    }
 
     private static Brush.Resource DrawableBrushResource(Drawable? drawable)
     {

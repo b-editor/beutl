@@ -58,7 +58,8 @@ public readonly struct BrushConstructor(
         GradientBrush.Resource gradient => gradient.GradientStops.Count > 0,
         ImageBrush.Resource image => image.Source?.Bitmap is not null,
         DrawableBrush.Resource drawable => drawable.Drawable is not null,
-        PerlinNoiseBrush.Resource => true,
+        PerlinNoiseBrush.Resource perlin =>
+            perlin.PerlinNoiseType is PerlinNoiseType.Turbulence or PerlinNoiseType.Fractal,
         _ => false,
     };
 
