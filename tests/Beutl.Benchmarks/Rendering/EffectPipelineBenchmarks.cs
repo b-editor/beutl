@@ -30,7 +30,9 @@ public class EffectPipelineBenchmarks
 {
     private const int PatternSeed = 20040705;
 
-    [Params("NoEffect", "SingleBlur", "SingleGamma", "ColorChain", "MixedChain", "SplitTree", "HeavySource")]
+    [Params(
+        "NoEffect", "SingleBlur", "SingleGamma", "ColorChain", "MixedChain", "SplitTree", "HeavySource",
+        "LongChain", "AnimatedUniform", "StructuralToggle", "ShadowStack", "SmallObject")]
     public string Scene = "ColorChain";
 
     [Params("1080p", "4K")]
@@ -46,6 +48,17 @@ public class EffectPipelineBenchmarks
     private static readonly RenderTargetPool s_pool =
         RenderThread.Dispatcher.Invoke(static () => new RenderTargetPool());
     private static long s_frameIndex;
+    private static DrawableRenderNode? s_node;
+    private static Action? s_frameMutator;
+
+    private static void ResetPersistentNode()
+    {
+        RenderThread.Dispatcher.Invoke(static () =>
+        {
+            s_node?.Dispose();
+            s_node = null;
+        });
+    }
 
     // Log.LoggerFactory's setter is internal (not visible to this project); LutEffect's static ctor NREs in
     // Release without it. Seed the backing field so MixedChain can instantiate.
@@ -77,11 +90,17 @@ public class EffectPipelineBenchmarks
                 throw new InvalidOperationException("No Vulkan/MoltenVK context available for the probe.");
         });
         PixelSize size = SizeOf(resolution);
+        ResetPersistentNode();
+        s_frameMutator = null;
         Drawable.Resource resource = Build(scene, size);
         for (int i = 0; i < frames; i++)
         {
             var sw = System.Diagnostics.Stopwatch.StartNew();
-            PipelineDiagnosticsSnapshot snap = RenderThread.Dispatcher.Invoke(() => RenderOnce(resource, size));
+            PipelineDiagnosticsSnapshot snap = RenderThread.Dispatcher.Invoke(() =>
+            {
+                ApplyFrameMutation(resource);
+                return RenderOnce(resource, size);
+            });
             sw.Stop();
             Console.WriteLine($"frame {i}: {sw.Elapsed.TotalMilliseconds,7:F2} ms  {snap}");
         }
@@ -98,6 +117,8 @@ public class EffectPipelineBenchmarks
         });
 
         _size = SizeOf(Resolution);
+        ResetPersistentNode();
+        s_frameMutator = null;
         _resource = Build(Scene, _size);
 
         // One render captures the (structure-determined, size-independent) counter snapshot.
@@ -107,7 +128,21 @@ public class EffectPipelineBenchmarks
     [Benchmark]
     public void RenderFrame()
     {
-        RenderThread.Dispatcher.Invoke(() => RenderOnce(_resource, _size));
+        RenderThread.Dispatcher.Invoke(() =>
+        {
+            ApplyFrameMutation(_resource);
+            RenderOnce(_resource, _size);
+        });
+    }
+
+    private static void ApplyFrameMutation(Drawable.Resource resource)
+    {
+        if (s_frameMutator == null)
+            return;
+
+        s_frameMutator();
+        bool updateOnly = false;
+        resource.Update(resource.GetOriginal(), CompositionContext.Default, ref updateOnly);
     }
 
     [GlobalCleanup]
@@ -120,17 +155,33 @@ public class EffectPipelineBenchmarks
             + $"FlushSyncs={_counters.FlushSyncs}");
     }
 
-    // Mirrors GoldenImageHarness.RenderAtScale at output scale 1.0 and returns the always-on counter snapshot.
+    // Mirrors the production Renderer's frame loop at output scale 1.0 and returns the always-on counter
+    // snapshot: the DrawableRenderNode persists across frames (like Renderer's per-drawable node entry) and the
+    // drawable re-render is skipped when the resource is unchanged, so node-level caches (the plan cache above
+    // all) engage exactly as they do in the app.
     private static PipelineDiagnosticsSnapshot RenderOnce(Drawable.Resource resource, PixelSize size)
     {
+        bool shouldRender;
+        DrawableRenderNode node;
+        if (s_node == null)
+        {
+            node = s_node = new DrawableRenderNode(resource);
+            shouldRender = true;
+        }
+        else
+        {
+            node = s_node;
+            shouldRender = node.Update(resource);
+        }
+
         using RenderTarget target = RenderTarget.Create(size.Width, size.Height)
                                     ?? throw new InvalidOperationException("RenderTarget.Create returned null.");
         using var canvas = new ImmediateCanvas(target, 1f, logicalSize: size.ToSize(1));
         canvas.Clear(Colors.Black);
 
-        using var node = new DrawableRenderNode(resource);
-        using (var ctx = new GraphicsContext2D(node, size.ToSize(1), 1f))
+        if (shouldRender)
         {
+            using var ctx = new GraphicsContext2D(node, size.ToSize(1), 1f);
             resource.GetOriginal().Render(ctx, resource);
         }
 
@@ -154,6 +205,11 @@ public class EffectPipelineBenchmarks
         "NoEffect" => GradientShape(size, null),
         "SingleBlur" => SingleBlur(size),
         "SingleGamma" => SingleGamma(size),
+        "LongChain" => LongChain(size),
+        "AnimatedUniform" => AnimatedUniform(size),
+        "StructuralToggle" => StructuralToggle(size),
+        "ShadowStack" => ShadowStack(size),
+        "SmallObject" => SmallObject(size),
         "ColorChain" => ColorChain(size),
         "MixedChain" => MixedChain(size),
         "SplitTree" => SplitTree(size),
@@ -173,6 +229,115 @@ public class EffectPipelineBenchmarks
         var gamma = new Gamma();
         gamma.Amount.CurrentValue = 1.5f;
         return GradientShape(size, gamma);
+    }
+
+    private static Drawable.Resource LongChain(PixelSize size)
+    {
+        var group = new FilterEffectGroup();
+        for (int i = 0; i < 4; i++)
+        {
+            var gamma = new Gamma();
+            gamma.Amount.CurrentValue = 1.1f;
+            group.Children.Add(gamma);
+            var hue = new HueRotate();
+            hue.Angle.CurrentValue = 15f * (i + 1);
+            group.Children.Add(hue);
+            var saturate = new Saturate();
+            saturate.Amount.CurrentValue = 1.05f;
+            group.Children.Add(saturate);
+            var brightness = new Brightness();
+            brightness.Amount.CurrentValue = 1.02f;
+            group.Children.Add(brightness);
+        }
+
+        return GradientShape(size, group);
+    }
+
+    // The ColorChain with the Gamma amount changed every frame (an animated adjustment): the mutator runs before
+    // each RenderFrame, followed by a resource Update, so the render sees a per-frame parameter change.
+    private static Drawable.Resource AnimatedUniform(PixelSize size)
+    {
+        var group = new FilterEffectGroup();
+        var gamma = new Gamma();
+        gamma.Amount.CurrentValue = 1.5f;
+        group.Children.Add(gamma);
+        var hue = new HueRotate();
+        hue.Angle.CurrentValue = 90f;
+        group.Children.Add(hue);
+        var saturate = new Saturate();
+        saturate.Amount.CurrentValue = 1.4f;
+        group.Children.Add(saturate);
+        var brightness = new Brightness();
+        brightness.Amount.CurrentValue = 1.2f;
+        group.Children.Add(brightness);
+        var invert = new Invert();
+        invert.Amount.CurrentValue = 1f;
+        group.Children.Add(invert);
+        long tick = 0;
+        s_frameMutator = () => gamma.Amount.CurrentValue = 1.2f + 0.6f * (++tick % 60) / 60f;
+        return GradientShape(size, group);
+    }
+
+    // The ColorChain with the Invert child flipping enabled<->disabled every frame: a per-frame STRUCTURAL change,
+    // the worst case for a plan-cached pipeline (the legacy pipeline rebuilt everything per frame regardless).
+    private static Drawable.Resource StructuralToggle(PixelSize size)
+    {
+        var group = new FilterEffectGroup();
+        var gamma = new Gamma();
+        gamma.Amount.CurrentValue = 1.5f;
+        group.Children.Add(gamma);
+        var hue = new HueRotate();
+        hue.Angle.CurrentValue = 90f;
+        group.Children.Add(hue);
+        var saturate = new Saturate();
+        saturate.Amount.CurrentValue = 1.4f;
+        group.Children.Add(saturate);
+        var brightness = new Brightness();
+        brightness.Amount.CurrentValue = 1.2f;
+        group.Children.Add(brightness);
+        var invert = new Invert();
+        invert.Amount.CurrentValue = 1f;
+        group.Children.Add(invert);
+        long tick = 0;
+        s_frameMutator = () => invert.IsEnabled = (++tick & 1) == 0;
+        return GradientShape(size, group);
+    }
+
+    private static Drawable.Resource ShadowStack(PixelSize size)
+    {
+        var group = new FilterEffectGroup();
+        for (int i = 1; i <= 3; i++)
+        {
+            var shadow = new DropShadow();
+            shadow.Position.CurrentValue = new Point(6 * i, 6 * i);
+            shadow.Sigma.CurrentValue = new Size(4 * i, 4 * i);
+            shadow.Color.CurrentValue = Colors.Black;
+            group.Children.Add(shadow);
+        }
+
+        return GradientShape(size, group);
+    }
+
+    // The ColorChain on a shape covering ~1% of the frame area: per-pass fixed overhead dominates over pixel work.
+    private static Drawable.Resource SmallObject(PixelSize size)
+    {
+        var group = new FilterEffectGroup();
+        var gamma = new Gamma();
+        gamma.Amount.CurrentValue = 1.5f;
+        group.Children.Add(gamma);
+        var hue = new HueRotate();
+        hue.Angle.CurrentValue = 90f;
+        group.Children.Add(hue);
+        var saturate = new Saturate();
+        saturate.Amount.CurrentValue = 1.4f;
+        group.Children.Add(saturate);
+        var brightness = new Brightness();
+        brightness.Amount.CurrentValue = 1.2f;
+        group.Children.Add(brightness);
+        var invert = new Invert();
+        invert.Amount.CurrentValue = 1f;
+        group.Children.Add(invert);
+        return GradientShape(size, group, sizeFactor: 0.1f);
     }
 
     private static Drawable.Resource ColorChain(PixelSize size)
@@ -278,7 +443,7 @@ public class EffectPipelineBenchmarks
         return source;
     }
 
-    private static Drawable.Resource GradientShape(PixelSize size, FilterEffect? effect)
+    private static Drawable.Resource GradientShape(PixelSize size, FilterEffect? effect, float sizeFactor = 0.8f)
     {
         var fill = new LinearGradientBrush();
         fill.StartPoint.CurrentValue = new RelativePoint(0, 0, RelativeUnit.Relative);
@@ -291,8 +456,8 @@ public class EffectPipelineBenchmarks
         shape.AlignmentX.CurrentValue = AlignmentX.Center;
         shape.AlignmentY.CurrentValue = AlignmentY.Center;
         shape.TransformOrigin.CurrentValue = RelativePoint.Center;
-        shape.Width.CurrentValue = size.Width * 0.8f;
-        shape.Height.CurrentValue = size.Height * 0.8f;
+        shape.Width.CurrentValue = size.Width * sizeFactor;
+        shape.Height.CurrentValue = size.Height * sizeFactor;
         shape.Fill.CurrentValue = fill;
 
         var rotation = new RotationTransform();
