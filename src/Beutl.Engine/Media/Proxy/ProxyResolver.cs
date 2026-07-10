@@ -10,22 +10,35 @@ public sealed class ProxyResolver : IProxyResolver
     private const float DensityTolerance = 1e-6f;
 
     private readonly IProxyStore _store;
+    private readonly long _versionBaseOffset;
     private readonly ConcurrentDictionary<string, int> _pins = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, long> _sourceVersions = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, (DateTime Time, ProxyFingerprint Fingerprint)> _stalenessLastChecked = new(StringComparer.Ordinal);
 
     public ProxyResolver(IProxyStore store)
+        : this(store, versionBaseOffset: 0)
+    {
+    }
+
+    // versionBaseOffset is added to every reported source version. On a store-root swap the replacement
+    // resolver takes a strictly larger offset than the old one issued, so a reader that cached the old
+    // resolver's version (commonly 0 for a startup-index entry) observes a change and reopens against the
+    // new store instead of decoding the previous directory's proxy under the same version.
+    public ProxyResolver(IProxyStore store, long versionBaseOffset)
     {
         ArgumentNullException.ThrowIfNull(store);
+        ArgumentOutOfRangeException.ThrowIfNegative(versionBaseOffset);
         _store = store;
+        _versionBaseOffset = versionBaseOffset;
         _store.Changed += OnStoreChanged;
     }
 
     public long GetSourceVersion(string absolutePath)
     {
-        return !string.IsNullOrEmpty(absolutePath) && _sourceVersions.TryGetValue(absolutePath, out long version)
-            ? version
+        long version = !string.IsNullOrEmpty(absolutePath) && _sourceVersions.TryGetValue(absolutePath, out long v)
+            ? v
             : 0;
+        return _versionBaseOffset + version;
     }
 
     public ProxyResolution? Resolve(Uri sourceUri, ProxyPreset preferredPreset)

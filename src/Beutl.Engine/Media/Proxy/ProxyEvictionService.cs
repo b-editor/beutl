@@ -9,14 +9,25 @@ public sealed class ProxyEvictionService : IProxyStoreCapInfo
 
     private readonly IProxyStore _store;
     private readonly IProxyResolver? _resolver;
-    private readonly long _maxTotalBytes;
+    private long _maxTotalBytes;
     private readonly long _minFreeDiskBytes;
     private readonly Action<ProxyEvictionResult>? _notify;
     private readonly Func<IReadOnlySet<string>>? _openProjectSourceProvider;
     private readonly Func<string, long?>? _availableFreeSpaceProvider;
     private readonly Func<IReadOnlySet<(ProxyFingerprint Source, ProxyPreset Preset)>>? _activeGenerationProvider;
 
-    public long MaxTotalBytes => _maxTotalBytes;
+    // Mutable so a runtime cache-cap change updates the threshold in place; rebuilding the service (and
+    // its queue) just to move this number would cancel unrelated in-flight generation. Read on sweep
+    // threads, written from the config setter — Volatile keeps the write visible without a torn read.
+    public long MaxTotalBytes
+    {
+        get => Volatile.Read(ref _maxTotalBytes);
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(value);
+            Volatile.Write(ref _maxTotalBytes, value);
+        }
+    }
 
     /// <param name="openProjectSourceProvider">
     /// Returns the absolute paths of media files referenced by the currently-open project so

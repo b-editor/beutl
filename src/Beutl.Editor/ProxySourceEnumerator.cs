@@ -211,13 +211,14 @@ public static class ProxySourceEnumerator
                 visitedGraphGroups,
                 new HashSet<FilterEffect>(ReferenceEqualityComparer.Instance),
                 skipDisabledElements,
-                localRange))
+                localRange,
+                sceneWindow))
                 yield return source;
 
             switch (drawable)
             {
                 case NodeGraphDrawable { Model.CurrentValue: { } model }:
-                    foreach (IFileSource source in EnumerateGraphSources(model, visitedGraphGroups, localRange))
+                    foreach (IFileSource source in EnumerateGraphSources(model, visitedGraphGroups, localRange, sceneWindow: sceneWindow))
                         yield return source;
 
                     break;
@@ -401,14 +402,20 @@ public static class ProxySourceEnumerator
             // IProperty.GetValue evaluates an expression ahead of the animation/current value, so a
             // reference-expression pointing at a file source is what the render opens. Resolve it (no
             // evaluation — just id/path lookup) and report its sources. StringExpressions are arbitrary
-            // C# and are not evaluated here; their base/animation values below stay the conservative floor.
+            // C# and are not evaluated here.
             foreach (IFileSource source in EnumerateExpressionFileSources(obj, property.Expression, localRange, skipDisabledElements, visitedValues))
                 yield return source;
+
+            // When an expression is present, GetValue takes the expression branch and never samples the
+            // base value or the animation, so in a windowed pass (which mirrors what the render opens)
+            // they must not block export. Without a window (proxy/badge scan) keep them, since an
+            // unresolvable expression is not something the scanner can follow.
+            bool expressionOverrides = localRange is not null && property.Expression is not null;
 
             // A property animated by >=1 keyframe is sampled from its animation, never its base
             // CurrentValue, so when range-filtering to a render window the base must not block export —
             // its file is never opened. Without a window (proxy/badge scan) keep the base too.
-            bool baseOverridden = localRange is not null && AnimationSuppliesValue(property.Animation);
+            bool baseOverridden = localRange is not null && (expressionOverrides || AnimationSuppliesValue(property.Animation));
             if (!baseOverridden)
             {
                 foreach (IFileSource source in EnumeratePropertyValueFileSources(property.CurrentValue, localRange, skipDisabledElements, visitedValues))
@@ -416,9 +423,13 @@ public static class ProxySourceEnumerator
             }
 
             // Rendering (and the proxy scanner) consume animated file-source values too, so media
-            // referenced only from keyframes must be enumerated as well.
-            foreach (IFileSource animated in EnumerateAnimatedFileSources(property.Animation, localRange, skipDisabledElements, visitedValues, sceneWindow))
-                yield return animated;
+            // referenced only from keyframes must be enumerated as well — unless an expression overrides
+            // the animation entirely in a windowed pass.
+            if (!expressionOverrides)
+            {
+                foreach (IFileSource animated in EnumerateAnimatedFileSources(property.Animation, localRange, skipDisabledElements, visitedValues, sceneWindow))
+                    yield return animated;
+            }
         }
 
         foreach (CoreProperty prop in PropertyRegistry.GetRegistered(obj.GetType()))
@@ -503,18 +514,49 @@ public static class ProxySourceEnumerator
             yield break;
         }
 
-        // "GUID.PropertyName" resolves to one property's value on the target object.
+        // "GUID.PropertyName" resolves through PropertyLookup.TryGetPropertyValue, which tries the
+        // target's IProperty surface first, then a registered CoreProperty. Mirror that resolution and,
+        // for an IProperty, enumerate the same way the property walk does (its own expression, animated
+        // keyframes, and current value) so the reference reaches sources hidden in the target's
+        // animation/expression, not just its current value.
         IProperty? property = target.Properties.FirstOrDefault(
             p => string.Equals(p.Name, reference.PropertyPath, StringComparison.OrdinalIgnoreCase));
         if (property is not null)
         {
-            foreach (IFileSource source in EnumeratePropertyValueFileSources(property.CurrentValue, localRange, skipDisabledElements, visitedValues))
+            foreach (IFileSource source in EnumerateExpressionFileSources(target, property.Expression, localRange, skipDisabledElements, visitedValues))
+                yield return source;
+
+            bool targetExpressionOverrides = localRange is not null && property.Expression is not null;
+            bool targetBaseOverridden = localRange is not null && (targetExpressionOverrides || AnimationSuppliesValue(property.Animation));
+            if (!targetBaseOverridden)
+            {
+                foreach (IFileSource source in EnumeratePropertyValueFileSources(property.CurrentValue, localRange, skipDisabledElements, visitedValues))
+                    yield return source;
+            }
+
+            if (!targetExpressionOverrides)
+            {
+                foreach (IFileSource source in EnumerateAnimatedFileSources(property.Animation, localRange, skipDisabledElements, visitedValues))
+                    yield return source;
+            }
+
+            yield break;
+        }
+
+        // Fall back to a registered CoreProperty (PropertyLookup's second strategy). CoreProperties are
+        // not animatable/expressible on this surface, so only the resolved value matters.
+        CoreProperty? coreProperty = PropertyRegistry.GetRegistered(target.GetType())
+            .FirstOrDefault(p => string.Equals(p.Name, reference.PropertyPath, StringComparison.OrdinalIgnoreCase));
+        if (coreProperty is not null && !coreProperty.PropertyType.IsValueType)
+        {
+            foreach (IFileSource source in EnumeratePropertyValueFileSources(target.GetValue(coreProperty), localRange, skipDisabledElements, visitedValues))
                 yield return source;
         }
     }
 
     private static IEnumerable<IFileSource> EnumerateGraphSources(
-        GraphModel model, HashSet<GraphGroup> visitedGraphGroups, TimeRange? localRange = null, HashSet<EngineObject>? visitedValues = null)
+        GraphModel model, HashSet<GraphGroup> visitedGraphGroups, TimeRange? localRange = null, HashSet<EngineObject>? visitedValues = null,
+        TimeRange? sceneWindow = null)
     {
         visitedValues ??= new HashSet<EngineObject>(ReferenceEqualityComparer.Instance);
 
@@ -523,25 +565,26 @@ public static class ProxySourceEnumerator
             // Every input port whose value is an IFileSource — VideoSourceNode.Source, ImageSourceNode.Source,
             // and a GroupNode's outer-boundary inputs alike. Gating on the value type (not a specific node
             // type) keeps this uniform across all source-carrying nodes.
-            foreach (IFileSource source in EnumerateNodeInputSources(node, localRange, visitedValues))
+            foreach (IFileSource source in EnumerateNodeInputSources(node, localRange, visitedValues, sceneWindow))
                 yield return source;
 
             // A user-constructed GroupNode can reference a GraphGroup that (transitively) contains the
             // same GroupNode, producing an infinite walk. The visited set makes the recursion terminate.
             if (node is GroupNode groupNode && visitedGraphGroups.Add(groupNode.Group))
             {
-                foreach (IFileSource source in EnumerateGraphSources(groupNode.Group, visitedGraphGroups, localRange, visitedValues))
+                foreach (IFileSource source in EnumerateGraphSources(groupNode.Group, visitedGraphGroups, localRange, visitedValues, sceneWindow))
                     yield return source;
             }
         }
     }
 
     private static IEnumerable<IFileSource> EnumerateNodeInputSources(
-        GraphNode node, TimeRange? localRange, HashSet<EngineObject> visitedValues)
+        GraphNode node, TimeRange? localRange, HashSet<EngineObject> visitedValues, TimeRange? sceneWindow)
     {
         // GraphSnapshot.LoadAnimatedValues evaluates a node's non-global input animations at
         // time - node.Start, so shift the window into node-local time before filtering; without this an
-        // in-window keyframe on a time-offset node could be wrongly dropped.
+        // in-window keyframe on a time-offset node could be wrongly dropped. A global-clock input is
+        // sampled at scene time, not node-local time, so it filters against the unshifted sceneWindow.
         TimeRange? nodeWindow = localRange?.SubtractStart(node.Start);
 
         foreach (INodeMember member in node.Items)
@@ -570,7 +613,7 @@ public static class ProxySourceEnumerator
 
             if (animation is not null)
             {
-                foreach (IFileSource source in EnumerateAnimatedFileSources(animation, nodeWindow, visitedValues: visitedValues))
+                foreach (IFileSource source in EnumerateAnimatedFileSources(animation, nodeWindow, visitedValues: visitedValues, sceneWindow: sceneWindow))
                     yield return source;
             }
         }
@@ -582,7 +625,8 @@ public static class ProxySourceEnumerator
         HashSet<GraphGroup> visitedGraphGroups,
         HashSet<FilterEffect> visitedFilterEffects,
         bool skipDisabledElements,
-        TimeRange? localRange = null)
+        TimeRange? localRange = null,
+        TimeRange? sceneWindow = null)
     {
         // Presenter/delay targets are reference properties, so a filter chain is user-cyclable;
         // the visited set makes the recursion terminate.
@@ -605,18 +649,18 @@ public static class ProxySourceEnumerator
                     // A child effect can carry an ordinary file-source property (LutEffect.Source) the
                     // graph walker below never sees, so walk its own properties too. The Children list is
                     // not an EngineObject-valued property, so the #19 property recursion cannot reach here.
-                    foreach (IFileSource source in EnumeratePropertyFileSources(child, localRange, skipDisabledElements))
+                    foreach (IFileSource source in EnumeratePropertyFileSources(child, localRange, skipDisabledElements, sceneWindow: sceneWindow))
                         yield return source;
 
                     foreach (IFileSource source in EnumerateFilterEffectGraphSources(
-                        child, visitedFilterEffectGroups, visitedGraphGroups, visitedFilterEffects, skipDisabledElements, localRange))
+                        child, visitedFilterEffectGroups, visitedGraphGroups, visitedFilterEffects, skipDisabledElements, localRange, sceneWindow))
                         yield return source;
                 }
 
                 break;
 
             case NodeGraphFilterEffect { Model.CurrentValue: { } model }:
-                foreach (IFileSource source in EnumerateGraphSources(model, visitedGraphGroups, localRange))
+                foreach (IFileSource source in EnumerateGraphSources(model, visitedGraphGroups, localRange, sceneWindow: sceneWindow))
                     yield return source;
 
                 break;
@@ -628,7 +672,7 @@ public static class ProxySourceEnumerator
                 // A presenter applies its target with the same context (no time remap), so the render
                 // window maps directly — thread localRange, unlike the delay effect below.
                 foreach (IFileSource source in EnumerateFilterEffectGraphSources(
-                    presented, visitedFilterEffectGroups, visitedGraphGroups, visitedFilterEffects, skipDisabledElements, localRange))
+                    presented, visitedFilterEffectGroups, visitedGraphGroups, visitedFilterEffects, skipDisabledElements, localRange, sceneWindow))
                     yield return source;
 
                 break;
@@ -677,18 +721,19 @@ public static class ProxySourceEnumerator
 
             // With no render window every keyframe value counts (proxy scan / badge enumeration). With
             // one, keep a keyframe only if a sample inside the window could resolve to it. For an object
-            // value (IFileSource) KeyFrameAnimation.Interpolate returns the NEXT keyframe's value, so
-            // keyframe i is the sampled value on the half-open span [previous key time, this key time) —
+            // value (IFileSource) KeyFrameAnimation.Interpolate returns the NEXT keyframe's value, and
+            // GetPreviousAndNextKeyFrame picks a key as `next` when `prev.KeyTime < t <= this.KeyTime`, so
+            // keyframe i is the sampled value on the left-open span (previous key time, this key time] —
             // the last one holds forward to +inf. A zero-duration window is a point sample {Start} (kept
-            // iff the point lies in the span), NOT an empty half-open range; a non-empty window keeps the
-            // span iff the two half-open intervals overlap.
+            // iff the point lies in the span), NOT an empty half-open range; a non-empty window [Start,End)
+            // keeps the span iff (spanStart, spanEnd] and [Start, End) overlap.
             if (window is { } range)
             {
                 TimeSpan spanStart = i > 0 ? keyFrames[i - 1].KeyTime : TimeSpan.MinValue;
                 TimeSpan spanEnd = i < keyFrames.Count - 1 ? keyFrames[i].KeyTime : TimeSpan.MaxValue;
                 bool keep = range.Duration <= TimeSpan.Zero
-                    ? spanStart <= range.Start && range.Start < spanEnd
-                    : spanStart < range.End && range.Start < spanEnd;
+                    ? spanStart < range.Start && range.Start <= spanEnd
+                    : spanStart < range.End && range.Start <= spanEnd;
                 if (!keep)
                     continue;
             }

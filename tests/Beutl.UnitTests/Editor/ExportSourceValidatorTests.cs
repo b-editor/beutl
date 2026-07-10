@@ -457,8 +457,8 @@ public sealed class ExportSourceValidatorTests
         Assert.That(missing, Is.Empty);
     }
 
-    // The render window is half-open [Start, End) and the next keyframe takes over at its exact key
-    // time, so a source that switches exactly at the window start must not report the outgoing file.
+    // The outgoing key governs the left-open span (-inf, 0s] and the incoming key takes over on (0s, +inf),
+    // so an export window at [5s, 10s) samples only the incoming key and must not report the outgoing file.
     [Test]
     public void CollectRenderableSources_SourceSwitchExactlyAtWindowStart_DropsOutgoingKeyframe()
     {
@@ -567,24 +567,25 @@ public sealed class ExportSourceValidatorTests
         Assert.That(missing, Is.EqualTo(new[] { missingImage }));
     }
 
-    // A single-frame preflight is a point sample, not an empty half-open window: at the exact key time
-    // the animator samples the NEXT key (its span starts there), which must not be dropped.
+    // A single-frame preflight is a point sample, not an empty half-open window. GetPreviousAndNextKeyFrame
+    // makes a key active on the left-open span (previous key time, this key time], so at t=5s the middle
+    // key b is sampled (b's span is (0s, 5s]); the point sample must keep b, not treat it as an empty range.
     [Test]
     public void CollectRenderableSources_SingleFrameAtKeyframeTime_KeepsActiveKeyframe()
     {
         string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         string a = Path.Combine(root, "a.mov");
-        string b = Path.Combine(root, "b.mov");
-        string missingC = Path.Combine(root, "c.mov");
+        string missingB = Path.Combine(root, "b.mov");
+        string c = Path.Combine(root, "c.mov");
         File.WriteAllBytes(a, [1]);
-        File.WriteAllBytes(b, [1]);
+        File.WriteAllBytes(c, [1]);
 
         var drawable = new SourceVideo();
         var animation = new KeyFrameAnimation<VideoSource?>();
         animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.Zero, Value = MakeVideoSource(a) });
-        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.FromSeconds(5), Value = MakeVideoSource(b) });
-        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.FromSeconds(10), Value = MakeVideoSource(missingC) });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.FromSeconds(5), Value = MakeVideoSource(missingB) });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.FromSeconds(10), Value = MakeVideoSource(c) });
         drawable.Source.Animation = animation;
         var element = new Element
         {
@@ -597,12 +598,12 @@ public sealed class ExportSourceValidatorTests
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
         scene.Children.Add(element);
 
-        // At the exact frame t=5s the animator samples the next key (missing c), whose span [5s, +inf)
-        // contains the point; a half-open window would drop it as an empty range.
+        // At the exact frame t=5s the animator samples key b (its span (0s, 5s] contains the point); a
+        // half-open window would drop it as an empty range, and the wrong boundary would sample c instead.
         IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
             ExportSourceValidator.CollectRenderableSources(scene, TimeSpan.FromSeconds(5)));
 
-        Assert.That(missing, Is.EqualTo(new[] { missingC }));
+        Assert.That(missing, Is.EqualTo(new[] { missingB }));
     }
 
     // A null-valued keyframe makes GetAnimatedValue fall back to the base CurrentValue, so the base
@@ -714,6 +715,122 @@ public sealed class ExportSourceValidatorTests
 
         // Export [10s,12s]: the 30s global key governs [20s, +inf) — no exported frame samples it, so its
         // missing file must not block export. Previously global-clock keyframes were never windowed.
+        IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
+            ExportSourceValidator.CollectRenderableSources(scene, new TimeRange(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(2))));
+
+        Assert.That(missing, Is.Empty);
+    }
+
+    // Without clamping, an export window wider than the element maps to pre-Start (negative) local time
+    // and keeps element-local keyframes never rendered. Element Start=10s, export [15s, 20s]: only local
+    // [5s, 10s] renders. Unclamped, SubtractStart(10) on the scene window [0s, 20s] would give [-10s, 10s]
+    // and pull in the local-0s key; clamping to the element's active interval first excludes it.
+    [Test]
+    public void CollectRenderableSources_LateStartingElement_WindowClampedToActiveInterval()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string existing = Path.Combine(root, "existing.mov");
+        string missingEarly = Path.Combine(root, "early.mov");
+        File.WriteAllBytes(existing, [1]);
+
+        // Element starts at scene 10s. Local-0s key governs (-inf, 0s]; local-3s key holds from (0s, 3s];
+        // local-12s key holds from (3s, +inf). Only the last two are sampled inside local [5s, 10s].
+        var drawable = new SourceVideo();
+        var animation = new KeyFrameAnimation<VideoSource?>();
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.Zero, Value = MakeVideoSource(missingEarly) });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.FromSeconds(3), Value = MakeVideoSource(existing) });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.FromSeconds(12), Value = MakeVideoSource(existing) });
+        drawable.Source.Animation = animation;
+        var element = new Element
+        {
+            Start = TimeSpan.FromSeconds(10),
+            Length = TimeSpan.FromSeconds(15),
+            IsEnabled = true,
+            Uri = new Uri(Path.Combine(root, $"{Guid.NewGuid():N}.layer")),
+        };
+        element.AddObject(drawable);
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
+        scene.Children.Add(element);
+
+        // Export [15s, 20s]: element-local window [5s, 10s]. The early key governs local (-inf, 0s], never
+        // sampled there, so its missing file must not block export.
+        IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
+            ExportSourceValidator.CollectRenderableSources(scene, new TimeRange(TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(5))));
+
+        Assert.That(missing, Is.Empty);
+    }
+
+    // When a property carries an expression, IProperty.GetValue evaluates the expression and never
+    // samples the base or the animation, so a missing base/keyframe source must not block export while
+    // the expression resolves to an existing source.
+    [Test]
+    public void CollectRenderableSources_ExpressionOverridesBaseAndAnimation()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string missingBase = Path.Combine(root, "base.mov");
+        string missingKey = Path.Combine(root, "key.mov");
+        string exprTarget = Path.Combine(root, "expr.mov");
+        File.WriteAllBytes(exprTarget, [1]);
+
+        var referenced = new SourceVideo();
+        referenced.Source.CurrentValue = MakeVideoSource(exprTarget);
+
+        var drawable = new SourceVideo();
+        drawable.Source.CurrentValue = MakeVideoSource(missingBase);
+        var animation = new KeyFrameAnimation<VideoSource?>();
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.Zero, Value = MakeVideoSource(missingKey) });
+        drawable.Source.Animation = animation;
+        drawable.Source.Expression = Beutl.Engine.Expressions.Expression.CreateReference<VideoSource>(referenced.Id, "Source");
+
+        Element referencedElement = ElementWith(root, referenced);
+        Element element = ElementWith(root, drawable);
+        element.Length = TimeSpan.FromSeconds(10);
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
+        scene.Children.Add(referencedElement);
+        scene.Children.Add(element);
+
+        // Windowed export: the expression wins, so the missing base/key must not block; only the resolved
+        // (existing) expression target is opened.
+        IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
+            ExportSourceValidator.CollectRenderableSources(scene, new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10))));
+
+        Assert.That(missing, Is.Empty);
+    }
+
+    // A node-graph input on the global clock is sampled at scene time, so a global-clock source key
+    // outside the exported scene window must be dropped, not fall back to a broad walk that blocks export.
+    [Test]
+    public void CollectRenderableSources_GlobalClockNodeInput_FilteredBySceneWindow()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string existing = Path.Combine(root, "existing.mov");
+        string missingLate = Path.Combine(root, "late.mov");
+        File.WriteAllBytes(existing, [1]);
+
+        var node = new VideoSourceNode();
+        var animation = new KeyFrameAnimation<VideoSource?> { UseGlobalClock = true };
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.FromSeconds(10), Value = MakeVideoSource(existing) });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.FromSeconds(20), Value = MakeVideoSource(existing) });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.FromSeconds(30), Value = MakeVideoSource(missingLate) });
+        ((IAnimatablePropertyAdapter<VideoSource?>)node.Source.Property!).Animation = animation;
+        var drawable = new NodeGraphDrawable();
+        drawable.Model.CurrentValue!.Nodes.Add(node);
+        var element = new Element
+        {
+            Start = TimeSpan.FromSeconds(5),
+            Length = TimeSpan.FromSeconds(30),
+            IsEnabled = true,
+            Uri = new Uri(Path.Combine(root, $"{Guid.NewGuid():N}.layer")),
+        };
+        element.AddObject(drawable);
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
+        scene.Children.Add(element);
+
+        // Export [10s, 12s]: the 30s global key governs scene (20s, +inf), never sampled, so its missing
+        // file must not block export — previously node inputs ignored the scene window.
         IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
             ExportSourceValidator.CollectRenderableSources(scene, new TimeRange(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(2))));
 

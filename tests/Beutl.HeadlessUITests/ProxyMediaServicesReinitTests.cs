@@ -69,6 +69,9 @@ public sealed class ProxyMediaServicesReinitTests
         {
             IProxyStoreCapInfo capFacade = services.CapInfoFacade;
             Assert.That(capFacade.MaxTotalBytes, Is.EqualTo(8L * 1024 * 1024 * 1024));
+            // A cap-only change must not tear down the store/queue (that would cancel in-flight jobs).
+            ProxyStore storeBefore = services.Store;
+            ProxyJobQueue queueBefore = services.Queue;
 
             config.MaxTotalBytes = 16L * 1024 * 1024 * 1024;
 
@@ -78,6 +81,9 @@ public sealed class ProxyMediaServicesReinitTests
                 Assert.That(capFacade.MaxTotalBytes, Is.EqualTo(16L * 1024 * 1024 * 1024));
                 // The store root did not change, so the facade must keep serving that same path.
                 Assert.That(services.StoreFacade.StoreRootPath, Is.EqualTo(Path.GetFullPath(root)));
+                // Same live store and queue — the cap change retargeted eviction in place.
+                Assert.That(services.Store, Is.SameAs(storeBefore));
+                Assert.That(services.Queue, Is.SameAs(queueBefore));
             });
         }
         finally
@@ -85,6 +91,38 @@ public sealed class ProxyMediaServicesReinitTests
             services.DisposeAsync().AsTask().GetAwaiter().GetResult();
             Restore(config, prior);
             TryDelete(root);
+        }
+    }
+
+    [AvaloniaTest]
+    public void StoreRootPath_change_bumps_resolver_source_version()
+    {
+        ProxyStoreConfig config = GlobalConfiguration.Instance.ProxyStoreConfig;
+        (string Root, long Cap) prior = Snapshot(config);
+        string first = Path.Combine(Path.GetTempPath(), $"proxy-reinit-{Guid.NewGuid():N}");
+        string second = Path.Combine(Path.GetTempPath(), $"proxy-reinit-{Guid.NewGuid():N}");
+        config.StoreRootPath = first;
+
+        ProxyMediaServices services = ProxyMediaServices.Initialize(GlobalConfiguration.Instance);
+        try
+        {
+            // A reader keys reuse on GetSourceVersion; a startup-index entry reports 0 on both stores, so
+            // without a version bump the swap would go unnoticed. The rebuilt resolver must report a
+            // strictly larger version for the same source so the open reader reopens against the new store.
+            string sourceKey = Path.Combine(first, "clip.mov");
+            long versionBefore = services.ResolverFacade.GetSourceVersion(sourceKey);
+
+            config.StoreRootPath = second;
+
+            long versionAfter = services.ResolverFacade.GetSourceVersion(sourceKey);
+            Assert.That(versionAfter, Is.GreaterThan(versionBefore));
+        }
+        finally
+        {
+            services.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            Restore(config, prior);
+            TryDelete(first);
+            TryDelete(second);
         }
     }
 

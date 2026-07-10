@@ -42,8 +42,15 @@ public static class ExportSourceValidator
 
             // The render window in the element's local time (keyframe times are element-local): an
             // out-of-window animated source keyframe is then dropped as unreachable for this render.
-            // sceneWindow itself is the scene-time window a global-clock keyframe samples against.
-            TimeRange localRange = sceneWindow.SubtractStart(element.Start);
+            // Clamp the scene window to the element's active interval first (SubtractStart is a pure
+            // shift): a range window wider than the element would otherwise map to pre-Start local time
+            // (negative) and keep keyframes the element never renders. A point sample already passed the
+            // Range.Contains gate, so it needs no clamp. sceneWindow (unclamped) still drives the
+            // global-clock keyframe filter, which samples at scene time.
+            TimeRange elementLocalWindow = sceneWindow.Duration <= TimeSpan.Zero
+                ? sceneWindow
+                : ClampToElement(sceneWindow, element.Range);
+            TimeRange localRange = elementLocalWindow.SubtractStart(element.Start);
             foreach (IFileSource source in ProxySourceEnumerator.EnumerateFileSources(
                 element, visitedScenes, skipDisabledElements: true, renderTarget, localRange, sceneWindow))
             {
@@ -69,5 +76,15 @@ public static class ExportSourceValidator
             .Where(static path => !File.Exists(path))
             .OrderBy(static path => path, StringComparer.Ordinal)
             .ToArray();
+    }
+
+    // The overlap of the render window with the element's active interval: the render only samples the
+    // element there, so animated keyframes are windowed to it. The caller already filtered to
+    // intersecting elements, so the overlap is non-empty.
+    private static TimeRange ClampToElement(TimeRange sceneWindow, TimeRange elementRange)
+    {
+        TimeSpan start = sceneWindow.Start > elementRange.Start ? sceneWindow.Start : elementRange.Start;
+        TimeSpan end = sceneWindow.End < elementRange.End ? sceneWindow.End : elementRange.End;
+        return new TimeRange(start, end - start);
     }
 }

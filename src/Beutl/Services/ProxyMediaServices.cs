@@ -15,6 +15,10 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
     // Host free-disk headroom kept on the store drive, independent of MaxTotalBytes.
     private const long DefaultMinFreeDiskBytes = 2L * 1024 * 1024 * 1024;
 
+    // Per-swap jump in the resolver version base. Far larger than the per-source bumps a single store
+    // issues in a session, so a reader's cached version can never coincide across a store-root swap.
+    private const long ResolverVersionOffsetStep = 1L << 40;
+
     private static readonly ILogger s_logger = Log.CreateLogger<ProxyMediaServices>();
     private static readonly IReadOnlySet<string> s_noOpenProjectSources = new HashSet<string>();
 
@@ -27,6 +31,9 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
     private bool _disposed;
     private int _diskPressureSweepActive;
     private IDisposable? _configSubscription;
+    // Monotonically increasing base for each rebuilt resolver's source versions, so a store-root swap
+    // makes every open reader observe a version bump and reopen against the new store.
+    private long _resolverVersionOffset;
 
     private ProxyMediaServices(
         ProxyStore store,
@@ -79,23 +86,22 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
             return existing;
 
         ProxyStoreConfig config = configuration.ProxyStoreConfig;
-        var (store, resolver, queue, eviction) = BuildServices(config.StoreRootPath, config.MaxTotalBytes);
+        var (store, resolver, queue, eviction) = BuildServices(config.StoreRootPath, config.MaxTotalBytes, resolverVersionOffset: 0);
         var services = new ProxyMediaServices(store, resolver, queue, eviction);
         s_disposing = false;
         Current = services;
         DecoderRegistry.ProxyResolver = resolver;
 
-        // The store path and eviction cap are captured at construction, so observe both: a runtime
-        // change rebuilds the live store/resolver/queue/eviction against the new values instead of
-        // leaving Generate/Delete/Resolve on the startup directory or the eviction sweep on the old cap.
-        // The setters fire on the UI thread and ReinitializeStore swaps synchronously, so consumers
-        // re-fetching Current?.Store never see a torn mix. Skip(1) drops each observable's replay of the
-        // current value so construction does not immediately rebuild.
+        // Observe both config knobs, but handle them differently: a store-root change rebuilds the whole
+        // pipeline against the new directory, while a cap-only change just retargets the live eviction
+        // threshold (rebuilding the queue would cancel unrelated in-flight generation). The setters fire
+        // on the UI thread and both handlers apply synchronously, so consumers re-fetching Current never
+        // see a torn mix. Skip(1) drops each observable's replay of the current value at construction.
         services._configSubscription = new CompositeDisposable(
             config.GetObservable(ProxyStoreConfig.StoreRootPathProperty).Skip(1)
                 .Subscribe(_ => services.ReinitializeStore(config.StoreRootPath, config.MaxTotalBytes)),
             config.GetObservable(ProxyStoreConfig.MaxTotalBytesProperty).Skip(1)
-                .Subscribe(_ => services.ReinitializeStore(config.StoreRootPath, config.MaxTotalBytes)));
+                .Subscribe(_ => services.UpdateEvictionCap(config.MaxTotalBytes)));
 
         _ = Task.Run(() => ReconcileAndSweepAsync(store, eviction));
 
@@ -103,10 +109,10 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
     }
 
     private static (ProxyStore Store, ProxyResolver Resolver, ProxyJobQueue Queue, ProxyEvictionService Eviction)
-        BuildServices(string storeRootPath, long maxTotalBytes)
+        BuildServices(string storeRootPath, long maxTotalBytes, long resolverVersionOffset)
     {
         var store = new ProxyStore(storeRootPath);
-        var resolver = new ProxyResolver(store);
+        var resolver = new ProxyResolver(store, resolverVersionOffset);
         ProxyJobQueue queue = null!;
         var eviction = new ProxyEvictionService(
             store,
@@ -145,6 +151,17 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
         };
     }
 
+    // A cap-only change retargets the live eviction threshold in place — no store/queue teardown, so
+    // in-flight generation is untouched — then sweeps once so a lowered cap takes effect immediately.
+    private void UpdateEvictionCap(long maxTotalBytes)
+    {
+        if (_disposed)
+            return;
+
+        EvictionService.MaxTotalBytes = maxTotalBytes;
+        _ = Task.Run(() => SweepBestEffort(EvictionService));
+    }
+
     private void ReinitializeStore(string storeRootPath, long maxTotalBytes)
     {
         if (_disposed)
@@ -153,7 +170,10 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
         // Swap on this (the config setter's) thread so consumers re-fetching Current?.Store never
         // observe a torn mix. The old queue is drained off-thread: its drain path marshals
         // project-graph reads through the UI thread, so awaiting it here would deadlock like shutdown.
-        var (newStore, newResolver, newQueue, newEviction) = BuildServices(storeRootPath, maxTotalBytes);
+        // A strictly larger version offset makes every open reader (even one caching version 0 from the
+        // old store's startup index) observe a bump and reopen against the new store.
+        long versionOffset = Interlocked.Add(ref _resolverVersionOffset, ResolverVersionOffsetStep);
+        var (newStore, newResolver, newQueue, newEviction) = BuildServices(storeRootPath, maxTotalBytes, versionOffset);
         ProxyJobQueue oldQueue = Queue;
         ProxyResolver oldResolver = Resolver;
 
