@@ -15,11 +15,12 @@ public class FFmpegNativeRidTests
         Assert.That(FFmpegNativeRid.GetWindowsRid(architecture), Is.EqualTo(expected));
     }
 
-    [Test]
-    public void GetWindowsRid_UnknownArchitecture_FallsBackToX64()
+    [TestCase(Architecture.Wasm)]
+    [TestCase(Architecture.Arm)] // 32-bit ARM; win-arm is not a supported target
+    public void GetWindowsRid_UnknownArchitecture_FallsBackToX64(Architecture architecture)
     {
         // Anything that is neither arm64 nor x86 must resolve to win-x64 so a 64-bit
         // x64 process never probes the win-x86 folder.
-        Assert.That(FFmpegNativeRid.GetWindowsRid(Architecture.Wasm), Is.EqualTo("win-x64"));
+        Assert.That(FFmpegNativeRid.GetWindowsRid(architecture), Is.EqualTo("win-x64"));
     }
 }
