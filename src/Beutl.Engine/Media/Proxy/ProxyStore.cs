@@ -621,13 +621,26 @@ public sealed class ProxyStore : IProxyStore
                 return;
             }
 
+            // Seed from the degraded-and-pending ops, then let this flush's own ops supersede them per key:
+            // a fresh registration cancels a stale pending delete (the delete/regenerate race after
+            // transient lock contention) and a fresh delete cancels a stale pending persist. Without the
+            // supersede, effectiveChanged.ExceptWith below would drop the freshly registered proxy and
+            // _entries.Clear() would lose it from memory too. Mirrors the re-Register-supersedes-Delete rule
+            // DegradePersistence already applies on the degrade path.
             HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> effectiveRemoved = [.. _pendingRemoveKeys];
-            if (removedKeys != null)
-                effectiveRemoved.UnionWith(removedKeys);
-
             HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> effectiveChanged = [.. _pendingPersistKeys];
             if (changedKeys != null)
+            {
+                effectiveRemoved.ExceptWith(changedKeys);
                 effectiveChanged.UnionWith(changedKeys);
+            }
+
+            if (removedKeys != null)
+            {
+                effectiveChanged.ExceptWith(removedKeys);
+                effectiveRemoved.UnionWith(removedKeys);
+            }
+
             effectiveChanged.ExceptWith(effectiveRemoved);
 
             Dictionary<(ProxyFingerprint Source, ProxyPreset Preset), ProxyEntry> merged = [];

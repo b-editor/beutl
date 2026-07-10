@@ -319,7 +319,7 @@ public class IpcProviderContractTests
         // frameCount: 6 makes frame 5 the last frame, so RenderFrame(5) issues no post-seek prefetch.
         // This keeps the test self-contained: no dangling prefetch task survives into teardown to
         // raise an unobserved exception when the pipe/buffers are disposed.
-        var provider = new IpcFrameProvider(conn, buffers, frameCount: 6, frameRate: new Rational(30, 1));
+        var provider = new IpcFrameProvider(conn, buffers, frameCount: 6, frameRate: new Rational(30, 1), sourceWidth: 1, sourceHeight: 1);
 
         try
         {
@@ -361,7 +361,7 @@ public class IpcProviderContractTests
             bytesPerPixel: Bgra8888BytesPerPixel);
 
         using var conn = new IpcConnection(client);
-        var provider = new IpcFrameProvider(conn, buffers, frameCount: 1, frameRate: new Rational(30, 1));
+        var provider = new IpcFrameProvider(conn, buffers, frameCount: 1, frameRate: new Rational(30, 1), sourceWidth: 1, sourceHeight: 1);
 
         try
         {
@@ -395,7 +395,7 @@ public class IpcProviderContractTests
             bytesPerPixel: RgbaF16BytesPerPixel, colorType: (int)BitmapColorType.Rgba16161616);
 
         using var conn = new IpcConnection(client);
-        var provider = new IpcFrameProvider(conn, buffers, frameCount: 1, frameRate: new Rational(30, 1));
+        var provider = new IpcFrameProvider(conn, buffers, frameCount: 1, frameRate: new Rational(30, 1), sourceWidth: 1, sourceHeight: 1);
 
         try
         {
@@ -428,7 +428,7 @@ public class IpcProviderContractTests
             bytesPerPixel: Bgra8888BytesPerPixel, colorType: (int)BitmapColorType.Rgba16161616);
 
         using var conn = new IpcConnection(client);
-        var provider = new IpcFrameProvider(conn, buffers, frameCount: 1, frameRate: new Rational(30, 1));
+        var provider = new IpcFrameProvider(conn, buffers, frameCount: 1, frameRate: new Rational(30, 1), sourceWidth: 1, sourceHeight: 1);
 
         try
         {
@@ -455,7 +455,7 @@ public class IpcProviderContractTests
 
         using var conn = new IpcConnection(client);
         // frameCount 1 makes frame 0 the last frame, so no prefetch is armed and nothing dangles.
-        var provider = new IpcFrameProvider(conn, buffers, frameCount: 1, frameRate: new Rational(30, 1));
+        var provider = new IpcFrameProvider(conn, buffers, frameCount: 1, frameRate: new Rational(30, 1), sourceWidth: 1, sourceHeight: 1);
 
         try
         {
@@ -481,7 +481,7 @@ public class IpcProviderContractTests
             bytesPerPixel: 3);
 
         using var conn = new IpcConnection(client);
-        var provider = new IpcFrameProvider(conn, buffers, frameCount: 1, frameRate: new Rational(30, 1));
+        var provider = new IpcFrameProvider(conn, buffers, frameCount: 1, frameRate: new Rational(30, 1), sourceWidth: 1, sourceHeight: 1);
 
         try
         {
@@ -508,7 +508,7 @@ public class IpcProviderContractTests
         var hostTask = RunMalformedFrameHost(server, width, height, dataLength: 0, ct: hostCts.Token);
 
         using var conn = new IpcConnection(client);
-        var provider = new IpcFrameProvider(conn, buffers, frameCount: 1, frameRate: new Rational(30, 1));
+        var provider = new IpcFrameProvider(conn, buffers, frameCount: 1, frameRate: new Rational(30, 1), sourceWidth: 1, sourceHeight: 1);
 
         try
         {
@@ -538,7 +538,10 @@ public class IpcProviderContractTests
             server, width: 32, height: 32, dataLength: oversizedDataLength, ct: hostCts.Token);
 
         using var conn = new IpcConnection(client);
-        var provider = new IpcFrameProvider(conn, buffers, frameCount: 1, frameRate: new Rational(30, 1));
+        // Negotiated source is 32x32 so the frame passes the dimension guard and the capacity guard is
+        // what rejects it (the 32x32 RgbaF16 frame exceeds the 4096-byte buffer).
+        var provider = new IpcFrameProvider(
+            conn, buffers, frameCount: 1, frameRate: new Rational(30, 1), sourceWidth: 32, sourceHeight: 32);
 
         try
         {
@@ -550,6 +553,39 @@ public class IpcProviderContractTests
             // after BuildBitmap succeeds).
             Assert.That(provider.FramesRendered, Is.EqualTo(0),
                 "a render rejected before allocation must not count as a completed frame");
+        }
+        finally
+        {
+            await StopHost(hostCts, server, hostTask);
+            DisposeBuffers(buffers);
+        }
+    }
+
+    [Test]
+    public async Task RenderFrame_WhenFrameDimensionsExceedNegotiatedSource_Throws()
+    {
+        // The worker sizes the shared buffer SourceWidth*SourceHeight*8 (RgbaF16), but the encoder copies
+        // each converted frame into a MediaFrame fixed at SourceWidth*SourceHeight*4 (BGRA). A 2x1 BGRA
+        // frame is 8 bytes — it clears the DataLength guard (8 == 2*1*4) AND the *8 capacity guard, yet has
+        // more pixels than the negotiated 1x1 source, so it would overrun that fixed MediaFrame. The
+        // dimension guard must reject it before it is ever handed back.
+        var (server, client) = ConnectPair();
+        var buffers = CreateBuffers();
+        var hostCts = new CancellationTokenSource();
+        var hostTask = RunMalformedFrameHost(
+            server, width: 2, height: 1, dataLength: 2 * 1 * Bgra8888BytesPerPixel, ct: hostCts.Token,
+            bytesPerPixel: Bgra8888BytesPerPixel);
+
+        using var conn = new IpcConnection(client);
+        var provider = new IpcFrameProvider(
+            conn, buffers, frameCount: 1, frameRate: new Rational(30, 1), sourceWidth: 1, sourceHeight: 1);
+
+        try
+        {
+            Assert.That(async () => await provider.RenderFrame(0),
+                Throws.TypeOf<InvalidOperationException>(),
+                "a frame with more pixels than the negotiated source must be rejected, not copied into the fixed frame");
+            Assert.That(provider.FramesRendered, Is.EqualTo(0));
         }
         finally
         {
@@ -573,7 +609,7 @@ public class IpcProviderContractTests
         using var conn = new IpcConnection(client);
         // frameCount 3: frame 0 is not the last frame, so a misplaced guard *would* arm a prefetch of 1.
         // frame 2 is the last frame, so the successful render issues no further prefetch and nothing dangles.
-        var provider = new IpcFrameProvider(conn, buffers, frameCount: 3, frameRate: new Rational(30, 1));
+        var provider = new IpcFrameProvider(conn, buffers, frameCount: 3, frameRate: new Rational(30, 1), sourceWidth: 1, sourceHeight: 1);
 
         try
         {
@@ -610,7 +646,7 @@ public class IpcProviderContractTests
 
         using var conn = new IpcConnection(client);
         // frameCount 2: frame 0 arms the prefetch of 1; the recovered frame 1 is last, so nothing dangles.
-        var provider = new IpcFrameProvider(conn, buffers, frameCount: 2, frameRate: new Rational(30, 1));
+        var provider = new IpcFrameProvider(conn, buffers, frameCount: 2, frameRate: new Rational(30, 1), sourceWidth: 1, sourceHeight: 1);
 
         try
         {
@@ -647,7 +683,7 @@ public class IpcProviderContractTests
         using var conn = new IpcConnection(client);
         // frameCount 6 makes frame 5 the last frame, so the recovered seek issues no further prefetch and
         // nothing dangles into teardown.
-        var provider = new IpcFrameProvider(conn, buffers, frameCount: 6, frameRate: new Rational(30, 1));
+        var provider = new IpcFrameProvider(conn, buffers, frameCount: 6, frameRate: new Rational(30, 1), sourceWidth: 1, sourceHeight: 1);
 
         try
         {
@@ -719,7 +755,7 @@ public class IpcProviderContractTests
 
         using var conn = new IpcConnection(client);
         // frameCount 3: frame 0 arms a prefetch of frame 1, which the host faults. Frame 1 is never consumed.
-        var provider = new IpcFrameProvider(conn, buffers, frameCount: 3, frameRate: new Rational(30, 1));
+        var provider = new IpcFrameProvider(conn, buffers, frameCount: 3, frameRate: new Rational(30, 1), sourceWidth: 1, sourceHeight: 1);
 
         try
         {
@@ -794,7 +830,7 @@ public class IpcProviderContractTests
         var hostTask = RunCancelingHost(server, hostCts.Token);
 
         using var conn = new IpcConnection(client);
-        var provider = new IpcFrameProvider(conn, buffers, frameCount: 100, frameRate: new Rational(30, 1));
+        var provider = new IpcFrameProvider(conn, buffers, frameCount: 100, frameRate: new Rational(30, 1), sourceWidth: 1, sourceHeight: 1);
 
         try
         {
@@ -845,7 +881,7 @@ public class IpcProviderContractTests
         var hostTask = RunFreshIdCancelingHost(server, hostCts.Token);
 
         using var conn = new IpcConnection(client);
-        var provider = new IpcFrameProvider(conn, buffers, frameCount: 100, frameRate: new Rational(30, 1));
+        var provider = new IpcFrameProvider(conn, buffers, frameCount: 100, frameRate: new Rational(30, 1), sourceWidth: 1, sourceHeight: 1);
 
         try
         {

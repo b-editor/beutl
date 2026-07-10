@@ -1303,6 +1303,100 @@ public sealed class ExportSourceValidatorTests
         Assert.That(missing, Does.Contain(missingVideo));
     }
 
+    // A video-muted layer contributes no picture (SceneCompositor.SortLayers skips it for the graphics
+    // pass), so a missing video original on that layer must not block export or a save frame.
+    [Test]
+    public void CollectRenderableSources_VideoMutedLayer_SkipsVideoSource()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string missingVideo = Path.Combine(root, "muted.mov");
+
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
+        Element element = CreateVideoElement(root, missingVideo);
+        element.ZIndex = 3;
+        scene.Children.Add(element);
+        scene.Layers.Add(new TimelineLayer { ZIndex = 3, IsVideoMuted = true });
+
+        IReadOnlyList<string> export = ExportSourceValidator.GetMissingPaths(
+            ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene));
+        IReadOnlyList<string> frame = ExportSourceValidator.GetMissingPaths(
+            ExportSourceValidator.CollectRenderableSources(scene, TimeSpan.Zero));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(export, Is.Empty);
+            Assert.That(frame, Is.Empty);
+        });
+    }
+
+    // Mute is per-pass: a video-muted layer still plays its sound, so its audio original is still opened by
+    // the audio pass and must remain a preflight blocker even though its picture is skipped.
+    [Test]
+    public void CollectRenderableSources_VideoMutedLayer_StillChecksAudioSource()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string missingSound = Path.Combine(root, "muted-video.mp3");
+
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
+        Element element = CreateSoundElement(root, missingSound);
+        element.ZIndex = 2;
+        scene.Children.Add(element);
+        scene.Layers.Add(new TimelineLayer { ZIndex = 2, IsVideoMuted = true });
+
+        IReadOnlyList<string> export = ExportSourceValidator.GetMissingPaths(
+            ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene));
+
+        Assert.That(export, Is.EqualTo(new[] { missingSound }));
+    }
+
+    // An audio-muted layer contributes no sound, so a missing audio original on it must not block export.
+    [Test]
+    public void CollectRenderableSources_AudioMutedLayer_SkipsAudioSource()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string missingSound = Path.Combine(root, "muted.mp3");
+
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
+        Element element = CreateSoundElement(root, missingSound);
+        element.ZIndex = 1;
+        scene.Children.Add(element);
+        scene.Layers.Add(new TimelineLayer { ZIndex = 1, IsAudioMuted = true });
+
+        IReadOnlyList<string> export = ExportSourceValidator.GetMissingPaths(
+            ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene));
+
+        Assert.That(export, Is.Empty);
+    }
+
+    // With any solo layer active only solo layers render, so a missing original on a non-solo layer must
+    // not block export while the soloed layer's missing original still does.
+    [Test]
+    public void CollectRenderableSources_SoloLayer_SkipsNonSoloElements()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string soloMissing = Path.Combine(root, "solo.mov");
+        string otherMissing = Path.Combine(root, "other.mov");
+
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
+        Element soloed = CreateVideoElement(root, soloMissing);
+        soloed.ZIndex = 0;
+        Element other = CreateVideoElement(root, otherMissing);
+        other.ZIndex = 1;
+        scene.Children.Add(soloed);
+        scene.Children.Add(other);
+        scene.Layers.Add(new TimelineLayer { ZIndex = 0, IsSolo = true });
+        scene.Layers.Add(new TimelineLayer { ZIndex = 1 });
+
+        IReadOnlyList<string> export = ExportSourceValidator.GetMissingPaths(
+            ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene));
+
+        Assert.That(export, Is.EqualTo(new[] { soloMissing }));
+    }
+
     private static SourceSound SoundDrawable(string sourcePath)
     {
         var source = new SoundSource();

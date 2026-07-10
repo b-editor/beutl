@@ -13,15 +13,19 @@ internal sealed class IpcFrameProvider : IFrameProvider
 {
     private readonly IpcConnection _connection;
     private readonly SharedMemoryBuffer[] _videoBuffers;
+    private readonly int _sourceWidth;
+    private readonly int _sourceHeight;
     private readonly PrefetchSlot<long, IpcMessage> _prefetch = new();
     private int _bufferIndex;
     private bool _disposed;
 
     public IpcFrameProvider(IpcConnection connection, SharedMemoryBuffer[] videoBuffers,
-        long frameCount, Rational frameRate)
+        long frameCount, Rational frameRate, int sourceWidth, int sourceHeight)
     {
         _connection = connection;
         _videoBuffers = videoBuffers;
+        _sourceWidth = sourceWidth;
+        _sourceHeight = sourceHeight;
         FrameCount = frameCount;
         FrameRate = frameRate;
     }
@@ -105,6 +109,16 @@ internal sealed class IpcFrameProvider : IFrameProvider
         if (frameInfo.Width <= 0 || frameInfo.Height <= 0)
             throw new InvalidOperationException(
                 $"Frame has non-positive dimensions {frameInfo.Width}x{frameInfo.Height}.");
+
+        // The buffer is sized SourceWidth*SourceHeight*8 (RgbaF16) but the encoder copies each converted
+        // frame into a MediaFrame fixed at SourceWidth*SourceHeight*4 (BGRA). A BGRA frame with more pixels
+        // than the negotiated source still fits the *8 buffer and passes the capacity guard below, then
+        // overruns that fixed MediaFrame. Reject any frame whose dimensions differ from the negotiated
+        // source size so the size the encoder assumes is the size it gets.
+        if (frameInfo.Width != _sourceWidth || frameInfo.Height != _sourceHeight)
+            throw new InvalidOperationException(
+                $"Frame dimensions {frameInfo.Width}x{frameInfo.Height} do not match the negotiated source " +
+                $"size {_sourceWidth}x{_sourceHeight}.");
 
         (BitmapColorType colorType, BitmapColorSpace colorSpace, int bytesPerPixel) = GetFrameFormat(frameInfo);
         long expected = (long)frameInfo.Width * frameInfo.Height * bytesPerPixel;

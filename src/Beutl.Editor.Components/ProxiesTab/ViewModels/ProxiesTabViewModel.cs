@@ -194,8 +194,8 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
 
         foreach (ProxyClipViewModel clip in Clips)
         {
-            if (clip.Preset.Value == oldPreset)
-                clip.Preset.Value = newPreset;
+            if (clip.IsFollowingDefault)
+                clip.ApplyDefaultPreset(newPreset);
         }
     }
 
@@ -593,18 +593,32 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
         Dictionary<string, ProxyPreset> selectedPresets = Clips.ToDictionary(
             static clip => clip.Path,
             static clip => clip.Preset.Value);
-        // Carry the selection across the rebuild too: a background proxy finishing (Registered/
-        // StateChanged) or terminal job triggers Refresh, and losing the selection would silently
-        // drop clips the user had picked for a bulk generate/delete.
+        // Carry both the picked preset and its follow-the-default state across the rebuild: a background
+        // proxy finishing (Registered/StateChanged) or terminal job triggers Refresh, and losing either
+        // would silently drop the user's selection or revert an explicit choice back to following.
+        Dictionary<string, bool> followingByPath = Clips.ToDictionary(
+            static clip => clip.Path,
+            static clip => clip.IsFollowingDefault);
         HashSet<string> selectedPaths =
             [.. Clips.Where(static clip => clip.IsSelected.Value).Select(static clip => clip.Path)];
 
         ClearClips();
         foreach ((string path, ProxyFingerprint fingerprint) in EnumerateProjectVideoSources())
         {
-            ProxyPreset preset = selectedPresets.GetValueOrDefault(path, FindDefaultPreset(fingerprint));
+            ProxyPreset preset;
+            bool followingDefault;
+            if (selectedPresets.TryGetValue(path, out ProxyPreset preserved))
+            {
+                preset = preserved;
+                followingDefault = followingByPath.GetValueOrDefault(path);
+            }
+            else
+            {
+                (preset, followingDefault) = ResolveInitialPreset(fingerprint);
+            }
+
             ProxyEntry? entry = FindEntry(fingerprint, preset);
-            var clip = new ProxyClipViewModel(this, path, fingerprint, preset, entry);
+            var clip = new ProxyClipViewModel(this, path, fingerprint, preset, entry, followingDefault);
             if (selectedPaths.Contains(path))
                 clip.IsSelected.Value = true;
             Clips.Add(clip);
@@ -894,19 +908,22 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
             .FirstOrDefault(entry => entry.Source.AbsolutePath == source.AbsolutePath);
     }
 
-    private ProxyPreset FindDefaultPreset(ProxyFingerprint source)
+    // The preset a freshly listed row starts on, and whether that row tracks the global default. A row
+    // pinned to an already-generated proxy (at the default preset or any other) does not follow the
+    // default; only a row that fell through to the default with no generated proxy does.
+    private (ProxyPreset Preset, bool FollowingDefault) ResolveInitialPreset(ProxyFingerprint source)
     {
         ProxyPreset defaultPreset = ToPreset(_config.DefaultPreset);
         if (IsGenerated(FindEntry(source, defaultPreset)))
-            return defaultPreset;
+            return (defaultPreset, false);
 
         foreach (ProxyPreset preset in s_presetOrder)
         {
             if (IsGenerated(FindEntry(source, preset)))
-                return preset;
+                return (preset, false);
         }
 
-        return defaultPreset;
+        return (defaultPreset, true);
     }
 
     private static bool IsGenerated(ProxyEntry? entry)
@@ -1057,16 +1074,20 @@ public sealed class ProxyClipViewModel : IDisposable
     private readonly CompositeDisposable _disposables = [];
     private readonly ProxiesTabViewModel _owner;
 
+    private bool _applyingDefault;
+
     public ProxyClipViewModel(
         ProxiesTabViewModel owner,
         string path,
         ProxyFingerprint source,
         ProxyPreset preset,
-        ProxyEntry? entry)
+        ProxyEntry? entry,
+        bool followingDefault)
     {
         _owner = owner;
         Path = path;
         Source = source;
+        IsFollowingDefault = followingDefault;
         Preset = new ReactiveProperty<ProxyPreset>(preset)
             .DisposeWith(_disposables);
         State = new ReactiveProperty<string>()
@@ -1118,13 +1139,44 @@ public sealed class ProxyClipViewModel : IDisposable
         Preset.Subscribe(newPreset =>
             {
                 if (initialized)
+                {
+                    // A change the user drove from the dropdown is an explicit choice, so the row stops
+                    // tracking the global default. A programmatic ApplyDefaultPreset write (guarded by
+                    // _applyingDefault) keeps the row following.
+                    if (!_applyingDefault)
+                        IsFollowingDefault = false;
+
                     _owner.OnPresetChanged(this, previousPreset, newPreset);
+                }
 
                 previousPreset = newPreset;
             })
             .DisposeWith(_disposables);
         UpdateEntry(entry);
         initialized = true;
+    }
+
+    // Whether this row still tracks the global default preset. A row starts following when its preset
+    // came from the default with no pre-existing proxy pinning it; it stops the moment the user picks a
+    // preset from the dropdown, even one that equals the current default.
+    public bool IsFollowingDefault { get; private set; }
+
+    // Push a global-default change onto a following row without clearing IsFollowingDefault. Distinct
+    // from a user edit so a row whose explicit choice happens to equal the old default is not swept along.
+    internal void ApplyDefaultPreset(ProxyPreset newPreset)
+    {
+        if (Preset.Value == newPreset)
+            return;
+
+        _applyingDefault = true;
+        try
+        {
+            Preset.Value = newPreset;
+        }
+        finally
+        {
+            _applyingDefault = false;
+        }
     }
 
     public string FileName => System.IO.Path.GetFileName(Path);

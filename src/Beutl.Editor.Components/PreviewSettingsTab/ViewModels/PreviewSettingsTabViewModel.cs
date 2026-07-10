@@ -56,16 +56,19 @@ public sealed class PreviewSettingsTabViewModel : IToolContext, IPropertyEditorC
             new CorePropertyAdapter<int>(EditorConfig.NodeCacheMaxPixelsProperty, config),
             new CorePropertyAdapter<int>(EditorConfig.NodeCacheMinPixelsProperty, config));
 
+        // int-backed so ComboBox.SelectedIndex (an int) round-trips: binding SelectedIndex directly to an
+        // enum-typed ReactiveProperty writes the index back untranslated and the setting never updates.
         PreviewSourceMode = config.GetObservable(EditorConfig.PreviewSourceModeProperty)
+            .Select(v => (int)v)
             .ToReactiveProperty()
             .DisposeWith(_disposables);
-        PreviewSourceMode.Subscribe(v => config.PreviewSourceMode = v)
+        PreviewSourceMode.Subscribe(v => config.PreviewSourceMode = (PreviewSourceMode)v)
             .DisposeWith(_disposables);
     }
 
     public bool IsRenderQualityAvailable { get; }
 
-    public ReactiveProperty<PreviewSourceMode> PreviewSourceMode { get; }
+    public ReactiveProperty<int> PreviewSourceMode { get; }
 
     public IReactiveProperty<RenderScale>? PreviewScale { get; }
 

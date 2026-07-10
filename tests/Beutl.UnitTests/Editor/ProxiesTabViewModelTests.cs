@@ -696,6 +696,44 @@ public sealed class ProxiesTabViewModelTests
         }
     }
 
+    // #7: a row the user explicitly set to a preset that happens to equal the current default must keep
+    // that choice when the default later changes — the old value-equality sweep overwrote it because it
+    // could not tell an explicit pick from a row merely showing the default.
+    [Test]
+    public void DefaultPresetChanged_KeepsExplicitChoiceEqualToOldDefault()
+    {
+        string root = CreateRoot();
+        string firstPath = CreateSourceFile(root, "first.mov", 1024);
+        string secondPath = CreateSourceFile(root, "second.mov", 1024);
+        var store = new ProxyStore(Path.Combine(root, "proxies"));
+        ProxyStoreConfig config = GlobalConfiguration.Instance.ProxyStoreConfig;
+        int originalDefault = config.DefaultPreset;
+        try
+        {
+            config.DefaultPreset = (int)ProxyPreset.Quarter;
+            using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, firstPath, secondPath));
+            ProxyClipViewModel following = viewModel.Clips[0];
+            ProxyClipViewModel explicitEqual = viewModel.Clips[1];
+            // Change away and back so the row explicitly lands on Quarter (the current default) via a real
+            // dropdown change: the row now shows the default value but is no longer following it.
+            explicitEqual.Preset.Value = ProxyPreset.Half;
+            explicitEqual.Preset.Value = ProxyPreset.Quarter;
+
+            config.DefaultPreset = (int)ProxyPreset.Eighth;
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(following.Preset.Value, Is.EqualTo(ProxyPreset.Eighth), "the following row tracks the new default");
+                Assert.That(explicitEqual.Preset.Value, Is.EqualTo(ProxyPreset.Quarter),
+                    "the explicit choice equal to the old default must not be swept to the new default");
+            });
+        }
+        finally
+        {
+            config.DefaultPreset = originalDefault;
+        }
+    }
+
     // Generate All / Delete act on Clips, so the list must track project edits made while the tab
     // is open — not just proxy store/queue events.
     [Test]

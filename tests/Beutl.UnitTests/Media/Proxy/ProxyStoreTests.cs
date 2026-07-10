@@ -399,6 +399,42 @@ public sealed class ProxyStoreTests
         });
     }
 
+    // #6: a delete that degraded under lock contention leaves the key in _pendingRemoveKeys. When a
+    // regenerated proxy for the same key is registered on the next (uncontended) flush, the fresh
+    // registration must supersede the stale pending delete — otherwise the merge drops it and
+    // _entries.Clear() loses it from memory too, so the delete/regenerate race silently discards the proxy.
+    [Test]
+    public void FlushCore_ReRegistrationAfterDegradedDelete_KeepsFreshProxy()
+    {
+        string root = CreateRoot();
+        var store = new ProxyStore(root, lockAcquireMaxAttempts: 0);
+        ProxyEntry entry = CreateEntry(root, "hash/quarter.mp4");
+        store.Register(entry);
+        Assert.That(store.IsPersistenceDegraded, Is.False, "the initial registration persists cleanly");
+
+        string lockPath = Path.Combine(root, "index.lock");
+        using (new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None))
+        {
+            store.Delete(entry.Source, entry.Preset);
+            Assert.That(store.IsPersistenceDegraded, Is.True, "the delete degrades and only pends the removal");
+        }
+
+        // Lock released: a regenerated proxy for the same key is registered and its flush succeeds. Write
+        // its file so Register's Ready-entry validation (file exists, length matches) passes.
+        string regeneratedRelative = "hash/quarter-regenerated.mp4";
+        string regeneratedPath = Path.Combine(store.StoreRootPath, "hash", "quarter-regenerated.mp4");
+        File.WriteAllBytes(regeneratedPath, [9, 9, 9, 9, 9]);
+        ProxyEntry regenerated = entry with { ProxyFileRelative = regeneratedRelative, ProxyFileSizeBytes = 5 };
+        store.Register(regenerated);
+
+        Assert.That(store.TryGet(entry.Source, entry.Preset), Is.EqualTo(regenerated),
+            "the fresh registration must win over the stale pending delete in memory");
+
+        var reloaded = new ProxyStore(root);
+        Assert.That(reloaded.TryGet(entry.Source, entry.Preset), Is.EqualTo(regenerated),
+            "the fresh registration must also survive on disk");
+    }
+
     [Test]
     public void LoadIndex_IgnoresPreviousStoreVersion()
     {

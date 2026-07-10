@@ -462,6 +462,48 @@ public sealed class FFmpegProxyGeneratorPublishTests
         Assert.That(File.Exists(temp), Is.True);
     }
 
+    [Test]
+    public void EnsureSourceUnchanged_WhenSourceUnchanged_DoesNotThrow()
+    {
+        string root = CreateRoot();
+        string source = Path.Combine(root, "src.mov");
+        File.WriteAllBytes(source, [1, 2, 3, 4]);
+        ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(source);
+
+        Assert.That(() => FFmpegProxyGenerator.EnsureSourceUnchanged(source, fingerprint), Throws.Nothing);
+    }
+
+    [Test]
+    public void EnsureSourceUnchanged_WhenSourceChanged_SkipsRatherThanFails()
+    {
+        string root = CreateRoot();
+        string source = Path.Combine(root, "src.mov");
+        File.WriteAllBytes(source, [1, 2, 3, 4]);
+        ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(source);
+        // A content change bumps size/mtime, so the re-stat no longer matches the fingerprint captured
+        // before the encode.
+        File.WriteAllBytes(source, [1, 2, 3, 4, 5, 6]);
+
+        Assert.That(() => FFmpegProxyGenerator.EnsureSourceUnchanged(source, fingerprint),
+            Throws.TypeOf<ProxyGenerationSkippedException>());
+    }
+
+    [Test]
+    public void EnsureSourceUnchanged_WhenSourceMissing_SkipsRatherThanFails()
+    {
+        // A source deleted/moved mid-encode makes the job obsolete. The re-stat must classify it as
+        // Skipped (ProxyGenerationSkippedException), not let FromFile's FileNotFoundException fall through
+        // to ProxyJobQueue's generic-exception path, which would record a Failed proxy entry.
+        string root = CreateRoot();
+        string source = Path.Combine(root, "src.mov");
+        File.WriteAllBytes(source, [1, 2, 3, 4]);
+        ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(source);
+        File.Delete(source);
+
+        Assert.That(() => FFmpegProxyGenerator.EnsureSourceUnchanged(source, fingerprint),
+            Throws.TypeOf<ProxyGenerationSkippedException>());
+    }
+
     private static string CreateTempArtifact()
     {
         string root = CreateRoot();
