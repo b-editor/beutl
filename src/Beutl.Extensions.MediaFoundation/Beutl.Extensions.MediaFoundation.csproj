@@ -7,7 +7,10 @@
     <MFBuildIn Condition="'$(MFBuildIn)' == ''">True</MFBuildIn>
     <DefineConstants>$(DefineConstants);DESKTOP_APP</DefineConstants>
     <DefineConstants Condition="'$(MFBuildIn)'=='True'">$(DefineConstants);MF_BUILD_IN</DefineConstants>
-    <PlatformTarget Condition="'$(PlatformTarget)' == '' and $([MSBuild]::IsOSPlatform('Windows'))">x64</PlatformTarget>
+    <!-- This extension relies on Direct3D9 / DXVA2 (IDirect3DDeviceManager9), which the
+         Win32 metadata marks x86/x64-only, so it cannot be built for win-arm64. Callers
+         exclude it from arm64 builds; here we keep the historical x64 target. -->
+    <PlatformTarget Condition="'$(PlatformTarget)' == '' And ($([MSBuild]::IsOSPlatform('Windows')) Or $(RuntimeIdentifier.StartsWith('win')))">x64</PlatformTarget>
     <UseResXGenerator>true</UseResXGenerator>
   </PropertyGroup>
 

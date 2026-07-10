@@ -40,6 +40,9 @@
   <ItemGroup>
     <Compile Include="..\..\src\Beutl.FFmpegWorker\FFmpegLoaderWorker.cs" Link="Linked\FFmpegLoaderWorker.cs" />
     <Compile Include="..\..\src\Beutl.FFmpegWorker\WorkerLog.cs" Link="Linked\WorkerLog.cs" />
+    <!-- FFmpegLoaderWorker references FFmpegNativeRid; link it here too since this
+         project links the worker source instead of referencing Beutl.Extensions.FFmpeg. -->
+    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\FFmpegNativeRid.cs" Link="Linked\FFmpegNativeRid.cs" />
   </ItemGroup>
 
   <!-- IPC テスト用: ビルド済みワーカーとその依存DLLを出力ディレクトリにコピー -->

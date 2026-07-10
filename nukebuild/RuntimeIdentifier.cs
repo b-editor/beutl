@@ -38,4 +38,13 @@ public class RuntimeIdentifier : Enumeration
     {
         Value = "osx-arm64"
     };
+
+    /// <summary>
+    /// True for Windows RIDs (win-x64, win-arm64, ...), which must publish against the
+    /// net*-windows TFM rather than the cross-platform one.
+    /// </summary>
+    public bool IsWindows => Value.StartsWith("win", StringComparison.Ordinal);
+
+    /// <summary>The architecture segment of the RID (e.g. "x64", "arm64").</summary>
+    public string Architecture => Value[(Value.IndexOf('-') + 1)..];
 }

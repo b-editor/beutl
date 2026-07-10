@@ -41,6 +41,7 @@
     <Compile Include="..\..\src\Beutl.FFmpegWorker\ColorSpaceHelper.cs" Link="Linked\ColorSpaceHelper.cs" />
     <Compile Include="..\..\src\Beutl.FFmpegWorker\FFmpegLoaderWorker.cs" Link="Linked\FFmpegLoaderWorker.cs" />
     <Compile Include="..\..\src\Beutl.FFmpegWorker\WorkerLog.cs" Link="Linked\WorkerLog.cs" />
+    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\FFmpegNativeRid.cs" Link="Linked\FFmpegNativeRid.cs" />
   </ItemGroup>
 
   <!-- Settings/record types shared with the MIT extension (compiled here under BEUTL_FFMPEG_WORKER). -->
