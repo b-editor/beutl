@@ -18,7 +18,7 @@ This contract defines what an effect author (built-in, plugin, or script) may re
 | `ColorFilterNode` | `SKColorFilter` factory | fused with adjacent invariant nodes into the same draw |
 | `SkiaFilterNode` | `SKImageFilter` factory + `BoundsContract` | grouped with adjacent Skia filter nodes into one filtered draw |
 | `ComputeNode` | GLSL pass set, structural pass count, declared no-Vulkan fallback | executor schedules passes, provides ping-pong/depth textures from the pool, applies push constants |
-| `GeometryNode` | `Action<GeometrySession>` + mandatory `BoundsContract` | session canvas + read-only inputs; executor owns target, ROI, sync |
+| `GeometryNode` | `Action<GeometrySession>` + mandatory `BoundsContract` | session canvas + read-only inputs; executor owns target, ROI, sync; a render-time author that discovers its output is empty calls `GeometrySession.DiscardOutput()` so the executor releases the target and the pass produces no downstream operation (the §C3 drop rule; e.g. `Clipping.AutoClip` over a fully transparent input) |
 | `SplitNode`/`CompositeNode` | branch count / composite op | fusion never crosses; branches schedule independently |
 
 A snippet (`ShaderNode`) uniform MUST be declared one per statement (`uniform float a; uniform float b;`), never as a comma-separated declarator list (`uniform float a, b;`). The snippet merger prefixes each uniform by name (`feN_`) so adjacent snippets fuse without redefinitions; a multi-declarator list leaves the trailing names unprefixed and silently binds them wrong in a fused program, so `SkslSource.Snippet` rejects it at describe time with a clear error. Fixed-size array uniforms (`uniform float lut[4];`) are single-declarator and remain valid.

@@ -98,7 +98,14 @@ public sealed partial class Clipping : FilterEffect
         if (autoClip)
         {
             using Bitmap snapshot = input.Snapshot();
-            Thickness detected = FindTransparentMargins(snapshot);
+            if (FindTransparentMargins(snapshot) is not { } detected)
+            {
+                // No non-transparent input pixels: the clip region is empty, so the pass must yield no downstream
+                // operation rather than a full-size transparent target that stays hit-testable.
+                session.DiscardOutput();
+                return;
+            }
+
             // Detected margins are in the INPUT snapshot's device px, so they convert to logical by the input density.
             effective += new Thickness(detected.Left / wIn, detected.Top / wIn, detected.Right / wIn, detected.Bottom / wIn);
         }
@@ -131,7 +138,8 @@ public sealed partial class Clipping : FilterEffect
 
     // Alpha-based transparent-margin detection (the AutoClip helper), reading the input snapshot instead of the
     // legacy surface. Device-pixel margins; the caller converts to logical by dividing by the working scale.
-    private static Thickness FindTransparentMargins(Bitmap bitmap)
+    // Returns null when the input has no non-transparent pixel, so the caller can drop the empty clip result.
+    private static Thickness? FindTransparentMargins(Bitmap bitmap)
     {
         int x0 = bitmap.Width, y0 = bitmap.Height, x1 = 0, y1 = 0;
         bool any = false;
@@ -152,6 +160,6 @@ public sealed partial class Clipping : FilterEffect
 
         return any
             ? new Thickness(x0, y0, bitmap.Width - x1, bitmap.Height - y1)
-            : default;
+            : null;
     }
 }

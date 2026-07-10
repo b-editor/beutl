@@ -572,6 +572,7 @@ internal static class PlanExecutor
                 $"Geometry output allocation failed ({width}x{height} px, w {w}, bounds {outBounds}).");
         }
 
+        bool discarded;
         try
         {
             var input = new EffectInput(inputTarget, op.Bounds, EffectiveScale.At(inW));
@@ -579,6 +580,7 @@ internal static class PlanExecutor
             canvas.Clear();
             var session = new GeometrySession(canvas, [input], outBounds, outputScale, w, maxWorkingScale);
             pass.Render(session);
+            discarded = session.IsOutputDiscarded;
         }
         catch
         {
@@ -589,6 +591,13 @@ internal static class PlanExecutor
         }
 
         inputTarget.Dispose();
+        if (discarded)
+        {
+            outputTarget.Dispose();
+            op.Dispose();
+            return null;
+        }
+
         op.Dispose();
         if (diagnostics != null)
             diagnostics.GpuPasses++;
@@ -702,6 +711,7 @@ internal static class PlanExecutor
             return DropOrThrow(op, maxWorkingScale, "Compute CPU-fallback output allocation failed.");
         }
 
+        bool discarded;
         try
         {
             var input = new EffectInput(inputTarget, op.Bounds, EffectiveScale.At(inW));
@@ -709,6 +719,7 @@ internal static class PlanExecutor
             canvas.Clear();
             var session = new GeometrySession(canvas, [input], outBounds, outputScale, w, maxWorkingScale);
             cpu(session);
+            discarded = session.IsOutputDiscarded;
         }
         catch
         {
@@ -719,6 +730,13 @@ internal static class PlanExecutor
         }
 
         inputTarget.Dispose();
+        if (discarded)
+        {
+            outputTarget.Dispose();
+            op.Dispose();
+            return null;
+        }
+
         op.Dispose();
         if (diagnostics != null)
             diagnostics.GpuPasses++;
@@ -998,6 +1016,7 @@ internal static class PlanExecutor
                 return;
             }
 
+            bool discarded;
             try
             {
                 using var canvas = new ImmediateCanvas(target, w, maxWorkingScale, logicalSize: logicalBounds.Size);
@@ -1005,11 +1024,18 @@ internal static class PlanExecutor
                 var session = new GeometrySession(
                     canvas, [input], logicalBounds, outputScale, w, maxWorkingScale);
                 render(session);
+                discarded = session.IsOutputDiscarded;
             }
             catch
             {
                 target.Dispose();
                 throw;
+            }
+
+            if (discarded)
+            {
+                target.Dispose();
+                return;
             }
 
             if (diagnostics != null)

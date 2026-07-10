@@ -56,4 +56,19 @@ public sealed class GeometrySession
     /// callback returns, so the callback draws into it but MUST NOT dispose it.
     /// </summary>
     public ImmediateCanvas OpenCanvas() => _canvas;
+
+    /// <summary>
+    /// Renounces this pass's output: the executor releases the pooled output target and the pass produces no
+    /// downstream operation (the §C3 empty-output drop rule). A render-time author calls this when it determines,
+    /// only inside the callback, that its resolved output is empty — e.g. an <c>AutoClip</c> whose input has no
+    /// non-transparent pixels. Any drawing already done on <see cref="OpenCanvas"/> is discarded. Idempotent; once
+    /// called the callback MUST NOT draw again.
+    /// </summary>
+    public void DiscardOutput() => IsOutputDiscarded = true;
+
+    /// <summary>
+    /// Whether the callback renounced this pass's output via <see cref="DiscardOutput"/>. The executor reads it
+    /// after the callback returns and drops the pass output when set.
+    /// </summary>
+    internal bool IsOutputDiscarded { get; private set; }
 }
