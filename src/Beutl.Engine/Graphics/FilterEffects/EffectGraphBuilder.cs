@@ -72,6 +72,22 @@ public sealed class EffectGraphBuilder
         return Append(descriptor);
     }
 
+    /// <summary>
+    /// Appends an imperative geometry node from a raw draw callback, defaulting to the render-time bounds contract
+    /// (full-frame, always correct — a script author rarely can declare exact bounds at describe time). The callback
+    /// receives a <see cref="GeometrySession"/> over a freshly-cleared pooled output buffer; to keep the pass input
+    /// as a passthrough baseline, draw <c>session.Inputs[0]</c> into the canvas first. Pass an explicit
+    /// <paramref name="bounds"/> contract when the geometry's extent is known. This is the ergonomic overload C#
+    /// script effects author custom drawing through; a compiled effect that knows its bounds uses
+    /// <see cref="Geometry(GeometryNodeDescriptor)"/> with an explicit descriptor instead.
+    /// </summary>
+    public EffectGraphBuilder Geometry(
+        Action<GeometrySession> render, BoundsContract? bounds = null, object? structuralToken = null)
+    {
+        ArgumentNullException.ThrowIfNull(render);
+        return Append(GeometryNodeDescriptor.Create(render, bounds ?? BoundsContract.RenderTime, structuralToken));
+    }
+
     /// <summary>Appends a Vulkan compute node (GLSL pass set, ping-pong/depth, declared no-Vulkan fallback).</summary>
     public EffectGraphBuilder Compute(ComputeNodeDescriptor descriptor)
     {
@@ -180,6 +196,36 @@ public sealed class EffectGraphBuilder
         }
 
         return this;
+    }
+
+    /// <summary>
+    /// Runs <paramref name="append"/> as an isolated describe unit: if it throws, every node it appended is discarded
+    /// and the logical <see cref="Bounds"/> is restored, so a failing describe callback (a C# script that throws
+    /// mid-run) leaves the shared builder exactly as it found it and the effect degrades to identity rather than
+    /// corrupting a chain's graph. Disposables the unit registered via <see cref="Track{T}"/> stay tracked (disposed
+    /// with the graph, never leaked); the caught exception is handed to <paramref name="onError"/> to surface.
+    /// Returns <see langword="true"/> when the unit completed and <see langword="false"/> when it was rolled back.
+    /// </summary>
+    internal bool AppendIsolated(Action append, Action<Exception> onError)
+    {
+        ArgumentNullException.ThrowIfNull(append);
+        ArgumentNullException.ThrowIfNull(onError);
+
+        int savedNodeCount = _nodes.Count;
+        Rect savedBounds = Bounds;
+        try
+        {
+            append();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            if (_nodes.Count > savedNodeCount)
+                _nodes.RemoveRange(savedNodeCount, _nodes.Count - savedNodeCount);
+            Bounds = savedBounds;
+            onError(ex);
+            return false;
+        }
     }
 
     internal EffectGraph Build() => new(_nodes, OriginalBounds, OutputScale, WorkingScale, _disposables);

@@ -4,37 +4,61 @@ namespace Beutl.Graphics.Effects;
 
 /// <summary>
 /// The script globals a <see cref="CSharpScriptEffect"/> script runs against (feature 004, contract A6,
-/// contracts/breaking-changes.md). The imperative <c>FilterEffectContext</c> surface is gone: a script now
-/// draws through <see cref="Session"/> (a bounded <see cref="GeometrySession"/>) whose canvas the executor has
-/// pre-filled with the input. A legacy script that references <c>Context</c> fails to compile with a diagnostic
-/// pointing at the migration guide — never silently wrong output.
+/// contracts/breaking-changes.md). A script authors the declarative effect graph exactly like a compiled effect
+/// author: it appends node descriptors through <see cref="Builder"/> (an <see cref="EffectGraphBuilder"/>). The
+/// convenience vocabulary (<c>Blur</c>, <c>DropShadow</c>, <c>Saturate</c>, <c>ColorMatrix</c>, <c>Transform</c>,
+/// …) mirrors the removed imperative context's method names, so legacy scripts migrate near-mechanically
+/// (<c>Context.Blur(…)</c> → <c>Builder.Blur(…)</c>); custom canvas drawing stays available through
+/// <see cref="EffectGraphBuilder.Geometry(System.Action{GeometrySession}, System.Nullable{BoundsContract}, object)"/>.
+/// A legacy script that references the removed <c>Context</c> or <c>Session</c> globals fails to compile with a
+/// diagnostic pointing at the migration guide — never silently wrong output.
 /// </summary>
 public class CSharpScriptEffectGlobals
 {
     internal const string MigrationDiagnostic =
-        "CSharpScriptEffect no longer exposes FilterEffectContext. Draw through 'Session' "
-        + "(GeometrySession: OpenCanvas(), Inputs, WorkingScale) instead. See the migration guide at "
-        + "docs/specs/004-gpu-pass-fusion/contracts/breaking-changes.md.";
+        "CSharpScriptEffect no longer exposes FilterEffectContext. Author the declarative effect graph through "
+        + "'Builder' (EffectGraphBuilder): e.g. 'Context.Blur(...)' becomes 'Builder.Blur(...)'. See the migration "
+        + "guide at docs/specs/004-gpu-pass-fusion/contracts/breaking-changes.md.";
 
-    public CSharpScriptEffectGlobals(GeometrySession session, float progress, float duration, float time)
+    internal const string SessionMigrationDiagnostic =
+        "The 'Session' (GeometrySession) global was replaced by 'Builder' (EffectGraphBuilder). Draw through "
+        + "'Builder.Geometry(session => { ... })' and apply filters with 'Builder.Blur/DropShadow/Saturate/...'. "
+        + "See the migration guide at docs/specs/004-gpu-pass-fusion/contracts/breaking-changes.md.";
+
+    public CSharpScriptEffectGlobals(EffectGraphBuilder builder, float progress, float duration, float time)
     {
-        Session = session ?? throw new ArgumentNullException(nameof(session));
+        Builder = builder ?? throw new ArgumentNullException(nameof(builder));
         Progress = progress;
         Duration = duration;
         Time = time;
     }
 
-    /// <summary>The bounded drawing session (canvas over the pass output, read-only inputs, resolved scales).</summary>
-    public GeometrySession Session { get; }
+    /// <summary>
+    /// The declarative recording surface the script appends node descriptors to — the same
+    /// <see cref="EffectGraphBuilder"/> a compiled effect author receives in <c>Describe</c>. Its convenience
+    /// vocabulary and <see cref="EffectGraphBuilder.Geometry(System.Action{GeometrySession}, System.Nullable{BoundsContract}, object)"/>
+    /// escape hatch cover blur/shadow/color filtering and arbitrary canvas drawing.
+    /// </summary>
+    public EffectGraphBuilder Builder { get; }
 
     /// <summary>
     /// Removed surface, typed <see cref="object"/> because <c>FilterEffectContext</c> itself is deleted. This is the
-    /// FR-013 script diagnostic and the audit-sanctioned sole surviving <c>[Obsolete]</c> member: referencing
-    /// <c>Context</c> stays a compile-time error naming the migration guide; it never runs.
+    /// FR-013 script diagnostic (an audit-sanctioned <c>[Obsolete]</c> member): referencing <c>Context</c> stays a
+    /// compile-time error naming <c>Builder</c> and the migration guide; it never runs.
     /// </summary>
     [Obsolete(MigrationDiagnostic, error: true)]
     public object Context =>
         throw new NotSupportedException(MigrationDiagnostic);
+
+    /// <summary>
+    /// Removed surface: the <c>GeometrySession</c> globals only ever existed on the unreleased 004 branch and were
+    /// replaced by <see cref="Builder"/> on that same branch. Kept as a one-line <c>[Obsolete]</c> diagnostic so a
+    /// script written against the interim <c>Session</c> global fails to compile with a precise pointer to
+    /// <c>Builder.Geometry(...)</c> instead of an opaque "does not exist" error; it never runs.
+    /// </summary>
+    [Obsolete(SessionMigrationDiagnostic, error: true)]
+    public object Session =>
+        throw new NotSupportedException(SessionMigrationDiagnostic);
 
     public float Time { get; }
 

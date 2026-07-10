@@ -29,14 +29,22 @@ public sealed partial class CSharpScriptEffect : FilterEffect, IScriptCompilable
     {
         return """
                // Available variables:
-               // Session - GeometrySession (OpenCanvas(), Inputs, WorkingScale)
+               // Builder  - EffectGraphBuilder (Blur, DropShadow, Saturate, ColorMatrix, Transform, Geometry(...), ...)
                // Progress - 0.0 to 1.0
                // Duration - total duration in seconds
-               // Time - current time in seconds
+               // Time     - current time in seconds
 
-               // The canvas already holds the input; draw on top of it.
-               // var canvas = Session.OpenCanvas();
-               // canvas.Canvas.DrawCircle(0, 0, 20, new SkiaSharp.SKPaint());
+               // Append declarative effect nodes, exactly like a compiled effect author:
+               // Builder.Blur(new Size(4, 4));
+
+               // Custom canvas drawing (full-frame bounds by default; draw the input first to keep it as a baseline):
+               // Builder.Geometry(session =>
+               // {
+               //     var canvas = session.OpenCanvas();
+               //     using (canvas.PushDeviceSpace())
+               //         session.Inputs[0].Draw(canvas, default);
+               //     canvas.DrawEllipse(new Rect(20, 20, 40, 40), Brushes.Resource.White, null);
+               // });
                """;
     }
 
@@ -94,27 +102,15 @@ public sealed partial class CSharpScriptEffect : FilterEffect, IScriptCompilable
             return;
 
         ScriptRunner<object> runner = r._scriptRunner;
-        float progress = r.Progress;
-        float duration = r.Duration;
-        float time = r.Time;
+        var globals = new CSharpScriptEffectGlobals(builder, r.Progress, r.Duration, r.Time);
 
-        // The executor clears the pass output, so the callback first draws the input as the passthrough baseline
-        // (a no-op script leaves the content unchanged), then runs the script to draw on top through the session.
-        builder.Geometry(GeometryNodeDescriptor.Create(
-            session =>
-            {
-                EffectInput input = session.Inputs[0];
-                ImmediateCanvas canvas = session.OpenCanvas();
-                using (canvas.PushDeviceSpace())
-                {
-                    input.Draw(canvas, default);
-                }
-
-                var globals = new CSharpScriptEffectGlobals(session, progress, duration, time);
-                runner(globals).GetAwaiter().GetResult();
-            },
-            BoundsContract.Identity,
-            structuralToken: nameof(CSharpScriptEffect)));
+        // The script authors the declarative graph at describe time, exactly like a compiled effect. A runtime throw
+        // must neither crash the render nor corrupt the shared builder a chain's other effects also append to: the
+        // isolation unit discards this effect's partial appends and logs, so the effect degrades to identity
+        // (pass-through) — the same outcome as an empty or failed-to-compile script.
+        builder.AppendIsolated(
+            () => runner(globals).GetAwaiter().GetResult(),
+            ex => s_logger.LogError(ex, "C# script effect threw while describing; rendering identity."));
     }
 
     public new partial class Resource
