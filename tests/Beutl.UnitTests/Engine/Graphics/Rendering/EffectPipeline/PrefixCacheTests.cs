@@ -105,7 +105,7 @@ public class PrefixCacheTests
             const int frames = 6;
             var (root, gamma, _) = MakeBlurGamma();
             var resource = (FilterEffect.Resource)root.ToResource(CompositionContext.Default);
-            using var node = new FilterEffectRenderNode(resource);
+            using var node = new PlanFilterEffectRenderNode(resource);
             var diagnostics = new PipelineDiagnostics();
             using var pool = new RenderTargetPool();
 
@@ -147,7 +147,7 @@ public class PrefixCacheTests
             const int mutateAt = 6;
             var (root, gamma, blur) = MakeBlurGamma();
             var resource = (FilterEffect.Resource)root.ToResource(CompositionContext.Default);
-            using var node = new FilterEffectRenderNode(resource);
+            using var node = new PlanFilterEffectRenderNode(resource);
             var diagnostics = new PipelineDiagnostics();
             using var pool = new RenderTargetPool();
 
@@ -190,7 +190,7 @@ public class PrefixCacheTests
             const int scaleAt = 6;
             var (root, gamma, _) = MakeBlurGamma();
             var resource = (FilterEffect.Resource)root.ToResource(CompositionContext.Default);
-            using var node = new FilterEffectRenderNode(resource);
+            using var node = new PlanFilterEffectRenderNode(resource);
             var diagnostics = new PipelineDiagnostics();
             using var pool = new RenderTargetPool();
 
@@ -230,7 +230,7 @@ public class PrefixCacheTests
             const int unstableAt = 6;
             var (root, gamma, _) = MakeBlurGamma();
             var resource = (FilterEffect.Resource)root.ToResource(CompositionContext.Default);
-            using var node = new FilterEffectRenderNode(resource);
+            using var node = new PlanFilterEffectRenderNode(resource);
             // A stub input-subtree child; its render-count is the CanCacheRecursiveChildrenOnly signal.
             var child = new ContainerRenderNode();
             node.AddChild(child);
@@ -272,7 +272,7 @@ public class PrefixCacheTests
             ProgramCache.Clear();
             var (root, gamma, blur) = MakeBlurGamma();
             var resource = (FilterEffect.Resource)root.ToResource(CompositionContext.Default);
-            var node = new FilterEffectRenderNode(resource);
+            var node = new PlanFilterEffectRenderNode(resource);
             var diagnostics = new PipelineDiagnostics();
             using var pool = new RenderTargetPool();
 
@@ -313,7 +313,7 @@ public class PrefixCacheTests
             var (root, gamma, _) = MakeBlurGamma();
             gamma.Amount.CurrentValue = 130f;
             var resource = (FilterEffect.Resource)root.ToResource(CompositionContext.Default);
-            using var node = new FilterEffectRenderNode(resource);
+            using var node = new PlanFilterEffectRenderNode(resource);
             var diagnostics = new PipelineDiagnostics();
             using var pool = new RenderTargetPool();
 
@@ -350,7 +350,7 @@ public class PrefixCacheTests
             const int swapAt = 6;
             var (root, blur, lut) = MakeLutBlur(SceneFixtures.CreateInvertLutSource(), BlurSigma(0));
             var resource = (FilterEffect.Resource)root.ToResource(CompositionContext.Default);
-            using var node = new FilterEffectRenderNode(resource);
+            using var node = new PlanFilterEffectRenderNode(resource);
             var diagnostics = new PipelineDiagnostics();
             using var pool = new RenderTargetPool();
 
@@ -395,7 +395,7 @@ public class PrefixCacheTests
             const int changeAt = 6;
             var (root, gamma, _) = MakeBlurGamma();
             var resource = (FilterEffect.Resource)root.ToResource(CompositionContext.Default);
-            using var node = new FilterEffectRenderNode(resource);
+            using var node = new PlanFilterEffectRenderNode(resource);
             var diagnostics = new PipelineDiagnostics();
             using var pool = new RenderTargetPool();
 
@@ -486,7 +486,7 @@ public class PrefixCacheTests
         var (root, gamma, _) = MakeBlurGamma(sigma);
         gamma.Amount.CurrentValue = gammaAmount;
         var resource = (FilterEffect.Resource)root.ToResource(CompositionContext.Default);
-        using var node = new FilterEffectRenderNode(resource);
+        using var node = new PlanFilterEffectRenderNode(resource);
         var context = new RenderNodeContext([MakeInput()], outputScale);
         RenderNodeOperation[] ops = node.Process(context);
         return Rasterize(ops);
@@ -536,7 +536,7 @@ public class PrefixCacheTests
     {
         var (root, _, _) = MakeLutBlur(cube, BlurSigma(frame));
         var resource = (FilterEffect.Resource)root.ToResource(CompositionContext.Default);
-        using var node = new FilterEffectRenderNode(resource);
+        using var node = new PlanFilterEffectRenderNode(resource);
         var context = new RenderNodeContext([MakeInput()]);
         return Rasterize(node.Process(context));
     }

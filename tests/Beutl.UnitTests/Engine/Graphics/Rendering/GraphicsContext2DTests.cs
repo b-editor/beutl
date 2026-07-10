@@ -67,7 +67,7 @@ public class GraphicsContext2DTests
 
         Assert.That(triggered, Is.True);
         Assert.That(untrackedNode, Is.Not.Null);
-        Assert.That(untrackedNode, Is.TypeOf<FilterEffectRenderNode>());
+        Assert.That(untrackedNode, Is.TypeOf<PlanFilterEffectRenderNode>());
     }
 
     [Test]

@@ -99,7 +99,7 @@ public class PrimitivePassTests
                 VerticalDivisions = { CurrentValue = 2 },
             };
             var resource = (FilterEffect.Resource)split.ToResource(CompositionContext.Default);
-            using var node = new FilterEffectRenderNode(resource);
+            using var node = new PlanFilterEffectRenderNode(resource);
             var diagnostics = new PipelineDiagnostics();
             using var pool = new RenderTargetPool();
 

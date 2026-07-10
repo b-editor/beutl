@@ -8,6 +8,8 @@ public sealed class RenderNodeCache(RenderNode node) : IDisposable
     private readonly WeakReference<RenderNode> _node = new(node);
     private readonly List<(RenderTarget, Rect)> _cache = new(1);
 
+    /// <remarks><c>PrefixOutputCache.EngageThreshold</c> mirrors this value so pass-prefix caching engages on the
+    /// same stable-frame count as node-tile caching.</remarks>
     public const int Count = 3;
 
     private int _count;

@@ -27,7 +27,7 @@ public class SourceEffectiveScaleFlowTests
     {
         var mosaic = new MosaicEffect();
         mosaic.TileSize.CurrentValue = new Size(10, 10);
-        return new FilterEffectRenderNode(mosaic.ToResource(CompositionContext.Default));
+        return new PlanFilterEffectRenderNode(mosaic.ToResource(CompositionContext.Default));
     }
 
     [TestCase(0.5f, 1.0f)] // sub-output supply floored to the deliverable 1.0
@@ -294,7 +294,7 @@ public class SourceEffectiveScaleFlowTests
             group.Children.Add(mosaic);
             group.Children.Add(blur);
 
-            using var node = new FilterEffectRenderNode(group.ToResource(CompositionContext.Default));
+            using var node = new PlanFilterEffectRenderNode(group.ToResource(CompositionContext.Default));
             var context = new RenderNodeContext([SourceOp(density)], outputScale: 1.0f);
 
             RenderNodeOperation[] ops = node.Process(context);
@@ -324,7 +324,7 @@ public class SourceEffectiveScaleFlowTests
             // Inflate X past the 16384 per-axis limit at w=1, keeping Y short (allocatable).
             stroke.Offset.CurrentValue = new Point(20000, 0);
 
-            using var node = new FilterEffectRenderNode(stroke.ToResource(CompositionContext.Default));
+            using var node = new PlanFilterEffectRenderNode(stroke.ToResource(CompositionContext.Default));
 
             RenderNodeOperation[] ops = null!;
             Assert.DoesNotThrow(() =>
@@ -464,7 +464,7 @@ public class SourceEffectiveScaleFlowTests
     // End-to-end FR-036 escape hatch: FilterEffect.Resource.Push must build the render node via the
     // overridden CreateRenderNode(), and that custom node's non-supply working scale must then drive the
     // pipeline. The other escape-hatch tests instantiate the custom node directly (bypassing Push), so a
-    // regression hardcoding Push to 'new FilterEffectRenderNode(this)' would pass them; this one fails.
+    // regression hardcoding Push to 'new PlanFilterEffectRenderNode(this)' would pass them; this one fails.
     [Test]
     public void Push_RoutesThroughOverriddenCreateRenderNode_AndCustomWorkingScaleApplies()
     {

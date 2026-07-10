@@ -28,7 +28,7 @@ public class EmptyRoiAndForwardBoundsTests
         clip.Right.CurrentValue = 60;
 
         FilterEffect.Resource resource = clip.ToResource(CompositionContext.Default);
-        using var node = new FilterEffectRenderNode(resource);
+        using var node = new PlanFilterEffectRenderNode(resource);
         node.AddChild(new SourceRectNode(s_input));
         var processor = new RenderNodeProcessor(node, useRenderCache: false);
 
@@ -51,7 +51,7 @@ public class EmptyRoiAndForwardBoundsTests
     {
         var clip = new Clipping();
         FilterEffect.Resource resource = clip.ToResource(CompositionContext.Default);
-        using var node = new FilterEffectRenderNode(resource);
+        using var node = new PlanFilterEffectRenderNode(resource);
         node.AddChild(new SourceRectNode(s_input));
         var processor = new RenderNodeProcessor(node, useRenderCache: false);
 
@@ -93,7 +93,7 @@ public class EmptyRoiAndForwardBoundsTests
         effect.AlphaOffset.CurrentValue = new PixelPoint(40, 0);
 
         FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
-        using var node = new FilterEffectRenderNode(resource);
+        using var node = new PlanFilterEffectRenderNode(resource);
         var context = new RenderNodeContext([MakeWhiteRect(s_input)]);
 
         RenderNodeOperation[] ops = node.Process(context);
@@ -145,7 +145,7 @@ public class EmptyRoiAndForwardBoundsTests
         group.Children.Add(new Blur { Sigma = { CurrentValue = new Size(2, 2) } });
 
         FilterEffect.Resource resource = group.ToResource(CompositionContext.Default);
-        using var node = new FilterEffectRenderNode(resource);
+        using var node = new PlanFilterEffectRenderNode(resource);
         var context = new RenderNodeContext([MakeWhiteRect(s_input)]);
 
         RenderNodeOperation[] ops = node.Process(context);

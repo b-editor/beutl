@@ -28,12 +28,14 @@ public abstract partial class FilterEffect : EngineObject
     public abstract partial class Resource
     {
         /// <summary>
-        /// Creates the render node for this effect. Override to supply a custom
-        /// <see cref="FilterEffectRenderNode"/> subclass with a different working scale.
+        /// Creates the render node for this effect. The default returns the internal node that runs the compiled-plan
+        /// execution pipeline with per-node plan and prefix caching. Override to supply a custom
+        /// <see cref="FilterEffectRenderNode"/> subclass with a different working scale; such a subclass implements
+        /// <see cref="FilterEffectRenderNode.Process"/> itself and does not inherit that caching.
         /// </summary>
         public virtual FilterEffectRenderNode CreateRenderNode()
         {
-            return new FilterEffectRenderNode(this);
+            return new PlanFilterEffectRenderNode(this);
         }
 
         public virtual PushedState Push(GraphicsContext2D context)

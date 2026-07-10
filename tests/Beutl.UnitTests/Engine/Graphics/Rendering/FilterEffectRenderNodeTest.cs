@@ -24,7 +24,7 @@ public class FilterEffectRenderNodeTest
     {
         var effect = new Blur();
         var resource = effect.ToResource(CompositionContext.Default);
-        var node = new FilterEffectRenderNode(resource);
+        var node = new PlanFilterEffectRenderNode(resource);
         var context = CreateRenderNodeContext();
         var operations = node.Process(context);
 
@@ -36,7 +36,7 @@ public class FilterEffectRenderNodeTest
     {
         var effect = new Blur() { Sigma = { CurrentValue = new(10, 10) } };
         var resource = effect.ToResource(CompositionContext.Default);
-        var node = new FilterEffectRenderNode(resource);
+        var node = new PlanFilterEffectRenderNode(resource);
         var context = CreateRenderNodeContext();
         var operations = node.Process(context);
 
@@ -52,7 +52,7 @@ public class FilterEffectRenderNodeTest
     {
         var effect = new Blur();
         var resource = effect.ToResource(CompositionContext.Default);
-        var node = new FilterEffectRenderNode(resource);
+        var node = new PlanFilterEffectRenderNode(resource);
 
         var result = node.Update(resource);
 
@@ -65,7 +65,7 @@ public class FilterEffectRenderNodeTest
     {
         var effect = new Blur();
         var resource = effect.ToResource(CompositionContext.Default);
-        var node = new FilterEffectRenderNode(resource);
+        var node = new PlanFilterEffectRenderNode(resource);
         effect.Sigma.CurrentValue = new(10, 10);
         var updateOnly = false;
         resource.Update(effect, CompositionContext.Default, ref updateOnly);
@@ -82,7 +82,7 @@ public class FilterEffectRenderNodeTest
         var effect2 = new DropShadow();
         var effectResource1 = effect1.ToResource(CompositionContext.Default);
         var effectResource2 = effect2.ToResource(CompositionContext.Default);
-        var node = new FilterEffectRenderNode(effectResource1);
+        var node = new PlanFilterEffectRenderNode(effectResource1);
 
         var result = node.Update(effectResource2);
 

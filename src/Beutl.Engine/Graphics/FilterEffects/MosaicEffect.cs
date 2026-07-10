@@ -64,7 +64,7 @@ public partial class MosaicEffect : FilterEffect
         Size tileSize = r.TileSize;
         RelativePoint originPoint = r.Origin;
         // builder.WorkingScale is already clamped to the 16384 px/axis buffer budget for the node's bounds
-        // (FilterEffectRenderNode.Process clamps before describing), and this render-time pass always bakes at full
+        // (PlanFilterEffectRenderNode.Process clamps before describing), and this render-time pass always bakes at full
         // input bounds, so the per-pass re-clamp in ResolveResources resolves the same w — these describe-time
         // uniforms match the execute-time buffer even at the clamp edge (pinned by MosaicEffect_AtBufferBudgetEdge).
         float w = builder.WorkingScale;

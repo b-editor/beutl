@@ -468,7 +468,7 @@ public class EffectPipelineCounterTests
     {
         Chain chain = makeChain();
         var resource = (FilterEffect.Resource)chain.Root.ToResource(CompositionContext.Default);
-        using var node = new FilterEffectRenderNode(resource);
+        using var node = new PlanFilterEffectRenderNode(resource);
         var diagnostics = new PipelineDiagnostics();
         using var pool = new RenderTargetPool();
         var snaps = new PipelineDiagnosticsSnapshot[frames];
@@ -508,7 +508,7 @@ public class EffectPipelineCounterTests
         Chain chain = makeChain();
         chain.SetFrame(frame);
         var resource = (FilterEffect.Resource)chain.Root.ToResource(CompositionContext.Default);
-        using var node = new FilterEffectRenderNode(resource);
+        using var node = new PlanFilterEffectRenderNode(resource);
         var context = new RenderNodeContext([AnimInput()]);
         RenderNodeOperation[] ops = node.Process(context);
         return Rasterize(ops);
