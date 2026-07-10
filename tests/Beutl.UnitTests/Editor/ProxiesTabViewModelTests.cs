@@ -778,6 +778,54 @@ public sealed class ProxiesTabViewModelTests
         }
     }
 
+    // Refresh re-associates prior row state by the canonical Source.AbsolutePath, not the raw LocalPath.
+    // A symlink and its target resolve to the same AbsolutePath but different LocalPaths; after an explicit
+    // preset pick on the merged row, dropping the symlink element (leaving the target) must keep the choice.
+    [Test]
+    public void Refresh_ExplicitChoiceSurvivesPathSpellingChange_KeyedByAbsolutePath()
+    {
+        string root = CreateRoot();
+        string target = CreateSourceFile(root, "target.mov", 1024);
+        string link = Path.Combine(root, "link.mov");
+        try
+        {
+            File.CreateSymbolicLink(link, target);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or PlatformNotSupportedException)
+        {
+            Assert.Ignore("Creating a symbolic link is not permitted in this environment.");
+        }
+
+        var store = new ProxyStore(Path.Combine(root, "proxies"));
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
+        // Both elements resolve to the same AbsolutePath, so enumeration dedupes them into one row whose
+        // Path is the first-seen (link) spelling.
+        Element linkElement = CreateVideoElement(root, link);
+        Element targetElement = CreateVideoElement(root, target);
+        scene.Children.Add(linkElement);
+        scene.Children.Add(targetElement);
+
+        using var viewModel = new ProxiesTabViewModel(CreateContext(scene, store))
+        {
+            RefreshScheduler = static action => action(),
+        };
+        ProxyClipViewModel clip = viewModel.Clips.Single();
+        Assume.That(clip.Path, Is.EqualTo(link), "the merged row takes the first-seen (link) spelling");
+        clip.Preset.Value = ProxyPreset.Half;
+
+        // Drop the link element; the target element still yields the same AbsolutePath, so the explicit
+        // Half choice must re-associate even though the row's Path spelling is now the target's.
+        scene.Children.Remove(linkElement);
+
+        ProxyClipViewModel rebuilt = viewModel.Clips.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(rebuilt.Path, Is.EqualTo(target), "the row now uses the target spelling");
+            Assert.That(rebuilt.Preset.Value, Is.EqualTo(ProxyPreset.Half),
+                "the explicit choice re-associates by AbsolutePath despite the changed Path spelling");
+        });
+    }
+
     // Generate All / Delete act on Clips, so the list must track project edits made while the tab
     // is open — not just proxy store/queue events.
     [Test]

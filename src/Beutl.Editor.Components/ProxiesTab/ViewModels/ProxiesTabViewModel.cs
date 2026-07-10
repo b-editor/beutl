@@ -593,20 +593,23 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
         // Only a deliberate user choice survives a rebuild verbatim; a background proxy finishing
         // (Registered/StateChanged) or a terminal job triggers Refresh, and an explicit pick must not be
         // reverted to following. A row that was merely pinned to an existing proxy re-derives its state
-        // below so a since-deleted/evicted proxy no longer leaves it stuck off the default.
-        Dictionary<string, (ProxyPreset Preset, bool Explicit)> priorChoiceByPath = Clips.ToDictionary(
-            static clip => clip.Path,
+        // below so a since-deleted/evicted proxy no longer leaves it stuck off the default. Key on the
+        // canonical Source.AbsolutePath (what enumeration dedupes on), not clip.Path (a raw LocalPath):
+        // the same file spelled differently (case / symlink) must still re-associate its prior state.
+        Dictionary<string, (ProxyPreset Preset, bool Explicit)> priorChoiceByKey = Clips.ToDictionary(
+            static clip => clip.Source.AbsolutePath,
             static clip => (clip.Preset.Value, clip.IsExplicitlyChosen));
-        HashSet<string> selectedPaths =
-            [.. Clips.Where(static clip => clip.IsSelected.Value).Select(static clip => clip.Path)];
+        HashSet<string> selectedKeys =
+            [.. Clips.Where(static clip => clip.IsSelected.Value).Select(static clip => clip.Source.AbsolutePath)];
 
         ClearClips();
         foreach ((string path, ProxyFingerprint fingerprint) in EnumerateProjectVideoSources())
         {
+            string key = fingerprint.AbsolutePath;
             ProxyPreset preset;
             bool followingDefault;
             bool explicitlyChosen;
-            if (priorChoiceByPath.TryGetValue(path, out (ProxyPreset Preset, bool Explicit) prior) && prior.Explicit)
+            if (priorChoiceByKey.TryGetValue(key, out (ProxyPreset Preset, bool Explicit) prior) && prior.Explicit)
             {
                 preset = prior.Preset;
                 followingDefault = false;
@@ -620,7 +623,7 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
 
             ProxyEntry? entry = FindEntry(fingerprint, preset);
             var clip = new ProxyClipViewModel(this, path, fingerprint, preset, entry, followingDefault, explicitlyChosen);
-            if (selectedPaths.Contains(path))
+            if (selectedKeys.Contains(key))
                 clip.IsSelected.Value = true;
             Clips.Add(clip);
         }

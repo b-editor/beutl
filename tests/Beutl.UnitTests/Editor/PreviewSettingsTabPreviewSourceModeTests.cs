@@ -52,4 +52,18 @@ public sealed class PreviewSettingsTabPreviewSourceModeTests
         Assert.That(GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode,
             Is.EqualTo(PreviewSourceMode.ForceOriginal));
     }
+
+    // A ComboBox with no selection reports SelectedIndex -1; the write-back must not persist an undefined
+    // enum (which never equals PreferProxy and would silently disable proxy preview).
+    [Test]
+    public void SettingOutOfRangeIndex_LeavesConfigUnchanged()
+    {
+        GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode = PreviewSourceMode.ForceOriginal;
+        using PreviewSettingsTabViewModel vm = CreateViewModel();
+
+        vm.PreviewSourceMode.Value = -1;
+
+        Assert.That(GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode,
+            Is.EqualTo(PreviewSourceMode.ForceOriginal), "an out-of-range index must not persist an undefined enum");
+    }
 }
