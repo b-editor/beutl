@@ -722,7 +722,7 @@ public static class ProxySourceEnumerator
     // GetValue evaluates a reference-expression ahead of the base value, so resolve the reference
     // (id/path lookup, no evaluation) first and fall back to CurrentValue only when unresolvable. A
     // StringExpression (arbitrary C#) is not resolvable and falls through to CurrentValue.
-    private static T? ResolveExpressionValue<T>(EngineObject owner, IProperty property)
+    private static T? ResolveExpressionValue<T>(EngineObject owner, IProperty property, HashSet<IProperty>? visited = null)
         where T : class
     {
         if (property.Expression is IReferenceExpression reference
@@ -736,7 +736,14 @@ public static class ProxySourceEnumerator
                 && target.Properties.FirstOrDefault(
                     p => string.Equals(p.Name, reference.PropertyPath, StringComparison.OrdinalIgnoreCase)) is { } targetProperty)
             {
-                return ResolveExpressionValue<T>(target, targetProperty);
+                // A user-constructed reference chain (A.Prop -> B.Prop -> A.Prop) can cycle; the engine's
+                // own evaluation is cycle-guarded by ExpressionContext, but this reference walk is outside
+                // it. Track the properties on the path and fall back to CurrentValue on re-entry.
+                visited ??= new HashSet<IProperty>(ReferenceEqualityComparer.Instance);
+                if (!visited.Add(property))
+                    return property.CurrentValue as T;
+
+                return ResolveExpressionValue<T>(target, targetProperty, visited);
             }
         }
 

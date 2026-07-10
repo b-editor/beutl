@@ -967,6 +967,26 @@ public sealed class ExportSourceValidatorTests
         Assert.That(missing, Does.Contain(expressionVideo));
     }
 
+    // A cyclic reference-expression chain (a presenter Target whose expression resolves back to its own
+    // Target property) must not overflow the stack while enumerating; resolution stops on re-entry.
+    [Test]
+    public void CollectRenderableSources_CyclicTargetExpression_CompletesWithoutOverflow()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+
+        var presenter = new DrawablePresenter();
+        // Target's expression points at the presenter's own Target property — a self-cycle.
+        presenter.Target.Expression = Beutl.Engine.Expressions.Expression.CreateReference<Drawable>(presenter.Id, "Target");
+
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
+        scene.Children.Add(ElementWith(root, presenter));
+
+        Assert.DoesNotThrow(() =>
+            ExportSourceValidator.GetMissingPaths(
+                ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene)));
+    }
+
     private static SourceSound SoundDrawable(string sourcePath)
     {
         var source = new SoundSource();
