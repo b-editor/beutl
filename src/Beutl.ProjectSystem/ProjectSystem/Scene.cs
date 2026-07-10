@@ -410,14 +410,21 @@ public class Scene : ProjectItem, INotifyEdited
             .ToArray();
 
         var result = new List<Element>();
-        foreach (Element e in Children
+        // Same-start elements move as one cohort: if any of them would land on a locked element the
+        // whole group stops, so the shiftable set never depends on Children enumeration order.
+        foreach (IGrouping<TimeSpan, Element> startGroup in Children
             .Where(e => e.ZIndex == zIndex && !e.IsLocked && e.Start >= fromStart)
-            .OrderBy(e => e.Start))
+            .GroupBy(e => e.Start)
+            .OrderBy(g => g.Key))
         {
-            TimeRange shifted = e.Range.WithStart(e.Start + deltaStart);
-            if (Array.Exists(lockedOnLayer, l => shifted.Intersects(l.Range))) break;
+            bool blocked = startGroup.Any(e =>
+            {
+                TimeRange shifted = e.Range.WithStart(e.Start + deltaStart);
+                return Array.Exists(lockedOnLayer, l => shifted.Intersects(l.Range));
+            });
+            if (blocked) break;
 
-            result.Add(e);
+            result.AddRange(startGroup);
         }
 
         return [.. result];

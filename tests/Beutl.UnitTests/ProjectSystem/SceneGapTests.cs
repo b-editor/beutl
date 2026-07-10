@@ -679,6 +679,46 @@ public class SceneGapTests
         }
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void CloseAllGaps_SameStartCohort_ShiftsTogetherRegardlessOfOrder(bool reversedInsertion)
+    {
+        string basePath = GetTempPath();
+        try
+        {
+            Scene scene = CreateScene(basePath);
+            // Two unlocked elements share Start 6s; the gap-close must move them as one cohort and
+            // reach the same result no matter which order Children enumerates them in.
+            Element a = CreateElement(basePath, TimeSpan.Zero, TimeSpan.FromSeconds(2));
+            Element m = CreateElement(basePath, TimeSpan.FromSeconds(6), TimeSpan.FromSeconds(1));
+            Element n = CreateElement(basePath, TimeSpan.FromSeconds(6), TimeSpan.FromSeconds(3));
+            scene.Children.Add(a);
+            if (reversedInsertion)
+            {
+                scene.Children.Add(n);
+                scene.Children.Add(m);
+            }
+            else
+            {
+                scene.Children.Add(m);
+                scene.Children.Add(n);
+            }
+
+            int closed = scene.CloseAllGaps();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(closed, Is.EqualTo(1));
+                Assert.That(m.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
+                Assert.That(n.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            });
+        }
+        finally
+        {
+            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+        }
+    }
+
     [Test]
     public void FindNextGap_ReturnsNextGap()
     {
