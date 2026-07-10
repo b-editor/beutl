@@ -480,8 +480,15 @@ internal static class PlanExecutor
             // releases it after execution even when this pass is skipped for an empty ROI (contract A2).
             foreach (SamplerBinding sampler in run[k].Samplers)
                 builder.Children[prefix + sampler.Name] = sampler.Shader;
+            // A deferred child's shader is produced here from this pass's real density (executorOwned == true) and
+            // tracked for disposal after the draw; an eager child's shader is graph-/caller-owned and left alone.
             foreach (ChildBinding child in run[k].Children)
-                builder.Children[prefix + child.Name] = child.Shader;
+            {
+                SKShader childShader = child.Resolve(in uniformContext, out bool executorOwned);
+                if (executorOwned)
+                    disposables.Add(childShader);
+                builder.Children[prefix + child.Name] = childShader;
+            }
         }
 
         return Track(builder.Build(), disposables);

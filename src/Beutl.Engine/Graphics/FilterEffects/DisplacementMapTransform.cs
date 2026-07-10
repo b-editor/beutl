@@ -37,22 +37,42 @@ public abstract partial class DisplacementMapTransform : EngineObject
         EffectGraphBuilder builder, Brush.Resource displacementMap, Resource resource,
         GradientSpreadMethod spreadMethod, DisplacementMapChannel channel, bool signed);
 
-    // Builds the displacement-map child shader over the input rect at the describe-time working density (cross-sampled
-    // at device px, so a w != 1 buffer scales the map's local matrix), owned and disposed by the graph. The map (and
-    // the scale/rotation pivot) is anchored in the FULL-frame device space, so every transform declares a RenderTime
-    // bounds contract: an ROI crop by a downstream deflating pass would shift the map/pivot off the baked buffer (M3).
-    private protected static ChildBinding? BuildMapChild(EffectGraphBuilder builder, Brush.Resource map, float w)
+    // Binds the displacement-map child as a DEFERRED child shader (A4): it is cross-sampled in device space with no
+    // canvas density transform, so its local matrix must track the pass's EXECUTION working scale, not the describe-time
+    // one — the resource-resolution re-clamp (execution-plan §C3.2) can run the pass below its describe density, and a
+    // describe-time bake would then mis-scale the map lookup. The factory rebuilds the map over the input rect at the
+    // execution density and the executor disposes each per-pass product. Returns null (identity, no node) only when the
+    // brush kind produces no shader at all — a describe-time, density-independent decision. The map (and the
+    // scale/rotation pivot) is anchored in the FULL-frame device space, so every transform declares a RenderTime bounds
+    // contract: an ROI crop by a downstream deflating pass would shift the map/pivot off the baked buffer (M3).
+    private protected static ChildBinding? BuildMapChild(EffectGraphBuilder builder, Brush.Resource map)
     {
-        SKShader? raw = new BrushConstructor(
-                new Rect(builder.Bounds.Size), map, BlendMode.SrcOver, w, builder.MaxWorkingScale)
-            .CreateShader();
-        if (raw is null)
-            return null;
-        if (w == 1f)
-            return builder.Child("uDisplacementMap", raw);
+        Rect mapBounds = new(builder.Bounds.Size);
+        float maxWorkingScale = builder.MaxWorkingScale;
 
-        builder.Track(raw);
-        return builder.Child("uDisplacementMap", raw.WithLocalMatrix(SKMatrix.CreateScale(w, w)));
+        // Probe at the describe density purely to decide whether this brush yields a shader at all; the probe is
+        // disposed immediately and the real shader is built per pass from the execution density below.
+        using (SKShader? probe = new BrushConstructor(
+                   mapBounds, map, BlendMode.SrcOver, builder.WorkingScale, maxWorkingScale).CreateShader())
+        {
+            if (probe is null)
+                return null;
+        }
+
+        return ChildBinding.Deferred("uDisplacementMap", context =>
+        {
+            float w = context.WorkingScale;
+            SKShader shader = new BrushConstructor(mapBounds, map, BlendMode.SrcOver, w, maxWorkingScale).CreateShader()
+                ?? SKShader.CreateColor(SKColors.Transparent);
+            if (w == 1f)
+                return shader;
+
+            // WithLocalMatrix returns a new shader holding a native ref to `shader`, so disposing the base here is
+            // leak-free (it survives inside `scaled`) and leaves the executor one shader to own.
+            SKShader scaled = shader.WithLocalMatrix(SKMatrix.CreateScale(w, w));
+            shader.Dispose();
+            return scaled;
+        });
     }
 }
 
@@ -91,8 +111,7 @@ public partial class DisplacementMapTranslateTransform : DisplacementMapTransfor
         GradientSpreadMethod spreadMethod, DisplacementMapChannel channel, bool signed)
     {
         var r = (Resource)resource;
-        float w = builder.WorkingScale;
-        ChildBinding? mapChild = BuildMapChild(builder, displacementMap, w);
+        ChildBinding? mapChild = BuildMapChild(builder, displacementMap);
         if (mapChild is null)
             return;
 
@@ -152,8 +171,7 @@ public partial class DisplacementMapScaleTransform : DisplacementMapTransform
         GradientSpreadMethod spreadMethod, DisplacementMapChannel channel, bool signed)
     {
         var r = (Resource)resource;
-        float w = builder.WorkingScale;
-        ChildBinding? mapChild = BuildMapChild(builder, displacementMap, w);
+        ChildBinding? mapChild = BuildMapChild(builder, displacementMap);
         if (mapChild is null)
             return;
 
@@ -211,8 +229,7 @@ public partial class DisplacementMapRotationTransform : DisplacementMapTransform
         GradientSpreadMethod spreadMethod, DisplacementMapChannel channel, bool signed)
     {
         var r = (Resource)resource;
-        float w = builder.WorkingScale;
-        ChildBinding? mapChild = BuildMapChild(builder, displacementMap, w);
+        ChildBinding? mapChild = BuildMapChild(builder, displacementMap);
         if (mapChild is null)
             return;
 

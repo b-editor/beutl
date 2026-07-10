@@ -5,13 +5,17 @@ using Beutl.Graphics.Rendering;
 using Beutl.Logging;
 using Beutl.Media;
 
+using SkiaSharp;
+
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.EffectPipeline;
 
 /// <summary>
-/// Regression cover for finding F1 (feature 004): a density-/size-dependent shader uniform frozen at the
+/// Regression cover for findings F1 and F2 (feature 004): a density-/size-dependent shader value frozen at the
 /// describe-time <see cref="EffectGraphBuilder.WorkingScale"/> is wrong when the resource-resolution re-clamp
-/// (<c>ClampWorkingScaleToBufferBudget</c>) executes the pass BELOW that density. The uniform must be late-bound
-/// to the pass's real <see cref="PassUniformContext"/> (via <c>DensityScaledFloat2</c> / <c>Deferred</c>).
+/// (<c>ClampWorkingScaleToBufferBudget</c>) executes the pass BELOW that density. F1 covers late-bound
+/// <em>uniforms</em> (via <c>DensityScaledFloat2</c> / <c>Deferred</c>); F2 covers a late-bound child
+/// <em>shader</em> — a cross-sampled displacement map whose device-space lookup mis-scales when baked at the
+/// describe density — via <see cref="ChildBinding.Deferred"/>, whose product the executor owns per pass.
 /// </summary>
 [NonParallelizable]
 [TestFixture]
@@ -101,6 +105,140 @@ public class LateBoundUniformTests
         {
             RenderNodeOperation.DisposeAll(ops);
         }
+    }
+
+    // F2: a DisplacementMap whose pass executes below its describe density must sample the map at the EXECUTION
+    // density. The map is a half-plane (opaque for logical x < 50, transparent for x >= 50); the translate transform
+    // pulls the source band up by 40 logical px only where the map is opaque. maxDimension = 50 clamps the 100-px
+    // displacement buffer to w = 0.5 (below describe w = 1.0). Post-fix the deferred child rebuilds the map at w = 0.5,
+    // so the opaque/transparent boundary lands at logical 50. Pre-fix the describe-w bake reads only the map's left
+    // half across the whole device buffer (disp = 1 everywhere), displacing the band full-width (edge runs to ~100).
+    [Test]
+    public void DisplacementMap_ForwardInflatedBelowDescribeDensity_MapLookupLandsAtCorrectLogicalPosition()
+    {
+        var inputBounds = new Rect(0, 0, 100, 100);
+        RenderNodeOperation input = RenderNodeOperation.CreateLambda(
+            inputBounds,
+            canvas => canvas.DrawRectangle(new Rect(0, 50, 100, 20), Brushes.Resource.Red, null),
+            hitTest: inputBounds.Contains);
+
+        var map = new LinearGradientBrush();
+        map.StartPoint.CurrentValue = new RelativePoint(0, 0, RelativeUnit.Relative);
+        map.EndPoint.CurrentValue = new RelativePoint(1, 0, RelativeUnit.Relative);
+        map.GradientStops.Add(new GradientStop(Colors.White, 0));
+        map.GradientStops.Add(new GradientStop(Colors.White, 0.5f));
+        map.GradientStops.Add(new GradientStop(Colors.Transparent, 0.5f));
+        map.GradientStops.Add(new GradientStop(Colors.Transparent, 1));
+
+        var effect = new DisplacementMapEffect
+        {
+            Channel = { CurrentValue = DisplacementMapChannel.Alpha },
+            Signed = { CurrentValue = false },
+            DisplacementMap = { CurrentValue = map },
+            Transform =
+            {
+                CurrentValue = new DisplacementMapTranslateTransform
+                {
+                    X = { CurrentValue = 0 },
+                    Y = { CurrentValue = 40 },
+                },
+            },
+        };
+
+        using Bitmap output = RenderSingleEffectClamped(effect, input, inputBounds, boundaryScale: 1f, maxDimension: 50);
+
+        int edgeX = RightmostRedEdge(output, y: 20);
+        Assert.That(edgeX, Is.EqualTo(50).Within(8),
+            $"the displacement map is sampled at the EXECUTION density (opaque edge at logical 50); a describe-time "
+            + $"bake mis-scales the lookup and displaces the full width (~100). Observed edge {edgeX}.");
+    }
+
+    // F2 seam (GPU-backed CPU raster): a Deferred child factory MUST receive the pass's execution-time
+    // PassUniformContext (the re-clamped w and buffer size, not describe w = 1), and the executor MUST dispose its
+    // per-pass product after the draw (no leak). The forward-inflated 120-px buffer clamps to w = 0.5 (60-px device).
+    [Test]
+    public void WholeSourceShader_DeferredChild_ReceivesExecutionContextAndDisposesProductAfterPass()
+    {
+        var inputBounds = new Rect(0, 0, 100, 100);
+        PassUniformContext seen = default;
+        SKShader? produced = null;
+        var descriptor = ShaderNodeDescriptor.WholeSource(
+            """
+            uniform shader src;
+            uniform shader map;
+            half4 main(float2 c) { return map.eval(c); }
+            """,
+            BoundsContract.Create(static r => r.Inflate(new Thickness(0, 0, 20, 0)), static r => r),
+            children:
+            [
+                ChildBinding.Deferred("map", ctx =>
+                {
+                    seen = ctx;
+                    produced = SKShader.CreateColor(new SKColor(200, 50, 60, 255));
+                    return produced;
+                }),
+            ]);
+
+        var builder = new EffectGraphBuilder(inputBounds, outputScale: 1f, workingScale: 1f);
+        builder.Shader(descriptor);
+        using EffectGraph graph = builder.Build();
+        using var pool = new RenderTargetPool();
+        CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
+        FrameResources frame = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale: 1f, maxDimension: 60);
+        Assert.That(frame.Passes[0].WorkingScale, Is.EqualTo(0.5f).Within(1e-4f), "sanity: the inflated buffer clamps to w=0.5");
+
+        RenderNodeOperation[] ops = PlanExecutor.Execute(
+            plan, frame, [OpaqueInput(inputBounds)], outputScale: 1f, workingScale: 1f,
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool);
+        try
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(produced, Is.Not.Null, "the deferred child factory ran during execution");
+                Assert.That(seen.WorkingScale, Is.EqualTo(0.5f).Within(1e-4f),
+                    "the factory saw the execution density, not describe w=1");
+                Assert.That(seen.TargetWidth, Is.EqualTo(60), "the factory saw the execution buffer width");
+            });
+            Assert.That(produced!.Handle, Is.EqualTo(nint.Zero),
+                "the executor disposed the per-pass deferred child product after the draw");
+        }
+        finally
+        {
+            RenderNodeOperation.DisposeAll(ops);
+        }
+    }
+
+    // F2 unit seam (no GPU): the Deferred factory resolves as executor-owned and receives the exact context; an eager
+    // child resolves as graph-/caller-owned so the executor never disposes it.
+    [Test]
+    public void ChildBinding_Deferred_ResolvesExecutorOwnedWithContext_EagerStaysCallerOwned()
+    {
+        var ctx = new PassUniformContext(0.5f, 60, 40);
+
+        PassUniformContext seen = default;
+        using SKShader deferredProduct = SKShader.CreateColor(SKColors.Red);
+        ChildBinding deferred = ChildBinding.Deferred("m", c =>
+        {
+            seen = c;
+            return deferredProduct;
+        });
+        SKShader resolvedDeferred = deferred.Resolve(in ctx, out bool deferredOwned);
+        Assert.Multiple(() =>
+        {
+            Assert.That(deferredOwned, Is.True, "a deferred child's product is executor-owned (disposed per pass)");
+            Assert.That(resolvedDeferred, Is.SameAs(deferredProduct));
+            Assert.That(seen, Is.EqualTo(ctx), "the factory receives the execution PassUniformContext");
+            Assert.That(deferred.Shader, Is.Null, "a deferred binding has no describe-time shader");
+        });
+
+        using SKShader eagerShader = SKShader.CreateColor(SKColors.Blue);
+        var eager = new ChildBinding("m", eagerShader);
+        SKShader resolvedEager = eager.Resolve(in ctx, out bool eagerOwned);
+        Assert.Multiple(() =>
+        {
+            Assert.That(eagerOwned, Is.False, "an eager child is graph-/caller-owned; the executor must not dispose it");
+            Assert.That(resolvedEager, Is.SameAs(eagerShader));
+        });
     }
 
     // Renders a single effect over an input, resolving its buffer at an overridden budget so a forward-inflated pass
