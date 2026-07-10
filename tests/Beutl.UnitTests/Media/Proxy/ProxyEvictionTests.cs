@@ -169,6 +169,31 @@ public class ProxyEvictionTests
             new ProxyEvictionService(store, resolver: null, maxTotalBytes: -1));
     }
 
+    // A runtime cap change must take effect on the next sweep: CapOverage reads the cap through the
+    // volatile property, so lowering MaxTotalBytes after construction evicts down to the new limit.
+    [Test]
+    public void MaxTotalBytes_LoweredAtRuntime_NextSweepEnforcesNewCap()
+    {
+        string root = CreateRoot();
+        var store = new ProxyStore(root);
+        ProxyEntry oldEntry = Register(store, root, "old.mp4", DateTime.UtcNow.AddMinutes(-10), 7);
+        ProxyEntry newEntry = Register(store, root, "new.mp4", DateTime.UtcNow, 7);
+        var service = new ProxyEvictionService(store, null, maxTotalBytes: 100);
+
+        // Under the initial 100-byte cap the 14-byte store is within budget — nothing evicted.
+        Assert.That(service.Sweep().RemovedCount, Is.EqualTo(0));
+
+        service.MaxTotalBytes = 7;
+        ProxyEvictionResult result = service.Sweep();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.RemovedCount, Is.EqualTo(1));
+            Assert.That(store.TryGet(oldEntry.Source, oldEntry.Preset), Is.Null);
+            Assert.That(store.TryGet(newEntry.Source, newEntry.Preset), Is.Not.Null);
+        });
+    }
+
     [Test]
     public void Sweep_SkipsEntriesWithActiveGeneration()
     {

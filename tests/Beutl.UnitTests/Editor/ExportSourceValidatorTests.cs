@@ -837,6 +837,107 @@ public sealed class ExportSourceValidatorTests
         Assert.That(missing, Is.Empty);
     }
 
+    // A referenced-scene child whose range does not intersect the exported window never renders (SortLayers
+    // gates on Range.Intersects), so its direct missing source must not block export.
+    [Test]
+    public void CollectRenderableSources_ReferencedSceneChildOutsideWindow_IsSkipped()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string missingImage = Path.Combine(root, "out-of-window.png");
+
+        var childScene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "child.scene")) };
+        Element outOfWindow = CreateImageElement(root, missingImage);
+        outOfWindow.Start = TimeSpan.FromSeconds(30);
+        outOfWindow.Length = TimeSpan.FromSeconds(5);
+        childScene.Children.Add(outOfWindow);
+
+        var sceneDrawable = new SceneDrawable();
+        sceneDrawable.ReferencedScene.CurrentValue = childScene;
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "root.scene")) };
+        Element outer = ElementWith(root, sceneDrawable);
+        outer.Length = TimeSpan.FromSeconds(10);
+        scene.Children.Add(outer);
+
+        // Export [0s, 5s]: the referenced-scene child at 30s never composes, so its missing image is dropped.
+        IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
+            ExportSourceValidator.CollectRenderableSources(scene, new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(5))));
+
+        Assert.That(missing, Is.Empty);
+    }
+
+    // A SceneSound with the identity audio map (OffsetPosition 0, Speed 100, unanimated) samples the
+    // referenced scene in element-local time, so a referenced-scene child outside the window is dropped;
+    // a non-identity map (animated Speed) falls back to the full walk and keeps it.
+    [Test]
+    public void CollectRenderableSources_IdentitySceneSound_WindowsReferencedAudio()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string missingLate = Path.Combine(root, "late.mp3");
+
+        Scene BuildRoot(bool animateSpeed)
+        {
+            var childScene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, $"child-{Guid.NewGuid():N}.scene")) };
+            Element lateChild = CreateSoundElement(root, missingLate);
+            lateChild.Start = TimeSpan.FromSeconds(30);
+            lateChild.Length = TimeSpan.FromSeconds(5);
+            childScene.Children.Add(lateChild);
+
+            var sceneSound = new SceneSound();
+            sceneSound.ReferencedScene.CurrentValue = childScene;
+            if (animateSpeed)
+            {
+                var speed = new KeyFrameAnimation<float>();
+                speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100f });
+                speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(5), Value = 200f });
+                sceneSound.Speed.Animation = speed;
+            }
+
+            var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, $"root-{Guid.NewGuid():N}.scene")) };
+            Element outer = ElementWith(root, sceneSound);
+            outer.Length = TimeSpan.FromSeconds(40);
+            scene.Children.Add(outer);
+            return scene;
+        }
+
+        // Export [0s, 5s]: identity map windows the referenced scene, so the 30s child never composes and
+        // its missing file is dropped; the animated-Speed map is a real remap and conservatively keeps it.
+        IReadOnlyList<string> identityMissing = ExportSourceValidator.GetMissingPaths(
+            ExportSourceValidator.CollectRenderableSources(BuildRoot(animateSpeed: false), new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(5))));
+        IReadOnlyList<string> remappedMissing = ExportSourceValidator.GetMissingPaths(
+            ExportSourceValidator.CollectRenderableSources(BuildRoot(animateSpeed: true), new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(5))));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(identityMissing, Is.Empty);
+            Assert.That(remappedMissing, Does.Contain(missingLate));
+        });
+    }
+
+    // A DrawablePresenter whose Target is supplied by a reference-expression renders the resolved target,
+    // so a missing source inside it must be preflighted even though Target.CurrentValue is null.
+    [Test]
+    public void CollectRenderableSources_ExpressionSuppliedPresenterTarget_IsWalked()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string missingVideo = Path.Combine(root, "presented.mov");
+
+        var presented = VideoDrawable(missingVideo);
+        var presenter = new DrawablePresenter();
+        presenter.Target.Expression = Beutl.Engine.Expressions.Expression.CreateReference<Drawable>(presented.Id);
+
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
+        scene.Children.Add(ElementWith(root, presented));
+        scene.Children.Add(ElementWith(root, presenter));
+
+        IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
+            ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene));
+
+        Assert.That(missing, Does.Contain(missingVideo));
+    }
+
     private static SourceSound SoundDrawable(string sourcePath)
     {
         var source = new SoundSource();

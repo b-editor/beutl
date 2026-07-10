@@ -204,9 +204,10 @@ public static class ProxySourceEnumerator
         if (obj is Drawable drawable)
         {
             // A VideoSourceNode / ImageSourceNode can live inside a NodeGraphFilterEffect on any
-            // drawable's filter chain; the render path evaluates those, so scan them too.
+            // drawable's filter chain; the render path evaluates those, so scan them too. The render uses
+            // the effective FilterEffect value, so resolve an expression-supplied one before walking.
             foreach (IFileSource source in EnumerateFilterEffectGraphSources(
-                drawable.FilterEffect.CurrentValue,
+                ResolveExpressionValue<FilterEffect>(drawable, drawable.FilterEffect),
                 visitedFilterEffectGroups,
                 visitedGraphGroups,
                 new HashSet<FilterEffect>(ReferenceEqualityComparer.Instance),
@@ -292,12 +293,14 @@ public static class ProxySourceEnumerator
 
                     break;
 
-                case DrawablePresenter { Target.CurrentValue: { } presented }:
+                case DrawablePresenter presenter
+                    when ResolveExpressionValue<Drawable>(presenter, presenter.Target) is { } presented:
                     if ((!skipDisabledElements || presented.IsEnabled) && visitedTargets.Add(presented))
                     {
                         // A presenter forwards the same composition time to its target (no remap), so the
                         // render window maps directly — thread localRange through, unlike the time
-                        // controller above.
+                        // controller above. The render uses the effective Target, so resolve an
+                        // expression-supplied one.
                         foreach (IFileSource source in EnumerateObjectFileSources(
                             presented, visitedScenes, visitedGraphGroups, visitedFilterEffectGroups, visitedTargets, skipDisabledElements, renderTarget, localRange, sceneWindow))
                             yield return source;
@@ -309,13 +312,15 @@ public static class ProxySourceEnumerator
 
         // A SceneSound is a Sound (not a Drawable), so it is not covered by the Drawable switch above;
         // its referenced scene contributes only audio to the render, so narrow the descent to Audio. Its
-        // audio graph (ClipNode, then Shift(OffsetPosition) and Speed) remaps element-local time before
-        // the referenced scene is sampled, so localRange cannot express the sampled window; drop to the
-        // conservative full walk (null window) like the other time-remapping descents.
-        if (obj is SceneSound { ReferencedScene.CurrentValue: { } soundScene })
+        // audio graph applies Shift(OffsetPosition) then Speed before the referenced scene is sampled. For
+        // the identity map (OffsetPosition == 0, Speed == 100, neither animated) those nodes are pass-
+        // through, so the referenced scene sees the element-local window and localRange maps directly;
+        // any real remap makes the window unexpressible, so fall back to the conservative full walk.
+        if (obj is SceneSound { ReferencedScene.CurrentValue: { } soundScene } sceneSound)
         {
+            TimeRange? soundWindow = IsIdentityAudioMap(sceneSound) ? localRange : null;
             foreach (IFileSource source in EnumerateReferencedSceneSources(
-                soundScene, visitedScenes, skipDisabledElements, CompositionTarget.Audio))
+                soundScene, visitedScenes, skipDisabledElements, CompositionTarget.Audio, soundWindow, soundWindow))
                 yield return source;
         }
 
@@ -377,6 +382,12 @@ public static class ProxySourceEnumerator
                 if (skipDisabledElements && !child.IsEnabled)
                     continue;
 
+                // SortLayers only composes a child whose range intersects the sampled time, so a child
+                // entirely outside the referenced-scene window never renders — skip it before descending
+                // (the windowed keyframe filter alone does not gate a direct, unanimated child source).
+                if (skipDisabledElements && referencedSceneWindow is { } window && !child.Range.Intersects(window))
+                    continue;
+
                 // referencedSceneWindow is in referenced-scene time; each child samples its own local
                 // animations at scene-time - child.Start, while its global-clock keyframes sample the
                 // referenced scene's own clock (outerSceneWindow, unshifted by child.Start).
@@ -403,7 +414,7 @@ public static class ProxySourceEnumerator
             // reference-expression pointing at a file source is what the render opens. Resolve it (no
             // evaluation — just id/path lookup) and report its sources. StringExpressions are arbitrary
             // C# and are not evaluated here.
-            foreach (IFileSource source in EnumerateExpressionFileSources(obj, property.Expression, localRange, skipDisabledElements, visitedValues))
+            foreach (IFileSource source in EnumerateExpressionFileSources(obj, property.Expression, localRange, skipDisabledElements, visitedValues, sceneWindow))
                 yield return source;
 
             // When an expression is present, GetValue takes the expression branch and never samples the
@@ -497,7 +508,8 @@ public static class ProxySourceEnumerator
     // reached structurally, so recursing its resolved value here (guarded by visitedValues) only adds the
     // file sources it exposes as a value, without re-walking a scene/element/drawable navigator.
     private static IEnumerable<IFileSource> EnumerateExpressionFileSources(
-        EngineObject owner, IExpression? expression, TimeRange? localRange, bool skipDisabledElements, HashSet<EngineObject> visitedValues)
+        EngineObject owner, IExpression? expression, TimeRange? localRange, bool skipDisabledElements, HashSet<EngineObject> visitedValues,
+        TimeRange? sceneWindow = null)
     {
         if (expression is not IReferenceExpression reference
             || owner.FindHierarchicalRoot() is not ICoreObject root
@@ -523,7 +535,7 @@ public static class ProxySourceEnumerator
             p => string.Equals(p.Name, reference.PropertyPath, StringComparison.OrdinalIgnoreCase));
         if (property is not null)
         {
-            foreach (IFileSource source in EnumerateExpressionFileSources(target, property.Expression, localRange, skipDisabledElements, visitedValues))
+            foreach (IFileSource source in EnumerateExpressionFileSources(target, property.Expression, localRange, skipDisabledElements, visitedValues, sceneWindow))
                 yield return source;
 
             bool targetExpressionOverrides = localRange is not null && property.Expression is not null;
@@ -536,7 +548,9 @@ public static class ProxySourceEnumerator
 
             if (!targetExpressionOverrides)
             {
-                foreach (IFileSource source in EnumerateAnimatedFileSources(property.Animation, localRange, skipDisabledElements, visitedValues))
+                // The target property renders through PropertyLookup at scene time, so a global-clock
+                // source animation on it is windowed by sceneWindow just like a direct property.
+                foreach (IFileSource source in EnumerateAnimatedFileSources(property.Animation, localRange, skipDisabledElements, visitedValues, sceneWindow))
                     yield return source;
             }
 
@@ -695,6 +709,46 @@ public static class ProxySourceEnumerator
     private static bool AnimationSuppliesValue(IAnimation? animation)
         => animation is KeyFrameAnimation { KeyFrames.Count: > 0 } keyFrameAnimation
            && keyFrameAnimation.KeyFrames.All(k => k.Value is not null);
+
+    // The SceneSound audio graph is a pass-through (no time remap) only when Shift and Speed are both
+    // identity: OffsetPosition is 0 with no animation, and Speed is 100 (== 1.0x) with no animation.
+    // Then the referenced scene samples the element-local window directly.
+    private static bool IsIdentityAudioMap(SceneSound sceneSound)
+        => sceneSound.OffsetPosition.Animation is null
+           && sceneSound.OffsetPosition.CurrentValue == TimeSpan.Zero
+           && sceneSound.Speed.Animation is null
+           && sceneSound.Speed.CurrentValue == 100f;
+
+    // The effective value of a property supplied by a reference-expression: rendering opens what the
+    // expression resolves to, but the CurrentValue is null/stale. Resolve the reference (id/path lookup,
+    // no evaluation) to its target of type T so a structural target (a FilterEffect, a presented
+    // Drawable) reached only through an expression is still walked. Returns null for a plain value, a
+    // StringExpression (arbitrary C#, not evaluated), or an unresolvable reference.
+    private static T? ResolveExpressionValue<T>(EngineObject owner, IProperty property)
+        where T : class
+    {
+        if (property.CurrentValue is T current)
+            return current;
+
+        if (property.Expression is not IReferenceExpression reference
+            || owner.FindHierarchicalRoot() is not ICoreObject root
+            || root.FindById(reference.ObjectId) is not { } resolved)
+        {
+            return null;
+        }
+
+        if (!reference.HasPropertyPath)
+            return resolved as T;
+
+        if (resolved is EngineObject target
+            && target.Properties.FirstOrDefault(
+                p => string.Equals(p.Name, reference.PropertyPath, StringComparison.OrdinalIgnoreCase)) is { } targetProperty)
+        {
+            return targetProperty.CurrentValue as T;
+        }
+
+        return null;
+    }
 
     private static IEnumerable<IFileSource> EnumerateAnimatedFileSources(
         IAnimation? animation, TimeRange? localRange = null, bool skipDisabledElements = false, HashSet<EngineObject>? visitedValues = null,

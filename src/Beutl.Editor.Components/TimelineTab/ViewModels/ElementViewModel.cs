@@ -1105,10 +1105,10 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             return;
         }
 
-        // ElementUsesChangedSourceCached reads Model (UI-thread state), so the relevance gate runs here
-        // inside the marshaled callback — a store event for an unrelated source skips the per-clip
-        // store.Enumerate() + queue.Pending() walk in RefreshProxyState.
-        if (!ElementUsesChangedSourceCached(e.Source.AbsolutePath))
+        // A Reset (store swap) has no meaningful Source, so skip the per-source relevance gate and always
+        // re-resolve; otherwise ElementUsesChangedSourceCached reads Model (UI-thread state) here so a
+        // store event for an unrelated source skips the per-clip walk in RefreshProxyState.
+        if (e.Kind != ProxyStoreChangeKind.Reset && !ElementUsesChangedSourceCached(e.Source.AbsolutePath))
             return;
 
         // A store registration/state change/delete can flip which entry ResolveSourceFingerprint
@@ -1287,7 +1287,8 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
     internal static bool AffectsProxyBadge(ProxyStoreChangeKind kind)
         => kind is ProxyStoreChangeKind.Registered
             or ProxyStoreChangeKind.StateChanged
-            or ProxyStoreChangeKind.Deleted;
+            or ProxyStoreChangeKind.Deleted
+            or ProxyStoreChangeKind.Reset;
 
     private static int ProxyStateRank(ProxyState state) => state switch
     {

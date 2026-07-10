@@ -23,7 +23,18 @@ internal sealed class StableProxyStoreFacade(IProxyStore initial) : IProxyStore
 
         _inner = next;
         if (handlers is not null)
+        {
             next.Changed += handlers;
+            // The new store loads its entries in the constructor (no Registered events), so raise a Reset
+            // to make open Proxies tabs / timeline badges refresh to the new store's state rather than
+            // keeping the previous store's Ready/Missing display until a manual refresh.
+            handlers(this, new ProxyStoreChangedEventArgs
+            {
+                Source = default,
+                Preset = default,
+                Kind = ProxyStoreChangeKind.Reset,
+            });
+        }
     }
 
     public string StoreRootPath => _inner.StoreRootPath;

@@ -42,4 +42,9 @@ public enum ProxyStoreChangeKind
     StateChanged,
     Deleted,
     Touched,
+
+    // The whole store was replaced (e.g. the proxy store root changed): every entry may differ, so a
+    // consumer should do a full refresh rather than update a single source. Source/Preset are not
+    // meaningful for this kind.
+    Reset,
 }

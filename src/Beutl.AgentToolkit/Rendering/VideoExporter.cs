@@ -5,6 +5,7 @@ using Beutl.Extensibility;
 using Beutl.Extensions.FFmpeg;
 using Beutl.Extensions.FFmpeg.Encoding;
 using Beutl.FFmpegIpc;
+using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
 using Beutl.Media.Encoding;
@@ -80,9 +81,14 @@ public sealed class VideoExporter(EncoderRegistration encoders)
 
             // A final export forces original media (no proxy fallback), so a missing original would encode
             // a blank/silent segment instead of failing. Preflight the exported range's renderable sources
-            // (graphics + audio) and fail fast, matching the save-frame/export guard.
-            IReadOnlyList<string> missingSources = Beutl.Editor.ExportSourceValidator.GetMissingPaths(
-                Beutl.Editor.ExportSourceValidator.CollectRenderableSources(scene, new TimeRange(scene.Start, scene.Duration)));
+            // (graphics + audio) and fail fast, matching the save-frame/export guard. CollectRenderableSources
+            // walks the mutable scene graph, so run it on the render thread like StillRenderer does rather
+            // than racing UI/render-thread mutations from this (possibly off-thread) caller.
+            IReadOnlySet<string> renderableSources = await RenderThread.Dispatcher.InvokeAsync(
+                () => Beutl.Editor.ExportSourceValidator.CollectRenderableSources(
+                    scene, new TimeRange(scene.Start, scene.Duration)),
+                ct: cancellationToken).ConfigureAwait(false);
+            IReadOnlyList<string> missingSources = Beutl.Editor.ExportSourceValidator.GetMissingPaths(renderableSources);
             if (missingSources.Count > 0)
             {
                 throw new RenderingUnavailableException(

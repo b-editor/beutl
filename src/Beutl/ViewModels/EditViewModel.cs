@@ -226,6 +226,21 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
             return;
         }
 
+        // A store swap replaces every entry, and e.Source is not meaningful — clear the whole frame
+        // cache and re-render rather than invalidating a single source's ranges.
+        if (e.Kind == ProxyStoreChangeKind.Reset)
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (_disposed || FrameCacheManager.Value.IsDisposed)
+                    return;
+
+                FrameCacheManager.Value.Clear();
+                Player.QueuePreviewRender();
+            });
+            return;
+        }
+
         if (e.Kind is not (ProxyStoreChangeKind.Registered
             or ProxyStoreChangeKind.StateChanged
             or ProxyStoreChangeKind.Deleted))

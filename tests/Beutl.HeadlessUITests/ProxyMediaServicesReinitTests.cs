@@ -161,6 +161,42 @@ public sealed class ProxyMediaServicesReinitTests
         }
     }
 
+    [AvaloniaTest]
+    public void Store_facade_raises_Reset_on_store_swap()
+    {
+        ProxyStoreConfig config = GlobalConfiguration.Instance.ProxyStoreConfig;
+        (string Root, long Cap) prior = Snapshot(config);
+        string first = Path.Combine(Path.GetTempPath(), $"proxy-reinit-{Guid.NewGuid():N}");
+        string second = Path.Combine(Path.GetTempPath(), $"proxy-reinit-{Guid.NewGuid():N}");
+        config.StoreRootPath = first;
+
+        ProxyMediaServices services = ProxyMediaServices.Initialize(GlobalConfiguration.Instance);
+        int resetCount = 0;
+        void Handler(object? sender, ProxyStoreChangedEventArgs e)
+        {
+            if (e.Kind == ProxyStoreChangeKind.Reset)
+                resetCount++;
+        }
+
+        services.StoreFacade.Changed += Handler;
+        try
+        {
+            // The new store loads its index in the constructor (no Registered events), so a swap must
+            // raise a Reset for open Proxies tabs / badges to refresh to the new store's state.
+            config.StoreRootPath = second;
+
+            Assert.That(resetCount, Is.EqualTo(1));
+        }
+        finally
+        {
+            services.StoreFacade.Changed -= Handler;
+            services.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            Restore(config, prior);
+            TryDelete(first);
+            TryDelete(second);
+        }
+    }
+
     private static void TryDelete(string dir)
     {
         try

@@ -103,7 +103,8 @@ public sealed class ProxyEvictionService : IProxyStoreCapInfo
 
     private long CapOverage()
     {
-        return Math.Max(0, _store.GetTotalBytes() - _maxTotalBytes);
+        // Read through the property so a runtime cap change (Volatile.Write) is observed on sweep threads.
+        return Math.Max(0, _store.GetTotalBytes() - MaxTotalBytes);
     }
 
     private long DiskShortfall(long additionalBytesNeeded)

@@ -167,6 +167,15 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
         if (_disposed)
             return;
 
+        // The config observable can fire more than once for a single edit; a rebuild for the path the
+        // live store already serves would needlessly dispose the queue (cancelling in-flight jobs) and
+        // re-emit a Reset. Compare the resolved paths and skip a no-op.
+        if (string.Equals(Store.StoreRootPath, Path.GetFullPath(storeRootPath), StringComparison.Ordinal))
+        {
+            UpdateEvictionCap(maxTotalBytes);
+            return;
+        }
+
         // Swap on this (the config setter's) thread so consumers re-fetching Current?.Store never
         // observe a torn mix. The old queue is drained off-thread: its drain path marshals
         // project-graph reads through the UI thread, so awaiting it here would deadlock like shutdown.
