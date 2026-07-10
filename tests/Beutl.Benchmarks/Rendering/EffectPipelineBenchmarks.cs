@@ -30,7 +30,7 @@ public class EffectPipelineBenchmarks
 {
     private const int PatternSeed = 20040705;
 
-    [Params("ColorChain", "MixedChain", "SplitTree", "HeavySource")]
+    [Params("NoEffect", "SingleBlur", "SingleGamma", "ColorChain", "MixedChain", "SplitTree", "HeavySource")]
     public string Scene = "ColorChain";
 
     [Params("1080p", "4K")]
@@ -39,6 +39,13 @@ public class EffectPipelineBenchmarks
     private Drawable.Resource _resource = null!;
     private PixelSize _size;
     private PipelineDiagnosticsSnapshot _counters;
+
+    // Mirrors the production Renderer: ONE render-thread-affine pool for the whole run, trimmed once per
+    // frame. Without this every effect-pass acquire degenerates to a fresh RenderTarget.Create (a real
+    // Vulkan allocation), which the production pipeline never pays in steady state.
+    private static readonly RenderTargetPool s_pool =
+        RenderThread.Dispatcher.Invoke(static () => new RenderTargetPool());
+    private static long s_frameIndex;
 
     // Log.LoggerFactory's setter is internal (not visible to this project); LutEffect's static ctor NREs in
     // Release without it. Seed the backing field so MixedChain can instantiate.
@@ -58,6 +65,27 @@ public class EffectPipelineBenchmarks
         "4K" => new PixelSize(3840, 2160),
         _ => throw new ArgumentOutOfRangeException(nameof(resolution), resolution, "Unknown resolution."),
     };
+
+    // Diagnostic probe (not a benchmark): renders N frames of one scene and prints per-frame wall time and
+    // the per-frame counter snapshot, so steady-state pool/program behavior is directly observable.
+    internal static void Probe(string scene, string resolution, int frames)
+    {
+        SeedLoggerFactory();
+        RenderThread.Dispatcher.Invoke(() =>
+        {
+            if (Beutl.Graphics.Backend.GraphicsContextFactory.GetOrCreateShared() == null)
+                throw new InvalidOperationException("No Vulkan/MoltenVK context available for the probe.");
+        });
+        PixelSize size = SizeOf(resolution);
+        Drawable.Resource resource = Build(scene, size);
+        for (int i = 0; i < frames; i++)
+        {
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            PipelineDiagnosticsSnapshot snap = RenderThread.Dispatcher.Invoke(() => RenderOnce(resource, size));
+            sw.Stop();
+            Console.WriteLine($"frame {i}: {sw.Elapsed.TotalMilliseconds,7:F2} ms  {snap}");
+        }
+    }
 
     [GlobalSetup]
     public void Setup()
@@ -106,7 +134,7 @@ public class EffectPipelineBenchmarks
             resource.GetOriginal().Render(ctx, resource);
         }
 
-        var processor = new RenderNodeProcessor(node, useRenderCache: false, outputScale: 1f);
+        var processor = new RenderNodeProcessor(node, useRenderCache: false, outputScale: 1f, pool: s_pool);
         RenderNodeOperation[] ops = processor.PullToRoot();
         foreach (RenderNodeOperation op in ops)
         {
@@ -114,19 +142,38 @@ public class EffectPipelineBenchmarks
             op.Dispose();
         }
 
-        return processor.Diagnostics.Snapshot();
+        PipelineDiagnosticsSnapshot snapshot = processor.Diagnostics.Snapshot();
+        s_pool.Trim(++s_frameIndex);
+        return snapshot;
     }
 
     // ---- Scene builders (duplicated from SceneFixtures.cs; keep in sync) ----
 
     private static Drawable.Resource Build(string scene, PixelSize size) => scene switch
     {
+        "NoEffect" => GradientShape(size, null),
+        "SingleBlur" => SingleBlur(size),
+        "SingleGamma" => SingleGamma(size),
         "ColorChain" => ColorChain(size),
         "MixedChain" => MixedChain(size),
         "SplitTree" => SplitTree(size),
         "HeavySource" => HeavySource(size),
         _ => throw new ArgumentOutOfRangeException(nameof(scene), scene, "Unknown O3 scene."),
     };
+
+    private static Drawable.Resource SingleBlur(PixelSize size)
+    {
+        var blur = new Blur();
+        blur.Sigma.CurrentValue = new Size(6, 6);
+        return GradientShape(size, blur);
+    }
+
+    private static Drawable.Resource SingleGamma(PixelSize size)
+    {
+        var gamma = new Gamma();
+        gamma.Amount.CurrentValue = 1.5f;
+        return GradientShape(size, gamma);
+    }
 
     private static Drawable.Resource ColorChain(PixelSize size)
     {
@@ -231,7 +278,7 @@ public class EffectPipelineBenchmarks
         return source;
     }
 
-    private static Drawable.Resource GradientShape(PixelSize size, FilterEffect effect)
+    private static Drawable.Resource GradientShape(PixelSize size, FilterEffect? effect)
     {
         var fill = new LinearGradientBrush();
         fill.StartPoint.CurrentValue = new RelativePoint(0, 0, RelativeUnit.Relative);
@@ -252,7 +299,8 @@ public class EffectPipelineBenchmarks
         rotation.Rotation.CurrentValue = 12f;
         shape.Transform.CurrentValue = rotation;
 
-        shape.FilterEffect.CurrentValue = effect;
+        if (effect is not null)
+            shape.FilterEffect.CurrentValue = effect;
         return shape.ToResource(CompositionContext.Default);
     }
 
