@@ -94,6 +94,10 @@ public sealed class InlineKeyFrameViewModel : IDisposable
             if (await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrame) is { } json
                 && JsonNode.Parse(json) is JsonObject jsonObj)
             {
+                // Re-check after the awaited clipboard read: the clip or its layer may have been
+                // locked while it was pending, and the writes below must honor that.
+                if (!Parent.IsEditable) return;
+
                 if (!jsonObj.TryGetDiscriminator(out Type? type))
                 {
                     NotificationService.ShowWarning(Strings.Paste, MessageStrings.InvalidKeyframeDataFormat_MissingType);

@@ -577,6 +577,28 @@ public class RippleEditTests
     }
 
     [Test]
+    public void Resize_RippleOn_LeftEdgeGrow_LockedClipDirectlyBefore_ClampsGrowAway()
+    {
+        var resize = new ElementResizeService(_history);
+        Element locked = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2), zIndex: 0);
+        Element target = AddElement(TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(2), zIndex: 0);
+        locked.IsLocked = true;
+
+        // The only upstream clip is the locked one directly before target (no free clip to bound the
+        // shift), so the grow must still be clamped by target's own room to the lock, which is zero.
+        resize.Resize(_scene,
+            [new ElementResizeRequest(target, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(4), 0)],
+            ripple: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(target.Start, Is.EqualTo(TimeSpan.FromSeconds(4)), "left edge cannot cross the locked clip");
+            Assert.That(target.Range.End, Is.EqualTo(TimeSpan.FromSeconds(6)), "end unchanged");
+            Assert.That(locked.Start, Is.EqualTo(TimeSpan.FromSeconds(2)), "locked clip stays put");
+        });
+    }
+
+    [Test]
     public void Resize_RippleOn_LeftEdgeGrow_ClampsToLockedUpstreamEnd()
     {
         var resize = new ElementResizeService(_history);

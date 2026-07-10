@@ -140,8 +140,9 @@ public sealed class ElementResizeService : IElementResizeService
 
         // Every upstream clip shifts left by the same delta, so the grow is bounded by the tightest
         // room: each clip can move left only to the timeline start or the end of the nearest locked
-        // clip in front of it (locked clips are immovable and must not be overlapped).
-        TimeSpan? maxGrow = null;
+        // clip in front of it (locked clips are immovable and must not be overlapped). Seed the bound
+        // with the resized clip's own room so its left edge is clamped even with no free upstream clip.
+        TimeSpan maxGrow = req.Element.Start - NearestLockedEndAtOrBefore(lockedEnds, req.Element.Start);
         foreach (Element e in scene.Children)
         {
             if (e.ZIndex != req.Element.ZIndex || resized.Contains(e) || e.IsLocked
@@ -151,15 +152,15 @@ public sealed class ElementResizeService : IElementResizeService
             }
 
             TimeSpan room = e.Start - NearestLockedEndAtOrBefore(lockedEnds, e.Start);
-            if (maxGrow is not { } cur || room < cur) maxGrow = room;
+            if (room < maxGrow) maxGrow = room;
         }
 
-        if (maxGrow is not { } grow || startDelta >= -grow)
+        if (startDelta >= -maxGrow)
         {
             return (req.NewStart, req.NewLength);
         }
 
-        TimeSpan clampedStart = req.Element.Start - grow;
+        TimeSpan clampedStart = req.Element.Start - maxGrow;
         TimeSpan clampedLength = req.NewStart + req.NewLength - clampedStart;
         if (clampedLength <= TimeSpan.Zero)
         {
