@@ -37,7 +37,10 @@ public sealed class ProxyStoreConfig : ConfigurationBase
 
     public string StoreRootPath
     {
-        get => Path.GetFullPath(NormalizeStoreRootPath(GetValue(StoreRootPathProperty)));
+        // NormalizeStoreRootPath already returns an absolute path (or the default), so no further
+        // Path.GetFullPath here — a second call could throw for a malformed persisted value, defeating the
+        // startup fallback that reads this accessor during recovery.
+        get => NormalizeStoreRootPath(GetValue(StoreRootPathProperty));
         set => SetValue(StoreRootPathProperty, NormalizeStoreRootPath(value));
     }
 
@@ -57,8 +60,18 @@ public sealed class ProxyStoreConfig : ConfigurationBase
 
     private static string NormalizeStoreRootPath(string? value)
     {
-        return string.IsNullOrWhiteSpace(value)
-            ? DefaultStoreRootPath
-            : Path.GetFullPath(value);
+        if (string.IsNullOrWhiteSpace(value))
+            return DefaultStoreRootPath;
+
+        try
+        {
+            return Path.GetFullPath(value);
+        }
+        catch (Exception ex) when (ex is ArgumentException or System.Security.SecurityException or NotSupportedException or PathTooLongException)
+        {
+            // A malformed persisted value (invalid characters, a bad root) must not throw on every access;
+            // degrade to the default so proxy-store init can proceed and the caller can repair the setting.
+            return DefaultStoreRootPath;
+        }
     }
 }

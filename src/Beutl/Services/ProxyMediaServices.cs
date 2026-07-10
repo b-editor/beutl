@@ -139,9 +139,13 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
     private static (ProxyStore Store, ProxyResolver Resolver, ProxyJobQueue Queue, ProxyEvictionService Eviction)
         BuildServicesWithFallback(ProxyStoreConfig config)
     {
+        // Capture the resolved path once, before the try: the recovery path below must not re-read the
+        // accessor (its normalization already degrades a malformed value to the default, but reading it
+        // twice is needless and couples recovery to the accessor).
+        string storeRootPath = config.StoreRootPath;
         try
         {
-            return BuildServices(config.StoreRootPath, config.MaxTotalBytes, resolverVersionOffset: 0);
+            return BuildServices(storeRootPath, config.MaxTotalBytes, resolverVersionOffset: 0);
         }
         catch (Exception ex)
         {
@@ -149,10 +153,10 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
             // the default location so proxy services still initialize and the config subscriptions install
             // — the user can correct the path in Settings without a restart — and repair the persisted
             // value. If the default itself is the unusable path there is nothing better, so rethrow.
-            if (string.Equals(config.StoreRootPath, Path.GetFullPath(ProxyStoreConfig.DefaultStoreRootPath), StorePathComparison))
+            if (string.Equals(storeRootPath, Path.GetFullPath(ProxyStoreConfig.DefaultStoreRootPath), StorePathComparison))
                 throw;
 
-            s_logger.LogWarning(ex, "Opening the proxy store at '{Path}' failed; falling back to the default location.", config.StoreRootPath);
+            s_logger.LogWarning(ex, "Opening the proxy store at '{Path}' failed; falling back to the default location.", storeRootPath);
             NotificationService.ShowWarning(
                 "Proxy media",
                 "The proxy store location could not be opened. Using the default location instead.");

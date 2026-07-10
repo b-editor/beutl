@@ -43,6 +43,19 @@ public class ProxyStoreConfigTests
         Assert.That(Path.IsPathFullyQualified(config.StoreRootPath), Is.True);
     }
 
+    // A malformed persisted value must not throw on access — Path.GetFullPath rejects a null character —
+    // so the accessor degrades to the default. Otherwise the startup fallback, which reads this accessor
+    // during recovery, would rethrow and never reach the default store location.
+    [Test]
+    public void StoreRootPath_MalformedValue_DegradesToDefaultWithoutThrowing()
+    {
+        var config = new ProxyStoreConfig();
+        string malformed = "bad\0path";
+
+        Assert.DoesNotThrow(() => config.StoreRootPath = malformed);
+        Assert.That(config.StoreRootPath, Is.EqualTo(Path.GetFullPath(ProxyStoreConfig.DefaultStoreRootPath)));
+    }
+
     [Test]
     public void StoreRootPath_EmptyValueResetsToDefault()
     {
