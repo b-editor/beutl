@@ -1455,6 +1455,34 @@ public sealed class ExportSourceValidatorTests
         Assert.That(missing, Is.EqualTo(new[] { soloMissing }));
     }
 
+    // The audio-target branch of the nested-scene skip: a SceneSound composes the referenced scene's
+    // audio through its SortLayers, so an audio-muted layer inside that scene contributes no sound and its
+    // missing audio original must not block export.
+    [Test]
+    public void CollectRenderableSources_AudioMutedLayerInReferencedScene_SkipsAudioSource()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string missingSound = Path.Combine(root, "muted-nested.mp3");
+
+        var childScene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "child.scene")) };
+        Element child = CreateSoundElement(root, missingSound);
+        child.ZIndex = 5;
+        childScene.Children.Add(child);
+        childScene.Layers.Add(new TimelineLayer { ZIndex = 5, IsAudioMuted = true });
+
+        // A default SceneSound has the identity audio map, so it windows the referenced scene per-target.
+        var sceneSound = new SceneSound();
+        sceneSound.ReferencedScene.CurrentValue = childScene;
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "root.scene")) };
+        scene.Children.Add(ElementWith(root, sceneSound));
+
+        IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
+            ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene));
+
+        Assert.That(missing, Is.Empty);
+    }
+
     private static SourceSound SoundDrawable(string sourcePath)
     {
         var source = new SoundSource();
