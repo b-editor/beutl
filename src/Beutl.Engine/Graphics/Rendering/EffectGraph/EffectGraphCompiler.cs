@@ -71,6 +71,8 @@ internal static class EffectGraphCompiler
                     ForwardBounds = shader.Bounds.TransformBounds,
                     IsRenderTimeResolved = shader.Bounds.IsRenderTimeResolved,
                     CoordinateInvariant = shader.IsCoordinateInvariant,
+                    ProvenanceMinChild = node.ChildIndex,
+                    ProvenanceMaxChild = node.ChildIndex,
                 });
                 i++;
             }
@@ -83,6 +85,8 @@ internal static class EffectGraphCompiler
                     BackwardBounds = geometry.Bounds.GetRequiredInputBounds,
                     ForwardBounds = geometry.Bounds.TransformBounds,
                     IsRenderTimeResolved = geometry.Bounds.IsRenderTimeResolved,
+                    ProvenanceMinChild = node.ChildIndex,
+                    ProvenanceMaxChild = node.ChildIndex,
                 });
                 i++;
             }
@@ -95,6 +99,8 @@ internal static class EffectGraphCompiler
                     OutputBounds = node.OutputBounds,
                     BackwardBounds = compute.Bounds.GetRequiredInputBounds,
                     ForwardBounds = compute.Bounds.TransformBounds,
+                    ProvenanceMinChild = node.ChildIndex,
+                    ProvenanceMaxChild = node.ChildIndex,
                 });
                 i++;
             }
@@ -106,6 +112,8 @@ internal static class EffectGraphCompiler
                     OutputBounds = node.OutputBounds,
                     IsRenderTimeResolved = true,
                     IsDynamicOutputs = split.IsDynamicOutputs,
+                    ProvenanceMinChild = node.ChildIndex,
+                    ProvenanceMaxChild = node.ChildIndex,
                 });
                 i++;
             }
@@ -116,6 +124,8 @@ internal static class EffectGraphCompiler
                     InputBounds = node.InputBounds,
                     OutputBounds = node.OutputBounds,
                     IsRenderTimeResolved = true,
+                    ProvenanceMinChild = node.ChildIndex,
+                    ProvenanceMaxChild = node.ChildIndex,
                 });
                 i++;
             }
@@ -127,6 +137,8 @@ internal static class EffectGraphCompiler
                     OutputBounds = node.OutputBounds,
                     IsRenderTimeResolved = true,
                     IsDynamicOutputs = true,
+                    ProvenanceMinChild = node.ChildIndex,
+                    ProvenanceMaxChild = node.ChildIndex,
                 });
                 i++;
             }
@@ -241,12 +253,16 @@ internal static class EffectGraphCompiler
         var stages = ImmutableArray.CreateBuilder<FusedStage>();
         Rect inputBounds = nodes[start].InputBounds;
         Rect outputBounds = inputBounds;
+        int minChild = nodes[start].ChildIndex;
+        int maxChild = nodes[start].ChildIndex;
 
         int i = start;
         while (i < nodes.Count && IsFusable(nodes[i].Descriptor) && stages.Count < MaxFusionStages)
         {
             stages.Add(ToStage(nodes[i].Descriptor));
             outputBounds = nodes[i].OutputBounds;
+            minChild = Math.Min(minChild, nodes[i].ChildIndex);
+            maxChild = Math.Max(maxChild, nodes[i].ChildIndex);
             i++;
         }
 
@@ -255,6 +271,8 @@ internal static class EffectGraphCompiler
             InputBounds = inputBounds,
             OutputBounds = outputBounds,
             BackwardBounds = static r => r,
+            ProvenanceMinChild = minChild,
+            ProvenanceMaxChild = maxChild,
         });
         return i;
     }
@@ -265,6 +283,8 @@ internal static class EffectGraphCompiler
         Rect inputBounds = nodes[start].InputBounds;
         Rect outputBounds = inputBounds;
         bool renderTime = false;
+        int minChild = nodes[start].ChildIndex;
+        int maxChild = nodes[start].ChildIndex;
 
         int end = start;
         while (end < nodes.Count && nodes[end].Descriptor is SkiaFilterNodeDescriptor filter)
@@ -272,6 +292,8 @@ internal static class EffectGraphCompiler
             filters.Add(filter.Factory);
             outputBounds = nodes[end].OutputBounds;
             renderTime |= filter.Bounds.IsRenderTimeResolved;
+            minChild = Math.Min(minChild, nodes[end].ChildIndex);
+            maxChild = Math.Max(maxChild, nodes[end].ChildIndex);
             end++;
         }
 
@@ -298,6 +320,8 @@ internal static class EffectGraphCompiler
             BackwardBounds = backward,
             ForwardBounds = forward,
             IsRenderTimeResolved = renderTime,
+            ProvenanceMinChild = minChild,
+            ProvenanceMaxChild = maxChild,
         });
         return end;
     }

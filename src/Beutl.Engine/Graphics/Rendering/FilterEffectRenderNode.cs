@@ -1,6 +1,7 @@
 ﻿using Beutl.Engine;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Effects;
+using Beutl.Graphics.Rendering.Cache;
 
 namespace Beutl.Graphics.Rendering;
 
@@ -11,6 +12,7 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
     private static readonly object s_noContext = new();
 
     private readonly PlanCache _planCache = new();
+    private readonly EffectPrefixCache _prefixCache = new();
 
     public (FilterEffect.Resource Resource, int Version)? FilterEffect { get; private set; } = filterEffect.Capture();
 
@@ -73,14 +75,81 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
 
         // The parent wants the effect's full output; Rect.Invalid requests every pass's full bounds (no ROI crop).
         FrameResources resources = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale);
+
+        // Pass-prefix output caching (C10): reuse a stable leading run of passes so a heavy static prefix (a blur,
+        // a stroke) is not re-executed every frame merely because the tail is animated. Only engaged on the pooled
+        // render path; the pool-less golden/frozen harnesses render once and never reach the engagement threshold.
+        if (context.Pool != null)
+        {
+            PrefixDecision decision = _prefixCache.Prepare(
+                resource, plan, key, contextId, workingScale,
+                InputSignature(context.Input), RenderNodeCacheHelper.CanCacheRecursiveChildrenOnly(this));
+
+            switch (decision.Mode)
+            {
+                case PrefixMode.Resume:
+                    return ExecuteResumed(context, plan, resources, workingScale, decision);
+                case PrefixMode.Capture:
+                    return ExecuteAndCapture(context, plan, resources, workingScale, decision.Pass);
+            }
+        }
+
         return PlanExecutor.Execute(
             plan, resources, context.Input, context.OutputScale, workingScale, context.MaxWorkingScale,
             context.Diagnostics, context.Pool);
+    }
+
+    // Skips the retained prefix's passes: the cached buffer seeds the pass after it, so passes 0..k neither draw nor
+    // allocate. The fresh input ops are discarded (the stable prefix already encapsulates them), counting one hit.
+    private RenderNodeOperation[] ExecuteResumed(
+        RenderNodeContext context, CompiledPlan plan, FrameResources resources, float workingScale,
+        PrefixDecision decision)
+    {
+        RenderNodeOperation.DisposeAll(context.Input);
+        if (context.Diagnostics != null)
+            context.Diagnostics.PrefixCacheHits++;
+
+        RenderNodeOperation seed = RenderNodeOperation.CreateFromRenderTarget(
+            decision.SeedBounds, decision.SeedBounds.Position, decision.SeedTarget!.ShallowCopy(), decision.SeedScale);
+        return PlanExecutor.Execute(
+            plan, resources, [seed], context.OutputScale, workingScale, context.MaxWorkingScale,
+            context.Diagnostics, context.Pool, startPass: decision.Pass);
+    }
+
+    // Full execution that additionally retains the capture pass's output for subsequent frames to resume from.
+    private RenderNodeOperation[] ExecuteAndCapture(
+        RenderNodeContext context, CompiledPlan plan, FrameResources resources, float workingScale, int capturePass)
+    {
+        var sink = new PrefixCaptureSink { CapturePassIndex = capturePass };
+        RenderNodeOperation[] result = PlanExecutor.Execute(
+            plan, resources, context.Input, context.OutputScale, workingScale, context.MaxWorkingScale,
+            context.Diagnostics, context.Pool, startPass: 0, captureSink: sink);
+        _prefixCache.StoreCaptured(sink, capturePass, plan);
+        return result;
+    }
+
+    // Structural signature of the operations feeding this node's plan (C10): a change in the input geometry or supply
+    // density means the cached prefix's pixels no longer match, so it must invalidate even when the subtree is stable.
+    private static long InputSignature(RenderNodeOperation[] input)
+    {
+        var hash = new HashCode();
+        foreach (RenderNodeOperation op in input)
+        {
+            Rect b = op.Bounds;
+            hash.Add(b.X);
+            hash.Add(b.Y);
+            hash.Add(b.Width);
+            hash.Add(b.Height);
+            hash.Add(op.EffectiveScale.IsUnbounded ? float.NaN : op.EffectiveScale.Value);
+        }
+
+        return hash.ToHashCode();
     }
 
     protected override void OnDispose(bool disposing)
     {
         base.OnDispose(disposing);
         _planCache.Invalidate();
+        _prefixCache.Dispose();
     }
 }

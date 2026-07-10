@@ -46,6 +46,13 @@ public sealed class PipelineDiagnostics
     /// <summary>C8: each <c>SKRuntimeEffect</c> / Vulkan pipeline construction (a <see cref="ProgramCache"/> miss).</summary>
     public long ProgramCreations;
 
+    /// <summary>
+    /// C8/C10: each frame a stable effect-chain prefix is reused instead of re-executed — one increment per frame the
+    /// pass-prefix output cache engages, so the skipped passes' <see cref="GpuPasses"/> and allocations do not occur
+    /// (contracts/execution-plan.md §C10).
+    /// </summary>
+    public long PrefixCacheHits;
+
     /// <summary>Takes an immutable copy of the current counter values for test assertions.</summary>
     public PipelineDiagnosticsSnapshot Snapshot() => new(
         GpuPasses,
@@ -55,7 +62,8 @@ public sealed class PipelineDiagnostics
         FullFrameMaterializations,
         FlushSyncs,
         PlanCompilations,
-        ProgramCreations);
+        ProgramCreations,
+        PrefixCacheHits);
 
     /// <summary>Resets every counter to zero.</summary>
     public void Reset()
@@ -68,6 +76,7 @@ public sealed class PipelineDiagnostics
         FlushSyncs = 0;
         PlanCompilations = 0;
         ProgramCreations = 0;
+        PrefixCacheHits = 0;
     }
 }
 
@@ -80,4 +89,5 @@ public readonly record struct PipelineDiagnosticsSnapshot(
     long FullFrameMaterializations,
     long FlushSyncs,
     long PlanCompilations,
-    long ProgramCreations);
+    long ProgramCreations,
+    long PrefixCacheHits);

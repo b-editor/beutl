@@ -31,7 +31,9 @@ internal static class PlanExecutor
         float workingScale,
         float maxWorkingScale,
         PipelineDiagnostics? diagnostics,
-        RenderTargetPool? pool)
+        RenderTargetPool? pool,
+        int startPass = 0,
+        PrefixCaptureSink? captureSink = null)
     {
         // FR-007 (C3.1) measurement scope: pooled leases live before this execution belong to the caller (an outer
         // plan, a held upstream op) and are subtracted from the peak measured for this plan.
@@ -47,7 +49,7 @@ internal static class PlanExecutor
         var current = new List<RenderNodeOperation>(inputs);
         try
         {
-            for (int k = 0; k < plan.Passes.Length; k++)
+            for (int k = startPass; k < plan.Passes.Length; k++)
             {
                 CompiledPass pass = plan.Passes[k];
 
@@ -74,12 +76,17 @@ internal static class PlanExecutor
                     default:
                         MapDescriptorPass(
                             pass, resources.Passes[k], current, outputScale, workingScale, maxWorkingScale,
-                            diagnostics, pool);
+                            diagnostics, pool, captureSink != null && k == captureSink.CapturePassIndex ? captureSink : null);
                         break;
                 }
             }
 
-            AssertPeakLiveWithinPlan(plan, inputs.Length, pool, leaseBaseline);
+            // A capture frame deliberately retains the prefix pass's buffer past its plan-declared last use (the C10
+            // cross-frame lease), which inflates this frame's intra-frame peak above the plan's declared intermediate
+            // bound; that retained lease is the cache's, not a plan intermediate, so skip the FR-007 check here.
+            if (captureSink == null)
+                AssertPeakLiveWithinPlan(plan, inputs.Length, pool, leaseBaseline);
+
             return current.ToArray();
         }
         catch
@@ -160,9 +167,12 @@ internal static class PlanExecutor
     private static void MapDescriptorPass(
         CompiledPass pass, PassResolution resolution, List<RenderNodeOperation> current,
         float outputScale, float workingScale, float maxWorkingScale, PipelineDiagnostics? diagnostics,
-        RenderTargetPool? pool)
+        RenderTargetPool? pool, PrefixCaptureSink? captureSink = null)
     {
         bool linear = current.Count == 1;
+        // The prefix cache only ever captures a linear (single-op) pass output (C10 v1 scope), so a fanned-out set is
+        // never a capture site; drop the sink in that case so no partial branch is retained.
+        PrefixCaptureSink? sink = linear ? captureSink : null;
         var outputs = new List<RenderNodeOperation>(current.Count);
         try
         {
@@ -173,7 +183,7 @@ internal static class PlanExecutor
                 // A null result drops this pass output and continues: either an empty resolved output (a shrinking
                 // pass) or a preview allocation-failure (C7; delivery renders throw instead of returning null).
                 RenderNodeOperation? mapped = MapOneOperation(
-                    pass, resolution, linear, op, outputScale, workingScale, maxWorkingScale, diagnostics, pool);
+                    pass, resolution, linear, op, outputScale, workingScale, maxWorkingScale, diagnostics, pool, sink);
                 if (mapped != null)
                     outputs.Add(mapped);
             }
@@ -191,7 +201,7 @@ internal static class PlanExecutor
     private static RenderNodeOperation? MapOneOperation(
         CompiledPass pass, PassResolution resolution, bool linear, RenderNodeOperation op,
         float outputScale, float workingScale, float maxWorkingScale, PipelineDiagnostics? diagnostics,
-        RenderTargetPool? pool)
+        RenderTargetPool? pool, PrefixCaptureSink? captureSink = null)
     {
         // A compute pass on a context without Vulkan takes its declared fallback before any allocation (C6/A7).
         if (pass is ComputePass compute && !SupportsCompute())
@@ -310,6 +320,10 @@ internal static class PlanExecutor
 
         if (diagnostics != null)
             diagnostics.GpuPasses++;
+
+        // Retain a shallow copy for the pass-prefix output cache (C10) before the op is threaded downstream: the
+        // ref keeps the pooled buffer alive across frames so the next frame can resume from this pass's output.
+        captureSink?.Capture(target, outBounds, EffectiveScale.At(w));
 
         op.Dispose();
         return RenderNodeOperation.CreateFromRenderTarget(

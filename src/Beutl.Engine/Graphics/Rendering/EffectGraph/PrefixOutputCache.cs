@@ -1,0 +1,241 @@
+﻿using Beutl.Engine;
+using Beutl.Graphics.Effects;
+using Beutl.Graphics.Rendering.Cache;
+
+namespace Beutl.Graphics.Rendering;
+
+/// <summary>
+/// The single-op output <see cref="PlanExecutor"/> retains for the pass-prefix output cache (feature 004, C10). A
+/// full execution capturing pass <see cref="CapturePassIndex"/> shallow-copies that pass's pooled buffer here so
+/// the retained ref keeps it alive across frames; the next stable frame resumes from the following pass with this
+/// buffer as its input, so the retained prefix's passes never re-execute.
+/// </summary>
+internal sealed class PrefixCaptureSink
+{
+    public int CapturePassIndex { get; init; } = -1;
+
+    public RenderTarget? CapturedTarget { get; private set; }
+
+    public Rect CapturedBounds { get; private set; }
+
+    public EffectiveScale CapturedScale { get; private set; }
+
+    public bool Captured => CapturedTarget != null;
+
+    public void Capture(RenderTarget target, Rect bounds, EffectiveScale scale)
+    {
+        if (CapturedTarget != null)
+            return;
+
+        CapturedTarget = target.ShallowCopy();
+        CapturedBounds = bounds;
+        CapturedScale = scale;
+    }
+}
+
+/// <summary>How <see cref="EffectPrefixCache"/> wants the current frame executed.</summary>
+internal enum PrefixMode
+{
+    /// <summary>No stable prefix; execute the whole plan from pass 0.</summary>
+    None,
+
+    /// <summary>Execute the whole plan from pass 0, capturing pass <see cref="PrefixDecision.Pass"/>'s output.</summary>
+    Capture,
+
+    /// <summary>Skip passes 0..k, seeding the cached prefix output as the input to pass <see cref="PrefixDecision.Pass"/>.</summary>
+    Resume,
+}
+
+internal readonly record struct PrefixDecision(
+    PrefixMode Mode, int Pass, RenderTarget? SeedTarget, Rect SeedBounds, EffectiveScale SeedScale)
+{
+    public static readonly PrefixDecision None = new(PrefixMode.None, 0, null, default, default);
+}
+
+/// <summary>
+/// Per-node pass-prefix output cache (feature 004, contracts/execution-plan.md §C10). It restores the pre-004
+/// granularity where a heavy static prefix of an effect chain (a blur, a stroke) was cached while only the animated
+/// tail re-rendered — a granularity the 004 un-flattening (one render node per group, required for fusion/SC-001)
+/// lost because any animated child now marks the whole node changed every frame, so the outer
+/// <see cref="RenderNodeCache"/> never engages and the static prefix re-executes every frame.
+/// </summary>
+/// <remarks>
+/// The cache retains the output of the last <em>capturable linear</em> pass (a <see cref="FusedShaderPass"/> or
+/// <see cref="SkiaFilterPass"/>, before any split/composite/nested/dynamic pass — the v1 scope) whose whole
+/// provenance range lies within the leading run of children stable for at least <see cref="EngageThreshold"/>
+/// frames. Engagement additionally requires an unchanged <see cref="StructuralKey"/>, graphics context, resolved
+/// working scale, input-bounds signature, and a stable input subtree (the same predicate the node cache uses). Any
+/// of those changing releases the retained buffer and re-warms, so a stale prefix is never replayed.
+/// </remarks>
+internal sealed class EffectPrefixCache : IDisposable
+{
+    /// <summary>Consecutive stable frames a child must show before it may join the reusable prefix (matches <see cref="RenderNodeCache.Count"/>).</summary>
+    private const int EngageThreshold = RenderNodeCache.Count;
+
+    private (EngineObject.Resource Resource, int Version)[]? _lastChildVersions;
+    private int[] _childStableFrames = [];
+
+    private RenderTarget? _retainedTarget;
+    private Rect _bounds;
+    private EffectiveScale _scale;
+    private int _resumeFromPass = -1;
+    private int _entryMaxChild = -1;
+
+    private bool _hasSignature;
+    private StructuralKey _key;
+    private object? _contextId;
+    private float _workingScale;
+    private long _inputSignature;
+
+    public PrefixDecision Prepare(
+        FilterEffect.Resource resource, CompiledPlan plan, StructuralKey key, object contextId,
+        float workingScale, long inputSignature, bool inputSubtreeStable)
+    {
+        bool signatureMatch = _hasSignature
+            && ReferenceEquals(_contextId, contextId)
+            && _key == key
+            && _workingScale == workingScale
+            && _inputSignature == inputSignature;
+
+        // Any signature change or input-subtree instability voids the cached prefix's assumptions: release the
+        // retained buffer and restart stability tracking so nothing stale is reused (C10 invalidation list).
+        if (!signatureMatch || !inputSubtreeStable)
+        {
+            ReleaseEntry();
+            ResetStability();
+            _hasSignature = true;
+            _key = key;
+            _contextId = contextId;
+            _workingScale = workingScale;
+            _inputSignature = inputSignature;
+        }
+
+        UpdateChildStability(resource);
+
+        if (!inputSubtreeStable)
+            return PrefixDecision.None;
+
+        int stableChildren = LongestStableLeadingRun();
+
+        if (_retainedTarget != null)
+        {
+            // Reuse the retained prefix while its whole provenance range is still stable; a destabilized prefix
+            // child drops stableChildren at or below _entryMaxChild, invalidating the buffer and re-warming.
+            if (stableChildren > _entryMaxChild)
+                return new PrefixDecision(PrefixMode.Resume, _resumeFromPass, _retainedTarget, _bounds, _scale);
+
+            ReleaseEntry();
+        }
+
+        int k = ComputeCapturablePass(plan, stableChildren);
+        return k >= 0
+            ? new PrefixDecision(PrefixMode.Capture, k, null, default, default)
+            : PrefixDecision.None;
+    }
+
+    /// <summary>Records the captured prefix output after a <see cref="PrefixMode.Capture"/> execution completed.</summary>
+    public void StoreCaptured(PrefixCaptureSink sink, int capturePass, CompiledPlan plan)
+    {
+        if (!sink.Captured)
+            return;
+
+        ReleaseEntry();
+        _retainedTarget = sink.CapturedTarget;
+        _bounds = sink.CapturedBounds;
+        _scale = sink.CapturedScale;
+        _resumeFromPass = capturePass + 1;
+        _entryMaxChild = plan.Passes[capturePass].ProvenanceMaxChild;
+    }
+
+    public void Dispose() => ReleaseEntry();
+
+    // The last capturable linear pass whose whole provenance range lies within the stable leading run. The prefix
+    // ends at the first non-fused/Skia (or render-time-resolved / dynamic) pass — the C10 v1 linear-prefix scope —
+    // and never covers the whole plan (the all-stable case belongs to the outer node cache, so keep a tail pass).
+    private static int ComputeCapturablePass(CompiledPlan plan, int stableChildren)
+    {
+        if (stableChildren <= 0)
+            return -1;
+
+        var passes = plan.Passes;
+        int n = passes.Length;
+        int k = -1;
+        for (int p = 0; p < n; p++)
+        {
+            CompiledPass pass = passes[p];
+            if (!IsCapturable(pass) || pass.ProvenanceMaxChild < 0 || pass.ProvenanceMaxChild >= stableChildren)
+                break;
+
+            k = p;
+        }
+
+        return k < n - 1 ? k : -1;
+    }
+
+    private static bool IsCapturable(CompiledPass pass)
+        => pass is FusedShaderPass or SkiaFilterPass && !pass.IsRenderTimeResolved && !pass.IsDynamicOutputs;
+
+    private void UpdateChildStability(FilterEffect.Resource resource)
+    {
+        (EngineObject.Resource Resource, int Version)[] current = CaptureChildVersions(resource);
+        if (_lastChildVersions == null || _lastChildVersions.Length != current.Length)
+        {
+            _childStableFrames = new int[current.Length];
+        }
+        else
+        {
+            for (int i = 0; i < current.Length; i++)
+            {
+                bool same = ReferenceEquals(current[i].Resource, _lastChildVersions[i].Resource)
+                    && current[i].Version == _lastChildVersions[i].Version;
+                _childStableFrames[i] = same ? _childStableFrames[i] + 1 : 0;
+            }
+        }
+
+        _lastChildVersions = current;
+    }
+
+    private int LongestStableLeadingRun()
+    {
+        int run = 0;
+        for (int i = 0; i < _childStableFrames.Length; i++)
+        {
+            if (_childStableFrames[i] < EngageThreshold)
+                break;
+
+            run++;
+        }
+
+        return run;
+    }
+
+    private static (EngineObject.Resource Resource, int Version)[] CaptureChildVersions(FilterEffect.Resource resource)
+    {
+        // A group exposes its top-level child resources (each with its own Version); a non-group effect is one child.
+        if (resource is FilterEffectGroup.Resource group)
+        {
+            List<FilterEffect.Resource> children = group.Children;
+            var versions = new (EngineObject.Resource, int)[children.Count];
+            for (int i = 0; i < children.Count; i++)
+                versions[i] = (children[i], children[i].Version);
+
+            return versions;
+        }
+
+        return [(resource, resource.Version)];
+    }
+
+    private void ResetStability()
+    {
+        _lastChildVersions = null;
+        _childStableFrames = [];
+    }
+
+    private void ReleaseEntry()
+    {
+        _retainedTarget?.Dispose();
+        _retainedTarget = null;
+        _resumeFromPass = -1;
+        _entryMaxChild = -1;
+    }
+}

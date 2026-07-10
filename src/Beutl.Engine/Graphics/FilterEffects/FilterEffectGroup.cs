@@ -19,9 +19,15 @@ public sealed partial class FilterEffectGroup : FilterEffect
     public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
-        foreach (FilterEffect.Resource item in r.Children)
+        // Bracket each child's descriptors with its index so the compiler can attribute passes to children (C10
+        // provenance), enabling the pass-prefix output cache to reuse a stable leading run of children.
+        for (int i = 0; i < r.Children.Count; i++)
         {
-            item.GetOriginal().Describe(builder, item);
+            FilterEffect.Resource item = r.Children[i];
+            using (builder.BeginChildScope(i))
+            {
+                item.GetOriginal().Describe(builder, item);
+            }
         }
     }
 }

@@ -52,6 +52,20 @@ public abstract record CompiledPass
 
     /// <summary>Set when the output count is resolved at execution time (contour-based part splitting); exempt from the static peak-live bound (C3.5).</summary>
     public bool IsDynamicOutputs { get; init; }
+
+    /// <summary>
+    /// Lowest top-level group-child index whose descriptors this pass spans (feature 004, C10 provenance); <c>-1</c>
+    /// when the pass carries no provenance (never in the leading linear prefix, e.g. a fold-synthesized composite).
+    /// </summary>
+    public int ProvenanceMinChild { get; init; } = -1;
+
+    /// <summary>
+    /// Highest top-level group-child index whose descriptors this pass spans (feature 004, C10 provenance). The
+    /// pass-prefix output cache retains a pass only when its whole <c>[ProvenanceMinChild, ProvenanceMaxChild]</c>
+    /// range lies within the stable leading run of children, so a fused pass spanning several children is reused
+    /// only when every one of them is stable.
+    /// </summary>
+    public int ProvenanceMaxChild { get; init; } = -1;
 }
 
 /// <summary>One stage of a <see cref="FusedShaderPass"/> (feature 004, data-model §3). Executed in order as one draw.</summary>

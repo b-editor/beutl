@@ -16,6 +16,8 @@ public sealed class EffectGraphBuilder
 {
     private readonly List<EffectNode> _nodes = [];
     private readonly HashSet<IDisposable> _disposables = new(ReferenceEqualityComparer.Instance);
+    private int _childScopeDepth;
+    private int _currentChildIndex;
 
     internal EffectGraphBuilder(
         Rect bounds, float outputScale, float workingScale, float maxWorkingScale = float.PositiveInfinity)
@@ -138,13 +140,40 @@ public sealed class EffectGraphBuilder
         return disposable;
     }
 
+    /// <summary>
+    /// Brackets the descriptors a single top-level group child appends so the compiler can attribute each pass to a
+    /// child index (feature 004, C10 provenance). Only the outermost scope wins: a nested group's own bracketing is
+    /// absorbed into the outer child's index, so a group child that is itself a group is one provenance unit. A
+    /// custom grouping effect that does not bracket leaves every child at index <c>0</c> (whole-effect provenance),
+    /// which is coarser but always correct.
+    /// </summary>
+    internal ChildScope BeginChildScope(int index)
+    {
+        if (_childScopeDepth == 0)
+            _currentChildIndex = index;
+        _childScopeDepth++;
+        return new ChildScope(this);
+    }
+
+    private void EndChildScope()
+    {
+        _childScopeDepth--;
+        if (_childScopeDepth == 0)
+            _currentChildIndex = 0;
+    }
+
+    internal readonly struct ChildScope(EffectGraphBuilder builder) : IDisposable
+    {
+        public void Dispose() => builder.EndChildScope();
+    }
+
     private EffectGraphBuilder Append(EffectNodeDescriptor descriptor)
     {
         Rect input = Bounds;
         Rect output = descriptor.Bounds.IsRenderTimeResolved
             ? Rect.Invalid
             : descriptor.Bounds.TransformBounds(input);
-        _nodes.Add(new EffectNode(descriptor, input, output));
+        _nodes.Add(new EffectNode(descriptor, input, output, _currentChildIndex));
         if (!output.IsInvalid)
         {
             Bounds = output;

@@ -9,13 +9,22 @@ namespace Beutl.Graphics.Rendering;
 /// re-walking the descriptors. Linear chains are the common case; <see cref="InputIndices"/> keeps room for
 /// the branching split/composite topology that lands in a later step.
 /// </summary>
-internal sealed class EffectNode(EffectNodeDescriptor descriptor, Rect inputBounds, Rect outputBounds)
+internal sealed class EffectNode(
+    EffectNodeDescriptor descriptor, Rect inputBounds, Rect outputBounds, int childIndex)
 {
     public EffectNodeDescriptor Descriptor { get; } = descriptor;
 
     public Rect InputBounds { get; } = inputBounds;
 
     public Rect OutputBounds { get; } = outputBounds;
+
+    /// <summary>
+    /// The top-level group-child index this node was described under (feature 004, C10 provenance): the compiler
+    /// stamps each <see cref="CompiledPass"/> with the min..max child index of the nodes it spans so the pass-prefix
+    /// output cache can map a stable leading run of children to a leading run of passes. Ungrouped effects and every
+    /// node inside a single (non-group) effect are child <c>0</c>; a nested group inherits its outer child index.
+    /// </summary>
+    public int ChildIndex { get; } = childIndex;
 
     public IReadOnlyList<int> InputIndices { get; init; } = [];
 }
