@@ -63,12 +63,14 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         Name = element.GetObservable(CoreObject.NameProperty)
             .ToReactiveProperty()
             .AddTo(_disposables)!;
-        // Skip(1) drops the initial sync emit (IsEditable is assigned later in this ctor); the guard
-        // then blocks a rename typed after the clip or its layer was locked mid-edit.
+        // Skip(1) drops the initial sync emit (IsEditable is assigned later in this ctor). While
+        // locked, a rename must not persist and the display must not diverge from the persisted
+        // name, so snap Name.Value back to Model.Name instead of writing it.
         Name.Skip(1)
             .Subscribe(v =>
             {
                 if (IsEditable.Value) Model.Name = v;
+                else if (v != Model.Name) Name.Value = Model.Name;
             })
             .AddTo(_disposables);
 

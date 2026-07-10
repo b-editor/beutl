@@ -198,6 +198,7 @@
                        Text="{Binding Name.Value}" />
             <TextBox x:Name="textBox"
                      HorizontalAlignment="Stretch"
+                     IsEnabled="{Binding IsEditable.Value}"
                      IsVisible="False"
                      Text="{Binding Name.Value}" />
             <icons:SymbolIcon Margin="4,0"

@@ -10,6 +10,14 @@ public sealed class InMemoryClipboardGateway : IClipboardGateway
 
     public bool SimulateUnavailable { get; set; }
 
+    // Hooks that run inside the awaited operation, letting a test mutate lock state mid-await to
+    // exercise the time-of-check-to-time-of-use guards in cut / paste.
+    public Action? OnSetAsync { get; set; }
+
+    public Action? OnTryGetString { get; set; }
+
+    public Action? OnTryGetBitmap { get; set; }
+
     public void SetSingle(string format, string content) => _entries[format] = content;
 
     public void SetFiles(IReadOnlyList<string> files) => _filePaths = files;
@@ -25,12 +33,20 @@ public sealed class InMemoryClipboardGateway : IClipboardGateway
     }
 
     public Task<string?> TryGetStringAsync(string format)
-        => Task.FromResult(_entries.TryGetValue(format, out string? value) ? value : null);
+    {
+        string? value = _entries.TryGetValue(format, out string? v) ? v : null;
+        OnTryGetString?.Invoke();
+        return Task.FromResult(value);
+    }
 
     public Task<IReadOnlyList<string>?> TryGetFilePathsAsync() => Task.FromResult(_filePaths);
 
     public Task<ReadOnlyMemory<byte>?> TryGetBitmapPngAsync()
-        => Task.FromResult<ReadOnlyMemory<byte>?>(_bitmapPng is null ? null : _bitmapPng);
+    {
+        ReadOnlyMemory<byte>? png = _bitmapPng is null ? null : _bitmapPng;
+        OnTryGetBitmap?.Invoke();
+        return Task.FromResult(png);
+    }
 
     public Task<bool> SetAsync(IReadOnlyList<ClipboardEntry> entries)
     {
@@ -42,6 +58,7 @@ public sealed class InMemoryClipboardGateway : IClipboardGateway
             if (entry.Text is not null) _entries[entry.Format] = entry.Text;
         }
 
+        OnSetAsync?.Invoke();
         return Task.FromResult(true);
     }
 

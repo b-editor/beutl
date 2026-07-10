@@ -130,6 +130,43 @@ public class ElementClipboardServiceTests
     }
 
     [Test]
+    public async Task CutAsync_LockDuringClipboardWrite_PreservesElement()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        int before = _history.UndoCount;
+        // The clip is locked while the clipboard write is in-flight, after the pre-await filter.
+        _clipboard.OnSetAsync = () => element.IsLocked = true;
+
+        bool result = await _service.CutAsync(_scene, [element]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.True, "the copy succeeded, so the clip stays available to paste");
+            Assert.That(_scene.Children, Does.Contain(element), "a clip locked mid-cut is not removed");
+            Assert.That(_history.UndoCount, Is.EqualTo(before), "nothing removed, so no commit");
+        });
+    }
+
+    [Test]
+    public async Task PasteAsync_SingleElementFormat_LockDuringClipboardRead_IsRefused()
+    {
+        Element original = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        string json = CoreSerializer.SerializeToJsonString(original);
+        _clipboard.SetSingle(BeutlClipboardFormats.Element, json);
+        int childrenBefore = _scene.Children.Count;
+        // The destination row is locked while the clipboard read is in-flight, after the pre-await guard.
+        _clipboard.OnTryGetString = () => _scene.Layers.Add(new TimelineLayer { ZIndex = 1, IsLocked = true });
+
+        ElementPasteOutcome outcome = await _service.PasteAsync(_scene, TimeSpan.FromSeconds(10), 1);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome.Pasted, Is.False, "a row locked mid-paste is refused");
+            Assert.That(_scene.Children.Count, Is.EqualTo(childrenBefore), "no element added");
+        });
+    }
+
+    [Test]
     public async Task PasteAsync_NoMatchingFormat_ReturnsEmpty()
     {
         ElementPasteOutcome outcome = await _service.PasteAsync(_scene, TimeSpan.Zero, 0);

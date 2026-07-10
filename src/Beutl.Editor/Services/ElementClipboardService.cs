@@ -78,6 +78,11 @@ public sealed class ElementClipboardService : IElementClipboardService
             return false;
         }
 
+        // A lock applied to a clip or its layer during the awaited clipboard write must still be
+        // honored: re-filter before removal so a now-locked clip is not deleted (it stays copyable).
+        editable = editable.Where(e => !scene.IsElementLocked(e)).ToArray();
+        if (editable.Length == 0) return true;
+
         RippleHelper.RemoveAndShiftAfter(scene, editable, ripple, scene.RemoveChild);
 
         scene.RemoveElementsFromGroups(editable.Select(e => e.Id).ToArray());
@@ -130,6 +135,13 @@ public sealed class ElementClipboardService : IElementClipboardService
             return ElementPasteOutcome.Empty;
         }
 
+        // Re-check after the awaited clipboard read: the row may have been locked during the await.
+        if (scene.IsLayerLocked(clickedLayer))
+        {
+            s_logger.LogWarning("PasteElementsAsync skipped: layer {Layer} was locked during paste.", clickedLayer);
+            return ElementPasteOutcome.Empty;
+        }
+
         var oldElements = new Element[array.Count];
         for (int i = 0; i < array.Count; i++)
         {
@@ -175,6 +187,13 @@ public sealed class ElementClipboardService : IElementClipboardService
         string? json = await _clipboard.TryGetStringAsync(BeutlClipboardFormats.Element);
         if (json is null) return ElementPasteOutcome.Empty;
         if (ClipboardJson.TryParse(json) is not JsonObject obj) return ElementPasteOutcome.Empty;
+
+        // Re-check after the awaited clipboard read: the row may have been locked during the await.
+        if (scene.IsLayerLocked(clickedLayer))
+        {
+            s_logger.LogWarning("PasteSingleElementAsync skipped: layer {Layer} was locked during paste.", clickedLayer);
+            return ElementPasteOutcome.Empty;
+        }
 
         var oldElement = new Element();
         CoreSerializer.PopulateFromJsonObject(oldElement, obj);
@@ -227,6 +246,13 @@ public sealed class ElementClipboardService : IElementClipboardService
 
         ReadOnlyMemory<byte>? png = await _clipboard.TryGetBitmapPngAsync();
         if (png is null) return ElementPasteOutcome.Empty;
+
+        // Re-check after the awaited clipboard read: the row may have been locked during the await.
+        if (scene.IsLayerLocked(clickedLayer))
+        {
+            s_logger.LogWarning("PasteBitmapAsync skipped: layer {Layer} was locked during paste.", clickedLayer);
+            return ElementPasteOutcome.Empty;
+        }
 
         string dir = Path.GetDirectoryName(scene.Uri.LocalPath)!;
         string resDir = Path.Combine(dir, "resources");
