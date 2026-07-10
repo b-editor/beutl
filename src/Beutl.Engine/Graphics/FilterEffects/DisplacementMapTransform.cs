@@ -60,18 +60,20 @@ public abstract partial class DisplacementMapTransform : EngineObject
 public partial class DisplacementMapTranslateTransform : DisplacementMapTransform
 {
     private static readonly string s_describeSource =
-        "uniform shader src;\n"
-        + "uniform shader uDisplacementMap;\n"
-        + "uniform float2 uTranslation;\n"
-        + "uniform int uChannel;\n"
-        + "uniform int uSigned;\n"
-        + GetDisplacementFunction + "\n"
-        + "half4 main(float2 coord) {\n"
-        + "    half4 dispColor = uDisplacementMap.eval(coord);\n"
-        + "    float2 offset = uTranslation * getDisplacement(dispColor);\n"
-        + "    float2 uv = coord + offset;\n"
-        + "    return src.eval(uv);\n"
-        + "}";
+        $$"""
+        uniform shader src;
+        uniform shader uDisplacementMap;
+        uniform float2 uTranslation;
+        uniform int uChannel;
+        uniform int uSigned;
+        {{GetDisplacementFunction}}
+        half4 main(float2 coord) {
+            half4 dispColor = uDisplacementMap.eval(coord);
+            float2 offset = uTranslation * getDisplacement(dispColor);
+            float2 uv = coord + offset;
+            return src.eval(uv);
+        }
+        """;
 
     public DisplacementMapTranslateTransform()
     {
@@ -109,19 +111,21 @@ public partial class DisplacementMapTranslateTransform : DisplacementMapTransfor
 public partial class DisplacementMapScaleTransform : DisplacementMapTransform
 {
     private static readonly string s_describeSource =
-        "uniform shader src;\n"
-        + "uniform shader uDisplacementMap;\n"
-        + "uniform float2 uScale;\n"
-        + "uniform float2 uPivot;\n"
-        + "uniform int uChannel;\n"
-        + "uniform int uSigned;\n"
-        + GetDisplacementFunction + "\n"
-        + "half4 main(float2 coord) {\n"
-        + "    half4 dispColor = uDisplacementMap.eval(coord);\n"
-        + "    float2 s = max(mix(float2(1.0, 1.0), uScale, getDisplacement(dispColor)), float2(0.001, 0.001));\n"
-        + "    float2 uv = (coord - uPivot) / s + uPivot;\n"
-        + "    return src.eval(uv);\n"
-        + "}";
+        $$"""
+        uniform shader src;
+        uniform shader uDisplacementMap;
+        uniform float2 uScale;
+        uniform float2 uPivot;
+        uniform int uChannel;
+        uniform int uSigned;
+        {{GetDisplacementFunction}}
+        half4 main(float2 coord) {
+            half4 dispColor = uDisplacementMap.eval(coord);
+            float2 s = max(mix(float2(1.0, 1.0), uScale, getDisplacement(dispColor)), float2(0.001, 0.001));
+            float2 uv = (coord - uPivot) / s + uPivot;
+            return src.eval(uv);
+        }
+        """;
 
     public DisplacementMapScaleTransform()
     {
@@ -169,22 +173,24 @@ public partial class DisplacementMapScaleTransform : DisplacementMapTransform
 public partial class DisplacementMapRotationTransform : DisplacementMapTransform
 {
     private static readonly string s_describeSource =
-        "uniform shader src;\n"
-        + "uniform shader uDisplacementMap;\n"
-        + "uniform float uAngle;\n"
-        + "uniform float2 uPivot;\n"
-        + "uniform int uChannel;\n"
-        + "uniform int uSigned;\n"
-        + GetDisplacementFunction + "\n"
-        + "half4 main(float2 coord) {\n"
-        + "    half4 dispColor = uDisplacementMap.eval(coord);\n"
-        + "    float disp = getDisplacement(dispColor);\n"
-        + "    float2 offset = float2(cos(uAngle * disp), sin(uAngle * disp));\n"
-        + "    float2 uv = coord - uPivot;\n"
-        + "    float2 rotated = float2(uv.x * offset.x - uv.y * offset.y, uv.x * offset.y + uv.y * offset.x);\n"
-        + "    uv = rotated + uPivot;\n"
-        + "    return src.eval(uv);\n"
-        + "}";
+        $$"""
+        uniform shader src;
+        uniform shader uDisplacementMap;
+        uniform float uAngle;
+        uniform float2 uPivot;
+        uniform int uChannel;
+        uniform int uSigned;
+        {{GetDisplacementFunction}}
+        half4 main(float2 coord) {
+            half4 dispColor = uDisplacementMap.eval(coord);
+            float disp = getDisplacement(dispColor);
+            float2 offset = float2(cos(uAngle * disp), sin(uAngle * disp));
+            float2 uv = coord - uPivot;
+            float2 rotated = float2(uv.x * offset.x - uv.y * offset.y, uv.x * offset.y + uv.y * offset.x);
+            uv = rotated + uPivot;
+            return src.eval(uv);
+        }
+        """;
 
     public DisplacementMapRotationTransform()
     {

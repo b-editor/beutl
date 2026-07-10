@@ -2,48 +2,12 @@
 
 using Beutl.Engine;
 using Beutl.Language;
-using Beutl.Logging;
-using Microsoft.Extensions.Logging;
 
 namespace Beutl.Graphics.Effects;
 
 [Display(Name = nameof(GraphicsStrings.Threshold), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class Threshold : FilterEffect
 {
-    private static readonly ILogger s_logger = Log.CreateLogger<Threshold>();
-    private static readonly SKSLShader? s_shader;
-
-    static Threshold()
-    {
-        string sksl =
-            """
-            uniform shader src;
-            uniform float threshold;
-            uniform float smoothness;
-            uniform float strength;
-
-            const float3 LUMA = float3(0.2126, 0.7152, 0.0722);
-
-            half4 main(float2 coord) {
-                half4 c = src.eval(coord);
-                float3 rgb = c.rgb;
-
-                float luma = dot(rgb, LUMA);
-                float lower = threshold - smoothness * 0.5;
-                float upper = threshold + smoothness * 0.5;
-                float t = smoothstep(lower, upper, luma);
-
-                t = mix(luma, t, strength);
-                return half4(t);
-            }
-            """;
-
-        if (!SKSLShader.TryCreate(sksl, out s_shader, out string? errorText))
-        {
-            s_logger.LogError("Failed to compile threshold shader: {ErrorText}", errorText);
-        }
-    }
-
     // Fusable snippet form of the shader above; `c` is the premultiplied linear-light source pixel (contract A2).
     // The original reads c.rgb directly (no unpremultiply) and returns half4(t); preserved exactly.
     private static readonly string s_snippet =
