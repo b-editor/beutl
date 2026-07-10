@@ -1220,6 +1220,61 @@ public sealed class ExportSourceValidatorTests
         Assert.That(missing, Does.Contain(missingVideo));
     }
 
+    // A GeometryShapeNode.Fill node input set to a DrawableBrush is rendered through BrushConstructor, so
+    // the node-input walk must thread the walk context and dispatch the nested Drawable.
+    [Test]
+    public void CollectRenderableSources_NodeInputDrawableBrush_ReportsNestedSource()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string missingVideo = Path.Combine(root, "node-brush.mov");
+
+        var brush = new DrawableBrush();
+        brush.Drawable.CurrentValue = VideoDrawable(missingVideo);
+        var node = new Beutl.NodeGraph.Nodes.GeometryShapeNode();
+        node.Fill.Property!.SetValue(brush);
+        var drawable = new NodeGraphDrawable();
+        drawable.Model.CurrentValue!.Nodes.Add(node);
+
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "root.scene")) };
+        scene.Children.Add(ElementWith(root, drawable));
+
+        IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
+            ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene));
+
+        Assert.That(missing, Does.Contain(missingVideo));
+    }
+
+    // A reference-expression whose target property value is a DrawableBrush resolves at render, so the
+    // expression walk must thread the walk context and dispatch the nested Drawable. The holder is reachable
+    // by id but not walked as a scene element, so the only path to its media is the expression.
+    [Test]
+    public void CollectRenderableSources_ExpressionResolvedDrawableBrush_ReportsNestedSource()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string missingVideo = Path.Combine(root, "expr-brush.mov");
+
+        var holderBrush = new DrawableBrush();
+        holderBrush.Drawable.CurrentValue = VideoDrawable(missingVideo);
+        var holder = new RectShape();
+        holder.Fill.CurrentValue = holderBrush;
+
+        var refShape = new RectShape();
+        refShape.Fill.Expression = Beutl.Engine.Expressions.Expression.CreateReference<Brush>(holder.Id, "Fill");
+
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "root.scene")) };
+        scene.Children.Add(ElementWith(root, refShape));
+        var hierarchyRoot = new TestHierarchicalRoot();
+        hierarchyRoot.HierarchicalChildren.Add(scene);
+        hierarchyRoot.HierarchicalChildren.Add(holder);
+
+        IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
+            ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene));
+
+        Assert.That(missing, Does.Contain(missingVideo));
+    }
+
     private static SourceSound SoundDrawable(string sourcePath)
     {
         var source = new SoundSource();

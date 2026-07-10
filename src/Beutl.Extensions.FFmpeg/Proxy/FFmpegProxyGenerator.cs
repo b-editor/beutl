@@ -388,11 +388,11 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
             if (File.Exists(backupPath))
                 File.SetLastWriteTimeUtc(backupPath, DateTime.UtcNow);
         }
-        catch (IOException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-        }
-        catch (UnauthorizedAccessException)
-        {
+            // Stamping is best-effort, but its failure is why a later reconcile might reclaim this backup
+            // and break rollback — so log it rather than swallowing silently, to make that diagnosable.
+            s_logger.LogWarning(ex, "Failed to stamp the proxy rollback backup {Path}; reconcile may reclaim it prematurely.", backupPath);
         }
     }
 

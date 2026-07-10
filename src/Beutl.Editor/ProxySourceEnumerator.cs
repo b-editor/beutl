@@ -199,10 +199,11 @@ public static class ProxySourceEnumerator
     {
         // Direct IFileSource-valued properties (current + animated): SourceVideo/SourceImage/SourceSound.
         // Thread the walk context so a rendered structural value reachable only as a property (a
-        // DrawableBrush's Drawable, a visualizer's SceneSound) dispatches through the guarded walks.
+        // DrawableBrush's Drawable, a visualizer's SceneSound) dispatches through the guarded walks — from
+        // the current value, an expression, an animation keyframe, or a node input alike.
+        var walkContext = new ObjectWalkContext(visitedScenes, visitedGraphGroups, visitedFilterEffectGroups, visitedTargets, renderTarget, sceneWindow);
         foreach (IFileSource source in EnumeratePropertyFileSources(
-            obj, localRange, skipDisabledElements, sceneWindow: sceneWindow,
-            walkContext: new ObjectWalkContext(visitedScenes, visitedGraphGroups, visitedFilterEffectGroups, visitedTargets, renderTarget, sceneWindow)))
+            obj, localRange, skipDisabledElements, sceneWindow: sceneWindow, walkContext: walkContext))
             yield return source;
 
         if (obj is Drawable drawable)
@@ -217,13 +218,14 @@ public static class ProxySourceEnumerator
                 new HashSet<FilterEffect>(ReferenceEqualityComparer.Instance),
                 skipDisabledElements,
                 localRange,
-                sceneWindow))
+                sceneWindow,
+                walkContext))
                 yield return source;
 
             switch (drawable)
             {
                 case NodeGraphDrawable { Model.CurrentValue: { } model }:
-                    foreach (IFileSource source in EnumerateGraphSources(model, visitedGraphGroups, localRange, sceneWindow: sceneWindow))
+                    foreach (IFileSource source in EnumerateGraphSources(model, visitedGraphGroups, localRange, sceneWindow: sceneWindow, walkContext: walkContext))
                         yield return source;
 
                     break;
@@ -428,7 +430,7 @@ public static class ProxySourceEnumerator
             // reference-expression pointing at a file source is what the render opens. Resolve it (no
             // evaluation — just id/path lookup) and report its sources. StringExpressions are arbitrary
             // C# and are not evaluated here.
-            foreach (IFileSource source in EnumerateExpressionFileSources(obj, property.Expression, localRange, skipDisabledElements, visitedValues, sceneWindow))
+            foreach (IFileSource source in EnumerateExpressionFileSources(obj, property.Expression, localRange, skipDisabledElements, visitedValues, sceneWindow, walkContext: walkContext))
                 yield return source;
 
             // When an expression is present, GetValue takes the expression branch and never samples the
@@ -452,7 +454,7 @@ public static class ProxySourceEnumerator
             // the animation entirely in a windowed pass.
             if (!expressionOverrides)
             {
-                foreach (IFileSource animated in EnumerateAnimatedFileSources(property.Animation, localRange, skipDisabledElements, visitedValues, sceneWindow))
+                foreach (IFileSource animated in EnumerateAnimatedFileSources(property.Animation, localRange, skipDisabledElements, visitedValues, sceneWindow, walkContext))
                     yield return animated;
             }
         }
@@ -564,7 +566,7 @@ public static class ProxySourceEnumerator
     // file sources it exposes as a value, without re-walking a scene/element/drawable navigator.
     private static IEnumerable<IFileSource> EnumerateExpressionFileSources(
         EngineObject owner, IExpression? expression, TimeRange? localRange, bool skipDisabledElements, HashSet<EngineObject> visitedValues,
-        TimeRange? sceneWindow = null, HashSet<IProperty>? visitedExpressionProps = null)
+        TimeRange? sceneWindow = null, HashSet<IProperty>? visitedExpressionProps = null, ObjectWalkContext? walkContext = null)
     {
         if (expression is not IReferenceExpression reference
             || owner.FindHierarchicalRoot() is not ICoreObject root
@@ -575,7 +577,7 @@ public static class ProxySourceEnumerator
 
         if (!reference.HasPropertyPath)
         {
-            foreach (IFileSource source in EnumeratePropertyValueFileSources(target, localRange, skipDisabledElements, visitedValues))
+            foreach (IFileSource source in EnumeratePropertyValueFileSources(target, localRange, skipDisabledElements, visitedValues, walkContext))
                 yield return source;
 
             yield break;
@@ -597,14 +599,14 @@ public static class ProxySourceEnumerator
             if (!visitedExpressionProps.Add(property))
                 yield break;
 
-            foreach (IFileSource source in EnumerateExpressionFileSources(target, property.Expression, localRange, skipDisabledElements, visitedValues, sceneWindow, visitedExpressionProps))
+            foreach (IFileSource source in EnumerateExpressionFileSources(target, property.Expression, localRange, skipDisabledElements, visitedValues, sceneWindow, visitedExpressionProps, walkContext))
                 yield return source;
 
             bool targetExpressionOverrides = localRange is not null && property.Expression is not null;
             bool targetBaseOverridden = localRange is not null && (targetExpressionOverrides || AnimationSuppliesValue(property.Animation));
             if (!targetBaseOverridden)
             {
-                foreach (IFileSource source in EnumeratePropertyValueFileSources(property.CurrentValue, localRange, skipDisabledElements, visitedValues))
+                foreach (IFileSource source in EnumeratePropertyValueFileSources(property.CurrentValue, localRange, skipDisabledElements, visitedValues, walkContext))
                     yield return source;
             }
 
@@ -612,7 +614,7 @@ public static class ProxySourceEnumerator
             {
                 // The target property renders through PropertyLookup at scene time, so a global-clock
                 // source animation on it is windowed by sceneWindow just like a direct property.
-                foreach (IFileSource source in EnumerateAnimatedFileSources(property.Animation, localRange, skipDisabledElements, visitedValues, sceneWindow))
+                foreach (IFileSource source in EnumerateAnimatedFileSources(property.Animation, localRange, skipDisabledElements, visitedValues, sceneWindow, walkContext))
                     yield return source;
             }
 
@@ -625,14 +627,14 @@ public static class ProxySourceEnumerator
             .FirstOrDefault(p => string.Equals(p.Name, reference.PropertyPath, StringComparison.OrdinalIgnoreCase));
         if (coreProperty is not null && !coreProperty.PropertyType.IsValueType)
         {
-            foreach (IFileSource source in EnumeratePropertyValueFileSources(target.GetValue(coreProperty), localRange, skipDisabledElements, visitedValues))
+            foreach (IFileSource source in EnumeratePropertyValueFileSources(target.GetValue(coreProperty), localRange, skipDisabledElements, visitedValues, walkContext))
                 yield return source;
         }
     }
 
     private static IEnumerable<IFileSource> EnumerateGraphSources(
         GraphModel model, HashSet<GraphGroup> visitedGraphGroups, TimeRange? localRange = null, HashSet<EngineObject>? visitedValues = null,
-        TimeRange? sceneWindow = null)
+        TimeRange? sceneWindow = null, ObjectWalkContext? walkContext = null)
     {
         visitedValues ??= new HashSet<EngineObject>(ReferenceEqualityComparer.Instance);
 
@@ -641,21 +643,21 @@ public static class ProxySourceEnumerator
             // Every input port whose value is an IFileSource — VideoSourceNode.Source, ImageSourceNode.Source,
             // and a GroupNode's outer-boundary inputs alike. Gating on the value type (not a specific node
             // type) keeps this uniform across all source-carrying nodes.
-            foreach (IFileSource source in EnumerateNodeInputSources(node, localRange, visitedValues, sceneWindow))
+            foreach (IFileSource source in EnumerateNodeInputSources(node, localRange, visitedValues, sceneWindow, walkContext))
                 yield return source;
 
             // A user-constructed GroupNode can reference a GraphGroup that (transitively) contains the
             // same GroupNode, producing an infinite walk. The visited set makes the recursion terminate.
             if (node is GroupNode groupNode && visitedGraphGroups.Add(groupNode.Group))
             {
-                foreach (IFileSource source in EnumerateGraphSources(groupNode.Group, visitedGraphGroups, localRange, visitedValues, sceneWindow))
+                foreach (IFileSource source in EnumerateGraphSources(groupNode.Group, visitedGraphGroups, localRange, visitedValues, sceneWindow, walkContext))
                     yield return source;
             }
         }
     }
 
     private static IEnumerable<IFileSource> EnumerateNodeInputSources(
-        GraphNode node, TimeRange? localRange, HashSet<EngineObject> visitedValues, TimeRange? sceneWindow)
+        GraphNode node, TimeRange? localRange, HashSet<EngineObject> visitedValues, TimeRange? sceneWindow, ObjectWalkContext? walkContext = null)
     {
         // GraphSnapshot.LoadAnimatedValues evaluates a node's non-global input animations at
         // time - node.Start, so shift the window into node-local time before filtering; without this an
@@ -683,13 +685,13 @@ public static class ProxySourceEnumerator
                 // The current value can be a direct IFileSource or an EngineObject holding nested
                 // sources (GeometryShapeNode.Fill set to an ImageBrush that ToResource opens), so route
                 // it through the same recursion the animated values use.
-                foreach (IFileSource source in EnumeratePropertyValueFileSources(property.GetValue(), nodeWindow, skipDisabledElements: false, visitedValues))
+                foreach (IFileSource source in EnumeratePropertyValueFileSources(property.GetValue(), nodeWindow, skipDisabledElements: false, visitedValues, walkContext))
                     yield return source;
             }
 
             if (animation is not null)
             {
-                foreach (IFileSource source in EnumerateAnimatedFileSources(animation, nodeWindow, visitedValues: visitedValues, sceneWindow: sceneWindow))
+                foreach (IFileSource source in EnumerateAnimatedFileSources(animation, nodeWindow, visitedValues: visitedValues, sceneWindow: sceneWindow, walkContext: walkContext))
                     yield return source;
             }
         }
@@ -702,7 +704,8 @@ public static class ProxySourceEnumerator
         HashSet<FilterEffect> visitedFilterEffects,
         bool skipDisabledElements,
         TimeRange? localRange = null,
-        TimeRange? sceneWindow = null)
+        TimeRange? sceneWindow = null,
+        ObjectWalkContext? walkContext = null)
     {
         // Presenter/delay targets are reference properties, so a filter chain is user-cyclable;
         // the visited set makes the recursion terminate.
@@ -725,18 +728,18 @@ public static class ProxySourceEnumerator
                     // A child effect can carry an ordinary file-source property (LutEffect.Source) the
                     // graph walker below never sees, so walk its own properties too. The Children list is
                     // not an EngineObject-valued property, so the #19 property recursion cannot reach here.
-                    foreach (IFileSource source in EnumeratePropertyFileSources(child, localRange, skipDisabledElements, sceneWindow: sceneWindow))
+                    foreach (IFileSource source in EnumeratePropertyFileSources(child, localRange, skipDisabledElements, sceneWindow: sceneWindow, walkContext: walkContext))
                         yield return source;
 
                     foreach (IFileSource source in EnumerateFilterEffectGraphSources(
-                        child, visitedFilterEffectGroups, visitedGraphGroups, visitedFilterEffects, skipDisabledElements, localRange, sceneWindow))
+                        child, visitedFilterEffectGroups, visitedGraphGroups, visitedFilterEffects, skipDisabledElements, localRange, sceneWindow, walkContext))
                         yield return source;
                 }
 
                 break;
 
             case NodeGraphFilterEffect { Model.CurrentValue: { } model }:
-                foreach (IFileSource source in EnumerateGraphSources(model, visitedGraphGroups, localRange, sceneWindow: sceneWindow))
+                foreach (IFileSource source in EnumerateGraphSources(model, visitedGraphGroups, localRange, sceneWindow: sceneWindow, walkContext: walkContext))
                     yield return source;
 
                 break;
@@ -750,7 +753,7 @@ public static class ProxySourceEnumerator
                 // window maps directly — thread localRange, unlike the delay effect below. The resource
                 // renders the effective Target, so resolve an expression-supplied one.
                 foreach (IFileSource source in EnumerateFilterEffectGraphSources(
-                    presented, visitedFilterEffectGroups, visitedGraphGroups, visitedFilterEffects, skipDisabledElements, localRange, sceneWindow))
+                    presented, visitedFilterEffectGroups, visitedGraphGroups, visitedFilterEffects, skipDisabledElements, localRange, sceneWindow, walkContext))
                     yield return source;
 
                 break;
@@ -758,7 +761,7 @@ public static class ProxySourceEnumerator
             case DelayAnimationEffect delay
                 when ResolveExpressionValue<FilterEffect>(delay, delay.Effect) is { } delayed:
                 foreach (IFileSource source in EnumerateFilterEffectGraphSources(
-                    delayed, visitedFilterEffectGroups, visitedGraphGroups, visitedFilterEffects, skipDisabledElements))
+                    delayed, visitedFilterEffectGroups, visitedGraphGroups, visitedFilterEffects, skipDisabledElements, walkContext: walkContext))
                     yield return source;
 
                 break;
@@ -826,7 +829,7 @@ public static class ProxySourceEnumerator
 
     private static IEnumerable<IFileSource> EnumerateAnimatedFileSources(
         IAnimation? animation, TimeRange? localRange = null, bool skipDisabledElements = false, HashSet<EngineObject>? visitedValues = null,
-        TimeRange? sceneWindow = null)
+        TimeRange? sceneWindow = null, ObjectWalkContext? walkContext = null)
     {
         if (animation is not KeyFrameAnimation keyFrameAnimation)
             yield break;
@@ -866,7 +869,7 @@ public static class ProxySourceEnumerator
                     continue;
             }
 
-            foreach (IFileSource source in EnumeratePropertyValueFileSources(value, localRange, skipDisabledElements, visitedValues))
+            foreach (IFileSource source in EnumeratePropertyValueFileSources(value, localRange, skipDisabledElements, visitedValues, walkContext))
                 yield return source;
         }
     }
