@@ -42,9 +42,10 @@ public static class ExportSourceValidator
 
             // The render window in the element's local time (keyframe times are element-local): an
             // out-of-window animated source keyframe is then dropped as unreachable for this render.
+            // sceneWindow itself is the scene-time window a global-clock keyframe samples against.
             TimeRange localRange = sceneWindow.SubtractStart(element.Start);
             foreach (IFileSource source in ProxySourceEnumerator.EnumerateFileSources(
-                element, visitedScenes, skipDisabledElements: true, renderTarget, localRange))
+                element, visitedScenes, skipDisabledElements: true, renderTarget, localRange, sceneWindow))
             {
                 if (source.Uri is { IsFile: true } uri)
                     paths.Add(uri.LocalPath);

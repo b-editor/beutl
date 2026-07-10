@@ -3,8 +3,11 @@ using Beutl.Animation;
 using Beutl.Audio;
 using Beutl.Editor;
 using Beutl.Engine;
+using Beutl.Engine.Expressions;
 using Beutl.Graphics;
+using Beutl.Graphics.AudioVisualizers;
 using Beutl.Graphics.Effects;
+using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
@@ -475,6 +478,67 @@ public class ProxySourceEnumeratorTests
         Element element = ElementWith(drawable);
 
         Assert.That(FileNames(element), Is.EquivalentTo(new[] { "video.mov" }));
+    }
+
+    // AudioVisualizerDrawable.Source can be a SoundGroup; the graphics render composes the group and
+    // its child Sounds, so a nested audio file must be enumerated. The value walk previously excluded
+    // SoundGroup and stopped before the dedicated group walk (the enumerated object is the visualizer).
+    [Test]
+    public void EnumerateMediaFileSources_CoversSoundGroupInsideAudioVisualizer()
+    {
+        var nestedSound = new SourceSound();
+        nestedSound.Source.CurrentValue = CreateSoundSource("visualized.mp3");
+        var group = new SoundGroup();
+        group.Children.Add(nestedSound);
+        var visualizer = new AudioSpectrogramDrawable();
+        visualizer.Source.CurrentValue = group;
+        Scene root = CreateScene("visualizer.scene");
+        root.Children.Add(ElementWith(visualizer));
+
+        IReadOnlySet<string> collected = ProxySourceEnumerator.EnumerateMediaFileSources(root);
+
+        Assert.That(collected.Select(Path.GetFileName), Does.Contain("visualized.mp3"));
+    }
+
+    // A node input whose current value is an EngineObject holding a file source (GeometryShapeNode.Fill
+    // set to an ImageBrush) is opened by ToResource at render, so preflight must recurse the value, not
+    // only report values that are themselves IFileSource.
+    [Test]
+    public void EnumerateMediaFileSources_CoversObjectValuedNodeInput()
+    {
+        var brush = new ImageBrush();
+        brush.Source.CurrentValue = CreateImageSource("node-fill.png");
+        var node = new GeometryShapeNode();
+        node.Fill.Property!.SetValue(brush);
+        var drawable = new NodeGraphDrawable();
+        drawable.Model.CurrentValue!.Nodes.Add(node);
+        Scene root = CreateScene("node-fill.scene");
+        root.Children.Add(ElementWith(drawable));
+
+        IReadOnlySet<string> collected = ProxySourceEnumerator.EnumerateMediaFileSources(root);
+
+        Assert.That(collected.Select(Path.GetFileName), Does.Contain("node-fill.png"));
+    }
+
+    // A reference-expression makes IProperty.GetValue return another object's value ahead of the
+    // base/animation, so the render opens whatever file source it resolves to. Preflight must resolve
+    // the reference (by id, no evaluation) and enumerate the target's sources.
+    [Test]
+    public void EnumerateMediaFileSources_CoversReferenceExpressionTarget()
+    {
+        var referenced = new SourceImage();
+        referenced.Source.CurrentValue = CreateImageSource("expr-target.png");
+
+        var driven = new SourceImage();
+        driven.Source.Expression = Expression.CreateReference<ImageSource>(referenced.Id, "Source");
+
+        Scene root = CreateScene("expr.scene");
+        root.Children.Add(ElementWith(referenced));
+        root.Children.Add(ElementWith(driven));
+
+        IReadOnlySet<string> collected = ProxySourceEnumerator.EnumerateMediaFileSources(root);
+
+        Assert.That(collected.Select(Path.GetFileName), Does.Contain("expr-target.png"));
     }
 
     // An IFileSource property with a keyframe animation referencing a different file must include

@@ -26,7 +26,7 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
 
     private bool _disposed;
     private int _diskPressureSweepActive;
-    private IDisposable? _storeRootSubscription;
+    private IDisposable? _configSubscription;
 
     private ProxyMediaServices(
         ProxyStore store,
@@ -38,6 +38,10 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
         Resolver = resolver;
         Queue = queue;
         EvictionService = evictionService;
+        StoreFacade = new StableProxyStoreFacade(store);
+        ResolverFacade = new StableProxyResolverFacade(resolver);
+        QueueFacade = new StableProxyQueueFacade(queue);
+        CapInfoFacade = new StableProxyCapInfoFacade(evictionService);
         Queue.JobChanged += OnJobChanged;
         // A proxy extension registers its generator factory after this queue is built and unregisters it
         // on unload; drop the queue's cached generator on either so it re-resolves and never keeps
@@ -57,6 +61,16 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
 
     public ProxyEvictionService EvictionService { get; private set; }
 
+    // Swap-stable views handed to editor ViewModels; the backing service is rebuilt on a store-root /
+    // cap change while the facade instance the ViewModel cached (and subscribed to) stays put.
+    public StableProxyStoreFacade StoreFacade { get; }
+
+    public StableProxyResolverFacade ResolverFacade { get; }
+
+    public StableProxyQueueFacade QueueFacade { get; }
+
+    public StableProxyCapInfoFacade CapInfoFacade { get; }
+
     public static ProxyMediaServices Initialize(GlobalConfiguration configuration)
     {
         ArgumentNullException.ThrowIfNull(configuration);
@@ -71,12 +85,17 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
         Current = services;
         DecoderRegistry.ProxyResolver = resolver;
 
-        // The store path is captured at construction, so observe it: a runtime change rebuilds the
-        // live store/resolver/queue/eviction against the new path instead of leaving Generate/Delete/
-        // Resolve on the startup directory. The setter fires on the UI thread and ReinitializeStore
-        // swaps synchronously, so consumers re-fetching Current?.Store never see a torn mix.
-        services._storeRootSubscription = config.GetObservable(ProxyStoreConfig.StoreRootPathProperty)
-            .Subscribe(_ => services.ReinitializeStore(config.StoreRootPath, config.MaxTotalBytes));
+        // The store path and eviction cap are captured at construction, so observe both: a runtime
+        // change rebuilds the live store/resolver/queue/eviction against the new values instead of
+        // leaving Generate/Delete/Resolve on the startup directory or the eviction sweep on the old cap.
+        // The setters fire on the UI thread and ReinitializeStore swaps synchronously, so consumers
+        // re-fetching Current?.Store never see a torn mix. Skip(1) drops each observable's replay of the
+        // current value so construction does not immediately rebuild.
+        services._configSubscription = new CompositeDisposable(
+            config.GetObservable(ProxyStoreConfig.StoreRootPathProperty).Skip(1)
+                .Subscribe(_ => services.ReinitializeStore(config.StoreRootPath, config.MaxTotalBytes)),
+            config.GetObservable(ProxyStoreConfig.MaxTotalBytesProperty).Skip(1)
+                .Subscribe(_ => services.ReinitializeStore(config.StoreRootPath, config.MaxTotalBytes)));
 
         _ = Task.Run(() => ReconcileAndSweepAsync(store, eviction));
 
@@ -144,6 +163,12 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
         Queue = newQueue;
         EvictionService = newEviction;
         newQueue.JobChanged += OnJobChanged;
+        // Repoint the facades (and their forwarded event subscriptions) at the new backing services so
+        // an open editor's cached IProxyStore/Queue keeps hitting the current store, not the disposed one.
+        StoreFacade.Swap(newStore);
+        ResolverFacade.Swap(newResolver);
+        QueueFacade.Swap(newQueue);
+        CapInfoFacade.Swap(newEviction);
         if (ReferenceEquals(DecoderRegistry.ProxyResolver, oldResolver))
         {
             DecoderRegistry.ProxyResolver = newResolver;
@@ -176,7 +201,7 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
         // Unsubscribe before disposing the queue so a late registry change cannot race Queue disposal.
         ProxyGeneratorRegistry.Changed -= OnGeneratorRegistryChanged;
         Queue.JobChanged -= OnJobChanged;
-        _storeRootSubscription?.Dispose();
+        _configSubscription?.Dispose();
         if (ReferenceEquals(DecoderRegistry.ProxyResolver, Resolver))
             DecoderRegistry.ProxyResolver = null;
 

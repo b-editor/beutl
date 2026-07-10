@@ -135,7 +135,9 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
             })
             .DisposeWith(_disposables);
 
-        if (ProxyMediaServices.Current?.Store is { } proxyStore)
+        // Subscribe through the swap-stable facade so a store-root change keeps delivering Changed events
+        // (the facade forwards them to the rebuilt store) instead of leaving this bound to the old one.
+        if (ProxyMediaServices.Current?.StoreFacade is { } proxyStore)
         {
             proxyStore.Changed += OnProxyStoreChanged;
             Disposable.Create(() => proxyStore.Changed -= OnProxyStoreChanged)
@@ -969,20 +971,22 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         if (serviceType.IsAssignableTo(typeof(IPropertiesEditorFactory)))
             return _propertiesEditorFactory ??= new Services.Adapters.PropertiesEditorFactoryImpl(ExtensionProvider);
 
+        // Hand out the swap-stable facades so a cached reference survives a store-root / cap change; the
+        // concrete ProxyEvictionService request is the exception (no facade for the concrete type).
         if (serviceType.IsAssignableTo(typeof(IProxyStore)))
-            return ProxyMediaServices.Current?.Store;
+            return ProxyMediaServices.Current?.StoreFacade;
 
         if (serviceType.IsAssignableTo(typeof(IProxyResolver)))
-            return ProxyMediaServices.Current?.Resolver;
+            return ProxyMediaServices.Current?.ResolverFacade;
 
         if (serviceType.IsAssignableTo(typeof(IProxyJobQueue)))
-            return ProxyMediaServices.Current?.Queue;
+            return ProxyMediaServices.Current?.QueueFacade;
 
         if (serviceType == typeof(ProxyEvictionService))
             return ProxyMediaServices.Current?.EvictionService;
 
         if (serviceType.IsAssignableTo(typeof(IProxyStoreCapInfo)))
-            return ProxyMediaServices.Current?.EvictionService;
+            return ProxyMediaServices.Current?.CapInfoFacade;
 
         return null;
     }

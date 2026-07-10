@@ -682,6 +682,44 @@ public sealed class ExportSourceValidatorTests
         Assert.That(missing, Is.EqualTo(new[] { missingAt2s }));
     }
 
+    // A global-clock keyframe is sampled at scene time. For an object value the animator returns the
+    // NEXT key's value, so a key governs [previous key time, this key time); the last one holds to +inf.
+    // A key whose span is entirely outside the exported scene-time window must be dropped.
+    [Test]
+    public void CollectRenderableSources_GlobalClockKeyframeOutsideSceneWindow_IsDropped()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string existing = Path.Combine(root, "existing.mov");
+        string missingAtGlobal30 = Path.Combine(root, "missing.mov");
+        File.WriteAllBytes(existing, [1]);
+
+        var drawable = new SourceVideo();
+        var animation = new KeyFrameAnimation<VideoSource?> { UseGlobalClock = true };
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.FromSeconds(10), Value = MakeVideoSource(existing) });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.FromSeconds(20), Value = MakeVideoSource(existing) });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.FromSeconds(30), Value = MakeVideoSource(missingAtGlobal30) });
+        drawable.Source.Animation = animation;
+
+        var element = new Element
+        {
+            Start = TimeSpan.FromSeconds(5),
+            Length = TimeSpan.FromSeconds(30),
+            IsEnabled = true,
+            Uri = new Uri(Path.Combine(root, $"{Guid.NewGuid():N}.layer")),
+        };
+        element.AddObject(drawable);
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
+        scene.Children.Add(element);
+
+        // Export [10s,12s]: the 30s global key governs [20s, +inf) — no exported frame samples it, so its
+        // missing file must not block export. Previously global-clock keyframes were never windowed.
+        IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
+            ExportSourceValidator.CollectRenderableSources(scene, new TimeRange(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(2))));
+
+        Assert.That(missing, Is.Empty);
+    }
+
     private static SourceSound SoundDrawable(string sourcePath)
     {
         var source = new SoundSource();
