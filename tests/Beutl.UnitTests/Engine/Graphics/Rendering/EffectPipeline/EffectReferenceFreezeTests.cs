@@ -56,18 +56,22 @@ public class EffectReferenceFreezeTests
             return e;
         }, requiresCompute: false);
         // CSharpScriptEffect's imperative FilterEffectContext surface was removed (breaking,
-        // contracts/breaking-changes.md); the pre-redesign `Context.Blur(...)` reference is intentionally
-        // invalidated. The census case now exercises the migrated GeometrySession surface — its reference
-        // re-freezes on the next Vulkan run.
+        // contracts/breaking-changes.md) and the interim GeometrySession `Session` global was in turn replaced by
+        // the declarative `Builder` (EffectGraphBuilder). This census case is the new-surface anchor: it exercises a
+        // representative Builder-authored mix (a Geometry pass re-compositing the input then a convenience Blur), so
+        // its reference is frozen from the Builder script and re-freezes on the next Vulkan run.
         yield return Case("CSharpScriptEffect", () =>
         {
             var e = new CSharpScriptEffect();
             e.Script.CurrentValue =
-                "var canvas = Session.OpenCanvas();\n"
-                + "canvas.Clear();\n"
-                + "using (canvas.PushOpacity(0.5f))\n"
-                + "using (canvas.PushDeviceSpace())\n"
-                + "    Session.Inputs[0].Draw(canvas, default);";
+                "Builder.Geometry(session =>\n"
+                + "{\n"
+                + "    var canvas = session.OpenCanvas();\n"
+                + "    using (canvas.PushDeviceSpace())\n"
+                + "        session.Inputs[0].Draw(canvas, default);\n"
+                + "    canvas.DrawEllipse(new Rect(48, 28, 24, 24), Brushes.Resource.Cyan, null);\n"
+                + "});\n"
+                + "Builder.Blur(new Size(4, 4));";
             return e;
         }, requiresCompute: false);
 
