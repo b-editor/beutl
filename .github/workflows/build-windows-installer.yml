@@ -21,6 +21,7 @@ jobs:
       artifact-run-id: ${{ steps.run-id.outputs.run-id }}
     strategy:
       matrix:
+        arch: [ x64, arm64 ]
         standalone: [ true, false ]
 
     steps:
@@ -38,14 +39,14 @@ jobs:
 
       - uses: actions/download-artifact@v8
         with:
-          name: beutl-win_x64${{ matrix.standalone == true && '-standalone' || '' }}-${{ inputs.semVer }}
+          name: beutl-win_${{ matrix.arch }}${{ matrix.standalone == true && '-standalone' || '' }}-${{ inputs.semVer }}
           path: artifacts
 
       - name: Extract zip
         run: |
           mkdir output/Beutl
           cd output/Beutl
-          7z x ../../artifacts/beutl-win-x64${{ matrix.standalone == true && '-standalone' || '' }}-${{ inputs.semVer }}.zip
+          7z x ../../artifacts/beutl-win-${{ matrix.arch }}${{ matrix.standalone == true && '-standalone' || '' }}-${{ inputs.semVer }}.zip
 
       - name: Update Metadata
         shell: pwsh
@@ -59,11 +60,12 @@ jobs:
         run: |
           ./build.cmd build-installer `
             --skip publish `
+            --runtime win_${{ matrix.arch }} `
             --self-contained ${{ matrix.standalone }} `
             --assembly-version ${{ inputs.asmVer }}
 
       - name: Save installer
         uses: actions/upload-artifact@v7
         with:
-          name: beutl${{ matrix.standalone == true && '-standalone' || '' }}-setup
-          path: ./artifacts/beutl${{ matrix.standalone == true && '-standalone' || '' }}-setup.exe
+          name: beutl${{ matrix.standalone == true && '-standalone' || '' }}${{ matrix.arch == 'arm64' && '-arm64' || '' }}-setup
+          path: ./artifacts/beutl${{ matrix.standalone == true && '-standalone' || '' }}${{ matrix.arch == 'arm64' && '-arm64' || '' }}-setup.exe

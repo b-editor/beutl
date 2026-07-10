@@ -60,10 +60,11 @@ internal static class FFmpegLoaderWorker
 
         if (OperatingSystem.IsWindows())
         {
+            string rid = Beutl.Extensions.FFmpeg.FFmpegNativeRid.GetWindowsRid();
             paths.Add(Path.Combine(Directory.GetParent(Assembly.GetExecutingAssembly().Location)!.FullName,
-                "runtimes", Environment.Is64BitProcess ? "win-x64" : "win-x86", "native"));
+                "runtimes", rid, "native"));
             paths.Add(Path.Combine(AppContext.BaseDirectory,
-                "runtimes", Environment.Is64BitProcess ? "win-x64" : "win-x86", "native"));
+                "runtimes", rid, "native"));
         }
         else if (OperatingSystem.IsLinux())
         {
