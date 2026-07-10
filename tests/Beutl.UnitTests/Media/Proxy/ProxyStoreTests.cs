@@ -38,6 +38,33 @@ public sealed class ProxyStoreTests
     }
 
     [Test]
+    public void Register_RejectsPathKeyFingerprintSource()
+    {
+        string root = CreateRoot();
+        var store = new ProxyStore(root);
+        string proxyPath = Path.Combine(root, "hash", "quarter.mp4");
+        Directory.CreateDirectory(Path.GetDirectoryName(proxyPath)!);
+        File.WriteAllBytes(proxyPath, [5, 6, 7]);
+
+        var now = DateTime.UtcNow;
+        // A path-key source (ForPathKey => FileSizeBytes 0) is invalid for persistence even though the
+        // proxy file itself is valid, so Register must reject it rather than store a mismatched fingerprint.
+        var entry = new ProxyEntry(
+            ProxyFingerprint.ForPathKey(Path.Combine(root, "clip.mov")),
+            ProxyPreset.Quarter,
+            ProxyState.Ready,
+            "hash/quarter.mp4",
+            3,
+            new PixelSize(1920, 1080),
+            new PixelSize(480, 270),
+            now,
+            now,
+            null);
+
+        Assert.That(() => store.Register(entry), Throws.ArgumentException);
+    }
+
+    [Test]
     public void Delete_RemovesIndexEntryAndProxyFile()
     {
         string root = CreateRoot();

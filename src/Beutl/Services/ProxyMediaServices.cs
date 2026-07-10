@@ -415,7 +415,26 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
             if (BeutlApplication.Current.Project is not { } project)
                 return s_noOpenProjectSources;
 
-            return ProxySourceEnumerator.EnumerateFileSources(project);
+            // A Generate All batch enqueues one job per source and each runs this pre-encode sweep, so an
+            // uncached full project walk would stall the UI once per job. Memoize on the project instance:
+            // the batch shares one project, so only the first job walks. The set is eviction AFFINITY only
+            // (best-effort, already falling back to global LRU on failure), so a source added mid-batch
+            // just misses protection until the project reopens — its proxy is regenerated if evicted, no
+            // correctness loss.
+            lock (s_openProjectSourcesLock)
+            {
+                if (ReferenceEquals(s_openProjectSourcesProject, project) && s_openProjectSources is { } cached)
+                    return cached;
+            }
+
+            IReadOnlySet<string> sources = ProxySourceEnumerator.EnumerateFileSources(project);
+            lock (s_openProjectSourcesLock)
+            {
+                s_openProjectSourcesProject = project;
+                s_openProjectSources = sources;
+            }
+
+            return sources;
         }
         catch
         {
@@ -424,6 +443,10 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
             return s_noOpenProjectSources;
         }
     }
+
+    private static readonly object s_openProjectSourcesLock = new();
+    private static Project? s_openProjectSourcesProject;
+    private static IReadOnlySet<string>? s_openProjectSources;
 
     private static string FormatBytes(long bytes)
     {

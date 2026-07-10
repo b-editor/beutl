@@ -142,20 +142,22 @@ public sealed class ProxyStore : IProxyStore
 
     public bool Delete(ProxyFingerprint source, ProxyPreset preset)
     {
-        ProxyEntry? removed = null;
+        ProxyEntry removed;
         lock (_lock)
         {
-            if (!_entries.TryGetValue((source, preset), out removed))
+            if (!_entries.TryGetValue((source, preset), out ProxyEntry? existing))
                 return false;
 
-            string absolutePath = GetAbsolutePath(removed);
-            if (!TryDeleteProxyFile(absolutePath))
-                return false;
-
+            removed = existing;
             _entries.Remove((source, preset));
             FlushCore(removedKeys: new HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> { (source, preset) });
         }
 
+        // Delete the proxy file outside _lock: File.Delete has no bound (a network-share store can stall
+        // seconds), and preview reads (TryGet/Touch/Enumerate) contend on _lock, so holding it across the
+        // delete would stall playback. The index entry is already gone; if the file delete fails the file
+        // is a harmless orphan that reconcile's aged-orphan sweep reclaims.
+        TryDeleteProxyFile(GetAbsolutePath(removed));
         RemoveMetadataEntry(removed);
 
         OnChanged(source, preset, ProxyStoreChangeKind.Deleted);
@@ -906,6 +908,12 @@ public sealed class ProxyStore : IProxyStore
 
     private bool TryValidateEntry(ProxyEntry entry)
     {
+        // A path-key fingerprint (ProxyFingerprint.ForPathKey) carries FileSizeBytes == 0 and exists only
+        // for AbsolutePath-based lookup, never persistence. Reject it at the store boundary so accidentally
+        // registering one fails loudly here instead of silently storing a fingerprint no real entry equals.
+        if (entry.Source.FileSizeBytes <= 0)
+            return false;
+
         try
         {
             string path = GetAbsolutePath(entry);
