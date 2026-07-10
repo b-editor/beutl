@@ -938,6 +938,35 @@ public sealed class ExportSourceValidatorTests
         Assert.That(missing, Does.Contain(missingVideo));
     }
 
+    // When a presenter Target has both a CurrentValue and a reference-expression, the render evaluates
+    // the expression, so preflight must walk the expression's target — not the (stale) CurrentValue.
+    [Test]
+    public void CollectRenderableSources_PresenterTargetExpression_TakesPrecedenceOverCurrentValue()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string currentVideo = Path.Combine(root, "current.mov");
+        string expressionVideo = Path.Combine(root, "expression.mov");
+        File.WriteAllBytes(currentVideo, [1]);
+
+        // CurrentValue points at an existing file; the expression points at a missing one. The render
+        // opens the expression target, so its missing file must be reported.
+        var currentTarget = VideoDrawable(currentVideo);
+        var expressionTarget = VideoDrawable(expressionVideo);
+        var presenter = new DrawablePresenter();
+        presenter.Target.CurrentValue = currentTarget;
+        presenter.Target.Expression = Beutl.Engine.Expressions.Expression.CreateReference<Drawable>(expressionTarget.Id);
+
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
+        scene.Children.Add(ElementWith(root, expressionTarget));
+        scene.Children.Add(ElementWith(root, presenter));
+
+        IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
+            ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene));
+
+        Assert.That(missing, Does.Contain(expressionVideo));
+    }
+
     private static SourceSound SoundDrawable(string sourcePath)
     {
         var source = new SoundSource();

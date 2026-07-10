@@ -169,8 +169,12 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
 
         // The config observable can fire more than once for a single edit; a rebuild for the path the
         // live store already serves would needlessly dispose the queue (cancelling in-flight jobs) and
-        // re-emit a Reset. Compare the resolved paths and skip a no-op.
-        if (string.Equals(Store.StoreRootPath, Path.GetFullPath(storeRootPath), StringComparison.Ordinal))
+        // re-emit a Reset. Compare the resolved paths — case-insensitively on Windows/macOS, whose
+        // filesystems are — and skip a no-op, so a case-only difference is not treated as a move.
+        StringComparison pathComparison = OperatingSystem.IsWindows() || OperatingSystem.IsMacOS()
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+        if (string.Equals(Store.StoreRootPath, Path.GetFullPath(storeRootPath), pathComparison))
         {
             UpdateEvictionCap(maxTotalBytes);
             return;

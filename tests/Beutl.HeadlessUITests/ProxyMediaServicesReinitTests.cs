@@ -197,6 +197,77 @@ public sealed class ProxyMediaServicesReinitTests
         }
     }
 
+    [AvaloniaTest]
+    public void StoreRootPath_caseOnlyChange_doesNotRebuild()
+    {
+        if (!OperatingSystem.IsWindows() && !OperatingSystem.IsMacOS())
+        {
+            Assert.Ignore("Case-insensitive path comparison only applies on Windows/macOS.");
+        }
+
+        ProxyStoreConfig config = GlobalConfiguration.Instance.ProxyStoreConfig;
+        (string Root, long Cap) prior = Snapshot(config);
+        string lower = Path.Combine(Path.GetTempPath(), $"proxy-case-{Guid.NewGuid():N}");
+        config.StoreRootPath = lower;
+
+        ProxyMediaServices services = ProxyMediaServices.Initialize(GlobalConfiguration.Instance);
+        try
+        {
+            ProxyStore storeBefore = services.Store;
+            ProxyJobQueue queueBefore = services.Queue;
+
+            // Same directory, different case: on Windows/macOS this is the same filesystem location, so
+            // the store/queue must not be torn down (which would cancel in-flight jobs).
+            config.StoreRootPath = lower.ToUpperInvariant();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(services.Store, Is.SameAs(storeBefore));
+                Assert.That(services.Queue, Is.SameAs(queueBefore));
+            });
+        }
+        finally
+        {
+            services.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            Restore(config, prior);
+            TryDelete(lower);
+        }
+    }
+
+    [AvaloniaTest]
+    public void Store_swap_completes_even_if_a_Reset_subscriber_throws()
+    {
+        ProxyStoreConfig config = GlobalConfiguration.Instance.ProxyStoreConfig;
+        (string Root, long Cap) prior = Snapshot(config);
+        string first = Path.Combine(Path.GetTempPath(), $"proxy-reinit-{Guid.NewGuid():N}");
+        string second = Path.Combine(Path.GetTempPath(), $"proxy-reinit-{Guid.NewGuid():N}");
+        config.StoreRootPath = first;
+
+        ProxyMediaServices services = ProxyMediaServices.Initialize(GlobalConfiguration.Instance);
+        void Throwing(object? sender, ProxyStoreChangedEventArgs e) => throw new InvalidOperationException("boom");
+        services.StoreFacade.Changed += Throwing;
+        try
+        {
+            // A throwing Reset subscriber must not abort the swap: the other facades still repoint.
+            config.StoreRootPath = second;
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(services.Store.StoreRootPath, Is.EqualTo(Path.GetFullPath(second)));
+                Assert.That(services.ResolverFacade, Is.Not.Null);
+                Assert.That(services.QueueFacade, Is.Not.Null);
+            });
+        }
+        finally
+        {
+            services.StoreFacade.Changed -= Throwing;
+            services.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            Restore(config, prior);
+            TryDelete(first);
+            TryDelete(second);
+        }
+    }
+
     private static void TryDelete(string dir)
     {
         try

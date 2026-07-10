@@ -719,35 +719,28 @@ public static class ProxySourceEnumerator
            && sceneSound.Speed.Animation is null
            && sceneSound.Speed.CurrentValue == 100f;
 
-    // The effective value of a property supplied by a reference-expression: rendering opens what the
-    // expression resolves to, but the CurrentValue is null/stale. Resolve the reference (id/path lookup,
-    // no evaluation) to its target of type T so a structural target (a FilterEffect, a presented
-    // Drawable) reached only through an expression is still walked. Returns null for a plain value, a
-    // StringExpression (arbitrary C#, not evaluated), or an unresolvable reference.
+    // GetValue evaluates a reference-expression ahead of the base value, so resolve the reference
+    // (id/path lookup, no evaluation) first and fall back to CurrentValue only when unresolvable. A
+    // StringExpression (arbitrary C#) is not resolvable and falls through to CurrentValue.
     private static T? ResolveExpressionValue<T>(EngineObject owner, IProperty property)
         where T : class
     {
-        if (property.CurrentValue is T current)
-            return current;
-
-        if (property.Expression is not IReferenceExpression reference
-            || owner.FindHierarchicalRoot() is not ICoreObject root
-            || root.FindById(reference.ObjectId) is not { } resolved)
+        if (property.Expression is IReferenceExpression reference
+            && owner.FindHierarchicalRoot() is ICoreObject root
+            && root.FindById(reference.ObjectId) is { } resolved)
         {
-            return null;
+            if (!reference.HasPropertyPath)
+                return resolved as T ?? property.CurrentValue as T;
+
+            if (resolved is EngineObject target
+                && target.Properties.FirstOrDefault(
+                    p => string.Equals(p.Name, reference.PropertyPath, StringComparison.OrdinalIgnoreCase)) is { } targetProperty)
+            {
+                return ResolveExpressionValue<T>(target, targetProperty);
+            }
         }
 
-        if (!reference.HasPropertyPath)
-            return resolved as T;
-
-        if (resolved is EngineObject target
-            && target.Properties.FirstOrDefault(
-                p => string.Equals(p.Name, reference.PropertyPath, StringComparison.OrdinalIgnoreCase)) is { } targetProperty)
-        {
-            return targetProperty.CurrentValue as T;
-        }
-
-        return null;
+        return property.CurrentValue as T;
     }
 
     private static IEnumerable<IFileSource> EnumerateAnimatedFileSources(

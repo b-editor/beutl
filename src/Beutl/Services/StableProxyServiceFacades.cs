@@ -1,4 +1,7 @@
-﻿using Beutl.Media.Proxy;
+﻿using Beutl.Logging;
+using Beutl.Media.Proxy;
+
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.Services;
 
@@ -8,6 +11,8 @@ namespace Beutl.Services;
 // calls plus events to the new backing service, so the open editor keeps talking to the current store.
 internal sealed class StableProxyStoreFacade(IProxyStore initial) : IProxyStore
 {
+    private static readonly ILogger s_logger = Log.CreateLogger<StableProxyStoreFacade>();
+
     private IProxyStore _inner = initial;
     private EventHandler<ProxyStoreChangedEventArgs>? _changed;
 
@@ -27,13 +32,26 @@ internal sealed class StableProxyStoreFacade(IProxyStore initial) : IProxyStore
             next.Changed += handlers;
             // The new store loads its entries in the constructor (no Registered events), so raise a Reset
             // to make open Proxies tabs / timeline badges refresh to the new store's state rather than
-            // keeping the previous store's Ready/Missing display until a manual refresh.
-            handlers(this, new ProxyStoreChangedEventArgs
+            // keeping the previous store's Ready/Missing display until a manual refresh. Invoke each
+            // subscriber in its own try/catch: ProxyMediaServices swaps the facades in sequence mid-
+            // reinit, so one throwing consumer must not abort the remaining swaps.
+            var args = new ProxyStoreChangedEventArgs
             {
                 Source = default,
                 Preset = default,
                 Kind = ProxyStoreChangeKind.Reset,
-            });
+            };
+            foreach (Delegate handler in handlers.GetInvocationList())
+            {
+                try
+                {
+                    ((EventHandler<ProxyStoreChangedEventArgs>)handler)(this, args);
+                }
+                catch (Exception ex)
+                {
+                    s_logger.LogWarning(ex, "A proxy-store Reset subscriber threw during a store swap.");
+                }
+            }
         }
     }
 
