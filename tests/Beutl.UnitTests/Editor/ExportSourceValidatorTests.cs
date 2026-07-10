@@ -967,24 +967,48 @@ public sealed class ExportSourceValidatorTests
         Assert.That(missing, Does.Contain(expressionVideo));
     }
 
+    // Reference-expression resolution needs owner.FindHierarchicalRoot() to succeed; a detached scene has
+    // no root, so tests that exercise resolution must attach the scene under one of these.
+    private sealed class TestHierarchicalRoot : Hierarchical, IHierarchicalRoot
+    {
+        public new Beutl.Collections.ICoreList<IHierarchical> HierarchicalChildren => base.HierarchicalChildren;
+
+        public event EventHandler<IHierarchical>? DescendantAttached;
+        public event EventHandler<IHierarchical>? DescendantDetached;
+
+        public void OnDescendantAttached(IHierarchical descendant) => DescendantAttached?.Invoke(this, descendant);
+
+        public void OnDescendantDetached(IHierarchical descendant) => DescendantDetached?.Invoke(this, descendant);
+    }
+
     // A cyclic reference-expression chain (a presenter Target whose expression resolves back to its own
-    // Target property) must not overflow the stack while enumerating; resolution stops on re-entry.
+    // Target property) must not overflow the stack while enumerating. On cycle re-entry the render's
+    // IsEvaluating guard yields DefaultValue (null), never the CurrentValue, so a missing CurrentValue
+    // file must not be reported — resolution must not fall back to it.
     [Test]
-    public void CollectRenderableSources_CyclicTargetExpression_CompletesWithoutOverflow()
+    public void CollectRenderableSources_CyclicTargetExpression_DoesNotReportCurrentValueFile()
     {
         string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
+        string missingCurrent = Path.Combine(root, "current.mov");
 
         var presenter = new DrawablePresenter();
-        // Target's expression points at the presenter's own Target property — a self-cycle.
+        // CurrentValue holds a missing file; the expression self-cycles back to the Target property. The
+        // render evaluates the expression to DefaultValue (null) on cycle, so the missing file never opens.
+        presenter.Target.CurrentValue = VideoDrawable(missingCurrent);
         presenter.Target.Expression = Beutl.Engine.Expressions.Expression.CreateReference<Drawable>(presenter.Id, "Target");
 
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
         scene.Children.Add(ElementWith(root, presenter));
+        // Without a root the self-reference is unresolvable and never reaches the cycle branch under test.
+        var hierarchyRoot = new TestHierarchicalRoot();
+        hierarchyRoot.HierarchicalChildren.Add(scene);
 
+        IReadOnlyList<string> missing = null!;
         Assert.DoesNotThrow(() =>
-            ExportSourceValidator.GetMissingPaths(
+            missing = ExportSourceValidator.GetMissingPaths(
                 ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene)));
+        Assert.That(missing, Does.Not.Contain(missingCurrent));
     }
 
     private static SourceSound SoundDrawable(string sourcePath)

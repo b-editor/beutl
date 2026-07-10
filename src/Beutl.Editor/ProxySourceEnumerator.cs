@@ -509,7 +509,7 @@ public static class ProxySourceEnumerator
     // file sources it exposes as a value, without re-walking a scene/element/drawable navigator.
     private static IEnumerable<IFileSource> EnumerateExpressionFileSources(
         EngineObject owner, IExpression? expression, TimeRange? localRange, bool skipDisabledElements, HashSet<EngineObject> visitedValues,
-        TimeRange? sceneWindow = null)
+        TimeRange? sceneWindow = null, HashSet<IProperty>? visitedExpressionProps = null)
     {
         if (expression is not IReferenceExpression reference
             || owner.FindHierarchicalRoot() is not ICoreObject root
@@ -535,7 +535,14 @@ public static class ProxySourceEnumerator
             p => string.Equals(p.Name, reference.PropertyPath, StringComparison.OrdinalIgnoreCase));
         if (property is not null)
         {
-            foreach (IFileSource source in EnumerateExpressionFileSources(target, property.Expression, localRange, skipDisabledElements, visitedValues, sceneWindow))
+            // A cyclic reference chain (Target.Expression -> Target) would recurse forever; the render's
+            // IsEvaluating guard breaks the cycle to DefaultValue, contributing no sources, so stop
+            // descending on a re-visited property.
+            visitedExpressionProps ??= new HashSet<IProperty>(ReferenceEqualityComparer.Instance);
+            if (!visitedExpressionProps.Add(property))
+                yield break;
+
+            foreach (IFileSource source in EnumerateExpressionFileSources(target, property.Expression, localRange, skipDisabledElements, visitedValues, sceneWindow, visitedExpressionProps))
                 yield return source;
 
             bool targetExpressionOverrides = localRange is not null && property.Expression is not null;
@@ -725,6 +732,14 @@ public static class ProxySourceEnumerator
     private static T? ResolveExpressionValue<T>(EngineObject owner, IProperty property, HashSet<IProperty>? visited = null)
         where T : class
     {
+        // A user-constructed reference chain (Target.Expression -> Target) can cycle; the engine's own
+        // evaluation is cycle-guarded by ExpressionContext, breaking the cycle to DefaultValue (null for
+        // a reference type). This reference walk is outside that guard, so track visited properties and
+        // return DefaultValue on re-entry — never CurrentValue, which the render never opens.
+        visited ??= new HashSet<IProperty>(ReferenceEqualityComparer.Instance);
+        if (!visited.Add(property))
+            return property.DefaultValue as T;
+
         if (property.Expression is IReferenceExpression reference
             && owner.FindHierarchicalRoot() is ICoreObject root
             && root.FindById(reference.ObjectId) is { } resolved)
@@ -736,13 +751,6 @@ public static class ProxySourceEnumerator
                 && target.Properties.FirstOrDefault(
                     p => string.Equals(p.Name, reference.PropertyPath, StringComparison.OrdinalIgnoreCase)) is { } targetProperty)
             {
-                // A user-constructed reference chain (A.Prop -> B.Prop -> A.Prop) can cycle; the engine's
-                // own evaluation is cycle-guarded by ExpressionContext, but this reference walk is outside
-                // it. Track the properties on the path and fall back to CurrentValue on re-entry.
-                visited ??= new HashSet<IProperty>(ReferenceEqualityComparer.Instance);
-                if (!visited.Add(property))
-                    return property.CurrentValue as T;
-
                 return ResolveExpressionValue<T>(target, targetProperty, visited);
             }
         }
