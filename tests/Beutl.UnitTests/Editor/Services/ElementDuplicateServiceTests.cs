@@ -187,6 +187,29 @@ public class ElementDuplicateServiceTests
     }
 
     [Test]
+    public void DuplicateAtClickedPosition_SparseSelection_IgnoresOverlapOnGapRow()
+    {
+        // Sources on layers 0 and 2; a clip sits on the gap layer 1 at the clicked
+        // time. No duplicate lands on layer 1, so it must not block the placement —
+        // the duplicates keep the clicked start/zIndex instead of being nudged away.
+        Element bottom = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 0);
+        Element top = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 2);
+        AddElement(TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(2), zIndex: 1);
+        int childrenBefore = _scene.Children.Count;
+
+        DuplicateOutcome outcome = _service.DuplicateAtClickedPosition(
+            _scene, [bottom, top], TimeSpan.FromSeconds(20), 0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome.Success, Is.True);
+            Assert.That(_scene.Children.Count, Is.EqualTo(childrenBefore + 2));
+            Assert.That(outcome.ScrollToRange.Start, Is.EqualTo(TimeSpan.FromSeconds(20)));
+            Assert.That(outcome.ScrollToZIndex, Is.EqualTo(0));
+        });
+    }
+
+    [Test]
     public void DuplicateAtClickedPosition_ClipboardSourceOnLockedLayer_IsNotFiltered()
     {
         // A deserialized clipboard element is not a child of the scene, so the

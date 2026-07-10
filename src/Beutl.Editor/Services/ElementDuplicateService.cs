@@ -40,7 +40,7 @@ public sealed class ElementDuplicateService : IElementDuplicateService
 
         Element[] regenerated;
         TimeRange seedRange;
-        int minZIndex, maxZIndex;
+        int minZIndex;
         TimeSpan anchorStart;
         int anchorZIndex;
         try
@@ -48,13 +48,13 @@ public sealed class ElementDuplicateService : IElementDuplicateService
             // Regeneration can throw on a corrupt / unknown-plugin element, so
             // keep it inside the guarded region (like DuplicateAtPosition).
             ObjectRegenerator.Regenerate(sourceArray, out regenerated);
-            (seedRange, minZIndex, maxZIndex) = DuplicateHelper.ComputePlacementRange(regenerated);
+            (seedRange, minZIndex, _) = DuplicateHelper.ComputePlacementRange(regenerated);
 
-            // Only rows a duplicate actually lands on matter for locks — a sparse
-            // selection (layers 0 and 2) must not be blocked by a locked layer 1.
+            // Only rows a duplicate actually lands on matter — a sparse selection
+            // (layers 0 and 2) must not be blocked by content or a lock on layer 1.
             int[] rowOffsets = regenerated.Select(r => r.ZIndex - minZIndex).Distinct().ToArray();
             (anchorStart, anchorZIndex) =
-                CorrectPosition(scene, seedRange, minZIndex, maxZIndex, rowOffsets, clickedFrame, clickedLayer);
+                CorrectPosition(scene, seedRange, rowOffsets, clickedFrame, clickedLayer);
 
             // CorrectPosition avoids locked rows, but its give-up fallback can
             // still land on one; never place content inside a locked layer.
@@ -115,8 +115,6 @@ public sealed class ElementDuplicateService : IElementDuplicateService
     private static (TimeSpan Start, int ZIndex) CorrectPosition(
         Scene scene,
         TimeRange range,
-        int minZIndex,
-        int maxZIndex,
         int[] rowOffsets,
         TimeSpan clickedFrame,
         int clickedLayer)
@@ -124,12 +122,11 @@ public sealed class ElementDuplicateService : IElementDuplicateService
         int rate = SceneTimeRangeService.GetFrameRate(scene);
         TimeSpan step = TimeSpan.FromSeconds(1d / rate);
         TimeSpan length = range.Duration;
-        int layerCount = maxZIndex - minZIndex + 1;
 
         TimeSpan newStart = clickedFrame;
         int newZIndex = clickedLayer;
 
-        if (IsPlacementFree(scene, new TimeRange(newStart, length), newZIndex, newZIndex + layerCount - 1, rowOffsets))
+        if (IsPlacementFree(scene, new TimeRange(newStart, length), newZIndex, rowOffsets))
         {
             return (newStart, newZIndex);
         }
@@ -152,7 +149,7 @@ public sealed class ElementDuplicateService : IElementDuplicateService
             if (newStart < TimeSpan.Zero) newStart = TimeSpan.Zero;
             if (newZIndex < 0) newZIndex = 0;
 
-            if (IsPlacementFree(scene, new TimeRange(newStart, length), newZIndex, newZIndex + layerCount - 1, rowOffsets))
+            if (IsPlacementFree(scene, new TimeRange(newStart, length), newZIndex, rowOffsets))
             {
                 return (newStart, newZIndex);
             }
@@ -177,9 +174,9 @@ public sealed class ElementDuplicateService : IElementDuplicateService
         }
     }
 
-    private static bool IsPlacementFree(Scene scene, TimeRange range, int minZIndex, int maxZIndex, int[] rowOffsets)
-        => !IsOverlapping(scene, range, minZIndex, maxZIndex)
-           && !AnyDestinationRowLocked(scene, minZIndex, rowOffsets);
+    private static bool IsPlacementFree(Scene scene, TimeRange range, int anchorZIndex, int[] rowOffsets)
+        => !IsOverlapping(scene, range, anchorZIndex, rowOffsets)
+           && !AnyDestinationRowLocked(scene, anchorZIndex, rowOffsets);
 
     private static bool AnyDestinationRowLocked(Scene scene, int anchorZIndex, int[] rowOffsets)
     {
@@ -191,16 +188,26 @@ public sealed class ElementDuplicateService : IElementDuplicateService
         return false;
     }
 
-    private static bool IsOverlapping(Scene scene, TimeRange range, int minZIndex, int maxZIndex)
+    private static bool IsOverlapping(Scene scene, TimeRange range, int anchorZIndex, int[] rowOffsets)
     {
         foreach (Element child in scene.Children)
         {
-            if (child.ZIndex < minZIndex || child.ZIndex > maxZIndex) continue;
+            if (!IsDestinationRow(child.ZIndex, anchorZIndex, rowOffsets)) continue;
             TimeRange other = child.Range;
             if (other == range || other.Intersects(range) || other.Contains(range) || range.Contains(other))
             {
                 return true;
             }
+        }
+
+        return false;
+    }
+
+    private static bool IsDestinationRow(int zIndex, int anchorZIndex, int[] rowOffsets)
+    {
+        foreach (int offset in rowOffsets)
+        {
+            if (zIndex == anchorZIndex + offset) return true;
         }
 
         return false;
