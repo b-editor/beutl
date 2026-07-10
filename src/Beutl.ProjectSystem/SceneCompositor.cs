@@ -171,7 +171,7 @@ public sealed class SceneCompositor : ICompositor
         obj.DetachedFromHierarchy += Handler;
     }
 
-    // Layersを振り分ける
+    // timeに掛かるElementを、solo/muteでフィルタしつつZIndex順に振り分ける
     private void SortLayers(TimeSpan time, PooledList<Element> currentElements, CompositionTarget target)
     {
         LayerSnapshot snapshot = GetLayerSnapshot();

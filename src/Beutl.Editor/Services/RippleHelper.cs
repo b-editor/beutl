@@ -49,34 +49,27 @@ internal static class RippleHelper
         // A locked neighbor stays anchored — shifting it would bypass the lock.
         if (scene.IsLayerLocked(zIndex)) return;
 
-        Element[] toShift = scene.Children
+        IEnumerable<Element> toShift = scene.Children
             .Where(e => e.ZIndex == zIndex && !except.Contains(e) && e.Range.End <= anchorStart
-                        && !e.IsLocked)
+                        && !e.IsLocked);
+
+        Element[] lockedOnLayer = scene.Children
+            .Where(e => e.ZIndex == zIndex && e.IsLocked)
             .ToArray();
 
-        // A left-edge trim (delta > 0) pulls upstream clips right onto a locked anchor, so it must
-        // stop at the first blocker (nearest-to-anchor first, halting the clips behind it). A
-        // left-edge grow (delta < 0) pushes them left, where the timeline floor is the caller's
-        // ClampRippleStart and locked clips are already out of the shift set.
-        if (delta > TimeSpan.Zero)
-        {
-            Element[] lockedOnLayer = scene.Children
-                .Where(e => e.ZIndex == zIndex && e.IsLocked)
-                .ToArray();
-
-            foreach (Element e in toShift.OrderByDescending(e => e.Start))
-            {
-                TimeRange shifted = e.Range.WithStart(e.Start + delta);
-                if (Array.Exists(lockedOnLayer, l => shifted.Intersects(l.Range))) break;
-
-                e.Start += delta;
-            }
-
-            return;
-        }
+        // A locked clip is an immovable anchor in both directions, so the ripple stops before any
+        // clip lands on it. Process in travel order — rightmost first for a right pull (delta > 0),
+        // leftmost first for a left push (delta < 0) — so a block also halts the clips behind it.
+        // The timeline floor for a left push is enforced by the caller's ClampRippleStart.
+        toShift = delta > TimeSpan.Zero
+            ? toShift.OrderByDescending(e => e.Start)
+            : toShift.OrderBy(e => e.Start);
 
         foreach (Element e in toShift)
         {
+            TimeRange shifted = e.Range.WithStart(e.Start + delta);
+            if (Array.Exists(lockedOnLayer, l => shifted.Intersects(l.Range))) break;
+
             e.Start += delta;
         }
     }

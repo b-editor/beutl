@@ -172,20 +172,32 @@ public sealed class ElementStructureService : IElementStructureService
     {
         if (ids.Count == 0) return ids;
 
+        HashSet<Guid>? lockedIds = null;
+        foreach (Element child in scene.Children)
+        {
+            if (scene.IsElementLocked(child)) (lockedIds ??= []).Add(child.Id);
+        }
+
+        if (lockedIds is null) return ids;
+
+        var idSet = new HashSet<Guid>(ids);
         HashSet<Guid>? refused = null;
         foreach (ImmutableHashSet<Guid> group in scene.Groups)
         {
-            if (!group.Overlaps(ids)) continue;
-
-            ImmutableHashSet<Guid> survivors = group.Except(ids);
-            if (survivors.Count >= 2) continue;
-
-            if (survivors.Any(id => scene.Children.FirstOrDefault(c => c.Id == id) is { } el
-                                    && scene.IsElementLocked(el)))
+            int survivors = 0;
+            bool lockedSurvivor = false;
+            foreach (Guid member in group)
             {
-                foreach (Guid id in group)
+                if (idSet.Contains(member)) continue;
+                survivors++;
+                lockedSurvivor |= lockedIds.Contains(member);
+            }
+
+            if (survivors < 2 && lockedSurvivor)
+            {
+                foreach (Guid member in group)
                 {
-                    if (ids.Contains(id)) (refused ??= []).Add(id);
+                    if (idSet.Contains(member)) (refused ??= []).Add(member);
                 }
             }
         }

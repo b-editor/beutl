@@ -19,6 +19,11 @@ public sealed class ElementResizeService : IElementResizeService
         ArgumentNullException.ThrowIfNull(requests);
         if (requests.Count == 0) return;
 
+        // Drop locked targets here, at the single mutation boundary the UI submits to: a clip or its
+        // layer may have been locked mid-drag, after the press-time guard already staged the request.
+        requests = requests.Where(r => !scene.IsElementLocked(r.Element)).ToArray();
+        if (requests.Count == 0) return;
+
         bool autoAdjustSceneDuration = ripple && GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration;
         var oldBounds = ripple ? new Dictionary<Element, (int ZIndex, TimeSpan Start, TimeSpan End)>(requests.Count) : null;
         var clamped = ripple ? new Dictionary<Element, (TimeSpan Start, TimeSpan Length)>(requests.Count) : null;
@@ -111,9 +116,10 @@ public sealed class ElementResizeService : IElementResizeService
         }
     }
 
-    // Limits a same-layer left-edge grow so the ripple shift cannot push any upstream element's
-    // Start below zero, keeping the requested end. Clamps rather than throws: UI callers run on an
-    // async-void pointer path, and frame rounding at submission can dip below the preview floor.
+    // Limits a same-layer left-edge grow so the rigid ripple shift cannot push any upstream element
+    // below zero or onto a locked clip, keeping the requested end. Clamps rather than throws: UI
+    // callers run on an async-void pointer path, and frame rounding at submission can dip below the
+    // preview floor.
     private static (TimeSpan Start, TimeSpan Length) ClampRippleStart(
         Scene scene, ElementResizeRequest req, IReadOnlyCollection<Element> resized)
     {
@@ -122,29 +128,43 @@ public sealed class ElementResizeService : IElementResizeService
         TimeSpan startDelta = req.NewStart - req.Element.Start;
         if (startDelta >= TimeSpan.Zero) return (req.NewStart, req.NewLength);
 
-        // Match ShiftBefore's eligibility: a locked upstream element is never shifted,
-        // so it must not tighten the floor (else it would clamp a valid left-edge grow).
-        TimeSpan? minUpstreamStart = null;
+        // Every upstream clip shifts left by the same delta, so the grow is bounded by the tightest
+        // room: each clip can move left only to the timeline start or the end of the nearest locked
+        // clip in front of it (locked clips are immovable and must not be overlapped).
+        TimeSpan? maxGrow = null;
         foreach (Element e in scene.Children)
         {
-            if (e.ZIndex == req.Element.ZIndex && !resized.Contains(e) && !e.IsLocked
-                && e.Range.End <= req.Element.Start)
+            if (e.ZIndex != req.Element.ZIndex || resized.Contains(e) || e.IsLocked
+                || e.Range.End > req.Element.Start)
             {
-                if (minUpstreamStart is not { } cur || e.Start < cur) minUpstreamStart = e.Start;
+                continue;
             }
+
+            TimeSpan floor = TimeSpan.Zero;
+            foreach (Element l in scene.Children)
+            {
+                if (l.ZIndex == req.Element.ZIndex && l.IsLocked && l.Range.End <= e.Start
+                    && l.Range.End > floor)
+                {
+                    floor = l.Range.End;
+                }
+            }
+
+            TimeSpan room = e.Start - floor;
+            if (maxGrow is not { } cur || room < cur) maxGrow = room;
         }
 
-        if (minUpstreamStart is not { } floor || startDelta >= -floor)
+        if (maxGrow is not { } grow || startDelta >= -grow)
         {
             return (req.NewStart, req.NewLength);
         }
 
-        TimeSpan clampedStart = req.Element.Start - floor;
+        TimeSpan clampedStart = req.Element.Start - grow;
         TimeSpan clampedLength = req.NewStart + req.NewLength - clampedStart;
         if (clampedLength <= TimeSpan.Zero)
         {
-            // Requested end sits before the floor: keeping upstream >= 0 and the end while staying
-            // positive is impossible. A left-edge resize keeps the end, so the UI never reaches this.
+            // Requested end sits before the clamp point: keeping upstream in bounds and the end while
+            // staying positive is impossible. A left-edge resize keeps the end, so the UI never reaches this.
             throw new ArgumentOutOfRangeException(
                 nameof(ElementResizeRequest.NewLength),
                 "Ripple left-shift cannot preserve the requested end with a positive length.");

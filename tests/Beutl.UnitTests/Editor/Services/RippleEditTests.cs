@@ -321,6 +321,27 @@ public class RippleEditTests
     }
 
     [Test]
+    public void Resize_LockedElement_IsFilteredOut_NoResizeNoCommit()
+    {
+        var resize = new ElementResizeService(_history);
+        Element locked = AddElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(2), zIndex: 0);
+        locked.IsLocked = true;
+        int before = _history.UndoCount;
+
+        // Simulates a lock toggled mid-drag: the release still submits the staged request, but the
+        // service drops locked targets so nothing is committed.
+        resize.Resize(_scene,
+            [new ElementResizeRequest(locked, TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(5), 0)],
+            ripple: false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(locked.Length, Is.EqualTo(TimeSpan.FromSeconds(2)), "a locked clip must not be resized");
+            Assert.That(_history.UndoCount, Is.EqualTo(before), "no commit when the only request is filtered");
+        });
+    }
+
+    [Test]
     public void Resize_RippleOff_PreservesTraditionalBehavior()
     {
         var resize = new ElementResizeService(_history);
@@ -411,20 +432,22 @@ public class RippleEditTests
     }
 
     [Test]
-    public void ShiftBefore_LockedUpstream_StaysAnchored()
+    public void ShiftBefore_LeftPush_StopsFreeClipAtLockedUpstream()
     {
         Element locked = AddElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(2));
         Element free = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
         Element target = AddElement(TimeSpan.FromSeconds(6), TimeSpan.FromSeconds(2));
         locked.IsLocked = true;
 
+        // A left push (delta < 0) would move free from [2,4] to [0,2], onto the locked clip; the
+        // locked clip anchors the ripple, so free is not shifted.
         RippleHelper.ShiftBefore(_scene, zIndex: 0, anchorStart: TimeSpan.FromSeconds(6),
             delta: TimeSpan.FromSeconds(-2), except: [target]);
 
         Assert.Multiple(() =>
         {
             Assert.That(locked.Start, Is.EqualTo(TimeSpan.Zero), "locked upstream must not move");
-            Assert.That(free.Start, Is.EqualTo(TimeSpan.Zero), "unlocked upstream shifts left by 2");
+            Assert.That(free.Start, Is.EqualTo(TimeSpan.FromSeconds(2)), "free is blocked by the locked clip");
         });
     }
 
@@ -531,7 +554,7 @@ public class RippleEditTests
     }
 
     [Test]
-    public void Resize_RippleOn_LeftEdgeGrow_LockedUpstream_DoesNotTightenClamp()
+    public void Resize_RippleOn_LeftEdgeGrow_LockedUpstreamPacksFree_ClampsGrowAway()
     {
         var resize = new ElementResizeService(_history);
         Element lockedUpstream = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), zIndex: 0);
@@ -539,17 +562,41 @@ public class RippleEditTests
         Element target = AddElement(TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(4), zIndex: 0);
         lockedUpstream.IsLocked = true;
 
-        // The locked element (earliest start = 1) must not tighten the clamp floor, since ShiftBefore
-        // never moves it. Only the free upstream (start 2) bounds the grow, so start 2 is allowed.
+        // The free upstream [2,4] is packed against the locked clip's end (2), so the rigid ripple
+        // cannot shift it left at all; the locked clip anchors the ripple and the grow is clamped away.
         resize.Resize(_scene,
             [new ElementResizeRequest(target, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(6), 0)],
             ripple: true);
 
         Assert.Multiple(() =>
         {
-            Assert.That(target.Start, Is.EqualTo(TimeSpan.FromSeconds(2)), "not clamped by the locked upstream");
-            Assert.That(freeUpstream.Start, Is.EqualTo(TimeSpan.Zero), "free upstream shifts left by 2");
+            Assert.That(target.Start, Is.EqualTo(TimeSpan.FromSeconds(4)), "grow clamped: locked upstream packs the free clip");
+            Assert.That(freeUpstream.Start, Is.EqualTo(TimeSpan.FromSeconds(2)), "free upstream cannot move onto the lock");
             Assert.That(lockedUpstream.Start, Is.EqualTo(TimeSpan.FromSeconds(1)), "locked upstream stays put");
+        });
+    }
+
+    [Test]
+    public void Resize_RippleOn_LeftEdgeGrow_ClampsToLockedUpstreamEnd()
+    {
+        var resize = new ElementResizeService(_history);
+        Element locked = AddElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(1), zIndex: 0);
+        Element free = AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(2), zIndex: 0);
+        Element target = AddElement(TimeSpan.FromSeconds(7), TimeSpan.FromSeconds(2), zIndex: 0);
+        locked.IsLocked = true;
+
+        // Free [3,5] has room 2 before the locked clip's end (1); the grow may advance only that far,
+        // so free lands touching the lock at [1,3] and target's left edge reaches 5.
+        resize.Resize(_scene,
+            [new ElementResizeRequest(target, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(8), 0)],
+            ripple: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(free.Start, Is.EqualTo(TimeSpan.FromSeconds(1)), "free clamped to touch the locked clip's end");
+            Assert.That(target.Start, Is.EqualTo(TimeSpan.FromSeconds(5)), "grow clamped by the free clip's room before the lock");
+            Assert.That(target.Range.End, Is.EqualTo(TimeSpan.FromSeconds(9)), "right edge preserved");
+            Assert.That(locked.Start, Is.EqualTo(TimeSpan.Zero), "locked upstream stays put");
         });
     }
 
