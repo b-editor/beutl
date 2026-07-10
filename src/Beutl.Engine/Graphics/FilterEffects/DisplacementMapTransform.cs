@@ -99,7 +99,7 @@ public partial class DisplacementMapTranslateTransform : DisplacementMapTransfor
         builder.Shader(ShaderNodeDescriptor.WholeSource(
             s_describeSource,
             BoundsContract.RenderTime,
-            u => u.Float2("uTranslation", r.X * w, r.Y * w)
+            u => u.DensityScaledFloat2("uTranslation", r.X, r.Y)
                   .Int("uChannel", (int)channel)
                   .Int("uSigned", signed ? 1 : 0),
             children: [mapChild],
@@ -161,7 +161,7 @@ public partial class DisplacementMapScaleTransform : DisplacementMapTransform
             s_describeSource,
             BoundsContract.RenderTime,
             u => u.Float2("uScale", r.Scale * r.ScaleX / 10000, r.Scale * r.ScaleY / 10000)
-                  .Float2("uPivot", (builder.Bounds.Width / 2 + r.CenterX) * w, (builder.Bounds.Height / 2 + r.CenterY) * w)
+                  .DensityScaledFloat2("uPivot", builder.Bounds.Width / 2 + r.CenterX, builder.Bounds.Height / 2 + r.CenterY)
                   .Int("uChannel", (int)channel)
                   .Int("uSigned", signed ? 1 : 0),
             children: [mapChild],
@@ -220,7 +220,7 @@ public partial class DisplacementMapRotationTransform : DisplacementMapTransform
             s_describeSource,
             BoundsContract.RenderTime,
             u => u.Float("uAngle", MathUtilities.Deg2Rad(r.Rotation))
-                  .Float2("uPivot", (builder.Bounds.Width / 2 + r.CenterX) * w, (builder.Bounds.Height / 2 + r.CenterY) * w)
+                  .DensityScaledFloat2("uPivot", builder.Bounds.Width / 2 + r.CenterX, builder.Bounds.Height / 2 + r.CenterY)
                   .Int("uChannel", (int)channel)
                   .Int("uSigned", signed ? 1 : 0),
             children: [mapChild],

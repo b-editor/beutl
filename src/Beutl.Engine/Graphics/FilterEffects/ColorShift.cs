@@ -58,21 +58,23 @@ public partial class ColorShift : FilterEffect
     {
         var r = (Resource)resource;
         var data = (r.RedOffset, r.GreenOffset, r.BlueOffset, r.AlphaOffset);
-        float w = builder.WorkingScale;
 
         // A whole-source shader sampling each channel from its own shifted position. The executor sizes this
         // non-invariant pass by its declared forward bounds (the union of the shifted copies) and re-bakes the
         // source into that expanded rect before the pass, so the shifted sample coordinate is already in the
         // output buffer's device space — the legacy minOffset alignment is absorbed by the re-bake and stays 0.
+        // The device-space offsets are late-bound (DensityScaledFloat2): the forward-inflated buffer can cross the
+        // 16384 px/axis budget and execute BELOW the describe-time working scale (execution-plan §C3.2), so the
+        // logical offsets must be scaled by the pass's actual density, not the describe-time one.
         builder.Shader(ShaderNodeDescriptor.WholeSource(
             ShaderSource,
             BoundsContract.Create(
                 rect => TransformBoundsCore(data, rect),
                 rect => RequiredInputBoundsCore(data, rect)),
-            u => u.Float2("redOffset", data.RedOffset.X * w, data.RedOffset.Y * w)
-                  .Float2("greenOffset", data.GreenOffset.X * w, data.GreenOffset.Y * w)
-                  .Float2("blueOffset", data.BlueOffset.X * w, data.BlueOffset.Y * w)
-                  .Float2("alphaOffset", data.AlphaOffset.X * w, data.AlphaOffset.Y * w)
+            u => u.DensityScaledFloat2("redOffset", data.RedOffset.X, data.RedOffset.Y)
+                  .DensityScaledFloat2("greenOffset", data.GreenOffset.X, data.GreenOffset.Y)
+                  .DensityScaledFloat2("blueOffset", data.BlueOffset.X, data.BlueOffset.Y)
+                  .DensityScaledFloat2("alphaOffset", data.AlphaOffset.X, data.AlphaOffset.Y)
                   .Float2("minOffset", 0f, 0f),
             srcTileMode: SKShaderTileMode.Decal));
     }

@@ -363,10 +363,11 @@ internal static class PlanExecutor
         using SKImage srcImage = target.Value.Snapshot();
         using SKShader srcShader = srcImage.ToShader(srcTile, srcTile);
 
+        var uniformContext = new PassUniformContext(w, target.Width, target.Height);
         var disposables = new List<IDisposable>();
         try
         {
-            SKShader composed = ComposeStages(pass.Stages, srcShader, diagnostics, disposables);
+            SKShader composed = ComposeStages(pass.Stages, srcShader, uniformContext, diagnostics, disposables);
             using var paint = new SKPaint { Shader = composed };
             using var canvas = new ImmediateCanvas(target, w, maxWorkingScale, logicalSize: outBounds.Size);
             canvas.Clear();
@@ -415,7 +416,7 @@ internal static class PlanExecutor
     }
 
     private static SKShader ComposeStages(
-        ImmutableArray<FusedStage> stages, SKShader srcShader,
+        ImmutableArray<FusedStage> stages, SKShader srcShader, in PassUniformContext uniformContext,
         PipelineDiagnostics? diagnostics, List<IDisposable> disposables)
     {
         SKShader current = srcShader;
@@ -443,7 +444,7 @@ internal static class PlanExecutor
                     j++;
                 }
 
-                current = BuildRuntimeRun(run, current, diagnostics, disposables);
+                current = BuildRuntimeRun(run, current, uniformContext, diagnostics, disposables);
                 i = j;
             }
         }
@@ -452,7 +453,7 @@ internal static class PlanExecutor
     }
 
     private static SKShader BuildRuntimeRun(
-        List<RuntimeShaderStage> run, SKShader srcChild,
+        List<RuntimeShaderStage> run, SKShader srcChild, in PassUniformContext uniformContext,
         PipelineDiagnostics? diagnostics, List<IDisposable> disposables)
     {
         bool wholeSource = run.Count == 1 && run[0].Source.Kind == SkslSourceKind.WholeSource;
@@ -474,7 +475,7 @@ internal static class PlanExecutor
         {
             string prefix = wholeSource ? string.Empty : $"fe{k}_";
             foreach (UniformBinding uniform in run[k].Uniforms)
-                uniform.Apply(builder, prefix + uniform.Name);
+                uniform.Apply(builder, prefix + uniform.Name, in uniformContext);
             // A per-frame sampler/child shader (a LUT, curve textures) is bound here but owned by the graph, which
             // releases it after execution even when this pass is skipped for an empty ROI (contract A2).
             foreach (SamplerBinding sampler in run[k].Samplers)

@@ -1,6 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Engine;
-using Beutl.Graphics.Rendering;
 using Beutl.Language;
 
 namespace Beutl.Graphics.Effects;
@@ -47,25 +46,26 @@ public partial class MosaicEffect : FilterEffect
         var r = (Resource)resource;
         Size tileSize = r.TileSize;
         RelativePoint originPoint = r.Origin;
-        // builder.WorkingScale is already clamped to the 16384 px/axis buffer budget for the node's bounds
-        // (PlanFilterEffectRenderNode.Process clamps before describing), and this render-time pass always bakes at full
-        // input bounds, so the per-pass re-clamp in ResolveResources resolves the same w — these describe-time
-        // uniforms match the execute-time buffer even at the clamp edge (pinned by MosaicEffect_AtBufferBudgetEdge).
-        float w = builder.WorkingScale;
-        (int bufW, int bufH) = RenderNodeContext.DeviceBufferSize(builder.Bounds, w);
-        Point origin = originPoint.Unit == RelativeUnit.Relative
-            ? originPoint.ToPixels(new Size(bufW, bufH))
-            : originPoint.Point * w;
 
         // The tile grid (origin/tileSize/resolution) is authored in the FULL-frame device space, so the pass MUST
         // bake at full input bounds: a RenderTime contract keeps it full-frame even when a downstream deflating pass
         // (a fixed Clipping) would otherwise ROI-crop it to a sub-rect and shift/clip the grid (review M2). Identity
         // bounds would forgo nothing here — the shader samples non-local tile centres, so an ROI crop is never sound.
+        // The uniforms are late-bound to the pass's execution-time density and buffer size (execution-plan §C3.2):
+        // the resolution and tile grid are then correct by construction even if the budget re-clamp lowers the pass's
+        // working scale below the describe-time one (rather than relying on RenderTime full-frame bake alone).
         builder.Shader(ShaderNodeDescriptor.WholeSource(
             ShaderSource,
             BoundsContract.RenderTime,
-            u => u.Float2("origin", (float)origin.X, (float)origin.Y)
-                  .Float2("tileSize", tileSize.Width * w, tileSize.Height * w)
-                  .Float2("resolution", bufW, bufH)));
+            u => u.Deferred("origin", (b, name, ctx) =>
+                      {
+                          Point origin = originPoint.Unit == RelativeUnit.Relative
+                              ? originPoint.ToPixels(new Size(ctx.TargetWidth, ctx.TargetHeight))
+                              : originPoint.Point * ctx.WorkingScale;
+                          b.Uniforms[name] = new[] { (float)origin.X, (float)origin.Y };
+                      })
+                  .DensityScaledFloat2("tileSize", (float)tileSize.Width, (float)tileSize.Height)
+                  .Deferred("resolution", (b, name, ctx) =>
+                      b.Uniforms[name] = new[] { (float)ctx.TargetWidth, (float)ctx.TargetHeight })));
     }
 }
