@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
-using System.Runtime.InteropServices;
+
+using Beutl.Extensions.FFmpeg;
 
 namespace Beutl.Services.WindowCapture;
 
@@ -39,18 +40,11 @@ internal static class FFmpegBinaryLocator
             yield return Path.Combine(
                 AppContext.BaseDirectory,
                 "runtimes",
-                GetWindowsRuntimeIdentifier(),
+                FFmpegNativeRid.GetWindowsRid(),
                 "native",
                 "ffmpeg.exe");
         }
     }
-
-    private static string GetWindowsRuntimeIdentifier() => RuntimeInformation.ProcessArchitecture switch
-    {
-        Architecture.Arm64 => "win-arm64",
-        Architecture.X86 => "win-x86",
-        _ => "win-x64",
-    };
 
     private static bool CanLaunch(string path)
     {

@@ -13,7 +13,7 @@ namespace Beutl.Extensions.FFmpeg;
 /// <see cref="RuntimeInformation.ProcessArchitecture"/> keeps each architecture pointed at its
 /// own native folder.
 /// </remarks>
-public static class FFmpegNativeRid
+internal static class FFmpegNativeRid
 {
     /// <summary>Returns the Windows RID folder name for the given architecture.</summary>
     public static string GetWindowsRid(Architecture architecture) => architecture switch
