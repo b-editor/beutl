@@ -135,7 +135,7 @@ public sealed class ElementClipboardService : IElementClipboardService
             return ElementPasteOutcome.Empty;
         }
 
-        // Re-check after the awaited clipboard read: the row may have been locked during the await.
+        // Re-check after the awaited clipboard read: the layer may have been locked during the await.
         if (scene.IsLayerLocked(clickedLayer))
         {
             s_logger.LogWarning("PasteElementsAsync skipped: layer {Layer} was locked during paste.", clickedLayer);
@@ -188,7 +188,7 @@ public sealed class ElementClipboardService : IElementClipboardService
         if (json is null) return ElementPasteOutcome.Empty;
         if (ClipboardJson.TryParse(json) is not JsonObject obj) return ElementPasteOutcome.Empty;
 
-        // Re-check after the awaited clipboard read: the row may have been locked during the await.
+        // Re-check after the awaited clipboard read: the layer may have been locked during the await.
         if (scene.IsLayerLocked(clickedLayer))
         {
             s_logger.LogWarning("PasteSingleElementAsync skipped: layer {Layer} was locked during paste.", clickedLayer);
@@ -247,7 +247,7 @@ public sealed class ElementClipboardService : IElementClipboardService
         ReadOnlyMemory<byte>? png = await _clipboard.TryGetBitmapPngAsync();
         if (png is null) return ElementPasteOutcome.Empty;
 
-        // Re-check after the awaited clipboard read: the row may have been locked during the await.
+        // Re-check after the awaited clipboard read: the layer may have been locked during the await.
         if (scene.IsLayerLocked(clickedLayer))
         {
             s_logger.LogWarning("PasteBitmapAsync skipped: layer {Layer} was locked during paste.", clickedLayer);
@@ -266,7 +266,16 @@ public sealed class ElementClipboardService : IElementClipboardService
         if (scene.IsLayerLocked(clickedLayer))
         {
             s_logger.LogWarning("PasteBitmapAsync skipped: layer {Layer} was locked during paste.", clickedLayer);
-            File.Delete(imageFile);
+            try
+            {
+                File.Delete(imageFile);
+            }
+            catch (Exception ex)
+            {
+                // Best-effort cleanup: a failed delete must not turn the graceful lock-refusal into a throw.
+                s_logger.LogWarning(ex, "PasteBitmapAsync: failed to delete orphaned resource {File}.", imageFile);
+            }
+
             return ElementPasteOutcome.Empty;
         }
 
