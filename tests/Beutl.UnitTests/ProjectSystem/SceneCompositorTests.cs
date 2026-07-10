@@ -1,8 +1,8 @@
 ﻿using Beutl.Composition;
 using Beutl.Configuration;
 using Beutl.Engine;
-using Beutl.Graphics.Rendering;
 using Beutl.Graphics;
+using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 
