@@ -1078,7 +1078,7 @@ public sealed partial class ElementView : UserControl
             {
                 viewModel.Timeline.EditorContext
                     .GetRequiredService<IElementSlipService>()
-                    .Slip(viewModel.Model, delta);
+                    .Slip(viewModel.Scene, viewModel.Model, delta);
             }
         }
 

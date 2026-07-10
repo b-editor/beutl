@@ -263,6 +263,8 @@ public sealed class ElementResizeService : IElementResizeService
         if (front.ZIndex != back.ZIndex) return false;
         if (!scene.Children.Contains(front) || !scene.Children.Contains(back)) return false;
         if (front.Range.End != back.Start) return false;
+        // Roll writes both clips, so a locked side blocks the whole op rather than being filtered.
+        if (scene.IsElementLocked(front) || scene.IsElementLocked(back)) return false;
 
         List<SlippableMedia.Target> frontTargets = SlippableMedia.Collect(front);
         List<SlippableMedia.Target> backTargets = SlippableMedia.Collect(back);
@@ -296,6 +298,9 @@ public sealed class ElementResizeService : IElementResizeService
             return false;
         if (front.Range.End != middle.Start) return false;
         if (middle.Range.End != back.Start) return false;
+        // Slide writes all three clips, so any locked participant blocks the whole op.
+        if (scene.IsElementLocked(front) || scene.IsElementLocked(middle) || scene.IsElementLocked(back))
+            return false;
 
         // The middle clip's length is unaffected by Slide, so only front and back bound the delta.
         List<SlippableMedia.Target> frontTargets = SlippableMedia.Collect(front);

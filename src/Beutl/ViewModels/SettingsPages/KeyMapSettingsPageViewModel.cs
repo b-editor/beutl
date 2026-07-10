@@ -36,8 +36,9 @@ public class KeyMapSettingsItem
     }
 
     internal static OSPlatform CurrentPlatform => OperatingSystem.IsWindows() ? OSPlatform.Windows :
+        OperatingSystem.IsMacOS() ? OSPlatform.OSX :
         OperatingSystem.IsLinux() ? OSPlatform.Linux :
-        OSPlatform.OSX;
+        throw new PlatformNotSupportedException();
 
     public ContextCommandEntry Command { get; set; }
 

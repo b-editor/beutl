@@ -284,6 +284,44 @@ public class ElementResizeServiceTests
     }
 
     [Test]
+    public void Roll_LockedNeighbour_NoCommit()
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        Element back = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3));
+        back.IsLocked = true;
+        int before = _history.UndoCount;
+
+        bool applied = _service.Roll(_scene, front, back, TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(back.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
+    public void Roll_LockedLayer_NoCommit()
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2), zIndex: 4);
+        Element back = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3), zIndex: 4);
+        _scene.Layers.Add(new TimelineLayer { ZIndex = 4, IsLocked = true });
+        int before = _history.UndoCount;
+
+        bool applied = _service.Roll(_scene, front, back, TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
     public void Roll_NegativeDelta_ShrinksFrontGrowsBack()
     {
         Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(3));
@@ -599,6 +637,27 @@ public class ElementResizeServiceTests
             // Total length preserved: 2+3+2 = 7 before; 3+3+1 = 7 after.
             Assert.That(front.Length + middle.Length + back.Length, Is.EqualTo(TimeSpan.FromSeconds(7)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
+        });
+    }
+
+    [Test]
+    public void Slide_LockedParticipant_NoCommit()
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        Element middle = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3));
+        Element back = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
+        middle.IsLocked = true;
+        int before = _history.UndoCount;
+
+        bool applied = _service.Slide(_scene, front, middle, back, TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(middle.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(back.Start, Is.EqualTo(TimeSpan.FromSeconds(5)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
     }
 

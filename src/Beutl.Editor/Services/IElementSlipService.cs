@@ -23,8 +23,9 @@ public interface IElementSlipService
     /// Drawable and Sound containers. A single effective delta — the largest the tightest
     /// stream can accept without leaving its source — is applied to all streams so linked
     /// media (e.g. a video + audio pair) stay in sync. Returns <see langword="false"/>
-    /// (no commit) when <paramref name="delta"/> is zero, the element carries no slip-able
-    /// media, or the shared clamped delta is zero.
+    /// (no commit) when <paramref name="delta"/> is zero, <paramref name="element"/> or its
+    /// layer is locked in <paramref name="scene"/>, the element carries no slip-able media,
+    /// or the shared clamped delta is zero.
     /// </summary>
-    bool Slip(Element element, TimeSpan delta);
+    bool Slip(Scene scene, Element element, TimeSpan delta);
 }

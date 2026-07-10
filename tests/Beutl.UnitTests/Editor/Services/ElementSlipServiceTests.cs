@@ -46,9 +46,50 @@ public class ElementSlipServiceTests
     }
 
     [Test]
+    public void Slip_NullScene_Throws()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Assert.Throws<ArgumentNullException>(() => _service.Slip(null!, element, TimeSpan.FromSeconds(1)));
+    }
+
+    [Test]
     public void Slip_NullElement_Throws()
     {
-        Assert.Throws<ArgumentNullException>(() => _service.Slip(null!, TimeSpan.FromSeconds(1)));
+        Assert.Throws<ArgumentNullException>(() => _service.Slip(_scene, null!, TimeSpan.FromSeconds(1)));
+    }
+
+    [Test]
+    public void Slip_LockedElement_NoCommit()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        element.Objects.Add(new SourceVideo());
+        element.IsLocked = true;
+        int before = _history.UndoCount;
+
+        bool applied = _service.Slip(_scene, element, TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
+    public void Slip_LockedLayer_NoCommit()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 3);
+        element.Objects.Add(new SourceVideo());
+        _scene.Layers.Add(new TimelineLayer { ZIndex = 3, IsLocked = true });
+        int before = _history.UndoCount;
+
+        bool applied = _service.Slip(_scene, element, TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
     }
 
     [Test]
@@ -58,7 +99,7 @@ public class ElementSlipServiceTests
         element.Objects.Add(new SourceVideo());
         int before = _history.UndoCount;
 
-        bool applied = _service.Slip(element, TimeSpan.Zero);
+        bool applied = _service.Slip(_scene, element, TimeSpan.Zero);
 
         Assert.Multiple(() =>
         {
@@ -73,7 +114,7 @@ public class ElementSlipServiceTests
         Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
         int before = _history.UndoCount;
 
-        bool applied = _service.Slip(element, TimeSpan.FromSeconds(1));
+        bool applied = _service.Slip(_scene, element, TimeSpan.FromSeconds(1));
 
         Assert.Multiple(() =>
         {
@@ -90,7 +131,7 @@ public class ElementSlipServiceTests
         element.Objects.Add(video);
         int before = _history.UndoCount;
 
-        bool applied = _service.Slip(element, TimeSpan.FromSeconds(1));
+        bool applied = _service.Slip(_scene, element, TimeSpan.FromSeconds(1));
 
         Assert.Multiple(() =>
         {
@@ -114,7 +155,7 @@ public class ElementSlipServiceTests
         };
         element.Objects.Add(video);
 
-        bool applied = _service.Slip(element, TimeSpan.FromSeconds(5));
+        bool applied = _service.Slip(_scene, element, TimeSpan.FromSeconds(5));
 
         Assert.Multiple(() =>
         {
@@ -131,7 +172,7 @@ public class ElementSlipServiceTests
         element.Objects.Add(sound);
         int before = _history.UndoCount;
 
-        bool applied = _service.Slip(element, TimeSpan.FromMilliseconds(500));
+        bool applied = _service.Slip(_scene, element, TimeSpan.FromMilliseconds(500));
 
         Assert.Multiple(() =>
         {
@@ -153,7 +194,7 @@ public class ElementSlipServiceTests
         };
         element.Objects.Add(sound);
 
-        bool applied = _service.Slip(element, TimeSpan.FromSeconds(5));
+        bool applied = _service.Slip(_scene, element, TimeSpan.FromSeconds(5));
 
         Assert.Multiple(() =>
         {
@@ -169,7 +210,7 @@ public class ElementSlipServiceTests
         element.Objects.Add(new FallbackSound());
         int before = _history.UndoCount;
 
-        bool applied = _service.Slip(element, TimeSpan.FromSeconds(1));
+        bool applied = _service.Slip(_scene, element, TimeSpan.FromSeconds(1));
 
         Assert.Multiple(() =>
         {
@@ -188,7 +229,7 @@ public class ElementSlipServiceTests
         element.Objects.Add(group);
         int before = _history.UndoCount;
 
-        bool applied = _service.Slip(element, TimeSpan.FromMilliseconds(500));
+        bool applied = _service.Slip(_scene, element, TimeSpan.FromMilliseconds(500));
 
         Assert.Multiple(() =>
         {
@@ -209,7 +250,7 @@ public class ElementSlipServiceTests
         element.Objects.Add(sound);
         int before = _history.UndoCount;
 
-        bool applied = _service.Slip(element, TimeSpan.FromSeconds(2));
+        bool applied = _service.Slip(_scene, element, TimeSpan.FromSeconds(2));
 
         Assert.Multiple(() =>
         {
@@ -228,7 +269,7 @@ public class ElementSlipServiceTests
         video.OffsetPosition.CurrentValue = TimeSpan.FromSeconds(3);
         element.Objects.Add(video);
 
-        _service.Slip(element, TimeSpan.FromSeconds(-1));
+        _service.Slip(_scene, element, TimeSpan.FromSeconds(-1));
 
         Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(2)));
     }
@@ -241,7 +282,7 @@ public class ElementSlipServiceTests
         element.Objects.Add(video);
         int before = _history.UndoCount;
 
-        bool applied = _service.Slip(element, TimeSpan.FromSeconds(-1));
+        bool applied = _service.Slip(_scene, element, TimeSpan.FromSeconds(-1));
 
         Assert.Multiple(() =>
         {
@@ -260,7 +301,7 @@ public class ElementSlipServiceTests
         element.Objects.Add(video);
         int before = _history.UndoCount;
 
-        bool applied = _service.Slip(element, TimeSpan.FromSeconds(-1));
+        bool applied = _service.Slip(_scene, element, TimeSpan.FromSeconds(-1));
 
         Assert.Multiple(() =>
         {
@@ -276,7 +317,7 @@ public class ElementSlipServiceTests
         Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
         var video = new SourceVideo();
         element.Objects.Add(video);
-        _service.Slip(element, TimeSpan.FromSeconds(1));
+        _service.Slip(_scene, element, TimeSpan.FromSeconds(1));
         Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
 
         _history.Undo();
@@ -299,7 +340,7 @@ public class ElementSlipServiceTests
         element.Objects.Add(video);
         element.Objects.Add(sound);
 
-        bool applied = _service.Slip(element, TimeSpan.FromSeconds(5));
+        bool applied = _service.Slip(_scene, element, TimeSpan.FromSeconds(5));
 
         Assert.Multiple(() =>
         {
@@ -319,7 +360,7 @@ public class ElementSlipServiceTests
         element.Objects.Add(group);
         int before = _history.UndoCount;
 
-        bool applied = _service.Slip(element, TimeSpan.FromSeconds(1));
+        bool applied = _service.Slip(_scene, element, TimeSpan.FromSeconds(1));
 
         Assert.Multiple(() =>
         {
@@ -339,7 +380,7 @@ public class ElementSlipServiceTests
         element.Objects.Add(presenter);
         int before = _history.UndoCount;
 
-        bool applied = _service.Slip(element, TimeSpan.FromSeconds(1));
+        bool applied = _service.Slip(_scene, element, TimeSpan.FromSeconds(1));
 
         Assert.Multiple(() =>
         {
@@ -358,7 +399,7 @@ public class ElementSlipServiceTests
         controller.Target.CurrentValue = video;
         element.Objects.Add(controller);
 
-        bool applied = _service.Slip(element, TimeSpan.FromSeconds(1));
+        bool applied = _service.Slip(_scene, element, TimeSpan.FromSeconds(1));
 
         Assert.Multiple(() =>
         {

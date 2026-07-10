@@ -12,10 +12,14 @@ public sealed class ElementSlipService : IElementSlipService
         _historyManager = historyManager ?? throw new ArgumentNullException(nameof(historyManager));
     }
 
-    public bool Slip(Element element, TimeSpan delta)
+    public bool Slip(Scene scene, Element element, TimeSpan delta)
     {
+        ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(element);
         if (delta == TimeSpan.Zero) return false;
+        // The element or its layer may have been locked after the drag began, so re-check here
+        // rather than trusting the press-time IsEditable gate.
+        if (scene.IsElementLocked(element)) return false;
 
         List<SlippableMedia.Target> targets = SlippableMedia.Collect(element);
         if (targets.Count == 0) return false;
