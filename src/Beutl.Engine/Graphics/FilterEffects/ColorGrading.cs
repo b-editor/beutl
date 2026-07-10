@@ -1,9 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Engine;
 using Beutl.Language;
-using Beutl.Logging;
 using Beutl.Media;
-using Microsoft.Extensions.Logging;
 using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
@@ -11,145 +9,7 @@ namespace Beutl.Graphics.Effects;
 [Display(Name = nameof(GraphicsStrings.ColorGrading), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class ColorGrading : FilterEffect
 {
-    private static readonly ILogger s_logger = Log.CreateLogger<ColorGrading>();
-    private static readonly SKSLShader? s_shader;
-
-    static ColorGrading()
-    {
-        const string sksl =
-            """
-            uniform shader src;
-            uniform float exposure; // EV stops (-5 to +5)
-            uniform float contrast; // -1 to +1
-            uniform float contrastPivot; // typically 0.18 or 0.5
-            uniform float saturation; // -1 to +1
-            uniform float vibrance; // -1 to +1
-            uniform float hue; // degrees (-180 to +180)
-            uniform float temperature; // -1 to +1 (cool to warm)
-            uniform float tint; // -1 to +1 (green to magenta)
-            uniform float3 shadows; // RGB adjustment for shadows
-            uniform float3 midtones; // RGB adjustment for midtones
-            uniform float3 highlights; // RGB adjustment for highlights
-            uniform float3 lift; // Shadow lift (typically -0.5 to +0.5)
-            uniform float3 gamma; // Midtone gamma (typically 0.5 to 2.0, default 1.0)
-            uniform float3 gain; // Highlight gain (typically 0.0 to 2.0, default 1.0)
-            uniform float3 offset; // RGB offset (-1 to +1)
-            uniform float lowRange;
-            uniform float highRange;
-
-            const float3 LUMINANCE_COEFF = float3(0.2126, 0.7152, 0.0722);
-
-            float get_luminance(float3 color) {
-                return dot(color, LUMINANCE_COEFF);
-            }
-
-            float saturation_of(float3 color) {
-                float maxc = max(max(color.r, color.g), color.b);
-                float minc = min(min(color.r, color.g), color.b);
-                float delta = maxc - minc;
-                return maxc > 0.0 ? delta / maxc : 0.0;
-            }
-
-            float3 apply_lift_gamma_gain(float3 color, float3 l, float3 g, float3 gn) {
-                color = color + l * (1.0 - color);
-
-                float3 safe_gamma = max(g, float3(0.001));
-                color = pow(max(color, float3(0.0)), 1.0 / safe_gamma);
-                color *= gn;
-
-                return color;
-            }
-
-            float3 apply_tonal_balance(float3 color, float3 shd, float3 mid, float3 hlt) {
-                float luma = get_luminance(color);
-                float shadow_w = 1.0 - smoothstep(0.0, lowRange, luma);
-                float highlight_w = smoothstep(highRange, 1.0, luma);
-                float midtone_w = 1.0 - shadow_w - highlight_w;
-
-                midtone_w = max(midtone_w, 0.0);
-                return color + shd * shadow_w + mid * midtone_w + hlt * highlight_w;
-            }
-
-            float3 apply_saturation(float3 color, float sat) {
-                float luma = get_luminance(color);
-                return mix(float3(luma), color, 1.0 + sat);
-            }
-
-            float3 apply_hue(float3 color, float hue) {
-                float rad = radians(hue);
-                float cos_a = cos(rad);
-                float sin_a = sin(rad);
-
-                const float3x3 rgb_to_yiq = float3x3(
-                    float3(0.299,  0.596,  0.212),   // column 0
-                    float3(0.587, -0.275, -0.523),   // column 1
-                    float3(0.114, -0.321,  0.311)    // column 2
-                );
-
-                const float3x3 yiq_to_rgb = float3x3(
-                    float3(1.0,  1.0,  1.0),         // column 0
-                    float3(0.956, -0.272, -1.105),   // column 1
-                    float3(0.621, -0.647,  1.702)    // column 2
-                );
-
-                float3x3 rotation = float3x3(
-                    float3(1.0, 0.0, 0.0),
-                    float3(0.0, cos_a, sin_a),
-                    float3(0.0, -sin_a, cos_a)
-                );
-
-                return yiq_to_rgb * (rotation * (rgb_to_yiq * color));
-            }
-
-            float3 apply_temperature_tint(float3 color, float temperature, float tint) {
-                float3 temp_adjustment = float3(
-                    1.0 + temperature * 0.1,
-                    1.0,
-                    1.0 - temperature * 0.1
-                );
-
-                float3 tint_adjustment = float3(
-                    1.0 + tint * 0.05,
-                    1.0 - tint * 0.1,
-                    1.0 + tint * 0.05
-                );
-
-                return color * temp_adjustment * tint_adjustment;
-            }
-
-            half4 main(float2 coord) {
-                half4 srcColor = src.eval(coord);
-                float alpha = srcColor.a;
-                float3 color;
-                if (alpha > 0.0001) {
-                    color = srcColor.rgb / alpha;
-                } else {
-                    return half4(0.0);
-                }
-
-                color *= exp2(exposure);
-                color = apply_lift_gamma_gain(color, lift, gamma, gain);
-                color = (color - contrastPivot) * (1.0 + contrast) + contrastPivot;
-                color = apply_tonal_balance(color, shadows, midtones, highlights);
-                color = apply_temperature_tint(color, temperature, tint);
-                float satWeight = 1.0 - clamp(saturation_of(color), 0.0, 1.0);
-                color = apply_saturation(color, saturation * (1.0 + vibrance * satWeight));
-                color = apply_hue(color, hue);
-
-                color += offset;
-
-                return half4(color * alpha, alpha);
-            }
-
-            """;
-
-        if (!SKSLShader.TryCreate(sksl, out s_shader, out string? errorText))
-        {
-            s_logger.LogError("Failed to compile color grading shader: {ErrorText}", errorText);
-        }
-    }
-
-    // Fusable snippet form of the shader above; `c` is the premultiplied linear-light source pixel (contract A2).
+    // Fusable snippet; `c` is the premultiplied linear-light source pixel (contract A2).
     private static readonly string s_snippet =
         """
         uniform float exposure;

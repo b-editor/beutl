@@ -2,9 +2,7 @@
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 using Beutl.Language;
-using Beutl.Logging;
 using Beutl.Media;
-using Microsoft.Extensions.Logging;
 using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
@@ -12,9 +10,6 @@ namespace Beutl.Graphics.Effects;
 [Display(Name = nameof(GraphicsStrings.ColorShift), ResourceType = typeof(GraphicsStrings))]
 public partial class ColorShift : FilterEffect
 {
-    private static readonly ILogger s_logger = Log.CreateLogger<ColorShift>();
-    private static readonly SKSLShader? s_shader;
-
     private const string ShaderSource =
         """
         uniform shader src;
@@ -42,14 +37,6 @@ public partial class ColorShift : FilterEffect
         }
         """;
 
-    static ColorShift()
-    {
-        if (!SKSLShader.TryCreate(ShaderSource, out s_shader, out string? errorText))
-        {
-            s_logger.LogError("Failed to compile SKSL: {ErrorText}", errorText);
-        }
-    }
-
     public ColorShift()
     {
         ScanProperties<ColorShift>();
@@ -70,9 +57,6 @@ public partial class ColorShift : FilterEffect
     public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
-        if (s_shader is null)
-            return;
-
         var data = (r.RedOffset, r.GreenOffset, r.BlueOffset, r.AlphaOffset);
         float w = builder.WorkingScale;
 

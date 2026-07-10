@@ -2,17 +2,12 @@
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 using Beutl.Language;
-using Beutl.Logging;
-using Microsoft.Extensions.Logging;
 
 namespace Beutl.Graphics.Effects;
 
 [Display(Name = nameof(GraphicsStrings.MosaicEffect), ResourceType = typeof(GraphicsStrings))]
 public partial class MosaicEffect : FilterEffect
 {
-    private static readonly ILogger s_logger = Log.CreateLogger<MosaicEffect>();
-    private static readonly SKSLShader? s_shader;
-
     private const string ShaderSource =
         """
         uniform shader src;
@@ -35,14 +30,6 @@ public partial class MosaicEffect : FilterEffect
         }
         """;
 
-    static MosaicEffect()
-    {
-        if (!SKSLShader.TryCreate(ShaderSource, out s_shader, out string? errorText))
-        {
-            s_logger.LogError("Failed to compile SKSL: {ErrorText}", errorText);
-        }
-    }
-
     public MosaicEffect()
     {
         ScanProperties<MosaicEffect>();
@@ -58,9 +45,6 @@ public partial class MosaicEffect : FilterEffect
     public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
-        if (s_shader is null)
-            return;
-
         Size tileSize = r.TileSize;
         RelativePoint originPoint = r.Origin;
         // builder.WorkingScale is already clamped to the 16384 px/axis buffer budget for the node's bounds

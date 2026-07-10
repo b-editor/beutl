@@ -1,59 +1,14 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Engine;
 using Beutl.Language;
-using Beutl.Logging;
 using Beutl.Media;
-using Microsoft.Extensions.Logging;
 
 namespace Beutl.Graphics.Effects;
 
 [Display(Name = nameof(GraphicsStrings.ColorKey), ResourceType = typeof(GraphicsStrings))]
 public partial class ColorKey : FilterEffect
 {
-    private static readonly ILogger s_logger = Log.CreateLogger<ColorKey>();
-    private static readonly SKSLShader? s_shader;
-
-    static ColorKey()
-    {
-        string sksl =
-            """
-            uniform shader src;
-            uniform float4 color;
-            uniform float range;
-            uniform float boundary;
-
-            // Rec.709 での輝度変換（リニアsRGB用）
-            half calcLuma(half3 c) {
-                return dot(c, half3(0.2126, 0.7152, 0.0722));
-            }
-
-            half4 main(float2 fragCoord) {
-                half4 c = src.eval(fragCoord);
-
-                // プリマルチプライドアルファを解除
-                half alpha = c.a;
-                if (alpha <= 0.0001) return half4(0.0);
-                half3 rgb = c.rgb / alpha;
-
-                // リニア空間でRec.709係数を使って輝度を計算
-                half luma = calcLuma(rgb);
-                half keyLuma = calcLuma(color.rgb);
-
-                half diff = abs(luma - keyLuma);
-                half mask = smoothstep(range, range + boundary, diff);
-
-                // 元のプリマルチプライド値にマスクを乗算して透過させる
-                return c * mask;
-            }
-            """;
-
-        if (!SKSLShader.TryCreate(sksl, out s_shader, out string? errorText))
-        {
-            s_logger.LogError("Failed to compile SKSL: {ErrorText}", errorText);
-        }
-    }
-
-    // Fusable snippet form of the shader above; `c` is the premultiplied linear-light source pixel (contract A2).
+    // Fusable snippet; `c` is the premultiplied linear-light source pixel (contract A2).
     private static readonly string s_snippet =
         """
         uniform float4 color;
