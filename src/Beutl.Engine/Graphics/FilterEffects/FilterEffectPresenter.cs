@@ -19,6 +19,7 @@ public sealed partial class FilterEffectPresenter : FilterEffect, IPresenter<Fil
     public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
-        r.Target?.GetOriginal().Describe(builder, r.Target);
+        if (r.Target is { IsEnabled: true } target)
+            target.GetOriginal().Describe(builder, target);
     }
 }
