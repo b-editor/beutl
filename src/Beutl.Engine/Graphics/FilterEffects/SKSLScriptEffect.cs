@@ -95,24 +95,31 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
         float progress = r.Progress;
         float duration = r.Duration;
         float time = r.Time;
-        float w = builder.WorkingScale;
-        (int devW, int devH) = RenderNodeContext.DeviceBufferSize(builder.Bounds, w);
 
+        // The resolution/density uniforms (width/height/iResolution/iScale) are late-bound to the pass's
+        // execution-time buffer and working scale (execution-plan §C3.2): the budget re-clamp — and, for a
+        // non-invariant script, the monotonic carry from an upstream forward-inflating pass — can execute the
+        // script below the describe-time working scale, and RenderTime alone does not protect against that. The
+        // time/progress uniforms are density-independent and stay describe-time.
         void BindUniforms(UniformBindingBuilder u)
         {
             if (effect.Uniforms.Contains("progress")) u.Float("progress", progress);
             if (effect.Uniforms.Contains("duration")) u.Float("duration", duration);
             if (effect.Uniforms.Contains("time")) u.Float("time", time);
-            if (effect.Uniforms.Contains("width")) u.Float("width", devW);
-            if (effect.Uniforms.Contains("height")) u.Float("height", devH);
-            if (effect.Uniforms.Contains("iResolution")) u.Float2("iResolution", devW, devH);
-            if (effect.Uniforms.Contains("iScale")) u.Float("iScale", w);
+            if (effect.Uniforms.Contains("width")) u.Deferred("width", static (b, name, ctx) => b.Uniforms[name] = (float)ctx.TargetWidth);
+            if (effect.Uniforms.Contains("height")) u.Deferred("height", static (b, name, ctx) => b.Uniforms[name] = (float)ctx.TargetHeight);
+            if (effect.Uniforms.Contains("iResolution")) u.Deferred("iResolution", static (b, name, ctx) => b.Uniforms[name] = new[] { (float)ctx.TargetWidth, (float)ctx.TargetHeight });
+            if (effect.Uniforms.Contains("iScale")) u.Deferred("iScale", static (b, name, ctx) => b.Uniforms[name] = ctx.WorkingScale);
             if (effect.Uniforms.Contains("iTime")) u.Float("iTime", time);
         }
 
+        // A non-invariant script may sample non-locally (src.eval(fragCoord + offset)); a downstream deflating pass
+        // (a fixed Clipping) would ROI-crop an Identity-bounds bake to a sub-rect and shift/clip those samples
+        // (contract A3). RenderTime keeps it baking full-frame. The CoordinateInvariant opt-in asserts single-pixel
+        // sampling, so it keeps identity bounds and participates in ROI propagation by construction.
         builder.Shader(r.CoordinateInvariant
             ? ShaderNodeDescriptor.WholeSourceInvariant(source, BindUniforms)
-            : ShaderNodeDescriptor.WholeSource(source, BoundsContract.Identity, BindUniforms));
+            : ShaderNodeDescriptor.WholeSource(source, BoundsContract.RenderTime, BindUniforms));
     }
 
     private static void DescribeGenerator(EffectGraphBuilder builder, Resource r)
