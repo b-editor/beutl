@@ -1,10 +1,13 @@
 ﻿namespace Beutl.Graphics.Rendering;
 
 /// <summary>
-/// Per-renderer effect-pipeline counters (feature 004, contracts/execution-plan.md §C8). Each field is a
+/// Per-renderer effect-pipeline counters (feature 004, contracts/execution-plan.md §C8). Each counter is a
 /// plain <see cref="long"/> incremented on the render thread with no locks; "not observed" costs nothing
 /// beyond a null check at the call site. One instance is owned per <see cref="RenderNodeProcessor"/> and
 /// seeded into every <see cref="RenderNodeContext"/> it pulls. Read via <see cref="Snapshot"/> in tests.
+/// Mutation (the <c>internal set</c> accessors and <see cref="Reset"/>) is confined to the engine: the counters
+/// are handed to public authoring callbacks (<c>GeometrySession.Diagnostics</c> / <c>PassUniformContext.Diagnostics</c>)
+/// for OBSERVATION only, so plugin code can read but never forge or reset them (keeps <c>IRenderer.Diagnostics</c> trustworthy).
 /// </summary>
 public sealed class PipelineDiagnostics
 {
@@ -12,25 +15,25 @@ public sealed class PipelineDiagnostics
     /// C8: each executed draw/dispatch of a pass — a fused group counts one, K compute iterations count K,
     /// each split branch and each composite fan-in draw counts one.
     /// </summary>
-    public long GpuPasses;
+    public long GpuPasses { get; internal set; }
 
     /// <summary>
     /// C8: each fresh GPU target creation (pool miss or non-pooled) on an effect pass's buffer acquire. Non-effect
     /// surfaces (the root render target, per-operation rasterization) are deliberately not counted.
     /// </summary>
-    public long TargetAllocations;
+    public long TargetAllocations { get; internal set; }
 
     /// <summary>C8: each <see cref="RenderTargetPool"/> acquire (hit or miss).</summary>
-    public long PoolAcquires;
+    public long PoolAcquires { get; internal set; }
 
     /// <summary>C8: each pool acquire that had to allocate (a miss).</summary>
-    public long PoolMisses;
+    public long PoolMisses { get; internal set; }
 
     /// <summary>
     /// C8: each bake of an upstream operation into a pooled buffer so a geometry/compute/split pass can sample it as
     /// a texture (the plan executor's input materialization).
     /// </summary>
-    public long FullFrameMaterializations;
+    public long FullFrameMaterializations { get; internal set; }
 
     /// <summary>
     /// C8: each schedule-level backend transition (C4.2, a pass whose <c>SyncBefore</c> is set). Counted by the
@@ -38,20 +41,20 @@ public sealed class PipelineDiagnostics
     /// <see cref="RenderTarget.BeginDraw"/> also fire for non-effect surfaces (root draw, snapshot readback) and
     /// for the per-draw flushes Skia itself performs inside a pass.
     /// </summary>
-    public long FlushSyncs;
+    public long FlushSyncs { get; internal set; }
 
     /// <summary>C8: each effect-graph compile (a <see cref="PlanCache"/> hit rebinds without counting).</summary>
-    public long PlanCompilations;
+    public long PlanCompilations { get; internal set; }
 
     /// <summary>C8: each <c>SKRuntimeEffect</c> / Vulkan pipeline construction (a <see cref="ProgramCache"/> miss).</summary>
-    public long ProgramCreations;
+    public long ProgramCreations { get; internal set; }
 
     /// <summary>
     /// C8/C10: each frame a stable effect-chain prefix is reused instead of re-executed — one increment per frame the
     /// pass-prefix output cache engages, so the skipped passes' <see cref="GpuPasses"/> and allocations do not occur
     /// (contracts/execution-plan.md §C10).
     /// </summary>
-    public long PrefixCacheHits;
+    public long PrefixCacheHits { get; internal set; }
 
     /// <summary>Takes an immutable copy of the current counter values for test assertions.</summary>
     public PipelineDiagnosticsSnapshot Snapshot() => new(
@@ -65,8 +68,8 @@ public sealed class PipelineDiagnostics
         ProgramCreations,
         PrefixCacheHits);
 
-    /// <summary>Resets every counter to zero.</summary>
-    public void Reset()
+    /// <summary>Resets every counter to zero. Engine-internal (test API); never exposed to authoring callbacks.</summary>
+    internal void Reset()
     {
         GpuPasses = 0;
         TargetAllocations = 0;

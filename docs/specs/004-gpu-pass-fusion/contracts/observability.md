@@ -8,7 +8,7 @@ Names, increment rules, and threading are fixed by [execution-plan.md §C8](./ex
 
 1. Counters exist and are correct on the **legacy** pipeline first (rollout step 1): `Flush` → `FullFrameMaterializations`; effect-path `RenderTarget.Create` → `TargetAllocations`; `PrepareForSampling`/`BeginDraw` sync pairs → `FlushSyncs`; per-materialization draw → `GpuPasses`. Baseline numbers are recorded in `notes/baseline.md` before any behavior change.
 2. Overhead: unconditional `long` increments on the render thread; no locks, no allocation, no I/O. No "enable" flag is needed at this cost; if a future counter needs more, it must be gated.
-3. Exposure: `IRenderer`-level access for tests (`renderer.Diagnostics.Snapshot()`); not serialized, not UI-facing in this feature.
+3. Exposure: `IRenderer`-level access for tests (`renderer.Diagnostics.Snapshot()`); not serialized, not UI-facing in this feature. The counters are **read-only through the public surface** (get-only properties + `Snapshot()`); the increments and `Reset()` are engine-internal (`internal set` / `internal Reset()`, test-visible via `InternalsVisibleTo`). This matters because the live instance is threaded into public authoring callbacks (`GeometrySession.Diagnostics` / `PassUniformContext.Diagnostics`) for observation only — plugin/effect code must not be able to forge or reset a counter (execution-plan.md §C8).
 
 ## O2. CI-enforced assertions (NUnit, next to the golden suite)
 
