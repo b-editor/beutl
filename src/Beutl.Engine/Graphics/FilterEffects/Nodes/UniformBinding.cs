@@ -1,4 +1,5 @@
-﻿using SkiaSharp;
+﻿using Beutl.Graphics.Rendering;
+using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
@@ -15,7 +16,13 @@ namespace Beutl.Graphics.Effects;
 /// <param name="WorkingScale">The pass's actual resolved working density (device px per logical px).</param>
 /// <param name="TargetWidth">The pass output buffer width in device px.</param>
 /// <param name="TargetHeight">The pass output buffer height in device px.</param>
-public readonly record struct PassUniformContext(float WorkingScale, int TargetWidth, int TargetHeight);
+/// <param name="Diagnostics">
+/// The owning renderer's effect-pipeline counters (or <see langword="null"/> when unobserved), forwarded so a
+/// deferred child that renders a <see cref="DrawableBrush"/> map keeps that nested render observable on
+/// <c>IRenderer.Diagnostics</c> (FR-017). Observation only — the executor still owns every buffer decision.
+/// </param>
+public readonly record struct PassUniformContext(
+    float WorkingScale, int TargetWidth, int TargetHeight, PipelineDiagnostics? Diagnostics = null);
 
 /// <summary>
 /// One per-frame uniform value bound into a <see cref="ShaderNodeDescriptor"/> (feature 004, data-model §1).

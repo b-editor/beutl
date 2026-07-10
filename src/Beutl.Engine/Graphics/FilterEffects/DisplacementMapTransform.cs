@@ -41,28 +41,27 @@ public abstract partial class DisplacementMapTransform : EngineObject
     // canvas density transform, so its local matrix must track the pass's EXECUTION working scale, not the describe-time
     // one — the resource-resolution re-clamp (execution-plan §C3.2) can run the pass below its describe density, and a
     // describe-time bake would then mis-scale the map lookup. The factory rebuilds the map over the input rect at the
-    // execution density and the executor disposes each per-pass product. Returns null (identity, no node) only when the
-    // brush kind produces no shader at all — a describe-time, density-independent decision. The map (and the
-    // scale/rotation pivot) is anchored in the FULL-frame device space, so every transform declares a RenderTime bounds
-    // contract: an ROI crop by a downstream deflating pass would shift the map/pivot off the baked buffer (M3).
+    // execution density (threading the pass's diagnostics so a DrawableBrush map's nested render stays observable,
+    // FR-017) and the executor disposes each per-pass product. Returns null (identity, no node) only when the brush
+    // kind produces no shader at all — decided by the non-rendering BrushConstructor.CanCreateShader predicate so
+    // Describe does NO rendering, target allocation, or GPU work (contract A1 / FR-001); the removed describe-time
+    // probe used to render a DrawableBrush map here. The map (and the scale/rotation pivot) is anchored in the
+    // FULL-frame device space, so every transform declares a RenderTime bounds contract: an ROI crop by a downstream
+    // deflating pass would shift the map/pivot off the baked buffer (M3).
     private protected static ChildBinding? BuildMapChild(EffectGraphBuilder builder, Brush.Resource map)
     {
         Rect mapBounds = new(builder.Bounds.Size);
         float maxWorkingScale = builder.MaxWorkingScale;
 
-        // Probe at the describe density purely to decide whether this brush yields a shader at all; the probe is
-        // disposed immediately and the real shader is built per pass from the execution density below.
-        using (SKShader? probe = new BrushConstructor(
-                   mapBounds, map, BlendMode.SrcOver, builder.WorkingScale, maxWorkingScale).CreateShader())
-        {
-            if (probe is null)
-                return null;
-        }
+        if (!BrushConstructor.CanCreateShader(map))
+            return null;
 
         return ChildBinding.Deferred("uDisplacementMap", context =>
         {
             float w = context.WorkingScale;
-            SKShader shader = new BrushConstructor(mapBounds, map, BlendMode.SrcOver, w, maxWorkingScale).CreateShader()
+            SKShader shader =
+                new BrushConstructor(mapBounds, map, BlendMode.SrcOver, w, maxWorkingScale, context.Diagnostics)
+                    .CreateShader()
                 ?? SKShader.CreateColor(SKColors.Transparent);
             if (w == 1f)
                 return shader;

@@ -363,7 +363,7 @@ internal static class PlanExecutor
         using SKImage srcImage = target.Value.Snapshot();
         using SKShader srcShader = srcImage.ToShader(srcTile, srcTile);
 
-        var uniformContext = new PassUniformContext(w, target.Width, target.Height);
+        var uniformContext = new PassUniformContext(w, target.Width, target.Height, diagnostics);
         var disposables = new List<IDisposable>();
         try
         {
@@ -578,7 +578,7 @@ internal static class PlanExecutor
             var input = new EffectInput(inputTarget, op.Bounds, EffectiveScale.At(inW));
             using var canvas = new ImmediateCanvas(outputTarget, w, maxWorkingScale, logicalSize: outBounds.Size);
             canvas.Clear();
-            var session = new GeometrySession(canvas, [input], outBounds, outputScale, w, maxWorkingScale);
+            var session = new GeometrySession(canvas, [input], outBounds, outputScale, w, maxWorkingScale, diagnostics);
             pass.Render(session);
             discarded = session.IsOutputDiscarded;
         }
@@ -717,7 +717,7 @@ internal static class PlanExecutor
             var input = new EffectInput(inputTarget, op.Bounds, EffectiveScale.At(inW));
             using var canvas = new ImmediateCanvas(outputTarget, w, maxWorkingScale, logicalSize: outBounds.Size);
             canvas.Clear();
-            var session = new GeometrySession(canvas, [input], outBounds, outputScale, w, maxWorkingScale);
+            var session = new GeometrySession(canvas, [input], outBounds, outputScale, w, maxWorkingScale, diagnostics);
             cpu(session);
             discarded = session.IsOutputDiscarded;
         }
@@ -1022,7 +1022,7 @@ internal static class PlanExecutor
                 using var canvas = new ImmediateCanvas(target, w, maxWorkingScale, logicalSize: logicalBounds.Size);
                 canvas.Clear();
                 var session = new GeometrySession(
-                    canvas, [input], logicalBounds, outputScale, w, maxWorkingScale);
+                    canvas, [input], logicalBounds, outputScale, w, maxWorkingScale, diagnostics);
                 render(session);
                 discarded = session.IsOutputDiscarded;
             }

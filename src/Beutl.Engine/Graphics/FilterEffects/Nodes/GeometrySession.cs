@@ -17,7 +17,7 @@ public sealed class GeometrySession
 
     internal GeometrySession(
         ImmediateCanvas canvas, IReadOnlyList<EffectInput> inputs, Rect bounds,
-        float outputScale, float workingScale, float maxWorkingScale)
+        float outputScale, float workingScale, float maxWorkingScale, PipelineDiagnostics? diagnostics = null)
     {
         _canvas = canvas;
         Inputs = inputs;
@@ -25,6 +25,7 @@ public sealed class GeometrySession
         OutputScale = outputScale;
         WorkingScale = workingScale;
         MaxWorkingScale = maxWorkingScale;
+        Diagnostics = diagnostics;
     }
 
     /// <summary>The pass's logical output bounds (position + size in logical units).</summary>
@@ -46,6 +47,14 @@ public sealed class GeometrySession
 
     /// <summary>The working-scale ceiling forwarded into brushes/canvases. <c>+Inf</c> = no ceiling (delivery).</summary>
     public float MaxWorkingScale { get; }
+
+    /// <summary>
+    /// The owning renderer's effect-pipeline counters (or <see langword="null"/> when unobserved). Forward it into a
+    /// <see cref="BrushConstructor"/> built in the callback so a <see cref="DrawableBrush"/> fill's nested render is
+    /// observable on <c>IRenderer.Diagnostics</c> (FR-017). This exposes only observation, not target allocation —
+    /// the session still owns every buffer decision (a brush's own scratch is deliberately non-pooled, FR-007).
+    /// </summary>
+    public PipelineDiagnostics? Diagnostics { get; }
 
     /// <summary>Read-only views of this pass's materialized inputs, in describe order.</summary>
     public IReadOnlyList<EffectInput> Inputs { get; }

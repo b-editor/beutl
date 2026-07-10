@@ -53,7 +53,8 @@ public sealed partial class BlendEffect : FilterEffect
         float w = canvas.Density;
         Size size = session.Bounds.Size;
 
-        var constructor = new BrushConstructor(new Rect(size), brush, blendMode, w, session.MaxWorkingScale);
+        var constructor = new BrushConstructor(
+            new Rect(size), brush, blendMode, w, session.MaxWorkingScale, session.Diagnostics);
         using var brushPaint = new SKPaint();
         constructor.ConfigurePaint(brushPaint);
 

@@ -8,6 +8,7 @@ This contract defines what an effect author (built-in, plugin, or script) may re
 
 - `FilterEffect.Describe(EffectGraphBuilder, Resource)` is invoked by the engine whenever the effect's graph may be needed. It MUST be side-effect-free apart from appending descriptors: no rendering, no target allocation, no GPU calls, no flushes. It MAY be called every frame and MUST be cheap (descriptor construction only).
 - All animated values MUST be read from the passed `Resource` (the existing capture pattern), never from live properties.
+- **Deciding whether a brush yields a shader at describe time uses a non-rendering predicate, never a probe.** To decide "does this brush produce a shader at all" (e.g. whether to append a displacement-map child node), call `BrushConstructor.CanCreateShader(Brush.Resource?)` — a shape-only test that mirrors every null-return of `CreateShader` (null/unknown brush, presenter with no target, gradient with no stops, image brush with no bitmap, drawable brush with no drawable). Do NOT call `CreateShader`/`ConfigurePaint` inside `Describe`: for a `DrawableBrush`/`ImageBrush` those render the brush content into a target, which is exactly the A1 violation this rule forbids (the removed `DisplacementMapTransform` describe-time probe did this). Build the actual shader in the render-time `ChildBinding.Deferred` factory or a `GeometrySession` callback instead (see A4).
 
 ## A2. Node kinds available to authors
 

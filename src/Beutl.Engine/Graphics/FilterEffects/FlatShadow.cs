@@ -101,7 +101,8 @@ public partial class FlatShadow : FilterEffect
             }
         }
 
-        var c = new BrushConstructor(new(session.Bounds.Size), brush, BlendMode.SrcIn, wOut, session.MaxWorkingScale);
+        var c = new BrushConstructor(
+            new(session.Bounds.Size), brush, BlendMode.SrcIn, wOut, session.MaxWorkingScale, session.Diagnostics);
         c.ConfigurePaint(brushPaint);
         newCanvas.Canvas.DrawRect(SKRect.Create(session.Bounds.Width, session.Bounds.Height), brushPaint);
 
