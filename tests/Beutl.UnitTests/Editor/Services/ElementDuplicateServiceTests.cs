@@ -129,4 +129,127 @@ public class ElementDuplicateServiceTests
 
         Assert.That(outcome.Success, Is.False);
     }
+
+    [Test]
+    public void DuplicateAtClickedPosition_LockedSource_IsExcluded()
+    {
+        Element locked = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        locked.IsLocked = true;
+        Element free = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
+        int childrenBefore = _scene.Children.Count;
+
+        DuplicateOutcome outcome = _service.DuplicateAtClickedPosition(
+            _scene, [locked, free], TimeSpan.FromSeconds(20), 0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome.Success, Is.True);
+            Assert.That(_scene.Children.Count, Is.EqualTo(childrenBefore + 1));
+        });
+    }
+
+    [Test]
+    public void DuplicateAtClickedPosition_ClickedOnLockedLayer_PlacesElsewhere()
+    {
+        Element source = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 0);
+        _scene.Layers.Add(new TimelineLayer { ZIndex = 3, IsLocked = true });
+
+        DuplicateOutcome outcome = _service.DuplicateAtClickedPosition(
+            _scene, [source], TimeSpan.FromSeconds(20), 3);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome.Success, Is.True);
+            Assert.That(outcome.ScrollToZIndex, Is.Not.EqualTo(3));
+            Assert.That(_scene.Children.Any(c => c != source && c.ZIndex == 3), Is.False);
+        });
+    }
+
+    [Test]
+    public void DuplicateAtClickedPosition_SparseSelection_IgnoresLockedGapRow()
+    {
+        // Sources on layers 0 and 2; the locked layer 1 sits in the gap and no
+        // duplicate lands on it, so the placement must succeed.
+        Element bottom = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 0);
+        Element top = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 2);
+        _scene.Layers.Add(new TimelineLayer { ZIndex = 1, IsLocked = true });
+        int childrenBefore = _scene.Children.Count;
+
+        DuplicateOutcome outcome = _service.DuplicateAtClickedPosition(
+            _scene, [bottom, top], TimeSpan.FromSeconds(20), 0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome.Success, Is.True);
+            Assert.That(_scene.Children.Count, Is.EqualTo(childrenBefore + 2));
+            Assert.That(_scene.Children.Any(c => c != bottom && c != top && c.ZIndex == 1), Is.False);
+        });
+    }
+
+    [Test]
+    public void DuplicateAtClickedPosition_SparseSelection_IgnoresOverlapOnGapRow()
+    {
+        // Sources on layers 0 and 2; a clip sits on the gap layer 1 at the clicked
+        // time. No duplicate lands on layer 1, so it must not block the placement —
+        // the duplicates keep the clicked start/zIndex instead of being nudged away.
+        Element bottom = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 0);
+        Element top = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 2);
+        AddElement(TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(2), zIndex: 1);
+        int childrenBefore = _scene.Children.Count;
+
+        DuplicateOutcome outcome = _service.DuplicateAtClickedPosition(
+            _scene, [bottom, top], TimeSpan.FromSeconds(20), 0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome.Success, Is.True);
+            Assert.That(_scene.Children.Count, Is.EqualTo(childrenBefore + 2));
+            Assert.That(outcome.ScrollToRange.Start, Is.EqualTo(TimeSpan.FromSeconds(20)));
+            Assert.That(outcome.ScrollToZIndex, Is.EqualTo(0));
+        });
+    }
+
+    [Test]
+    public void DuplicateAtClickedPosition_ClipboardSourceOnLockedLayer_IsNotFiltered()
+    {
+        // A deserialized clipboard element is not a child of the scene, so the
+        // current scene's layer locks must not apply to its source ZIndex.
+        _scene.Layers.Add(new TimelineLayer { ZIndex = 2, IsLocked = true });
+        var clipboardElement = new Element
+        {
+            Start = TimeSpan.FromSeconds(1),
+            Length = TimeSpan.FromSeconds(2),
+            ZIndex = 2,
+            Uri = new Uri(Path.Combine(_harness.BasePath, $"{Guid.NewGuid():N}.layer")),
+        };
+        int childrenBefore = _scene.Children.Count;
+
+        DuplicateOutcome outcome = _service.DuplicateAtClickedPosition(
+            _scene, [clipboardElement], TimeSpan.FromSeconds(20), 0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome.Success, Is.True);
+            Assert.That(_scene.Children.Count, Is.EqualTo(childrenBefore + 1));
+        });
+    }
+
+    [Test]
+    public void DuplicateAtClickedPosition_AllSourcesLocked_ReturnsFailed()
+    {
+        Element locked = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 3);
+        _scene.Layers.Add(new TimelineLayer { ZIndex = 3, IsLocked = true });
+        int childrenBefore = _scene.Children.Count;
+        int before = _history.UndoCount;
+
+        DuplicateOutcome outcome = _service.DuplicateAtClickedPosition(
+            _scene, [locked], TimeSpan.FromSeconds(20), 0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome.Success, Is.False);
+            Assert.That(_scene.Children.Count, Is.EqualTo(childrenBefore));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
 }

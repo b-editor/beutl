@@ -94,6 +94,96 @@ public class ElementClipboardServiceTests
     }
 
     [Test]
+    public async Task CutAsync_PrunesCutIdsFromGroups()
+    {
+        Element e1 = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element e2 = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
+        Element e3 = AddElement(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(2));
+        _scene.Groups.Add([e1.Id, e2.Id, e3.Id]);
+
+        bool result = await _service.CutAsync(_scene, [e1]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.True);
+            Assert.That(_scene.Groups, Has.Count.EqualTo(1));
+            Assert.That(_scene.Groups[0], Does.Not.Contain(e1.Id));
+            Assert.That(_scene.Groups[0], Is.EquivalentTo(new[] { e2.Id, e3.Id }));
+        });
+    }
+
+    [Test]
+    public async Task CutAsync_LockedElement_IsPreserved()
+    {
+        Element locked = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        locked.IsLocked = true;
+        int before = _history.UndoCount;
+
+        bool result = await _service.CutAsync(_scene, [locked]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.False);
+            Assert.That(_scene.Children, Does.Contain(locked));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
+    public async Task CutAsync_LockDuringClipboardWrite_PreservesElement()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        int before = _history.UndoCount;
+        // The clip is locked while the clipboard write is in-flight, after the pre-await filter.
+        _clipboard.OnSetAsync = () => element.IsLocked = true;
+
+        bool result = await _service.CutAsync(_scene, [element]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.True, "the copy succeeded, so the clip stays available to paste");
+            Assert.That(_scene.Children, Does.Contain(element), "a clip locked mid-cut is not removed");
+            Assert.That(_history.UndoCount, Is.EqualTo(before), "nothing removed, so no commit");
+        });
+    }
+
+    [Test]
+    public async Task PasteAsync_SingleElementFormat_LockDuringClipboardRead_IsRefused()
+    {
+        Element original = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        string json = CoreSerializer.SerializeToJsonString(original);
+        _clipboard.SetSingle(BeutlClipboardFormats.Element, json);
+        int childrenBefore = _scene.Children.Count;
+        // The destination row is locked while the clipboard read is in-flight, after the pre-await guard.
+        _clipboard.OnTryGetString = () => _scene.Layers.Add(new TimelineLayer { ZIndex = 1, IsLocked = true });
+
+        ElementPasteOutcome outcome = await _service.PasteAsync(_scene, TimeSpan.FromSeconds(10), 1);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome.Pasted, Is.False, "a row locked mid-paste is refused");
+            Assert.That(_scene.Children.Count, Is.EqualTo(childrenBefore), "no element added");
+        });
+    }
+
+    [Test]
+    public async Task PasteAsync_Bitmap_LockDuringClipboardRead_IsRefused()
+    {
+        _clipboard.SetBitmap([1, 2, 3, 4]);
+        int childrenBefore = _scene.Children.Count;
+        // The destination row is locked while the clipboard read is in-flight, after the pre-await guard.
+        _clipboard.OnTryGetBitmap = () => _scene.Layers.Add(new TimelineLayer { ZIndex = 2, IsLocked = true });
+
+        ElementPasteOutcome outcome = await _service.PasteAsync(_scene, TimeSpan.FromSeconds(5), 2);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome.Pasted, Is.False, "a row locked mid-paste is refused");
+            Assert.That(_scene.Children.Count, Is.EqualTo(childrenBefore), "no element added");
+        });
+    }
+
+    [Test]
     public async Task PasteAsync_NoMatchingFormat_ReturnsEmpty()
     {
         ElementPasteOutcome outcome = await _service.PasteAsync(_scene, TimeSpan.Zero, 0);
@@ -120,6 +210,24 @@ public class ElementClipboardServiceTests
             Assert.That(outcome.NewElements, Has.Count.EqualTo(1));
             Assert.That(outcome.NewElements[0].Start, Is.EqualTo(TimeSpan.FromSeconds(10)));
             Assert.That(outcome.NewElements[0].ZIndex, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task PasteAsync_SingleElementFormat_LockedTargetLayer_IsRefused()
+    {
+        Element original = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        string json = CoreSerializer.SerializeToJsonString(original);
+        _clipboard.SetSingle(BeutlClipboardFormats.Element, json);
+        _scene.Layers.Add(new TimelineLayer { ZIndex = 1, IsLocked = true });
+        int childrenBefore = _scene.Children.Count;
+
+        ElementPasteOutcome outcome = await _service.PasteAsync(_scene, TimeSpan.FromSeconds(10), 1);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome.Pasted, Is.False);
+            Assert.That(_scene.Children.Count, Is.EqualTo(childrenBefore));
         });
     }
 
@@ -165,6 +273,27 @@ public class ElementClipboardServiceTests
             Assert.That(outcome.Pasted, Is.True);
             Assert.That(outcome.ScrollTo.Start, Is.EqualTo(clicked));
             Assert.That(outcome.ScrollToZIndex, Is.EqualTo(clickedLayer));
+        });
+    }
+
+    [Test]
+    public async Task PasteAsync_ElementsFormat_LockedTargetLayer_IsRefused()
+    {
+        Element e1 = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), 0);
+        Element e2 = AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(2), 0);
+        var array = new System.Text.Json.Nodes.JsonArray(
+            CoreSerializer.SerializeToJsonObject(e1),
+            CoreSerializer.SerializeToJsonObject(e2));
+        _clipboard.SetSingle(BeutlClipboardFormats.Elements, array.ToJsonString());
+        _scene.Layers.Add(new TimelineLayer { ZIndex = 3, IsLocked = true });
+        int childrenBefore = _scene.Children.Count;
+
+        ElementPasteOutcome outcome = await _service.PasteAsync(_scene, TimeSpan.FromSeconds(20), 3);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome.Pasted, Is.False);
+            Assert.That(_scene.Children.Count, Is.EqualTo(childrenBefore));
         });
     }
 

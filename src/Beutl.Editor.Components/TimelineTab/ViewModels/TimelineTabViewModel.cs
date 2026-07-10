@@ -100,6 +100,13 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             Elements.AddRange(Scene.Children.Select(item => new ElementViewModel(item, this)));
         }
 
+        // A persisted layer-only model (solo/mute/lock on a clipless row) still
+        // feeds the compositor, so it needs a header to show and clear its flags.
+        if (Scene.Layers.Count > 0)
+        {
+            AddLayerHeaders(Scene.Layers.Max(l => l.ZIndex) + 1);
+        }
+
         Scene.Children.TrackCollectionChanged(
                 (idx, item) =>
                 {
@@ -544,7 +551,10 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             for (int i = LayerHeaders.Count - 1; i >= count; i--)
             {
                 LayerHeaderViewModel item = LayerHeaders[i];
-                if (item.ItemsCount.Value > 0)
+                // A clipless row whose TimelineLayer still carries lock/mute/solo
+                // keeps affecting the editor/compositor; removing its header would
+                // leave no UI to see or clear those flags.
+                if (item.ItemsCount.Value > 0 || HasFlaggedLayerModel(item.Number.Value))
                     break;
 
                 LayerHeaders.RemoveAt(i);
@@ -562,6 +572,10 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             AddLayerHeaders(count);
         }
     }
+
+    private bool HasFlaggedLayerModel(int zIndex)
+        => Scene.Layers.Any(l => l.ZIndex == zIndex
+                                 && (l.IsLocked || l.IsAudioMuted || l.IsVideoMuted || l.IsSolo));
 
     public void ReadFromJson(JsonObject json)
     {
@@ -1092,8 +1106,10 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             .FirstOrDefault();
         if (first is null) return;
 
-        IReadOnlyList<ElementViewModel> targets = first.GetGroupOrSelectedElements();
-        if (targets.Count == 0) return;
+        ElementViewModel[] targets = first.GetGroupOrSelectedElements()
+            .Where(x => x.IsEditable.Value)
+            .ToArray();
+        if (targets.Length == 0) return;
 
         int rate = Scene.FindHierarchicalParent<Project>()?.GetFrameRate() ?? 30;
         int frames = unit switch

@@ -301,6 +301,31 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
             return element.Range;
         }
 
+        // Video-mute, solo, and audio-mute can all change graphics output (audio-mute
+        // via audio-driven visualizers); only lock is editor-only and cache-neutral.
+        if (obj is TimelineLayer layer)
+        {
+            string propertyName = GetPropertyNameFromPath(propertyPath);
+            // ZIndex is absent because a layer's ZIndex only changes in
+            // LayerMoveService.ApplyMove, whose Element.ZIndex writes already
+            // invalidate the same frame ranges via the Element branch above.
+            bool affectsGraphics = propertyName is nameof(TimelineLayer.IsVideoMuted)
+                or nameof(TimelineLayer.IsSolo)
+                or nameof(TimelineLayer.IsAudioMuted);
+            if (!affectsGraphics) return null;
+
+            // Solo re-filters every layer; video/audio-mute only affect their own zIndex.
+            bool soloChanged = propertyName == nameof(TimelineLayer.IsSolo);
+            TimeRange? union = null;
+            foreach (Element el in Scene.Children)
+            {
+                if (!soloChanged && el.ZIndex != layer.ZIndex) continue;
+                union = union is { } u ? u.Union(el.Range) : el.Range;
+            }
+
+            return union;
+        }
+
         // Element以外のオブジェクトの場合、親を辿ってElementを探す
         Element? parentElement = FindElementFromObject(obj);
         if (parentElement != null)

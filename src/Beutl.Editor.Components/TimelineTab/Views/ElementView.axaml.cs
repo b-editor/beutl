@@ -118,10 +118,33 @@ public sealed partial class ElementView : UserControl
     {
         if (DataContext is not ElementViewModel viewModel) return;
 
-        change2OriginalDuration.IsEnabled = viewModel.HasOriginalDuration();
-        splitByCurrent.IsEnabled = viewModel.Model.Range.Contains(viewModel.Timeline.EditorContext.GetRequiredService<IEditorClock>().CurrentTime.Value);
+        bool editable = viewModel.IsEditable.Value;
+        change2OriginalDuration.IsEnabled = editable && viewModel.HasOriginalDuration();
+        splitByCurrent.IsEnabled = editable && viewModel.Model.Range.Contains(viewModel.Timeline.EditorContext.GetRequiredService<IEditorClock>().CurrentTime.Value);
+        // Not gated by `editable`: Group/Ungroup act on the selection's editable
+        // members, so they stay valid from a locked clip's menu when other
+        // selected clips are editable. CanGroup/CanUngroup already filter.
         groupSelectedElements.IsEnabled = viewModel.CanGroupSelectedElements();
         ungroupSelectedElements.IsEnabled = viewModel.CanUngroupSelectedElements();
+        split.IsEnabled = editable;
+        cut.IsEnabled = editable;
+        delete.IsEnabled = editable;
+        exclude.IsEnabled = editable;
+        finishEditingAnimation.IsEnabled = editable;
+        rename.IsEnabled = editable;
+        enableElement.IsEnabled = editable;
+        changeColor.IsEnabled = editable;
+        // With the layer locked, clearing the element flag has no visible effect
+        // (IsEditable stays false), so the toggle would read as broken.
+        lockElement.IsEnabled = viewModel.LayerHeader.Value?.IsLocked.Value != true;
+    }
+
+    private void LockElement_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not ElementViewModel viewModel) return;
+        Element model = viewModel.Model;
+        viewModel.Timeline.EditorContext.GetRequiredService<IElementAttributeService>()
+            .SetLocked(model, !model.IsLocked);
     }
 
     private void OnDataContextDetached(ElementViewModel obj)
@@ -223,6 +246,8 @@ public sealed partial class ElementView : UserControl
 
     private void EnableElementClick(object? sender, RoutedEventArgs e)
     {
+        if (!ViewModel.IsEditable.Value) return;
+
         Element model = ViewModel.Model;
         ViewModel.Timeline.EditorContext.GetRequiredService<IElementAttributeService>()
             .SetEnabled(model, !model.IsEnabled);
@@ -236,6 +261,8 @@ public sealed partial class ElementView : UserControl
 
     private void Rename_Click(object? sender, RoutedEventArgs e)
     {
+        if (DataContext is not ElementViewModel { IsEditable.Value: true }) return;
+
         textBlock.IsVisible = false;
         textBox.IsVisible = true;
         textBox.SelectAll();
@@ -264,7 +291,7 @@ public sealed partial class ElementView : UserControl
 
     private void ChangeColor_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not ElementViewModel viewModel) return;
+        if (DataContext is not ElementViewModel { IsEditable.Value: true } viewModel) return;
 
         // ContextMenuから開いているので、閉じるのを待つ
         s_colorPickerFlyout ??= new ColorPickerFlyout();
@@ -295,7 +322,9 @@ public sealed partial class ElementView : UserControl
 
     private void OnColorPickerFlyoutConfirmed(ColorPickerFlyout sender, EventArgs args)
     {
-        if (DataContext is ElementViewModel viewModel)
+        // Re-check editability at confirm time: the clip or its layer may have been locked while the
+        // picker was open, and the open-time guard alone would let the confirm persist onto locked content.
+        if (DataContext is ElementViewModel { IsEditable.Value: true } viewModel)
         {
             viewModel.Color.Value = sender.ColorPicker.Color;
         }
@@ -446,11 +475,18 @@ public sealed partial class ElementView : UserControl
                     return;
                 }
 
+                if (!viewModel.IsEditable.Value)
+                {
+                    return;
+                }
+
                 PointerPoint point = e.GetCurrentPoint(view.border);
                 if (point.Properties.IsLeftButtonPressed && e.KeyModifiers is KeyModifiers.None or KeyModifiers.Alt
                                                          && view.Cursor != Cursors.Arrow && view.Cursor is not null)
                 {
-                    IReadOnlyList<ElementViewModel> relatedElements = viewModel.GetGroupOrSelectedElements();
+                    IReadOnlyList<ElementViewModel> relatedElements = viewModel.GetGroupOrSelectedElements()
+                        .Where(el => el.IsEditable.Value)
+                        .ToArray();
 
                     // リサイズタイプに応じて、同じ時間の要素のみをフィルタリング
                     IEnumerable<ElementViewModel> filteredElements;
@@ -563,6 +599,13 @@ public sealed partial class ElementView : UserControl
                 if (viewModel.Timeline.IsRazorMode.Value)
                 {
                     view.Cursor = Cursors.Cross;
+                    _resizeType = AlignmentX.Center;
+                    return;
+                }
+
+                if (!viewModel.IsEditable.Value)
+                {
+                    view.Cursor = null;
                     _resizeType = AlignmentX.Center;
                     return;
                 }
@@ -697,13 +740,20 @@ public sealed partial class ElementView : UserControl
                     return;
                 }
 
+                if (!viewModel.IsEditable.Value)
+                {
+                    return;
+                }
+
                 PointerPoint point = e.GetCurrentPoint(view.border);
                 if (point.Properties.IsLeftButtonPressed
                     && (view.Cursor == Cursors.Arrow || view.Cursor == null))
                 {
                     _pressed = true;
                     _duplicateMode = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
-                    _relatedElements = viewModel.GetGroupOrSelectedElements();
+                    _relatedElements = viewModel.GetGroupOrSelectedElements()
+                        .Where(el => el.IsEditable.Value)
+                        .ToArray();
                     // Defensive: clear any ghosts orphaned by a prior Released early-return.
                     RemoveGhosts(timeline);
                     _start = point.Position;
@@ -771,6 +821,15 @@ public sealed partial class ElementView : UserControl
 
             if (!duplicate && elems.Length == 1)
             {
+                // SubmitViewModelChanges writes Scene.MoveChild directly, so it
+                // bypasses ElementMoveService's locked-destination refusal —
+                // mirror that guard here for the single-clip drag path.
+                if (viewModel.Scene.IsLayerLocked(newIndex))
+                {
+                    ForceRestoreVisualToModel(relatedElements);
+                    return;
+                }
+
                 await viewModel.SubmitViewModelChanges();
                 return;
             }
@@ -921,7 +980,7 @@ public sealed partial class ElementView : UserControl
             {
                 if (timelineVm.IsRazorMode.Value && e.GetCurrentPoint(obj.border).Properties.IsLeftButtonPressed)
                 {
-                    if (obj.ViewModel is { } elementVm)
+                    if (obj.ViewModel is { } elementVm && elementVm.IsEditable.Value)
                     {
                         PointerPoint pt = e.GetCurrentPoint(obj.border);
                         float scale = timelineVm.Options.Value.Scale;
@@ -938,10 +997,13 @@ public sealed partial class ElementView : UserControl
                 {
                     if (e.ClickCount == 2)
                     {
-                        obj.textBlock.IsVisible = false;
-                        obj.textBox.IsVisible = true;
-                        obj.textBox.SelectAll();
-                        obj.textBox.Focus();
+                        if (obj.ViewModel is { IsEditable.Value: true })
+                        {
+                            obj.textBlock.IsVisible = false;
+                            obj.textBox.IsVisible = true;
+                            obj.textBox.SelectAll();
+                            obj.textBox.Focus();
+                        }
                     }
                     else
                     {

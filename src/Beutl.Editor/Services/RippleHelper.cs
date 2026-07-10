@@ -1,4 +1,5 @@
-﻿using Beutl.ProjectSystem;
+﻿using Beutl.Media;
+using Beutl.ProjectSystem;
 
 namespace Beutl.Editor.Services;
 
@@ -15,12 +16,23 @@ internal static class RippleHelper
     {
         if (delta == TimeSpan.Zero) return;
 
-        Element[] toShift = scene.Children
-            .Where(e => e.ZIndex == zIndex && !except.Contains(e) && e.Start >= anchorEnd)
+        // A locked follower stays anchored — shifting it would bypass the lock.
+        if (scene.IsLayerLocked(zIndex)) return;
+
+        Element[] lockedOnLayer = scene.Children
+            .Where(e => e.ZIndex == zIndex && e.IsLocked)
             .ToArray();
 
-        foreach (Element e in toShift)
+        Element[] candidates = scene.Children
+            .Where(e => e.ZIndex == zIndex && !except.Contains(e) && !e.IsLocked && e.Start >= anchorEnd)
+            .OrderBy(e => e.Start)
+            .ToArray();
+
+        foreach (Element e in candidates)
         {
+            TimeRange shifted = e.Range.WithStart(e.Start + delta);
+            if (Array.Exists(lockedOnLayer, l => shifted.Intersects(l.Range))) break;
+
             e.Start += delta;
         }
     }
@@ -34,12 +46,30 @@ internal static class RippleHelper
     {
         if (delta == TimeSpan.Zero) return;
 
-        Element[] toShift = scene.Children
-            .Where(e => e.ZIndex == zIndex && !except.Contains(e) && e.Range.End <= anchorStart)
+        // A locked neighbor stays anchored — shifting it would bypass the lock.
+        if (scene.IsLayerLocked(zIndex)) return;
+
+        IEnumerable<Element> toShift = scene.Children
+            .Where(e => e.ZIndex == zIndex && !except.Contains(e) && e.Range.End <= anchorStart
+                        && !e.IsLocked);
+
+        Element[] lockedOnLayer = scene.Children
+            .Where(e => e.ZIndex == zIndex && e.IsLocked)
             .ToArray();
+
+        // A locked clip is an immovable anchor in both directions, so the ripple stops before any
+        // clip lands on it. Process in travel order — rightmost first for a right pull (delta > 0),
+        // leftmost first for a left push (delta < 0) — so a block also halts the clips behind it.
+        // The timeline floor for a left push is enforced by the caller's ClampRippleStart.
+        toShift = delta > TimeSpan.Zero
+            ? toShift.OrderByDescending(e => e.Start)
+            : toShift.OrderBy(e => e.Start);
 
         foreach (Element e in toShift)
         {
+            TimeRange shifted = e.Range.WithStart(e.Start + delta);
+            if (Array.Exists(lockedOnLayer, l => shifted.Intersects(l.Range))) break;
+
             e.Start += delta;
         }
     }

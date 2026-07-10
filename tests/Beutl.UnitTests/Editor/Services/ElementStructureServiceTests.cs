@@ -70,6 +70,46 @@ public class ElementStructureServiceTests
     }
 
     [Test]
+    public void Delete_PrunesDeletedIdsFromGroups_AndDisbandsShrunkGroup()
+    {
+        Element e1 = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element e2 = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
+        _service.Group(_scene, [e1.Id, e2.Id]);
+
+        _service.Delete(_scene, [e1]);
+
+        Assert.That(_scene.Groups.Any(g => g.Contains(e1.Id)), Is.False);
+        Assert.That(_scene.Groups, Is.Empty);
+    }
+
+    [Test]
+    public void Delete_KeepsGroupWithRemainingMembers()
+    {
+        Element e1 = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element e2 = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
+        Element e3 = AddElement(TimeSpan.FromSeconds(9), TimeSpan.FromSeconds(2));
+        _service.Group(_scene, [e1.Id, e2.Id, e3.Id]);
+
+        _service.Delete(_scene, [e1]);
+
+        Assert.That(_scene.Groups, Has.Count.EqualTo(1));
+        Assert.That(_scene.Groups[0], Is.EquivalentTo(new[] { e2.Id, e3.Id }));
+    }
+
+    [Test]
+    public void Exclude_PrunesDeletedIdsFromGroups()
+    {
+        Element e1 = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element e2 = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
+        _service.Group(_scene, [e1.Id, e2.Id]);
+
+        _service.Exclude(_scene, [e1]);
+
+        Assert.That(_scene.Groups.Any(g => g.Contains(e1.Id)), Is.False);
+        Assert.That(_scene.Groups, Is.Empty);
+    }
+
+    [Test]
     public void Exclude_EmptyList_NoCommit()
     {
         int before = _history.UndoCount;
@@ -195,6 +235,191 @@ public class ElementStructureServiceTests
         {
             Assert.That(_scene.Groups, Is.Empty);
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
+        });
+    }
+
+    [Test]
+    public void Group_LockedElementId_IsExcluded()
+    {
+        Element locked = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        locked.IsLocked = true;
+        Element e1 = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
+        Element e2 = AddElement(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(2));
+
+        GroupOutcome outcome = _service.Group(_scene, [locked.Id, e1.Id, e2.Id]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome.Created, Is.True);
+            Assert.That(_scene.Groups, Has.Count.EqualTo(1));
+            Assert.That(_scene.Groups[0], Is.EquivalentTo(new[] { e1.Id, e2.Id }));
+        });
+    }
+
+    [Test]
+    public void Ungroup_LockedElementId_IsIgnored()
+    {
+        Element e1 = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element e2 = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
+        _service.Group(_scene, [e1.Id, e2.Id]);
+        e1.IsLocked = true;
+        int before = _history.UndoCount;
+
+        _service.Ungroup(_scene, [e1.Id]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_scene.Groups, Has.Count.EqualTo(1));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
+    public void Ungroup_EditableMember_KeepsGroupWhenOnlyLockedMemberWouldRemain()
+    {
+        Element editable = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element locked = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
+        _service.Group(_scene, [editable.Id, locked.Id]);
+        locked.IsLocked = true;
+        int before = _history.UndoCount;
+
+        // Disbanding the two-member group would strand the locked member, silently changing its
+        // grouping; the ungroup of the editable member must no-op instead.
+        _service.Ungroup(_scene, [editable.Id]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_scene.Groups, Has.Count.EqualTo(1));
+            Assert.That(_scene.Groups[0], Is.EquivalentTo(new[] { editable.Id, locked.Id }));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
+    public void Group_SingleEditableMember_KeepsGroupWhenOnlyLockedMemberWouldRemain()
+    {
+        Element editable = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element locked = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
+        _service.Group(_scene, [editable.Id, locked.Id]);
+        locked.IsLocked = true;
+        int before = _history.UndoCount;
+
+        // A single-id Group acts as "ungroup this element"; it must not strand the locked member.
+        GroupOutcome outcome = _service.Group(_scene, [editable.Id]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome.Created, Is.False);
+            Assert.That(_scene.Groups, Has.Count.EqualTo(1));
+            Assert.That(_scene.Groups[0], Is.EquivalentTo(new[] { editable.Id, locked.Id }));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
+    public void Delete_EditableMember_PrunesIdFromLockedGroup_NoStaleId()
+    {
+        Element editable = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element locked = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
+        _service.Group(_scene, [editable.Id, locked.Id]);
+        locked.IsLocked = true;
+
+        // Removal (unlike a structural regroup) must always prune the removed id: leaving it in the
+        // group would reference a deleted element. The two-member group disbands as usual.
+        _service.Delete(_scene, [editable]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_scene.Children, Does.Not.Contain(editable));
+            Assert.That(_scene.Groups.Any(g => g.Contains(editable.Id)), Is.False, "no stale id left behind");
+            Assert.That(_scene.Groups, Is.Empty);
+        });
+    }
+
+    [Test]
+    public void Group_EditableMemberEntangledWithLock_RefusesWithoutOverlappingGroups()
+    {
+        Element a = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element b = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
+        Element c = AddElement(TimeSpan.FromSeconds(9), TimeSpan.FromSeconds(2));
+        _service.Group(_scene, [a.Id, b.Id]);
+        a.IsLocked = true;
+
+        // Regrouping b with c would strand locked a in {a}; b is refused, so {a,b} stays intact and
+        // no overlapping {b,c} group is created that would confuse group-based selection.
+        GroupOutcome outcome = _service.Group(_scene, [b.Id, c.Id]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome.Created, Is.False);
+            Assert.That(_scene.Groups, Has.Count.EqualTo(1));
+            Assert.That(_scene.Groups[0], Is.EquivalentTo(new[] { a.Id, b.Id }));
+        });
+    }
+
+    [Test]
+    public void Delete_LockedElement_IsSkipped()
+    {
+        Element locked = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        locked.IsLocked = true;
+        Element free = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
+        int before = _history.UndoCount;
+
+        _service.Delete(_scene, [locked, free]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_scene.Children, Does.Contain(locked));
+            Assert.That(_scene.Children, Does.Not.Contain(free));
+            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
+        });
+    }
+
+    [Test]
+    public void Delete_AllLocked_DoesNotCommit()
+    {
+        Element locked = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        locked.IsLocked = true;
+        int before = _history.UndoCount;
+
+        _service.Delete(_scene, [locked]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_scene.Children, Does.Contain(locked));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
+    public void Exclude_LayerLockedElement_IsSkipped()
+    {
+        Element onLockedLayer = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 3);
+        _scene.Layers.Add(new TimelineLayer { ZIndex = 3, IsLocked = true });
+        int before = _history.UndoCount;
+
+        _service.Exclude(_scene, [onLockedLayer]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_scene.Children, Does.Contain(onLockedLayer));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
+    public void Split_LockedElement_IsNotSplit()
+    {
+        Element locked = AddElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(4));
+        locked.IsLocked = true;
+        int beforeCount = _scene.Children.Count;
+
+        SplitOutcome outcome = _service.Split(_scene, [locked], TimeSpan.FromSeconds(2));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome.NewElements, Is.Empty);
+            Assert.That(_scene.Children.Count, Is.EqualTo(beforeCount));
         });
     }
 }

@@ -140,4 +140,109 @@ public class ElementMoveServiceTests
             Assert.Throws<ArgumentNullException>(() => _service.DuplicateOrMove(_scene, null!, TimeSpan.Zero, 0));
         });
     }
+
+    [Test]
+    public void Move_OntoLockedDestinationLayer_IsRefused()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 0);
+        _scene.Layers.Add(new TimelineLayer { ZIndex = 2, IsLocked = true });
+        int before = _history.UndoCount;
+
+        ElementMoveOutcome outcome = _service.Move(_scene, [element], TimeSpan.Zero, 2);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome, Is.EqualTo(ElementMoveOutcome.None));
+            Assert.That(element.ZIndex, Is.EqualTo(0));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
+    public void DuplicateOrMove_OntoLockedDestinationLayer_IsRefused()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 0);
+        _scene.Layers.Add(new TimelineLayer { ZIndex = 2, IsLocked = true });
+        int beforeChildren = _scene.Children.Count;
+        int before = _history.UndoCount;
+
+        ElementMoveOutcome outcome = _service.DuplicateOrMove(_scene, [element], TimeSpan.Zero, 2);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome, Is.EqualTo(ElementMoveOutcome.None));
+            Assert.That(_scene.Children.Count, Is.EqualTo(beforeChildren));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
+    public void Move_LockedSourceElement_IsFiltered()
+    {
+        Element locked = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        locked.IsLocked = true;
+        Element free = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
+
+        ElementMoveOutcome outcome = _service.Move(_scene, [locked, free], TimeSpan.FromSeconds(1), 0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome, Is.EqualTo(ElementMoveOutcome.Moved));
+            Assert.That(locked.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(free.Start, Is.EqualTo(TimeSpan.FromSeconds(6)));
+        });
+    }
+
+    [Test]
+    public void Move_AllSourcesLocked_ReturnsNone_NoCommit()
+    {
+        Element locked = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        locked.IsLocked = true;
+        int before = _history.UndoCount;
+
+        ElementMoveOutcome outcome = _service.Move(_scene, [locked], TimeSpan.FromSeconds(1), 0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome, Is.EqualTo(ElementMoveOutcome.None));
+            Assert.That(locked.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
+    public void DuplicateOrMove_AllSourcesLocked_ReturnsNone_NoCommit()
+    {
+        Element locked = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        locked.IsLocked = true;
+        int beforeChildren = _scene.Children.Count;
+        int before = _history.UndoCount;
+
+        ElementMoveOutcome outcome = _service.DuplicateOrMove(_scene, [locked], TimeSpan.FromSeconds(10), 0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome, Is.EqualTo(ElementMoveOutcome.None));
+            Assert.That(_scene.Children.Count, Is.EqualTo(beforeChildren));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
+    public void DuplicateOrMove_LockedSource_IsExcludedFromDuplicate()
+    {
+        Element locked = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        locked.IsLocked = true;
+        Element free = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
+        int beforeChildren = _scene.Children.Count;
+
+        ElementMoveOutcome outcome = _service.DuplicateOrMove(_scene, [locked, free], TimeSpan.FromSeconds(10), 0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome, Is.EqualTo(ElementMoveOutcome.Duplicated));
+            Assert.That(_scene.Children.Count, Is.EqualTo(beforeChildren + 1));
+            Assert.That(locked.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
+        });
+    }
 }

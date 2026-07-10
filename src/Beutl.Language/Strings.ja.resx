@@ -621,6 +621,12 @@
   <data name="Unlock" xml:space="preserve">
     <value>ロック解除</value>
   </data>
+  <data name="Solo" xml:space="preserve">
+    <value>ソロ</value>
+  </data>
+  <data name="LayerIsLocked" xml:space="preserve">
+    <value>レイヤーがロックされています</value>
+  </data>
   <data name="FrameCache" xml:space="preserve">
     <value>フレームキャッシュ</value>
   </data>

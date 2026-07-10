@@ -85,6 +85,7 @@ public sealed class InlineKeyFrameViewModel : IDisposable
 
     private async Task PasteAsync()
     {
+        if (!Parent.IsEditable) return;
         IClipboard? clipboard = ClipboardHelper.GetClipboard();
         if (clipboard == null) return;
 
@@ -93,6 +94,10 @@ public sealed class InlineKeyFrameViewModel : IDisposable
             if (await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrame) is { } json
                 && JsonNode.Parse(json) is JsonObject jsonObj)
             {
+                // Re-check after the awaited clipboard read: the clip or its layer may have been
+                // locked while it was pending, and the writes below must honor that.
+                if (!Parent.IsEditable) return;
+
                 if (!jsonObj.TryGetDiscriminator(out Type? type))
                 {
                     NotificationService.ShowWarning(Strings.Paste, MessageStrings.InvalidKeyframeDataFormat_MissingType);
@@ -140,6 +145,7 @@ public sealed class InlineKeyFrameViewModel : IDisposable
 
     private void Remove()
     {
+        if (!Parent.IsEditable) return;
         HistoryManager history = Timeline.EditorContext.GetRequiredService<HistoryManager>();
         AnimationOperations.RemoveKeyFrame(
             animation: Animation,
@@ -150,6 +156,7 @@ public sealed class InlineKeyFrameViewModel : IDisposable
 
     public void UpdateKeyTime()
     {
+        if (!Parent.IsEditable) return;
         float scale = Timeline.Options.Value.Scale;
         Project? proj = Timeline.Scene.FindHierarchicalParent<Project>();
         int rate = proj?.GetFrameRate() ?? 30;
@@ -160,6 +167,15 @@ public sealed class InlineKeyFrameViewModel : IDisposable
         history.Commit(CommandNames.MoveKeyFrame);
 
         Left.Value = time.TimeToPixel(scale);
+    }
+
+    // Visual-only rollback: unlike ReflectModelKeyTime (which commits the dragged
+    // Left into Model.KeyTime), this never touches the model — required when a
+    // drag is cancelled because the clip is locked.
+    public void RestoreVisualFromModel()
+    {
+        float scale = Timeline.Options.Value.Scale;
+        Left.Value = Model.KeyTime.TimeToPixel(scale);
     }
 
     public void ReflectModelKeyTime()

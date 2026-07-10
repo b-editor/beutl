@@ -128,6 +128,21 @@ public sealed partial class LayerHeader : UserControl
             newLayerNum,
             directElements.Select(x => x.Model).ToArray());
 
+        // A lock-blocked move returns IsNoop without writing the model; snap the
+        // dragged header back rather than syncing the UI to an unmoved drop row.
+        // PointerMoved already parked the clip views at the drop row, so restore
+        // their margins to the (unchanged) model rows too.
+        if (plan.IsNoop)
+        {
+            vm.PosY.Value = 0;
+            foreach (ElementViewModel item in directElements)
+            {
+                item.Margin.Value = new Thickness(0, vm.Timeline.CalculateLayerTop(item.Model.ZIndex), 0, 0);
+            }
+
+            return;
+        }
+
         // Service already wrote Element.ZIndex and committed history; now sync VM-side
         // state (Number.Value, header order) and animate the affected element views.
         int headerShift = oldLayerNum < newLayerNum ? -1 : 1;
@@ -155,14 +170,16 @@ public sealed partial class LayerHeader : UserControl
     private void Border_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
         PointerPoint point = e.GetCurrentPoint(border);
-        if (point.Properties.IsLeftButtonPressed && GetOrFindTimeline() is { } timeline)
+        if (point.Properties.IsLeftButtonPressed
+            && !ViewModel.IsLocked.Value
+            && GetOrFindTimeline() is { } timeline)
         {
             _pressed = true;
             _newLayer = ViewModel.Number.Value;
             _startRel = point.Position;
             _start = e.GetCurrentPoint(timeline.TimelinePanel).Position;
             _elements = ViewModel.Timeline.Elements
-                .Where(i => i.Model.ZIndex == ViewModel.Number.Value)
+                .Where(i => i.Model.ZIndex == ViewModel.Number.Value && i.IsEditable.Value)
                 .ToArray();
         }
     }

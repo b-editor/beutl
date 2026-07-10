@@ -169,6 +169,26 @@ public partial class InlineAnimationLayer : UserControl
             if (AssociatedObject is not { DataContext: InlineKeyFrameViewModel viewModel }) return;
             if (!_pressed) return;
 
+            // Locked mid-drag: restore the visuals from the model without
+            // committing (ReflectModelKeyTime would write the dragged position
+            // INTO the model — the opposite of a rollback).
+            if (!viewModel.Parent.IsEditable)
+            {
+                viewModel.RestoreVisualFromModel();
+                if (_items != null)
+                {
+                    foreach (InlineKeyFrameViewModel item in _items)
+                    {
+                        item.RestoreVisualFromModel();
+                    }
+                }
+
+                _items = null;
+                _pressed = false;
+                e.Handled = true;
+                return;
+            }
+
             if (_items != null)
             {
                 foreach (InlineKeyFrameViewModel item in _items)
@@ -192,6 +212,7 @@ public partial class InlineAnimationLayer : UserControl
         private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
         {
             if (AssociatedObject is not { DataContext: InlineKeyFrameViewModel viewModel }) return;
+            if (!viewModel.Parent.IsEditable) return;
 
             PointerPoint point = e.GetCurrentPoint(AssociatedObject);
 

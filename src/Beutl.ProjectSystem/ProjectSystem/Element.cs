@@ -17,12 +17,14 @@ public class Element : Hierarchical, INotifyEdited
     public static readonly CoreProperty<int> ZIndexProperty;
     public static readonly CoreProperty<Color> AccentColorProperty;
     public static readonly CoreProperty<bool> IsEnabledProperty;
+    public static readonly CoreProperty<bool> IsLockedProperty;
     public static readonly CoreProperty<ICoreList<EngineObject>> ObjectsProperty;
     private readonly HierarchicalList<EngineObject> _objects;
     private TimeSpan _start;
     private TimeSpan _length;
     private int _zIndex;
     private bool _isEnabled = true;
+    private bool _isLocked;
 
     static Element()
     {
@@ -45,6 +47,11 @@ public class Element : Hierarchical, INotifyEdited
         IsEnabledProperty = ConfigureProperty<bool, Element>(nameof(IsEnabled))
             .Accessor(o => o.IsEnabled, (o, v) => o.IsEnabled = v)
             .DefaultValue(true)
+            .Register();
+
+        IsLockedProperty = ConfigureProperty<bool, Element>(nameof(IsLocked))
+            .Accessor(o => o.IsLocked, (o, v) => o.IsLocked = v)
+            .DefaultValue(false)
             .Register();
 
         ObjectsProperty = ConfigureProperty<ICoreList<EngineObject>, Element>(nameof(Objects))
@@ -95,6 +102,14 @@ public class Element : Hierarchical, INotifyEdited
     {
         get => _isEnabled;
         set => SetAndRaise(IsEnabledProperty, ref _isEnabled, value);
+    }
+
+    // Editor-only; does not affect composition. The editor refuses pointer
+    // drag/trim/split/delete when this is true or its TimelineLayer.IsLocked is.
+    public bool IsLocked
+    {
+        get => _isLocked;
+        set => SetAndRaise(IsLockedProperty, ref _isLocked, value);
     }
 
     [NotAutoSerialized]

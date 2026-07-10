@@ -172,4 +172,59 @@ public class LayerMoveServiceTests
             Assert.That(e1.ZIndex, Is.EqualTo(1));
         });
     }
+
+    [Test]
+    public void ApplyMove_ShiftRangeContainsLockedLayer_IsBlocked()
+    {
+        Element e1 = AddElement(1);
+        Element e2 = AddElement(2);
+        AddLayer(2).IsLocked = true;
+        int before = _history.UndoCount;
+
+        LayerMovePlan plan = _service.ApplyMove(_scene, 1, 3, [e1]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(plan.IsNoop, Is.True);
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+            Assert.That(e1.ZIndex, Is.EqualTo(1));
+            Assert.That(e2.ZIndex, Is.EqualTo(2));
+        });
+    }
+
+    [Test]
+    public void ApplyMove_ShiftRangeContainsLockedElement_IsBlocked()
+    {
+        Element e1 = AddElement(1);
+        Element e2 = AddElement(2);
+        e2.IsLocked = true;
+        int before = _history.UndoCount;
+
+        LayerMovePlan plan = _service.ApplyMove(_scene, 1, 3, [e1]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(plan.IsNoop, Is.True);
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+            Assert.That(e1.ZIndex, Is.EqualTo(1));
+            Assert.That(e2.ZIndex, Is.EqualTo(2));
+        });
+    }
+
+    [Test]
+    public void ApplyMove_SourceLayerLocked_IsBlocked()
+    {
+        Element e1 = AddElement(1);
+        AddLayer(1).IsLocked = true;
+        int before = _history.UndoCount;
+
+        LayerMovePlan plan = _service.ApplyMove(_scene, 1, 3, [e1]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(plan.IsNoop, Is.True);
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+            Assert.That(e1.ZIndex, Is.EqualTo(1));
+        });
+    }
 }

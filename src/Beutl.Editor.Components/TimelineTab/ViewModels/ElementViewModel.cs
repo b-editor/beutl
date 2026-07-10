@@ -56,10 +56,22 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
+        IsLocked = element.GetObservable(Element.IsLockedProperty)
+            .ToReadOnlyReactivePropertySlim()
+            .AddTo(_disposables);
+
         Name = element.GetObservable(CoreObject.NameProperty)
             .ToReactiveProperty()
             .AddTo(_disposables)!;
-        Name.Subscribe(v => Model.Name = v)
+        // Skip(1) drops the initial sync emit (IsEditable is assigned later in this ctor). While
+        // locked, a rename must not persist and the display must not diverge from the persisted
+        // name, so snap Name.Value back to Model.Name instead of writing it.
+        Name.Skip(1)
+            .Subscribe(v =>
+            {
+                if (IsEditable.Value) Model.Name = v;
+                else if (v != Model.Name) Name.Value = Model.Name;
+            })
             .AddTo(_disposables);
 
         IObservable<int> zIndexSubject = element.GetObservable(Element.ZIndexProperty);
@@ -137,6 +149,16 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
                 newLH?.ElementAdded(this);
                 LayerHeader.Value = newLH;
             })
+            .AddTo(_disposables);
+
+        // Editable unless the element or its TimelineLayer is locked.
+        IsEditable = IsLocked
+            .CombineLatest(
+                LayerHeader.Select(h => h is null
+                    ? Observable.Return(false)
+                    : h.IsLocked).Switch(),
+                (el, layer) => !el && !layer)
+            .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
         Scope = new ElementScopeViewModel(Model, this);
@@ -243,6 +265,10 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     public ReadOnlyReactivePropertySlim<bool> IsEnabled { get; }
 
+    public ReadOnlyReactivePropertySlim<bool> IsLocked { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> IsEditable { get; }
+
     public ReactiveProperty<string> Name { get; }
 
     public ReactiveProperty<Thickness> Margin { get; }
@@ -329,13 +355,13 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     public bool CanGroupSelectedElements()
     {
-        IReadOnlyCollection<Guid> ids = GetSelectedIdsOrSelf();
+        IReadOnlyCollection<Guid> ids = GetEditableSelectedIdsOrSelf();
         return ids.Count >= 2 && !Scene.Groups.Any(x => x.SetEquals(ids));
     }
 
     public bool CanUngroupSelectedElements()
     {
-        IReadOnlyCollection<Guid> ids = GetSelectedIdsOrSelf();
+        IReadOnlyCollection<Guid> ids = GetEditableSelectedIdsOrSelf();
         return Scene.Groups.Any(x => x.Overlaps(ids));
     }
 
@@ -488,17 +514,22 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     private void OnExclude()
     {
-        Element[] targets = GetGroupOrSelectedElements().Select(e => e.Model).ToArray();
+        Element[] targets = EditableTargets();
+        if (targets.Length == 0) return;
         Timeline.EditorContext.GetRequiredService<IElementStructureService>()
             .Exclude(Scene, targets, Timeline.IsRippleEnabled.Value);
     }
 
     private void OnDelete()
     {
-        Element[] targets = GetGroupOrSelectedElements().Select(e => e.Model).ToArray();
+        Element[] targets = EditableTargets();
+        if (targets.Length == 0) return;
         Timeline.EditorContext.GetRequiredService<IElementStructureService>()
             .Delete(Scene, targets, Timeline.IsRippleEnabled.Value);
     }
+
+    private Element[] EditableTargets()
+        => GetGroupOrSelectedElements().Where(e => e.IsEditable.Value).Select(e => e.Model).ToArray();
 
     private void OnBringAnimationToTop()
     {
@@ -521,17 +552,20 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     private void OnFinishEditingAnimation()
     {
+        if (!IsEditable.Value) return;
         foreach (InlineAnimationLayerViewModel item in Timeline.Inlines.Where(x => x.Element == this).ToArray())
         {
             Timeline.DetachInline(item);
         }
     }
 
-    private HashSet<Guid> GetSelectedIdsOrSelf()
+    private HashSet<Guid> GetEditableSelectedIdsOrSelf()
     {
-        var ids = new HashSet<Guid>(Timeline.SelectedElements.Select(x => x.Model.Id));
+        var ids = new HashSet<Guid>(Timeline.SelectedElements
+            .Where(x => x.IsEditable.Value)
+            .Select(x => x.Model.Id));
 
-        if (ids.Count == 0)
+        if (ids.Count == 0 && IsEditable.Value)
         {
             ids.Add(Model.Id);
         }
@@ -541,13 +575,17 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     private void OnGroupSelectedElements()
     {
-        IReadOnlyCollection<Guid> ids = GetSelectedIdsOrSelf();
+        // No self-editability guard: a mixed selection dispatched through a
+        // locked first clip must still group its editable members.
+        IReadOnlyCollection<Guid> ids = GetEditableSelectedIdsOrSelf();
+        if (ids.Count == 0) return;
         Timeline.EditorContext.GetRequiredService<IElementStructureService>().Group(Scene, ids);
     }
 
     private void OnUngroupSelectedElements()
     {
-        IReadOnlyCollection<Guid> ids = GetSelectedIdsOrSelf();
+        IReadOnlyCollection<Guid> ids = GetEditableSelectedIdsOrSelf();
+        if (ids.Count == 0) return;
         Timeline.EditorContext.GetRequiredService<IElementStructureService>().Ungroup(Scene, ids);
     }
 
@@ -575,7 +613,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     private async Task OnCut()
     {
-        Element[] models = GetGroupOrSelectedElements().Select(e => e.Model).ToArray();
+        Element[] models = EditableTargets();
         if (models.Length == 0) return;
         await Timeline.EditorContext.GetRequiredService<IElementClipboardService>()
             .CutAsync(Scene, models, Timeline.IsRippleEnabled.Value);
@@ -604,15 +642,17 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     private void SplitCore(IReadOnlyList<ElementViewModel> targets, TimeSpan timeSpan)
     {
+        Element[] models = targets.Where(t => t.IsEditable.Value).Select(t => t.Model).ToArray();
+        if (models.Length == 0) return;
         int rate = Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
         TimeSpan at = timeSpan.RoundToRate(rate);
 
-        Element[] models = targets.Select(t => t.Model).ToArray();
         Timeline.EditorContext.GetRequiredService<IElementStructureService>().Split(Scene, models, at);
     }
 
     private async void OnChangeToOriginalDuration()
     {
+        if (!IsEditable.Value) return;
         if (Model.HasOriginalDuration()
             && Model.TryGetOriginalDuration(out TimeSpan timeSpan))
         {
@@ -652,7 +692,10 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         switch (execution.CommandName)
         {
             case "Rename":
-                RenameRequested();
+                if (IsEditable.Value)
+                {
+                    RenameRequested();
+                }
                 break;
             case "Split":
                 SplitByCurrentFrame.Execute();

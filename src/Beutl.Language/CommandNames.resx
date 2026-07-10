@@ -74,11 +74,23 @@
   <data name="MoveLayer" xml:space="preserve">
     <value>Move Layer</value>
   </data>
-  <data name="ChangeLayerEnabled" xml:space="preserve">
-    <value>Change Layer Enabled</value>
-  </data>
   <data name="ChangeLayerColor" xml:space="preserve">
     <value>Change Layer Color</value>
+  </data>
+  <data name="ChangeLayerLocked" xml:space="preserve">
+    <value>Change Layer Locked</value>
+  </data>
+  <data name="ChangeLayerAudioMuted" xml:space="preserve">
+    <value>Change Layer Audio Mute</value>
+  </data>
+  <data name="ChangeLayerVideoMuted" xml:space="preserve">
+    <value>Change Layer Video Mute</value>
+  </data>
+  <data name="ChangeLayerSolo" xml:space="preserve">
+    <value>Change Layer Solo</value>
+  </data>
+  <data name="ChangeElementLocked" xml:space="preserve">
+    <value>Change Element Locked</value>
   </data>
   <data name="InsertKeyFrame" xml:space="preserve">
     <value>Insert Key Frame</value>

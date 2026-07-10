@@ -19,6 +19,11 @@ public sealed class ElementResizeService : IElementResizeService
         ArgumentNullException.ThrowIfNull(requests);
         if (requests.Count == 0) return;
 
+        // Drop locked targets here, at the single mutation boundary the UI submits to: a clip or its
+        // layer may have been locked mid-drag, after the press-time guard already staged the request.
+        requests = requests.Where(r => !scene.IsElementLocked(r.Element)).ToArray();
+        if (requests.Count == 0) return;
+
         bool autoAdjustSceneDuration = ripple && GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration;
         var oldBounds = ripple ? new Dictionary<Element, (int ZIndex, TimeSpan Start, TimeSpan End)>(requests.Count) : null;
         var clamped = ripple ? new Dictionary<Element, (TimeSpan Start, TimeSpan Length)>(requests.Count) : null;
@@ -29,7 +34,9 @@ public sealed class ElementResizeService : IElementResizeService
             {
                 ValidateRippleRequest(req);
                 // Clamp computed against pre-mutation state so the write loop applies a floor-safe start.
-                clamped![req.Element] = ClampRippleStart(scene, req, resizedSet);
+                (TimeSpan start, TimeSpan length) = ClampRippleStart(scene, req, resizedSet);
+                length = ClampRippleEnd(scene, req, start, length, resizedSet);
+                clamped![req.Element] = (start, length);
                 oldBounds![req.Element] = (req.Element.ZIndex, req.Element.Start, req.Element.Range.End);
             }
         }
@@ -109,9 +116,10 @@ public sealed class ElementResizeService : IElementResizeService
         }
     }
 
-    // Limits a same-layer left-edge grow so the ripple shift cannot push any upstream element's
-    // Start below zero, keeping the requested end. Clamps rather than throws: UI callers run on an
-    // async-void pointer path, and frame rounding at submission can dip below the preview floor.
+    // Limits a same-layer left-edge grow so the rigid ripple shift cannot push any upstream element
+    // below zero or onto a locked clip, keeping the requested end. Clamps rather than throws: UI
+    // callers run on an async-void pointer path, and frame rounding at submission can dip below the
+    // preview floor.
     private static (TimeSpan Start, TimeSpan Length) ClampRippleStart(
         Scene scene, ElementResizeRequest req, IReadOnlyCollection<Element> resized)
     {
@@ -120,31 +128,116 @@ public sealed class ElementResizeService : IElementResizeService
         TimeSpan startDelta = req.NewStart - req.Element.Start;
         if (startDelta >= TimeSpan.Zero) return (req.NewStart, req.NewLength);
 
-        TimeSpan? minUpstreamStart = null;
+        // Collect the layer's locked-clip ends once and sort them; a locked clip is an immovable
+        // barrier the upstream shift cannot cross, so each clip's floor is one binary search.
+        var lockedEnds = new List<TimeSpan>();
         foreach (Element e in scene.Children)
         {
-            if (e.ZIndex == req.Element.ZIndex && !resized.Contains(e) && e.Range.End <= req.Element.Start)
-            {
-                if (minUpstreamStart is not { } cur || e.Start < cur) minUpstreamStart = e.Start;
-            }
+            if (e.ZIndex == req.Element.ZIndex && e.IsLocked) lockedEnds.Add(e.Range.End);
         }
 
-        if (minUpstreamStart is not { } floor || startDelta >= -floor)
+        lockedEnds.Sort();
+
+        // Every upstream clip shifts left by the same delta, so the grow is bounded by the tightest
+        // room: each clip can move left only to the timeline start or the end of the nearest locked
+        // clip in front of it (locked clips are immovable and must not be overlapped). Seed the bound
+        // with the resized clip's own room so its left edge is clamped even with no free upstream clip.
+        TimeSpan maxGrow = req.Element.Start - NearestLockedEndAtOrBefore(lockedEnds, req.Element.Start);
+        foreach (Element e in scene.Children)
+        {
+            if (e.ZIndex != req.Element.ZIndex || resized.Contains(e) || e.IsLocked
+                || e.Range.End > req.Element.Start)
+            {
+                continue;
+            }
+
+            TimeSpan room = e.Start - NearestLockedEndAtOrBefore(lockedEnds, e.Start);
+            if (room < maxGrow) maxGrow = room;
+        }
+
+        if (startDelta >= -maxGrow)
         {
             return (req.NewStart, req.NewLength);
         }
 
-        TimeSpan clampedStart = req.Element.Start - floor;
+        TimeSpan clampedStart = req.Element.Start - maxGrow;
         TimeSpan clampedLength = req.NewStart + req.NewLength - clampedStart;
         if (clampedLength <= TimeSpan.Zero)
         {
-            // Requested end sits before the floor: keeping upstream >= 0 and the end while staying
-            // positive is impossible. A left-edge resize keeps the end, so the UI never reaches this.
+            // Requested end sits before the clamp point: keeping upstream in bounds and the end while
+            // staying positive is impossible. A left-edge resize keeps the end, so the UI never reaches this.
             throw new ArgumentOutOfRangeException(
                 nameof(ElementResizeRequest.NewLength),
                 "Ripple left-shift cannot preserve the requested end with a positive length.");
         }
 
         return (clampedStart, clampedLength);
+    }
+
+    // Largest end in the sorted list that is at or before start, or zero (the timeline floor) when
+    // none qualifies.
+    private static TimeSpan NearestLockedEndAtOrBefore(List<TimeSpan> sortedEnds, TimeSpan start)
+    {
+        int lo = 0, hi = sortedEnds.Count - 1;
+        TimeSpan floor = TimeSpan.Zero;
+        while (lo <= hi)
+        {
+            int mid = (lo + hi) >>> 1;
+            if (sortedEnds[mid] <= start)
+            {
+                floor = sortedEnds[mid];
+                lo = mid + 1;
+            }
+            else
+            {
+                hi = mid - 1;
+            }
+        }
+
+        return floor;
+    }
+
+    // Limits a same-layer right-edge grow so the ripple shift cannot push any follower onto a
+    // locked follower, which stays anchored. The rightmost non-locked follower before the lock
+    // hits it first, so the growing run may only advance until that clip touches the lock.
+    private static TimeSpan ClampRippleEnd(
+        Scene scene, ElementResizeRequest req, TimeSpan start, TimeSpan length, IReadOnlyCollection<Element> resized)
+    {
+        if (req.ZIndex != req.Element.ZIndex) return length;
+
+        TimeSpan oldEnd = req.Element.Range.End;
+        TimeSpan newEnd = start + length;
+        if (newEnd <= oldEnd) return length;
+
+        TimeSpan? nearestLockedStart = null;
+        foreach (Element e in scene.Children)
+        {
+            if (e.ZIndex == req.Element.ZIndex && e.IsLocked && e.Start >= oldEnd)
+            {
+                if (nearestLockedStart is not { } cur || e.Start < cur) nearestLockedStart = e.Start;
+            }
+        }
+
+        if (nearestLockedStart is not { } lockStart) return length;
+
+        TimeSpan blockingEnd = oldEnd;
+        foreach (Element e in scene.Children)
+        {
+            if (e.ZIndex == req.Element.ZIndex && !e.IsLocked && !resized.Contains(e)
+                && e.Start >= oldEnd && e.Start < lockStart && e.Range.End > blockingEnd)
+            {
+                blockingEnd = e.Range.End;
+            }
+        }
+
+        TimeSpan maxEnd = oldEnd + (lockStart - blockingEnd);
+        if (newEnd <= maxEnd) return length;
+
+        TimeSpan clampedEnd = maxEnd > oldEnd ? maxEnd : oldEnd;
+        // A start past the clamp point (e.g. the element also moved right onto the lock) would make
+        // the clamped length non-positive and corrupt the range; leave the length to the caller's
+        // move validation instead of forcing a bad value here.
+        TimeSpan clampedLength = clampedEnd - start;
+        return clampedLength > TimeSpan.Zero ? clampedLength : length;
     }
 }

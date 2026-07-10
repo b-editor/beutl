@@ -73,6 +73,127 @@ public class ElementBehaviorTests
     }
 
     [Test]
+    public void TimelineLayer_CompositionalChangeRaisesSceneEdited()
+    {
+        var scene = new Scene(1920, 1080, string.Empty);
+        var layer = new TimelineLayer { ZIndex = 2 };
+        scene.Layers.Add(layer);
+        int count = 0;
+        scene.Edited += (_, _) => count++;
+
+        layer.IsVideoMuted = true;
+        layer.IsAudioMuted = true;
+        layer.IsSolo = true;
+        layer.ZIndex = 3;
+
+        Assert.That(count, Is.EqualTo(4));
+    }
+
+    [Test]
+    public void TimelineLayer_EditorOnlyChangeDoesNotRaiseSceneEdited()
+    {
+        var scene = new Scene(1920, 1080, string.Empty);
+        var layer = new TimelineLayer { ZIndex = 2 };
+        scene.Layers.Add(layer);
+        int count = 0;
+        scene.Edited += (_, _) => count++;
+
+        layer.IsLocked = true;
+        layer.Color = Beutl.Media.Colors.Red;
+        layer.Name = "renamed";
+
+        Assert.That(count, Is.Zero);
+    }
+
+    [Test]
+    public void Layers_AddOrRemoveDefaultModel_DoesNotRaiseSceneEdited()
+    {
+        var scene = new Scene(1920, 1080, string.Empty);
+        int count = 0;
+        scene.Edited += (_, _) => count++;
+
+        var lockOnly = new TimelineLayer { ZIndex = 1, IsLocked = true };
+        scene.Layers.Add(lockOnly);
+        scene.Layers.Remove(lockOnly);
+
+        Assert.That(count, Is.Zero);
+    }
+
+    [Test]
+    public void Layers_AddOrRemoveCompositionalModel_RaisesSceneEdited()
+    {
+        var scene = new Scene(1920, 1080, string.Empty);
+        int count = 0;
+        scene.Edited += (_, _) => count++;
+
+        var soloed = new TimelineLayer { ZIndex = 1, IsSolo = true };
+        scene.Layers.Add(soloed);
+        scene.Layers.Remove(soloed);
+
+        Assert.That(count, Is.EqualTo(2));
+    }
+
+    [Test]
+    public void AddChild_AutoPlacement_SkipsLockedLayer()
+    {
+        string basePath = Path.Combine(Path.GetTempPath(), $"beutl_addchild_{Guid.NewGuid():N}");
+        var scene = new Scene(1920, 1080, string.Empty)
+        {
+            Uri = new Uri(Path.Combine(basePath, "test.scene"))
+        };
+        var occupying = new Element
+        {
+            Start = TimeSpan.Zero,
+            Length = TimeSpan.FromSeconds(5),
+            ZIndex = 0,
+            Uri = new Uri(Path.Combine(basePath, "a.belm")),
+        };
+        scene.Children.Add(occupying);
+        scene.Layers.Add(new TimelineLayer { ZIndex = 1, IsLocked = true });
+        var added = new Element
+        {
+            Start = TimeSpan.FromSeconds(1),
+            Length = TimeSpan.FromSeconds(2),
+            ZIndex = 0,
+            Uri = new Uri(Path.Combine(basePath, "b.belm")),
+        };
+
+        scene.AddChild(added);
+
+        Assert.That(added.ZIndex, Is.EqualTo(2));
+    }
+
+    [Test]
+    public void IsLayerLocked_ReflectsLayerModel()
+    {
+        var scene = new Scene(1920, 1080, string.Empty);
+        scene.Layers.Add(new TimelineLayer { ZIndex = 2, IsLocked = true });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(scene.IsLayerLocked(2), Is.True);
+            Assert.That(scene.IsLayerLocked(0), Is.False);
+        });
+    }
+
+    [Test]
+    public void IsElementLocked_TrueWhenElementOrItsLayerIsLocked()
+    {
+        var scene = new Scene(1920, 1080, string.Empty);
+        var onLockedLayer = new Element { ZIndex = 2 };
+        var selfLocked = new Element { ZIndex = 0, IsLocked = true };
+        var free = new Element { ZIndex = 0 };
+        scene.Layers.Add(new TimelineLayer { ZIndex = 2, IsLocked = true });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(scene.IsElementLocked(onLockedLayer), Is.True);
+            Assert.That(scene.IsElementLocked(selfLocked), Is.True);
+            Assert.That(scene.IsElementLocked(free), Is.False);
+        });
+    }
+
+    [Test]
     public void AddObject_FlowOperator_AlsoAddsPortalBeforeIt()
     {
         var element = new Element();

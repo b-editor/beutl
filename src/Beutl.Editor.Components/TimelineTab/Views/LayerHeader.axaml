@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+             xmlns:lang="using:Beutl.Language"
              xmlns:local="using:Beutl.Editor.Components.TimelineTab.Views"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
@@ -19,6 +20,9 @@
              mc:Ignorable="d">
     <Grid RowDefinitions="25,*">
         <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="Auto" />
@@ -41,11 +45,68 @@
         </Border>
 
         <ToggleButton Grid.Column="1"
-                      Command="{Binding SwitchEnabledCommand}"
-                      IsChecked="{Binding IsEnabled.Value, Mode=OneWay}"
-                      Theme="{StaticResource VisibilityToggleButtonStyle}" />
+                      Command="{Binding ToggleLockCommand}"
+                      IsChecked="{Binding IsLocked.Value, Mode=OneWay}"
+                      Theme="{StaticResource LayerHeaderToggleButtonStyle}"
+                      ToolTip.Tip="{x:Static lang:Strings.Lock}">
+            <ToggleButton.Styles>
+                <Style Selector="ToggleButton > icons|FluentIcon">
+                    <Setter Property="Icon" Value="LockOpen" />
+                </Style>
+                <Style Selector="ToggleButton:checked > icons|FluentIcon">
+                    <Setter Property="Icon" Value="LockClosed" />
+                </Style>
+            </ToggleButton.Styles>
+            <icons:FluentIcon FontSize="14" />
+        </ToggleButton>
 
-        <ui:ColorPickerButton Grid.Column="2"
+        <ToggleButton Grid.Column="2"
+                      Command="{Binding ToggleVideoMuteCommand}"
+                      IsChecked="{Binding IsVideoMuted.Value, Mode=OneWay}"
+                      Theme="{StaticResource LayerHeaderToggleButtonStyle}"
+                      ToolTip.Tip="{x:Static lang:Strings.Video}">
+            <ToggleButton.Styles>
+                <Style Selector="ToggleButton > icons|FluentIcon">
+                    <Setter Property="Icon" Value="Video" />
+                </Style>
+                <Style Selector="ToggleButton:checked > icons|FluentIcon">
+                    <Setter Property="Icon" Value="VideoOff" />
+                </Style>
+            </ToggleButton.Styles>
+            <icons:FluentIcon FontSize="14" />
+        </ToggleButton>
+
+        <ToggleButton Grid.Column="3"
+                      Command="{Binding ToggleAudioMuteCommand}"
+                      IsChecked="{Binding IsAudioMuted.Value, Mode=OneWay}"
+                      Theme="{StaticResource LayerHeaderToggleButtonStyle}"
+                      ToolTip.Tip="{x:Static lang:Strings.Audio}">
+            <ToggleButton.Styles>
+                <Style Selector="ToggleButton > icons|FluentIcon">
+                    <Setter Property="Icon" Value="Speaker1" />
+                </Style>
+                <Style Selector="ToggleButton:checked > icons|FluentIcon">
+                    <Setter Property="Icon" Value="SpeakerMute" />
+                </Style>
+            </ToggleButton.Styles>
+            <icons:FluentIcon FontSize="14" />
+        </ToggleButton>
+
+        <ToggleButton Grid.Column="4"
+                      Command="{Binding ToggleSoloCommand}"
+                      IsChecked="{Binding IsSolo.Value, Mode=OneWay}"
+                      Theme="{StaticResource LayerHeaderToggleButtonStyle}"
+                      ToolTip.Tip="{x:Static lang:Strings.Solo}">
+            <ToggleButton.Styles>
+                <Style Selector="ToggleButton:checked > icons|FluentIcon">
+                    <Setter Property="IconVariant" Value="Filled" />
+                </Style>
+            </ToggleButton.Styles>
+            <icons:FluentIcon FontSize="14"
+                              Icon="Star" />
+        </ToggleButton>
+
+        <ui:ColorPickerButton Grid.Column="5"
                               MinHeight="{DynamicResource LayerHeight}"
                               CustomPaletteColors="{StaticResource PaletteColors}"
                               FlyoutConfirmed="OnColorChanged"
@@ -55,13 +116,13 @@
                               Color="{Binding Color.Value, Mode=OneWay}" />
 
         <TextBox x:Name="NameTextBox"
-                 Grid.Column="3"
+                 Grid.Column="6"
                  Theme="{StaticResource LayerHeaderNameTextBoxTheme}"
                  InputMethod.IsInputMethodEnabled="True"
                  Text="{Binding Name.Value}" />
 
         <ItemsControl Grid.Row="1"
-                      Grid.ColumnSpan="4"
+                      Grid.ColumnSpan="7"
                       ItemsSource="{CompiledBinding Inlines}">
             <ItemsControl.ItemTemplate>
                 <DataTemplate>

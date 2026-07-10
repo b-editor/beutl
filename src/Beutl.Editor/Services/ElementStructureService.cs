@@ -20,9 +20,13 @@ public sealed class ElementStructureService : IElementStructureService
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(elements);
-        if (elements.Count == 0) return;
+        Element[] editable = elements.Where(e => !scene.IsElementLocked(e)).ToArray();
+        if (editable.Length == 0) return;
 
-        RippleHelper.RemoveAndShiftAfter(scene, elements, ripple, scene.RemoveChild);
+        RippleHelper.RemoveAndShiftAfter(scene, editable, ripple, scene.RemoveChild);
+
+        RemoveIdsFromGroups(scene, editable.Select(e => e.Id).ToArray());
+
         _historyManager.Commit(CommandNames.RemoveElement);
     }
 
@@ -30,9 +34,13 @@ public sealed class ElementStructureService : IElementStructureService
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(elements);
-        if (elements.Count == 0) return;
+        Element[] editable = elements.Where(e => !scene.IsElementLocked(e)).ToArray();
+        if (editable.Length == 0) return;
 
-        RippleHelper.RemoveAndShiftAfter(scene, elements, ripple, scene.DeleteChild);
+        RippleHelper.RemoveAndShiftAfter(scene, editable, ripple, scene.DeleteChild);
+
+        RemoveIdsFromGroups(scene, editable.Select(e => e.Id).ToArray());
+
         _historyManager.Commit(CommandNames.DeleteElement);
     }
 
@@ -49,6 +57,8 @@ public sealed class ElementStructureService : IElementStructureService
 
         foreach (Element target in targets)
         {
+            if (scene.IsElementLocked(target)) continue;
+
             TimeSpan forwardDuration = at - target.Start;
             TimeSpan backwardDuration = target.Length - forwardDuration;
             if (forwardDuration < minDuration || backwardDuration < minDuration) continue;
@@ -110,6 +120,7 @@ public sealed class ElementStructureService : IElementStructureService
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(ids);
+        ids = FilterStrandingIds(scene, FilterUnlockedIds(scene, ids));
         if (ids.Count == 0) return GroupOutcome.NotCreated;
 
         // Remove ids from existing groups first — with a single id this acts as
@@ -141,6 +152,7 @@ public sealed class ElementStructureService : IElementStructureService
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(ids);
+        ids = FilterStrandingIds(scene, FilterUnlockedIds(scene, ids));
         if (ids.Count == 0) return;
 
         if (RemoveIdsFromGroups(scene, ids))
@@ -150,27 +162,66 @@ public sealed class ElementStructureService : IElementStructureService
     }
 
     private static bool RemoveIdsFromGroups(Scene scene, IReadOnlyCollection<Guid> ids)
+        => scene.RemoveElementsFromGroups(ids);
+
+    // Refuses to pull an editable member out of a group when that would leave the group with only a
+    // locked survivor: disbanding it would silently change the locked member's grouping. Such ids are
+    // dropped from the request so the group is left intact. Only structural regroups (Ungroup/Group)
+    // use this — removal ops (Delete/Exclude/Cut) must always prune a removed element's id.
+    private static IReadOnlyCollection<Guid> FilterStrandingIds(Scene scene, IReadOnlyCollection<Guid> ids)
     {
-        bool removed = false;
-        for (int i = scene.Groups.Count - 1; i >= 0; i--)
+        if (ids.Count == 0) return ids;
+
+        HashSet<Guid>? lockedIds = null;
+        foreach (Element child in scene.Children)
         {
-            ImmutableHashSet<Guid> group = scene.Groups[i];
-            if (!group.Overlaps(ids)) continue;
-
-            ImmutableHashSet<Guid> updated = group.Except(ids);
-            if (updated.Count >= 2)
-            {
-                scene.Groups[i] = updated;
-            }
-            else
-            {
-                scene.Groups.RemoveAt(i);
-            }
-
-            removed = true;
+            if (scene.IsElementLocked(child)) (lockedIds ??= []).Add(child.Id);
         }
 
-        return removed;
+        if (lockedIds is null) return ids;
+
+        var idSet = new HashSet<Guid>(ids);
+        HashSet<Guid>? refused = null;
+        foreach (ImmutableHashSet<Guid> group in scene.Groups)
+        {
+            int survivors = 0;
+            bool lockedSurvivor = false;
+            foreach (Guid member in group)
+            {
+                if (idSet.Contains(member)) continue;
+                survivors++;
+                lockedSurvivor |= lockedIds.Contains(member);
+            }
+
+            if (survivors < 2 && lockedSurvivor)
+            {
+                foreach (Guid member in group)
+                {
+                    if (idSet.Contains(member)) (refused ??= []).Add(member);
+                }
+            }
+        }
+
+        if (refused is null) return ids;
+        return ids.Where(id => !refused.Contains(id)).ToArray();
+    }
+
+    // Ids with no matching element cannot be locked and pass through unchanged.
+    private static IReadOnlyCollection<Guid> FilterUnlockedIds(Scene scene, IReadOnlyCollection<Guid> ids)
+    {
+        if (ids.Count == 0) return ids;
+
+        HashSet<Guid>? locked = null;
+        foreach (Element child in scene.Children)
+        {
+            if (scene.IsElementLocked(child))
+            {
+                (locked ??= []).Add(child.Id);
+            }
+        }
+
+        if (locked is null) return ids;
+        return ids.Where(id => !locked.Contains(id)).ToArray();
     }
 
     private static void ShiftLocalKeyFrames(Element element, TimeSpan delta)

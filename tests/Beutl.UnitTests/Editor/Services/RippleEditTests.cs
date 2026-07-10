@@ -321,6 +321,27 @@ public class RippleEditTests
     }
 
     [Test]
+    public void Resize_LockedElement_IsFilteredOut_NoResizeNoCommit()
+    {
+        var resize = new ElementResizeService(_history);
+        Element locked = AddElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(2), zIndex: 0);
+        locked.IsLocked = true;
+        int before = _history.UndoCount;
+
+        // Simulates a lock toggled mid-drag: the release still submits the staged request, but the
+        // service drops locked targets so nothing is committed.
+        resize.Resize(_scene,
+            [new ElementResizeRequest(locked, TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(5), 0)],
+            ripple: false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(locked.Length, Is.EqualTo(TimeSpan.FromSeconds(2)), "a locked clip must not be resized");
+            Assert.That(_history.UndoCount, Is.EqualTo(before), "no commit when the only request is filtered");
+        });
+    }
+
+    [Test]
     public void Resize_RippleOff_PreservesTraditionalBehavior()
     {
         var resize = new ElementResizeService(_history);
@@ -347,6 +368,258 @@ public class RippleEditTests
 
         // Harness wires CoreObjectOperationObserver only, not CollectionOperationObserver, so removal undo is not asserted here.
         Assert.That(afterSame.Start, Is.EqualTo(TimeSpan.FromSeconds(2)), "single undo restores the ripple shift");
+    }
+
+    [Test]
+    public void ShiftAfter_LockedFollower_BlocksLaterUnlocked()
+    {
+        Element a = AddElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(2));
+        Element locked = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
+        Element free = AddElement(TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(2));
+        locked.IsLocked = true;
+
+        RippleHelper.ShiftAfter(_scene, zIndex: 0, anchorEnd: TimeSpan.FromSeconds(2),
+            delta: TimeSpan.FromSeconds(-2), except: [a]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(locked.Start, Is.EqualTo(TimeSpan.FromSeconds(2)), "locked follower must not move");
+            Assert.That(free.Start, Is.EqualTo(TimeSpan.FromSeconds(4)),
+                "a locked clip blocks the ripple, so the later unlocked follower is not pulled onto it");
+        });
+    }
+
+    [Test]
+    public void ShiftAfter_LockedClip_StopsPropagationToLaterFollowers()
+    {
+        Element a = AddElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(2));
+        Element locked = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
+        Element free1 = AddElement(TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(2));
+        Element free2 = AddElement(TimeSpan.FromSeconds(6), TimeSpan.FromSeconds(2));
+        locked.IsLocked = true;
+
+        RippleHelper.ShiftAfter(_scene, zIndex: 0, anchorEnd: TimeSpan.FromSeconds(2),
+            delta: TimeSpan.FromSeconds(-2), except: [a]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(locked.Start, Is.EqualTo(TimeSpan.FromSeconds(2)), "locked clip must not move");
+            Assert.That(free1.Start, Is.EqualTo(TimeSpan.FromSeconds(4)),
+                "free1 is blocked by the locked clip and stays put");
+            Assert.That(free2.Start, Is.EqualTo(TimeSpan.FromSeconds(6)),
+                "propagation stops at the locked clip, so free2 is not shifted into free1");
+        });
+    }
+
+    [Test]
+    public void Delete_RippleOn_LockedClipBeforeFollower_StopsRipple()
+    {
+        var structure = new ElementStructureService(_history);
+        Element removed = AddElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(10), zIndex: 0);
+        Element locked = AddElement(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(10), zIndex: 0);
+        Element free = AddElement(TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(10), zIndex: 0);
+        locked.IsLocked = true;
+
+        structure.Delete(_scene, [removed], ripple: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_scene.Children, Does.Not.Contain(removed));
+            Assert.That(locked.Start, Is.EqualTo(TimeSpan.FromSeconds(10)), "locked clip is an immovable anchor");
+            Assert.That(free.Start, Is.EqualTo(TimeSpan.FromSeconds(20)),
+                "ripple stops at the locked clip; the later unlocked clip is not shifted over it");
+        });
+    }
+
+    [Test]
+    public void ShiftBefore_LeftPush_StopsFreeClipAtLockedUpstream()
+    {
+        Element locked = AddElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(2));
+        Element free = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
+        Element target = AddElement(TimeSpan.FromSeconds(6), TimeSpan.FromSeconds(2));
+        locked.IsLocked = true;
+
+        // A left push (delta < 0) would move free from [2,4] to [0,2], onto the locked clip; the
+        // locked clip anchors the ripple, so free is not shifted.
+        RippleHelper.ShiftBefore(_scene, zIndex: 0, anchorStart: TimeSpan.FromSeconds(6),
+            delta: TimeSpan.FromSeconds(-2), except: [target]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(locked.Start, Is.EqualTo(TimeSpan.Zero), "locked upstream must not move");
+            Assert.That(free.Start, Is.EqualTo(TimeSpan.FromSeconds(2)), "free is blocked by the locked clip");
+        });
+    }
+
+    [Test]
+    public void Delete_RippleOn_DoesNotShiftLockedFollower()
+    {
+        var structure = new ElementStructureService(_history);
+        Element removed = AddElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(2), zIndex: 0);
+        Element lockedFollower = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2), zIndex: 0);
+        lockedFollower.IsLocked = true;
+
+        structure.Delete(_scene, [removed], ripple: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_scene.Children, Does.Not.Contain(removed));
+            Assert.That(lockedFollower.Start, Is.EqualTo(TimeSpan.FromSeconds(2)),
+                "ripple close-gap must not bypass the follower's lock");
+        });
+    }
+
+    [Test]
+    public void Resize_RippleOn_RightEdgeGrow_ClampsAtLockedFollower()
+    {
+        var resize = new ElementResizeService(_history);
+        Element target = AddElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(2), zIndex: 0);
+        Element lockedFollower = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2), zIndex: 0);
+        lockedFollower.IsLocked = true;
+
+        // Growing target's right edge from 2 to 5 would overlap the immovable locked follower at
+        // [2,4]; the grow is clamped to the lock's start so nothing lands on it.
+        resize.Resize(_scene,
+            [new ElementResizeRequest(target, TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(5), 0)],
+            ripple: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(target.Range.End, Is.EqualTo(TimeSpan.FromSeconds(2)),
+                "right edge clamped to the locked follower's start");
+            Assert.That(lockedFollower.Start, Is.EqualTo(TimeSpan.FromSeconds(2)),
+                "ripple resize must not bypass the neighbor's lock");
+        });
+    }
+
+    [Test]
+    public void Resize_RippleOn_RightEdgeGrow_ClampsRunToTouchLockedFollower()
+    {
+        var resize = new ElementResizeService(_history);
+        Element target = AddElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(2), zIndex: 0);
+        Element free = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2), zIndex: 0);
+        Element lockedFollower = AddElement(TimeSpan.FromSeconds(6), TimeSpan.FromSeconds(2), zIndex: 0);
+        lockedFollower.IsLocked = true;
+
+        // A free follower sits between target and the locked clip; the grow may advance only until
+        // that free follower's right edge touches the lock at 6, so target stops at end 4.
+        resize.Resize(_scene,
+            [new ElementResizeRequest(target, TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(10), 0)],
+            ripple: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(target.Range.End, Is.EqualTo(TimeSpan.FromSeconds(4)), "grow stops short of the lock");
+            Assert.That(free.Start, Is.EqualTo(TimeSpan.FromSeconds(4)), "free follower shifted right to touch the lock");
+            Assert.That(lockedFollower.Start, Is.EqualTo(TimeSpan.FromSeconds(6)), "locked follower stays put");
+        });
+    }
+
+    [Test]
+    public void Resize_RippleOn_StartPastLockedFollower_DoesNotProduceNegativeLength()
+    {
+        var resize = new ElementResizeService(_history);
+        Element target = AddElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(2), zIndex: 0);
+        Element locked = AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(2), zIndex: 0);
+        locked.IsLocked = true;
+
+        // Contrived request: the element both jumps right (start 10) and grows (end 23) past the locked
+        // follower. The end-clamp point (3) sits left of the new start, so an unguarded clamp would
+        // yield a negative length; the guard keeps the requested positive length instead of corrupting.
+        resize.Resize(_scene,
+            [new ElementResizeRequest(target, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(13), 0)],
+            ripple: true);
+
+        Assert.That(target.Length, Is.EqualTo(TimeSpan.FromSeconds(13)));
+    }
+
+    [Test]
+    public void ShiftBefore_LeftEdgeTrim_StopsPullAtLockedUpstream()
+    {
+        Element free = AddElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(2));
+        Element locked = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
+        Element target = AddElement(TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(2));
+        locked.IsLocked = true;
+
+        // Left-edge trim of target (start 4 -> 6) pulls upstream clips right; shifting the free clip
+        // right would land it on the locked clip at [2,4], so the pull stops and it holds its start of 0.
+        RippleHelper.ShiftBefore(_scene, zIndex: 0, anchorStart: TimeSpan.FromSeconds(4),
+            delta: TimeSpan.FromSeconds(2), except: [target]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(free.Start, Is.EqualTo(TimeSpan.Zero), "free upstream is blocked by the locked clip, not pulled right");
+            Assert.That(locked.Start, Is.EqualTo(TimeSpan.FromSeconds(2)), "locked clip must not move");
+        });
+    }
+
+    [Test]
+    public void Resize_RippleOn_LeftEdgeGrow_LockedUpstreamPacksFree_ClampsGrowAway()
+    {
+        var resize = new ElementResizeService(_history);
+        Element lockedUpstream = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), zIndex: 0);
+        Element freeUpstream = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2), zIndex: 0);
+        Element target = AddElement(TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(4), zIndex: 0);
+        lockedUpstream.IsLocked = true;
+
+        // The free upstream [2,4] is packed against the locked clip's end (2), so the rigid ripple
+        // cannot shift it left at all; the locked clip anchors the ripple and the grow is clamped away.
+        resize.Resize(_scene,
+            [new ElementResizeRequest(target, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(6), 0)],
+            ripple: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(target.Start, Is.EqualTo(TimeSpan.FromSeconds(4)), "grow clamped: locked upstream packs the free clip");
+            Assert.That(freeUpstream.Start, Is.EqualTo(TimeSpan.FromSeconds(2)), "free upstream cannot move onto the lock");
+            Assert.That(lockedUpstream.Start, Is.EqualTo(TimeSpan.FromSeconds(1)), "locked upstream stays put");
+        });
+    }
+
+    [Test]
+    public void Resize_RippleOn_LeftEdgeGrow_LockedClipDirectlyBefore_ClampsGrowAway()
+    {
+        var resize = new ElementResizeService(_history);
+        Element locked = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2), zIndex: 0);
+        Element target = AddElement(TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(2), zIndex: 0);
+        locked.IsLocked = true;
+
+        // The only upstream clip is the locked one directly before target (no free clip to bound the
+        // shift), so the grow must still be clamped by target's own room to the lock, which is zero.
+        resize.Resize(_scene,
+            [new ElementResizeRequest(target, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(4), 0)],
+            ripple: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(target.Start, Is.EqualTo(TimeSpan.FromSeconds(4)), "left edge cannot cross the locked clip");
+            Assert.That(target.Range.End, Is.EqualTo(TimeSpan.FromSeconds(6)), "end unchanged");
+            Assert.That(locked.Start, Is.EqualTo(TimeSpan.FromSeconds(2)), "locked clip stays put");
+        });
+    }
+
+    [Test]
+    public void Resize_RippleOn_LeftEdgeGrow_ClampsToLockedUpstreamEnd()
+    {
+        var resize = new ElementResizeService(_history);
+        Element locked = AddElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(1), zIndex: 0);
+        Element free = AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(2), zIndex: 0);
+        Element target = AddElement(TimeSpan.FromSeconds(7), TimeSpan.FromSeconds(2), zIndex: 0);
+        locked.IsLocked = true;
+
+        // Free [3,5] has room 2 before the locked clip's end (1); the grow may advance only that far,
+        // so free lands touching the lock at [1,3] and target's left edge reaches 5.
+        resize.Resize(_scene,
+            [new ElementResizeRequest(target, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(8), 0)],
+            ripple: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(free.Start, Is.EqualTo(TimeSpan.FromSeconds(1)), "free clamped to touch the locked clip's end");
+            Assert.That(target.Start, Is.EqualTo(TimeSpan.FromSeconds(5)), "grow clamped by the free clip's room before the lock");
+            Assert.That(target.Range.End, Is.EqualTo(TimeSpan.FromSeconds(9)), "right edge preserved");
+            Assert.That(locked.Start, Is.EqualTo(TimeSpan.Zero), "locked upstream stays put");
+        });
     }
 
     [Test]

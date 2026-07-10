@@ -60,4 +60,49 @@
         <Setter Property="BorderThickness" Value="0" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
     </ControlTheme>
+
+    <ControlTheme x:Key="LayerHeaderToggleButtonStyle"
+                  TargetType="ToggleButton"
+                  BasedOn="{StaticResource {x:Type ToggleButton}}">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="MinWidth" Value="{DynamicResource LayerHeight}" />
+        <Setter Property="MinHeight" Value="{DynamicResource LayerHeight}" />
+        <Setter Property="VerticalAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Name="PART_Root"
+                        Padding="{TemplateBinding Padding}"
+                        Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        ClipToBounds="True"
+                        CornerRadius="{TemplateBinding CornerRadius}">
+                    <ContentPresenter Name="PART_ContentPresenter"
+                                      HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                      VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                      Content="{TemplateBinding Content}" />
+                </Border>
+            </ControlTemplate>
+        </Setter>
+        <Style Selector="^:pointerover /template/ Border#PART_Root">
+            <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+        </Style>
+        <Style Selector="^:pressed /template/ Border#PART_Root">
+            <Setter Property="Background" Value="{DynamicResource SubtleFillColorTertiaryBrush}" />
+        </Style>
+        <Style Selector="^:checked /template/ Border#PART_Root">
+            <Setter Property="Background" Value="{DynamicResource ToggleButtonBackgroundIndeterminate}" />
+        </Style>
+        <Style Selector="^:checked:pointerover /template/ Border#PART_Root">
+            <Setter Property="Background" Value="{DynamicResource ToggleButtonBackgroundIndeterminatePointerOver}" />
+        </Style>
+        <Style Selector="^:checked:pressed /template/ Border#PART_Root">
+            <Setter Property="Background" Value="{DynamicResource ToggleButtonBackgroundIndeterminatePressed}" />
+        </Style>
+    </ControlTheme>
 </ResourceDictionary>

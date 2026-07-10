@@ -16,6 +16,7 @@ using Beutl.Media.Decoding;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
+using Beutl.Services;
 using Beutl.Threading;
 using Microsoft.Extensions.Logging;
 
@@ -31,6 +32,11 @@ internal sealed class ElementAdderImpl(EditViewModel context) : IElementAdder
         _logger.LogInformation("Adding new element with description: {Description}", desc);
 
         Scene scene = _context.Scene;
+        if (scene.IsLayerLocked(desc.Layer))
+        {
+            NotificationService.ShowWarning(Strings.Lock, Strings.LayerIsLocked);
+            return;
+        }
 
         Element CreateElement()
         {
@@ -118,6 +124,14 @@ internal sealed class ElementAdderImpl(EditViewModel context) : IElementAdder
             else if (MatchFileVideoOnly(desc.FileName))
             {
                 _logger.LogDebug("File is a video.");
+                // The audio companion goes to desc.Layer + 1; refuse the whole
+                // import rather than adding the video without its sound.
+                if (scene.IsLayerLocked(desc.Layer + 1))
+                {
+                    NotificationService.ShowWarning(Strings.Lock, Strings.LayerIsLocked);
+                    return;
+                }
+
                 Element element1 = CreateElementFor<SourceVideo>(out var t1);
                 Element element2 = CreateElementFor<SourceSound>(out var t2);
                 element2.ZIndex++;
@@ -231,6 +245,11 @@ internal sealed class ElementAdderImpl(EditViewModel context) : IElementAdder
         _logger.LogInformation("Adding element from template: {TemplateName}", template.Name.Value);
 
         Scene scene = _context.Scene;
+        if (scene.IsLayerLocked(layer))
+        {
+            NotificationService.ShowWarning(Strings.Lock, Strings.LayerIsLocked);
+            return;
+        }
 
         ICoreSerializable? instance = template.CreateInstance();
         Element newElement;

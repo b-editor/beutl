@@ -14,19 +14,19 @@ namespace Beutl.Editor.Components.TimelineTab.ViewModels;
 public sealed class LayerHeaderViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = [];
-    private readonly List<ElementViewModel> _elements = [];
     private readonly ReactivePropertySlim<TimelineLayer?> _model = new();
-    private IDisposable? _elementsSubscription;
-    private bool _skipSubscription;
 
     public LayerHeaderViewModel(int num, TimelineTabViewModel timeline)
     {
         Timeline = timeline;
         _model.Value = timeline.Scene.Layers.FirstOrDefault(i => i.ZIndex == num);
 
-        Number = _model.Select(i => i?.GetObservable(TimelineLayer.ZIndexProperty) ?? Observable.ReturnThenNever(num))
+        // Never (not ReturnThenNever(num)): when the model is pruned after this
+        // header moved rows, re-emitting the construction-time num would snap
+        // Number back to the original row.
+        Number = _model.Select(i => i?.GetObservable(TimelineLayer.ZIndexProperty) ?? Observable.Never<int>())
             .Switch()
-            .ToReactiveProperty();
+            .ToReactiveProperty(num);
         Name = _model.Select(i => i?.GetObservable(CoreObject.NameProperty) ?? Number.Select(n => n.ToString()))
             .Switch()
             .Select(s => string.IsNullOrEmpty(s) ? $"{Number.Value}" : s)
@@ -37,26 +37,35 @@ public sealed class LayerHeaderViewModel : IDisposable
             .Select(c => c.ToAvaColor())
             .ToReactiveProperty(Colors.Transparent);
 
+        IsLocked = _model.Select(i =>
+                i?.GetObservable(TimelineLayer.IsLockedProperty) ?? Observable.ReturnThenNever(false))
+            .Switch()
+            .ToReactiveProperty(false);
+        IsAudioMuted = _model.Select(i =>
+                i?.GetObservable(TimelineLayer.IsAudioMutedProperty) ?? Observable.ReturnThenNever(false))
+            .Switch()
+            .ToReactiveProperty(false);
+        IsVideoMuted = _model.Select(i =>
+                i?.GetObservable(TimelineLayer.IsVideoMutedProperty) ?? Observable.ReturnThenNever(false))
+            .Switch()
+            .ToReactiveProperty(false);
+        IsSolo = _model.Select(i =>
+                i?.GetObservable(TimelineLayer.IsSoloProperty) ?? Observable.ReturnThenNever(false))
+            .Switch()
+            .ToReactiveProperty(false);
+
         HasItems = ItemsCount.Select(i => i > 0)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        SwitchEnabledCommand = new ReactiveCommand()
-            .WithSubscribe(() =>
-            {
-                try
-                {
-                    _skipSubscription = true;
-                    bool target = !IsEnabled.Value;
-                    IsEnabled.Value = target;
-                    Timeline.EditorContext.GetRequiredService<ILayerAttributeService>()
-                        .SetEnabled(Timeline.Scene, Number.Value, target);
-                }
-                finally
-                {
-                    _skipSubscription = false;
-                }
-            });
+        ToggleLockCommand = new ReactiveCommand()
+            .WithSubscribe(() => ToggleLayerFlag(IsLocked, (s, scene, n, v) => s.SetLocked(scene, n, v)));
+        ToggleAudioMuteCommand = new ReactiveCommand()
+            .WithSubscribe(() => ToggleLayerFlag(IsAudioMuted, (s, scene, n, v) => s.SetAudioMuted(scene, n, v)));
+        ToggleVideoMuteCommand = new ReactiveCommand()
+            .WithSubscribe(() => ToggleLayerFlag(IsVideoMuted, (s, scene, n, v) => s.SetVideoMuted(scene, n, v)));
+        ToggleSoloCommand = new ReactiveCommand()
+            .WithSubscribe(() => ToggleLayerFlag(IsSolo, (s, scene, n, v) => s.SetSolo(scene, n, v)));
 
         Height.Subscribe(_ => Timeline.RaiseLayerHeightChanged(this)).DisposeWith(_disposables);
 
@@ -76,6 +85,13 @@ public sealed class LayerHeaderViewModel : IDisposable
 
         Inlines.CollectionChangedAsObservable()
             .Subscribe(OnInlinesCollectionChanged)
+            .AddTo(_disposables);
+
+        // Undo/redo inserts or removes TimelineLayer models directly in
+        // Scene.Layers (e.g. restoring a pruned model), which no command-side
+        // resync covers — track the collection so the header rebinds.
+        Timeline.Scene.Layers.CollectionChangedAsObservable()
+            .Subscribe(_ => _model.Value = Timeline.Scene.Layers.FirstOrDefault(l => l.ZIndex == Number.Value))
             .AddTo(_disposables);
     }
 
@@ -130,7 +146,13 @@ public sealed class LayerHeaderViewModel : IDisposable
 
     public ReactiveProperty<string> Name { get; }
 
-    public ReactiveProperty<bool> IsEnabled { get; } = new(true);
+    public ReactiveProperty<bool> IsLocked { get; }
+
+    public ReactiveProperty<bool> IsAudioMuted { get; }
+
+    public ReactiveProperty<bool> IsVideoMuted { get; }
+
+    public ReactiveProperty<bool> IsSolo { get; }
 
     public ReactiveProperty<int> ItemsCount { get; } = new();
 
@@ -140,7 +162,13 @@ public sealed class LayerHeaderViewModel : IDisposable
 
     public CoreList<InlineAnimationLayerViewModel> Inlines { get; } = new() { ResetBehavior = ResetBehavior.Remove };
 
-    public ReactiveCommand SwitchEnabledCommand { get; }
+    public ReactiveCommand ToggleLockCommand { get; }
+
+    public ReactiveCommand ToggleAudioMuteCommand { get; }
+
+    public ReactiveCommand ToggleVideoMuteCommand { get; }
+
+    public ReactiveCommand ToggleSoloCommand { get; }
 
     public void UpdateZIndex(int layerNum)
     {
@@ -156,36 +184,9 @@ public sealed class LayerHeaderViewModel : IDisposable
         PosY.Value = 0;
     }
 
-    public void ElementAdded(ElementViewModel element)
-    {
-        ItemsCount.Value++;
-        _elements.Add(element);
-        BuildSubscription();
-    }
+    public void ElementAdded(ElementViewModel element) => ItemsCount.Value++;
 
-    public void ElementRemoved(ElementViewModel element)
-    {
-        ItemsCount.Value--;
-        _elements.Remove(element);
-        BuildSubscription();
-    }
-
-    private void BuildSubscription()
-    {
-        _elementsSubscription?.Dispose();
-        _elementsSubscription = null;
-        if (_elements.Count == 0)
-        {
-            IsEnabled.Value = true;
-            return;
-        }
-
-        _elementsSubscription = _elements.Select(obj => obj.IsEnabled.Select(b => (bool?)b))
-            .Aggregate((x, y) => x.CombineLatest(y)
-                .Select(t => t.First == t.Second ? t.First : null))
-            .Where(b => b.HasValue && !_skipSubscription)
-            .Subscribe(b => IsEnabled.Value = b!.Value);
-    }
+    public void ElementRemoved(ElementViewModel element) => ItemsCount.Value--;
 
     public void Dispose()
     {
@@ -220,6 +221,17 @@ public sealed class LayerHeaderViewModel : IDisposable
 
         // Re-sync the local TimelineLayer from the scene so Name/Color bindings track
         // the model the service just created or updated.
+        _model.Value = Timeline.Scene.Layers.FirstOrDefault(l => l.ZIndex == Number.Value);
+    }
+
+    private void ToggleLayerFlag(ReactiveProperty<bool> flag, Func<ILayerAttributeService, Scene, int, bool, bool> apply)
+    {
+        bool target = !flag.Value;
+        ILayerAttributeService service = Timeline.EditorContext.GetRequiredService<ILayerAttributeService>();
+        apply(service, Timeline.Scene, Number.Value, target);
+
+        // The service may have materialized or pruned the TimelineLayer; re-sync so
+        // the flag's source observable tracks the current model.
         _model.Value = Timeline.Scene.Layers.FirstOrDefault(l => l.ZIndex == Number.Value);
     }
 

@@ -81,6 +81,23 @@ public class ElementAttributeServiceTests
     }
 
     [Test]
+    public void SetAccentColor_LockedElement_IsIgnored()
+    {
+        Element element = AddElement();
+        Color initial = element.AccentColor;
+        element.IsLocked = true;
+        int before = _history.UndoCount;
+
+        _service.SetAccentColor(element, Color.FromArgb(255, 10, 20, 30));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(element.AccentColor, Is.EqualTo(initial), "a locked clip's color must not change");
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
     public void SetAccentColor_NoChange_NoCommit()
     {
         Element element = AddElement();
@@ -90,5 +107,37 @@ public class ElementAttributeServiceTests
         _service.SetAccentColor(element, initial);
 
         Assert.That(_history.UndoCount, Is.EqualTo(before));
+    }
+
+    [Test]
+    public void SetLocked_TogglesAndCommitsOnce()
+    {
+        Element element = AddElement();
+        int before = _history.UndoCount;
+
+        _service.SetLocked(element, true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(element.IsLocked, Is.True);
+            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
+        });
+    }
+
+    [Test]
+    public void SetLocked_NoChange_NoCommit()
+    {
+        Element element = AddElement();
+        int before = _history.UndoCount;
+
+        _service.SetLocked(element, element.IsLocked);
+
+        Assert.That(_history.UndoCount, Is.EqualTo(before));
+    }
+
+    [Test]
+    public void SetLocked_NullElement_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => _service.SetLocked(null!, true));
     }
 }

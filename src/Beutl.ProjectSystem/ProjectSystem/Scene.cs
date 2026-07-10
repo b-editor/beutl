@@ -1,5 +1,6 @@
 ﻿using System.Collections.Immutable;
 using System.Collections.Specialized;
+using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
 using System.Text.Json;
@@ -71,6 +72,9 @@ public class Scene : ProjectItem, INotifyEdited
         _children.Attached += item => item.Edited += OnElementEdited;
         _children.Detached += item => item.Edited -= OnElementEdited;
         _layers = new HierarchicalList<TimelineLayer>(this);
+        _layers.CollectionChanged += Layers_CollectionChanged;
+        _layers.Attached += OnLayerAttached;
+        _layers.Detached += OnLayerDetached;
         _markers = new HierarchicalList<SceneMarker>(this);
         Name = name;
     }
@@ -165,6 +169,50 @@ public class Scene : ProjectItem, INotifyEdited
     {
         get => _markers;
         set => _markers.Replace(value);
+    }
+
+    public bool IsLayerLocked(int zIndex)
+    {
+        foreach (TimelineLayer layer in _layers)
+        {
+            if (layer.ZIndex == zIndex && layer.IsLocked) return true;
+        }
+
+        return false;
+    }
+
+    // Editor-only lock: an element cannot be edited when it or its layer is locked.
+    public bool IsElementLocked(Element element)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        return element.IsLocked || IsLayerLocked(element.ZIndex);
+    }
+
+    // Prunes ids from every group and disbands any group left with fewer than two
+    // members. Returns true if any group changed.
+    public bool RemoveElementsFromGroups(IReadOnlyCollection<Guid> ids)
+    {
+        ArgumentNullException.ThrowIfNull(ids);
+        bool removed = false;
+        for (int i = Groups.Count - 1; i >= 0; i--)
+        {
+            ImmutableHashSet<Guid> group = Groups[i];
+            if (!group.Overlaps(ids)) continue;
+
+            ImmutableHashSet<Guid> updated = group.Except(ids);
+            if (updated.Count >= 2)
+            {
+                Groups[i] = updated;
+            }
+            else
+            {
+                Groups.RemoveAt(i);
+            }
+
+            removed = true;
+        }
+
+        return removed;
     }
 
     // element.FileNameが既に設定されている状態
@@ -457,6 +505,55 @@ public class Scene : ProjectItem, INotifyEdited
         Edited?.Invoke(this, new ElementEditedEventArgs { AffectedRange = affectedRange.DrainToImmutable() });
     }
 
+    private void Layers_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        // Only a layer that carries a compositional flag changes the rendered
+        // output when added/removed; a default or lock-only model (materialized
+        // or pruned by a lock toggle) is editor-only, mirroring OnLayerPropertyChanged.
+        if (AnyCompositionalLayer(e.NewItems) || AnyCompositionalLayer(e.OldItems))
+        {
+            Edited?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    private static bool AnyCompositionalLayer(System.Collections.IList? items)
+    {
+        if (items is null) return false;
+        foreach (object? item in items)
+        {
+            if (item is TimelineLayer { IsVideoMuted: true } or TimelineLayer { IsAudioMuted: true }
+                or TimelineLayer { IsSolo: true })
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void OnLayerAttached(TimelineLayer layer)
+    {
+        layer.PropertyChanged += OnLayerPropertyChanged;
+    }
+
+    private void OnLayerDetached(TimelineLayer layer)
+    {
+        layer.PropertyChanged -= OnLayerPropertyChanged;
+    }
+
+    private void OnLayerPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        // Edited triggers a preview re-render; Name/Color/IsLocked are editor-only
+        // and must not. ZIndex retargets existing mute/solo flags, so it counts.
+        if (e.PropertyName is nameof(TimelineLayer.IsVideoMuted)
+            or nameof(TimelineLayer.IsAudioMuted)
+            or nameof(TimelineLayer.IsSolo)
+            or nameof(TimelineLayer.ZIndex))
+        {
+            Edited?.Invoke(sender, EventArgs.Empty);
+        }
+    }
+
     private void OnElementEdited(object? sender, EventArgs e)
     {
         Edited?.Invoke(sender, e);
@@ -468,12 +565,13 @@ public class Scene : ProjectItem, INotifyEdited
         {
             int layerMax = Children.Max(i => i.ZIndex);
 
-            // 使うことができるレイヤー番号
+            // 使うことができるレイヤー番号。ロックされたレイヤーには自動配置しない。
             var numbers = new List<int>();
 
             for (int l = 0; l <= layerMax; l++)
             {
-                if (!Children.Any(i => i.ZIndex == l && i.Range.Intersects(element.Range)))
+                if (!IsLayerLocked(l)
+                    && !Children.Any(i => i.ZIndex == l && i.Range.Intersects(element.Range)))
                 {
                     numbers.Add(l);
                 }
@@ -481,7 +579,9 @@ public class Scene : ProjectItem, INotifyEdited
 
             if (numbers.Count < 1)
             {
-                return layerMax + 1;
+                int next = layerMax + 1;
+                while (IsLayerLocked(next)) next++;
+                return next;
             }
 
             return numbers.Nearest(element.ZIndex);
