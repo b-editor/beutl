@@ -201,13 +201,13 @@
                      IsEnabled="{Binding IsEditable.Value}"
                      IsVisible="False"
                      Text="{Binding Name.Value}" />
-            <icons:SymbolIcon Margin="4,0"
+            <icons:FluentIcon Margin="4,0"
                               HorizontalAlignment="Left"
                               VerticalAlignment="Center"
                               FontSize="12"
                               Foreground="{Binding TextColor.Value, Converter={StaticResource ColorToBrushConverter}}"
                               IsVisible="{Binding !IsEditable.Value}"
-                              Symbol="LockClosed" />
+                              Icon="LockClosed" />
         </Panel>
     </Border>
 

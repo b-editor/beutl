@@ -50,14 +50,14 @@
                       Theme="{StaticResource LayerHeaderToggleButtonStyle}"
                       ToolTip.Tip="{x:Static lang:Strings.Lock}">
             <ToggleButton.Styles>
-                <Style Selector="ToggleButton > icons|SymbolIcon">
-                    <Setter Property="Symbol" Value="LockOpen" />
+                <Style Selector="ToggleButton > icons|FluentIcon">
+                    <Setter Property="Icon" Value="LockOpen" />
                 </Style>
-                <Style Selector="ToggleButton:checked > icons|SymbolIcon">
-                    <Setter Property="Symbol" Value="LockClosed" />
+                <Style Selector="ToggleButton:checked > icons|FluentIcon">
+                    <Setter Property="Icon" Value="LockClosed" />
                 </Style>
             </ToggleButton.Styles>
-            <icons:SymbolIcon FontSize="14" />
+            <icons:FluentIcon FontSize="14" />
         </ToggleButton>
 
         <ToggleButton Grid.Column="2"
@@ -66,14 +66,14 @@
                       Theme="{StaticResource LayerHeaderToggleButtonStyle}"
                       ToolTip.Tip="{x:Static lang:Strings.Video}">
             <ToggleButton.Styles>
-                <Style Selector="ToggleButton > icons|SymbolIcon">
-                    <Setter Property="Symbol" Value="Video" />
+                <Style Selector="ToggleButton > icons|FluentIcon">
+                    <Setter Property="Icon" Value="Video" />
                 </Style>
-                <Style Selector="ToggleButton:checked > icons|SymbolIcon">
-                    <Setter Property="Symbol" Value="VideoOff" />
+                <Style Selector="ToggleButton:checked > icons|FluentIcon">
+                    <Setter Property="Icon" Value="VideoOff" />
                 </Style>
             </ToggleButton.Styles>
-            <icons:SymbolIcon FontSize="14" />
+            <icons:FluentIcon FontSize="14" />
         </ToggleButton>
 
         <ToggleButton Grid.Column="3"
@@ -82,14 +82,14 @@
                       Theme="{StaticResource LayerHeaderToggleButtonStyle}"
                       ToolTip.Tip="{x:Static lang:Strings.Audio}">
             <ToggleButton.Styles>
-                <Style Selector="ToggleButton > icons|SymbolIcon">
-                    <Setter Property="Symbol" Value="Speaker1" />
+                <Style Selector="ToggleButton > icons|FluentIcon">
+                    <Setter Property="Icon" Value="Speaker1" />
                 </Style>
-                <Style Selector="ToggleButton:checked > icons|SymbolIcon">
-                    <Setter Property="Symbol" Value="SpeakerMute" />
+                <Style Selector="ToggleButton:checked > icons|FluentIcon">
+                    <Setter Property="Icon" Value="SpeakerMute" />
                 </Style>
             </ToggleButton.Styles>
-            <icons:SymbolIcon FontSize="14" />
+            <icons:FluentIcon FontSize="14" />
         </ToggleButton>
 
         <ToggleButton Grid.Column="4"
@@ -98,12 +98,12 @@
                       Theme="{StaticResource LayerHeaderToggleButtonStyle}"
                       ToolTip.Tip="{x:Static lang:Strings.Solo}">
             <ToggleButton.Styles>
-                <Style Selector="ToggleButton:checked > icons|SymbolIcon">
+                <Style Selector="ToggleButton:checked > icons|FluentIcon">
                     <Setter Property="IconVariant" Value="Filled" />
                 </Style>
             </ToggleButton.Styles>
-            <icons:SymbolIcon FontSize="14"
-                              Symbol="Star" />
+            <icons:FluentIcon FontSize="14"
+                              Icon="Star" />
         </ToggleButton>
 
         <ui:ColorPickerButton Grid.Column="5"
