@@ -22,12 +22,14 @@ public class CSharpScriptEffectMigrationTests
     [Test]
     public void LegacyScript_FailsWithMigrationDiagnostic()
     {
-        string? error = CSharpScriptEffect.ValidateScript("Context.Blur(new Beutl.Graphics.Size(4, 4));");
+        ScriptCompilationResult result =
+            new CSharpScriptEffect().ValidateScript("Context.Blur(new Beutl.Graphics.Size(4, 4));");
 
-        Assert.That(error, Is.Not.Null, "A legacy Context-based script must fail to compile.");
-        Assert.That(error, Does.Contain("breaking-changes.md"),
+        Assert.That(result.Status, Is.EqualTo(ScriptCompilationStatus.Failed),
+            "A legacy Context-based script must fail to compile.");
+        Assert.That(result.Error, Does.Contain("breaking-changes.md"),
             "The diagnostic must point the author at the migration guide.");
-        Assert.That(error, Does.Contain("Session"),
+        Assert.That(result.Error, Does.Contain("Session"),
             "The diagnostic must name the replacement GeometrySession surface.");
     }
 
@@ -41,14 +43,16 @@ public class CSharpScriptEffectMigrationTests
             + "using (canvas.PushDeviceSpace())\n"
             + "    Session.Inputs[0].Draw(canvas, default);";
 
-        string? error = CSharpScriptEffect.ValidateScript(script);
+        ScriptCompilationResult result = new CSharpScriptEffect().ValidateScript(script);
 
-        Assert.That(error, Is.Null, $"A migrated GeometrySession script must compile. Diagnostic: {error}");
+        Assert.That(result.Status, Is.EqualTo(ScriptCompilationStatus.Compiled),
+            $"A migrated GeometrySession script must compile. Diagnostic: {result.Error}");
     }
 
     [Test]
     public void EmptyScript_IsAccepted()
     {
-        Assert.That(CSharpScriptEffect.ValidateScript(string.Empty), Is.Null);
+        Assert.That(new CSharpScriptEffect().ValidateScript(string.Empty).Status,
+            Is.EqualTo(ScriptCompilationStatus.Compiled));
     }
 }
