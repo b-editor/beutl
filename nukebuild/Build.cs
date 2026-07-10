@@ -157,8 +157,8 @@ class Build : NukeBuild
                 .When(_ => Runtime != null, s => s
                     .SetRuntime(Runtime)
                     .SetSelfContained(SelfContained))
-                .When(_ => Runtime == RuntimeIdentifier.win_x64, s => s.SetFramework($"{tfm}-windows"))
-                .When(_ => Runtime != RuntimeIdentifier.win_x64, s => s.SetFramework(tfm))
+                .When(_ => Runtime?.IsWindows == true, s => s.SetFramework($"{tfm}-windows"))
+                .When(_ => Runtime?.IsWindows != true, s => s.SetFramework(tfm))
                 .EnableNoRestore()
                 .SetConfiguration(Configuration)
                 .SetVersions(Version, AssemblyVersion, InformationalVersion)
