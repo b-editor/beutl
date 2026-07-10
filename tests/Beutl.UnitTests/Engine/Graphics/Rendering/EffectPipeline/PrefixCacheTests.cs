@@ -3,6 +3,8 @@ using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
+using Beutl.Media.Source;
+using Beutl.Serialization;
 using Beutl.UnitTests.Engine.Graphics.Backend;
 using Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
@@ -24,9 +26,9 @@ public class PrefixCacheTests
 
     // A group [static Blur, animated Gamma]: the Blur is a SkiaFilterPass (child 0), the Gamma a fused color pass
     // (child 1). Only the Gamma animates, so after warmup the Blur pass is the reusable prefix.
-    private static (FilterEffect Root, Gamma Gamma, Blur Blur) MakeBlurGamma()
+    private static (FilterEffect Root, Gamma Gamma, Blur Blur) MakeBlurGamma(float sigma = 5f)
     {
-        var blur = new Blur { Sigma = { CurrentValue = new Size(5, 5) } };
+        var blur = new Blur { Sigma = { CurrentValue = new Size(sigma, sigma) } };
         var gamma = new Gamma();
         var group = new FilterEffectGroup();
         group.Children.Add(blur);
@@ -34,11 +36,53 @@ public class PrefixCacheTests
         return (group, gamma, blur);
     }
 
-    private static RenderNodeOperation MakeInput()
+    // A group [static LutEffect (fused color, child 0), animated Blur (SkiaFilterPass, child 1)]: after warmup the
+    // LUT pass is the reusable prefix. The LUT's output depends on its nested CubeSource, exercising nested-object
+    // version propagation; the Blur tail animates so only the LUT stabilizes.
+    private static (FilterEffect Root, Blur Blur, LutEffect Lut) MakeLutBlur(CubeSource cube, float sigma)
+    {
+        var lut = new LutEffect();
+        lut.Source.CurrentValue = cube;
+        var blur = new Blur { Sigma = { CurrentValue = new Size(sigma, sigma) } };
+        var group = new FilterEffectGroup();
+        group.Children.Add(lut);
+        group.Children.Add(blur);
+        return (group, blur, lut);
+    }
+
+    // Distinct per frame so the Blur child's resource Version bumps every frame (keeping the tail unstable).
+    private static float BlurSigma(int frame) => 3f + 0.2f * frame;
+
+    // A 2×2×2 identity .cube LUT (output = input), the swap counterpart to SceneFixtures' channel-inverting LUT.
+    private static CubeSource MakeIdentityLutSource()
+    {
+        const string cubeText =
+            """
+            TITLE "prefix identity"
+            LUT_3D_SIZE 2
+            DOMAIN_MIN 0 0 0
+            DOMAIN_MAX 1 1 1
+            0 0 0
+            1 0 0
+            0 1 0
+            1 1 0
+            0 0 1
+            1 0 1
+            0 1 1
+            1 1 1
+            """;
+        var source = new CubeSource();
+        source.ReadFrom(UriHelper.CreateBase64DataUri("text/plain", System.Text.Encoding.ASCII.GetBytes(cubeText)));
+        return source;
+    }
+
+    private static RenderNodeOperation MakeInput() => MakeInput(s_bounds);
+
+    private static RenderNodeOperation MakeInput(Rect bounds)
         => RenderNodeOperation.CreateLambda(
-            s_bounds,
-            canvas => canvas.DrawRectangle(s_bounds.Deflate(24), Brushes.Resource.White, null),
-            hitTest: s_bounds.Contains);
+            bounds,
+            canvas => canvas.DrawRectangle(bounds.Deflate(24), Brushes.Resource.White, null),
+            hitTest: bounds.Contains);
 
     // ---- The headline regression gate --------------------------------------------------------------------
     //
@@ -68,7 +112,7 @@ public class PrefixCacheTests
             var snaps = new PipelineDiagnosticsSnapshot[frames];
             for (int f = 0; f < frames; f++)
             {
-                snaps[f] = StepAndAssertParity(node, resource, root, gamma, diagnostics, pool, f, f);
+                snaps[f] = StepAndParity(node, resource, root, gamma, diagnostics, pool, f, 1f, 5f);
             }
 
             Assert.Multiple(() =>
@@ -113,7 +157,12 @@ public class PrefixCacheTests
                 if (f == mutateAt)
                     blur.Sigma.CurrentValue = new Size(7, 7);
 
-                snaps[f] = Step(node, resource, root, gamma, diagnostics, pool, f, 1f);
+                // The final resume frame asserts pixel parity against a fresh render of the POST-mutation chain
+                // (sigma 7): a prefix that re-retained the stale pre-mutation blur (sigma 5) would replay it here and
+                // the parity gate would fail, so the counters alone cannot hide a stale-buffer regression.
+                snaps[f] = f == frames - 1
+                    ? StepAndParity(node, resource, root, gamma, diagnostics, pool, f, 1f, 7f)
+                    : Step(node, resource, root, gamma, diagnostics, pool, f, 1f);
             }
 
             Assert.Multiple(() =>
@@ -149,7 +198,11 @@ public class PrefixCacheTests
             for (int f = 0; f < frames; f++)
             {
                 float outputScale = f >= scaleAt ? 2f : 1f;
-                snaps[f] = Step(node, resource, root, gamma, diagnostics, pool, f, outputScale);
+                // The final resume frame runs at the new scale; parity against a fresh render at that same scale
+                // catches a prefix that replayed a buffer captured at the old density.
+                snaps[f] = f == frames - 1
+                    ? StepAndParity(node, resource, root, gamma, diagnostics, pool, f, outputScale, 5f)
+                    : Step(node, resource, root, gamma, diagnostics, pool, f, outputScale);
             }
 
             Assert.Multiple(() =>
@@ -189,7 +242,10 @@ public class PrefixCacheTests
             {
                 // Stable subtree = count at/above the cache threshold; frame `unstableAt` simulates a change below.
                 child.Cache.ReportRenderCount(f == unstableAt ? 0 : 3);
-                snaps[f] = Step(node, resource, root, gamma, diagnostics, pool, f, 1f);
+                // The final resume frame asserts parity so a re-engaged prefix still matches a fresh full render.
+                snaps[f] = f == frames - 1
+                    ? StepAndParity(node, resource, root, gamma, diagnostics, pool, f, 1f, 5f)
+                    : Step(node, resource, root, gamma, diagnostics, pool, f, 1f);
             }
 
             Assert.Multiple(() =>
@@ -274,6 +330,94 @@ public class PrefixCacheTests
         });
     }
 
+    // ---- Nested-object invalidation ----------------------------------------------------------------------
+    //
+    // A group [static LutEffect, animated Blur]: the LUT is a fused color pass (child 0, the reusable prefix) whose
+    // output depends on a NESTED object — its CubeSource. Swapping that CubeSource mid-run must invalidate the cached
+    // prefix, which relies entirely on the LutEffect resource's Version bumping when a nested EngineObject swaps
+    // (EngineObject.CompareAndUpdateObject). Both cubes are 3D size-2, so the SKSL snippet and the StructuralKey are
+    // identical across the swap — the only signal that can invalidate the prefix is the per-child resource Version,
+    // so this pins that propagation. The Blur tail animates (parameter-only), keeping child 1 perpetually unstable so
+    // the LUT alone forms the leading stable prefix.
+    [Test]
+    public void StaticNestedObjectSwap_InvalidatesAndReWarms()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            ProgramCache.Clear();
+            const int frames = 11;
+            const int swapAt = 6;
+            var (root, blur, lut) = MakeLutBlur(SceneFixtures.CreateInvertLutSource(), BlurSigma(0));
+            var resource = (FilterEffect.Resource)root.ToResource(CompositionContext.Default);
+            using var node = new FilterEffectRenderNode(resource);
+            var diagnostics = new PipelineDiagnostics();
+            using var pool = new RenderTargetPool();
+
+            CubeSource swapped = MakeIdentityLutSource();
+            var snaps = new PipelineDiagnosticsSnapshot[frames];
+            for (int f = 0; f < frames; f++)
+            {
+                if (f == swapAt)
+                    lut.Source.CurrentValue = swapped;
+
+                // The final resume frame asserts pixel parity against a fresh render of the POST-swap chain: a prefix
+                // that replayed the stale pre-swap LUT (invert) instead of the swapped one (identity) would diverge
+                // sharply here, so a broken nested-version propagation cannot pass on counters alone.
+                snaps[f] = f == frames - 1
+                    ? StepLutAndParity(node, resource, root, blur, diagnostics, pool, f, swapped)
+                    : StepLut(node, resource, root, blur, diagnostics, pool, f);
+            }
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(snaps[5].PrefixCacheHits, Is.EqualTo(1), "frame 5 reuses the LUT prefix before the swap");
+                Assert.That(snaps[swapAt].GpuPasses, Is.EqualTo(2), "the CubeSource swap re-executes the LUT pass");
+                Assert.That(snaps[swapAt].PrefixCacheHits, Is.EqualTo(0), "the nested-object swap invalidates the cached prefix");
+                Assert.That(snaps[10].GpuPasses, Is.EqualTo(1), "after re-warming the LUT prefix is reused again");
+                Assert.That(snaps[10].PrefixCacheHits, Is.EqualTo(1), "the re-warmed prefix engages after three stable frames");
+            });
+        });
+    }
+
+    // ---- Input-bounds signature (exact) ------------------------------------------------------------------
+    //
+    // A change in the bounds of the ops feeding the plan changes the cached prefix's pixels, so it must invalidate.
+    // The signature is compared exactly (not via a 32-bit hash), so this also guards the exact-comparison path.
+    [Test]
+    public void InputBoundsChange_InvalidatesAndReWarms()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            ProgramCache.Clear();
+            const int frames = 11;
+            const int changeAt = 6;
+            var (root, gamma, _) = MakeBlurGamma();
+            var resource = (FilterEffect.Resource)root.ToResource(CompositionContext.Default);
+            using var node = new FilterEffectRenderNode(resource);
+            var diagnostics = new PipelineDiagnostics();
+            using var pool = new RenderTargetPool();
+
+            var widened = new Rect(0, 0, 160, 96);
+            var snaps = new PipelineDiagnosticsSnapshot[frames];
+            for (int f = 0; f < frames; f++)
+            {
+                // Frame `changeAt` onward feeds a wider input rect, so the signature changes once and then holds.
+                Rect inputBounds = f >= changeAt ? widened : s_bounds;
+                snaps[f] = StepBounds(node, resource, root, gamma, diagnostics, pool, f, inputBounds);
+            }
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(snaps[5].PrefixCacheHits, Is.EqualTo(1), "frame 5 reuses the prefix at the original input bounds");
+                Assert.That(snaps[changeAt].GpuPasses, Is.EqualTo(2), "a changed input-bounds signature forces a full re-execution");
+                Assert.That(snaps[changeAt].PrefixCacheHits, Is.EqualTo(0), "the changed input bounds invalidate the cached prefix");
+                Assert.That(snaps[10].PrefixCacheHits, Is.EqualTo(1), "the prefix re-engages after re-warming at the new bounds");
+            });
+        });
+    }
+
     // ---- Drivers -----------------------------------------------------------------------------------------
 
     private static PipelineDiagnosticsSnapshot Step(
@@ -311,12 +455,68 @@ public class PrefixCacheTests
         return snap;
     }
 
-    private static PipelineDiagnosticsSnapshot StepAndAssertParity(
+    // Steps one frame (Gamma animates with the frame) and additionally asserts the rendered output is pixel-parity
+    // with a fresh full render of the Blur(sigma)/Gamma chain at the same output scale — so a resumed frame that
+    // replayed a stale or wrongly-scaled prefix buffer is caught, not just the counters.
+    private static PipelineDiagnosticsSnapshot StepAndParity(
         FilterEffectRenderNode node, FilterEffect.Resource resource, FilterEffect root, Gamma gamma,
-        PipelineDiagnostics diagnostics, RenderTargetPool pool, int frame, int parityFrame)
+        PipelineDiagnostics diagnostics, RenderTargetPool pool, int frame, float outputScale, float sigma)
     {
         pool.Trim(frame);
-        gamma.Amount.CurrentValue = 50f + 2f * frame;
+        float gammaAmount = 50f + 2f * frame;
+        gamma.Amount.CurrentValue = gammaAmount;
+        bool updateOnly = false;
+        resource.Update(root, CompositionContext.Default, ref updateOnly);
+        node.Update(resource);
+
+        diagnostics.Reset();
+        var context = new RenderNodeContext([MakeInput()], outputScale) { Diagnostics = diagnostics, Pool = pool };
+        RenderNodeOperation[] ops = node.Process(context);
+        PipelineDiagnosticsSnapshot snap = diagnostics.Snapshot();
+
+        using Bitmap actual = Rasterize(ops);
+        using Bitmap fresh = RenderFresh(sigma, gammaAmount, outputScale);
+        AssertMatches(fresh, actual, $"frame {frame}");
+        return snap;
+    }
+
+    // A brand-new node with no pool renders a genuine full execution (no prefix engagement) — the parity control.
+    private static Bitmap RenderFresh(float sigma, float gammaAmount, float outputScale)
+    {
+        var (root, gamma, _) = MakeBlurGamma(sigma);
+        gamma.Amount.CurrentValue = gammaAmount;
+        var resource = (FilterEffect.Resource)root.ToResource(CompositionContext.Default);
+        using var node = new FilterEffectRenderNode(resource);
+        var context = new RenderNodeContext([MakeInput()], outputScale);
+        RenderNodeOperation[] ops = node.Process(context);
+        return Rasterize(ops);
+    }
+
+    // Steps one frame of the LUT/Blur chain, animating the Blur tail.
+    private static PipelineDiagnosticsSnapshot StepLut(
+        FilterEffectRenderNode node, FilterEffect.Resource resource, FilterEffect root, Blur blur,
+        PipelineDiagnostics diagnostics, RenderTargetPool pool, int frame)
+    {
+        pool.Trim(frame);
+        blur.Sigma.CurrentValue = new Size(BlurSigma(frame), BlurSigma(frame));
+        bool updateOnly = false;
+        resource.Update(root, CompositionContext.Default, ref updateOnly);
+        node.Update(resource);
+
+        diagnostics.Reset();
+        var context = new RenderNodeContext([MakeInput()]) { Diagnostics = diagnostics, Pool = pool };
+        RenderNodeOperation[] ops = node.Process(context);
+        PipelineDiagnosticsSnapshot snap = diagnostics.Snapshot();
+        RenderNodeOperation.DisposeAll(ops);
+        return snap;
+    }
+
+    private static PipelineDiagnosticsSnapshot StepLutAndParity(
+        FilterEffectRenderNode node, FilterEffect.Resource resource, FilterEffect root, Blur blur,
+        PipelineDiagnostics diagnostics, RenderTargetPool pool, int frame, CubeSource cube)
+    {
+        pool.Trim(frame);
+        blur.Sigma.CurrentValue = new Size(BlurSigma(frame), BlurSigma(frame));
         bool updateOnly = false;
         resource.Update(root, CompositionContext.Default, ref updateOnly);
         node.Update(resource);
@@ -327,21 +527,38 @@ public class PrefixCacheTests
         PipelineDiagnosticsSnapshot snap = diagnostics.Snapshot();
 
         using Bitmap actual = Rasterize(ops);
-        using Bitmap fresh = RenderFresh(parityFrame);
-        AssertMatches(fresh, actual, $"frame {frame}");
+        using Bitmap fresh = RenderFreshLut(cube, frame);
+        AssertMatches(fresh, actual, $"lut frame {frame}");
         return snap;
     }
 
-    // A brand-new node with no pool renders a genuine full execution (no prefix engagement) — the parity control.
-    private static Bitmap RenderFresh(int frame)
+    private static Bitmap RenderFreshLut(CubeSource cube, int frame)
     {
-        var (root, gamma, _) = MakeBlurGamma();
-        gamma.Amount.CurrentValue = 50f + 2f * frame;
+        var (root, _, _) = MakeLutBlur(cube, BlurSigma(frame));
         var resource = (FilterEffect.Resource)root.ToResource(CompositionContext.Default);
         using var node = new FilterEffectRenderNode(resource);
         var context = new RenderNodeContext([MakeInput()]);
+        return Rasterize(node.Process(context));
+    }
+
+    // Steps one frame (Gamma animates) feeding a caller-supplied input rect, so a bounds-signature change can be
+    // driven independently of the effect parameters.
+    private static PipelineDiagnosticsSnapshot StepBounds(
+        FilterEffectRenderNode node, FilterEffect.Resource resource, FilterEffect root, Gamma gamma,
+        PipelineDiagnostics diagnostics, RenderTargetPool pool, int frame, Rect inputBounds)
+    {
+        pool.Trim(frame);
+        gamma.Amount.CurrentValue = 50f + 2f * frame;
+        bool updateOnly = false;
+        resource.Update(root, CompositionContext.Default, ref updateOnly);
+        node.Update(resource);
+
+        diagnostics.Reset();
+        var context = new RenderNodeContext([MakeInput(inputBounds)]) { Diagnostics = diagnostics, Pool = pool };
         RenderNodeOperation[] ops = node.Process(context);
-        return Rasterize(ops);
+        PipelineDiagnosticsSnapshot snap = diagnostics.Snapshot();
+        RenderNodeOperation.DisposeAll(ops);
+        return snap;
     }
 
     private static Bitmap Rasterize(RenderNodeOperation[] ops)
