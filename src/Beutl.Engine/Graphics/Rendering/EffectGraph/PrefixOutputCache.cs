@@ -85,17 +85,22 @@ internal sealed class EffectPrefixCache : IDisposable
     private StructuralKey _key;
     private object? _contextId;
     private float _workingScale;
-    private long _inputSignature;
+
+    // The bounds + supply density of the ops that fed the plan on the last engagement frame, compared EXACTLY (not
+    // a hash) so no collision can ever contribute to a false stability match (C10 input-bounds gate). The buffer is
+    // reused across frames; _inputSignatureCount is the valid element count (-1 until the first capture).
+    private (Rect Bounds, EffectiveScale Scale)[] _inputSignature = [];
+    private int _inputSignatureCount = -1;
 
     public PrefixDecision Prepare(
         FilterEffect.Resource resource, CompiledPlan plan, StructuralKey key, object contextId,
-        float workingScale, long inputSignature, bool inputSubtreeStable)
+        float workingScale, ReadOnlySpan<RenderNodeOperation> input, bool inputSubtreeStable)
     {
         bool signatureMatch = _hasSignature
             && ReferenceEquals(_contextId, contextId)
             && _key == key
             && _workingScale == workingScale
-            && _inputSignature == inputSignature;
+            && InputSignatureEquals(input);
 
         // Any signature change or input-subtree instability voids the cached prefix's assumptions: release the
         // retained buffer and restart stability tracking so nothing stale is reused (C10 invalidation list).
@@ -107,7 +112,7 @@ internal sealed class EffectPrefixCache : IDisposable
             _key = key;
             _contextId = contextId;
             _workingScale = workingScale;
-            _inputSignature = inputSignature;
+            CaptureInputSignature(input);
         }
 
         UpdateChildStability(resource);
@@ -223,6 +228,36 @@ internal sealed class EffectPrefixCache : IDisposable
         }
 
         return [(resource, resource.Version)];
+    }
+
+    // Order-sensitive exact comparison of the current input ops' bounds + supply density against the retained
+    // signature. Exact so a differing input geometry/density can never alias to a match and replay a stale prefix.
+    private bool InputSignatureEquals(ReadOnlySpan<RenderNodeOperation> input)
+    {
+        if (_inputSignatureCount != input.Length)
+            return false;
+
+        for (int i = 0; i < input.Length; i++)
+        {
+            (Rect Bounds, EffectiveScale Scale) prev = _inputSignature[i];
+            if (prev.Bounds != input[i].Bounds || prev.Scale != input[i].EffectiveScale)
+                return false;
+        }
+
+        return true;
+    }
+
+    // Rewrites the retained signature into the reused buffer (grown only when the input set is longer than before),
+    // so the steady-state per-frame compare allocates nothing.
+    private void CaptureInputSignature(ReadOnlySpan<RenderNodeOperation> input)
+    {
+        if (_inputSignature.Length < input.Length)
+            _inputSignature = new (Rect, EffectiveScale)[input.Length];
+
+        for (int i = 0; i < input.Length; i++)
+            _inputSignature[i] = (input[i].Bounds, input[i].EffectiveScale);
+
+        _inputSignatureCount = input.Length;
     }
 
     private void ResetStability()

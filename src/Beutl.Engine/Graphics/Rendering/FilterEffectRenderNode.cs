@@ -83,7 +83,7 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
         {
             PrefixDecision decision = _prefixCache.Prepare(
                 resource, plan, key, contextId, workingScale,
-                InputSignature(context.Input), RenderNodeCacheHelper.CanCacheRecursiveChildrenOnly(this));
+                context.Input, RenderNodeCacheHelper.CanCacheRecursiveChildrenOnly(this));
 
             switch (decision.Mode)
             {
@@ -126,24 +126,6 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
             context.Diagnostics, context.Pool, startPass: 0, captureSink: sink);
         _prefixCache.StoreCaptured(sink, capturePass, plan);
         return result;
-    }
-
-    // Structural signature of the operations feeding this node's plan (C10): a change in the input geometry or supply
-    // density means the cached prefix's pixels no longer match, so it must invalidate even when the subtree is stable.
-    private static long InputSignature(RenderNodeOperation[] input)
-    {
-        var hash = new HashCode();
-        foreach (RenderNodeOperation op in input)
-        {
-            Rect b = op.Bounds;
-            hash.Add(b.X);
-            hash.Add(b.Y);
-            hash.Add(b.Width);
-            hash.Add(b.Height);
-            hash.Add(op.EffectiveScale.IsUnbounded ? float.NaN : op.EffectiveScale.Value);
-        }
-
-        return hash.ToHashCode();
     }
 
     protected override void OnDispose(bool disposing)

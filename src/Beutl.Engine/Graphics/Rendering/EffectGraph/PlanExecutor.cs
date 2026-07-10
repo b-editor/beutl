@@ -82,10 +82,9 @@ internal static class PlanExecutor
             }
 
             // A capture frame deliberately retains the prefix pass's buffer past its plan-declared last use (the C10
-            // cross-frame lease), which inflates this frame's intra-frame peak above the plan's declared intermediate
-            // bound; that retained lease is the cache's, not a plan intermediate, so skip the FR-007 check here.
-            if (captureSink == null)
-                AssertPeakLiveWithinPlan(plan, inputs.Length, pool, leaseBaseline);
+            // cross-frame lease): exactly one buffer, so the frame's intra-frame peak is the plan's declared bound + 1.
+            // Assert against that inflated bound rather than skipping, so a capture that over-retains is still caught.
+            AssertPeakLiveWithinPlan(plan, inputs.Length, pool, leaseBaseline, captureSink != null ? 1 : 0);
 
             return current.ToArray();
         }
@@ -104,7 +103,7 @@ internal static class PlanExecutor
     // multi-op input set has no per-op intermediate decls.
     [Conditional("DEBUG")]
     private static void AssertPeakLiveWithinPlan(
-        CompiledPlan plan, int inputCount, RenderTargetPool? pool, long leaseBaseline)
+        CompiledPlan plan, int inputCount, RenderTargetPool? pool, long leaseBaseline, long captureAllowance)
     {
         if (pool == null || inputCount != 1)
             return;
@@ -117,9 +116,9 @@ internal static class PlanExecutor
 
         long measured = pool.PeakLiveLeaseCount - leaseBaseline;
         Debug.Assert(
-            measured <= plan.Resources.PeakLiveCount,
+            measured <= plan.Resources.PeakLiveCount + captureAllowance,
             $"FR-007 violated: measured peak of concurrently live pooled leases ({measured}) exceeds the plan's " +
-            $"declared peak-live bound ({plan.Resources.PeakLiveCount}).");
+            $"declared peak-live bound ({plan.Resources.PeakLiveCount}) plus the capture allowance ({captureAllowance}).");
     }
 
     // Executes a nested-graph pass: per branch, describe the child graph at the branch's bounds and index, compile,
