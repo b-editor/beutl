@@ -144,6 +144,32 @@ frames (SC-002 gate) — asserted exactly in NUnit rather than tabulated here.
   mutable — a redesign whose correctness risk (bridged-effect staleness, sampler freshness, NestedGraph re-describe)
   is not justified for the ~1–2 KB/frame at stake; the counter gates (SC-002) remain exact either way.
 
+## Pass-prefix output caching (C10) — restored per-child granularity
+
+Fusion (SC-001) folds an effect group into **one** render node, which was necessary for cross-effect fusion but
+regressed a caching property the pre-004 pipeline had. Before 004, `GraphicsContext2D` flattened a
+`FilterEffectGroup` into one `FilterEffectRenderNode` *per child*, so the per-node `RenderNodeCache` (pixel tiles
+replayed before `Process`) could cache a **static prefix** of a chain — a heavy static Blur/Stroke — while only the
+animated tail re-rendered each frame. The 004 un-flattening (one node per group) made the whole group a single
+cache unit: any animated child marks the node changed every frame, the outer cache never engages, and the expensive
+static prefix re-executes every frame (the `PlanCache` only avoids *recompilation*, not *re-execution*). This was a
+maintainer-confirmed critical regression for chains like `[static Blur, animated color]`.
+
+C10 closes it at **pass** granularity without giving up fusion (still one node per group). Provenance maps each
+compiled pass to the top-level child that produced it; a leading run of children stable for the node-cache threshold
+(3 frames) whose passes are all capturable-linear (fused / Skia-filter, before any split/composite/nested/dynamic
+pass) has its last pass's output retained as a live pooled lease and reused on subsequent frames — the tail resumes
+from `k+1` with the cached buffer as input, so the static prefix's passes never re-execute. Measured on the headline
+`[static Blur (SkiaFilter), animated Gamma (fused color)]` fixture driven six frames through one node/pool: frames
+0–3 execute both passes (`GpuPasses == 2`) to warm the tracker and capture; frames 4–5 execute only the Gamma tail
+(`GpuPasses == 1`, `TargetAllocations == 0`, `PrefixCacheHits == 1`) — every frame byte-parity (SSIM 1.0000) with a
+fresh full render. Invalidation is exact (a prefix child's version change, a structural/context/working-scale/
+input-bounds-signature change, input-subtree instability, or dispose releases the retained lease and re-warms), so a
+stale prefix is never replayed. This is a **v1 linear-prefix scope**: the reusable prefix ends at the first
+split/composite/nested-graph/geometry/compute/dynamic pass, and a fully static group is still owned by the outer
+whole-node cache (C10 never caches the whole plan). Because engagement needs ≥ 4 frames and only fires on the pooled
+render path, the single-frame SC-001 counter fixtures and the pool-less frozen/golden references are untouched.
+
 ## SC-005 re-pinned targets
 
 Per [research.md D11](../research.md), the spec's provisional SC-005 targets (≥ 60% reduction in
