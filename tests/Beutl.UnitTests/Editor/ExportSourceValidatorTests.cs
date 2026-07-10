@@ -1397,6 +1397,64 @@ public sealed class ExportSourceValidatorTests
         Assert.That(export, Is.EqualTo(new[] { soloMissing }));
     }
 
+    // A referenced scene composes through its OWN SceneCompositor.SortLayers, so a muted / non-solo layer
+    // inside an embedded scene is skipped at render time — a missing file on such a nested layer must not
+    // block export either, mirroring the root-scene behavior.
+    [Test]
+    public void CollectRenderableSources_VideoMutedLayerInReferencedScene_SkipsVideoSource()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string missingImage = Path.Combine(root, "muted-nested.png");
+
+        var childScene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "child.scene")) };
+        Element child = CreateImageElement(root, missingImage);
+        child.ZIndex = 4;
+        childScene.Children.Add(child);
+        childScene.Layers.Add(new TimelineLayer { ZIndex = 4, IsVideoMuted = true });
+
+        var sceneDrawable = new SceneDrawable();
+        sceneDrawable.ReferencedScene.CurrentValue = childScene;
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "root.scene")) };
+        scene.Children.Add(ElementWith(root, sceneDrawable));
+
+        IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
+            ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene));
+
+        Assert.That(missing, Is.Empty);
+    }
+
+    // A solo layer inside a referenced scene means only that scene's solo layers render; a missing file on
+    // a non-solo nested layer must not block export while the soloed nested layer's missing file still does.
+    [Test]
+    public void CollectRenderableSources_SoloLayerInReferencedScene_SkipsNonSoloNestedElements()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string soloMissing = Path.Combine(root, "nested-solo.png");
+        string otherMissing = Path.Combine(root, "nested-other.png");
+
+        var childScene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "child.scene")) };
+        Element soloed = CreateImageElement(root, soloMissing);
+        soloed.ZIndex = 0;
+        Element other = CreateImageElement(root, otherMissing);
+        other.ZIndex = 1;
+        childScene.Children.Add(soloed);
+        childScene.Children.Add(other);
+        childScene.Layers.Add(new TimelineLayer { ZIndex = 0, IsSolo = true });
+        childScene.Layers.Add(new TimelineLayer { ZIndex = 1 });
+
+        var sceneDrawable = new SceneDrawable();
+        sceneDrawable.ReferencedScene.CurrentValue = childScene;
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "root.scene")) };
+        scene.Children.Add(ElementWith(root, sceneDrawable));
+
+        IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
+            ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene));
+
+        Assert.That(missing, Is.EqualTo(new[] { soloMissing }));
+    }
+
     private static SourceSound SoundDrawable(string sourcePath)
     {
         var source = new SoundSource();

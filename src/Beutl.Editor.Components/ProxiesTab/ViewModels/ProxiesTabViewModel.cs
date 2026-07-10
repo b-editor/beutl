@@ -590,15 +590,13 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
             return;
         }
 
-        Dictionary<string, ProxyPreset> selectedPresets = Clips.ToDictionary(
+        // Only a deliberate user choice survives a rebuild verbatim; a background proxy finishing
+        // (Registered/StateChanged) or a terminal job triggers Refresh, and an explicit pick must not be
+        // reverted to following. A row that was merely pinned to an existing proxy re-derives its state
+        // below so a since-deleted/evicted proxy no longer leaves it stuck off the default.
+        Dictionary<string, (ProxyPreset Preset, bool Explicit)> priorChoiceByPath = Clips.ToDictionary(
             static clip => clip.Path,
-            static clip => clip.Preset.Value);
-        // Carry both the picked preset and its follow-the-default state across the rebuild: a background
-        // proxy finishing (Registered/StateChanged) or terminal job triggers Refresh, and losing either
-        // would silently drop the user's selection or revert an explicit choice back to following.
-        Dictionary<string, bool> followingByPath = Clips.ToDictionary(
-            static clip => clip.Path,
-            static clip => clip.IsFollowingDefault);
+            static clip => (clip.Preset.Value, clip.IsExplicitlyChosen));
         HashSet<string> selectedPaths =
             [.. Clips.Where(static clip => clip.IsSelected.Value).Select(static clip => clip.Path)];
 
@@ -607,18 +605,21 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
         {
             ProxyPreset preset;
             bool followingDefault;
-            if (selectedPresets.TryGetValue(path, out ProxyPreset preserved))
+            bool explicitlyChosen;
+            if (priorChoiceByPath.TryGetValue(path, out (ProxyPreset Preset, bool Explicit) prior) && prior.Explicit)
             {
-                preset = preserved;
-                followingDefault = followingByPath.GetValueOrDefault(path);
+                preset = prior.Preset;
+                followingDefault = false;
+                explicitlyChosen = true;
             }
             else
             {
                 (preset, followingDefault) = ResolveInitialPreset(fingerprint);
+                explicitlyChosen = false;
             }
 
             ProxyEntry? entry = FindEntry(fingerprint, preset);
-            var clip = new ProxyClipViewModel(this, path, fingerprint, preset, entry, followingDefault);
+            var clip = new ProxyClipViewModel(this, path, fingerprint, preset, entry, followingDefault, explicitlyChosen);
             if (selectedPaths.Contains(path))
                 clip.IsSelected.Value = true;
             Clips.Add(clip);
@@ -1082,12 +1083,14 @@ public sealed class ProxyClipViewModel : IDisposable
         ProxyFingerprint source,
         ProxyPreset preset,
         ProxyEntry? entry,
-        bool followingDefault)
+        bool followingDefault,
+        bool explicitlyChosen)
     {
         _owner = owner;
         Path = path;
         Source = source;
         IsFollowingDefault = followingDefault;
+        IsExplicitlyChosen = explicitlyChosen;
         Preset = new ReactiveProperty<ProxyPreset>(preset)
             .DisposeWith(_disposables);
         State = new ReactiveProperty<string>()
@@ -1141,10 +1144,14 @@ public sealed class ProxyClipViewModel : IDisposable
                 if (initialized)
                 {
                     // A change the user drove from the dropdown is an explicit choice, so the row stops
-                    // tracking the global default. A programmatic ApplyDefaultPreset write (guarded by
-                    // _applyingDefault) keeps the row following.
+                    // tracking the global default and records the choice so a later Refresh preserves it.
+                    // A programmatic ApplyDefaultPreset write (guarded by _applyingDefault) keeps the row
+                    // following.
                     if (!_applyingDefault)
+                    {
                         IsFollowingDefault = false;
+                        IsExplicitlyChosen = true;
+                    }
 
                     _owner.OnPresetChanged(this, previousPreset, newPreset);
                 }
@@ -1160,6 +1167,12 @@ public sealed class ProxyClipViewModel : IDisposable
     // came from the default with no pre-existing proxy pinning it; it stops the moment the user picks a
     // preset from the dropdown, even one that equals the current default.
     public bool IsFollowingDefault { get; private set; }
+
+    // Set once the user picks a preset from the dropdown. Unlike IsFollowingDefault (which a pinned proxy
+    // also clears), this records only a deliberate user choice, so Refresh preserves it across a rebuild
+    // while a merely-pinned row re-derives its follow state — a proxy that later disappears reverts the
+    // row to following the default instead of leaving it stuck on the stale preset.
+    public bool IsExplicitlyChosen { get; private set; }
 
     // Push a global-default change onto a following row without clearing IsFollowingDefault. Distinct
     // from a user edit so a row whose explicit choice happens to equal the old default is not swept along.

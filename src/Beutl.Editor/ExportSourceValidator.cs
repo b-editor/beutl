@@ -38,7 +38,7 @@ public static class ExportSourceValidator
 
         var paths = new HashSet<string>(StringComparer.Ordinal);
         var visitedScenes = new HashSet<(Scene, CompositionTarget?)>();
-        LayerSkipModel layerSkip = LayerSkipModel.Build(scene);
+        SceneLayerSkipModel layerSkip = SceneLayerSkipModel.Build(scene);
         foreach (Element element in scene.Children)
         {
             if (!element.IsEnabled || !inRange(element))

@@ -734,6 +734,50 @@ public sealed class ProxiesTabViewModelTests
         }
     }
 
+    // A row pinned to an existing proxy is IsFollowingDefault=false; once that proxy is deleted and the
+    // list rebuilds, the now proxy-less row must revert to following the default (it re-derives its state)
+    // rather than staying stuck on the old preset when the default later changes.
+    [Test]
+    public void DefaultPresetChanged_ProxyPinnedRowRevertsToFollowingAfterProxyDeleted()
+    {
+        string root = CreateRoot();
+        string sourcePath = CreateSourceFile(root, "clip.mov", 1024);
+        var store = new ProxyStore(Path.Combine(root, "proxies"));
+        ProxyStoreConfig config = GlobalConfiguration.Instance.ProxyStoreConfig;
+        int originalDefault = config.DefaultPreset;
+        try
+        {
+            config.DefaultPreset = (int)ProxyPreset.Quarter;
+            ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(sourcePath);
+            DateTime now = DateTime.UtcNow;
+            RegisterProxyEntry(store, new ProxyEntry(
+                fingerprint, ProxyPreset.Quarter, ProxyState.Ready, "hash/quarter.mp4", 512,
+                new PixelSize(1920, 1080), new PixelSize(480, 270), now, now, null));
+
+            using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath))
+            {
+                RefreshScheduler = static action => action(),
+            };
+            Assume.That(viewModel.Clips.Single().IsFollowingDefault, Is.False,
+                "the row is pinned to the existing Ready proxy, so it does not follow the default");
+
+            // Deleting the proxy raises a store Changed event that rebuilds the list; the rebuilt row is
+            // proxy-less and must re-derive follow state to true.
+            store.Delete(fingerprint, ProxyPreset.Quarter);
+            Assume.That(viewModel.Clips.Single().IsFollowingDefault, Is.True,
+                "the rebuilt proxy-less row reverts to following the default");
+
+            config.DefaultPreset = (int)ProxyPreset.Half;
+
+            Assert.That(viewModel.Clips.Single().Preset.Value, Is.EqualTo(ProxyPreset.Half),
+                "the reverted row tracks the new default instead of staying on the stale preset");
+        }
+        finally
+        {
+            config.DefaultPreset = originalDefault;
+        }
+    }
+
     // Generate All / Delete act on Clips, so the list must track project edits made while the tab
     // is open — not just proxy store/queue events.
     [Test]
