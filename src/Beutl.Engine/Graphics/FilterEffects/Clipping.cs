@@ -91,14 +91,16 @@ public sealed partial class Clipping : FilterEffect
     {
         EffectInput input = session.Inputs[0];
         ImmediateCanvas canvas = session.OpenCanvas();
-        float w = session.WorkingScale;
+        float wOut = session.WorkingScale;
+        float wIn = input.Density.IsUnbounded ? 1f : input.Density.Value;
 
         Thickness effective = thickness;
         if (autoClip)
         {
             using Bitmap snapshot = input.Snapshot();
             Thickness detected = FindTransparentMargins(snapshot);
-            effective += new Thickness(detected.Left / w, detected.Top / w, detected.Right / w, detected.Bottom / w);
+            // Detected margins are in the INPUT snapshot's device px, so they convert to logical by the input density.
+            effective += new Thickness(detected.Left / wIn, detected.Top / wIn, detected.Right / wIn, detected.Bottom / wIn);
         }
 
         // The buffer occupies TargetBounds (already sized by the forward map); the callback only needs the crop
@@ -107,17 +109,23 @@ public sealed partial class Clipping : FilterEffect
         Rect reference = autoClip ? session.Bounds : newBounds;
 
         using (canvas.PushDeviceSpace())
-        using (canvas.PushTransform(Matrix.CreateTranslation(pointX * w, pointY * w)))
+        using (canvas.PushTransform(Matrix.CreateTranslation(pointX * wOut, pointY * wOut)))
         {
             if (autoClip)
             {
                 Rect clip = newBounds.Translate(-session.Bounds.Position);
                 canvas.Canvas.ClipRect(
-                    new SKRect((float)(clip.X * w), (float)(clip.Y * w),
-                        (float)((clip.X + clip.Width) * w), (float)((clip.Y + clip.Height) * w)));
+                    new SKRect((float)(clip.X * wOut), (float)(clip.Y * wOut),
+                        (float)((clip.X + clip.Width) * wOut), (float)((clip.Y + clip.Height) * wOut)));
             }
 
-            input.Draw(canvas, new Point((input.Bounds.X - reference.X) * w, (input.Bounds.Y - reference.Y) * w));
+            // The input buffer exists at wIn; scale it up to the output density before the device-space blit so a
+            // carried-down input still fills its kept region at full size. The blit offset is expressed in input px
+            // (inside the scale), matching the FlatShadow bridge.
+            using (wIn == wOut ? default : canvas.PushTransform(Matrix.CreateScale(wOut / wIn, wOut / wIn)))
+            {
+                input.Draw(canvas, new Point((input.Bounds.X - reference.X) * wIn, (input.Bounds.Y - reference.Y) * wIn));
+            }
         }
     }
 

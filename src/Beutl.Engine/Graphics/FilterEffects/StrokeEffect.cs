@@ -56,8 +56,9 @@ public partial class StrokeEffect : FilterEffect
         ImmediateCanvas newCanvas = session.OpenCanvas();
         using Bitmap src = input.Snapshot();
 
-        // Contours come back in the input's device px; scale to logical so pen width and offset stay logical.
-        float w = session.WorkingScale;
+        // Contours come back in the input's device px; scale to logical (by the input density) so pen width and
+        // offset stay logical. The composite then runs in logical space via input.Draw, so no output-density bridge.
+        float w = input.Density.IsUnbounded ? 1f : input.Density.Value;
         using SKPath borderPath = CreateBorderPath(src);
         if (w != 1f)
             borderPath.Transform(SKMatrix.CreateScale(1f / w, 1f / w));

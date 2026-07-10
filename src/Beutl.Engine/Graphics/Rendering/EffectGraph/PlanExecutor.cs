@@ -577,7 +577,7 @@ internal static class PlanExecutor
             var input = new EffectInput(inputTarget, op.Bounds, EffectiveScale.At(inW));
             using var canvas = new ImmediateCanvas(outputTarget, w, maxWorkingScale, logicalSize: outBounds.Size);
             canvas.Clear();
-            var session = new GeometrySession(canvas, [input], outBounds, outputScale, inW, maxWorkingScale);
+            var session = new GeometrySession(canvas, [input], outBounds, outputScale, w, maxWorkingScale);
             pass.Render(session);
         }
         catch
@@ -707,7 +707,7 @@ internal static class PlanExecutor
             var input = new EffectInput(inputTarget, op.Bounds, EffectiveScale.At(inW));
             using var canvas = new ImmediateCanvas(outputTarget, w, maxWorkingScale, logicalSize: outBounds.Size);
             canvas.Clear();
-            var session = new GeometrySession(canvas, [input], outBounds, outputScale, inW, maxWorkingScale);
+            var session = new GeometrySession(canvas, [input], outBounds, outputScale, w, maxWorkingScale);
             cpu(session);
         }
         catch
@@ -1003,7 +1003,7 @@ internal static class PlanExecutor
                 using var canvas = new ImmediateCanvas(target, w, maxWorkingScale, logicalSize: logicalBounds.Size);
                 canvas.Clear();
                 var session = new GeometrySession(
-                    canvas, [input], logicalBounds, outputScale, workingScale, maxWorkingScale);
+                    canvas, [input], logicalBounds, outputScale, w, maxWorkingScale);
                 render(session);
             }
             catch

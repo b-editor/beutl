@@ -79,9 +79,10 @@ public partial class FlatShadow : FilterEffect
         float x2Abs = Math.Abs(x2);
         float y2Abs = Math.Abs(y2);
 
-        // The output buffer occupies session.Bounds (the expanded rect from TransformBounds).
-        float w = session.WorkingScale;
-        float wOut = newCanvas.Density;
+        // The output buffer occupies session.Bounds (the expanded rect from TransformBounds). The path and shadow are
+        // built in the input's device px (from its snapshot), then bridged to the output density.
+        float w = input.Density.IsUnbounded ? 1f : input.Density.Value;
+        float wOut = session.WorkingScale;
 
         using var paint = new SKPaint { Color = SKColors.White, IsAntialias = true, Style = SKPaintStyle.Fill };
         using var brushPaint = new SKPaint();

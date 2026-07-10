@@ -33,7 +33,15 @@ public sealed class GeometrySession
     /// <summary>The render request's output scale <c>s_out</c> (never a ceiling on the working scale).</summary>
     public float OutputScale { get; }
 
-    /// <summary>The working density <c>w</c> resolved for this pass's inputs (FR-012); absolute-length pixel parameters multiply by this.</summary>
+    /// <summary>
+    /// The pass's OUTPUT density <c>w</c> (device px per logical unit) — the density of the canvas
+    /// <see cref="OpenCanvas"/> returns, so it is what the canvas CTM and all output device-space math need
+    /// (translations, clip rects, absolute-length pixel parameters multiply by this). It is <b>not</b> the density of
+    /// the inputs: an input's own supply density (which a forward-inflated / over-budget carry can drive below
+    /// <see cref="WorkingScale"/>) lives on <see cref="EffectInput.Density"/>. Read that for any quantity measured in
+    /// input pixels (a snapshot's device-px margins, traced-contour coordinates); bridge an input blit onto this
+    /// canvas by <c>WorkingScale / EffectInput.Density</c>.
+    /// </summary>
     public float WorkingScale { get; }
 
     /// <summary>The working-scale ceiling forwarded into brushes/canvases. <c>+Inf</c> = no ceiling (delivery).</summary>
@@ -43,10 +51,9 @@ public sealed class GeometrySession
     public IReadOnlyList<EffectInput> Inputs { get; }
 
     /// <summary>
-    /// The canvas over this pass's output buffer. The executor opened it (cleared, at the output buffer's
-    /// device density, which may be clamped below <see cref="WorkingScale"/> — read <see cref="ImmediateCanvas.Density"/>
-    /// for the real density) and disposes it when the callback returns; the callback draws into it but MUST NOT
-    /// dispose it.
+    /// The canvas over this pass's output buffer, opened (and cleared) by the executor at the output density
+    /// (<see cref="ImmediateCanvas.Density"/> equals <see cref="WorkingScale"/>); the executor disposes it when the
+    /// callback returns, so the callback draws into it but MUST NOT dispose it.
     /// </summary>
     public ImmediateCanvas OpenCanvas() => _canvas;
 }
