@@ -343,7 +343,7 @@ public class Scene : ProjectItem, INotifyEdited
             {
                 if (anchorInRun)
                 {
-                    Element[] toShift = ShiftableAfter(z, cur.Start, coveredEnd - cur.Start);
+                    Element[] toShift = ShiftableAfter(z, cur.Start);
                     return toShift.Length != 0 && MoveChildrenAndDetectChange(toShift, coveredEnd - cur.Start);
                 }
 
@@ -384,7 +384,7 @@ public class Scene : ProjectItem, INotifyEdited
                 TimeSpan delta = -gap.Range.Duration;
                 if (delta == TimeSpan.Zero) continue;
 
-                Element[] toShift = ShiftableAfter(zGroup.Key, gap.Range.End, delta);
+                Element[] toShift = ShiftableAfter(zGroup.Key, gap.Range.End);
                 if (toShift.Length == 0) continue;
 
                 if (MoveChildrenAndDetectChange(toShift, delta))
@@ -397,32 +397,21 @@ public class Scene : ProjectItem, INotifyEdited
         return closed;
     }
 
-    // The unlocked elements on the layer at or after fromStart that can slide by deltaStart without
-    // any of them landing on a locked element, in shift order. A locked element is an immovable
-    // barrier: once a follower's shifted range would intersect one, the shift stops there. Mirrors
-    // RippleHelper so gap-close honors the same lock guarantees as the other timeline mutations.
-    private Element[] ShiftableAfter(int zIndex, TimeSpan fromStart, TimeSpan deltaStart)
+    // The elements at or after fromStart that a gap close may slide left, in timeline order. A locked
+    // element is a hard wall: iteration stops at the first locked start-group, so nothing at or beyond
+    // it shifts across the lock (elements before it only move further left, never onto a lock).
+    // Grouping by Start keeps same-start elements atomic, independent of Children enumeration order.
+    private Element[] ShiftableAfter(int zIndex, TimeSpan fromStart)
     {
         if (IsLayerLocked(zIndex)) return [];
 
-        Element[] lockedOnLayer = Children
-            .Where(e => e.ZIndex == zIndex && e.IsLocked)
-            .ToArray();
-
         var result = new List<Element>();
-        // Same-start elements move as one cohort: if any of them would land on a locked element the
-        // whole group stops, so the shiftable set never depends on Children enumeration order.
         foreach (IGrouping<TimeSpan, Element> startGroup in Children
-            .Where(e => e.ZIndex == zIndex && !e.IsLocked && e.Start >= fromStart)
+            .Where(e => e.ZIndex == zIndex && e.Start >= fromStart)
             .GroupBy(e => e.Start)
             .OrderBy(g => g.Key))
         {
-            bool blocked = startGroup.Any(e =>
-            {
-                TimeRange shifted = e.Range.WithStart(e.Start + deltaStart);
-                return Array.Exists(lockedOnLayer, l => shifted.Intersects(l.Range));
-            });
-            if (blocked) break;
+            if (startGroup.Any(e => e.IsLocked)) break;
 
             result.AddRange(startGroup);
         }

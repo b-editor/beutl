@@ -1188,19 +1188,18 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         }
     }
 
-    // Both the search origin and the returned target are clamped to the active scene range, so a
-    // playhead parked outside the scene still navigates within it and never lands outside it.
+    // The search is bounded to the active scene range by searchRange, so a playhead parked outside the
+    // scene still navigates within it. currentTime is passed through unclamped: clamping the origin to
+    // the boundary would make the strict > / < searches skip an in-range gap that touches Scene.Start
+    // or Scene.Start + Duration exactly.
     internal static TimeSpan? FindGapNavigationTarget(Scene scene, TimeSpan currentTime, bool forward)
     {
         TimeSpan sceneStart = scene.Start;
         TimeSpan sceneEnd = scene.Start + scene.Duration;
         var range = new TimeRange(sceneStart, scene.Duration);
-        TimeSpan origin = currentTime < sceneStart
-            ? sceneStart
-            : currentTime > sceneEnd ? sceneEnd : currentTime;
         TimeRange? gap = forward
-            ? scene.FindNextGap(origin, range)
-            : scene.FindPreviousGap(origin, range);
+            ? scene.FindNextGap(currentTime, range)
+            : scene.FindPreviousGap(currentTime, range);
         if (gap is not { } g) return null;
 
         TimeSpan target = g.Start + new TimeSpan(g.Duration.Ticks / 2);

@@ -720,6 +720,81 @@ public class SceneGapTests
     }
 
     [Test]
+    public void CloseAllGaps_DoesNotShiftFollowerAcrossLockedElement()
+    {
+        string basePath = GetTempPath();
+        try
+        {
+            Scene scene = CreateScene(basePath);
+            // [0s..1s], locked [5s..6s], [10s..11s]. The gap after the locked clip closes (the trailing
+            // clip lands at 6s), but the gap before it stays open — the follower never crosses the lock.
+            Element a = CreateElement(basePath, TimeSpan.Zero, TimeSpan.FromSeconds(1));
+            Element locked = CreateElement(basePath, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(1));
+            locked.IsLocked = true;
+            Element c = CreateElement(basePath, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(1));
+            scene.Children.Add(a);
+            scene.Children.Add(locked);
+            scene.Children.Add(c);
+
+            int closed = scene.CloseAllGaps();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(closed, Is.EqualTo(1));
+                Assert.That(a.Start, Is.EqualTo(TimeSpan.Zero));
+                Assert.That(locked.Start, Is.EqualTo(TimeSpan.FromSeconds(5)));
+                Assert.That(c.Start, Is.EqualTo(TimeSpan.FromSeconds(6)));
+            });
+        }
+        finally
+        {
+            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+        }
+    }
+
+    [Test]
+    public void CloseGapAfter_StopsAtLockedWall()
+    {
+        string basePath = GetTempPath();
+        try
+        {
+            Scene scene = CreateScene(basePath);
+            // Anchor [0s..2s]; gap 2s-4s; a same-start cohort at 4s; a locked wall [8s..10s]; another
+            // same-start cohort at 12s beyond the wall. The near cohort shifts left to close the gap,
+            // the wall stops the shift, and the cohort beyond the wall stays put.
+            Element anchor = CreateElement(basePath, TimeSpan.Zero, TimeSpan.FromSeconds(2));
+            Element m = CreateElement(basePath, TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(1));
+            Element n = CreateElement(basePath, TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(3));
+            Element locked = CreateElement(basePath, TimeSpan.FromSeconds(8), TimeSpan.FromSeconds(2));
+            locked.IsLocked = true;
+            Element c1 = CreateElement(basePath, TimeSpan.FromSeconds(12), TimeSpan.FromSeconds(1));
+            Element c2 = CreateElement(basePath, TimeSpan.FromSeconds(12), TimeSpan.FromSeconds(4));
+            scene.Children.Add(anchor);
+            scene.Children.Add(m);
+            scene.Children.Add(n);
+            scene.Children.Add(locked);
+            scene.Children.Add(c1);
+            scene.Children.Add(c2);
+
+            bool closed = scene.CloseGapAfter(anchor);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(closed, Is.True);
+                Assert.That(m.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
+                Assert.That(n.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
+                Assert.That(locked.Start, Is.EqualTo(TimeSpan.FromSeconds(8)));
+                Assert.That(c1.Start, Is.EqualTo(TimeSpan.FromSeconds(12)));
+                Assert.That(c2.Start, Is.EqualTo(TimeSpan.FromSeconds(12)));
+            });
+        }
+        finally
+        {
+            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+        }
+    }
+
+    [Test]
     public void FindNextGap_ReturnsNextGap()
     {
         string basePath = GetTempPath();

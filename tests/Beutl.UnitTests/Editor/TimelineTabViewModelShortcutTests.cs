@@ -128,7 +128,7 @@ public class TimelineTabViewModelShortcutTests
     }
 
     [Test]
-    public void FindGapNavigationTarget_Forward_CurrentBeforeSceneStart_ClampsOriginToSceneStart()
+    public void FindGapNavigationTarget_Forward_CurrentBeforeSceneStart_FindsFirstInRangeGap()
     {
         using var harness = new SceneHistoryHarness(
             "beutl_timeline_gap_nav",
@@ -144,20 +144,37 @@ public class TimelineTabViewModelShortcutTests
     }
 
     [Test]
-    public void FindGapNavigationTarget_Backward_CurrentBeyondSceneEnd_ClampsOriginToSceneEnd()
+    public void FindGapNavigationTarget_Forward_CurrentBeforeSceneStart_ReturnsBoundaryTouchingGap()
+    {
+        using var harness = new SceneHistoryHarness(
+            "beutl_timeline_gap_nav",
+            start: TimeSpan.FromSeconds(10),
+            duration: TimeSpan.FromSeconds(20));
+        // Ends exactly at the scene start, so the gap [10s, 14s] begins on the boundary. It lies
+        // wholly in range, so navigating forward from before the scene must land on it.
+        harness.AddElement(TimeSpan.FromSeconds(9), TimeSpan.FromSeconds(1));
+        harness.AddElement(TimeSpan.FromSeconds(14), TimeSpan.FromSeconds(2));
+
+        TimeSpan? target = TimelineTabViewModel.FindGapNavigationTarget(
+            harness.Scene, TimeSpan.Zero, forward: true);
+
+        Assert.That(target, Is.EqualTo(TimeSpan.FromSeconds(12)));
+    }
+
+    [Test]
+    public void FindGapNavigationTarget_Backward_CurrentBeyondSceneEnd_ReturnsBoundaryTouchingGap()
     {
         using var harness = new SceneHistoryHarness("beutl_timeline_gap_nav", duration: TimeSpan.FromSeconds(20));
         harness.AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(5));
         harness.AddElement(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(5));
-        // Starts exactly at the scene end, so the gap [15s, 20s] touches the boundary. With the
-        // origin clamped to the scene end and the strictly-before filter, that gap is skipped and
-        // navigation lands on the earlier gap [5s, 10s].
+        // Starts exactly at the scene end, so the gap [15s, 20s] ends on the boundary. It lies wholly
+        // in range, so navigating back from beyond the scene must land on it, not skip to [5s, 10s].
         harness.AddElement(TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(5));
 
         TimeSpan? target = TimelineTabViewModel.FindGapNavigationTarget(
             harness.Scene, TimeSpan.FromSeconds(100), forward: false);
 
-        Assert.That(target, Is.EqualTo(TimeSpan.FromSeconds(7.5)));
+        Assert.That(target, Is.EqualTo(TimeSpan.FromSeconds(17.5)));
     }
 
     [Test]
