@@ -274,6 +274,41 @@ public sealed class ProxyMediaServicesReinitTests
     }
 
     [AvaloniaTest]
+    public void StoreRootPath_invalidPath_keepsPreviousStore_andDoesNotThrow()
+    {
+        ProxyStoreConfig config = GlobalConfiguration.Instance.ProxyStoreConfig;
+        (string Root, long Cap) prior = Snapshot(config);
+        string good = Path.Combine(Path.GetTempPath(), $"proxy-reinit-{Guid.NewGuid():N}");
+        // An existing file cannot be opened as a store directory: ProxyStore's Directory.CreateDirectory
+        // throws, and the rebuild must swallow that and keep the live store rather than escaping the setter.
+        string badFile = Path.Combine(Path.GetTempPath(), $"proxy-reinit-file-{Guid.NewGuid():N}");
+        File.WriteAllBytes(badFile, [1]);
+        config.StoreRootPath = good;
+
+        ProxyMediaServices services = ProxyMediaServices.Initialize(GlobalConfiguration.Instance);
+        try
+        {
+            ProxyStore storeBefore = services.Store;
+
+            Assert.DoesNotThrow(() => config.StoreRootPath = badFile);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(services.Store, Is.SameAs(storeBefore));
+                Assert.That(services.Store.StoreRootPath, Is.EqualTo(Path.GetFullPath(good)));
+                Assert.That(services.StoreFacade.StoreRootPath, Is.EqualTo(Path.GetFullPath(good)));
+            });
+        }
+        finally
+        {
+            services.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            Restore(config, prior);
+            TryDelete(good);
+            try { File.Delete(badFile); } catch { /* best-effort test cleanup */ }
+        }
+    }
+
+    [AvaloniaTest]
     public void Store_swap_completes_even_if_a_Reset_subscriber_throws()
     {
         ProxyStoreConfig config = GlobalConfiguration.Instance.ProxyStoreConfig;

@@ -91,6 +91,30 @@ public sealed class ProxyStoreTests
     }
 
     [Test]
+    public async Task ReconcileAsync_DeletesOnlyOldGeneratedProxyBakFiles()
+    {
+        string root = CreateRoot();
+        var store = new ProxyStore(root);
+        string hashDirectory = new('c', 64);
+        string agedBak = Path.Combine(root, hashDirectory, $"quarter.{Guid.NewGuid():N}.bak.mp4");
+        string recentBak = Path.Combine(root, hashDirectory, $"quarter.{Guid.NewGuid():N}.bak.mp4");
+        string unrelatedBak = Path.Combine(root, hashDirectory, "clip.bak.backup.mp4");
+        Directory.CreateDirectory(Path.Combine(root, hashDirectory));
+        foreach (string file in new[] { agedBak, recentBak, unrelatedBak })
+            File.WriteAllBytes(file, [1, 2, 3]);
+        File.SetLastWriteTimeUtc(agedBak, DateTime.UtcNow.AddHours(-25));
+
+        await store.ReconcileAsync(CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.Exists(agedBak), Is.False, "an aged interrupted-regenerate backup should be reclaimed");
+            Assert.That(File.Exists(recentBak), Is.True, "a recent backup may still be mid-regenerate; do not race it");
+            Assert.That(File.Exists(unrelatedBak), Is.True, "a *.mp4 not matching the backup naming scheme must not be deleted");
+        });
+    }
+
+    [Test]
     public async Task ReconcileAsync_OrphanCleanup_DeletesOnlyProxyShapedFinalFiles()
     {
         string root = CreateRoot();

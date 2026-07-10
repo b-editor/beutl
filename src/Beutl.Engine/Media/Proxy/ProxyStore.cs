@@ -227,7 +227,8 @@ public sealed class ProxyStore : IProxyStore
         {
             cancellationToken.ThrowIfCancellationRequested();
             foreach (string tmp in Directory.EnumerateFiles(StoreRootPath, "*", SearchOption.AllDirectories)
-                         .Where(path => ProxyPathUtilities.IsGeneratedProxyTempPath(StoreRootPath, path))
+                         .Where(path => ProxyPathUtilities.IsGeneratedProxyTempPath(StoreRootPath, path)
+                             || ProxyPathUtilities.IsGeneratedProxyBackupPath(StoreRootPath, path))
                          .Where(IsOldEnoughToCleanGeneratedTemp))
             {
                 cancellationToken.ThrowIfCancellationRequested();

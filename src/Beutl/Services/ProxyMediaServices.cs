@@ -186,7 +186,26 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
         // A strictly larger version offset makes every open reader (even one caching version 0 from the
         // old store's startup index) observe a bump and reopen against the new store.
         long versionOffset = Interlocked.Add(ref _resolverVersionOffset, ResolverVersionOffsetStep);
-        var (newStore, newResolver, newQueue, newEviction) = BuildServices(storeRootPath, maxTotalBytes, versionOffset);
+        ProxyStore newStore;
+        ProxyResolver newResolver;
+        ProxyJobQueue newQueue;
+        ProxyEvictionService newEviction;
+        try
+        {
+            (newStore, newResolver, newQueue, newEviction) = BuildServices(storeRootPath, maxTotalBytes, versionOffset);
+        }
+        catch (Exception ex)
+        {
+            // Building the store opens/creates its directory, which throws for a rejected path (an existing
+            // file, a permission-denied location). Keep the live store on the old path and report the
+            // rejection instead of letting the exception escape the config setter and tear nothing down.
+            s_logger.LogWarning(ex, "Rebuilding the proxy store at '{Path}' failed; keeping the previous store.", storeRootPath);
+            NotificationService.ShowWarning(
+                "Proxy media",
+                $"The proxy store location '{storeRootPath}' could not be opened. Keeping the previous location.");
+            return;
+        }
+
         ProxyJobQueue oldQueue = Queue;
         ProxyResolver oldResolver = Resolver;
 

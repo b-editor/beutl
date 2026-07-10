@@ -59,6 +59,30 @@ public class ProxyPathUtilitiesTests
         });
     }
 
+    [Test]
+    public void IsGeneratedProxyBackupPath_AcceptsBakOnly_AndIsDisjointFromFinalAndTemp()
+    {
+        string root = CreateRoot();
+        string hashDir = new('a', 64);
+        string backupPath = Path.Combine(root, hashDir, $"quarter.{Guid.NewGuid():N}.bak.mp4");
+        string finalPath = Path.Combine(root, hashDir, "quarter.mp4");
+        string tempPath = Path.Combine(root, hashDir, $"quarter.{Guid.NewGuid():N}.tmp.mp4");
+        string wrongTag = Path.Combine(root, hashDir, $"quarter.{Guid.NewGuid():N}.old.mp4");
+        string wrongPreset = Path.Combine(root, hashDir, $"render.{Guid.NewGuid():N}.bak.mp4");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ProxyPathUtilities.IsGeneratedProxyBackupPath(root, backupPath), Is.True);
+            Assert.That(ProxyPathUtilities.IsGeneratedProxyBackupPath(root, finalPath), Is.False);
+            Assert.That(ProxyPathUtilities.IsGeneratedProxyBackupPath(root, tempPath), Is.False);
+            Assert.That(ProxyPathUtilities.IsGeneratedProxyBackupPath(root, wrongTag), Is.False);
+            Assert.That(ProxyPathUtilities.IsGeneratedProxyBackupPath(root, wrongPreset), Is.False);
+            // A backup is neither a final nor a temp path, so the reconcile branches never overlap.
+            Assert.That(ProxyPathUtilities.IsGeneratedProxyFinalPath(root, backupPath), Is.False);
+            Assert.That(ProxyPathUtilities.IsGeneratedProxyTempPath(root, backupPath), Is.False);
+        });
+    }
+
     // Pins the producer/consumer filename contract: if BuildRelativePath's shape drifts (hex casing,
     // separator, preset casing), orphan reclaim stops recognizing generated files and the store leaks.
     [Test]

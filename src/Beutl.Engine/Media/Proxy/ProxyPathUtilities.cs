@@ -46,11 +46,21 @@ internal static class ProxyPathUtilities
     }
 
     public static bool IsGeneratedProxyTempPath(string storeRootPath, string path)
+        => IsGeneratedProxyTaggedPath(storeRootPath, path, "tmp");
+
+    // A regenerate moves the existing <preset>.mp4 aside to <preset>.<guid>.bak.mp4 before publishing the
+    // replacement, then best-effort deletes it. A crash or a failed delete in that window strands the
+    // backup; it matches neither the temp nor the final naming scheme, so reconcile must recognize it to
+    // reclaim it.
+    public static bool IsGeneratedProxyBackupPath(string storeRootPath, string path)
+        => IsGeneratedProxyTaggedPath(storeRootPath, path, "bak");
+
+    private static bool IsGeneratedProxyTaggedPath(string storeRootPath, string path, string tag)
     {
         if (!TryGetProxyFileParts(storeRootPath, path, out string[] parts))
             return false;
 
-        if (parts.Length != 3 || !parts[2].Equals("tmp", StringComparison.OrdinalIgnoreCase))
+        if (parts.Length != 3 || !parts[2].Equals(tag, StringComparison.OrdinalIgnoreCase))
             return false;
 
         if (!Guid.TryParseExact(parts[1], "N", out _))
