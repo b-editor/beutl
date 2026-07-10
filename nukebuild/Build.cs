@@ -44,7 +44,10 @@ class Build : NukeBuild
         .DependsOn(Clean)
         .Executes(() =>
         {
-            DotNetRestore();
+            // Forward the RID so the assets file gains the runtime-specific target the
+            // subsequent --no-restore publish needs; without it publish fails with NETSDK1047.
+            DotNetRestore(s => s
+                .When(_ => Runtime != null, s => s.SetRuntime(Runtime)));
         });
 
     Target Compile => _ => _

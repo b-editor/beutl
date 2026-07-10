@@ -10,7 +10,7 @@
          RID-less dev/debug run (e.g. `dotnet run`) on an ARM64 host. Mirrors the host
          detection in Beutl.Engine.csproj (_ShadercNativeRid). -->
     <_BeutlTargetsArm64 Condition="$(RuntimeIdentifier.Contains('arm64'))">true</_BeutlTargetsArm64>
-    <_BeutlTargetsArm64 Condition="'$(_BeutlTargetsArm64)' == '' And '$(RuntimeIdentifier)' == '' And '$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture)' == 'Arm64'">true</_BeutlTargetsArm64>
+    <_BeutlTargetsArm64 Condition="'$(_BeutlTargetsArm64)' == '' And '$(RuntimeIdentifier)' == '' And '$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))' == 'true' And '$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture)' == 'Arm64'">true</_BeutlTargetsArm64>
     <!-- Exclude MediaFoundation on ARM64: it depends on Direct3D9/DXVA2 (x86/x64-only).
          ARM64 falls back to FFmpeg decoding. Covers both arm64 publishes and RID-less
          arm64 host runs. -->
@@ -113,6 +113,13 @@
 
   <ItemGroup Condition="'$(FFmpegBuildIn)'=='True'">
     <ProjectReference Include="..\Beutl.Extensions.FFmpeg\Beutl.Extensions.FFmpeg.csproj" />
+  </ItemGroup>
+
+  <!-- FFmpegBinaryLocator (WindowCapture, always compiled) needs the shared arch->win-rid mapping.
+       The helper is internal to Beutl.Extensions.FFmpeg, so link the source rather than reference it
+       (same pattern as the FFmpeg worker/benchmark/tests). -->
+  <ItemGroup>
+    <Compile Include="..\Beutl.Extensions.FFmpeg\FFmpegNativeRid.cs" Link="Linked\FFmpegNativeRid.cs" />
   </ItemGroup>
 
   <!-- Dev-only build of the GPL worker. ReferenceOutputAssembly=false keeps the GPL assembly
