@@ -1,4 +1,4 @@
-using Beutl.Composition;
+﻿using Beutl.Composition;
 using Beutl.ProjectSystem;
 
 namespace Beutl.Editor;
