@@ -353,6 +353,18 @@ public sealed partial class EditorConfig : ConfigurationBase
         set => SetValue(PreviewSourceModeProperty, value);
     }
 
+    /// <summary>
+    /// Sets <see cref="PreviewSourceMode"/> from a <c>ComboBox.SelectedIndex</c>. A ComboBox reports
+    /// <c>-1</c> during a transient no-selection / control reset; an unchecked cast would persist an
+    /// undefined enum that never equals <see cref="PreviewSourceMode.PreferProxy"/>, silently disabling
+    /// proxy preview. Out-of-range indices are ignored so both settings surfaces stay consistent.
+    /// </summary>
+    public void SetPreviewSourceModeFromIndex(int index)
+    {
+        if (Enum.IsDefined(typeof(PreviewSourceMode), index))
+            PreviewSourceMode = (PreviewSourceMode)index;
+    }
+
     public CoreDictionary<string, LibraryTabDisplayMode> LibraryTabDisplayModes { get; } = new()
     {
         ["Search"] = LibraryTabDisplayMode.Show,

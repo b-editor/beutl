@@ -62,13 +62,7 @@ public sealed class PreviewSettingsTabViewModel : IToolContext, IPropertyEditorC
             .Select(v => (int)v)
             .ToReactiveProperty()
             .DisposeWith(_disposables);
-        // SelectedIndex can legally be -1 (no selection); an unchecked cast would persist an undefined enum
-        // that never equals PreferProxy, silently disabling proxy preview. Ignore out-of-range indices.
-        PreviewSourceMode.Subscribe(v =>
-            {
-                if (Enum.IsDefined(typeof(PreviewSourceMode), v))
-                    config.PreviewSourceMode = (PreviewSourceMode)v;
-            })
+        PreviewSourceMode.Subscribe(config.SetPreviewSourceModeFromIndex)
             .DisposeWith(_disposables);
     }
 

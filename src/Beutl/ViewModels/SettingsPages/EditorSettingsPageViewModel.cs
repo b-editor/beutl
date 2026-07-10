@@ -131,7 +131,7 @@ public sealed class EditorSettingsPageViewModel : IDisposable
             .Select(v => (int)v)
             .ToReactiveProperty()
             .DisposeWith(_disposables);
-        PreviewSourceMode.Subscribe(b => _editorConfig.PreviewSourceMode = (PreviewSourceMode)b)
+        PreviewSourceMode.Subscribe(_editorConfig.SetPreviewSourceModeFromIndex)
             .DisposeWith(_disposables);
 
         ProxyStoreRootPath = new ReactiveProperty<string>(_proxyStoreConfig.StoreRootPath)
