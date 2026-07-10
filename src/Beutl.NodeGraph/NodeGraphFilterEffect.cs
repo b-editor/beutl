@@ -63,13 +63,7 @@ public sealed partial class NodeGraphFilterEffect : FilterEffect
             return new NodeGraphFilterEffectRenderNode(this);
         }
 
-        public override PushedState Push(GraphicsContext2D context)
-        {
-            return context.PushNode(
-                this,
-                resource => new NodeGraphFilterEffectRenderNode(resource),
-                (node, resource) => node.Update(resource));
-        }
+        public override Type RenderNodeType => typeof(NodeGraphFilterEffectRenderNode);
 
         public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
         {

@@ -3,7 +3,10 @@
 /// <summary>
 /// The single-entry compiled-plan cache a <see cref="PlanFilterEffectRenderNode"/> holds (feature 004, T034,
 /// contracts/execution-plan.md C5, data-model §3). A render node has one effect structure at a time, so caching
-/// the last plan is all that ever helps. The cached plan is reused iff <b>both</b> the <see cref="StructuralKey"/>
+/// the last plan is all that ever helps. Known limit, deliberately accepted: a chain whose structure ALTERNATES
+/// every frame (e.g. a child blinking enabled/disabled) misses on each flip and recompiles — measured at
+/// benchmark noise level (a recompile is sub-millisecond CPU), so a multi-entry cache is not worth its
+/// complexity. The cached plan is reused iff <b>both</b> the <see cref="StructuralKey"/>
 /// and the graphics-context identity match; on a hit the frame rebinds parameters (<see cref="ParameterBlock"/>)
 /// without a recompile.
 /// </summary>

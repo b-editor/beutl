@@ -38,12 +38,22 @@ public abstract partial class FilterEffect : EngineObject
             return new PlanFilterEffectRenderNode(this);
         }
 
+        /// <summary>
+        /// The concrete type <see cref="CreateRenderNode"/> instantiates. The render-graph diff reuses the
+        /// effect's node across drawable re-renders only when the existing node's runtime type equals this —
+        /// reuse is what keeps the node's plan and prefix caches alive on animated frames. Override this together
+        /// with <see cref="CreateRenderNode"/>; leaving it unpaired is safe but rebuilds the custom node (and
+        /// recompiles its plan) on every re-render.
+        /// </summary>
+        public virtual Type RenderNodeType => typeof(PlanFilterEffectRenderNode);
+
         public virtual PushedState Push(GraphicsContext2D context)
         {
             return context.PushNode(
                 this,
-                resource => resource.CreateRenderNode(),
-                (node, resource) => node.Update(resource));
+                RenderNodeType,
+                static resource => resource.CreateRenderNode(),
+                static (node, resource) => node.Update(resource));
         }
     }
 }
