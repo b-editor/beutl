@@ -93,6 +93,22 @@ public class ElementSlipServiceTests
     }
 
     [Test]
+    public void Slip_ElementNotInScene_NoCommit()
+    {
+        var element = new Element { Start = TimeSpan.FromSeconds(1), Length = TimeSpan.FromSeconds(2) };
+        element.Objects.Add(new SourceVideo());
+        int before = _history.UndoCount;
+
+        bool applied = _service.Slip(_scene, element, TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
     public void Slip_ZeroDelta_NoCommit()
     {
         Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));

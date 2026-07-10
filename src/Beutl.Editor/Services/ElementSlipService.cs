@@ -17,8 +17,10 @@ public sealed class ElementSlipService : IElementSlipService
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(element);
         if (delta == TimeSpan.Zero) return false;
-        // The element or its layer may have been locked after the drag began, so re-check here
-        // rather than trusting the press-time IsEditable gate.
+        // Re-check membership and lock at the mutation boundary (matching Roll/Slide): a direct
+        // caller may pass an off-scene element, and the clip or its layer may have been locked
+        // after the drag began, so the press-time IsEditable gate is not enough.
+        if (!scene.Children.Contains(element)) return false;
         if (scene.IsElementLocked(element)) return false;
 
         List<SlippableMedia.Target> targets = SlippableMedia.Collect(element);
