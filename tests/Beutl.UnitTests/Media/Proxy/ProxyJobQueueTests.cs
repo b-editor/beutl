@@ -578,6 +578,33 @@ public class ProxyJobQueueTests
     }
 
     [Test]
+    public async Task UnavailableGenerator_RequeuedJob_CarriesUnavailabilityReason()
+    {
+        ProxyFingerprint parked = CreateFingerprint("parked-reason.mov");
+        var generator = new SourceScopedUnavailableGenerator(parked);
+        await using var queue = new ProxyJobQueue(
+            generator,
+            store: null,
+            minUnavailableBackoff: TimeSpan.FromSeconds(30),
+            maxUnavailableBackoff: TimeSpan.FromSeconds(30));
+
+        ProxyJob job = await queue.EnqueueAsync(parked, ProxyPreset.Quarter);
+        await generator.FirstUnavailable.WaitAsync(TimeSpan.FromSeconds(5));
+
+        // The requeue happens after FirstUnavailable fires (inside GenerateAsync), so poll briefly.
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(5);
+        while (job.StatusMessage is null && DateTime.UtcNow < deadline)
+            await Task.Delay(10);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Queued));
+            Assert.That(job.StatusMessage, Is.EqualTo("scoped unavailable"),
+                "A job parked on generator unavailability must expose the reason, not render as a plain backlog entry.");
+        });
+    }
+
+    [Test]
     public async Task Cancel_ParkedUnavailableJob_WakesDrainLoopWithoutWaitingBackoff()
     {
         ProxyFingerprint parked = CreateFingerprint("parked.mov");

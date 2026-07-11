@@ -34,30 +34,35 @@ internal sealed class ProxyMediaReader(
     {
         try
         {
-            if (disposing)
-                inner.Dispose();
-        }
-        finally
-        {
-            // Released on the finalizer path too, or an abandoned reader pins the proxy against
-            // eviction forever. The pin comes from whatever IProxyResolver is installed, so on the
-            // finalizer thread the release is best-effort: an escaping exception would kill the process.
-            if (disposing)
+            try
             {
-                pin.Dispose();
+                if (disposing)
+                    inner.Dispose();
             }
-            else
+            finally
             {
-                try
+                // Released on the finalizer path too, or an abandoned reader pins the proxy against
+                // eviction forever. The pin comes from whatever IProxyResolver is installed, so on the
+                // finalizer thread the release is best-effort: an escaping exception would kill the process.
+                if (disposing)
                 {
                     pin.Dispose();
                 }
-                catch
+                else
                 {
+                    try
+                    {
+                        pin.Dispose();
+                    }
+                    catch
+                    {
+                    }
                 }
             }
         }
-
-        base.Dispose(disposing);
+        finally
+        {
+            base.Dispose(disposing);
+        }
     }
 }

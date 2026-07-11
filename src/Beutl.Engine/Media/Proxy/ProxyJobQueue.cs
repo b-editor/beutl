@@ -473,6 +473,9 @@ public sealed class ProxyJobQueue : IProxyJobQueue
                     // or InvalidateGenerator raced mid-generate — a generator swap/unload, where the
                     // next dispatch re-resolves the provider like the not-yet-registered path. Both
                     // keep the job Queued and re-probe after a bounded backoff instead of dropping it.
+                    // Carry the reason so the UI can distinguish "blocked on availability" from a
+                    // plain backlog; the next dispatch clears it before GenerateAsync.
+                    item.Job.StatusMessage = ex.Message;
                     requeued = RequeueForRetry(item);
                     if (!requeued)
                         CompleteCanceled(item);

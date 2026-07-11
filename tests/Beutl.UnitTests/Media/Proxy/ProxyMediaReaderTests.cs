@@ -45,6 +45,32 @@ public sealed class ProxyMediaReaderTests
     }
 
     [Test]
+    public void Dispose_InnerThrows_StillReleasesPin()
+    {
+        bool pinDisposed = false;
+        var inner = new FakeMediaReader(() => throw new InvalidOperationException("inner failed"));
+        var pin = new FakePin(() => pinDisposed = true);
+
+        var resolution = new ProxyResolution(
+            AbsoluteProxyFilePath: "/proxy.mp4",
+            Source: new ProxyFingerprint("/source.mp4", 100, DateTime.UtcNow),
+            Preset: ProxyPreset.Quarter,
+            OriginalLogicalFrameSize: new PixelSize(100, 80),
+            ProxyDecodedFrameSize: new PixelSize(50, 40));
+
+        var reader = new ProxyMediaReader(inner, pin, resolution);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(() => reader.Dispose(), Throws.InvalidOperationException);
+            Assert.That(pinDisposed, Is.True, "A failing inner reader must not leak the pin.");
+        });
+
+        GC.SuppressFinalize(reader);
+        GC.SuppressFinalize(inner);
+    }
+
+    [Test]
     public void Dispose_NonDisposing_ReleasesPinWithoutTouchingInner()
     {
         bool innerDisposed = false;
