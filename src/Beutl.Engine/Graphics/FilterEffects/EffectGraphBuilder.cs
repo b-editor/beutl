@@ -12,12 +12,13 @@ namespace Beutl.Graphics.Effects;
 /// The builder never renders or allocates; it produces an <see cref="EffectGraph"/> the render node compiles and
 /// executes (A1). Payloads are validated on append so authoring errors surface at describe time, not execute time.
 /// </summary>
-public sealed class EffectGraphBuilder
+public sealed class EffectGraphBuilder : IDisposable
 {
     private readonly List<EffectNode> _nodes = [];
     private readonly HashSet<IDisposable> _disposables = new(ReferenceEqualityComparer.Instance);
     private int _childScopeDepth;
     private int _currentChildIndex;
+    private bool _built;
 
     internal EffectGraphBuilder(
         Rect bounds, float outputScale, float workingScale, float maxWorkingScale = float.PositiveInfinity)
@@ -248,7 +249,32 @@ public sealed class EffectGraphBuilder
         }
     }
 
-    internal EffectGraph Build() => new(_nodes, OriginalBounds, OutputScale, WorkingScale, _disposables);
+    internal EffectGraph Build()
+    {
+        // Ownership of the tracked disposables transfers to the graph, which releases them once the frame's plan has
+        // executed; Dispose must then not touch them (the graph would double-dispose).
+        _built = true;
+        return new(_nodes, OriginalBounds, OutputScale, WorkingScale, _disposables);
+    }
+
+    /// <summary>
+    /// Releases the per-frame disposables (sampler/child shaders) still owned by the builder — the case where
+    /// <see cref="FilterEffect.Describe"/> registered a native shader via <see cref="Sampler"/>/<see cref="Child"/>/
+    /// <see cref="Track{T}"/> and then threw before <see cref="Build"/> could transfer ownership to the graph. After a
+    /// successful <see cref="Build"/> this is a no-op: the graph owns them.
+    /// </summary>
+    public void Dispose()
+    {
+        if (_built)
+            return;
+
+        foreach (IDisposable disposable in _disposables)
+        {
+            disposable.Dispose();
+        }
+
+        _disposables.Clear();
+    }
 
     // ---- Convenience vocabulary (mirrors the legacy recording context) ---------------------------------
 

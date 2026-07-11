@@ -46,7 +46,9 @@ internal sealed class PlanFilterEffectRenderNode(FilterEffect.Resource filterEff
         workingScale = RenderNodeContext.ClampWorkingScaleToBufferBudget(bounds, workingScale);
 
         FilterEffect.Resource resource = FilterEffect.Value.Resource;
-        var graphBuilder = new EffectGraphBuilder(
+        // A Describe that registers a native sampler/child shader and then throws would strand it (ownership only
+        // transfers to the graph at Build); the using releases what the builder still owns on that path.
+        using var graphBuilder = new EffectGraphBuilder(
             bounds, context.OutputScale, workingScale, context.MaxWorkingScale);
         resource.GetOriginal().Describe(graphBuilder, resource);
         using EffectGraph graph = graphBuilder.Build();

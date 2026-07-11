@@ -143,7 +143,9 @@ internal static class PlanExecutor
                 // materializing single-op path: the raw outer workingScale would re-raise a density an
                 // upstream clamped op already reduced.
                 float branchScale = CarriedWorkingScale(op, workingScale);
-                var builder = new EffectGraphBuilder(op.Bounds, outputScale, branchScale, maxWorkingScale);
+                // A DescribeBranch that registers a native shader and then throws would strand it; the using releases
+                // what the builder still owns (Build transfers ownership to the graph, after which Dispose is a no-op).
+                using var builder = new EffectGraphBuilder(op.Bounds, outputScale, branchScale, maxWorkingScale);
                 pass.DescribeBranch(builder, i);
                 using EffectGraph graph = builder.Build();
                 CompiledPlan branchPlan = EffectGraphCompiler.Compile(graph, diagnostics);
@@ -545,26 +547,27 @@ internal static class PlanExecutor
         RenderNodeOperation source, float maxWorkingScale)
     {
         SKImageFilter? filter = null;
-        foreach (Func<SKImageFilter?, SKImageFilter?> factory in pass.Filters)
-        {
-            SKImageFilter? outer = factory(filter);
-            // An identity factory can hand back its own argument; disposing the predecessor then would free the
-            // filter still in use. Only advance when the factory produced a genuinely new instance.
-            if (outer != null && !ReferenceEquals(outer, filter))
-            {
-                filter?.Dispose();
-                filter = outer;
-            }
-        }
-
-        using SKPaint? paint = filter != null ? new SKPaint { ImageFilter = filter } : null;
         try
         {
+            foreach (Func<SKImageFilter?, SKImageFilter?> factory in pass.Filters)
+            {
+                SKImageFilter? outer = factory(filter);
+                // An identity factory can hand back its own argument; disposing the predecessor then would free the
+                // filter still in use. Only advance when the factory produced a genuinely new instance.
+                if (outer != null && !ReferenceEquals(outer, filter))
+                {
+                    filter?.Dispose();
+                    filter = outer;
+                }
+            }
+
+            using SKPaint? paint = filter != null ? new SKPaint { ImageFilter = filter } : null;
             BakeSource(target, w, outBounds, source, maxWorkingScale, paint);
         }
         finally
         {
-            // SKPaint.Dispose does not dispose its image filter, so the filter must be released even when the bake throws.
+            // A later factory throwing strands the chain accumulated so far, and SKPaint.Dispose does not dispose its
+            // image filter, so the composed filter must be released whether a factory or the bake threw.
             filter?.Dispose();
         }
     }
@@ -1231,7 +1234,17 @@ internal static class PlanExecutor
                 }
                 else
                 {
-                    SKColorFilter next = SKColorFilter.CreateCompose(filter, composed);
+                    SKColorFilter next;
+                    try
+                    {
+                        next = SKColorFilter.CreateCompose(filter, composed);
+                    }
+                    catch
+                    {
+                        filter.Dispose();
+                        throw;
+                    }
+
                     composed.Dispose();
                     filter.Dispose();
                     composed = next;
