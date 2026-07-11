@@ -212,6 +212,28 @@ public class TimelineTabViewModelShortcutTests
     }
 
     [Test]
+    public void FindGapNavigationTarget_ClippedGapStart_DoesNotSelectStaleAnchor()
+    {
+        using var harness = new SceneHistoryHarness(
+            "beutl_timeline_gap_nav",
+            start: TimeSpan.FromSeconds(50),
+            duration: TimeSpan.FromSeconds(30));
+        // The gap 10s-100s straddles the active range 50s-80s; its start is clipped to 50s. The anchor
+        // ends off-scene at 10s, so navigation must not select it (Close Gap would collapse 10s-100s).
+        harness.AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+        harness.AddElement(TimeSpan.FromSeconds(100), TimeSpan.FromSeconds(5));
+
+        var result = TimelineTabViewModel.FindGapNavigationTarget(
+            harness.Scene, TimeSpan.FromSeconds(40), forward: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result?.Target, Is.EqualTo(TimeSpan.FromSeconds(65)));
+            Assert.That(result?.Anchor, Is.Null);
+        });
+    }
+
+    [Test]
     public void CloseAllGapsCommand_FlushesPendingNudgeBeforeGapService()
     {
         using var harness = new SceneHistoryHarness("beutl_timeline_gap_command", duration: TimeSpan.FromSeconds(30));

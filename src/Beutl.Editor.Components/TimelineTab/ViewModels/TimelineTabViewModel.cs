@@ -1196,7 +1196,10 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         if (FindGapNavigationTarget(Scene, CurrentTime.Value, forward) is { } target)
         {
             CurrentTime.Value = target.Target;
-            SelectGapAnchor(target.Anchor);
+            if (target.Anchor is { } anchor)
+            {
+                SelectGapAnchor(anchor);
+            }
         }
         else
         {
@@ -1220,8 +1223,10 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
     // scene still navigates within it. currentTime is passed through unclamped: clamping the origin to
     // the boundary would make the >= / <= searches skip an in-range gap that touches Scene.Start or
     // Scene.Start + Duration exactly. Returns the target playhead time (the gap center, clamped to the
-    // scene) together with the gap's anchor so the caller can both move and select.
-    internal static (TimeSpan Target, Element Anchor)? FindGapNavigationTarget(
+    // scene) together with the gap's anchor so the caller can both move and select. The anchor is null
+    // when the search range clipped the gap's start: the anchor then ends off-scene and no longer abuts
+    // the visible gap, so selecting it would make Close Gap collapse the whole raw gap.
+    internal static (TimeSpan Target, Element? Anchor)? FindGapNavigationTarget(
         Scene scene, TimeSpan currentTime, bool forward)
     {
         TimeSpan sceneStart = scene.Start;
@@ -1234,7 +1239,8 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
 
         TimeSpan target = g.Range.Start + new TimeSpan(g.Range.Duration.Ticks / 2);
         target = target < sceneStart ? sceneStart : target > sceneEnd ? sceneEnd : target;
-        return (target, g.Anchor);
+        Element? anchor = g.Anchor.Range.End == g.Range.Start ? g.Anchor : null;
+        return (target, anchor);
     }
 
     private enum NudgeUnit { Frame, Large, Second }
