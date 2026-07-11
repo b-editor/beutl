@@ -46,7 +46,13 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
         // success yet leave the current fingerprint with no usable proxy and an orphaned entry. Skip
         // instead — a fresh job keyed on the new fingerprint is enqueued by the normal UI scan.
         if (ProxyFingerprint.FromFile(sourcePath) != job.Source)
+        {
+            // Mark the old proxy stale before skipping: it no longer matches the replaced file, and if
+            // that replacement goes offline before ProxyResolver notices, offline resolution (which
+            // cannot restat the source) would otherwise rank this Ready proxy for the missing file.
+            store.TryTransition(job.Source, job.Preset, ProxyState.Stale, "Source changed since the job was queued.");
             throw new ProxyGenerationSkippedException("Source changed since the job was queued.");
+        }
 
         if (IsAlwaysStillImage(sourcePath))
             throw new ProxyGenerationSkippedException("Still images are not eligible for proxy generation.");

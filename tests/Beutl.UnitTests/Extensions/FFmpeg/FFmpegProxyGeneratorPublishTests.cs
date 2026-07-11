@@ -462,6 +462,27 @@ public sealed class FFmpegProxyGeneratorPublishTests
         Assert.That(File.Exists(temp), Is.True);
     }
 
+    // A source replaced while the job waited in the queue is skipped, but the old proxy for the queued
+    // fingerprint must be marked Stale first so offline resolution (which cannot restat the replaced,
+    // possibly-missing file) does not later rank that Ready proxy for it.
+    [Test]
+    public void GenerateAsync_SourceChangedSinceQueued_MarksOldEntryStaleThenSkips()
+    {
+        string root = CreateRoot();
+        string source = Path.Combine(root, "src.mov");
+        File.WriteAllBytes(source, [1, 2, 3, 4]);
+        ProxyFingerprint queued = ProxyFingerprint.FromFile(source);
+        // The file is replaced after the job was queued: the current fingerprint no longer matches.
+        File.WriteAllBytes(source, [1, 2, 3, 4, 5, 6]);
+        var store = new TransitionRecordingStore(root);
+        var generator = new FFmpegProxyGenerator(store);
+        var job = new ProxyJob(queued, ProxyPreset.Quarter);
+
+        Assert.ThrowsAsync<ProxyGenerationSkippedException>(async () => await generator.GenerateAsync(job));
+
+        Assert.That(store.Transitions, Does.Contain((queued, ProxyPreset.Quarter, ProxyState.Stale)));
+    }
+
     [Test]
     public void EnsureSourceUnchanged_WhenSourceUnchanged_DoesNotThrow()
     {
@@ -517,6 +538,47 @@ public sealed class FFmpegProxyGeneratorPublishTests
         string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         return root;
+    }
+
+    // Records TryTransition calls so a test can assert the generator marked the stale-source entry before
+    // skipping; the transition happens before any file I/O, so no real store state is needed.
+    private sealed class TransitionRecordingStore(string root) : IProxyStore
+    {
+        public List<(ProxyFingerprint Source, ProxyPreset Preset, ProxyState State)> Transitions { get; } = [];
+
+        public string StoreRootPath => root;
+
+        public ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset) => null;
+
+        public IReadOnlyList<ProxyEntry> Enumerate() => [];
+
+        public void Register(ProxyEntry entry)
+        {
+        }
+
+        public bool TryTransition(ProxyFingerprint source, ProxyPreset preset, ProxyState newState, string? failureReason = null)
+        {
+            Transitions.Add((source, preset, newState));
+            return true;
+        }
+
+        public bool Delete(ProxyFingerprint source, ProxyPreset preset) => false;
+
+        public void Touch(ProxyFingerprint source, ProxyPreset preset, DateTime nowUtc)
+        {
+        }
+
+        public long GetTotalBytes() => 0;
+
+        public long GetTotalBytes(IReadOnlySet<string> sourceAbsolutePaths) => 0;
+
+        public Task FlushAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task ReconcileAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+#pragma warning disable CS0067 // Not exercised by these tests.
+        public event EventHandler<ProxyStoreChangedEventArgs>? Changed;
+#pragma warning restore CS0067
     }
 
     private sealed class CountingStore(string root, int failuresBeforeSuccess) : IProxyStore

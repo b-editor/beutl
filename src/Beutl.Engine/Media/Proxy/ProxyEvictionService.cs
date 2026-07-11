@@ -202,8 +202,14 @@ public sealed class ProxyEvictionService : IProxyStoreCapInfo
 
             // Delete keys on (Source, Preset), so a regenerate that ran since collection would make this
             // remove the current (possibly freshly Ready) entry rather than the ranked one. Skip unless the
-            // current entry still equals the snapshot and no generation for the key is active.
-            if (_store.TryGet(candidate.Entry.Source, candidate.Entry.Preset) != candidate.Entry
+            // current entry is still the ranked proxy and no generation for the key is active. Compare only
+            // identity fields (proxy file + generation time), not the whole record: ProxyStore.Touch
+            // replaces the entry to bump LastUsedUtc, so a full-record check would read a normal playback
+            // touch between collection and here as a regenerate and starve eviction while over cap.
+            ProxyEntry? current = _store.TryGet(candidate.Entry.Source, candidate.Entry.Preset);
+            if (current is null
+                || current.ProxyFileRelative != candidate.Entry.ProxyFileRelative
+                || current.GeneratedAtUtc != candidate.Entry.GeneratedAtUtc
                 || currentActiveGenerations.Contains((candidate.Entry.Source, candidate.Entry.Preset)))
                 continue;
 

@@ -403,14 +403,14 @@ public class ProxyEvictionTests
 
     // Finding C: a regenerate for a candidate's (Source, Preset) that lands between collection and the
     // delete loop must not have its fresh entry removed — Delete keys on (Source, Preset), so the sweep
-    // re-checks that the current entry still equals the ranked snapshot before deleting.
+    // re-checks that the current entry is still the ranked proxy (a regenerate bumps GeneratedAtUtc) first.
     [Test]
     public void Sweep_EntryRegeneratedSinceCollection_IsNotDeleted()
     {
         string root = CreateRoot();
         var inner = new ProxyStore(root);
         ProxyEntry collected = Register(inner, root, "old.mp4", DateTime.UtcNow.AddMinutes(-10), 7);
-        ProxyEntry regenerated = collected with { ProxyFileRelative = "new.mp4" };
+        ProxyEntry regenerated = collected with { GeneratedAtUtc = collected.GeneratedAtUtc.AddMinutes(1) };
         var store = new RegeneratedEntryStore(inner, regenerated);
         var service = new ProxyEvictionService(store, null, maxTotalBytes: 0);
 
@@ -419,8 +419,30 @@ public class ProxyEvictionTests
         Assert.Multiple(() =>
         {
             Assert.That(store.DeleteCalls, Is.EqualTo(0),
-                "a candidate whose current entry changed since collection must not be deleted");
+                "a candidate whose current entry was regenerated since collection must not be deleted");
             Assert.That(result.RemovedCount, Is.EqualTo(0));
+        });
+    }
+
+    // The identity re-check must tolerate a LastUsedUtc-only change: ProxyStore.Touch replaces the entry
+    // on every playback resolve, so a full-record comparison would read a touch as a regenerate and starve
+    // eviction while the store is over cap.
+    [Test]
+    public void Sweep_EntryTouchedSinceCollection_StillEvicts()
+    {
+        string root = CreateRoot();
+        var inner = new ProxyStore(root);
+        ProxyEntry collected = Register(inner, root, "old.mp4", DateTime.UtcNow.AddMinutes(-10), 7);
+        ProxyEntry touched = collected with { LastUsedUtc = collected.LastUsedUtc.AddMinutes(1) };
+        var store = new RegeneratedEntryStore(inner, touched);
+        var service = new ProxyEvictionService(store, null, maxTotalBytes: 0);
+
+        ProxyEvictionResult result = service.Sweep();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(store.DeleteCalls, Is.EqualTo(1), "a touch-only change must not block eviction");
+            Assert.That(result.RemovedCount, Is.EqualTo(1));
         });
     }
 
