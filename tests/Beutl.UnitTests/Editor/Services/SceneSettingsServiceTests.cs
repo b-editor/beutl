@@ -89,19 +89,23 @@ public class SceneSettingsServiceTests
             Assert.That(_scene.FrameSize, Is.EqualTo(newSize));
             Assert.That(_scene.Start, Is.EqualTo(newStart));
             Assert.That(_scene.Duration, Is.EqualTo(newDuration));
-            // The three field writes must collapse into one entry, so one Undo reverts the Apply.
+            // The field writes must collapse into one entry, so one Undo reverts the Apply.
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
 
     [Test]
-    public void Apply_AfterUndo_RestoresAllThreeFields()
+    public void Apply_AfterUndo_RestoresAllFields()
     {
         PixelSize originalSize = _scene.FrameSize;
         TimeSpan originalStart = _scene.Start;
         TimeSpan originalDuration = _scene.Duration;
 
-        _service.Apply(_scene, new PixelSize(1280, 720), TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(10));
+        _service.Apply(
+            _scene,
+            new PixelSize(1280, 720),
+            TimeSpan.FromSeconds(3),
+            TimeSpan.FromSeconds(10));
         _history.Undo();
 
         Assert.Multiple(() =>

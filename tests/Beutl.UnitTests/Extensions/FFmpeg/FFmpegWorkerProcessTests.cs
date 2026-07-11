@@ -1,4 +1,5 @@
 ﻿using System.IO;
+using System.Threading;
 using Beutl.Extensions.FFmpeg;
 
 namespace Beutl.UnitTests.Extensions.FFmpeg;
@@ -89,5 +90,24 @@ public class FFmpegWorkerProcessTests
 
         Assert.That(command.FileName, Is.EqualTo(DotnetHost));
         Assert.That(command.DllArgument, Is.EqualTo(SubDirDll(baseDir)));
+    }
+
+    [Test]
+    public void CreateWorkerStartCanceledException_UserCancellation_RemainsOperationCanceled()
+    {
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        Exception ex = FFmpegWorkerProcess.CreateWorkerStartCanceledException(cts.Token);
+
+        Assert.That(ex, Is.TypeOf<OperationCanceledException>());
+    }
+
+    [Test]
+    public void CreateWorkerStartCanceledException_InternalTimeout_RemainsTimeout()
+    {
+        Exception ex = FFmpegWorkerProcess.CreateWorkerStartCanceledException(CancellationToken.None);
+
+        Assert.That(ex, Is.TypeOf<TimeoutException>());
     }
 }

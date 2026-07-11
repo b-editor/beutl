@@ -2,6 +2,7 @@
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Language;
+using Beutl.Media.Proxy;
 
 namespace Beutl.Graphics.Effects;
 
@@ -30,7 +31,8 @@ public partial class DelayAnimationEffect : FilterEffect
 
         context.CustomEffect(
             (delay: r.Delay, globalTime: r.GlobalTime, childEffect, cache: r.DelayedResources,
-             disableResourceShare: r.DisableResourceShare),
+             disableResourceShare: r.DisableResourceShare,
+             preferProxy: r.PreferProxy, preferredProxyPreset: r.PreferredProxyPreset),
             static (data, effectContext) =>
             {
                 int targetCount = effectContext.Targets.Count;
@@ -42,6 +44,8 @@ public partial class DelayAnimationEffect : FilterEffect
                     data.cache.Add(data.childEffect.ToResource(new CompositionContext(delayedTime)
                     {
                         DisableResourceShare = data.disableResourceShare,
+                        PreferProxy = data.preferProxy,
+                        PreferredProxyPreset = data.preferredProxyPreset,
                     }));
                 }
 
@@ -62,6 +66,8 @@ public partial class DelayAnimationEffect : FilterEffect
                     var delayedContext = new CompositionContext(delayedTime)
                     {
                         DisableResourceShare = data.disableResourceShare,
+                        PreferProxy = data.preferProxy,
+                        PreferredProxyPreset = data.preferredProxyPreset,
                     };
                     var updateOnly = false;
                     data.cache[j].Update(data.childEffect, delayedContext, ref updateOnly);
@@ -115,6 +121,8 @@ public partial class DelayAnimationEffect : FilterEffect
         private FilterEffect.Resource? _effect;
         private TimeSpan _globalTime;
         private bool _disableResourceShare;
+        private bool _preferProxy;
+        private ProxyPreset _preferredProxyPreset = ProxyPreset.Quarter;
         private readonly List<FilterEffect.Resource> _delayedResources = [];
 
         public float Delay => _delay;
@@ -124,6 +132,10 @@ public partial class DelayAnimationEffect : FilterEffect
         public TimeSpan GlobalTime => _globalTime;
 
         public bool DisableResourceShare => _disableResourceShare;
+
+        public bool PreferProxy => _preferProxy;
+
+        public ProxyPreset PreferredProxyPreset => _preferredProxyPreset;
 
         public List<FilterEffect.Resource> DelayedResources => _delayedResources;
 
@@ -142,9 +154,18 @@ public partial class DelayAnimationEffect : FilterEffect
             }
 
             TimeSpan oldTime = _globalTime;
+            bool oldPreferProxy = _preferProxy;
+            ProxyPreset oldPreferredPreset = _preferredProxyPreset;
             _globalTime = context.Time;
             _disableResourceShare = context.DisableResourceShare;
-            if (!updateOnly && oldTime != _globalTime)
+            _preferProxy = context.PreferProxy;
+            _preferredProxyPreset = context.PreferredProxyPreset;
+
+            // Bump Version on a proxy-selection change too, or RenderNodeCache would replay stale
+            // tiles and a preview proxy-mode toggle would not reach the delayed sub-effects until an
+            // unrelated invalidation (e.g. a time change) happens.
+            bool proxyChanged = oldPreferProxy != _preferProxy || oldPreferredPreset != _preferredProxyPreset;
+            if (!updateOnly && (oldTime != _globalTime || proxyChanged))
             {
                 Version++;
             }

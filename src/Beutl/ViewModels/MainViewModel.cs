@@ -5,11 +5,13 @@ using Beutl.AgentHost;
 using Beutl.Api;
 using Beutl.Api.Services;
 using Beutl.Helpers;
+using Beutl.Logging;
 using Beutl.Services;
 using Beutl.Services.StartupTasks;
 using Beutl.ViewModels.ExtensionsPages;
 using DynamicData;
 using DynamicData.Binding;
+using Microsoft.Extensions.Logging;
 using NuGet.Packaging.Core;
 using Reactive.Bindings;
 
@@ -23,6 +25,7 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
     private readonly EditorService _editorService;
     private readonly ExtensionProvider _extensionProvider;
     private readonly AgentHostEndpoint _agentHostEndpoint;
+    private readonly ILogger _logger = Log.CreateLogger<MainViewModel>();
 
     public MainViewModel()
     {
@@ -154,6 +157,14 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
     private void OnExit(object? sender, ControlledApplicationLifetimeExitEventArgs e)
     {
         _agentHostEndpoint.RequestStop();
+        try
+        {
+            ProxyMediaServices.Current?.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Proxy media services failed to dispose during shutdown.");
+        }
 
         PackageChangesQueue queue = _beutlClients.GetResource<PackageChangesQueue>();
         PackageIdentity[] installs = queue.GetInstalls().ToArray();

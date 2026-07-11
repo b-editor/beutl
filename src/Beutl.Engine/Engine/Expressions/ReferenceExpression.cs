@@ -2,7 +2,7 @@
 
 namespace Beutl.Engine.Expressions;
 
-public sealed class ReferenceExpression<T> : IExpression<T>
+public sealed class ReferenceExpression<T> : IExpression<T>, IReferenceExpression
 {
     private ICoreObject? _cachedObject;
 

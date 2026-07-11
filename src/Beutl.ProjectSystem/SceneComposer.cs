@@ -10,8 +10,17 @@ public sealed class SceneComposer : Composer
     private readonly SceneCompositor _compositor;
 
     public SceneComposer(Scene scene, bool disableResourceShare = false)
+        : this(scene, disableResourceShare, forceOriginalSource: false)
     {
-        _compositor = new SceneCompositor(scene) { DisableResourceShare = disableResourceShare };
+    }
+
+    public SceneComposer(Scene scene, bool disableResourceShare, bool forceOriginalSource)
+    {
+        _compositor = new SceneCompositor(scene)
+        {
+            DisableResourceShare = disableResourceShare,
+            ForceOriginalSource = forceOriginalSource,
+        };
     }
 
     public SceneCompositor Compositor => _compositor;

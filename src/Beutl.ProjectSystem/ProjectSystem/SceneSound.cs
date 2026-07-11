@@ -86,8 +86,10 @@ public sealed partial class SceneSound : Sound
 
         partial void PostUpdate(SceneSound obj, CompositionContext context)
         {
+            bool forceOriginalSource = !context.PreferProxy;
             if (_compositor?.Scene != ReferencedScene
-                || _compositor?.DisableResourceShare != context.DisableResourceShare)
+                || _compositor?.DisableResourceShare != context.DisableResourceShare
+                || _compositor?.ForceOriginalSource != forceOriginalSource)
             {
                 _compositor?.Dispose();
                 _compositor = null;
@@ -98,6 +100,7 @@ public sealed partial class SceneSound : Sound
                 _compositor = new SceneCompositor(ReferencedScene)
                 {
                     DisableResourceShare = context.DisableResourceShare,
+                    ForceOriginalSource = forceOriginalSource,
                 };
             }
         }

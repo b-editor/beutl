@@ -1,4 +1,5 @@
-﻿using System.Reactive.Linq;
+﻿using System.Globalization;
+using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Runtime.InteropServices;
 using Beutl.Audio;
@@ -1544,6 +1545,10 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         }
     }
 
+    // Re-render the current frame into the viewport. Used when something outside the normal edit /
+    // playback path (e.g. a PreviewSourceMode switch) invalidates the shown frame while paused.
+    public void QueuePreviewRender() => QueueRender();
+
     private void QueueRender()
     {
         if (EditViewModel.Renderer.Value.IsGraphicsRendering)
@@ -1903,9 +1908,30 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         {
             if (Scene == null) throw new Exception("Scene is null.");
 
+            // This renderer forces original sources, so unlike preview it cannot fall back to a
+            // proxy when the original is missing; without this check the render resource path
+            // swallows the open failure and the user saves a blank frame with no error. Match the
+            // export preflight before spending the render.
+            IReadOnlySet<string> referencedSources =
+                Beutl.Editor.ExportSourceValidator.CollectRenderableSources(Scene, CurrentFrame.Value);
+            IReadOnlyList<string> missingSources =
+                Beutl.Editor.ExportSourceValidator.GetMissingPaths(referencedSources);
+            if (missingSources.Count > 0)
+            {
+                throw new InvalidOperationException(string.Format(
+                    CultureInfo.CurrentCulture,
+                    Language.MessageStrings.SaveFrameMissingSourceFile,
+                    missingSources[0],
+                    missingSources.Count));
+            }
+
             // Throwaway renderer with disableResourceShare to avoid mutating live preview resources.
-            using var renderer = new SceneRenderer(Scene, renderScale: outputScale, disableResourceShare: true,
-                maxWorkingScale: WorkingScaleCeiling.Export());
+            using var renderer = new SceneRenderer(
+                Scene,
+                renderScale: outputScale,
+                disableResourceShare: true,
+                maxWorkingScale: WorkingScaleCeiling.Export(),
+                forceOriginalSource: true);
             renderer.CacheOptions = RenderCacheOptions.Disabled;
 
             var compositionFrame = renderer.Compositor.EvaluateGraphics(CurrentFrame.Value);

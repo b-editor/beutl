@@ -167,9 +167,13 @@ public sealed class StillRenderer
         float normalizedScale = float.IsFinite(renderScale) && renderScale > 0f ? renderScale : 1f;
         return await RenderThread.Dispatcher.InvokeAsync(() =>
         {
-            using var renderer = new SceneRenderer(scene, normalizedScale, disableResourceShare: true);
+            // Agent still render is a final output, so force original media (proxies are preview-only);
+            // otherwise the default PreferProxy setting would decode cached proxies here.
+            using var renderer = new SceneRenderer(
+                scene, normalizedScale, disableResourceShare: true, maxWorkingScale: float.PositiveInfinity, forceOriginalSource: true);
             renderer.CacheOptions = RenderCacheOptions.Disabled;
 
+            ThrowIfSourcesMissing(scene, time + scene.Start);
             var frame = renderer.Compositor.EvaluateGraphics(time + scene.Start);
             renderer.Render(frame);
             return renderer.Snapshot();
@@ -193,9 +197,13 @@ public sealed class StillRenderer
         float normalizedScale = float.IsFinite(renderScale) && renderScale > 0f ? renderScale : 1f;
         return await RenderThread.Dispatcher.InvokeAsync(() =>
         {
-            using var renderer = new SceneRenderer(scene, normalizedScale, disableResourceShare: true);
+            // Agent still render is a final output, so force original media (proxies are preview-only);
+            // otherwise the default PreferProxy setting would decode cached proxies here.
+            using var renderer = new SceneRenderer(
+                scene, normalizedScale, disableResourceShare: true, maxWorkingScale: float.PositiveInfinity, forceOriginalSource: true);
             renderer.CacheOptions = RenderCacheOptions.Disabled;
 
+            ThrowIfSourcesMissing(scene, time + scene.Start);
             var frame = renderer.Compositor.EvaluateGraphics(time + scene.Start);
             renderer.Render(frame);
             IReadOnlyList<RenderedTextBounds> textBounds = CreateRenderedTextBounds(scene, renderer, time);
@@ -218,6 +226,20 @@ public sealed class StillRenderer
                   || (element.Start < windowEnd && element.Start + element.Length > windowStart))
             .SelectMany(element => element.Objects)
             .Any(ContainsEnabledGpuContent);
+    }
+
+    // A final render forces original media (no proxy fallback), so a moved/deleted original that a Ready
+    // proxy would have stood in for during preview renders a blank frame instead of failing. Preflight the
+    // frame's renderable sources on the render thread and fail fast, matching the save-frame/export guard.
+    private static void ThrowIfSourcesMissing(Scene scene, TimeSpan sceneTime)
+    {
+        IReadOnlyList<string> missing = Beutl.Editor.ExportSourceValidator.GetMissingPaths(
+            Beutl.Editor.ExportSourceValidator.CollectRenderableSources(scene, sceneTime));
+        if (missing.Count > 0)
+        {
+            throw new RenderingUnavailableException(
+                $"Missing source files required to render: {string.Join(", ", missing)}");
+        }
     }
 
     // The renderer skips a disabled object (EngineObject.IsEnabled) and everything under it, so a

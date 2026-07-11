@@ -42,6 +42,18 @@
 
             <Grid Margin="8,16,8,0" ColumnDefinitions="*,Auto">
                 <TextBlock VerticalAlignment="Center"
+                           Text="{x:Static lang:Strings.PreviewSource}"
+                           Theme="{StaticResource BodyStrongTextBlockStyle}" />
+                <ComboBox Grid.Column="1"
+                          MinWidth="120"
+                          SelectedIndex="{CompiledBinding PreviewSourceMode.Value}">
+                    <ComboBoxItem Content="{x:Static lang:Strings.PreviewSourcePreferProxy}" />
+                    <ComboBoxItem Content="{x:Static lang:Strings.PreviewSourceForceOriginal}" />
+                </ComboBox>
+            </Grid>
+
+            <Grid Margin="8,16,8,0" ColumnDefinitions="*,Auto">
+                <TextBlock VerticalAlignment="Center"
                            Text="{x:Static lang:Strings.OnionSkin}"
                            Theme="{StaticResource BodyStrongTextBlockStyle}" />
                 <ToggleSwitch Grid.Column="1"

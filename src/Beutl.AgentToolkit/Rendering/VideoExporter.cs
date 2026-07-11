@@ -5,6 +5,7 @@ using Beutl.Extensibility;
 using Beutl.Extensions.FFmpeg;
 using Beutl.Extensions.FFmpeg.Encoding;
 using Beutl.FFmpegIpc;
+using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
 using Beutl.Media.Encoding;
@@ -78,11 +79,30 @@ public sealed class VideoExporter(EncoderRegistration encoders)
             controller.AudioSettings.Channels = 2;
             ApplyQualitySettings(controller.VideoSettings, crf, bitrate);
 
-            using var renderer = new SceneRenderer(scene, normalizedScale, disableResourceShare: true);
+            // A final export forces original media (no proxy fallback), so a missing original would encode
+            // a blank/silent segment instead of failing. Preflight the exported range's renderable sources
+            // (graphics + audio) and fail fast, matching the save-frame/export guard. CollectRenderableSources
+            // walks the mutable scene graph, so run it on the render thread like StillRenderer does rather
+            // than racing UI/render-thread mutations from this (possibly off-thread) caller.
+            IReadOnlySet<string> renderableSources = await RenderThread.Dispatcher.InvokeAsync(
+                () => Beutl.Editor.ExportSourceValidator.CollectRenderableSources(
+                    scene, new TimeRange(scene.Start, scene.Duration)),
+                ct: cancellationToken).ConfigureAwait(false);
+            IReadOnlyList<string> missingSources = Beutl.Editor.ExportSourceValidator.GetMissingPaths(renderableSources);
+            if (missingSources.Count > 0)
+            {
+                throw new RenderingUnavailableException(
+                    $"Missing source files required to export: {string.Join(", ", missingSources)}");
+            }
+
+            // Video export is a final output, so force original media (proxies are preview-only);
+            // otherwise the default PreferProxy setting would encode from cached proxies here.
+            using var renderer = new SceneRenderer(
+                scene, normalizedScale, disableResourceShare: true, maxWorkingScale: float.PositiveInfinity, forceOriginalSource: true);
             renderer.CacheOptions = RenderCacheOptions.Disabled;
             using var frameProgress = new Subject<TimeSpan>();
             using var frameProvider = new FrameProviderImpl(scene, frameRate, renderer, frameProgress);
-            using var composer = new SceneComposer(scene, disableResourceShare: true) { SampleRate = normalizedSampleRate };
+            using var composer = CreateExportComposer(scene, normalizedSampleRate);
             using var sampleProgress = new Subject<TimeSpan>();
             using var sampleProvider = new SampleProviderImpl(scene, composer, normalizedSampleRate, sampleProgress);
 
@@ -123,6 +143,15 @@ public sealed class VideoExporter(EncoderRegistration encoders)
         }
 
         throw ffmpegFailure ?? new CodecUnavailableException("FFmpeg libraries are not available.");
+    }
+
+    // Final output: audio must never read proxy media, even though audio opens skip the proxy resolver today.
+    internal static SceneComposer CreateExportComposer(Scene scene, int sampleRate)
+    {
+        return new SceneComposer(scene, disableResourceShare: true, forceOriginalSource: true)
+        {
+            SampleRate = sampleRate,
+        };
     }
 
     internal static void ApplyQualitySettings(VideoEncoderSettings settings, int? crf, int? bitrate)

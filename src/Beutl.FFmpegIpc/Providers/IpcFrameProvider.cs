@@ -1,4 +1,6 @@
-﻿using Beutl.Extensibility;
+﻿using System.Collections.Concurrent;
+
+using Beutl.Extensibility;
 using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Protocol.Messages;
 using Beutl.FFmpegIpc.SharedMemory;
@@ -11,15 +13,19 @@ internal sealed class IpcFrameProvider : IFrameProvider
 {
     private readonly IpcConnection _connection;
     private readonly SharedMemoryBuffer[] _videoBuffers;
+    private readonly int _sourceWidth;
+    private readonly int _sourceHeight;
     private readonly PrefetchSlot<long, IpcMessage> _prefetch = new();
     private int _bufferIndex;
     private bool _disposed;
 
     public IpcFrameProvider(IpcConnection connection, SharedMemoryBuffer[] videoBuffers,
-        long frameCount, Rational frameRate)
+        long frameCount, Rational frameRate, int sourceWidth, int sourceHeight)
     {
         _connection = connection;
         _videoBuffers = videoBuffers;
+        _sourceWidth = sourceWidth;
+        _sourceHeight = sourceHeight;
         FrameCount = frameCount;
         FrameRate = frameRate;
     }
@@ -89,27 +95,47 @@ internal sealed class IpcFrameProvider : IFrameProvider
         return bmp;
     }
 
-    // RgbaF16 destination: 4 channels * 2 bytes. Must match the BitmapColorType.RgbaF16 used below.
+    // The encoding IPC accepts the two formats produced by Beutl's frame providers:
+    // SDR decoded frames are BGRA8888, while render-target frames are linear RgbaF16.
+    private const int Bgra8888BytesPerPixel = 4;
     private const int RgbaF16BytesPerPixel = 8;
 
     private Bitmap BuildBitmap(ProvideFrameMessage frameInfo, int bufferIndex)
     {
         // SharedMemoryBuffer.Read bounds-checks the shared buffer, not the destination bitmap, so a
-        // worker-reported frame that doesn't match the RgbaF16 destination must be rejected before it
-        // overruns the bitmap. Dimensions are checked first so a non-positive size can't pass the
-        // DataLength check with a degenerate (zero) length.
+        // worker-reported frame that doesn't match the destination bitmap must be rejected before it
+        // overruns the bitmap. Dimensions and format are checked first so invalid metadata can't pass
+        // the DataLength check with a degenerate length.
         if (frameInfo.Width <= 0 || frameInfo.Height <= 0)
             throw new InvalidOperationException(
                 $"Frame has non-positive dimensions {frameInfo.Width}x{frameInfo.Height}.");
 
-        long expected = (long)frameInfo.Width * frameInfo.Height * RgbaF16BytesPerPixel;
+        // The buffer is sized SourceWidth*SourceHeight*8 (RgbaF16) but the encoder copies each converted
+        // frame into a MediaFrame fixed at SourceWidth*SourceHeight*4 (BGRA). A BGRA frame with more pixels
+        // than the negotiated source still fits the *8 buffer and passes the capacity guard below, then
+        // overruns that fixed MediaFrame. Reject any frame whose dimensions differ from the negotiated
+        // source size so the size the encoder assumes is the size it gets.
+        if (frameInfo.Width != _sourceWidth || frameInfo.Height != _sourceHeight)
+            throw new InvalidOperationException(
+                $"Frame dimensions {frameInfo.Width}x{frameInfo.Height} do not match the negotiated source " +
+                $"size {_sourceWidth}x{_sourceHeight}.");
+
+        (BitmapColorType colorType, BitmapColorSpace colorSpace, int bytesPerPixel) = GetFrameFormat(frameInfo);
+        long expected = (long)frameInfo.Width * frameInfo.Height * bytesPerPixel;
         if (frameInfo.DataLength != expected)
             throw new InvalidOperationException(
                 $"Frame DataLength {frameInfo.DataLength} does not match the {frameInfo.Width}x{frameInfo.Height} " +
-                $"RgbaF16 buffer size {expected}.");
+                $"{colorType} buffer size {expected}.");
+
+        // Reject an oversized frame BEFORE allocating the native bitmap: the frame's pixel data must
+        // fit the shared buffer it is read from, so a frame that cannot fit is invalid and would
+        // otherwise trigger a huge native allocation that only fails later in Read.
+        if (expected > _videoBuffers[bufferIndex].Capacity)
+            throw new InvalidOperationException(
+                $"Frame size {expected} exceeds the shared buffer capacity {_videoBuffers[bufferIndex].Capacity}.");
 
         var alphaType = frameInfo.Premul ? BitmapAlphaType.Premul : BitmapAlphaType.Unpremul;
-        var bmp = new Bitmap(frameInfo.Width, frameInfo.Height, BitmapColorType.RgbaF16, alphaType, BitmapColorSpace.LinearSrgb);
+        var bmp = new Bitmap(frameInfo.Width, frameInfo.Height, colorType, alphaType, colorSpace);
 
         try
         {
@@ -125,6 +151,49 @@ internal sealed class IpcFrameProvider : IFrameProvider
             bmp.Dispose();
             throw;
         }
+    }
+
+    private static (BitmapColorType ColorType, BitmapColorSpace ColorSpace, int BytesPerPixel) GetFrameFormat(
+        ProvideFrameMessage frameInfo)
+    {
+        // An explicit color type disambiguates two frames of the same byte width (e.g. half-float
+        // RgbaF16 vs integer Rgba16161616 at 8 bytes). Without it, fall back to inferring from the
+        // byte width (older peers that do not send a color type).
+        if (frameInfo.ColorType >= 0 && Enum.IsDefined((BitmapColorType)frameInfo.ColorType))
+        {
+            var colorType = (BitmapColorType)frameInfo.ColorType;
+            // Derive bytes-per-pixel from the color type itself, never the payload: trusting the
+            // payload's BytesPerPixel here would let a peer underreport it, pass the DataLength /
+            // Capacity guards, yet allocate/read a wider BitmapColorType.
+            return (colorType, ColorSpaceFor(colorType), BytesPerPixelOf(colorType));
+        }
+
+        return frameInfo.BytesPerPixel switch
+        {
+            Bgra8888BytesPerPixel => (BitmapColorType.Bgra8888, BitmapColorSpace.Srgb, Bgra8888BytesPerPixel),
+            RgbaF16BytesPerPixel => (BitmapColorType.RgbaF16, BitmapColorSpace.LinearSrgb, RgbaF16BytesPerPixel),
+            _ => throw new InvalidOperationException(
+                $"Unsupported frame BytesPerPixel {frameInfo.BytesPerPixel}."),
+        };
+    }
+
+    private static readonly ConcurrentDictionary<BitmapColorType, int> s_bytesPerPixelCache = new();
+
+    private static int BytesPerPixelOf(BitmapColorType colorType)
+        => s_bytesPerPixelCache.GetOrAdd(colorType, static ct =>
+        {
+            using var probe = new Bitmap(1, 1, ct, BitmapAlphaType.Unpremul, BitmapColorSpace.Srgb);
+            return probe.BytesPerPixel;
+        });
+
+    private static BitmapColorSpace ColorSpaceFor(BitmapColorType colorType)
+    {
+        // Beutl's render-target frames are linear float; integer formats (SDR and 16-bit integer
+        // HDR alike) are sRGB-encoded.
+        return colorType is BitmapColorType.RgbaF16 or BitmapColorType.RgbaF16Clamped
+            or BitmapColorType.RgbaF32 or BitmapColorType.AlphaF16 or BitmapColorType.RgF16
+            ? BitmapColorSpace.LinearSrgb
+            : BitmapColorSpace.Srgb;
     }
 
     // Test-only probe: lets a Dispose test wait until the in-flight prefetch has actually faulted before

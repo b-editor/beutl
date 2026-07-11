@@ -4,6 +4,7 @@ using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
+using Beutl.Media.Proxy;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
 
@@ -77,6 +78,40 @@ public class NodeGraphFilterEffectRenderNodeTests
         Assert.That(ops[0].EffectiveScale.Value, Is.EqualTo(expectedW).Within(1e-4),
             "the forwarded MaxWorkingScale did not cap the working scale inside the graph");
         DisposeAll(ops);
+    }
+
+    [Test]
+    public void ToResource_CapturesProxyPreferencesFromCompositionContext()
+    {
+        var effect = new NodeGraphFilterEffect();
+        var context = new CompositionContext(TimeSpan.Zero)
+        {
+            PreferProxy = true,
+            PreferredProxyPreset = ProxyPreset.Eighth,
+            DisableResourceShare = true,
+        };
+
+        using var resource = (NodeGraphFilterEffect.Resource)effect.ToResource(context);
+
+        // The render node replays the graph with a fresh context; without these captured flags a
+        // VideoSourceNode inside the graph evaluates with PreferProxy=false and loses export-time
+        // reader isolation (DisableResourceShare=false).
+        Assert.Multiple(() =>
+        {
+            Assert.That(resource.PreferProxy, Is.True);
+            Assert.That(resource.PreferredProxyPreset, Is.EqualTo(ProxyPreset.Eighth));
+            Assert.That(resource.DisableResourceShare, Is.True);
+        });
+    }
+
+    [Test]
+    public void ToResource_DefaultContext_LeavesProxyPreferencesOff()
+    {
+        var effect = new NodeGraphFilterEffect();
+
+        using var resource = (NodeGraphFilterEffect.Resource)effect.ToResource(CompositionContext.Default);
+
+        Assert.That(resource.PreferProxy, Is.False);
     }
 
     private static void DisposeAll(RenderNodeOperation[] ops)

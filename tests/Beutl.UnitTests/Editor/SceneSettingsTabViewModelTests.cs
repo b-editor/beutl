@@ -276,7 +276,11 @@ public class SceneSettingsTabViewModelTests
 
         public TimeSpan Duration { get; private set; }
 
-        public bool Apply(Scene scene, PixelSize frameSize, TimeSpan start, TimeSpan duration)
+        public bool Apply(
+            Scene scene,
+            PixelSize frameSize,
+            TimeSpan start,
+            TimeSpan duration)
         {
             CallCount++;
             FrameSize = frameSize;

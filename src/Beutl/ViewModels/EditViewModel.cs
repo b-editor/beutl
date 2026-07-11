@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel;
 using System.Numerics;
+using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Security;
 using System.Text.Json;
@@ -12,6 +13,8 @@ using Beutl.Graphics.Rendering.Cache;
 using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Media;
+using Beutl.Media.Proxy;
+using Beutl.Media.Source;
 using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -54,6 +57,9 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
     private Services.Adapters.PropertyEditorFactoryAdapter? _propertyEditorFactory;
     private Services.Adapters.PropertiesEditorFactoryImpl? _propertiesEditorFactory;
     private volatile bool _viewStateSaveSuppressed;
+    private readonly HashSet<string> _pendingProxyInvalidations = new(StringComparer.Ordinal);
+    private bool _proxyInvalidationScheduled;
+    private volatile bool _disposed;
 
     public EditViewModel(Scene scene, Beutl.Api.Services.ExtensionProvider extensionProvider, EditorService editorService)
     {
@@ -110,9 +116,37 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables)!;
 
+        Player = new PlayerViewModel(this);
+        GlobalConfiguration.Instance.EditorConfig.GetObservable(EditorConfig.PreviewSourceModeProperty)
+            .Skip(1)
+            .Subscribe(_ =>
+            {
+                FrameCacheManager.Value.Clear();
+                // Clearing the cache alone leaves a paused viewport showing the old decode path until
+                // an unrelated edit/scrub; queue a render so the switch is visible immediately.
+                Player.QueuePreviewRender();
+            })
+            .DisposeWith(_disposables);
+        GlobalConfiguration.Instance.ProxyStoreConfig.GetObservable(ProxyStoreConfig.DefaultPresetProperty)
+            .Skip(1)
+            .Subscribe(_ =>
+            {
+                FrameCacheManager.Value.Clear();
+                Player.QueuePreviewRender();
+            })
+            .DisposeWith(_disposables);
+
+        // Subscribe through the swap-stable facade so a store-root change keeps delivering Changed events
+        // (the facade forwards them to the rebuilt store) instead of leaving this bound to the old one.
+        if (ProxyMediaServices.Current?.StoreFacade is { } proxyStore)
+        {
+            proxyStore.Changed += OnProxyStoreChanged;
+            Disposable.Create(() => proxyStore.Changed -= OnProxyStoreChanged)
+                .DisposeWith(_disposables);
+        }
+
         config.PropertyChanged += OnEditorConfigPropertyChanged;
 
-        Player = new PlayerViewModel(this);
         HookCommandStateNotifier();
         Commands = new KnownCommandsImpl(scene, this);
         var sequenceGenerator = new OperationSequenceGenerator();
@@ -184,6 +218,137 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
                 Renderer.Value.CacheOptions = RenderCacheOptions.CreateFromGlobalConfiguration();
             }
         }
+    }
+
+    private void OnProxyStoreChanged(object? sender, ProxyStoreChangedEventArgs e)
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        // A store swap replaces every entry, and e.Source is not meaningful — clear the whole frame
+        // cache and re-render rather than invalidating a single source's ranges.
+        if (e.Kind == ProxyStoreChangeKind.Reset)
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (_disposed || FrameCacheManager.Value.IsDisposed)
+                    return;
+
+                FrameCacheManager.Value.Clear();
+                Player.QueuePreviewRender();
+            });
+            return;
+        }
+
+        if (e.Kind is not (ProxyStoreChangeKind.Registered
+            or ProxyStoreChangeKind.StateChanged
+            or ProxyStoreChangeKind.Deleted))
+        {
+            return;
+        }
+
+        // e.Source.AbsolutePath is already the fingerprint's normalized path.
+        bool schedule;
+        lock (_pendingProxyInvalidations)
+        {
+            _pendingProxyInvalidations.Add(e.Source.AbsolutePath);
+            schedule = !_proxyInvalidationScheduled;
+            _proxyInvalidationScheduled = true;
+        }
+
+        // A bulk generate (FR-008 / US2 AC4) fires one store event per proxy state change.
+        // Coalesce the burst into a single UI-thread scene walk per tick instead of one
+        // walk per event, so the timeline stays smooth while proxies are generated.
+        if (schedule)
+        {
+            Dispatcher.UIThread.Post(FlushPendingProxyInvalidations);
+        }
+    }
+
+    private void FlushPendingProxyInvalidations()
+    {
+        HashSet<string> changedSources;
+        lock (_pendingProxyInvalidations)
+        {
+            _proxyInvalidationScheduled = false;
+            // Disposal may have run between the Post and this callback; Scene is nulled and the frame
+            // cache disposed by then, so drop the pending work and bail rather than touch them.
+            if (_disposed || _pendingProxyInvalidations.Count == 0)
+            {
+                _pendingProxyInvalidations.Clear();
+                return;
+            }
+
+            changedSources = new HashSet<string>(_pendingProxyInvalidations, StringComparer.Ordinal);
+            _pendingProxyInvalidations.Clear();
+        }
+
+        // Invalidate only frames of clips that use a changed source, not the whole
+        // timeline cache (FR-023; unrelated clips stay editable during a bulk generate).
+        // FrameCacheManager only invalidates by frame range, so each changed source is
+        // mapped to the ranges of the elements that reference it.
+        FrameCacheManager cache = FrameCacheManager.Value;
+        if (cache.IsDisposed)
+        {
+            return;
+        }
+
+        List<TimeRange> affectedRanges = [];
+        foreach (Element element in Scene.Children)
+        {
+            if (ElementUsesAnySource(element, changedSources))
+            {
+                affectedRanges.Add(element.Range);
+            }
+        }
+
+        if (affectedRanges.Count == 0)
+        {
+            return;
+        }
+
+        int rate = Player.GetFrameRate();
+        cache.DeleteAndUpdateBlocks(affectedRanges
+            .Select(range => (Start: (int)range.Start.ToFrameNumber(rate),
+                End: (int)Math.Ceiling(range.End.ToFrameNumber(rate)))));
+
+        // While paused, the shown bitmap is cloned into PlayerViewModel and does not observe the
+        // deletion above, so re-render when the playhead sits in a changed range.
+        TimeSpan playhead = Player.CurrentFrame.Value;
+        foreach (TimeRange range in affectedRanges)
+        {
+            if (range.Start <= playhead && playhead < range.End)
+            {
+                Player.QueuePreviewRender();
+                break;
+            }
+        }
+    }
+
+    private static bool ElementUsesAnySource(Element element, IReadOnlySet<string> changedSources)
+    {
+        // Cover every proxy-aware holder (SourceVideo, VideoSourceNode graph inputs, referenced
+        // scenes, and their animated values) so cached frames of a graph/referenced-scene clip are
+        // invalidated too, not just those of a top-level SourceVideo's current value.
+        foreach (VideoSource source in ProxySourceEnumerator.EnumerateVideoSources(element))
+        {
+            if (source is not { HasUri: true } || source.Uri is not { IsFile: true } uri)
+            {
+                continue;
+            }
+
+            // Resolve the element's path the same way store change events are keyed (symlink target
+            // resolved before folding), so a source referenced via a symlink still matches.
+            string elementPath = ProxyFingerprint.ResolveComparableKey(uri.LocalPath);
+            if (changedSources.Contains(elementPath))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private void OnChangeOperations(IList<ChangeOperation> list)
@@ -415,6 +580,9 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
     {
         _logger.LogInformation("Disposing EditViewModel ({SceneId}).", SceneId);
 
+        // Block any proxy-invalidation flush already posted to the UI thread from running after this
+        // nulls Scene / disposes FrameCacheManager below.
+        _disposed = true;
         GlobalConfiguration.Instance.EditorConfig.PropertyChanged -= OnEditorConfigPropertyChanged;
         SaveState();
         _editorSelection.SelectedObject.Value = null;
@@ -821,6 +989,23 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
 
         if (serviceType.IsAssignableTo(typeof(IPropertiesEditorFactory)))
             return _propertiesEditorFactory ??= new Services.Adapters.PropertiesEditorFactoryImpl(ExtensionProvider);
+
+        // Hand out the swap-stable facades so a cached reference survives a store-root / cap change; the
+        // concrete ProxyEvictionService request is the exception (no facade for the concrete type).
+        if (serviceType.IsAssignableTo(typeof(IProxyStore)))
+            return ProxyMediaServices.Current?.StoreFacade;
+
+        if (serviceType.IsAssignableTo(typeof(IProxyResolver)))
+            return ProxyMediaServices.Current?.ResolverFacade;
+
+        if (serviceType.IsAssignableTo(typeof(IProxyJobQueue)))
+            return ProxyMediaServices.Current?.QueueFacade;
+
+        if (serviceType == typeof(ProxyEvictionService))
+            return ProxyMediaServices.Current?.EvictionService;
+
+        if (serviceType.IsAssignableTo(typeof(IProxyStoreCapInfo)))
+            return ProxyMediaServices.Current?.CapInfoFacade;
 
         return null;
     }

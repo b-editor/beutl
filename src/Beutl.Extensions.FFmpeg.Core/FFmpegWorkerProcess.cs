@@ -85,7 +85,9 @@ public sealed class FFmpegWorkerProcess : IDisposable
     private static void ThrowIfLibrariesMissing()
     {
 #if !BEUTL_FFMPEG_WORKER
-        if (FFmpegLibraryState.IsLibrariesMissing)
+        // Short-circuit only inside the re-probe cooldown; once it elapses, let the start attempt run
+        // so its outcome re-probes real availability instead of trusting the sticky missing flag.
+        if (FFmpegLibraryState.ShouldSkipStartProbe(Environment.TickCount64))
         {
             throw new FFmpegLibrariesNotFoundException(
                 "FFmpeg libraries are missing; install FFmpeg before starting the worker.");
@@ -157,6 +159,10 @@ public sealed class FFmpegWorkerProcess : IDisposable
                 pipeServer.Dispose();
                 if (code == 2)
                 {
+#if !BEUTL_FFMPEG_WORKER
+                    // A real probe observed the libraries missing: throttle the next probe.
+                    FFmpegLibraryState.ArmReprobeCooldown();
+#endif
                     throw new FFmpegLibrariesNotFoundException(
                         "FFmpeg worker exited because the FFmpeg libraries could not be found.");
                 }
@@ -181,7 +187,7 @@ public sealed class FFmpegWorkerProcess : IDisposable
                 catch (InvalidOperationException) { }
             }
             pipeServer.Dispose();
-            throw new TimeoutException("FFmpeg worker failed to connect within 30 seconds");
+            throw CreateWorkerStartCanceledException(ct);
         }
         catch
         {
@@ -214,9 +220,21 @@ public sealed class FFmpegWorkerProcess : IDisposable
             throw new InvalidOperationException(
                 $"Protocol version mismatch: host={ProtocolConstants.CurrentVersion}, worker={handshakePayload.ProtocolVersion}");
 
+#if !BEUTL_FFMPEG_WORKER
+        // Worker handshaked, so FFmpeg loaded: clear any missing latch and wake parked proxy jobs.
+        FFmpegLibraryState.NotifyWorkerStarted();
+#endif
+
         // デコード用接続は多重化モードで起動（複数リーダーからの並行リクエスト対応）
         if (_multiplexed)
             _connection.StartMultiplexedReceive(ct);
+    }
+
+    internal static Exception CreateWorkerStartCanceledException(CancellationToken ct)
+    {
+        return ct.IsCancellationRequested
+            ? new OperationCanceledException(ct)
+            : new TimeoutException("FFmpeg worker failed to connect within 30 seconds");
     }
 
     private static void ConfigureWorkerProcess(ProcessStartInfo startInfo)

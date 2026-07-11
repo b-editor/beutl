@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using Beutl.Media.Music;
+using Beutl.Media.Proxy;
 using Beutl.Media.Source;
 
 namespace Beutl.Media.Decoding;
@@ -21,6 +22,8 @@ public abstract class MediaReader : IDisposable
 
     public abstract bool HasAudio { get; }
 
+    public virtual ProxyResolution? ProxyResolution => null;
+
     public static MediaReader Open(string file)
     {
         return Open(file, new MediaOptions());
@@ -30,12 +33,29 @@ public abstract class MediaReader : IDisposable
     {
         ArgumentNullException.ThrowIfNull(file);
         ArgumentNullException.ThrowIfNull(options);
-        if (!File.Exists(file))
+
+        // In PreferProxy mode a Ready proxy can stand in for a moved/deleted original, so defer the
+        // existence check to OpenMediaFile's proxy-resolution path (which keys on the path string, not
+        // the file). Reject up front only when the original is actually required.
+        if (!options.PreferProxy && !File.Exists(file))
         {
             throw new FileNotFoundException(null, file);
         }
 
-        return DecoderRegistry.OpenMediaFile(file, options) ?? throw new Exception();
+        MediaReader? reader = DecoderRegistry.OpenMediaFile(file, options);
+        if (reader is not null)
+        {
+            return reader;
+        }
+
+        // OpenMediaFile returns null both when the file is missing and when no registered decoder can
+        // open it; distinguish them so an unsupported-but-present file is not reported as missing.
+        if (File.Exists(file))
+        {
+            throw new UnsupportedMediaException($"No registered decoder could open '{file}'.", file);
+        }
+
+        throw new FileNotFoundException(null, file);
     }
 
     public abstract bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image);

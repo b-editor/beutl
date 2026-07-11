@@ -13,6 +13,7 @@ using Beutl.Editor.Components.NodeGraphTab;
 using Beutl.Editor.Components.ObjectPropertyTab;
 using Beutl.Editor.Components.PathEditorTab;
 using Beutl.Editor.Components.PreviewSettingsTab;
+using Beutl.Editor.Components.ProxiesTab;
 using Beutl.Editor.Components.SceneSettingsTab;
 using Beutl.Editor.Components.TerminalTab;
 using Beutl.Logging;
@@ -41,6 +42,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
         GraphEditorTabExtension.Instance,
         SceneSettingsTabExtension.Instance,
         PreviewSettingsTabExtension.Instance,
+        ProxiesTabExtension.Instance,
         WaveReaderExtension.Instance,
         PathEditorTabExtension.Instance,
         LibraryTabExtension.Instance,
@@ -116,14 +118,16 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
                         var decoding = new Extensions.FFmpeg.Decoding.FFmpegDecodingExtension();
                         var encoding = new Extensions.FFmpeg.Encoding.FFmpegControlledEncodingExtension();
                         var propertyEditor = new Extensions.FFmpeg.PropertyEditors.FFmpegEncoderSpecializedPropertyExtension();
+                        var proxy = new Extensions.FFmpeg.Proxy.FFmpegProxyExtension();
                         _manager.SetupExtensionSettings(decoding);
                         _manager.SetupExtensionSettings(encoding);
                         _manager.SetupExtensionSettings(propertyEditor);
                         decoding.Load();
                         encoding.Load();
                         propertyEditor.Load();
+                        proxy.Load();
 
-                        provider.AddExtensions(pkg.LocalId, [decoding, encoding, propertyEditor]);
+                        provider.AddExtensions(pkg.LocalId, [decoding, encoding, propertyEditor, proxy]);
                     }
                     catch (Exception ex)
                     {

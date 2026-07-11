@@ -224,6 +224,12 @@ Please wait a moment.</value>
   <data name="FailedToLoadScript" xml:space="preserve">
     <value>Failed to load script.</value>
   </data>
+  <data name="ExportMissingSourceFile" xml:space="preserve">
+    <value>Export cannot start because a referenced source file is missing: {0} ({1} missing).</value>
+  </data>
+  <data name="SaveFrameMissingSourceFile" xml:space="preserve">
+    <value>Cannot render the frame because a referenced source file is missing: {0} ({1} missing).</value>
+  </data>
   <data name="ApplicationRestartRequired" xml:space="preserve">
     <value>The application needs to be restarted.
 Do you want to restart the application?</value>

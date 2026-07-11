@@ -5,8 +5,8 @@ namespace Beutl.Editor.Services;
 
 /// <summary>
 /// One-shot apply of the Scene-level metadata from the Scene Settings tab
-/// (frame size, start, duration). Key behavior: change detection (skip commit
-/// when nothing differs) and atomicity (three writes collapse into one entry).
+/// (frame size, start, duration). Key behavior: change detection
+/// (skip commit when nothing differs) and atomicity (writes collapse into one entry).
 /// </summary>
 public interface ISceneSettingsService
 {

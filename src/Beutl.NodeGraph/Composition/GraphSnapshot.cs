@@ -170,6 +170,8 @@ public sealed class GraphSnapshot : IDisposable
                 Resource = resource,
                 Snapshot = this,
                 DisableResourceShare = context.DisableResourceShare,
+                PreferProxy = context.PreferProxy,
+                PreferredProxyPreset = context.PreferredProxyPreset,
             };
         }
 
@@ -289,6 +291,9 @@ public sealed class GraphSnapshot : IDisposable
         {
             ctx.Target = target;
             ctx.Time = context.Time;
+            ctx.DisableResourceShare = context.DisableResourceShare;
+            ctx.PreferProxy = context.PreferProxy;
+            ctx.PreferredProxyPreset = context.PreferredProxyPreset;
 
             // アニメーション/プロパティ値をロード
             LoadAnimatedValues(ctx.Resource, ctx.Time);

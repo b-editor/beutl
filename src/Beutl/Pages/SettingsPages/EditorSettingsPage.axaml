@@ -1,18 +1,21 @@
 <UserControl x:Class="Beutl.Pages.SettingsPages.EditorSettingsPage"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="using:Beutl.Converters"
              xmlns:ctrls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
+             xmlns:proxy="using:Beutl.Media.Proxy"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:Beutl.ViewModels.SettingsPages"
              x:Name="root"
              d:DesignHeight="450"
              d:DesignWidth="800"
-             x:DataType="vm:EditorSettingsPageViewModel"
-             mc:Ignorable="d">
+              x:CompileBindings="True"
+              x:DataType="vm:EditorSettingsPageViewModel"
+              mc:Ignorable="d">
     <Grid Margin="18" RowDefinitions="Auto,*">
 
         <TextBlock Margin="10,8"
@@ -91,6 +94,58 @@
                         <ToggleSwitch Classes="left"
                                       IsChecked="{CompiledBinding ClampResizeToOriginalLength.Value}"
                                       Theme="{StaticResource CompactToggleSwitchStyle}" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+
+                <TextBlock Margin="0,16,0,0"
+                           Text="{x:Static lang:SettingsStrings.ProxyMedia}"
+                           Theme="{StaticResource BodyStrongTextBlockStyle}" />
+
+                <ctrls:OptionsDisplayItem Header="{x:Static lang:Strings.PreviewSource}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <ComboBox MinWidth="250" SelectedIndex="{CompiledBinding PreviewSourceMode.Value}">
+                            <ComboBoxItem Content="{x:Static lang:Strings.PreviewSourcePreferProxy}" />
+                            <ComboBoxItem Content="{x:Static lang:Strings.PreviewSourceForceOriginal}" />
+                        </ComboBox>
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.ProxyStoreRootPath_Description}"
+                                          Header="{x:Static lang:SettingsStrings.ProxyStoreRootPath}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <TextBox MinWidth="250" Text="{Binding ProxyStoreRootPath.Value}" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.ProxyStoreMaxTotalGiB_Description}"
+                                          Header="{x:Static lang:SettingsStrings.ProxyStoreMaxTotalGiB}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <NumericUpDown MinWidth="250"
+                                       FormatString="F0"
+                                       Maximum="500"
+                                       Minimum="5"
+                                       Value="{Binding ProxyStoreMaxTotalGiB.Value}">
+                            <NumericUpDown.InnerRightContent>
+                                <TextBlock Margin="8,0"
+                                           VerticalAlignment="Center"
+                                           Text="GiB" />
+                            </NumericUpDown.InnerRightContent>
+                        </NumericUpDown>
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.ProxyDefaultPreset_Description}"
+                                          Header="{x:Static lang:SettingsStrings.ProxyDefaultPreset}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <ComboBox MinWidth="250"
+                                  ItemsSource="{CompiledBinding ProxyPresetOptions}"
+                                  SelectedItem="{CompiledBinding ProxyDefaultPreset.Value}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="proxy:ProxyPreset">
+                                    <TextBlock Text="{CompiledBinding Path=., Converter={x:Static conv:ProxyPresetNameConverter.Instance}}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
                     </ctrls:OptionsDisplayItem.ActionButton>
                 </ctrls:OptionsDisplayItem>
 

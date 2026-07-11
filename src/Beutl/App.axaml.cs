@@ -10,6 +10,7 @@ using Beutl.Api.Services;
 using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Graphics.Backend;
+using Beutl.Logging;
 using Beutl.NodeGraph.Nodes;
 using Beutl.Pages;
 using Beutl.Services;
@@ -20,6 +21,7 @@ using Beutl.ViewModels;
 using Beutl.Views;
 using FluentAvalonia.Core;
 using FluentAvalonia.Styling;
+using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using ReactiveUI.Avalonia;
 
@@ -27,6 +29,7 @@ namespace Beutl;
 
 public sealed class App : Application
 {
+    private static readonly ILogger s_logger = Log.CreateLogger<App>();
     private readonly TaskCompletionSource _windowOpenTcs = new();
     private FluentAvaloniaTheme? _theme;
     private MainViewModel? _mainViewModel;
@@ -122,6 +125,14 @@ public sealed class App : Application
         PropertyEditorExtension.DefaultHandler = new PropertyEditorService.PropertyEditorExtensionImpl();
         NotificationService.Handler = new NotificationServiceHandler();
         TutorialService.Current = new TutorialServiceHandler();
+        try
+        {
+            ProxyMediaServices.Initialize(GlobalConfiguration.Instance);
+        }
+        catch (Exception ex)
+        {
+            s_logger.LogWarning(ex, "Proxy media services failed to initialize.");
+        }
 
         // Setup AppHelper delegates for Beutl.Editor.Components
         AppHelper.GetContextCommandManager = GetContextCommandManager;

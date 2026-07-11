@@ -46,7 +46,7 @@ public sealed class RenderNodeCache(RenderNode node) : IDisposable
         else
         {
             _count = 0;
-            _cacheRejected = false;
+            Invalidate();
         }
     }
 

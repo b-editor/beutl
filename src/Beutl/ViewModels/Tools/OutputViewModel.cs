@@ -4,6 +4,7 @@ using System.Reactive.Subjects;
 using System.Text.Json.Nodes;
 using Avalonia.Platform.Storage;
 using Beutl.Api.Services;
+using Beutl.Editor;
 using Beutl.Editor.Services;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
@@ -233,6 +234,30 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             return;
         }
 
+        // Snapshot the referenced paths on the UI thread (the scene graph is mutable and not thread-safe),
+        // then run only the per-path File.Exists — which can stall on slow storage — off-thread.
+        // Export renders [Scene.Start, Scene.Start + Duration) (FrameProviderImpl/SampleProviderImpl add
+        // Scene.Start), so the preflight must scan the same interval — not [0, Duration).
+        IReadOnlySet<string> referencedSources =
+            ExportSourceValidator.CollectRenderableSources(Model, new TimeRange(Model.Start, Model.Duration));
+        IReadOnlyList<string> missingSources =
+            await Task.Run(() => ExportSourceValidator.GetMissingPaths(referencedSources));
+        if (missingSources.Count > 0)
+        {
+            string message = string.Format(
+                System.Globalization.CultureInfo.CurrentCulture,
+                MessageStrings.ExportMissingSourceFile,
+                missingSources[0],
+                missingSources.Count);
+            ProgressText.Value = message;
+            NotificationService.ShowError(MessageStrings.OutputException, message);
+            _logger.LogWarning(
+                "Encoding blocked because {MissingSourceCount} referenced source file(s) are missing. First missing source: {MissingSource}",
+                missingSources.Count,
+                missingSources[0]);
+            return;
+        }
+
         var stopwatch = new Stopwatch();
         bool succeeded = false;
         try
@@ -294,11 +319,19 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
                 float renderScale = Math.Max(1, SupersampleFactor.Value);
                 float maxWorkingScale = WorkingScaleCeiling.Export();
-                using var renderer = new SceneRenderer(Model, renderScale, disableResourceShare: true, maxWorkingScale);
+                using var renderer = new SceneRenderer(
+                    Model,
+                    renderScale,
+                    disableResourceShare: true,
+                    maxWorkingScale,
+                    forceOriginalSource: true);
                 renderer.CacheOptions = RenderCacheOptions.Disabled;
                 var frameProgress = new Subject<TimeSpan>();
                 using var frameProvider = new FrameProviderImpl(Model, videoSettings.FrameRate, renderer, frameProgress);
-                using var composer = new SceneComposer(Model, disableResourceShare: true) { SampleRate = audioSettings.SampleRate };
+                using var composer = new SceneComposer(Model, disableResourceShare: true, forceOriginalSource: true)
+                {
+                    SampleRate = audioSettings.SampleRate
+                };
                 var sampleProgress = new Subject<TimeSpan>();
                 using var sampleProvider = new SampleProviderImpl(
                     Model, composer, audioSettings.SampleRate, sampleProgress);

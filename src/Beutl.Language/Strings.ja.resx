@@ -1330,4 +1330,154 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="Restart" xml:space="preserve">
     <value>再起動</value>
   </data>
+  <data name="Proxies" xml:space="preserve">
+    <value>プロキシ</value>
+  </data>
+  <data name="ProxyPresetHalf" xml:space="preserve">
+    <value>プロキシ 1/2</value>
+  </data>
+  <data name="ProxyQuality" xml:space="preserve">
+    <value>プロキシ品質</value>
+  </data>
+  <data name="PreviewSource" xml:space="preserve">
+    <value>プレビューソース</value>
+  </data>
+  <data name="PreviewSourcePreferProxy" xml:space="preserve">
+    <value>プロキシ優先</value>
+  </data>
+  <data name="PreviewSourceForceOriginal" xml:space="preserve">
+    <value>オリジナル強制</value>
+  </data>
+  <data name="ProxyPresetQuarter" xml:space="preserve">
+    <value>プロキシ 1/4</value>
+  </data>
+  <data name="ProxyPresetEighth" xml:space="preserve">
+    <value>プロキシ 1/8</value>
+  </data>
+  <data name="ProxyStoreUsage" xml:space="preserve">
+    <value>ストア</value>
+  </data>
+  <data name="ProxyStoreCap" xml:space="preserve">
+    <value>上限</value>
+  </data>
+  <data name="ProxyClips" xml:space="preserve">
+    <value>クリップ</value>
+  </data>
+  <data name="ProxyQueue" xml:space="preserve">
+    <value>キュー</value>
+  </data>
+  <data name="ProxyGenerate" xml:space="preserve">
+    <value>生成</value>
+  </data>
+  <data name="ProxyGenerateSelected" xml:space="preserve">
+    <value>選択項目を生成</value>
+  </data>
+  <data name="ProxyGenerateAll" xml:space="preserve">
+    <value>すべて生成</value>
+  </data>
+  <data name="ProxyRegenerate" xml:space="preserve">
+    <value>再生成</value>
+  </data>
+  <data name="ProxyRegenerateSelected" xml:space="preserve">
+    <value>選択項目を再生成</value>
+  </data>
+  <data name="ProxyDeleteSelected" xml:space="preserve">
+    <value>選択項目を削除</value>
+  </data>
+  <data name="ProxyDeleteProjectProxies" xml:space="preserve">
+    <value>プロジェクトのプロキシを削除</value>
+  </data>
+  <data name="ProxyDeleteProjectProxiesConfirmationFormat" xml:space="preserve">
+    <value>プロキシはマシン全体で共有されるキャッシュに保存されます。このプロジェクトで使用している {0} 個のプロキシファイルを削除すると、同じソースファイルを参照する他のすべてのプロジェクトからも削除され、再生成が必要になります。続行しますか？</value>
+  </data>
+  <data name="ProxyReady" xml:space="preserve">
+    <value>準備完了</value>
+  </data>
+  <data name="ProxyGenerating" xml:space="preserve">
+    <value>生成中</value>
+  </data>
+  <data name="ProxyStale" xml:space="preserve">
+    <value>期限切れ</value>
+  </data>
+  <data name="ProxyFailed" xml:space="preserve">
+    <value>失敗</value>
+  </data>
+  <data name="ProxyMissing" xml:space="preserve">
+    <value>未生成</value>
+  </data>
+  <data name="ProxyPartial" xml:space="preserve">
+    <value>一部生成</value>
+  </data>
+  <data name="ProxyUnavailable" xml:space="preserve">
+    <value>利用不可</value>
+  </data>
+  <data name="ProxyStoreUnavailable" xml:space="preserve">
+    <value>プロキシストアを利用できません。</value>
+  </data>
+  <data name="ProxyQueueUnavailable" xml:space="preserve">
+    <value>プロキシキューを利用できません。</value>
+  </data>
+  <data name="ProxyBulkNoEligibleClips" xml:space="preserve">
+    <value>一括生成のしきい値を満たすクリップがありません。個別に生成してください。</value>
+  </data>
+  <data name="ProxyQueueIdle" xml:space="preserve">
+    <value>キューは空です</value>
+  </data>
+  <data name="ProxyQueuedJobSingular" xml:space="preserve">
+    <value>1 件のジョブ</value>
+  </data>
+  <data name="ProxyQueuedJobPlural" xml:space="preserve">
+    <value>{0} 件のジョブ</value>
+  </data>
+  <data name="ProxyDeleteFailedSingular" xml:space="preserve">
+    <value>ファイルが使用中のため、プロキシを1件削除できませんでした。</value>
+  </data>
+  <data name="ProxyDeleteFailedPluralFormat" xml:space="preserve">
+    <value>ファイルが使用中のため、プロキシを{0}件削除できませんでした。</value>
+  </data>
+  <data name="ProxyClipSummaryFormat" xml:space="preserve">
+    <value>{0} クリップ / 準備完了 {1} / 期限切れ {2} / 失敗 {3} / 未生成 {4}</value>
+  </data>
+  <data name="ProxySelectedSingular" xml:space="preserve">
+    <value>1 件選択</value>
+  </data>
+  <data name="ProxySelectedPlural" xml:space="preserve">
+    <value>{0} 件選択</value>
+  </data>
+  <data name="ProxyStoreSummaryFormat" xml:space="preserve">
+    <value>プロジェクト {0} / ストア {1} / 上限 {2}</value>
+  </data>
+  <data name="ProxySourceInfoFormat" xml:space="preserve">
+    <value>ソース {0} / {1}</value>
+  </data>
+  <data name="ProxyInfoFormat" xml:space="preserve">
+    <value>プロキシ {0} -> {1} / {2}</value>
+  </data>
+  <data name="ProxyMissingForSelectedPreset" xml:space="preserve">
+    <value>選択プリセットのプロキシは未生成です</value>
+  </data>
+  <data name="ProxyLastUsedFormat" xml:space="preserve">
+    <value>使用 {0}</value>
+  </data>
+  <data name="ProxyJobStatusQueued" xml:space="preserve">
+    <value>待機中</value>
+  </data>
+  <data name="ProxyJobStatusRunning" xml:space="preserve">
+    <value>実行中</value>
+  </data>
+  <data name="ProxyJobStatusSucceeded" xml:space="preserve">
+    <value>完了</value>
+  </data>
+  <data name="ProxyJobStatusFailed" xml:space="preserve">
+    <value>失敗</value>
+  </data>
+  <data name="ProxyJobStatusCanceled" xml:space="preserve">
+    <value>キャンセル済み</value>
+  </data>
+  <data name="ProxyJobStatusSkipped" xml:space="preserve">
+    <value>スキップ</value>
+  </data>
+  <data name="ProxyJobStatusWithMessageFormat" xml:space="preserve">
+    <value>{0}: {1}</value>
+  </data>
 </root>

@@ -92,7 +92,8 @@ internal sealed class EncodingHandler : IDisposable
             // (drained) and the cached chunk is freed — preventing a faulted background task from later
             // surfacing as an UnobservedTaskException.
             using var frameProvider = new IpcFrameProvider(connection, videoBuffers,
-                request.FrameCount, new Rational(request.FrameRateNum, request.FrameRateDen));
+                request.FrameCount, new Rational(request.FrameRateNum, request.FrameRateDen),
+                request.SourceWidth, request.SourceHeight);
             using var sampleProvider = new IpcSampleProvider(connection, audioBuffers,
                 request.SampleCount, request.ProviderSampleRate);
 

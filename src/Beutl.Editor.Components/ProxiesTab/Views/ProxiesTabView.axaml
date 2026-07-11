@@ -1,0 +1,323 @@
+<UserControl x:Class="Beutl.Editor.Components.ProxiesTab.Views.ProxiesTabView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:views="using:Beutl.Editor.Components.ProxiesTab.Views"
+             xmlns:vm="using:Beutl.Editor.Components.ProxiesTab.ViewModels"
+             d:DesignHeight="520"
+             d:DesignWidth="360"
+             x:CompileBindings="True"
+             x:DataType="vm:ProxiesTabViewModel"
+             mc:Ignorable="d">
+    <UserControl.Styles>
+        <Style Selector="TextBlock.sectionHeader">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        </Style>
+        <Style Selector="TextBlock.metricLabel">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        </Style>
+        <Style Selector="TextBlock.metricValue">
+            <Setter Property="FontSize" Value="16" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        </Style>
+        <Style Selector="TextBlock.subtle">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        </Style>
+        <Style Selector="Border.proxyItem">
+            <Setter Property="Padding" Value="10" />
+            <Setter Property="Margin" Value="0,0,0,8" />
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="6" />
+        </Style>
+        <Style Selector="Border.proxyItem.ready">
+            <Setter Property="BorderBrush" Value="{DynamicResource SystemFillColorSuccessBrush}" />
+        </Style>
+        <Style Selector="Border.proxyItem.stale">
+            <Setter Property="BorderBrush" Value="{DynamicResource SystemFillColorCautionBrush}" />
+        </Style>
+        <Style Selector="Border.proxyItem.failed">
+            <Setter Property="BorderBrush" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+        </Style>
+        <Style Selector="Border.proxyItem.queued">
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentFillColorDefaultBrush}" />
+        </Style>
+        <Style Selector="Border.statePill">
+            <Setter Property="MinWidth" Value="56" />
+            <Setter Property="Padding" Value="7,2" />
+            <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Border.statePill.ready">
+            <Setter Property="Background" Value="{DynamicResource SystemFillColorSuccessBackgroundBrush}" />
+        </Style>
+        <Style Selector="Border.statePill.stale">
+            <Setter Property="Background" Value="{DynamicResource SystemFillColorCautionBackgroundBrush}" />
+        </Style>
+        <Style Selector="Border.statePill.failed">
+            <Setter Property="Background" Value="{DynamicResource SystemFillColorCriticalBackgroundBrush}" />
+        </Style>
+        <Style Selector="Button.iconButton">
+            <Setter Property="Width" Value="30" />
+            <Setter Property="Height" Value="30" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Theme" Value="{StaticResource TransparentButton}" />
+        </Style>
+    </UserControl.Styles>
+
+    <Grid RowDefinitions="Auto,*">
+        <Border Grid.Row="0"
+                BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
+                BorderThickness="0,0,0,1">
+            <Grid Height="32" ColumnDefinitions="Auto,*,Auto,Auto">
+                <TextBlock Grid.Column="0"
+                           Margin="8,0,0,0"
+                           VerticalAlignment="Center"
+                           Text="{x:Static lang:Strings.Proxies}" />
+
+                <TextBlock Grid.Column="2"
+                           Margin="8,0"
+                           VerticalAlignment="Center"
+                           Text="{Binding ClipSummary.Value}"
+                           TextTrimming="CharacterEllipsis" />
+
+                <Button Grid.Column="3"
+                        Margin="0,0,4,0"
+                        Classes="iconButton"
+                        AutomationProperties.Name="{x:Static lang:Strings.Refresh}"
+                        Command="{Binding RefreshCommand}"
+                        ToolTip.Tip="{x:Static lang:Strings.Refresh}">
+                    <icons:SymbolIcon FontSize="16" Symbol="ArrowClockwise" />
+                </Button>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="1"
+              Margin="10"
+              RowDefinitions="Auto,Auto,Auto,*"
+              RowSpacing="10">
+            <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
+                <Border Padding="10,8" Classes="CardStyle">
+                    <StackPanel Spacing="2">
+                        <TextBlock Classes="metricLabel" Text="{x:Static lang:Strings.Project}" />
+                        <TextBlock Classes="metricValue" Text="{Binding ProjectUsageText.Value}" />
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="1"
+                        Padding="10,8"
+                        Classes="CardStyle">
+                    <StackPanel Spacing="2">
+                        <TextBlock Classes="metricLabel" Text="{x:Static lang:Strings.ProxyStoreUsage}" />
+                        <TextBlock Classes="metricValue" Text="{Binding StoreUsageText.Value}" />
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="2"
+                        Padding="10,8"
+                        Classes="CardStyle">
+                    <StackPanel Spacing="2">
+                        <TextBlock Classes="metricLabel" Text="{x:Static lang:Strings.ProxyStoreCap}" />
+                        <TextBlock Classes="metricValue" Text="{Binding StoreCapText.Value}" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <Grid Grid.Row="1"
+                  ColumnDefinitions="*,Auto,Auto,Auto,Auto"
+                  ColumnSpacing="6">
+                <Button HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Center"
+                        Classes="accent"
+                        Command="{Binding GenerateSelectedCommand}"
+                        ToolTip.Tip="{x:Static lang:Strings.ProxyGenerateSelected}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <icons:SymbolIcon FontSize="16" Symbol="Play" VerticalAlignment="Center" />
+                        <TextBlock Text="{x:Static lang:Strings.ProxyGenerate}" />
+                    </StackPanel>
+                </Button>
+                <Button Grid.Column="1"
+                        Classes="iconButton"
+                        AutomationProperties.Name="{x:Static lang:Strings.ProxyGenerateAll}"
+                        Command="{Binding GenerateAllCommand}"
+                        ToolTip.Tip="{x:Static lang:Strings.ProxyGenerateAll}">
+                    <icons:SymbolIcon FontSize="16" Symbol="Add" />
+                </Button>
+                <Button Grid.Column="2"
+                        Classes="iconButton"
+                        AutomationProperties.Name="{x:Static lang:Strings.ProxyRegenerateSelected}"
+                        Command="{Binding RegenerateSelectedCommand}"
+                        ToolTip.Tip="{x:Static lang:Strings.ProxyRegenerateSelected}">
+                    <icons:SymbolIcon FontSize="16" Symbol="ArrowClockwise" />
+                </Button>
+                <Button Grid.Column="3"
+                        Classes="iconButton"
+                        AutomationProperties.Name="{x:Static lang:Strings.ProxyDeleteSelected}"
+                        Command="{Binding DeleteSelectedCommand}"
+                        ToolTip.Tip="{x:Static lang:Strings.ProxyDeleteSelected}">
+                    <icons:SymbolIcon FontSize="16" Symbol="Delete" />
+                </Button>
+                <Button Grid.Column="4"
+                        Classes="iconButton"
+                        AutomationProperties.Name="{x:Static lang:Strings.ProxyDeleteProjectProxies}"
+                        Command="{Binding DeleteAllForProjectCommand}"
+                        ToolTip.Tip="{x:Static lang:Strings.ProxyDeleteProjectProxies}">
+                    <icons:SymbolIcon FontSize="16" Symbol="Dismiss" />
+                </Button>
+            </Grid>
+
+            <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <TextBlock Classes="subtle"
+                           Text="{Binding StatusMessage.Value}"
+                           TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="1"
+                           Classes="subtle"
+                           Text="{Binding JobSummary.Value}"
+                           TextTrimming="CharacterEllipsis" />
+            </Grid>
+
+            <Grid Grid.Row="3" RowDefinitions="Auto,*" RowSpacing="6">
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Classes="sectionHeader" Text="{x:Static lang:Strings.ProxyClips}" />
+                    <TextBlock Grid.Column="1"
+                               Classes="subtle"
+                               Text="{Binding SelectionSummary.Value}" />
+                </Grid>
+
+                <ScrollViewer Grid.Row="1">
+                    <ItemsControl ItemsSource="{Binding Clips}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:ProxyClipViewModel">
+                                <Border Classes="proxyItem"
+                                        Classes.failed="{Binding IsFailed.Value}"
+                                        Classes.queued="{Binding HasJob.Value}"
+                                        Classes.ready="{Binding IsReady.Value}"
+                                        Classes.stale="{Binding IsStale.Value}"
+                                        Tapped="OnProxyItemTapped">
+                                    <Grid ColumnDefinitions="Auto,*"
+                                          RowDefinitions="Auto,Auto,Auto"
+                                          ColumnSpacing="8"
+                                          RowSpacing="6">
+                                        <CheckBox Grid.RowSpan="4"
+                                                  Margin="0,-3,0,0"
+                                                  VerticalAlignment="Top"
+                                                  IsChecked="{Binding IsSelected.Value}" />
+
+                                        <Grid Grid.Column="1" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                                            <TextBlock FontWeight="SemiBold"
+                                                       Text="{Binding FileName}"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       ToolTip.Tip="{Binding Path}" />
+                                            <ComboBox Grid.Column="1"
+                                                      MinWidth="88"
+                                                      VerticalAlignment="Center"
+                                                      AutomationProperties.Name="{x:Static lang:Strings.ProxyQuality}"
+                                                      SelectedIndex="{Binding Preset.Value, Converter={x:Static views:ProxyPresetIndexConverter.Instance}, Mode=TwoWay}"
+                                                      Theme="{StaticResource LiteComboBoxStyle}"
+                                                      ToolTip.Tip="{x:Static lang:Strings.ProxyQuality}">
+                                                <ComboBoxItem Content="{x:Static lang:Strings.ProxyPresetHalf}" />
+                                                <ComboBoxItem Content="{x:Static lang:Strings.ProxyPresetQuarter}" />
+                                                <ComboBoxItem Content="{x:Static lang:Strings.ProxyPresetEighth}" />
+                                            </ComboBox>
+                                            <Border Grid.Column="2"
+                                                    Classes="statePill"
+                                                    Classes.failed="{Binding IsFailed.Value}"
+                                                    Classes.ready="{Binding IsReady.Value}"
+                                                    Classes.stale="{Binding IsStale.Value}">
+                                                <TextBlock HorizontalAlignment="Center"
+                                                           FontSize="11"
+                                                           FontWeight="SemiBold"
+                                                           Text="{Binding State.Value}" />
+                                            </Border>
+                                        </Grid>
+
+                                        <TextBlock Grid.Row="1"
+                                                   Grid.Column="1"
+                                                   Classes="subtle"
+                                                   Text="{Binding Path}"
+                                                   ToolTip.Tip="{Binding Path}" />
+
+                                        <Grid Grid.Row="2" Grid.Column="1" RowDefinitions="Auto,Auto">
+                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                                <StackPanel MinWidth="0" Spacing="2">
+                                                    <TextBlock Classes="subtle" Text="{Binding ProxyInfoText.Value}" />
+                                                    <TextBlock Classes="subtle" Text="{Binding SourceInfoText}" />
+                                                    <TextBlock Classes="subtle" Text="{Binding LastUsedText.Value}" />
+                                                </StackPanel>
+
+                                                <StackPanel Grid.Column="1"
+                                                            VerticalAlignment="Bottom"
+                                                            Orientation="Horizontal"
+                                                            Spacing="2">
+                                                    <Button Classes="iconButton"
+                                                            AutomationProperties.Name="{x:Static lang:Strings.ProxyGenerate}"
+                                                            Command="{Binding GenerateCommand}"
+                                                            ToolTip.Tip="{x:Static lang:Strings.ProxyGenerate}">
+                                                        <icons:SymbolIcon FontSize="16" Symbol="Play" />
+                                                    </Button>
+                                                    <Button Classes="iconButton"
+                                                            AutomationProperties.Name="{x:Static lang:Strings.ProxyRegenerate}"
+                                                            Command="{Binding RegenerateCommand}"
+                                                            ToolTip.Tip="{x:Static lang:Strings.ProxyRegenerate}">
+                                                        <icons:SymbolIcon FontSize="16" Symbol="ArrowClockwise" />
+                                                    </Button>
+                                                    <Button Classes="iconButton"
+                                                            AutomationProperties.Name="{x:Static lang:Strings.Delete}"
+                                                            Command="{Binding DeleteCommand}"
+                                                            ToolTip.Tip="{x:Static lang:Strings.Delete}">
+                                                        <icons:SymbolIcon FontSize="16" Symbol="Delete" />
+                                                    </Button>
+                                                </StackPanel>
+                                            </Grid>
+
+                                            <Grid Grid.Row="1"
+                                                  Margin="0,6,0,0"
+                                                  ColumnDefinitions="*,64,Auto"
+                                                  RowDefinitions="Auto,Auto"
+                                                  ColumnSpacing="8"
+                                                  RowSpacing="4"
+                                                  IsVisible="{Binding HasJob.Value}">
+                                                <TextBlock Grid.ColumnSpan="2"
+                                                           VerticalAlignment="Bottom"
+                                                           Classes="subtle"
+                                                           Text="{Binding JobStatus.Value}"
+                                                           TextTrimming="CharacterEllipsis" />
+                                                <ProgressBar Grid.Row="1"
+                                                             Height="6"
+                                                             Maximum="1"
+                                                             VerticalAlignment="Bottom"
+                                                             Value="{Binding JobProgressValue.Value}" />
+                                                <TextBlock Grid.Row="1"
+                                                           Grid.Column="1"
+                                                           Classes="subtle"
+                                                           Text="{Binding JobProgressText.Value}" />
+                                                <Button Grid.Column="2"
+                                                        Grid.RowSpan="2"
+                                                        VerticalAlignment="Bottom"
+                                                        Classes="iconButton"
+                                                        AutomationProperties.Name="{x:Static lang:Strings.Cancel}"
+                                                        Command="{Binding CancelJobCommand}"
+                                                        ToolTip.Tip="{x:Static lang:Strings.Cancel}">
+                                                    <icons:SymbolIcon FontSize="16" Symbol="Dismiss" />
+                                                </Button>
+                                            </Grid>
+                                        </Grid>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Grid>
+        </Grid>
+    </Grid>
+</UserControl>
