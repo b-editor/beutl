@@ -918,6 +918,54 @@ public class SceneGapTests
     }
 
     [Test]
+    public void FindNextGap_TiedStart_PicksNearestByEnd()
+    {
+        string basePath = GetTempPath();
+        try
+        {
+            Scene scene = CreateScene(basePath);
+            // Two layers both open a gap starting at 2s: layer 0 spans 2s-12s, layer 1 spans 2s-5s.
+            // Next must visit the nearer (shorter) gap first, not whichever ZIndex enumerates first.
+            scene.Children.Add(CreateElement(basePath, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), zIndex: 0));
+            scene.Children.Add(CreateElement(basePath, TimeSpan.FromSeconds(12), TimeSpan.FromSeconds(1), zIndex: 0));
+            scene.Children.Add(CreateElement(basePath, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), zIndex: 1));
+            scene.Children.Add(CreateElement(basePath, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(1), zIndex: 1));
+
+            TimeRange? gap = scene.FindNextGap(TimeSpan.Zero)?.Range;
+
+            Assert.That(gap, Is.EqualTo(new TimeRange(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3))));
+        }
+        finally
+        {
+            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+        }
+    }
+
+    [Test]
+    public void FindPreviousGap_TiedEnd_PicksNearestByStart()
+    {
+        string basePath = GetTempPath();
+        try
+        {
+            Scene scene = CreateScene(basePath);
+            // Two layers both close a gap ending at 12s: layer 0 spans 2s-12s, layer 1 spans 9s-12s.
+            // Previous must visit the nearer (shorter) gap first, not whichever ZIndex enumerates first.
+            scene.Children.Add(CreateElement(basePath, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), zIndex: 0));
+            scene.Children.Add(CreateElement(basePath, TimeSpan.FromSeconds(12), TimeSpan.FromSeconds(1), zIndex: 0));
+            scene.Children.Add(CreateElement(basePath, TimeSpan.FromSeconds(8), TimeSpan.FromSeconds(1), zIndex: 1));
+            scene.Children.Add(CreateElement(basePath, TimeSpan.FromSeconds(12), TimeSpan.FromSeconds(1), zIndex: 1));
+
+            TimeRange? gap = scene.FindPreviousGap(TimeSpan.FromSeconds(20))?.Range;
+
+            Assert.That(gap, Is.EqualTo(new TimeRange(TimeSpan.FromSeconds(9), TimeSpan.FromSeconds(3))));
+        }
+        finally
+        {
+            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+        }
+    }
+
+    [Test]
     public void FindNextGap_GapStraddlingSearchEnd_ReturnsClampedVisiblePortion()
     {
         string basePath = GetTempPath();

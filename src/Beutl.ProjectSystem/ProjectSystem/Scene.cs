@@ -457,6 +457,7 @@ public class Scene : ProjectItem, INotifyEdited
             .Select(g => ClampGap(g, searchRange))
             .Where(g => g is { } v && v.Range.Start >= currentTime)
             .OrderBy(g => g!.Value.Range.Start)
+            .ThenBy(g => g!.Value.Range.End)
             .FirstOrDefault();
     }
 
@@ -477,6 +478,7 @@ public class Scene : ProjectItem, INotifyEdited
             .Select(g => ClampGap(g, searchRange))
             .Where(g => g is { } v && v.Range.End <= currentTime)
             .OrderByDescending(g => g!.Value.Range.End)
+            .ThenByDescending(g => g!.Value.Range.Start)
             .FirstOrDefault();
     }
 

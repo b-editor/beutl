@@ -1173,7 +1173,10 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
     private void CloseGapAtPointer()
     {
         FlushPendingNudgeCommit();
+        // Only close a gap whose start lies inside the active scene; a raw gap starting before
+        // Scene.Start would collapse an off-scene interval and jump a clip the user cannot see.
         if (Scene.FindGapAt(ClickedFrame, CalculateClickedLayer()) is { } gap
+            && gap.Range.Start >= Scene.Start
             && EditorContext.GetRequiredService<IElementGapService>().CloseGapAfter(Scene, gap.Anchor))
         {
             return;
@@ -1196,9 +1199,15 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         if (FindGapNavigationTarget(Scene, CurrentTime.Value, forward) is { } target)
         {
             CurrentTime.Value = target.Target;
+            // A null anchor (start-clipped gap) has no element to select; clear any prior selection so
+            // the selection-based Close Gap cannot act on a stale, unrelated gap after the jump.
             if (target.Anchor is { } anchor)
             {
                 SelectGapAnchor(anchor);
+            }
+            else
+            {
+                ClearSelected();
             }
         }
         else
