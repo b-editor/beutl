@@ -219,6 +219,7 @@ public static class ProxySourceEnumerator
                 visitedFilterEffectGroups,
                 visitedGraphGroups,
                 new HashSet<FilterEffect>(ReferenceEqualityComparer.Instance),
+                new HashSet<FilterEffect>(ReferenceEqualityComparer.Instance),
                 skipDisabledElements,
                 localRange,
                 sceneWindow,
@@ -722,15 +723,32 @@ public static class ProxySourceEnumerator
         HashSet<FilterEffectGroup> visitedFilterEffectGroups,
         HashSet<GraphGroup> visitedGraphGroups,
         HashSet<FilterEffect> visitedFilterEffects,
+        HashSet<FilterEffect> visitedFullWalkFilterEffects,
         bool skipDisabledElements,
         TimeRange? localRange = null,
         TimeRange? sceneWindow = null,
         ObjectWalkContext? walkContext = null)
     {
-        // Presenter/delay targets are reference properties, so a filter chain is user-cyclable;
-        // the visited set makes the recursion terminate.
-        if (effect is null || !visitedFilterEffects.Add(effect))
+        if (effect is null)
             yield break;
+
+        // Presenter/delay targets are reference properties, so a filter chain is user-cyclable;
+        // the visited sets make the recursion terminate. A full walk (localRange is null: a remapped
+        // DelayAnimationEffect target, or the top-level chain) enumerates every source; a windowed walk
+        // only those inside localRange. So a completed full walk supersedes any later walk of the same
+        // effect, but a windowed walk must NOT suppress a later full walk that would surface
+        // out-of-window sources — hence the separate full-walk visited set.
+        if (localRange is null)
+        {
+            if (!visitedFullWalkFilterEffects.Add(effect))
+                yield break;
+
+            visitedFilterEffects.Add(effect);
+        }
+        else if (visitedFullWalkFilterEffects.Contains(effect) || !visitedFilterEffects.Add(effect))
+        {
+            yield break;
+        }
 
         // FilterEffectRenderNode returns its input unchanged for a disabled effect, so a source inside
         // a disabled filter (or filter group) never renders; export preflight must not demand its file.
@@ -752,7 +770,7 @@ public static class ProxySourceEnumerator
                         yield return source;
 
                     foreach (IFileSource source in EnumerateFilterEffectGraphSources(
-                        child, visitedFilterEffectGroups, visitedGraphGroups, visitedFilterEffects, skipDisabledElements, localRange, sceneWindow, walkContext))
+                        child, visitedFilterEffectGroups, visitedGraphGroups, visitedFilterEffects, visitedFullWalkFilterEffects, skipDisabledElements, localRange, sceneWindow, walkContext))
                         yield return source;
                 }
 
@@ -773,7 +791,7 @@ public static class ProxySourceEnumerator
                 // window maps directly — thread localRange, unlike the delay effect below. The resource
                 // renders the effective Target, so resolve an expression-supplied one.
                 foreach (IFileSource source in EnumerateFilterEffectGraphSources(
-                    presented, visitedFilterEffectGroups, visitedGraphGroups, visitedFilterEffects, skipDisabledElements, localRange, sceneWindow, walkContext))
+                    presented, visitedFilterEffectGroups, visitedGraphGroups, visitedFilterEffects, visitedFullWalkFilterEffects, skipDisabledElements, localRange, sceneWindow, walkContext))
                     yield return source;
 
                 break;
@@ -781,7 +799,7 @@ public static class ProxySourceEnumerator
             case DelayAnimationEffect delay
                 when ResolveExpressionValue<FilterEffect>(delay, delay.Effect) is { } delayed:
                 foreach (IFileSource source in EnumerateFilterEffectGraphSources(
-                    delayed, visitedFilterEffectGroups, visitedGraphGroups, visitedFilterEffects, skipDisabledElements, walkContext: walkContext))
+                    delayed, visitedFilterEffectGroups, visitedGraphGroups, visitedFilterEffects, visitedFullWalkFilterEffects, skipDisabledElements, walkContext: walkContext))
                     yield return source;
 
                 break;

@@ -157,11 +157,54 @@ public sealed class ProxyStore : IProxyStore
         // seconds), and preview reads (TryGet/Touch/Enumerate) contend on _lock, so holding it across the
         // delete would stall playback. The index entry is already gone; if the file delete fails the file
         // is a harmless orphan that reconcile's aged-orphan sweep reclaims.
-        TryDeleteProxyFile(GetAbsolutePath(removed));
-        RemoveMetadataEntry(removed);
+        string proxyPath = GetAbsolutePath(removed);
+
+        // A regeneration Registers a replacement for the same (source, preset) reusing the deterministic
+        // proxy filename (ProxyPathUtilities.BuildRelativePath), and may have already moved its bytes to
+        // this exact path. Re-check under the lock that no surviving entry still points at the file before
+        // unlinking, or this Delete would strand the live replacement's index entry over deleted bytes.
+        if (!IsProxyFileReferenced(proxyPath))
+        {
+            TryDeleteProxyFile(proxyPath);
+            RemoveMetadataEntry(removed);
+        }
 
         OnChanged(source, preset, ProxyStoreChangeKind.Deleted);
         return true;
+    }
+
+    private bool IsProxyFileReferenced(string absoluteProxyPath)
+    {
+        string normalized;
+        try
+        {
+            normalized = ProxyFingerprint.NormalizeAbsolutePath(absoluteProxyPath);
+        }
+        catch
+        {
+            return false;
+        }
+
+        lock (_lock)
+        {
+            foreach (ProxyEntry entry in _entries.Values)
+            {
+                string candidate;
+                try
+                {
+                    candidate = ProxyFingerprint.NormalizeAbsolutePath(GetAbsolutePath(entry));
+                }
+                catch
+                {
+                    continue;
+                }
+
+                if (string.Equals(candidate, normalized, StringComparison.Ordinal))
+                    return true;
+            }
+        }
+
+        return false;
     }
 
     public void Touch(ProxyFingerprint source, ProxyPreset preset, DateTime nowUtc)

@@ -94,7 +94,7 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
 
             await controller.Encode(frameProvider, sampleProvider, job.CancellationToken);
 
-            EnsureSourceUnchanged(sourcePath, job.Source);
+            EnsureSourceUnchanged(store, job, sourcePath);
 
             await PublishAsync(tempPath, finalPath, job, relative, originalSize, proxySize, job.CancellationToken);
         });
@@ -105,12 +105,18 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
     // original is gone. A source that vanished mid-encode (deleted/moved) is an obsolete job like a
     // content change, so TryFromFile keeps it Skipped rather than letting FromFile's exception surface
     // as a Failed generation.
-    internal static void EnsureSourceUnchanged(string sourcePath, ProxyFingerprint expected)
+    internal static void EnsureSourceUnchanged(IProxyStore store, ProxyJob job, string sourcePath)
     {
         if (!ProxyFingerprint.TryFromFile(sourcePath, out ProxyFingerprint current))
             throw new ProxyGenerationSkippedException("Source became unavailable during encoding.");
-        if (current != expected)
+        if (current != job.Source)
+        {
+            // The old proxy for job.Source no longer matches the file replaced mid-encode; mark it stale
+            // before skipping so offline resolution (which cannot restat the file) does not later rank
+            // this Ready proxy for the — now different, possibly missing — replacement.
+            store.TryTransition(job.Source, job.Preset, ProxyState.Stale, "Source changed during encoding.");
             throw new ProxyGenerationSkippedException("Source changed during encoding.");
+        }
     }
 
     // The temp artifact must not outlive a failed or canceled generation: nothing else reclaims it

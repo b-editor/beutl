@@ -490,27 +490,36 @@ public sealed class FFmpegProxyGeneratorPublishTests
         string source = Path.Combine(root, "src.mov");
         File.WriteAllBytes(source, [1, 2, 3, 4]);
         ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(source);
+        var store = new TransitionRecordingStore(root);
+        var job = new ProxyJob(fingerprint, ProxyPreset.Quarter);
 
-        Assert.That(() => FFmpegProxyGenerator.EnsureSourceUnchanged(source, fingerprint), Throws.Nothing);
+        Assert.That(() => FFmpegProxyGenerator.EnsureSourceUnchanged(store, job, source), Throws.Nothing);
+        Assert.That(store.Transitions, Is.Empty);
     }
 
     [Test]
-    public void EnsureSourceUnchanged_WhenSourceChanged_SkipsRatherThanFails()
+    public void EnsureSourceUnchanged_WhenSourceChanged_MarksStaleThenSkips()
     {
         string root = CreateRoot();
         string source = Path.Combine(root, "src.mov");
         File.WriteAllBytes(source, [1, 2, 3, 4]);
         ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(source);
+        var store = new TransitionRecordingStore(root);
+        var job = new ProxyJob(fingerprint, ProxyPreset.Quarter);
         // A content change bumps size/mtime, so the re-stat no longer matches the fingerprint captured
         // before the encode.
         File.WriteAllBytes(source, [1, 2, 3, 4, 5, 6]);
 
-        Assert.That(() => FFmpegProxyGenerator.EnsureSourceUnchanged(source, fingerprint),
+        Assert.That(() => FFmpegProxyGenerator.EnsureSourceUnchanged(store, job, source),
             Throws.TypeOf<ProxyGenerationSkippedException>());
+        // The old entry for the pre-change fingerprint must be marked Stale before the skip so offline
+        // resolution never ranks its Ready proxy for the replacement bytes.
+        Assert.That(store.Transitions,
+            Is.EqualTo(new[] { (fingerprint, ProxyPreset.Quarter, ProxyState.Stale) }));
     }
 
     [Test]
-    public void EnsureSourceUnchanged_WhenSourceMissing_SkipsRatherThanFails()
+    public void EnsureSourceUnchanged_WhenSourceMissing_SkipsWithoutMarkingStale()
     {
         // A source deleted/moved mid-encode makes the job obsolete. The re-stat must classify it as
         // Skipped (ProxyGenerationSkippedException), not let FromFile's FileNotFoundException fall through
@@ -519,10 +528,14 @@ public sealed class FFmpegProxyGeneratorPublishTests
         string source = Path.Combine(root, "src.mov");
         File.WriteAllBytes(source, [1, 2, 3, 4]);
         ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(source);
+        var store = new TransitionRecordingStore(root);
+        var job = new ProxyJob(fingerprint, ProxyPreset.Quarter);
         File.Delete(source);
 
-        Assert.That(() => FFmpegProxyGenerator.EnsureSourceUnchanged(source, fingerprint),
+        Assert.That(() => FFmpegProxyGenerator.EnsureSourceUnchanged(store, job, source),
             Throws.TypeOf<ProxyGenerationSkippedException>());
+        // A vanished source cannot be re-fingerprinted, so there is no changed-bytes entry to mark stale.
+        Assert.That(store.Transitions, Is.Empty);
     }
 
     private static string CreateTempArtifact()

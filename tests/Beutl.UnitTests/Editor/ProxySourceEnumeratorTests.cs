@@ -4,6 +4,7 @@ using Beutl.Audio;
 using Beutl.Editor;
 using Beutl.Engine;
 using Beutl.Engine.Expressions;
+using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Graphics.AudioVisualizers;
 using Beutl.Graphics.Effects;
@@ -294,6 +295,50 @@ public class ProxySourceEnumeratorTests
         Element element = ElementWith(drawable);
 
         Assert.That(FileNames(element), Does.Contain("delayed-fx.mov"));
+    }
+
+    // A windowed FilterEffectPresenter and a full-walk DelayAnimationEffect can target the SAME filter
+    // effect. The presenter is visited first with a render window that overrides the node input's base
+    // value; if that windowed visit deduped the target in the shared identity set, the delay's remapped
+    // full walk — which must surface the overridden base — would be wrongly suppressed. The separate
+    // full-walk visited set keeps the full walk alive after the earlier windowed visit.
+    [Test]
+    public void EnumerateFileSources_WindowedPresenterDoesNotSuppressDelayFullWalkOfSharedTarget()
+    {
+        var node = new VideoSourceNode();
+        node.Source.Property!.SetValue(CreateVideoSource("full-walk-base.mov"));
+        var animation = new KeyFrameAnimation<VideoSource?>();
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?>
+        {
+            KeyTime = TimeSpan.FromSeconds(0.5),
+            Value = CreateVideoSource("windowed-anim.mov"),
+        });
+        ((IAnimatablePropertyAdapter<VideoSource?>)node.Source.Property!).Animation = animation;
+
+        var graphEffect = new NodeGraphFilterEffect();
+        graphEffect.Model.CurrentValue!.Nodes.Add(node);
+
+        // The presenter (windowed, threads localRange) is visited before the delay (remapped full walk),
+        // both pointing at the same graphEffect.
+        var presenter = new FilterEffectPresenter();
+        presenter.Target.CurrentValue = graphEffect;
+        var delay = new DelayAnimationEffect();
+        ((FilterEffectGroup)delay.Effect.CurrentValue!).Children.Add(graphEffect);
+
+        var drawable = new SourceVideo();
+        var chain = (FilterEffectGroup)drawable.FilterEffect.CurrentValue!;
+        chain.Children.Add(presenter);
+        chain.Children.Add(delay);
+        Element element = ElementWith(drawable);
+
+        var window = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        IEnumerable<string> names = ProxySourceEnumerator
+            .EnumerateFileSources(element, localRange: window)
+            .OfType<VideoSource>()
+            .Select(FileName);
+
+        // The windowed presenter visit drops the overridden base; only the delay's full walk surfaces it.
+        Assert.That(names, Does.Contain("full-walk-base.mov"));
     }
 
     [Test]

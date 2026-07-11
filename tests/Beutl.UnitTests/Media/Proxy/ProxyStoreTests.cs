@@ -82,6 +82,31 @@ public sealed class ProxyStoreTests
         });
     }
 
+    // A regeneration re-Registers a replacement (same deterministic proxy filename) between Delete's
+    // index removal and its out-of-lock file unlink. Modeled here by a second live entry resolving to the
+    // same proxy file: Delete must drop only its own index entry and leave the shared file for the
+    // survivor, not unlink the bytes the replacement's entry still points at.
+    [Test]
+    public void Delete_PreservesProxyFileStillReferencedByAnotherEntry()
+    {
+        string root = CreateRoot();
+        var store = new ProxyStore(root);
+        ProxyEntry entry = CreateEntry(root, "quarter.mp4");
+        ProxyEntry replacement = CreateEntry(root, "quarter.mp4");
+        store.Register(entry);
+        store.Register(replacement);
+
+        bool deleted = store.Delete(entry.Source, entry.Preset);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(deleted, Is.True);
+            Assert.That(store.TryGet(entry.Source, entry.Preset), Is.Null);
+            Assert.That(store.TryGet(replacement.Source, replacement.Preset), Is.Not.Null);
+            Assert.That(File.Exists(Path.Combine(root, entry.ProxyFileRelative)), Is.True);
+        });
+    }
+
     [Test]
     public async Task ReconcileAsync_DropsMissingEntriesAndDeletesOnlyOldGeneratedProxyTmpFiles()
     {
