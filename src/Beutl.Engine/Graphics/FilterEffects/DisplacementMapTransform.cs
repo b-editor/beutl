@@ -64,33 +64,34 @@ public abstract partial class DisplacementMapTransform : EngineObject
         return new MapChild(new Rect(builder.Bounds.Size), map, builder.MaxWorkingScale);
     }
 
-    // The per-frame displacement-map child, resolved lazily so the deferred child shader and the uMapPresent uniform
-    // share a single resolution. CanCreateShader gates node creation at describe time, but the map's render-time
-    // resolution can still yield null (a preview buffer allocation failure); a transparent fallback then reads as
-    // getDisplacement == 0, which the signed remap turns into a full negative displacement rather than identity. So an
-    // absent shader is reported through uMapPresent == 0, which makes the shader pass the source through unchanged
-    // (exact identity) regardless of Signed/channel. The child factory owns the produced shader (executor-disposed
-    // after the pass draw); the uniform only reads the cached presence.
+    // The per-pass displacement-map child. The deferred child shader and the uMapPresent uniform must agree within a
+    // pass, so they share a single resolution: the presence uniform (bound one stage-slot before the child in the same
+    // BuildRuntimeRun) builds the fresh shader and records its presence, and the paired child resolve consumes it. The
+    // resolution is per pass EXECUTION, not cached across passes — a SplitEffect/PartsSplitEffect fan-out runs this same
+    // holder once per branch, and the executor disposes each per-pass product after that branch's draw, so a cached
+    // instance would be a use-after-dispose (and double-dispose) for every branch past the first. CanCreateShader gates
+    // node creation at describe time, but the map's render-time resolution can still yield null (a preview buffer
+    // allocation failure); a transparent fallback then reads as getDisplacement == 0, which the signed remap turns into
+    // a full negative displacement rather than identity. So an absent shader is reported through uMapPresent == 0, which
+    // makes the shader pass the source through unchanged (exact identity) regardless of Signed/channel.
     private protected sealed class MapChild(Rect mapBounds, Brush.Resource map, float maxWorkingScale)
     {
-        private bool _resolved;
+        private bool _pending;
         private bool _present;
         private SKShader? _shader;
 
-        public ChildBinding Binding => ChildBinding.Deferred("uDisplacementMap", context => Resolve(context));
+        public ChildBinding Binding => ChildBinding.Deferred("uDisplacementMap", context => Take(context));
 
         public UniformBindingBuilder BindPresence(UniformBindingBuilder uniforms)
             => uniforms.Deferred("uMapPresent", (builder, name, context) =>
             {
-                Resolve(context);
+                Build(context);
                 builder.Uniforms[name] = _present ? 1 : 0;
             });
 
-        private SKShader Resolve(in PassUniformContext context)
+        // Builds this pass's fresh displacement-map shader and records its presence for the paired uMapPresent uniform.
+        private void Build(in PassUniformContext context)
         {
-            if (_resolved)
-                return _shader!;
-
             float w = context.WorkingScale;
             SKShader? created = s_forceMapShaderNullForTests
                 ? null
@@ -109,7 +110,20 @@ public abstract partial class DisplacementMapTransform : EngineObject
             }
 
             _shader = shader;
-            _resolved = true;
+            _pending = true;
+        }
+
+        // Hands the executor the shader built by the paired presence resolve and CLEARS the holder so the next fan-out
+        // branch rebuilds a fresh one (the executor disposes each per-pass product after its draw). If no presence
+        // resolve preceded this call, build now so the child is never left unresolved.
+        private SKShader Take(in PassUniformContext context)
+        {
+            if (!_pending)
+                Build(context);
+
+            SKShader shader = _shader!;
+            _shader = null;
+            _pending = false;
             return shader;
         }
     }
