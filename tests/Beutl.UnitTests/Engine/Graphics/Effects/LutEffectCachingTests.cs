@@ -1,4 +1,4 @@
-using System.Numerics;
+﻿using System.Numerics;
 using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;

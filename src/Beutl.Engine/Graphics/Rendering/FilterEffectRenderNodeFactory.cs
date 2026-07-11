@@ -1,4 +1,4 @@
-using Beutl.Graphics.Effects;
+﻿using Beutl.Graphics.Effects;
 
 namespace Beutl.Graphics.Rendering;
 

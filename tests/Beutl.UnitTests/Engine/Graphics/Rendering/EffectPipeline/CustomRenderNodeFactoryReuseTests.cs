@@ -1,4 +1,4 @@
-using System.Linq;
+﻿using System.Linq;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics;
