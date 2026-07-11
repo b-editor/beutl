@@ -42,7 +42,6 @@ public readonly struct StructuralKey : IEquatable<StructuralKey>
                 sb.Append("shader:")
                     .Append(shader.Source.IdentityHash)
                     .Append(',').Append((int)shader.Source.Kind)
-                    .Append(',').Append(shader.Samplers.Length)
                     .Append(',').Append(shader.Children.Length);
                 if (!shader.IsCoordinateInvariant)
                     sb.Append(',').Append(shader.Bounds.StructuralIdentity.ToString(CultureInfo.InvariantCulture));

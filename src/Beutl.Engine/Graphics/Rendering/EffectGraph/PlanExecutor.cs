@@ -476,12 +476,10 @@ internal static class PlanExecutor
             string prefix = wholeSource ? string.Empty : $"fe{k}_";
             foreach (UniformBinding uniform in run[k].Uniforms)
                 uniform.Apply(builder, prefix + uniform.Name, in uniformContext);
-            // A per-frame sampler/child shader (a LUT, curve textures) is bound here but owned by the graph, which
-            // releases it after execution even when this pass is skipped for an empty ROI (contract A2).
-            foreach (SamplerBinding sampler in run[k].Samplers)
-                builder.Children[prefix + sampler.Name] = sampler.Shader;
-            // A deferred child's shader is produced here from this pass's real density (executorOwned == true) and
-            // tracked for disposal after the draw; an eager child's shader is graph-/caller-owned and left alone.
+            // An eager child/sampler (a LUT, curve textures) is graph-/caller-owned and left alone; a deferred
+            // child's shader is produced here from this pass's real density (executorOwned == true) and tracked for
+            // disposal after the draw. Either way the graph releases eager bindings after execution even when this
+            // pass is skipped for an empty ROI (contract A2).
             foreach (ChildBinding child in run[k].Children)
             {
                 SKShader childShader = child.Resolve(in uniformContext, out bool executorOwned);

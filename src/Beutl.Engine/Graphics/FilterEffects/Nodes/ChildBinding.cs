@@ -3,47 +3,32 @@
 namespace Beutl.Graphics.Effects;
 
 /// <summary>
-/// An extra texture sampler bound into a <see cref="ShaderNodeDescriptor"/> (e.g. a LUT), feature 004
-/// data-model §1. The sampler's <em>name</em> is structural; the texture <em>contents</em> are a parameter
-/// (a LUT swap re-binds without recompiling, A4). Held as an <see cref="SKShader"/> the fused executor wires as a
-/// child shader.
-/// </summary>
-/// <remarks>
-/// There are two deliberate ownership modes; pick by who disposes the shader:
-/// <list type="bullet">
-/// <item><description>
-/// <b>Graph-scoped</b> — build it with <see cref="EffectGraphBuilder.Sampler(string, SKShader)"/> from inside
-/// <c>FilterEffect.Describe</c>. The graph owns the shader and disposes it once the frame's plan has executed
-/// (even if the pass is skipped for an empty ROI), so you MUST NOT dispose it yourself. Use this for a shader you
-/// build fresh in <c>Describe</c> every frame — the normal case, and what the in-tree effects do.
-/// </description></item>
-/// <item><description>
-/// <b>Caller-owned</b> — construct this record directly (<c>new SamplerBinding(name, shader)</c>). YOU keep
-/// ownership and dispose the shader yourself (e.g. when your cross-frame cache evicts it); the graph will not free
-/// it. Use this for a shader you cache and reuse across frames. This is a supported mode, not a leak.
-/// </description></item>
-/// </list>
-/// </remarks>
-public sealed record SamplerBinding(string Name, SKShader Shader);
-
-/// <summary>
-/// A child shader bound into a whole-source <see cref="ShaderNodeDescriptor"/> beyond the implicit <c>src</c>
-/// input (feature 004, data-model §1). The name is structural; the shader instance is a per-frame parameter (A4).
+/// A named child shader bound into a <see cref="ShaderNodeDescriptor"/> beyond the implicit <c>src</c> input
+/// (feature 004, data-model §1). The child's <em>name</em> is structural (part of the SKSL source, honored by the
+/// snippet merger's prefixing); the shader instance is a per-frame parameter — a swap re-binds without recompiling
+/// (A4).
 /// </summary>
 /// <remarks>
 /// A child comes in an <b>eager</b> form (a shader already built at describe time) and a <b>deferred</b> form
 /// (<see cref="Deferred"/>, a factory that produces the shader at execution time from the pass's
-/// <see cref="PassUniformContext"/>). Pick the deferred form whenever the shader's construction depends on the
-/// pass's device density or buffer size — a cross-sampled map is evaluated in device space with no canvas density
-/// transform, so a describe-time bake mis-scales the lookup when the resource-resolution re-clamp
-/// (execution-plan §C3.2) executes the pass below its describe-time working scale (the child analogue of the
-/// A4 late-bound-uniform rule). Ownership follows the form:
+/// <see cref="PassUniformContext"/>).
+/// <para>
+/// A <b>sampler</b> is the eager form used for an invariance-safe value lookup — a LUT or curve texture indexed by
+/// the source pixel's <em>colour</em>, not its position — which is why a fusable snippet may carry one (build it
+/// with <see cref="EffectGraphBuilder.Sampler(string, SKShader)"/>; the snippet path rejects the coordinate-
+/// dependent deferred form). Pick the deferred form whenever the shader's construction depends on the pass's device
+/// density or buffer size — a cross-sampled map is evaluated in device space with no canvas density transform, so a
+/// describe-time bake mis-scales the lookup when the resource-resolution re-clamp (execution-plan §C3.2) executes
+/// the pass below its describe-time working scale (the child analogue of the A4 late-bound-uniform rule).
+/// </para>
+/// Ownership follows the form:
 /// <list type="bullet">
 /// <item><description>
-/// <b>Eager, graph-scoped</b> — build it with <see cref="EffectGraphBuilder.Child(string, SKShader)"/> from inside
-/// <c>FilterEffect.Describe</c>. The graph owns the shader and disposes it once the frame's plan has executed
-/// (even if the pass is skipped for an empty ROI), so you MUST NOT dispose it yourself. Use this for a shader you
-/// build fresh in <c>Describe</c> every frame — the normal case, and what the in-tree effects do.
+/// <b>Eager, graph-scoped</b> — build it with <see cref="EffectGraphBuilder.Child(string, SKShader)"/> or
+/// <see cref="EffectGraphBuilder.Sampler(string, SKShader)"/> from inside <c>FilterEffect.Describe</c>. The graph
+/// owns the shader and disposes it once the frame's plan has executed (even if the pass is skipped for an empty
+/// ROI), so you MUST NOT dispose it yourself. Use this for a shader you build fresh in <c>Describe</c> every
+/// frame — the normal case, and what the in-tree effects do.
 /// </description></item>
 /// <item><description>
 /// <b>Eager, caller-owned</b> — construct this record directly (<c>new ChildBinding(name, shader)</c>). YOU keep
@@ -85,6 +70,13 @@ public sealed record ChildBinding
     /// (whose shader does not exist until execution time).
     /// </summary>
     public SKShader? Shader { get; }
+
+    /// <summary>
+    /// Whether this is a <see cref="Deferred"/> binding (its shader is built per-pass at execution time and is
+    /// therefore coordinate/density-dependent). A fusable snippet accepts only eager bindings, so the snippet path
+    /// rejects a deferred child.
+    /// </summary>
+    internal bool IsDeferred => _factory is not null;
 
     /// <summary>
     /// Creates a deferred binding whose shader is produced by <paramref name="factory"/> at pass execution, from

@@ -117,17 +117,18 @@ public sealed class EffectGraphBuilder
     }
 
     /// <summary>
-    /// Builds a sampler binding whose shader (a LUT, a curve texture) lives until the frame's plan has executed:
-    /// the graph disposes it in <see cref="EffectGraph.Dispose"/>, so it survives a skipped pass and is never
-    /// leaked. Sampler contents are a parameter (a swap re-binds without recompiling); the sampler name is
-    /// structural (A4).
+    /// Builds a sampler binding — an eager <see cref="ChildBinding"/> for an invariance-safe value lookup (a LUT, a
+    /// curve texture) whose shader lives until the frame's plan has executed: the graph disposes it in
+    /// <see cref="EffectGraph.Dispose"/>, so it survives a skipped pass and is never leaked. Sampler contents are a
+    /// parameter (a swap re-binds without recompiling); the sampler name is structural (A4). A sampler is the one
+    /// child form a fusable snippet accepts (it samples by colour, not position).
     /// </summary>
-    public SamplerBinding Sampler(string name, SKShader shader)
+    public ChildBinding Sampler(string name, SKShader shader)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentNullException.ThrowIfNull(shader);
         Track(shader);
-        return new SamplerBinding(name, shader);
+        return new ChildBinding(name, shader);
     }
 
     /// <summary>

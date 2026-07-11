@@ -22,7 +22,6 @@ public sealed record ShaderNodeDescriptor : EffectNodeDescriptor
         bool isCoordinateInvariant,
         BoundsContract bounds,
         ImmutableArray<UniformBinding> uniforms,
-        ImmutableArray<SamplerBinding> samplers,
         ImmutableArray<ChildBinding> children,
         SKShaderTileMode srcTileMode)
     {
@@ -30,7 +29,6 @@ public sealed record ShaderNodeDescriptor : EffectNodeDescriptor
         IsCoordinateInvariant = isCoordinateInvariant;
         Bounds = bounds;
         Uniforms = uniforms;
-        Samplers = samplers;
         Children = children;
         SrcTileMode = srcTileMode;
     }
@@ -47,10 +45,10 @@ public sealed record ShaderNodeDescriptor : EffectNodeDescriptor
     /// <summary>Per-frame uniform values (names structural, values parameters).</summary>
     public ImmutableArray<UniformBinding> Uniforms { get; }
 
-    /// <summary>Extra texture samplers bound by name (e.g. a LUT).</summary>
-    public ImmutableArray<SamplerBinding> Samplers { get; }
-
-    /// <summary>Extra child shaders bound by name (whole-source only, beyond the implicit <c>src</c>).</summary>
+    /// <summary>
+    /// Extra child shaders bound by name beyond the implicit <c>src</c> input (a LUT/curve sampler, a whole-source
+    /// shader's displacement map). Each name is structural; the shader instance is a parameter (A4).
+    /// </summary>
     public ImmutableArray<ChildBinding> Children { get; }
 
     /// <summary>Tile mode for the implicit <c>src</c> child (whole-source only); <c>Decal</c> for snippet nodes.</summary>
@@ -58,20 +56,35 @@ public sealed record ShaderNodeDescriptor : EffectNodeDescriptor
 
     /// <summary>
     /// Builds a fusable coordinate-invariant snippet node from a <c>half4 apply(half4 c)</c> source. Bounds are
-    /// identity by construction (A3). Optionally binds uniforms and samplers.
+    /// identity by construction (A3). Optionally binds uniforms and <paramref name="samplers"/> — eager child
+    /// shaders used as invariance-safe value lookups (a LUT/curve texture indexed by the pixel's colour, not its
+    /// position). A coordinate-dependent deferred child (<see cref="ChildBinding.Deferred"/>) would break the
+    /// snippet's coordinate invariance and is rejected.
     /// </summary>
     public static ShaderNodeDescriptor Snippet(
         string source,
         Action<UniformBindingBuilder>? uniforms = null,
-        IEnumerable<SamplerBinding>? samplers = null)
+        IEnumerable<ChildBinding>? samplers = null)
     {
+        ImmutableArray<ChildBinding> children = (samplers ?? []).ToImmutableArray();
+        foreach (ChildBinding child in children)
+        {
+            if (child.IsDeferred)
+            {
+                throw new ArgumentException(
+                    $"A fusable snippet cannot bind the deferred (coordinate-dependent) child '{child.Name}': a "
+                    + "snippet samples only the current pixel, so it accepts only eager samplers (a LUT/curve "
+                    + "texture indexed by colour). Use a whole-source shader node for a deferred child (A2/A4).",
+                    nameof(samplers));
+            }
+        }
+
         return new ShaderNodeDescriptor(
             SkslSource.Snippet(source),
             isCoordinateInvariant: true,
             BoundsContract.Identity,
             UniformBindingBuilder.Collect(uniforms).ToImmutableArray(),
-            (samplers ?? []).ToImmutableArray(),
-            children: [],
+            children,
             SKShaderTileMode.Decal);
     }
 
@@ -86,7 +99,6 @@ public sealed record ShaderNodeDescriptor : EffectNodeDescriptor
         string source,
         BoundsContract bounds,
         Action<UniformBindingBuilder>? uniforms = null,
-        IEnumerable<SamplerBinding>? samplers = null,
         IEnumerable<ChildBinding>? children = null,
         SKShaderTileMode srcTileMode = SKShaderTileMode.Decal)
     {
@@ -95,7 +107,6 @@ public sealed record ShaderNodeDescriptor : EffectNodeDescriptor
             isCoordinateInvariant: false,
             bounds,
             UniformBindingBuilder.Collect(uniforms).ToImmutableArray(),
-            (samplers ?? []).ToImmutableArray(),
             (children ?? []).ToImmutableArray(),
             srcTileMode);
     }
@@ -108,7 +119,6 @@ public sealed record ShaderNodeDescriptor : EffectNodeDescriptor
     public static ShaderNodeDescriptor WholeSourceInvariant(
         string source,
         Action<UniformBindingBuilder>? uniforms = null,
-        IEnumerable<SamplerBinding>? samplers = null,
         IEnumerable<ChildBinding>? children = null,
         SKShaderTileMode srcTileMode = SKShaderTileMode.Decal)
     {
@@ -117,7 +127,6 @@ public sealed record ShaderNodeDescriptor : EffectNodeDescriptor
             isCoordinateInvariant: true,
             BoundsContract.Identity,
             UniformBindingBuilder.Collect(uniforms).ToImmutableArray(),
-            (samplers ?? []).ToImmutableArray(),
             (children ?? []).ToImmutableArray(),
             srcTileMode);
     }

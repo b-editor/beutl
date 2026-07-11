@@ -75,7 +75,6 @@ public abstract record FusedStage;
 public sealed record RuntimeShaderStage(
     SkslSource Source,
     ImmutableArray<UniformBinding> Uniforms,
-    ImmutableArray<SamplerBinding> Samplers,
     ImmutableArray<ChildBinding> Children) : FusedStage
 {
     /// <summary>

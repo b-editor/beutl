@@ -161,7 +161,7 @@ public class EffectAuthoringTests
     {
         EffectGraphBuilder builder = NewBuilder();
         SKShader lut = SKShader.CreateColor(new SKColor(40, 200, 90, 255));
-        SamplerBinding sampler = builder.Sampler("lutTex", lut);
+        ChildBinding sampler = builder.Sampler("lutTex", lut);
         builder.Shader(ShaderNodeDescriptor.Snippet(SamplerSnippet, samplers: [sampler]));
 
         using EffectGraph graph = builder.Build();
