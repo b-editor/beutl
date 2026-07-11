@@ -75,6 +75,29 @@ public class ProxyEvictionTests
         });
     }
 
+    // Store.Delete removes the index entry but only best-effort-deletes the file; when the file survives
+    // (a sharing violation), the bytes are not actually reclaimed, so the sweep must not credit them or a
+    // disk-pressure sweep stops early while the orphan still occupies disk.
+    [Test]
+    public void Sweep_FileSurvivesDelete_DoesNotCreditDiskReclamation()
+    {
+        string root = CreateRoot();
+        var inner = new ProxyStore(root);
+        Register(inner, root, "survives.mp4", DateTime.UtcNow.AddMinutes(-10), 7);
+        var store = new RestoreFileOnDeleteStore(inner);
+        var service = new ProxyEvictionService(store, null, maxTotalBytes: 0);
+
+        ProxyEvictionResult result = service.Sweep();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.RemovedCount, Is.EqualTo(1), "the index entry is still removed");
+            Assert.That(result.ReclaimedBytes, Is.EqualTo(0),
+                "a proxy whose file survived the delete must not be credited as reclaimed disk");
+            Assert.That(File.Exists(Path.Combine(root, "survives.mp4")), Is.True, "the orphan file remains on disk");
+        });
+    }
+
     [Test]
     public void Sweep_ProtectsOpenProjectEntries_EvictingUnrelatedFirst()
     {
@@ -424,6 +447,53 @@ public class ProxyEvictionTests
         public long GetSourceVersion(string absolutePath) => 0;
 
         public IDisposable Pin(ProxyResolution resolution) => throw new NotSupportedException();
+    }
+
+    // Delegates to a real store but keeps the proxy file on disk after Delete, simulating a sharing
+    // violation where the index entry is removed yet File.Delete could not remove the file.
+    private sealed class RestoreFileOnDeleteStore(ProxyStore inner) : IProxyStore
+    {
+        public string StoreRootPath => inner.StoreRootPath;
+
+        public ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset) => inner.TryGet(source, preset);
+
+        public IReadOnlyList<ProxyEntry> Enumerate() => inner.Enumerate();
+
+        public void Register(ProxyEntry entry) => inner.Register(entry);
+
+        public bool TryTransition(ProxyFingerprint source, ProxyPreset preset, ProxyState newState, string? failureReason = null)
+            => inner.TryTransition(source, preset, newState, failureReason);
+
+        public bool Delete(ProxyFingerprint source, ProxyPreset preset)
+        {
+            ProxyEntry? entry = inner.TryGet(source, preset);
+            string? path = entry is null
+                ? null
+                : Path.Combine(inner.StoreRootPath, entry.ProxyFileRelative.Replace('/', Path.DirectorySeparatorChar));
+            byte[]? bytes = path is not null && File.Exists(path) ? File.ReadAllBytes(path) : null;
+
+            bool result = inner.Delete(source, preset);
+
+            if (bytes is not null && path is not null)
+                File.WriteAllBytes(path, bytes);
+            return result;
+        }
+
+        public void Touch(ProxyFingerprint source, ProxyPreset preset, DateTime nowUtc) => inner.Touch(source, preset, nowUtc);
+
+        public long GetTotalBytes() => inner.GetTotalBytes();
+
+        public long GetTotalBytes(IReadOnlySet<string> sourceAbsolutePaths) => inner.GetTotalBytes(sourceAbsolutePaths);
+
+        public Task FlushAsync(CancellationToken cancellationToken) => inner.FlushAsync(cancellationToken);
+
+        public Task ReconcileAsync(CancellationToken cancellationToken) => inner.ReconcileAsync(cancellationToken);
+
+        public event EventHandler<ProxyStoreChangedEventArgs>? Changed
+        {
+            add => inner.Changed += value;
+            remove => inner.Changed -= value;
+        }
     }
 
     private sealed class TestHierarchical : Hierarchical

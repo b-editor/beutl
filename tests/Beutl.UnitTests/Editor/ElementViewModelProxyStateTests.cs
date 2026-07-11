@@ -116,6 +116,27 @@ public sealed class ElementViewModelProxyStateTests
         Assert.That(ElementViewModel.ResolveProxyState(store, null, current), Is.EqualTo(ProxyState.Stale));
     }
 
+    // F3: for an offline source (the original was moved/deleted so TryFromFile fails) whose newest
+    // same-path entry is a Failed generation, ResolveSourceFingerprint returns that entry's exact
+    // fingerprint rather than a size/mtime-less path key. A path key forces every entry to Stale in the
+    // badge, hiding the real failed state; the exact fingerprint lets it read Failed.
+    [Test]
+    public void ResolveSourceFingerprint_OfflineSourceWithFailedEntry_ReadsFailedNotStale()
+    {
+        string offlinePath = Path.Combine(Path.GetTempPath(), $"offline-{Guid.NewGuid():N}.mov");
+        var failedSource = new ProxyFingerprint(offlinePath, 1000, DateTime.UtcNow);
+        var store = new FakeProxyStore(Entry(failedSource, ProxyState.Failed));
+
+        ProxyFingerprint? resolved = ElementViewModel.ResolveSourceFingerprint(store, new Uri(offlinePath));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(resolved, Is.EqualTo(failedSource), "the newest offline entry's exact fingerprint is returned");
+            Assert.That(ElementViewModel.ResolveProxyState(store, null, resolved!.Value), Is.EqualTo(ProxyState.Failed),
+                "so the badge reads the real failed state instead of a forced Stale");
+        });
+    }
+
     [Test]
     public void ResolveProxyState_PendingJob_IsGenerating()
     {

@@ -198,7 +198,17 @@ public sealed class ProxyEvictionService : IProxyStoreCapInfo
             {
                 removed++;
                 reclaimedCap += candidate.Bytes;
-                reclaimedDisk += candidate.OnDiskBytes;
+
+                // Store.Delete removes the index entry but only best-effort-deletes the file (a sharing
+                // violation / permission error leaves an orphan). Credit disk reclamation only once the
+                // file is confirmed gone, or a disk-pressure sweep stops early believing it freed space
+                // the orphan still occupies — and the orphan is now untracked, so no later sweep reclaims it.
+                if (candidate.OnDiskBytes > 0
+                    && ProxyPathUtilities.TryResolveRelativePath(_store.StoreRootPath, candidate.Entry.ProxyFileRelative, out string deletedPath)
+                    && !File.Exists(deletedPath))
+                {
+                    reclaimedDisk += candidate.OnDiskBytes;
+                }
             }
         }
 

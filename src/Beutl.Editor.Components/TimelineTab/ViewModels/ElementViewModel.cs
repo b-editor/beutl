@@ -1046,8 +1046,12 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
                     .OrderByDescending(e => newestBySource[e.Source])
                     .ThenByDescending(e => e.Source.MtimeUtc)
                     .First().Source;
-                if (pathEntries.Any(e => e.Source == newest && e.State == ProxyState.Ready))
-                    return newest;
+                // Return the newest same-path source's own (exact) fingerprint even when it is not Ready.
+                // A path-key fallback has no size/mtime, so ResolveProxyState treats every entry as
+                // non-exact and forces Stale, hiding a failed generation for an offline clip; the exact
+                // newest fingerprint lets the badge read the real state while still never reporting Ready
+                // off a stale older proxy (newest, not any-Ready, is chosen).
+                return newest;
             }
         }
 
