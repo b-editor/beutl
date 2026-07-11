@@ -99,11 +99,12 @@ public class PositionAnchoredCropTests
         });
     }
 
-    // FlatShadow samples the input silhouette along the whole extrusion vector, so its backward ROI must widen a
-    // requested output region by the extrusion band. Identity backward (r => r) under-claims and can crop an upstream
-    // pass below the extrusion source. Assert the compiled pass's backward map covers r ∪ (r − extrusionVector).
+    // FlatShadow contour-traces the WHOLE materialized input (ContourTracer.FindContours over the snapshot), so its
+    // backward must claim the full input regardless of the requested output region — a band r ∪ (r − extrusionVector)
+    // is insufficient because a cropped snapshot yields false/truncated contours (StrokeEffect's shape). Re-pinned
+    // from the extrusion band to the full input as a deliberate strengthening.
     [Test]
-    public void FlatShadow_BackwardRoi_CoversExtrusionSourceBand()
+    public void FlatShadow_BackwardRoi_ClaimsFullInput()
     {
         var effect = new FlatShadow
         {
@@ -116,14 +117,62 @@ public class PositionAnchoredCropTests
         using EffectGraph graph = builder.Build();
         CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
 
-        // Angle 0, Length 40 => extrusion vector (40, 0); an output region needs its own texels plus the band 40px
-        // to the LEFT (the source silhouette swept rightward into the region).
         var requested = new Rect(50, 40, 40, 30);
-        Rect band = requested.Union(requested.Translate(new Vector(-40, 0)));
-
         Rect required = plan.Passes[0].BackwardBounds(requested);
-        Assert.That(required.Contains(band), Is.True,
-            $"FlatShadow backward({requested}) = {required} must cover the extrusion source band {band}");
+        Assert.That(required, Is.EqualTo(s_bounds),
+            $"FlatShadow backward({requested}) = {required} must claim the full input {s_bounds} (global contour tracing)");
+    }
+
+    // Clipping's backward map: the buffer occupies TargetBounds, but the source is anchored to NewBounds. A fixed clip
+    // keeps them equal (identity backward), but AutoCenter re-centers TargetBounds away from NewBounds, so the backward
+    // must translate by the centering offset. An identity backward there mis-claims and crops the upstream (A3).
+    [Test]
+    public void Clipping_Backward_IsIdentityOnlyWhenNotAutoCentered()
+    {
+        var requested = new Rect(50, 40, 40, 30);
+        Rect fixedBackward = ClipBackward(autoCenter: false, requested);
+        Rect centeredBackward = ClipBackward(autoCenter: true, requested);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(fixedBackward, Is.EqualTo(requested),
+                "a fixed clip does not move content, so its backward is identity");
+            Assert.That(centeredBackward, Is.Not.EqualTo(requested),
+                "AutoCenter re-centers the buffer away from the source anchor, so its backward translates the claim");
+            Assert.That(centeredBackward.Size, Is.EqualTo(requested.Size),
+                "the backward is a pure translation — a clip moves, never resizes, the required region");
+        });
+    }
+
+    // The AutoCenter render's origin bridge: a downstream deflating pass (here an offset render-request ROI) crops the
+    // clip pass so session.Bounds is an offset sub-rect of TargetBounds. Without the bridge the source anchor stays in
+    // the un-cropped TargetBounds frame and the kept region shifts by the crop offset.
+    [Test]
+    public void Clipping_AutoCenter_KeptRegionUnshiftedUnderOffsetRoi()
+    {
+        Clipping Make() => new()
+        {
+            Left = { CurrentValue = 40 },
+            AutoCenter = { CurrentValue = true },
+        };
+
+        using Bitmap full = RenderChain([Make()], ShapeInput, Rect.Invalid);
+        using Bitmap cropped = RenderChain([Make()], ShapeInput, new Rect(40, 10, 80, 100));
+
+        double meanDiff = MeanChannelDiff(full, cropped, 50, 20, 110, 100);
+        TestContext.WriteLine($"kept-region mean channel diff = {meanDiff:F3} (tolerance 8)");
+        Assert.That(meanDiff, Is.LessThanOrEqualTo(8.0),
+            "the offset-ROI AutoCenter clip must register to its sub-rect (no crop-offset shift)");
+    }
+
+    private static Rect ClipBackward(bool autoCenter, Rect requested)
+    {
+        var clip = new Clipping { Left = { CurrentValue = 40 }, AutoCenter = { CurrentValue = autoCenter } };
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        clip.Describe(builder, (FilterEffect.Resource)(object)clip.ToResource(CompositionContext.Default));
+        using EffectGraph graph = builder.Build();
+        CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
+        return plan.Passes[0].BackwardBounds(requested);
     }
 
     // Renders the effect alone and effect->Clipping{Left,Top}, both onto a fixed black canvas, then asserts the

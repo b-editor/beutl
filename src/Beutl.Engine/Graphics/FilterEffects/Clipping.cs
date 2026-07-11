@@ -41,11 +41,20 @@ public sealed partial class Clipping : FilterEffect
 
         // autoClip lays out from the input pixels (execution-time), so its bounds are render-time; a fixed clip
         // resolves its output bounds forward from the input rect, exactly as the legacy CustomEffect did.
+        // Backward: the output buffer occupies TargetBounds, but the source is anchored to NewBounds. When AutoCenter
+        // re-centers TargetBounds away from NewBounds, an output texel at o maps to input at o + (NewBounds − Target);
+        // the offset is zero (identity) only when AutoCenter=false (TargetBounds == NewBounds). An identity backward
+        // otherwise mis-claims and crops the upstream by the centering offset (A3).
+        Rect inputBounds = builder.Bounds;
         BoundsContract bounds = autoClip
             ? BoundsContract.RenderTime
             : BoundsContract.Create(
                 rect => ComputeClip(rect, thickness, autoCenter).TargetBounds,
-                static r => r,
+                rect =>
+                {
+                    (Rect targetBounds, Rect newBounds, _, _) = ComputeClip(inputBounds, thickness, autoCenter);
+                    return rect.Translate(newBounds.Position - targetBounds.Position);
+                },
                 isRenderTimeResolved: false);
 
         builder.Geometry(GeometryNodeDescriptor.Create(
@@ -124,7 +133,7 @@ public sealed partial class Clipping : FilterEffect
 
         // The buffer occupies TargetBounds (already sized by the forward map); the callback only needs the crop
         // offset, which derives from NewBounds (session.Bounds for the render-time AutoClip path).
-        (_, Rect newBounds, float pointX, float pointY) = ComputeClip(input.Bounds, effective, autoCenter);
+        (Rect targetBounds, Rect newBounds, float pointX, float pointY) = ComputeClip(input.Bounds, effective, autoCenter);
         Rect reference = autoClip ? session.Bounds : newBounds;
 
         if (autoClip)
@@ -135,7 +144,15 @@ public sealed partial class Clipping : FilterEffect
             session.SetOutputBounds(newBounds);
         }
 
+        // A downstream deflating pass can ROI-crop the fixed/AutoCenter path so session.Bounds is an OFFSET sub-rect of
+        // TargetBounds. The draws below register to session.Bounds' origin, but the source anchor (reference=NewBounds)
+        // is authored in the TargetBounds frame; bridge the origin (like FlatShadow) so content lands on the actual
+        // buffer. Zero when un-cropped (session.Bounds == TargetBounds) and on the AutoClip path (it sets its own output).
+        float bridgeX = autoClip ? 0f : (float)(targetBounds.X - session.Bounds.X) * wOut;
+        float bridgeY = autoClip ? 0f : (float)(targetBounds.Y - session.Bounds.Y) * wOut;
+
         using (canvas.PushDeviceSpace())
+        using (bridgeX != 0 || bridgeY != 0 ? canvas.PushTransform(Matrix.CreateTranslation(bridgeX, bridgeY)) : default)
         using (canvas.PushTransform(Matrix.CreateTranslation(pointX * wOut, pointY * wOut)))
         {
             if (autoClip)

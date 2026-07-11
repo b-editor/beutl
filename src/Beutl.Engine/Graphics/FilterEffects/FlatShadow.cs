@@ -32,13 +32,15 @@ public partial class FlatShadow : FilterEffect
     {
         var r = (Resource)resource;
         var data = (r.Angle, r.Length, r.Brush, r.ShadowOnly);
-        // Forward is the legacy TransformBounds (the extrusion expands the bounds). Backward must cover the whole
-        // extrusion band: a shadow texel at output p is the input silhouette swept from p back along the extrusion
-        // vector, so producing output region `rect` samples input over `rect ∪ (rect − extrusionVector)` (A3). An
-        // identity backward under-claims and can crop an upstream pass below the extrusion source.
+        // Forward is the legacy TransformBounds (the extrusion expands the bounds). ApplyGeometry snapshots and
+        // contour-traces the WHOLE materialized input (ContourTracer.FindContours), so backward must claim the entire
+        // input regardless of the requested output region: a band r ∪ (r − extrusionVector) is insufficient because a
+        // cropped snapshot yields false/truncated contours (the crop edge becomes a spurious silhouette), exactly as
+        // for StrokeEffect. An under-claiming backward crops the upstream and corrupts the tracing.
+        Rect inputBounds = builder.Bounds;
         builder.Geometry(GeometryNodeDescriptor.Create(
             session => ApplyGeometry(session, data),
-            BoundsContract.Create(rect => TransformBounds(data, rect), rect => RequiredInputBounds(data, rect)),
+            BoundsContract.Create(rect => TransformBounds(data, rect), _ => inputBounds),
             structuralToken: nameof(FlatShadow)));
     }
 
@@ -142,14 +144,5 @@ public partial class FlatShadow : FilterEffect
         float height = rect.Height + yAbs;
 
         return new Rect(rect.X - (xAbs - x) / 2, rect.Y - (yAbs - y) / 2, width, height);
-    }
-
-    private static Rect RequiredInputBounds(
-        (float Angle, float Length, Brush.Resource? Brush, bool ShadowOnly) data, Rect rect)
-    {
-        float length = data.Length;
-        float radian = MathUtilities.Deg2Rad(data.Angle);
-        var extrusion = new Vector(length * MathF.Cos(radian), length * MathF.Sin(radian));
-        return rect.Union(rect.Translate(-extrusion));
     }
 }

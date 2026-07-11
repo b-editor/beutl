@@ -48,6 +48,11 @@ public sealed partial class PathFollowEffect : FilterEffect
         var translate = Matrix.CreateTranslation(position.X - startPosition.X, position.Y - startPosition.Y);
         float rotationAngle = r.FollowRotation ? MathF.Atan2(tangent.Y, tangent.X) : 0f;
 
+        // The pass translates (and optionally rotates) its input, so producing output region `rect` samples the input
+        // over the inverse of the follow transform. Backward inverts the same transform the forward maps (pivoted on
+        // the describe-time input bounds, matching TransformEffect.ApplyToTarget); an identity backward under-claims
+        // and crops an upstream pass to the un-followed region, losing the pixels the follow motion pulls in (A3).
+        Rect inputBounds = builder.Bounds;
         builder.Geometry(GeometryNodeDescriptor.Create(
             session =>
             {
@@ -55,7 +60,9 @@ public sealed partial class PathFollowEffect : FilterEffect
                 var center = new Vector(inRect.Width / 2, inRect.Height / 2);
                 TransformGeometry.Render(session, LocalMatrix(translate, rotationAngle, center));
             },
-            BoundsContract.Create(rect => FollowBounds(rect, translate, rotationAngle), static r => r),
+            BoundsContract.Create(
+                rect => FollowBounds(rect, translate, rotationAngle),
+                rect => InverseFollowBounds(rect, translate, rotationAngle, inputBounds)),
             structuralToken: nameof(PathFollowEffect)));
     }
 
@@ -77,6 +84,23 @@ public sealed partial class PathFollowEffect : FilterEffect
         Matrix offset = Matrix.CreateTranslation(center + rect.Position);
         Matrix m1 = -offset * Matrix.CreateRotation(rotationAngle) * offset * translate;
         return rect.TransformToAABB(m1);
+    }
+
+    private static Rect InverseFollowBounds(Rect rect, Matrix translate, float rotationAngle, Rect inputBounds)
+    {
+        Matrix forward;
+        if (rotationAngle == 0)
+        {
+            forward = translate;
+        }
+        else
+        {
+            var center = new Vector(inputBounds.Width / 2, inputBounds.Height / 2);
+            Matrix offset = Matrix.CreateTranslation(center + inputBounds.Position);
+            forward = -offset * Matrix.CreateRotation(rotationAngle) * offset * translate;
+        }
+
+        return forward.TryInvert(out Matrix inverted) ? rect.TransformToAABB(inverted) : Rect.Invalid;
     }
 
 }

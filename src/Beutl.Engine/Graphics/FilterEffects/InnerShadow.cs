@@ -33,13 +33,21 @@ public partial class InnerShadow : FilterEffect
         var data = (r.Position, r.Sigma, r.Color,
             BlendMode: r.ShadowOnly ? BlendMode.DstIn : BlendMode.DstATop);
 
+        Point position = r.Position;
+        var inflate = new Thickness(r.Sigma.Width * 3, r.Sigma.Height * 3);
+
         // The legacy InnerShadow is a two-draw canvas composite (blur + SrcOut shadow, then a DstATop/DstIn blend of
         // the source), not a Skia image-filter primitive — so it migrates to a GeometryNode that reproduces those
-        // exact device-space draws (research D7's "else its own descriptor" clause). Bounds are identity: the output
-        // occupies the input rect and every sampled texel comes from it, so the backward map is identity too.
+        // exact device-space draws (research D7's "else its own descriptor" clause). The output occupies the input
+        // rect (forward identity), but the shadow draw samples a blurred (3σ), offset (Position) copy: a shadow texel
+        // at output r comes from input at r − Position gathered over the 3σ blur radius. Backward must therefore claim
+        // r ∪ (r − Position).Inflate(3σ) (the DropShadow backward pattern) — an identity backward under-claims and
+        // crops an upstream pass below the shadow source.
         builder.Geometry(GeometryNodeDescriptor.Create(
             session => ApplyGeometry(session, data),
-            BoundsContract.Identity,
+            BoundsContract.Create(
+                static rect => rect,
+                rect => rect.Union(rect.Translate(-position).Inflate(inflate))),
             structuralToken: r.ShadowOnly ? "InnerShadowOnly" : "InnerShadow"));
     }
 

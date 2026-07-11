@@ -144,6 +144,47 @@ public class BackwardRoiContractTests
         AssertRectClose(required, expected, tolerance: 0.5);
     }
 
+    // PathFollow translates (FollowRotation off) its input along the path, so producing output region R samples the
+    // input over R − translate; the backward must inverse-map. Identity (r => r) under-claims and crops the upstream.
+    [Test]
+    public void PathFollow_BackwardRoi_InverseMapsFollowTranslation()
+    {
+        var figure = new PathFigure();
+        figure.StartPoint.CurrentValue = new Point(0, 0);
+        figure.Segments.Add(new LineSegment(new Point(100, 0)));
+        var geometry = new PathGeometry { Figures = { figure } };
+
+        var effect = new PathFollowEffect { Progress = { CurrentValue = 50f } };
+        effect.Geometry.CurrentValue = geometry;
+
+        CompiledPlan plan = Compile(effect);
+        var requested = new Rect(50, 40, 40, 30);
+
+        // Recover the (non-rotating) follow translation from the forward map (forward = r + t).
+        Rect forward = plan.Passes[0].ForwardBounds(requested);
+        var translate = new Vector(forward.X - requested.X, forward.Y - requested.Y);
+        Assert.That(translate, Is.Not.EqualTo(default(Vector)), "the path must yield a non-zero follow translation");
+
+        Rect required = plan.Passes[0].BackwardBounds(requested);
+        AssertRectClose(required, requested.Translate(-translate), tolerance: 0.5);
+    }
+
+    // InnerShadow draws a blurred (3σ), offset (Position) shadow copy, so its backward must claim r ∪ (r − Position)
+    // inflated by 3σ (the DropShadow pattern). Identity (r => r) under-claims and crops the offset shadow source.
+    [Test]
+    public void InnerShadow_BackwardRoi_CoversOffsetShadowSource()
+    {
+        var effect = new InnerShadow { Position = { CurrentValue = new Point(30, 0) } };
+
+        CompiledPlan plan = Compile(effect);
+        var requested = new Rect(50, 40, 40, 30);
+        Rect expected = requested.Union(requested.Translate(new Vector(-30, 0)));
+
+        Rect required = plan.Passes[0].BackwardBounds(requested);
+        Assert.That(required, Is.EqualTo(expected),
+            $"InnerShadow backward({requested}) = {required} must cover the offset shadow source {expected}");
+    }
+
     private static CompiledPlan Compile(FilterEffect effect)
     {
         var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
