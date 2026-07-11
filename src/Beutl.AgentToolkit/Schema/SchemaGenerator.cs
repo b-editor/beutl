@@ -1674,11 +1674,11 @@ public sealed class SchemaGenerator
             });
     }
 
-    private static DeclarativeExample CreateCameraRigPushInExample()
+    private static DrawableGroup CreateCameraRigGroup(string name)
     {
-        var rig = new DrawableGroup
+        return new DrawableGroup
         {
-            Name = "[role:camera-rig] Shot 1 camera",
+            Name = name,
             Transform =
             {
                 CurrentValue = new TransformGroup
@@ -1689,36 +1689,47 @@ public sealed class SchemaGenerator
                         new ScaleTransform()
                     }
                 }
-            },
-            Children =
-            {
-                new RectShape
-                {
-                    Name = "[role:text-backing] Shot 1 title plate",
-                    Width = { CurrentValue = 760 },
-                    Height = { CurrentValue = 240 },
-                    Fill = { CurrentValue = CreateLinearGradient("#ff1c2a4a", "#ff2f4a7a") }
-                },
-                new TextBlock
-                {
-                    Name = "Shot 1 hero title",
-                    Text = { CurrentValue = "Camera move" },
-                    Size = { CurrentValue = 96 },
-                    Fill = { CurrentValue = new SolidColorBrush(Colors.White) }
-                }
             }
         };
+    }
 
-        Element element = CreateElement("[role:camera-rig] Shot 1 rig", zIndex: 10, rig);
-        JsonObject elementJson = SerializeExampleElement(element);
+    private static JsonObject GetFlowGroupJson(JsonObject elementJson)
+    {
         string groupDiscriminator = IdentityHelper.WriteDiscriminator(typeof(DrawableGroup));
-        JsonObject rigJson = ((JsonArray)elementJson[nameof(Element.Objects)]!)
+        return ((JsonArray)elementJson[nameof(Element.Objects)]!)
             .OfType<JsonObject>()
             .Single(obj => string.Equals(obj["$type"]?.GetValue<string>(), groupDiscriminator, StringComparison.Ordinal));
+    }
+
+    private static void AddCameraRigPushInAnimations(JsonObject rigJson)
+    {
         JsonObject scaleJson = GetTransformChildJson(rigJson, typeof(ScaleTransform));
         AddFloatAnimation(scaleJson, nameof(ScaleTransform.Scale), (0, 100, typeof(SineEaseInOut)), (8, 106, typeof(SineEaseInOut)));
         JsonObject translateJson = GetTransformChildJson(rigJson, typeof(TranslateTransform));
         AddFloatAnimation(translateJson, nameof(TranslateTransform.X), (0, 0, typeof(SineEaseInOut)), (8, -48, typeof(SineEaseInOut)));
+    }
+
+    private static DeclarativeExample CreateCameraRigPushInExample()
+    {
+        DrawableGroup rig = CreateCameraRigGroup("[role:camera-rig] Shot 1 camera");
+        rig.Children.Add(new RectShape
+        {
+            Name = "[role:text-backing] Shot 1 title plate",
+            Width = { CurrentValue = 760 },
+            Height = { CurrentValue = 240 },
+            Fill = { CurrentValue = CreateLinearGradient("#ff1c2a4a", "#ff2f4a7a") }
+        });
+        rig.Children.Add(new TextBlock
+        {
+            Name = "Shot 1 hero title",
+            Text = { CurrentValue = "Camera move" },
+            Size = { CurrentValue = 96 },
+            Fill = { CurrentValue = new SolidColorBrush(Colors.White) }
+        });
+
+        Element element = CreateElement("[role:camera-rig] Shot 1 rig", zIndex: 10, rig);
+        JsonObject elementJson = SerializeExampleElement(element);
+        AddCameraRigPushInAnimations(GetFlowGroupJson(elementJson));
 
         return new DeclarativeExample(
             "insert-camera-rig-push-in",
@@ -1731,22 +1742,7 @@ public sealed class SchemaGenerator
 
     private static DeclarativeExample CreateCameraRigPortalExample()
     {
-        var rig = new DrawableGroup
-        {
-            Name = "[role:camera-rig] Shot 2 camera",
-            Transform =
-            {
-                CurrentValue = new TransformGroup
-                {
-                    Children =
-                    {
-                        new TranslateTransform(0, 0),
-                        new ScaleTransform()
-                    }
-                }
-            }
-        };
-
+        DrawableGroup rig = CreateCameraRigGroup("[role:camera-rig] Shot 2 camera");
         Element rigElement = CreateElement("[role:camera-rig] Shot 2 rig", zIndex: 10, rig);
         ((PortalObject)rigElement.Objects[0]).Count.CurrentValue = 2;
 
@@ -1773,14 +1769,7 @@ public sealed class SchemaGenerator
             });
 
         JsonObject rigJson = SerializeExampleElement(rigElement);
-        string groupDiscriminator = IdentityHelper.WriteDiscriminator(typeof(DrawableGroup));
-        JsonObject groupJson = ((JsonArray)rigJson[nameof(Element.Objects)]!)
-            .OfType<JsonObject>()
-            .Single(obj => string.Equals(obj["$type"]?.GetValue<string>(), groupDiscriminator, StringComparison.Ordinal));
-        JsonObject scaleJson = GetTransformChildJson(groupJson, typeof(ScaleTransform));
-        AddFloatAnimation(scaleJson, nameof(ScaleTransform.Scale), (0, 100, typeof(SineEaseInOut)), (8, 106, typeof(SineEaseInOut)));
-        JsonObject translateJson = GetTransformChildJson(groupJson, typeof(TranslateTransform));
-        AddFloatAnimation(translateJson, nameof(TranslateTransform.X), (0, 0, typeof(SineEaseInOut)), (8, -48, typeof(SineEaseInOut)));
+        AddCameraRigPushInAnimations(GetFlowGroupJson(rigJson));
 
         return new DeclarativeExample(
             "insert-camera-rig-portal",

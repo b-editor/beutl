@@ -129,6 +129,7 @@ public sealed class SchemaGenerationTests
             Assert.That(geometryShapeExample, Does.Contain("Segments"));
             Assert.That(geometryExampleSummaries.Select(example => example.Name), Does.Contain("insert-new-geometry-shape-path"));
             Assert.That(cameraRigExample, Does.Contain("DrawableGroup"));
+            Assert.That(cameraRigExample, Does.Contain("PortalObject"));
             Assert.That(cameraRigExample, Does.Contain("[role:camera-rig]"));
             Assert.That(cameraRigExample, Does.Contain("ScaleTransform"));
             Assert.That(cameraRigExample, Does.Contain("TranslateTransform"));
@@ -169,13 +170,20 @@ public sealed class SchemaGenerationTests
         });
     }
 
+    private static Uri CreateSceneUri()
+    {
+        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        return new Uri(Path.Combine(dir, "Scene.scene"));
+    }
+
     [Test]
     public void Camera_rig_push_in_example_applies_through_merge_patch_and_reconciler()
     {
         var scene = new Scene(1920, 1080, "camera-nested")
         {
             Duration = TimeSpan.FromSeconds(8),
-            Uri = new Uri(Path.Combine(Directory.CreateTempSubdirectory("agenttoolkit-camera-").FullName, "Scene.scene"))
+            Uri = CreateSceneUri()
         };
         using var session = new AgentToolkitTestSession(scene);
 
@@ -209,7 +217,7 @@ public sealed class SchemaGenerationTests
         var scene = new Scene(1920, 1080, "camera-portal")
         {
             Duration = TimeSpan.FromSeconds(8),
-            Uri = new Uri(Path.Combine(Directory.CreateTempSubdirectory("agenttoolkit-camera-").FullName, "Scene.scene"))
+            Uri = CreateSceneUri()
         };
         using var session = new AgentToolkitTestSession(scene);
 
