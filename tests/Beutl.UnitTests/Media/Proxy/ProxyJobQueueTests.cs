@@ -546,6 +546,38 @@ public class ProxyJobQueueTests
     }
 
     [Test]
+    public async Task UnavailableGenerator_InvalidatedMidGenerate_RequeuesUnderNextGenerator()
+    {
+        var replacement = new RecordingGenerator();
+        ProxyJobQueue? queueRef = null;
+        var swappedOut = new InvalidatingUnavailableGenerator(() => queueRef!.InvalidateGenerator());
+        int providerCalls = 0;
+        IProxyGenerator? Provider()
+        {
+            return Interlocked.Increment(ref providerCalls) == 1 ? swappedOut : replacement;
+        }
+
+        await using var queue = new ProxyJobQueue(
+            (Func<IProxyGenerator?>)Provider,
+            store: null,
+            minUnavailableBackoff: TimeSpan.FromMilliseconds(20),
+            maxUnavailableBackoff: TimeSpan.FromMilliseconds(40));
+        queueRef = queue;
+        ProxyFingerprint source = CreateFingerprint("swap.mov");
+
+        ProxyJob job = await queue.EnqueueAsync(source, ProxyPreset.Quarter);
+        await WaitForTerminalAsync(job);
+
+        // The generator was invalidated (swapped out) while the job was mid-generate; the job must be
+        // requeued and complete under the next resolved generator, not dropped as a terminal Skipped.
+        Assert.Multiple(() =>
+        {
+            Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Succeeded));
+            Assert.That(replacement.Sources, Does.Contain(source));
+        });
+    }
+
+    [Test]
     public async Task Cancel_ParkedUnavailableJob_WakesDrainLoopWithoutWaitingBackoff()
     {
         ProxyFingerprint parked = CreateFingerprint("parked.mov");
@@ -980,6 +1012,17 @@ public class ProxyJobQueueTests
         public ValueTask GenerateAsync(ProxyJob job)
         {
             throw new ProxyGeneratorUnavailableException("permanently unavailable");
+        }
+    }
+
+    // Simulates a generator swap racing an in-flight job: invalidates itself (as the registry-changed
+    // callback would) and then throws unavailable, with no IProxyGeneratorAvailability.
+    private sealed class InvalidatingUnavailableGenerator(Action invalidate) : IProxyGenerator
+    {
+        public ValueTask GenerateAsync(ProxyJob job)
+        {
+            invalidate();
+            throw new ProxyGeneratorUnavailableException("swapped out mid-generate");
         }
     }
 

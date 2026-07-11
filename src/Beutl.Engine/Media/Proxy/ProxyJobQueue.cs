@@ -450,13 +450,15 @@ public sealed class ProxyJobQueue : IProxyJobQueue
             {
                 // A racing InvalidateGenerator writes null under _lock; the terminal-vs-requeue
                 // decision must not act on a stale non-null read.
+                bool generatorStillCached;
                 bool hasAvailabilitySignal;
                 lock (_lock)
                 {
+                    generatorStillCached = _generator != null;
                     hasAvailabilitySignal = _generatorAvailability != null;
                 }
 
-                if (!hasAvailabilitySignal)
+                if (generatorStillCached && !hasAvailabilitySignal)
                 {
                     // With no availability signal the queue can never learn the generator recovered,
                     // so requeuing would occupy the serial queue forever (e.g. a build without FFmpeg).
@@ -467,9 +469,10 @@ public sealed class ProxyJobQueue : IProxyJobQueue
                 }
                 else
                 {
-                    // Unavailability is environmental, not the job's fault: keep the job Queued and
-                    // re-probe after a bounded backoff, so a transient failure self-recovers and a
-                    // genuinely-missing install keeps the job (and its install prompt) alive.
+                    // Either the unavailability is environmental (a signal exists to learn recovery),
+                    // or InvalidateGenerator raced mid-generate — a generator swap/unload, where the
+                    // next dispatch re-resolves the provider like the not-yet-registered path. Both
+                    // keep the job Queued and re-probe after a bounded backoff instead of dropping it.
                     requeued = RequeueForRetry(item);
                     if (!requeued)
                         CompleteCanceled(item);
