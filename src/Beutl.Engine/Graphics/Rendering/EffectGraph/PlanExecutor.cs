@@ -368,7 +368,10 @@ internal static class PlanExecutor
                 }
             }
 
-            w = resolution.WorkingScale;
+            // A shift/grow re-derives outBounds from the ACTUAL op, which can be larger than the ROI-narrowed rect
+            // resolution.WorkingScale was clamped against; re-clamp so DeviceBufferSize cannot exceed the per-axis
+            // budget (FR-037(b)). No-op for the matched/shrink cases whose outBounds stays within the resolved ROI.
+            w = RenderNodeContext.ClampWorkingScaleToBufferBudget(outBounds, resolution.WorkingScale);
             (width, height) = RenderNodeContext.DeviceBufferSize(outBounds, w);
             skip = width <= 0 || height <= 0;
         }

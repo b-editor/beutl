@@ -177,6 +177,35 @@ half4 apply(half4 c) {
         });
     }
 
+    // N1c: a top-level struct in a snippet ('struct Foo { ... };') would collide in a fused program because the merger
+    // does not rename struct TYPE names (it prefixes only uniforms/consts by feN_), so it is rejected at snippet
+    // construction. A function-local struct is block-scoped and left alone; a whole-source shader is never merged, so a
+    // top-level struct there stays legal.
+    [Test]
+    public void SkslSnippet_TopLevelStruct_IsRejected()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                () => ShaderNodeDescriptor.Snippet(
+                    "struct Foo { float a; };\nhalf4 apply(half4 c){ Foo f; f.a = c.r; return half4(c.rgb*f.a, c.a); }"),
+                Throws.ArgumentException,
+                "a top-level struct declaration in a snippet is rejected");
+            Assert.DoesNotThrow(
+                () => ShaderNodeDescriptor.Snippet(
+                    "half4 apply(half4 c){ struct Foo { float a; }; Foo f; f.a = c.r; return half4(c.rgb*f.a, c.a); }"),
+                "a function-local struct is block-scoped and left alone");
+            Assert.DoesNotThrow(
+                () => ShaderNodeDescriptor.Snippet(
+                    "const float structWeight = 0.5;\nhalf4 apply(half4 c){ return half4(c.rgb*structWeight, c.a); }"),
+                "an identifier merely containing 'struct' is not a struct declaration");
+            Assert.DoesNotThrow(
+                () => SkslSource.WholeSource(
+                    "struct Foo { float a; };\nuniform shader src;\nhalf4 main(float2 coord){ return src.eval(coord); }"),
+                "a top-level struct in a whole-source shader stays legal (whole-source is never merged)");
+        });
+    }
+
     // B1: a snippet whose top-level declarations are indented must still fuse. The merger prefixes the indented
     // const, helper, and apply to fe0_ so the generated main's fe0_apply call resolves and the program compiles.
     [Test]
@@ -624,6 +653,45 @@ half4 apply(half4 c) {
             Assert.That(outputs, Has.Length.EqualTo(1));
             Assert.That(outputs[0].EffectiveScale.Value, Is.EqualTo(expected).Within(1e-4f),
                 "the invariant fused pass re-clamps w against op.Bounds, not the ROI-sized resolution working scale");
+        }
+        finally
+        {
+            RenderNodeOperation.DisposeAll(outputs);
+        }
+    }
+
+    // FR-037(b), grow sub-case: a render-time predecessor (a dynamic CustomRenderNode/NestedGraph) can emit an op
+    // LARGER than the describe-time input the resolver sized resolution.WorkingScale against. The linear non-invariant
+    // pass re-derives outBounds from that actual grown op, so it must re-clamp w against the grown rect too —
+    // DeviceBufferSize(grownBounds, resolution.WorkingScale) would otherwise exceed the 16384-px budget. This mirrors
+    // the invariant re-clamp test above but drives the shift/grow branch: a 100-px describe frame keeps WorkingScale
+    // at 1, and a grown 20000-px op forces the clamp.
+    [Test]
+    public void Execute_LinearNonInvariantPass_GrownOp_ReClampsWorkingScaleAgainstOpBounds()
+    {
+        var describeBounds = new Rect(0, 0, 100, 100);
+        var passthrough = ShaderNodeDescriptor.WholeSource(
+            "uniform shader src; half4 main(float2 coord){ return src.eval(coord); }",
+            BoundsContract.RenderTime);
+        CompiledPlan plan = Compile(NewBuilder(describeBounds).Shader(passthrough));
+
+        FrameResources res = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale: 1f);
+        Assert.That(res.Passes[0].WorkingScale, Is.EqualTo(1f),
+            "sanity: the 100-px describe frame fits the budget, so the resolver leaves the pass working scale at 1");
+
+        var grownBounds = new Rect(0, 0, 20000, 8);
+        float expected = RenderNodeContext.ClampWorkingScaleToBufferBudget(grownBounds, 1f);
+        Assert.That(expected, Is.LessThan(1f),
+            "sanity: the grown 20000-px op.Bounds must trigger the buffer-budget clamp");
+
+        RenderNodeOperation[] outputs = PlanExecutor.Execute(
+            plan, res, [MakeInput(grownBounds)], outputScale: 1f, workingScale: 1f,
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null);
+        try
+        {
+            Assert.That(outputs, Has.Length.EqualTo(1));
+            Assert.That(outputs[0].EffectiveScale.Value, Is.EqualTo(expected).Within(1e-4f),
+                "the grow sub-case re-clamps w against the grown op.Bounds, not the ROI-sized resolution working scale");
         }
         finally
         {

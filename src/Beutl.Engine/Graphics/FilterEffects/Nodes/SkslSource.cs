@@ -72,6 +72,16 @@ public sealed partial record SkslSource
                 nameof(source));
         }
 
+        if (HasTopLevelStruct(source))
+        {
+            throw new ArgumentException(
+                "A fusable snippet must not declare a top-level struct: the snippet merger prefixes uniforms and "
+                + "consts by name (feN_) but does NOT rename a struct TYPE, so two fused snippets each declaring a "
+                + "struct of the same name would collide in the merged program (contract A2). Function-local structs "
+                + "are unaffected; a whole-source shader is exempt (it is never merged).",
+                nameof(source));
+        }
+
         return new SkslSource(source, SkslSourceKind.Snippet);
     }
 
@@ -129,7 +139,7 @@ public sealed partial record SkslSource
                     braceDepth++;
                 else if (c == '}' && braceDepth > 0)
                     braceDepth--;
-                else if (braceDepth == 0 && IsConstKeywordAt(source, i))
+                else if (braceDepth == 0 && IsKeywordAt(source, i, "const"))
                 {
                     inConst = true;
                     groupDepth = 0;
@@ -161,9 +171,65 @@ public sealed partial record SkslSource
         return false;
     }
 
-    private static bool IsConstKeywordAt(string s, int i)
+    // A `struct` declared at file scope (brace depth 0) in a snippet. The merger prefixes uniform/const names by
+    // (feN_) but does NOT rename a struct TYPE, so two fused snippets each declaring a top-level struct of the same
+    // name collide in the merged program (A2). A function-local struct (brace depth > 0) is block-scoped and left
+    // alone. Line/block comments are skipped.
+    private static bool HasTopLevelStruct(string source)
     {
-        const string keyword = "const";
+        int braceDepth = 0;
+        bool inLineComment = false;
+        bool inBlockComment = false;
+
+        for (int i = 0; i < source.Length; i++)
+        {
+            char c = source[i];
+
+            if (inLineComment)
+            {
+                if (c == '\n')
+                    inLineComment = false;
+                continue;
+            }
+
+            if (inBlockComment)
+            {
+                if (c == '*' && i + 1 < source.Length && source[i + 1] == '/')
+                {
+                    inBlockComment = false;
+                    i++;
+                }
+
+                continue;
+            }
+
+            if (c == '/' && i + 1 < source.Length && source[i + 1] == '/')
+            {
+                inLineComment = true;
+                i++;
+                continue;
+            }
+
+            if (c == '/' && i + 1 < source.Length && source[i + 1] == '*')
+            {
+                inBlockComment = true;
+                i++;
+                continue;
+            }
+
+            if (c == '{')
+                braceDepth++;
+            else if (c == '}' && braceDepth > 0)
+                braceDepth--;
+            else if (braceDepth == 0 && IsKeywordAt(source, i, "struct"))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsKeywordAt(string s, int i, string keyword)
+    {
         if (i + keyword.Length > s.Length || !s.AsSpan(i, keyword.Length).SequenceEqual(keyword))
             return false;
         if (i > 0 && (char.IsLetterOrDigit(s[i - 1]) || s[i - 1] == '_'))
