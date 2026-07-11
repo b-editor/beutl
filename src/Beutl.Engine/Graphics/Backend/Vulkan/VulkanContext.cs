@@ -93,6 +93,12 @@ internal sealed class VulkanContext : IGraphicsContext
     public GRContext SkiaContext => _skiaContext ?? throw new InvalidOperationException(
         "SkiaSharp Vulkan context is not initialized. Make sure the Vulkan context was created successfully.");
 
+    /// <summary>
+    /// The Skia context, or <see langword="null"/> when it was never created (MoltenVK) or the
+    /// context is already disposed. For teardown paths that must not throw.
+    /// </summary>
+    internal GRContext? SkiaContextOrNull => _skiaContext;
+
     public Vk Vk => _vulkanInstance.Vk;
 
     public Instance Instance => _vulkanInstance.Instance;
