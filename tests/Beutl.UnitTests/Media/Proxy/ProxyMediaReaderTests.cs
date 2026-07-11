@@ -44,6 +44,39 @@ public sealed class ProxyMediaReaderTests
         });
     }
 
+    [Test]
+    public void Dispose_NonDisposing_ReleasesPinWithoutTouchingInner()
+    {
+        bool innerDisposed = false;
+        bool pinDisposed = false;
+        var inner = new FakeMediaReader(() => innerDisposed = true);
+        var pin = new FakePin(() => pinDisposed = true);
+
+        var resolution = new ProxyResolution(
+            AbsoluteProxyFilePath: "/proxy.mp4",
+            Source: new ProxyFingerprint("/source.mp4", 100, DateTime.UtcNow),
+            Preset: ProxyPreset.Quarter,
+            OriginalLogicalFrameSize: new PixelSize(100, 80),
+            ProxyDecodedFrameSize: new PixelSize(50, 40));
+
+        var reader = new ProxyMediaReader(inner, pin, resolution);
+
+        // The finalizer path (~MediaReader → Dispose(false)) invoked deterministically: an abandoned
+        // reader must still release the pin, or eviction treats the proxy file as in use forever.
+        typeof(ProxyMediaReader)
+            .GetMethod("Dispose", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance, [typeof(bool)])!
+            .Invoke(reader, [false]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(pinDisposed, Is.True, "The pin must be released on the finalizer path.");
+            Assert.That(innerDisposed, Is.False, "inner is a finalizable managed object and must not be touched when disposing is false.");
+        });
+
+        GC.SuppressFinalize(reader);
+        GC.SuppressFinalize(inner);
+    }
+
     private sealed class FakeMediaReader(Action? onDispose = null) : MediaReader
     {
         public override VideoStreamInfo VideoInfo { get; } = new VideoStreamInfo(

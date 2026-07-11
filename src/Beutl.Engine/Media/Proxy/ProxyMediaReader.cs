@@ -32,16 +32,17 @@ internal sealed class ProxyMediaReader(
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing)
+        try
         {
-            try
-            {
+            if (disposing)
                 inner.Dispose();
-            }
-            finally
-            {
-                pin.Dispose();
-            }
+        }
+        finally
+        {
+            // Released on the finalizer path too, or an abandoned reader pins the proxy against
+            // eviction forever. PinHandle touches only Interlocked/ConcurrentDictionary state, so
+            // it is finalizer-safe despite being a managed object.
+            pin.Dispose();
         }
 
         base.Dispose(disposing);
