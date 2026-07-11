@@ -5,6 +5,7 @@ using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.Extensibility;
 using Beutl.Language;
+using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.UnitTests.TestInfrastructure;
@@ -230,6 +231,36 @@ public class TimelineTabViewModelShortcutTests
         {
             Assert.That(result?.Target, Is.EqualTo(TimeSpan.FromSeconds(65)));
             Assert.That(result?.Anchor, Is.Null);
+        });
+    }
+
+    [Test]
+    public void ResolvePointerGapToClose_OnlyReturnsGapWhollyInsideScene()
+    {
+        using var harness = new SceneHistoryHarness(
+            "beutl_timeline_gap_ptr",
+            start: TimeSpan.FromSeconds(50),
+            duration: TimeSpan.FromSeconds(50));
+        // Active scene is 50s-100s. Layer 0 has a gap fully inside (60s-70s); layer 1 has one that
+        // straddles the scene end (90s-120s). Only the fully-inside gap may be closed by a click.
+        harness.AddElement(TimeSpan.FromSeconds(55), TimeSpan.FromSeconds(5), zIndex: 0);
+        harness.AddElement(TimeSpan.FromSeconds(70), TimeSpan.FromSeconds(5), zIndex: 0);
+        harness.AddElement(TimeSpan.FromSeconds(85), TimeSpan.FromSeconds(5), zIndex: 1);
+        harness.AddElement(TimeSpan.FromSeconds(120), TimeSpan.FromSeconds(5), zIndex: 1);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                TimelineTabViewModel.ResolvePointerGapToClose(harness.Scene, TimeSpan.FromSeconds(65), layer: 0)?.Range,
+                Is.EqualTo(new TimeRange(TimeSpan.FromSeconds(60), TimeSpan.FromSeconds(10))));
+            // Clicking the visible part of a gap that runs past the scene end must not close it.
+            Assert.That(
+                TimelineTabViewModel.ResolvePointerGapToClose(harness.Scene, TimeSpan.FromSeconds(95), layer: 1),
+                Is.Null);
+            // A click beyond the scene end lands in the straddling gap but is rejected.
+            Assert.That(
+                TimelineTabViewModel.ResolvePointerGapToClose(harness.Scene, TimeSpan.FromSeconds(110), layer: 1),
+                Is.Null);
         });
     }
 

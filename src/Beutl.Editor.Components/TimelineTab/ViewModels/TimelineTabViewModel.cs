@@ -1173,16 +1173,25 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
     private void CloseGapAtPointer()
     {
         FlushPendingNudgeCommit();
-        // Only close a gap whose start lies inside the active scene; a raw gap starting before
-        // Scene.Start would collapse an off-scene interval and jump a clip the user cannot see.
-        if (Scene.FindGapAt(ClickedFrame, CalculateClickedLayer()) is { } gap
-            && gap.Range.Start >= Scene.Start
+        if (ResolvePointerGapToClose(Scene, ClickedFrame, CalculateClickedLayer()) is { } gap
             && EditorContext.GetRequiredService<IElementGapService>().CloseGapAfter(Scene, gap.Anchor))
         {
             return;
         }
 
         NotificationService.ShowInformation(Strings.CloseGap, Strings.NoGapsToClose);
+    }
+
+    // The gap under a right-click, but only when it lies wholly inside the active scene. ClickedFrame
+    // is not clamped to the scene, so a click past either edge can land in a gap that straddles the
+    // boundary; closing that raw gap would shift clips by off-scene space the user cannot see.
+    internal static SceneGap? ResolvePointerGapToClose(Scene scene, TimeSpan clickedTime, int layer)
+    {
+        TimeSpan sceneEnd = scene.Start + scene.Duration;
+        return scene.FindGapAt(clickedTime, layer) is { } gap
+               && gap.Range.Start >= scene.Start && gap.Range.End <= sceneEnd
+            ? gap
+            : null;
     }
 
     private void CloseAllSceneGaps()
