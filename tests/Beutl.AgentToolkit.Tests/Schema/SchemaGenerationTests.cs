@@ -12,6 +12,7 @@ using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.NodeGraph;
+using Beutl.ProjectSystem;
 using Beutl.Services;
 
 namespace Beutl.AgentToolkit.Tests.Schema;
@@ -53,7 +54,11 @@ public sealed class SchemaGenerationTests
         string newAnimatedTextExample = schema.Examples.Single(example => example.Name == "insert-new-animated-text-keyframes").Patch.ToJsonString();
         string geometryShapeExample = schema.Examples.Single(example => example.Name == "insert-new-geometry-shape-path").Patch.ToJsonString();
         string cameraRigExample = schema.Examples.Single(example => example.Name == "insert-camera-rig-push-in").Patch.ToJsonString();
+        string cameraPortalExample = schema.Examples.Single(example => example.Name == "insert-camera-rig-portal").Patch.ToJsonString();
         IReadOnlyList<DeclarativeExampleSummary> cameraExampleSummaries = generator.ListExamples(typeFilter: nameof(DrawableGroup));
+        TypeDescriptor portal = schema.Types.Single(type => type.Type == typeof(PortalObject).FullName);
+        PropertyDescriptor portalCount = portal.Properties.Single(property => property.Name == nameof(PortalObject.Count));
+        PropertyDescriptor portalClear = portal.Properties.Single(property => property.Name == nameof(PortalObject.Clear));
         IReadOnlyList<DeclarativeExampleSummary> geometryExampleSummaries = generator.ListExamples(typeFilter: "GeometryShape");
         CapabilitySchema audioSchema = generator.Generate(categoryFilter: "AudioEffect");
         CapabilitySchema brushSchema = generator.Generate(categoryFilter: "Brush");
@@ -126,6 +131,14 @@ public sealed class SchemaGenerationTests
             Assert.That(cameraRigExample, Does.Contain("TranslateTransform"));
             Assert.That(cameraRigExample, Does.Contain("KeyFrameAnimation"));
             Assert.That(cameraExampleSummaries.Select(example => example.Name), Does.Contain("insert-camera-rig-push-in"));
+            Assert.That(cameraExampleSummaries.Select(example => example.Name), Does.Contain("insert-camera-rig-portal"));
+            Assert.That(cameraPortalExample, Does.Contain("PortalObject"));
+            Assert.That(cameraPortalExample, Does.Contain("\"Count\":2"));
+            Assert.That(cameraPortalExample, Does.Contain("DrawableGroup"));
+            Assert.That(cameraPortalExample, Does.Contain("KeyFrameAnimation"));
+            Assert.That(portalCount.UsageHint, Does.Contain("ZIndex"));
+            Assert.That(portalCount.UsageHint, Does.Contain("insert-camera-rig-portal"));
+            Assert.That(portalClear.UsageHint, Does.Contain("flow"));
             Assert.That(audioSchema.Types.Any(type => type.Type == typeof(DelayEffect).FullName), Is.True);
             Assert.That(audioSchema.Examples, Is.Empty);
             Assert.That(brushSchema.Examples.Select(example => example.Name), Does.Contain("create-empty-scene-motion-graphics"));

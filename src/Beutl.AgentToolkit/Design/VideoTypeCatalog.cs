@@ -133,7 +133,7 @@ public static class VideoTypeCatalog
                 "Call get_background_grammar and instantiate background, midground, foreground, and motion slots in notes before apply_edit.",
                 "Call get_schema for any drawable, GeometryShape, media, effect, brush, or animation types whose property names are not already known.",
                 "Build a beatGridPlan and quantitativePlanSheet before apply_edit when the brief names BPM, high tempo, or short kinetic beats.",
-                "Record a cameraPlan before apply_edit: per shot choose locked, push-in, pull-back, pan, whip-pan, roll, or parallax, then author moves as animated transforms on a named [role:camera-rig] DrawableGroup parenting the shot's content so shots do not read as static slides.",
+                "Record a cameraPlan before apply_edit: per shot choose locked, push-in, pull-back, pan, whip-pan, roll, or parallax, then author moves as animated transforms on a named [role:camera-rig] DrawableGroup so shots do not read as static slides — either nesting the shot's content as Children or pulling the contiguous timeline layers above the rig with PortalObject.Count (see get_examples insert-camera-rig-push-in / insert-camera-rig-portal).",
                 "Use apply_edit in storyboard-first stages: background/surface, foreground structure, typography, then text backing plates.",
                 "Call render_storyboard and preview_quality_risks with videoType:\"motion-graphics\" before adding effects or motion.",
                 "Call list_effect_recipes, get_effect_recipe, and validate_shader when effect chains or SKSL fields are part of the look.",

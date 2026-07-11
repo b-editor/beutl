@@ -452,7 +452,7 @@ public sealed class SchemaGenerator
             return [];
         }
 
-        return engineObject.Properties.Select(CreateProperty).ToArray();
+        return engineObject.Properties.Select(property => CreateProperty(type, property)).ToArray();
     }
 
     private static IReadOnlyList<DeclarativeExample> CreateExamples(string? typeFilter, string? categoryFilter, string? nameFilter = null)
@@ -638,6 +638,24 @@ public sealed class SchemaGenerator
                     typeof(KeyFrame<float>),
                     typeof(SineEaseInOut)),
                 ExampleTags("targeted", "camera", "camera-rig", "push-in", "keyframes", "animation", "group")),
+            new ExampleSpec(
+                CreateCameraRigPortalExample(),
+                ExampleCategories(
+                    KnownLibraryItemFormats.Drawable,
+                    KnownLibraryItemFormats.EngineObject,
+                    KnownLibraryItemFormats.Transform,
+                    KnownLibraryItemFormats.Easing),
+                ExampleTypes(
+                    typeof(Element),
+                    typeof(DrawableGroup),
+                    typeof(PortalObject),
+                    typeof(TransformGroup),
+                    typeof(TranslateTransform),
+                    typeof(ScaleTransform),
+                    typeof(KeyFrameAnimation<float>),
+                    typeof(KeyFrame<float>),
+                    typeof(SineEaseInOut)),
+                ExampleTags("targeted", "camera", "camera-rig", "portal", "flow", "timeline", "keyframes", "animation", "group")),
             new ExampleSpec(
                 CreateBrushAndEffectExample(),
                 ExampleCategories(KnownLibraryItemFormats.Drawable, KnownLibraryItemFormats.EngineObject, KnownLibraryItemFormats.Brush, KnownLibraryItemFormats.FilterEffect),
@@ -1704,10 +1722,75 @@ public sealed class SchemaGenerator
 
         return new DeclarativeExample(
             "insert-camera-rig-push-in",
-            "Camera (viewpoint) move for a 2D shot: Beutl has no scene camera, so wrap the shot's content in a [role:camera-rig] DrawableGroup and animate the rig's TransformGroup. This example is a slow eased push-in (ScaleTransform.Scale 100 -> 106; Scale is percent) with a slight pan (TranslateTransform.X; camera-left = rig-right, camera-in = scale-up). Keep the PortalObject entry that precedes the DrawableGroup in Element.Objects — a flow operator without it is rejected. Replace the placeholder children with the shot's drawables, keep locked background plates outside the rig in their own Elements, use a fast large translate for a whip-pan cut bridge, and animate per-depth-band rigs at different translate amplitudes for parallax.",
+            "Camera (viewpoint) move for a 2D shot, nested variant: Beutl has no scene camera, so wrap the shot's content in a [role:camera-rig] DrawableGroup and animate the rig's TransformGroup. This example is a slow eased push-in (ScaleTransform.Scale 100 -> 106; Scale is percent) with a slight pan (TranslateTransform.X; camera-left = rig-right, camera-in = scale-up). Keep the PortalObject entry that precedes the DrawableGroup in Element.Objects — a flow operator without it is rejected; its Count stays 0 here, meaning the rig transforms only its nested Children and pulls nothing from the timeline. Nested children have no Element timing of their own, so when grouped content needs per-item Start/Length or should stay visible as timeline layers, prefer the portal variant in insert-camera-rig-portal. Replace the placeholder children with the shot's drawables, keep locked background plates outside the rig in their own Elements, use a fast large translate for a whip-pan cut bridge, and animate per-depth-band rigs at different translate amplitudes for parallax.",
             new JsonObject
             {
                 ["Elements"] = new JsonArray(elementJson)
+            });
+    }
+
+    private static DeclarativeExample CreateCameraRigPortalExample()
+    {
+        var rig = new DrawableGroup
+        {
+            Name = "[role:camera-rig] Shot 2 camera",
+            Transform =
+            {
+                CurrentValue = new TransformGroup
+                {
+                    Children =
+                    {
+                        new TranslateTransform(0, 0),
+                        new ScaleTransform()
+                    }
+                }
+            }
+        };
+
+        Element rigElement = CreateElement("[role:camera-rig] Shot 2 rig", zIndex: 10, rig);
+        ((PortalObject)rigElement.Objects[0]).Count.CurrentValue = 2;
+
+        Element plateElement = CreateElement(
+            "[role:text-backing] Shot 2 title plate",
+            zIndex: 11,
+            new RectShape
+            {
+                Name = "[role:text-backing] Shot 2 title plate",
+                Width = { CurrentValue = 760 },
+                Height = { CurrentValue = 240 },
+                Fill = { CurrentValue = CreateLinearGradient("#ff1c2a4a", "#ff2f4a7a") }
+            });
+
+        Element titleElement = CreateElement(
+            "Shot 2 hero title",
+            zIndex: 12,
+            new TextBlock
+            {
+                Name = "Shot 2 hero title",
+                Text = { CurrentValue = "Camera move" },
+                Size = { CurrentValue = 96 },
+                Fill = { CurrentValue = new SolidColorBrush(Colors.White) }
+            });
+
+        JsonObject rigJson = SerializeExampleElement(rigElement);
+        string groupDiscriminator = IdentityHelper.WriteDiscriminator(typeof(DrawableGroup));
+        JsonObject groupJson = ((JsonArray)rigJson[nameof(Element.Objects)]!)
+            .OfType<JsonObject>()
+            .Single(obj => string.Equals(obj["$type"]?.GetValue<string>(), groupDiscriminator, StringComparison.Ordinal));
+        JsonObject scaleJson = GetTransformChildJson(groupJson, typeof(ScaleTransform));
+        AddFloatAnimation(scaleJson, nameof(ScaleTransform.Scale), (0, 100, typeof(SineEaseInOut)), (8, 106, typeof(SineEaseInOut)));
+        JsonObject translateJson = GetTransformChildJson(groupJson, typeof(TranslateTransform));
+        AddFloatAnimation(translateJson, nameof(TranslateTransform.X), (0, 0, typeof(SineEaseInOut)), (8, -48, typeof(SineEaseInOut)));
+
+        return new DeclarativeExample(
+            "insert-camera-rig-portal",
+            "Camera (viewpoint) move for a 2D shot, timeline-flow variant — preferred when grouped content needs its own Element timing or should stay visible as timeline layers. The shot's content stays as ordinary one-object Elements on contiguous ZIndex rows (11 and 12 here), and the rig Element directly below them (ZIndex 10) holds a PortalObject with Count=2 followed by a DrawableGroup with empty Children. The portal pulls the Elements whose ZIndex is rigZIndex+1..rigZIndex+Count out of normal composition into the flow and the DrawableGroup consumes them as children, so animating the rig's TransformGroup (eased push-in + pan here) moves the whole shot while each content Element keeps its own Start/Length. Keep the grouped layers ZIndex-contiguous directly above the rig and time-aligned with it — pulled Elements render ungrouped whenever the rig Element is not active. The same portal+flow grouping works for the other IFlowOperators: DrawableDecorator, SoundGroup (audio), and Scene3D.",
+            new JsonObject
+            {
+                ["Elements"] = new JsonArray(
+                    rigJson,
+                    SerializeExampleElement(plateElement),
+                    SerializeExampleElement(titleElement))
             });
     }
 
@@ -2559,7 +2642,7 @@ public sealed class SchemaGenerator
         }
     }
 
-    private static PropertyDescriptor CreateProperty(IProperty property)
+    private static PropertyDescriptor CreateProperty(Type ownerType, IProperty property)
     {
         Attribute[] attributes = property.GetAttributes() ?? [];
         DisplayAttribute? display = attributes.OfType<DisplayAttribute>().FirstOrDefault();
@@ -2581,13 +2664,22 @@ public sealed class SchemaGenerator
                 ? listProperty.ElementType.FullName ?? listProperty.ElementType.Name
                 : null,
             EnumValues: EnumJsonValueNormalizer.GetEnumNames(property.ValueType),
-            UsageHint: CreatePropertyUsageHint(property.ValueType, property.IsAnimatable));
+            UsageHint: CreatePropertyUsageHint(ownerType, property.Name, property.ValueType, property.IsAnimatable));
     }
 
-    private static string? CreatePropertyUsageHint(Type valueType, bool animatable)
+    private static string? CreatePropertyUsageHint(Type ownerType, string propertyName, Type valueType, bool animatable)
     {
         Type type = Nullable.GetUnderlyingType(valueType) ?? valueType;
         List<string> hints = [];
+        if (ownerType == typeof(PortalObject) && propertyName == nameof(PortalObject.Count))
+        {
+            hints.Add("Portal flow intake. A PortalObject placed immediately before a flow operator (DrawableGroup, DrawableDecorator, SoundGroup, Scene3D) in Element.Objects pulls the timeline Elements whose ZIndex lies in rigZIndex+1..rigZIndex+Count out of normal composition and feeds their output into that flow operator (e.g. as DrawableGroup children), while they keep their own Start/Length. Count=0 pulls nothing: the flow operator then uses only its own nested Children. The pulled range is ZIndex-contiguous, so keep grouped layers directly above the rig Element, and note that pulled Elements render ungrouped at times when the rig Element is not active. See get_examples insert-camera-rig-portal.");
+        }
+        else if (ownerType == typeof(PortalObject) && propertyName == nameof(PortalObject.Clear))
+        {
+            hints.Add("When true, the portal empties the Element's object flow before pulling, so the following flow operator consumes only this portal's intake instead of also consuming earlier objects in the same Element.");
+        }
+
         if (type == typeof(Color))
         {
             hints.Add("Use serialized Beutl color values such as '#ffffb34d' or copy the exact shape returned by read_document/get_schema; do not use palette names such as 'Amber'.");
