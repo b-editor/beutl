@@ -831,11 +831,21 @@ public static class ProxySourceEnumerator
                 if (!reference.HasPropertyPath)
                     return resolved as T ?? property.DefaultValue as T;
 
-                if (resolved is EngineObject target
-                    && target.Properties.FirstOrDefault(
-                        p => string.Equals(p.Name, reference.PropertyPath, StringComparison.OrdinalIgnoreCase)) is { } targetProperty)
+                if (resolved is EngineObject target)
                 {
-                    return ResolveExpressionValue<T>(target, targetProperty, visited);
+                    if (target.Properties.FirstOrDefault(
+                            p => string.Equals(p.Name, reference.PropertyPath, StringComparison.OrdinalIgnoreCase)) is { } targetProperty)
+                    {
+                        return ResolveExpressionValue<T>(target, targetProperty, visited);
+                    }
+
+                    // PropertyLookup's second strategy: a registered CoreProperty (e.g. a plugin exposing
+                    // CoreProperty<Drawable>). It is not animatable/expressible on this surface, so the
+                    // resolved value is what the render opens — mirror EnumerateExpressionFileSources.
+                    CoreProperty? coreProperty = PropertyRegistry.GetRegistered(target.GetType())
+                        .FirstOrDefault(p => string.Equals(p.Name, reference.PropertyPath, StringComparison.OrdinalIgnoreCase));
+                    if (coreProperty is not null && !coreProperty.PropertyType.IsValueType)
+                        return target.GetValue(coreProperty) as T ?? property.DefaultValue as T;
                 }
             }
 

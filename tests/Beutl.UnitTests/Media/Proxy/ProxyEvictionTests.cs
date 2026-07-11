@@ -401,6 +401,29 @@ public class ProxyEvictionTests
         });
     }
 
+    // Finding C: a regenerate for a candidate's (Source, Preset) that lands between collection and the
+    // delete loop must not have its fresh entry removed — Delete keys on (Source, Preset), so the sweep
+    // re-checks that the current entry still equals the ranked snapshot before deleting.
+    [Test]
+    public void Sweep_EntryRegeneratedSinceCollection_IsNotDeleted()
+    {
+        string root = CreateRoot();
+        var inner = new ProxyStore(root);
+        ProxyEntry collected = Register(inner, root, "old.mp4", DateTime.UtcNow.AddMinutes(-10), 7);
+        ProxyEntry regenerated = collected with { ProxyFileRelative = "new.mp4" };
+        var store = new RegeneratedEntryStore(inner, regenerated);
+        var service = new ProxyEvictionService(store, null, maxTotalBytes: 0);
+
+        ProxyEvictionResult result = service.Sweep();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(store.DeleteCalls, Is.EqualTo(0),
+                "a candidate whose current entry changed since collection must not be deleted");
+            Assert.That(result.RemovedCount, Is.EqualTo(0));
+        });
+    }
+
     private static string CreateRoot()
     {
         string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
@@ -477,6 +500,46 @@ public class ProxyEvictionTests
             if (bytes is not null && path is not null)
                 File.WriteAllBytes(path, bytes);
             return result;
+        }
+
+        public void Touch(ProxyFingerprint source, ProxyPreset preset, DateTime nowUtc) => inner.Touch(source, preset, nowUtc);
+
+        public long GetTotalBytes() => inner.GetTotalBytes();
+
+        public long GetTotalBytes(IReadOnlySet<string> sourceAbsolutePaths) => inner.GetTotalBytes(sourceAbsolutePaths);
+
+        public Task FlushAsync(CancellationToken cancellationToken) => inner.FlushAsync(cancellationToken);
+
+        public Task ReconcileAsync(CancellationToken cancellationToken) => inner.ReconcileAsync(cancellationToken);
+
+        public event EventHandler<ProxyStoreChangedEventArgs>? Changed
+        {
+            add => inner.Changed += value;
+            remove => inner.Changed -= value;
+        }
+    }
+
+    // Enumerates the original entry (so it is collected as a candidate) but reports a different current
+    // entry from TryGet, simulating a regenerate that replaced the same-key entry after collection.
+    private sealed class RegeneratedEntryStore(ProxyStore inner, ProxyEntry regenerated) : IProxyStore
+    {
+        public int DeleteCalls { get; private set; }
+
+        public string StoreRootPath => inner.StoreRootPath;
+
+        public ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset) => regenerated;
+
+        public IReadOnlyList<ProxyEntry> Enumerate() => inner.Enumerate();
+
+        public void Register(ProxyEntry entry) => inner.Register(entry);
+
+        public bool TryTransition(ProxyFingerprint source, ProxyPreset preset, ProxyState newState, string? failureReason = null)
+            => inner.TryTransition(source, preset, newState, failureReason);
+
+        public bool Delete(ProxyFingerprint source, ProxyPreset preset)
+        {
+            DeleteCalls++;
+            return inner.Delete(source, preset);
         }
 
         public void Touch(ProxyFingerprint source, ProxyPreset preset, DateTime nowUtc) => inner.Touch(source, preset, nowUtc);

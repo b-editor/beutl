@@ -31,6 +31,9 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
     private bool _disposed;
     private int _diskPressureSweepActive;
     private IDisposable? _configSubscription;
+    // Tracks the disposal of queues replaced by a store-root change so shutdown can await them; each new
+    // change chains onto the previous so DisposeAsync awaiting the latest awaits them all.
+    private Task _replacedQueueDisposal = Task.CompletedTask;
     // The live config, so a rejected store-root rebuild can revert the persisted path to the last-good one.
     private ProxyStoreConfig? _config;
     // Monotonically increasing base for each rebuilt resolver's source versions, so a store-root swap
@@ -270,17 +273,31 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
         StoreFacade.Swap(newStore);
 
         _ = Task.Run(() => ReconcileAndSweepAsync(newStore, newEviction));
-        _ = Task.Run(async () =>
+        _replacedQueueDisposal = DisposeReplacedQueueAsync(_replacedQueueDisposal, oldQueue);
+    }
+
+    // Chains onto the prior replaced-queue disposal so a burst of store-root changes all complete, and so
+    // DisposeAsync awaiting the latest task transitively awaits every earlier one — an old FFmpeg job/drain
+    // must not outlive the service (a change followed immediately by exit).
+    private static async Task DisposeReplacedQueueAsync(Task previous, ProxyJobQueue oldQueue)
+    {
+        try
         {
-            try
-            {
-                await oldQueue.DisposeAsync().ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                s_logger.LogWarning(ex, "Disposing the previous proxy queue after a store-root change failed.");
-            }
-        });
+            await previous.ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            s_logger.LogWarning(ex, "Awaiting a prior replaced proxy queue disposal failed.");
+        }
+
+        try
+        {
+            await oldQueue.DisposeAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            s_logger.LogWarning(ex, "Disposing the previous proxy queue after a store-root change failed.");
+        }
     }
 
 
@@ -304,6 +321,9 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
             Current = null;
 
         await Queue.DisposeAsync().ConfigureAwait(false);
+        // Config subscription is already disposed above, so no further store-root change can start a new
+        // replaced-queue disposal; awaiting the latest one drains every queue a store-root change replaced.
+        await _replacedQueueDisposal.ConfigureAwait(false);
     }
 
     private void OnJobChanged(object? sender, ProxyJobChangedEventArgs e)
