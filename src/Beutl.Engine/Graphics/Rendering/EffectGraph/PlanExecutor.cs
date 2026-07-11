@@ -475,6 +475,11 @@ internal static class PlanExecutor
             signature,
             () => wholeSource ? run[0].Source.Source : SkslSnippetMerger.Merge(run.Select(s => s.Source).ToList()),
             diagnostics);
+        // Clear the reused builder's prior-frame state before rebinding (still O(bindings) per frame): a same-signature
+        // run that omits a binding this frame must see the program default, not the stale value — and a stale
+        // executor-owned child would reference a shader disposed after that earlier draw.
+        builder.Uniforms.Reset();
+        builder.Children.Reset();
         builder.Children[childName] = srcChild;
 
         for (int k = 0; k < run.Count; k++)

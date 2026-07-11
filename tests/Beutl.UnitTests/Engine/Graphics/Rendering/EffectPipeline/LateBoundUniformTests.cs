@@ -241,6 +241,77 @@ public class LateBoundUniformTests
         });
     }
 
+    // A same-source (same-signature) shader run reuses the cached SKRuntimeShaderBuilder across executions. A second
+    // run that OMITS a uniform the first run bound must see the program default, not the first run's stale value — the
+    // executor resets the reused builder's uniforms/children before rebinding. Pre-fix the omitted uniform inherited
+    // the stale value (and an omitted executor-owned child would reference a shader disposed after the first draw).
+    [Test]
+    public void ReusedProgramBuilder_OmittedUniform_SeesDefaultNotStaleValue()
+    {
+        ProgramCache.Clear();
+        var inputBounds = new Rect(0, 0, 40, 40);
+        const string source =
+            """
+            uniform shader src;
+            uniform float probe;
+            half4 main(float2 c) { return c.x < probe ? half4(1.0, 0.0, 0.0, 1.0) : half4(0.0, 0.0, 1.0, 1.0); }
+            """;
+
+        // First run binds probe large: c.x (< 40) < 1000 everywhere, so the buffer is red.
+        using Bitmap first = RenderWholeSource(source, inputBounds, u => u.Float("probe", 1000f));
+        Assert.That(first.SKBitmap.GetPixel(20, 20).Red, Is.GreaterThan(128),
+            "sanity: the first run binds probe=1000 (red everywhere)");
+
+        // Second run reuses the cached builder but omits probe: it must default to 0, so c.x < 0 is false (blue).
+        using Bitmap second = RenderWholeSource(source, inputBounds, uniforms: null);
+        SKColor px = second.SKBitmap.GetPixel(20, 20);
+        Assert.Multiple(() =>
+        {
+            Assert.That(px.Blue, Is.GreaterThan(128),
+                "the omitted probe reads the program default (0 -> blue); a stale bleed keeps the first run's red");
+            Assert.That(px.Red, Is.LessThan(128),
+                "the reused builder must not carry the first run's probe=1000");
+        });
+    }
+
+    // Renders a non-invariant whole-source shader (its own FusedShaderPass, so it flows through BuildRuntimeRun and
+    // the ProgramCache) over an opaque input, then rasterizes the output op back to logical space.
+    private static Bitmap RenderWholeSource(
+        string source, Rect inputBounds, Action<UniformBindingBuilder>? uniforms)
+    {
+        var descriptor = ShaderNodeDescriptor.WholeSource(source, BoundsContract.Identity, uniforms);
+        var builder = new EffectGraphBuilder(inputBounds, outputScale: 1f, workingScale: 1f);
+        builder.Shader(descriptor);
+        using EffectGraph graph = builder.Build();
+        using var pool = new RenderTargetPool();
+        CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
+        FrameResources frame = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale: 1f);
+        RenderNodeOperation[] ops = PlanExecutor.Execute(
+            plan, frame, [OpaqueInput(inputBounds)], outputScale: 1f, workingScale: 1f,
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool);
+        try
+        {
+            Rect outBounds = ops[0].Bounds;
+            var size = PixelRect.FromRect(outBounds);
+            using RenderTarget target = RenderTarget.Create(size.Width, size.Height)!;
+            using (var canvas = new ImmediateCanvas(target, 1f, logicalSize: outBounds.Size))
+            {
+                canvas.Clear();
+                using (canvas.PushTransform(Matrix.CreateTranslation(-outBounds.X, -outBounds.Y)))
+                {
+                    foreach (RenderNodeOperation op in ops)
+                        op.Render(canvas);
+                }
+            }
+
+            return target.Snapshot();
+        }
+        finally
+        {
+            RenderNodeOperation.DisposeAll(ops);
+        }
+    }
+
     // Renders a single effect over an input, resolving its buffer at an overridden budget so a forward-inflated pass
     // executes below the describe-time density, then rasterizes the output op back to logical space.
     private static Bitmap RenderSingleEffectClamped(

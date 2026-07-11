@@ -110,6 +110,39 @@ public class EffectAuthoringTests
         Assert.That(plan.Passes[1], Is.TypeOf<CompositePass>());
     }
 
+    // C9 fold applicability: a coordinate-invariant color-filter run immediately before a SrcOver composite folds
+    // into the composite (the fused pass disappears, its factories ride the composite). Before a non-SrcOver
+    // (Multiply) composite it must NOT fold — a transparent-affecting filter on that full-canvas layer would filter
+    // pixels outside the branch bounds, diverging from the branch-bounded unfused intermediate — so it stays its own pass.
+    [Test]
+    public void ColorFilterRun_FoldsIntoSrcOverComposite_ButNotNonSrcOver()
+    {
+        CompiledPlan srcOver = Compile(NewBuilder()
+            .Split(SplitNodeDescriptor.Static(_ => { }, branchCount: 2, structuralToken: "fold-srcover-split"))
+            .Saturate(1.4f)
+            .Composite(CompositeNodeDescriptor.Create(BlendMode.SrcOver, structuralToken: "fold-srcover")));
+
+        CompiledPlan multiply = Compile(NewBuilder()
+            .Split(SplitNodeDescriptor.Static(_ => { }, branchCount: 2, structuralToken: "fold-multiply-split"))
+            .Saturate(1.4f)
+            .Composite(CompositeNodeDescriptor.Create(BlendMode.Multiply, structuralToken: "fold-multiply")));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(srcOver.Passes.Select(p => p.GetType()),
+                Is.EqualTo(new[] { typeof(SplitPass), typeof(CompositePass) }),
+                "the color-filter run folds into the src-over composite (the fused pass disappears)");
+            Assert.That(((CompositePass)srcOver.Passes[1]).InputColorFilters, Is.Not.Empty,
+                "the folded src-over composite carries the color-filter factories");
+
+            Assert.That(multiply.Passes.Select(p => p.GetType()),
+                Is.EqualTo(new[] { typeof(SplitPass), typeof(FusedShaderPass), typeof(CompositePass) }),
+                "a non-src-over composite must not absorb the color-filter run (it stays its own pass)");
+            Assert.That(((CompositePass)multiply.Passes[2]).InputColorFilters, Is.Empty,
+                "a non-src-over composite carries no folded color filters");
+        });
+    }
+
     // ---- SC-006: an author's invariant snippet fuses between two built-ins ------------------------------
 
     [Test]
