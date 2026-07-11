@@ -1208,9 +1208,11 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         if (FindGapNavigationTarget(Scene, CurrentTime.Value, forward) is { } target)
         {
             CurrentTime.Value = target.Target;
-            // The playhead move alone does not scroll while playback is stopped, so bring the gap into
-            // view like the other seek-style commands do.
-            ScrollTo.Execute((target.VisibleGap, target.ZIndex));
+            // The playhead move alone does not scroll while stopped, so bring the target into view like
+            // the other seek commands. Scroll around the target, not the whole gap: a gap wider than the
+            // viewport always intersects it and the view would skip the scroll. The 1-tick width keeps
+            // the range non-empty so the view's "already visible" check reads it as the target point.
+            ScrollTo.Execute((new TimeRange(target.Target, TimeSpan.FromTicks(1)), target.ZIndex));
             // A null anchor (start-clipped gap) has no element to select; clear any prior selection so
             // the selection-based Close Gap cannot act on a stale, unrelated gap after the jump.
             if (target.Anchor is { } anchor)
@@ -1251,7 +1253,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
     // (scene-clamped) portion — together with the gap's anchor. The anchor is null unless the raw gap is
     // wholly inside the scene: a clipped gap's anchor sits off-scene, so selecting it would make Close
     // Gap collapse the raw gap and move a clip the user cannot see.
-    internal static (TimeSpan Target, TimeRange VisibleGap, int ZIndex, Element? Anchor)? FindGapNavigationTarget(
+    internal static (TimeSpan Target, int ZIndex, Element? Anchor)? FindGapNavigationTarget(
         Scene scene, TimeSpan currentTime, bool forward)
     {
         TimeSpan sceneStart = scene.Start;
@@ -1264,10 +1266,9 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
 
         TimeSpan visibleStart = g.Range.Start > sceneStart ? g.Range.Start : sceneStart;
         TimeSpan visibleEnd = g.Range.End < sceneEnd ? g.Range.End : sceneEnd;
-        var visibleGap = new TimeRange(visibleStart, visibleEnd - visibleStart);
         TimeSpan target = visibleStart + new TimeSpan((visibleEnd - visibleStart).Ticks / 2);
         bool whollyInside = g.Range.Start >= sceneStart && g.Range.End <= sceneEnd;
-        return (target, visibleGap, g.ZIndex, whollyInside ? g.Anchor : null);
+        return (target, g.ZIndex, whollyInside ? g.Anchor : null);
     }
 
     private enum NudgeUnit { Frame, Large, Second }
