@@ -310,9 +310,13 @@ public sealed class EffectGraphBuilder
     /// ROI, and an identity backward would starve the crop edge of the neighbor texels it reads, over-eroding it.</summary>
     public EffectGraphBuilder Erode(float radiusX, float radiusY)
     {
+        // A negative radius would DEFLATE the backward ROI (cropping upstream content) and is meaningless to the
+        // morphology filter; the effect properties are unconstrained floats, so clamp here at the seam.
+        float rx = MathF.Max(0f, radiusX);
+        float ry = MathF.Max(0f, radiusY);
         return SkiaFilter(SkiaFilterNodeDescriptor.Create(
-            inner => SKImageFilter.CreateErode(radiusX, radiusY, inner),
-            BoundsContract.Create(r => r, r => r.Inflate(new Thickness(radiusX, radiusY))),
+            inner => SKImageFilter.CreateErode(rx, ry, inner),
+            BoundsContract.Create(r => r, r => r.Inflate(new Thickness(rx, ry))),
             structuralToken: "Erode"));
     }
 
@@ -322,9 +326,12 @@ public sealed class EffectGraphBuilder
     /// </summary>
     public EffectGraphBuilder Dilate(float radiusX, float radiusY)
     {
+        // Same clamp as Erode: a negative radius would deflate both bounds maps.
+        float rx = MathF.Max(0f, radiusX);
+        float ry = MathF.Max(0f, radiusY);
         return SkiaFilter(SkiaFilterNodeDescriptor.Create(
-            inner => SKImageFilter.CreateDilate(radiusX, radiusY, inner),
-            InflateContract(new Thickness(radiusX, radiusY)),
+            inner => SKImageFilter.CreateDilate(rx, ry, inner),
+            InflateContract(new Thickness(rx, ry)),
             structuralToken: "Dilate"));
     }
 

@@ -206,6 +206,29 @@ public class BackwardRoiContractTests
         });
     }
 
+    // The effect radii are unconstrained floats; a negative value must clamp to zero at the builder seam or the
+    // bounds maps DEFLATE (backward under-claims and crops upstream content).
+    [Test]
+    public void ErodeAndDilate_NegativeRadii_ClampToIdentityBounds()
+    {
+        var erode = new Erode { RadiusX = { CurrentValue = -10 }, RadiusY = { CurrentValue = -6 } };
+        var dilate = new Dilate { RadiusX = { CurrentValue = -10 }, RadiusY = { CurrentValue = -6 } };
+
+        CompiledPlan erodePlan = Compile(erode);
+        CompiledPlan dilatePlan = Compile(dilate);
+        var requested = new Rect(50, 40, 40, 30);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(erodePlan.Passes[0].BackwardBounds(requested), Is.EqualTo(requested),
+                "a negative erode radius must clamp to zero, never deflate the backward ROI");
+            Assert.That(dilatePlan.Passes[0].ForwardBounds(requested), Is.EqualTo(requested),
+                "a negative dilate radius must clamp to zero, never deflate the forward bounds");
+            Assert.That(dilatePlan.Passes[0].BackwardBounds(requested), Is.EqualTo(requested),
+                "a negative dilate radius must clamp to zero, never deflate the backward ROI");
+        });
+    }
+
     private static CompiledPlan Compile(FilterEffect effect)
     {
         var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
