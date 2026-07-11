@@ -323,12 +323,11 @@ internal static class PlanExecutor
         else
         {
             // Linear single-op non-invariant pass: bake window and placement are the rect ResolveResources sized the
-            // buffer from — but that resolution is a frame-start upper bound, unaware of a render-time shrink
-            // upstream (an AutoClip SetOutputBounds). When the actual op is narrower than the resolver's expected
-            // input, re-derive by intersecting with the pass's composed forward map of the ACTUAL op — shrink-only,
-            // matching the fan-out branch. When the op matches the expectation the resolved ROI is kept verbatim:
-            // a forward map is authored against the pass's semantic input frame (a fixed Clipping deflates whatever
-            // rect it receives), so applying it to a merely ROI-narrowed op would double-apply the crop.
+            // buffer from — but that resolution is a frame-start upper bound, unaware of a render-time change upstream.
+            // Two upstream cases diverge, gated on whether the actual op is a shrink OR a shift of the resolver's
+            // expected input. When the op matches the expectation the resolved ROI is kept verbatim: a forward map is
+            // authored against the pass's semantic input frame (a fixed Clipping deflates whatever rect it receives),
+            // so applying it to a merely ROI-narrowed op would double-apply the crop.
             Rect resolved = resolution.OutputRoi.IsInvalid
                 ? (pass.OutputBounds.IsInvalid ? op.Bounds : pass.OutputBounds)
                 : resolution.OutputRoi;
@@ -336,8 +335,22 @@ internal static class PlanExecutor
             if (!op.Bounds.Contains(expectedInput))
             {
                 Rect forward = pass.ForwardBounds(op.Bounds);
-                if (!forward.IsInvalid)
-                    outBounds = resolved.Intersect(forward);
+                if (expectedInput.Contains(op.Bounds))
+                {
+                    // True shrink: the op sits strictly inside the expected input (an upstream AutoClip
+                    // SetOutputBounds tightened it). Re-derive shrink-only, keeping the resolve-time ROI as the
+                    // upper bound so a downstream bounds-inflating pass cannot re-inflate past the tightening.
+                    if (!forward.IsInvalid)
+                        outBounds = resolved.Intersect(forward);
+                }
+                else
+                {
+                    // Shifted op: a dynamic CustomRenderNode/NestedGraph predecessor emitted a translated op that
+                    // escapes the expected input. The resolve-time ROI is stale for this frame's origin, so map the
+                    // ACTUAL op forward directly (the fan-out branch's approach) rather than intersecting the shifted
+                    // forward with the stale ROI, which would clip or empty the shifted content.
+                    outBounds = forward.IsInvalid ? op.Bounds : forward;
+                }
             }
 
             w = resolution.WorkingScale;
@@ -1261,6 +1274,7 @@ internal static class PlanExecutor
             }
 
             bool discarded;
+            Rect? shrunk;
             try
             {
                 using var canvas = new ImmediateCanvas(target, w, maxWorkingScale, logicalSize: logicalBounds.Size);
@@ -1269,6 +1283,7 @@ internal static class PlanExecutor
                     canvas, [input], logicalBounds, outputScale, w, maxWorkingScale, diagnostics);
                 render(session);
                 discarded = session.IsOutputDiscarded;
+                shrunk = session.ShrunkOutputBounds;
             }
             catch
             {
@@ -1276,9 +1291,16 @@ internal static class PlanExecutor
                 throw;
             }
 
+            // DiscardOutput supersedes a requested shrink (§C3), exactly as the single-op geometry path handles it.
             if (discarded)
             {
                 target.Dispose();
+                return;
+            }
+
+            if (shrunk is { } tight)
+            {
+                EmitShrunk(tight, w, logicalBounds, target);
                 return;
             }
 
@@ -1286,6 +1308,56 @@ internal static class PlanExecutor
                 diagnostics.GpuPasses++;
             outputs.Add(RenderNodeOperation.CreateFromRenderTarget(
                 logicalBounds, logicalBounds.Position, target, EffectiveScale.At(w)));
+        }
+
+        // A split branch that called GeometrySession.SetOutputBounds tightens its emitted op to a sub-rect, mirroring
+        // EmitShrunkGeometry: blit the sub-rect into a tighter pooled target (acquired while the full branch target is
+        // still leased, so the transient lease reuses the branch's slot) and publish the tightened bounds. This pass
+        // has dynamic outputs (exempt from the static peak-live bound); the branch still counts one GpuPasses.
+        private void EmitShrunk(Rect tight, float w, Rect logicalBounds, RenderTarget branchTarget)
+        {
+            (int tw, int th) = RenderNodeContext.DeviceBufferSize(tight, w);
+            if (tw <= 0 || th <= 0)
+            {
+                // A degenerate (empty) shrink yields nothing, matching DiscardOutput and the §C3 empty-output drop.
+                branchTarget.Dispose();
+                return;
+            }
+
+            RenderTarget? tightTarget = RenderTargetPool.Acquire(pool, tw, th, diagnostics);
+            if (tightTarget == null)
+            {
+                branchTarget.Dispose();
+                if (float.IsPositiveInfinity(maxWorkingScale))
+                    throw new InvalidOperationException($"Split branch shrink allocation failed ({tw}x{th} px, w {w}).");
+
+                s_logger.LogWarning(
+                    "Split branch shrink allocation failed ({Width}x{Height} px). Preview drops it.", tw, th);
+                return;
+            }
+
+            try
+            {
+                using var canvas = new ImmediateCanvas(tightTarget, w, maxWorkingScale, logicalSize: tight.Size);
+                canvas.Clear();
+                using (canvas.PushDeviceSpace())
+                {
+                    canvas.DrawRenderTarget(
+                        branchTarget, new Point((logicalBounds.X - tight.X) * w, (logicalBounds.Y - tight.Y) * w));
+                }
+            }
+            catch
+            {
+                tightTarget.Dispose();
+                branchTarget.Dispose();
+                throw;
+            }
+
+            branchTarget.Dispose();
+            if (diagnostics != null)
+                diagnostics.GpuPasses++;
+            outputs.Add(RenderNodeOperation.CreateFromRenderTarget(
+                tight, tight.Position, tightTarget, EffectiveScale.At(w)));
         }
     }
 }

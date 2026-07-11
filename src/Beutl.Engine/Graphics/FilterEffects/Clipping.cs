@@ -136,13 +136,24 @@ public sealed partial class Clipping : FilterEffect
         (Rect targetBounds, Rect newBounds, float pointX, float pointY) = ComputeClip(input.Bounds, effective, autoCenter);
         Rect reference = autoClip ? session.Bounds : newBounds;
 
+        // AutoClip learns its margins only here, so it must request the clipped sub-rect (the full buffer's other
+        // pixels are transparent margins). When AutoCenter is also set the legacy Apply re-centered the kept window
+        // inside the input frame, so emit the centered TargetBounds and shift the drawn/clipped kept region onto it.
+        // SetOutputBounds requires containment in the allocated buffer; a downstream deflate can narrow session.Bounds
+        // below the centered rect, so fall back to the un-centered NewBounds when TargetBounds escapes it — the buffer
+        // cannot supply off-buffer pixels, and centering is a cosmetic layout choice that yields to the allocation.
+        Rect emitBounds = newBounds;
+        if (autoClip && autoCenter && session.Bounds.Contains(targetBounds))
+            emitBounds = targetBounds;
+
         if (autoClip)
-        {
-            // The fixed-clip path resolves forward to the clip rect (its buffer is already tight); AutoClip only learns
-            // its margins here, so it must request the clipped sub-rect. NewBounds is the region the input is clipped
-            // to — the full buffer's other pixels are transparent margins.
-            session.SetOutputBounds(newBounds);
-        }
+            session.SetOutputBounds(emitBounds);
+
+        // The AutoClip+AutoCenter centering shift: the kept region is drawn and clipped at NewBounds, so translate it
+        // onto the centered EmitBounds. Zero on every other path (non-AutoClip, AutoClip without centering, or the
+        // out-of-buffer fallback where EmitBounds == NewBounds).
+        float centerX = (float)(emitBounds.X - newBounds.X) * wOut;
+        float centerY = (float)(emitBounds.Y - newBounds.Y) * wOut;
 
         // A downstream deflating pass can ROI-crop the fixed/AutoCenter path so session.Bounds is an OFFSET sub-rect of
         // TargetBounds. The draws below register to session.Bounds' origin, but the source anchor (reference=NewBounds)
@@ -153,6 +164,7 @@ public sealed partial class Clipping : FilterEffect
 
         using (canvas.PushDeviceSpace())
         using (bridgeX != 0 || bridgeY != 0 ? canvas.PushTransform(Matrix.CreateTranslation(bridgeX, bridgeY)) : default)
+        using (centerX != 0 || centerY != 0 ? canvas.PushTransform(Matrix.CreateTranslation(centerX, centerY)) : default)
         using (canvas.PushTransform(Matrix.CreateTranslation(pointX * wOut, pointY * wOut)))
         {
             if (autoClip)
