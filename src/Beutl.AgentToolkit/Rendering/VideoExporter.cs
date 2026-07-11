@@ -102,7 +102,7 @@ public sealed class VideoExporter(EncoderRegistration encoders)
             renderer.CacheOptions = RenderCacheOptions.Disabled;
             using var frameProgress = new Subject<TimeSpan>();
             using var frameProvider = new FrameProviderImpl(scene, frameRate, renderer, frameProgress);
-            using var composer = new SceneComposer(scene, disableResourceShare: true) { SampleRate = normalizedSampleRate };
+            using var composer = CreateExportComposer(scene, normalizedSampleRate);
             using var sampleProgress = new Subject<TimeSpan>();
             using var sampleProvider = new SampleProviderImpl(scene, composer, normalizedSampleRate, sampleProgress);
 
@@ -143,6 +143,15 @@ public sealed class VideoExporter(EncoderRegistration encoders)
         }
 
         throw ffmpegFailure ?? new CodecUnavailableException("FFmpeg libraries are not available.");
+    }
+
+    // Final output: audio must never read proxy media, even though audio opens skip the proxy resolver today.
+    internal static SceneComposer CreateExportComposer(Scene scene, int sampleRate)
+    {
+        return new SceneComposer(scene, disableResourceShare: true, forceOriginalSource: true)
+        {
+            SampleRate = sampleRate,
+        };
     }
 
     internal static void ApplyQualitySettings(VideoEncoderSettings settings, int? crf, int? bitrate)

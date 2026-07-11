@@ -22,6 +22,21 @@ public sealed class ExportOrchestrationTests
     }
 
     [Test]
+    public void Export_composer_forces_original_source_for_audio()
+    {
+        var scene = new Scene(64, 64, "export") { Duration = TimeSpan.FromSeconds(1) };
+
+        using SceneComposer composer = VideoExporter.CreateExportComposer(scene, 44100);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(composer.Compositor.ForceOriginalSource, Is.True);
+            Assert.That(composer.Compositor.DisableResourceShare, Is.True);
+            Assert.That(composer.SampleRate, Is.EqualTo(44100));
+        });
+    }
+
+    [Test]
     public void Missing_encoder_surfaces_codec_unavailable()
     {
         var exporter = new VideoExporter(new EncoderRegistration());
