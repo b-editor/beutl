@@ -75,7 +75,8 @@ internal static class PlanExecutor
                         break;
                     default:
                         MapDescriptorPass(
-                            pass, resources.Passes[k], current, outputScale, workingScale, maxWorkingScale,
+                            pass, resources.Passes[k], ExpectedInputBounds(plan, resources, k), current,
+                            outputScale, workingScale, maxWorkingScale,
                             diagnostics, pool, captureSink != null && k == captureSink.CapturePassIndex ? captureSink : null);
                         break;
                 }
@@ -135,17 +136,21 @@ internal static class PlanExecutor
             for (int i = 0; i < current.Count; i++)
             {
                 RenderNodeOperation op = current[i];
-                var builder = new EffectGraphBuilder(op.Bounds, outputScale, workingScale, maxWorkingScale);
+                // The branch inherits the carried density of the op feeding it (FR-012/C3.2), like every
+                // materializing single-op path: the raw outer workingScale would re-raise a density an
+                // upstream clamped op already reduced.
+                float branchScale = CarriedWorkingScale(op, workingScale);
+                var builder = new EffectGraphBuilder(op.Bounds, outputScale, branchScale, maxWorkingScale);
                 pass.DescribeBranch(builder, i);
                 using EffectGraph graph = builder.Build();
                 CompiledPlan branchPlan = EffectGraphCompiler.Compile(graph, diagnostics);
                 FrameResources branchResources = EffectGraphCompiler.ResolveResources(
-                    branchPlan, builder.Bounds, workingScale);
+                    branchPlan, builder.Bounds, branchScale);
                 // Hand ownership of op to the recursion only once it is about to consume it: a DescribeBranch/
                 // Build/Compile/ResolveResources throw above still leaves op in current for the catch to dispose.
                 current[i] = null!;
                 outputs.AddRange(Execute(
-                    branchPlan, branchResources, [op], outputScale, workingScale, maxWorkingScale,
+                    branchPlan, branchResources, [op], outputScale, branchScale, maxWorkingScale,
                     diagnostics, pool));
             }
         }
@@ -161,12 +166,28 @@ internal static class PlanExecutor
         current.AddRange(outputs);
     }
 
+    // The input rect the resolver assumed pass k consumes: the previous pass's resolved output ROI (its full bounds
+    // when render-time-resolved), or the graph input for the first pass. An actual op narrower than this signals a
+    // render-time shrink the frame-start resolution could not see (an AutoClip SetOutputBounds).
+    private static Rect ExpectedInputBounds(CompiledPlan plan, FrameResources resources, int k)
+    {
+        if (k == 0)
+            return plan.Passes[0].InputBounds;
+
+        CompiledPass prev = plan.Passes[k - 1];
+        Rect roi = resources.Passes[k - 1].OutputRoi;
+        if (!roi.IsInvalid)
+            return roi;
+
+        return prev.OutputBounds.IsInvalid ? prev.InputBounds : prev.OutputBounds;
+    }
+
     // Applies a descriptor pass to every current operation independently. A single upstream operation uses the
     // per-frame resolution (resolved size, working-scale carry, empty-ROI skip); a fanned-out set (an upstream
     // opaque split) sizes each branch from its own bounds — a coordinate-invariant fused pass is identity, so an
     // operation's output bounds equal its input bounds.
     private static void MapDescriptorPass(
-        CompiledPass pass, PassResolution resolution, List<RenderNodeOperation> current,
+        CompiledPass pass, PassResolution resolution, Rect expectedInput, List<RenderNodeOperation> current,
         float outputScale, float workingScale, float maxWorkingScale, PipelineDiagnostics? diagnostics,
         RenderTargetPool? pool, PrefixCaptureSink? captureSink = null)
     {
@@ -184,7 +205,8 @@ internal static class PlanExecutor
                 // A null result drops this pass output and continues: either an empty resolved output (a shrinking
                 // pass) or a preview allocation-failure (C7; delivery renders throw instead of returning null).
                 RenderNodeOperation? mapped = MapOneOperation(
-                    pass, resolution, linear, op, outputScale, workingScale, maxWorkingScale, diagnostics, pool, sink);
+                    pass, resolution, expectedInput, linear, op, outputScale, workingScale, maxWorkingScale,
+                    diagnostics, pool, sink);
                 if (mapped != null)
                     outputs.Add(mapped);
             }
@@ -200,7 +222,7 @@ internal static class PlanExecutor
     }
 
     private static RenderNodeOperation? MapOneOperation(
-        CompiledPass pass, PassResolution resolution, bool linear, RenderNodeOperation op,
+        CompiledPass pass, PassResolution resolution, Rect expectedInput, bool linear, RenderNodeOperation op,
         float outputScale, float workingScale, float maxWorkingScale, PipelineDiagnostics? diagnostics,
         RenderTargetPool? pool, PrefixCaptureSink? captureSink = null)
     {
@@ -250,16 +272,27 @@ internal static class PlanExecutor
         }
         else
         {
-            // Linear single-op non-invariant pass: bake window and placement are the exact rect ResolveResources
-            // sized the buffer from. A non-invariant whole-source fused pass whose output rect differs from its
-            // input (a channel-shift shader baked into an expanded rect) is sized/placed by its resolved ROI here.
-            outBounds = resolution.OutputRoi.IsInvalid
+            // Linear single-op non-invariant pass: bake window and placement are the rect ResolveResources sized the
+            // buffer from — but that resolution is a frame-start upper bound, unaware of a render-time shrink
+            // upstream (an AutoClip SetOutputBounds). When the actual op is narrower than the resolver's expected
+            // input, re-derive by intersecting with the pass's composed forward map of the ACTUAL op — shrink-only,
+            // matching the fan-out branch. When the op matches the expectation the resolved ROI is kept verbatim:
+            // a forward map is authored against the pass's semantic input frame (a fixed Clipping deflates whatever
+            // rect it receives), so applying it to a merely ROI-narrowed op would double-apply the crop.
+            Rect resolved = resolution.OutputRoi.IsInvalid
                 ? (pass.OutputBounds.IsInvalid ? op.Bounds : pass.OutputBounds)
                 : resolution.OutputRoi;
-            width = resolution.Width;
-            height = resolution.Height;
+            outBounds = resolved;
+            if (!op.Bounds.Contains(expectedInput))
+            {
+                Rect forward = pass.ForwardBounds(op.Bounds);
+                if (!forward.IsInvalid)
+                    outBounds = resolved.Intersect(forward);
+            }
+
             w = resolution.WorkingScale;
-            skip = resolution.SkipEmpty;
+            (width, height) = RenderNodeContext.DeviceBufferSize(outBounds, w);
+            skip = width <= 0 || height <= 0;
         }
 
         if (skip)
@@ -299,12 +332,41 @@ internal static class PlanExecutor
                 $"Effect pass buffer allocation failed ({width}x{height} px, w {w}, bounds {outBounds}).");
         }
 
+        // A non-invariant whole-source stage samples src across its backward-claimed input rect. When a downstream
+        // deflate narrowed outBounds below that claim, the in-place bake would crop the halo the shader reads
+        // (crop-after-shift ≠ shift-then-crop), so the source bakes into a separate pass-scoped buffer spanning the
+        // claimed rect (§C3.1; declared as pass scratch). The contained common case keeps the in-place bake — zero
+        // extra buffer, byte-identical to the frozen references.
+        Rect fusedSrcRect = outBounds;
+        float fusedSrcScale = w;
+        RenderTarget? fusedSrcTarget = null;
+        if (pass is FusedShaderPass { CoordinateInvariant: false, Stages: [RuntimeShaderStage { Source.Kind: SkslSourceKind.WholeSource }] })
+        {
+            Rect claimed = op.Bounds.Union(outBounds);
+            if (!outBounds.Contains(claimed))
+            {
+                fusedSrcScale = RenderNodeContext.ClampWorkingScaleToBufferBudget(claimed, w);
+                (int sw, int sh) = RenderNodeContext.DeviceBufferSize(claimed, fusedSrcScale);
+                fusedSrcTarget = RenderTargetPool.Acquire(pool, sw, sh, diagnostics);
+                if (fusedSrcTarget == null)
+                {
+                    target.Dispose();
+                    return DropOrThrow(op, maxWorkingScale,
+                        $"Fused source-halo buffer allocation failed ({sw}x{sh} px, w {fusedSrcScale}, bounds {claimed}).");
+                }
+
+                fusedSrcRect = claimed;
+            }
+        }
+
         try
         {
             switch (pass)
             {
                 case FusedShaderPass fused:
-                    ExecuteFused(fused, target, w, outBounds, op, maxWorkingScale, diagnostics);
+                    ExecuteFused(
+                        fused, target, w, outBounds, op, maxWorkingScale, diagnostics,
+                        fusedSrcTarget, fusedSrcRect, fusedSrcScale);
                     break;
                 case SkiaFilterPass skia:
                     ExecuteSkia(skia, target, w, outBounds, op, maxWorkingScale);
@@ -316,10 +378,15 @@ internal static class PlanExecutor
         }
         catch
         {
+            fusedSrcTarget?.Dispose();
             target.Dispose();
             op.Dispose();
             throw;
         }
+
+        // The src snapshot must stay alive through the fused draw, so the halo buffer's lease releases only here —
+        // it overlaps the output lease exactly as declared ([idx, idx] scratch, §C3.1).
+        fusedSrcTarget?.Dispose();
 
         if (diagnostics != null)
             diagnostics.GpuPasses++;
@@ -355,17 +422,27 @@ internal static class PlanExecutor
 
     private static void ExecuteFused(
         FusedShaderPass pass, RenderTarget target, float w, Rect outBounds,
-        RenderNodeOperation source, float maxWorkingScale, PipelineDiagnostics? diagnostics)
+        RenderNodeOperation source, float maxWorkingScale, PipelineDiagnostics? diagnostics,
+        RenderTarget? srcTarget = null, Rect srcRect = default, float srcScale = 0f)
     {
-        BakeSource(target, w, outBounds, source, maxWorkingScale, paint: null);
+        // srcTarget is the pass-scoped halo buffer (§C3.1): the source bakes over srcRect (⊇ outBounds) at srcScale
+        // and the src shader's local matrix re-registers image coordinates to the output's device space, so the
+        // shader samples the halo a downstream deflate cropped out of the output rect. Without it the source bakes
+        // in place and snapshots the output target.
+        if (srcTarget != null)
+            BakeSource(srcTarget, srcScale, srcRect, source, maxWorkingScale, paint: null);
+        else
+            BakeSource(target, w, outBounds, source, maxWorkingScale, paint: null);
 
         // A whole-source stage samples src at arbitrary coordinates, so its declared tile mode governs out-of-bounds
         // reads (matching the legacy custom effect); a fused snippet run only samples the current pixel, so Decal.
         SKShaderTileMode srcTile = pass.Stages is [RuntimeShaderStage { Source.Kind: SkslSourceKind.WholeSource } ws]
             ? ws.SrcTileMode
             : SKShaderTileMode.Decal;
-        using SKImage srcImage = target.Value.Snapshot();
-        using SKShader srcShader = srcImage.ToShader(srcTile, srcTile);
+        using SKImage srcImage = (srcTarget ?? target).Value.Snapshot();
+        using SKShader srcShader = srcTarget != null
+            ? srcImage.ToShader(srcTile, srcTile, SrcHaloLocalMatrix(w, srcScale, outBounds, srcRect))
+            : srcImage.ToShader(srcTile, srcTile);
 
         var uniformContext = new PassUniformContext(w, target.Width, target.Height, diagnostics);
         var disposables = new List<IDisposable>();
@@ -407,6 +484,18 @@ internal static class PlanExecutor
         using SKPaint? paint = filter != null ? new SKPaint { ImageFilter = filter } : null;
         BakeSource(target, w, outBounds, source, maxWorkingScale, paint);
         filter?.Dispose();
+    }
+
+    // Maps the halo-baked src image into the output pass's device space: output device coordinate c corresponds to
+    // image pixel c·(srcScale/w) + (outBounds.Origin − srcRect.Origin)·srcScale, so the shader's src.eval reads the
+    // same logical point whichever buffer holds the bake. srcScale can sit below w when the claimed rect crossed the
+    // per-axis budget (FR-037(b)); the scale term keeps the sampling density-coherent then.
+    private static SKMatrix SrcHaloLocalMatrix(float w, float srcScale, Rect outBounds, Rect srcRect)
+    {
+        float s = w / srcScale;
+        float ox = (outBounds.X - srcRect.X) * srcScale;
+        float oy = (outBounds.Y - srcRect.Y) * srcScale;
+        return new SKMatrix(s, 0, -ox * s, 0, s, -oy * s, 0, 0, 1);
     }
 
     private static void BakeSource(

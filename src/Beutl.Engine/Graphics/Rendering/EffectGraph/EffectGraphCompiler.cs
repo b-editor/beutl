@@ -385,6 +385,12 @@ internal static class EffectGraphCompiler
                         Add(multiplicity, idx, idx, TextureFormat.Depth32Float);
                     Add(multiplicity, idx, lastUse);
                     break;
+                case FusedShaderPass { CoordinateInvariant: false, Stages: [RuntimeShaderStage { Source.Kind: SkslSourceKind.WholeSource }] }:
+                    // The source-halo bake buffer (§C3.1): acquired only when a downstream deflate narrows the
+                    // output below the backward-claimed input rect; declared unconditionally as the upper bound.
+                    Add(multiplicity, idx, idx);
+                    Add(multiplicity, idx, lastUse);
+                    break;
                 default:
                     Add(multiplicity, idx, lastUse);
                     break;

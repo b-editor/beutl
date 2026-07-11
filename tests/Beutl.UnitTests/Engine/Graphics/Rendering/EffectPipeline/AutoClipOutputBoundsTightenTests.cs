@@ -123,12 +123,64 @@ public class AutoClipOutputBoundsTightenTests
         }
     }
 
+    // A downstream bounds-inflating pass (DropShadow) must see the AutoClip's TIGHTENED output, not its un-shrunk
+    // full-input rect. Pre-fix the linear non-invariant branch sized DropShadow from the frame-start resolution.OutputRoi
+    // (the un-shrunk full input), re-inflating the full-size rect. DropShadow keeps the original at the tightened
+    // origin (29,29) plus the zero-sigma shadow at +(20,20): union(tightened, tightened+(20,20)) = (29,29,59,59).
+    [Test]
+    public void AutoClipThenDropShadow_PublishedBoundsDeriveFromTightenedInput()
+    {
+        var expectedTightenedDerived = new Rect(29, 29, 59, 59);
+        var fullInputDerived = new Rect(0, 0, 120, 120);
+
+        RenderNodeOperation[] ops = RenderAutoClipThenDropShadow();
+        try
+        {
+            Assert.That(ops, Has.Length.EqualTo(1), "a non-empty auto-clip then drop-shadow produces one output");
+
+            Rect bounds = ops[0].Bounds;
+            Assert.Multiple(() =>
+            {
+                Assert.That(bounds, Is.EqualTo(expectedTightenedDerived),
+                    "the drop-shadow output must be the forward map of the TIGHTENED auto-clip content, "
+                    + $"not the full-input-derived {fullInputDerived}");
+                Assert.That(bounds, Is.Not.EqualTo(fullInputDerived),
+                    "the pre-fix full-input-derived bounds (tightening lost) are the regression being restored");
+            });
+        }
+        finally
+        {
+            RenderNodeOperation.DisposeAll(ops);
+        }
+    }
+
     private static RenderNodeOperation[] RenderAutoClip()
     {
         var clip = new Clipping();
         clip.AutoClip.CurrentValue = true;
 
         FilterEffect.Resource resource = clip.ToResource(CompositionContext.Default);
+        using var node = new PlanFilterEffectRenderNode(resource);
+        var context = new RenderNodeContext([MakeContentRect(s_input, s_content)]);
+        return node.Process(context);
+    }
+
+    private static RenderNodeOperation[] RenderAutoClipThenDropShadow()
+    {
+        var clip = new Clipping();
+        clip.AutoClip.CurrentValue = true;
+
+        var shadow = new DropShadow();
+        shadow.Position.CurrentValue = new Point(20, 20);
+        shadow.Sigma.CurrentValue = new Size(0, 0);
+        shadow.Color.CurrentValue = Colors.Red;
+        shadow.ShadowOnly.CurrentValue = false;
+
+        var group = new FilterEffectGroup();
+        group.Children.Add(clip);
+        group.Children.Add(shadow);
+
+        FilterEffect.Resource resource = group.ToResource(CompositionContext.Default);
         using var node = new PlanFilterEffectRenderNode(resource);
         var context = new RenderNodeContext([MakeContentRect(s_input, s_content)]);
         return node.Process(context);
