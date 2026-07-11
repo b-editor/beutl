@@ -100,7 +100,12 @@ internal static partial class SkslSnippetMerger
 
         string result = source;
         foreach (string name in names)
-            result = Regex.Replace(result, $@"\b{Regex.Escape(name)}\b", prefix + name);
+        {
+            // `(?<!\.)` skips a dot-preceded occurrence: a top-level declaration is never `x.name`, so `.name` is
+            // a member/swizzle access (`c.r` when a uniform is named `r`) that must not be renamed. `\b` alone
+            // matches after `.`, so without the lookbehind `c.r` would corrupt to `c.fe0_r`.
+            result = Regex.Replace(result, $@"(?<!\.)\b{Regex.Escape(name)}\b", prefix + name);
+        }
 
         return result;
     }
