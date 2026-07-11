@@ -56,10 +56,13 @@ public partial class InnerShadow : FilterEffect
     {
         EffectInput input = session.Inputs[0];
         ImmediateCanvas canvas = session.OpenCanvas();
-        // Blur radius and the shadow offset live in the output buffer's device space, so scale by its density.
-        float w = canvas.Density;
+        float wOut = canvas.Density;
+        // A carried-down input exists at its own density (wIn); the blur radius, shadow offset and blit are authored in
+        // the input's device px and scaled up to the output density (the FlatShadow/Clipping seam). The scale term lifts
+        // the input-px blur to the intended wOut radius in the buffer.
+        float wIn = input.Density.IsUnbounded ? 1f : input.Density.Value;
 
-        using var blur = SKImageFilter.CreateBlur(data.Sigma.Width * w, data.Sigma.Height * w);
+        using var blur = SKImageFilter.CreateBlur(data.Sigma.Width * wIn, data.Sigma.Height * wIn);
         using var blend = SKColorFilter.CreateBlendMode(data.Color.ToSKColor(), SKBlendMode.SrcOut);
         using var filter = SKImageFilter.CreateColorFilter(blend, blur);
         using var paint = new SKPaint { ImageFilter = filter };
@@ -68,16 +71,17 @@ public partial class InnerShadow : FilterEffect
         // op's bounds origin. A downstream deflating pass can ROI-crop this pass so session.Bounds is an OFFSET
         // sub-rect of that; bridge the origin (like FlatShadow/Clipping) so content still registers to the actual
         // buffer. Zero when un-cropped (golden parity).
-        float bridgeX = (float)(input.Bounds.X - session.Bounds.X) * w;
-        float bridgeY = (float)(input.Bounds.Y - session.Bounds.Y) * w;
+        float bridgeX = (float)(input.Bounds.X - session.Bounds.X) * wOut;
+        float bridgeY = (float)(input.Bounds.Y - session.Bounds.Y) * wOut;
         bool bridged = bridgeX != 0 || bridgeY != 0;
 
         using (canvas.PushDeviceSpace())
         using (bridged ? canvas.PushTransform(Matrix.CreateTranslation(bridgeX, bridgeY)) : default)
+        using (wIn == wOut ? default : canvas.PushTransform(Matrix.CreateScale(wOut / wIn, wOut / wIn)))
         {
             using (canvas.PushPaint(paint))
             {
-                input.Draw(canvas, new Point(data.Position.X * w, data.Position.Y * w));
+                input.Draw(canvas, new Point(data.Position.X * wIn, data.Position.Y * wIn));
             }
 
             using (canvas.PushBlendMode(data.BlendMode))

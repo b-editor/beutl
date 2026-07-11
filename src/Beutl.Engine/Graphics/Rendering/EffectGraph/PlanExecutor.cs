@@ -558,8 +558,15 @@ internal static class PlanExecutor
         }
 
         using SKPaint? paint = filter != null ? new SKPaint { ImageFilter = filter } : null;
-        BakeSource(target, w, outBounds, source, maxWorkingScale, paint);
-        filter?.Dispose();
+        try
+        {
+            BakeSource(target, w, outBounds, source, maxWorkingScale, paint);
+        }
+        finally
+        {
+            // SKPaint.Dispose does not dispose its image filter, so the filter must be released even when the bake throws.
+            filter?.Dispose();
+        }
     }
 
     // Maps the halo-baked src image into the output pass's device space: output device coordinate c corresponds to
@@ -1138,10 +1145,12 @@ internal static class PlanExecutor
 
         // A folded color-filter run (C9) applies as one composed SKColorFilter on each branch draw; identical to
         // baking each branch through the run and then compositing, at zero extra layers (it rides the blend-mode
-        // SaveLayer the composite already opens per branch).
-        SKColorFilter? branchFilter = ComposeCompositeColorFilter(pass.InputColorFilters);
+        // SaveLayer the composite already opens per branch). The compose runs inside the try so an effect-supplied
+        // factory that throws still releases the target lease and the branch ops.
+        SKColorFilter? branchFilter = null;
         try
         {
+            branchFilter = ComposeCompositeColorFilter(pass.InputColorFilters);
             using var canvas = new ImmediateCanvas(target, w, maxWorkingScale, logicalSize: union.Size);
             canvas.Clear();
             using (canvas.PushTransform(Matrix.CreateTranslation(-union.X, -union.Y)))
@@ -1208,23 +1217,32 @@ internal static class PlanExecutor
             return null;
 
         SKColorFilter? composed = null;
-        foreach (Func<SKColorFilter?> factory in factories)
+        try
         {
-            SKColorFilter? filter = factory();
-            if (filter == null)
-                continue;
+            foreach (Func<SKColorFilter?> factory in factories)
+            {
+                SKColorFilter? filter = factory();
+                if (filter == null)
+                    continue;
 
-            if (composed == null)
-            {
-                composed = filter;
+                if (composed == null)
+                {
+                    composed = filter;
+                }
+                else
+                {
+                    SKColorFilter next = SKColorFilter.CreateCompose(filter, composed);
+                    composed.Dispose();
+                    filter.Dispose();
+                    composed = next;
+                }
             }
-            else
-            {
-                SKColorFilter next = SKColorFilter.CreateCompose(filter, composed);
-                composed.Dispose();
-                filter.Dispose();
-                composed = next;
-            }
+        }
+        catch
+        {
+            // A mid-loop factory throw leaves the partially composed accumulator owned by no one; dispose it here.
+            composed?.Dispose();
+            throw;
         }
 
         return composed;

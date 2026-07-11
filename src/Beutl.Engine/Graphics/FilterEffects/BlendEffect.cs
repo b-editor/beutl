@@ -55,6 +55,7 @@ public sealed partial class BlendEffect : FilterEffect
         EffectInput input = session.Inputs[0];
         ImmediateCanvas canvas = session.OpenCanvas();
         float w = canvas.Density;
+        float wIn = input.Density.IsUnbounded ? 1f : input.Density.Value;
         Size size = session.Bounds.Size;
 
         var constructor = new BrushConstructor(
@@ -62,7 +63,10 @@ public sealed partial class BlendEffect : FilterEffect
         using var brushPaint = new SKPaint();
         constructor.ConfigurePaint(brushPaint);
 
+        // A carried-down input exists at its own density (wIn); scale it up to the output density before the
+        // device-space blit so it fills the frame the brush blends over (the FlatShadow/Clipping seam).
         using (canvas.PushDeviceSpace())
+        using (wIn == w ? default : canvas.PushTransform(Matrix.CreateScale(w / wIn, w / wIn)))
         {
             input.Draw(canvas, default);
         }
