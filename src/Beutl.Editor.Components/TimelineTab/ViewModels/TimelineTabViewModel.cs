@@ -1173,7 +1173,11 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
     private void CloseGapAtPointer()
     {
         FlushPendingNudgeCommit();
-        if (ResolvePointerGapToClose(Scene, ClickedFrame, CalculateClickedLayer()) is { } gap
+        // Hit-test with the raw pointer time, not the frame-rounded ClickedFrame: rounding can push a
+        // click in the latter half of a one-frame gap onto the next clip's start, which the half-open
+        // gap range then reports as no gap.
+        TimeSpan clickedTime = ClickedPosition.X.PixelToTimeSpan(Options.Value.Scale);
+        if (ResolvePointerGapToClose(Scene, clickedTime, CalculateClickedLayer()) is { } gap
             && EditorContext.GetRequiredService<IElementGapService>().CloseGapAfter(Scene, gap.Anchor))
         {
             return;

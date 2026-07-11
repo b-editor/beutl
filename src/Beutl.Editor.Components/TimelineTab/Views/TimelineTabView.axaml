@@ -175,16 +175,16 @@
                             <ui:MenuFlyoutSubItem.IconSource>
                                 <icons:SymbolIconSource Symbol="ArrowMoveInward" />
                             </ui:MenuFlyoutSubItem.IconSource>
-                            <ui:MenuFlyoutItem Command="{Binding CloseGapAtPointerPosition}"
+                            <ui:MenuFlyoutItem Command="{CompiledBinding CloseGapAtPointerPosition}"
                                                Text="{x:Static lang:Strings.CloseGap}" />
-                            <ui:MenuFlyoutItem Command="{Binding CloseAllGaps}"
+                            <ui:MenuFlyoutItem Command="{CompiledBinding CloseAllGaps}"
                                                InputGesture="{h:GetCommandGesture CloseAllGaps, ExtensionType={x:Type p:TimelineTabExtension}}"
                                                Text="{x:Static lang:Strings.CloseAllGaps}" />
                             <ui:MenuFlyoutSeparator />
-                            <ui:MenuFlyoutItem Command="{Binding GoToNextGap}"
+                            <ui:MenuFlyoutItem Command="{CompiledBinding GoToNextGap}"
                                                InputGesture="{h:GetCommandGesture GoToNextGap, ExtensionType={x:Type p:TimelineTabExtension}}"
                                                Text="{x:Static lang:Strings.GoToNextGap}" />
-                            <ui:MenuFlyoutItem Command="{Binding GoToPreviousGap}"
+                            <ui:MenuFlyoutItem Command="{CompiledBinding GoToPreviousGap}"
                                                InputGesture="{h:GetCommandGesture GoToPreviousGap, ExtensionType={x:Type p:TimelineTabExtension}}"
                                                Text="{x:Static lang:Strings.GoToPreviousGap}" />
                         </ui:MenuFlyoutSubItem>
