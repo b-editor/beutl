@@ -3,8 +3,9 @@
 /// <summary>
 /// Per-renderer effect-pipeline counters (feature 004, contracts/execution-plan.md §C8). Each counter is a
 /// plain <see cref="long"/> incremented on the render thread with no locks; "not observed" costs nothing
-/// beyond a null check at the call site. One instance is owned per <see cref="RenderNodeProcessor"/> and
-/// seeded into every <see cref="RenderNodeContext"/> it pulls. Read via <see cref="Snapshot"/> in tests.
+/// beyond a null check at the call site. One instance is owned per <see cref="Renderer"/> and handed to every
+/// <see cref="RenderNodeProcessor"/> that renderer creates, so counts accumulate across all of them; each
+/// processor seeds it into every <see cref="RenderNodeContext"/> it pulls. Read via <see cref="Snapshot"/> in tests.
 /// Mutation (the <c>internal set</c> accessors and <see cref="Reset"/>) is confined to the engine: the counters
 /// are handed to public authoring callbacks (<c>GeometrySession.Diagnostics</c> / <c>PassUniformContext.Diagnostics</c>)
 /// for OBSERVATION only, so plugin code can read but never forge or reset them (keeps <c>IRenderer.Diagnostics</c> trustworthy).

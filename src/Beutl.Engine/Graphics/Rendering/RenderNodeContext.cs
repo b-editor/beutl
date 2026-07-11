@@ -10,9 +10,11 @@ public class RenderNodeContext(
     public bool IsRenderCacheEnabled { get; set; } = true;
 
     /// <summary>
-    /// The owning renderer's effect-pipeline counters, seeded by <see cref="RenderNodeProcessor"/>.
-    /// <see langword="null"/> when the pull path was not given a diagnostics instance; effect nodes then
-    /// skip counting after a single null check (zero overhead).
+    /// The owning renderer's effect-pipeline counters, seeded by <see cref="RenderNodeProcessor"/>. The property
+    /// itself defaults to <see langword="null"/>, but the processor-driven pull path always seeds an instance
+    /// (<see cref="RenderNodeProcessor"/> fabricates one when none is passed in), so effect nodes see it non-null
+    /// there. It stays <see langword="null"/> only when a context is constructed directly without one; effect nodes
+    /// then skip counting after a single null check (zero overhead).
     /// </summary>
     public PipelineDiagnostics? Diagnostics { get; set; }
 
