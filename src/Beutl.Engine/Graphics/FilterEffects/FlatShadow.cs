@@ -114,10 +114,19 @@ public partial class FlatShadow : FilterEffect
             }
         }
 
+        // The brush anchors to the un-cropped output frame, not the (possibly ROI-cropped) session.Bounds sub-rect —
+        // a gradient/image brush would otherwise re-anchor into the crop. The fill rides the same origin bridge as
+        // the silhouette draws (in logical units here; the base CTM applies wOut), and SrcIn clips it to the shadow.
         var c = new BrushConstructor(
-            new(session.Bounds.Size), brush, BlendMode.SrcIn, wOut, session.MaxWorkingScale, session.Diagnostics);
+            new(outputBounds.Size), brush, BlendMode.SrcIn, wOut, session.MaxWorkingScale, session.Diagnostics);
         c.ConfigurePaint(brushPaint);
-        newCanvas.Canvas.DrawRect(SKRect.Create(session.Bounds.Width, session.Bounds.Height), brushPaint);
+        using (bridged
+            ? newCanvas.PushTransform(Matrix.CreateTranslation(
+                outputBounds.X - session.Bounds.X, outputBounds.Y - session.Bounds.Y))
+            : default)
+        {
+            newCanvas.Canvas.DrawRect(SKRect.Create(outputBounds.Width, outputBounds.Height), brushPaint);
+        }
 
         if (!data.ShadowOnly)
         {

@@ -99,6 +99,47 @@ public class PositionAnchoredCropTests
         });
     }
 
+    // FlatShadow's brush fill was anchored to session.Bounds (the sub-rect under an offset ROI) and drawn without the
+    // origin bridge the shadow/path draws already use. A NON-solid brush therefore re-anchors into the sub-rect and
+    // shifts, so the kept region mismatches the un-cropped render even though the silhouette registers. A hard-stop
+    // gradient (red|blue at 0.5) makes the re-anchor move a full-contrast colour edge, and the window sits inside the
+    // shadow interior where the SrcIn fill is visible. With the fix the brush anchors to the un-cropped output frame
+    // and fills inside the same bridge scope.
+    [Test]
+    public void FlatShadow_GradientBrush_KeptRegionUnshiftedUnderOffsetRoi()
+    {
+        FlatShadow Make()
+        {
+            var brush = new LinearGradientBrush();
+            brush.StartPoint.CurrentValue = new RelativePoint(0, 0, RelativeUnit.Relative);
+            brush.EndPoint.CurrentValue = new RelativePoint(1, 1, RelativeUnit.Relative);
+            brush.GradientStops.Add(new GradientStop(Color.FromArgb(255, 255, 0, 0), 0));
+            brush.GradientStops.Add(new GradientStop(Color.FromArgb(255, 255, 0, 0), 0.5f));
+            brush.GradientStops.Add(new GradientStop(Color.FromArgb(255, 0, 0, 255), 0.5f));
+            brush.GradientStops.Add(new GradientStop(Color.FromArgb(255, 0, 0, 255), 1));
+            return new FlatShadow
+            {
+                Angle = { CurrentValue = 30 },
+                Length = { CurrentValue = 24 },
+                Brush = { CurrentValue = brush },
+                ShadowOnly = { CurrentValue = true },
+            };
+        }
+
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using Bitmap full = RenderChain([Make()], ShapeInput, Rect.Invalid);
+            using Bitmap cropped = RenderChain([Make()], ShapeInput, new Rect(19, 29, 140, 90));
+
+            // Tolerance 3 (not the file's usual 8): a correctly anchored brush renders the interior window
+            // identically (~0 diff), while the pre-fix sub-rect re-anchor measures ~7.9 — inside 8.
+            double meanDiff = MeanChannelDiff(full, cropped, x0: 45, y0: 40, x1: 120, y1: 85);
+            TestContext.WriteLine($"kept-region mean channel diff = {meanDiff:F3} (tolerance 3)");
+            Assert.That(meanDiff, Is.LessThanOrEqualTo(3.0),
+                "the offset-ROI gradient-brush FlatShadow must anchor its brush to the un-cropped frame (no shift)");
+        });
+    }
+
     // InnerShadow draws its input plus an offset, blurred shadow copy, both anchored to the un-cropped OutputBounds
     // origin (identity forward). Round-2 gave it only the backward map; without the origin bridge an OFFSET render
     // ROI still shifts both draws by the crop offset. The pass must bake its content registered to its resolved
