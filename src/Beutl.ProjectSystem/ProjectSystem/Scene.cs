@@ -446,18 +446,19 @@ public class Scene : ProjectItem, INotifyEdited
     /// skipped, but one resting exactly on a gap's start still finds it.
     /// </summary>
     /// <param name="searchRange">
-    /// When set, each gap is clamped to its intersection with this range and gaps that do not
-    /// intersect it are dropped, so navigation stays within the active scene range yet a gap that
-    /// merely straddles the range (its ends lie beyond a shortened or offset scene) is still reachable
-    /// through its visible portion. The returned range is the clamped, visible gap.
+    /// When set, a gap that does not intersect this range is dropped, and the filter/ordering use the
+    /// gap's intersection with the range, so a gap that merely straddles the range (its ends lie beyond
+    /// a shortened or offset scene) is still reachable through its visible portion. The returned gap is
+    /// the raw gap, unclamped — the caller decides how to clamp it for display.
     /// </param>
     public SceneGap? FindNextGap(TimeSpan currentTime, TimeRange? searchRange = null)
     {
         return EnumerateGaps()
-            .Select(g => ClampGap(g, searchRange))
-            .Where(g => g is { } v && v.Range.Start >= currentTime)
-            .OrderBy(g => g!.Value.Range.Start)
-            .ThenBy(g => g!.Value.Range.End)
+            .Select(g => (Raw: g, Visible: ClampGap(g, searchRange)))
+            .Where(x => x.Visible is { } v && v.Range.Start >= currentTime)
+            .OrderBy(x => x.Visible!.Value.Range.Start)
+            .ThenBy(x => x.Visible!.Value.Range.End)
+            .Select(x => (SceneGap?)x.Raw)
             .FirstOrDefault();
     }
 
@@ -468,17 +469,18 @@ public class Scene : ProjectItem, INotifyEdited
     /// skipped, but one resting exactly on a gap's end still finds it.
     /// </summary>
     /// <param name="searchRange">
-    /// When set, each gap is clamped to its intersection with this range and gaps that do not
-    /// intersect it are dropped, so a gap straddling the range stays reachable through its visible
-    /// portion. The returned range is the clamped, visible gap.
+    /// When set, a gap that does not intersect this range is dropped, and the filter/ordering use the
+    /// gap's intersection with the range, so a gap straddling the range stays reachable through its
+    /// visible portion. The returned gap is the raw gap, unclamped.
     /// </param>
     public SceneGap? FindPreviousGap(TimeSpan currentTime, TimeRange? searchRange = null)
     {
         return EnumerateGaps()
-            .Select(g => ClampGap(g, searchRange))
-            .Where(g => g is { } v && v.Range.End <= currentTime)
-            .OrderByDescending(g => g!.Value.Range.End)
-            .ThenByDescending(g => g!.Value.Range.Start)
+            .Select(g => (Raw: g, Visible: ClampGap(g, searchRange)))
+            .Where(x => x.Visible is { } v && v.Range.End <= currentTime)
+            .OrderByDescending(x => x.Visible!.Value.Range.End)
+            .ThenByDescending(x => x.Visible!.Value.Range.Start)
+            .Select(x => (SceneGap?)x.Raw)
             .FirstOrDefault();
     }
 

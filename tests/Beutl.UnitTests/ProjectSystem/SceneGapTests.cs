@@ -973,20 +973,17 @@ public class SceneGapTests
         {
             Scene scene = CreateScene(basePath);
             // A far-right element leaves a gap 10s-100s that straddles a 30s scene end. Its visible
-            // portion 10s-30s is empty space inside the scene, so the search returns the clamped gap;
-            // without a search range the full 10s-90s gap is returned.
+            // portion 10s-30s overlaps the range, so the search still reaches it and returns the raw
+            // gap (clamping for display is the caller's job).
             scene.Children.Add(CreateElement(basePath, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(9)));
             scene.Children.Add(CreateElement(basePath, TimeSpan.FromSeconds(100), TimeSpan.FromSeconds(10)));
 
             var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(30));
+            var rawGap = new TimeRange(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(90));
             Assert.Multiple(() =>
             {
-                Assert.That(
-                    scene.FindNextGap(TimeSpan.Zero, range)?.Range,
-                    Is.EqualTo(new TimeRange(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(20))));
-                Assert.That(
-                    scene.FindNextGap(TimeSpan.Zero)?.Range,
-                    Is.EqualTo(new TimeRange(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(90))));
+                Assert.That(scene.FindNextGap(TimeSpan.Zero, range)?.Range, Is.EqualTo(rawGap));
+                Assert.That(scene.FindNextGap(TimeSpan.Zero)?.Range, Is.EqualTo(rawGap));
             });
         }
         finally
@@ -1004,16 +1001,16 @@ public class SceneGapTests
             Scene scene = CreateScene(basePath);
             // The only elements end at 10s and start at 100s, so the gap 10s-100s covers the whole
             // active range 50s-80s. A playhead resting exactly on either boundary must still reach the
-            // clamped visible portion 50s-80s: next from the 50s start, previous from the 80s end.
+            // gap through its visible overlap: next from the 50s start, previous from the 80s end.
             scene.Children.Add(CreateElement(basePath, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5)));
             scene.Children.Add(CreateElement(basePath, TimeSpan.FromSeconds(100), TimeSpan.FromSeconds(5)));
             var range = new TimeRange(TimeSpan.FromSeconds(50), TimeSpan.FromSeconds(30));
-            var clamped = new TimeRange(TimeSpan.FromSeconds(50), TimeSpan.FromSeconds(30));
+            var rawGap = new TimeRange(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(90));
 
             Assert.Multiple(() =>
             {
-                Assert.That(scene.FindNextGap(TimeSpan.FromSeconds(50), range)?.Range, Is.EqualTo(clamped));
-                Assert.That(scene.FindPreviousGap(TimeSpan.FromSeconds(80), range)?.Range, Is.EqualTo(clamped));
+                Assert.That(scene.FindNextGap(TimeSpan.FromSeconds(50), range)?.Range, Is.EqualTo(rawGap));
+                Assert.That(scene.FindPreviousGap(TimeSpan.FromSeconds(80), range)?.Range, Is.EqualTo(rawGap));
             });
         }
         finally

@@ -1240,10 +1240,10 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
     // The search is bounded to the active scene range by searchRange, so a playhead parked outside the
     // scene still navigates within it. currentTime is passed through unclamped: clamping the origin to
     // the boundary would make the >= / <= searches skip an in-range gap that touches Scene.Start or
-    // Scene.Start + Duration exactly. Returns the target playhead time (the gap center, clamped to the
-    // scene) together with the gap's anchor so the caller can both move and select. The anchor is null
-    // when the search range clipped the gap's start: the anchor then ends off-scene and no longer abuts
-    // the visible gap, so selecting it would make Close Gap collapse the whole raw gap.
+    // Scene.Start + Duration exactly. Returns the target playhead time — the centre of the gap's visible
+    // (scene-clamped) portion — together with the gap's anchor. The anchor is null unless the raw gap is
+    // wholly inside the scene: a clipped gap's anchor sits off-scene, so selecting it would make Close
+    // Gap collapse the raw gap and move a clip the user cannot see.
     internal static (TimeSpan Target, Element? Anchor)? FindGapNavigationTarget(
         Scene scene, TimeSpan currentTime, bool forward)
     {
@@ -1255,10 +1255,11 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             : scene.FindPreviousGap(currentTime, range);
         if (gap is not { } g) return null;
 
-        TimeSpan target = g.Range.Start + new TimeSpan(g.Range.Duration.Ticks / 2);
-        target = target < sceneStart ? sceneStart : target > sceneEnd ? sceneEnd : target;
-        Element? anchor = g.Anchor.Range.End == g.Range.Start ? g.Anchor : null;
-        return (target, anchor);
+        TimeSpan visibleStart = g.Range.Start > sceneStart ? g.Range.Start : sceneStart;
+        TimeSpan visibleEnd = g.Range.End < sceneEnd ? g.Range.End : sceneEnd;
+        TimeSpan target = visibleStart + new TimeSpan((visibleEnd - visibleStart).Ticks / 2);
+        bool whollyInside = g.Range.Start >= sceneStart && g.Range.End <= sceneEnd;
+        return (target, whollyInside ? g.Anchor : null);
     }
 
     private enum NudgeUnit { Frame, Large, Second }

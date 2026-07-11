@@ -235,6 +235,29 @@ public class TimelineTabViewModelShortcutTests
     }
 
     [Test]
+    public void FindGapNavigationTarget_ClippedGapEnd_DoesNotSelectAnchor()
+    {
+        using var harness = new SceneHistoryHarness(
+            "beutl_timeline_gap_nav",
+            start: TimeSpan.FromSeconds(50),
+            duration: TimeSpan.FromSeconds(50));
+        // The gap 90s-120s straddles the active range 50s-100s; its end is clipped to 100s. The anchor
+        // (85s clip) abuts the visible start, but closing the gap would move the off-scene 120s clip,
+        // so navigation must not select it.
+        harness.AddElement(TimeSpan.FromSeconds(85), TimeSpan.FromSeconds(5));
+        harness.AddElement(TimeSpan.FromSeconds(120), TimeSpan.FromSeconds(5));
+
+        var result = TimelineTabViewModel.FindGapNavigationTarget(
+            harness.Scene, TimeSpan.FromSeconds(60), forward: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result?.Target, Is.EqualTo(TimeSpan.FromSeconds(95)));
+            Assert.That(result?.Anchor, Is.Null);
+        });
+    }
+
+    [Test]
     public void ResolvePointerGapToClose_OnlyReturnsGapWhollyInsideScene()
     {
         using var harness = new SceneHistoryHarness(
