@@ -208,7 +208,19 @@ internal static class PlanExecutor
         // Execute catch from disposing ops the child now owns, and stops a double-drop on the passthrough path.
         current.Clear();
 
-        FilterEffectRenderNode node = pass.Resource.RenderNodeFactory.Create(pass.Resource);
+        // The factory runs after current was cleared, so a Create throw would strand the detached inputs in neither
+        // disposal sweep; release them here (C7).
+        FilterEffectRenderNode node;
+        try
+        {
+            node = pass.Resource.RenderNodeFactory.Create(pass.Resource);
+        }
+        catch
+        {
+            RenderNodeOperation.DisposeAll(inputs);
+            throw;
+        }
+
         try
         {
             node.Update(pass.Resource);
@@ -324,15 +336,15 @@ internal static class PlanExecutor
         {
             // Linear single-op non-invariant pass: bake window and placement are the rect ResolveResources sized the
             // buffer from — but that resolution is a frame-start upper bound, unaware of a render-time change upstream.
-            // Two upstream cases diverge, gated on whether the actual op is a shrink OR a shift of the resolver's
-            // expected input. When the op matches the expectation the resolved ROI is kept verbatim: a forward map is
-            // authored against the pass's semantic input frame (a fixed Clipping deflates whatever rect it receives),
-            // so applying it to a merely ROI-narrowed op would double-apply the crop.
+            // Three cases diverge by how the actual op relates to the resolver's expected input (§C3.5). When the op
+            // matches the expectation the resolved ROI is kept verbatim: a forward map is authored against the pass's
+            // semantic input frame (a fixed Clipping deflates whatever rect it receives), so applying it to a merely
+            // ROI-narrowed op would double-apply the crop.
             Rect resolved = resolution.OutputRoi.IsInvalid
                 ? (pass.OutputBounds.IsInvalid ? op.Bounds : pass.OutputBounds)
                 : resolution.OutputRoi;
             outBounds = resolved;
-            if (!op.Bounds.Contains(expectedInput))
+            if (op.Bounds != expectedInput)
             {
                 Rect forward = pass.ForwardBounds(op.Bounds);
                 if (expectedInput.Contains(op.Bounds))
@@ -345,10 +357,11 @@ internal static class PlanExecutor
                 }
                 else
                 {
-                    // Shifted op: a dynamic CustomRenderNode/NestedGraph predecessor emitted a translated op that
-                    // escapes the expected input. The resolve-time ROI is stale for this frame's origin, so map the
-                    // ACTUAL op forward directly (the fan-out branch's approach) rather than intersecting the shifted
-                    // forward with the stale ROI, which would clip or empty the shifted content.
+                    // Shift OR grow: a dynamic CustomRenderNode/NestedGraph predecessor emitted an op that escapes the
+                    // expected input — translated (neither contains the other) or inflated (op ⊇ expectedInput). The
+                    // resolve-time ROI, derived from the pre-change describe-time bounds, is stale for this frame, so
+                    // map the ACTUAL op forward directly (the fan-out branch's approach); intersecting with the stale
+                    // ROI would clip or empty a shifted op and crop a grown one.
                     outBounds = forward.IsInvalid ? op.Bounds : forward;
                 }
             }
@@ -1037,7 +1050,20 @@ internal static class PlanExecutor
                     continue;
                 }
 
-                RenderTarget? inputTarget = MaterializeInput(op, inW, maxWorkingScale, diagnostics, pool);
+                // MaterializeInput bakes op via source.Render (C7): a throw there must still release op's pooled
+                // lease, since the loop already detached op from current and neither disposal sweep would reach it
+                // (the outer catch disposes only the branch outputs). Same guard as the three descriptor-path sites.
+                RenderTarget? inputTarget;
+                try
+                {
+                    inputTarget = MaterializeInput(op, inW, maxWorkingScale, diagnostics, pool);
+                }
+                catch
+                {
+                    op.Dispose();
+                    throw;
+                }
+
                 if (inputTarget == null)
                 {
                     // Delivery throws inside DropOrThrow; preview drops this input's branches and continues.

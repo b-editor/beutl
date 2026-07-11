@@ -22,6 +22,10 @@ internal sealed class PlanFilterEffectRenderNode(FilterEffect.Resource filterEff
     {
         if (FilterEffect == null || !FilterEffect.Value.Resource.IsEnabled)
         {
+            // A disabled/removed effect bypasses execution, but a prefix retained from an earlier enabled frame would
+            // stay pinned outside every pool budget until node dispose. Release it (idempotent); a later re-enable
+            // re-warms from scratch.
+            _prefixCache.Release();
             return context.Input;
         }
 

@@ -7,10 +7,10 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.EffectPipeline;
 
 /// <summary>
 /// Regression (raster, GPU-less) for the input-materialization exception-path op leak (feature 004, C7): when a
-/// geometry or compute pass materializes its input via <c>MaterializeInput</c> and the input operation's own
+/// geometry, compute, or split pass materializes its input via <c>MaterializeInput</c> and the input operation's own
 /// <c>Render</c> throws inside the bake, the input operation must still be disposed so its pooled buffer returns to
-/// the pool. Before the fix <c>MapDescriptorPass</c> nulled the operation out of the working set before the
-/// materialize ran, so a bake throw left it in neither disposal sweep and stranded one pooled lease.
+/// the pool. Before the fix the executor detached the operation from the working set before the materialize ran, so
+/// a bake throw left it in neither disposal sweep and stranded one pooled lease.
 /// </summary>
 [NonParallelizable]
 [TestFixture]
@@ -32,6 +32,14 @@ public class MaterializeInputThrowLeakTests
             passCount: 1,
             fallback: ComputeFallback.CpuCallback,
             cpuCallback: _ => { })));
+    }
+
+    [Test]
+    public void Split_InputMaterializationThrows_ReleasesInputPooledLease()
+    {
+        RunLeakProbe(builder => builder.Split(SplitNodeDescriptor.Static(
+            render: emitter => emitter.Emit(s_bounds, _ => { }),
+            branchCount: 1)));
     }
 
     private static void RunLeakProbe(Action<EffectGraphBuilder> appendPass)

@@ -352,6 +352,38 @@ public class PrefixCacheTests
         });
     }
 
+    // Disabling the effect after the prefix has engaged must release the retained cross-frame lease, not pin it until
+    // node dispose: the disabled branch bypasses execution entirely, so nothing else would ever return that buffer to
+    // the pool while the effect stays off.
+    //
+    // BEFORE the fix this failed: the disabled/null early return skipped straight to context.Input without releasing
+    // the retained prefix, so the lease stayed held (LiveLeaseCount == 1) outside every pool budget.
+    [Test]
+    public void DisabledEffect_ReleasesRetainedPrefixLease()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            ProgramCache.Clear();
+            var (root, gamma, _) = MakeBlurGamma();
+            var resource = (FilterEffect.Resource)root.ToResource(CompositionContext.Default);
+            using var node = new PlanFilterEffectRenderNode(resource);
+            using var pool = new RenderTargetPool();
+            var diagnostics = new PipelineDiagnostics();
+
+            // Warm and engage (frames 0..5): after the resumed frame 5, only the retained prefix buffer is leased.
+            for (int f = 0; f <= 5; f++)
+                Step(node, resource, root, gamma, diagnostics, pool, f, 1f);
+            Assert.That(pool.LiveLeaseCount, Is.EqualTo(1), "the engaged prefix retains exactly one live lease");
+
+            // Disable the effect and process once: the disabled branch must release the retained prefix.
+            root.IsEnabled = false;
+            Step(node, resource, root, gamma, diagnostics, pool, 6, 1f);
+            Assert.That(pool.LiveLeaseCount, Is.EqualTo(0),
+                "disabling the effect must return the retained prefix buffer to the pool");
+        });
+    }
+
     // Once the OUTER RenderNodeCache engages over the effect node's subtree, Process stops running, so the prefix
     // cache's retained cross-frame lease — invisible to the pool's idle-eviction and byte-cap — must be released as
     // the cache engages, not pinned until node dispose. Drive the animate-then-hold sequence: animate the Gamma tail

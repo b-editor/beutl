@@ -150,6 +150,28 @@ public class CustomRenderNodeEffectInGraphTests
         Assert.That(input.IsDisposed, Is.True, "the executor released the op it fed to the throwing child (no leak)");
     }
 
+    // A custom-render-node whose FACTORY (RenderNodeFactory.Create) throws before the child node exists must still
+    // release the ops the pass detached from the working set (C7). The upstream Gamma pass acquires one pooled output
+    // buffer; if the factory throw stranded that op, its lease would leak. Before the fix the Create ran outside the
+    // try that disposes the inputs and after current was cleared, so the outer Execute catch could not reach them.
+    [Test]
+    public void Execute_CustomRenderNodeFactoryThrows_PropagatesAndReleasesInputs()
+    {
+        var group = new FilterEffectGroup();
+        group.Children.Add(new Gamma { Amount = { CurrentValue = 1.5f } });
+        group.Children.Add(new ThrowingFactoryCustomNodeEffect());
+
+        CompiledPlan plan = CompileGroup(group);
+        FrameResources res = EffectGraphCompiler.ResolveResources(plan, s_bounds, workingScale: 1f);
+        using var pool = new RenderTargetPool();
+
+        Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
+            plan, res, [MakeInput(s_bounds)], outputScale: 1f, workingScale: 1f,
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool));
+        Assert.That(pool.LiveLeaseCount, Is.EqualTo(0),
+            "a factory throw must release the upstream pass output fed to the custom node (no pooled-lease leak)");
+    }
+
     // ---- Plan cache / structural key -------------------------------------------------------------------
 
     [Test]
@@ -590,4 +612,25 @@ internal sealed class ThrowingRenderNode(FilterEffect.Resource resource) : Filte
 {
     public override RenderNodeOperation[] Process(RenderNodeContext context)
         => throw new InvalidOperationException("custom child render node failed");
+}
+
+// A custom-render-node effect whose render-node FACTORY throws (Create fails before any node exists), to exercise the
+// executor's C7 input-release-on-factory-throw path.
+[SuppressResourceClassGeneration]
+internal sealed partial class ThrowingFactoryCustomNodeEffect : CustomRenderNodeFilterEffect
+{
+    public override Resource ToResource(CompositionContext context)
+    {
+        var resource = new Resource();
+        bool updateOnly = false;
+        resource.Update(this, context, ref updateOnly);
+        return resource;
+    }
+
+    public new sealed class Resource : FilterEffect.Resource
+    {
+        public override FilterEffectRenderNodeFactory RenderNodeFactory
+            => FilterEffectRenderNodeFactory.Of<FilterEffectRenderNode>(static _ =>
+                throw new InvalidOperationException("custom render-node factory failed"));
+    }
 }
