@@ -424,6 +424,35 @@ half4 apply(half4 c) {
         Assert.That(res.Passes[0].Height, Is.EqualTo(200));
     }
 
+    // A compute pass reads the whole materialized input at full-frame device coordinates (a non-local GLSL kernel:
+    // PixelSort's row/column gather), so it must be render-time resolved — a downstream deflating pass must NOT
+    // ROI-crop it to an offset sub-rect, which would feed truncated width/height push constants (crop-then-sort ≠
+    // sort-then-crop). The compute pass's ROI must stay the full input frame under a deflating successor.
+    [Test]
+    public void ResolveResources_ComputePassBeforeDeflatingPass_KeepsFullFrameRoi()
+    {
+        var bounds = new Rect(0, 0, 160, 120);
+        // A downstream fixed-Clipping analogue: forward deflates the output to an offset sub-rect, backward identity.
+        var deflate = SkiaFilterNodeDescriptor.Create(
+            static inner => inner,
+            BoundsContract.Create(static r => r.Deflate(new Thickness(20, 30, 0, 0)), static r => r),
+            structuralToken: "DeflateClip");
+        CompiledPlan plan = Compile(NewBuilder(bounds)
+            .Compute(ComputeNodeDescriptor.Create(
+                static _ => { }, passCount: 1, ComputeFallback.Identity, structuralToken: "roi-compute"))
+            .SkiaFilter(deflate));
+
+        FrameResources res = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale: 1f);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(res.Passes[0].OutputRoi, Is.EqualTo(bounds),
+                "the compute pass resolves to the full input frame, not the deflated sub-rect");
+            Assert.That((res.Passes[0].Width, res.Passes[0].Height),
+                Is.EqualTo(((int)bounds.Width, (int)bounds.Height)));
+        });
+    }
+
     [Test]
     public void ResolveResources_EmptyRoi_FlagsPassSkip()
     {

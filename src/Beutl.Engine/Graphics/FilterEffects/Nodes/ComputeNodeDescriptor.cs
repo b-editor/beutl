@@ -105,8 +105,15 @@ public sealed record ComputeNodeDescriptor : EffectNodeDescriptor
     /// <summary>Identity of the compute <em>kind</em> for the structural key.</summary>
     public object StructuralToken { get; }
 
-    /// <inheritdoc/>
-    public override BoundsContract Bounds => BoundsContract.Identity;
+    /// <summary>
+    /// A compute pass is render-time resolved (A3): its GLSL stages read the whole materialized input at
+    /// full-frame device coordinates (fragCoord / width / height push constants), and non-local kernels
+    /// (PixelSort's row/column gather, an arbitrary GLSLScriptEffect sampler) are not coordinate-invariant.
+    /// A downstream deflating pass must therefore never ROI-crop it to an offset sub-rect — that would
+    /// materialize a cropped source and feed truncated width/height, so crop-then-sort ≠ sort-then-crop.
+    /// RenderTime keeps the resolver at full input bounds for the pass's ROI.
+    /// </summary>
+    public override BoundsContract Bounds => BoundsContract.RenderTime;
 
     /// <inheritdoc/>
     public override bool IsCoordinateInvariant => false;

@@ -99,6 +99,7 @@ internal static class EffectGraphCompiler
                     OutputBounds = node.OutputBounds,
                     BackwardBounds = compute.Bounds.GetRequiredInputBounds,
                     ForwardBounds = compute.Bounds.TransformBounds,
+                    IsRenderTimeResolved = compute.Bounds.IsRenderTimeResolved,
                     ProvenanceMinChild = node.ChildIndex,
                     ProvenanceMaxChild = node.ChildIndex,
                 });
