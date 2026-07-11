@@ -1,7 +1,9 @@
 ﻿using Beutl.Composition;
+using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.Serialization;
@@ -48,6 +50,18 @@ public class PrefixCacheTests
         group.Children.Add(lut);
         group.Children.Add(blur);
         return (group, blur, lut);
+    }
+
+    // A group [static Blur (SkiaFilterPass, child 0), a color filter that throws at execution (child 1)]: the Blur
+    // forms the capturable prefix while the throwing tail is a distinct later fused pass. The tail's resource bumps
+    // its Version on every update, keeping child 1 perpetually unstable so only the Blur stabilizes into the prefix.
+    private static FilterEffect MakeBlurThrowing(float sigma = 5f)
+    {
+        var blur = new Blur { Sigma = { CurrentValue = new Size(sigma, sigma) } };
+        var group = new FilterEffectGroup();
+        group.Children.Add(blur);
+        group.Children.Add(new ThrowingColorEffect());
+        return group;
     }
 
     // Distinct per frame so the Blur child's resource Version bumps every frame (keeping the tail unstable).
@@ -294,6 +308,107 @@ public class PrefixCacheTests
 
             node.Dispose();
             Assert.That(pool.LiveLeaseCount, Is.EqualTo(0), "node dispose releases the retained prefix lease");
+        });
+    }
+
+    // A capture frame whose LATER pass throws (a real Skia/shader fault, not the preview allocation-drop path) must
+    // still release the ref the capture pass shallow-copied into the sink. Group [static Blur (child 0), a throwing
+    // color filter (child 1, kept perpetually unstable)]: frames 0..2 warm the Blur's stability, frame 3 captures the
+    // Blur prefix and THEN the color pass throws — the path that used to strand one full-frame pooled lease per
+    // re-capture. After the throw the pool must report zero live leases.
+    //
+    // BEFORE the fix this failed: ExecuteAndCapture let the exception escape after the sink had taken a ShallowCopy of
+    // the Blur pass's pooled buffer, StoreCaptured never ran, and that ref was never released (LiveLeaseCount == 1).
+    [Test]
+    public void CaptureFrame_LaterPassThrows_ReleasesCapturedLease()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            ProgramCache.Clear();
+            FilterEffect root = MakeBlurThrowing();
+            var resource = (FilterEffect.Resource)root.ToResource(CompositionContext.Default);
+            using var node = new PlanFilterEffectRenderNode(resource);
+            var diagnostics = new PipelineDiagnostics();
+            using var pool = new RenderTargetPool();
+
+            // Frames 0..2 warm the Blur child's stability (each frame the throwing tail faults, which is expected);
+            // frame 3 captures the Blur prefix and then the tail throws AFTER the capture.
+            for (int f = 0; f <= 3; f++)
+            {
+                pool.Trim(f);
+                bool updateOnly = false;
+                resource.Update(root, CompositionContext.Default, ref updateOnly);
+                node.Update(resource);
+
+                diagnostics.Reset();
+                var context = new RenderNodeContext([MakeInput()]) { Diagnostics = diagnostics, Pool = pool };
+                Assert.Throws<InvalidOperationException>(() => node.Process(context),
+                    $"frame {f}: the throwing tail pass was expected to fault");
+            }
+
+            Assert.That(pool.LiveLeaseCount, Is.EqualTo(0),
+                "a capture frame whose later pass throws must release the captured prefix's pooled lease");
+        });
+    }
+
+    // Once the OUTER RenderNodeCache engages over the effect node's subtree, Process stops running, so the prefix
+    // cache's retained cross-frame lease — invisible to the pool's idle-eviction and byte-cap — must be released as
+    // the cache engages, not pinned until node dispose. Drive the animate-then-hold sequence: animate the Gamma tail
+    // until the prefix engages and retains a lease, then engage the outer cache over an ancestor container and assert
+    // the live-lease count drops back to zero.
+    //
+    // BEFORE the fix this failed: outer-cache engagement never released the retained prefix, so the lease stayed held
+    // (LiveLeaseCount == 1) outside every pool budget until the node was disposed.
+    [Test]
+    public void OuterNodeCacheEngages_ReleasesRetainedPrefixLease()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            ProgramCache.Clear();
+            var (root, gamma, _) = MakeBlurGamma();
+            var resource = (FilterEffect.Resource)root.ToResource(CompositionContext.Default);
+            var effectNode = new PlanFilterEffectRenderNode(resource);
+
+            // The effect node's input subtree (one child node emitting the source op). Kept stable so the prefix
+            // cache's input-subtree gate is satisfied during warmup, and cacheable so the outer cache can later
+            // engage over the whole subtree.
+            var inputNode = new StubInputNode();
+            effectNode.AddChild(inputNode);
+
+            // An ancestor container: a drawable's render subtree caches at its top node, not at the effect node
+            // itself, so engaging here exercises the descendant-release recursion (the real production shape).
+            var container = new ContainerRenderNode();
+            container.AddChild(effectNode);
+
+            var diagnostics = new PipelineDiagnostics();
+            using var pool = new RenderTargetPool();
+
+            // Phase A — animate the tail until the prefix cache engages and retains a pooled lease. The outer node
+            // cache cannot engage here: the animated tail keeps the node changed every frame.
+            long hits = 0;
+            for (int f = 0; f <= 5; f++)
+            {
+                inputNode.Cache.ReportRenderCount(RenderNodeCache.Count);
+                hits += Step(effectNode, resource, root, gamma, diagnostics, pool, f, 1f).PrefixCacheHits;
+            }
+
+            Assert.That(hits, Is.GreaterThan(0), "the prefix cache never engaged during warmup");
+            Assert.That(pool.LiveLeaseCount, Is.EqualTo(1), "the engaged prefix retains exactly one pooled lease");
+
+            // Phase B — everything holds stable; the whole subtree becomes cacheable and the outer node cache engages
+            // over the container. From here Process never runs on the effect node again.
+            container.Cache.ReportRenderCount(RenderNodeCache.Count);
+            effectNode.Cache.ReportRenderCount(RenderNodeCache.Count);
+            inputNode.Cache.ReportRenderCount(RenderNodeCache.Count);
+            RenderNodeCacheHelper.MakeCache(container, RenderCacheOptions.Default, 1f);
+
+            Assert.That(container.Cache.IsCached, Is.True, "the outer node cache did not engage");
+            Assert.That(pool.LiveLeaseCount, Is.EqualTo(0),
+                "outer-cache engagement must release the effect node's retained prefix lease");
+
+            container.Dispose();
         });
     }
 
@@ -590,5 +705,43 @@ public class PrefixCacheTests
         TestContext.WriteLine($"{because}: SSIM={ssim:F4} MAE={mae:F4}");
         Assert.That(ssim, Is.GreaterThanOrEqualTo(GoldenThresholds.ExactSsimMin), $"SSIM ({because})");
         Assert.That(mae, Is.LessThanOrEqualTo(GoldenThresholds.ExactMaeMax), $"MAE ({because})");
+    }
+
+    // A leaf render node that emits the source op, so the effect node has a real, cacheable input subtree the outer
+    // node cache can engage over (the source generator does not run in the test project, so this is hand-rolled).
+    private sealed class StubInputNode : RenderNode
+    {
+        public override RenderNodeOperation[] Process(RenderNodeContext context) => [MakeInput()];
+    }
+}
+
+// A color-filter effect whose filter factory throws at execution time, exercising the capture-frame exception path.
+// Manual resource (the generator does not run in tests): its Update bumps Version on every call so the effect is
+// perpetually "changed" and never joins the reusable stable prefix.
+[SuppressResourceClassGeneration]
+internal sealed partial class ThrowingColorEffect : FilterEffect
+{
+    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
+    {
+        builder.ColorFilter(ColorFilterNodeDescriptor.Create(
+            () => throw new InvalidOperationException("ThrowingColorEffect: simulated pass failure"),
+            structuralToken: "ThrowingColor"));
+    }
+
+    public override Resource ToResource(CompositionContext context)
+    {
+        var resource = new Resource();
+        bool updateOnly = false;
+        resource.Update(this, context, ref updateOnly);
+        return resource;
+    }
+
+    public new sealed class Resource : FilterEffect.Resource
+    {
+        public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
+        {
+            base.Update(obj, context, ref updateOnly);
+            Version++;
+        }
     }
 }

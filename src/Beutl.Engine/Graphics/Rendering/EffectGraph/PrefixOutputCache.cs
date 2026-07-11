@@ -10,7 +10,7 @@ namespace Beutl.Graphics.Rendering;
 /// the retained ref keeps it alive across frames; the next stable frame resumes from the following pass with this
 /// buffer as its input, so the retained prefix's passes never re-execute.
 /// </summary>
-internal sealed class PrefixCaptureSink
+internal sealed class PrefixCaptureSink : IDisposable
 {
     public int CapturePassIndex { get; init; } = -1;
 
@@ -30,6 +30,30 @@ internal sealed class PrefixCaptureSink
         CapturedTarget = target.ShallowCopy();
         CapturedBounds = bounds;
         CapturedScale = scale;
+    }
+
+    /// <summary>
+    /// Transfers the captured buffer's ownership out of the sink (the cache adopts it). After this the sink no
+    /// longer references or disposes the buffer, so a subsequent <see cref="Dispose"/> is a no-op — keeping
+    /// ownership single: <see cref="EffectPrefixCache.StoreCaptured"/> adopts on success, <see cref="Dispose"/>
+    /// releases when a later pass threw before adoption.
+    /// </summary>
+    public RenderTarget? Adopt()
+    {
+        RenderTarget? target = CapturedTarget;
+        CapturedTarget = null;
+        return target;
+    }
+
+    /// <summary>
+    /// Releases the shallow-copy ref taken by <see cref="Capture"/> if it was never adopted — the exception-safe
+    /// path when a pass after the capture pass throws, so the pooled buffer's lease is not stranded (C7).
+    /// Idempotent and a no-op once <see cref="Adopt"/> has transferred ownership.
+    /// </summary>
+    public void Dispose()
+    {
+        CapturedTarget?.Dispose();
+        CapturedTarget = null;
     }
 }
 
@@ -145,12 +169,20 @@ internal sealed class EffectPrefixCache : IDisposable
             return;
 
         ReleaseEntry();
-        _retainedTarget = sink.CapturedTarget;
         _bounds = sink.CapturedBounds;
         _scale = sink.CapturedScale;
+        _retainedTarget = sink.Adopt();
         _resumeFromPass = capturePass + 1;
         _entryMaxChild = plan.Passes[capturePass].ProvenanceMaxChild;
     }
+
+    /// <summary>
+    /// Releases the retained cross-frame lease when the node's outer <see cref="Cache.RenderNodeCache"/> takes over
+    /// the serving path (C10): once the outer cache replays tiles, this node's <c>Process</c> no longer runs, so a
+    /// still-held prefix lease would be stranded outside every pool budget. Re-warms from scratch on the next miss
+    /// if the outer cache later invalidates.
+    /// </summary>
+    public void Release() => ReleaseEntry();
 
     public void Dispose() => ReleaseEntry();
 

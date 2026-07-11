@@ -111,12 +111,27 @@ internal sealed class PlanFilterEffectRenderNode(FilterEffect.Resource filterEff
         RenderNodeContext context, CompiledPlan plan, FrameResources resources, float workingScale, int capturePass)
     {
         var sink = new PrefixCaptureSink { CapturePassIndex = capturePass };
-        RenderNodeOperation[] result = PlanExecutor.Execute(
-            plan, resources, context.Input, context.OutputScale, workingScale, context.MaxWorkingScale,
-            context.Diagnostics, context.Pool, startPass: 0, captureSink: sink);
+        RenderNodeOperation[] result;
+        try
+        {
+            result = PlanExecutor.Execute(
+                plan, resources, context.Input, context.OutputScale, workingScale, context.MaxWorkingScale,
+                context.Diagnostics, context.Pool, startPass: 0, captureSink: sink);
+        }
+        catch
+        {
+            // A pass after the capture pass threw once the capture pass had already shallow-copied its pooled
+            // buffer into the sink; StoreCaptured never runs, so release that ref here (C7 — a thrown pass frees
+            // every resource it acquired). On success the sink's ref is adopted by StoreCaptured instead.
+            sink.Dispose();
+            throw;
+        }
+
         _prefixCache.StoreCaptured(sink, capturePass, plan);
         return result;
     }
+
+    protected internal override void OnServedFromCache() => _prefixCache.Release();
 
     protected override void OnDispose(bool disposing)
     {

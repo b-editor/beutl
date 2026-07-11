@@ -88,6 +88,16 @@ public static class RenderNodeCacheHelper
         }
     }
 
+    private static void NotifyServedFromCache(RenderNode node)
+    {
+        node.OnServedFromCache();
+        if (node is ContainerRenderNode container)
+        {
+            foreach (RenderNode child in container.Children)
+                NotifyServedFromCache(child);
+        }
+    }
+
     public static void CreateDefaultCache(RenderNode node, RenderCacheOptions cacheOptions,
         float outputScale = 1f, float maxWorkingScale = float.PositiveInfinity)
     {
@@ -125,6 +135,11 @@ public static class RenderNodeCacheHelper
 
         var arr = list.Select(i => (i.RenderTarget, i.Bounds)).ToArray();
         node.Cache.StoreCache(arr, outputScale);
+
+        // From here this subtree replays from node's tiles, so no descendant's Process runs again. Notify the whole
+        // subtree so any node holding a cross-frame resource outside its own node cache (an effect node's retained
+        // prefix lease) releases it now rather than stranding it until dispose (C10).
+        NotifyServedFromCache(node);
 
         _logger.LogInformation("Created cache for node {Node}.", node);
 

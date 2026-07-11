@@ -84,7 +84,7 @@ internal static class PlanExecutor
             // A capture frame deliberately retains the prefix pass's buffer past its plan-declared last use (the C10
             // cross-frame lease): exactly one buffer, so the frame's intra-frame peak is the plan's declared bound + 1.
             // Assert against that inflated bound rather than skipping, so a capture that over-retains is still caught.
-            AssertPeakLiveWithinPlan(plan, inputs.Length, pool, leaseBaseline, captureSink != null ? 1 : 0);
+            AssertPeakLiveWithinPlan(plan, inputs.Length, pool, leaseBaseline, captureSink?.Captured == true ? 1 : 0);
 
             return current.ToArray();
         }
