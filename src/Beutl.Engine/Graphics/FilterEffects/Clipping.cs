@@ -110,6 +110,18 @@ public sealed partial class Clipping : FilterEffect
             effective += new Thickness(detected.Left / wIn, detected.Top / wIn, detected.Right / wIn, detected.Bottom / wIn);
         }
 
+        // With content present but the total margins meeting or crossing (Left + Right >= width, or Top + Bottom >=
+        // height) the kept region is empty. The fixed-clip path's empty forward bounds already drop it before render,
+        // but AutoClip resolves at render time (its detected margins are only known here), so guard it in the callback:
+        // Deflate clamps a collapsed axis to 0, so test the deflated region and discard the output rather than emit a
+        // full-size, still-hit-testable transparent op.
+        Rect clipRegion = input.Bounds.WithX(0).WithY(0).Deflate(effective);
+        if (clipRegion.Width <= 0 || clipRegion.Height <= 0)
+        {
+            session.DiscardOutput();
+            return;
+        }
+
         // The buffer occupies TargetBounds (already sized by the forward map); the callback only needs the crop
         // offset, which derives from NewBounds (session.Bounds for the render-time AutoClip path).
         (_, Rect newBounds, float pointX, float pointY) = ComputeClip(input.Bounds, effective, autoCenter);

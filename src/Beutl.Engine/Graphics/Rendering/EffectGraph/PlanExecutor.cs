@@ -135,13 +135,15 @@ internal static class PlanExecutor
             for (int i = 0; i < current.Count; i++)
             {
                 RenderNodeOperation op = current[i];
-                current[i] = null!;
                 var builder = new EffectGraphBuilder(op.Bounds, outputScale, workingScale, maxWorkingScale);
                 pass.DescribeBranch(builder, i);
                 using EffectGraph graph = builder.Build();
                 CompiledPlan branchPlan = EffectGraphCompiler.Compile(graph, diagnostics);
                 FrameResources branchResources = EffectGraphCompiler.ResolveResources(
                     branchPlan, builder.Bounds, workingScale);
+                // Hand ownership of op to the recursion only once it is about to consume it: a DescribeBranch/
+                // Build/Compile/ResolveResources throw above still leaves op in current for the catch to dispose.
+                current[i] = null!;
                 outputs.AddRange(Execute(
                     branchPlan, branchResources, [op], outputScale, workingScale, maxWorkingScale,
                     diagnostics, pool));
@@ -391,7 +393,9 @@ internal static class PlanExecutor
         foreach (Func<SKImageFilter?, SKImageFilter?> factory in pass.Filters)
         {
             SKImageFilter? outer = factory(filter);
-            if (outer != null)
+            // An identity factory can hand back its own argument; disposing the predecessor then would free the
+            // filter still in use. Only advance when the factory produced a genuinely new instance.
+            if (outer != null && !ReferenceEquals(outer, filter))
             {
                 filter?.Dispose();
                 filter = outer;
@@ -968,6 +972,11 @@ internal static class PlanExecutor
             colorScratch.Add(target);
             return target.Texture
                 ?? throw new ComputeScratchAllocationException("Pooled compute scratch has no Vulkan texture.");
+        }
+
+        public void CopySourceToDestination()
+        {
+            gfx.CopyTexture(source, destination);
         }
 
         public ITexture2D AcquireDepthScratch()

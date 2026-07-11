@@ -68,6 +68,60 @@ public class AutoClipEmptyOutputTests
         }
     }
 
+    // AutoClip resolves its clip region at render time (the detected content margins are only known in the geometry
+    // callback), so the empty-forward-bounds drop the fixed path relies on cannot fire. When content IS present but a
+    // fixed base margin combined with the detected margins collapses the kept region, the callback must discard the
+    // output — before the fix it emitted a full-size, all-transparent, still hit-testable op instead.
+    [Test]
+    public void AutoClip_ContentPresentButBaseMarginCollapsesRegion_ProducesNoOperation()
+    {
+        var clip = new Clipping();
+        clip.AutoClip.CurrentValue = true;
+        clip.Left.CurrentValue = (float)s_input.Width + 100f;
+
+        FilterEffect.Resource resource = clip.ToResource(CompositionContext.Default);
+        using var node = new PlanFilterEffectRenderNode(resource);
+        var context = new RenderNodeContext([MakeContentRect(s_input, s_input)]);
+
+        RenderNodeOperation[] ops = node.Process(context);
+        try
+        {
+            Assert.That(ops, Has.Length.EqualTo(0),
+                "an AutoClip whose base margin collapses the kept region must drop the output at render time, "
+                + "not emit a full-size transparent hit-testable op");
+        }
+        finally
+        {
+            RenderNodeOperation.DisposeAll(ops);
+        }
+    }
+
+    // A fixed (non-AutoClip) clip whose margins meet or cross keeps nothing. Its empty forward bounds already drop it
+    // before render (Size.Deflate clamps the collapsed axis to 0, which the resolver skips as an empty ROI); this pins
+    // that a fully-cropping fixed clip yields no downstream op.
+    [Test]
+    public void FixedClip_MarginsExceedInputWidth_ProducesNoOperation()
+    {
+        var clip = new Clipping();
+        clip.Left.CurrentValue = (float)s_input.Width + 10f;
+
+        FilterEffect.Resource resource = clip.ToResource(CompositionContext.Default);
+        using var node = new PlanFilterEffectRenderNode(resource);
+        var context = new RenderNodeContext([MakeContentRect(s_input, s_input)]);
+
+        RenderNodeOperation[] ops = node.Process(context);
+        try
+        {
+            Assert.That(ops, Has.Length.EqualTo(0),
+                "a fixed clip that crops the whole input must produce no downstream operation, "
+                + "not a full-size transparent hit-testable op");
+        }
+        finally
+        {
+            RenderNodeOperation.DisposeAll(ops);
+        }
+    }
+
     private static RenderNodeOperation MakeTransparentRect(Rect bounds)
         => RenderNodeOperation.CreateLambda(
             bounds,

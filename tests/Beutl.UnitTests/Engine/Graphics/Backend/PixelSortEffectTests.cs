@@ -60,6 +60,72 @@ public class PixelSortEffectTests
         });
     }
 
+    // When the GLSL shaders fail to compile on an otherwise-live Vulkan context, the compute pass must copy the
+    // source through (identity) instead of returning early and leaving the cleared, transparent destination — that
+    // blanked the layer. The shader-init failure is forced through a test seam; the output must keep visible content.
+    [Test]
+    public void Dispatch_ShaderInitFailure_CopiesSourceThroughInsteadOfBlanking()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var bounds = new Rect(0, 0, 16, 16);
+            var effect = new PixelSortEffect();
+            effect.Direction.CurrentValue = PixelSortDirection.Horizontal;
+            effect.SortKey.CurrentValue = PixelSortKey.Luminance;
+            effect.ThresholdMin.CurrentValue = 0f;
+            effect.ThresholdMax.CurrentValue = 100f;
+
+            PixelSortEffect.ForceShaderInitFailureForTests();
+            RenderNodeOperation[] outputs = null!;
+            try
+            {
+                outputs = Execute(effect, bounds);
+                Assert.That(outputs, Has.Length.EqualTo(1));
+                using Bitmap bmp = Rasterize(outputs[0]);
+                Assert.That(HasVisibleContent(bmp), Is.True,
+                    "a shader-init failure must copy the source through, not blank the layer to transparent");
+            }
+            finally
+            {
+                RenderNodeOperation.DisposeAll(outputs);
+                PixelSortEffect.ResetShaderInitForTests();
+            }
+        });
+    }
+
+    private static bool HasVisibleContent(Bitmap bmp)
+    {
+        for (int y = 0; y < bmp.Height; y++)
+        {
+            for (int x = 0; x < bmp.Width; x++)
+            {
+                if (bmp.SKBitmap.GetPixel(x, y).Alpha != 0)
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static Bitmap Rasterize(RenderNodeOperation op)
+    {
+        var size = PixelRect.FromRect(op.Bounds);
+        using RenderTarget target = RenderTarget.Create(Math.Max(1, size.Width), Math.Max(1, size.Height))
+            ?? throw new InvalidOperationException("RenderTarget.Create returned null (raster surface unavailable).");
+        using (var canvas = new ImmediateCanvas(target, 1f, logicalSize: op.Bounds.Size))
+        {
+            canvas.Clear();
+            using (canvas.PushTransform(Matrix.CreateTranslation(-op.Bounds.X, -op.Bounds.Y)))
+            {
+                op.Render(canvas);
+            }
+        }
+
+        return target.Snapshot();
+    }
+
     private static RenderNodeOperation[] Execute(PixelSortEffect effect, Rect bounds)
     {
         var resource = (FilterEffect.Resource)(object)effect.ToResource(new CompositionContext(TimeSpan.Zero));

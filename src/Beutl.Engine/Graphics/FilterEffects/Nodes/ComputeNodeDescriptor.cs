@@ -48,6 +48,13 @@ public interface IComputeContext
     /// <summary>Acquires a depth scratch texture the fixed-function pipeline needs; released by the executor at pass end.</summary>
     ITexture2D AcquireDepthScratch();
 
+    /// <summary>
+    /// Blits <see cref="Source"/> into <see cref="Destination"/> unchanged (a GPU image copy, no shader). The
+    /// identity a compute pass falls back to when it cannot produce output — e.g. its shaders failed to compile —
+    /// so the layer keeps the source instead of the cleared (transparent) destination.
+    /// </summary>
+    void CopySourceToDestination();
+
     /// <summary>Runs one single-texture GLSL pass; counts one <see cref="Rendering.PipelineDiagnostics.GpuPasses"/> (C8).</summary>
     void Run<T>(GLSLShader shader, ITexture2D source, ITexture2D destination, ITexture2D depth, T pushConstants)
         where T : unmanaged;

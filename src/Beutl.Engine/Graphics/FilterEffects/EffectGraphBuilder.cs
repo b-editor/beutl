@@ -241,8 +241,10 @@ public sealed class EffectGraphBuilder
 
         var inflate = new Thickness(sigma.Width * 3, sigma.Height * 3);
         return SkiaFilter(SkiaFilterNodeDescriptor.Create(
+            // A no-op factory must return null, not inner: the executor disposes a returned filter's predecessor,
+            // so returning inner would free the very filter the pass then draws with.
             inner => sigma.Width == 0 && sigma.Height == 0
-                ? inner
+                ? null
                 : SKImageFilter.CreateBlur(sigma.Width, sigma.Height, inner),
             InflateContract(inflate),
             structuralToken: "Blur"));
@@ -339,12 +341,20 @@ public sealed class EffectGraphBuilder
             Math.Max(0, kernelOffset.Y),
             Math.Max(0, w - kernelOffset.X),
             Math.Max(0, h - kernelOffset.Y));
+        // Forward mirrors backward: an input pixel reaches output at p − (i, j) + offset over i ∈ [0, kw), so the
+        // output inflates by (w − offsetX) on the leading edges and offset on the trailing edges — the leading/
+        // trailing swap of the backward map. Sides clamp at 0 so an offset outside the kernel never deflates.
+        var forwardInflate = new Thickness(
+            Math.Max(0, w - kernelOffset.X),
+            Math.Max(0, h - kernelOffset.Y),
+            Math.Max(0, kernelOffset.X),
+            Math.Max(0, kernelOffset.Y));
         return SkiaFilter(SkiaFilterNodeDescriptor.Create(
             inner => SKImageFilter.CreateMatrixConvolution(
                 kernelSize.ToSKSizeI(), kernel, gain, bias, kernelOffset.ToSKPointI(),
                 spreadMethod.ToSKShaderTileMode(), convolveAlpha, inner),
             BoundsContract.Create(
-                r => r.Inflate(new Thickness(kernelOffset.X - w, kernelOffset.Y - h, kernelOffset.X, kernelOffset.Y)),
+                r => r.Inflate(forwardInflate),
                 r => r.Inflate(backwardInflate)),
             structuralToken: "MatrixConvolution"));
     }

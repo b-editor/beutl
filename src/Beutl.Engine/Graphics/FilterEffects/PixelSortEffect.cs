@@ -213,6 +213,34 @@ public sealed partial class PixelSortEffect : FilterEffect
     private static GLSLShader? s_rankShader;
     private static GLSLShader? s_gatherShader;
     private static bool s_shadersInitialized;
+    private static bool s_forceShaderInitFailureForTests;
+
+    // Test seam: forces the next shader init to behave as if GLSL compilation failed (shaders stay null) so the
+    // identity-copy fallback can be exercised on a live Vulkan context without a real compile fault. Resets the
+    // init cache so a prior successful init does not shortcut it; the caller restores the flag afterward.
+    internal static void ForceShaderInitFailureForTests()
+    {
+        DisposeShaders();
+        s_shadersInitialized = false;
+        s_forceShaderInitFailureForTests = true;
+    }
+
+    internal static void ResetShaderInitForTests()
+    {
+        DisposeShaders();
+        s_shadersInitialized = false;
+        s_forceShaderInitFailureForTests = false;
+    }
+
+    private static void DisposeShaders()
+    {
+        s_prepareShader?.Dispose();
+        s_rankShader?.Dispose();
+        s_gatherShader?.Dispose();
+        s_prepareShader = null;
+        s_rankShader = null;
+        s_gatherShader = null;
+    }
 
     public PixelSortEffect()
     {
@@ -244,6 +272,15 @@ public sealed partial class PixelSortEffect : FilterEffect
         if (context == null || !context.Supports3DRendering)
         {
             s_logger.LogWarning("Vulkan 3D rendering is not available; PixelSort effect will be inactive.");
+            return;
+        }
+
+        if (s_forceShaderInitFailureForTests)
+        {
+            s_prepareShader = null;
+            s_rankShader = null;
+            s_gatherShader = null;
+            s_shadersInitialized = true;
             return;
         }
 
@@ -288,7 +325,12 @@ public sealed partial class PixelSortEffect : FilterEffect
     {
         EnsureShadersInitialized();
         if (s_prepareShader == null || s_rankShader == null || s_gatherShader == null)
+        {
+            // Shaders unavailable on a Vulkan context (a GLSL compile fault): the destination was cleared, so
+            // returning now would blank the layer. Copy the source through instead — the effect degrades to identity.
+            ctx.CopySourceToDestination();
             return;
+        }
 
         int width = ctx.Width;
         int height = ctx.Height;

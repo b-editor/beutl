@@ -27,6 +27,12 @@ public partial class DelayAnimationEffect : FilterEffect
         var r = (Resource)resource;
         if (r.Effect is not { } child) return;
 
+        // Release per-branch resources left over from an earlier describe that fanned out into more branches than the
+        // most recent one produced: the cache only grows in the branch callback, so a shrinking branch count (a split
+        // that emitted fewer parts) would otherwise retain the stale resources until the effect is disposed. The trim
+        // target is the branch count observed during the previous describe's callbacks.
+        r.TrimDelayedResourcesToObservedBranchCount();
+
         // A nested graph per branch (research D8): branch i re-describes the child effect at the clock delayed by
         // delay × i, so a split fan-out gets the staggered animation the legacy per-target pull produced. Branch 0's
         // delayed clock is the current clock, so the single-input path equals describing the child directly.
@@ -41,6 +47,7 @@ public partial class DelayAnimationEffect : FilterEffect
         builder.NestedGraph(NestedGraphNodeDescriptor.Create(
             (branchBuilder, i) =>
             {
+                r.ObserveBranch(i);
                 TimeSpan delayedTime = globalTime - TimeSpan.FromMilliseconds(delay * i);
                 var delayedContext = new CompositionContext(delayedTime)
                 {
@@ -80,6 +87,7 @@ public partial class DelayAnimationEffect : FilterEffect
         private bool _preferProxy;
         private ProxyPreset _preferredProxyPreset = ProxyPreset.Quarter;
         private readonly List<FilterEffect.Resource> _delayedResources = [];
+        private int _branchHighWater;
 
         public float Delay => _delay;
 
@@ -94,6 +102,27 @@ public partial class DelayAnimationEffect : FilterEffect
         public ProxyPreset PreferredProxyPreset => _preferredProxyPreset;
 
         public List<FilterEffect.Resource> DelayedResources => _delayedResources;
+
+        // Records that branch `index` was described this pass; the trim at the next describe keeps the cache no larger
+        // than the highest branch count seen.
+        internal void ObserveBranch(int index)
+        {
+            if (index + 1 > _branchHighWater)
+                _branchHighWater = index + 1;
+        }
+
+        // Disposes and removes cache entries above the previous pass's observed branch count, then resets the mark so
+        // the current pass's callbacks re-accumulate it.
+        internal void TrimDelayedResourcesToObservedBranchCount()
+        {
+            while (_delayedResources.Count > _branchHighWater)
+            {
+                _delayedResources[^1].Dispose();
+                _delayedResources.RemoveAt(_delayedResources.Count - 1);
+            }
+
+            _branchHighWater = 0;
+        }
 
         public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
         {

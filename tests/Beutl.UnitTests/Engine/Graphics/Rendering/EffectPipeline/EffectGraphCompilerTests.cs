@@ -355,6 +355,24 @@ half4 apply(half4 c) {
         Assert.That(res.Passes[0].Height, Is.EqualTo(100));
     }
 
+    // MatrixConvolution forward bounds: Skia samples input at p + (i, j) − offset over i ∈ [0, kw), so an input
+    // region produces an output inflated by (kw−1 − offsetX) on the leading edges and offsetX on the trailing edges
+    // (the mirror of its backward map). A sign slip that negated the leading edges deflated the output bounds — the
+    // convolved fringe was cropped. Kernel 3×3 (w = h = 2), offset (1, 0): forward inflate = (left 1, top 2, right 1,
+    // bottom 0), so a 100×100 input maps to Rect(−1, −2, 102, 102).
+    [Test]
+    public void MatrixConvolution_ForwardBounds_InflatesLeadingEdgesByKernelExtentMinusOffset()
+    {
+        var bounds = new Rect(0, 0, 100, 100);
+        CompiledPlan plan = Compile(NewBuilder(bounds).MatrixConvolution(
+            new PixelSize(3, 3), new float[9], gain: 1f, bias: 0f, new PixelPoint(1, 0),
+            GradientSpreadMethod.Pad, convolveAlpha: true));
+
+        Assert.That(plan.Passes, Has.Length.EqualTo(1));
+        Assert.That(plan.Passes[0].OutputBounds, Is.EqualTo(new Rect(-1, -2, 102, 102)),
+            "forward bounds inflate the leading edges by kernelExtent − offset and the trailing edges by offset");
+    }
+
     [Test]
     public void ResolveResources_TransformBackward_MapsRoiThroughInverseMatrix()
     {
