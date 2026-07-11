@@ -165,19 +165,33 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
 
     private void OnProxyConfigPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e is not CorePropertyChangedEventArgs<int> args
-            || args.Property != ProxyStoreConfig.DefaultPresetProperty)
+        if (e is CorePropertyChangedEventArgs<int> presetArgs
+            && presetArgs.Property == ProxyStoreConfig.DefaultPresetProperty)
         {
+            if (!Dispatcher.UIThread.CheckAccess())
+                Dispatcher.UIThread.Post(() => ApplyDefaultPresetChange(presetArgs.OldValue, presetArgs.NewValue));
+            else
+                ApplyDefaultPresetChange(presetArgs.OldValue, presetArgs.NewValue);
+
             return;
         }
 
-        if (!Dispatcher.UIThread.CheckAccess())
+        // A cap-only change shifts the store summary (StoreCapText / usage), which no other signal on
+        // this tab reflects until an unrelated store / job / scene refresh; refresh it here.
+        if (e is CorePropertyChangedEventArgs<long> capArgs
+            && capArgs.Property == ProxyStoreConfig.MaxTotalBytesProperty)
         {
-            Dispatcher.UIThread.Post(() => ApplyDefaultPresetChange(args.OldValue, args.NewValue));
-            return;
+            if (!Dispatcher.UIThread.CheckAccess())
+                Dispatcher.UIThread.Post(UpdateStoreSummaryIfLive);
+            else
+                UpdateStoreSummaryIfLive();
         }
+    }
 
-        ApplyDefaultPresetChange(args.OldValue, args.NewValue);
+    private void UpdateStoreSummaryIfLive()
+    {
+        if (!_isDisposed)
+            UpdateStoreSummary();
     }
 
     // Rows that merely showed the previous default follow a Settings change, so Generate honors the

@@ -177,12 +177,6 @@ public sealed class ProxyEvictionService : IProxyStoreCapInfo
         if (capTarget <= 0 && diskTarget <= 0)
             return default;
 
-        // Re-snapshot active generations just before deleting: a regenerate for a candidate's key may
-        // have been queued after collection, and deleting then would drop a proxy whose replacement is
-        // still in flight (losing the usable fallback if that generation later fails).
-        IReadOnlySet<(ProxyFingerprint Source, ProxyPreset Preset)> currentActiveGenerations =
-            _activeGenerationProvider?.Invoke() ?? s_noActiveGenerations;
-
         int removed = 0;
         long reclaimedCap = 0;
         long reclaimedDisk = 0;
@@ -200,6 +194,14 @@ public sealed class ProxyEvictionService : IProxyStoreCapInfo
                 && _resolver.IsPinned(pinnedPath))
                 continue;
 
+            // Re-read active generations immediately before each delete, mirroring the pin re-check
+            // above: a regenerate for this key may have been queued while the sweep deleted earlier
+            // candidates, so a snapshot taken once before the loop would miss it and this delete would
+            // drop a proxy whose replacement is still in flight (losing the usable fallback if that
+            // generation later fails).
+            IReadOnlySet<(ProxyFingerprint Source, ProxyPreset Preset)> activeGenerationsNow =
+                _activeGenerationProvider?.Invoke() ?? s_noActiveGenerations;
+
             // Delete keys on (Source, Preset), so a regenerate that ran since collection would make this
             // remove the current (possibly freshly Ready) entry rather than the ranked one. Skip unless the
             // current entry is still the ranked proxy and no generation for the key is active. Compare only
@@ -210,7 +212,7 @@ public sealed class ProxyEvictionService : IProxyStoreCapInfo
             if (current is null
                 || current.ProxyFileRelative != candidate.Entry.ProxyFileRelative
                 || current.GeneratedAtUtc != candidate.Entry.GeneratedAtUtc
-                || currentActiveGenerations.Contains((candidate.Entry.Source, candidate.Entry.Preset)))
+                || activeGenerationsNow.Contains((candidate.Entry.Source, candidate.Entry.Preset)))
                 continue;
 
             if (_store.Delete(candidate.Entry.Source, candidate.Entry.Preset))

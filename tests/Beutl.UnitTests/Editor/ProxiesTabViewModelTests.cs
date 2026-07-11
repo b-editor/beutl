@@ -82,6 +82,32 @@ public sealed class ProxiesTabViewModelTests
         Assert.That(viewModel.StoreCapText.Value, Is.EqualTo("12 GB"));
     }
 
+    // Changing only the store cap in Settings while the tab is open must refresh StoreCapText; no other
+    // signal on the open tab reflects a cap-only change until an unrelated store / job / scene refresh.
+    [Test]
+    public void ProxyConfigCapChange_RefreshesStoreCapText()
+    {
+        string root = CreateRoot();
+        string sourcePath = CreateSourceFile(root, "clip.mov", 2048);
+        var store = new ProxyStore(Path.Combine(root, "proxies"));
+        ProxyStoreConfig config = GlobalConfiguration.Instance.ProxyStoreConfig;
+        long originalCap = config.MaxTotalBytes;
+        try
+        {
+            config.MaxTotalBytes = 10L * 1024 * 1024 * 1024;
+            using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
+            Assert.That(viewModel.StoreCapText.Value, Is.EqualTo("10 GB"), "sanity: the tab shows the cap it was built with");
+
+            config.MaxTotalBytes = 20L * 1024 * 1024 * 1024;
+
+            Assert.That(viewModel.StoreCapText.Value, Is.EqualTo("20 GB"));
+        }
+        finally
+        {
+            config.MaxTotalBytes = originalCap;
+        }
+    }
+
     [Test]
     public void Refresh_SeparatesStaleAndMissingClips()
     {

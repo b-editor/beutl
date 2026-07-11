@@ -245,6 +245,38 @@ public class ProxyEvictionTests
         });
     }
 
+    // A regenerate can be queued while the sweep is mid-flight — after earlier candidates are deleted
+    // but before this one is reached. A snapshot of active generations taken once before the loop would
+    // miss it and delete the proxy whose replacement is still in flight. Modeled by a provider that
+    // reports the second candidate active only once the first has been deleted; the per-candidate
+    // re-read must then spare it.
+    [Test]
+    public void Sweep_ReChecksActiveGenerationQueuedDuringSweep()
+    {
+        string root = CreateRoot();
+        var store = new ProxyStore(root);
+        ProxyEntry first = Register(store, root, "first.mp4", DateTime.UtcNow.AddMinutes(-10), 7);
+        ProxyEntry second = Register(store, root, "second.mp4", DateTime.UtcNow, 7);
+        var service = new ProxyEvictionService(
+            store,
+            resolver: null,
+            maxTotalBytes: 0,
+            activeGenerationProvider: () =>
+                store.TryGet(first.Source, first.Preset) is null
+                    ? new HashSet<(ProxyFingerprint, ProxyPreset)> { (second.Source, second.Preset) }
+                    : new HashSet<(ProxyFingerprint, ProxyPreset)>());
+
+        ProxyEvictionResult result = service.Sweep();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.RemovedCount, Is.EqualTo(1), "only the first (idle) candidate is evicted");
+            Assert.That(store.TryGet(first.Source, first.Preset), Is.Null);
+            Assert.That(store.TryGet(second.Source, second.Preset), Is.Not.Null,
+                "the candidate whose regenerate was queued mid-sweep must be spared");
+        });
+    }
+
     [Test]
     public void Sweep_EvictsOpenProjectEntries_AsLastResort()
     {
