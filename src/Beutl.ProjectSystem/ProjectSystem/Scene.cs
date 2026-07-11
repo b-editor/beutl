@@ -437,9 +437,10 @@ public class Scene : ProjectItem, INotifyEdited
     }
 
     /// <summary>
-    /// Returns the first gap (across all ZIndexes) that starts strictly after
+    /// Returns the first gap (across all ZIndexes) that starts at or after
     /// <paramref name="currentTime"/>, or <see langword="null"/> when no such
-    /// gap exists.
+    /// gap exists. A playhead sitting inside a gap starts past that gap, so it is
+    /// skipped, but one resting exactly on a gap's start still finds it.
     /// </summary>
     /// <param name="searchRange">
     /// When set, each gap is clamped to its intersection with this range and gaps that do not
@@ -451,15 +452,16 @@ public class Scene : ProjectItem, INotifyEdited
     {
         return EnumerateGaps()
             .Select(g => ClampToRange(g.Range, searchRange))
-            .Where(r => r is { } v && v.Start > currentTime)
+            .Where(r => r is { } v && v.Start >= currentTime)
             .OrderBy(r => r!.Value.Start)
             .FirstOrDefault();
     }
 
     /// <summary>
-    /// Returns the last gap (across all ZIndexes) that ends strictly before
+    /// Returns the last gap (across all ZIndexes) that ends at or before
     /// <paramref name="currentTime"/>, or <see langword="null"/> when no such
-    /// gap exists.
+    /// gap exists. A playhead sitting inside a gap ends before that gap, so it is
+    /// skipped, but one resting exactly on a gap's end still finds it.
     /// </summary>
     /// <param name="searchRange">
     /// When set, each gap is clamped to its intersection with this range and gaps that do not
@@ -470,14 +472,14 @@ public class Scene : ProjectItem, INotifyEdited
     {
         return EnumerateGaps()
             .Select(g => ClampToRange(g.Range, searchRange))
-            .Where(r => r is { } v && v.End < currentTime)
+            .Where(r => r is { } v && v.End <= currentTime)
             .OrderByDescending(r => r!.Value.End)
             .FirstOrDefault();
     }
 
-    // The part of gap visible inside range, or null when they do not overlap. Boundaries are inclusive
-    // at the endpoints (a gap touching an edge keeps that touch), so a straddling gap contributes only
-    // its in-range slice rather than being dropped for not being wholly contained.
+    // The part of gap visible inside range, or null when they do not overlap with positive width —
+    // half-open, matching TimeRange, so a point-only touch at an edge yields no gap. A straddling gap
+    // contributes its in-range slice instead of being dropped for not being wholly contained.
     private static TimeRange? ClampToRange(TimeRange gap, TimeRange? range)
     {
         if (range is not { } r) return gap;

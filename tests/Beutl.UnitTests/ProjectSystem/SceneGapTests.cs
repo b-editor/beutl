@@ -955,8 +955,8 @@ public class SceneGapTests
         {
             Scene scene = CreateScene(basePath);
             // The only elements end at 10s and start at 100s, so the gap 10s-100s covers the whole
-            // active range 50s-80s. Navigation from either side must reach it through the clamped
-            // visible portion 50s-80s rather than reporting no gap.
+            // active range 50s-80s. A playhead resting exactly on either boundary must still reach the
+            // clamped visible portion 50s-80s: next from the 50s start, previous from the 80s end.
             scene.Children.Add(CreateElement(basePath, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5)));
             scene.Children.Add(CreateElement(basePath, TimeSpan.FromSeconds(100), TimeSpan.FromSeconds(5)));
             var range = new TimeRange(TimeSpan.FromSeconds(50), TimeSpan.FromSeconds(30));
@@ -964,8 +964,8 @@ public class SceneGapTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(scene.FindNextGap(TimeSpan.FromSeconds(40), range), Is.EqualTo(clamped));
-                Assert.That(scene.FindPreviousGap(TimeSpan.FromSeconds(90), range), Is.EqualTo(clamped));
+                Assert.That(scene.FindNextGap(TimeSpan.FromSeconds(50), range), Is.EqualTo(clamped));
+                Assert.That(scene.FindPreviousGap(TimeSpan.FromSeconds(80), range), Is.EqualTo(clamped));
             });
         }
         finally
