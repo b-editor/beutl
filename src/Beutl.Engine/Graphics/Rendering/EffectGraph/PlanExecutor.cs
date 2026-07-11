@@ -575,6 +575,7 @@ internal static class PlanExecutor
         }
 
         bool discarded;
+        Rect? shrunk;
         try
         {
             var input = new EffectInput(inputTarget, op.Bounds, EffectiveScale.At(inW));
@@ -583,6 +584,7 @@ internal static class PlanExecutor
             var session = new GeometrySession(canvas, [input], outBounds, outputScale, w, maxWorkingScale, diagnostics);
             pass.Render(session);
             discarded = session.IsOutputDiscarded;
+            shrunk = session.ShrunkOutputBounds;
         }
         catch
         {
@@ -593,6 +595,7 @@ internal static class PlanExecutor
         }
 
         inputTarget.Dispose();
+        // DiscardOutput supersedes a requested shrink (§C3): a dropped pass produces nothing regardless of order.
         if (discarded)
         {
             outputTarget.Dispose();
@@ -600,11 +603,70 @@ internal static class PlanExecutor
             return null;
         }
 
+        if (shrunk is { } tight)
+            return EmitShrunkGeometry(tight, w, outBounds, outputTarget, op, maxWorkingScale, diagnostics, pool);
+
         op.Dispose();
         if (diagnostics != null)
             diagnostics.GpuPasses++;
         return RenderNodeOperation.CreateFromRenderTarget(
             outBounds, outBounds.Position, outputTarget, EffectiveScale.At(w));
+    }
+
+    // A render-time geometry pass (AutoClip) tightens its emitted output to a sub-rect of the allocated buffer via
+    // GeometrySession.SetOutputBounds; copy that sub-rect into a tighter pooled target so the downstream operation's
+    // bounds and hit-test region match the content, restoring the legacy Clipping.Apply target-tightening. The extra
+    // pooled acquire is counted (C8 TargetAllocations/PoolAcquires); the geometry pass still counts one GpuPass. The
+    // input op is disposed only after the tight acquire so a failed acquire still routes through DropOrThrow — and the
+    // tight lease overlaps the full-output lease exactly as the input-scratch overlapped it during render, so the pass's
+    // concurrent-lease peak is unchanged (no ResourcePlan declaration change; C3.1 / FR-007).
+    private static RenderNodeOperation? EmitShrunkGeometry(
+        Rect tight, float w, Rect outBounds, RenderTarget outputTarget, RenderNodeOperation op,
+        float maxWorkingScale, PipelineDiagnostics? diagnostics, RenderTargetPool? pool)
+    {
+        (int tw, int th) = RenderNodeContext.DeviceBufferSize(tight, w);
+        if (tw <= 0 || th <= 0)
+        {
+            // A degenerate (empty) shrink yields nothing, matching DiscardOutput and the §C3 empty-output drop.
+            outputTarget.Dispose();
+            op.Dispose();
+            return null;
+        }
+
+        RenderTarget? tightTarget = RenderTargetPool.Acquire(pool, tw, th, diagnostics);
+        if (tightTarget == null)
+        {
+            outputTarget.Dispose();
+            return DropOrThrow(op, maxWorkingScale,
+                $"Geometry shrink output allocation failed ({tw}x{th} px, w {w}, bounds {tight}).");
+        }
+
+        try
+        {
+            using var canvas = new ImmediateCanvas(tightTarget, w, maxWorkingScale, logicalSize: tight.Size);
+            canvas.Clear();
+            using (canvas.PushDeviceSpace())
+            {
+                // The full output holds the pass content with outBounds.Position at device origin; shift it left/up by
+                // the sub-rect offset so the tight region lands at the tighter target's origin (the legacy blit).
+                canvas.DrawRenderTarget(
+                    outputTarget, new Point((outBounds.X - tight.X) * w, (outBounds.Y - tight.Y) * w));
+            }
+        }
+        catch
+        {
+            tightTarget.Dispose();
+            outputTarget.Dispose();
+            op.Dispose();
+            throw;
+        }
+
+        outputTarget.Dispose();
+        op.Dispose();
+        if (diagnostics != null)
+            diagnostics.GpuPasses++;
+        return RenderNodeOperation.CreateFromRenderTarget(
+            tight, tight.Position, tightTarget, EffectiveScale.At(w));
     }
 
     private static RenderNodeOperation? ExecuteCompute(

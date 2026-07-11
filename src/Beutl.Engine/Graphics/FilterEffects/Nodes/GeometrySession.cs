@@ -76,8 +76,46 @@ public sealed class GeometrySession
     public void DiscardOutput() => IsOutputDiscarded = true;
 
     /// <summary>
+    /// Tightens this pass's emitted output to a SUB-RECT of its allocated <see cref="Bounds"/> (feature 004, §C3).
+    /// A render-time author that resolves a tighter output only inside the callback — an <c>AutoClip</c> whose
+    /// content margins are known only after sampling the input — calls this so the downstream operation's
+    /// <see cref="RenderNodeOperation.Bounds"/> (and its hit-test region) match the content rather than the full
+    /// allocated buffer, restoring the tightening the legacy imperative <c>Clipping.Apply</c> gave by sizing its
+    /// output target to the detected clip rect. The executor copies the sub-rect into a tighter pooled output
+    /// target; a fixed-clip pass needs no call because its forward bounds already resolve to the clip rect.
+    /// <para>
+    /// <paramref name="logicalBounds"/> is in the pass's logical units (the same space as <see cref="Bounds"/>) and
+    /// MUST be a shrink: fully contained in <see cref="Bounds"/>. A request that grows past the allocated bounds
+    /// throws <see cref="ArgumentException"/> — the allocated buffer cannot supply pixels it never held. The last
+    /// call wins. A degenerate (empty) sub-rect drops the output like <see cref="DiscardOutput"/>. If
+    /// <see cref="DiscardOutput"/> is also called the discard supersedes the shrink regardless of call order (the
+    /// pass produces no output at all).
+    /// </para>
+    /// </summary>
+    public void SetOutputBounds(Rect logicalBounds)
+    {
+        if (!Bounds.Contains(logicalBounds))
+        {
+            throw new ArgumentException(
+                $"The requested output bounds {logicalBounds} must be contained within the pass's allocated bounds "
+                + $"{Bounds} (a shrink, never a grow).",
+                nameof(logicalBounds));
+        }
+
+        ShrunkOutputBounds = logicalBounds;
+    }
+
+    /// <summary>
     /// Whether the callback renounced this pass's output via <see cref="DiscardOutput"/>. The executor reads it
     /// after the callback returns and drops the pass output when set.
     /// </summary>
     internal bool IsOutputDiscarded { get; private set; }
+
+    /// <summary>
+    /// The render-time-requested tightened output bounds (via <see cref="SetOutputBounds"/>), or
+    /// <see langword="null"/> when the callback kept the full allocated <see cref="Bounds"/>. The executor reads it
+    /// after the callback returns and blits the sub-rect into a tighter pooled target; superseded by
+    /// <see cref="IsOutputDiscarded"/>.
+    /// </summary>
+    internal Rect? ShrunkOutputBounds { get; private set; }
 }

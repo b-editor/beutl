@@ -127,6 +127,14 @@ public sealed partial class Clipping : FilterEffect
         (_, Rect newBounds, float pointX, float pointY) = ComputeClip(input.Bounds, effective, autoCenter);
         Rect reference = autoClip ? session.Bounds : newBounds;
 
+        if (autoClip)
+        {
+            // The fixed-clip path resolves forward to the clip rect (its buffer is already tight); AutoClip only learns
+            // its margins here, so it must request the clipped sub-rect. NewBounds is the region the input is clipped
+            // to — the full buffer's other pixels are transparent margins.
+            session.SetOutputBounds(newBounds);
+        }
+
         using (canvas.PushDeviceSpace())
         using (canvas.PushTransform(Matrix.CreateTranslation(pointX * wOut, pointY * wOut)))
         {
