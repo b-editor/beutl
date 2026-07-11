@@ -721,7 +721,19 @@ internal static class PlanExecutor
         if (inBw <= 0 || inBh <= 0)
             return op;
 
-        RenderTarget? inputTarget = MaterializeInput(op, inW, maxWorkingScale, diagnostics, pool);
+        // MaterializeInput bakes op via source.Render (C7): a throw there must still release op's pooled lease, since
+        // MapDescriptorPass already detached op from the working set and neither disposal sweep would otherwise reach it.
+        RenderTarget? inputTarget;
+        try
+        {
+            inputTarget = MaterializeInput(op, inW, maxWorkingScale, diagnostics, pool);
+        }
+        catch
+        {
+            op.Dispose();
+            throw;
+        }
+
         if (inputTarget == null)
             return DropOrThrow(op, maxWorkingScale, $"Geometry input materialization failed ({inBw}x{inBh} px).");
 
@@ -846,7 +858,18 @@ internal static class PlanExecutor
         if (inBw <= 0 || inBh <= 0)
             return op;
 
-        RenderTarget? inputTarget = MaterializeInput(op, inW, maxWorkingScale, diagnostics, pool);
+        // A bake throw must release op's already-detached pooled lease (C7); see ExecuteGeometry for the same guard.
+        RenderTarget? inputTarget;
+        try
+        {
+            inputTarget = MaterializeInput(op, inW, maxWorkingScale, diagnostics, pool);
+        }
+        catch
+        {
+            op.Dispose();
+            throw;
+        }
+
         if (inputTarget == null)
             return DropOrThrow(op, maxWorkingScale, $"Compute input materialization failed ({inBw}x{inBh} px).");
 
@@ -923,7 +946,18 @@ internal static class PlanExecutor
         if (inBw <= 0 || inBh <= 0)
             return op;
 
-        RenderTarget? inputTarget = MaterializeInput(op, inW, maxWorkingScale, diagnostics, pool);
+        // A bake throw must release op's already-detached pooled lease (C7); see ExecuteGeometry for the same guard.
+        RenderTarget? inputTarget;
+        try
+        {
+            inputTarget = MaterializeInput(op, inW, maxWorkingScale, diagnostics, pool);
+        }
+        catch
+        {
+            op.Dispose();
+            throw;
+        }
+
         if (inputTarget == null)
             return DropOrThrow(op, maxWorkingScale, "Compute CPU-fallback input materialization failed.");
 
@@ -1172,7 +1206,28 @@ internal static class PlanExecutor
 
     // A compute pass's ping-pong/depth scratch acquire failed. Distinct from a genuine dispatch bug so ExecuteCompute
     // can route it through the uniform C7 drop/throw (preview drops, delivery throws) rather than aborting preview.
-    private sealed class ComputeScratchAllocationException(string message) : Exception(message);
+    internal sealed class ComputeScratchAllocationException : Exception
+    {
+        public ComputeScratchAllocationException(string message) : base(message) { }
+
+        public ComputeScratchAllocationException(string message, Exception inner) : base(message, inner) { }
+    }
+
+    // Creates a non-pooled depth scratch target, normalizing a raw create failure to ComputeScratchAllocationException so
+    // the pool-less branch routes through the same ExecuteCompute C7 drop/throw as the pooled branch, rather than aborting
+    // preview as an unclassified dispatch bug.
+    internal static ITexture2D CreateNonPooledDepthScratch(IGraphicsContext gfx, int width, int height)
+    {
+        try
+        {
+            return gfx.CreateTexture2D(width, height, TextureFormat.Depth32Float);
+        }
+        catch (Exception ex) when (ex is not ComputeScratchAllocationException)
+        {
+            throw new ComputeScratchAllocationException(
+                $"Compute depth scratch allocation failed ({width}x{height} px).", ex);
+        }
+    }
 
     // The executor-owned resources handed to a compute node's dispatch callback: the materialized source and the
     // pass output texture, plus pooled color and depth scratch released when the pass ends.
@@ -1217,7 +1272,7 @@ internal static class PlanExecutor
                 return lease.Texture;
             }
 
-            ITexture2D depth = gfx.CreateTexture2D(width, height, TextureFormat.Depth32Float);
+            ITexture2D depth = CreateNonPooledDepthScratch(gfx, width, height);
             // C8: a fresh non-pooled GPU target creation still counts TargetAllocations.
             if (diagnostics != null)
                 diagnostics.TargetAllocations++;
