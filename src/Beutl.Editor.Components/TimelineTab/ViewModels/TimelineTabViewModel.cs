@@ -1208,6 +1208,9 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         if (FindGapNavigationTarget(Scene, CurrentTime.Value, forward) is { } target)
         {
             CurrentTime.Value = target.Target;
+            // The playhead move alone does not scroll while playback is stopped, so bring the gap into
+            // view like the other seek-style commands do.
+            ScrollTo.Execute((target.VisibleGap, target.ZIndex));
             // A null anchor (start-clipped gap) has no element to select; clear any prior selection so
             // the selection-based Close Gap cannot act on a stale, unrelated gap after the jump.
             if (target.Anchor is { } anchor)
@@ -1217,6 +1220,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             else
             {
                 ClearSelected();
+                EditorContext.GetRequiredService<IEditorSelection>().SelectedObject.Value = null;
             }
         }
         else
@@ -1228,6 +1232,8 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
     }
 
     // Moving to a gap selects its anchor so the selection-based Close Gap then acts on that same gap.
+    // The global editor selection is updated too, matching click selection, so the inspector and other
+    // tabs follow the gap anchor instead of the previously selected element.
     private void SelectGapAnchor(Element anchor)
     {
         ElementViewModel? vm = Elements.FirstOrDefault(e => ReferenceEquals(e.Model, anchor));
@@ -1235,6 +1241,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
 
         ClearSelected();
         SelectElement(vm);
+        EditorContext.GetRequiredService<IEditorSelection>().SelectedObject.Value = anchor;
     }
 
     // The search is bounded to the active scene range by searchRange, so a playhead parked outside the
@@ -1244,7 +1251,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
     // (scene-clamped) portion — together with the gap's anchor. The anchor is null unless the raw gap is
     // wholly inside the scene: a clipped gap's anchor sits off-scene, so selecting it would make Close
     // Gap collapse the raw gap and move a clip the user cannot see.
-    internal static (TimeSpan Target, Element? Anchor)? FindGapNavigationTarget(
+    internal static (TimeSpan Target, TimeRange VisibleGap, int ZIndex, Element? Anchor)? FindGapNavigationTarget(
         Scene scene, TimeSpan currentTime, bool forward)
     {
         TimeSpan sceneStart = scene.Start;
@@ -1257,9 +1264,10 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
 
         TimeSpan visibleStart = g.Range.Start > sceneStart ? g.Range.Start : sceneStart;
         TimeSpan visibleEnd = g.Range.End < sceneEnd ? g.Range.End : sceneEnd;
+        var visibleGap = new TimeRange(visibleStart, visibleEnd - visibleStart);
         TimeSpan target = visibleStart + new TimeSpan((visibleEnd - visibleStart).Ticks / 2);
         bool whollyInside = g.Range.Start >= sceneStart && g.Range.End <= sceneEnd;
-        return (target, whollyInside ? g.Anchor : null);
+        return (target, visibleGap, g.ZIndex, whollyInside ? g.Anchor : null);
     }
 
     private enum NudgeUnit { Frame, Large, Second }

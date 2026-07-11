@@ -230,6 +230,9 @@ public class TimelineTabViewModelShortcutTests
         Assert.Multiple(() =>
         {
             Assert.That(result?.Target, Is.EqualTo(TimeSpan.FromSeconds(65)));
+            // The scroll target is the visible portion (50s-80s) on the gap's layer, not the raw gap.
+            Assert.That(result?.VisibleGap, Is.EqualTo(new TimeRange(TimeSpan.FromSeconds(50), TimeSpan.FromSeconds(30))));
+            Assert.That(result?.ZIndex, Is.EqualTo(0));
             Assert.That(result?.Anchor, Is.Null);
         });
     }
