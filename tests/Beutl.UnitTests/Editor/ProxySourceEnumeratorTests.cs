@@ -341,6 +341,47 @@ public class ProxySourceEnumeratorTests
         Assert.That(names, Does.Contain("full-walk-base.mov"));
     }
 
+    // Same windowed-then-full-walk hazard as above, but the shared target is a FilterEffectGroup. The
+    // group traversal must not be gated by an identity-only visited set: a windowed presenter visit of
+    // the group would otherwise suppress the delay's full walk of the same group's children.
+    [Test]
+    public void EnumerateFileSources_WindowedPresenterDoesNotSuppressDelayFullWalkOfSharedGroup()
+    {
+        var node = new VideoSourceNode();
+        node.Source.Property!.SetValue(CreateVideoSource("group-full-walk-base.mov"));
+        var animation = new KeyFrameAnimation<VideoSource?>();
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?>
+        {
+            KeyTime = TimeSpan.FromSeconds(0.5),
+            Value = CreateVideoSource("group-windowed-anim.mov"),
+        });
+        ((IAnimatablePropertyAdapter<VideoSource?>)node.Source.Property!).Animation = animation;
+
+        var graphEffect = new NodeGraphFilterEffect();
+        graphEffect.Model.CurrentValue!.Nodes.Add(node);
+        var shared = new FilterEffectGroup();
+        shared.Children.Add(graphEffect);
+
+        var presenter = new FilterEffectPresenter();
+        presenter.Target.CurrentValue = shared;
+        var delay = new DelayAnimationEffect();
+        delay.Effect.CurrentValue = shared;
+
+        var drawable = new SourceVideo();
+        var chain = (FilterEffectGroup)drawable.FilterEffect.CurrentValue!;
+        chain.Children.Add(presenter);
+        chain.Children.Add(delay);
+        Element element = ElementWith(drawable);
+
+        var window = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        IEnumerable<string> names = ProxySourceEnumerator
+            .EnumerateFileSources(element, localRange: window)
+            .OfType<VideoSource>()
+            .Select(FileName);
+
+        Assert.That(names, Does.Contain("group-full-walk-base.mov"));
+    }
+
     [Test]
     public void EnumerateVideoSources_RecursesIntoGroupNodeSubgraph()
     {

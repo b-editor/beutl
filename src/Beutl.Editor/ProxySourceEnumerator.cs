@@ -174,7 +174,6 @@ public static class ProxySourceEnumerator
                 obj,
                 visitedScenes,
                 new HashSet<GraphGroup>(ReferenceEqualityComparer.Instance),
-                new HashSet<FilterEffectGroup>(ReferenceEqualityComparer.Instance),
                 new HashSet<Drawable>(ReferenceEqualityComparer.Instance),
                 new HashSet<Drawable>(ReferenceEqualityComparer.Instance),
                 skipDisabledElements,
@@ -191,7 +190,6 @@ public static class ProxySourceEnumerator
         EngineObject obj,
         HashSet<(Scene, CompositionTarget?)> visitedScenes,
         HashSet<GraphGroup> visitedGraphGroups,
-        HashSet<FilterEffectGroup> visitedFilterEffectGroups,
         HashSet<Drawable> visitedTargets,
         HashSet<Drawable> visitedFullWalkTargets,
         bool skipDisabledElements,
@@ -204,7 +202,7 @@ public static class ProxySourceEnumerator
         // DrawableBrush's Drawable, a visualizer's SceneSound) dispatches through the guarded walks — from
         // the current value, an expression, an animation keyframe, or a node input alike.
         var walkContext = new ObjectWalkContext(
-            visitedScenes, visitedGraphGroups, visitedFilterEffectGroups, visitedTargets, visitedFullWalkTargets, renderTarget, sceneWindow);
+            visitedScenes, visitedGraphGroups, visitedTargets, visitedFullWalkTargets, renderTarget, sceneWindow);
         foreach (IFileSource source in EnumeratePropertyFileSources(
             obj, localRange, skipDisabledElements, sceneWindow: sceneWindow, walkContext: walkContext))
             yield return source;
@@ -216,7 +214,6 @@ public static class ProxySourceEnumerator
             // the effective FilterEffect value, so resolve an expression-supplied one before walking.
             foreach (IFileSource source in EnumerateFilterEffectGraphSources(
                 ResolveExpressionValue<FilterEffect>(drawable, drawable.FilterEffect),
-                visitedFilterEffectGroups,
                 visitedGraphGroups,
                 new HashSet<FilterEffect>(ReferenceEqualityComparer.Instance),
                 new HashSet<FilterEffect>(ReferenceEqualityComparer.Instance),
@@ -263,7 +260,7 @@ public static class ProxySourceEnumerator
                             continue;
 
                         foreach (IFileSource source in EnumerateObjectFileSources(
-                            child, visitedScenes, visitedGraphGroups, visitedFilterEffectGroups, visitedTargets, visitedFullWalkTargets, skipDisabledElements, renderTarget, localRange, sceneWindow))
+                            child, visitedScenes, visitedGraphGroups, visitedTargets, visitedFullWalkTargets, skipDisabledElements, renderTarget, localRange, sceneWindow))
                             yield return source;
                     }
 
@@ -286,7 +283,7 @@ public static class ProxySourceEnumerator
                         // transform/opacity/effect, never remaps time), so the render window still maps
                         // directly — thread localRange through, unlike the time-remapping cases below.
                         foreach (IFileSource source in EnumerateObjectFileSources(
-                            child, visitedScenes, visitedGraphGroups, visitedFilterEffectGroups, visitedTargets, visitedFullWalkTargets, skipDisabledElements, renderTarget, localRange, sceneWindow))
+                            child, visitedScenes, visitedGraphGroups, visitedTargets, visitedFullWalkTargets, skipDisabledElements, renderTarget, localRange, sceneWindow))
                             yield return source;
                     }
 
@@ -303,7 +300,7 @@ public static class ProxySourceEnumerator
                         // nor the scene-time window still maps — drop both to the conservative full walk.
                         // PostUpdate renders context.Get(Target), so resolve an expression-supplied one.
                         foreach (IFileSource source in EnumerateObjectFileSources(
-                            target, visitedScenes, visitedGraphGroups, visitedFilterEffectGroups, visitedTargets, visitedFullWalkTargets, skipDisabledElements, renderTarget))
+                            target, visitedScenes, visitedGraphGroups, visitedTargets, visitedFullWalkTargets, skipDisabledElements, renderTarget))
                             yield return source;
                     }
 
@@ -322,7 +319,7 @@ public static class ProxySourceEnumerator
                         // controller above. The render uses the effective Target, so resolve an
                         // expression-supplied one.
                         foreach (IFileSource source in EnumerateObjectFileSources(
-                            presented, visitedScenes, visitedGraphGroups, visitedFilterEffectGroups, visitedTargets, visitedFullWalkTargets, skipDisabledElements, renderTarget, localRange, sceneWindow))
+                            presented, visitedScenes, visitedGraphGroups, visitedTargets, visitedFullWalkTargets, skipDisabledElements, renderTarget, localRange, sceneWindow))
                             yield return source;
                     }
 
@@ -356,7 +353,7 @@ public static class ProxySourceEnumerator
                     continue;
 
                 foreach (IFileSource source in EnumerateObjectFileSources(
-                    child, visitedScenes, visitedGraphGroups, visitedFilterEffectGroups, visitedTargets, visitedFullWalkTargets, skipDisabledElements, renderTarget, localRange, sceneWindow))
+                    child, visitedScenes, visitedGraphGroups, visitedTargets, visitedFullWalkTargets, skipDisabledElements, renderTarget, localRange, sceneWindow))
                     yield return source;
             }
         }
@@ -500,7 +497,6 @@ public static class ProxySourceEnumerator
     private sealed record ObjectWalkContext(
         HashSet<(Scene, CompositionTarget?)> VisitedScenes,
         HashSet<GraphGroup> VisitedGraphGroups,
-        HashSet<FilterEffectGroup> VisitedFilterEffectGroups,
         HashSet<Drawable> VisitedTargets,
         HashSet<Drawable> VisitedFullWalkTargets,
         CompositionTarget? RenderTarget,
@@ -526,8 +522,7 @@ public static class ProxySourceEnumerator
         {
             foreach (IFileSource source in EnumerateObjectFileSources(
                 brushDrawable, brushContext.VisitedScenes, brushContext.VisitedGraphGroups,
-                brushContext.VisitedFilterEffectGroups, brushContext.VisitedTargets,
-                brushContext.VisitedFullWalkTargets, skipDisabledElements,
+                brushContext.VisitedTargets, brushContext.VisitedFullWalkTargets, skipDisabledElements,
                 brushContext.RenderTarget, localRange, brushContext.SceneWindow))
                 yield return source;
             // Fall through so the brush's own remaining properties (Transform, …) are still walked.
@@ -720,7 +715,6 @@ public static class ProxySourceEnumerator
 
     private static IEnumerable<IFileSource> EnumerateFilterEffectGraphSources(
         FilterEffect? effect,
-        HashSet<FilterEffectGroup> visitedFilterEffectGroups,
         HashSet<GraphGroup> visitedGraphGroups,
         HashSet<FilterEffect> visitedFilterEffects,
         HashSet<FilterEffect> visitedFullWalkFilterEffects,
@@ -757,7 +751,7 @@ public static class ProxySourceEnumerator
 
         switch (effect)
         {
-            case FilterEffectGroup group when visitedFilterEffectGroups.Add(group):
+            case FilterEffectGroup group:
                 foreach (FilterEffect child in group.Children)
                 {
                     if (skipDisabledElements && !child.IsEnabled)
@@ -770,7 +764,7 @@ public static class ProxySourceEnumerator
                         yield return source;
 
                     foreach (IFileSource source in EnumerateFilterEffectGraphSources(
-                        child, visitedFilterEffectGroups, visitedGraphGroups, visitedFilterEffects, visitedFullWalkFilterEffects, skipDisabledElements, localRange, sceneWindow, walkContext))
+                        child, visitedGraphGroups, visitedFilterEffects, visitedFullWalkFilterEffects, skipDisabledElements, localRange, sceneWindow, walkContext))
                         yield return source;
                 }
 
@@ -791,7 +785,7 @@ public static class ProxySourceEnumerator
                 // window maps directly — thread localRange, unlike the delay effect below. The resource
                 // renders the effective Target, so resolve an expression-supplied one.
                 foreach (IFileSource source in EnumerateFilterEffectGraphSources(
-                    presented, visitedFilterEffectGroups, visitedGraphGroups, visitedFilterEffects, visitedFullWalkFilterEffects, skipDisabledElements, localRange, sceneWindow, walkContext))
+                    presented, visitedGraphGroups, visitedFilterEffects, visitedFullWalkFilterEffects, skipDisabledElements, localRange, sceneWindow, walkContext))
                     yield return source;
 
                 break;
@@ -799,7 +793,7 @@ public static class ProxySourceEnumerator
             case DelayAnimationEffect delay
                 when ResolveExpressionValue<FilterEffect>(delay, delay.Effect) is { } delayed:
                 foreach (IFileSource source in EnumerateFilterEffectGraphSources(
-                    delayed, visitedFilterEffectGroups, visitedGraphGroups, visitedFilterEffects, visitedFullWalkFilterEffects, skipDisabledElements, walkContext: walkContext))
+                    delayed, visitedGraphGroups, visitedFilterEffects, visitedFullWalkFilterEffects, skipDisabledElements, walkContext: walkContext))
                     yield return source;
 
                 break;
