@@ -52,6 +52,8 @@ public sealed class SchemaGenerationTests
         string brushEffectExample = schema.Examples.Single(example => example.Name == "apply-gradient-fill-and-effect-chain").Patch.ToJsonString();
         string newAnimatedTextExample = schema.Examples.Single(example => example.Name == "insert-new-animated-text-keyframes").Patch.ToJsonString();
         string geometryShapeExample = schema.Examples.Single(example => example.Name == "insert-new-geometry-shape-path").Patch.ToJsonString();
+        string cameraRigExample = schema.Examples.Single(example => example.Name == "insert-camera-rig-push-in").Patch.ToJsonString();
+        IReadOnlyList<DeclarativeExampleSummary> cameraExampleSummaries = generator.ListExamples(typeFilter: nameof(DrawableGroup));
         IReadOnlyList<DeclarativeExampleSummary> geometryExampleSummaries = generator.ListExamples(typeFilter: "GeometryShape");
         CapabilitySchema audioSchema = generator.Generate(categoryFilter: "AudioEffect");
         CapabilitySchema brushSchema = generator.Generate(categoryFilter: "Brush");
@@ -118,6 +120,12 @@ public sealed class SchemaGenerationTests
             Assert.That(geometryShapeExample, Does.Contain("Figures"));
             Assert.That(geometryShapeExample, Does.Contain("Segments"));
             Assert.That(geometryExampleSummaries.Select(example => example.Name), Does.Contain("insert-new-geometry-shape-path"));
+            Assert.That(cameraRigExample, Does.Contain("DrawableGroup"));
+            Assert.That(cameraRigExample, Does.Contain("[role:camera-rig]"));
+            Assert.That(cameraRigExample, Does.Contain("ScaleTransform"));
+            Assert.That(cameraRigExample, Does.Contain("TranslateTransform"));
+            Assert.That(cameraRigExample, Does.Contain("KeyFrameAnimation"));
+            Assert.That(cameraExampleSummaries.Select(example => example.Name), Does.Contain("insert-camera-rig-push-in"));
             Assert.That(audioSchema.Types.Any(type => type.Type == typeof(DelayEffect).FullName), Is.True);
             Assert.That(audioSchema.Examples, Is.Empty);
             Assert.That(brushSchema.Examples.Select(example => example.Name), Does.Contain("create-empty-scene-motion-graphics"));

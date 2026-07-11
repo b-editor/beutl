@@ -621,6 +621,24 @@ public sealed class SchemaGenerator
                 ExampleTypes(typeof(Element), typeof(TextBlock), typeof(KeyFrameAnimation<float>), typeof(KeyFrame<float>), typeof(LinearEasing), typeof(SineEaseOut)),
                 ExampleTags("targeted", "keyframes", "animation", "new-object", "minimal")),
             new ExampleSpec(
+                CreateCameraRigPushInExample(),
+                ExampleCategories(
+                    KnownLibraryItemFormats.Drawable,
+                    KnownLibraryItemFormats.EngineObject,
+                    KnownLibraryItemFormats.Transform,
+                    KnownLibraryItemFormats.Easing),
+                ExampleTypes(
+                    typeof(Element),
+                    typeof(DrawableGroup),
+                    typeof(PortalObject),
+                    typeof(TransformGroup),
+                    typeof(TranslateTransform),
+                    typeof(ScaleTransform),
+                    typeof(KeyFrameAnimation<float>),
+                    typeof(KeyFrame<float>),
+                    typeof(SineEaseInOut)),
+                ExampleTags("targeted", "camera", "camera-rig", "push-in", "keyframes", "animation", "group")),
+            new ExampleSpec(
                 CreateBrushAndEffectExample(),
                 ExampleCategories(KnownLibraryItemFormats.Drawable, KnownLibraryItemFormats.EngineObject, KnownLibraryItemFormats.Brush, KnownLibraryItemFormats.FilterEffect),
                 ExampleTypes(typeof(LinearGradientBrush), typeof(GradientStop), typeof(FilterEffectGroup), typeof(Blur), typeof(Brightness)),
@@ -1635,6 +1653,61 @@ public sealed class SchemaGenerator
                         }
                     })
                 })
+            });
+    }
+
+    private static DeclarativeExample CreateCameraRigPushInExample()
+    {
+        var rig = new DrawableGroup
+        {
+            Name = "[role:camera-rig] Shot 1 camera",
+            Transform =
+            {
+                CurrentValue = new TransformGroup
+                {
+                    Children =
+                    {
+                        new TranslateTransform(0, 0),
+                        new ScaleTransform()
+                    }
+                }
+            },
+            Children =
+            {
+                new RectShape
+                {
+                    Name = "[role:text-backing] Shot 1 title plate",
+                    Width = { CurrentValue = 760 },
+                    Height = { CurrentValue = 240 },
+                    Fill = { CurrentValue = CreateLinearGradient("#ff1c2a4a", "#ff2f4a7a") }
+                },
+                new TextBlock
+                {
+                    Name = "Shot 1 hero title",
+                    Text = { CurrentValue = "Camera move" },
+                    Size = { CurrentValue = 96 },
+                    Fill = { CurrentValue = new SolidColorBrush(Colors.White) }
+                }
+            }
+        };
+
+        Element element = CreateElement("[role:camera-rig] Shot 1 rig", zIndex: 10, rig);
+        JsonObject elementJson = SerializeExampleElement(element);
+        string groupDiscriminator = IdentityHelper.WriteDiscriminator(typeof(DrawableGroup));
+        JsonObject rigJson = ((JsonArray)elementJson[nameof(Element.Objects)]!)
+            .OfType<JsonObject>()
+            .Single(obj => string.Equals(obj["$type"]?.GetValue<string>(), groupDiscriminator, StringComparison.Ordinal));
+        JsonObject scaleJson = GetTransformChildJson(rigJson, typeof(ScaleTransform));
+        AddFloatAnimation(scaleJson, nameof(ScaleTransform.Scale), (0, 100, typeof(SineEaseInOut)), (8, 106, typeof(SineEaseInOut)));
+        JsonObject translateJson = GetTransformChildJson(rigJson, typeof(TranslateTransform));
+        AddFloatAnimation(translateJson, nameof(TranslateTransform.X), (0, 0, typeof(SineEaseInOut)), (8, -48, typeof(SineEaseInOut)));
+
+        return new DeclarativeExample(
+            "insert-camera-rig-push-in",
+            "Camera (viewpoint) move for a 2D shot: Beutl has no scene camera, so wrap the shot's content in a [role:camera-rig] DrawableGroup and animate the rig's TransformGroup. This example is a slow eased push-in (ScaleTransform.Scale 100 -> 106; Scale is percent) with a slight pan (TranslateTransform.X; camera-left = rig-right, camera-in = scale-up). Keep the PortalObject entry that precedes the DrawableGroup in Element.Objects — a flow operator without it is rejected. Replace the placeholder children with the shot's drawables, keep locked background plates outside the rig in their own Elements, use a fast large translate for a whip-pan cut bridge, and animate per-depth-band rigs at different translate amplitudes for parallax.",
+            new JsonObject
+            {
+                ["Elements"] = new JsonArray(elementJson)
             });
     }
 

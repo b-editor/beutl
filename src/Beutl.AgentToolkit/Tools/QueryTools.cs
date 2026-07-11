@@ -330,6 +330,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 "For high-tempo 1.5s motion-graphics beats, keep hero text to 1-3 words, supporting labels to 2-4 word tokens, and use non-text visual density such as nodes, particles, strokes, texture, and accent motion.",
                 "For 120-140 BPM briefs, convert the tempo into a beat grid before authoring: around 130 BPM, 1 beat is about 462 ms, 2 beats about 923 ms, and visible foreground beats should change every 1-2 beats with no long foreground event gaps.",
                 "Design every shot around one primary focal point; use grouping, alignment, scale contrast, color contrast, and repetition to make supporting layers scan below it.",
+                "Move the viewpoint, not just the elements. Beutl 2D has no scene camera, so plan per-shot camera treatments (push-in, pull-back, pan, whip-pan bridge, parallax) and author them as animated transforms on a named [role:camera-rig] DrawableGroup that parents the shot's content; a motion-graphics piece whose shots are static compositions swapped by hard cuts reads as a slide deck.",
                 "Keep only one hero-scale text role per beat; make captions, labels, and texture text visibly quieter so evaluate_edit_quality does not report overloaded hierarchy.",
                 "Use RectShape mostly for full-frame/background plates; prefer EllipseShape, RoundedRectShape, GeometryShape, media, strokes, or procedural texture for foreground accents. Name intent with tags like [role:background], [role:text-backing], or [role:decorative] so quality tools can classify plates correctly.",
                 "Do not default to RectShape/EllipseShape for every figure. For bespoke vector shapes (arrows, chevrons, brackets, crop marks, icons, letter fragments) use GeometryShape; call get_examples for 'insert-new-geometry-shape-path' to copy the typed PathGeometry/PathFigure/segment shape (paths are typed segment objects, not SVG strings, and GeometryShape sizes to its geometry bounds). Author path coordinates with the artwork's top-left at (0, 0): the drawn center lands at the alignment-resolved center plus the path bounds origin, so paths centered on (0, 0) shift up-left by half their size.",
@@ -353,7 +354,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 "Use render_composition_patch only when the client explicitly needs the generated template patch JSON.",
                 "Call list_examples/get_examples for small schema snippets or as a fallback when a user asks for an example; full-scene starters are hidden by default.",
                 "Call final_preflight before export_video when available; otherwise call render_still for representative frames, record planned-element visibility/readability plus layer density/contrast, run evaluate_motion_variation, then run evaluate_edit_quality and resolve critical/major issues before export_video.",
-                "After authoring motion, re-render the storyboard with subdivisionLevel:1; raise to subdivisionLevel:2 for suspicious gaps. Review the in-between frames for cut continuity, and add bridge animations when hard cuts have no shared motion, sweep, overlap, opacity ramp, or background continuity.",
+                "After authoring motion, re-render the storyboard with subdivisionLevel:1; raise to subdivisionLevel:2 for suspicious gaps. Review the in-between frames for cut continuity, and add bridge animations when hard cuts have no shared motion, camera move (matched push-in or whip-pan), sweep, overlap, opacity ramp, or background continuity.",
                 "For visual review in multimodal clients, call render_still or render_storyboard with returnImageContent=true, then apply the beutl-agent-visual-review rubric for advisory concrete edit directives."
             ],
             CreateRecommendedSkills(),
@@ -392,7 +393,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 SchemaVersion.Current,
                 ShuffleCreativeStrings([
                     "material: paper cutouts, ink bleed, glass refraction, fabric folds, projected light, ceramic glaze, thermal camera, risograph print, CRT phosphor, blueprint pencil",
-                    "motion: bloom, peel, fold, pour, shatter, magnetic attraction, wave interference, hand-drawn reveal, parallax drift, stop-motion stepping",
+                    "motion: bloom, peel, fold, pour, shatter, magnetic attraction, wave interference, hand-drawn reveal, parallax drift, stop-motion stepping, camera push-in, whip-pan bridge, slow dolly drift",
                     "composition: macro close-up, off-axis crop, split depth planes, negative-space title, diagonal editorial grid, frame-within-frame, vertical poster stack",
                     "typography: small caption system, kinetic word fragments, numeric countdown, subtitle-only rhythm, oversized cropped letterforms",
                     "palette: warm/cool clash, muted paper plus neon accent, monochrome with one warning color, daylight pastels, high-contrast print inks",
