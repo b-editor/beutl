@@ -338,9 +338,19 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             .AddTo(_disposables);
     }
 
+    // The SourceVideo helper only busts the suffixed strip keys (baseKey|original / baseKey|proxy:*),
+    // but SourceSound stores its waveform min/max under the bare baseKey, so an audio source/effect edit
+    // would otherwise keep serving a stale waveform. Invalidate both; the bare key is a no-op for video.
+    internal static void InvalidateAllThumbnailCacheKeys(IThumbnailCacheService cacheService, string? baseKey)
+    {
+        Beutl.Graphics.SourceVideo.InvalidateThumbnailCacheKeys(cacheService, baseKey);
+        if (baseKey != null)
+            cacheService.Invalidate(baseKey);
+    }
+
     private void InvalidateAndUpdateThumbnails()
     {
-        Beutl.Graphics.SourceVideo.InvalidateThumbnailCacheKeys(_thumbnailCacheService, _lastThumbnailsCacheKey);
+        InvalidateAllThumbnailCacheKeys(_thumbnailCacheService, _lastThumbnailsCacheKey);
         UpdateThumbnailsAsync();
     }
 
@@ -518,7 +528,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         _scrollThumbnailsCts?.Dispose();
         _scrollThumbnailsCts = null;
         if (_lastThumbnailsCacheKey != null)
-            Beutl.Graphics.SourceVideo.InvalidateThumbnailCacheKeys(_thumbnailCacheService, _lastThumbnailsCacheKey);
+            InvalidateAllThumbnailCacheKeys(_thumbnailCacheService, _lastThumbnailsCacheKey);
 
         // ThumbnailsDisabledElementsイベントの購読を解除
         Timeline.ThumbnailsDisabledElements.Attached -= OnThumbnailsDisabledElementsAttached;
@@ -890,10 +900,9 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             {
                 _thumbnailsInvalidatedHandler = (_, _) =>
                 {
-                    // Strips live under baseKey|original / baseKey|proxy:*, so a bare Invalidate(baseKey) misses them.
                     var oldKey = _lastThumbnailsCacheKey;
                     if (oldKey != null)
-                        Beutl.Graphics.SourceVideo.InvalidateThumbnailCacheKeys(_thumbnailCacheService, oldKey);
+                        InvalidateAllThumbnailCacheKeys(_thumbnailCacheService, oldKey);
 
                     // 新しいキーをキャプチャ
                     _lastThumbnailsCacheKey = _currentThumbnailsProvider?.GetThumbnailsCacheKey();
@@ -1151,7 +1160,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         }
 
         if (_lastThumbnailsCacheKey != null)
-            Beutl.Graphics.SourceVideo.InvalidateThumbnailCacheKeys(_thumbnailCacheService, _lastThumbnailsCacheKey);
+            InvalidateAllThumbnailCacheKeys(_thumbnailCacheService, _lastThumbnailsCacheKey);
 
         UpdateThumbnailsAsync();
     }

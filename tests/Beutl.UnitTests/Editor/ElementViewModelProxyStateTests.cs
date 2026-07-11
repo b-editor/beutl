@@ -1,5 +1,6 @@
 ﻿using Beutl.Configuration;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
+using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Media.Proxy;
@@ -17,6 +18,19 @@ public sealed class ElementViewModelProxyStateTests
 
     private static ProxyFingerprint Fingerprint(long size = 1000)
         => new(s_path, size, DateTime.UtcNow);
+
+    // SourceSound caches waveform min/max under the bare thumbnails key while SourceVideo uses suffixed
+    // strip keys; the shared invalidation must bust the bare key too, or an edited audio source/effect
+    // keeps serving a stale waveform.
+    [Test]
+    public void InvalidateAllThumbnailCacheKeys_BustsBareKeyForWaveform()
+    {
+        var cache = new RecordingThumbnailCacheService();
+
+        ElementViewModel.InvalidateAllThumbnailCacheKeys(cache, "clip-key");
+
+        Assert.That(cache.InvalidatedKeys, Does.Contain("clip-key"));
+    }
 
     private static ProxyEntry Entry(ProxyFingerprint source, ProxyState state, ProxyPreset preset = ProxyPreset.Quarter)
         => new(
@@ -497,6 +511,34 @@ public sealed class ElementViewModelProxyStateTests
             add { }
             remove { }
         }
+    }
+
+    private sealed class RecordingThumbnailCacheService : IThumbnailCacheService
+    {
+        public List<string> InvalidatedKeys { get; } = [];
+
+        public bool TryGet(string cacheKey, TimeSpan time, TimeSpan threshold, out Bitmap? bitmap)
+        {
+            bitmap = null;
+            return false;
+        }
+
+        public void Save(string cacheKey, TimeSpan time, Bitmap bitmap)
+        {
+        }
+
+        public bool TryGetWaveform(string cacheKey, TimeSpan time, TimeSpan threshold, out float minValue, out float maxValue)
+        {
+            minValue = 0;
+            maxValue = 0;
+            return false;
+        }
+
+        public void SaveWaveform(string cacheKey, TimeSpan time, float minValue, float maxValue)
+        {
+        }
+
+        public void Invalidate(string cacheKey) => InvalidatedKeys.Add(cacheKey);
     }
 
     private sealed class FakeProxyJobQueue(params ProxyJob[] pending) : IProxyJobQueue
