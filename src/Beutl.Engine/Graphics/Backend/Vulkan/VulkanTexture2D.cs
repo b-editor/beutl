@@ -324,8 +324,9 @@ internal unsafe class VulkanTexture2D : ITexture2D
         // Skia only borrows this image (GRBackendRenderTarget): other surfaces' recorded-but-unflushed
         // ops may still sample it, and destroying the VkImage first leaves those pending command buffers
         // pointing at freed memory — the next GRContext flush then faults inside the driver (fatal on
-        // SwiftShader). Drain and complete all pending Skia work while the image is still alive.
-        _context.SkiaContextOrNull?.Flush(submit: true, synchronous: true);
+        // SwiftShader). Drain all pending Skia work while the image is still alive. Under a pool eviction
+        // batch the drain runs once for the whole batch (GpuDisposeBatch); a lone dispose drains itself.
+        GpuDisposeBatch.DrainBeforeDestroy(_context.SkiaContextOrNull);
 
         var vk = _context.Vk;
         var device = _context.Device;

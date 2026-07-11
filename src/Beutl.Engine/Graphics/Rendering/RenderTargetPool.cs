@@ -1,4 +1,5 @@
 ﻿using Beutl.Graphics.Backend;
+using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Threading;
 using SkiaSharp;
 
@@ -250,18 +251,23 @@ public sealed class RenderTargetPool : IDisposable
         VerifyAccess();
         _currentFrame = frameIndex;
 
-        foreach (List<PooledSurface> list in _buckets.Values)
+        // One GPU drain for the whole eviction sweep instead of one per evicted buffer (GpuDisposeBatch). The batch
+        // drain is lazy, so a sweep that evicts nothing issues no flush.
+        using (GpuDisposeBatch.Begin())
         {
-            for (int i = list.Count - 1; i >= 0; i--)
+            foreach (List<PooledSurface> list in _buckets.Values)
             {
-                if (frameIndex - list[i].LastUsedFrame >= IdleFrameThreshold)
+                for (int i = list.Count - 1; i >= 0; i--)
                 {
-                    EvictAt(list, i);
+                    if (frameIndex - list[i].LastUsedFrame >= IdleFrameThreshold)
+                    {
+                        EvictAt(list, i);
+                    }
                 }
             }
-        }
 
-        EnforceByteCap();
+            EnforceByteCap();
+        }
     }
 
     /// <summary>Test seam: disposes every idle buffer and resets the pool to empty deterministically.</summary>
@@ -273,11 +279,16 @@ public sealed class RenderTargetPool : IDisposable
 
     private void DisposeAllIdle()
     {
-        foreach (List<PooledSurface> list in _buckets.Values)
+        // Drain once for the whole teardown (GpuDisposeBatch) when it runs on the render thread; a cross-thread
+        // Dispose dispatches the disposals and falls back to the per-texture drain.
+        using (GpuDisposeBatch.Begin())
         {
-            foreach (PooledSurface pooled in list)
-                DisposeBacking(pooled);
-            list.Clear();
+            foreach (List<PooledSurface> list in _buckets.Values)
+            {
+                foreach (PooledSurface pooled in list)
+                    DisposeBacking(pooled);
+                list.Clear();
+            }
         }
 
         _buckets.Clear();

@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics.Rendering;
+﻿using Beutl.Graphics.Backend.Vulkan;
+using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.UnitTests.Engine.Graphics.Backend;
 using SkiaSharp;
@@ -101,6 +102,35 @@ public class RenderTargetPoolTests
 
             pool.Trim(RenderTargetPool.IdleFrameThreshold);
             Assert.That(pool.IdleCount, Is.EqualTo(0), "evicted once idle for the threshold");
+        });
+    }
+
+    // A multi-buffer idle-frame eviction sweep drains the GPU exactly ONCE (GpuDisposeBatch), not once per evicted
+    // buffer: before the batch, each VulkanTexture2D.Dispose issued its own queue-submit + fence-wait.
+    [Test]
+    public void Trim_EvictingIdleBatch_DrainsGpuExactlyOnce()
+    {
+        RunOnRenderThread(() =>
+        {
+            using var pool = new RenderTargetPool();
+            pool.Trim(0);
+
+            var held = new List<RenderTarget>();
+            for (int i = 0; i < 4; i++)
+                held.Add(pool.Acquire(W + i * 8, H) ?? throw new InvalidOperationException("null"));
+            foreach (RenderTarget t in held)
+                t.Dispose();
+            Assert.That(pool.IdleCount, Is.EqualTo(4), "all four buffers are idle and evictable");
+
+            GpuDisposeBatch.ResetFlushCountForTest();
+            pool.Trim(RenderTargetPool.IdleFrameThreshold);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(pool.IdleCount, Is.EqualTo(0), "the whole batch was evicted");
+                Assert.That(GpuDisposeBatch.FlushCount, Is.EqualTo(1),
+                    "the four-buffer eviction drained the GPU once, not once per buffer");
+            });
         });
     }
 
