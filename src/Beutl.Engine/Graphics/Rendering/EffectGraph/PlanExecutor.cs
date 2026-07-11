@@ -226,11 +226,13 @@ internal static class PlanExecutor
         {
             // Identity: output bounds are the operation's own — surviving an upstream opaque node that did not
             // advance the builder's logical bounds, and sizing each fan-out branch. On the linear path the density
-            // is the carried resolution.WorkingScale (the FR-012/C3.2 clamp carry, review M2); a fan-out branch has
-            // no per-op resolution and re-clamps locally.
+            // is the carried resolution.WorkingScale (the FR-012/C3.2 clamp carry, review M2), re-clamped to op.Bounds:
+            // ResolveResources sized resolution.WorkingScale against the (possibly ROI-narrowed) OutputRoi, but the
+            // buffer here spans the larger op.Bounds, so DeviceBufferSize(op.Bounds, resolution.WorkingScale) can
+            // exceed the per-axis budget. A fan-out branch has no per-op resolution and re-clamps locally.
             outBounds = op.Bounds;
             w = linear
-                ? resolution.WorkingScale
+                ? RenderNodeContext.ClampWorkingScaleToBufferBudget(outBounds, resolution.WorkingScale)
                 : RenderNodeContext.ClampWorkingScaleToBufferBudget(outBounds, CarriedWorkingScale(op, workingScale));
             (width, height) = RenderNodeContext.DeviceBufferSize(outBounds, w);
             skip = width <= 0 || height <= 0;

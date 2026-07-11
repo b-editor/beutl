@@ -241,8 +241,8 @@ public sealed class EffectGraphBuilder
 
         var inflate = new Thickness(sigma.Width * 3, sigma.Height * 3);
         return SkiaFilter(SkiaFilterNodeDescriptor.Create(
-            // A no-op factory must return null, not inner: the executor disposes a returned filter's predecessor,
-            // so returning inner would free the very filter the pass then draws with.
+            // A zero-sigma blur is a no-op; null is the canonical no-op signal. Returning inner is also safe now (the
+            // executor skips disposal on reference equality), but null keeps the pass from advancing its filter chain.
             inner => sigma.Width == 0 && sigma.Height == 0
                 ? null
                 : SKImageFilter.CreateBlur(sigma.Width, sigma.Height, inner),

@@ -598,6 +598,39 @@ half4 apply(half4 c) {
         }
     }
 
+    // FR-037(b): the linear invariant fused pass renders its whole op.Bounds, but ResolveResources sizes
+    // resolution.WorkingScale against the (possibly ROI-narrowed) OutputRoi. When op.Bounds is much larger than the
+    // ROI, DeviceBufferSize(op.Bounds, resolution.WorkingScale) can exceed the 16384-px budget, so the executor must
+    // re-clamp w against op.Bounds (the fan-out branch already does). A narrow 20000-px frame with a small requested
+    // region leaves resolution.WorkingScale at 1 while op.Bounds needs the clamp — the buffer stays a few px tall.
+    [Test]
+    public void Execute_InvariantFusedPass_ReClampsWorkingScaleAgainstOpBounds()
+    {
+        var bounds = new Rect(0, 0, 20000, 8);
+        CompiledPlan plan = Compile(NewBuilder(bounds).Shader(Scale(1f)));
+
+        FrameResources res = EffectGraphCompiler.ResolveResources(plan, new Rect(0, 0, 100, 8), workingScale: 1f);
+        Assert.That(res.Passes[0].WorkingScale, Is.EqualTo(1f),
+            "sanity: the narrowed ROI fits the budget, so the resolver leaves the pass working scale at 1");
+
+        float expected = RenderNodeContext.ClampWorkingScaleToBufferBudget(bounds, 1f);
+        Assert.That(expected, Is.LessThan(1f), "sanity: the full 20000-px op.Bounds must trigger the buffer-budget clamp");
+
+        RenderNodeOperation[] outputs = PlanExecutor.Execute(
+            plan, res, [MakeInput(bounds)], outputScale: 1f, workingScale: 1f,
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null);
+        try
+        {
+            Assert.That(outputs, Has.Length.EqualTo(1));
+            Assert.That(outputs[0].EffectiveScale.Value, Is.EqualTo(expected).Within(1e-4f),
+                "the invariant fused pass re-clamps w against op.Bounds, not the ROI-sized resolution working scale");
+        }
+        finally
+        {
+            RenderNodeOperation.DisposeAll(outputs);
+        }
+    }
+
     // B2 (FR-012/C3.2): once an upstream pass clamps w down, no downstream materializing/fan-out pass may raise it
     // again. The carried ceiling is the incoming op's own EffectiveScale (its pixels only exist at that density). A
     // maxDimension=50 resolve clamps the leading invariant pass to w=0.5; the executor's per-op re-clamps run at the
