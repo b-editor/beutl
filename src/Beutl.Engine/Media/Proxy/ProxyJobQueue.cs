@@ -299,8 +299,6 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         CancelAll();
         _channel.Writer.TryComplete();
         _disposeCts.Cancel();
-        if (_generatorAvailability != null)
-            _generatorAvailability.AvailabilityChanged -= OnGeneratorAvailabilityChanged;
 
         try
         {
@@ -309,6 +307,21 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         catch (OperationCanceledException)
         {
         }
+
+        // Unsubscribe only after the drain loop has ended. DrainAsync is the sole place that resolves a
+        // generator and subscribes (under _lock), so reading _generatorAvailability before awaiting it
+        // could miss a subscription taken between the read and the drain finishing, leaking a live
+        // reference to this queue. Mirror InvalidateGenerator: read + null under _lock, unsubscribe
+        // outside it.
+        IProxyGeneratorAvailability? availability;
+        lock (_lock)
+        {
+            availability = _generatorAvailability;
+            _generatorAvailability = null;
+        }
+
+        if (availability != null)
+            availability.AvailabilityChanged -= OnGeneratorAvailabilityChanged;
 
         _disposeCts.Dispose();
     }

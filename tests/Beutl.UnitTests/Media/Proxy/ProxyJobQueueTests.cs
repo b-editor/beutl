@@ -29,6 +29,27 @@ public class ProxyJobQueueTests
         });
     }
 
+    // greptile P1: DisposeAsync must unsubscribe from the resolved generator's AvailabilityChanged, or the
+    // generator keeps a live reference to the queue (leak) and can fire into a disposed object. The
+    // unsubscribe now runs after the drain loop ends so a generator resolved during disposal cannot leave
+    // a stray subscription the pre-drain read would miss.
+    [Test]
+    public async Task DisposeAsync_UnsubscribesFromGeneratorAvailability()
+    {
+        var generator = new ToggleAvailabilityGenerator();
+        generator.SetAvailable();
+        var queue = new ProxyJobQueue(generator);
+        ProxyJob job = await queue.EnqueueAsync(CreateFingerprint("a.mov"), ProxyPreset.Quarter);
+        await WaitForTerminalAsync(job);
+        Assume.That(generator.AvailabilityChangedSubscriberCount, Is.EqualTo(1),
+            "the drain resolved the generator and subscribed to AvailabilityChanged");
+
+        await queue.DisposeAsync();
+
+        Assert.That(generator.AvailabilityChangedSubscriberCount, Is.EqualTo(0),
+            "DisposeAsync must unsubscribe so the generator no longer references the disposed queue");
+    }
+
     [Test]
     public async Task EnqueueAsync_DeduplicatesSourcePreset()
     {
@@ -1012,6 +1033,8 @@ public class ProxyJobQueueTests
         }
 
         public event EventHandler? AvailabilityChanged;
+
+        public int AvailabilityChangedSubscriberCount => AvailabilityChanged?.GetInvocationList().Length ?? 0;
 
         public ValueTask GenerateAsync(ProxyJob job)
         {
