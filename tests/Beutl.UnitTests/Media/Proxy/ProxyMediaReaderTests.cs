@@ -77,6 +77,34 @@ public sealed class ProxyMediaReaderTests
         GC.SuppressFinalize(inner);
     }
 
+    [Test]
+    public void Dispose_NonDisposing_SwallowsThrowingPin()
+    {
+        var inner = new FakeMediaReader();
+        var pin = new FakePin(() => throw new InvalidOperationException("third-party pin failure"));
+
+        var resolution = new ProxyResolution(
+            AbsoluteProxyFilePath: "/proxy.mp4",
+            Source: new ProxyFingerprint("/source.mp4", 100, DateTime.UtcNow),
+            Preset: ProxyPreset.Quarter,
+            OriginalLogicalFrameSize: new PixelSize(100, 80),
+            ProxyDecodedFrameSize: new PixelSize(50, 40));
+
+        var reader = new ProxyMediaReader(inner, pin, resolution);
+
+        // A pin from a third-party IProxyResolver may throw; on the finalizer path (disposing: false)
+        // an escaping exception would terminate the process, so it must be swallowed.
+        Assert.That(() => typeof(ProxyMediaReader)
+            .GetMethod("Dispose", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance, [typeof(bool)])!
+            .Invoke(reader, [false]), Throws.Nothing);
+
+        // The disposing path must still propagate the failure rather than hide it.
+        Assert.That(() => reader.Dispose(), Throws.InvalidOperationException);
+
+        GC.SuppressFinalize(reader);
+        GC.SuppressFinalize(inner);
+    }
+
     private sealed class FakeMediaReader(Action? onDispose = null) : MediaReader
     {
         public override VideoStreamInfo VideoInfo { get; } = new VideoStreamInfo(
