@@ -778,6 +778,7 @@ internal static class PlanExecutor
         }
 
         bool discarded;
+        Rect? shrunk;
         try
         {
             var input = new EffectInput(inputTarget, op.Bounds, EffectiveScale.At(inW));
@@ -786,6 +787,7 @@ internal static class PlanExecutor
             var session = new GeometrySession(canvas, [input], outBounds, outputScale, w, maxWorkingScale, diagnostics);
             cpu(session);
             discarded = session.IsOutputDiscarded;
+            shrunk = session.ShrunkOutputBounds;
         }
         catch
         {
@@ -796,12 +798,16 @@ internal static class PlanExecutor
         }
 
         inputTarget.Dispose();
+        // DiscardOutput supersedes a requested shrink (§C3): a dropped pass produces nothing regardless of order.
         if (discarded)
         {
             outputTarget.Dispose();
             op.Dispose();
             return null;
         }
+
+        if (shrunk is { } tight)
+            return EmitShrunkGeometry(tight, w, outBounds, outputTarget, op, maxWorkingScale, diagnostics, pool);
 
         op.Dispose();
         if (diagnostics != null)

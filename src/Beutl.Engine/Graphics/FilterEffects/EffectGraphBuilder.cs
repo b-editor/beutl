@@ -285,16 +285,15 @@ public sealed class EffectGraphBuilder
             structuralToken: "DropShadowOnly"));
     }
 
-    /// <summary>Appends a morphological erode.</summary>
+    /// <summary>Appends a morphological erode. Forward is identity (erode never grows the bounds), but the backward
+    /// inflates by the radius: an output pixel is the minimum over its radius neighborhood, so producing it samples
+    /// the input over that neighborhood exactly as dilate does. A downstream deflate crops this pass to the output
+    /// ROI, and an identity backward would starve the crop edge of the neighbor texels it reads, over-eroding it.</summary>
     public EffectGraphBuilder Erode(float radiusX, float radiusY)
     {
         return SkiaFilter(SkiaFilterNodeDescriptor.Create(
             inner => SKImageFilter.CreateErode(radiusX, radiusY, inner),
-            // Identity backward is deliberate and valid for erode only: a neighborhood sample falling outside the
-            // input region reads transparent, which can only erode edge pixels further — matching the legacy
-            // pipeline, where the baked buffer's edge WAS the bounds edge. Do NOT copy this identity onto a
-            // filter whose out-of-region samples would ADD content (blur, dilate, shadows) — those must inflate.
-            BoundsContract.Create(r => r, r => r),
+            BoundsContract.Create(r => r, r => r.Inflate(new Thickness(radiusX, radiusY))),
             structuralToken: "Erode"));
     }
 

@@ -185,6 +185,27 @@ public class BackwardRoiContractTests
             $"InnerShadow backward({requested}) = {required} must cover the offset shadow source {expected}");
     }
 
+    // Erode is a min filter: an output pixel reads its radius neighborhood, so its backward must inflate by the radius
+    // (mirroring Dilate) even though erode never grows the forward bounds. Identity (r => r) under-claims and, under a
+    // downstream deflate, starves the crop edge of the neighbor texels it reads (over-eroding it).
+    [Test]
+    public void Erode_BackwardRoi_InflatesByRadius()
+    {
+        var effect = new Erode { RadiusX = { CurrentValue = 10 }, RadiusY = { CurrentValue = 6 } };
+
+        CompiledPlan plan = Compile(effect);
+        var requested = new Rect(50, 40, 40, 30);
+        Rect expected = requested.Inflate(new Thickness(10, 6));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(plan.Passes[0].ForwardBounds(requested), Is.EqualTo(requested),
+                "erode never grows the forward bounds (forward is identity)");
+            Assert.That(plan.Passes[0].BackwardBounds(requested), Is.EqualTo(expected),
+                $"Erode backward({requested}) must inflate by the radius {expected} (min-filter neighborhood), not identity");
+        });
+    }
+
     private static CompiledPlan Compile(FilterEffect effect)
     {
         var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);

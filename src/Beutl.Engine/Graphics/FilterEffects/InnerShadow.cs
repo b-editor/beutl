@@ -64,7 +64,16 @@ public partial class InnerShadow : FilterEffect
         using var filter = SKImageFilter.CreateColorFilter(blend, blur);
         using var paint = new SKPaint { ImageFilter = filter };
 
+        // Both draws anchor to the un-cropped OutputBounds origin, which for this identity-forward pass is the input
+        // op's bounds origin. A downstream deflating pass can ROI-crop this pass so session.Bounds is an OFFSET
+        // sub-rect of that; bridge the origin (like FlatShadow/Clipping) so content still registers to the actual
+        // buffer. Zero when un-cropped (golden parity).
+        float bridgeX = (float)(input.Bounds.X - session.Bounds.X) * w;
+        float bridgeY = (float)(input.Bounds.Y - session.Bounds.Y) * w;
+        bool bridged = bridgeX != 0 || bridgeY != 0;
+
         using (canvas.PushDeviceSpace())
+        using (bridged ? canvas.PushTransform(Matrix.CreateTranslation(bridgeX, bridgeY)) : default)
         {
             using (canvas.PushPaint(paint))
             {

@@ -99,6 +99,32 @@ public class PositionAnchoredCropTests
         });
     }
 
+    // InnerShadow draws its input plus an offset, blurred shadow copy, both anchored to the un-cropped OutputBounds
+    // origin (identity forward). Round-2 gave it only the backward map; without the origin bridge an OFFSET render
+    // ROI still shifts both draws by the crop offset. The pass must bake its content registered to its resolved
+    // sub-rect, not to its un-cropped origin.
+    [Test]
+    public void InnerShadow_KeptRegionUnshiftedUnderOffsetRoi()
+    {
+        InnerShadow Make() => new()
+        {
+            Position = { CurrentValue = new Point(12, 8) },
+            Sigma = { CurrentValue = new Size(3, 3) },
+            Color = { CurrentValue = Colors.Red },
+        };
+
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using Bitmap full = RenderChain([Make()], ShapeInput, Rect.Invalid);
+            using Bitmap cropped = RenderChain([Make()], ShapeInput, new Rect(19, 29, 140, 90));
+
+            double meanDiff = MeanChannelDiff(full, cropped, WinX0, WinY0, WinX1, WinY1);
+            TestContext.WriteLine($"kept-region mean channel diff = {meanDiff:F3} (tolerance 8)");
+            Assert.That(meanDiff, Is.LessThanOrEqualTo(8.0),
+                "the offset-ROI InnerShadow output must register to its sub-rect (no crop-offset shift)");
+        });
+    }
+
     // FlatShadow contour-traces the WHOLE materialized input (ContourTracer.FindContours over the snapshot), so its
     // backward must claim the full input regardless of the requested output region — a band r ∪ (r − extrusionVector)
     // is insufficient because a cropped snapshot yields false/truncated contours (StrokeEffect's shape). Re-pinned

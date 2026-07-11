@@ -686,6 +686,40 @@ half4 apply(half4 c) {
             "the compute CPU-fallback input materializes at the carried clamped density, not the boundary working scale (1.0)");
     }
 
+    // The compute CPU fallback must honor a render-time SetOutputBounds shrink exactly as the geometry pass does
+    // (EmitShrunkGeometry): the emitted operation's bounds match the tightened sub-rect, not the full allocated
+    // buffer. Pre-fix the fallback ignored session.ShrunkOutputBounds and emitted the full input bounds.
+    [Test]
+    public void Execute_ComputeCpuFallbackHonorsSetOutputBounds()
+    {
+        if (GraphicsContextFactory.SharedContext is { Supports3DRendering: true })
+        {
+            Assert.Ignore("A live Vulkan context routes compute to the GPU path; this test exercises the CPU fallback shrink seam.");
+        }
+
+        var bounds = new Rect(0, 0, 100, 100);
+        var tight = new Rect(20, 20, 40, 40);
+        var probe = ComputeNodeDescriptor.Create(
+            dispatch: static _ => { }, passCount: 1, ComputeFallback.CpuCallback,
+            cpuCallback: session => session.SetOutputBounds(tight), structuralToken: "cpu-fallback-shrink-probe");
+        CompiledPlan plan = Compile(NewBuilder(bounds).Compute(probe));
+
+        FrameResources res = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale: 1f);
+        RenderNodeOperation[] outputs = PlanExecutor.Execute(
+            plan, res, [MakeInput(bounds)], outputScale: 1f, workingScale: 1f,
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null);
+        try
+        {
+            Assert.That(outputs, Has.Length.EqualTo(1), "the compute CPU fallback emits one output");
+            Assert.That(outputs[0].Bounds, Is.EqualTo(tight),
+                "the CPU fallback must honor SetOutputBounds and emit the shrunk sub-rect (pre-fix: the full input bounds)");
+        }
+        finally
+        {
+            RenderNodeOperation.DisposeAll(outputs);
+        }
+    }
+
     [Test]
     public void Execute_SplitInputMaterialization_UsesCarriedClampedWorkingScale()
     {
