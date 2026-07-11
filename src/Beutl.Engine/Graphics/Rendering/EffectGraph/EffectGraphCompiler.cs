@@ -143,6 +143,19 @@ internal static class EffectGraphCompiler
                 });
                 i++;
             }
+            else if (node.Descriptor is ExternalNodeDescriptor external)
+            {
+                passes.Add(new ExternalNodePass(external.Resource, external.NodeType)
+                {
+                    InputBounds = node.InputBounds,
+                    OutputBounds = node.OutputBounds,
+                    IsRenderTimeResolved = true,
+                    IsDynamicOutputs = true,
+                    ProvenanceMinChild = node.ChildIndex,
+                    ProvenanceMaxChild = node.ChildIndex,
+                });
+                i++;
+            }
             else
             {
                 throw new NotSupportedException(
@@ -368,7 +381,7 @@ internal static class EffectGraphCompiler
                     multiplicity *= split.BranchCount;
                     Add(multiplicity, idx, lastUse);
                     break;
-                case SplitPass or NestedGraphPass:
+                case SplitPass or NestedGraphPass or ExternalNodePass:
                     break;
                 case CompositePass:
                     multiplicity = 1;

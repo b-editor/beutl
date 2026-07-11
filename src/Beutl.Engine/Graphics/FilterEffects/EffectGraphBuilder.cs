@@ -117,6 +117,18 @@ public sealed class EffectGraphBuilder
     }
 
     /// <summary>
+    /// Appends an external-render-node node for a <paramref name="child"/> effect whose execution lives in a custom
+    /// <see cref="Rendering.FilterEffectRenderNode"/> (e.g. a <c>NodeGraphFilterEffect</c>): the executor drives that
+    /// render node as one node of this graph, materializing the current ops as its input. This is what lets such an
+    /// effect be embedded anywhere a container walks its children (a group, a delay-animation branch).
+    /// </summary>
+    public EffectGraphBuilder ExternalNode(FilterEffect.Resource child)
+    {
+        ArgumentNullException.ThrowIfNull(child);
+        return Append(ExternalNodeDescriptor.Create(child));
+    }
+
+    /// <summary>
     /// Builds a sampler binding — an eager <see cref="ChildBinding"/> for an invariance-safe value lookup (a LUT, a
     /// curve texture) whose shader lives until the frame's plan has executed: the graph disposes it in
     /// <see cref="EffectGraph.Dispose"/>, so it survives a skipped pass and is never leaked. Sampler contents are a

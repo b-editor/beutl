@@ -194,6 +194,21 @@ public sealed record NestedGraphPass(Action<EffectGraphBuilder, int> DescribeBra
 }
 
 /// <summary>
+/// An external-render-node pass (feature 004): the executor drives an effect's custom
+/// <see cref="FilterEffectRenderNode"/> as one node of this plan — it hands the current ops to the child node's
+/// <see cref="RenderNode.Process"/> (threading the shared diagnostics/pool) and feeds the returned ops onward. Its
+/// outputs are execution-time-resolved (<see cref="CompiledPass.IsDynamicOutputs"/>), so it terminates fusion and
+/// the C10 prefix and is exempt from the static peak-live bound; the work it drives counts on the shared
+/// <see cref="PipelineDiagnostics"/> like every other pass (C8). <see cref="NodeType"/> is part of the structural
+/// identity so a swapped child type recompiles (plan-cache correctness).
+/// </summary>
+public sealed record ExternalNodePass(Effects.FilterEffect.Resource Resource, Type NodeType) : CompiledPass
+{
+    /// <inheritdoc/>
+    public override PassBackend Backend => PassBackend.Skia;
+}
+
+/// <summary>
 /// The structural shape of one intermediate buffer (feature 004, data-model §3, C3.1). The concrete
 /// <c>DevicePixelSize</c> is resolved every frame; only the format and lifetime interval are structural.
 /// Peak-live count = maximum overlap of <c>[FirstUse, LastUse]</c> intervals (the FR-007 bound).

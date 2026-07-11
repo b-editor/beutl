@@ -23,13 +23,13 @@ public sealed partial class NodeGraphFilterEffect : FilterEffect
 
     public IProperty<GraphModel?> Model { get; } = Property.Create<GraphModel?>();
 
-    // A render-node boundary on the 003 render-node seam (research D7): the graph is evaluated by
-    // NodeGraphFilterEffectRenderNode, which overrides Process and never describes through this surface.
+    // The graph is evaluated by NodeGraphFilterEffectRenderNode (RenderNodeFactory), not by describable descriptors.
+    // Appending an external-node node makes the effect describable everywhere — inside a group, a delay-animation
+    // branch, any container — where the executor drives that render node as one node of the enclosing plan. A
+    // top-level NodeGraphFilterEffect still goes through its own render node (Push), never this path.
     public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
     {
-        throw new NotSupportedException(
-            $"{nameof(NodeGraphFilterEffect)} does not support {nameof(Describe)}. " +
-            "Use the resource/render-node pipeline (via ToResource and RenderNodeFactory) instead.");
+        builder.ExternalNode(resource);
     }
 
     public override Resource ToResource(CompositionContext context)

@@ -94,6 +94,16 @@ public readonly struct StructuralKey : IEquatable<StructuralKey>
                 sb.Append("nested:").Append(nested.StructuralToken);
                 break;
 
+            case ExternalNodeDescriptor external:
+                // The child's render-node type plus the child resource's reference identity: a swapped child instance
+                // or a changed node type must recompile the plan (the render node it drives differs). The child's
+                // Version is a per-frame parameter (rebind), so it stays OUT of the key — an animated child param
+                // re-renders through the same plan.
+                sb.Append("external:")
+                    .Append(external.NodeType.FullName)
+                    .Append(',').Append(System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(external.Resource));
+                break;
+
             default:
                 sb.Append(descriptor.GetType().FullName);
                 break;

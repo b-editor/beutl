@@ -73,6 +73,9 @@ internal static class PlanExecutor
                         ExecuteNestedGraph(
                             nestedGraph, current, outputScale, workingScale, maxWorkingScale, diagnostics, pool);
                         break;
+                    case ExternalNodePass externalNode:
+                        ExecuteExternalNode(externalNode, current, outputScale, maxWorkingScale, diagnostics, pool);
+                        break;
                     default:
                         MapDescriptorPass(
                             pass, resources.Passes[k], ExpectedInputBounds(plan, resources, k), current,
@@ -180,6 +183,53 @@ internal static class PlanExecutor
             return roi;
 
         return prev.OutputBounds.IsInvalid ? prev.InputBounds : prev.OutputBounds;
+    }
+
+    // Executes an external-render-node pass: drive the child effect's custom FilterEffectRenderNode over the current
+    // ops as one node of this plan. The node re-materializes the ops through its own pipeline (a NodeGraphFilterEffect
+    // re-evaluates its graph), so the whole op set is handed in as the child context's Input and the returned ops flow
+    // onward. Diagnostics and pool are threaded so the child's work counts on the owning renderer and shares its pool,
+    // exactly like the node-graph render boundary. The child derives its own working scale from the input ops'
+    // EffectiveScale (the carried density, C3.2) and OutputScale/MaxWorkingScale — the same resolution a top-level
+    // filter-effect node performs.
+    //
+    // The wrapper node is created per frame, not persisted. The executor is stateless and reentrant (nested-graph
+    // recursion, prefix resume), so a passIndex-keyed node map cannot survive a branch plan recompiled fresh each
+    // frame; and the realistic child — a NodeGraphFilterEffectRenderNode — rebuilds its inner RenderNodeProcessor on
+    // every Process, so its render caches live on the persisted graph-model resources, not on this wrapper. Persisting
+    // the wrapper would therefore save no cache while forcing that map through the reentrant executor. Disposing the
+    // wrapper releases only its own (empty) container/cache, never the returned ops.
+    private static void ExecuteExternalNode(
+        ExternalNodePass pass, List<RenderNodeOperation> current, float outputScale, float maxWorkingScale,
+        PipelineDiagnostics? diagnostics, RenderTargetPool? pool)
+    {
+        RenderNodeOperation[] inputs = current.ToArray();
+        // Ownership passes to the child node (which disposes or returns each input); clearing here keeps the outer
+        // Execute catch from disposing ops the child now owns, and stops a double-drop on the passthrough path.
+        current.Clear();
+
+        FilterEffectRenderNode node = pass.Resource.RenderNodeFactory.Create(pass.Resource);
+        try
+        {
+            node.Update(pass.Resource);
+            var childContext = new RenderNodeContext(inputs, outputScale, maxWorkingScale)
+            {
+                Diagnostics = diagnostics,
+                Pool = pool,
+            };
+            current.AddRange(node.Process(childContext));
+        }
+        catch
+        {
+            // A throw mid-Process leaves ownership ambiguous; dispose the inputs best-effort (idempotent, so a
+            // partially-consumed set is safe) so nothing the child had not yet adopted is stranded (C7).
+            RenderNodeOperation.DisposeAll(inputs);
+            throw;
+        }
+        finally
+        {
+            node.Dispose();
+        }
     }
 
     // Applies a descriptor pass to every current operation independently. A single upstream operation uses the
