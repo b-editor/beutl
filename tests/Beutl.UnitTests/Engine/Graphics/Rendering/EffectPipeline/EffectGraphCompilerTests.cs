@@ -148,6 +148,35 @@ half4 apply(half4 c) {
         });
     }
 
+    // N1b: a multi-declarator top-level const ('const float A = 1.0, B = 2.0;') escapes the merger's per-name feN_
+    // prefixing exactly like a multi-declarator uniform (the merger prefixes only the first declarator), so it is
+    // rejected at snippet construction. Single-declarator consts, consts with comma-bearing initializers, and
+    // function-local multi-declarator consts stay valid.
+    [Test]
+    public void SkslSnippet_MultiDeclaratorTopLevelConst_IsRejected()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                () => ShaderNodeDescriptor.Snippet(
+                    "const float A = 1.0, B = 2.0;\nhalf4 apply(half4 c){ return half4(c.rgb*A*B, c.a); }"),
+                Throws.ArgumentException,
+                "a comma-separated top-level const declarator list is rejected");
+            Assert.DoesNotThrow(
+                () => ShaderNodeDescriptor.Snippet(
+                    "const float A = 1.0;\nconst float B = 2.0;\nhalf4 apply(half4 c){ return c; }"),
+                "single-declarator top-level consts are valid");
+            Assert.DoesNotThrow(
+                () => ShaderNodeDescriptor.Snippet(
+                    "const float3 W = float3(0.2126, 0.7152, 0.0722);\nhalf4 apply(half4 c){ return c; }"),
+                "commas inside a single const's initializer parens are not declarator separators");
+            Assert.DoesNotThrow(
+                () => ShaderNodeDescriptor.Snippet(
+                    "half4 apply(half4 c){ const float a = 1.0, b = 2.0; return half4(c.rgb*a*b, c.a); }"),
+                "a function-local multi-declarator const is block-scoped and left alone");
+        });
+    }
+
     // B1: a snippet whose top-level declarations are indented must still fuse. The merger prefixes the indented
     // const, helper, and apply to fe0_ so the generated main's fe0_apply call resolves and the program compiles.
     [Test]

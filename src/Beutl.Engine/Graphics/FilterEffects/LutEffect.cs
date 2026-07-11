@@ -187,11 +187,40 @@ public sealed partial class LutEffect : FilterEffect
 
         float strength = r.Strength / 100f;
         string snippet = cube.Dimention == CubeFileDimension.OneDimension ? s_1dSnippet : s_snippet3d;
-        SKShader lutShader = BuildLutShader(cube);
+        // The LUT texture is a pure function of the cube, so it is cached on the resource (rebuilt only when the
+        // cube changes) and bound caller-owned — the resource owns the shader, so the graph must not dispose it.
+        SKShader lutShader = r.GetOrBuildLutShader(cube);
         builder.Shader(ShaderNodeDescriptor.Snippet(
             snippet,
             u => u.Int("lutSize", cube.Size).Float("strength", strength),
-            samplers: [builder.Sampler("lut", lutShader)]));
+            samplers: [new ChildBinding("lut", lutShader)]));
+    }
+
+    public new partial class Resource
+    {
+        private CubeFile? _cachedCube;
+        private SKShader? _cachedLutShader;
+
+        // A CubeFile is immutable and reference-stable while the source is unchanged (CubeSource weak-caches it),
+        // so instance identity is a sound cache key: same cube -> same rasterized shader; a changed cube rebuilds.
+        internal SKShader GetOrBuildLutShader(CubeFile cube)
+        {
+            if (_cachedLutShader is null || !ReferenceEquals(_cachedCube, cube))
+            {
+                _cachedLutShader?.Dispose();
+                _cachedLutShader = BuildLutShader(cube);
+                _cachedCube = cube;
+            }
+
+            return _cachedLutShader;
+        }
+
+        partial void PostDispose(bool disposing)
+        {
+            _cachedLutShader?.Dispose();
+            _cachedLutShader = null;
+            _cachedCube = null;
+        }
     }
 
     // A one-row RgbaF32 texture of the cube entries. Mirrors CurveMap.ToShader: the shader keeps the native image

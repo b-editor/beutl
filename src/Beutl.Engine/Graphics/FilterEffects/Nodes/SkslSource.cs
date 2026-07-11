@@ -61,7 +61,115 @@ public sealed partial record SkslSource
                 nameof(source));
         }
 
+        if (HasTopLevelMultiDeclaratorConst(source))
+        {
+            throw new ArgumentException(
+                "A fusable snippet must declare each top-level const in its own statement (e.g. 'const float A = "
+                + "1.0; const float B = 2.0;'), not as a comma-separated list ('const float A = 1.0, B = 2.0;'): "
+                + "the snippet merger prefixes top-level consts by name (feN_) one declarator at a time, so a "
+                + "multi-declarator list leaves the trailing consts unprefixed, silently colliding them in a fused "
+                + "program (contract A2). Function-local consts are unaffected.",
+                nameof(source));
+        }
+
         return new SkslSource(source, SkslSourceKind.Snippet);
+    }
+
+    // A comma at declarator level (paren/brace depth 0) inside a file-scope (brace depth 0) `const` statement marks
+    // a multi-declarator list (`const float A = 1.0, B = 2.0;`). Commas inside an initializer's parens/brackets/
+    // braces (`float3(1, 2, 3)`, `{1, 2}`) are not separators; function-local consts (brace depth > 0) are
+    // block-scoped and left alone. Line/block comments are skipped.
+    private static bool HasTopLevelMultiDeclaratorConst(string source)
+    {
+        int braceDepth = 0;
+        int groupDepth = 0;
+        bool inConst = false;
+        bool inLineComment = false;
+        bool inBlockComment = false;
+
+        for (int i = 0; i < source.Length; i++)
+        {
+            char c = source[i];
+
+            if (inLineComment)
+            {
+                if (c == '\n')
+                    inLineComment = false;
+                continue;
+            }
+
+            if (inBlockComment)
+            {
+                if (c == '*' && i + 1 < source.Length && source[i + 1] == '/')
+                {
+                    inBlockComment = false;
+                    i++;
+                }
+
+                continue;
+            }
+
+            if (c == '/' && i + 1 < source.Length && source[i + 1] == '/')
+            {
+                inLineComment = true;
+                i++;
+                continue;
+            }
+
+            if (c == '/' && i + 1 < source.Length && source[i + 1] == '*')
+            {
+                inBlockComment = true;
+                i++;
+                continue;
+            }
+
+            if (!inConst)
+            {
+                if (c == '{')
+                    braceDepth++;
+                else if (c == '}' && braceDepth > 0)
+                    braceDepth--;
+                else if (braceDepth == 0 && IsConstKeywordAt(source, i))
+                {
+                    inConst = true;
+                    groupDepth = 0;
+                    i += 4;
+                }
+
+                continue;
+            }
+
+            if (c is '(' or '[' or '{')
+            {
+                groupDepth++;
+            }
+            else if (c is ')' or ']' or '}')
+            {
+                if (groupDepth > 0)
+                    groupDepth--;
+            }
+            else if (c == ';')
+            {
+                inConst = false;
+            }
+            else if (c == ',' && groupDepth == 0)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsConstKeywordAt(string s, int i)
+    {
+        const string keyword = "const";
+        if (i + keyword.Length > s.Length || !s.AsSpan(i, keyword.Length).SequenceEqual(keyword))
+            return false;
+        if (i > 0 && (char.IsLetterOrDigit(s[i - 1]) || s[i - 1] == '_'))
+            return false;
+        int after = i + keyword.Length;
+        return after >= s.Length || (!char.IsLetterOrDigit(s[after]) && s[after] != '_');
     }
 
     /// <summary>Wraps a whole-source shader defining <c>half4 main(float2 coord)</c> with a <c>src</c> child. Must be non-empty.</summary>
