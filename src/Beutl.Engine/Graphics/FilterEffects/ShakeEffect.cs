@@ -48,17 +48,21 @@ public partial class ShakeEffect : FilterEffect
     public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
-        // i == 0 for the single-input pipeline (the legacy per-target index only differed across an intra-effect
-        // target list, which the declarative model expresses as a split fan-out).
+        // One shake vector per describe, shared by every branch of a downstream split. The legacy pipeline varied the
+        // offset per intra-effect target index; that per-branch variance is an accepted difference (maintainer
+        // decision) — post-split branches shake identically here.
         float a = r.Time * r.Speed / 100 + _offset;
         float b = _offset;
         float randomX = ClampOffset((_random.Perlin(a, b) - 0.5F) * 2F * r.StrengthX);
         float randomY = ClampOffset((_random.Perlin(b, a) - 0.5F) * 2F * r.StrengthY);
 
         var translate = new Vector(randomX, randomY);
+        // Forward translates by `translate`; producing output region `rect` samples the input over `rect − translate`,
+        // so backward must translate by the inverse. An identity backward crops an upstream pass to the un-translated
+        // region and drops the translated source band (A3).
         builder.Geometry(GeometryNodeDescriptor.Create(
             session => TransformGeometry.Render(session, Matrix.CreateTranslation(translate)),
-            BoundsContract.Create(rect => rect.Translate(translate), static r => r),
+            BoundsContract.Create(rect => rect.Translate(translate), rect => rect.Translate(-translate)),
             structuralToken: nameof(ShakeEffect)));
     }
 

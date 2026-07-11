@@ -47,6 +47,11 @@ public sealed partial class TransformEffect : FilterEffect
         // The ApplyToTarget path pivots each operation around its own centre (not the shared bounds centre a single
         // matrix filter would use), so it is a per-operation geometry redraw. In the linear single-input pipeline the
         // op's bounds equal the builder's; a fanned-out set (upstream split) still pivots each branch on its own rect.
+        // Backward inverts the same transform the forward applies (pivoted on the describe-time input bounds, which the
+        // forward map also uses): an identity backward crops an upstream pass to the un-transformed region and loses
+        // the pixels the rotation/scale pulls in (A3). RenderTime is unavailable here — the forward inflates the AABB,
+        // so it would collapse the buffer to the input rect and clip the transformed content (the FlatShadow rationale).
+        Rect inputBounds = builder.Bounds;
         builder.Geometry(GeometryNodeDescriptor.Create(
             session =>
             {
@@ -55,7 +60,9 @@ public sealed partial class TransformEffect : FilterEffect
                 Matrix offset = Matrix.CreateTranslation(origin);
                 TransformGeometry.Render(session, (-offset) * mat * offset);
             },
-            BoundsContract.Create(rect => ApplyToTargetBounds(rect, mat, originPoint), static r => r),
+            BoundsContract.Create(
+                rect => ApplyToTargetBounds(rect, mat, originPoint),
+                rect => InverseApplyToTargetBounds(rect, mat, originPoint, inputBounds)),
             structuralToken: nameof(TransformEffect) + ".ApplyToTarget"));
     }
 
@@ -64,6 +71,14 @@ public sealed partial class TransformEffect : FilterEffect
         Vector origin = originPoint.ToPixels(rect.Size) + rect.Position;
         Matrix offset = Matrix.CreateTranslation(origin);
         return rect.TransformToAABB((-offset) * mat * offset);
+    }
+
+    private static Rect InverseApplyToTargetBounds(Rect rect, Matrix mat, RelativePoint originPoint, Rect inputBounds)
+    {
+        Vector origin = originPoint.ToPixels(inputBounds.Size) + inputBounds.Position;
+        Matrix offset = Matrix.CreateTranslation(origin);
+        Matrix transform = (-offset) * mat * offset;
+        return transform.TryInvert(out Matrix inverted) ? rect.TransformToAABB(inverted) : Rect.Invalid;
     }
 
 }

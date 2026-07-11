@@ -38,11 +38,14 @@ public partial class StrokeEffect : FilterEffect
             return;
 
         var data = (r.Offset, r.Pen, r.Style);
-        // Forward is the pen+offset inflation; the stroke and the source draw are both contained in it, so backward
-        // is identity (the FlatShadow pattern) — the geometry pass materializes the whole input regardless.
+        // Forward is the pen+offset inflation. ApplyGeometry snapshots and contour-traces the WHOLE materialized input,
+        // so backward must claim the entire input regardless of the requested output region: an identity backward lets
+        // a downstream deflating pass crop the upstream, feeding a cropped snapshot into the tracer — the crop edge
+        // becomes a false contour and content outside the ROI is dropped (A3).
+        Rect inputBounds = builder.Bounds;
         builder.Geometry(GeometryNodeDescriptor.Create(
             session => ApplyGeometry(session, data),
-            BoundsContract.Create(rect => TransformBounds(data, rect), static r => r),
+            BoundsContract.Create(rect => TransformBounds(data, rect), _ => inputBounds),
             structuralToken: nameof(StrokeEffect)));
     }
 

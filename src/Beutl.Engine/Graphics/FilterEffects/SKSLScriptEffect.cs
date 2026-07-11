@@ -155,7 +155,11 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
                     canvas.Canvas.DrawRect(new SKRect(0, 0, devW, devH), paint);
                 }
             },
-            BoundsContract.Identity,
+            // The generated pattern is anchored to the FULL output rect: fragCoord/width/height are the pass buffer's
+            // device coordinates (A3). Identity would let a downstream deflating pass ROI-crop this to an OFFSET
+            // sub-rect with a LOCAL fragCoord origin and a sub-rect width/height, rescaling and shifting the pattern.
+            // RenderTime keeps it baking full-frame — the BlendEffect / DisplacementMap show-map precedent.
+            BoundsContract.RenderTime,
             structuralToken: nameof(SKSLScriptEffect) + ".Generator"));
     }
 
