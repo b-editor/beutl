@@ -180,13 +180,16 @@ public sealed class VideoSource : MediaSource
                         if (!context.DisableResourceShare
                             && (!context.PreferProxy || reader.ProxyResolution != null))
                         {
-                            // Record the version/preset this shared reader was opened with, before
-                            // publishing it, so a later fresh Resource can validate reuse against it.
-                            // Preset first, then version: a reader observing the fresh version is then
-                            // guaranteed to also see the matching preset.
+                            // Record the version/preset/ref this shared reader was opened with, before
+                            // publishing it, so a later fresh Resource can validate reuse against it. The
+                            // version is written LAST as the single "all valid" signal: the reuse guard
+                            // reads version first, so a reader observing the fresh version is then
+                            // guaranteed to also see the matching preset AND the new ref. Writing the ref
+                            // after the version would let a reuser pass the version/preset guard yet still
+                            // read the previous preset's ref and decode from the wrong-density proxy.
                             Volatile.Write(ref videoSource._sharedReaderProxyPreset, (int)context.PreferredProxyPreset);
-                            Volatile.Write(ref videoSource._sharedReaderProxyVersion, proxyResolverVersion);
                             Volatile.Write(ref videoSource._mediaReaderRef, new(_counter));
+                            Volatile.Write(ref videoSource._sharedReaderProxyVersion, proxyResolverVersion);
                         }
                     }
                     catch

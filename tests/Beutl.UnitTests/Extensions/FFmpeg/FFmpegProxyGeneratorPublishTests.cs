@@ -475,12 +475,20 @@ public sealed class FFmpegProxyGeneratorPublishTests
         // The file is replaced after the job was queued: the current fingerprint no longer matches.
         File.WriteAllBytes(source, [1, 2, 3, 4, 5, 6]);
         var store = new TransitionRecordingStore(root);
+        // The replaced source already has Ready proxies for two presets; both must be marked Stale, not
+        // just the queued preset, or offline path resolution can still serve the other one.
+        store.SeedReady(queued, ProxyPreset.Half);
+        store.SeedReady(queued, ProxyPreset.Quarter);
         var generator = new FFmpegProxyGenerator(store);
         var job = new ProxyJob(queued, ProxyPreset.Quarter);
 
         Assert.ThrowsAsync<ProxyGenerationSkippedException>(async () => await generator.GenerateAsync(job));
 
-        Assert.That(store.Transitions, Does.Contain((queued, ProxyPreset.Quarter, ProxyState.Stale)));
+        Assert.That(store.Transitions, Is.EquivalentTo(new[]
+        {
+            (queued, ProxyPreset.Half, ProxyState.Stale),
+            (queued, ProxyPreset.Quarter, ProxyState.Stale),
+        }));
     }
 
     [Test]
@@ -505,6 +513,8 @@ public sealed class FFmpegProxyGeneratorPublishTests
         File.WriteAllBytes(source, [1, 2, 3, 4]);
         ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(source);
         var store = new TransitionRecordingStore(root);
+        store.SeedReady(fingerprint, ProxyPreset.Half);
+        store.SeedReady(fingerprint, ProxyPreset.Quarter);
         var job = new ProxyJob(fingerprint, ProxyPreset.Quarter);
         // A content change bumps size/mtime, so the re-stat no longer matches the fingerprint captured
         // before the encode.
@@ -512,10 +522,13 @@ public sealed class FFmpegProxyGeneratorPublishTests
 
         Assert.That(() => FFmpegProxyGenerator.EnsureSourceUnchanged(store, job, source),
             Throws.TypeOf<ProxyGenerationSkippedException>());
-        // The old entry for the pre-change fingerprint must be marked Stale before the skip so offline
-        // resolution never ranks its Ready proxy for the replacement bytes.
-        Assert.That(store.Transitions,
-            Is.EqualTo(new[] { (fingerprint, ProxyPreset.Quarter, ProxyState.Stale) }));
+        // Every Ready entry for the pre-change fingerprint must be marked Stale before the skip so offline
+        // resolution never ranks any of them for the replacement bytes.
+        Assert.That(store.Transitions, Is.EquivalentTo(new[]
+        {
+            (fingerprint, ProxyPreset.Half, ProxyState.Stale),
+            (fingerprint, ProxyPreset.Quarter, ProxyState.Stale),
+        }));
     }
 
     [Test]
@@ -559,11 +572,21 @@ public sealed class FFmpegProxyGeneratorPublishTests
     {
         public List<(ProxyFingerprint Source, ProxyPreset Preset, ProxyState State)> Transitions { get; } = [];
 
+        public List<ProxyEntry> Entries { get; } = [];
+
+        public void SeedReady(ProxyFingerprint source, ProxyPreset preset)
+        {
+            var now = DateTime.UtcNow;
+            Entries.Add(new ProxyEntry(
+                source, preset, ProxyState.Ready, $"hash/{preset}.mp4".ToLowerInvariant(), 512,
+                new PixelSize(1920, 1080), new PixelSize(480, 270), now, now, null));
+        }
+
         public string StoreRootPath => root;
 
         public ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset) => null;
 
-        public IReadOnlyList<ProxyEntry> Enumerate() => [];
+        public IReadOnlyList<ProxyEntry> Enumerate() => Entries;
 
         public void Register(ProxyEntry entry)
         {

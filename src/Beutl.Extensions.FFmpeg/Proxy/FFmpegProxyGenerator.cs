@@ -47,10 +47,10 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
         // instead — a fresh job keyed on the new fingerprint is enqueued by the normal UI scan.
         if (ProxyFingerprint.FromFile(sourcePath) != job.Source)
         {
-            // Mark the old proxy stale before skipping: it no longer matches the replaced file, and if
+            // Mark the old proxies stale before skipping: they no longer match the replaced file, and if
             // that replacement goes offline before ProxyResolver notices, offline resolution (which
-            // cannot restat the source) would otherwise rank this Ready proxy for the missing file.
-            store.TryTransition(job.Source, job.Preset, ProxyState.Stale, "Source changed since the job was queued.");
+            // cannot restat the source) would otherwise rank a Ready same-fingerprint proxy for the file.
+            MarkSourceProxiesStale(store, job.Source, "Source changed since the job was queued.");
             throw new ProxyGenerationSkippedException("Source changed since the job was queued.");
         }
 
@@ -111,11 +111,21 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
             throw new ProxyGenerationSkippedException("Source became unavailable during encoding.");
         if (current != job.Source)
         {
-            // The old proxy for job.Source no longer matches the file replaced mid-encode; mark it stale
-            // before skipping so offline resolution (which cannot restat the file) does not later rank
-            // this Ready proxy for the — now different, possibly missing — replacement.
-            store.TryTransition(job.Source, job.Preset, ProxyState.Stale, "Source changed during encoding.");
+            MarkSourceProxiesStale(store, job.Source, "Source changed during encoding.");
             throw new ProxyGenerationSkippedException("Source changed during encoding.");
+        }
+    }
+
+    // A source path can back Ready proxies for several presets (Half, Quarter, …), all sharing the same
+    // fingerprint. Offline ResolveByPath groups by that fingerprint and cannot restat the file, so leaving
+    // any preset Ready lets it serve stale bytes for a replaced/missing source. Mark every Ready entry for
+    // this fingerprint stale, not just the queued preset.
+    internal static void MarkSourceProxiesStale(IProxyStore store, ProxyFingerprint source, string reason)
+    {
+        foreach (ProxyEntry entry in store.Enumerate())
+        {
+            if (entry.Source == source && entry.State == ProxyState.Ready)
+                store.TryTransition(entry.Source, entry.Preset, ProxyState.Stale, reason);
         }
     }
 
