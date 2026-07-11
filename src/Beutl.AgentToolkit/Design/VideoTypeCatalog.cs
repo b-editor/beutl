@@ -133,9 +133,11 @@ public static class VideoTypeCatalog
                 "Call get_background_grammar and instantiate background, midground, foreground, and motion slots in notes before apply_edit.",
                 "Call get_schema for any drawable, GeometryShape, media, effect, brush, or animation types whose property names are not already known.",
                 "Build a beatGridPlan and quantitativePlanSheet before apply_edit when the brief names BPM, high tempo, or short kinetic beats.",
+                "Record a cameraPlan before apply_edit: per shot choose locked, push-in, pull-back, pan, whip-pan, roll, or parallax, then author moves as animated transforms on a named [role:camera-rig] DrawableGroup so shots do not read as static slides — either nesting the shot's content as Children or pulling the contiguous timeline layers above the rig with PortalObject.Count (see get_examples insert-camera-rig-push-in / insert-camera-rig-portal).",
                 "Use apply_edit in storyboard-first stages: background/surface, foreground structure, typography, then text backing plates.",
                 "Call render_storyboard and preview_quality_risks with videoType:\"motion-graphics\" before adding effects or motion.",
                 "Call list_effect_recipes, get_effect_recipe, and validate_shader when effect chains or SKSL fields are part of the look.",
+                "Prefer real capability types over fakes: ParticleEmitter for particle fields, AudioWaveformDrawable/AudioSpectrumDrawable for music-reactive layers, TextBlock.SplitByCharacters for kinetic type, Rotation3DTransform for perspective moves, Pen.TrimStart/TrimEnd for line-draw reveals, and BlendMode/Clipping for mattes and wipes — get_schema exposes each surface.",
                 "Call evaluate_edit_quality with videoType:\"motion-graphics\" and plannedForegroundElementsPerShot from the quantitativePlanSheet.",
                 "Call final_preflight with videoType:\"motion-graphics\", requireAnimatedProperties:true, and the planned density target before export_video."
             ],
@@ -218,7 +220,7 @@ public static class VideoTypeCatalog
                 "Use apply_edit to create one Element per lyric or caption line with Start/Length matching the sync table.",
                 "Use measure_object_bounds on representative lines and backing plates before relying on render_still readability.",
                 "Verify per-line read time and contrast with preview_quality_risks or evaluate_edit_quality before adding extra motion.",
-                "Keep the background a simple consistent loop that never outcompetes the timed text.",
+                "Keep the background a simple consistent loop that never outcompetes the timed text; AudioSpectrumDrawable or AudioWaveformDrawable can render a genuinely music-reactive backdrop from the music bed.",
                 "Call preview_quality_risks, suggest_quality_fixes, evaluate_edit_quality, and final_preflight with videoType:\"lyric-captions\"."
             ],
             new VideoTypeGateProfile(

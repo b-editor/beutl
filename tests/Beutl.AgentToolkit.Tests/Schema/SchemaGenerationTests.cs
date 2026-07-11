@@ -2,7 +2,9 @@
 using System.Globalization;
 using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
+using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Schema;
+using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.Animation.Easings;
 using Beutl.Audio.Effects;
 using Beutl.Engine;
@@ -12,7 +14,9 @@ using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.NodeGraph;
+using Beutl.ProjectSystem;
 using Beutl.Services;
+using MergePatchApplier = Beutl.AgentToolkit.MergePatch.MergePatch;
 
 namespace Beutl.AgentToolkit.Tests.Schema;
 
@@ -52,6 +56,12 @@ public sealed class SchemaGenerationTests
         string brushEffectExample = schema.Examples.Single(example => example.Name == "apply-gradient-fill-and-effect-chain").Patch.ToJsonString();
         string newAnimatedTextExample = schema.Examples.Single(example => example.Name == "insert-new-animated-text-keyframes").Patch.ToJsonString();
         string geometryShapeExample = schema.Examples.Single(example => example.Name == "insert-new-geometry-shape-path").Patch.ToJsonString();
+        string cameraRigExample = schema.Examples.Single(example => example.Name == "insert-camera-rig-push-in").Patch.ToJsonString();
+        string cameraPortalExample = schema.Examples.Single(example => example.Name == "insert-camera-rig-portal").Patch.ToJsonString();
+        IReadOnlyList<DeclarativeExampleSummary> cameraExampleSummaries = generator.ListExamples(typeFilter: nameof(DrawableGroup));
+        TypeDescriptor portal = schema.Types.Single(type => type.Type == typeof(PortalObject).FullName);
+        PropertyDescriptor portalCount = portal.Properties.Single(property => property.Name == nameof(PortalObject.Count));
+        PropertyDescriptor portalClear = portal.Properties.Single(property => property.Name == nameof(PortalObject.Clear));
         IReadOnlyList<DeclarativeExampleSummary> geometryExampleSummaries = generator.ListExamples(typeFilter: "GeometryShape");
         CapabilitySchema audioSchema = generator.Generate(categoryFilter: "AudioEffect");
         CapabilitySchema brushSchema = generator.Generate(categoryFilter: "Brush");
@@ -118,6 +128,21 @@ public sealed class SchemaGenerationTests
             Assert.That(geometryShapeExample, Does.Contain("Figures"));
             Assert.That(geometryShapeExample, Does.Contain("Segments"));
             Assert.That(geometryExampleSummaries.Select(example => example.Name), Does.Contain("insert-new-geometry-shape-path"));
+            Assert.That(cameraRigExample, Does.Contain("DrawableGroup"));
+            Assert.That(cameraRigExample, Does.Contain("PortalObject"));
+            Assert.That(cameraRigExample, Does.Contain("[role:camera-rig]"));
+            Assert.That(cameraRigExample, Does.Contain("ScaleTransform"));
+            Assert.That(cameraRigExample, Does.Contain("TranslateTransform"));
+            Assert.That(cameraRigExample, Does.Contain("KeyFrameAnimation"));
+            Assert.That(cameraExampleSummaries.Select(example => example.Name), Does.Contain("insert-camera-rig-push-in"));
+            Assert.That(cameraExampleSummaries.Select(example => example.Name), Does.Contain("insert-camera-rig-portal"));
+            Assert.That(cameraPortalExample, Does.Contain("PortalObject"));
+            Assert.That(cameraPortalExample, Does.Contain("\"Count\":2"));
+            Assert.That(cameraPortalExample, Does.Contain("DrawableGroup"));
+            Assert.That(cameraPortalExample, Does.Contain("KeyFrameAnimation"));
+            Assert.That(portalCount.UsageHint, Does.Contain("ZIndex"));
+            Assert.That(portalCount.UsageHint, Does.Contain("insert-camera-rig-portal"));
+            Assert.That(portalClear.UsageHint, Does.Contain("flow"));
             Assert.That(audioSchema.Types.Any(type => type.Type == typeof(DelayEffect).FullName), Is.True);
             Assert.That(audioSchema.Examples, Is.Empty);
             Assert.That(brushSchema.Examples.Select(example => example.Name), Does.Contain("create-empty-scene-motion-graphics"));
@@ -142,6 +167,81 @@ public sealed class SchemaGenerationTests
             Assert.That(exampleSummaries.Single(example => example.Name == "create-empty-scene-orbital-radar").Tags, Does.Contain("orbital"));
             Assert.That(namedExamples, Has.Count.EqualTo(1));
             Assert.That(namedExamples.Single().Patch.ToJsonString(), Does.Contain("Orbit map"));
+        });
+    }
+
+    private static Uri CreateSceneUri()
+    {
+        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        return new Uri(Path.Combine(dir, "Scene.scene"));
+    }
+
+    [Test]
+    public void Camera_rig_push_in_example_applies_through_merge_patch_and_reconciler()
+    {
+        var scene = new Scene(1920, 1080, "camera-nested")
+        {
+            Duration = TimeSpan.FromSeconds(8),
+            Uri = CreateSceneUri()
+        };
+        using var session = new AgentToolkitTestSession(scene);
+
+        DeclarativeExample example = new SchemaGenerator()
+            .GenerateExamples(nameFilter: "insert-camera-rig-push-in")
+            .Single();
+        JsonObject current = session.Documents.Read(scene);
+        JsonObject desired = (JsonObject)MergePatchApplier.Apply(current, example.Patch)!;
+
+        new Reconciler().Apply(session, desired);
+
+        Element rigElement = scene.Children.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(rigElement.Objects, Has.Count.EqualTo(2));
+            Assert.That(rigElement.Objects[0], Is.InstanceOf<PortalObject>());
+            Assert.That(((PortalObject)rigElement.Objects[0]).Count.CurrentValue, Is.EqualTo(0));
+            Assert.That(rigElement.Objects[1], Is.InstanceOf<DrawableGroup>());
+            var group = (DrawableGroup)rigElement.Objects[1];
+            Assert.That(group.Children, Has.Count.EqualTo(2));
+            Assert.That(group.Children[1], Is.InstanceOf<TextBlock>());
+            var transformGroup = (TransformGroup)group.Transform.CurrentValue!;
+            Assert.That(transformGroup.Children.OfType<ScaleTransform>().Count(), Is.EqualTo(1));
+            Assert.That(transformGroup.Children.OfType<TranslateTransform>().Count(), Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public void Camera_rig_portal_example_applies_through_merge_patch_and_reconciler()
+    {
+        var scene = new Scene(1920, 1080, "camera-portal")
+        {
+            Duration = TimeSpan.FromSeconds(8),
+            Uri = CreateSceneUri()
+        };
+        using var session = new AgentToolkitTestSession(scene);
+
+        DeclarativeExample example = new SchemaGenerator()
+            .GenerateExamples(nameFilter: "insert-camera-rig-portal")
+            .Single();
+        JsonObject current = session.Documents.Read(scene);
+        JsonObject desired = (JsonObject)MergePatchApplier.Apply(current, example.Patch)!;
+
+        new Reconciler().Apply(session, desired);
+
+        Assert.That(scene.Children, Has.Count.EqualTo(3));
+        Element rigElement = scene.Children.Single(element => element.ZIndex == 10);
+        Element plateElement = scene.Children.Single(element => element.ZIndex == 11);
+        Element titleElement = scene.Children.Single(element => element.ZIndex == 12);
+        Assert.Multiple(() =>
+        {
+            Assert.That(rigElement.Objects, Has.Count.EqualTo(2));
+            Assert.That(rigElement.Objects[0], Is.InstanceOf<PortalObject>());
+            Assert.That(((PortalObject)rigElement.Objects[0]).Count.CurrentValue, Is.EqualTo(2));
+            Assert.That(rigElement.Objects[1], Is.InstanceOf<DrawableGroup>());
+            Assert.That(((DrawableGroup)rigElement.Objects[1]).Children, Is.Empty);
+            Assert.That(plateElement.Objects.Single(), Is.InstanceOf<RectShape>());
+            Assert.That(titleElement.Objects.Single(), Is.InstanceOf<TextBlock>());
         });
     }
 

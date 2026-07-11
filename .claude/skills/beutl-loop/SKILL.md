@@ -471,7 +471,7 @@ project with coverage, then compute changed-line coverage with the probe script:
 ```bash
 # Identify the matching test project from the touched src/ path (heuristic):
 #   src/Beutl.Engine/...  -> tests/Beutl.UnitTests/  (or tests/Beutl.Graphics3DTests/ for graphics)
-#   src/Beutl.ProjectSystem/... -> tests/Beutl.ProjectSystem.Tests/ (if present)
+#   src/Beutl.ProjectSystem/... -> tests/Beutl.UnitTests/ (ProjectSystem/ subtree)
 TESTS_PROJ=<derive-from-diff>
 # Coverage MUST be measured against the PR head, not the orchestrator checkout
 # (the draft was built in a worker worktree; this checkout holds a different
