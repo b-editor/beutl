@@ -448,7 +448,15 @@ public sealed class ProxyJobQueue : IProxyJobQueue
             }
             catch (ProxyGeneratorUnavailableException ex)
             {
-                if (_generatorAvailability == null)
+                // A racing InvalidateGenerator writes null under _lock; the terminal-vs-requeue
+                // decision must not act on a stale non-null read.
+                bool hasAvailabilitySignal;
+                lock (_lock)
+                {
+                    hasAvailabilitySignal = _generatorAvailability != null;
+                }
+
+                if (!hasAvailabilitySignal)
                 {
                     // With no availability signal the queue can never learn the generator recovered,
                     // so requeuing would occupy the serial queue forever (e.g. a build without FFmpeg).
