@@ -593,6 +593,30 @@
   <data name="NudgeRightSecond" xml:space="preserve">
     <value>Nudge right (1 second)</value>
   </data>
+  <data name="CloseGap" xml:space="preserve">
+    <value>Close Gap</value>
+  </data>
+  <data name="Gaps" xml:space="preserve">
+    <value>Gaps</value>
+  </data>
+  <data name="CloseAllGaps" xml:space="preserve">
+    <value>Close All Gaps</value>
+  </data>
+  <data name="GoToNextGap" xml:space="preserve">
+    <value>Go to Next Gap</value>
+  </data>
+  <data name="GoToPreviousGap" xml:space="preserve">
+    <value>Go to Previous Gap</value>
+  </data>
+  <data name="NoGapsToClose" xml:space="preserve">
+    <value>There are no gaps to close</value>
+  </data>
+  <data name="NoGapsToGoTo" xml:space="preserve">
+    <value>There are no gaps to go to</value>
+  </data>
+  <data name="NoElementSelected" xml:space="preserve">
+    <value>No element is selected</value>
+  </data>
   <data name="Editor" xml:space="preserve">
     <value>Editor</value>
   </data>

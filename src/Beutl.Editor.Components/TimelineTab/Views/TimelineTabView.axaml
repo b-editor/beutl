@@ -171,6 +171,23 @@
                         <ui:MenuFlyoutItem Command="{Binding SetEndTimeToPointerPosition}"
                                            InputGesture="{h:GetCommandGesture SetEndTime}"
                                            Text="{x:Static lang:Strings.SetEndTime}" />
+                        <ui:MenuFlyoutSubItem Text="{x:Static lang:Strings.Gaps}">
+                            <ui:MenuFlyoutSubItem.IconSource>
+                                <icons:SymbolIconSource Symbol="ArrowMoveInward" />
+                            </ui:MenuFlyoutSubItem.IconSource>
+                            <ui:MenuFlyoutItem Command="{CompiledBinding CloseGapAtPointerPosition}"
+                                               Text="{x:Static lang:Strings.CloseGap}" />
+                            <ui:MenuFlyoutItem Command="{CompiledBinding CloseAllGaps}"
+                                               InputGesture="{h:GetCommandGesture CloseAllGaps, ExtensionType={x:Type p:TimelineTabExtension}}"
+                                               Text="{x:Static lang:Strings.CloseAllGaps}" />
+                            <ui:MenuFlyoutSeparator />
+                            <ui:MenuFlyoutItem Command="{CompiledBinding GoToNextGap}"
+                                               InputGesture="{h:GetCommandGesture GoToNextGap, ExtensionType={x:Type p:TimelineTabExtension}}"
+                                               Text="{x:Static lang:Strings.GoToNextGap}" />
+                            <ui:MenuFlyoutItem Command="{CompiledBinding GoToPreviousGap}"
+                                               InputGesture="{h:GetCommandGesture GoToPreviousGap, ExtensionType={x:Type p:TimelineTabExtension}}"
+                                               Text="{x:Static lang:Strings.GoToPreviousGap}" />
+                        </ui:MenuFlyoutSubItem>
                         <ui:ToggleMenuFlyoutItem IsChecked="{Binding AutoAdjustSceneDuration.Value, Mode=TwoWay}" Text="{x:Static lang:SettingsStrings.AutoAdjustSceneDuration}" />
                         <ui:ToggleMenuFlyoutItem IsChecked="{Binding IsSnapEnabled.Value, Mode=TwoWay}" Text="{x:Static lang:Strings.TimelineSnap}" />
                         <ui:ToggleMenuFlyoutItem IsChecked="{CompiledBinding IsRippleEnabled.Value, Mode=TwoWay}"

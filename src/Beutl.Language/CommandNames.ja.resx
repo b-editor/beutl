@@ -51,6 +51,12 @@
   <data name="UngroupElements" xml:space="preserve">
     <value>グループを解除</value>
   </data>
+  <data name="CloseGap" xml:space="preserve">
+    <value>隙間を詰める</value>
+  </data>
+  <data name="CloseAllGaps" xml:space="preserve">
+    <value>すべての隙間を詰める</value>
+  </data>
   <data name="ChangeSceneDuration" xml:space="preserve">
     <value>シーンの長さを変更</value>
   </data>
