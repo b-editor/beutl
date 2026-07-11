@@ -883,6 +883,37 @@ public sealed class ProxiesTabViewModelTests
         Assert.That(viewModel.StatusMessage.Value, Is.EqualTo(Strings.ProxyDeleteFailedSingular));
     }
 
+    // The real store's Delete removes the index entry but only best-effort-deletes the file; a surviving
+    // .mp4 (a sharing violation while preview decodes it) is a real failure the UI must surface, even
+    // though Delete returned true.
+    [Test]
+    public void Delete_WhenProxyFileSurvivesDelete_SurfacesFailureInStatusMessage()
+    {
+        string root = CreateRoot();
+        string sourcePath = CreateSourceFile(root, "clip.mov", 1024);
+        var inner = new ProxyStore(Path.Combine(root, "proxies"));
+        ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(sourcePath);
+        DateTime now = DateTime.UtcNow;
+        RegisterProxyEntry(inner, new ProxyEntry(
+            fingerprint,
+            ProxyPreset.Quarter,
+            ProxyState.Ready,
+            "hash/quarter.mp4",
+            512,
+            new PixelSize(1920, 1080),
+            new PixelSize(480, 270),
+            now,
+            now,
+            null));
+
+        using var viewModel = new ProxiesTabViewModel(CreateContext(root, new OrphanFileStore(inner), sourcePath));
+        ProxyClipViewModel clip = viewModel.Clips.Single();
+
+        viewModel.Delete(clip);
+
+        Assert.That(viewModel.StatusMessage.Value, Is.EqualTo(Strings.ProxyDeleteFailedSingular));
+    }
+
     [Test]
     public void Delete_WhenEntryAlreadyGone_DoesNotReportFailure()
     {
@@ -1477,6 +1508,53 @@ public sealed class ProxiesTabViewModelTests
 
         public void Touch(ProxyFingerprint source, ProxyPreset preset, DateTime nowUtc)
             => inner.Touch(source, preset, nowUtc);
+
+        public long GetTotalBytes() => inner.GetTotalBytes();
+
+        public long GetTotalBytes(IReadOnlySet<string> sourceAbsolutePaths) => inner.GetTotalBytes(sourceAbsolutePaths);
+
+        public Task FlushAsync(CancellationToken cancellationToken) => inner.FlushAsync(cancellationToken);
+
+        public Task ReconcileAsync(CancellationToken cancellationToken) => inner.ReconcileAsync(cancellationToken);
+
+        public event EventHandler<ProxyStoreChangedEventArgs>? Changed
+        {
+            add => inner.Changed += value;
+            remove => inner.Changed -= value;
+        }
+    }
+
+    // Delegates to a real store but keeps the proxy file on disk after Delete (which still returns true),
+    // simulating a sharing violation where the index entry is removed yet File.Delete could not run.
+    private sealed class OrphanFileStore(ProxyStore inner) : IProxyStore
+    {
+        public string StoreRootPath => inner.StoreRootPath;
+
+        public ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset) => inner.TryGet(source, preset);
+
+        public IReadOnlyList<ProxyEntry> Enumerate() => inner.Enumerate();
+
+        public void Register(ProxyEntry entry) => inner.Register(entry);
+
+        public bool TryTransition(ProxyFingerprint source, ProxyPreset preset, ProxyState newState, string? failureReason = null)
+            => inner.TryTransition(source, preset, newState, failureReason);
+
+        public bool Delete(ProxyFingerprint source, ProxyPreset preset)
+        {
+            ProxyEntry? entry = inner.TryGet(source, preset);
+            string? path = entry is null
+                ? null
+                : Path.Combine(inner.StoreRootPath, entry.ProxyFileRelative.Replace('/', Path.DirectorySeparatorChar));
+            byte[]? bytes = path is not null && File.Exists(path) ? File.ReadAllBytes(path) : null;
+
+            bool result = inner.Delete(source, preset);
+
+            if (bytes is not null && path is not null)
+                File.WriteAllBytes(path, bytes);
+            return result;
+        }
+
+        public void Touch(ProxyFingerprint source, ProxyPreset preset, DateTime nowUtc) => inner.Touch(source, preset, nowUtc);
 
         public long GetTotalBytes() => inner.GetTotalBytes();
 

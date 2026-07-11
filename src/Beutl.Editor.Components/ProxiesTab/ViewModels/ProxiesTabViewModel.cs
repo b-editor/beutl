@@ -271,18 +271,31 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
         Refresh();
     }
 
-    // Delete also returns false for an entry that no longer exists (a benign race with eviction or
-    // another instance); only an entry still present afterwards is a real failure worth surfacing —
-    // typically a sharing violation because the preview is decoding that proxy right now.
+    // Two shapes of a real failure are surfaced, both typically a sharing violation while the preview
+    // decodes that proxy: Delete returns false with the entry still present, or Delete returns true (index
+    // removed) yet its best-effort file delete left the .mp4 on disk. Delete returning false for an
+    // already-gone entry is a benign race (eviction / another instance), not surfaced.
     private bool TryDeleteEntry(ProxyFingerprint source, ProxyPreset preset)
     {
         if (_store is not { } store)
             return true;
 
+        string? proxyPath = ResolveProxyFilePath(store, source, preset);
+
         if (store.Delete(source, preset))
-            return true;
+            return proxyPath is null || !File.Exists(proxyPath);
 
         return store.TryGet(source, preset) is null;
+    }
+
+    // The proxy file's absolute path from its store entry, captured before Delete removes the entry so a
+    // surviving orphan can be detected afterward. Null when no entry exists to resolve.
+    private static string? ResolveProxyFilePath(IProxyStore store, ProxyFingerprint source, ProxyPreset preset)
+    {
+        if (store.TryGet(source, preset) is not { } entry)
+            return null;
+
+        return Path.Combine(store.StoreRootPath, entry.ProxyFileRelative.Replace('/', Path.DirectorySeparatorChar));
     }
 
     private void ReportDeleteFailures(int failed)

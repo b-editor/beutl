@@ -939,6 +939,50 @@ public sealed class ExportSourceValidatorTests
         Assert.That(missing, Does.Contain(missingVideo));
     }
 
+    // Finding B: one walk reaches the same target first via a window-preserving DrawablePresenter and
+    // then via a time-remapping DrawableTimeController. The controller's rangeless full walk is a superset
+    // of the windowed one, so an identity-only visited check that lets the presenter suppress the
+    // controller would omit media reachable only at the remapped time. A [6s,10s] export windows out the
+    // 5s keyframe on every windowed path (the target's own element and the presenter), leaving the
+    // controller's full walk the only path that reaches the missing remapped source.
+    [Test]
+    public void CollectRenderableSources_TargetViaPresenterThenTimeController_KeepsRemappedMedia()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string existing = Path.Combine(root, "existing.mov");
+        string remappedMissing = Path.Combine(root, "remapped.mov");
+        File.WriteAllBytes(existing, [1]);
+
+        var target = new SourceVideo();
+        var animation = new KeyFrameAnimation<VideoSource?>();
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.Zero, Value = MakeVideoSource(existing) });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.FromSeconds(5), Value = MakeVideoSource(remappedMissing) });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.FromSeconds(10), Value = MakeVideoSource(existing) });
+        target.Source.Animation = animation;
+
+        // Both flow operators reference the same target instance (Target is a reference property, so
+        // sharing is allowed) so one walk visits it twice via the shared visited set.
+        var presenter = new DrawablePresenter();
+        presenter.Target.CurrentValue = target;
+        var controller = new DrawableTimeController();
+        controller.Target.CurrentValue = target;
+        // Presenter first: its windowed visit would suppress the controller under an identity-only check.
+        var group = new DrawableGroup();
+        group.Children.Add(presenter);
+        group.Children.Add(controller);
+
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
+        Element groupElement = ElementWith(root, group);
+        groupElement.Length = TimeSpan.FromSeconds(15);
+        scene.Children.Add(groupElement);
+
+        IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
+            ExportSourceValidator.CollectRenderableSources(scene, new TimeRange(TimeSpan.FromSeconds(6), TimeSpan.FromSeconds(4))));
+
+        Assert.That(missing, Does.Contain(remappedMissing));
+    }
+
     // When a presenter Target has both a CurrentValue and a reference-expression, the render evaluates
     // the expression, so preflight must walk the expression's target — not the (stale) CurrentValue.
     [Test]
