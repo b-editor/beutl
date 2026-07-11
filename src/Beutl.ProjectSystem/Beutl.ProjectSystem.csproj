@@ -19,5 +19,6 @@
   <PackageReference Include="ReactiveProperty" />
   <PackageReference Include="SkiaSharp" />
   <PackageReference Include="SkiaSharp.HarfBuzz" />
+  <PackageReference Include="SkiaSharp.NativeAssets.Linux" />
   </ItemGroup>
 </Project>
