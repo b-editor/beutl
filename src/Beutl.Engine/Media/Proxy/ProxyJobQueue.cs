@@ -264,6 +264,24 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         }
     }
 
+    // Allocation-free membership test for the eviction sweep, which queries it once per candidate: a
+    // non-terminal job whose (source, preset) matches. Prefer this over Pending() there, which would
+    // rebuild a filtered snapshot per candidate.
+    public bool IsGenerating(ProxyFingerprint source, ProxyPreset preset)
+    {
+        lock (_lock)
+        {
+            foreach (WorkItem item in _items)
+            {
+                ProxyJob job = item.Job;
+                if (!IsTerminal(job.Status) && job.Source == source && job.Preset == preset)
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
     public void Cancel(Guid jobId)
     {
         WorkItem? item;

@@ -228,10 +228,7 @@ public class ProxyEvictionTests
             store,
             resolver: null,
             maxTotalBytes: 7,
-            activeGenerationProvider: () => new HashSet<(ProxyFingerprint, ProxyPreset)>
-            {
-                (generating.Source, generating.Preset),
-            });
+            isGenerationActive: (source, preset) => (source, preset) == (generating.Source, generating.Preset));
 
         ProxyEvictionResult result = service.Sweep();
 
@@ -261,10 +258,9 @@ public class ProxyEvictionTests
             store,
             resolver: null,
             maxTotalBytes: 0,
-            activeGenerationProvider: () =>
+            isGenerationActive: (source, preset) =>
                 store.TryGet(first.Source, first.Preset) is null
-                    ? new HashSet<(ProxyFingerprint, ProxyPreset)> { (second.Source, second.Preset) }
-                    : new HashSet<(ProxyFingerprint, ProxyPreset)>());
+                && (source, preset) == (second.Source, second.Preset));
 
         ProxyEvictionResult result = service.Sweep();
 

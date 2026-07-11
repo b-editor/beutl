@@ -6,6 +6,7 @@ using Beutl.Engine.Expressions;
 using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
+using Beutl.Graphics3D.Textures;
 using Beutl.IO;
 using Beutl.Media;
 using Beutl.Media.Source;
@@ -526,6 +527,21 @@ public static class ProxySourceEnumerator
                 brushContext.RenderTarget, localRange, brushContext.SceneWindow))
                 yield return source;
             // Fall through so the brush's own remaining properties (Transform, …) are still walked.
+        }
+
+        // A DrawableTextureSource (a 3D material map — DiffuseMap / AlbedoMap / …) renders its nested
+        // Drawable via GetTexture, opening that drawable's files; it is reachable only as a property
+        // value, so route it through the guarded drawable walk like DrawableBrush above.
+        if (walkContext is { } textureContext && value is DrawableTextureSource textureSource
+            && ResolveExpressionValue<Drawable>(textureSource, textureSource.Drawable) is { } textureDrawable
+            && (!skipDisabledElements || textureDrawable.IsEnabled)
+            && textureContext.VisitedTargets.Add(textureDrawable))
+        {
+            foreach (IFileSource source in EnumerateObjectFileSources(
+                textureDrawable, textureContext.VisitedScenes, textureContext.VisitedGraphGroups,
+                textureContext.VisitedTargets, textureContext.VisitedFullWalkTargets, skipDisabledElements,
+                textureContext.RenderTarget, localRange, textureContext.SceneWindow))
+                yield return source;
         }
 
         // A SceneSound held as a property value (an audio visualizer's Source) contributes only its

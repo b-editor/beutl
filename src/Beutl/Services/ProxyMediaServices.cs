@@ -128,7 +128,7 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
                 $"Evicted {result.RemovedCount} proxy file(s), reclaimed {FormatBytes(result.ReclaimedBytes)}."),
             minFreeDiskBytes: DefaultMinFreeDiskBytes,
             openProjectSourceProvider: CollectOpenProjectSources,
-            activeGenerationProvider: () => CollectActiveGenerations(queue));
+            isGenerationActive: (source, preset) => queue.IsGenerating(source, preset));
         queue = new ProxyJobQueue(ResolveGeneratorFactory(store, eviction), store);
         return (store, resolver, queue, eviction);
     }
@@ -401,15 +401,6 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
         {
             s_logger.LogWarning(ex, "Proxy store disk-pressure eviction failed.");
         }
-    }
-
-    private static IReadOnlySet<(ProxyFingerprint Source, ProxyPreset Preset)> CollectActiveGenerations(ProxyJobQueue queue)
-    {
-        var active = new HashSet<(ProxyFingerprint, ProxyPreset)>();
-        foreach (ProxyJob job in queue.Pending())
-            active.Add((job.Source, job.Preset));
-
-        return active;
     }
 
     private static IReadOnlySet<string> CollectOpenProjectSources()

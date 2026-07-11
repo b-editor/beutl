@@ -4,9 +4,6 @@ public sealed class ProxyEvictionService : IProxyStoreCapInfo
 {
     private static readonly IReadOnlySet<string> s_noProtectedSources = new HashSet<string>();
 
-    private static readonly IReadOnlySet<(ProxyFingerprint Source, ProxyPreset Preset)> s_noActiveGenerations =
-        new HashSet<(ProxyFingerprint, ProxyPreset)>();
-
     private readonly IProxyStore _store;
     private readonly IProxyResolver? _resolver;
     private long _maxTotalBytes;
@@ -14,7 +11,7 @@ public sealed class ProxyEvictionService : IProxyStoreCapInfo
     private readonly Action<ProxyEvictionResult>? _notify;
     private readonly Func<IReadOnlySet<string>>? _openProjectSourceProvider;
     private readonly Func<string, long?>? _availableFreeSpaceProvider;
-    private readonly Func<IReadOnlySet<(ProxyFingerprint Source, ProxyPreset Preset)>>? _activeGenerationProvider;
+    private readonly Func<ProxyFingerprint, ProxyPreset, bool>? _isGenerationActive;
 
     // Mutable so a runtime cache-cap change updates the threshold in place; rebuilding the service (and
     // its queue) just to move this number would cancel unrelated in-flight generation. Read on sweep
@@ -37,11 +34,12 @@ public sealed class ProxyEvictionService : IProxyStoreCapInfo
     /// must be O(1) or memoized by the consumer (e.g. a cached snapshot invalidated on project
     /// open/close), not a fresh per-call enumeration of the project tree.
     /// </param>
-    /// <param name="activeGenerationProvider">
-    /// Returns the (source, preset) keys of proxy generation jobs currently in flight so the
-    /// eviction never deletes a proxy whose replacement is still being written. This callback
-    /// is invoked once per <see cref="Sweep"/> and <see cref="SweepForDiskPressure"/> call; it
-    /// must be O(1) or memoized (e.g. a live snapshot of the job queue's pending set).
+    /// <param name="isGenerationActive">
+    /// Tests whether a proxy generation job for the given (source, preset) is currently in flight so
+    /// the eviction never deletes a proxy whose replacement is still being written. A predicate rather
+    /// than a set snapshot: the sweep queries it once per candidate immediately before deleting (to see
+    /// regenerations queued mid-sweep), so it must be a cheap membership test, not a per-call rebuild of
+    /// the whole active set.
     /// </param>
     public ProxyEvictionService(
         IProxyStore store,
@@ -51,7 +49,7 @@ public sealed class ProxyEvictionService : IProxyStoreCapInfo
         long minFreeDiskBytes = 0,
         Func<IReadOnlySet<string>>? openProjectSourceProvider = null,
         Func<string, long?>? availableFreeSpaceProvider = null,
-        Func<IReadOnlySet<(ProxyFingerprint Source, ProxyPreset Preset)>>? activeGenerationProvider = null)
+        Func<ProxyFingerprint, ProxyPreset, bool>? isGenerationActive = null)
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentOutOfRangeException.ThrowIfNegative(maxTotalBytes);
@@ -64,7 +62,7 @@ public sealed class ProxyEvictionService : IProxyStoreCapInfo
         _notify = notify;
         _openProjectSourceProvider = openProjectSourceProvider;
         _availableFreeSpaceProvider = availableFreeSpaceProvider;
-        _activeGenerationProvider = activeGenerationProvider;
+        _isGenerationActive = isGenerationActive;
     }
 
     /// <summary>
@@ -131,8 +129,6 @@ public sealed class ProxyEvictionService : IProxyStoreCapInfo
             return default;
 
         IReadOnlySet<string> protectedSources = ResolveProtectedSources();
-        IReadOnlySet<(ProxyFingerprint Source, ProxyPreset Preset)> activeGenerations =
-            _activeGenerationProvider?.Invoke() ?? s_noActiveGenerations;
 
         List<Candidate> candidates = [];
         foreach (ProxyEntry entry in _store.Enumerate()
@@ -147,7 +143,7 @@ public sealed class ProxyEvictionService : IProxyStoreCapInfo
             // A proxy queued for regeneration must not be deleted before its replacement is
             // registered; if that generation is later canceled or fails the user would lose the
             // still-usable proxy for nothing.
-            if (activeGenerations.Contains((entry.Source, entry.Preset)))
+            if (_isGenerationActive?.Invoke(entry.Source, entry.Preset) == true)
                 continue;
 
             // Cap accounting must use the recorded size, because capOverage / GetTotalBytes sum
@@ -194,14 +190,12 @@ public sealed class ProxyEvictionService : IProxyStoreCapInfo
                 && _resolver.IsPinned(pinnedPath))
                 continue;
 
-            // Re-read active generations immediately before each delete, mirroring the pin re-check
+            // Test the active generation immediately before each delete, mirroring the pin re-check
             // above: a regenerate for this key may have been queued while the sweep deleted earlier
-            // candidates, so a snapshot taken once before the loop would miss it and this delete would
-            // drop a proxy whose replacement is still in flight (losing the usable fallback if that
-            // generation later fails).
-            IReadOnlySet<(ProxyFingerprint Source, ProxyPreset Preset)> activeGenerationsNow =
-                _activeGenerationProvider?.Invoke() ?? s_noActiveGenerations;
-
+            // candidates, so a check taken once before the loop would miss it and this delete would drop
+            // a proxy whose replacement is still in flight (losing the usable fallback if that generation
+            // later fails). The predicate is a cheap per-key membership test, not a per-candidate rebuild
+            // of the whole active set.
             // Delete keys on (Source, Preset), so a regenerate that ran since collection would make this
             // remove the current (possibly freshly Ready) entry rather than the ranked one. Skip unless the
             // current entry is still the ranked proxy and no generation for the key is active. Compare only
@@ -212,7 +206,7 @@ public sealed class ProxyEvictionService : IProxyStoreCapInfo
             if (current is null
                 || current.ProxyFileRelative != candidate.Entry.ProxyFileRelative
                 || current.GeneratedAtUtc != candidate.Entry.GeneratedAtUtc
-                || activeGenerationsNow.Contains((candidate.Entry.Source, candidate.Entry.Preset)))
+                || _isGenerationActive?.Invoke(candidate.Entry.Source, candidate.Entry.Preset) == true)
                 continue;
 
             if (_store.Delete(candidate.Entry.Source, candidate.Entry.Preset))

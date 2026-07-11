@@ -8,6 +8,9 @@ using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Graphics.AudioVisualizers;
 using Beutl.Graphics.Effects;
+using Beutl.Graphics3D.Materials;
+using Beutl.Graphics3D.Primitives;
+using Beutl.Graphics3D.Textures;
 using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.NodeGraph;
@@ -101,6 +104,24 @@ public class ProxySourceEnumeratorTests
         Element element = ElementWith(decorator);
 
         Assert.That(FileNames(element), Does.Contain("decorated.mov"));
+    }
+
+    // A DrawableTextureSource on a 3D material (Object3D.Material.DiffuseMap) renders its nested Drawable
+    // via GetTexture, opening that drawable's files; the media walk must reach a SourceVideo inside it.
+    [Test]
+    public void EnumerateVideoSources_RecursesIntoDrawableTextureSourceDrawable()
+    {
+        var video = new SourceVideo();
+        video.Source.CurrentValue = CreateVideoSource("texture-drawable.mov");
+        var textureSource = new DrawableTextureSource();
+        textureSource.Drawable.CurrentValue = video;
+        var material = new BasicMaterial();
+        material.DiffuseMap.CurrentValue = textureSource;
+        var cube = new Cube3D();
+        cube.Material.CurrentValue = material;
+        Element element = ElementWith(cube);
+
+        Assert.That(FileNames(element), Does.Contain("texture-drawable.mov"));
     }
 
     [Test]
