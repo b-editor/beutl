@@ -52,7 +52,7 @@ public class NodeGraphFilterEffectRenderNodeTests
     public void Process_ForwardsOutputScale_IntoGraphOutputSubtree(float outputScale, float expectedW)
     {
         using NodeGraphFilterEffect.Resource resource = BuildGraphResource();
-        using FilterEffectRenderNode node = resource.CreateRenderNode();
+        using FilterEffectRenderNode node = resource.RenderNodeFactory.Create(resource);
         var context = new RenderNodeContext([SourceOp(1.0f)], outputScale: outputScale);
 
         RenderNodeOperation[] ops = node.Process(context);
@@ -69,7 +69,7 @@ public class NodeGraphFilterEffectRenderNodeTests
     public void Process_ForwardsMaxWorkingScale_IntoGraphOutputSubtree(float maxWorkingScale, float expectedW)
     {
         using NodeGraphFilterEffect.Resource resource = BuildGraphResource();
-        using FilterEffectRenderNode node = resource.CreateRenderNode();
+        using FilterEffectRenderNode node = resource.RenderNodeFactory.Create(resource);
         var context = new RenderNodeContext([SourceOp(4.0f)], outputScale: 1.0f, maxWorkingScale: maxWorkingScale);
 
         RenderNodeOperation[] ops = node.Process(context);
@@ -142,7 +142,8 @@ internal sealed partial class ScaleProbeEffect : FilterEffect
 
     public new sealed class Resource : FilterEffect.Resource
     {
-        public override FilterEffectRenderNode CreateRenderNode() => new ScaleProbeRenderNode(this);
+        public override FilterEffectRenderNodeFactory RenderNodeFactory
+            => FilterEffectRenderNodeFactory.Of(static r => new ScaleProbeRenderNode(r));
     }
 }
 

@@ -28,31 +28,24 @@ public abstract partial class FilterEffect : EngineObject
     public abstract partial class Resource
     {
         /// <summary>
-        /// Creates the render node for this effect. The default returns the internal node that runs the compiled-plan
-        /// execution pipeline with per-node plan and prefix caching. Override to supply a custom
-        /// <see cref="FilterEffectRenderNode"/> subclass with a different working scale; such a subclass implements
-        /// <see cref="FilterEffectRenderNode.Process"/> itself and does not inherit that caching.
+        /// The factory that creates this effect's render node — the concrete node type and its constructor as one
+        /// value. The default runs the internal compiled-plan node (<see cref="PlanFilterEffectRenderNode"/>) with
+        /// per-node plan and prefix caching. Override to supply a custom <see cref="FilterEffectRenderNode"/>
+        /// subclass (e.g. a different working scale); such a subclass implements
+        /// <see cref="FilterEffectRenderNode.Process"/> itself and does not inherit that caching. Because the
+        /// factory captures the node type alongside its constructor, the render-graph diff's reuse check can never
+        /// drift from the node actually created.
         /// </summary>
-        public virtual FilterEffectRenderNode CreateRenderNode()
-        {
-            return new PlanFilterEffectRenderNode(this);
-        }
-
-        /// <summary>
-        /// The concrete type <see cref="CreateRenderNode"/> instantiates. The render-graph diff reuses the
-        /// effect's node across drawable re-renders only when the existing node's runtime type equals this —
-        /// reuse is what keeps the node's plan and prefix caches alive on animated frames. Override this together
-        /// with <see cref="CreateRenderNode"/>; leaving it unpaired is safe but rebuilds the custom node (and
-        /// recompiles its plan) on every re-render.
-        /// </summary>
-        public virtual Type RenderNodeType => typeof(PlanFilterEffectRenderNode);
+        public virtual FilterEffectRenderNodeFactory RenderNodeFactory
+            => FilterEffectRenderNodeFactory.Of(static r => new PlanFilterEffectRenderNode(r));
 
         public virtual PushedState Push(GraphicsContext2D context)
         {
+            FilterEffectRenderNodeFactory factory = RenderNodeFactory;
             return context.PushNode(
                 this,
-                RenderNodeType,
-                static resource => resource.CreateRenderNode(),
+                factory.NodeType,
+                factory.NodeConstructor,
                 static (node, resource) => node.Update(resource));
         }
     }

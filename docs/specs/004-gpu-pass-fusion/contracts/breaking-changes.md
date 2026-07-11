@@ -32,6 +32,7 @@ All changes landed as `refactor!:` / `feat!:` Conventional Commits with a `BREAK
 - **Whole-source `src` tile mode (added)**: `ShaderNodeDescriptor.WholeSource(…, srcTileMode:)` declares the implicit `src` child's out-of-bounds sampling (`Clamp`/`Decal`), reproducing what each legacy custom effect chose when building its own image shader.
 - **`RenderNodeContext.DeviceBufferSize` (relocated)**: the effect-pass buffer-sizing formula moved from `CustomFilterEffectContext` to `RenderNodeContext`; callers computing device-px uniforms use it unchanged.
 - **Pure-generator SKSL scripts**: an `SKSLScriptEffect` script that declares no `src` child (never samples the source) runs as a geometry pass drawing the built shader over the input rect — the legacy behavior, now without the bridge.
+- **Custom render-node seam reshaped: `Resource.CreateRenderNode()` + `Resource.RenderNodeType` → one `Resource.RenderNodeFactory`.** The 003 escape hatch (override to supply a custom `FilterEffectRenderNode` with a non-supply working scale) was a virtual `FilterEffectRenderNode CreateRenderNode()`; keeping the render-graph diff's reuse check alive across re-renders then required a *separately overridden* `virtual Type RenderNodeType`, and overriding one but not the other silently recompiled the plan every frame. Both are replaced by a single `virtual FilterEffectRenderNodeFactory RenderNodeFactory` — a `FilterEffectRenderNodeFactory` value that captures the node type (`typeof(TNode)`) and its constructor together via `FilterEffectRenderNodeFactory.Of<TNode>(Func<Resource, TNode>)`, so the type can no longer drift from the node created. **Migration:** `public override FilterEffectRenderNode CreateRenderNode() => new MyNode(this);` (with any paired `RenderNodeType`) becomes `public override FilterEffectRenderNodeFactory RenderNodeFactory => FilterEffectRenderNodeFactory.Of(static r => new MyNode(r));`. `Resource.Push` stays overridable; a direct caller of `CreateRenderNode()` uses `resource.RenderNodeFactory.Create(resource)`. This seam is new-on-this-branch relative to a release only in that `RenderNodeType` was added and removed here; `CreateRenderNode()` shipped in 003, so removing it is a real break.
 
 ## CSharpScriptEffect: before / after
 
@@ -70,7 +71,7 @@ Builder.Geometry(session =>
 
 ## Unchanged (explicit non-breaks)
 
-- `FilterEffect` subclassing as the plugin model; `Resource` capture; `Resource.CreateRenderNode()` / custom `FilterEffectRenderNode` overrides (003 seam).
+- `FilterEffect` subclassing as the plugin model; `Resource` capture; the ability to supply a custom `FilterEffectRenderNode` (the 003 escape hatch — the *shape* of that seam changed, see below).
 - All effect *properties*, serialization formats, and project files.
 - 003 scale semantics (`OutputScale`, `EffectiveScale`, `ResolveWorkingScale`, `MaxWorkingScale`, 16 384 px clamp).
 - `NodeGraphFilterEffect` user-facing behavior (internally re-described).

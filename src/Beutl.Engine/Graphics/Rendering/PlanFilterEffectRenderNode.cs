@@ -5,10 +5,10 @@ using Beutl.Graphics.Rendering.Cache;
 
 namespace Beutl.Graphics.Rendering;
 
-// The default filter-effect render node (returned by FilterEffect.Resource.CreateRenderNode()): runs the compiled-plan
+// The default filter-effect render node (produced by FilterEffect.Resource.RenderNodeFactory): runs the compiled-plan
 // execution pipeline (describe -> PlanCache -> ParameterBlock rebind -> ResolveResources -> PlanExecutor) and owns the
 // per-node plan/prefix caches. Sealed and internal — a plugin that needs a different working scale overrides
-// CreateRenderNode() to return its own FilterEffectRenderNode subclass and reimplements Process (without these caches).
+// RenderNodeFactory to build its own FilterEffectRenderNode subclass and reimplements Process (without these caches).
 internal sealed class PlanFilterEffectRenderNode(FilterEffect.Resource filterEffect) : FilterEffectRenderNode(filterEffect)
 {
     // Keyed on the graphics-context identity when none is resolved yet (the pool-less / no-GPU path), so the cache

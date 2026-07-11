@@ -14,7 +14,7 @@ Taxonomy (canonical, research D7): **seven concrete descriptor kinds realize the
 |---|---|
 | `abstract void ApplyTo(FilterEffectContext, Resource)` | **Removed** |
 | `abstract void Describe(EffectGraphBuilder builder, Resource resource)` | **Added** — appends node descriptors; must not render or allocate |
-| `Resource.CreateRenderNode()` / `Resource.Push(...)` | Unchanged (003 seam preserved) |
+| `Resource.RenderNodeFactory` / `Resource.Push(...)` | The 003 custom-render-node seam, reshaped: the `CreateRenderNode()` + `RenderNodeType` pair is replaced by one `FilterEffectRenderNodeFactory RenderNodeFactory` (captures node type + constructor together, so the diff's reuse check can't drift). `Push(...)` unchanged. |
 
 ### `EffectGraphBuilder` (public, new — replaces `FilterEffectContext`'s recording role)
 

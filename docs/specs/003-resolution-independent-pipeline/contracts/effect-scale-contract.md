@@ -57,10 +57,12 @@ public override void ApplyTo(FilterEffectContext context)
 }
 
 // An effect that needs a working scale OTHER than the supply density (clamp-to-output for perf,
-// oversample for SSAA) overrides the render node instead of declaring a policy:
+// oversample for SSAA) overrides the render node instead of declaring a policy.
+// (As shipped since 004: the seam is `RenderNodeFactory`, not `CreateRenderNode()`.)
 public sealed partial class Resource
 {
-    public override FilterEffectRenderNode CreateRenderNode() => new OversampleRenderNode(this);
+    public override FilterEffectRenderNodeFactory RenderNodeFactory
+        => FilterEffectRenderNodeFactory.Of(static r => new OversampleRenderNode(r));
 }
 
 private sealed class OversampleRenderNode(FilterEffect.Resource fe) : FilterEffectRenderNode(fe)
@@ -82,7 +84,7 @@ private sealed class OversampleRenderNode(FilterEffect.Resource fe) : FilterEffe
 }
 ```
 
-> **Note (as shipped):** the `CreateRenderNode()` override **is now honoured on every push path** — `FilterEffect.Resource.Push` routes through `CreateRenderNode()` (2026-06-10), so an effect on a normal `Drawable` (not just the node-graph path) gets its custom `FilterEffectRenderNode`. **Still deferred** is the ergonomics: `FilterEffectRenderNode.Process` computes the supply-driven `w` inline, so a subclass wanting a *different* `w` must copy the whole `Process` body (`base.Process(context)` runs supply-driven and silently ignores any `w` the subclass computed). Overriding `FilterEffectRenderNode` is a general customization point — working scale is only one reason to do it — so the follow-up is a **separate PR improving the node's overall customizability** (reducing how much of `Process` a subclass must reproduce), not a working-scale-specific hook: a narrow `protected virtual float ResolveWorkingScale(RenderNodeContext)` seam was considered and **will not be added**. So today: overriding the *whole* `Process` works end-to-end, but there is no shortcut for the "only change `w`" case yet.
+> **Note (as shipped):** the custom-render-node override **is now honoured on every push path** — `FilterEffect.Resource.Push` routes through it (2026-06-10), so an effect on a normal `Drawable` (not just the node-graph path) gets its custom `FilterEffectRenderNode`. **The seam was reshaped in 004 (2026-07):** the `CreateRenderNode()` + `RenderNodeType` pair became a single `FilterEffect.Resource.RenderNodeFactory` (a `FilterEffectRenderNodeFactory` capturing the node type and its constructor together, so the render-graph diff's reuse check can't drift from the node created — see 004 `contracts/breaking-changes.md`). **Still deferred** is the ergonomics: `FilterEffectRenderNode.Process` computes the supply-driven `w` inline, so a subclass wanting a *different* `w` must copy the whole `Process` body (`base.Process(context)` runs supply-driven and silently ignores any `w` the subclass computed). Overriding `FilterEffectRenderNode` is a general customization point — working scale is only one reason to do it — so the follow-up is a **separate PR improving the node's overall customizability** (reducing how much of `Process` a subclass must reproduce), not a working-scale-specific hook: a narrow `protected virtual float ResolveWorkingScale(RenderNodeContext)` seam was considered and **will not be added**. So today: overriding the *whole* `Process` works end-to-end, but there is no shortcut for the "only change `w`" case yet.
 
 ## Working scale — what scale an effect runs at
 
@@ -94,7 +96,7 @@ Every effect runs at the **supply-driven working scale `w`**, computed from its 
 
 **Every built-in runs supply-driven** — including the FR-013 resolution-sensitive set (`PixelSort`, contour `Stroke`/`FlatShadow`/`PartsSplit`, `AutoClip`, `Dilate`, `Erode`, `Mosaic`, custom SKSL/GLSL, image-map `Displacement`), since running at the supply density already keeps a high source's density through them. The working scale MUST NOT change the `s_out = 1.0` output.
 
-**Need a different working scale?** An effect that genuinely needs clamp-to-output (perf) or oversampling (SSAA) returns a `FilterEffectRenderNode` subclass from `FilterEffect.Resource.CreateRenderNode()` and overrides `Process` to compute its own `w` (see the example above). There is intentionally no declarative `ResolutionPolicy` — no built-in needed one, and a custom render node is more flexible than a closed enum. *(Earlier drafts had an `Inherit`/`ClampToOutput`/`Oversample(k)`/`PreserveSource` policy; it was removed.)*
+**Need a different working scale?** An effect that genuinely needs clamp-to-output (perf) or oversampling (SSAA) returns a `FilterEffectRenderNode` subclass from `FilterEffect.Resource.RenderNodeFactory` (as shipped since 004; formerly `CreateRenderNode()`) and overrides `Process` to compute its own `w` (see the example above). There is intentionally no declarative `ResolutionPolicy` — no built-in needed one, and a custom render node is more flexible than a closed enum. *(Earlier drafts had an `Inherit`/`ClampToOutput`/`Oversample(k)`/`PreserveSource` policy; it was removed.)*
 
 > **Footgun — `w` is per-boundary, not per-op; and shrinking a source makes it *more* expensive (2026-06-15).** `w` = the **densest concrete input** applies to the **whole buffer-allocating boundary**, so a single small high-density sibling raises the working scale — and thus the buffer **area** (`∝ w²`) — of the *entire* boundary, not just its own region. Example: a 4K logo shrunk into a corner carries `At(16)` density; under a shared effect (or any container allocating one buffer for the group) it lifts the whole boundary to `w = 16`, allocating a `16×`-denser buffer for mostly-low-density content. Because density is *backing pixels per logical unit*, scaling a high-resolution source **down** **raises** its density — so the source gets **more** expensive the smaller you draw it (inverting the usual "smaller = cheaper" intuition). The per-buffer **dimension** clamp (`ClampWorkingScaleToBufferBudget`) keeps such a buffer *allocatable* but does not stop it from dominating the boundary's cost. **Follow-up (deferred):** per-target (per-region) `w` scoping and a request-scoped area/byte budget — so a small dense sibling raises only its own region's density — are the proper fix.
 

@@ -371,7 +371,7 @@ public class SourceEffectiveScaleFlowTests
 
         Assert.That(ops, Is.Not.Empty);
         Assert.That(ops[0].EffectiveScale.Value, Is.EqualTo(expectedW).Within(1e-4),
-            "the custom render node did not apply its clamp-to-output working scale — the CreateRenderNode() escape hatch is broken");
+            "the custom render node did not apply its clamp-to-output working scale — the RenderNodeFactory escape hatch is broken");
         DisposeAll(ops);
     }
 
@@ -462,11 +462,11 @@ public class SourceEffectiveScaleFlowTests
     }
 
     // End-to-end FR-036 escape hatch: FilterEffect.Resource.Push must build the render node via the
-    // overridden CreateRenderNode(), and that custom node's non-supply working scale must then drive the
+    // overridden RenderNodeFactory, and that custom node's non-supply working scale must then drive the
     // pipeline. The other escape-hatch tests instantiate the custom node directly (bypassing Push), so a
     // regression hardcoding Push to 'new PlanFilterEffectRenderNode(this)' would pass them; this one fails.
     [Test]
-    public void Push_RoutesThroughOverriddenCreateRenderNode_AndCustomWorkingScaleApplies()
+    public void Push_RoutesThroughOverriddenRenderNodeFactory_AndCustomWorkingScaleApplies()
     {
         var effect = new ClampToOutputEffect();
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
@@ -479,7 +479,7 @@ public class SourceEffectiveScaleFlowTests
 
         Assert.That(container.Children, Has.Count.EqualTo(1), "Push added no render node");
         Assert.That(container.Children[0], Is.TypeOf<ClampToOutputEscapeHatchNode>(),
-            "Push bypassed the overridden CreateRenderNode() escape hatch (FR-036)");
+            "Push bypassed the overridden RenderNodeFactory escape hatch (FR-036)");
 
         var node = (FilterEffectRenderNode)container.Children[0];
         // At(2) supply at s_out 1: supply-driven w would be 2.0; the custom node clamps to s_out = 1.0.
@@ -500,7 +500,7 @@ public class SourceEffectiveScaleFlowTests
     }
 }
 
-// A FilterEffect whose Resource overrides only CreateRenderNode() (not Push), so the inherited
+// A FilterEffect whose Resource overrides only RenderNodeFactory (not Push), so the inherited
 // FilterEffect.Resource.Push is the path under test. Mirrors the NodeGraphFilterEffect pattern
 // (manual Resource + SuppressResourceClassGeneration).
 [SuppressResourceClassGeneration]
@@ -520,7 +520,8 @@ internal sealed partial class ClampToOutputEffect : FilterEffect
 
     public new sealed class Resource : FilterEffect.Resource
     {
-        public override FilterEffectRenderNode CreateRenderNode() => new ClampToOutputEscapeHatchNode(this);
+        public override FilterEffectRenderNodeFactory RenderNodeFactory
+            => FilterEffectRenderNodeFactory.Of(static r => new ClampToOutputEscapeHatchNode(r));
     }
 }
 
