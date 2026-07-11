@@ -3,7 +3,7 @@
 namespace Beutl.Graphics.Effects;
 
 /// <summary>
-/// An external-render-node node (feature 004, data-model §1): the declarative home for an effect whose execution
+/// A custom-render-node node (feature 004, data-model §1): the declarative home for an effect whose execution
 /// lives in a custom <see cref="FilterEffectRenderNode"/> rather than in describable descriptors — the
 /// <see cref="NodeGraphFilterEffect"/> being the canonical case. Embedding it in a graph (a
 /// <see cref="FilterEffectGroup"/>, a <see cref="DelayAnimationEffect"/> branch, any container that walks its
@@ -13,9 +13,9 @@ namespace Beutl.Graphics.Effects;
 /// child node's input, drives <see cref="FilterEffect.Resource.RenderNodeFactory"/>'s node, and threads the
 /// returned ops onward. Never fused; bounds are render-time resolved (the child node lays itself out at execution).
 /// </summary>
-public sealed record ExternalNodeDescriptor : EffectNodeDescriptor
+public sealed record CustomRenderNodeDescriptor : EffectNodeDescriptor
 {
-    private ExternalNodeDescriptor(FilterEffect.Resource resource, Type nodeType)
+    private CustomRenderNodeDescriptor(FilterEffect.Resource resource, Type nodeType)
     {
         Resource = resource;
         NodeType = nodeType;
@@ -34,10 +34,10 @@ public sealed record ExternalNodeDescriptor : EffectNodeDescriptor
     /// <inheritdoc/>
     public override bool IsCoordinateInvariant => false;
 
-    /// <summary>Builds an external-node descriptor for <paramref name="resource"/>, capturing its render-node type.</summary>
-    public static ExternalNodeDescriptor Create(FilterEffect.Resource resource)
+    /// <summary>Builds a custom-render-node descriptor for <paramref name="resource"/>, capturing its render-node type.</summary>
+    public static CustomRenderNodeDescriptor Create(FilterEffect.Resource resource)
     {
         ArgumentNullException.ThrowIfNull(resource);
-        return new ExternalNodeDescriptor(resource, resource.RenderNodeFactory.NodeType);
+        return new CustomRenderNodeDescriptor(resource, resource.RenderNodeFactory.NodeType);
     }
 }

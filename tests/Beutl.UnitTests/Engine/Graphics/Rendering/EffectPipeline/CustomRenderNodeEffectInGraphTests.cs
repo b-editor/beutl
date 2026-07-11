@@ -17,16 +17,16 @@ using Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.EffectPipeline;
 
 /// <summary>
-/// Covers the external-render-node graph primitive (feature 004): an effect whose execution lives in a custom
+/// Covers the custom-render-node graph primitive (feature 004): an effect whose execution lives in a custom
 /// <see cref="FilterEffectRenderNode"/> — the <see cref="NodeGraphFilterEffect"/> being the canonical case — is
-/// describable everywhere via <see cref="EffectGraphBuilder.ExternalNode"/>, so it can be embedded in a
+/// describable everywhere via <see cref="EffectGraphBuilder.CustomRenderNode"/>, so it can be embedded in a
 /// <see cref="FilterEffectGroup"/> or a <see cref="DelayAnimationEffect"/> branch. Regression guard for the P1
 /// crash where <c>NodeGraphFilterEffect.Describe</c> threw <see cref="NotSupportedException"/> unconditionally, so a
 /// group (or delay-animation) walking its children crashed the whole render. The graph-level and executor cases run
 /// without a GPU (raster); the node-graph pixel/diagnostics cases are Vulkan-gated.
 /// </summary>
 [TestFixture]
-public class ExternalNodeEffectInGraphTests
+public class CustomRenderNodeEffectInGraphTests
 {
     private static readonly Rect s_bounds = new(0, 0, 128, 96);
 
@@ -57,7 +57,7 @@ public class ExternalNodeEffectInGraphTests
         Assert.DoesNotThrow(() => group.Describe(builder, resource));
         using EffectGraph graph = builder.Build();
         Assert.That(graph.Nodes.Count, Is.GreaterThanOrEqualTo(3),
-            "gamma, the node-graph external node, and invert each append a node");
+            "gamma, the node-graph custom node, and invert each append a node");
     }
 
     [Test]
@@ -75,41 +75,41 @@ public class ExternalNodeEffectInGraphTests
     }
 
     [Test]
-    public void GroupWithExternalNode_CompilesToExpectedPassSchedule()
+    public void GroupWithCustomRenderNode_CompilesToExpectedPassSchedule()
     {
         CompiledPlan plan = CompileGroup(MakeGammaProbeInvertGroup(new int[1]));
 
         Assert.That(plan.Passes.Select(p => p.GetType()),
-            Is.EqualTo(new[] { typeof(FusedShaderPass), typeof(ExternalNodePass), typeof(FusedShaderPass) }),
-            "the external node compiles to its own ExternalNodePass between the two fused color passes");
+            Is.EqualTo(new[] { typeof(FusedShaderPass), typeof(CustomRenderNodePass), typeof(FusedShaderPass) }),
+            "the custom node compiles to its own CustomRenderNodePass between the two fused color passes");
 
-        var external = (ExternalNodePass)plan.Passes[1];
+        var custom = (CustomRenderNodePass)plan.Passes[1];
         Assert.Multiple(() =>
         {
-            Assert.That(external.IsRenderTimeResolved, Is.True, "an external node cannot lay out until execution");
-            Assert.That(external.IsDynamicOutputs, Is.True, "its output count is execution-time-resolved (exempt from the peak-live bound)");
-            Assert.That(external.NodeType, Is.EqualTo(typeof(ProbeRenderNode)), "the pass carries the child's render-node type");
+            Assert.That(custom.IsRenderTimeResolved, Is.True, "a custom node cannot lay out until execution");
+            Assert.That(custom.IsDynamicOutputs, Is.True, "its output count is execution-time-resolved (exempt from the peak-live bound)");
+            Assert.That(custom.NodeType, Is.EqualTo(typeof(ProbeRenderNode)), "the pass carries the child's render-node type");
         });
     }
 
-    // C10 non-capturable: an ExternalNodePass is neither a FusedShaderPass nor a SkiaFilterPass, so the pass-prefix
+    // C10 non-capturable: an CustomRenderNodePass is neither a FusedShaderPass nor a SkiaFilterPass, so the pass-prefix
     // cache's capturable predicate must never retain it (it terminates the prefix like a split/nested pass).
     [Test]
-    public void ExternalNodePass_TerminatesTheCapturablePrefix()
+    public void CustomRenderNodePass_TerminatesTheCapturablePrefix()
     {
         CompiledPlan plan = CompileGroup(MakeGammaProbeInvertGroup(new int[1]));
 
         Assert.That(plan.Passes[1], Is.Not.InstanceOf<FusedShaderPass>().And.Not.InstanceOf<SkiaFilterPass>(),
-            "the capturable-pass predicate only ever matches Fused/Skia passes, so the external pass ends the prefix");
+            "the capturable-pass predicate only ever matches Fused/Skia passes, so the custom pass ends the prefix");
     }
 
     // ---- Executor (GPU-free, raster) -------------------------------------------------------------------
 
-    // Proves the ExternalNodePass genuinely drives the child render node (the probe counter increments) and threads
-    // the ops through it. With an identity child, the group renders identically to the same group without the external
-    // node — so the surrounding Gamma and Invert stages both compose correctly across the external boundary.
+    // Proves the CustomRenderNodePass genuinely drives the child render node (the probe counter increments) and threads
+    // the ops through it. With an identity child, the group renders identically to the same group without the custom
+    // node — so the surrounding Gamma and Invert stages both compose correctly across the custom boundary.
     [Test]
-    public void Execute_ExternalNode_DrivesChildRenderNode_AndComposesSurroundingStages()
+    public void Execute_CustomRenderNode_DrivesChildRenderNode_AndComposesSurroundingStages()
     {
         var probeCalls = new int[1];
         FilterEffectGroup withProbe = MakeGammaProbeInvertGroup(probeCalls);
@@ -121,12 +121,12 @@ public class ExternalNodeEffectInGraphTests
         Assert.Multiple(() =>
         {
             Assert.That(probeCalls[0], Is.GreaterThanOrEqualTo(1),
-                "the external node's custom render node ran (the ops were threaded through it)");
+                "the custom node's custom render node ran (the ops were threaded through it)");
 
             double ssim = ImageMetrics.Ssim(withoutProbeResult, withProbeResult);
             double mae = ImageMetrics.MeanAbsoluteError(withoutProbeResult, withProbeResult);
             Assert.That(ssim, Is.GreaterThanOrEqualTo(GoldenThresholds.ExactSsimMin),
-                $"an identity external child leaves Gamma->Invert byte-identical (SSIM {ssim})");
+                $"an identity custom child leaves Gamma->Invert byte-identical (SSIM {ssim})");
             Assert.That(mae, Is.LessThanOrEqualTo(GoldenThresholds.ExactMaeMax), $"MAE {mae}");
         });
     }
@@ -134,11 +134,11 @@ public class ExternalNodeEffectInGraphTests
     // A throwing child render node must not leak the ops handed to it: the executor's catch disposes the inputs and
     // the whole plan execution unwinds (C7). Drives it through the executor directly so the throw is observable.
     [Test]
-    public void Execute_ExternalNodeChildThrows_PropagatesAndReleasesInputs()
+    public void Execute_CustomRenderNodeChildThrows_PropagatesAndReleasesInputs()
     {
         var group = new FilterEffectGroup();
         group.Children.Add(new Gamma { Amount = { CurrentValue = 1.5f } });
-        group.Children.Add(new ThrowingExternalEffect());
+        group.Children.Add(new ThrowingCustomNodeEffect());
 
         CompiledPlan plan = CompileGroup(group);
         FrameResources res = EffectGraphCompiler.ResolveResources(plan, s_bounds, workingScale: 1f);
@@ -163,25 +163,25 @@ public class ExternalNodeEffectInGraphTests
         Assert.That(again, Is.EqualTo(first),
             "re-describing the same group (a re-render frame) yields an equal key — the child resource reference is stable");
 
-        // Swap the external child for a fresh instance: a new render-node target must recompile the plan (C5).
+        // Swap the custom child for a fresh instance: a new render-node target must recompile the plan (C5).
         FilterEffectGroup swapped = MakeGammaProbeInvertGroup(new int[1]);
         using FilterEffect.Resource swappedResource = (FilterEffect.Resource)swapped.ToResource(CompositionContext.Default);
         Assert.That(KeyOf(swapped, swappedResource), Is.Not.EqualTo(first),
-            "a swapped external child instance changes the structural key (recompile)");
+            "a swapped custom child instance changes the structural key (recompile)");
     }
 
-    // SC-002 with an external node in the chain: an animated NEIGHBOR (Gamma amount) rebinds parameters without a
-    // recompile — the external node's structural key excludes the child's Version, so it never forces a per-frame
+    // SC-002 with a custom node in the chain: an animated NEIGHBOR (Gamma amount) rebinds parameters without a
+    // recompile — the custom node's structural key excludes the child's Version, so it never forces a per-frame
     // recompile. Drives a persistent node across frames on the pooled raster path.
     [Test]
-    public void AnimatedNeighbor_WithExternalNode_CompilesPlanExactlyOnce()
+    public void AnimatedNeighbor_WithCustomRenderNode_CompilesPlanExactlyOnce()
     {
         const int frames = 5;
         var probeCalls = new int[1];
         var gamma = new Gamma { Amount = { CurrentValue = 120f } };
         var group = new FilterEffectGroup();
         group.Children.Add(gamma);
-        group.Children.Add(new ProbeExternalEffect(probeCalls));
+        group.Children.Add(new ProbeCustomNodeEffect(probeCalls));
         group.Children.Add(new Invert { Amount = { CurrentValue = 1f } });
 
         var resource = (FilterEffect.Resource)group.ToResource(CompositionContext.Default);
@@ -208,8 +208,41 @@ public class ExternalNodeEffectInGraphTests
         {
             Assert.That(perFrameCompiles[0], Is.EqualTo(1), "frame 0 compiles the plan once");
             Assert.That(perFrameCompiles.Skip(1).Sum(), Is.EqualTo(0),
-                "later frames rebind the animated neighbor's parameters without recompiling (the external node does not force it)");
-            Assert.That(probeCalls[0], Is.EqualTo(frames), "the external child render node ran every frame");
+                "later frames rebind the animated neighbor's parameters without recompiling (the custom node does not force it)");
+            Assert.That(probeCalls[0], Is.EqualTo(frames), "the custom child render node ran every frame");
+        });
+    }
+
+    // ---- Base class: group-safe by construction (GPU-free) ---------------------------------------------
+
+    // M2: an effect deriving from CustomRenderNodeFilterEffect inherits a sealed Describe (it declares none of its
+    // own) and still renders correctly inside a FilterEffectGroup — grouping works with zero Describe boilerplate.
+    [Test]
+    public void CustomRenderNodeFilterEffectSubclass_IsGroupSafe_WithoutDescribeBoilerplate()
+    {
+        System.Reflection.MethodInfo describe = typeof(ProbeCustomNodeEffect).GetMethod(nameof(FilterEffect.Describe))!;
+        Assert.That(describe.DeclaringType, Is.EqualTo(typeof(CustomRenderNodeFilterEffect)),
+            "the subclass declares no Describe of its own — it inherits the base's sealed one");
+
+        var probeCalls = new int[1];
+        var group = new FilterEffectGroup();
+        group.Children.Add(new Gamma { Amount = { CurrentValue = 1.5f } });
+        group.Children.Add(new ProbeCustomNodeEffect(probeCalls));
+        group.Children.Add(new Invert { Amount = { CurrentValue = 1f } });
+
+        using FilterEffect.Resource resource = (FilterEffect.Resource)group.ToResource(CompositionContext.Default);
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        Assert.DoesNotThrow(() => group.Describe(builder, resource),
+            "the base's sealed Describe appends the custom node, so the group describes cleanly");
+
+        using Bitmap withProbe = RenderGroupRaster(MakeGammaProbeInvertGroup(probeCalls));
+        using Bitmap withoutProbe = RenderGroupRaster(MakeGammaInvertGroup());
+        Assert.Multiple(() =>
+        {
+            Assert.That(probeCalls[0], Is.GreaterThanOrEqualTo(1), "the base-derived effect's custom render node ran");
+            double ssim = ImageMetrics.Ssim(withoutProbe, withProbe);
+            Assert.That(ssim, Is.GreaterThanOrEqualTo(GoldenThresholds.ExactSsimMin),
+                $"the identity custom child composes byte-identically between the group's stages (SSIM {ssim})");
         });
     }
 
@@ -250,7 +283,7 @@ public class ExternalNodeEffectInGraphTests
         Assert.Multiple(() =>
         {
             // frame 1: the group's two Gamma/Invert fused passes PLUS the inner node-graph Gamma pass all count on the
-            // parent diagnostics; at least the inner pass proves the boundary threads through the external node.
+            // parent diagnostics; at least the inner pass proves the boundary threads through the custom node.
             Assert.That(perFrame[0].GpuPasses, Is.GreaterThanOrEqualTo(3),
                 "the group's own passes and the embedded node-graph effect's pass all count on the parent diagnostics");
             Assert.That(perFrame[0].PoolAcquires, Is.GreaterThanOrEqualTo(1),
@@ -259,7 +292,7 @@ public class ExternalNodeEffectInGraphTests
             for (int f = 1; f < frames; f++)
             {
                 Assert.That(perFrame[f].TargetAllocations, Is.EqualTo(0),
-                    $"frame {f + 1} adds no fresh allocations (steady-state reuse across the external-node boundary)");
+                    $"frame {f + 1} adds no fresh allocations (steady-state reuse across the custom-node boundary)");
                 Assert.That(perFrame[f].PoolMisses, Is.EqualTo(0),
                     $"frame {f + 1} has no pool misses (the warmed buffers are reused)");
             }
@@ -276,7 +309,7 @@ public class ExternalNodeEffectInGraphTests
         using (result)
         {
             Assert.That(result.Width * result.Height, Is.GreaterThan(0),
-                "a delay-animation effect wrapping a node graph renders (branch 0 describes the node graph as an external node)");
+                "a delay-animation effect wrapping a node graph renders (branch 0 describes the node graph as a custom node)");
         }
     }
 
@@ -286,7 +319,7 @@ public class ExternalNodeEffectInGraphTests
     {
         var group = new FilterEffectGroup();
         group.Children.Add(new Gamma { Amount = { CurrentValue = 1.5f } });
-        group.Children.Add(new ProbeExternalEffect(probeCalls));
+        group.Children.Add(new ProbeCustomNodeEffect(probeCalls));
         group.Children.Add(new Invert { Amount = { CurrentValue = 1f } });
         return group;
     }
@@ -500,14 +533,12 @@ public class ExternalNodeEffectInGraphTests
     }
 }
 
-// A FilterEffect whose execution lives in a custom render node (the NodeGraphFilterEffect pattern): Describe appends
-// an external node, and the render node counts its invocations while passing the ops through unchanged (identity).
+// A FilterEffect whose execution lives in a custom render node (the NodeGraphFilterEffect pattern). Deriving from
+// CustomRenderNodeFilterEffect makes it describable — and group-safe — with no Describe boilerplate; the render node
+// counts its invocations while passing the ops through unchanged (identity).
 [SuppressResourceClassGeneration]
-internal sealed partial class ProbeExternalEffect(int[] callCount) : FilterEffect
+internal sealed partial class ProbeCustomNodeEffect(int[] callCount) : CustomRenderNodeFilterEffect
 {
-    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
-        => builder.ExternalNode(resource);
-
     public override Resource ToResource(CompositionContext context)
     {
         var resource = new Resource(callCount);
@@ -525,11 +556,11 @@ internal sealed partial class ProbeExternalEffect(int[] callCount) : FilterEffec
     }
 }
 
-internal sealed class ProbeRenderNode(ProbeExternalEffect.Resource resource) : FilterEffectRenderNode(resource)
+internal sealed class ProbeRenderNode(ProbeCustomNodeEffect.Resource resource) : FilterEffectRenderNode(resource)
 {
     public override RenderNodeOperation[] Process(RenderNodeContext context)
     {
-        if (FilterEffect?.Resource is ProbeExternalEffect.Resource probe)
+        if (FilterEffect?.Resource is ProbeCustomNodeEffect.Resource probe)
             probe.CallCount[0]++;
 
         return context.Input;
@@ -538,11 +569,8 @@ internal sealed class ProbeRenderNode(ProbeExternalEffect.Resource resource) : F
 
 // A custom-render-node effect whose node always throws, to exercise the executor's C7 input-release-on-throw path.
 [SuppressResourceClassGeneration]
-internal sealed partial class ThrowingExternalEffect : FilterEffect
+internal sealed partial class ThrowingCustomNodeEffect : CustomRenderNodeFilterEffect
 {
-    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
-        => builder.ExternalNode(resource);
-
     public override Resource ToResource(CompositionContext context)
     {
         var resource = new Resource();
@@ -561,5 +589,5 @@ internal sealed partial class ThrowingExternalEffect : FilterEffect
 internal sealed class ThrowingRenderNode(FilterEffect.Resource resource) : FilterEffectRenderNode(resource)
 {
     public override RenderNodeOperation[] Process(RenderNodeContext context)
-        => throw new InvalidOperationException("external child render node failed");
+        => throw new InvalidOperationException("custom child render node failed");
 }

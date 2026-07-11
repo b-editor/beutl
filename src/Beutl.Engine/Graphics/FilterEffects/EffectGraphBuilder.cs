@@ -117,15 +117,22 @@ public sealed class EffectGraphBuilder
     }
 
     /// <summary>
-    /// Appends an external-render-node node for a <paramref name="child"/> effect whose execution lives in a custom
+    /// Appends a custom-render-node node for a <paramref name="child"/> effect whose execution lives in a custom
     /// <see cref="Rendering.FilterEffectRenderNode"/> (e.g. a <c>NodeGraphFilterEffect</c>): the executor drives that
     /// render node as one node of this graph, materializing the current ops as its input. This is what lets such an
     /// effect be embedded anywhere a container walks its children (a group, a delay-animation branch).
+    /// <para>
+    /// The embedded child render node is constructed per frame, not persisted, so instance-level caches held on a
+    /// custom node do not survive across frames when the effect is embedded in a graph (top-level usage, which renders
+    /// through the effect's own persistent <see cref="Rendering.FilterEffectRenderNode"/>, keeps them). Keep render
+    /// caches on graph-model resources instead of on the node — the canonical <c>NodeGraphFilterEffect</c> does exactly
+    /// this and is unaffected.
+    /// </para>
     /// </summary>
-    public EffectGraphBuilder ExternalNode(FilterEffect.Resource child)
+    public EffectGraphBuilder CustomRenderNode(FilterEffect.Resource child)
     {
         ArgumentNullException.ThrowIfNull(child);
-        return Append(ExternalNodeDescriptor.Create(child));
+        return Append(CustomRenderNodeDescriptor.Create(child));
     }
 
     /// <summary>

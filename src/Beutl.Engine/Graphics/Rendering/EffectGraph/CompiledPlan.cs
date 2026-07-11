@@ -194,7 +194,7 @@ public sealed record NestedGraphPass(Action<EffectGraphBuilder, int> DescribeBra
 }
 
 /// <summary>
-/// An external-render-node pass (feature 004): the executor drives an effect's custom
+/// A custom-render-node pass (feature 004): the executor drives an effect's custom
 /// <see cref="FilterEffectRenderNode"/> as one node of this plan — it hands the current ops to the child node's
 /// <see cref="RenderNode.Process"/> (threading the shared diagnostics/pool) and feeds the returned ops onward. Its
 /// outputs are execution-time-resolved (<see cref="CompiledPass.IsDynamicOutputs"/>), so it terminates fusion and
@@ -202,7 +202,7 @@ public sealed record NestedGraphPass(Action<EffectGraphBuilder, int> DescribeBra
 /// <see cref="PipelineDiagnostics"/> like every other pass (C8). <see cref="NodeType"/> is part of the structural
 /// identity so a swapped child type recompiles (plan-cache correctness).
 /// </summary>
-public sealed record ExternalNodePass(Effects.FilterEffect.Resource Resource, Type NodeType) : CompiledPass
+public sealed record CustomRenderNodePass(Effects.FilterEffect.Resource Resource, Type NodeType) : CompiledPass
 {
     /// <inheritdoc/>
     public override PassBackend Backend => PassBackend.Skia;

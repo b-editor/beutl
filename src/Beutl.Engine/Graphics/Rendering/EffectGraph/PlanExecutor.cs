@@ -73,8 +73,8 @@ internal static class PlanExecutor
                         ExecuteNestedGraph(
                             nestedGraph, current, outputScale, workingScale, maxWorkingScale, diagnostics, pool);
                         break;
-                    case ExternalNodePass externalNode:
-                        ExecuteExternalNode(externalNode, current, outputScale, maxWorkingScale, diagnostics, pool);
+                    case CustomRenderNodePass customNode:
+                        ExecuteCustomRenderNode(customNode, current, outputScale, maxWorkingScale, diagnostics, pool);
                         break;
                     default:
                         MapDescriptorPass(
@@ -185,7 +185,7 @@ internal static class PlanExecutor
         return prev.OutputBounds.IsInvalid ? prev.InputBounds : prev.OutputBounds;
     }
 
-    // Executes an external-render-node pass: drive the child effect's custom FilterEffectRenderNode over the current
+    // Executes a custom-render-node pass: drive the child effect's custom FilterEffectRenderNode over the current
     // ops as one node of this plan. The node re-materializes the ops through its own pipeline (a NodeGraphFilterEffect
     // re-evaluates its graph), so the whole op set is handed in as the child context's Input and the returned ops flow
     // onward. Diagnostics and pool are threaded so the child's work counts on the owning renderer and shares its pool,
@@ -199,8 +199,8 @@ internal static class PlanExecutor
     // every Process, so its render caches live on the persisted graph-model resources, not on this wrapper. Persisting
     // the wrapper would therefore save no cache while forcing that map through the reentrant executor. Disposing the
     // wrapper releases only its own (empty) container/cache, never the returned ops.
-    private static void ExecuteExternalNode(
-        ExternalNodePass pass, List<RenderNodeOperation> current, float outputScale, float maxWorkingScale,
+    private static void ExecuteCustomRenderNode(
+        CustomRenderNodePass pass, List<RenderNodeOperation> current, float outputScale, float maxWorkingScale,
         PipelineDiagnostics? diagnostics, RenderTargetPool? pool)
     {
         RenderNodeOperation[] inputs = current.ToArray();

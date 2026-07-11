@@ -27,6 +27,24 @@ public abstract partial class FilterEffect : EngineObject
 
     public abstract partial class Resource
     {
+        private static long s_nextStructuralId;
+        private long _structuralId;
+
+        /// <summary>
+        /// A collision-free, process-stable token for this resource instance, lazily assigned on first read and
+        /// constant thereafter. Used by <see cref="Rendering.StructuralKey"/> to give a custom-render-node node a
+        /// reference identity that never aliases two distinct instances (unlike an object hash code, which can collide).
+        /// </summary>
+        internal long StructuralId
+        {
+            get
+            {
+                if (_structuralId == 0)
+                    _structuralId = System.Threading.Interlocked.Increment(ref s_nextStructuralId);
+                return _structuralId;
+            }
+        }
+
         /// <summary>
         /// The factory that creates this effect's render node — the concrete node type and its constructor as one
         /// value. The default runs the internal compiled-plan node (<see cref="PlanFilterEffectRenderNode"/>) with

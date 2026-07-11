@@ -143,9 +143,9 @@ internal static class EffectGraphCompiler
                 });
                 i++;
             }
-            else if (node.Descriptor is ExternalNodeDescriptor external)
+            else if (node.Descriptor is CustomRenderNodeDescriptor custom)
             {
-                passes.Add(new ExternalNodePass(external.Resource, external.NodeType)
+                passes.Add(new CustomRenderNodePass(custom.Resource, custom.NodeType)
                 {
                     InputBounds = node.InputBounds,
                     OutputBounds = node.OutputBounds,
@@ -381,7 +381,7 @@ internal static class EffectGraphCompiler
                     multiplicity *= split.BranchCount;
                     Add(multiplicity, idx, lastUse);
                     break;
-                case SplitPass or NestedGraphPass or ExternalNodePass:
+                case SplitPass or NestedGraphPass or CustomRenderNodePass:
                     break;
                 case CompositePass:
                     multiplicity = 1;

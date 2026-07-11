@@ -13,7 +13,7 @@ namespace Beutl.NodeGraph;
 
 [Display(Name = nameof(GraphicsStrings.NodeGraphFilterEffect), ResourceType = typeof(GraphicsStrings))]
 [SuppressResourceClassGeneration]
-public sealed partial class NodeGraphFilterEffect : FilterEffect
+public sealed partial class NodeGraphFilterEffect : CustomRenderNodeFilterEffect
 {
     public NodeGraphFilterEffect()
     {
@@ -22,15 +22,6 @@ public sealed partial class NodeGraphFilterEffect : FilterEffect
     }
 
     public IProperty<GraphModel?> Model { get; } = Property.Create<GraphModel?>();
-
-    // The graph is evaluated by NodeGraphFilterEffectRenderNode (RenderNodeFactory), not by describable descriptors.
-    // Appending an external-node node makes the effect describable everywhere — inside a group, a delay-animation
-    // branch, any container — where the executor drives that render node as one node of the enclosing plan. A
-    // top-level NodeGraphFilterEffect still goes through its own render node (Push), never this path.
-    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
-    {
-        builder.ExternalNode(resource);
-    }
 
     public override Resource ToResource(CompositionContext context)
     {
