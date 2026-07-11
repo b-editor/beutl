@@ -804,7 +804,7 @@ public class SceneGapTests
             scene.Children.Add(CreateElement(basePath, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1)));
             scene.Children.Add(CreateElement(basePath, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(1)));
 
-            TimeRange? gap = scene.FindNextGap(TimeSpan.FromSeconds(1));
+            TimeRange? gap = scene.FindNextGap(TimeSpan.FromSeconds(1))?.Range;
 
             Assert.That(gap, Is.EqualTo(new TimeRange(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3))));
         }
@@ -823,7 +823,7 @@ public class SceneGapTests
             Scene scene = CreateScene(basePath);
             scene.Children.Add(CreateElement(basePath, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2)));
 
-            TimeRange? gap = scene.FindNextGap(TimeSpan.FromSeconds(5));
+            TimeRange? gap = scene.FindNextGap(TimeSpan.FromSeconds(5))?.Range;
 
             Assert.That(gap, Is.Null);
         }
@@ -844,7 +844,7 @@ public class SceneGapTests
             scene.Children.Add(CreateElement(basePath, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(1)));
             scene.Children.Add(CreateElement(basePath, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(1)));
 
-            TimeRange? gap = scene.FindNextGap(TimeSpan.FromSeconds(4));
+            TimeRange? gap = scene.FindNextGap(TimeSpan.FromSeconds(4))?.Range;
 
             Assert.That(gap, Is.EqualTo(new TimeRange(TimeSpan.FromSeconds(6), TimeSpan.FromSeconds(4))));
         }
@@ -864,7 +864,7 @@ public class SceneGapTests
             scene.Children.Add(CreateElement(basePath, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1)));
             scene.Children.Add(CreateElement(basePath, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(1)));
 
-            TimeRange? gap = scene.FindPreviousGap(TimeSpan.FromSeconds(6));
+            TimeRange? gap = scene.FindPreviousGap(TimeSpan.FromSeconds(6))?.Range;
 
             Assert.That(gap, Is.EqualTo(new TimeRange(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3))));
         }
@@ -883,7 +883,7 @@ public class SceneGapTests
             Scene scene = CreateScene(basePath);
             scene.Children.Add(CreateElement(basePath, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2)));
 
-            TimeRange? gap = scene.FindPreviousGap(TimeSpan.FromSeconds(1));
+            TimeRange? gap = scene.FindPreviousGap(TimeSpan.FromSeconds(1))?.Range;
 
             Assert.That(gap, Is.Null);
         }
@@ -907,7 +907,7 @@ public class SceneGapTests
             scene.Children.Add(CreateElement(basePath, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(89), zIndex: 1));
             scene.Children.Add(CreateElement(basePath, TimeSpan.FromSeconds(91), TimeSpan.FromSeconds(1), zIndex: 1));
 
-            TimeRange? gap = scene.FindPreviousGap(TimeSpan.FromSeconds(201));
+            TimeRange? gap = scene.FindPreviousGap(TimeSpan.FromSeconds(201))?.Range;
 
             Assert.That(gap, Is.EqualTo(new TimeRange(TimeSpan.FromSeconds(80), TimeSpan.FromSeconds(120))));
         }
@@ -934,10 +934,10 @@ public class SceneGapTests
             Assert.Multiple(() =>
             {
                 Assert.That(
-                    scene.FindNextGap(TimeSpan.Zero, range),
+                    scene.FindNextGap(TimeSpan.Zero, range)?.Range,
                     Is.EqualTo(new TimeRange(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(20))));
                 Assert.That(
-                    scene.FindNextGap(TimeSpan.Zero),
+                    scene.FindNextGap(TimeSpan.Zero)?.Range,
                     Is.EqualTo(new TimeRange(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(90))));
             });
         }
@@ -964,8 +964,8 @@ public class SceneGapTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(scene.FindNextGap(TimeSpan.FromSeconds(50), range), Is.EqualTo(clamped));
-                Assert.That(scene.FindPreviousGap(TimeSpan.FromSeconds(80), range), Is.EqualTo(clamped));
+                Assert.That(scene.FindNextGap(TimeSpan.FromSeconds(50), range)?.Range, Is.EqualTo(clamped));
+                Assert.That(scene.FindPreviousGap(TimeSpan.FromSeconds(80), range)?.Range, Is.EqualTo(clamped));
             });
         }
         finally
@@ -993,11 +993,72 @@ public class SceneGapTests
             Assert.Multiple(() =>
             {
                 // The only in-range gap is 100s-120s.
-                Assert.That(scene.FindNextGap(TimeSpan.FromSeconds(50), range), Is.EqualTo(inRangeGap));
-                Assert.That(scene.FindPreviousGap(TimeSpan.FromSeconds(150), range), Is.EqualTo(inRangeGap));
+                Assert.That(scene.FindNextGap(TimeSpan.FromSeconds(50), range)?.Range, Is.EqualTo(inRangeGap));
+                Assert.That(scene.FindPreviousGap(TimeSpan.FromSeconds(150), range)?.Range, Is.EqualTo(inRangeGap));
                 // Searching from outside the range must not reach the out-of-range gaps.
                 Assert.That(scene.FindNextGap(TimeSpan.FromSeconds(150), range), Is.Null);
                 Assert.That(scene.FindPreviousGap(TimeSpan.FromSeconds(50), range), Is.Null);
+            });
+        }
+        finally
+        {
+            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+        }
+    }
+
+    [Test]
+    public void EnumerateGaps_AnchorIsElementEndingAtGapStart()
+    {
+        string basePath = GetTempPath();
+        try
+        {
+            Scene scene = CreateScene(basePath);
+            // A big element covers 0s-10s while a shorter one nests inside; the gap 10s-12s must anchor
+            // on the covering element (it ends at the gap start), not the nested one.
+            Element cover = CreateElement(basePath, TimeSpan.Zero, TimeSpan.FromSeconds(10));
+            Element nested = CreateElement(basePath, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(1));
+            Element trailing = CreateElement(basePath, TimeSpan.FromSeconds(12), TimeSpan.FromSeconds(1));
+            scene.Children.Add(cover);
+            scene.Children.Add(nested);
+            scene.Children.Add(trailing);
+
+            List<SceneGap> gaps = Gaps(scene);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(gaps, Has.Count.EqualTo(1));
+                Assert.That(gaps[0].Range, Is.EqualTo(new TimeRange(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(2))));
+                Assert.That(gaps[0].Anchor, Is.SameAs(cover));
+            });
+        }
+        finally
+        {
+            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+        }
+    }
+
+    [Test]
+    public void FindGapAt_ReturnsGapContainingPointOnLayer()
+    {
+        string basePath = GetTempPath();
+        try
+        {
+            Scene scene = CreateScene(basePath);
+            Element a = CreateElement(basePath, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 0);
+            scene.Children.Add(a);
+            scene.Children.Add(CreateElement(basePath, TimeSpan.FromSeconds(6), TimeSpan.FromSeconds(2), zIndex: 0));
+
+            Assert.Multiple(() =>
+            {
+                SceneGap? hit = scene.FindGapAt(TimeSpan.FromSeconds(4), zIndex: 0);
+                Assert.That(hit?.Range, Is.EqualTo(new TimeRange(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(3))));
+                Assert.That(hit?.Anchor, Is.SameAs(a));
+                // Half-open: the gap start is inside, the gap end is not.
+                Assert.That(scene.FindGapAt(TimeSpan.FromSeconds(3), zIndex: 0), Is.Not.Null);
+                Assert.That(scene.FindGapAt(TimeSpan.FromSeconds(6), zIndex: 0), Is.Null);
+                // No gap on an empty layer, and no gap when the point sits on an element.
+                Assert.That(scene.FindGapAt(TimeSpan.FromSeconds(4), zIndex: 1), Is.Null);
+                Assert.That(scene.FindGapAt(TimeSpan.FromSeconds(2), zIndex: 0), Is.Null);
             });
         }
         finally

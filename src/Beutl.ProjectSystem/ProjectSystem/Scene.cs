@@ -285,18 +285,21 @@ public class Scene : ProjectItem, INotifyEdited
             List<Element> sorted = zGroup.OrderBy(e => e.Start).ThenBy(e => e.Range.End).ToList();
             if (sorted.Count == 0) continue;
 
-            TimeSpan coveredEnd = sorted[0].Range.End;
+            // The anchor is the run's furthest-ending element, so it ends exactly at the gap start.
+            Element coveredEndElement = sorted[0];
+            TimeSpan coveredEnd = coveredEndElement.Range.End;
             for (int i = 1; i < sorted.Count; i++)
             {
                 Element next = sorted[i];
                 if (next.Start > coveredEnd)
                 {
-                    yield return new SceneGap(zGroup.Key, new TimeRange(coveredEnd, next.Start - coveredEnd));
+                    yield return new SceneGap(zGroup.Key, new TimeRange(coveredEnd, next.Start - coveredEnd), coveredEndElement);
                 }
 
                 if (next.Range.End > coveredEnd)
                 {
                     coveredEnd = next.Range.End;
+                    coveredEndElement = next;
                 }
             }
         }
@@ -448,12 +451,12 @@ public class Scene : ProjectItem, INotifyEdited
     /// merely straddles the range (its ends lie beyond a shortened or offset scene) is still reachable
     /// through its visible portion. The returned range is the clamped, visible gap.
     /// </param>
-    public TimeRange? FindNextGap(TimeSpan currentTime, TimeRange? searchRange = null)
+    public SceneGap? FindNextGap(TimeSpan currentTime, TimeRange? searchRange = null)
     {
         return EnumerateGaps()
-            .Select(g => ClampToRange(g.Range, searchRange))
-            .Where(r => r is { } v && v.Start >= currentTime)
-            .OrderBy(r => r!.Value.Start)
+            .Select(g => ClampGap(g, searchRange))
+            .Where(g => g is { } v && v.Range.Start >= currentTime)
+            .OrderBy(g => g!.Value.Range.Start)
             .FirstOrDefault();
     }
 
@@ -468,25 +471,38 @@ public class Scene : ProjectItem, INotifyEdited
     /// intersect it are dropped, so a gap straddling the range stays reachable through its visible
     /// portion. The returned range is the clamped, visible gap.
     /// </param>
-    public TimeRange? FindPreviousGap(TimeSpan currentTime, TimeRange? searchRange = null)
+    public SceneGap? FindPreviousGap(TimeSpan currentTime, TimeRange? searchRange = null)
     {
         return EnumerateGaps()
-            .Select(g => ClampToRange(g.Range, searchRange))
-            .Where(r => r is { } v && v.End <= currentTime)
-            .OrderByDescending(r => r!.Value.End)
+            .Select(g => ClampGap(g, searchRange))
+            .Where(g => g is { } v && v.Range.End <= currentTime)
+            .OrderByDescending(g => g!.Value.Range.End)
             .FirstOrDefault();
     }
 
-    // The part of gap visible inside range, or null when they do not overlap with positive width —
-    // half-open, matching TimeRange, so a point-only touch at an edge yields no gap. A straddling gap
-    // contributes its in-range slice instead of being dropped for not being wholly contained.
-    private static TimeRange? ClampToRange(TimeRange gap, TimeRange? range)
+    /// <summary>
+    /// Returns the gap on <paramref name="zIndex"/> that contains <paramref name="time"/> (half-open,
+    /// like <see cref="TimeRange.Contains(TimeSpan)"/>), or <see langword="null"/> when the point is
+    /// not inside a gap on that layer. Used to close the gap under a right-click position.
+    /// </summary>
+    public SceneGap? FindGapAt(TimeSpan time, int zIndex)
+    {
+        return EnumerateGaps()
+            .Where(g => g.ZIndex == zIndex && g.Range.Contains(time))
+            .Select(g => (SceneGap?)g)
+            .FirstOrDefault();
+    }
+
+    // The gap clamped to its intersection with range (ZIndex and Anchor preserved), or null when they
+    // do not overlap with positive width — half-open, matching TimeRange, so a point-only touch at an
+    // edge yields no gap. A straddling gap contributes its in-range slice instead of being dropped.
+    private static SceneGap? ClampGap(SceneGap gap, TimeRange? range)
     {
         if (range is not { } r) return gap;
 
-        TimeSpan start = gap.Start > r.Start ? gap.Start : r.Start;
-        TimeSpan end = gap.End < r.End ? gap.End : r.End;
-        return end > start ? new TimeRange(start, end - start) : null;
+        TimeSpan start = gap.Range.Start > r.Start ? gap.Range.Start : r.Start;
+        TimeSpan end = gap.Range.End < r.End ? gap.Range.End : r.End;
+        return end > start ? gap with { Range = new TimeRange(start, end - start) } : null;
     }
 
     public override void Serialize(ICoreSerializationContext context)

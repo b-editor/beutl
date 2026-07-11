@@ -144,6 +144,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         SetStartTimeToCurrentTime.Subscribe(OnSetStartTimeToCurrentTime);
         SetEndTimeToCurrentTime.Subscribe(OnSetEndTimeToCurrentTime);
         CloseGap = new ReactiveCommandSlim().WithSubscribe(CloseSelectedGap).DisposeWith(_disposables);
+        CloseGapAtPointerPosition = new ReactiveCommandSlim().WithSubscribe(CloseGapAtPointer).DisposeWith(_disposables);
         CloseAllGaps = new ReactiveCommandSlim().WithSubscribe(CloseAllSceneGaps).DisposeWith(_disposables);
         GoToNextGap = new ReactiveCommandSlim().WithSubscribe(() => GoToGap(forward: true)).DisposeWith(_disposables);
         GoToPreviousGap = new ReactiveCommandSlim().WithSubscribe(() => GoToGap(forward: false)).DisposeWith(_disposables);
@@ -315,6 +316,8 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
     public ReactiveCommandSlim SetEndTimeToCurrentTime { get; } = new();
 
     public ReactiveCommandSlim CloseGap { get; }
+
+    public ReactiveCommandSlim CloseGapAtPointerPosition { get; }
 
     public ReactiveCommandSlim CloseAllGaps { get; }
 
@@ -1165,6 +1168,20 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         }
     }
 
+    // Context-menu Close Gap acts on the right-clicked position, not the selection, so the gap the
+    // user pointed at is the one that closes.
+    private void CloseGapAtPointer()
+    {
+        FlushPendingNudgeCommit();
+        if (Scene.FindGapAt(ClickedFrame, CalculateClickedLayer()) is { } gap
+            && EditorContext.GetRequiredService<IElementGapService>().CloseGapAfter(Scene, gap.Anchor))
+        {
+            return;
+        }
+
+        NotificationService.ShowInformation(Strings.CloseGap, Strings.NoGapsToClose);
+    }
+
     private void CloseAllSceneGaps()
     {
         FlushPendingNudgeCommit();
@@ -1178,7 +1195,8 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
     {
         if (FindGapNavigationTarget(Scene, CurrentTime.Value, forward) is { } target)
         {
-            CurrentTime.Value = target;
+            CurrentTime.Value = target.Target;
+            SelectGapAnchor(target.Anchor);
         }
         else
         {
@@ -1188,22 +1206,35 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         }
     }
 
+    // Moving to a gap selects its anchor so the selection-based Close Gap then acts on that same gap.
+    private void SelectGapAnchor(Element anchor)
+    {
+        ElementViewModel? vm = Elements.FirstOrDefault(e => ReferenceEquals(e.Model, anchor));
+        if (vm is null) return;
+
+        ClearSelected();
+        SelectElement(vm);
+    }
+
     // The search is bounded to the active scene range by searchRange, so a playhead parked outside the
     // scene still navigates within it. currentTime is passed through unclamped: clamping the origin to
-    // the boundary would make the strict > / < searches skip an in-range gap that touches Scene.Start
-    // or Scene.Start + Duration exactly.
-    internal static TimeSpan? FindGapNavigationTarget(Scene scene, TimeSpan currentTime, bool forward)
+    // the boundary would make the >= / <= searches skip an in-range gap that touches Scene.Start or
+    // Scene.Start + Duration exactly. Returns the target playhead time (the gap center, clamped to the
+    // scene) together with the gap's anchor so the caller can both move and select.
+    internal static (TimeSpan Target, Element Anchor)? FindGapNavigationTarget(
+        Scene scene, TimeSpan currentTime, bool forward)
     {
         TimeSpan sceneStart = scene.Start;
         TimeSpan sceneEnd = scene.Start + scene.Duration;
         var range = new TimeRange(sceneStart, scene.Duration);
-        TimeRange? gap = forward
+        SceneGap? gap = forward
             ? scene.FindNextGap(currentTime, range)
             : scene.FindPreviousGap(currentTime, range);
         if (gap is not { } g) return null;
 
-        TimeSpan target = g.Start + new TimeSpan(g.Duration.Ticks / 2);
-        return target < sceneStart ? sceneStart : target > sceneEnd ? sceneEnd : target;
+        TimeSpan target = g.Range.Start + new TimeSpan(g.Range.Duration.Ticks / 2);
+        target = target < sceneStart ? sceneStart : target > sceneEnd ? sceneEnd : target;
+        return (target, g.Anchor);
     }
 
     private enum NudgeUnit { Frame, Large, Second }

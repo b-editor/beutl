@@ -109,7 +109,7 @@ public class TimelineTabViewModelShortcutTests
         harness.AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
 
         TimeSpan? target = TimelineTabViewModel.FindGapNavigationTarget(
-            harness.Scene, TimeSpan.Zero, forward: true);
+            harness.Scene, TimeSpan.Zero, forward: true)?.Target;
 
         Assert.That(target, Is.EqualTo(TimeSpan.FromSeconds(4)));
     }
@@ -122,7 +122,7 @@ public class TimelineTabViewModelShortcutTests
         harness.AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
 
         TimeSpan? target = TimelineTabViewModel.FindGapNavigationTarget(
-            harness.Scene, TimeSpan.FromSeconds(10), forward: true);
+            harness.Scene, TimeSpan.FromSeconds(10), forward: true)?.Target;
 
         Assert.That(target, Is.Null);
     }
@@ -138,7 +138,7 @@ public class TimelineTabViewModelShortcutTests
         harness.AddElement(TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(2));
 
         TimeSpan? target = TimelineTabViewModel.FindGapNavigationTarget(
-            harness.Scene, TimeSpan.Zero, forward: true);
+            harness.Scene, TimeSpan.Zero, forward: true)?.Target;
 
         Assert.That(target, Is.EqualTo(TimeSpan.FromSeconds(14)));
     }
@@ -156,7 +156,7 @@ public class TimelineTabViewModelShortcutTests
         harness.AddElement(TimeSpan.FromSeconds(14), TimeSpan.FromSeconds(2));
 
         TimeSpan? target = TimelineTabViewModel.FindGapNavigationTarget(
-            harness.Scene, TimeSpan.Zero, forward: true);
+            harness.Scene, TimeSpan.Zero, forward: true)?.Target;
 
         Assert.That(target, Is.EqualTo(TimeSpan.FromSeconds(12)));
     }
@@ -172,7 +172,7 @@ public class TimelineTabViewModelShortcutTests
         harness.AddElement(TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(5));
 
         TimeSpan? target = TimelineTabViewModel.FindGapNavigationTarget(
-            harness.Scene, TimeSpan.FromSeconds(100), forward: false);
+            harness.Scene, TimeSpan.FromSeconds(100), forward: false)?.Target;
 
         Assert.That(target, Is.EqualTo(TimeSpan.FromSeconds(17.5)));
     }
@@ -190,6 +190,24 @@ public class TimelineTabViewModelShortcutTests
             Assert.That(
                 TimelineTabViewModel.FindGapNavigationTarget(harness.Scene, TimeSpan.Zero, forward: false),
                 Is.Null);
+        });
+    }
+
+    [Test]
+    public void FindGapNavigationTarget_ReturnsGapAnchorForSelection()
+    {
+        using var harness = new SceneHistoryHarness("beutl_timeline_gap_nav", duration: TimeSpan.FromSeconds(30));
+        Element a = harness.AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        harness.AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
+
+        var result = TimelineTabViewModel.FindGapNavigationTarget(harness.Scene, TimeSpan.Zero, forward: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result?.Target, Is.EqualTo(TimeSpan.FromSeconds(4)));
+            // The anchor is the element ending at the gap start, so GoToGap selects it and a follow-up
+            // Close Gap closes this gap.
+            Assert.That(result?.Anchor, Is.SameAs(a));
         });
     }
 
