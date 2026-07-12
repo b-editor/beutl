@@ -453,6 +453,27 @@ public class ElementSlipServiceTests
     }
 
     [Test]
+    public void Slip_SharedSourceAcrossElements_ShiftsOnce()
+    {
+        Element first = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 0);
+        var video = new SourceVideo();
+        first.Objects.Add(video);
+
+        Element second = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 1);
+        var presenter = new DrawablePresenter();
+        presenter.Target.CurrentValue = video;
+        second.Objects.Add(presenter);
+
+        bool applied = _service.Slip(_scene, [first, second], TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+        });
+    }
+
+    [Test]
     public void Slip_MultipleElements_ShiftsAllAndCommitsOnce()
     {
         Element first = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 0);

@@ -1,4 +1,5 @@
 ﻿using Beutl.Configuration;
+using Beutl.Engine;
 using Beutl.Language;
 using Beutl.ProjectSystem;
 
@@ -307,6 +308,7 @@ public sealed class ElementResizeService : IElementResizeService
         TimeSpan clamped = Clamp(delta, min, max);
         if (clamped == TimeSpan.Zero) return false;
 
+        var applied = new HashSet<IProperty<TimeSpan>>();
         for (int i = 0; i < pairs.Count; i++)
         {
             (Element front, Element back) = pairs[i];
@@ -318,7 +320,7 @@ public sealed class ElementResizeService : IElementResizeService
             back.Length -= clamped;
             // Preserve the back clip's content across the moving cut: its in-point advances
             // by the same delta so the same source frames stay under the same timeline times.
-            SlippableMedia.ApplyOffsetDelta(backTargets[i], clamped);
+            SlippableMedia.ApplyOffsetDelta(backTargets[i], clamped, applied);
         }
 
         _historyManager.Commit(CommandNames.RollElements);
@@ -384,6 +386,7 @@ public sealed class ElementResizeService : IElementResizeService
         TimeSpan clamped = Clamp(delta, min, max);
         if (clamped == TimeSpan.Zero) return false;
 
+        var applied = new HashSet<IProperty<TimeSpan>>();
         for (int i = 0; i < lanes.Count; i++)
         {
             (Element front, IReadOnlyList<Element> middles, Element back) = lanes[i];
@@ -399,7 +402,7 @@ public sealed class ElementResizeService : IElementResizeService
             // The middle clips only shift in time (their in-points are unchanged), but the back
             // clip is trimmed at its head, so advance its media offset by the same delta to keep
             // its content.
-            SlippableMedia.ApplyOffsetDelta(backTargets[i], clamped);
+            SlippableMedia.ApplyOffsetDelta(backTargets[i], clamped, applied);
         }
 
         _historyManager.Commit(CommandNames.SlideElements);

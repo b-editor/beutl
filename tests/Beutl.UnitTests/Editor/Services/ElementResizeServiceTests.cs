@@ -1025,6 +1025,31 @@ public class ElementResizeServiceTests
     }
 
     [Test]
+    public void Roll_SharedSourceAcrossBacks_ShiftsOffsetOnce()
+    {
+        Element frontA = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2), zIndex: 0);
+        Element backA = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3), zIndex: 0);
+        Element frontB = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2), zIndex: 1);
+        Element backB = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3), zIndex: 1);
+        var video = new SourceVideo();
+        backA.Objects.Add(video);
+        var presenter = new DrawablePresenter();
+        presenter.Target.CurrentValue = video;
+        backB.Objects.Add(presenter);
+
+        bool applied = _service.Roll(
+            _scene,
+            [new ElementTrimPair(frontA, backA), new ElementTrimPair(frontB, backB)],
+            TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+        });
+    }
+
+    [Test]
     public void Roll_OneInvalidPair_RejectsWholeOperation()
     {
         Element frontA = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2), zIndex: 0);

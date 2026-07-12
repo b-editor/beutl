@@ -1,4 +1,5 @@
-﻿using Beutl.Language;
+﻿using Beutl.Engine;
+using Beutl.Language;
 using Beutl.ProjectSystem;
 
 namespace Beutl.Editor.Services;
@@ -53,9 +54,10 @@ public sealed class ElementSlipService : IElementSlipService
             if (effective == TimeSpan.Zero) return false;
         }
 
+        var applied = new HashSet<IProperty<TimeSpan>>();
         foreach ((List<SlippableMedia.Target> targets, _) in applicable)
         {
-            SlippableMedia.ApplyOffsetDelta(targets, effective);
+            SlippableMedia.ApplyOffsetDelta(targets, effective, applied);
         }
 
         _historyManager.Commit(CommandNames.SlipElement);

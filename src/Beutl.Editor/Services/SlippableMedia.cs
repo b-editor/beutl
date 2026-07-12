@@ -16,20 +16,20 @@ internal static class SlippableMedia
     // Total is the absolute source duration (null when the stream has no bounded source).
     internal sealed class Target
     {
-        private readonly IProperty<TimeSpan> _offset;
-
         public Target(IProperty<TimeSpan> offset, TimeSpan? total)
         {
-            _offset = offset;
+            Offset = offset;
             Total = total;
         }
+
+        public IProperty<TimeSpan> Offset { get; }
 
         public TimeSpan? Total { get; }
 
         public TimeSpan Current
         {
-            get => _offset.CurrentValue;
-            set => _offset.CurrentValue = value;
+            get => Offset.CurrentValue;
+            set => Offset.CurrentValue = value;
         }
     }
 
@@ -132,13 +132,21 @@ internal static class SlippableMedia
         return Math.Max(0L, (maxOffset - target.Current).Ticks);
     }
 
-    public static void ApplyOffsetDelta(IReadOnlyList<Target> targets, TimeSpan delta)
+    // `applied` spans one whole trim operation: the per-element visited set in Collect only
+    // dedups within an element, so a media instance referenced from several participating
+    // elements (e.g. via another element's DrawablePresenter.Target) would otherwise receive
+    // the delta once per element. Callers touching multiple elements pass one shared set.
+    public static void ApplyOffsetDelta(
+        IReadOnlyList<Target> targets, TimeSpan delta, HashSet<IProperty<TimeSpan>>? applied = null)
     {
         if (delta == TimeSpan.Zero) return;
 
         foreach (Target target in targets)
         {
-            target.Current += delta;
+            if (applied is null || applied.Add(target.Offset))
+            {
+                target.Current += delta;
+            }
         }
     }
 
