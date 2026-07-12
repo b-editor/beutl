@@ -66,7 +66,7 @@ public sealed record ShaderNodeDescriptor : EffectNodeDescriptor
         Action<UniformBindingBuilder>? uniforms = null,
         IEnumerable<ChildBinding>? samplers = null)
     {
-        ImmutableArray<ChildBinding> children = ValidateChildren(samplers, reserveSourceName: false);
+        ImmutableArray<ChildBinding> children = ValidateChildren(samplers, reserveSourceName: false, nameof(samplers));
         foreach (ChildBinding child in children)
         {
             if (child.IsDeferred)
@@ -108,7 +108,7 @@ public sealed record ShaderNodeDescriptor : EffectNodeDescriptor
             isCoordinateInvariant: false,
             bounds,
             UniformBindingBuilder.Collect(uniforms).ToImmutableArray(),
-            ValidateChildren(children, reserveSourceName: true),
+            ValidateChildren(children, reserveSourceName: true, nameof(children)),
             srcTileMode);
     }
 
@@ -130,28 +130,29 @@ public sealed record ShaderNodeDescriptor : EffectNodeDescriptor
             isCoordinateInvariant: true,
             BoundsContract.Identity,
             UniformBindingBuilder.Collect(uniforms).ToImmutableArray(),
-            ValidateChildren(children, reserveSourceName: true),
+            ValidateChildren(children, reserveSourceName: true, nameof(children)),
             srcTileMode);
     }
 
     // The executor binds children by NAME into the shared runtime builder, so a duplicate name silently replaces
     // the earlier binding — and a whole-source child named 'src' would replace the implicit upstream source the
     // executor binds under that name before the descriptor's own children.
-    private static ImmutableArray<ChildBinding> ValidateChildren(IEnumerable<ChildBinding>? children, bool reserveSourceName)
+    private static ImmutableArray<ChildBinding> ValidateChildren(
+        IEnumerable<ChildBinding>? children, bool reserveSourceName, string paramName)
     {
         ImmutableArray<ChildBinding> array = (children ?? []).ToImmutableArray();
         for (int i = 0; i < array.Length; i++)
         {
             ChildBinding child = array[i];
             if (child is null)
-                throw new ArgumentException($"Child binding at index {i} is null.", nameof(children));
+                throw new ArgumentException($"Child binding at index {i} is null.", paramName);
 
             if (reserveSourceName && child.Name == Rendering.SkslSnippetMerger.SourceChildName)
             {
                 throw new ArgumentException(
                     $"'{Rendering.SkslSnippetMerger.SourceChildName}' is the reserved implicit source child of a "
                     + "whole-source shader; an extra child bound under it would silently replace the effect input.",
-                    nameof(children));
+                    paramName);
             }
 
             for (int j = 0; j < i; j++)
@@ -161,7 +162,7 @@ public sealed record ShaderNodeDescriptor : EffectNodeDescriptor
                     throw new ArgumentException(
                         $"Duplicate child binding name '{child.Name}': children bind by name, so the later binding "
                         + "would silently replace the earlier one.",
-                        nameof(children));
+                        paramName);
                 }
             }
         }
