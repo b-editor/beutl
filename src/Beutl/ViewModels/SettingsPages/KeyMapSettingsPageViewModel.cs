@@ -57,8 +57,9 @@ public class KeyMapSettingsItem
 
     public void SetKeyGesture(KeyGesture? gesture)
     {
-        KeyGesture.Value = gesture;
+        // Persist before updating the UI so a throwing ChangeKeyGesture leaves the displayed binding untouched.
         _commandManager.ChangeKeyGesture(Command, gesture, CurrentPlatform, GestureIndex);
+        KeyGesture.Value = gesture;
     }
 }
 
