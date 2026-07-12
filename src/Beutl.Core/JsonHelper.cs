@@ -31,7 +31,7 @@ public static class JsonHelper
             {
                 return s_logger = Log.CreateLogger(typeof(JsonHelper));
             }
-            catch
+            catch (Exception)
             {
                 return NullLogger.Instance;
             }

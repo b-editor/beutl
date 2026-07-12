@@ -9,7 +9,7 @@ public class Log
 
     public static ILoggerFactory LoggerFactory
     {
-        get => s_loggerFactory!;
+        get => s_loggerFactory ?? NullLoggerFactory.Instance;
         internal set => s_loggerFactory ??= value;
     }
 
@@ -17,21 +17,16 @@ public class Log
 
     public static ILogger<T> CreateLogger<T>()
     {
-        return GetLoggerFactoryOrFallback().CreateLogger<T>();
+        return LoggerFactory.CreateLogger<T>();
     }
 
     public static ILogger CreateLogger(Type type)
     {
-        return GetLoggerFactoryOrFallback().CreateLogger(type);
+        return LoggerFactory.CreateLogger(type);
     }
 
     public static ILogger CreateLogger(string categoryName)
     {
-        return GetLoggerFactoryOrFallback().CreateLogger(categoryName);
-    }
-
-    private static ILoggerFactory GetLoggerFactoryOrFallback()
-    {
-        return s_loggerFactory ?? NullLoggerFactory.Instance;
+        return LoggerFactory.CreateLogger(categoryName);
     }
 }

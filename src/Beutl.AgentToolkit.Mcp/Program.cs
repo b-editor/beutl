@@ -8,9 +8,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
-using var beutlLoggerFactory = LoggerFactory.Create(ConfigureConsoleLogging);
-Log.LoggerFactory = beutlLoggerFactory;
-
 var builder = Host.CreateApplicationBuilder(args);
 string workspaceRoot = Environment.GetEnvironmentVariable("BEUTL_WORKSPACE")
                        ?? Directory.GetCurrentDirectory();
@@ -43,7 +40,9 @@ builder.Services
     .WithTools<EditTools>()
     .WithTools<RenderTools>();
 
-await builder.Build().RunAsync();
+var host = builder.Build();
+Log.LoggerFactory = host.Services.GetRequiredService<ILoggerFactory>();
+await host.RunAsync();
 
 static void ConfigureConsoleLogging(ILoggingBuilder logging)
 {
