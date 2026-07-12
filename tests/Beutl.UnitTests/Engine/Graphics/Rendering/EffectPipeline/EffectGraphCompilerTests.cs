@@ -257,6 +257,32 @@ half4 apply(half4 c) {
         });
     }
 
+    // N1h: children bind by NAME into the shared runtime builder, so a duplicate name would silently replace the
+    // earlier binding — rejected at describe time for both descriptor forms.
+    [Test]
+    public void DuplicateChildBindingNames_AreRejected()
+    {
+        const string wholeSource = "uniform shader src;\nhalf4 main(float2 coord){ return src.eval(coord); }";
+        using SKShader a = SKShader.CreateColor(SKColors.Red);
+        using SKShader b = SKShader.CreateColor(SKColors.Blue);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                () => ShaderNodeDescriptor.WholeSource(
+                    wholeSource, BoundsContract.RenderTime,
+                    children: [new ChildBinding("map", a), new ChildBinding("map", b)]),
+                Throws.ArgumentException,
+                "duplicate whole-source child names would silently bind the later shader");
+            Assert.That(
+                () => ShaderNodeDescriptor.Snippet(
+                    "uniform shader lut;\nhalf4 apply(half4 c){ return lut.eval(c.rg * 255.0); }",
+                    samplers: [new ChildBinding("lut", a), new ChildBinding("lut", b)]),
+                Throws.ArgumentException,
+                "duplicate snippet sampler names would silently bind the later shader");
+        });
+    }
+
     // N1f: Build transfers the node list and disposal set to the graph BY REFERENCE; a stashed builder mutating
     // them afterwards would silently change the compiled graph, so post-build mutation throws at the call site.
     [Test]
