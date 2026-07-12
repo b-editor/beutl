@@ -977,6 +977,7 @@ internal static class PlanExecutor
         var depthScratch = new List<IDisposable>();
         try
         {
+            outputTarget.PrepareForComputeWrite();
             var ctx = new ComputeContext(
                 gfx, sourceTexture, destTexture, width, height, w, scratch, depthScratch, diagnostics, pool);
             pass.Dispatch(ctx);
