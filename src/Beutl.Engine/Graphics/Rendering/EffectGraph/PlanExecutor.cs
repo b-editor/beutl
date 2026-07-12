@@ -907,8 +907,12 @@ internal static class PlanExecutor
                 diagnostics, pool);
         }
 
-        float inW = RenderNodeContext.ClampWorkingScaleToBufferBudget(
-            op.Bounds, CarriedWorkingScale(op, workingScale), maxDimension);
+        // The source bakes at the pass-resolved w — not the boundary workingScale — because IComputeContext exposes
+        // a single coordinate basis (Width/Height/WorkingScale at w) and dispatches texelFetch the source with
+        // destination-derived coordinates; a boundary-scale bake would shift the sampling grid whenever the resolver
+        // carried a lower w. w already mins against the op's carried density (C3.2), so this never re-raises a
+        // reduced density; the budget clamp keeps the input allocatable (FR-037(b)).
+        float inW = RenderNodeContext.ClampWorkingScaleToBufferBudget(op.Bounds, w, maxDimension);
         (int inBw, int inBh) = RenderNodeContext.DeviceBufferSize(op.Bounds, inW);
         if (inBw <= 0 || inBh <= 0)
             return op;
@@ -1010,8 +1014,9 @@ internal static class PlanExecutor
         if (pass.CpuCallback is not { } cpu)
             return op;
 
-        float inW = RenderNodeContext.ClampWorkingScaleToBufferBudget(
-            op.Bounds, CarriedWorkingScale(op, workingScale), maxDimension);
+        // Same pass-resolved-w basis as the Vulkan path above: the callback's GeometrySession is sized at w, so the
+        // baked input grid must match it (the EffectInput still carries inW for callbacks that bridge densities).
+        float inW = RenderNodeContext.ClampWorkingScaleToBufferBudget(op.Bounds, w, maxDimension);
         (int inBw, int inBh) = RenderNodeContext.DeviceBufferSize(op.Bounds, inW);
         if (inBw <= 0 || inBh <= 0)
             return op;
