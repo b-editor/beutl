@@ -246,6 +246,9 @@
   <data name="Duplicate" xml:space="preserve">
     <value>複製</value>
   </data>
+  <data name="EditingMode" xml:space="preserve">
+    <value>編集モード</value>
+  </data>
   <data name="RazorTool" xml:space="preserve">
     <value>レーザーモード</value>
   </data>

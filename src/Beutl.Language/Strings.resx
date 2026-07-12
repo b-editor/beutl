@@ -170,6 +170,9 @@
   <data name="Duplicate" xml:space="preserve">
     <value>Duplicate</value>
   </data>
+  <data name="EditingMode" xml:space="preserve">
+    <value>Editing Mode</value>
+  </data>
   <data name="RazorTool" xml:space="preserve">
     <value>Razor Tool</value>
   </data>
