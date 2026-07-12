@@ -351,6 +351,24 @@ public sealed partial class ElementView : UserControl
         return result.Time;
     }
 
+    // The model-level member set a Slip/Roll/Slide gesture acts on: the pressed clip's
+    // group or multi-selection, minus non-editable members, always including the pressed
+    // clip itself (GetGroupOrSelectedElements returns empty when it is neither grouped
+    // nor selected).
+    private static Element[] CollectTrimMembers(ElementViewModel viewModel)
+    {
+        var members = viewModel.GetGroupOrSelectedElements()
+            .Where(el => el.IsEditable.Value)
+            .Select(el => el.Model)
+            .ToList();
+        if (!members.Contains(viewModel.Model))
+        {
+            members.Add(viewModel.Model);
+        }
+
+        return [.. members];
+    }
+
     private sealed class _ResizeBehavior : Behavior<ElementView>
     {
         private record struct ElementResizeContext(
@@ -364,16 +382,18 @@ public sealed partial class ElementView : UserControl
 
         private enum TrimDragKind { None, Roll, Slide }
 
+        private record struct TrimSegment(
+            ElementViewModel ViewModel,
+            double InitialLeft,
+            double InitialWidth);
+
         private record struct TrimDragContext(
             TrimDragKind Kind,
-            ElementViewModel Front,
-            ElementViewModel? Middle,
-            ElementViewModel Back,
-            double InitialFrontWidth,
-            double InitialMiddleLeft,
-            double InitialMiddleWidth,
-            double InitialBackLeft,
-            double InitialBackWidth,
+            TrimSegment[] Fronts,
+            TrimSegment[] Middles,
+            TrimSegment[] Backs,
+            ElementTrimPair[] RollPairs,
+            ElementSlideLane[] SlideLanes,
             double InitialPointerX,
             TimeSpan MinDelta,
             TimeSpan MaxDelta);
@@ -528,13 +548,20 @@ public sealed partial class ElementView : UserControl
         {
             TrimDragContext ctx = _trimDrag;
 
-            ctx.Front.Width.Value = ctx.InitialFrontWidth + deltaPixels;
-            ctx.Back.BorderMargin.Value = new Thickness(ctx.InitialBackLeft + deltaPixels, 0, 0, 0);
-            ctx.Back.Width.Value = ctx.InitialBackWidth - deltaPixels;
-
-            if (ctx.Middle is { } middle)
+            foreach (TrimSegment front in ctx.Fronts)
             {
-                middle.BorderMargin.Value = new Thickness(ctx.InitialMiddleLeft + deltaPixels, 0, 0, 0);
+                front.ViewModel.Width.Value = front.InitialWidth + deltaPixels;
+            }
+
+            foreach (TrimSegment middle in ctx.Middles)
+            {
+                middle.ViewModel.BorderMargin.Value = new Thickness(middle.InitialLeft + deltaPixels, 0, 0, 0);
+            }
+
+            foreach (TrimSegment back in ctx.Backs)
+            {
+                back.ViewModel.BorderMargin.Value = new Thickness(back.InitialLeft + deltaPixels, 0, 0, 0);
+                back.ViewModel.Width.Value = back.InitialWidth - deltaPixels;
             }
         }
 
@@ -651,40 +678,36 @@ public sealed partial class ElementView : UserControl
             if (_resizeType is not (AlignmentX.Left or AlignmentX.Right)) return false;
 
             Element model = viewModel.Model;
-            Element? frontModel;
-            Element? backModel;
-            if (_resizeType == AlignmentX.Right)
-            {
-                frontModel = model;
-                backModel = model.GetAfter(model.ZIndex, model.Range.End);
-            }
-            else
-            {
-                frontModel = model.GetBefore(model.ZIndex, model.Start);
-                backModel = model;
-            }
+            TimeSpan boundary = _resizeType == AlignmentX.Right ? model.Range.End : model.Start;
 
-            if (frontModel is null || backModel is null) return false;
-            if (frontModel.Range.End != backModel.Start) return false;
+            IReadOnlyList<ElementTrimPair> pairs = TrimGroupCollector.CollectRollPairs(
+                viewModel.Scene, CollectTrimMembers(viewModel), boundary);
+            // The pressed clip's own cut must participate; without it the drag would roll
+            // only other group members' cuts, detached from the pointer.
+            if (!pairs.Any(p => p.Front == model || p.Back == model)) return false;
 
-            ElementViewModel? frontVm = viewModel.Timeline.GetViewModelFor(frontModel);
-            ElementViewModel? backVm = viewModel.Timeline.GetViewModelFor(backModel);
-            if (frontVm is null || backVm is null) return false;
+            var fronts = new TrimSegment[pairs.Count];
+            var backs = new TrimSegment[pairs.Count];
+            for (int i = 0; i < pairs.Count; i++)
+            {
+                ElementViewModel? frontVm = viewModel.Timeline.GetViewModelFor(pairs[i].Front);
+                ElementViewModel? backVm = viewModel.Timeline.GetViewModelFor(pairs[i].Back);
+                if (frontVm is null || backVm is null) return false;
+                fronts[i] = new TrimSegment(frontVm, frontVm.BorderMargin.Value.Left, frontVm.Width.Value);
+                backs[i] = new TrimSegment(backVm, backVm.BorderMargin.Value.Left, backVm.Width.Value);
+            }
 
             (TimeSpan minDelta, TimeSpan maxDelta) = viewModel.Timeline.EditorContext
                 .GetRequiredService<IElementResizeService>()
-                .GetTrimDeltaBounds(viewModel.Scene, frontModel, backModel);
+                .GetTrimDeltaBounds(viewModel.Scene, pairs);
 
             _trimDrag = new TrimDragContext(
                 Kind: TrimDragKind.Roll,
-                Front: frontVm,
-                Middle: null,
-                Back: backVm,
-                InitialFrontWidth: frontVm.Width.Value,
-                InitialMiddleLeft: 0,
-                InitialMiddleWidth: 0,
-                InitialBackLeft: backVm.BorderMargin.Value.Left,
-                InitialBackWidth: backVm.Width.Value,
+                Fronts: fronts,
+                Middles: [],
+                Backs: backs,
+                RollPairs: pairs.ToArray(),
+                SlideLanes: [],
                 InitialPointerX: position.X,
                 MinDelta: minDelta,
                 MaxDelta: maxDelta);
@@ -693,32 +716,42 @@ public sealed partial class ElementView : UserControl
 
         private bool TryStartSlideDrag(ElementViewModel viewModel, Point position)
         {
-            Element middleModel = viewModel.Model;
-            Element? frontModel = middleModel.GetBefore(middleModel.ZIndex, middleModel.Start);
-            Element? backModel = middleModel.GetAfter(middleModel.ZIndex, middleModel.Range.End);
-            if (frontModel is null || backModel is null) return false;
-            if (frontModel.Range.End != middleModel.Start) return false;
-            if (middleModel.Range.End != backModel.Start) return false;
+            IReadOnlyList<ElementSlideLane>? lanes = TrimGroupCollector.CollectSlideLanes(
+                viewModel.Scene, CollectTrimMembers(viewModel));
+            if (lanes is null) return false;
 
-            ElementViewModel? frontVm = viewModel.Timeline.GetViewModelFor(frontModel);
-            ElementViewModel? middleVm = viewModel.Timeline.GetViewModelFor(middleModel);
-            ElementViewModel? backVm = viewModel.Timeline.GetViewModelFor(backModel);
-            if (frontVm is null || middleVm is null || backVm is null) return false;
+            var fronts = new TrimSegment[lanes.Count];
+            var backs = new TrimSegment[lanes.Count];
+            var middles = new List<TrimSegment>();
+            for (int i = 0; i < lanes.Count; i++)
+            {
+                ElementViewModel? frontVm = viewModel.Timeline.GetViewModelFor(lanes[i].Front);
+                ElementViewModel? backVm = viewModel.Timeline.GetViewModelFor(lanes[i].Back);
+                if (frontVm is null || backVm is null) return false;
+                fronts[i] = new TrimSegment(frontVm, frontVm.BorderMargin.Value.Left, frontVm.Width.Value);
+                backs[i] = new TrimSegment(backVm, backVm.BorderMargin.Value.Left, backVm.Width.Value);
+
+                foreach (Element middle in lanes[i].Middles)
+                {
+                    ElementViewModel? middleVm = viewModel.Timeline.GetViewModelFor(middle);
+                    if (middleVm is null) return false;
+                    middles.Add(new TrimSegment(middleVm, middleVm.BorderMargin.Value.Left, middleVm.Width.Value));
+                }
+            }
 
             (TimeSpan minDelta, TimeSpan maxDelta) = viewModel.Timeline.EditorContext
                 .GetRequiredService<IElementResizeService>()
-                .GetTrimDeltaBounds(viewModel.Scene, frontModel, backModel);
+                .GetTrimDeltaBounds(
+                    viewModel.Scene,
+                    lanes.Select(l => new ElementTrimPair(l.Front, l.Back)).ToArray());
 
             _trimDrag = new TrimDragContext(
                 Kind: TrimDragKind.Slide,
-                Front: frontVm,
-                Middle: middleVm,
-                Back: backVm,
-                InitialFrontWidth: frontVm.Width.Value,
-                InitialMiddleLeft: middleVm.BorderMargin.Value.Left,
-                InitialMiddleWidth: middleVm.Width.Value,
-                InitialBackLeft: backVm.BorderMargin.Value.Left,
-                InitialBackWidth: backVm.Width.Value,
+                Fronts: fronts,
+                Middles: middles.ToArray(),
+                Backs: backs,
+                RollPairs: [],
+                SlideLanes: lanes.ToArray(),
                 InitialPointerX: position.X,
                 MinDelta: minDelta,
                 MaxDelta: maxDelta);
@@ -761,11 +794,11 @@ public sealed partial class ElementView : UserControl
                                 .GetRequiredService<IElementResizeService>();
                             if (ctx.Kind == TrimDragKind.Roll)
                             {
-                                resizeService.Roll(viewModel.Scene, ctx.Front.Model, ctx.Back.Model, delta);
+                                resizeService.Roll(viewModel.Scene, ctx.RollPairs, delta);
                             }
                             else
                             {
-                                resizeService.Slide(viewModel.Scene, ctx.Front.Model, ctx.Middle!.Model, ctx.Back.Model, delta);
+                                resizeService.Slide(viewModel.Scene, ctx.SlideLanes, delta);
                             }
                         }
 
@@ -820,13 +853,21 @@ public sealed partial class ElementView : UserControl
 
         private static void RestoreTrimDragVisuals(TrimDragContext ctx)
         {
-            ctx.Front.Width.Value = ctx.InitialFrontWidth;
-            ctx.Back.BorderMargin.Value = new Thickness(ctx.InitialBackLeft, 0, 0, 0);
-            ctx.Back.Width.Value = ctx.InitialBackWidth;
-            if (ctx.Middle is { } middle)
+            foreach (TrimSegment front in ctx.Fronts)
             {
-                middle.BorderMargin.Value = new Thickness(ctx.InitialMiddleLeft, 0, 0, 0);
-                middle.Width.Value = ctx.InitialMiddleWidth;
+                front.ViewModel.Width.Value = front.InitialWidth;
+            }
+
+            foreach (TrimSegment middle in ctx.Middles)
+            {
+                middle.ViewModel.BorderMargin.Value = new Thickness(middle.InitialLeft, 0, 0, 0);
+                middle.ViewModel.Width.Value = middle.InitialWidth;
+            }
+
+            foreach (TrimSegment back in ctx.Backs)
+            {
+                back.ViewModel.BorderMargin.Value = new Thickness(back.InitialLeft, 0, 0, 0);
+                back.ViewModel.Width.Value = back.InitialWidth;
             }
         }
 
@@ -896,6 +937,7 @@ public sealed partial class ElementView : UserControl
         private bool _pressed;
         private bool _duplicateMode;
         private bool _isSlipDrag;
+        private Element[] _slipTargets = [];
         private readonly List<Control> _ghosts = [];
         private IReadOnlyList<ElementViewModel> _relatedElements = [];
         private Point _start;
@@ -936,6 +978,7 @@ public sealed partial class ElementView : UserControl
 
             _isSlipDrag = false;
             _pressed = false;
+            _slipTargets = [];
             if (AssociatedObject is { ViewModel: { } viewModel })
             {
                 viewModel.Timeline.SnapBarPosition.Value = null;
@@ -1031,6 +1074,7 @@ public sealed partial class ElementView : UserControl
 
                     _pressed = true;
                     _isSlipDrag = true;
+                    _slipTargets = CollectTrimMembers(viewModel);
                     _start = e.GetPosition(view);
                     // Re-target the implicit capture to the border: PointerCaptureLost routes
                     // Direct (no bubbling), so the reset handler only fires reliably when the
@@ -1063,6 +1107,9 @@ public sealed partial class ElementView : UserControl
 
         private void CommitSlipDrag(ElementView view, ElementViewModel viewModel, PointerReleasedEventArgs e)
         {
+            Element[] targets = _slipTargets;
+            _slipTargets = [];
+
             float scale = viewModel.Timeline.Options.Value.Scale;
             int rate = viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
             Point released = e.GetPosition(view);
@@ -1074,11 +1121,11 @@ public sealed partial class ElementView : UserControl
                 .RoundToRate(rate);
             // RoundStartTime re-sets the snap guide line as a side effect; clear it.
             viewModel.Timeline.SnapBarPosition.Value = null;
-            if (delta != TimeSpan.Zero)
+            if (delta != TimeSpan.Zero && targets.Length > 0)
             {
                 viewModel.Timeline.EditorContext
                     .GetRequiredService<IElementSlipService>()
-                    .Slip(viewModel.Scene, viewModel.Model, delta);
+                    .Slip(viewModel.Scene, targets, delta);
             }
         }
 

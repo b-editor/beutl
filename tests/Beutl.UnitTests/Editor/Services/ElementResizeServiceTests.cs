@@ -221,9 +221,9 @@ public class ElementResizeServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.Throws<ArgumentNullException>(() => _service.Roll(null!, front, back, TimeSpan.Zero));
-            Assert.Throws<ArgumentNullException>(() => _service.Roll(_scene, null!, back, TimeSpan.Zero));
-            Assert.Throws<ArgumentNullException>(() => _service.Roll(_scene, front, null!, TimeSpan.Zero));
+            Assert.Throws<ArgumentNullException>(() => _service.Roll(null!, [new ElementTrimPair(front, back)], TimeSpan.Zero));
+            Assert.Throws<ArgumentNullException>(() => _service.Roll(_scene, [new ElementTrimPair(null!, back)], TimeSpan.Zero));
+            Assert.Throws<ArgumentNullException>(() => _service.Roll(_scene, [new ElementTrimPair(front, null!)], TimeSpan.Zero));
         });
     }
 
@@ -233,7 +233,7 @@ public class ElementResizeServiceTests
         Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
         int before = _history.UndoCount;
 
-        bool applied = _service.Roll(_scene, front, front, TimeSpan.FromSeconds(1));
+        bool applied = _service.Roll(_scene, [new ElementTrimPair(front, front)], TimeSpan.FromSeconds(1));
 
         Assert.Multiple(() =>
         {
@@ -250,7 +250,7 @@ public class ElementResizeServiceTests
         Element back = AddElement(TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(2));
         int before = _history.UndoCount;
 
-        bool applied = _service.Roll(_scene, front, back, TimeSpan.FromSeconds(1));
+        bool applied = _service.Roll(_scene, [new ElementTrimPair(front, back)], TimeSpan.FromSeconds(1));
 
         Assert.Multiple(() =>
         {
@@ -269,7 +269,7 @@ public class ElementResizeServiceTests
         Element back = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3));
         int before = _history.UndoCount;
 
-        bool applied = _service.Roll(_scene, front, back, TimeSpan.FromSeconds(1));
+        bool applied = _service.Roll(_scene, [new ElementTrimPair(front, back)], TimeSpan.FromSeconds(1));
 
         Assert.Multiple(() =>
         {
@@ -291,7 +291,7 @@ public class ElementResizeServiceTests
         back.IsLocked = true;
         int before = _history.UndoCount;
 
-        bool applied = _service.Roll(_scene, front, back, TimeSpan.FromSeconds(1));
+        bool applied = _service.Roll(_scene, [new ElementTrimPair(front, back)], TimeSpan.FromSeconds(1));
 
         Assert.Multiple(() =>
         {
@@ -311,7 +311,7 @@ public class ElementResizeServiceTests
         _scene.Layers.Add(new TimelineLayer { ZIndex = 4, IsLocked = true });
         int before = _history.UndoCount;
 
-        bool applied = _service.Roll(_scene, front, back, TimeSpan.FromSeconds(1));
+        bool applied = _service.Roll(_scene, [new ElementTrimPair(front, back)], TimeSpan.FromSeconds(1));
 
         Assert.Multiple(() =>
         {
@@ -327,7 +327,7 @@ public class ElementResizeServiceTests
         Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(3));
         Element back = AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(2));
 
-        _service.Roll(_scene, front, back, TimeSpan.FromSeconds(-1));
+        _service.Roll(_scene, [new ElementTrimPair(front, back)], TimeSpan.FromSeconds(-1));
 
         Assert.Multiple(() =>
         {
@@ -345,7 +345,7 @@ public class ElementResizeServiceTests
         Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1d / 30));
         Element back = AddElement(TimeSpan.FromSeconds(1d / 30), TimeSpan.FromSeconds(2));
 
-        bool applied = _service.Roll(_scene, front, back, TimeSpan.FromSeconds(-1));
+        bool applied = _service.Roll(_scene, [new ElementTrimPair(front, back)], TimeSpan.FromSeconds(-1));
 
         // Clamped to -(front.Length - 1 frame) = 0, so no effective delta.
         Assert.Multiple(() =>
@@ -362,7 +362,7 @@ public class ElementResizeServiceTests
         Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
         Element back = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1d / 30));
 
-        bool applied = _service.Roll(_scene, front, back, TimeSpan.FromSeconds(1));
+        bool applied = _service.Roll(_scene, [new ElementTrimPair(front, back)], TimeSpan.FromSeconds(1));
 
         // Clamped to back.Length - 1 frame = 0, so no effective delta.
         Assert.Multiple(() =>
@@ -380,7 +380,7 @@ public class ElementResizeServiceTests
         Element back = AddElement(TimeSpan.FromMilliseconds(1), TimeSpan.FromSeconds(2));
         int before = _history.UndoCount;
 
-        bool applied = _service.Roll(_scene, front, back, TimeSpan.FromSeconds(-1));
+        bool applied = _service.Roll(_scene, [new ElementTrimPair(front, back)], TimeSpan.FromSeconds(-1));
 
         Assert.Multiple(() =>
         {
@@ -397,7 +397,7 @@ public class ElementResizeServiceTests
     {
         Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
         Element back = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3));
-        _service.Roll(_scene, front, back, TimeSpan.FromSeconds(1));
+        _service.Roll(_scene, [new ElementTrimPair(front, back)], TimeSpan.FromSeconds(1));
         Assert.Multiple(() =>
         {
             Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(3)));
@@ -422,7 +422,7 @@ public class ElementResizeServiceTests
         var video = new SourceVideo();
         back.Objects.Add(video);
 
-        bool applied = _service.Roll(_scene, front, back, TimeSpan.FromSeconds(1));
+        bool applied = _service.Roll(_scene, [new ElementTrimPair(front, back)], TimeSpan.FromSeconds(1));
 
         Assert.Multiple(() =>
         {
@@ -441,7 +441,7 @@ public class ElementResizeServiceTests
         Element back = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3));
         var video = new SourceVideo();
         back.Objects.Add(video);
-        _service.Roll(_scene, front, back, TimeSpan.FromSeconds(1));
+        _service.Roll(_scene, [new ElementTrimPair(front, back)], TimeSpan.FromSeconds(1));
 
         _history.Undo();
 
@@ -459,7 +459,7 @@ public class ElementResizeServiceTests
         front.Objects.Add(new SourceVideo { Source = { CurrentValue = frontSource } });
         Element back = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(10));
 
-        bool applied = _service.Roll(_scene, front, back, TimeSpan.FromSeconds(5));
+        bool applied = _service.Roll(_scene, [new ElementTrimPair(front, back)], TimeSpan.FromSeconds(5));
 
         Assert.Multiple(() =>
         {
@@ -485,7 +485,7 @@ public class ElementResizeServiceTests
             front.Objects.Add(new SourceVideo { Source = { CurrentValue = frontSource } });
             Element back = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(10));
 
-            bool applied = _service.Roll(_scene, front, back, TimeSpan.FromSeconds(5));
+            bool applied = _service.Roll(_scene, [new ElementTrimPair(front, back)], TimeSpan.FromSeconds(5));
 
             Assert.Multiple(() =>
             {
@@ -513,7 +513,7 @@ public class ElementResizeServiceTests
         video.OffsetPosition.CurrentValue = TimeSpan.FromSeconds(0.5);
         back.Objects.Add(video);
 
-        bool applied = _service.Roll(_scene, front, back, TimeSpan.FromSeconds(-5));
+        bool applied = _service.Roll(_scene, [new ElementTrimPair(front, back)], TimeSpan.FromSeconds(-5));
 
         Assert.Multiple(() =>
         {
@@ -536,7 +536,7 @@ public class ElementResizeServiceTests
         video.OffsetPosition.CurrentValue = TimeSpan.FromSeconds(0.5);
         back.Objects.Add(video);
 
-        bool applied = _service.Roll(_scene, front, back, TimeSpan.FromSeconds(-5));
+        bool applied = _service.Roll(_scene, [new ElementTrimPair(front, back)], TimeSpan.FromSeconds(-5));
 
         Assert.Multiple(() =>
         {
@@ -559,10 +559,10 @@ public class ElementResizeServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.Throws<ArgumentNullException>(() => _service.Slide(null!, front, middle, back, TimeSpan.Zero));
-            Assert.Throws<ArgumentNullException>(() => _service.Slide(_scene, null!, middle, back, TimeSpan.Zero));
-            Assert.Throws<ArgumentNullException>(() => _service.Slide(_scene, front, null!, back, TimeSpan.Zero));
-            Assert.Throws<ArgumentNullException>(() => _service.Slide(_scene, front, middle, null!, TimeSpan.Zero));
+            Assert.Throws<ArgumentNullException>(() => _service.Slide(null!, [new ElementSlideLane(front, [middle], back)], TimeSpan.Zero));
+            Assert.Throws<ArgumentNullException>(() => _service.Slide(_scene, [new ElementSlideLane(null!, [middle], back)], TimeSpan.Zero));
+            Assert.Throws<ArgumentNullException>(() => _service.Slide(_scene, [new ElementSlideLane(front, [null!], back)], TimeSpan.Zero));
+            Assert.Throws<ArgumentNullException>(() => _service.Slide(_scene, [new ElementSlideLane(front, [middle], null!)], TimeSpan.Zero));
         });
     }
 
@@ -573,7 +573,7 @@ public class ElementResizeServiceTests
         Element middle = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
         int before = _history.UndoCount;
 
-        bool applied = _service.Slide(_scene, front, middle, middle, TimeSpan.FromSeconds(1));
+        bool applied = _service.Slide(_scene, [new ElementSlideLane(front, [middle], middle)], TimeSpan.FromSeconds(1));
 
         Assert.Multiple(() =>
         {
@@ -590,7 +590,7 @@ public class ElementResizeServiceTests
         Element back = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
         int before = _history.UndoCount;
 
-        bool applied = _service.Slide(_scene, front, middle, back, TimeSpan.FromSeconds(1));
+        bool applied = _service.Slide(_scene, [new ElementSlideLane(front, [middle], back)], TimeSpan.FromSeconds(1));
 
         Assert.Multiple(() =>
         {
@@ -607,7 +607,7 @@ public class ElementResizeServiceTests
         Element back = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2)); // gap before
         int before = _history.UndoCount;
 
-        bool applied = _service.Slide(_scene, front, middle, back, TimeSpan.FromSeconds(1));
+        bool applied = _service.Slide(_scene, [new ElementSlideLane(front, [middle], back)], TimeSpan.FromSeconds(1));
 
         Assert.Multiple(() =>
         {
@@ -624,7 +624,7 @@ public class ElementResizeServiceTests
         Element back = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
         int before = _history.UndoCount;
 
-        bool applied = _service.Slide(_scene, front, middle, back, TimeSpan.FromSeconds(1));
+        bool applied = _service.Slide(_scene, [new ElementSlideLane(front, [middle], back)], TimeSpan.FromSeconds(1));
 
         Assert.Multiple(() =>
         {
@@ -649,7 +649,7 @@ public class ElementResizeServiceTests
         middle.IsLocked = true;
         int before = _history.UndoCount;
 
-        bool applied = _service.Slide(_scene, front, middle, back, TimeSpan.FromSeconds(1));
+        bool applied = _service.Slide(_scene, [new ElementSlideLane(front, [middle], back)], TimeSpan.FromSeconds(1));
 
         Assert.Multiple(() =>
         {
@@ -668,7 +668,7 @@ public class ElementResizeServiceTests
         Element middle = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3));
         Element back = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
 
-        _service.Slide(_scene, front, middle, back, TimeSpan.FromSeconds(-1));
+        _service.Slide(_scene, [new ElementSlideLane(front, [middle], back)], TimeSpan.FromSeconds(-1));
 
         Assert.Multiple(() =>
         {
@@ -688,7 +688,7 @@ public class ElementResizeServiceTests
         Element middle = AddElement(TimeSpan.FromSeconds(1d / 30), TimeSpan.FromSeconds(2));
         Element back = AddElement(TimeSpan.FromSeconds(1d / 30) + TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
 
-        bool applied = _service.Slide(_scene, front, middle, back, TimeSpan.FromSeconds(-1));
+        bool applied = _service.Slide(_scene, [new ElementSlideLane(front, [middle], back)], TimeSpan.FromSeconds(-1));
 
         Assert.Multiple(() =>
         {
@@ -704,7 +704,7 @@ public class ElementResizeServiceTests
         Element middle = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
         Element back = AddElement(TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(1d / 30));
 
-        bool applied = _service.Slide(_scene, front, middle, back, TimeSpan.FromSeconds(1));
+        bool applied = _service.Slide(_scene, [new ElementSlideLane(front, [middle], back)], TimeSpan.FromSeconds(1));
 
         Assert.Multiple(() =>
         {
@@ -721,7 +721,7 @@ public class ElementResizeServiceTests
         Element back = AddElement(TimeSpan.FromMilliseconds(2001), TimeSpan.FromSeconds(2));
         int before = _history.UndoCount;
 
-        bool applied = _service.Slide(_scene, front, middle, back, TimeSpan.FromSeconds(-1));
+        bool applied = _service.Slide(_scene, [new ElementSlideLane(front, [middle], back)], TimeSpan.FromSeconds(-1));
 
         Assert.Multiple(() =>
         {
@@ -739,7 +739,7 @@ public class ElementResizeServiceTests
         Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
         Element middle = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3));
         Element back = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
-        _service.Slide(_scene, front, middle, back, TimeSpan.FromSeconds(1));
+        _service.Slide(_scene, [new ElementSlideLane(front, [middle], back)], TimeSpan.FromSeconds(1));
 
         _history.Undo();
 
@@ -762,7 +762,7 @@ public class ElementResizeServiceTests
         var video = new SourceVideo();
         back.Objects.Add(video);
 
-        bool applied = _service.Slide(_scene, front, middle, back, TimeSpan.FromSeconds(1));
+        bool applied = _service.Slide(_scene, [new ElementSlideLane(front, [middle], back)], TimeSpan.FromSeconds(1));
 
         Assert.Multiple(() =>
         {
@@ -783,7 +783,7 @@ public class ElementResizeServiceTests
         Element back = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3), zIndex: 1);
         int before = _history.UndoCount;
 
-        bool applied = _service.Roll(_scene, front, back, TimeSpan.FromSeconds(1));
+        bool applied = _service.Roll(_scene, [new ElementTrimPair(front, back)], TimeSpan.FromSeconds(1));
 
         Assert.Multiple(() =>
         {
@@ -800,7 +800,7 @@ public class ElementResizeServiceTests
         Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
         var back = new Element { Start = TimeSpan.FromSeconds(2), Length = TimeSpan.FromSeconds(3) };
 
-        bool applied = _service.Roll(_scene, front, back, TimeSpan.FromSeconds(1));
+        bool applied = _service.Roll(_scene, [new ElementTrimPair(front, back)], TimeSpan.FromSeconds(1));
 
         Assert.Multiple(() =>
         {
@@ -816,7 +816,7 @@ public class ElementResizeServiceTests
         Element middle = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3), zIndex: 1);
         Element back = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2), zIndex: 0);
 
-        bool applied = _service.Slide(_scene, front, middle, back, TimeSpan.FromSeconds(1));
+        bool applied = _service.Slide(_scene, [new ElementSlideLane(front, [middle], back)], TimeSpan.FromSeconds(1));
 
         Assert.Multiple(() =>
         {
@@ -835,9 +835,9 @@ public class ElementResizeServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.Throws<ArgumentNullException>(() => _service.GetTrimDeltaBounds(null!, front, back));
-            Assert.Throws<ArgumentNullException>(() => _service.GetTrimDeltaBounds(_scene, null!, back));
-            Assert.Throws<ArgumentNullException>(() => _service.GetTrimDeltaBounds(_scene, front, null!));
+            Assert.Throws<ArgumentNullException>(() => _service.GetTrimDeltaBounds(null!, [new ElementTrimPair(front, back)]));
+            Assert.Throws<ArgumentNullException>(() => _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(null!, back)]));
+            Assert.Throws<ArgumentNullException>(() => _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, null!)]));
         });
     }
 
@@ -847,7 +847,7 @@ public class ElementResizeServiceTests
         Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
         Element back = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3));
 
-        (TimeSpan min, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, front, back);
+        (TimeSpan min, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]);
 
         TimeSpan minDuration = TimeSpan.FromSeconds(1d / 30);
         Assert.Multiple(() =>
@@ -868,7 +868,7 @@ public class ElementResizeServiceTests
         front.Objects.Add(new SourceVideo { Source = { CurrentValue = frontSource } });
         Element back = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(10));
 
-        (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, front, back);
+        (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]);
 
         Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(1)));
     }
@@ -882,7 +882,7 @@ public class ElementResizeServiceTests
         video.OffsetPosition.CurrentValue = TimeSpan.FromSeconds(0.5);
         back.Objects.Add(video);
 
-        (TimeSpan min, TimeSpan _) = _service.GetTrimDeltaBounds(_scene, front, back);
+        (TimeSpan min, TimeSpan _) = _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]);
 
         Assert.That(min, Is.EqualTo(TimeSpan.FromSeconds(-0.5)));
     }
@@ -899,7 +899,7 @@ public class ElementResizeServiceTests
         video.OffsetPosition.CurrentValue = TimeSpan.FromSeconds(-1);
         back.Objects.Add(video);
 
-        (TimeSpan min, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, front, back);
+        (TimeSpan min, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]);
 
         Assert.Multiple(() =>
         {
@@ -914,12 +914,311 @@ public class ElementResizeServiceTests
         Element front = AddElement(TimeSpan.Zero, TimeSpan.FromMilliseconds(1));
         Element back = AddElement(TimeSpan.FromMilliseconds(1), TimeSpan.FromSeconds(2));
 
-        (TimeSpan min, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, front, back);
+        (TimeSpan min, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]);
 
         Assert.Multiple(() =>
         {
             Assert.That(min, Is.EqualTo(TimeSpan.Zero));
             Assert.That(max, Is.EqualTo(TimeSpan.Zero));
+        });
+    }
+
+    [Test]
+    public void GetTrimDeltaBounds_EmptyPairs_ReturnsZeroWindow()
+    {
+        (TimeSpan min, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, []);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(min, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(max, Is.EqualTo(TimeSpan.Zero));
+        });
+    }
+
+    [Test]
+    public void GetTrimDeltaBounds_MultiplePairs_ReturnsIntersection()
+    {
+        Element frontA = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2), zIndex: 0);
+        Element backA = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3), zIndex: 0);
+        Element frontB = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(5), zIndex: 1);
+        Element backB = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(1), zIndex: 1);
+
+        (TimeSpan min, TimeSpan max) = _service.GetTrimDeltaBounds(
+            _scene, [new ElementTrimPair(frontA, backA), new ElementTrimPair(frontB, backB)]);
+
+        TimeSpan minDuration = TimeSpan.FromSeconds(1d / 30);
+        Assert.Multiple(() =>
+        {
+            // Min is bounded by the shorter front (A, 2s); Max by the shorter back (B, 1s).
+            Assert.That(min, Is.EqualTo(minDuration - TimeSpan.FromSeconds(2)));
+            Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(1) - minDuration));
+        });
+    }
+
+    // --- Roll / Slide: grouped multi-lane operations ---
+
+    [Test]
+    public void Roll_EmptyPairs_NoCommit()
+    {
+        int before = _history.UndoCount;
+
+        bool applied = _service.Roll(_scene, [], TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
+    public void Roll_TwoPairs_AppliesBothAndCommitsOnce()
+    {
+        Element frontA = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2), zIndex: 0);
+        Element backA = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3), zIndex: 0);
+        Element frontB = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2), zIndex: 1);
+        Element backB = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3), zIndex: 1);
+        var backVideo = new SourceVideo();
+        backA.Objects.Add(backVideo);
+        int before = _history.UndoCount;
+
+        bool applied = _service.Roll(
+            _scene,
+            [new ElementTrimPair(frontA, backA), new ElementTrimPair(frontB, backB)],
+            TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(frontA.Length, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            Assert.That(backA.Start, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            Assert.That(backA.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(frontB.Length, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            Assert.That(backB.Start, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            Assert.That(backB.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(backVideo.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
+        });
+    }
+
+    [Test]
+    public void Roll_TwoPairs_SharedDeltaClampedByTightestPair()
+    {
+        Element frontA = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2), zIndex: 0);
+        Element backA = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(10), zIndex: 0);
+        Element frontB = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2), zIndex: 1);
+        Element backB = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1), zIndex: 1);
+
+        bool applied = _service.Roll(
+            _scene,
+            [new ElementTrimPair(frontA, backA), new ElementTrimPair(frontB, backB)],
+            TimeSpan.FromSeconds(5));
+
+        TimeSpan expected = TimeSpan.FromSeconds(1) - TimeSpan.FromSeconds(1d / 30);
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(frontA.Length, Is.EqualTo(TimeSpan.FromSeconds(2) + expected));
+            Assert.That(frontB.Length, Is.EqualTo(TimeSpan.FromSeconds(2) + expected));
+            Assert.That(backB.Length, Is.EqualTo(TimeSpan.FromSeconds(1) - expected));
+        });
+    }
+
+    [Test]
+    public void Roll_OneInvalidPair_RejectsWholeOperation()
+    {
+        Element frontA = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2), zIndex: 0);
+        Element backA = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3), zIndex: 0);
+        Element frontB = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2), zIndex: 1);
+        Element backB = AddElement(TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(2), zIndex: 1);
+        int before = _history.UndoCount;
+
+        bool applied = _service.Roll(
+            _scene,
+            [new ElementTrimPair(frontA, backA), new ElementTrimPair(frontB, backB)],
+            TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(frontA.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(backA.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
+    public void Roll_ElementInTwoPairs_NoCommit()
+    {
+        Element first = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        Element second = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
+        Element third = AddElement(TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(2));
+        int before = _history.UndoCount;
+
+        bool applied = _service.Roll(
+            _scene,
+            [new ElementTrimPair(first, second), new ElementTrimPair(second, third)],
+            TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
+    public void Slide_EmptyLanes_NoCommit()
+    {
+        int before = _history.UndoCount;
+
+        bool applied = _service.Slide(_scene, [], TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
+    public void Slide_EmptyMiddles_Throws()
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        Element back = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
+
+        Assert.Throws<ArgumentException>(
+            () => _service.Slide(_scene, [new ElementSlideLane(front, [], back)], TimeSpan.FromSeconds(1)));
+    }
+
+    [Test]
+    public void Slide_TwoLanes_AppliesBothAndCommitsOnce()
+    {
+        Element frontA = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2), zIndex: 0);
+        Element middleA = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1), zIndex: 0);
+        Element backA = AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(3), zIndex: 0);
+        Element frontB = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2), zIndex: 1);
+        Element middleB = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1), zIndex: 1);
+        Element backB = AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(3), zIndex: 1);
+        int before = _history.UndoCount;
+
+        bool applied = _service.Slide(
+            _scene,
+            [
+                new ElementSlideLane(frontA, [middleA], backA),
+                new ElementSlideLane(frontB, [middleB], backB)
+            ],
+            TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(frontA.Length, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            Assert.That(middleA.Start, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            Assert.That(backA.Start, Is.EqualTo(TimeSpan.FromSeconds(4)));
+            Assert.That(backA.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(frontB.Length, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            Assert.That(middleB.Start, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            Assert.That(backB.Start, Is.EqualTo(TimeSpan.FromSeconds(4)));
+            Assert.That(backB.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
+        });
+    }
+
+    [Test]
+    public void Slide_MultipleMiddlesInLane_ShiftsAllPreservingTotalLength()
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        Element firstMiddle = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1));
+        Element secondMiddle = AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(1));
+        Element back = AddElement(TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(3));
+
+        bool applied = _service.Slide(
+            _scene,
+            [new ElementSlideLane(front, [firstMiddle, secondMiddle], back)],
+            TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            Assert.That(firstMiddle.Start, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            Assert.That(secondMiddle.Start, Is.EqualTo(TimeSpan.FromSeconds(4)));
+            Assert.That(back.Start, Is.EqualTo(TimeSpan.FromSeconds(5)));
+            Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+        });
+    }
+
+    [Test]
+    public void Slide_NonContiguousMiddles_NoCommit()
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        Element firstMiddle = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1));
+        Element secondMiddle = AddElement(TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(1));
+        Element back = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(3));
+        int before = _history.UndoCount;
+
+        bool applied = _service.Slide(
+            _scene,
+            [new ElementSlideLane(front, [firstMiddle, secondMiddle], back)],
+            TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
+    public void Slide_ElementSharedAcrossLanes_NoCommit()
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        Element middle = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1));
+        Element back = AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(3));
+        int before = _history.UndoCount;
+
+        bool applied = _service.Slide(
+            _scene,
+            [
+                new ElementSlideLane(front, [middle], back),
+                new ElementSlideLane(front, [middle], back)
+            ],
+            TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
+    public void Slide_OneInvalidLane_RejectsWholeOperation()
+    {
+        Element frontA = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2), zIndex: 0);
+        Element middleA = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1), zIndex: 0);
+        Element backA = AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(3), zIndex: 0);
+        Element frontB = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2), zIndex: 1);
+        Element middleB = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1), zIndex: 1);
+        Element backB = AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(3), zIndex: 1);
+        backB.IsLocked = true;
+        int before = _history.UndoCount;
+
+        bool applied = _service.Slide(
+            _scene,
+            [
+                new ElementSlideLane(frontA, [middleA], backA),
+                new ElementSlideLane(frontB, [middleB], backB)
+            ],
+            TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(frontA.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(middleA.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
     }
 }
