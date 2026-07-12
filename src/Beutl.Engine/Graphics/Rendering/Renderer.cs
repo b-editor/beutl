@@ -242,7 +242,7 @@ public class Renderer : IRenderer
         }
 
         entry.Bounds = bounds;
-        RenderNodeCacheHelper.MakeCache(entry.Node, CacheOptions, OutputScale, MaxWorkingScale);
+        RenderNodeCacheHelper.MakeCache(entry.Node, CacheOptions, OutputScale, MaxWorkingScale, Diagnostics, _pool);
         return entry;
     }
 
