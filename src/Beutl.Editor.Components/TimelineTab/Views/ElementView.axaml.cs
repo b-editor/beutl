@@ -680,8 +680,9 @@ public sealed partial class ElementView : UserControl
             Element model = viewModel.Model;
             TimeSpan boundary = _resizeType == AlignmentX.Right ? model.Range.End : model.Start;
 
-            IReadOnlyList<ElementTrimPair> pairs = TrimGroupCollector.CollectRollPairs(
+            IReadOnlyList<ElementTrimPair>? pairs = TrimGroupCollector.CollectRollPairs(
                 viewModel.Scene, CollectTrimMembers(viewModel), boundary);
+            if (pairs is null) return false;
             // The pressed clip's own cut must participate; without it the drag would roll
             // only other group members' cuts, detached from the pointer.
             if (!pairs.Any(p => p.Front == model || p.Back == model)) return false;
@@ -1395,6 +1396,13 @@ public sealed partial class ElementView : UserControl
                             if (!trimMode || !timelineVm.SelectedElements.Contains(obj.ViewModel))
                             {
                                 Select(obj, obj._timeline.ViewModel);
+                            }
+                            else
+                            {
+                                // Keep the multi-selection, but still point the single selection
+                                // (property tab, keyframe scope) at the pressed clip.
+                                timelineVm.EditorContext.GetRequiredService<IEditorSelection>()
+                                    .SelectedObject.Value = obj.ViewModel.Model;
                             }
                         }
                         else

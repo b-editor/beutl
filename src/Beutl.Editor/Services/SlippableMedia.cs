@@ -42,16 +42,22 @@ internal static class SlippableMedia
     public static List<Target> Collect(Element element)
     {
         var targets = new List<Target>();
+        var visited = new HashSet<object>();
         foreach (EngineObject obj in element.Objects)
         {
-            CollectFrom(obj, targets);
+            CollectFrom(obj, targets, visited);
         }
 
         return targets;
     }
 
-    private static void CollectFrom(object obj, List<Target> targets)
+    // The visited set makes each node contribute once: a media object reachable through
+    // several paths (e.g. one SourceVideo shared by two DrawablePresenter.Targets) must not
+    // receive the shared delta once per path, and a presenter cycle must not recurse forever.
+    private static void CollectFrom(object obj, List<Target> targets, HashSet<object> visited)
     {
+        if (!visited.Add(obj)) return;
+
         switch (obj)
         {
             case SourceVideo video:
@@ -62,21 +68,21 @@ internal static class SlippableMedia
                 break;
             case SoundGroup soundGroup:
                 foreach (Sound child in soundGroup.Children)
-                    CollectFrom(child, targets);
+                    CollectFrom(child, targets, visited);
                 break;
             case DrawableGroup drawableGroup:
                 foreach (Drawable child in drawableGroup.Children)
-                    CollectFrom(child, targets);
+                    CollectFrom(child, targets, visited);
                 break;
             case DrawableDecorator decorator:
                 foreach (Drawable child in decorator.Children)
-                    CollectFrom(child, targets);
+                    CollectFrom(child, targets, visited);
                 break;
             // DrawablePresenter / DrawableTimeController render the drawable in Target
             // rather than a Children list, so a wrapped SourceVideo is only reachable here.
             case IPresenter<Drawable> presenter:
                 if (presenter.Target.CurrentValue is { } presented)
-                    CollectFrom(presented, targets);
+                    CollectFrom(presented, targets, visited);
                 break;
         }
     }

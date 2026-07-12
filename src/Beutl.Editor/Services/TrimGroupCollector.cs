@@ -17,12 +17,13 @@ public static class TrimGroupCollector
     /// on its layer becomes the back; for each member starting there, the clip ending
     /// there becomes the front. The partner may itself be outside
     /// <paramref name="members"/> (rolling against an ungrouped neighbour is a valid cut).
-    /// Pairs with a locked side are skipped — they would make
-    /// <see cref="IElementResizeService.Roll"/> reject the whole operation — as are
-    /// members with no adjacent partner (their edge simply is not a cut). A pair whose
-    /// both sides are members is collected once.
+    /// Members with no adjacent partner are skipped (their edge simply is not a cut, so
+    /// nothing desynchronizes); a pair whose both sides are members is collected once.
+    /// Returns <see langword="null"/> when any collected pair has a locked side — that cut
+    /// is aligned but immovable, so rolling the rest would desynchronize the grouped cuts;
+    /// <see cref="IElementResizeService.Slide"/>'s lanes apply the same all-or-nothing rule.
     /// </summary>
-    public static IReadOnlyList<ElementTrimPair> CollectRollPairs(
+    public static IReadOnlyList<ElementTrimPair>? CollectRollPairs(
         Scene scene, IReadOnlyList<Element> members, TimeSpan boundary)
     {
         ArgumentNullException.ThrowIfNull(scene);
@@ -48,7 +49,7 @@ public static class TrimGroupCollector
             }
 
             if (front is null || back is null) continue;
-            if (scene.IsElementLocked(front) || scene.IsElementLocked(back)) continue;
+            if (scene.IsElementLocked(front) || scene.IsElementLocked(back)) return null;
             if (!seenFronts.Add(front)) continue;
 
             pairs.Add(new ElementTrimPair(front, back));

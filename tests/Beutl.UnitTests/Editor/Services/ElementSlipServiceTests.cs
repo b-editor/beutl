@@ -432,6 +432,27 @@ public class ElementSlipServiceTests
     }
 
     [Test]
+    public void Slip_SharedSourceReachableViaTwoPresenters_ShiftsOnce()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        var video = new SourceVideo();
+        var firstPresenter = new DrawablePresenter();
+        firstPresenter.Target.CurrentValue = video;
+        var secondPresenter = new DrawablePresenter();
+        secondPresenter.Target.CurrentValue = video;
+        element.Objects.Add(firstPresenter);
+        element.Objects.Add(secondPresenter);
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+        });
+    }
+
+    [Test]
     public void Slip_MultipleElements_ShiftsAllAndCommitsOnce()
     {
         Element first = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 0);

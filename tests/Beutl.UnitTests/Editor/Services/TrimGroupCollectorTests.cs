@@ -35,7 +35,7 @@ public class TrimGroupCollectorTests
         Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
         Element back = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3));
 
-        IReadOnlyList<ElementTrimPair> pairs = TrimGroupCollector.CollectRollPairs(
+        IReadOnlyList<ElementTrimPair>? pairs = TrimGroupCollector.CollectRollPairs(
             _scene, [front], TimeSpan.FromSeconds(2));
 
         Assert.That(pairs, Is.EqualTo(new[] { new ElementTrimPair(front, back) }));
@@ -47,7 +47,7 @@ public class TrimGroupCollectorTests
         Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
         Element back = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3));
 
-        IReadOnlyList<ElementTrimPair> pairs = TrimGroupCollector.CollectRollPairs(
+        IReadOnlyList<ElementTrimPair>? pairs = TrimGroupCollector.CollectRollPairs(
             _scene, [back], TimeSpan.FromSeconds(2));
 
         Assert.That(pairs, Is.EqualTo(new[] { new ElementTrimPair(front, back) }));
@@ -59,7 +59,7 @@ public class TrimGroupCollectorTests
         Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
         Element back = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3));
 
-        IReadOnlyList<ElementTrimPair> pairs = TrimGroupCollector.CollectRollPairs(
+        IReadOnlyList<ElementTrimPair>? pairs = TrimGroupCollector.CollectRollPairs(
             _scene, [front, back], TimeSpan.FromSeconds(2));
 
         Assert.That(pairs, Is.EqualTo(new[] { new ElementTrimPair(front, back) }));
@@ -73,7 +73,7 @@ public class TrimGroupCollectorTests
         Element frontB = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2), zIndex: 1);
         Element backB = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3), zIndex: 1);
 
-        IReadOnlyList<ElementTrimPair> pairs = TrimGroupCollector.CollectRollPairs(
+        IReadOnlyList<ElementTrimPair>? pairs = TrimGroupCollector.CollectRollPairs(
             _scene, [frontA, frontB], TimeSpan.FromSeconds(2));
 
         Assert.That(pairs, Is.EquivalentTo(new[]
@@ -91,7 +91,7 @@ public class TrimGroupCollectorTests
         Element offBoundary = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(3), zIndex: 1);
         AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(2), zIndex: 1);
 
-        IReadOnlyList<ElementTrimPair> pairs = TrimGroupCollector.CollectRollPairs(
+        IReadOnlyList<ElementTrimPair>? pairs = TrimGroupCollector.CollectRollPairs(
             _scene, [frontA, offBoundary], TimeSpan.FromSeconds(2));
 
         Assert.That(pairs, Is.EqualTo(new[] { new ElementTrimPair(frontA, backA) }));
@@ -104,25 +104,25 @@ public class TrimGroupCollectorTests
         Element backA = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3), zIndex: 0);
         Element lonely = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2), zIndex: 1);
 
-        IReadOnlyList<ElementTrimPair> pairs = TrimGroupCollector.CollectRollPairs(
+        IReadOnlyList<ElementTrimPair>? pairs = TrimGroupCollector.CollectRollPairs(
             _scene, [frontA, lonely], TimeSpan.FromSeconds(2));
 
         Assert.That(pairs, Is.EqualTo(new[] { new ElementTrimPair(frontA, backA) }));
     }
 
     [Test]
-    public void CollectRollPairs_LockedPartner_SkipsPair()
+    public void CollectRollPairs_LockedPartner_ReturnsNull()
     {
         Element frontA = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2), zIndex: 0);
-        Element backA = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3), zIndex: 0);
+        AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3), zIndex: 0);
         Element frontB = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2), zIndex: 1);
         Element lockedBack = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3), zIndex: 1);
         lockedBack.IsLocked = true;
 
-        IReadOnlyList<ElementTrimPair> pairs = TrimGroupCollector.CollectRollPairs(
+        IReadOnlyList<ElementTrimPair>? pairs = TrimGroupCollector.CollectRollPairs(
             _scene, [frontA, frontB], TimeSpan.FromSeconds(2));
 
-        Assert.That(pairs, Is.EqualTo(new[] { new ElementTrimPair(frontA, backA) }));
+        Assert.That(pairs, Is.Null);
     }
 
     [Test]
@@ -130,7 +130,7 @@ public class TrimGroupCollectorTests
     {
         var offScene = new Element { Start = TimeSpan.Zero, Length = TimeSpan.FromSeconds(2) };
 
-        IReadOnlyList<ElementTrimPair> pairs = TrimGroupCollector.CollectRollPairs(
+        IReadOnlyList<ElementTrimPair>? pairs = TrimGroupCollector.CollectRollPairs(
             _scene, [offScene], TimeSpan.FromSeconds(2));
 
         Assert.That(pairs, Is.Empty);
