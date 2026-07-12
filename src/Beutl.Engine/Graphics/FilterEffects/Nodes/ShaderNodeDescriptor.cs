@@ -108,7 +108,7 @@ public sealed record ShaderNodeDescriptor : EffectNodeDescriptor
             isCoordinateInvariant: false,
             bounds,
             UniformBindingBuilder.Collect(uniforms).ToImmutableArray(),
-            (children ?? []).ToImmutableArray(),
+            ValidateWholeSourceChildren(children),
             srcTileMode);
     }
 
@@ -130,7 +130,26 @@ public sealed record ShaderNodeDescriptor : EffectNodeDescriptor
             isCoordinateInvariant: true,
             BoundsContract.Identity,
             UniformBindingBuilder.Collect(uniforms).ToImmutableArray(),
-            (children ?? []).ToImmutableArray(),
+            ValidateWholeSourceChildren(children),
             srcTileMode);
+    }
+
+    // The executor binds the upstream input under the implicit child 'src' before the descriptor's own children;
+    // an extra child reusing that name would silently replace the effect input the shader's src.eval reads.
+    private static ImmutableArray<ChildBinding> ValidateWholeSourceChildren(IEnumerable<ChildBinding>? children)
+    {
+        ImmutableArray<ChildBinding> array = (children ?? []).ToImmutableArray();
+        foreach (ChildBinding child in array)
+        {
+            if (child.Name == Rendering.SkslSnippetMerger.SourceChildName)
+            {
+                throw new ArgumentException(
+                    $"'{Rendering.SkslSnippetMerger.SourceChildName}' is the reserved implicit source child of a "
+                    + "whole-source shader; an extra child bound under it would silently replace the effect input.",
+                    nameof(children));
+            }
+        }
+
+        return array;
     }
 }

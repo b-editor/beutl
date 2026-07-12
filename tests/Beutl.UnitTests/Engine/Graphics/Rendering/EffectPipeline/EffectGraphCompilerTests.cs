@@ -229,6 +229,34 @@ half4 apply(half4 c) {
         });
     }
 
+    // N1g: the executor binds the upstream input under the implicit child 'src' before the descriptor's own
+    // children, so an extra whole-source child reusing that name would silently replace the effect input the
+    // shader's src.eval reads — rejected at describe time.
+    [Test]
+    public void WholeSource_ChildNamedSrc_IsRejected()
+    {
+        const string source = "uniform shader src;\nhalf4 main(float2 coord){ return src.eval(coord); }";
+        using SKShader extra = SKShader.CreateColor(SKColors.Red);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                () => ShaderNodeDescriptor.WholeSource(
+                    source, BoundsContract.RenderTime, children: [new ChildBinding("src", extra)]),
+                Throws.ArgumentException,
+                "'src' is the reserved implicit source child of a whole-source shader");
+            Assert.That(
+                () => ShaderNodeDescriptor.WholeSourceInvariant(
+                    source, children: [new ChildBinding("src", extra)]),
+                Throws.ArgumentException,
+                "the invariant whole-source form reserves 'src' identically");
+            Assert.DoesNotThrow(
+                () => ShaderNodeDescriptor.WholeSource(
+                    source, BoundsContract.RenderTime, children: [new ChildBinding("map", extra)]),
+                "a differently-named extra child stays valid");
+        });
+    }
+
     // N1f: Build transfers the node list and disposal set to the graph BY REFERENCE; a stashed builder mutating
     // them afterwards would silently change the compiled graph, so post-build mutation throws at the call site.
     [Test]

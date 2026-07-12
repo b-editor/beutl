@@ -123,11 +123,13 @@ public sealed class EffectGraphBuilder : IDisposable
     /// render node as one node of this graph, materializing the current ops as its input. This is what lets such an
     /// effect be embedded anywhere a container walks its children (a group, a delay-animation branch).
     /// <para>
-    /// The embedded child render node is constructed per frame, not persisted, so instance-level caches held on a
-    /// custom node do not survive across frames when the effect is embedded in a graph (top-level usage, which renders
-    /// through the effect's own persistent <see cref="Rendering.FilterEffectRenderNode"/>, keeps them). Keep render
-    /// caches on graph-model resources instead of on the node — the canonical <c>NodeGraphFilterEffect</c> does exactly
-    /// this and is unaffected.
+    /// The embedded child render node is constructed per frame, not persisted, and is DISPOSED as soon as its
+    /// <c>Process</c> returns — before the operations it returned are consumed by later passes — so instance-level
+    /// caches held on a custom node do not survive across frames when the effect is embedded in a graph (top-level
+    /// usage, which renders through the effect's own persistent <see cref="Rendering.FilterEffectRenderNode"/>, keeps
+    /// them), and the returned operations must be self-contained: they own their targets and must not reference
+    /// node-owned state. Keep render caches on graph-model resources instead of on the node — the canonical
+    /// <c>NodeGraphFilterEffect</c> does exactly this and is unaffected.
     /// </para>
     /// </summary>
     public EffectGraphBuilder CustomRenderNode(FilterEffect.Resource child)

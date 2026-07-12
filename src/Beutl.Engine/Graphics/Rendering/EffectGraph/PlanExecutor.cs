@@ -288,9 +288,23 @@ internal static class PlanExecutor
                 current[i] = null!;
                 // A null result drops this pass output and continues: either an empty resolved output (a shrinking
                 // pass) or a preview allocation-failure (C7; delivery renders throw instead of returning null).
-                RenderNodeOperation? mapped = MapOneOperation(
-                    pass, resolution, expectedInput, linear, op, outputScale, workingScale, maxWorkingScale,
-                    maxDimension, diagnostics, pool, sink);
+                RenderNodeOperation? mapped;
+                try
+                {
+                    mapped = MapOneOperation(
+                        pass, resolution, expectedInput, linear, op, outputScale, workingScale, maxWorkingScale,
+                        maxDimension, diagnostics, pool, sink);
+                }
+                catch
+                {
+                    // The op is already detached from `current`, so the outer sweeps (this method's outputs sweep,
+                    // Execute's current sweep) can't reach it; a throw BEFORE MapOneOperation takes ownership — a
+                    // plugin bounds lambda inside ForwardBounds — would strand its pooled lease. Dispose is
+                    // idempotent, so the C7 paths that already disposed op before rethrowing are unaffected.
+                    op.Dispose();
+                    throw;
+                }
+
                 if (mapped != null)
                     outputs.Add(mapped);
             }
