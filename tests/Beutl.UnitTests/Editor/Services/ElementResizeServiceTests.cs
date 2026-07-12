@@ -1050,6 +1050,34 @@ public class ElementResizeServiceTests
     }
 
     [Test]
+    public void Roll_SharedSourceBetweenFrontAndBack_NoCommit()
+    {
+        Element frontA = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2), zIndex: 0);
+        Element backA = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3), zIndex: 0);
+        Element frontB = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2), zIndex: 1);
+        Element backB = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3), zIndex: 1);
+        var video = new SourceVideo();
+        frontA.Objects.Add(video);
+        var presenter = new DrawablePresenter();
+        presenter.Target.CurrentValue = video;
+        backB.Objects.Add(presenter);
+        int before = _history.UndoCount;
+
+        bool applied = _service.Roll(
+            _scene,
+            [new ElementTrimPair(frontA, backA), new ElementTrimPair(frontB, backB)],
+            TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(frontA.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
     public void Roll_OneInvalidPair_RejectsWholeOperation()
     {
         Element frontA = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2), zIndex: 0);
@@ -1214,6 +1242,33 @@ public class ElementResizeServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.False);
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
+    public void Slide_SharedSourceBetweenMiddleAndBack_NoCommit()
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        Element middle = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1));
+        Element back = AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(3));
+        var video = new SourceVideo();
+        middle.Objects.Add(video);
+        var presenter = new DrawablePresenter();
+        presenter.Target.CurrentValue = video;
+        back.Objects.Add(presenter);
+        int before = _history.UndoCount;
+
+        bool applied = _service.Slide(
+            _scene,
+            [new ElementSlideLane(front, [middle], back)],
+            TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(middle.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
             Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
     }

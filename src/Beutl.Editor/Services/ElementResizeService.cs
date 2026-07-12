@@ -294,16 +294,28 @@ public sealed class ElementResizeService : IElementResizeService
         }
 
         var backTargets = new List<SlippableMedia.Target>[pairs.Count];
+        var fixedOffsets = new HashSet<IProperty<TimeSpan>>();
         (TimeSpan min, TimeSpan max) = (TimeSpan.MinValue, TimeSpan.MaxValue);
         for (int i = 0; i < pairs.Count; i++)
         {
             (Element front, Element back) = pairs[i];
             backTargets[i] = SlippableMedia.Collect(back);
+            List<SlippableMedia.Target> frontTargets = SlippableMedia.Collect(front);
+            foreach (SlippableMedia.Target target in frontTargets)
+            {
+                fixedOffsets.Add(target.Offset);
+            }
+
             (TimeSpan pairMin, TimeSpan pairMax) = ComputeTrimDeltaBounds(scene, front, back,
-                SlippableMedia.Collect(front), backTargets[i]);
+                frontTargets, backTargets[i]);
             if (pairMin > min) min = pairMin;
             if (pairMax < max) max = pairMax;
         }
+
+        // A media object shared between a front and a back participant cannot take the
+        // back-side offset advance without also shifting the front clip's fixed in-point,
+        // so the whole operation is rejected rather than applied desynced.
+        if (backTargets.Any(targets => targets.Any(t => fixedOffsets.Contains(t.Offset)))) return false;
 
         TimeSpan clamped = Clamp(delta, min, max);
         if (clamped == TimeSpan.Zero) return false;
@@ -372,16 +384,37 @@ public sealed class ElementResizeService : IElementResizeService
 
         // The middle clips' lengths are unaffected by Slide, so only front and back bound the delta.
         var backTargets = new List<SlippableMedia.Target>[lanes.Count];
+        var fixedOffsets = new HashSet<IProperty<TimeSpan>>();
         (TimeSpan min, TimeSpan max) = (TimeSpan.MinValue, TimeSpan.MaxValue);
         for (int i = 0; i < lanes.Count; i++)
         {
-            (Element front, _, Element back) = lanes[i];
+            (Element front, IReadOnlyList<Element> middles, Element back) = lanes[i];
             backTargets[i] = SlippableMedia.Collect(back);
+            List<SlippableMedia.Target> frontTargets = SlippableMedia.Collect(front);
+            foreach (SlippableMedia.Target target in frontTargets)
+            {
+                fixedOffsets.Add(target.Offset);
+            }
+
+            // Middle in-points are fixed too: they move in time without re-trimming.
+            foreach (Element middle in middles)
+            {
+                foreach (SlippableMedia.Target target in SlippableMedia.Collect(middle))
+                {
+                    fixedOffsets.Add(target.Offset);
+                }
+            }
+
             (TimeSpan laneMin, TimeSpan laneMax) = ComputeTrimDeltaBounds(scene, front, back,
-                SlippableMedia.Collect(front), backTargets[i]);
+                frontTargets, backTargets[i]);
             if (laneMin > min) min = laneMin;
             if (laneMax < max) max = laneMax;
         }
+
+        // A media object shared between a back participant and a front/middle participant
+        // cannot take the back-side offset advance without also shifting content that must
+        // stay fixed, so the whole operation is rejected rather than applied desynced.
+        if (backTargets.Any(targets => targets.Any(t => fixedOffsets.Contains(t.Offset)))) return false;
 
         TimeSpan clamped = Clamp(delta, min, max);
         if (clamped == TimeSpan.Zero) return false;
