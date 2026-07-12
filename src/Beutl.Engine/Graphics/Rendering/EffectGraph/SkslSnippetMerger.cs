@@ -122,9 +122,11 @@ internal static class SkslSnippetMerger
                 continue;
             }
 
-            if (c == '{')
+            // Parentheses count into the depth so function PARAMETERS are never at depth 0: 'half3 c,' inside a
+            // signature would otherwise read as a top-level multi-declarator and rename every bare 'c'.
+            if (c is '{' or '(')
                 depth++;
-            else if (c == '}' && depth > 0)
+            else if (c is '}' or ')' && depth > 0)
                 depth--;
             tokens.Add((c.ToString(), false, depth));
         }
@@ -140,10 +142,33 @@ internal static class SkslSnippetMerger
                     names.Add(tokens[t + 2].Text);
                 t += 2;
             }
-            else if (tokens[t + 1].IsIdent && t + 2 < tokens.Count && tokens[t + 2].Text is "(" or "=" or ";" or "[")
+            else if (tokens[t + 1].IsIdent && t + 2 < tokens.Count && tokens[t + 2].Text == "(")
             {
                 names.Add(tokens[t + 1].Text);
                 t++;
+            }
+            else if (tokens[t + 1].IsIdent && t + 2 < tokens.Count && tokens[t + 2].Text is "=" or ";" or "[" or ",")
+            {
+                // A mutable global declares EVERY comma-separated declarator ('float gain = 1.0, bias = 0.0;'), and
+                // a trailing name left unrenamed redefines in the merged program when two snippets share it - so the
+                // whole list is collected up to the terminating semicolon (group depth skips initializer commas).
+                names.Add(tokens[t + 1].Text);
+                int groupDepth = 0;
+                int u = t + 2;
+                for (; u < tokens.Count; u++)
+                {
+                    string text = tokens[u].Text;
+                    if (text is "(" or "[" or "{")
+                        groupDepth++;
+                    else if (text is ")" or "]" or "}")
+                        groupDepth = Math.Max(0, groupDepth - 1);
+                    else if (groupDepth == 0 && text == ";")
+                        break;
+                    else if (groupDepth == 0 && text == "," && u + 1 < tokens.Count && tokens[u + 1].IsIdent)
+                        names.Add(tokens[u + 1].Text);
+                }
+
+                t = u;
             }
         }
 

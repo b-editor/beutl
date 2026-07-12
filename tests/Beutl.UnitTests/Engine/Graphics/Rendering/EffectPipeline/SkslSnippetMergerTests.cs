@@ -112,6 +112,29 @@ public class SkslSnippetMergerTests
         });
     }
 
+    // A comma-separated mutable-global list declares every name; collecting only the first declarator leaves a
+    // trailing name shared by two snippets unrenamed, redefining it in the merged program even though each snippet
+    // compiles standalone.
+    [Test]
+    public void Merge_MultiDeclaratorMutableGlobals_PrefixesEveryDeclarator()
+    {
+        string shared =
+            "float gain = 1.0, bias = 0.0;\n"
+            + "half4 apply(half4 c) { bias = bias + 0.1; return half4(c.rgb * gain + bias, c.a); }";
+
+        string merged = SkslSnippetMerger.Merge([SkslSource.Snippet(shared), SkslSource.Snippet(shared)]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(merged, Does.Contain("fe0_bias").And.Contain("fe1_bias"),
+                "every declarator in the list is prefixed, including the trailing ones");
+
+            using SKRuntimeEffect? effect = SKRuntimeEffect.CreateShader(merged, out string? error);
+            Assert.That(error, Is.Null, $"the merged program compiles ({error})");
+            Assert.That(effect, Is.Not.Null);
+        });
+    }
+
     // CANARY: the merger's whole-word rename does NOT exclude struct bodies, which is sound only while SkSL
     // itself rejects function-local struct statements (top-level structs are already rejected at Snippet()). If a
     // Skia upgrade starts ACCEPTING this, a field sharing a top-level name would be renamed in its declaration but
