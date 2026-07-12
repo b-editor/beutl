@@ -699,6 +699,46 @@ half4 apply(half4 c) {
         }
     }
 
+    // C3.2, single-op materialization: a linear non-invariant pass re-materializes its op's own pixels, so the
+    // output density must min against the op's carried EffectiveScale — a dynamic predecessor emitting a
+    // lower-density raster op (0.5) through the shift/grow branch must not be re-raised to the resolved scale (1.0),
+    // which would over-allocate and over-tag the output above its actual supply. (The composite fan-in boundary
+    // exception is multi-input only.)
+    [Test]
+    public void Execute_LinearNonInvariantPass_LowerDensityDynamicOp_KeepsCarriedDensity()
+    {
+        var describeBounds = new Rect(0, 0, 100, 100);
+        var passthrough = ShaderNodeDescriptor.WholeSource(
+            "uniform shader src; half4 main(float2 coord){ return src.eval(coord); }",
+            BoundsContract.RenderTime);
+        CompiledPlan plan = Compile(NewBuilder(describeBounds).Shader(passthrough));
+
+        FrameResources res = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale: 1f);
+        Assert.That(res.Passes[0].WorkingScale, Is.EqualTo(1f), "sanity: the resolver keeps the pass at 1");
+
+        // A shifted low-density op drives the shift/grow branch (escapes the describe-time expectation).
+        var shiftedBounds = new Rect(40, 40, 100, 100);
+        RenderNodeOperation input = RenderNodeOperation.CreateLambda(
+            shiftedBounds,
+            canvas => canvas.DrawRectangle(shiftedBounds, Brushes.Resource.White, null),
+            shiftedBounds.Contains,
+            effectiveScale: EffectiveScale.At(0.5f));
+
+        RenderNodeOperation[] outputs = PlanExecutor.Execute(
+            plan, res, [input], outputScale: 1f, workingScale: 1f,
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null);
+        try
+        {
+            Assert.That(outputs, Has.Length.EqualTo(1));
+            Assert.That(outputs[0].EffectiveScale.Value, Is.EqualTo(0.5f).Within(1e-4f),
+                "a lower-density dynamic op's carried density caps the pass output density (C3.2 min-carry)");
+        }
+        finally
+        {
+            RenderNodeOperation.DisposeAll(outputs);
+        }
+    }
+
     // B2 (FR-012/C3.2): once an upstream pass clamps w down, no downstream materializing/fan-out pass may raise it
     // again. The carried ceiling is the incoming op's own EffectiveScale (its pixels only exist at that density). A
     // maxDimension=50 resolve clamps the leading invariant pass to w=0.5; the executor's per-op re-clamps run at the

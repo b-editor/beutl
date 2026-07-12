@@ -317,8 +317,13 @@ internal static class PlanExecutor
             // buffer here spans the larger op.Bounds, so DeviceBufferSize(op.Bounds, resolution.WorkingScale) can
             // exceed the per-axis budget. A fan-out branch has no per-op resolution and re-clamps locally.
             outBounds = op.Bounds;
+            // Both branches min against the op's carried density (C3.2: a single-op pass re-materializes the op's
+            // own pixels, so the boundary fan-in exception does not apply): a dynamic predecessor emitting a
+            // lower-density raster op must not have its density re-raised (over-allocating and over-tagging the
+            // output). The linear base is resolution.WorkingScale (already resolver-carried); no-op when the op
+            // is Unbounded or at/above the resolved scale.
             w = linear
-                ? RenderNodeContext.ClampWorkingScaleToBufferBudget(outBounds, resolution.WorkingScale)
+                ? RenderNodeContext.ClampWorkingScaleToBufferBudget(outBounds, CarriedWorkingScale(op, resolution.WorkingScale))
                 : RenderNodeContext.ClampWorkingScaleToBufferBudget(outBounds, CarriedWorkingScale(op, workingScale));
             (width, height) = RenderNodeContext.DeviceBufferSize(outBounds, w);
             skip = width <= 0 || height <= 0;
@@ -370,8 +375,10 @@ internal static class PlanExecutor
 
             // A shift/grow re-derives outBounds from the ACTUAL op, which can be larger than the ROI-narrowed rect
             // resolution.WorkingScale was clamped against; re-clamp so DeviceBufferSize cannot exceed the per-axis
-            // budget (FR-037(b)). No-op for the matched/shrink cases whose outBounds stays within the resolved ROI.
-            w = RenderNodeContext.ClampWorkingScaleToBufferBudget(outBounds, resolution.WorkingScale);
+            // budget (FR-037(b)). The base mins against the op's carried density (C3.2 single-op materialization,
+            // same rationale as the invariant branch above). No-op for the matched/shrink cases whose outBounds
+            // stays within the resolved ROI and for Unbounded/at-density inputs.
+            w = RenderNodeContext.ClampWorkingScaleToBufferBudget(outBounds, CarriedWorkingScale(op, resolution.WorkingScale));
             (width, height) = RenderNodeContext.DeviceBufferSize(outBounds, w);
             skip = width <= 0 || height <= 0;
         }
