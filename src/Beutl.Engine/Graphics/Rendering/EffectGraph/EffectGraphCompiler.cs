@@ -10,8 +10,13 @@ namespace Beutl.Graphics.Rendering;
 /// </summary>
 internal sealed record PassResolution(Rect OutputRoi, int Width, int Height, float WorkingScale, bool SkipEmpty);
 
-/// <summary>The per-frame resource resolution result: one <see cref="PassResolution"/> per plan pass, in schedule order.</summary>
-internal sealed record FrameResources(ImmutableArray<PassResolution> Passes);
+/// <summary>
+/// The per-frame resource resolution result: one <see cref="PassResolution"/> per plan pass, in schedule order.
+/// <see cref="MaxDimension"/> carries the per-axis cap <see cref="EffectGraphCompiler.ResolveResources"/> clamped
+/// against, so the executor's render-time re-clamps (shift/grow, fan-out, composite fold) honor the same cap.
+/// </summary>
+internal sealed record FrameResources(
+    ImmutableArray<PassResolution> Passes, int MaxDimension = RenderNodeContext.MaxBufferDimension);
 
 /// <summary>
 /// Compiles an <see cref="EffectGraph"/> into a <see cref="CompiledPlan"/> and re-resolves per-frame resources
@@ -426,7 +431,7 @@ internal static class EffectGraphCompiler
         ImmutableArray<CompiledPass> passes = plan.Passes;
         int n = passes.Length;
         if (n == 0)
-            return new FrameResources([]);
+            return new FrameResources([], maxDimension);
 
         var outputRoi = new Rect[n];
         outputRoi[n - 1] = ResolveLastRoi(passes[n - 1], requestedBounds);
@@ -451,7 +456,7 @@ internal static class EffectGraphCompiler
             w = MathF.Min(w, clamped);
         }
 
-        return new FrameResources(resolutions.MoveToImmutable());
+        return new FrameResources(resolutions.MoveToImmutable(), maxDimension);
     }
 
     private static Rect ResolveLastRoi(CompiledPass pass, Rect requestedBounds)

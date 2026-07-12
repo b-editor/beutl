@@ -116,9 +116,17 @@ internal sealed class EffectPrefixCache : IDisposable
     private (Rect Bounds, EffectiveScale Scale)[] _inputSignature = [];
     private int _inputSignatureCount = -1;
 
+    // The resolved ROIs/sizes of passes 0..capturePass at capture time. The structural key excludes animated
+    // parameters, but a tail pass's backward ROI is parameter-dependent (an animated Clipping/DropShadow moves the
+    // prefix's resolved ROI), so a resumed frame must re-check that the captured buffer still covers what the tail
+    // reads — otherwise it would seed a stale, differently-cropped prefix output.
+    private PassResolution[] _resolutionSignature = [];
+    private int _resolutionSignatureCount;
+
     public PrefixDecision Prepare(
         FilterEffect.Resource resource, CompiledPlan plan, StructuralKey key, object contextId,
-        float workingScale, ReadOnlySpan<RenderNodeOperation> input, bool inputSubtreeStable)
+        float workingScale, ReadOnlySpan<RenderNodeOperation> input, bool inputSubtreeStable,
+        FrameResources resources)
     {
         bool signatureMatch = _hasSignature
             && ReferenceEquals(_contextId, contextId)
@@ -148,9 +156,11 @@ internal sealed class EffectPrefixCache : IDisposable
 
         if (_retainedTarget != null)
         {
-            // Reuse the retained prefix while its whole provenance range is still stable; a destabilized prefix
-            // child drops stableChildren at or below _entryMaxChild, invalidating the buffer and re-warming.
-            if (stableChildren > _entryMaxChild)
+            // Reuse the retained prefix while its whole provenance range is still stable AND the prefix passes
+            // resolve to the same ROIs/sizes this frame; a destabilized prefix child drops stableChildren at or
+            // below _entryMaxChild, and a tail-driven ROI change shifts the resolution slice — either invalidates
+            // the buffer and re-warms.
+            if (stableChildren > _entryMaxChild && ResolutionSignatureEquals(resources))
                 return new PrefixDecision(PrefixMode.Resume, _resumeFromPass, _retainedTarget, _bounds, _scale);
 
             ReleaseEntry();
@@ -163,7 +173,7 @@ internal sealed class EffectPrefixCache : IDisposable
     }
 
     /// <summary>Records the captured prefix output after a <see cref="PrefixMode.Capture"/> execution completed.</summary>
-    public void StoreCaptured(PrefixCaptureSink sink, int capturePass, CompiledPlan plan)
+    public void StoreCaptured(PrefixCaptureSink sink, int capturePass, CompiledPlan plan, FrameResources resources)
     {
         if (!sink.Captured)
             return;
@@ -174,6 +184,7 @@ internal sealed class EffectPrefixCache : IDisposable
         _retainedTarget = sink.Adopt();
         _resumeFromPass = capturePass + 1;
         _entryMaxChild = plan.Passes[capturePass].ProvenanceMaxChild;
+        CaptureResolutionSignature(resources, capturePass);
     }
 
     /// <summary>
@@ -260,6 +271,34 @@ internal sealed class EffectPrefixCache : IDisposable
         }
 
         return [(resource, resource.Version)];
+    }
+
+    // Exact comparison of the current frame's resolution of passes 0..capturePass against the capture-time slice.
+    // Record value-equality, so any ROI, device size, clamped scale, or skip flag drift releases the buffer.
+    private bool ResolutionSignatureEquals(FrameResources resources)
+    {
+        if (_resolutionSignatureCount > resources.Passes.Length)
+            return false;
+
+        for (int i = 0; i < _resolutionSignatureCount; i++)
+        {
+            if (_resolutionSignature[i] != resources.Passes[i])
+                return false;
+        }
+
+        return true;
+    }
+
+    private void CaptureResolutionSignature(FrameResources resources, int capturePass)
+    {
+        int count = capturePass + 1;
+        if (_resolutionSignature.Length < count)
+            _resolutionSignature = new PassResolution[count];
+
+        for (int i = 0; i < count; i++)
+            _resolutionSignature[i] = resources.Passes[i];
+
+        _resolutionSignatureCount = count;
     }
 
     // Order-sensitive exact comparison of the current input ops' bounds + supply density against the retained

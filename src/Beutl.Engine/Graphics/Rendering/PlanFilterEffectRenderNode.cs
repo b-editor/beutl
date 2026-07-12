@@ -79,7 +79,7 @@ internal sealed class PlanFilterEffectRenderNode(FilterEffect.Resource filterEff
         {
             PrefixDecision decision = _prefixCache.Prepare(
                 resource, plan, key, contextId, workingScale,
-                context.Input, RenderNodeCacheHelper.CanCacheRecursiveChildrenOnly(this));
+                context.Input, RenderNodeCacheHelper.CanCacheRecursiveChildrenOnly(this), resources);
 
             switch (decision.Mode)
             {
@@ -133,7 +133,7 @@ internal sealed class PlanFilterEffectRenderNode(FilterEffect.Resource filterEff
             throw;
         }
 
-        _prefixCache.StoreCaptured(sink, capturePass, plan);
+        _prefixCache.StoreCaptured(sink, capturePass, plan, resources);
         return result;
     }
 

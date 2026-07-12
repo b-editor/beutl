@@ -23,6 +23,15 @@ internal static class PlanExecutor
 {
     private static readonly ILogger s_logger = Log.CreateLogger("PlanExecutor");
 
+    // Test seam: injects a throw at the compute input's PrepareForSampling (a Vulkan layout-transition failure is
+    // not forcible from a test). The caller restores the seam afterward.
+    private static Exception? s_computePrepareFailureForTests;
+
+    internal static void ForceComputePrepareFailureForTests(Exception exception)
+        => s_computePrepareFailureForTests = exception;
+
+    internal static void ResetComputePrepareFailureForTests() => s_computePrepareFailureForTests = null;
+
     public static RenderNodeOperation[] Execute(
         CompiledPlan plan,
         FrameResources resources,
@@ -46,6 +55,7 @@ internal static class PlanExecutor
 
         // Thread the whole operation set through the schedule pass by pass, so a split/composite can fan the set out
         // and back in and each descriptor pass maps every current operation.
+        int maxDimension = resources.MaxDimension;
         var current = new List<RenderNodeOperation>(inputs);
         try
         {
@@ -63,15 +73,16 @@ internal static class PlanExecutor
                 {
                     case SplitPass split:
                         ExecuteSplit(
-                            split, current, outputScale, workingScale, maxWorkingScale, diagnostics, pool);
+                            split, current, outputScale, workingScale, maxWorkingScale, maxDimension, diagnostics, pool);
                         break;
                     case CompositePass composite:
                         ExecuteComposite(
-                            composite, current, workingScale, maxWorkingScale, diagnostics, pool);
+                            composite, current, workingScale, maxWorkingScale, maxDimension, diagnostics, pool);
                         break;
                     case NestedGraphPass nestedGraph:
                         ExecuteNestedGraph(
-                            nestedGraph, current, outputScale, workingScale, maxWorkingScale, diagnostics, pool);
+                            nestedGraph, current, outputScale, workingScale, maxWorkingScale, maxDimension,
+                            diagnostics, pool);
                         break;
                     case CustomRenderNodePass customNode:
                         ExecuteCustomRenderNode(customNode, current, outputScale, maxWorkingScale, diagnostics, pool);
@@ -79,7 +90,7 @@ internal static class PlanExecutor
                     default:
                         MapDescriptorPass(
                             pass, resources.Passes[k], ExpectedInputBounds(plan, resources, k), current,
-                            outputScale, workingScale, maxWorkingScale,
+                            outputScale, workingScale, maxWorkingScale, maxDimension,
                             diagnostics, pool, captureSink != null && k == captureSink.CapturePassIndex ? captureSink : null);
                         break;
                 }
@@ -131,7 +142,7 @@ internal static class PlanExecutor
     // applies inside. An empty child graph is the identity (the branch passes through).
     private static void ExecuteNestedGraph(
         NestedGraphPass pass, List<RenderNodeOperation> current, float outputScale, float workingScale,
-        float maxWorkingScale, PipelineDiagnostics? diagnostics, RenderTargetPool? pool)
+        float maxWorkingScale, int maxDimension, PipelineDiagnostics? diagnostics, RenderTargetPool? pool)
     {
         var outputs = new List<RenderNodeOperation>(current.Count);
         try
@@ -150,7 +161,7 @@ internal static class PlanExecutor
                 using EffectGraph graph = builder.Build();
                 CompiledPlan branchPlan = EffectGraphCompiler.Compile(graph, diagnostics);
                 FrameResources branchResources = EffectGraphCompiler.ResolveResources(
-                    branchPlan, builder.Bounds, branchScale);
+                    branchPlan, builder.Bounds, branchScale, maxDimension);
                 // Hand ownership of op to the recursion only once it is about to consume it: a DescribeBranch/
                 // Build/Compile/ResolveResources throw above still leaves op in current for the catch to dispose.
                 current[i] = null!;
@@ -252,8 +263,8 @@ internal static class PlanExecutor
     // operation's output bounds equal its input bounds.
     private static void MapDescriptorPass(
         CompiledPass pass, PassResolution resolution, Rect expectedInput, List<RenderNodeOperation> current,
-        float outputScale, float workingScale, float maxWorkingScale, PipelineDiagnostics? diagnostics,
-        RenderTargetPool? pool, PrefixCaptureSink? captureSink = null)
+        float outputScale, float workingScale, float maxWorkingScale, int maxDimension,
+        PipelineDiagnostics? diagnostics, RenderTargetPool? pool, PrefixCaptureSink? captureSink = null)
     {
         bool linear = current.Count == 1;
         // The prefix cache only ever captures a linear (single-op) pass output (C10 v1 scope), so a fanned-out set is
@@ -270,7 +281,7 @@ internal static class PlanExecutor
                 // pass) or a preview allocation-failure (C7; delivery renders throw instead of returning null).
                 RenderNodeOperation? mapped = MapOneOperation(
                     pass, resolution, expectedInput, linear, op, outputScale, workingScale, maxWorkingScale,
-                    diagnostics, pool, sink);
+                    maxDimension, diagnostics, pool, sink);
                 if (mapped != null)
                     outputs.Add(mapped);
             }
@@ -287,8 +298,8 @@ internal static class PlanExecutor
 
     private static RenderNodeOperation? MapOneOperation(
         CompiledPass pass, PassResolution resolution, Rect expectedInput, bool linear, RenderNodeOperation op,
-        float outputScale, float workingScale, float maxWorkingScale, PipelineDiagnostics? diagnostics,
-        RenderTargetPool? pool, PrefixCaptureSink? captureSink = null)
+        float outputScale, float workingScale, float maxWorkingScale, int maxDimension,
+        PipelineDiagnostics? diagnostics, RenderTargetPool? pool, PrefixCaptureSink? captureSink = null)
     {
         // A compute pass on a context without Vulkan takes its declared fallback before any allocation (C6/A7).
         if (pass is ComputePass compute && !SupportsCompute())
@@ -323,8 +334,10 @@ internal static class PlanExecutor
             // output). The linear base is resolution.WorkingScale (already resolver-carried); no-op when the op
             // is Unbounded or at/above the resolved scale.
             w = linear
-                ? RenderNodeContext.ClampWorkingScaleToBufferBudget(outBounds, CarriedWorkingScale(op, resolution.WorkingScale))
-                : RenderNodeContext.ClampWorkingScaleToBufferBudget(outBounds, CarriedWorkingScale(op, workingScale));
+                ? RenderNodeContext.ClampWorkingScaleToBufferBudget(
+                    outBounds, CarriedWorkingScale(op, resolution.WorkingScale), maxDimension)
+                : RenderNodeContext.ClampWorkingScaleToBufferBudget(
+                    outBounds, CarriedWorkingScale(op, workingScale), maxDimension);
             (width, height) = RenderNodeContext.DeviceBufferSize(outBounds, w);
             skip = width <= 0 || height <= 0;
         }
@@ -335,7 +348,8 @@ internal static class PlanExecutor
             // OutputBounds was computed before the split and is wrong for a branch (review B1).
             Rect forward = pass.ForwardBounds(op.Bounds);
             outBounds = forward.IsInvalid ? op.Bounds : forward;
-            w = RenderNodeContext.ClampWorkingScaleToBufferBudget(outBounds, CarriedWorkingScale(op, workingScale));
+            w = RenderNodeContext.ClampWorkingScaleToBufferBudget(
+                outBounds, CarriedWorkingScale(op, workingScale), maxDimension);
             (width, height) = RenderNodeContext.DeviceBufferSize(outBounds, w);
             skip = width <= 0 || height <= 0;
         }
@@ -378,7 +392,8 @@ internal static class PlanExecutor
             // budget (FR-037(b)). The base mins against the op's carried density (C3.2 single-op materialization,
             // same rationale as the invariant branch above). No-op for the matched/shrink cases whose outBounds
             // stays within the resolved ROI and for Unbounded/at-density inputs.
-            w = RenderNodeContext.ClampWorkingScaleToBufferBudget(outBounds, CarriedWorkingScale(op, resolution.WorkingScale));
+            w = RenderNodeContext.ClampWorkingScaleToBufferBudget(
+                outBounds, CarriedWorkingScale(op, resolution.WorkingScale), maxDimension);
             (width, height) = RenderNodeContext.DeviceBufferSize(outBounds, w);
             skip = width <= 0 || height <= 0;
         }
@@ -389,7 +404,8 @@ internal static class PlanExecutor
             // over nothing is nothing: pass the already-empty op through. When the input is non-empty but the pass's
             // resolved OUTPUT is empty (a shrinking pass, e.g. a fully-closed Clipping), the pass legitimately
             // produces nothing — drop the input rather than leaking it downstream (legacy Apply removed the target).
-            float inW = RenderNodeContext.ClampWorkingScaleToBufferBudget(op.Bounds, CarriedWorkingScale(op, workingScale));
+            float inW = RenderNodeContext.ClampWorkingScaleToBufferBudget(
+                op.Bounds, CarriedWorkingScale(op, workingScale), maxDimension);
             (int inBw, int inBh) = RenderNodeContext.DeviceBufferSize(op.Bounds, inW);
             if (inBw <= 0 || inBh <= 0)
                 return op;
@@ -406,11 +422,11 @@ internal static class PlanExecutor
             case GeometryPass geometry:
                 return ExecuteGeometry(
                     geometry, width, height, w, outBounds, op, outputScale, workingScale, maxWorkingScale,
-                    diagnostics, pool);
+                    maxDimension, diagnostics, pool);
             case ComputePass computePass:
                 return ExecuteCompute(
                     computePass, width, height, w, outBounds, op, outputScale, workingScale, maxWorkingScale,
-                    diagnostics, pool);
+                    maxDimension, diagnostics, pool);
         }
 
         RenderTarget? target = RenderTargetPool.Acquire(pool, width, height, diagnostics);
@@ -433,7 +449,7 @@ internal static class PlanExecutor
             Rect claimed = op.Bounds.Union(outBounds);
             if (!outBounds.Contains(claimed))
             {
-                fusedSrcScale = RenderNodeContext.ClampWorkingScaleToBufferBudget(claimed, w);
+                fusedSrcScale = RenderNodeContext.ClampWorkingScaleToBufferBudget(claimed, w, maxDimension);
                 (int sw, int sh) = RenderNodeContext.DeviceBufferSize(claimed, fusedSrcScale);
                 fusedSrcTarget = RenderTargetPool.Acquire(pool, sw, sh, diagnostics);
                 if (fusedSrcTarget == null)
@@ -652,14 +668,17 @@ internal static class PlanExecutor
 
         // The program (merged/whole SKSL parse) is structural, so it is cached process-wide by a source-identity
         // signature: a warm run neither re-merges nor re-parses, keeping ProgramCreations at zero (SC-002). The
-        // cached builder (which owns its SKRuntimeEffect) is reused, its per-frame uniforms/children overwritten and
-        // Build() re-run below; it is NOT disposed here — disposing it would free the shared effect (the cache
-        // disposes it on eviction). Its built shader is independent and IS disposed per frame.
+        // leased builder (which owns its SKRuntimeEffect) is reused, its per-frame uniforms/children overwritten and
+        // Build() re-run below; only the lease is disposed here — disposing the builder would free the shared effect
+        // (the cache disposes it on eviction). Its built shader is independent and IS disposed per frame. The lease
+        // spans the whole bind: a deferred child resolved below can render a DrawableBrush whose nested pass requests
+        // this same signature, and the lease is what routes that reentrant use onto its own builder.
         string signature = ProgramSignature(run, wholeSource);
-        SKRuntimeShaderBuilder builder = ProgramCache.GetOrCreate(
+        using ProgramCache.Lease lease = ProgramCache.GetOrCreate(
             signature,
             () => wholeSource ? run[0].Source.Source : SkslSnippetMerger.Merge(run.Select(s => s.Source).ToList()),
             diagnostics);
+        SKRuntimeShaderBuilder builder = lease.Builder;
         // Clear the reused builder's prior-frame state before rebinding (still O(bindings) per frame): a same-signature
         // run that omits a binding this frame must see the program default, not the stale value — and a stale
         // executor-owned child would reference a shader disposed after that earlier draw.
@@ -746,10 +765,11 @@ internal static class PlanExecutor
 
     private static RenderNodeOperation? ExecuteGeometry(
         GeometryPass pass, int width, int height, float w, Rect outBounds, RenderNodeOperation op,
-        float outputScale, float workingScale, float maxWorkingScale, PipelineDiagnostics? diagnostics,
-        RenderTargetPool? pool)
+        float outputScale, float workingScale, float maxWorkingScale, int maxDimension,
+        PipelineDiagnostics? diagnostics, RenderTargetPool? pool)
     {
-        float inW = RenderNodeContext.ClampWorkingScaleToBufferBudget(op.Bounds, CarriedWorkingScale(op, workingScale));
+        float inW = RenderNodeContext.ClampWorkingScaleToBufferBudget(
+            op.Bounds, CarriedWorkingScale(op, workingScale), maxDimension);
         (int inBw, int inBh) = RenderNodeContext.DeviceBufferSize(op.Bounds, inW);
         if (inBw <= 0 || inBh <= 0)
             return op;
@@ -875,18 +895,20 @@ internal static class PlanExecutor
 
     private static RenderNodeOperation? ExecuteCompute(
         ComputePass pass, int width, int height, float w, Rect outBounds, RenderNodeOperation op,
-        float outputScale, float workingScale, float maxWorkingScale, PipelineDiagnostics? diagnostics,
-        RenderTargetPool? pool)
+        float outputScale, float workingScale, float maxWorkingScale, int maxDimension,
+        PipelineDiagnostics? diagnostics, RenderTargetPool? pool)
     {
         IGraphicsContext? gfx = GraphicsContextFactory.SharedContext;
         if (gfx is not { Supports3DRendering: true })
         {
             // Identity/Skip already returned in MapOneOperation; only CpuCallback reaches here without Vulkan.
             return ExecuteComputeCpuFallback(
-                pass, width, height, w, outBounds, op, outputScale, workingScale, maxWorkingScale, diagnostics, pool);
+                pass, width, height, w, outBounds, op, outputScale, workingScale, maxWorkingScale, maxDimension,
+                diagnostics, pool);
         }
 
-        float inW = RenderNodeContext.ClampWorkingScaleToBufferBudget(op.Bounds, CarriedWorkingScale(op, workingScale));
+        float inW = RenderNodeContext.ClampWorkingScaleToBufferBudget(
+            op.Bounds, CarriedWorkingScale(op, workingScale), maxDimension);
         (int inBw, int inBh) = RenderNodeContext.DeviceBufferSize(op.Bounds, inW);
         if (inBw <= 0 || inBh <= 0)
             return op;
@@ -906,8 +928,22 @@ internal static class PlanExecutor
         if (inputTarget == null)
             return DropOrThrow(op, maxWorkingScale, $"Compute input materialization failed ({inBw}x{inBh} px).");
 
-        inputTarget.PrepareForSampling();
-        ITexture2D? sourceTexture = inputTarget.Texture;
+        // A layout-transition/context-loss throw here happens after op was detached from the working set and before
+        // any cleanup scope owns the materialized input, so both must be released on the way out (C7).
+        ITexture2D? sourceTexture;
+        try
+        {
+            if (s_computePrepareFailureForTests is { } injected)
+                throw injected;
+            inputTarget.PrepareForSampling();
+            sourceTexture = inputTarget.Texture;
+        }
+        catch
+        {
+            inputTarget.Dispose();
+            op.Dispose();
+            throw;
+        }
         if (sourceTexture == null)
         {
             // Genuinely surface-less context (a raster surface behind a compute-capable context): identity so the
@@ -968,13 +1004,14 @@ internal static class PlanExecutor
 
     private static RenderNodeOperation? ExecuteComputeCpuFallback(
         ComputePass pass, int width, int height, float w, Rect outBounds, RenderNodeOperation op,
-        float outputScale, float workingScale, float maxWorkingScale, PipelineDiagnostics? diagnostics,
-        RenderTargetPool? pool)
+        float outputScale, float workingScale, float maxWorkingScale, int maxDimension,
+        PipelineDiagnostics? diagnostics, RenderTargetPool? pool)
     {
         if (pass.CpuCallback is not { } cpu)
             return op;
 
-        float inW = RenderNodeContext.ClampWorkingScaleToBufferBudget(op.Bounds, CarriedWorkingScale(op, workingScale));
+        float inW = RenderNodeContext.ClampWorkingScaleToBufferBudget(
+            op.Bounds, CarriedWorkingScale(op, workingScale), maxDimension);
         (int inBw, int inBh) = RenderNodeContext.DeviceBufferSize(op.Bounds, inW);
         if (inBw <= 0 || inBh <= 0)
             return op;
@@ -1052,7 +1089,7 @@ internal static class PlanExecutor
     // or, for dynamic outputs, an execution-time-resolved count the executor allocates, counts and releases).
     private static void ExecuteSplit(
         SplitPass pass, List<RenderNodeOperation> current, float outputScale, float workingScale,
-        float maxWorkingScale, PipelineDiagnostics? diagnostics, RenderTargetPool? pool)
+        float maxWorkingScale, int maxDimension, PipelineDiagnostics? diagnostics, RenderTargetPool? pool)
     {
         var outputs = new List<RenderNodeOperation>(current.Count);
         try
@@ -1062,7 +1099,8 @@ internal static class PlanExecutor
                 RenderNodeOperation op = current[i];
                 current[i] = null!;
 
-                float inW = RenderNodeContext.ClampWorkingScaleToBufferBudget(op.Bounds, CarriedWorkingScale(op, workingScale));
+                float inW = RenderNodeContext.ClampWorkingScaleToBufferBudget(
+            op.Bounds, CarriedWorkingScale(op, workingScale), maxDimension);
                 (int bw, int bh) = RenderNodeContext.DeviceBufferSize(op.Bounds, inW);
                 if (bw <= 0 || bh <= 0)
                 {
@@ -1095,7 +1133,7 @@ internal static class PlanExecutor
                 {
                     var input = new EffectInput(inputTarget, op.Bounds, EffectiveScale.At(inW));
                     var emitter = new SplitEmitter(
-                        input, inW, outputScale, maxWorkingScale, diagnostics, pool, outputs);
+                        input, inW, outputScale, maxWorkingScale, maxDimension, diagnostics, pool, outputs);
                     pass.Render(emitter);
                 }
                 finally
@@ -1119,7 +1157,7 @@ internal static class PlanExecutor
     // per-input offset. Draws each branch once onto a single pooled target.
     private static void ExecuteComposite(
         CompositePass pass, List<RenderNodeOperation> current, float workingScale, float maxWorkingScale,
-        PipelineDiagnostics? diagnostics, RenderTargetPool? pool)
+        int maxDimension, PipelineDiagnostics? diagnostics, RenderTargetPool? pool)
     {
         if (current.Count == 0)
             return;
@@ -1135,7 +1173,7 @@ internal static class PlanExecutor
             union = union.Union(current[i].Bounds.Translate(offset));
         }
 
-        float w = RenderNodeContext.ClampWorkingScaleToBufferBudget(union, workingScale);
+        float w = RenderNodeContext.ClampWorkingScaleToBufferBudget(union, workingScale, maxDimension);
         (int bw, int bh) = RenderNodeContext.DeviceBufferSize(union, w);
         if (bw <= 0 || bh <= 0)
         {
@@ -1369,7 +1407,7 @@ internal static class PlanExecutor
     // session over it, runs the branch draw, and appends the branch op — counting one GpuPasses per branch and
     // applying the C7 drop/throw on a failed allocation.
     private sealed class SplitEmitter(
-        EffectInput input, float workingScale, float outputScale, float maxWorkingScale,
+        EffectInput input, float workingScale, float outputScale, float maxWorkingScale, int maxDimension,
         PipelineDiagnostics? diagnostics, RenderTargetPool? pool, List<RenderNodeOperation> outputs) : ISplitEmitter
     {
         public EffectInput Input => input;
@@ -1380,7 +1418,7 @@ internal static class PlanExecutor
         {
             ArgumentNullException.ThrowIfNull(render);
 
-            float w = RenderNodeContext.ClampWorkingScaleToBufferBudget(logicalBounds, workingScale);
+            float w = RenderNodeContext.ClampWorkingScaleToBufferBudget(logicalBounds, workingScale, maxDimension);
             (int bw, int bh) = RenderNodeContext.DeviceBufferSize(logicalBounds, w);
             if (bw <= 0 || bh <= 0)
                 return;

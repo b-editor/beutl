@@ -98,9 +98,10 @@ public readonly struct StructuralKey : IEquatable<StructuralKey>
                 // The child's render-node type plus the child resource's stable identity token: a swapped child
                 // instance or a changed node type must recompile the plan (the render node it drives differs). The
                 // child's Version is a per-frame parameter (rebind), so it stays OUT of the key — an animated child
-                // param re-renders through the same plan.
+                // param re-renders through the same plan. Assembly-qualified so same-full-name types from different
+                // assemblies can never alias.
                 sb.Append("custom:")
-                    .Append(custom.NodeType.FullName)
+                    .Append(custom.NodeType.AssemblyQualifiedName ?? custom.NodeType.FullName)
                     .Append(',').Append(custom.Resource.StructuralId.ToString(CultureInfo.InvariantCulture));
                 break;
 

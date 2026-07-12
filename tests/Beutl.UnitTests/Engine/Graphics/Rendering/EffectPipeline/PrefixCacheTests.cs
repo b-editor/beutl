@@ -444,6 +444,93 @@ public class PrefixCacheTests
         });
     }
 
+    // ---- Tail-driven ROI invalidation ---------------------------------------------------------------------
+    //
+    // A group [static Blur, Clipping whose Left animates]: the structural key and the input signature are stable
+    // and the Blur child never changes, but the animated clip moves the Blur pass's backward-resolved ROI every
+    // frame. A resume from the buffer captured for the previous (narrower) ROI would feed the tail a stale,
+    // differently-cropped blur — newly exposed regions would render empty. The prefix cache must release and
+    // re-capture instead of resuming, and the output must stay parity with a fresh full render.
+    [Test]
+    public void TailRoiChange_ReleasesRetainedPrefix_NoStaleResume()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            ProgramCache.Clear();
+            const int frames = 6;
+            var (root, clip) = MakeBlurClip(5f, ClipLeft(0));
+            var resource = (FilterEffect.Resource)root.ToResource(CompositionContext.Default);
+            using var node = new PlanFilterEffectRenderNode(resource);
+            var diagnostics = new PipelineDiagnostics();
+            using var pool = new RenderTargetPool();
+
+            var snaps = new PipelineDiagnosticsSnapshot[frames];
+            for (int f = 0; f < frames; f++)
+            {
+                pool.Trim(f);
+                clip.Left.CurrentValue = ClipLeft(f);
+                bool updateOnly = false;
+                resource.Update(root, CompositionContext.Default, ref updateOnly);
+                node.Update(resource);
+
+                diagnostics.Reset();
+                var context = new RenderNodeContext([MakeInput()]) { Diagnostics = diagnostics, Pool = pool };
+                RenderNodeOperation[] ops = node.Process(context);
+                snaps[f] = diagnostics.Snapshot();
+
+                if (f == frames - 1)
+                {
+                    // The last frame's kept region extends far past the region captured at frame 3, so a stale
+                    // resume cannot pass this parity gate even if the counters were gamed.
+                    using Bitmap actual = Rasterize(ops);
+                    using Bitmap fresh = RenderFreshBlurClip(5f, ClipLeft(f));
+                    AssertMatches(fresh, actual, $"clip frame {f}");
+                }
+                else
+                {
+                    RenderNodeOperation.DisposeAll(ops);
+                }
+            }
+
+            Assert.Multiple(() =>
+            {
+                for (int f = 4; f < frames; f++)
+                {
+                    Assert.That(snaps[f].PrefixCacheHits, Is.EqualTo(0),
+                        $"frame {f}: a tail-ROI-shifted prefix must not resume from the stale buffer");
+                    Assert.That(snaps[f].GpuPasses, Is.EqualTo(2),
+                        $"frame {f}: both passes re-execute after the ROI shift releases the prefix");
+                }
+            });
+        });
+    }
+
+    // A group [static Blur (SkiaFilterPass, child 0), Clipping (GeometryPass, child 1) whose Left animates].
+    private static (FilterEffect Root, Clipping Clip) MakeBlurClip(float sigma, float left)
+    {
+        var blur = new Blur { Sigma = { CurrentValue = new Size(sigma, sigma) } };
+        var clip = new Clipping();
+        clip.Left.CurrentValue = left;
+        var group = new FilterEffectGroup();
+        group.Children.Add(blur);
+        group.Children.Add(clip);
+        return (group, clip);
+    }
+
+    // Decreasing per frame, so each frame's kept region EXPANDS past the previously captured ROI (a shrinking clip
+    // would hide the bug: the stale buffer would still cover the smaller region).
+    private static float ClipLeft(int frame) => 48f - 8f * frame;
+
+    private static Bitmap RenderFreshBlurClip(float sigma, float left)
+    {
+        var (root, _) = MakeBlurClip(sigma, left);
+        var resource = (FilterEffect.Resource)root.ToResource(CompositionContext.Default);
+        using var node = new PlanFilterEffectRenderNode(resource);
+        var context = new RenderNodeContext([MakeInput()]);
+        return Rasterize(node.Process(context));
+    }
+
     // ---- Outer-cache interplay ---------------------------------------------------------------------------
     //
     // A fully static group (nothing animated) must never engage the prefix cache — the outer whole-node cache owns
