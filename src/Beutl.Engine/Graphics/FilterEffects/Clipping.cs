@@ -45,10 +45,38 @@ public sealed partial class Clipping : FilterEffect
         // re-centers TargetBounds away from NewBounds, an output texel at o maps to input at o + (NewBounds − Target);
         // the offset is zero (identity) only when AutoCenter=false (TargetBounds == NewBounds). An identity backward
         // otherwise mis-claims and crops the upstream by the centering offset (A3).
+        // A negative component expands OUTSIDE with a transparent margin. AutoClip only learns its detected margins
+        // at render time, but the requested expansion is describe-time, so the forward map must declare the grow
+        // allowance up front — the plain RenderTime contract allocates exactly the input rect (Append maps a
+        // render-time forward to Rect.Invalid) and SetOutputBounds (shrink-only) would reject the expanded emit.
+        // The +1 right/bottom slack ceilings ComputeClip's leading-edge Ceiling rounding, which can push the far
+        // edge up to one logical px past the raw allowance. Backward claims the full input: margin detection reads
+        // the whole snapshot, so an ROI-cropped input would shift the detected margins — the same reason the
+        // non-negative path stays RenderTime (whose ROI fallback is that same full-input claim).
         Rect inputBounds = builder.Bounds;
-        BoundsContract bounds = autoClip
-            ? BoundsContract.RenderTime
-            : BoundsContract.Create(
+        BoundsContract bounds;
+        if (autoClip)
+        {
+            bool anyNegative = thickness.Left < 0 || thickness.Top < 0 || thickness.Right < 0 || thickness.Bottom < 0;
+            if (anyNegative)
+            {
+                var grow = new Thickness(
+                    Math.Max(0, -thickness.Left),
+                    Math.Max(0, -thickness.Top),
+                    Math.Max(0, -thickness.Right) + (thickness.Left < 0 ? 1 : 0),
+                    Math.Max(0, -thickness.Bottom) + (thickness.Top < 0 ? 1 : 0));
+                bounds = BoundsContract.Create(
+                    rect => rect.Inflate(grow),
+                    _ => inputBounds);
+            }
+            else
+            {
+                bounds = BoundsContract.RenderTime;
+            }
+        }
+        else
+        {
+            bounds = BoundsContract.Create(
                 rect => ComputeClip(rect, thickness, autoCenter).TargetBounds,
                 rect =>
                 {
@@ -56,6 +84,7 @@ public sealed partial class Clipping : FilterEffect
                     return rect.Translate(newBounds.Position - targetBounds.Position);
                 },
                 isRenderTimeResolved: false);
+        }
 
         builder.Geometry(GeometryNodeDescriptor.Create(
             session => ApplyGeometry(session, thickness, autoCenter, autoClip),
@@ -147,7 +176,19 @@ public sealed partial class Clipping : FilterEffect
             emitBounds = targetBounds;
 
         if (autoClip)
+        {
+            // The describe-time grow allowance covers the negative-thickness expansion, but the detected margins are
+            // render-time, so ComputeClip's rounding can still push the far edge a sub-pixel past the allocation;
+            // the buffer cannot supply off-buffer pixels, so trim to it (at most a <1 px sliver of transparent margin).
+            emitBounds = emitBounds.Intersect(session.Bounds);
+            if (emitBounds.Width <= 0 || emitBounds.Height <= 0)
+            {
+                session.DiscardOutput();
+                return;
+            }
+
             session.SetOutputBounds(emitBounds);
+        }
 
         // The AutoClip+AutoCenter centering shift: the kept region is drawn and clipped at NewBounds, so translate it
         // onto the centered EmitBounds. Zero on every other path (non-AutoClip, AutoClip without centering, or the
