@@ -66,6 +66,9 @@ internal static class SlippableMedia
             case SourceSound sound:
                 targets.Add(CreateSoundTarget(sound));
                 break;
+            case SceneSound sceneSound:
+                targets.Add(CreateSceneSoundTarget(sceneSound));
+                break;
             case SoundGroup soundGroup:
                 foreach (Sound child in soundGroup.Children)
                     CollectFrom(child, targets, visited);
@@ -101,6 +104,15 @@ internal static class SlippableMedia
     {
         // SourceSound.TryGetOriginalDuration returns the full source duration.
         TimeSpan? total = sound.TryGetOriginalDuration(out TimeSpan duration) ? duration : null;
+        return new Target(sound.OffsetPosition, total);
+    }
+
+    private static Target CreateSceneSoundTarget(SceneSound sound)
+    {
+        // The referenced scene is the "source": its duration bounds how far the media
+        // window can advance. Unresolved references stay unbounded, like a SourceVideo
+        // without a loaded source.
+        TimeSpan? total = sound.ReferencedScene.CurrentValue?.Duration;
         return new Target(sound.OffsetPosition, total);
     }
 

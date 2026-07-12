@@ -126,6 +126,21 @@ public class TrimGroupCollectorTests
     }
 
     [Test]
+    public void CollectRollPairs_LockedMemberAtBoundary_ReturnsNull()
+    {
+        Element frontA = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2), zIndex: 0);
+        AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3), zIndex: 0);
+        Element lockedFront = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2), zIndex: 1);
+        AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3), zIndex: 1);
+        lockedFront.IsLocked = true;
+
+        IReadOnlyList<ElementTrimPair>? pairs = TrimGroupCollector.CollectRollPairs(
+            _scene, [frontA, lockedFront], TimeSpan.FromSeconds(2));
+
+        Assert.That(pairs, Is.Null);
+    }
+
+    [Test]
     public void CollectRollPairs_OffSceneMember_IsExcluded()
     {
         var offScene = new Element { Start = TimeSpan.Zero, Length = TimeSpan.FromSeconds(2) };
@@ -225,6 +240,19 @@ public class TrimGroupCollectorTests
 
         IReadOnlyList<ElementSlideLane>? lanes = TrimGroupCollector.CollectSlideLanes(
             _scene, [middleA, noNeighbours]);
+
+        Assert.That(lanes, Is.Null);
+    }
+
+    [Test]
+    public void CollectSlideLanes_LockedMember_ReturnsNull()
+    {
+        AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        Element middle = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1));
+        AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(3));
+        middle.IsLocked = true;
+
+        IReadOnlyList<ElementSlideLane>? lanes = TrimGroupCollector.CollectSlideLanes(_scene, [middle]);
 
         Assert.That(lanes, Is.Null);
     }

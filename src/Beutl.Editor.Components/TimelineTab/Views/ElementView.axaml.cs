@@ -352,13 +352,14 @@ public sealed partial class ElementView : UserControl
     }
 
     // The model-level member set a Slip/Roll/Slide gesture acts on: the pressed clip's
-    // group or multi-selection, minus non-editable members, always including the pressed
-    // clip itself (GetGroupOrSelectedElements returns empty when it is neither grouped
-    // nor selected).
+    // group or multi-selection, always including the pressed clip itself
+    // (GetGroupOrSelectedElements returns empty when it is neither grouped nor selected).
+    // Locked members are deliberately NOT filtered here: TrimGroupCollector needs to see
+    // them to apply its all-or-nothing locked-participant rule for Roll/Slide, and the
+    // slip service drops them itself at the mutation boundary.
     private static Element[] CollectTrimMembers(ElementViewModel viewModel)
     {
         var members = viewModel.GetGroupOrSelectedElements()
-            .Where(el => el.IsEditable.Value)
             .Select(el => el.Model)
             .ToList();
         if (!members.Contains(viewModel.Model))

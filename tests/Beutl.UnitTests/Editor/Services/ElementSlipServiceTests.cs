@@ -227,6 +227,43 @@ public class ElementSlipServiceTests
     }
 
     [Test]
+    public void Slip_SceneSound_ShiftsOffsetPositionAndCommits()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        var sceneSound = new SceneSound();
+        element.Objects.Add(sceneSound);
+        int before = _history.UndoCount;
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(sceneSound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
+        });
+    }
+
+    [Test]
+    public void Slip_SceneSound_ClampsToReferencedSceneDuration()
+    {
+        // A 3s referenced scene with a 2s clip leaves 1s of headroom, like a 3s file source.
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        var referenced = new Scene { Duration = TimeSpan.FromSeconds(3) };
+        var sceneSound = new SceneSound();
+        sceneSound.ReferencedScene.CurrentValue = referenced;
+        element.Objects.Add(sceneSound);
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(sceneSound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+        });
+    }
+
+    [Test]
     public void Slip_FallbackSound_NoCommit()
     {
         Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
