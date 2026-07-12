@@ -12,8 +12,6 @@ using FluentAvalonia.UI.Navigation;
 
 using Microsoft.Extensions.Logging;
 
-using FluentIconSource = FluentIcons.Avalonia.Fluent.FluentIconSource;
-
 namespace Beutl.Pages;
 
 public sealed partial class ExtensionsPage : Window
@@ -64,18 +62,18 @@ public sealed partial class ExtensionsPage : Window
             {
                 Content = "Home",
                 Tag = typeof(DiscoverPage),
-                IconSource = new FluentIconSource
+                IconSource = new FASymbolIconSource
                 {
-                    Icon = FluentIcons.Common.Icon.Home
+                    Symbol = FASymbol.Home
                 }
             },
             new FANavigationViewItem()
             {
                 Content = "Library",
                 Tag = typeof(LibraryPage),
-                IconSource = new FluentIconSource
+                IconSource = new FASymbolIconSource
                 {
-                    Icon = FluentIcons.Common.Icon.Library
+                    Symbol = FASymbol.Library
                 }
             },
         ];

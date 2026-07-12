@@ -63,135 +63,135 @@
                         </Style>
                     </ui:FAToggleMenuFlyoutItem.Styles>
                 </ui:FAToggleMenuFlyoutItem>
-                <ui:ToggleMenuFlyoutItem x:Name="lockElement"
+                <ui:FAToggleMenuFlyoutItem x:Name="lockElement"
                                          Click="LockElement_Click"
                                          IsChecked="{Binding IsLocked.Value}"
                                          Text="{x:Static lang:Strings.Lock}">
-                    <ui:ToggleMenuFlyoutItem.Styles>
-                        <Style Selector="ui|ToggleMenuFlyoutItem /template/ Viewbox#IconRoot">
+                    <ui:FAToggleMenuFlyoutItem.Styles>
+                        <Style Selector="ui|FAToggleMenuFlyoutItem /template/ Viewbox#IconRoot">
                             <Setter Property="Width" Value="0" />
                         </Style>
-                    </ui:ToggleMenuFlyoutItem.Styles>
-                </ui:ToggleMenuFlyoutItem>
-                <ui:MenuFlyoutSubItem Text="{x:Static lang:Strings.EditingMode}">
-                    <ui:MenuFlyoutSubItem.IconSource>
-                        <icons:FluentIconSource Icon="Edit" />
-                    </ui:MenuFlyoutSubItem.IconSource>
-                    <ui:ToggleMenuFlyoutItem IsChecked="{Binding Timeline.IsRazorMode.Value, Mode=TwoWay}"
+                    </ui:FAToggleMenuFlyoutItem.Styles>
+                </ui:FAToggleMenuFlyoutItem>
+                <ui:FAMenuFlyoutSubItem Text="{x:Static lang:Strings.EditingMode}">
+                    <ui:FAMenuFlyoutSubItem.IconSource>
+                        <ui:FASymbolIconSource Symbol="Edit" />
+                    </ui:FAMenuFlyoutSubItem.IconSource>
+                    <ui:FAToggleMenuFlyoutItem IsChecked="{Binding Timeline.IsRazorMode.Value, Mode=TwoWay}"
                                              InputGesture="{h:GetCommandGesture ToggleRazorMode,
                                                                                 ExtensionType={x:Type p:TimelineTabExtension}}"
                                              Text="{x:Static lang:Strings.RazorTool}">
-                        <ui:ToggleMenuFlyoutItem.IconSource>
-                            <icons:FluentIconSource Icon="Cut" />
-                        </ui:ToggleMenuFlyoutItem.IconSource>
-                    </ui:ToggleMenuFlyoutItem>
-                    <ui:ToggleMenuFlyoutItem IsChecked="{Binding Timeline.IsSlipMode.Value, Mode=TwoWay}"
+                        <ui:FAToggleMenuFlyoutItem.IconSource>
+                            <ui:FASymbolIconSource Symbol="Cut" />
+                        </ui:FAToggleMenuFlyoutItem.IconSource>
+                    </ui:FAToggleMenuFlyoutItem>
+                    <ui:FAToggleMenuFlyoutItem IsChecked="{Binding Timeline.IsSlipMode.Value, Mode=TwoWay}"
                                              InputGesture="{h:GetCommandGesture ToggleSlipMode,
                                                                                 ExtensionType={x:Type p:TimelineTabExtension}}"
                                              Text="{x:Static lang:Strings.SlipTool}" />
-                    <ui:ToggleMenuFlyoutItem IsChecked="{Binding Timeline.IsRollMode.Value, Mode=TwoWay}"
+                    <ui:FAToggleMenuFlyoutItem IsChecked="{Binding Timeline.IsRollMode.Value, Mode=TwoWay}"
                                              InputGesture="{h:GetCommandGesture ToggleRollMode,
                                                                                 ExtensionType={x:Type p:TimelineTabExtension}}"
                                              Text="{x:Static lang:Strings.RollTool}" />
-                    <ui:ToggleMenuFlyoutItem IsChecked="{Binding Timeline.IsSlideMode.Value, Mode=TwoWay}"
+                    <ui:FAToggleMenuFlyoutItem IsChecked="{Binding Timeline.IsSlideMode.Value, Mode=TwoWay}"
                                              InputGesture="{h:GetCommandGesture ToggleSlideMode,
                                                                                 ExtensionType={x:Type p:TimelineTabExtension}}"
                                              Text="{x:Static lang:Strings.SlideTool}" />
-                    <ui:MenuFlyoutSeparator />
-                    <ui:ToggleMenuFlyoutItem IsChecked="{Binding Timeline.IsRippleEnabled.Value, Mode=TwoWay}"
+                    <ui:FAMenuFlyoutSeparator />
+                    <ui:FAToggleMenuFlyoutItem IsChecked="{Binding Timeline.IsRippleEnabled.Value, Mode=TwoWay}"
                                              InputGesture="{h:GetCommandGesture ToggleRippleMode,
                                                                                 ExtensionType={x:Type p:TimelineTabExtension}}"
                                              Text="{x:Static lang:Strings.RippleEdit}" />
-                </ui:MenuFlyoutSubItem>
-                <ui:MenuFlyoutSeparator />
-                <ui:MenuFlyoutItem x:Name="split"
+                </ui:FAMenuFlyoutSubItem>
+                <ui:FAMenuFlyoutSeparator />
+                <ui:FAMenuFlyoutItem x:Name="split"
                                    Command="{Binding Split}"
                                    Text="{x:Static lang:Strings.Split}">
-                    <ui:MenuFlyoutItem.IconSource>
-                        <icons:FluentIconSource Icon="SplitVertical" />
-                    </ui:MenuFlyoutItem.IconSource>
-                </ui:MenuFlyoutItem>
-                <ui:MenuFlyoutItem x:Name="splitByCurrent"
+                    <ui:FAMenuFlyoutItem.IconSource>
+                        <ui:FASymbolIconSource Symbol="Cut" />
+                    </ui:FAMenuFlyoutItem.IconSource>
+                </ui:FAMenuFlyoutItem>
+                <ui:FAMenuFlyoutItem x:Name="splitByCurrent"
                                    Command="{Binding SplitByCurrentFrame}"
                                    InputGesture="{h:GetCommandGesture Split,
                                                                       ExtensionType={x:Type p:TimelineTabExtension}}"
                                    Text="{x:Static lang:Strings.SplitByCurrentFrame}" />
-                <ui:MenuFlyoutItem x:Name="cut"
+                <ui:FAMenuFlyoutItem x:Name="cut"
                                    Command="{Binding Cut}"
                                    InputGesture="{h:GetCommandGesture Cut,
                                                                       ExtensionType={x:Type p:TimelineTabExtension}}"
                                    Text="{x:Static lang:Strings.Cut}">
-                    <ui:MenuFlyoutItem.IconSource>
-                        <icons:FluentIconSource Icon="Cut" />
-                    </ui:MenuFlyoutItem.IconSource>
-                </ui:MenuFlyoutItem>
-                <ui:MenuFlyoutItem Command="{Binding Copy}"
+                    <ui:FAMenuFlyoutItem.IconSource>
+                        <ui:FASymbolIconSource Symbol="Cut" />
+                    </ui:FAMenuFlyoutItem.IconSource>
+                </ui:FAMenuFlyoutItem>
+                <ui:FAMenuFlyoutItem Command="{Binding Copy}"
                                    InputGesture="{h:GetCommandGesture Copy,
                                                                       ExtensionType={x:Type p:TimelineTabExtension}}"
                                    Text="{x:Static lang:Strings.Copy}">
-                    <ui:MenuFlyoutItem.IconSource>
-                        <icons:FluentIconSource Icon="Copy" />
-                    </ui:MenuFlyoutItem.IconSource>
-                </ui:MenuFlyoutItem>
-                <ui:MenuFlyoutItem x:Name="delete"
+                    <ui:FAMenuFlyoutItem.IconSource>
+                        <ui:FASymbolIconSource Symbol="Copy" />
+                    </ui:FAMenuFlyoutItem.IconSource>
+                </ui:FAMenuFlyoutItem>
+                <ui:FAMenuFlyoutItem x:Name="delete"
                                    Command="{Binding Delete}"
                                    InputGesture="{h:GetCommandGesture Delete,
                                                                       ExtensionType={x:Type p:TimelineTabExtension}}"
                                    Text="{x:Static lang:Strings.Delete}">
-                    <ui:MenuFlyoutItem.IconSource>
-                        <icons:FluentIconSource Icon="DeleteDismiss" />
-                    </ui:MenuFlyoutItem.IconSource>
-                </ui:MenuFlyoutItem>
-                <ui:MenuFlyoutItem x:Name="exclude"
+                    <ui:FAMenuFlyoutItem.IconSource>
+                        <ui:FASymbolIconSource Symbol="Delete" />
+                    </ui:FAMenuFlyoutItem.IconSource>
+                </ui:FAMenuFlyoutItem>
+                <ui:FAMenuFlyoutItem x:Name="exclude"
                                    Command="{Binding Exclude}"
                                    InputGesture="{h:GetCommandGesture Exclude,
                                                                       ExtensionType={x:Type p:TimelineTabExtension}}"
                                    Text="{x:Static lang:Strings.Exclude}">
-                    <ui:MenuFlyoutItem.IconSource>
-                        <icons:FluentIconSource Icon="Delete" />
-                    </ui:MenuFlyoutItem.IconSource>
-                </ui:MenuFlyoutItem>
-                <ui:MenuFlyoutItem x:Name="groupSelectedElements"
+                    <ui:FAMenuFlyoutItem.IconSource>
+                        <ui:FASymbolIconSource Symbol="Delete" />
+                    </ui:FAMenuFlyoutItem.IconSource>
+                </ui:FAMenuFlyoutItem>
+                <ui:FAMenuFlyoutItem x:Name="groupSelectedElements"
                                    Command="{Binding GroupSelectedElements}"
                                    Text="{x:Static lang:Strings.GroupSelectedElements}" />
                 <ui:FAMenuFlyoutItem x:Name="ungroupSelectedElements"
                                    Command="{Binding UngroupSelectedElements}"
                                    Text="{x:Static lang:Strings.UngroupSelectedElements}" />
-                <ui:MenuFlyoutItem x:Name="rename"
+                <ui:FAMenuFlyoutItem x:Name="rename"
                                    Click="Rename_Click"
                                    InputGesture="{h:GetCommandGesture Rename,
                                                                       ExtensionType={x:Type p:TimelineTabExtension}}"
                                    Text="{x:Static lang:Strings.Rename}">
-                    <ui:MenuFlyoutItem.IconSource>
-                        <icons:FluentIconSource Icon="Rename" />
-                    </ui:MenuFlyoutItem.IconSource>
-                </ui:MenuFlyoutItem>
-                <ui:MenuFlyoutItem x:Name="change2OriginalDuration"
+                    <ui:FAMenuFlyoutItem.IconSource>
+                        <ui:FASymbolIconSource Symbol="Rename" />
+                    </ui:FAMenuFlyoutItem.IconSource>
+                </ui:FAMenuFlyoutItem>
+                <ui:FAMenuFlyoutItem x:Name="change2OriginalDuration"
                                    Command="{Binding ChangeToOriginalDuration}"
                                    Text="{x:Static lang:Strings.ChangeToOriginalLength}" />
-                <ui:MenuFlyoutItem x:Name="changeColor"
+                <ui:FAMenuFlyoutItem x:Name="changeColor"
                                    Click="ChangeColor_Click"
                                    Text="{x:Static lang:Strings.ChangeColor}" />
-                <ui:ToggleMenuFlyoutItem IsChecked="{Binding IsThumbnailsDisabled.Value}" Text="{x:Static lang:Strings.DisableThumbnails}">
-                    <ui:ToggleMenuFlyoutItem.Styles>
-                        <Style Selector="ui|ToggleMenuFlyoutItem /template/ Viewbox#IconRoot">
+                <ui:FAToggleMenuFlyoutItem IsChecked="{Binding IsThumbnailsDisabled.Value}" Text="{x:Static lang:Strings.DisableThumbnails}">
+                    <ui:FAToggleMenuFlyoutItem.Styles>
+                        <Style Selector="ui|FAToggleMenuFlyoutItem /template/ Viewbox#IconRoot">
                             <Setter Property="Width" Value="0" />
                         </Style>
-                    </ui:ToggleMenuFlyoutItem.Styles>
-                </ui:ToggleMenuFlyoutItem>
-                <ui:MenuFlyoutSeparator />
-                <ui:MenuFlyoutItem Click="SaveAsTemplate_Click" Text="{x:Static lang:Strings.SaveAsTemplate}">
-                    <ui:MenuFlyoutItem.IconSource>
-                        <icons:FluentIconSource Icon="DocumentCopy" />
-                    </ui:MenuFlyoutItem.IconSource>
-                </ui:MenuFlyoutItem>
-                <ui:MenuFlyoutSeparator />
-                <ui:MenuFlyoutSubItem Text="{x:Static lang:Strings.Animation}">
-                    <ui:MenuFlyoutItem x:Name="finishEditingAnimation"
+                    </ui:FAToggleMenuFlyoutItem.Styles>
+                </ui:FAToggleMenuFlyoutItem>
+                <ui:FAMenuFlyoutSeparator />
+                <ui:FAMenuFlyoutItem Click="SaveAsTemplate_Click" Text="{x:Static lang:Strings.SaveAsTemplate}">
+                    <ui:FAMenuFlyoutItem.IconSource>
+                        <ui:FASymbolIconSource Symbol="Copy" />
+                    </ui:FAMenuFlyoutItem.IconSource>
+                </ui:FAMenuFlyoutItem>
+                <ui:FAMenuFlyoutSeparator />
+                <ui:FAMenuFlyoutSubItem Text="{x:Static lang:Strings.Animation}">
+                    <ui:FAMenuFlyoutItem x:Name="finishEditingAnimation"
                                        Command="{Binding FinishEditingAnimation}"
                                        Text="{x:Static lang:Strings.FinishEditing}" />
-                    <ui:MenuFlyoutItem Command="{Binding BringAnimationToTop}" Text="{x:Static lang:Strings.BringToTop}" />
-                </ui:MenuFlyoutSubItem>
+                    <ui:FAMenuFlyoutItem Command="{Binding BringAnimationToTop}" Text="{x:Static lang:Strings.BringToTop}" />
+                </ui:FAMenuFlyoutSubItem>
             </ui:FAMenuFlyout>
         </Border.ContextFlyout>
         <Panel>

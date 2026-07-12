@@ -4,8 +4,6 @@ using Avalonia.Xaml.Interactivity;
 
 using FluentAvalonia.UI.Controls;
 
-using FluentIconSource = FluentIcons.Avalonia.Fluent.FluentIconSource;
-
 namespace Beutl.Controls;
 
 public class NavItemHelper : Behavior<FANavigationViewItem>
@@ -75,7 +73,7 @@ public class NavItemHelper : Behavior<FANavigationViewItem>
         {
             fontIcon.FontSize = 48;
         }
-        else if (iconSource is FluentIconSource symbolIcon)
+        else if (iconSource is FASymbolIconSource symbolIcon)
         {
             symbolIcon.FontSize = 48;
         }

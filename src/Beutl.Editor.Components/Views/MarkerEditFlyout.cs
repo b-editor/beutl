@@ -90,7 +90,7 @@ public sealed class MarkerEditFlyout : FAPickerFlyoutBase
                 Spacing = 6,
                 Children =
                 {
-                    new FASymbolIcon { Symbol = FASymbol.Delete, FontSize = 14 },
+                    new FluentIcon { Icon = Icon.Delete, FontSize = 14 },
                     new TextBlock { Text = Strings.Delete, VerticalAlignment = VerticalAlignment.Center },
                 },
             },

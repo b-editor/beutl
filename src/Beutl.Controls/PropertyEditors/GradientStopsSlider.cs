@@ -16,8 +16,6 @@ using Beutl.Reactive;
 using Beutl.Utilities;
 using FluentAvalonia.UI.Controls;
 using Reactive.Bindings.Extensions;
-using FluentIconSource = FluentIcons.Avalonia.Fluent.FluentIconSource;
-using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.Controls.PropertyEditors;
 
@@ -377,9 +375,9 @@ public class GradientStopsSlider : TemplatedControl
                 _deleteMenuItem = new FAMenuFlyoutItem
                 {
                     Text = Strings.Delete,
-                    IconSource = new FluentIconSource
+                    IconSource = new FASymbolIconSource
                     {
-                        Icon = Icon.Delete
+                        Symbol = FASymbol.Delete
                     }
                 };
                 _deleteMenuItem.Click += (s, e) =>

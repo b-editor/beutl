@@ -35,9 +35,6 @@ using BtlMatrix = Beutl.Graphics.Matrix;
 using BtlPoint = Beutl.Graphics.Point;
 using BtlRect = Beutl.Graphics.Rect;
 using BtlSize = Beutl.Graphics.Size;
-using FluentIconSource = FluentIcons.Avalonia.Fluent.FluentIconSource;
-using Icon = FluentIcons.Common.Icon;
-
 namespace Beutl.Views;
 
 public partial class PlayerView
@@ -1002,12 +999,12 @@ public partial class PlayerView
                     var copyAsString = new FAMenuFlyoutItem()
                     {
                         Text = Strings.Copy,
-                        IconSource = new FluentIconSource() { Icon = Icon.Copy }
+                        IconSource = new FASymbolIconSource { Symbol = FASymbol.Copy }
                     };
                     var saveAsImage = new FAMenuFlyoutItem()
                     {
                         Text = Strings.SaveAsImage,
-                        IconSource = new FluentIconSource() { Icon = Icon.SaveImage }
+                        IconSource = new FASymbolIconSource { Symbol = FASymbol.SaveAs }
                     };
                     copyAsString.Click += (s, e) =>
                     {
@@ -1048,7 +1045,7 @@ public partial class PlayerView
                         var copyAsImage = new FAMenuFlyoutItem()
                         {
                             Text = Strings.CopyAsImage,
-                            IconSource = new FluentIconSource() { Icon = Icon.ImageCopy }
+                            IconSource = new FASymbolIconSource { Symbol = FASymbol.ImageCopy }
                         };
                         copyAsImage.Click += (s, e) => OnCopyAsImageClicked(rect);
 

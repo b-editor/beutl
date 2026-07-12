@@ -22,9 +22,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings.Extensions;
 using BtlPoint = Beutl.Graphics.Point;
 using BtlVector = Beutl.Graphics.Vector;
-using FluentIconSource = FluentIcons.Avalonia.Fluent.FluentIconSource;
-using Icon = FluentIcons.Common.Icon;
-
 namespace Beutl.Editor.Components.PathEditorTab.Views;
 
 public partial class PathEditorTabView : UserControl, IPathEditorView
@@ -444,7 +441,7 @@ public partial class PathEditorTabView : UserControl, IPathEditorView
         var delete = new FAMenuFlyoutItem
         {
             Text = Strings.Delete,
-            IconSource = new FluentIconSource { Icon = Icon.Delete }
+            IconSource = new FASymbolIconSource { Symbol = FASymbol.Delete }
         };
         delete.Click += OnDeleteClicked;
         flyout.ItemsSource = new[] { delete };

@@ -11,8 +11,6 @@ using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.Tools;
 using FluentAvalonia.UI.Controls;
 using AddOutputProfileDialog = Beutl.Views.Dialogs.AddOutputProfileDialog;
-using FluentIconSource = FluentIcons.Avalonia.Fluent.FluentIconSource;
-using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.Views.Tools;
 
