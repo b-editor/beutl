@@ -328,14 +328,18 @@ internal static class PlanExecutor
             // buffer here spans the larger op.Bounds, so DeviceBufferSize(op.Bounds, resolution.WorkingScale) can
             // exceed the per-axis budget. A fan-out branch has no per-op resolution and re-clamps locally.
             outBounds = op.Bounds;
-            // Both branches min against the op's carried density (C3.2: a single-op pass re-materializes the op's
-            // own pixels, so the boundary fan-in exception does not apply): a dynamic predecessor emitting a
-            // lower-density raster op must not have its density re-raised (over-allocating and over-tagging the
-            // output). The linear base is resolution.WorkingScale (already resolver-carried); no-op when the op
-            // is Unbounded or at/above the resolved scale.
+            // Linear base: the op's carried density caps the pass ONLY when the op escaped the resolver's expected
+            // input — the signature of a dynamic CustomRenderNode/NestedGraph predecessor whose lower-density raster
+            // output must not be re-raised (the C3.2 carry; re-raising over-allocates and over-tags). A MATCHED op
+            // is the effect-boundary input whose supply ResolveWorkingScale already folded into
+            // resolution.WorkingScale, deliberately flooring a sub-output supply UP to the deliverable density
+            // (w = max(s_out, supply), SourceEffectiveScaleFlowTests); min-carrying it would defeat that floor and
+            // ship sub-output-density effect output.
             w = linear
                 ? RenderNodeContext.ClampWorkingScaleToBufferBudget(
-                    outBounds, CarriedWorkingScale(op, resolution.WorkingScale), maxDimension)
+                    outBounds,
+                    op.Bounds != expectedInput ? CarriedWorkingScale(op, resolution.WorkingScale) : resolution.WorkingScale,
+                    maxDimension)
                 : RenderNodeContext.ClampWorkingScaleToBufferBudget(
                     outBounds, CarriedWorkingScale(op, workingScale), maxDimension);
             (width, height) = RenderNodeContext.DeviceBufferSize(outBounds, w);
@@ -365,6 +369,7 @@ internal static class PlanExecutor
                 ? (pass.OutputBounds.IsInvalid ? op.Bounds : pass.OutputBounds)
                 : resolution.OutputRoi;
             outBounds = resolved;
+            bool escaped = false;
             if (op.Bounds != expectedInput)
             {
                 Rect forward = pass.ForwardBounds(op.Bounds);
@@ -384,16 +389,18 @@ internal static class PlanExecutor
                     // map the ACTUAL op forward directly (the fan-out branch's approach); intersecting with the stale
                     // ROI would clip or empty a shifted op and crop a grown one.
                     outBounds = forward.IsInvalid ? op.Bounds : forward;
+                    escaped = true;
                 }
             }
 
             // A shift/grow re-derives outBounds from the ACTUAL op, which can be larger than the ROI-narrowed rect
             // resolution.WorkingScale was clamped against; re-clamp so DeviceBufferSize cannot exceed the per-axis
-            // budget (FR-037(b)). The base mins against the op's carried density (C3.2 single-op materialization,
-            // same rationale as the invariant branch above). No-op for the matched/shrink cases whose outBounds
-            // stays within the resolved ROI and for Unbounded/at-density inputs.
+            // budget (FR-037(b)). Only that escaped (dynamic-predecessor) path mins against the op's carried density
+            // (C3.2 carry — its lower-density output must not be re-raised); a matched/shrunk op keeps the
+            // boundary-resolved scale, whose sub-output-supply floor (w = max(s_out, supply)) a min-carry would
+            // defeat — same rationale as the invariant branch above.
             w = RenderNodeContext.ClampWorkingScaleToBufferBudget(
-                outBounds, CarriedWorkingScale(op, resolution.WorkingScale), maxDimension);
+                outBounds, escaped ? CarriedWorkingScale(op, resolution.WorkingScale) : resolution.WorkingScale, maxDimension);
             (width, height) = RenderNodeContext.DeviceBufferSize(outBounds, w);
             skip = width <= 0 || height <= 0;
         }
