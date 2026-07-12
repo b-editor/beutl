@@ -151,26 +151,51 @@ public class ContextCommandManager(
         return _entries.Values.SelectMany(i => i);
     }
 
-    public void ChangeKeyGesture(ContextCommandEntry entry, KeyGesture? keyGesture, OSPlatform platform)
+    /// <summary>
+    /// Rebind one gesture slot of a command. <paramref name="gestureIndex"/> addresses the
+    /// N-th gesture of <paramref name="platform"/> (a command may bind several, e.g. V and
+    /// Escape); only that slot changes, so remapping one binding cannot destroy the others.
+    /// </summary>
+    public void ChangeKeyGesture(ContextCommandEntry entry, KeyGesture? keyGesture, OSPlatform platform, int gestureIndex = 0)
     {
+        int seen = 0;
         bool changed = false;
         for (int i = 0; i < entry.KeyGestures.Count; i++)
         {
             var gesture = entry.KeyGestures[i];
-            if (gesture.Platform == platform)
+            if (gesture.Platform != platform) continue;
+
+            if (seen == gestureIndex)
             {
                 entry.KeyGestures[i] = gesture with { KeyGesture = keyGesture };
                 changed = true;
+                break;
             }
+
+            seen++;
         }
 
-        // platformId が見つからなかった場合、追加する
+        // When no slot matched, appending is only valid at the next free slot
+        // (gestureIndex == existing count). A larger index would silently create a slot the
+        // UI never presented — and persist it through Save — so treat it as a caller bug.
         if (!changed)
         {
+            if (gestureIndex != seen)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(gestureIndex), gestureIndex,
+                    $"The platform '{platform}' has {seen} gesture slot(s); only an existing slot or the next free slot can be assigned.");
+            }
+
             entry.KeyGestures.Add(new ContextCommandParsedKeyGesture(keyGesture, platform));
         }
 
-        settingsStore.Save(GetFullName(entry), keyGesture, platform);
+        // Persist the whole per-platform list: with multiple gestures per platform a single
+        // (name, platform) → gesture record cannot round-trip the untouched slots.
+        settingsStore.Save(
+            GetFullName(entry),
+            entry.KeyGestures.Where(g => g.Platform == platform).Select(g => g.KeyGesture).ToArray(),
+            platform);
     }
 
     private static string GetFullName(ContextCommandEntry entry)
@@ -184,24 +209,25 @@ public class ContextCommandManager(
     {
         foreach (ContextCommandEntry entry in entries)
         {
-            var keyGestures = settingsStore.Restore(GetFullName(entry));
-            foreach (ContextCommandParsedKeyGesture i in keyGestures)
+            foreach ((OSPlatform platform, IReadOnlyList<KeyGesture?> gestures) in
+                     settingsStore.Restore(GetFullName(entry)))
             {
-                // デフォルトのGestureがある場合、それを上書きする
-                for (int index = 0; index < entry.KeyGestures.Count; index++)
+                // Overwrite the default gestures slot-by-slot with the persisted list; slots
+                // beyond a shorter persisted list keep their defaults.
+                int seen = 0;
+                for (int index = 0; index < entry.KeyGestures.Count && seen < gestures.Count; index++)
                 {
-                    ContextCommandParsedKeyGesture j = entry.KeyGestures[index];
-                    if (j.Platform == i.Platform)
-                    {
-                        entry.KeyGestures[index] = i;
-                        goto NextItem;
-                    }
+                    if (entry.KeyGestures[index].Platform != platform) continue;
+
+                    entry.KeyGestures[index] = new ContextCommandParsedKeyGesture(gestures[seen], platform);
+                    seen++;
                 }
 
-                // プラットフォームが指定されていない場合、先頭に追加する
-                entry.KeyGestures.Add(i);
-
-            NextItem:;
+                // Slots the defaults do not have are appended
+                for (; seen < gestures.Count; seen++)
+                {
+                    entry.KeyGestures.Add(new ContextCommandParsedKeyGesture(gestures[seen], platform));
+                }
             }
         }
     }
@@ -280,6 +306,7 @@ public class ContextCommandManager(
 public record ContextCommandSettingsStore : IBeutlApiResource
 {
     private readonly ILogger _logger = Log.CreateLogger<ContextCommandSettingsStore>();
+    private readonly bool _persist = true;
     private JsonObject _json = [];
 
     public ContextCommandSettingsStore()
@@ -287,7 +314,14 @@ public record ContextCommandSettingsStore : IBeutlApiResource
         RestoreAll();
     }
 
-    public void Save(string name, KeyGesture? keyGesture, OSPlatform os)
+    // Test seam: start from the given JSON and optionally skip writing keymap.json to disk.
+    internal ContextCommandSettingsStore(JsonObject json, bool persist)
+    {
+        _json = json;
+        _persist = persist;
+    }
+
+    public virtual void Save(string name, IReadOnlyList<KeyGesture?> gestures, OSPlatform os)
     {
         string platform = os.ToString();
         if (!_json.TryGetPropertyValue(platform, out var node)
@@ -297,7 +331,13 @@ public record ContextCommandSettingsStore : IBeutlApiResource
             _json[platform] = obj;
         }
 
-        obj[name] = keyGesture?.ToString();
+        var array = new JsonArray();
+        foreach (KeyGesture? gesture in gestures)
+        {
+            array.Add((JsonNode?)gesture?.ToString());
+        }
+
+        obj[name] = array;
 
         SaveAll();
     }
@@ -309,40 +349,53 @@ public record ContextCommandSettingsStore : IBeutlApiResource
                || key.Equals("OSX", StringComparison.OrdinalIgnoreCase);
     }
 
-    public IEnumerable<ContextCommandParsedKeyGesture> Restore(string name)
+    /// <summary>
+    /// The persisted per-platform gesture lists for a command, slot order preserved. A null
+    /// element is an explicitly cleared binding (distinct from an absent command, which keeps
+    /// its defaults). Entries written before multi-gesture support — a plain string or null
+    /// instead of an array — are read as a single-element list.
+    /// </summary>
+    public virtual IEnumerable<(OSPlatform Platform, IReadOnlyList<KeyGesture?> Gestures)> Restore(string name)
     {
         foreach (var (key, node) in _json)
         {
             if (!ValidateKey(key)) continue;
-            if (node is JsonObject obj && obj.TryGetPropertyValueAsJsonValue(name, out string? value))
-            {
-                ContextCommandParsedKeyGesture? gesture = null;
-                if (string.IsNullOrEmpty(value))
-                {
-                    gesture = new ContextCommandParsedKeyGesture(null, OSPlatform.Create(key));
-                }
-                else
-                {
-                    try
-                    {
-                        gesture = new ContextCommandParsedKeyGesture(KeyGesture.Parse(value), OSPlatform.Create(key));
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Failed to parse key gesture: {KeyGesture}", value);
-                    }
-                }
+            if (node is not JsonObject obj || !obj.TryGetPropertyValue(name, out JsonNode? value)) continue;
 
-                if (gesture != null)
-                {
-                    yield return gesture;
-                }
-            }
+            List<KeyGesture?> gestures = value is JsonArray array
+                ? array.Select(ParseGesture).ToList()
+                : [ParseGesture(value)];
+
+            yield return (OSPlatform.Create(key), gestures);
+        }
+    }
+
+    // A gesture that no longer parses is treated as cleared rather than skipped, so the
+    // slots after it keep their positions.
+    private KeyGesture? ParseGesture(JsonNode? node)
+    {
+        if (node is not JsonValue value
+            || !value.TryGetValue(out string? text)
+            || string.IsNullOrEmpty(text))
+        {
+            return null;
+        }
+
+        try
+        {
+            return KeyGesture.Parse(text);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to parse key gesture: {KeyGesture}", text);
+            return null;
         }
     }
 
     private void SaveAll()
     {
+        if (!_persist) return;
+
         string fileName = Path.Combine(Helper.AppRoot, "keymap.json");
         _json.JsonSave(fileName);
         _logger.LogInformation("Saved keymap to {FileName}", fileName);

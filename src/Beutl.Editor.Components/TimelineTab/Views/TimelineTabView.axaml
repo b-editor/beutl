@@ -123,6 +123,102 @@
             </StackPanel>
         </Border>
 
+        <Border Grid.Row="0"
+                Grid.RowSpan="2"
+                Grid.Column="2"
+                BorderBrush="{DynamicResource SystemFillColorSuccessBrush}"
+                BorderThickness="4"
+                IsHitTestVisible="False"
+                IsVisible="{CompiledBinding IsSlipMode.Value}"
+                ZIndex="100" />
+
+        <Border Grid.Row="0"
+                Grid.Column="2"
+                Margin="8,4"
+                Padding="8,2"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                Background="{DynamicResource SystemFillColorSuccessBrush}"
+                CornerRadius="4"
+                IsHitTestVisible="False"
+                IsVisible="{CompiledBinding IsSlipMode.Value}"
+                ZIndex="100">
+            <StackPanel Orientation="Horizontal" Spacing="4">
+                <icons:FluentIcon FontSize="14"
+                                  Foreground="White"
+                                  Icon="ArrowSwap" />
+                <TextBlock FontSize="12"
+                           FontWeight="SemiBold"
+                           Foreground="White"
+                           Text="{x:Static lang:Strings.SlipTool}"
+                           VerticalAlignment="Center" />
+            </StackPanel>
+        </Border>
+
+        <Border Grid.Row="0"
+                Grid.RowSpan="2"
+                Grid.Column="2"
+                BorderBrush="{DynamicResource SystemFillColorCautionBrush}"
+                BorderThickness="4"
+                IsHitTestVisible="False"
+                IsVisible="{CompiledBinding IsRollMode.Value}"
+                ZIndex="100" />
+
+        <Border Grid.Row="0"
+                Grid.Column="2"
+                Margin="8,4"
+                Padding="8,2"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                Background="{DynamicResource SystemFillColorCautionBrush}"
+                CornerRadius="4"
+                IsHitTestVisible="False"
+                IsVisible="{CompiledBinding IsRollMode.Value}"
+                ZIndex="100">
+            <StackPanel Orientation="Horizontal" Spacing="4">
+                <icons:FluentIcon FontSize="14"
+                                  Foreground="White"
+                                  Icon="ArrowAutofitWidth" />
+                <TextBlock FontSize="12"
+                           FontWeight="SemiBold"
+                           Foreground="White"
+                           Text="{x:Static lang:Strings.RollTool}"
+                           VerticalAlignment="Center" />
+            </StackPanel>
+        </Border>
+
+        <Border Grid.Row="0"
+                Grid.RowSpan="2"
+                Grid.Column="2"
+                BorderBrush="{DynamicResource SystemFillColorAttentionBrush}"
+                BorderThickness="4"
+                IsHitTestVisible="False"
+                IsVisible="{CompiledBinding IsSlideMode.Value}"
+                ZIndex="100" />
+
+        <Border Grid.Row="0"
+                Grid.Column="2"
+                Margin="8,4"
+                Padding="8,2"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                Background="{DynamicResource SystemFillColorAttentionBrush}"
+                CornerRadius="4"
+                IsHitTestVisible="False"
+                IsVisible="{CompiledBinding IsSlideMode.Value}"
+                ZIndex="100">
+            <StackPanel Orientation="Horizontal" Spacing="4">
+                <icons:FluentIcon FontSize="14"
+                                  Foreground="White"
+                                  Icon="ArrowMove" />
+                <TextBlock FontSize="12"
+                           FontWeight="SemiBold"
+                           Foreground="White"
+                           Text="{x:Static lang:Strings.SlideTool}"
+                           VerticalAlignment="Center" />
+            </StackPanel>
+        </Border>
+
         <ScrollViewer x:Name="ContentScroll"
                       Grid.Row="1"
                       Grid.Column="2"
@@ -141,14 +237,36 @@
                    PointerReleased="TimelinePanel_PointerReleased">
                 <Panel.ContextFlyout>
                     <ui:FAMenuFlyout>
-                        <ui:ToggleMenuFlyoutItem IsChecked="{CompiledBinding IsRazorMode.Value, Mode=TwoWay}"
-                                                 InputGesture="{h:GetCommandGesture ToggleRazorMode,
-                                                                                    ExtensionType={x:Type p:TimelineTabExtension}}"
-                                                 Text="{x:Static lang:Strings.RazorTool}">
-                            <ui:ToggleMenuFlyoutItem.IconSource>
-                                <icons:FluentIconSource Icon="Cut" />
-                            </ui:ToggleMenuFlyoutItem.IconSource>
-                        </ui:ToggleMenuFlyoutItem>
+                        <ui:MenuFlyoutSubItem Text="{x:Static lang:Strings.EditingMode}">
+                            <ui:MenuFlyoutSubItem.IconSource>
+                                <icons:FluentIconSource Icon="Edit" />
+                            </ui:MenuFlyoutSubItem.IconSource>
+                            <ui:ToggleMenuFlyoutItem IsChecked="{CompiledBinding IsRazorMode.Value, Mode=TwoWay}"
+                                                     InputGesture="{h:GetCommandGesture ToggleRazorMode,
+                                                                                        ExtensionType={x:Type p:TimelineTabExtension}}"
+                                                     Text="{x:Static lang:Strings.RazorTool}">
+                                <ui:ToggleMenuFlyoutItem.IconSource>
+                                    <icons:FluentIconSource Icon="Cut" />
+                                </ui:ToggleMenuFlyoutItem.IconSource>
+                            </ui:ToggleMenuFlyoutItem>
+                            <ui:ToggleMenuFlyoutItem IsChecked="{CompiledBinding IsSlipMode.Value, Mode=TwoWay}"
+                                                     InputGesture="{h:GetCommandGesture ToggleSlipMode,
+                                                                                        ExtensionType={x:Type p:TimelineTabExtension}}"
+                                                     Text="{x:Static lang:Strings.SlipTool}" />
+                            <ui:ToggleMenuFlyoutItem IsChecked="{CompiledBinding IsRollMode.Value, Mode=TwoWay}"
+                                                     InputGesture="{h:GetCommandGesture ToggleRollMode,
+                                                                                        ExtensionType={x:Type p:TimelineTabExtension}}"
+                                                     Text="{x:Static lang:Strings.RollTool}" />
+                            <ui:ToggleMenuFlyoutItem IsChecked="{CompiledBinding IsSlideMode.Value, Mode=TwoWay}"
+                                                     InputGesture="{h:GetCommandGesture ToggleSlideMode,
+                                                                                        ExtensionType={x:Type p:TimelineTabExtension}}"
+                                                     Text="{x:Static lang:Strings.SlideTool}" />
+                            <ui:MenuFlyoutSeparator />
+                            <ui:ToggleMenuFlyoutItem IsChecked="{CompiledBinding IsRippleEnabled.Value, Mode=TwoWay}"
+                                                     InputGesture="{h:GetCommandGesture ToggleRippleMode,
+                                                                                        ExtensionType={x:Type p:TimelineTabExtension}}"
+                                                     Text="{x:Static lang:Strings.RippleEdit}" />
+                        </ui:MenuFlyoutSubItem>
                         <ui:MenuFlyoutSeparator />
                         <ui:MenuFlyoutSubItem x:Name="AddElementSubMenu" Text="{x:Static lang:Strings.AddElement}" />
                         <ui:MenuFlyoutSubItem x:Name="AddFromTemplateSubMenu" Text="{x:Static lang:Strings.AddFromTemplate}" />
@@ -190,10 +308,6 @@
                         </ui:MenuFlyoutSubItem>
                         <ui:ToggleMenuFlyoutItem IsChecked="{Binding AutoAdjustSceneDuration.Value, Mode=TwoWay}" Text="{x:Static lang:SettingsStrings.AutoAdjustSceneDuration}" />
                         <ui:ToggleMenuFlyoutItem IsChecked="{Binding IsSnapEnabled.Value, Mode=TwoWay}" Text="{x:Static lang:Strings.TimelineSnap}" />
-                        <ui:ToggleMenuFlyoutItem IsChecked="{CompiledBinding IsRippleEnabled.Value, Mode=TwoWay}"
-                                                 InputGesture="{h:GetCommandGesture ToggleRippleMode,
-                                                                                    ExtensionType={x:Type p:TimelineTabExtension}}"
-                                                 Text="{x:Static lang:Strings.RippleEdit}" />
                         <ui:MenuFlyoutSeparator />
                         <ui:MenuFlyoutItem Click="ShowSceneSettings" Text="{x:Static lang:Strings.Settings}">
                             <ui:MenuFlyoutItem.IconSource>

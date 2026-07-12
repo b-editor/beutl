@@ -40,6 +40,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
     private readonly ElementAdderImpl _elementAdder;
     private SceneTimeRangeService? _sceneTimeRangeService;
     private ElementResizeService? _elementResizeService;
+    private ElementSlipService? _elementSlipService;
     private ElementDuplicateService? _elementDuplicateService;
     private ElementMoveService? _elementMoveService;
     private ElementGapService? _elementGapService;
@@ -916,6 +917,9 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
 
         if (serviceType.IsAssignableTo(typeof(IElementResizeService)))
             return _elementResizeService ??= new ElementResizeService(HistoryManager);
+
+        if (serviceType.IsAssignableTo(typeof(IElementSlipService)))
+            return _elementSlipService ??= new ElementSlipService(HistoryManager);
 
         if (serviceType.IsAssignableTo(typeof(IElementDuplicateService)))
             return _elementDuplicateService ??= new ElementDuplicateService(HistoryManager);

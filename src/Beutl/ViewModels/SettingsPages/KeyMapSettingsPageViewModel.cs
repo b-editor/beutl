@@ -23,31 +23,43 @@ public class KeyMapSettingsItem
 {
     private readonly ContextCommandManager _commandManager;
 
-    public KeyMapSettingsItem(ContextCommandEntry command, ContextCommandManager commandManager)
+    public KeyMapSettingsItem(ContextCommandEntry command, ContextCommandManager commandManager, int gestureIndex)
     {
         _commandManager = commandManager;
         Command = command;
-        OSPlatform os = OperatingSystem.IsWindows() ? OSPlatform.Windows :
-            OperatingSystem.IsLinux() ? OSPlatform.Linux :
-            OSPlatform.OSX;
+        GestureIndex = gestureIndex;
         var gesture = command.KeyGestures
-            .FirstOrDefault(i => i.Platform == os)
+            .Where(i => i.Platform == CurrentPlatform)
+            .ElementAtOrDefault(gestureIndex)
             ?.KeyGesture;
         KeyGesture = new ReactiveProperty<KeyGesture?>(gesture);
     }
 
+    internal static OSPlatform CurrentPlatform => OperatingSystem.IsWindows() ? OSPlatform.Windows :
+        OperatingSystem.IsMacOS() ? OSPlatform.OSX :
+        OperatingSystem.IsLinux() ? OSPlatform.Linux :
+        throw new PlatformNotSupportedException();
+
     public ContextCommandEntry Command { get; set; }
+
+    /// <summary>
+    /// Which of the command's same-platform gesture slots this row edits. A command binding
+    /// several gestures (e.g. V and Escape) gets one row per slot, so remapping one binding
+    /// leaves the others intact.
+    /// </summary>
+    public int GestureIndex { get; }
+
+    public string? DisplayName => GestureIndex == 0
+        ? Command.Definition.DisplayName
+        : $"{Command.Definition.DisplayName} ({GestureIndex + 1})";
 
     public ReactiveProperty<KeyGesture?> KeyGesture { get; set; }
 
     public void SetKeyGesture(KeyGesture? gesture)
     {
+        // Persist before updating the UI so a throwing ChangeKeyGesture leaves the displayed binding untouched.
+        _commandManager.ChangeKeyGesture(Command, gesture, CurrentPlatform, GestureIndex);
         KeyGesture.Value = gesture;
-        OSPlatform os = OperatingSystem.IsWindows() ? OSPlatform.Windows :
-            OperatingSystem.IsLinux() ? OSPlatform.Linux :
-            OperatingSystem.IsMacOS() ? OSPlatform.OSX :
-            throw new NotSupportedException();
-        _commandManager.ChangeKeyGesture(Command, gesture, os);
     }
 }
 
@@ -72,7 +84,12 @@ public class KeyMapSettingsPageViewModel : PageContext
 
                 return new KeyMapSettingsGroup(
                     extension,
-                    i.Select(j => new KeyMapSettingsItem(j, _commandManager)).ToArray());
+                    i.SelectMany(j =>
+                    {
+                        int slots = Math.Max(1, j.KeyGestures.Count(g => g.Platform == KeyMapSettingsItem.CurrentPlatform));
+                        return Enumerable.Range(0, slots)
+                            .Select(index => new KeyMapSettingsItem(j, _commandManager, index));
+                    }).ToArray());
             })
             .OfType<KeyMapSettingsGroup>()
             .ToArray();

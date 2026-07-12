@@ -351,6 +351,25 @@ public sealed partial class ElementView : UserControl
         return result.Time;
     }
 
+    // The model-level member set a Slip/Roll/Slide gesture acts on: the pressed clip's
+    // group or multi-selection, always including the pressed clip itself
+    // (GetGroupOrSelectedElements returns empty when it is neither grouped nor selected).
+    // Locked members are deliberately NOT filtered here: TrimGroupCollector needs to see
+    // them to apply its all-or-nothing locked-participant rule for Roll/Slide, and the
+    // slip service drops them itself at the mutation boundary.
+    private static Element[] CollectTrimMembers(ElementViewModel viewModel)
+    {
+        var members = viewModel.GetGroupOrSelectedElements()
+            .Select(el => el.Model)
+            .ToList();
+        if (!members.Contains(viewModel.Model))
+        {
+            members.Add(viewModel.Model);
+        }
+
+        return [.. members];
+    }
+
     private sealed class _ResizeBehavior : Behavior<ElementView>
     {
         private record struct ElementResizeContext(
@@ -362,9 +381,28 @@ public sealed partial class ElementView : UserControl
             TimeSpan? LeftmostUpstreamStart,
             TimeSpan? OriginalDuration);
 
+        private enum TrimDragKind { None, Roll, Slide }
+
+        private record struct TrimSegment(
+            ElementViewModel ViewModel,
+            double InitialLeft,
+            double InitialWidth);
+
+        private record struct TrimDragContext(
+            TrimDragKind Kind,
+            TrimSegment[] Fronts,
+            TrimSegment[] Middles,
+            TrimSegment[] Backs,
+            ElementTrimPair[] RollPairs,
+            ElementSlideLane[] SlideLanes,
+            double InitialPointerX,
+            TimeSpan MinDelta,
+            TimeSpan MaxDelta);
+
         private bool _pressed;
         private AlignmentX _resizeType;
         private ElementResizeContext[] _resizeContexts = [];
+        private TrimDragContext _trimDrag;
 
         public void OnLeftCtrlPressed(KeyEventArgs e)
         {
@@ -385,6 +423,7 @@ public sealed partial class ElementView : UserControl
             AssociatedObject.border.AddHandler(PointerPressedEvent, OnBorderPointerPressed);
             AssociatedObject.border.AddHandler(PointerReleasedEvent, OnBorderPointerReleased);
             AssociatedObject.border.AddHandler(PointerMovedEvent, OnBorderPointerMoved);
+            AssociatedObject.border.AddHandler(PointerCaptureLostEvent, OnBorderPointerCaptureLost);
         }
 
         protected override void OnDetaching()
@@ -396,6 +435,26 @@ public sealed partial class ElementView : UserControl
                 AssociatedObject.border.RemoveHandler(PointerPressedEvent, OnBorderPointerPressed);
                 AssociatedObject.border.RemoveHandler(PointerReleasedEvent, OnBorderPointerReleased);
                 AssociatedObject.border.RemoveHandler(PointerMovedEvent, OnBorderPointerMoved);
+                AssociatedObject.border.RemoveHandler(PointerCaptureLostEvent, OnBorderPointerCaptureLost);
+            }
+        }
+
+        // A normal release also raises PointerCaptureLost (the implicit capture is released
+        // after PointerReleased), so this only acts when the trim-drag state is still live —
+        // i.e. the capture was stolen mid-drag (window deactivation, another control capturing,
+        // touch cancel). Without the restore, Roll/Slide would leave the neighbour clips frozen
+        // at their previewed geometry, out of sync with the model.
+        private void OnBorderPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
+        {
+            if (_trimDrag.Kind is TrimDragKind.None) return;
+
+            TrimDragContext ctx = _trimDrag;
+            _trimDrag = default;
+            _pressed = false;
+            RestoreTrimDragVisuals(ctx);
+            if (AssociatedObject is { ViewModel: { } viewModel })
+            {
+                viewModel.Timeline.SnapBarPosition.Value = null;
             }
         }
 
@@ -409,9 +468,29 @@ public sealed partial class ElementView : UserControl
 
                 if (view._timeline is { } timeline && _pressed)
                 {
-                    pointerFrame = view.RoundStartTime(pointerFrame, scale, e.KeyModifiers.HasFlag(KeyModifiers.Alt));
-                    point = point.WithX(pointerFrame.TimeToPixel(scale));
+                    bool alt = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
                     int rate = viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
+
+                    if (_trimDrag.Kind is not TrimDragKind.None)
+                    {
+                        // Mirror the release commit exactly: snap both endpoints with the same
+                        // function, round to the frame rate, clamp to the bounds captured at drag
+                        // start. Snap the press point first so the snap guide (a RoundStartTime
+                        // side effect) ends up reflecting the pointer, not the press point.
+                        TimeSpan pressTime = view.RoundStartTime(
+                            _trimDrag.InitialPointerX.PixelToTimeSpan(scale), scale, alt);
+                        pointerFrame = view.RoundStartTime(pointerFrame, scale, alt);
+                        TimeSpan previewDelta = TrimDeltaCalculator.ClampDelta(
+                            (pointerFrame - pressTime).RoundToRate(rate),
+                            _trimDrag.MinDelta,
+                            _trimDrag.MaxDelta);
+                        ApplyTrimDragPreview(previewDelta.TimeToPixel(scale));
+                        e.Handled = true;
+                        return;
+                    }
+
+                    pointerFrame = view.RoundStartTime(pointerFrame, scale, alt);
+                    point = point.WithX(pointerFrame.TimeToPixel(scale));
                     double minWidth = TimeSpan.FromSeconds(1d / rate).TimeToPixel(scale);
 
                     if (view.Cursor != Cursors.Arrow && view.Cursor is { })
@@ -466,6 +545,27 @@ public sealed partial class ElementView : UserControl
             }
         }
 
+        private void ApplyTrimDragPreview(double deltaPixels)
+        {
+            TrimDragContext ctx = _trimDrag;
+
+            foreach (TrimSegment front in ctx.Fronts)
+            {
+                front.ViewModel.Width.Value = front.InitialWidth + deltaPixels;
+            }
+
+            foreach (TrimSegment middle in ctx.Middles)
+            {
+                middle.ViewModel.BorderMargin.Value = new Thickness(middle.InitialLeft + deltaPixels, 0, 0, 0);
+            }
+
+            foreach (TrimSegment back in ctx.Backs)
+            {
+                back.ViewModel.BorderMargin.Value = new Thickness(back.InitialLeft + deltaPixels, 0, 0, 0);
+                back.ViewModel.Width.Value = back.InitialWidth - deltaPixels;
+            }
+        }
+
         private void OnBorderPointerPressed(object? sender, PointerPressedEventArgs e)
         {
             if (AssociatedObject is { _timeline: not null, ViewModel: { } viewModel } view)
@@ -481,9 +581,48 @@ public sealed partial class ElementView : UserControl
                 }
 
                 PointerPoint point = e.GetCurrentPoint(view.border);
-                if (point.Properties.IsLeftButtonPressed && e.KeyModifiers is KeyModifiers.None or KeyModifiers.Alt
-                                                         && view.Cursor != Cursors.Arrow && view.Cursor is not null)
+                bool leftButton = point.Properties.IsLeftButtonPressed
+                                  && e.KeyModifiers is KeyModifiers.None or KeyModifiers.Alt;
+
+                // Slide is a body-drag gesture (SlideTool_Description: "Drag a clip"), so it must
+                // start on the clip body where the cursor is Arrow, not only on the resize edge.
+                if (leftButton && viewModel.Timeline.IsSlideMode.Value)
                 {
+                    if (TryStartSlideDrag(viewModel, e.GetPosition(view)))
+                    {
+                        _pressed = true;
+                        // Re-target Avalonia's implicit capture from the hit-tested child to the
+                        // border: PointerCaptureLost routes Direct (no bubbling), so the reset
+                        // handler below only fires reliably when the border itself is captured.
+                        e.Pointer.Capture(view.border);
+                    }
+
+                    e.Handled = true;
+                    return;
+                }
+
+                if (leftButton && view.Cursor != Cursors.Arrow && view.Cursor is not null)
+                {
+                    // In Slip mode an edge press is a slip, handled by _MoveBehavior; leave the
+                    // event unconsumed so a plain edge resize does not run in its place.
+                    if (viewModel.Timeline.IsSlipMode.Value)
+                    {
+                        return;
+                    }
+
+                    Point timelinePosition = e.GetPosition(view);
+                    if (viewModel.Timeline.IsRollMode.Value)
+                    {
+                        if (TryStartRollDrag(viewModel, timelinePosition))
+                        {
+                            _pressed = true;
+                            e.Pointer.Capture(view.border);
+                        }
+
+                        e.Handled = true;
+                        return;
+                    }
+
                     IReadOnlyList<ElementViewModel> relatedElements = viewModel.GetGroupOrSelectedElements()
                         .Where(el => el.IsEditable.Value)
                         .ToArray();
@@ -535,6 +674,92 @@ public sealed partial class ElementView : UserControl
             }
         }
 
+        private bool TryStartRollDrag(ElementViewModel viewModel, Point position)
+        {
+            if (_resizeType is not (AlignmentX.Left or AlignmentX.Right)) return false;
+
+            Element model = viewModel.Model;
+            TimeSpan boundary = _resizeType == AlignmentX.Right ? model.Range.End : model.Start;
+
+            IReadOnlyList<ElementTrimPair>? pairs = TrimGroupCollector.CollectRollPairs(
+                viewModel.Scene, CollectTrimMembers(viewModel), boundary);
+            if (pairs is null) return false;
+            // The pressed clip's own cut must participate; without it the drag would roll
+            // only other group members' cuts, detached from the pointer.
+            if (!pairs.Any(p => p.Front == model || p.Back == model)) return false;
+
+            var fronts = new TrimSegment[pairs.Count];
+            var backs = new TrimSegment[pairs.Count];
+            for (int i = 0; i < pairs.Count; i++)
+            {
+                ElementViewModel? frontVm = viewModel.Timeline.GetViewModelFor(pairs[i].Front);
+                ElementViewModel? backVm = viewModel.Timeline.GetViewModelFor(pairs[i].Back);
+                if (frontVm is null || backVm is null) return false;
+                fronts[i] = new TrimSegment(frontVm, frontVm.BorderMargin.Value.Left, frontVm.Width.Value);
+                backs[i] = new TrimSegment(backVm, backVm.BorderMargin.Value.Left, backVm.Width.Value);
+            }
+
+            (TimeSpan minDelta, TimeSpan maxDelta) = viewModel.Timeline.EditorContext
+                .GetRequiredService<IElementResizeService>()
+                .GetTrimDeltaBounds(viewModel.Scene, pairs);
+
+            _trimDrag = new TrimDragContext(
+                Kind: TrimDragKind.Roll,
+                Fronts: fronts,
+                Middles: [],
+                Backs: backs,
+                RollPairs: pairs.ToArray(),
+                SlideLanes: [],
+                InitialPointerX: position.X,
+                MinDelta: minDelta,
+                MaxDelta: maxDelta);
+            return true;
+        }
+
+        private bool TryStartSlideDrag(ElementViewModel viewModel, Point position)
+        {
+            IReadOnlyList<ElementSlideLane>? lanes = TrimGroupCollector.CollectSlideLanes(
+                viewModel.Scene, CollectTrimMembers(viewModel));
+            if (lanes is null) return false;
+
+            var fronts = new TrimSegment[lanes.Count];
+            var backs = new TrimSegment[lanes.Count];
+            var middles = new List<TrimSegment>();
+            for (int i = 0; i < lanes.Count; i++)
+            {
+                ElementViewModel? frontVm = viewModel.Timeline.GetViewModelFor(lanes[i].Front);
+                ElementViewModel? backVm = viewModel.Timeline.GetViewModelFor(lanes[i].Back);
+                if (frontVm is null || backVm is null) return false;
+                fronts[i] = new TrimSegment(frontVm, frontVm.BorderMargin.Value.Left, frontVm.Width.Value);
+                backs[i] = new TrimSegment(backVm, backVm.BorderMargin.Value.Left, backVm.Width.Value);
+
+                foreach (Element middle in lanes[i].Middles)
+                {
+                    ElementViewModel? middleVm = viewModel.Timeline.GetViewModelFor(middle);
+                    if (middleVm is null) return false;
+                    middles.Add(new TrimSegment(middleVm, middleVm.BorderMargin.Value.Left, middleVm.Width.Value));
+                }
+            }
+
+            (TimeSpan minDelta, TimeSpan maxDelta) = viewModel.Timeline.EditorContext
+                .GetRequiredService<IElementResizeService>()
+                .GetTrimDeltaBounds(
+                    viewModel.Scene,
+                    lanes.Select(l => new ElementTrimPair(l.Front, l.Back)).ToArray());
+
+            _trimDrag = new TrimDragContext(
+                Kind: TrimDragKind.Slide,
+                Fronts: fronts,
+                Middles: middles.ToArray(),
+                Backs: backs,
+                RollPairs: [],
+                SlideLanes: lanes.ToArray(),
+                InitialPointerX: position.X,
+                MinDelta: minDelta,
+                MaxDelta: maxDelta);
+            return true;
+        }
+
         private async void OnBorderPointerReleased(object? sender, PointerReleasedEventArgs e)
         {
             if (_pressed)
@@ -545,6 +770,42 @@ public sealed partial class ElementView : UserControl
                 {
                     viewModel.Timeline.SnapBarPosition.Value = null;
                     e.Handled = true;
+
+                    if (_trimDrag.Kind is not TrimDragKind.None)
+                    {
+                        TrimDragContext ctx = _trimDrag;
+                        _trimDrag = default;
+
+                        float scale = viewModel.Timeline.Options.Value.Scale;
+                        int rate = viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
+                        Point released = e.GetPosition(AssociatedObject);
+                        bool alt = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
+                        TimeSpan delta = TrimDeltaCalculator.SnappedDelta(
+                                ctx.InitialPointerX.PixelToTimeSpan(scale),
+                                released.X.PixelToTimeSpan(scale),
+                                t => AssociatedObject.RoundStartTime(t, scale, alt))
+                            .RoundToRate(rate);
+                        // RoundStartTime re-sets the snap guide line as a side effect; clear it.
+                        viewModel.Timeline.SnapBarPosition.Value = null;
+
+                        RestoreTrimDragVisuals(ctx);
+
+                        if (delta != TimeSpan.Zero)
+                        {
+                            IElementResizeService resizeService = viewModel.Timeline.EditorContext
+                                .GetRequiredService<IElementResizeService>();
+                            if (ctx.Kind == TrimDragKind.Roll)
+                            {
+                                resizeService.Roll(viewModel.Scene, ctx.RollPairs, delta);
+                            }
+                            else
+                            {
+                                resizeService.Slide(viewModel.Scene, ctx.SlideLanes, delta);
+                            }
+                        }
+
+                        return;
+                    }
 
                     bool ripple = viewModel.Timeline.IsRippleEnabled.Value
                         && _resizeType is AlignmentX.Right or AlignmentX.Left;
@@ -589,6 +850,26 @@ public sealed partial class ElementView : UserControl
                 }
 
                 _resizeContexts = [];
+            }
+        }
+
+        private static void RestoreTrimDragVisuals(TrimDragContext ctx)
+        {
+            foreach (TrimSegment front in ctx.Fronts)
+            {
+                front.ViewModel.Width.Value = front.InitialWidth;
+            }
+
+            foreach (TrimSegment middle in ctx.Middles)
+            {
+                middle.ViewModel.BorderMargin.Value = new Thickness(middle.InitialLeft, 0, 0, 0);
+                middle.ViewModel.Width.Value = middle.InitialWidth;
+            }
+
+            foreach (TrimSegment back in ctx.Backs)
+            {
+                back.ViewModel.BorderMargin.Value = new Thickness(back.InitialLeft, 0, 0, 0);
+                back.ViewModel.Width.Value = back.InitialWidth;
             }
         }
 
@@ -657,6 +938,8 @@ public sealed partial class ElementView : UserControl
 
         private bool _pressed;
         private bool _duplicateMode;
+        private bool _isSlipDrag;
+        private Element[] _slipTargets = [];
         private readonly List<Control> _ghosts = [];
         private IReadOnlyList<ElementViewModel> _relatedElements = [];
         private Point _start;
@@ -669,6 +952,7 @@ public sealed partial class ElementView : UserControl
             AssociatedObject.AddHandler(PointerMovedEvent, OnPointerMoved);
             AssociatedObject.border.AddHandler(PointerPressedEvent, OnBorderPointerPressed);
             AssociatedObject.border.AddHandler(PointerReleasedEvent, OnBorderPointerReleased);
+            AssociatedObject.border.AddHandler(PointerCaptureLostEvent, OnBorderPointerCaptureLost);
         }
 
         protected override void OnDetaching()
@@ -682,6 +966,25 @@ public sealed partial class ElementView : UserControl
             AssociatedObject.RemoveHandler(PointerMovedEvent, OnPointerMoved);
             AssociatedObject.border.RemoveHandler(PointerPressedEvent, OnBorderPointerPressed);
             AssociatedObject.border.RemoveHandler(PointerReleasedEvent, OnBorderPointerReleased);
+            AssociatedObject.border.RemoveHandler(PointerCaptureLostEvent, OnBorderPointerCaptureLost);
+        }
+
+        // A normal release also raises PointerCaptureLost (the implicit capture is released
+        // after PointerReleased), so this only acts while a slip drag is still live — i.e.
+        // the capture was stolen mid-drag (window deactivation, another control capturing,
+        // touch cancel). Slip has no geometry preview, so only the flags and the snap guide
+        // need resetting; the pending slip is intentionally dropped, not committed.
+        private void OnBorderPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
+        {
+            if (!_isSlipDrag) return;
+
+            _isSlipDrag = false;
+            _pressed = false;
+            _slipTargets = [];
+            if (AssociatedObject is { ViewModel: { } viewModel })
+            {
+                viewModel.Timeline.SnapBarPosition.Value = null;
+            }
         }
 
         private void OnPointerMoved(object? sender, PointerEventArgs e)
@@ -693,6 +996,15 @@ public sealed partial class ElementView : UserControl
                 TimeSpan pointerFrame = point.X.PixelToTimeSpan(scale);
 
                 pointerFrame = view.RoundStartTime(pointerFrame, scale, e.KeyModifiers.HasFlag(KeyModifiers.Alt));
+
+                if (_isSlipDrag)
+                {
+                    // Slip shifts the media window, not element geometry — there is no
+                    // per-frame geometry preview to apply here. The Player overlay shows
+                    // the media window shift; the service runs once on release.
+                    e.Handled = true;
+                    return;
+                }
 
                 TimeSpan newframe = pointerFrame - _start.X.PixelToTimeSpan(scale);
 
@@ -746,9 +1058,42 @@ public sealed partial class ElementView : UserControl
                 }
 
                 PointerPoint point = e.GetCurrentPoint(view.border);
-                if (point.Properties.IsLeftButtonPressed
-                    && (view.Cursor == Cursors.Arrow || view.Cursor == null))
+                if (!point.Properties.IsLeftButtonPressed)
                 {
+                    return;
+                }
+
+                // Slip shifts the media window, not clip geometry, so it starts anywhere on the clip
+                // — including the resize edge, where a plain resize would otherwise take over.
+                // Selection-modifier clicks (Ctrl/Shift) belong to _SelectBehavior and must not
+                // start a slip; Alt stays allowed as the snap-disable modifier, like other drags.
+                if (viewModel.Timeline.IsSlipMode.Value)
+                {
+                    if (e.KeyModifiers is not (KeyModifiers.None or KeyModifiers.Alt))
+                    {
+                        return;
+                    }
+
+                    _pressed = true;
+                    _isSlipDrag = true;
+                    _slipTargets = CollectTrimMembers(viewModel);
+                    _start = e.GetPosition(view);
+                    // Re-target the implicit capture to the border: PointerCaptureLost routes
+                    // Direct (no bubbling), so the reset handler only fires reliably when the
+                    // border itself holds the capture.
+                    e.Pointer.Capture(view.border);
+                    e.Handled = true;
+                    return;
+                }
+
+                if (view.Cursor == Cursors.Arrow || view.Cursor == null)
+                {
+                    if (viewModel.Timeline.IsRollMode.Value || viewModel.Timeline.IsSlideMode.Value)
+                    {
+                        e.Handled = true;
+                        return;
+                    }
+
                     _pressed = true;
                     _duplicateMode = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
                     _relatedElements = viewModel.GetGroupOrSelectedElements()
@@ -759,6 +1104,30 @@ public sealed partial class ElementView : UserControl
                     _start = point.Position;
                     e.Handled = true;
                 }
+            }
+        }
+
+        private void CommitSlipDrag(ElementView view, ElementViewModel viewModel, PointerReleasedEventArgs e)
+        {
+            Element[] targets = _slipTargets;
+            _slipTargets = [];
+
+            float scale = viewModel.Timeline.Options.Value.Scale;
+            int rate = viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
+            Point released = e.GetPosition(view);
+            bool alt = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
+            TimeSpan delta = TrimDeltaCalculator.SnappedDelta(
+                    _start.X.PixelToTimeSpan(scale),
+                    released.X.PixelToTimeSpan(scale),
+                    t => view.RoundStartTime(t, scale, alt))
+                .RoundToRate(rate);
+            // RoundStartTime re-sets the snap guide line as a side effect; clear it.
+            viewModel.Timeline.SnapBarPosition.Value = null;
+            if (delta != TimeSpan.Zero && targets.Length > 0)
+            {
+                viewModel.Timeline.EditorContext
+                    .GetRequiredService<IElementSlipService>()
+                    .Slip(viewModel.Scene, targets, delta);
             }
         }
 
@@ -794,12 +1163,20 @@ public sealed partial class ElementView : UserControl
             IReadOnlyList<ElementViewModel> relatedElements = _relatedElements;
             _relatedElements = [];
 
-            if (AssociatedObject is not { ViewModel: { } viewModel, _timeline: { } timeline }) return;
+            if (AssociatedObject is not { ViewModel: { } viewModel, _timeline: { } timeline } view) return;
 
             RemoveGhosts(timeline);
 
             viewModel.Timeline.SnapBarPosition.Value = null;
             e.Handled = true;
+
+            if (_isSlipDrag)
+            {
+                _isSlipDrag = false;
+                CommitSlipDrag(view, viewModel, e);
+                return;
+            }
+
             var elems = relatedElements.Select(x => x.Model).ToArray();
 
             float scale = viewModel.Timeline.Options.Value.Scale;
@@ -1009,7 +1386,25 @@ public sealed partial class ElementView : UserControl
                     {
                         if (e.KeyModifiers is KeyModifiers.None or KeyModifiers.Alt)
                         {
-                            Select(obj, obj._timeline.ViewModel);
+                            // In a trim mode, a plain press on an already-selected clip starts a
+                            // multi-selection Slip/Roll/Slide; re-selecting here would collapse
+                            // the selection to the pressed clip before those behaviors (which run
+                            // after this one) collect their targets. Pressing an unselected clip
+                            // still re-selects as usual.
+                            bool trimMode = timelineVm.IsSlipMode.Value
+                                || timelineVm.IsRollMode.Value
+                                || timelineVm.IsSlideMode.Value;
+                            if (!trimMode || !timelineVm.SelectedElements.Contains(obj.ViewModel))
+                            {
+                                Select(obj, obj._timeline.ViewModel);
+                            }
+                            else
+                            {
+                                // Keep the multi-selection, but still point the single selection
+                                // (property tab, keyframe scope) at the pressed clip.
+                                timelineVm.EditorContext.GetRequiredService<IEditorSelection>()
+                                    .SelectedObject.Value = obj.ViewModel.Model;
+                            }
                         }
                         else
                         {

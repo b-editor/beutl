@@ -246,6 +246,9 @@
   <data name="Duplicate" xml:space="preserve">
     <value>複製</value>
   </data>
+  <data name="EditingMode" xml:space="preserve">
+    <value>編集モード</value>
+  </data>
   <data name="RazorTool" xml:space="preserve">
     <value>レーザーモード</value>
   </data>
@@ -257,6 +260,42 @@
   </data>
   <data name="ExitRazorTool_Description" xml:space="preserve">
     <value>レーザーモードを終了し、選択ツールに戻ります。</value>
+  </data>
+  <data name="SlipTool" xml:space="preserve">
+    <value>スリップツール</value>
+  </data>
+  <data name="SlipTool_Description" xml:space="preserve">
+    <value>スリップツールを切り替えます。クリップをドラッグして、クリップを移動せずにソースメディアの表示位置をずらします。</value>
+  </data>
+  <data name="ExitSlipTool" xml:space="preserve">
+    <value>スリップツールを終了</value>
+  </data>
+  <data name="ExitSlipTool_Description" xml:space="preserve">
+    <value>スリップモードを終了し、選択ツールに戻ります。</value>
+  </data>
+  <data name="RollTool" xml:space="preserve">
+    <value>ロールツール</value>
+  </data>
+  <data name="RollTool_Description" xml:space="preserve">
+    <value>ロールツールを切り替えます。クリップの端をドラッグして隣接クリップとの境界を移動し、全体の長さを保ちます。</value>
+  </data>
+  <data name="ExitRollTool" xml:space="preserve">
+    <value>ロールツールを終了</value>
+  </data>
+  <data name="ExitRollTool_Description" xml:space="preserve">
+    <value>ロールモードを終了し、選択ツールに戻ります。</value>
+  </data>
+  <data name="SlideTool" xml:space="preserve">
+    <value>スライドツール</value>
+  </data>
+  <data name="SlideTool_Description" xml:space="preserve">
+    <value>スライドツールを切り替えます。クリップをドラッグして移動し、両隣のクリップが補正して全体の長さを保ちます。</value>
+  </data>
+  <data name="ExitSlideTool" xml:space="preserve">
+    <value>スライドツールを終了</value>
+  </data>
+  <data name="ExitSlideTool_Description" xml:space="preserve">
+    <value>スライドモードを終了し、選択ツールに戻ります。</value>
   </data>
   <data name="SampleRate" xml:space="preserve">
     <value>サンプルレート</value>

@@ -30,6 +30,15 @@
   <data name="MoveElement" xml:space="preserve">
     <value>要素を移動</value>
   </data>
+  <data name="SlipElement" xml:space="preserve">
+    <value>要素をスリップ</value>
+  </data>
+  <data name="RollElements" xml:space="preserve">
+    <value>要素をロール</value>
+  </data>
+  <data name="SlideElements" xml:space="preserve">
+    <value>要素をスライド</value>
+  </data>
   <data name="SplitElement" xml:space="preserve">
     <value>要素を分割</value>
   </data>

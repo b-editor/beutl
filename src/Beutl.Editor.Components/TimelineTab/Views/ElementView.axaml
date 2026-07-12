@@ -74,18 +74,36 @@
                         </Style>
                     </ui:ToggleMenuFlyoutItem.Styles>
                 </ui:ToggleMenuFlyoutItem>
-                <ui:ToggleMenuFlyoutItem IsChecked="{Binding Timeline.IsRazorMode.Value, Mode=TwoWay}"
-                                         InputGesture="{h:GetCommandGesture ToggleRazorMode,
-                                                                            ExtensionType={x:Type p:TimelineTabExtension}}"
-                                         Text="{x:Static lang:Strings.RazorTool}">
-                    <ui:ToggleMenuFlyoutItem.IconSource>
-                        <icons:FluentIconSource Icon="Cut" />
-                    </ui:ToggleMenuFlyoutItem.IconSource>
-                </ui:ToggleMenuFlyoutItem>
-                <ui:ToggleMenuFlyoutItem IsChecked="{Binding Timeline.IsRippleEnabled.Value, Mode=TwoWay}"
-                                         InputGesture="{h:GetCommandGesture ToggleRippleMode,
-                                                                            ExtensionType={x:Type p:TimelineTabExtension}}"
-                                         Text="{x:Static lang:Strings.RippleEdit}" />
+                <ui:MenuFlyoutSubItem Text="{x:Static lang:Strings.EditingMode}">
+                    <ui:MenuFlyoutSubItem.IconSource>
+                        <icons:FluentIconSource Icon="Edit" />
+                    </ui:MenuFlyoutSubItem.IconSource>
+                    <ui:ToggleMenuFlyoutItem IsChecked="{Binding Timeline.IsRazorMode.Value, Mode=TwoWay}"
+                                             InputGesture="{h:GetCommandGesture ToggleRazorMode,
+                                                                                ExtensionType={x:Type p:TimelineTabExtension}}"
+                                             Text="{x:Static lang:Strings.RazorTool}">
+                        <ui:ToggleMenuFlyoutItem.IconSource>
+                            <icons:FluentIconSource Icon="Cut" />
+                        </ui:ToggleMenuFlyoutItem.IconSource>
+                    </ui:ToggleMenuFlyoutItem>
+                    <ui:ToggleMenuFlyoutItem IsChecked="{Binding Timeline.IsSlipMode.Value, Mode=TwoWay}"
+                                             InputGesture="{h:GetCommandGesture ToggleSlipMode,
+                                                                                ExtensionType={x:Type p:TimelineTabExtension}}"
+                                             Text="{x:Static lang:Strings.SlipTool}" />
+                    <ui:ToggleMenuFlyoutItem IsChecked="{Binding Timeline.IsRollMode.Value, Mode=TwoWay}"
+                                             InputGesture="{h:GetCommandGesture ToggleRollMode,
+                                                                                ExtensionType={x:Type p:TimelineTabExtension}}"
+                                             Text="{x:Static lang:Strings.RollTool}" />
+                    <ui:ToggleMenuFlyoutItem IsChecked="{Binding Timeline.IsSlideMode.Value, Mode=TwoWay}"
+                                             InputGesture="{h:GetCommandGesture ToggleSlideMode,
+                                                                                ExtensionType={x:Type p:TimelineTabExtension}}"
+                                             Text="{x:Static lang:Strings.SlideTool}" />
+                    <ui:MenuFlyoutSeparator />
+                    <ui:ToggleMenuFlyoutItem IsChecked="{Binding Timeline.IsRippleEnabled.Value, Mode=TwoWay}"
+                                             InputGesture="{h:GetCommandGesture ToggleRippleMode,
+                                                                                ExtensionType={x:Type p:TimelineTabExtension}}"
+                                             Text="{x:Static lang:Strings.RippleEdit}" />
+                </ui:MenuFlyoutSubItem>
                 <ui:MenuFlyoutSeparator />
                 <ui:MenuFlyoutItem x:Name="split"
                                    Command="{Binding Split}"

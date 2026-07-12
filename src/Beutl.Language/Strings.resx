@@ -170,6 +170,9 @@
   <data name="Duplicate" xml:space="preserve">
     <value>Duplicate</value>
   </data>
+  <data name="EditingMode" xml:space="preserve">
+    <value>Editing Mode</value>
+  </data>
   <data name="RazorTool" xml:space="preserve">
     <value>Razor Tool</value>
   </data>
@@ -181,6 +184,42 @@
   </data>
   <data name="ExitRazorTool_Description" xml:space="preserve">
     <value>Exit razor mode and return to selection tool.</value>
+  </data>
+  <data name="SlipTool" xml:space="preserve">
+    <value>Slip Tool</value>
+  </data>
+  <data name="SlipTool_Description" xml:space="preserve">
+    <value>Toggle slip tool. Drag a clip to shift its source-media window without moving the clip.</value>
+  </data>
+  <data name="ExitSlipTool" xml:space="preserve">
+    <value>Exit Slip Tool</value>
+  </data>
+  <data name="ExitSlipTool_Description" xml:space="preserve">
+    <value>Exit slip mode and return to selection tool.</value>
+  </data>
+  <data name="RollTool" xml:space="preserve">
+    <value>Roll Tool</value>
+  </data>
+  <data name="RollTool_Description" xml:space="preserve">
+    <value>Toggle roll tool. Drag a clip edge to shift the boundary with its neighbor, preserving total length.</value>
+  </data>
+  <data name="ExitRollTool" xml:space="preserve">
+    <value>Exit Roll Tool</value>
+  </data>
+  <data name="ExitRollTool_Description" xml:space="preserve">
+    <value>Exit roll mode and return to selection tool.</value>
+  </data>
+  <data name="SlideTool" xml:space="preserve">
+    <value>Slide Tool</value>
+  </data>
+  <data name="SlideTool_Description" xml:space="preserve">
+    <value>Toggle slide tool. Drag a clip to shift it while neighbors compensate, preserving total length.</value>
+  </data>
+  <data name="ExitSlideTool" xml:space="preserve">
+    <value>Exit Slide Tool</value>
+  </data>
+  <data name="ExitSlideTool_Description" xml:space="preserve">
+    <value>Exit slide mode and return to selection tool.</value>
   </data>
   <data name="Delete" xml:space="preserve">
     <value>Delete</value>

@@ -55,27 +55,36 @@ public class ContextCommandDefinition(
     {
         if (keyGestures == null) return keyGestures;
 
-        ContextCommandKeyGesture? fallbackGesture = null;
-        ContextCommandKeyGesture? windows = null;
-        ContextCommandKeyGesture? linux = null;
-        ContextCommandKeyGesture? osx = null;
+        var fallbacks = new List<ContextCommandKeyGesture>();
+        var windows = new List<ContextCommandKeyGesture>();
+        var linux = new List<ContextCommandKeyGesture>();
+        var osx = new List<ContextCommandKeyGesture>();
 
         foreach (ContextCommandKeyGesture gesture in keyGestures)
         {
-            if (gesture.Platform == null) fallbackGesture = gesture;
-            else if (gesture.Platform == OSPlatform.Windows) windows = gesture;
-            else if (gesture.Platform == OSPlatform.Linux) linux = gesture;
-            else if (gesture.Platform == OSPlatform.OSX) osx = gesture;
+            if (gesture.Platform == null) fallbacks.Add(gesture);
+            else if (gesture.Platform == OSPlatform.Windows) windows.Add(gesture);
+            else if (gesture.Platform == OSPlatform.Linux) linux.Add(gesture);
+            else if (gesture.Platform == OSPlatform.OSX) osx.Add(gesture);
         }
 
-        if (windows == null && fallbackGesture != null)
-            windows = new ContextCommandKeyGesture(fallbackGesture.KeyGesture, OSPlatform.Windows);
-        if (linux == null && fallbackGesture != null)
-            linux = new ContextCommandKeyGesture(fallbackGesture.KeyGesture, OSPlatform.Linux);
-        if (osx == null && fallbackGesture != null)
-            osx = new ContextCommandKeyGesture(fallbackGesture.KeyGesture, OSPlatform.OSX);
+        // A platform with no explicit gesture inherits every platform-less fallback, so a command
+        // declaring several fallbacks (e.g. V and Escape) keeps all of them per platform rather
+        // than only the last one. A platform with its own gesture(s) overrides the fallbacks.
+        FillFromFallbacks(windows, fallbacks, OSPlatform.Windows);
+        FillFromFallbacks(linux, fallbacks, OSPlatform.Linux);
+        FillFromFallbacks(osx, fallbacks, OSPlatform.OSX);
 
-        return new[] { windows, linux, osx }.Where(i => i != null).ToArray()!;
+        return windows.Concat(linux).Concat(osx).ToArray();
+    }
+
+    private static void FillFromFallbacks(
+        List<ContextCommandKeyGesture> target, List<ContextCommandKeyGesture> fallbacks, OSPlatform platform)
+    {
+        if (target.Count != 0) return;
+
+        foreach (ContextCommandKeyGesture fallback in fallbacks)
+            target.Add(new ContextCommandKeyGesture(fallback.KeyGesture, platform));
     }
 }
 

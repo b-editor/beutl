@@ -1,4 +1,5 @@
 ﻿using Beutl.Configuration;
+using Beutl.Engine;
 using Beutl.Language;
 using Beutl.ProjectSystem;
 
@@ -239,5 +240,259 @@ public sealed class ElementResizeService : IElementResizeService
         // move validation instead of forcing a bad value here.
         TimeSpan clampedLength = clampedEnd - start;
         return clampedLength > TimeSpan.Zero ? clampedLength : length;
+    }
+
+    public (TimeSpan Min, TimeSpan Max) GetTrimDeltaBounds(Scene scene, IReadOnlyList<ElementTrimPair> pairs)
+    {
+        ArgumentNullException.ThrowIfNull(scene);
+        ArgumentNullException.ThrowIfNull(pairs);
+        ThrowIfAnyNullParticipant(pairs);
+
+        (TimeSpan min, TimeSpan max) = (TimeSpan.Zero, TimeSpan.Zero);
+        for (int i = 0; i < pairs.Count; i++)
+        {
+            (Element front, Element back) = pairs[i];
+            (TimeSpan pairMin, TimeSpan pairMax) = ComputeTrimDeltaBounds(scene, front, back,
+                SlippableMedia.Collect(front), SlippableMedia.Collect(back));
+            if (i == 0)
+            {
+                (min, max) = (pairMin, pairMax);
+            }
+            else
+            {
+                if (pairMin > min) min = pairMin;
+                if (pairMax < max) max = pairMax;
+            }
+        }
+
+        return (min, max);
+    }
+
+    public bool Roll(Scene scene, IReadOnlyList<ElementTrimPair> pairs, TimeSpan delta)
+    {
+        ArgumentNullException.ThrowIfNull(scene);
+        ArgumentNullException.ThrowIfNull(pairs);
+        ThrowIfAnyNullParticipant(pairs);
+        if (pairs.Count == 0) return false;
+
+        // One shared delta moves every cut, so a single invalid pair rejects the whole
+        // operation — a partial roll would desync the grouped cuts it was asked to keep together.
+        var used = new HashSet<Element>();
+        foreach ((Element front, Element back) in pairs)
+        {
+            if (front == back) return false;
+            // Coincidental time adjacency across layers is not an editable cut, and elements
+            // outside the supplied scene must not be mutated through this public seam — the
+            // UI guarantees both, direct service callers may not.
+            if (front.ZIndex != back.ZIndex) return false;
+            if (!scene.Children.Contains(front) || !scene.Children.Contains(back)) return false;
+            if (front.Range.End != back.Start) return false;
+            // Roll writes both clips, so a locked side blocks the whole op rather than being filtered.
+            if (scene.IsElementLocked(front) || scene.IsElementLocked(back)) return false;
+            // An element in two pairs would take two geometry writes and break the invariant.
+            if (!used.Add(front) || !used.Add(back)) return false;
+        }
+
+        var backTargets = new List<SlippableMedia.Target>[pairs.Count];
+        var fixedOffsets = new HashSet<IProperty<TimeSpan>>();
+        (TimeSpan min, TimeSpan max) = (TimeSpan.MinValue, TimeSpan.MaxValue);
+        for (int i = 0; i < pairs.Count; i++)
+        {
+            (Element front, Element back) = pairs[i];
+            backTargets[i] = SlippableMedia.Collect(back);
+            List<SlippableMedia.Target> frontTargets = SlippableMedia.Collect(front);
+            foreach (SlippableMedia.Target target in frontTargets)
+            {
+                fixedOffsets.Add(target.Offset);
+            }
+
+            (TimeSpan pairMin, TimeSpan pairMax) = ComputeTrimDeltaBounds(scene, front, back,
+                frontTargets, backTargets[i]);
+            if (pairMin > min) min = pairMin;
+            if (pairMax < max) max = pairMax;
+        }
+
+        // A media object shared between a front and a back participant cannot take the
+        // back-side offset advance without also shifting the front clip's fixed in-point,
+        // so the whole operation is rejected rather than applied desynced.
+        if (backTargets.Any(targets => targets.Any(t => fixedOffsets.Contains(t.Offset)))) return false;
+
+        TimeSpan clamped = Clamp(delta, min, max);
+        if (clamped == TimeSpan.Zero) return false;
+
+        var applied = new HashSet<IProperty<TimeSpan>>();
+        for (int i = 0; i < pairs.Count; i++)
+        {
+            (Element front, Element back) = pairs[i];
+            // Bypass Scene.MoveChild's overlap handling: Roll intentionally keeps the
+            // two clips exactly adjacent (front.End == back.Start), which MoveCommand
+            // treats as overlap and refuses. Direct property setters still record.
+            front.Length += clamped;
+            back.Start += clamped;
+            back.Length -= clamped;
+            // Preserve the back clip's content across the moving cut: its in-point advances
+            // by the same delta so the same source frames stay under the same timeline times.
+            SlippableMedia.ApplyOffsetDelta(backTargets[i], clamped, applied);
+        }
+
+        _historyManager.Commit(CommandNames.RollElements);
+        return true;
+    }
+
+    public bool Slide(Scene scene, IReadOnlyList<ElementSlideLane> lanes, TimeSpan delta)
+    {
+        ArgumentNullException.ThrowIfNull(scene);
+        ArgumentNullException.ThrowIfNull(lanes);
+        foreach ((Element front, IReadOnlyList<Element> middles, Element back) in lanes)
+        {
+            if (front is null || back is null || middles is null)
+                throw new ArgumentNullException(nameof(lanes), "lanes must not contain null participants.");
+            if (middles.Count == 0)
+                throw new ArgumentException("Every lane needs at least one middle element.", nameof(lanes));
+            foreach (Element middle in middles)
+            {
+                if (middle is null)
+                    throw new ArgumentNullException(nameof(lanes), "lanes must not contain null participants.");
+            }
+        }
+
+        if (lanes.Count == 0) return false;
+
+        // One shared delta moves every lane, so a single invalid lane rejects the whole
+        // operation — a partial slide would desync the grouped block it was asked to keep together.
+        var used = new HashSet<Element>();
+        foreach ((Element front, IReadOnlyList<Element> middles, Element back) in lanes)
+        {
+            if (!used.Add(front) || !used.Add(back)) return false;
+            if (front.ZIndex != back.ZIndex) return false;
+            if (!scene.Children.Contains(front) || !scene.Children.Contains(back)) return false;
+            if (scene.IsElementLocked(front) || scene.IsElementLocked(back)) return false;
+
+            TimeSpan expectedStart = front.Range.End;
+            foreach (Element middle in middles)
+            {
+                if (!used.Add(middle)) return false;
+                if (middle.ZIndex != front.ZIndex) return false;
+                if (!scene.Children.Contains(middle)) return false;
+                if (scene.IsElementLocked(middle)) return false;
+                if (middle.Start != expectedStart) return false;
+                expectedStart = middle.Range.End;
+            }
+
+            if (back.Start != expectedStart) return false;
+        }
+
+        // The middle clips' lengths are unaffected by Slide, so only front and back bound the delta.
+        var backTargets = new List<SlippableMedia.Target>[lanes.Count];
+        var fixedOffsets = new HashSet<IProperty<TimeSpan>>();
+        (TimeSpan min, TimeSpan max) = (TimeSpan.MinValue, TimeSpan.MaxValue);
+        for (int i = 0; i < lanes.Count; i++)
+        {
+            (Element front, IReadOnlyList<Element> middles, Element back) = lanes[i];
+            backTargets[i] = SlippableMedia.Collect(back);
+            List<SlippableMedia.Target> frontTargets = SlippableMedia.Collect(front);
+            foreach (SlippableMedia.Target target in frontTargets)
+            {
+                fixedOffsets.Add(target.Offset);
+            }
+
+            // Middle in-points are fixed too: they move in time without re-trimming.
+            foreach (Element middle in middles)
+            {
+                foreach (SlippableMedia.Target target in SlippableMedia.Collect(middle))
+                {
+                    fixedOffsets.Add(target.Offset);
+                }
+            }
+
+            (TimeSpan laneMin, TimeSpan laneMax) = ComputeTrimDeltaBounds(scene, front, back,
+                frontTargets, backTargets[i]);
+            if (laneMin > min) min = laneMin;
+            if (laneMax < max) max = laneMax;
+        }
+
+        // A media object shared between a back participant and a front/middle participant
+        // cannot take the back-side offset advance without also shifting content that must
+        // stay fixed, so the whole operation is rejected rather than applied desynced.
+        if (backTargets.Any(targets => targets.Any(t => fixedOffsets.Contains(t.Offset)))) return false;
+
+        TimeSpan clamped = Clamp(delta, min, max);
+        if (clamped == TimeSpan.Zero) return false;
+
+        var applied = new HashSet<IProperty<TimeSpan>>();
+        for (int i = 0; i < lanes.Count; i++)
+        {
+            (Element front, IReadOnlyList<Element> middles, Element back) = lanes[i];
+            // Invariant per lane: front.Length + Σ middles.Length + back.Length is unchanged.
+            front.Length += clamped;
+            foreach (Element middle in middles)
+            {
+                middle.Start += clamped;
+            }
+
+            back.Start += clamped;
+            back.Length -= clamped;
+            // The middle clips only shift in time (their in-points are unchanged), but the back
+            // clip is trimmed at its head, so advance its media offset by the same delta to keep
+            // its content.
+            SlippableMedia.ApplyOffsetDelta(backTargets[i], clamped, applied);
+        }
+
+        _historyManager.Commit(CommandNames.SlideElements);
+        return true;
+    }
+
+    private static void ThrowIfAnyNullParticipant(IReadOnlyList<ElementTrimPair> pairs)
+    {
+        foreach ((Element front, Element back) in pairs)
+        {
+            if (front is null || back is null)
+                throw new ArgumentNullException(nameof(pairs), "pairs must not contain null participants.");
+        }
+    }
+
+    // Shared Roll/Slide delta window. Min (≤ 0) is bounded by the shrinking front keeping one
+    // frame and — always, regardless of the clamp preference — by the back in-point staying at
+    // or above zero (a negative source offset is an invalid frame request, not an
+    // original-length extension). Max (≥ 0) is bounded by the shrinking back keeping one frame
+    // and, when ClampResizeToOriginalLength is on, by the front out-point staying within its
+    // source (matching normal edge resize, which may run past the media with the preference off).
+    private static (TimeSpan Min, TimeSpan Max) ComputeTrimDeltaBounds(
+        Scene scene, Element front, Element back,
+        IReadOnlyList<SlippableMedia.Target> frontTargets,
+        IReadOnlyList<SlippableMedia.Target> backTargets)
+    {
+        int rate = SceneTimeRangeService.GetFrameRate(scene);
+        TimeSpan minDuration = TimeSpan.FromSeconds(1d / rate);
+
+        if (front.Length < minDuration || back.Length < minDuration)
+            return (TimeSpan.Zero, TimeSpan.Zero);
+
+        TimeSpan min = minDuration - front.Length;
+        TimeSpan max = back.Length - minDuration;
+
+        if (GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength)
+        {
+            TimeSpan outRoom = SlippableMedia.OutPointRoom(frontTargets, front.Length);
+            if (outRoom < max) max = outRoom;
+        }
+
+        TimeSpan inRoom = SlippableMedia.InPointRoom(backTargets);
+        if (inRoom != TimeSpan.MaxValue && -inRoom > min) min = -inRoom;
+
+        // Enforce the documented Min ≤ 0 ≤ Max contract structurally instead of relying on
+        // every media OffsetPosition being non-negative (an invariant owned by other services);
+        // an inverted window would throw in the View's per-pointer-frame ClampDelta.
+        if (min > TimeSpan.Zero) min = TimeSpan.Zero;
+        if (max < TimeSpan.Zero) max = TimeSpan.Zero;
+
+        return (min, max);
+    }
+
+    private static TimeSpan Clamp(TimeSpan value, TimeSpan min, TimeSpan max)
+    {
+        if (value < min) return min;
+        if (value > max) return max;
+        return value;
     }
 }
