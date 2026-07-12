@@ -252,9 +252,11 @@ public sealed class EffectGraphBuilder : IDisposable
     internal EffectGraph Build()
     {
         // Ownership of the tracked disposables transfers to the graph, which releases them once the frame's plan has
-        // executed; Dispose must then not touch them (the graph would double-dispose).
+        // executed; Dispose must then not touch them (the graph would double-dispose). Flip the flag only after the
+        // graph exists, or a construction throw leaves Dispose a no-op and leaks the builder-owned disposables.
+        var graph = new EffectGraph(_nodes, OriginalBounds, OutputScale, WorkingScale, _disposables);
         _built = true;
-        return new(_nodes, OriginalBounds, OutputScale, WorkingScale, _disposables);
+        return graph;
     }
 
     /// <summary>
