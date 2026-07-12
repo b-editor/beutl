@@ -37,14 +37,14 @@
                 <ui:FAMenuFlyout>
                     <ui:FAMenuFlyoutItem Command="{Binding Delete}"
                                          InputGesture="Delete"
-                                         Text="{x:Static lang:Strings.Delete}">
+                        Text="{x:Static lang:Strings.Delete}">
                         <ui:FAMenuFlyoutItem.IconSource>
-                            <ui:FASymbolIconSource Symbol="Delete" />
+                            <icons:FluentIconSource Icon="Delete" />
                         </ui:FAMenuFlyoutItem.IconSource>
                     </ui:FAMenuFlyoutItem>
                     <ui:FAMenuFlyoutItem Click="RenameClick" Text="{x:Static lang:Strings.Rename}">
                         <ui:FAMenuFlyoutItem.IconSource>
-                            <ui:FASymbolIconSource Symbol="Rename" />
+                            <icons:FluentIconSource Icon="Rename" />
                         </ui:FAMenuFlyoutItem.IconSource>
                     </ui:FAMenuFlyoutItem>
                 </ui:FAMenuFlyout>

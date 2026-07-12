@@ -43,7 +43,7 @@
                             Classes="size-24x24"
                             Click="NewClick"
                             Theme="{StaticResource TransparentButton}">
-                        <icons:SymbolIcon Symbol="New" />
+                        <icons:FluentIcon Icon="New" />
                     </Button>
                 </StackPanel>
             </ToggleButton.Tag>

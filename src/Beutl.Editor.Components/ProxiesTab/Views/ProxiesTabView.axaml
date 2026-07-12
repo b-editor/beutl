@@ -98,7 +98,7 @@
                         AutomationProperties.Name="{x:Static lang:Strings.Refresh}"
                         Command="{Binding RefreshCommand}"
                         ToolTip.Tip="{x:Static lang:Strings.Refresh}">
-                    <icons:SymbolIcon FontSize="16" Symbol="ArrowClockwise" />
+                    <icons:FluentIcon FontSize="16" Icon="ArrowClockwise" />
                 </Button>
             </Grid>
         </Border>
@@ -141,7 +141,7 @@
                         Command="{Binding GenerateSelectedCommand}"
                         ToolTip.Tip="{x:Static lang:Strings.ProxyGenerateSelected}">
                     <StackPanel Orientation="Horizontal" Spacing="6">
-                        <icons:SymbolIcon FontSize="16" Symbol="Play" VerticalAlignment="Center" />
+                        <icons:FluentIcon FontSize="16" Icon="Play" VerticalAlignment="Center" />
                         <TextBlock Text="{x:Static lang:Strings.ProxyGenerate}" />
                     </StackPanel>
                 </Button>
@@ -150,28 +150,28 @@
                         AutomationProperties.Name="{x:Static lang:Strings.ProxyGenerateAll}"
                         Command="{Binding GenerateAllCommand}"
                         ToolTip.Tip="{x:Static lang:Strings.ProxyGenerateAll}">
-                    <icons:SymbolIcon FontSize="16" Symbol="Add" />
+                    <icons:FluentIcon FontSize="16" Icon="Add" />
                 </Button>
                 <Button Grid.Column="2"
                         Classes="iconButton"
                         AutomationProperties.Name="{x:Static lang:Strings.ProxyRegenerateSelected}"
                         Command="{Binding RegenerateSelectedCommand}"
                         ToolTip.Tip="{x:Static lang:Strings.ProxyRegenerateSelected}">
-                    <icons:SymbolIcon FontSize="16" Symbol="ArrowClockwise" />
+                    <icons:FluentIcon FontSize="16" Icon="ArrowClockwise" />
                 </Button>
                 <Button Grid.Column="3"
                         Classes="iconButton"
                         AutomationProperties.Name="{x:Static lang:Strings.ProxyDeleteSelected}"
                         Command="{Binding DeleteSelectedCommand}"
                         ToolTip.Tip="{x:Static lang:Strings.ProxyDeleteSelected}">
-                    <icons:SymbolIcon FontSize="16" Symbol="Delete" />
+                    <icons:FluentIcon FontSize="16" Icon="Delete" />
                 </Button>
                 <Button Grid.Column="4"
                         Classes="iconButton"
                         AutomationProperties.Name="{x:Static lang:Strings.ProxyDeleteProjectProxies}"
                         Command="{Binding DeleteAllForProjectCommand}"
                         ToolTip.Tip="{x:Static lang:Strings.ProxyDeleteProjectProxies}">
-                    <icons:SymbolIcon FontSize="16" Symbol="Dismiss" />
+                    <icons:FluentIcon FontSize="16" Icon="Dismiss" />
                 </Button>
             </Grid>
 
@@ -262,19 +262,19 @@
                                                             AutomationProperties.Name="{x:Static lang:Strings.ProxyGenerate}"
                                                             Command="{Binding GenerateCommand}"
                                                             ToolTip.Tip="{x:Static lang:Strings.ProxyGenerate}">
-                                                        <icons:SymbolIcon FontSize="16" Symbol="Play" />
+                                                        <icons:FluentIcon FontSize="16" Icon="Play" />
                                                     </Button>
                                                     <Button Classes="iconButton"
                                                             AutomationProperties.Name="{x:Static lang:Strings.ProxyRegenerate}"
                                                             Command="{Binding RegenerateCommand}"
                                                             ToolTip.Tip="{x:Static lang:Strings.ProxyRegenerate}">
-                                                        <icons:SymbolIcon FontSize="16" Symbol="ArrowClockwise" />
+                                                        <icons:FluentIcon FontSize="16" Icon="ArrowClockwise" />
                                                     </Button>
                                                     <Button Classes="iconButton"
                                                             AutomationProperties.Name="{x:Static lang:Strings.Delete}"
                                                             Command="{Binding DeleteCommand}"
                                                             ToolTip.Tip="{x:Static lang:Strings.Delete}">
-                                                        <icons:SymbolIcon FontSize="16" Symbol="Delete" />
+                                                        <icons:FluentIcon FontSize="16" Icon="Delete" />
                                                     </Button>
                                                 </StackPanel>
                                             </Grid>
@@ -307,7 +307,7 @@
                                                         AutomationProperties.Name="{x:Static lang:Strings.Cancel}"
                                                         Command="{Binding CancelJobCommand}"
                                                         ToolTip.Tip="{x:Static lang:Strings.Cancel}">
-                                                    <icons:SymbolIcon FontSize="16" Symbol="Dismiss" />
+                                                    <icons:FluentIcon FontSize="16" Icon="Dismiss" />
                                                 </Button>
                                             </Grid>
                                         </Grid>

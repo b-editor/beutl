@@ -249,7 +249,7 @@
                         Theme="{StaticResource TitleBarButtonStyle}"
                         ToolTip.Tip="{x:Static lang:Strings.Feedback}"
                         WindowDecorationProperties.ElementRole="User">
-                    <icons:SymbolIcon Margin="0,0,0,2" Symbol="Chat" />
+                    <icons:FluentIcon Icon="Chat" Margin="0,0,0,2" />
                 </Button>
 
                 <Button x:Name="OpenNotificationsButton"
@@ -269,12 +269,12 @@
                         <icons:FluentIcon HorizontalAlignment="Center"
                                           VerticalAlignment="Center"
                                           Icon="Alert" />
-                        <ui:InfoBadge Width="8"
-                                      Height="8"
-                                      Margin="0,4,4,0"
-                                      HorizontalAlignment="Right"
-                                      VerticalAlignment="Top"
-                                      IsVisible="{Binding !!#HiddenNotificationPanel.Children.Count}" />
+                        <ui:FAInfoBadge Width="8"
+                                        Height="8"
+                                        Margin="0,4,4,0"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Top"
+                                        IsVisible="{Binding !!#HiddenNotificationPanel.Children.Count}" />
                     </Panel>
                 </Button>
             </StackPanel>

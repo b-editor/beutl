@@ -10,7 +10,9 @@ using Beutl.Services;
 using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.Tools;
 using FluentAvalonia.UI.Controls;
+using FluentIcons.Avalonia.Fluent;
 using AddOutputProfileDialog = Beutl.Views.Dialogs.AddOutputProfileDialog;
+using FluentIconKind = FluentIcons.Common.Icon;
 
 namespace Beutl.Views.Tools;
 
@@ -170,7 +172,7 @@ public partial class OutputTab : UserControl
                     var removeItem = new FAMenuFlyoutItem
                     {
                         Text = Language.Strings.Remove,
-                        IconSource = new FASymbolIconSource { Symbol = FASymbol.Delete }
+                        IconSource = new FluentIconSource { Icon = FluentIconKind.Delete }
                     };
                     removeItem.Click += (_, _) =>
                     {
@@ -197,7 +199,7 @@ public partial class OutputTab : UserControl
                     var removeItem = new FAMenuFlyoutItem
                     {
                         Text = Language.Strings.Remove,
-                        IconSource = new FASymbolIconSource { Symbol = FASymbol.Delete }
+                        IconSource = new FluentIconSource { Icon = FluentIconKind.Delete }
                     };
                     removeItem.Click += (_, _) =>
                     {

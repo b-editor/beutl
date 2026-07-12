@@ -3,7 +3,9 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Beutl.ViewModels;
+using FluentIcons.Avalonia.Fluent;
 using FluentAvalonia.UI.Controls;
+using FluentIconKind = FluentIcons.Common.Icon;
 
 namespace Beutl.Services.PrimitiveImpls;
 
@@ -19,7 +21,7 @@ public sealed class ExtensionsToolWindowExtension : ToolWindowExtension
     public override ToolWindowMode Mode => ToolWindowMode.Dialog;
 
     public override FAIconSource? GetIcon()
-        => new FASymbolIconSource { Symbol = FASymbol.AllApps };
+        => new FluentIconSource { Icon = FluentIconKind.Apps };
 
     public override bool TryCreateContent([NotNullWhen(true)] out Window? window)
     {

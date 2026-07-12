@@ -11,6 +11,8 @@ using Avalonia.Threading;
 using FluentAvalonia.Styling;
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Windowing;
+using FluentIcons.Avalonia.Fluent;
+using FluentIconKind = FluentIcons.Common.Icon;
 
 namespace Beutl.WaitingDialog;
 
@@ -62,13 +64,13 @@ public partial class MainWindow : FAAppWindow
         }
 
         string? icon = result.GetValue(iconOption);
-        if (icon != null && Enum.TryParse(icon, out FASymbol iconSymbol))
+        if (icon != null && TryParseIcon(icon, out FluentIconKind iconSymbol))
         {
             subheaderRoot.IsVisible = true;
             iconHost.IsVisible = true;
-            iconSourceElement.IconSource = new FASymbolIconSource
+            iconSourceElement.IconSource = new FluentIconSource
             {
-                Symbol = iconSymbol,
+                Icon = iconSymbol,
             };
         }
 
@@ -130,4 +132,32 @@ public partial class MainWindow : FAAppWindow
         base.OnClosing(e);
         e.Cancel = !_closable;
     }
+
+    private static bool TryParseIcon(string value, out FluentIconKind icon)
+    {
+        if (Enum.TryParse(value, ignoreCase: true, out icon))
+        {
+            return true;
+        }
+
+        if (s_legacyIconMap.TryGetValue(value, out icon))
+        {
+            return true;
+        }
+
+        icon = default;
+        return false;
+    }
+
+    private static readonly Dictionary<string, FluentIconKind> s_legacyIconMap = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["AllApps"] = FluentIconKind.Apps,
+        ["ContactInfo"] = FluentIconKind.Info,
+        ["Font"] = FluentIconKind.TextFont,
+        ["MoveToFolder"] = FluentIconKind.FolderArrowRight,
+        ["MusicInfo"] = FluentIconKind.MusicNote2,
+        ["Paste"] = FluentIconKind.ClipboardPaste,
+        ["SaveAs"] = FluentIconKind.SaveEdit,
+        ["View"] = FluentIconKind.Eye,
+    };
 }

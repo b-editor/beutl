@@ -10,7 +10,9 @@ using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Media.Animation;
 using FluentAvalonia.UI.Navigation;
 using FluentAvalonia.UI.Windowing;
+using FluentIcons.Avalonia.Fluent;
 using Microsoft.Extensions.Logging;
+using FluentIconKind = FluentIcons.Common.Icon;
 
 namespace Beutl.Pages;
 
@@ -87,57 +89,57 @@ public sealed partial class SettingsDialog : FAAppWindow
             {
                 Content = SettingsStrings.Account,
                 Tag = typeof(AccountSettingsPage),
-                IconSource = new FASymbolIconSource { Symbol = FASymbol.People }
+                IconSource = new FluentIconSource { Icon = FluentIconKind.People }
             },
             new FANavigationViewItem()
             {
                 Content = Strings.View,
                 Tag = typeof(ViewSettingsPage),
-                IconSource = new FASymbolIconSource { Symbol = FASymbol.View }
+                IconSource = new FluentIconSource { Icon = FluentIconKind.Eye }
             },
             new FANavigationViewItem()
             {
                 Content = Strings.Editor,
                 Tag = typeof(EditorSettingsPage),
-                IconSource = new FASymbolIconSource { Symbol = FASymbol.Edit }
+                IconSource = new FluentIconSource { Icon = FluentIconKind.Edit }
             },
             new FANavigationViewItem()
             {
                 Content = SettingsStrings.Keymap,
                 Tag = typeof(KeyMapSettingsPage),
-                IconSource = new FASymbolIconSource { Symbol = FASymbol.Keyboard }
+                IconSource = new FluentIconSource { Icon = FluentIconKind.Keyboard }
             },
             new FANavigationViewItem()
             {
                 Content = SettingsStrings.Font,
                 Tag = typeof(FontSettingsPage),
-                IconSource = new FASymbolIconSource { Symbol = FASymbol.Font }
+                IconSource = new FluentIconSource { Icon = FluentIconKind.TextFont }
             },
             new FANavigationViewItem()
             {
                 Content = Strings.Extensions,
                 Tag = typeof(ExtensionsSettingsPage),
-                IconSource = new FASymbolIconSource
+                IconSource = new FluentIconSource
                 {
-                    Symbol = FASymbol.AllApps
+                    Icon = FluentIconKind.Apps
                 }
             },
             new FANavigationViewItem()
             {
                 Content = SettingsStrings.AiAgents,
                 Tag = typeof(AiAgentSettingsPage),
-                IconSource = new FASymbolIconSource
+                IconSource = new FluentIconSource
                 {
-                    Symbol = FASymbol.Comment
+                    Icon = FluentIconKind.Comment
                 }
             },
             new FANavigationViewItem()
             {
                 Content = Strings.Info,
                 Tag = typeof(InformationPage),
-                IconSource = new FASymbolIconSource
+                IconSource = new FluentIconSource
                 {
-                    Symbol = FASymbol.ContactInfo
+                    Icon = FluentIconKind.Info
                 }
             }
         ];

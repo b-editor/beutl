@@ -54,7 +54,8 @@
         </Border.Styles>
         <Border.ContextFlyout>
             <ui:FAMenuFlyout>
-                <ui:FAToggleMenuFlyoutItem Click="EnableElementClick"
+                <ui:FAToggleMenuFlyoutItem x:Name="enableElement"
+                                         Click="EnableElementClick"
                                          IsChecked="{Binding IsEnabled.Value}"
                                          Text="{x:Static lang:Strings.EnableElement}">
                     <ui:FAToggleMenuFlyoutItem.Styles>
@@ -75,14 +76,14 @@
                 </ui:FAToggleMenuFlyoutItem>
                 <ui:FAMenuFlyoutSubItem Text="{x:Static lang:Strings.EditingMode}">
                     <ui:FAMenuFlyoutSubItem.IconSource>
-                        <ui:FASymbolIconSource Symbol="Edit" />
+                        <icons:FluentIconSource Icon="Edit" />
                     </ui:FAMenuFlyoutSubItem.IconSource>
                     <ui:FAToggleMenuFlyoutItem IsChecked="{Binding Timeline.IsRazorMode.Value, Mode=TwoWay}"
                                              InputGesture="{h:GetCommandGesture ToggleRazorMode,
                                                                                 ExtensionType={x:Type p:TimelineTabExtension}}"
                                              Text="{x:Static lang:Strings.RazorTool}">
                         <ui:FAToggleMenuFlyoutItem.IconSource>
-                            <ui:FASymbolIconSource Symbol="Cut" />
+                            <icons:FluentIconSource Icon="Cut" />
                         </ui:FAToggleMenuFlyoutItem.IconSource>
                     </ui:FAToggleMenuFlyoutItem>
                     <ui:FAToggleMenuFlyoutItem IsChecked="{Binding Timeline.IsSlipMode.Value, Mode=TwoWay}"
@@ -108,7 +109,7 @@
                                    Command="{Binding Split}"
                                    Text="{x:Static lang:Strings.Split}">
                     <ui:FAMenuFlyoutItem.IconSource>
-                        <ui:FASymbolIconSource Symbol="Cut" />
+                        <icons:FluentIconSource Icon="Cut" />
                     </ui:FAMenuFlyoutItem.IconSource>
                 </ui:FAMenuFlyoutItem>
                 <ui:FAMenuFlyoutItem x:Name="splitByCurrent"
@@ -122,7 +123,7 @@
                                                                       ExtensionType={x:Type p:TimelineTabExtension}}"
                                    Text="{x:Static lang:Strings.Cut}">
                     <ui:FAMenuFlyoutItem.IconSource>
-                        <ui:FASymbolIconSource Symbol="Cut" />
+                        <icons:FluentIconSource Icon="Cut" />
                     </ui:FAMenuFlyoutItem.IconSource>
                 </ui:FAMenuFlyoutItem>
                 <ui:FAMenuFlyoutItem Command="{Binding Copy}"
@@ -130,7 +131,7 @@
                                                                       ExtensionType={x:Type p:TimelineTabExtension}}"
                                    Text="{x:Static lang:Strings.Copy}">
                     <ui:FAMenuFlyoutItem.IconSource>
-                        <ui:FASymbolIconSource Symbol="Copy" />
+                        <icons:FluentIconSource Icon="Copy" />
                     </ui:FAMenuFlyoutItem.IconSource>
                 </ui:FAMenuFlyoutItem>
                 <ui:FAMenuFlyoutItem x:Name="delete"
@@ -139,7 +140,7 @@
                                                                       ExtensionType={x:Type p:TimelineTabExtension}}"
                                    Text="{x:Static lang:Strings.Delete}">
                     <ui:FAMenuFlyoutItem.IconSource>
-                        <ui:FASymbolIconSource Symbol="Delete" />
+                        <icons:FluentIconSource Icon="Delete" />
                     </ui:FAMenuFlyoutItem.IconSource>
                 </ui:FAMenuFlyoutItem>
                 <ui:FAMenuFlyoutItem x:Name="exclude"
@@ -148,7 +149,7 @@
                                                                       ExtensionType={x:Type p:TimelineTabExtension}}"
                                    Text="{x:Static lang:Strings.Exclude}">
                     <ui:FAMenuFlyoutItem.IconSource>
-                        <ui:FASymbolIconSource Symbol="Delete" />
+                        <icons:FluentIconSource Icon="Delete" />
                     </ui:FAMenuFlyoutItem.IconSource>
                 </ui:FAMenuFlyoutItem>
                 <ui:FAMenuFlyoutItem x:Name="groupSelectedElements"
@@ -163,7 +164,7 @@
                                                                       ExtensionType={x:Type p:TimelineTabExtension}}"
                                    Text="{x:Static lang:Strings.Rename}">
                     <ui:FAMenuFlyoutItem.IconSource>
-                        <ui:FASymbolIconSource Symbol="Rename" />
+                        <icons:FluentIconSource Icon="Rename" />
                     </ui:FAMenuFlyoutItem.IconSource>
                 </ui:FAMenuFlyoutItem>
                 <ui:FAMenuFlyoutItem x:Name="change2OriginalDuration"
@@ -182,7 +183,7 @@
                 <ui:FAMenuFlyoutSeparator />
                 <ui:FAMenuFlyoutItem Click="SaveAsTemplate_Click" Text="{x:Static lang:Strings.SaveAsTemplate}">
                     <ui:FAMenuFlyoutItem.IconSource>
-                        <ui:FASymbolIconSource Symbol="Copy" />
+                        <icons:FluentIconSource Icon="Copy" />
                     </ui:FAMenuFlyoutItem.IconSource>
                 </ui:FAMenuFlyoutItem>
                 <ui:FAMenuFlyoutSeparator />

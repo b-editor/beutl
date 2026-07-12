@@ -239,14 +239,14 @@
                     <ui:FAMenuFlyout>
                         <ui:FAMenuFlyoutSubItem Text="{x:Static lang:Strings.EditingMode}">
                             <ui:FAMenuFlyoutSubItem.IconSource>
-                                <ui:FASymbolIconSource Symbol="Edit" />
+                                <icons:FluentIconSource Icon="Edit" />
                             </ui:FAMenuFlyoutSubItem.IconSource>
                             <ui:FAToggleMenuFlyoutItem IsChecked="{CompiledBinding IsRazorMode.Value, Mode=TwoWay}"
                                                      InputGesture="{h:GetCommandGesture ToggleRazorMode,
                                                                                         ExtensionType={x:Type p:TimelineTabExtension}}"
                                                      Text="{x:Static lang:Strings.RazorTool}">
                                 <ui:FAToggleMenuFlyoutItem.IconSource>
-                                    <ui:FASymbolIconSource Symbol="Cut" />
+                                    <icons:FluentIconSource Icon="Cut" />
                                 </ui:FAToggleMenuFlyoutItem.IconSource>
                             </ui:FAToggleMenuFlyoutItem>
                             <ui:FAToggleMenuFlyoutItem IsChecked="{CompiledBinding IsSlipMode.Value, Mode=TwoWay}"
@@ -272,14 +272,14 @@
                         <ui:FAMenuFlyoutSubItem x:Name="AddFromTemplateSubMenu" Text="{x:Static lang:Strings.AddFromTemplate}" />
                         <ui:FAMenuFlyoutItem Click="AddAdjustmentLayerClick" Text="{x:Static lang:Strings.AddAdjustmentLayer}">
                             <ui:FAMenuFlyoutItem.IconSource>
-                                <ui:FASymbolIconSource Symbol="ColorFill" />
+                                <icons:FluentIconSource Icon="ColorFill" />
                             </ui:FAMenuFlyoutItem.IconSource>
                         </ui:FAMenuFlyoutItem>
                         <ui:FAMenuFlyoutItem Command="{CompiledBinding Paste}"
                                            InputGesture="{h:GetCommandGesture Paste}"
                                            Text="{x:Static lang:Strings.Paste}">
                             <ui:FAMenuFlyoutItem.IconSource>
-                                <ui:FASymbolIconSource Symbol="Paste" />
+                                <icons:FluentIconSource Icon="ClipboardPaste" />
                             </ui:FAMenuFlyoutItem.IconSource>
                         </ui:FAMenuFlyoutItem>
                         <ui:FAMenuFlyoutSeparator />
@@ -291,7 +291,7 @@
                                            Text="{x:Static lang:Strings.SetEndTime}" />
                         <ui:FAMenuFlyoutSubItem Text="{x:Static lang:Strings.Gaps}">
                             <ui:FAMenuFlyoutSubItem.IconSource>
-                                <ui:FASymbolIconSource Symbol="MoveToFolder" />
+                                <icons:FluentIconSource Icon="FolderArrowRight" />
                             </ui:FAMenuFlyoutSubItem.IconSource>
                             <ui:FAMenuFlyoutItem Command="{CompiledBinding CloseGapAtPointerPosition}"
                                                Text="{x:Static lang:Strings.CloseGap}" />
@@ -311,19 +311,19 @@
                         <ui:FAMenuFlyoutSeparator />
                         <ui:FAMenuFlyoutItem Click="ShowSceneSettings" Text="{x:Static lang:Strings.Settings}">
                             <ui:FAMenuFlyoutItem.IconSource>
-                                <ui:FASymbolIconSource Symbol="Settings" />
+                                <icons:FluentIconSource Icon="Settings" />
                             </ui:FAMenuFlyoutItem.IconSource>
                         </ui:FAMenuFlyoutItem>
                         <ui:FAMenuFlyoutItem x:Name="BpmGridMenuItem"
                                            Click="ShowBpmGridFlyout"
                                            Text="{x:Static lang:Strings.BpmGrid}">
                             <ui:FAMenuFlyoutItem.IconSource>
-                                <ui:FASymbolIconSource Symbol="MusicInfo" />
+                                <icons:FluentIconSource Icon="MusicNote2" />
                             </ui:FAMenuFlyoutItem.IconSource>
                         </ui:FAMenuFlyoutItem>
                         <ui:FAMenuFlyoutSubItem Text="{x:Static lang:Strings.TimelineZoom}">
                             <ui:FAMenuFlyoutSubItem.IconSource>
-                                <ui:FASymbolIconSource Symbol="ZoomIn" />
+                                <icons:FluentIconSource Icon="ZoomIn" />
                             </ui:FAMenuFlyoutSubItem.IconSource>
                             <ui:FAMenuFlyoutItem Click="ZoomClick"
                                                CommandParameter="2.0"

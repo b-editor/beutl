@@ -7,6 +7,8 @@ using Beutl;
 using Beutl.Extensibility;
 using Beutl.ProjectSystem;
 using FluentAvalonia.UI.Controls;
+using FluentIcons.Avalonia.Fluent;
+using FluentIconKind = FluentIcons.Common.Icon;
 
 using Reactive.Bindings;
 
@@ -107,9 +109,9 @@ public sealed class SampleEditorExtension : EditorExtension
 
     public override FAIconSource? GetIcon()
     {
-        return new FASymbolIconSource
+        return new FluentIconSource
         {
-            Symbol = FASymbol.Add
+            Icon = FluentIconKind.Add
         };
     }
 

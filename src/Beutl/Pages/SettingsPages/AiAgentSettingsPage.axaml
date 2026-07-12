@@ -157,20 +157,20 @@
                     </ctrls:OptionsDisplayItem.ActionButton>
                 </ctrls:OptionsDisplayItem>
 
-                <ui:InfoBar IsClosable="False"
-                            IsOpen="{Binding !CanInstallMcp.Value}"
-                            Message="{x:Static lang:SettingsStrings.AiAgents_McpManual}"
-                            Severity="Informational" />
+                <ui:FAInfoBar IsClosable="False"
+                              IsOpen="{Binding !CanInstallMcp.Value}"
+                              Message="{x:Static lang:SettingsStrings.AiAgents_McpManual}"
+                              Severity="Informational" />
 
-                <ui:InfoBar IsClosable="False"
-                            IsOpen="{Binding IsStdioCommandMissing.Value}"
-                            Message="{x:Static lang:SettingsStrings.AiAgents_StdioMissing}"
-                            Severity="Warning" />
+                <ui:FAInfoBar IsClosable="False"
+                              IsOpen="{Binding IsStdioCommandMissing.Value}"
+                              Message="{x:Static lang:SettingsStrings.AiAgents_StdioMissing}"
+                              Severity="Warning" />
 
-                <ui:InfoBar IsClosable="False"
-                            IsOpen="{Binding !IsLiveMcpAvailable.Value}"
-                            Message="{x:Static lang:SettingsStrings.AiAgents_LiveMcp_NotRunning}"
-                            Severity="Warning" />
+                <ui:FAInfoBar IsClosable="False"
+                              IsOpen="{Binding !IsLiveMcpAvailable.Value}"
+                              Message="{x:Static lang:SettingsStrings.AiAgents_LiveMcp_NotRunning}"
+                              Severity="Warning" />
 
                 <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.AiAgents_LiveMcpUrl_Description}"
                                           Expands="True"
@@ -276,9 +276,9 @@
                             HorizontalAlignment="Right"
                             Orientation="Horizontal"
                             Spacing="8">
-                    <ui:ProgressRing Width="24"
-                                     Height="24"
-                                     IsVisible="{Binding IsInstalling.Value}" />
+                    <ui:FAProgressRing Width="24"
+                                       Height="24"
+                                       IsVisible="{Binding IsInstalling.Value}" />
                     <Button MinWidth="120"
                             Classes="accent"
                             Command="{Binding Install}"

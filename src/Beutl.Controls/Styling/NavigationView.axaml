@@ -10,7 +10,7 @@
                 <ui:NavigationView.MenuItems>
                     <ui:NavigationViewItem Classes="SideNavigationViewItem" Content="Home">
                         <ui:NavigationViewItem.IconSource>
-                            <ui:FASymbolIconSource Symbol="Home" />
+                            <icons:FluentIconSource Icon="Home" />
                         </ui:NavigationViewItem.IconSource>
                     </ui:NavigationViewItem>
                 </ui:NavigationView.MenuItems>
