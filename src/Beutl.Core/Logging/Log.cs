@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Beutl.Logging;
 
@@ -12,48 +13,25 @@ public class Log
         internal set => s_loggerFactory ??= value;
     }
 
+    internal static bool IsLoggerFactoryConfigured => s_loggerFactory is not null;
+
     public static ILogger<T> CreateLogger<T>()
     {
-#if DEBUG
-        if (s_loggerFactory == null)
-        {
-            var tmp = new LoggerFactory();
-            return tmp.CreateLogger<T>();
-        }
-        else
-#endif
-        {
-            return LoggerFactory.CreateLogger<T>();
-        }
+        return GetLoggerFactoryOrFallback().CreateLogger<T>();
     }
 
     public static ILogger CreateLogger(Type type)
     {
-#if DEBUG
-        if (s_loggerFactory == null)
-        {
-            var tmp = new LoggerFactory();
-            return tmp.CreateLogger(type);
-        }
-        else
-#endif
-        {
-            return LoggerFactory.CreateLogger(type);
-        }
+        return GetLoggerFactoryOrFallback().CreateLogger(type);
     }
 
     public static ILogger CreateLogger(string categoryName)
     {
-#if DEBUG
-        if (s_loggerFactory == null)
-        {
-            var tmp = new LoggerFactory();
-            return tmp.CreateLogger(categoryName);
-        }
-        else
-#endif
-        {
-            return LoggerFactory.CreateLogger(categoryName);
-        }
+        return GetLoggerFactoryOrFallback().CreateLogger(categoryName);
+    }
+
+    private static ILoggerFactory GetLoggerFactoryOrFallback()
+    {
+        return s_loggerFactory ?? NullLoggerFactory.Instance;
     }
 }

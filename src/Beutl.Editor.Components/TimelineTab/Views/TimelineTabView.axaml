@@ -17,7 +17,7 @@
              mc:Ignorable="d">
     <Grid x:Name="grid" RowDefinitions="Auto,*">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="200" MinWidth="200" />
+            <ColumnDefinition Width="275" MinWidth="200" />
             <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
@@ -35,18 +35,18 @@
                            BufferStart="{Binding BufferStatus.Start.Value}"
                            CacheBlockBrush="{DynamicResource SystemFillColorSuccessBrush}"
                            CacheBlocks="{Binding BufferStatus.CacheBlocks.Value}"
+                           ContextRequested="Scale_ContextRequested"
                            EndingBarBrush="{DynamicResource SystemFillColorCriticalBrush}"
                            EndingBarMargin="{CompiledBinding EndingBarMargin.Value}"
                            HoveredCacheBlock="{Binding HoveredCacheBlock.Value}"
                            LockedCacheBlockBrush="{DynamicResource AccentFillColorTertiaryBrush}"
+                           MarkerLabelBackground="{DynamicResource SolidBackgroundFillColorTertiaryBrush}"
+                           MarkerLabelForeground="{DynamicResource TextFillColorPrimaryBrush}"
+                           Markers="{Binding Markers}"
                            PointerExited="TimelinePanel_PointerExited"
                            PointerMoved="TimelinePanel_PointerMoved"
                            PointerPressed="TimelinePanel_PointerPressed"
-                           ContextRequested="Scale_ContextRequested"
                            PointerReleased="TimelinePanel_PointerReleased"
-                           Markers="{Binding Markers}"
-                           MarkerLabelBackground="{DynamicResource SolidBackgroundFillColorTertiaryBrush}"
-                           MarkerLabelForeground="{DynamicResource TextFillColorPrimaryBrush}"
                            Scale="{Binding Options.Value.Scale}"
                            ScaleBrush="{DynamicResource TextControlForeground}"
                            SeekBarBrush="{DynamicResource AccentFillColorDefaultBrush}"
@@ -115,11 +115,11 @@
                 <icons:FluentIcon FontSize="14"
                                   Foreground="White"
                                   Icon="Cut" />
-                <TextBlock FontSize="12"
+                <TextBlock VerticalAlignment="Center"
+                           FontSize="12"
                            FontWeight="SemiBold"
                            Foreground="White"
-                           Text="{x:Static lang:Strings.RazorTool}"
-                           VerticalAlignment="Center" />
+                           Text="{x:Static lang:Strings.RazorTool}" />
             </StackPanel>
         </Border>
 
@@ -147,11 +147,11 @@
                 <icons:FluentIcon FontSize="14"
                                   Foreground="White"
                                   Icon="ArrowSwap" />
-                <TextBlock FontSize="12"
+                <TextBlock VerticalAlignment="Center"
+                           FontSize="12"
                            FontWeight="SemiBold"
                            Foreground="White"
-                           Text="{x:Static lang:Strings.SlipTool}"
-                           VerticalAlignment="Center" />
+                           Text="{x:Static lang:Strings.SlipTool}" />
             </StackPanel>
         </Border>
 
@@ -179,11 +179,11 @@
                 <icons:FluentIcon FontSize="14"
                                   Foreground="White"
                                   Icon="ArrowAutofitWidth" />
-                <TextBlock FontSize="12"
+                <TextBlock VerticalAlignment="Center"
+                           FontSize="12"
                            FontWeight="SemiBold"
                            Foreground="White"
-                           Text="{x:Static lang:Strings.RollTool}"
-                           VerticalAlignment="Center" />
+                           Text="{x:Static lang:Strings.RollTool}" />
             </StackPanel>
         </Border>
 
@@ -211,11 +211,11 @@
                 <icons:FluentIcon FontSize="14"
                                   Foreground="White"
                                   Icon="ArrowMove" />
-                <TextBlock FontSize="12"
+                <TextBlock VerticalAlignment="Center"
+                           FontSize="12"
                            FontWeight="SemiBold"
                            Foreground="White"
-                           Text="{x:Static lang:Strings.SlideTool}"
-                           VerticalAlignment="Center" />
+                           Text="{x:Static lang:Strings.SlideTool}" />
             </StackPanel>
         </Border>
 
@@ -241,30 +241,35 @@
                             <ui:MenuFlyoutSubItem.IconSource>
                                 <icons:FluentIconSource Icon="Edit" />
                             </ui:MenuFlyoutSubItem.IconSource>
-                            <ui:ToggleMenuFlyoutItem IsChecked="{CompiledBinding IsRazorMode.Value, Mode=TwoWay}"
-                                                     InputGesture="{h:GetCommandGesture ToggleRazorMode,
+                            <ui:ToggleMenuFlyoutItem InputGesture="{h:GetCommandGesture ToggleRazorMode,
                                                                                         ExtensionType={x:Type p:TimelineTabExtension}}"
+                                                     IsChecked="{CompiledBinding IsRazorMode.Value,
+                                                                                 Mode=TwoWay}"
                                                      Text="{x:Static lang:Strings.RazorTool}">
                                 <ui:ToggleMenuFlyoutItem.IconSource>
                                     <icons:FluentIconSource Icon="Cut" />
                                 </ui:ToggleMenuFlyoutItem.IconSource>
                             </ui:ToggleMenuFlyoutItem>
-                            <ui:ToggleMenuFlyoutItem IsChecked="{CompiledBinding IsSlipMode.Value, Mode=TwoWay}"
-                                                     InputGesture="{h:GetCommandGesture ToggleSlipMode,
+                            <ui:ToggleMenuFlyoutItem InputGesture="{h:GetCommandGesture ToggleSlipMode,
                                                                                         ExtensionType={x:Type p:TimelineTabExtension}}"
+                                                     IsChecked="{CompiledBinding IsSlipMode.Value,
+                                                                                 Mode=TwoWay}"
                                                      Text="{x:Static lang:Strings.SlipTool}" />
-                            <ui:ToggleMenuFlyoutItem IsChecked="{CompiledBinding IsRollMode.Value, Mode=TwoWay}"
-                                                     InputGesture="{h:GetCommandGesture ToggleRollMode,
+                            <ui:ToggleMenuFlyoutItem InputGesture="{h:GetCommandGesture ToggleRollMode,
                                                                                         ExtensionType={x:Type p:TimelineTabExtension}}"
+                                                     IsChecked="{CompiledBinding IsRollMode.Value,
+                                                                                 Mode=TwoWay}"
                                                      Text="{x:Static lang:Strings.RollTool}" />
-                            <ui:ToggleMenuFlyoutItem IsChecked="{CompiledBinding IsSlideMode.Value, Mode=TwoWay}"
-                                                     InputGesture="{h:GetCommandGesture ToggleSlideMode,
+                            <ui:ToggleMenuFlyoutItem InputGesture="{h:GetCommandGesture ToggleSlideMode,
                                                                                         ExtensionType={x:Type p:TimelineTabExtension}}"
+                                                     IsChecked="{CompiledBinding IsSlideMode.Value,
+                                                                                 Mode=TwoWay}"
                                                      Text="{x:Static lang:Strings.SlideTool}" />
                             <ui:MenuFlyoutSeparator />
-                            <ui:ToggleMenuFlyoutItem IsChecked="{CompiledBinding IsRippleEnabled.Value, Mode=TwoWay}"
-                                                     InputGesture="{h:GetCommandGesture ToggleRippleMode,
+                            <ui:ToggleMenuFlyoutItem InputGesture="{h:GetCommandGesture ToggleRippleMode,
                                                                                         ExtensionType={x:Type p:TimelineTabExtension}}"
+                                                     IsChecked="{CompiledBinding IsRippleEnabled.Value,
+                                                                                 Mode=TwoWay}"
                                                      Text="{x:Static lang:Strings.RippleEdit}" />
                         </ui:MenuFlyoutSubItem>
                         <ui:MenuFlyoutSeparator />
@@ -293,17 +298,19 @@
                             <ui:MenuFlyoutSubItem.IconSource>
                                 <icons:SymbolIconSource Symbol="ArrowMoveInward" />
                             </ui:MenuFlyoutSubItem.IconSource>
-                            <ui:MenuFlyoutItem Command="{CompiledBinding CloseGapAtPointerPosition}"
-                                               Text="{x:Static lang:Strings.CloseGap}" />
+                            <ui:MenuFlyoutItem Command="{CompiledBinding CloseGapAtPointerPosition}" Text="{x:Static lang:Strings.CloseGap}" />
                             <ui:MenuFlyoutItem Command="{CompiledBinding CloseAllGaps}"
-                                               InputGesture="{h:GetCommandGesture CloseAllGaps, ExtensionType={x:Type p:TimelineTabExtension}}"
+                                               InputGesture="{h:GetCommandGesture CloseAllGaps,
+                                                                                  ExtensionType={x:Type p:TimelineTabExtension}}"
                                                Text="{x:Static lang:Strings.CloseAllGaps}" />
                             <ui:MenuFlyoutSeparator />
                             <ui:MenuFlyoutItem Command="{CompiledBinding GoToNextGap}"
-                                               InputGesture="{h:GetCommandGesture GoToNextGap, ExtensionType={x:Type p:TimelineTabExtension}}"
+                                               InputGesture="{h:GetCommandGesture GoToNextGap,
+                                                                                  ExtensionType={x:Type p:TimelineTabExtension}}"
                                                Text="{x:Static lang:Strings.GoToNextGap}" />
                             <ui:MenuFlyoutItem Command="{CompiledBinding GoToPreviousGap}"
-                                               InputGesture="{h:GetCommandGesture GoToPreviousGap, ExtensionType={x:Type p:TimelineTabExtension}}"
+                                               InputGesture="{h:GetCommandGesture GoToPreviousGap,
+                                                                                  ExtensionType={x:Type p:TimelineTabExtension}}"
                                                Text="{x:Static lang:Strings.GoToPreviousGap}" />
                         </ui:MenuFlyoutSubItem>
                         <ui:ToggleMenuFlyoutItem IsChecked="{Binding AutoAdjustSceneDuration.Value, Mode=TwoWay}" Text="{x:Static lang:SettingsStrings.AutoAdjustSceneDuration}" />
