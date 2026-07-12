@@ -1384,7 +1384,18 @@ public sealed partial class ElementView : UserControl
                     {
                         if (e.KeyModifiers is KeyModifiers.None or KeyModifiers.Alt)
                         {
-                            Select(obj, obj._timeline.ViewModel);
+                            // In a trim mode, a plain press on an already-selected clip starts a
+                            // multi-selection Slip/Roll/Slide; re-selecting here would collapse
+                            // the selection to the pressed clip before those behaviors (which run
+                            // after this one) collect their targets. Pressing an unselected clip
+                            // still re-selects as usual.
+                            bool trimMode = timelineVm.IsSlipMode.Value
+                                || timelineVm.IsRollMode.Value
+                                || timelineVm.IsSlideMode.Value;
+                            if (!trimMode || !timelineVm.SelectedElements.Contains(obj.ViewModel))
+                            {
+                                Select(obj, obj._timeline.ViewModel);
+                            }
                         }
                         else
                         {
