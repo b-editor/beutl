@@ -456,14 +456,19 @@ internal static class PlanExecutor
         // deflate narrowed outBounds below that claim, the in-place bake would crop the halo the shader reads
         // (crop-after-shift ≠ shift-then-crop), so the source bakes into a separate pass-scoped buffer spanning the
         // claimed rect (§C3.1; declared as pass scratch). The contained common case keeps the in-place bake — zero
-        // extra buffer, byte-identical to the frozen references.
+        // extra buffer, byte-identical to the frozen references. A NON-DECAL tile mode additionally requires the
+        // src image extent to EQUAL the source footprint: tile modes only apply outside the image, so a union or
+        // in-place bake whose rect exceeds op.Bounds pads INSIDE the image with transparency and Clamp/Repeat/Mirror
+        // never engage at the real source edge (the legacy custom effect tiled the source's own snapshot). The tile
+        // mode itself supplies every sample beyond the footprint, so the union halo is unnecessary there.
         Rect fusedSrcRect = outBounds;
         float fusedSrcScale = w;
         RenderTarget? fusedSrcTarget = null;
-        if (pass is FusedShaderPass { CoordinateInvariant: false, Stages: [RuntimeShaderStage { Source.Kind: SkslSourceKind.WholeSource }] })
+        if (pass is FusedShaderPass { CoordinateInvariant: false, Stages: [RuntimeShaderStage { Source.Kind: SkslSourceKind.WholeSource } wsStage] })
         {
-            Rect claimed = op.Bounds.Union(outBounds);
-            if (!outBounds.Contains(claimed))
+            bool nonDecal = wsStage.SrcTileMode != SKShaderTileMode.Decal;
+            Rect claimed = nonDecal ? op.Bounds : op.Bounds.Union(outBounds);
+            if (nonDecal ? outBounds != op.Bounds : !outBounds.Contains(claimed))
             {
                 fusedSrcScale = RenderNodeContext.ClampWorkingScaleToBufferBudget(claimed, w, maxDimension);
                 (int sw, int sh) = RenderNodeContext.DeviceBufferSize(claimed, fusedSrcScale);

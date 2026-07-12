@@ -1,0 +1,109 @@
+﻿using Beutl.Composition;
+using Beutl.Graphics;
+using Beutl.Graphics.Effects;
+using Beutl.Graphics.Rendering;
+using Beutl.Media;
+using SkiaSharp;
+
+namespace Beutl.UnitTests.Engine.Graphics.Rendering.EffectPipeline;
+
+/// <summary>
+/// A whole-source pass's declared src tile mode must apply at the SOURCE footprint edge (the legacy custom effect
+/// tiled the source's own snapshot). Tile modes only act outside the sampled image, so when a pass grows its output
+/// the in-place bake padded the image with transparency and Clamp/Repeat/Mirror never engaged at the real edge —
+/// a clamp sample beyond the source returned transparent instead of the edge pixel, breaking
+/// DisplacementMap-style warps with a non-Decal <c>SpreadMethod</c>. Raster, GPU-less.
+/// </summary>
+[NonParallelizable]
+[TestFixture]
+public class FusedSourceTileModeTests
+{
+    private static readonly Rect s_source = new(0, 0, 8, 8);
+
+    private const string IdentitySource =
+        "uniform shader src;\nhalf4 main(float2 coord){ return src.eval(coord); }";
+
+    [Test]
+    public void GrowingWholeSource_ClampTileMode_ExtendsTheSourceEdgePixel()
+    {
+        RenderNodeOperation[] ops = Execute(SKShaderTileMode.Clamp);
+        try
+        {
+            Assert.That(ops, Has.Length.EqualTo(1));
+            Rect bounds = ops[0].Bounds;
+            Assert.That(bounds, Is.EqualTo(s_source.Inflate(4)), "the forward contract grows the output by 4");
+
+            using Bitmap bmp = Rasterize(ops[0], bounds);
+            Assert.Multiple(() =>
+            {
+                Assert.That(PixelAt(bmp, bounds, new Point(-2, 4)).Alpha, Is.Not.Zero,
+                    "a clamp sample beyond the source edge must return the edge pixel, not the transparent padding");
+                Assert.That(PixelAt(bmp, bounds, new Point(4, 4)).Red, Is.Not.Zero,
+                    "the source interior passes through");
+            });
+        }
+        finally
+        {
+            RenderNodeOperation.DisposeAll(ops);
+        }
+    }
+
+    // Control: Decal keeps the frozen-reference behavior — beyond-source samples stay transparent — and guards the
+    // clamp assertion above against measuring the wrong pixel.
+    [Test]
+    public void GrowingWholeSource_DecalTileMode_KeepsTransparentPadding()
+    {
+        RenderNodeOperation[] ops = Execute(SKShaderTileMode.Decal);
+        try
+        {
+            Assert.That(ops, Has.Length.EqualTo(1));
+            using Bitmap bmp = Rasterize(ops[0], ops[0].Bounds);
+            Assert.That(PixelAt(bmp, ops[0].Bounds, new Point(-2, 4)).Alpha, Is.Zero,
+                "a decal sample beyond the source stays transparent");
+        }
+        finally
+        {
+            RenderNodeOperation.DisposeAll(ops);
+        }
+    }
+
+    private static RenderNodeOperation[] Execute(SKShaderTileMode tileMode)
+    {
+        RenderNodeOperation input = RenderNodeOperation.CreateLambda(
+            s_source,
+            canvas => canvas.DrawRectangle(s_source, Brushes.Resource.Red, null),
+            hitTest: s_source.Contains);
+
+        var builder = new EffectGraphBuilder(s_source, outputScale: 1f, workingScale: 1f);
+        builder.Shader(ShaderNodeDescriptor.WholeSource(
+            IdentitySource,
+            BoundsContract.Create(static r => r.Inflate(4), static r => r.Inflate(4)),
+            srcTileMode: tileMode));
+        using EffectGraph graph = builder.Build();
+        CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
+        FrameResources frame = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale: 1f);
+        return PlanExecutor.Execute(
+            plan, frame, [input], outputScale: 1f, workingScale: 1f,
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null);
+    }
+
+    private static SKColor PixelAt(Bitmap bmp, Rect window, Point logical)
+        => bmp.SKBitmap.GetPixel((int)(logical.X - window.X), (int)(logical.Y - window.Y));
+
+    private static Bitmap Rasterize(RenderNodeOperation op, Rect window)
+    {
+        var size = PixelRect.FromRect(window);
+        using RenderTarget target = RenderTarget.Create(size.Width, size.Height)
+            ?? throw new InvalidOperationException("RenderTarget.Create returned null (raster surface unavailable).");
+        using (var canvas = new ImmediateCanvas(target, 1f, logicalSize: window.Size))
+        {
+            canvas.Clear();
+            using (canvas.PushTransform(Matrix.CreateTranslation(-window.X, -window.Y)))
+            {
+                op.Render(canvas);
+            }
+        }
+
+        return target.Snapshot();
+    }
+}
