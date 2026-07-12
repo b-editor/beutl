@@ -280,6 +280,11 @@ half4 apply(half4 c) {
                     samplers: [new ChildBinding("lut", a), new ChildBinding("lut", b)]),
                 Throws.ArgumentException,
                 "duplicate snippet sampler names would silently bind the later shader");
+            Assert.That(
+                () => ShaderNodeDescriptor.WholeSource(
+                    wholeSource, BoundsContract.RenderTime, children: [new ChildBinding("map", a), null!]),
+                Throws.ArgumentException,
+                "a null child element surfaces as argument validation, not a NullReferenceException");
         });
     }
 

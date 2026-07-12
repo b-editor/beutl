@@ -143,6 +143,9 @@ public sealed record ShaderNodeDescriptor : EffectNodeDescriptor
         for (int i = 0; i < array.Length; i++)
         {
             ChildBinding child = array[i];
+            if (child is null)
+                throw new ArgumentException($"Child binding at index {i} is null.", nameof(children));
+
             if (reserveSourceName && child.Name == Rendering.SkslSnippetMerger.SourceChildName)
             {
                 throw new ArgumentException(
