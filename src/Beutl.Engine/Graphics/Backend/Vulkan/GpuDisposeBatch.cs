@@ -45,6 +45,11 @@ internal static class GpuDisposeBatch
     /// </summary>
     internal static void DrainBeforeDestroy(GRContext? skiaContext)
     {
+        // A destroyed context has nothing to drain, and it must not consume the batch's single drain — the batch's
+        // remaining live-context textures would skip theirs, re-opening the teardown UAF the drain exists to prevent.
+        if (skiaContext == null)
+            return;
+
         if (s_depth > 0)
         {
             if (s_drained)
@@ -54,10 +59,12 @@ internal static class GpuDisposeBatch
         }
 
         FlushCount++;
-        skiaContext?.Flush(submit: true, synchronous: true);
+        skiaContext.Flush(submit: true, synchronous: true);
     }
 
     internal static void ResetFlushCountForTest() => FlushCount = 0;
+
+    internal static bool DrainConsumedForTest => s_drained;
 
     internal readonly struct Scope : IDisposable
     {

@@ -123,17 +123,26 @@ internal static class PlanExecutor
         if (pool == null || inputCount != 1)
             return;
 
+        // A static split branch that calls SetOutputBounds blits into a tight target while the branch target AND the
+        // branches' shared input scratch are still leased (SplitEmitter.EmitShrunk) — one transient lease above the
+        // declared bound. The single-op geometry shrink releases its input first (its tight lease reuses that slot),
+        // but a split cannot: later branches still read the shared input. Model the transient instead of skipping.
+        long splitShrinkAllowance = 0;
         foreach (CompiledPass pass in plan.Passes)
         {
             if (pass.IsDynamicOutputs)
                 return;
+            if (pass is SplitPass)
+                splitShrinkAllowance = 1;
         }
 
         long measured = pool.PeakLiveLeaseCount - leaseBaseline;
+        long bound = plan.Resources.PeakLiveCount + captureAllowance + splitShrinkAllowance;
         Debug.Assert(
-            measured <= plan.Resources.PeakLiveCount + captureAllowance,
+            measured <= bound,
             $"FR-007 violated: measured peak of concurrently live pooled leases ({measured}) exceeds the plan's " +
-            $"declared peak-live bound ({plan.Resources.PeakLiveCount}) plus the capture allowance ({captureAllowance}).");
+            $"declared peak-live bound ({plan.Resources.PeakLiveCount}) plus the capture ({captureAllowance}) and " +
+            $"split-shrink ({splitShrinkAllowance}) allowances.");
     }
 
     // Executes a nested-graph pass: per branch, describe the child graph at the branch's bounds and index, compile,
@@ -1484,9 +1493,11 @@ internal static class PlanExecutor
         }
 
         // A split branch that called GeometrySession.SetOutputBounds tightens its emitted op to a sub-rect, mirroring
-        // EmitShrunkGeometry: blit the sub-rect into a tighter pooled target (acquired while the full branch target is
-        // still leased, so the transient lease reuses the branch's slot) and publish the tightened bounds. This pass
-        // has dynamic outputs (exempt from the static peak-live bound); the branch still counts one GpuPasses.
+        // EmitShrunkGeometry: blit the sub-rect into a tighter pooled target and publish the tightened bounds. Unlike
+        // the single-op geometry shrink, the branches' shared input scratch cannot be released first (later branches
+        // still read it), so the tight lease transiently exceeds the declared bound by one — a dynamic split is
+        // exempt from the static peak-live assert and a static split is covered by its split-shrink allowance
+        // (AssertPeakLiveWithinPlan). The branch still counts one GpuPasses.
         private void EmitShrunk(Rect tight, float w, Rect logicalBounds, RenderTarget branchTarget)
         {
             (int tw, int th) = RenderNodeContext.DeviceBufferSize(tight, w);

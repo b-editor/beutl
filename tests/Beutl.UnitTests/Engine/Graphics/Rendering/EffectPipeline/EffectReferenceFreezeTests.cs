@@ -33,7 +33,7 @@ public class EffectReferenceFreezeTests
         Log.LoggerFactory = Microsoft.Extensions.Logging.LoggerFactory.Create(static _ => { });
     }
 
-    /// <summary>The 42-effect census (research §0). <c>RequiresCompute</c> marks Vulkan-compute-only effects.</summary>
+    /// <summary>The effect census (research §0; the frozen reference set holds 45 files incl. the chain/NodeGraph cases). <c>RequiresCompute</c> marks Vulkan-compute-only effects.</summary>
     public static IEnumerable<TestCaseData> CensusEffects()
     {
         foreach ((string name, Func<FilterEffect> make) in InvariantColorEffects())

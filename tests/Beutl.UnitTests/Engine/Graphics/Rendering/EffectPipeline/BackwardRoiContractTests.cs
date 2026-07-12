@@ -229,6 +229,46 @@ public class BackwardRoiContractTests
         });
     }
 
+    // DropShadow.Sigma is [Range]-coerced at the property layer, but the builder is public surface a plugin calls
+    // directly with an unconstrained Size; Skia treats a negative sigma as no blur (a hard shadow), so the builder
+    // seam must clamp it like Blur/Erode/Dilate — a negative 3σ Inflate DEFLATES both maps (DropShadowOnly's forward
+    // under-sizes the emitted shadow; DropShadow's backward under-claims the shadow source under a downstream deflate).
+    [Test]
+    public void DropShadow_NegativeSigma_ClampsToZeroInflation()
+    {
+        var position = new Point(20, 10);
+        var negative = new Size(-5, -4);
+
+        CompiledPlan shadowPlan = CompileBuilder(b => b.DropShadow(position, negative, Colors.Black));
+        CompiledPlan onlyPlan = CompileBuilder(b => b.DropShadowOnly(position, negative, Colors.Black));
+        var requested = new Rect(50, 40, 40, 30);
+        var translate = new Vector(position.X, position.Y);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(shadowPlan.Passes[0].ForwardBounds(requested),
+                Is.EqualTo(requested.Union(requested.Translate(translate))),
+                "a negative sigma must clamp to zero, never deflate DropShadow's forward union");
+            Assert.That(shadowPlan.Passes[0].BackwardBounds(requested),
+                Is.EqualTo(requested.Union(requested.Translate(-translate))),
+                "a negative sigma must clamp to zero, never deflate DropShadow's backward shadow-source claim");
+            Assert.That(onlyPlan.Passes[0].ForwardBounds(requested),
+                Is.EqualTo(requested.Translate(translate)),
+                "a negative sigma must clamp to zero, never deflate DropShadowOnly's forward bounds");
+            Assert.That(onlyPlan.Passes[0].BackwardBounds(requested),
+                Is.EqualTo(requested.Translate(-translate)),
+                "a negative sigma must clamp to zero, never deflate DropShadowOnly's backward ROI");
+        });
+    }
+
+    private static CompiledPlan CompileBuilder(Action<EffectGraphBuilder> describe)
+    {
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        describe(builder);
+        using EffectGraph graph = builder.Build();
+        return EffectGraphCompiler.Compile(graph, diagnostics: null);
+    }
+
     private static CompiledPlan Compile(FilterEffect effect)
     {
         var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);

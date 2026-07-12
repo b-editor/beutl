@@ -64,6 +64,20 @@ public readonly struct BoundsContract
     /// </summary>
     internal long StructuralIdentity { get; }
 
+    // A defaulted struct would silently fall back to identity maps with no structural identity — a growing filter
+    // authored with default(BoundsContract) renders clipped with no diagnostic, exactly the misuse the mandatory
+    // contract exists to prevent — so descriptor factories surface it at describe time.
+    internal void ThrowIfUninitialized(string paramName)
+    {
+        if (_transformBounds is null)
+        {
+            throw new ArgumentException(
+                "An uninitialized default(BoundsContract) carries no bounds maps and no structural identity; pass "
+                + "BoundsContract.Identity, BoundsContract.RenderTime, or BoundsContract.Create(...).",
+                paramName);
+        }
+    }
+
     /// <summary>
     /// Creates a non-invariant contract from a forward and backward bounds map. The backward map MUST cover
     /// every input texel the node samples for a given output region (A3); validated by debug parity tests.

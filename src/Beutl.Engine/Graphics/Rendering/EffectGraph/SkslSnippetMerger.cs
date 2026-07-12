@@ -19,25 +19,10 @@ namespace Beutl.Graphics.Rendering;
 /// source appearing twice) merge without a redefinition. Function bodies keep their own local names, which are
 /// block-scoped in the merged program and cannot collide.
 /// </remarks>
-internal static partial class SkslSnippetMerger
+internal static class SkslSnippetMerger
 {
     /// <summary>The child-shader name the generated <c>main</c> samples as the fused group's input.</summary>
     public const string SourceChildName = "src";
-
-    // The optional bracket group matches SKSL fixed-size array uniforms (`uniform float lut[4];`).
-    [GeneratedRegex(@"uniform\s+[A-Za-z_][A-Za-z0-9_]*\s+([A-Za-z_][A-Za-z0-9_]*)\s*(?:\[\s*\d+\s*\])?\s*;")]
-    private static partial Regex UniformDeclarationRegex();
-
-    // A file-scope const (`const float3 LUMA = ...`), tolerating leading whitespace. Applied only to lines that
-    // start at brace depth 0 (see <see cref="EnumerateTopLevelLines"/>), so function-local consts are left alone.
-    [GeneratedRegex(@"^[ \t]*const\s+[A-Za-z_][A-Za-z0-9_]*\s+([A-Za-z_][A-Za-z0-9_]*)")]
-    private static partial Regex ConstDeclarationRegex();
-
-    // A top-level function definition (`float3 apply(...)`, `int modInt(...)`), tolerating leading whitespace.
-    // Applied only to lines starting at brace depth 0, so a body call/control statement (`return foo(c);`, `if (...)`)
-    // — which lives inside the function body at depth > 0 — is never mistaken for a definition.
-    [GeneratedRegex(@"^[ \t]*[A-Za-z_][A-Za-z0-9_]*\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(")]
-    private static partial Regex FunctionDefinitionRegex();
 
     /// <summary>
     /// Builds the merged whole-source program for <paramref name="snippets"/> (all must be
@@ -79,27 +64,8 @@ internal static partial class SkslSnippetMerger
     private static string Prefix(string source, int index)
     {
         string prefix = $"fe{index}_";
-        var names = new HashSet<string>(StringComparer.Ordinal);
-
-        // Uniforms only ever appear at file scope, so an unanchored match is safe regardless of indentation.
-        foreach (Match match in UniformDeclarationRegex().Matches(source))
-            names.Add(match.Groups[1].Value);
-
-        // Const and function definitions are file-scope only; classify by the brace depth at each line's start so
-        // the leading-whitespace-tolerant matchers see an indented signature/const but never a body statement.
-        foreach (string line in EnumerateTopLevelLines(source))
-        {
-            Match constMatch = ConstDeclarationRegex().Match(line);
-            if (constMatch.Success)
-                names.Add(constMatch.Groups[1].Value);
-
-            Match functionMatch = FunctionDefinitionRegex().Match(line);
-            if (functionMatch.Success)
-                names.Add(functionMatch.Groups[1].Value);
-        }
-
         string result = source;
-        foreach (string name in names)
+        foreach (string name in CollectTopLevelNames(source))
         {
             // `(?<!\.)` skips a dot-preceded occurrence: a top-level declaration is never `x.name`, so `.name` is
             // a member/swizzle access (`c.r` when a uniform is named `r`) that must not be renamed. `\b` alone
@@ -110,49 +76,73 @@ internal static partial class SkslSnippetMerger
         return result;
     }
 
-    // Yields each line whose start is at brace depth 0 (file scope). A function signature line opens its body brace
-    // at or after the yield, so it is classified at depth 0; the body statements it encloses start at depth > 0 and
-    // are skipped. Line (`//`) and block (`/* */`) comments are ignored when counting braces.
-    private static IEnumerable<string> EnumerateTopLevelLines(string source)
+    // Collects the names a snippet declares at file scope from a comment-skipping token scan rather than per-line
+    // regexes: a declaration split across lines (`float3\nhelper(...)`) or a second definition after a same-line
+    // body close (`} half4 tint(`) has no single line matching a signature pattern, and a missed name redefines in
+    // the merged program. At brace depth 0, `uniform`/`const` TYPE NAME declares NAME, and IDENT IDENT `(` is a
+    // function definition (statements only exist inside bodies at depth > 0, so calls can't be mistaken for one).
+    private static HashSet<string> CollectTopLevelNames(string source)
     {
+        var names = new HashSet<string>(StringComparer.Ordinal);
+        var tokens = new List<(string Text, bool IsIdent, int Depth)>();
+
         int depth = 0;
-        bool inBlockComment = false;
-        foreach (string line in source.Split('\n'))
+        for (int i = 0; i < source.Length; i++)
         {
-            bool topLevel = depth == 0 && !inBlockComment;
-
-            for (int i = 0; i < line.Length; i++)
+            char c = source[i];
+            if (c == '/' && i + 1 < source.Length && source[i + 1] == '/')
             {
-                char ch = line[i];
-                if (inBlockComment)
-                {
-                    if (ch == '*' && i + 1 < line.Length && line[i + 1] == '/')
-                    {
-                        inBlockComment = false;
-                        i++;
-                    }
-
-                    continue;
-                }
-
-                if (ch == '/' && i + 1 < line.Length && line[i + 1] == '/')
-                    break;
-
-                if (ch == '/' && i + 1 < line.Length && line[i + 1] == '*')
-                {
-                    inBlockComment = true;
+                while (i < source.Length && source[i] != '\n')
                     i++;
-                    continue;
-                }
-
-                if (ch == '{')
-                    depth++;
-                else if (ch == '}' && depth > 0)
-                    depth--;
+                continue;
             }
 
-            if (topLevel)
-                yield return line;
+            if (c == '/' && i + 1 < source.Length && source[i + 1] == '*')
+            {
+                i += 2;
+                while (i + 1 < source.Length && !(source[i] == '*' && source[i + 1] == '/'))
+                    i++;
+                i++;
+                continue;
+            }
+
+            if (char.IsWhiteSpace(c))
+                continue;
+
+            if (char.IsLetter(c) || c == '_')
+            {
+                int start = i;
+                while (i + 1 < source.Length && (char.IsLetterOrDigit(source[i + 1]) || source[i + 1] == '_'))
+                    i++;
+                tokens.Add((source[start..(i + 1)], true, depth));
+                continue;
+            }
+
+            if (c == '{')
+                depth++;
+            else if (c == '}' && depth > 0)
+                depth--;
+            tokens.Add((c.ToString(), false, depth));
         }
+
+        for (int t = 0; t + 1 < tokens.Count; t++)
+        {
+            if (!tokens[t].IsIdent || tokens[t].Depth != 0)
+                continue;
+
+            if (tokens[t].Text is "uniform" or "const")
+            {
+                if (t + 2 < tokens.Count && tokens[t + 1].IsIdent && tokens[t + 2].IsIdent)
+                    names.Add(tokens[t + 2].Text);
+                t += 2;
+            }
+            else if (tokens[t + 1].IsIdent && t + 2 < tokens.Count && tokens[t + 2].Text == "(")
+            {
+                names.Add(tokens[t + 1].Text);
+                t++;
+            }
+        }
+
+        return names;
     }
 }

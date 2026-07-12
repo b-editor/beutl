@@ -43,6 +43,7 @@ public sealed record GeometryNodeDescriptor : EffectNodeDescriptor
         Action<GeometrySession> render, BoundsContract bounds, object? structuralToken = null)
     {
         ArgumentNullException.ThrowIfNull(render);
+        bounds.ThrowIfUninitialized(nameof(bounds));
         return new GeometryNodeDescriptor(render, bounds, structuralToken ?? render.Method.MethodHandle.Value);
     }
 }

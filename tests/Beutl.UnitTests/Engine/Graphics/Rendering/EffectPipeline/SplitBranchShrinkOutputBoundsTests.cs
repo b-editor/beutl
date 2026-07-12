@@ -5,6 +5,7 @@ using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Logging;
 using Beutl.Media;
+using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.EffectPipeline;
 
@@ -54,6 +55,42 @@ public class SplitBranchShrinkOutputBoundsTests
         {
             RenderNodeOperation.DisposeAll(ops);
         }
+    }
+
+    // DEBUG FR-007: the shrink blit holds branch + tight targets while the branches' shared input scratch is still
+    // leased — one lease above the plan's declared bound. The peak-live assert must model that transient (its
+    // split-shrink allowance) instead of failing a legitimate static-split shrink; only a pooled execution measures
+    // the peak, which is why this case runs with an explicit pool on the Vulkan render thread.
+    [Test]
+    public void SplitBranch_SetOutputBounds_WithPool_StaysWithinThePeakLiveAllowance()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var effect = new ShrinkingSplitEffect(branchBounds: s_input, shrunkTo: s_shrunk);
+            var resource = (FilterEffect.Resource)(object)effect.ToResource(CompositionContext.Default);
+
+            using var pool = new RenderTargetPool();
+            var builder = new EffectGraphBuilder(s_input, outputScale: 1f, workingScale: 1f);
+            effect.Describe(builder, resource);
+            using EffectGraph graph = builder.Build();
+            CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
+            FrameResources frame = EffectGraphCompiler.ResolveResources(plan, s_input, workingScale: 1f);
+
+            RenderNodeOperation[] ops = PlanExecutor.Execute(
+                plan, frame, [MakeContentRect(s_input)], outputScale: 1f, workingScale: 1f,
+                maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool);
+            try
+            {
+                Assert.That(ops, Has.Length.EqualTo(1));
+                Assert.That(ops[0].Bounds, Is.EqualTo(s_shrunk));
+            }
+            finally
+            {
+                RenderNodeOperation.DisposeAll(ops);
+            }
+        });
     }
 
     private static RenderNodeOperation MakeContentRect(Rect bounds)

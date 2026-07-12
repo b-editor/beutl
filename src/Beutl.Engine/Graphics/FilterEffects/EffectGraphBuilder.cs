@@ -303,6 +303,10 @@ public sealed class EffectGraphBuilder : IDisposable
     /// </summary>
     public EffectGraphBuilder DropShadow(Point position, Size sigma, Color color)
     {
+        // Skia treats a negative sigma as no blur; clamp like Blur so the contracts never deflate (unconstrained floats).
+        if (sigma.Width < 0) sigma = sigma.WithWidth(0);
+        if (sigma.Height < 0) sigma = sigma.WithHeight(0);
+
         var inflate = new Thickness(sigma.Width * 3, sigma.Height * 3);
         return SkiaFilter(SkiaFilterNodeDescriptor.Create(
             inner => SKImageFilter.CreateDropShadow(
@@ -320,6 +324,10 @@ public sealed class EffectGraphBuilder : IDisposable
     /// </summary>
     public EffectGraphBuilder DropShadowOnly(Point position, Size sigma, Color color)
     {
+        // Skia treats a negative sigma as no blur; clamp like Blur so the contracts never deflate (unconstrained floats).
+        if (sigma.Width < 0) sigma = sigma.WithWidth(0);
+        if (sigma.Height < 0) sigma = sigma.WithHeight(0);
+
         var inflate = new Thickness(sigma.Width * 3, sigma.Height * 3);
         return SkiaFilter(SkiaFilterNodeDescriptor.Create(
             inner => SKImageFilter.CreateDropShadowOnly(

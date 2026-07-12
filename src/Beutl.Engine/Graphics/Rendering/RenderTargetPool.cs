@@ -71,6 +71,8 @@ public sealed class RenderTargetPool : IDisposable
     /// <summary>Number of idle (available) buffers currently held. Test/diagnostic surface.</summary>
     public int IdleCount => _buckets.Values.Sum(l => l.Count);
 
+    internal int BucketCountForTest => _buckets.Count;
+
     /// <summary>Total bytes of idle buffers currently held. Test/diagnostic surface.</summary>
     public long IdleBytes => _idleBytes;
 
@@ -108,6 +110,8 @@ public sealed class RenderTargetPool : IDisposable
         {
             PooledSurface pooled = list[^1];
             list.RemoveAt(list.Count - 1);
+            if (list.Count == 0)
+                _buckets.Remove(key);
             pooled.IsPooled = false;
             _idleBytes -= pooled.ByteSize;
             ClearForReuse(pooled);
@@ -151,6 +155,8 @@ public sealed class RenderTargetPool : IDisposable
         {
             PooledSurface pooled = list[^1];
             list.RemoveAt(list.Count - 1);
+            if (list.Count == 0)
+                _buckets.Remove(key);
             pooled.IsPooled = false;
             _idleBytes -= pooled.ByteSize;
             if (diagnostics != null)
@@ -267,6 +273,20 @@ public sealed class RenderTargetPool : IDisposable
             }
 
             EnforceByteCap();
+        }
+
+        RemoveEmptyBuckets();
+    }
+
+    // Eviction empties bucket lists in place (EvictAt has no key to remove by); without this per-frame sweep a
+    // scene whose buffer size varies continuously (animated bounds → a new key per frame) grows the dictionary
+    // without bound and degrades the O(buckets) LRU scan. Dictionary.Remove during enumeration is supported.
+    private void RemoveEmptyBuckets()
+    {
+        foreach ((BucketKey key, List<PooledSurface> list) in _buckets)
+        {
+            if (list.Count == 0)
+                _buckets.Remove(key);
         }
     }
 

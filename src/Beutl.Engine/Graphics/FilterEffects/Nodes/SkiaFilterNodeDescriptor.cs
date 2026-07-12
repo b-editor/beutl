@@ -42,6 +42,7 @@ public sealed record SkiaFilterNodeDescriptor : EffectNodeDescriptor
         Func<SKImageFilter?, SKImageFilter?> factory, BoundsContract bounds, object? structuralToken = null)
     {
         ArgumentNullException.ThrowIfNull(factory);
+        bounds.ThrowIfUninitialized(nameof(bounds));
         return new SkiaFilterNodeDescriptor(factory, bounds, structuralToken ?? factory.Method.MethodHandle.Value);
     }
 }

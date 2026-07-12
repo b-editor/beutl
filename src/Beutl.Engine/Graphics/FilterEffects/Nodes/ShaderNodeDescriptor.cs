@@ -102,6 +102,7 @@ public sealed record ShaderNodeDescriptor : EffectNodeDescriptor
         IEnumerable<ChildBinding>? children = null,
         SKShaderTileMode srcTileMode = SKShaderTileMode.Decal)
     {
+        bounds.ThrowIfUninitialized(nameof(bounds));
         return new ShaderNodeDescriptor(
             SkslSource.WholeSource(source),
             isCoordinateInvariant: false,
@@ -113,8 +114,10 @@ public sealed record ShaderNodeDescriptor : EffectNodeDescriptor
 
     /// <summary>
     /// Builds a coordinate-invariant whole-source shader node (A6's opt-in): the author asserts the shader
-    /// samples only the current pixel, so it gets identity bounds by construction and participates in fusion.
-    /// Violating that assertion produces wrong output by contract (A3).
+    /// samples only the current pixel, so it gets identity bounds by construction — invariance drives sizing and
+    /// ROI (the pass never grows or re-anchors), but the node still runs as its own pass: only
+    /// <see cref="Snippet"/>-kind shaders merge into a fused program. Violating the invariance assertion
+    /// produces wrong output by contract (A3).
     /// </summary>
     public static ShaderNodeDescriptor WholeSourceInvariant(
         string source,

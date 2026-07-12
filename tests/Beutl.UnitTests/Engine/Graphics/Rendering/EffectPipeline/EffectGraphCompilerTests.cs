@@ -206,6 +206,57 @@ half4 apply(half4 c) {
         });
     }
 
+    // N1d: the structural checks parse code, not comments — a comment merely MENTIONING a rejected form must not
+    // reject the snippet — and a `const`-qualified function parameter is a qualifier, not a top-level const
+    // declaration, so its parameter-list comma is not a declarator list.
+    [Test]
+    public void SkslSnippet_CommentMentionsAndConstParameters_AreAccepted()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.DoesNotThrow(
+                () => ShaderNodeDescriptor.Snippet(
+                    "// uniform float a, b; is not allowed\nuniform float a;\nhalf4 apply(half4 c){ return half4(c.rgb*a, c.a); }"),
+                "a line comment mentioning a multi-declarator uniform is not a declaration");
+            Assert.DoesNotThrow(
+                () => ShaderNodeDescriptor.Snippet(
+                    "/* struct Foo { float a; }; const float A = 1.0, B = 2.0; */\nhalf4 apply(half4 c){ return c; }"),
+                "a block comment mentioning rejected forms is not a declaration");
+            Assert.DoesNotThrow(
+                () => ShaderNodeDescriptor.Snippet(
+                    "half4 blend(const half4 a, half4 b){ return a + b; }\nhalf4 apply(half4 c){ return blend(c, c); }"),
+                "a const-qualified function parameter's comma is a parameter separator, not a declarator list");
+        });
+    }
+
+    // N1e: default(BoundsContract) carries no maps and no structural identity — a growing filter authored with it
+    // would render clipped with no diagnostic — so the contract-taking descriptor factories reject it at describe
+    // time instead of silently substituting identity maps.
+    [Test]
+    public void DescriptorFactories_DefaultBoundsContract_IsRejected()
+    {
+        const string wholeSource = "uniform shader src;\nhalf4 main(float2 coord){ return src.eval(coord); }";
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                () => GeometryNodeDescriptor.Create(static _ => { }, default),
+                Throws.ArgumentException,
+                "a geometry node's mandatory contract must be an authored one, never the uninitialized default");
+            Assert.That(
+                () => SkiaFilterNodeDescriptor.Create(static inner => inner, default),
+                Throws.ArgumentException,
+                "a Skia-filter node's contract must be an authored one, never the uninitialized default");
+            Assert.That(
+                () => ShaderNodeDescriptor.WholeSource(wholeSource, default),
+                Throws.ArgumentException,
+                "a whole-source shader's contract must be an authored one, never the uninitialized default");
+            Assert.DoesNotThrow(
+                () => GeometryNodeDescriptor.Create(static _ => { }, BoundsContract.RenderTime),
+                "the render-time contract stays the sanctioned 'unknown until execution' escape hatch");
+        });
+    }
+
     // B1: a snippet whose top-level declarations are indented must still fuse. The merger prefixes the indented
     // const, helper, and apply to fe0_ so the generated main's fe0_apply call resolves and the program compiles.
     [Test]

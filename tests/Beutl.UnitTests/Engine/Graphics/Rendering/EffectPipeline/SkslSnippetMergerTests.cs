@@ -90,4 +90,29 @@ public class SkslSnippetMergerTests
             Assert.That(effect, Is.Not.Null);
         });
     }
+
+    // A signature split across lines ('float3\nhelper(...)') and a second definition after a same-line body close
+    // ('} half4 apply(') have no single line matching a per-line signature regex; a missed rename lets two snippets
+    // sharing the name redefine it (or leaves the generated main's feN_apply call unresolved) in the merged program.
+    [Test]
+    public void Merge_MultiLineAndSameLineSignatures_AreRenamed()
+    {
+        string multiLine =
+            "uniform float scale;\nfloat3\nhelper(half4 c) { return c.rgb * scale; }\n"
+            + "half4 apply(half4 c) { return half4(helper(c), c.a); }";
+        string sameLine =
+            "float3 helper(half4 c) { return c.rgb; } half4 apply(half4 c) { return half4(helper(c), c.a); }";
+
+        string merged = SkslSnippetMerger.Merge([SkslSource.Snippet(multiLine), SkslSource.Snippet(sameLine)]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(merged, Does.Contain("fe0_helper").And.Contain("fe1_helper"),
+                "a multi-line signature and a same-line post-brace signature are both renamed");
+
+            using SKRuntimeEffect? effect = SKRuntimeEffect.CreateShader(merged, out string? error);
+            Assert.That(error, Is.Null, $"the merged program compiles ({error})");
+            Assert.That(effect, Is.Not.Null);
+        });
+    }
 }
