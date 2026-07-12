@@ -78,7 +78,7 @@ internal sealed class PlanFilterEffectRenderNode(FilterEffect.Resource filterEff
         if (context.Pool != null)
         {
             PrefixDecision decision = _prefixCache.Prepare(
-                resource, plan, key, contextId, workingScale,
+                resource, plan, key, contextId, workingScale, context.OutputScale, context.MaxWorkingScale,
                 context.Input, RenderNodeCacheHelper.CanCacheRecursiveChildrenOnly(this), resources);
 
             switch (decision.Mode)

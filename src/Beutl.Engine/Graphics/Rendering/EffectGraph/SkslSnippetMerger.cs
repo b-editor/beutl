@@ -69,7 +69,9 @@ internal static class SkslSnippetMerger
         {
             // `(?<!\.)` skips a dot-preceded occurrence: a top-level declaration is never `x.name`, so `.name` is
             // a member/swizzle access (`c.r` when a uniform is named `r`) that must not be renamed. `\b` alone
-            // matches after `.`, so without the lookbehind `c.r` would corrupt to `c.fe0_r`.
+            // matches after `.`, so without the lookbehind `c.r` would corrupt to `c.fe0_r`. Struct bodies need no
+            // exclusion: SkSL rejects top-level structs via SkslSource.Snippet and function-local struct statements
+            // in its own front end (canary-pinned by SkslSnippetMergerTests), so no renamable snippet contains one.
             result = Regex.Replace(result, $@"(?<!\.)\b{Regex.Escape(name)}\b", prefix + name);
         }
 
@@ -79,8 +81,10 @@ internal static class SkslSnippetMerger
     // Collects the names a snippet declares at file scope from a comment-skipping token scan rather than per-line
     // regexes: a declaration split across lines (`float3\nhelper(...)`) or a second definition after a same-line
     // body close (`} half4 tint(`) has no single line matching a signature pattern, and a missed name redefines in
-    // the merged program. At brace depth 0, `uniform`/`const` TYPE NAME declares NAME, and IDENT IDENT `(` is a
-    // function definition (statements only exist inside bodies at depth > 0, so calls can't be mistaken for one).
+    // the merged program. At brace depth 0, `uniform`/`const` TYPE NAME declares NAME; IDENT IDENT `(` is a
+    // function definition; and IDENT IDENT followed by `=`/`;`/`[` is a MUTABLE global — SkSL accepts those, and an
+    // unrenamed one shared by two snippets redefines in the merged program even though each compiles standalone
+    // (statements only exist inside bodies at depth > 0, so calls/locals can't be mistaken for declarations).
     private static HashSet<string> CollectTopLevelNames(string source)
     {
         var names = new HashSet<string>(StringComparer.Ordinal);
@@ -136,7 +140,7 @@ internal static class SkslSnippetMerger
                     names.Add(tokens[t + 2].Text);
                 t += 2;
             }
-            else if (tokens[t + 1].IsIdent && t + 2 < tokens.Count && tokens[t + 2].Text == "(")
+            else if (tokens[t + 1].IsIdent && t + 2 < tokens.Count && tokens[t + 2].Text is "(" or "=" or ";" or "[")
             {
                 names.Add(tokens[t + 1].Text);
                 t++;

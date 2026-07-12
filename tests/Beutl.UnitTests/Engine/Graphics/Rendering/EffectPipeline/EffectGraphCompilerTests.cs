@@ -229,6 +229,25 @@ half4 apply(half4 c) {
         });
     }
 
+    // N1f: Build transfers the node list and disposal set to the graph BY REFERENCE; a stashed builder mutating
+    // them afterwards would silently change the compiled graph, so post-build mutation throws at the call site.
+    [Test]
+    public void Builder_UsedAfterBuild_Throws()
+    {
+        var builder = new EffectGraphBuilder(new Rect(0, 0, 100, 100), outputScale: 1f, workingScale: 1f);
+        builder.Saturate(0.5f);
+        using EffectGraph graph = builder.Build();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(() => builder.Saturate(0.5f), Throws.InvalidOperationException,
+                "appending after Build must throw instead of mutating the built graph's node list");
+            Assert.That(() => builder.Track(SKColorFilter.CreateBlendMode(SKColors.Red, SKBlendMode.SrcOver)),
+                Throws.InvalidOperationException,
+                "tracking after Build must throw instead of mutating the built graph's disposal set");
+        });
+    }
+
     // N1e: default(BoundsContract) carries no maps and no structural identity — a growing filter authored with it
     // would render clipped with no diagnostic — so the contract-taking descriptor factories reject it at describe
     // time instead of silently substituting identity maps.

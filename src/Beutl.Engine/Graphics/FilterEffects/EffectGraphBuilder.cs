@@ -173,8 +173,22 @@ public sealed class EffectGraphBuilder : IDisposable
     public T Track<T>(T disposable) where T : IDisposable
     {
         ArgumentNullException.ThrowIfNull(disposable);
+        ThrowIfBuilt();
         _disposables.Add(disposable);
         return disposable;
+    }
+
+    // The graph holds the node list and disposal set by reference (Build transfers ownership without copying, so
+    // the per-frame path stays allocation-free); a stashed builder mutating them after Build would silently change
+    // the compiled graph's shape or disposal set, so mutation surfaces here instead.
+    private void ThrowIfBuilt()
+    {
+        if (_built)
+        {
+            throw new InvalidOperationException(
+                "This EffectGraphBuilder has already built its graph; a builder must not be used after "
+                + nameof(FilterEffect.Describe) + " returns.");
+        }
     }
 
     /// <summary>
@@ -206,6 +220,7 @@ public sealed class EffectGraphBuilder : IDisposable
 
     private EffectGraphBuilder Append(EffectNodeDescriptor descriptor)
     {
+        ThrowIfBuilt();
         Rect input = Bounds;
         Rect output = descriptor.Bounds.IsRenderTimeResolved
             ? Rect.Invalid

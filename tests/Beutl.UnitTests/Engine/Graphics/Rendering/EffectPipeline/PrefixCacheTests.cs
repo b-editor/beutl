@@ -652,6 +652,34 @@ public class PrefixCacheTests
         });
     }
 
+    // The prefix signature includes the render-scale policy: a deferred child bakes at the describe-time
+    // MaxWorkingScale (DisplacementMapTransform's map), so a prefix captured under another policy would resume
+    // wrongly-scaled pixels even when workingScale itself is unchanged (a supply-pinned w under a zoom change).
+    [Test]
+    public void MaxWorkingScaleChange_InvalidatesTheCapturedPrefix()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            ProgramCache.Clear();
+            var (root, gamma, _) = MakeBlurGamma();
+            var resource = (FilterEffect.Resource)root.ToResource(CompositionContext.Default);
+            using var node = new PlanFilterEffectRenderNode(resource);
+            var diagnostics = new PipelineDiagnostics();
+            using var pool = new RenderTargetPool();
+
+            for (int f = 0; f < 6; f++)
+                Step(node, resource, root, gamma, diagnostics, pool, f, 1f);
+            PipelineDiagnosticsSnapshot warmed = Step(node, resource, root, gamma, diagnostics, pool, 6, 1f);
+            Assert.That(warmed.PrefixCacheHits, Is.EqualTo(1), "sanity: the prefix is warmed and reused");
+
+            PipelineDiagnosticsSnapshot changed = StepWithMaxScale(
+                node, resource, root, gamma, diagnostics, pool, frame: 7, maxWorkingScale: 4f);
+            Assert.That(changed.PrefixCacheHits, Is.EqualTo(0),
+                "a MaxWorkingScale change must invalidate the captured prefix, not resume it");
+        });
+    }
+
     // ---- Drivers -----------------------------------------------------------------------------------------
 
     private static PipelineDiagnosticsSnapshot Step(
@@ -666,6 +694,28 @@ public class PrefixCacheTests
 
         diagnostics.Reset();
         var context = new RenderNodeContext([MakeInput()], outputScale) { Diagnostics = diagnostics, Pool = pool };
+        RenderNodeOperation[] ops = node.Process(context);
+        PipelineDiagnosticsSnapshot snap = diagnostics.Snapshot();
+        RenderNodeOperation.DisposeAll(ops);
+        return snap;
+    }
+
+    private static PipelineDiagnosticsSnapshot StepWithMaxScale(
+        FilterEffectRenderNode node, FilterEffect.Resource resource, FilterEffect root, Gamma gamma,
+        PipelineDiagnostics diagnostics, RenderTargetPool pool, int frame, float maxWorkingScale)
+    {
+        pool.Trim(frame);
+        gamma.Amount.CurrentValue = 50f + 2f * frame;
+        bool updateOnly = false;
+        resource.Update(root, CompositionContext.Default, ref updateOnly);
+        node.Update(resource);
+
+        diagnostics.Reset();
+        var context = new RenderNodeContext([MakeInput()], outputScale: 1f, maxWorkingScale)
+        {
+            Diagnostics = diagnostics,
+            Pool = pool,
+        };
         RenderNodeOperation[] ops = node.Process(context);
         PipelineDiagnosticsSnapshot snap = diagnostics.Snapshot();
         RenderNodeOperation.DisposeAll(ops);

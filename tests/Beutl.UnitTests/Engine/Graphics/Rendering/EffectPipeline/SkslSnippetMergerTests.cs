@@ -91,6 +91,47 @@ public class SkslSnippetMergerTests
         });
     }
 
+    // SkSL accepts a MUTABLE top-level global ('float gain = 1.0;'); without a rename, two snippets sharing the
+    // name compile standalone but redefine it in the merged program.
+    [Test]
+    public void Merge_MutableTopLevelGlobals_ArePrefixedIndependently()
+    {
+        string shared =
+            "float gain = 0.25;\nhalf4 apply(half4 c) { gain = gain + 0.25; return half4(c.rgb * gain, c.a); }";
+
+        string merged = SkslSnippetMerger.Merge([SkslSource.Snippet(shared), SkslSource.Snippet(shared)]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(merged, Does.Contain("fe0_gain").And.Contain("fe1_gain"),
+                "each snippet's mutable global gets its own index prefix, so the shared name never redefines");
+
+            using SKRuntimeEffect? effect = SKRuntimeEffect.CreateShader(merged, out string? error);
+            Assert.That(error, Is.Null, $"the merged program compiles ({error})");
+            Assert.That(effect, Is.Not.Null);
+        });
+    }
+
+    // CANARY: the merger's whole-word rename does NOT exclude struct bodies, which is sound only while SkSL
+    // itself rejects function-local struct statements (top-level structs are already rejected at Snippet()). If a
+    // Skia upgrade starts ACCEPTING this, a field sharing a top-level name would be renamed in its declaration but
+    // not in its dot-qualified accesses, and the merger needs a struct-body exclusion — this test failing is that
+    // signal.
+    [Test]
+    public void FunctionLocalStruct_IsRejectedBySkSLItself()
+    {
+        string snippet =
+            "uniform half r;\n"
+            + "half4 apply(half4 c) { struct S { half r; }; S s; s.r = c.g; return half4(c.r * r, s.r, c.b, c.a); }";
+
+        string merged = SkslSnippetMerger.Merge([SkslSource.Snippet(snippet)]);
+
+        using SKRuntimeEffect? effect = SKRuntimeEffect.CreateShader(merged, out string? error);
+        Assert.That(error, Does.Contain("struct"),
+            "SkSL now accepts a function-local struct: the merger's rename can desynchronize a field declaration "
+            + "from its dot-qualified accesses and needs a struct-body exclusion (see Prefix)");
+    }
+
     // A signature split across lines ('float3\nhelper(...)') and a second definition after a same-line body close
     // ('} half4 apply(') have no single line matching a per-line signature regex; a missed rename lets two snippets
     // sharing the name redefine it (or leaves the generated main's feN_apply call unresolved) in the merged program.

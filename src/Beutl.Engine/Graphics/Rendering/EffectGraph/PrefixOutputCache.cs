@@ -110,6 +110,12 @@ internal sealed class EffectPrefixCache : IDisposable
     private object? _contextId;
     private float _workingScale;
 
+    // OutputScale and MaxWorkingScale reach captured pixels outside workingScale: a deferred child bakes at the
+    // describe-time MaxWorkingScale (DisplacementMapTransform's map), so a supply-pinned w with a changed zoom
+    // policy would otherwise resume from a buffer rendered under the previous scale policy.
+    private float _outputScale;
+    private float _maxWorkingScale;
+
     // The bounds + supply density of the ops that fed the plan on the last engagement frame, compared EXACTLY (not
     // a hash) so no collision can ever contribute to a false stability match (C10 input-bounds gate). The buffer is
     // reused across frames; _inputSignatureCount is the valid element count (-1 until the first capture).
@@ -125,13 +131,16 @@ internal sealed class EffectPrefixCache : IDisposable
 
     public PrefixDecision Prepare(
         FilterEffect.Resource resource, CompiledPlan plan, StructuralKey key, object contextId,
-        float workingScale, ReadOnlySpan<RenderNodeOperation> input, bool inputSubtreeStable,
+        float workingScale, float outputScale, float maxWorkingScale,
+        ReadOnlySpan<RenderNodeOperation> input, bool inputSubtreeStable,
         FrameResources resources)
     {
         bool signatureMatch = _hasSignature
             && ReferenceEquals(_contextId, contextId)
             && _key == key
             && _workingScale == workingScale
+            && _outputScale == outputScale
+            && _maxWorkingScale == maxWorkingScale
             && InputSignatureEquals(input);
 
         // Any signature change or input-subtree instability voids the cached prefix's assumptions: release the
@@ -144,6 +153,8 @@ internal sealed class EffectPrefixCache : IDisposable
             _key = key;
             _contextId = contextId;
             _workingScale = workingScale;
+            _outputScale = outputScale;
+            _maxWorkingScale = maxWorkingScale;
             CaptureInputSignature(input);
         }
 
