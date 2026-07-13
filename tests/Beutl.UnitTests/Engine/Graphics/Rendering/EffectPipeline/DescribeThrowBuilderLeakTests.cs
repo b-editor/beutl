@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics;
+﻿using Beutl.Composition;
+using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 
@@ -85,4 +86,26 @@ public class DescribeThrowBuilderLeakTests
         Assert.That(shader.Handle, Is.EqualTo(IntPtr.Zero),
             "the graph owns the shader after Build and releases it exactly once on its own dispose");
     }
+
+    [Test]
+    public void PlanSetupThrows_DisposesInputOperationsBeforeExecutorOwnership()
+    {
+        var effect = new ThrowingDescribeEffect();
+        using var resource = (FilterEffect.Resource)effect.ToResource(CompositionContext.Default);
+        using var node = new PlanFilterEffectRenderNode(resource);
+        bool disposed = false;
+        RenderNodeOperation input = RenderNodeOperation.CreateLambda(
+            s_bounds, static _ => { }, onDispose: () => disposed = true);
+
+        Assert.Throws<InvalidOperationException>(() => node.Process(new RenderNodeContext([input])));
+
+        Assert.That(disposed, Is.True,
+            "the plan node must release inputs when Describe fails before ownership reaches PlanExecutor");
+    }
+}
+
+internal sealed partial class ThrowingDescribeEffect : FilterEffect
+{
+    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
+        => throw new InvalidOperationException("simulated plan setup failure");
 }

@@ -116,6 +116,27 @@ public class RenderTargetPoolTests
     }
 
     [Test]
+    public void Acquire_ReusedBufferClearThrows_EvictsRemovedBackingWithoutIssuingLease()
+    {
+        RunOnRenderThread(() =>
+        {
+            using var pool = new RenderTargetPool();
+            pool.Acquire(W, H)!.Dispose();
+            pool.SetClearForReuseForTest(
+                static _ => throw new InvalidOperationException("simulated reuse-clear failure"));
+
+            Assert.Throws<InvalidOperationException>(() => pool.Acquire(W, H));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(pool.IdleCount, Is.Zero, "the failed hit is not orphaned in a bucket");
+                Assert.That(pool.IdleBytes, Is.Zero, "idle byte accounting remains balanced");
+                Assert.That(pool.LiveLeaseCount, Is.Zero, "a failed clear never issues a lease");
+            });
+        });
+    }
+
+    [Test]
     public void Trim_EvictsBuffersIdleBeyondThreshold()
     {
         RunOnRenderThread(() =>

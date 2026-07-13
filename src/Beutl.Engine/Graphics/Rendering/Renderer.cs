@@ -40,6 +40,8 @@ public class Renderer : IRenderer
 
         public Rect Bounds { get; set; }
 
+        public bool IsBoundsDirty { get; set; } = true;
+
         public bool IsDisposed { get; private set; }
 
         public void Dispose()
@@ -215,6 +217,7 @@ public class Renderer : IRenderer
         {
             using var ctx = new GraphicsContext2D(entry.Node, FrameSize.ToSize(1), OutputScale);
             drawable.Render(ctx, resource);
+            entry.IsBoundsDirty = true;
         }
 
         RevalidateAll(entry.Node);
@@ -224,16 +227,12 @@ public class Renderer : IRenderer
             RequestedBounds = new Rect(default, FrameSize.ToSize(1)),
         };
         var ops = processor.PullToRoot();
-        Rect bounds = Rect.Empty;
         int consumed = 0;
         try
         {
             foreach (var op in ops)
             {
                 op.Render(_immediateCanvas);
-                bounds = bounds.Union(op.Bounds);
-                // consumed++ trails op.Bounds (a throw site) so a throw before op.Dispose leaves
-                // this op in the cleanup sweep below.
                 consumed++;
                 op.Dispose();
             }
@@ -244,7 +243,6 @@ public class Renderer : IRenderer
             throw;
         }
 
-        entry.Bounds = bounds;
         RenderNodeCacheHelper.MakeCache(entry.Node, CacheOptions, OutputScale, MaxWorkingScale, Diagnostics, _pool);
         return entry;
     }
@@ -327,6 +325,7 @@ public class Renderer : IRenderer
             {
                 using var ctx = new GraphicsContext2D(entry.Node, FrameSize.ToSize(1), OutputScale);
                 drawable.Render(ctx, drawableResource);
+                entry.IsBoundsDirty = true;
             }
 
             RevalidateAll(entry.Node);
@@ -367,7 +366,13 @@ public class Renderer : IRenderer
 
     public Rect[] GetBoundaries(int zIndex)
     {
-        return [.. _allCurrentEntries.Where(e => e.Node.Drawable?.Resource.GetOriginal().ZIndex == zIndex).Select(e => e.Bounds)];
+        RenderThread.Dispatcher.VerifyAccess();
+        return
+        [
+            .. _allCurrentEntries
+                .Where(e => e.Node.Drawable?.Resource.GetOriginal().ZIndex == zIndex)
+                .Select(EnsureBoundary)
+        ];
     }
 
     public Rect? GetBoundary(Drawable drawable)
@@ -377,7 +382,7 @@ public class Renderer : IRenderer
         {
             if (_allCurrentEntries.Contains(entry))
             {
-                return entry.Bounds;
+                return EnsureBoundary(entry);
             }
             // An entry exists but is not included in the current frame (stale). Suggests a draw-lifecycle mismatch.
             if (s_logger.IsEnabled(LogLevel.Debug))
@@ -401,30 +406,45 @@ public class Renderer : IRenderer
 
     public Rect[] RecalculateBoundaries(int zIndex)
     {
-        return [.. _allCurrentEntries.Where(e => e.Node.Drawable?.Resource.GetOriginal().ZIndex == zIndex).Select(e =>
+        RenderThread.Dispatcher.VerifyAccess();
+        return
+        [
+            .. _allCurrentEntries
+                .Where(e => e.Node.Drawable?.Resource.GetOriginal().ZIndex == zIndex)
+                .Select(CalculateBoundary)
+        ];
+    }
+
+    private Rect EnsureBoundary(Entry entry)
+    {
+        return entry.IsBoundsDirty ? CalculateBoundary(entry) : entry.Bounds;
+    }
+
+    private Rect CalculateBoundary(Entry entry)
+    {
+        var processor = new RenderNodeProcessor(
+            entry.Node, CacheOptions.IsEnabled, OutputScale, MaxWorkingScale, Diagnostics, _pool);
+        var ops = processor.PullToRoot();
+        Rect bounds = Rect.Empty;
+        int consumed = 0;
+        try
         {
-            var processor = new RenderNodeProcessor(
-                e.Node, CacheOptions.IsEnabled, OutputScale, MaxWorkingScale, Diagnostics, _pool);
-            var ops = processor.PullToRoot();
-            Rect bounds = Rect.Empty;
-            int consumed = 0;
-            try
+            foreach (var op in ops)
             {
-                foreach (var op in ops)
-                {
-                    bounds = bounds.Union(op.Bounds);
-                    consumed++;
-                    op.Dispose();
-                }
+                bounds = bounds.Union(op.Bounds);
+                consumed++;
+                op.Dispose();
             }
-            catch
-            {
-                RenderNodeOperation.DisposeAll(ops.AsSpan(consumed));
-                throw;
-            }
-            e.Bounds = bounds;
-            return bounds;
-        })];
+        }
+        catch
+        {
+            RenderNodeOperation.DisposeAll(ops.AsSpan(consumed));
+            throw;
+        }
+
+        entry.Bounds = bounds;
+        entry.IsBoundsDirty = false;
+        return bounds;
     }
 
     public DrawableRenderNode? FindRenderNode(Drawable drawable)

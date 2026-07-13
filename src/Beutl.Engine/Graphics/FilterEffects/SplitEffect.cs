@@ -35,15 +35,28 @@ public partial class SplitEffect : FilterEffect
         float hSpacing = r.HorizontalSpacing;
         float vSpacing = r.VerticalSpacing;
 
-        // The division counts are structural: animating them recompiles exactly once (C3.6).
-        builder.Split(SplitNodeDescriptor.Static(
-            emitter => EmitTiles(emitter, hDiv, vDiv, hSpacing, vSpacing),
-            branchCount: Math.Max(1, hDiv * vDiv),
-            structuralToken: nameof(SplitEffect)));
+        Action<ISplitEmitter> emit = emitter => EmitTiles(emitter, hDiv, vDiv, hSpacing, vSpacing);
+        long branchCount = (long)hDiv * vDiv;
+        bool hasRenderableStaticBranches = hDiv > 0
+            && vDiv > 0
+            && builder.Bounds.Width / hDiv >= 1f
+            && builder.Bounds.Height / vDiv >= 1f
+            && branchCount <= int.MaxValue;
+
+        // The division counts are structural when the branches can be declared safely (C3.6). A split whose
+        // logical tiles are sub-pixel emits no branches, so keeping it dynamic avoids allocating a massive static
+        // resource plan for outputs that can never exist. The dynamic form also avoids overflowing the declaration
+        // count for serialized division values whose product exceeds Int32.
+        builder.Split(hasRenderableStaticBranches
+            ? SplitNodeDescriptor.Static(emit, (int)branchCount, structuralToken: nameof(SplitEffect))
+            : SplitNodeDescriptor.Dynamic(emit, structuralToken: nameof(SplitEffect)));
     }
 
     private static void EmitTiles(ISplitEmitter emitter, int hDiv, int vDiv, float hSpacing, float vSpacing)
     {
+        if (hDiv <= 0 || vDiv <= 0)
+            return;
+
         EffectInput input = emitter.Input;
         Rect bounds = input.Bounds;
         float w = emitter.WorkingScale;

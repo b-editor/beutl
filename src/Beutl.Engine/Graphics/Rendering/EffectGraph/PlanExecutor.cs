@@ -1521,6 +1521,9 @@ internal static class PlanExecutor
                 ?? throw new ComputeScratchAllocationException(
                     $"Compute ping-pong scratch allocation failed ({width}x{height} px).");
             colorScratch.Add(target);
+            // A pooled Skia surface may still have its acquire-time clear queued. Submit that work before Vulkan
+            // writes the backing image, otherwise a later Skia flush can overwrite the compute result.
+            target.PrepareForComputeWrite();
             return target.Texture
                 ?? throw new ComputeScratchAllocationException("Pooled compute scratch has no Vulkan texture.");
         }

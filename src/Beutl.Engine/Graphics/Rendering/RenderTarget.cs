@@ -8,6 +8,9 @@ namespace Beutl.Graphics.Rendering;
 
 public class RenderTarget : IDisposable
 {
+    [ThreadStatic]
+    private static Action? s_computeWritePreparedForTest;
+
     private readonly SKSurfaceCounter<SKSurface> _surface;
     private readonly SKSurfaceCounter<ITexture2D>? _texture;
     private readonly Dispatcher? _dispatcher = Dispatcher.Current;
@@ -310,7 +313,11 @@ public class RenderTarget : IDisposable
         VerifyAccess();
 
         _surface.Value!.Flush(true, true);
+        s_computeWritePreparedForTest?.Invoke();
     }
+
+    internal static void SetComputeWritePreparedObserverForTest(Action? observer)
+        => s_computeWritePreparedForTest = observer;
 
     private sealed class SKSurfaceCounter<T>(T value, Action? onLastRelease = null)
         where T : class, IDisposable

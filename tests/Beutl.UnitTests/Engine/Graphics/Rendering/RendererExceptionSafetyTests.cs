@@ -58,6 +58,26 @@ public class RendererExceptionSafetyTests
         });
     }
 
+    [Test]
+    public void GetBoundary_AfterCroppedRender_ReturnsUncroppedDrawableBounds()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using var renderer = new Renderer(16, 16);
+            var drawable = new RoiAwareBoundsDrawable();
+            var resource = (Drawable.Resource)drawable.ToResource(CompositionContext.Default);
+            var frame = new CompositionFrame(
+                ImmutableArray.Create<EngineObject.Resource>(resource),
+                new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
+                new PixelSize(16, 16));
+
+            renderer.Render(frame);
+
+            Assert.That(renderer.GetBoundary(drawable), Is.EqualTo(new Rect(-8, 0, 16, 8)));
+        });
+    }
+
     private static CompositionFrame CreateFrame(params RenderNodeOperation[] operations)
     {
         var drawable = new FaultingDrawable(operations);
@@ -112,4 +132,29 @@ internal sealed partial class FaultingDrawable(RenderNodeOperation[] operations)
 internal sealed class FixedOpsNode(RenderNodeOperation[] operations) : RenderNode
 {
     public override RenderNodeOperation[] Process(RenderNodeContext context) => operations;
+}
+
+internal sealed partial class RoiAwareBoundsDrawable : Drawable
+{
+    public override void Render(GraphicsContext2D context, Drawable.Resource resource)
+        => context.DrawNode(new RoiAwareBoundsNode());
+
+    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource) => new(16, 8);
+
+    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
+    {
+    }
+}
+
+internal sealed class RoiAwareBoundsNode : RenderNode
+{
+    private static readonly Rect s_bounds = new(-8, 0, 16, 8);
+
+    public override RenderNodeOperation[] Process(RenderNodeContext context)
+    {
+        Rect bounds = context.RequestedBounds.IsInvalid
+            ? s_bounds
+            : s_bounds.Intersect(context.RequestedBounds);
+        return [RenderNodeOperation.CreateLambda(bounds, static _ => { })];
+    }
 }

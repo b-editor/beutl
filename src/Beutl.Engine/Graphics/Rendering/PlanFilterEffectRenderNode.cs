@@ -29,78 +29,87 @@ internal sealed class PlanFilterEffectRenderNode(FilterEffect.Resource filterEff
             return context.Input;
         }
 
-        // Resolve working scale from the densest concrete input, capped by the global ceiling.
-        Span<EffectiveScale> inputScales = context.Input.Length <= 16
-            ? stackalloc EffectiveScale[context.Input.Length]
-            : new EffectiveScale[context.Input.Length];
-        for (int i = 0; i < context.Input.Length; i++)
+        try
         {
-            inputScales[i] = context.Input[i].EffectiveScale;
-        }
-
-        float workingScale = RenderNodeContext.ResolveWorkingScale(
-            inputScales, context.OutputScale, context.MaxWorkingScale);
-
-        // Clamp w to keep ceil(bounds * w) within GPU/memory limits.
-        Rect bounds = context.CalculateBounds();
-        workingScale = RenderNodeContext.ClampWorkingScaleToBufferBudget(bounds, workingScale);
-
-        FilterEffect.Resource resource = FilterEffect.Value.Resource;
-        // A Describe that registers a native sampler/child shader and then throws would strand it (ownership only
-        // transfers to the graph at Build); the using releases what the builder still owns on that path.
-        using var graphBuilder = new EffectGraphBuilder(
-            bounds, context.OutputScale, workingScale, context.MaxWorkingScale);
-        resource.GetOriginal().Describe(graphBuilder, resource);
-        using EffectGraph graph = graphBuilder.Build();
-
-        // Cache the compiled plan on structural identity (C5): a parameter-only frame (animated uniforms, sigma,
-        // filter factories) re-describes and rebinds without recompiling. Structural changes and a
-        // graphics-context change miss and recompile exactly once.
-        object contextId = GraphicsContextFactory.SharedContext ?? s_noContext;
-        StructuralKey key = StructuralKey.Compute(graph);
-        CompiledPlan plan;
-        if (_planCache.TryGet(key, contextId, out CompiledPlan cached))
-        {
-            plan = ParameterBlock.Extract(graph).RebindOnto(cached);
-        }
-        else
-        {
-            plan = EffectGraphCompiler.Compile(graph, context.Diagnostics);
-            _planCache.Store(key, contextId, plan);
-        }
-
-        FrameResources resources = EffectGraphCompiler.ResolveResources(plan, context.RequestedBounds, workingScale);
-
-        // Pass-prefix output caching (C10): reuse a stable leading run of passes so a heavy static prefix (a blur,
-        // a stroke) is not re-executed every frame merely because the tail is animated. Only engaged on the pooled
-        // render path with render caching enabled — a caller that disabled render caching (a delivery render) must
-        // not have frames served from a retained prefix; the pool-less golden/frozen harnesses render once and never
-        // reach the engagement threshold.
-        if (context.Pool != null && context.IsRenderCacheEnabled)
-        {
-            PrefixDecision decision = _prefixCache.Prepare(
-                resource, plan, key, contextId, workingScale, context.OutputScale, context.MaxWorkingScale,
-                context.Input, RenderNodeCacheHelper.CanCacheRecursiveChildrenOnly(this), resources);
-
-            switch (decision.Mode)
+            // Resolve working scale from the densest concrete input, capped by the global ceiling.
+            Span<EffectiveScale> inputScales = context.Input.Length <= 16
+                ? stackalloc EffectiveScale[context.Input.Length]
+                : new EffectiveScale[context.Input.Length];
+            for (int i = 0; i < context.Input.Length; i++)
             {
-                case PrefixMode.Resume:
-                    return ExecuteResumed(context, plan, resources, workingScale, decision);
-                case PrefixMode.Capture:
-                    return ExecuteAndCapture(context, plan, resources, workingScale, decision.Pass);
+                inputScales[i] = context.Input[i].EffectiveScale;
             }
-        }
-        else
-        {
-            // A caching toggle must not leave a previously-captured prefix buffer pinned (idempotent no-op when
-            // nothing is retained).
-            _prefixCache.Release();
-        }
 
-        return PlanExecutor.Execute(
-            plan, resources, context.Input, context.OutputScale, workingScale, context.MaxWorkingScale,
-            context.Diagnostics, context.Pool,
-            isRenderCacheEnabled: context.IsRenderCacheEnabled);
+            float workingScale = RenderNodeContext.ResolveWorkingScale(
+                inputScales, context.OutputScale, context.MaxWorkingScale);
+
+            Rect bounds = context.CalculateBounds();
+
+            FilterEffect.Resource resource = FilterEffect.Value.Resource;
+            // A Describe that registers a native sampler/child shader and then throws would strand it (ownership only
+            // transfers to the graph at Build); the using releases what the builder still owns on that path.
+            using var graphBuilder = new EffectGraphBuilder(
+                bounds, context.OutputScale, workingScale, context.MaxWorkingScale);
+            resource.GetOriginal().Describe(graphBuilder, resource);
+            using EffectGraph graph = graphBuilder.Build();
+
+            // Cache the compiled plan on structural identity (C5): a parameter-only frame (animated uniforms, sigma,
+            // filter factories) re-describes and rebinds without recompiling. Structural changes and a
+            // graphics-context change miss and recompile exactly once.
+            object contextId = GraphicsContextFactory.SharedContext ?? s_noContext;
+            StructuralKey key = StructuralKey.Compute(graph);
+            CompiledPlan plan;
+            if (_planCache.TryGet(key, contextId, out CompiledPlan cached))
+            {
+                plan = ParameterBlock.Extract(graph).RebindOnto(cached);
+            }
+            else
+            {
+                plan = EffectGraphCompiler.Compile(graph, context.Diagnostics);
+                _planCache.Store(key, contextId, plan);
+            }
+
+            FrameResources resources = EffectGraphCompiler.ResolveResources(plan, context.RequestedBounds, workingScale);
+
+            // Pass-prefix output caching (C10): reuse a stable leading run of passes so a heavy static prefix (a blur,
+            // a stroke) is not re-executed every frame merely because the tail is animated. Only engaged on the pooled
+            // render path with render caching enabled — a caller that disabled render caching (a delivery render) must
+            // not have frames served from a retained prefix; the pool-less golden/frozen harnesses render once and never
+            // reach the engagement threshold.
+            if (context.Pool != null && context.IsRenderCacheEnabled)
+            {
+                PrefixDecision decision = _prefixCache.Prepare(
+                    resource, plan, key, contextId, workingScale, context.OutputScale, context.MaxWorkingScale,
+                    context.Input, RenderNodeCacheHelper.CanCacheRecursiveChildrenOnly(this), resources);
+
+                switch (decision.Mode)
+                {
+                    case PrefixMode.Resume:
+                        return ExecuteResumed(context, plan, resources, workingScale, decision);
+                    case PrefixMode.Capture:
+                        return ExecuteAndCapture(context, plan, resources, workingScale, decision.Pass);
+                }
+            }
+            else
+            {
+                // A caching toggle must not leave a previously-captured prefix buffer pinned (idempotent no-op when
+                // nothing is retained).
+                _prefixCache.Release();
+            }
+
+            return PlanExecutor.Execute(
+                plan, resources, context.Input, context.OutputScale, workingScale, context.MaxWorkingScale,
+                context.Diagnostics, context.Pool,
+                isRenderCacheEnabled: context.IsRenderCacheEnabled);
+        }
+        catch
+        {
+            // Ownership normally transfers to the executor. Describe, compilation, resource resolution, and prefix
+            // setup can fail before that hand-off, so release the input operations here as well. Operations are
+            // idempotent, making this safe when an executor path already completed its own exception sweep.
+            RenderNodeOperation.DisposeAll(context.Input);
+            throw;
+        }
     }
 
     // Skips the retained prefix's passes: the cached buffer seeds the pass after it, so passes 0..k neither draw nor

@@ -20,6 +20,7 @@ internal static class GpuDisposeBatch
     [ThreadStatic]
     private static bool s_drained;
 
+    [ThreadStatic]
     private static Action? s_drainFailureForTest;
 
     /// <summary>Test seam: total drain-flushes issued (one per batch scope, plus one per non-batched dispose).</summary>

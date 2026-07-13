@@ -333,14 +333,19 @@ internal static class EffectGraphCompiler
             if (type is "shader" or "colorFilter" or "blender")
                 continue;
 
-            int vectors = UniformTypeVectors(type);
+            long vectors = UniformTypeVectors(type);
             if (match.Groups["count"].Success
                 && int.TryParse(match.Groups["count"].Value, out int count))
             {
-                vectors = checked(vectors * count);
+                vectors *= count;
             }
 
-            total = checked(total + vectors);
+            // The fusion decision only needs to know whether the conservative backend floor was exceeded. Saturate
+            // at the first value above it so hostile or generated array extents cannot overflow compiler bookkeeping.
+            if (vectors > MaxFusionUniformVectors || total > MaxFusionUniformVectors - vectors)
+                return MaxFusionUniformVectors + 1;
+
+            total += (int)vectors;
         }
 
         return total;

@@ -133,6 +133,54 @@ public class PrimitivePassTests
         });
     }
 
+    [Test]
+    public void SplitEffect_SubpixelTiles_UsesDynamicEmptyResourcePlan()
+    {
+        var bounds = new Rect(0, 0, 100, 100);
+        var split = new SplitEffect
+        {
+            HorizontalDivisions = { CurrentValue = 1000 },
+            VerticalDivisions = { CurrentValue = 1000 },
+        };
+        var builder = new EffectGraphBuilder(bounds, outputScale: 1f, workingScale: 1f);
+        split.Describe(builder, (FilterEffect.Resource)split.ToResource(CompositionContext.Default));
+        using EffectGraph graph = builder.Build();
+
+        CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
+        var pass = (SplitPass)plan.Passes.Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(pass.IsDynamicOutputs, Is.True,
+                "sub-pixel tiles emit no branches and must not declare one million static outputs");
+            Assert.That(pass.BranchCount, Is.Zero);
+            Assert.That(plan.Resources.Intermediates, Is.Empty,
+                "a dynamic empty split has no static resource declarations");
+        });
+    }
+
+    [Test]
+    public void SplitEffect_RenderableTiles_RemainsStatic()
+    {
+        var split = new SplitEffect
+        {
+            HorizontalDivisions = { CurrentValue = 2 },
+            VerticalDivisions = { CurrentValue = 3 },
+        };
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        split.Describe(builder, (FilterEffect.Resource)split.ToResource(CompositionContext.Default));
+        using EffectGraph graph = builder.Build();
+
+        var pass = (SplitPass)EffectGraphCompiler.Compile(graph, diagnostics: null).Passes.Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(pass.IsDynamicOutputs, Is.False);
+            Assert.That(pass.BranchCount, Is.EqualTo(6),
+                "renderable division counts remain structural for plan-cache invalidation");
+        });
+    }
+
     // PartsSplit's dynamic outputs (C3.5): the executor allocates one pooled target per discovered contour, counts
     // each acquire, and releases every branch within the frame — so a second identical frame reuses them all with
     // zero fresh allocations (the pool-leak assertion).

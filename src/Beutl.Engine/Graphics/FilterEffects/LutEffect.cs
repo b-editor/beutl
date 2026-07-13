@@ -11,7 +11,8 @@ namespace Beutl.Graphics.Effects;
 public sealed partial class LutEffect : FilterEffect
 {
     // Fusable snippet forms of the two shaders above; `c` is the premultiplied linear-light source pixel
-    // (contract A2). The LUT is an extra texture sampler (its contents are a parameter, A4).
+    // (contract A2). Each apply function un-premultiplies RGB before LUT lookup and re-premultiplies the result.
+    // The LUT is an extra texture sampler (its contents are a parameter, A4).
     private static readonly string s_snippet3d =
         """
         uniform shader lut;

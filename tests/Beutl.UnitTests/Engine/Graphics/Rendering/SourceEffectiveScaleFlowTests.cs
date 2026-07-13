@@ -77,6 +77,44 @@ public class SourceEffectiveScaleFlowTests
         });
     }
 
+    [Test]
+    public void RequestedRoi_DoesNotPreClampWorkingScaleAgainstUnrelatedFullInputBounds()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var fullBounds = new Rect(0, 0, 40000, 8);
+            var requested = new Rect(20, 0, 100, 8);
+            RenderNodeOperation input = RenderNodeOperation.CreateLambda(
+                fullBounds,
+                canvas => canvas.DrawRectangle(fullBounds, Brushes.Resource.White, null),
+                effectiveScale: EffectiveScale.Unbounded);
+            var effect = new Brightness { Amount = { CurrentValue = 20f } };
+            using var resource = (FilterEffect.Resource)effect.ToResource(CompositionContext.Default);
+            using var node = new PlanFilterEffectRenderNode(resource);
+            var context = new RenderNodeContext([input], outputScale: 2f)
+            {
+                RequestedBounds = requested,
+            };
+
+            RenderNodeOperation[] outputs = node.Process(context);
+            try
+            {
+                Assert.Multiple(() =>
+                {
+                    Assert.That(outputs, Has.Length.EqualTo(1));
+                    Assert.That(outputs[0].Bounds, Is.EqualTo(requested));
+                    Assert.That(outputs[0].EffectiveScale.Value, Is.EqualTo(2f).Within(1e-4f),
+                        "the pass-sized ROI fits at output density and must not inherit a clamp from the 40000-unit source");
+                });
+            }
+            finally
+            {
+                DisposeAll(outputs);
+            }
+        });
+    }
+
     // w = max(s_out, supply) at supersample outputs.
     [TestCase(0.5f, 2.0f, 2.0f)] // sub-output proxy floored to 2.0
     [TestCase(1.0f, 2.0f, 2.0f)] // 1:1 source floored to 2.0

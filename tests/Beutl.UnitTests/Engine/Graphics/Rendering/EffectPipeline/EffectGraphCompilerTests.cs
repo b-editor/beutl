@@ -136,6 +136,24 @@ half4 apply(half4 c) {
     }
 
     [Test]
+    public void Compile_HugeUniformArray_SaturatesBudgetWithoutOverflowing()
+    {
+        const string huge =
+            "uniform float4 values[2147483647];\n"
+            + "half4 apply(half4 c) { return c * values[0]; }";
+        var bounds = new Rect(0, 0, 100, 80);
+        EffectGraphBuilder builder = NewBuilder(bounds)
+            .Shader(ShaderNodeDescriptor.Snippet(huge))
+            .Shader(Scale(1f));
+
+        CompiledPlan? plan = null;
+        Assert.DoesNotThrow(() => plan = Compile(builder));
+
+        Assert.That(plan!.Passes, Has.Length.EqualTo(2),
+            "an oversized node remains a singleton and cannot overflow fusion-budget bookkeeping");
+    }
+
+    [Test]
     public void Compile_FusionNeverCrossesASkiaFilter()
     {
         var bounds = new Rect(0, 0, 100, 80);
@@ -537,6 +555,42 @@ half4 apply(half4 c) {
     }
 
     [Test]
+    public void Execute_ComputeColorScratch_PreparesOutputAndScratchBeforeDispatchWrites()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var bounds = new Rect(0, 0, 32, 32);
+            var descriptor = ComputeNodeDescriptor.Create(
+                static ctx => ctx.AcquireColorScratch(),
+                passCount: 1,
+                ComputeFallback.Identity,
+                colorScratchCount: 1,
+                structuralToken: "scratch-prepare");
+            CompiledPlan plan = Compile(NewBuilder(bounds).Compute(descriptor));
+            FrameResources resources = EffectGraphCompiler.ResolveResources(plan, bounds, workingScale: 1f);
+            using var pool = new RenderTargetPool();
+            int prepares = 0;
+
+            RenderTarget.SetComputeWritePreparedObserverForTest(() => prepares++);
+            try
+            {
+                RenderNodeOperation[] outputs = PlanExecutor.Execute(
+                    plan, resources, [MakeInput(bounds)], outputScale: 1f, workingScale: 1f,
+                    maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool);
+                RenderNodeOperation.DisposeAll(outputs);
+            }
+            finally
+            {
+                RenderTarget.SetComputeWritePreparedObserverForTest(null);
+            }
+
+            Assert.That(prepares, Is.EqualTo(2),
+                "the compute output and its pooled color scratch must both flush pending Skia work before Vulkan writes");
+        });
+    }
+
+    [Test]
     public void ResourcePlan_LinearChain_PeakLiveIsTwo_IndependentOfLength()
     {
         var bounds = new Rect(0, 0, 100, 100);
@@ -786,34 +840,30 @@ half4 apply(half4 c) {
         Assert.That(res.Passes[0].Width, Is.LessThanOrEqualTo(RenderNodeContext.MaxBufferDimension));
     }
 
-    // MosaicEffect computes its resolution/tileSize/origin uniforms at describe time from builder.WorkingScale.
-    // At the 16384 px/axis budget edge this matches the executed buffer only because the node-level clamp
-    // (FilterEffectRenderNode.Process) runs BEFORE Describe and the pass has identity bounds, so the per-pass
-    // re-clamp in ResolveResources lands on the same w. Pins that equality at a clamping size.
+    // A full-frame Mosaic pass can be re-clamped below the effect-boundary density. Its device-space values must stay
+    // late-bound so removing the old whole-input pre-clamp does not freeze uniforms at the describe-time density.
     [Test]
-    public void MosaicEffect_AtBufferBudgetEdge_DescribeTimeUniformsMatchExecuteTimeBuffer()
+    public void MosaicEffect_AtBufferBudgetEdge_UsesLateBoundDeviceUniforms()
     {
         var bounds = new Rect(0, 0, 20000, 50);
-        float workingScale = RenderNodeContext.ClampWorkingScaleToBufferBudget(bounds, 1f);
-        Assert.That(workingScale, Is.LessThan(1f), "sanity: this size must trigger the clamp");
-
         var effect = new MosaicEffect();
         FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
-        var builder = new EffectGraphBuilder(bounds, outputScale: 1f, workingScale: workingScale);
+        var builder = new EffectGraphBuilder(bounds, outputScale: 1f, workingScale: 1f);
         effect.Describe(builder, resource);
-        (int describeW, int describeH) = RenderNodeContext.DeviceBufferSize(builder.Bounds, builder.WorkingScale);
 
         using EffectGraph graph = builder.Build();
         CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
-        FrameResources res = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale);
+        FrameResources res = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale: 1f);
+        var stage = (RuntimeShaderStage)((FusedShaderPass)plan.Passes[0]).Stages[0];
 
         Assert.Multiple(() =>
         {
             Assert.That(res.Passes[0].Width, Is.EqualTo(RenderNodeContext.MaxBufferDimension));
-            Assert.That((res.Passes[0].Width, res.Passes[0].Height), Is.EqualTo((describeW, describeH)),
-                "the describe-time resolution uniform equals the execute-time clamped buffer");
-            Assert.That(res.Passes[0].WorkingScale, Is.EqualTo(workingScale).Within(1e-6f),
-                "the per-pass re-clamp resolves the same density the uniforms were computed at");
+            Assert.That(res.Passes[0].WorkingScale, Is.LessThan(1f),
+                "sanity: the execution pass is re-clamped below its describe-time density");
+            Assert.That(stage.Uniforms.Single(x => x.Name == "origin"), Is.TypeOf<DeferredUniform>());
+            Assert.That(stage.Uniforms.Single(x => x.Name == "tileSize"), Is.TypeOf<DensityScaledFloat2Uniform>());
+            Assert.That(stage.Uniforms.Single(x => x.Name == "resolution"), Is.TypeOf<DeferredUniform>());
         });
     }
 

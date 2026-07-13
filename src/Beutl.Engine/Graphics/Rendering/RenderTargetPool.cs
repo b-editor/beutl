@@ -57,6 +57,7 @@ public sealed class RenderTargetPool : IDisposable
     private readonly long _maxIdleBytes;
     private Func<int, int, (SKSurface Surface, ITexture2D? Texture)?> _backingFactory = RenderTarget.CreateBackingSurface;
     private Func<int, int, TextureFormat, ITexture2D?> _textureFactory = CreateBackingTexture;
+    private Action<PooledSurface> _clearForReuse = ClearForReuse;
     private long _idleBytes;
     private long _currentFrame;
     private long _liveLeases;
@@ -106,7 +107,17 @@ public sealed class RenderTargetPool : IDisposable
                 _buckets.Remove(key);
             pooled.IsPooled = false;
             _idleBytes -= pooled.ByteSize;
-            ClearForReuse(pooled);
+            try
+            {
+                _clearForReuse(pooled);
+            }
+            catch
+            {
+                // The entry has already left its bucket and accounting. Its contents are now unknown, so destroy the
+                // backing rather than orphaning it or returning an uncleared surface to a later lease.
+                DisposeBacking(pooled);
+                throw;
+            }
             if (diagnostics != null)
                 diagnostics.PoolAcquires++;
             OnLeaseIssued();
@@ -339,6 +350,10 @@ public sealed class RenderTargetPool : IDisposable
     /// <summary>Test seam: overrides the surface-less texture factory to simulate deterministic allocation failure.</summary>
     internal void SetTextureFactoryForTest(Func<int, int, TextureFormat, ITexture2D?> factory)
         => _textureFactory = factory;
+
+    /// <summary>Test seam: overrides the reuse clear to simulate a deterministic pooled-hit failure.</summary>
+    internal void SetClearForReuseForTest(Action<PooledSurface> clearForReuse)
+        => _clearForReuse = clearForReuse;
 
     // Must fail with null (never throw), matching CreateBackingSurface's failure shape.
     private static ITexture2D? CreateBackingTexture(int width, int height, TextureFormat format)

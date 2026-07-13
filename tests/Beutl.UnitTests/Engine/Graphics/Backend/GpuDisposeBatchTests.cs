@@ -55,4 +55,35 @@ public class GpuDisposeBatchTests
             }
         });
     }
+
+    [Test]
+    public void DrainFailureInjection_DoesNotLeakAcrossThreads()
+    {
+        GpuDisposeBatch.SetDrainFailureForTest(
+            static () => throw new InvalidOperationException("thread-local injected failure"));
+        Exception? crossThreadFailure = null;
+        try
+        {
+            var thread = new Thread(() =>
+            {
+                try
+                {
+                    GpuDisposeBatch.DrainBeforeDestroy(null);
+                }
+                catch (Exception ex)
+                {
+                    crossThreadFailure = ex;
+                }
+            });
+            thread.Start();
+            thread.Join();
+        }
+        finally
+        {
+            GpuDisposeBatch.SetDrainFailureForTest(null);
+        }
+
+        Assert.That(crossThreadFailure, Is.Null,
+            "a failure seam installed on one test thread must not affect concurrent render threads");
+    }
 }
