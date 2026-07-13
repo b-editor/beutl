@@ -111,21 +111,32 @@ correct for **fork / cross-repository** PRs too — `headRefName` is only the so
 `origin/<headRefName>` would resolve to a same-named branch in the base repo (or fail):
 ```bash
 HEAD_REF=$(gh pr view ${PR:-} --json headRefName -q .headRefName)   # same-repo push target (Step 5)
+IS_FORK=$(gh pr view ${PR:-} --json isCrossRepository -q .isCrossRepository)
 git fetch origin "pull/$PR/head"
 
-# Stay on the current branch if it IS the PR head branch; otherwise checkout the PR branch.
-# A detached HEAD checkout is deliberately avoided so the working tree stays on a named branch
-# after the skill finishes. If the PR branch is already checked out (the common interactive case),
-# fast-forward it to the fetched PR head. If the current branch differs, switch to the PR branch
-# (this fails if another worktree owns it — in that rare case, fall back to --detach).
+# Stay on the named branch when possible so the working tree is not left detached after the skill.
+# For fork PRs, do NOT use `git checkout "$HEAD_REF"` — headRefName is not globally unique and can
+# resolve to a same-named base-repo branch. For fork PRs, always use detached HEAD from FETCH_HEAD.
+# For same-repo PRs, try to stay on or switch to the PR branch, falling back to --detach only when
+# another worktree owns the branch.
 CURRENT_BRANCH=$(git branch --show-current)
-if [ "$CURRENT_BRANCH" = "$HEAD_REF" ]; then
-    git merge --ff-only FETCH_HEAD
-elif git checkout "$HEAD_REF" 2>/dev/null; then
+if [ "$IS_FORK" = "true" ]; then
+    # Fork PR: always detached from FETCH_HEAD (cannot push anyway — see below)
+    git checkout --detach FETCH_HEAD
+elif [ "$CURRENT_BRANCH" = "$HEAD_REF" ]; then
+    # Already on the PR branch — fast-forward to fetched head
     git merge --ff-only FETCH_HEAD
 else
-    git checkout --detach FETCH_HEAD   # fallback: another worktree owns the branch
+    # Try to switch to the PR branch; if that fails (e.g. another worktree owns it),
+    # fall back to detached HEAD. Do not suppress stderr — the operator should see the reason.
+    if git checkout "$HEAD_REF"; then
+        git merge --ff-only FETCH_HEAD
+    else
+        git checkout --detach FETCH_HEAD   # fallback: another worktree owns the branch
+    fi
 fi
+# Track whether we ended up detached for Step 5 push logic
+IS_DETACHED=$(git symbolic-ref -q --short HEAD >/dev/null 2>&1 && echo false || echo true)
 ```
 **Pushing back is only valid for a SAME-REPO PR.** Check `gh pr view $PR --json isCrossRepository`: if
 `isCrossRepository` is true (a **fork** PR), do **not** push a fix — `origin` is the base repo, so
@@ -141,13 +152,14 @@ same-repo PRs, so this matters mainly for standalone/interactive use on fork PRs
 switched to it). Commit your fixes directly on the branch and push normally:
 
 ```bash
-# (HEAD_REF + branch checkout were done in Step 4)
+# (HEAD_REF + checkout were done in Step 4; IS_DETACHED tracks the resulting state)
 # SAME-REPO ONLY — for a cross-repo (fork) PR, do not push; escalate (see Step 4).
 # … apply review-finding fixes, re-verify, commit -S …
-# If on the PR branch (normal case):
-git push origin "$HEAD_REF"
-# If on a detached HEAD (fallback case):
-# git push origin "HEAD:$HEAD_REF"
+if [ "$IS_DETACHED" = "true" ]; then
+    git push origin "HEAD:$HEAD_REF"   # detached: push to the PR branch by refspec
+else
+    git push origin "$HEAD_REF"        # on the branch: normal push
+fi
 ```
 
 ### Interactive mode
@@ -196,8 +208,8 @@ without an explicit "Address it".
   escalate (`needs_human`)** rather than pushing untested production code.
 - Commit addressed changes **signed** (`git commit -S -m "fix(review): …"` — the `main` ruleset
   requires signed commits, and the repo config signs by default; never `--no-gpg-sign`, or the pushed
-  fix leaves the PR unmergeable) and push to the PR head branch (see Step 5 preamble). Never
-  force-push; never push `main`.
+  fix leaves the PR unmergeable) and push to the PR head (see Step 5 preamble for the branch/detached
+  push commands). Never force-push; never push `main`.
 
 ## Step 6 — Reply + resolve handled threads
 
