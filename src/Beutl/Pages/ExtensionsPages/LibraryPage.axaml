@@ -105,6 +105,15 @@
                                         Command="{Binding Update}"
                                         Content="{Binding StatusText.Value, TargetNullValue={x:Static lang:ExtensionsStrings.Update}}" />
 
+                                <Button Name="operationStatusButton"
+                                        Grid.Column="4"
+                                        Padding="40,5,40,6"
+                                        HorizontalAlignment="Stretch"
+                                        Classes.transparent="{Binding !IsBusy.Value}"
+                                        Classes.shimmer="{Binding IsBusy.Value}"
+                                        Content="{Binding StatusText.Value}"
+                                        IsHitTestVisible="False" />
+
                                 <Button Grid.Column="4"
                                         Padding="40,5,40,6"
                                         HorizontalAlignment="Stretch"

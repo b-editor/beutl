@@ -1,4 +1,5 @@
-﻿using Beutl.Api;
+﻿using System.Reactive.Subjects;
+using Beutl.Api;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.Logging;
@@ -7,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using NuGet.Packaging.Core;
 using NuGet.Versioning;
 using Reactive.Bindings;
+using ReactiveUI.Avalonia;
 using LibraryService = Beutl.Api.Services.LibraryService;
 
 namespace Beutl.ViewModels.ExtensionsPages.DiscoverPages;
@@ -25,6 +27,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
         _app = app;
         _handler = new PackageOperationHandler(app, editorService, projectService);
         _library = app.GetResource<LibraryService>();
+        var releasesReady = new BehaviorSubject<bool>(false);
 
         DisplayName = package.DisplayName
             .Select(x => !string.IsNullOrWhiteSpace(x) ? x : Package.Name)
@@ -42,35 +45,21 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                     {
                         activity?.AddEvent(new("Entered_AsyncLock"));
                         IsBusy.Value = true;
-                        AllReleases.Clear();
-                        LatestRelease.Value = null;
-                        await Package.RefreshAsync();
-
-                        int totalCount = 0;
-                        int prevCount = 0;
-
-                        do
-                        {
-                            Release[] array = await package.GetReleasesAsync(totalCount, 30);
-                            AllReleases.AddRange(array);
-
-                            if (LatestRelease.Value == null && array.FirstOrDefault() is { } publicRelease)
+                        await PackageReleaseRefreshCoordinator.RefreshAsync(
+                            releasesReady,
+                            Package.RefreshAsync,
+                            package.GetReleasesAsync,
+                            releases =>
                             {
-                                LatestRelease.Value = publicRelease;
-                                SelectedRelease.Value = publicRelease;
-                            }
+                                AllReleases.Clear();
+                                AllReleases.AddRange(releases);
 
-                            totalCount += array.Length;
-                            prevCount = array.Length;
-                        } while (prevCount == 30);
-
-                        if (_handler.InstalledPackageRepository.ExistsPackage(package.Name))
-                        {
-                            PackageIdentity mostLatested = _handler.InstalledPackageRepository.GetLocalPackages(package.Name)
-                                .Aggregate((x, y) => x.Version > y.Version ? x : y);
-
-                            CurrentRelease.Value = await package.GetReleaseAsync(mostLatested.Version.ToString());
-                        }
+                                LatestRelease.Value = releases.FirstOrDefault();
+                                if (LatestRelease.Value is { } publicRelease)
+                                {
+                                    SelectedRelease.Value = publicRelease;
+                                }
+                            });
                     }
                 }
                 catch (Exception e)
@@ -85,8 +74,6 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                 }
             })
             .DisposeWith(_disposables);
-
-        Refresh.Execute();
 
         IObservable<PackageChangesQueue.EventType> observable = _handler.Queue.GetObservable(package.Name);
         CanCancel = observable.Select(x => x != PackageChangesQueue.EventType.None)
@@ -112,19 +99,36 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
             .DisposeWith(_disposables);
 
         IObservable<bool> installed = _handler.InstalledPackageRepository.GetObservable(package.Name);
+        IObservable<bool> notBusy = IsBusy.Not();
         IsInstallButtonVisible = installed.Not()
-            .AreTrue(CanCancel.Not(), CanInstallOrUpdate)
+            .AreTrue(CanCancel.Not(), CanInstallOrUpdate, notBusy)
             .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
+        IObservable<PackageIdentity?> releaseResolutionRequests =
+            PackageReleaseResolver.ObserveWhenReleasesReady(
+                _handler.InstalledPackageRepository.GetPackageObservable(package.Name),
+                releasesReady,
+                AvaloniaScheduler.Instance);
+
+        PackageReleaseResolver.ObserveLatest(
+                releaseResolutionRequests,
+                AvaloniaScheduler.Instance,
+                () => SelectedRelease.Value,
+                () => AllReleases,
+                Package.GetReleaseAsync,
+                ex => _logger.LogWarning(ex, "Failed to resolve installed release for {PackageId}.", Package.Name))
+            .Subscribe(release => CurrentRelease.Value = release)
             .DisposeWith(_disposables);
 
         IsUpdateButtonVisible = CurrentRelease.CombineLatest(SelectedRelease)
             .Select(x => x.First != null && x.First.Version.Value != x.Second?.Version.Value)
-            .AreTrue(CanCancel.Not(), CanInstallOrUpdate)
+            .AreTrue(CanCancel.Not(), CanInstallOrUpdate, notBusy)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
         IsUninstallButtonVisible = installed
-            .AreTrue(CanCancel.Not())
+            .AreTrue(CanCancel.Not(), notBusy)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -169,6 +173,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                         return;
                     }
 
+                    IsBusy.Value = true;
                     StatusText.Value = ExtensionsStrings.Installing;
                     using (await _app.Lock.LockAsync())
                     {
@@ -204,6 +209,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                 finally
                 {
                     StatusText.Value = null;
+                    IsBusy.Value = false;
                 }
             })
             .DisposeWith(_disposables);
@@ -215,6 +221,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
 
                 try
                 {
+                    IsBusy.Value = true;
                     if (!await _handler.EnsureProjectClosed())
                         return;
 
@@ -255,6 +262,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                 finally
                 {
                     StatusText.Value = null;
+                    IsBusy.Value = false;
                 }
             })
             .DisposeWith(_disposables);
@@ -264,6 +272,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
             {
                 try
                 {
+                    IsBusy.Value = true;
                     if (!await _handler.EnsureProjectClosed())
                         return;
 
@@ -298,6 +307,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                 finally
                 {
                     StatusText.Value = null;
+                    IsBusy.Value = false;
                 }
             })
             .DisposeWith(_disposables);
@@ -321,6 +331,8 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                 }
             })
             .DisposeWith(_disposables);
+
+        Refresh.Execute();
     }
 
     private async Task<Release> AcquireRelease()

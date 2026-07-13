@@ -164,6 +164,11 @@ public class InstalledPackageRepository : IBeutlApiResource
         return new _Observable(this, name, version);
     }
 
+    public IObservable<PackageIdentity?> GetPackageObservable(string name)
+    {
+        return new _PackageObservable(this, name);
+    }
+
     public PackageIdentity[] GetPackagesNeedingDependencyReResolution()
     {
         string currentVersion = BeutlApplication.Version;
@@ -283,11 +288,62 @@ public class InstalledPackageRepository : IBeutlApiResource
 
         private void OnReceived((PackageIdentity Package, bool Exists) obj)
         {
-            if ((_packageIdentity != null && _packageIdentity == obj.Package)
-                || StringComparer.OrdinalIgnoreCase.Equals(obj.Package.Id, _name))
+            if (_packageIdentity != null)
             {
-                PublishNext(obj.Exists);
+                if (PackageIdentity.Comparer.Equals(_packageIdentity, obj.Package))
+                {
+                    PublishNext(obj.Exists);
+                }
             }
+            else if (StringComparer.OrdinalIgnoreCase.Equals(obj.Package.Id, _name))
+            {
+                // Per-event Exists is unreliable for name-only observers; re-evaluate the aggregate.
+                PublishNext(_repository.ExistsPackage(_name));
+            }
+        }
+    }
+
+    private sealed class _PackageObservable : LightweightObservableBase<PackageIdentity?>
+    {
+        private readonly InstalledPackageRepository _repository;
+        private readonly string _name;
+        private IDisposable? _disposable;
+
+        public _PackageObservable(InstalledPackageRepository repository, string name)
+        {
+            _repository = repository;
+            _name = name;
+        }
+
+        protected override void Subscribed(IObserver<PackageIdentity?> observer, bool first)
+        {
+            observer.OnNext(GetLatestInstalled());
+        }
+
+        protected override void Deinitialize()
+        {
+            _disposable?.Dispose();
+            _disposable = null;
+        }
+
+        protected override void Initialize()
+        {
+            _disposable = _repository._subject.Subscribe(OnReceived);
+        }
+
+        private void OnReceived((PackageIdentity Package, bool Exists) obj)
+        {
+            if (StringComparer.OrdinalIgnoreCase.Equals(obj.Package.Id, _name))
+            {
+                PublishNext(GetLatestInstalled());
+            }
+        }
+
+        private PackageIdentity? GetLatestInstalled()
+        {
+            return _repository.GetLocalPackages(_name)
+                .OrderByDescending(x => x.Version)
+                .FirstOrDefault();
         }
     }
 }
