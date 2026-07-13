@@ -124,15 +124,19 @@ if [ "$IS_FORK" = "true" ]; then
     # Fork PR: always detached from FETCH_HEAD (cannot push anyway — see below)
     git checkout --detach FETCH_HEAD
 elif [ "$CURRENT_BRANCH" = "$HEAD_REF" ]; then
-    # Already on the PR branch — fast-forward to fetched head
-    git merge --ff-only FETCH_HEAD
+    # Already on the PR branch — fast-forward to fetched head; if the local branch
+    # diverged and cannot fast-forward, fall back to detached HEAD from FETCH_HEAD
+    if ! git merge --ff-only FETCH_HEAD; then
+        git checkout --detach FETCH_HEAD
+    fi
 else
-    # Try to switch to the PR branch; if that fails (e.g. another worktree owns it),
-    # fall back to detached HEAD. Do not suppress stderr — the operator should see the reason.
-    if git checkout "$HEAD_REF"; then
-        git merge --ff-only FETCH_HEAD
+    # Try to switch to the PR branch and fast-forward; if either step fails
+    # (e.g. another worktree owns the branch, or the local branch diverged),
+    # fall back to detached HEAD. Do not suppress stderr.
+    if git checkout "$HEAD_REF" && git merge --ff-only FETCH_HEAD; then
+        :
     else
-        git checkout --detach FETCH_HEAD   # fallback: another worktree owns the branch
+        git checkout --detach FETCH_HEAD
     fi
 fi
 # Track whether we ended up detached for Step 5 push logic
