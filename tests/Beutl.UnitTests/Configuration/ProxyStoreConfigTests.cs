@@ -97,4 +97,31 @@ public class ProxyStoreConfigTests
             Assert.That(new ProxyStoreConfig().DefaultPreset, Is.EqualTo((int)ProxyPreset.Quarter));
         });
     }
+
+    // The settings page binds the proxy max size as a free-form TextBox (double), so gib
+    // can be arbitrarily large, NaN, or infinite; the conversion must not throw.
+    [TestCase(50d, ExpectedResult = 50L * 1024 * 1024 * 1024)]
+    [TestCase(5d, ExpectedResult = ProxyStoreConfig.MinTotalBytes)]
+    [TestCase(500d, ExpectedResult = ProxyStoreConfig.MaxTotalBytesLimit)]
+    [TestCase(4d, ExpectedResult = ProxyStoreConfig.MinTotalBytes)]
+    [TestCase(0d, ExpectedResult = ProxyStoreConfig.MinTotalBytes)]
+    [TestCase(-1d, ExpectedResult = ProxyStoreConfig.MinTotalBytes)]
+    [TestCase(1e10, ExpectedResult = ProxyStoreConfig.MaxTotalBytesLimit)]
+    [TestCase(double.MaxValue, ExpectedResult = ProxyStoreConfig.MaxTotalBytesLimit)]
+    public long ClampTotalBytesFromGiB_ClampsFreeFormInputWithoutThrowing(double gib)
+    {
+        return ProxyStoreConfig.ClampTotalBytesFromGiB(gib);
+    }
+
+    [Test]
+    public void ClampTotalBytesFromGiB_NonFiniteInput_ReturnsDefaultWithoutThrowing()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.DoesNotThrow(() => _ = ProxyStoreConfig.ClampTotalBytesFromGiB(double.NaN));
+            Assert.That(ProxyStoreConfig.ClampTotalBytesFromGiB(double.NaN), Is.EqualTo(ProxyStoreConfig.DefaultTotalBytes));
+            Assert.That(ProxyStoreConfig.ClampTotalBytesFromGiB(double.PositiveInfinity), Is.EqualTo(ProxyStoreConfig.DefaultTotalBytes));
+            Assert.That(ProxyStoreConfig.ClampTotalBytesFromGiB(double.NegativeInfinity), Is.EqualTo(ProxyStoreConfig.DefaultTotalBytes));
+        });
+    }
 }

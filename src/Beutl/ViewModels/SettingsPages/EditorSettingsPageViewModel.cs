@@ -165,8 +165,7 @@ public sealed class EditorSettingsPageViewModel : IDisposable
             .DisposeWith(_disposables);
         ProxyStoreMaxTotalGiB.Subscribe(value =>
             {
-                long bytes = checked((long)Math.Round(value * 1024d * 1024d * 1024d));
-                _proxyStoreConfig.MaxTotalBytes = bytes;
+                _proxyStoreConfig.MaxTotalBytes = ProxyStoreConfig.ClampTotalBytesFromGiB(value);
             })
             .DisposeWith(_disposables);
 
