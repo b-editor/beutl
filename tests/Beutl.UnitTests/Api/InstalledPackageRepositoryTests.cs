@@ -101,4 +101,24 @@ public class InstalledPackageRepositoryTests
 
         Assert.That(emissions, Does.Not.Contains(false));
     }
+
+    [Test]
+    public void GetObservable_ForVersion_TracksEquivalentIdentityInstances()
+    {
+        if (!IsHomeIsolated)
+        {
+            Assert.Ignore("BEUTL_HOME isolation took effect after Helper.AppRoot was pinned; skipping I/O test.");
+        }
+
+        const string name = "Beutl.Package.UpdateTest.Version";
+        const string version = "1.0.0";
+        var repo = new InstalledPackageRepository();
+        var emissions = new List<bool>();
+        repo.GetObservable(name, version).Subscribe(emissions.Add);
+
+        repo.UpgradePackages(new PackageIdentity(name, NuGetVersion.Parse(version)));
+        repo.RemovePackage(new PackageIdentity(name, NuGetVersion.Parse(version)));
+
+        Assert.That(emissions, Is.EqualTo(new[] { false, true, false }));
+    }
 }

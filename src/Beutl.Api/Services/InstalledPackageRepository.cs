@@ -290,7 +290,7 @@ public class InstalledPackageRepository : IBeutlApiResource
         {
             if (_packageIdentity != null)
             {
-                if (_packageIdentity == obj.Package)
+                if (PackageIdentity.Comparer.Equals(_packageIdentity, obj.Package))
                 {
                     PublishNext(obj.Exists);
                 }
