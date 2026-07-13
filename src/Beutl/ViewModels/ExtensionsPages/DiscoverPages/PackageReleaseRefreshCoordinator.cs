@@ -16,7 +16,7 @@ internal static class PackageReleaseRefreshCoordinator
     {
         bool wasReady = releasesReady.Value;
         releasesReady.OnNext(false);
-        bool publicationStarted = false;
+        bool publicationCompleted = false;
 
         try
         {
@@ -30,13 +30,13 @@ internal static class PackageReleaseRefreshCoordinator
                 releases.AddRange(page);
             } while (page.Length == PageSize);
 
-            publicationStarted = true;
             publishReleases([.. releases]);
+            publicationCompleted = true;
             releasesReady.OnNext(true);
         }
         catch
         {
-            if (!publicationStarted && wasReady)
+            if (!publicationCompleted && wasReady)
             {
                 releasesReady.OnNext(true);
             }

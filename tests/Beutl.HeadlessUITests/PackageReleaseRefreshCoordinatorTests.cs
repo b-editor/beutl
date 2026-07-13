@@ -12,6 +12,21 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class PackageReleaseRefreshCoordinatorTests
 {
+    private readonly HttpClient _httpClient;
+    private readonly BeutlApiApplication _clients;
+
+    public PackageReleaseRefreshCoordinatorTests()
+    {
+        _httpClient = new HttpClient();
+        _clients = new BeutlApiApplication(_httpClient, new ExtensionProvider());
+    }
+
+    [OneTimeTearDown]
+    public void OneTimeTearDown()
+    {
+        _httpClient.Dispose();
+    }
+
     [TestCase(true)]
     [TestCase(false)]
     public void RefreshAsync_DoesNotPublishPartialPagesAndRestoresOnlyPreviousReadinessOnFailure(bool wasReady)
@@ -74,9 +89,29 @@ public class PackageReleaseRefreshCoordinatorTests
         });
     }
 
-    private static Release CreateRelease(string version)
+    [TestCase(true)]
+    [TestCase(false)]
+    public void RefreshAsync_RestoresOnlyPreviousReadinessWhenPublicationFails(bool wasReady)
     {
-        var clients = new BeutlApiApplication(new HttpClient(), new ExtensionProvider());
+        using var releasesReady = new BehaviorSubject<bool>(wasReady);
+        var readyStates = new List<bool>();
+        using IDisposable subscription = releasesReady.Subscribe(readyStates.Add);
+
+        Assert.ThrowsAsync<InvalidOperationException>(() => PackageReleaseRefreshCoordinator.RefreshAsync(
+            releasesReady,
+            () => Task.CompletedTask,
+            (_, _) => Task.FromResult(Array.Empty<Release>()),
+            _ => throw new InvalidOperationException("publication failed")));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(readyStates, Is.EqualTo(wasReady ? new[] { true, false, true } : new[] { false, false }));
+            Assert.That(releasesReady.Value, Is.EqualTo(wasReady));
+        });
+    }
+
+    private Release CreateRelease(string version)
+    {
         var ownerResponse = new ProfileResponse
         {
             Id = "owner",
@@ -86,7 +121,7 @@ public class PackageReleaseRefreshCoordinatorTests
             IconId = null,
             IconUrl = null,
         };
-        var owner = new Profile(ownerResponse, clients);
+        var owner = new Profile(ownerResponse, _clients);
         var package = new Package(owner, new PackageResponse
         {
             Id = "package",
@@ -104,7 +139,7 @@ public class PackageReleaseRefreshCoordinatorTests
             Price = null,
             Paid = false,
             Owned = true,
-        }, clients);
+        }, _clients);
 
         return new Release(package, new ReleaseResponse
         {
@@ -115,6 +150,6 @@ public class PackageReleaseRefreshCoordinatorTests
             TargetVersion = null,
             FileId = null,
             FileUrl = null,
-        }, clients);
+        }, _clients);
     }
 }
