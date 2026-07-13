@@ -15,6 +15,12 @@ internal sealed class PlanFilterEffectRenderNode(FilterEffect.Resource filterEff
     // still functions and a later real context is treated as a change.
     private static readonly object s_noContext = new();
 
+    [ThreadStatic]
+    private static Action? s_beforeStoreCapturedForTest;
+
+    internal static void SetBeforeStoreCapturedForTest(Action? callback)
+        => s_beforeStoreCapturedForTest = callback;
+
     private readonly PlanCache _planCache = new();
     private readonly EffectPrefixCache _prefixCache = new();
 
@@ -159,7 +165,36 @@ internal sealed class PlanFilterEffectRenderNode(FilterEffect.Resource filterEff
             throw;
         }
 
-        _prefixCache.StoreCaptured(sink, capturePass, plan, resources);
+        try
+        {
+            s_beforeStoreCapturedForTest?.Invoke();
+            _prefixCache.StoreCaptured(sink, capturePass, plan, resources);
+        }
+        catch
+        {
+            // The executor has returned successfully, but neither ownership set has reached the caller yet. Sweep the
+            // final operations, the not-yet-adopted shallow copy, and a possibly partially-adopted cache entry without
+            // allowing a cleanup failure to replace the StoreCaptured exception.
+            RenderNodeOperation.DisposeAll(result);
+            try
+            {
+                sink.Dispose();
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                _prefixCache.Release();
+            }
+            catch
+            {
+            }
+
+            throw;
+        }
+
         return result;
     }
 

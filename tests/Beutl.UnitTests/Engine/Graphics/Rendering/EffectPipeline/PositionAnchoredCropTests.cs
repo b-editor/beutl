@@ -55,6 +55,38 @@ public class PositionAnchoredCropTests
         AssertKeptRegionMatchesUncropped(effect, tolerance: 3.0, GradientInput);
     }
 
+    // AutoClip tightens its operation to an offset content rect at render time, while the following RenderTime brush
+    // blend keeps the full resolved session bounds. The input blit must bridge those origins instead of moving the
+    // tightened pixels to the session's top-left corner.
+    [Test]
+    public void BlendEffect_NonSolidBrush_PreservesUpstreamAutoClipOffset()
+    {
+        var clip = new Clipping { AutoClip = { CurrentValue = true } };
+        var brush = new LinearGradientBrush();
+        brush.GradientStops.Add(new GradientStop(Colors.Red, 0));
+        brush.GradientStops.Add(new GradientStop(Colors.Blue, 1));
+        var blend = new BlendEffect
+        {
+            Brush = { CurrentValue = brush },
+            BlendMode = { CurrentValue = BlendMode.SrcIn },
+        };
+
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using Bitmap bitmap = RenderChain(
+                [clip, blend], OffsetShapeInput, Rect.Invalid, clearTransparent: true);
+            Rect alphaBounds = FindAlphaBounds(bitmap);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(alphaBounds.X, Is.GreaterThan(60),
+                    "the tightened input must remain at its original horizontal offset, not move to x=0");
+                Assert.That(alphaBounds.Y, Is.GreaterThan(35),
+                    "the tightened input must remain at its original vertical offset, not move to y=0");
+            });
+        });
+    }
+
     [Test]
     public void DisplacementMapShow_KeptRegionUnshiftedUnderDeflatingClip()
     {
@@ -266,7 +298,8 @@ public class PositionAnchoredCropTests
         Top = { CurrentValue = ClipTop },
     };
 
-    private static Bitmap RenderChain(FilterEffect[] effects, Func<RenderNodeOperation> input, Rect requestedBounds)
+    private static Bitmap RenderChain(
+        FilterEffect[] effects, Func<RenderNodeOperation> input, Rect requestedBounds, bool clearTransparent = false)
     {
         var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
         foreach (FilterEffect effect in effects)
@@ -284,7 +317,7 @@ public class PositionAnchoredCropTests
         using RenderTarget target = RenderTarget.Create(w, h)!;
         using (var canvas = new ImmediateCanvas(target, 1f, logicalSize: s_bounds.Size))
         {
-            canvas.Clear(Colors.Black);
+            canvas.Clear(clearTransparent ? Colors.Transparent : Colors.Black);
             foreach (RenderNodeOperation op in ops)
                 op.Render(canvas);
         }
@@ -316,6 +349,40 @@ public class PositionAnchoredCropTests
             s_bounds,
             canvas => canvas.DrawRectangle(rect, Brushes.Resource.White, null),
             hitTest: s_bounds.Contains);
+    }
+
+    private static RenderNodeOperation OffsetShapeInput()
+    {
+        var rect = new Rect(80, 50, 30, 24);
+        return RenderNodeOperation.CreateLambda(
+            s_bounds,
+            canvas => canvas.DrawRectangle(rect, Brushes.Resource.White, null),
+            hitTest: s_bounds.Contains);
+    }
+
+    private static Rect FindAlphaBounds(Bitmap bitmap)
+    {
+        int left = bitmap.Width;
+        int top = bitmap.Height;
+        int right = -1;
+        int bottom = -1;
+        for (int y = 0; y < bitmap.Height; y++)
+        {
+            for (int x = 0; x < bitmap.Width; x++)
+            {
+                if (bitmap.SKBitmap.GetPixel(x, y).Alpha == 0)
+                    continue;
+
+                left = Math.Min(left, x);
+                top = Math.Min(top, y);
+                right = Math.Max(right, x);
+                bottom = Math.Max(bottom, y);
+            }
+        }
+
+        return right < left || bottom < top
+            ? default
+            : new Rect(left, top, right - left + 1, bottom - top + 1);
     }
 
     private static double MeanChannelDiff(Bitmap a, Bitmap b, int x0, int y0, int x1, int y1)

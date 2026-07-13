@@ -54,4 +54,23 @@ public sealed class DelayAnimationEffectProxyContextTests
 
         Assert.That(resource.Version, Is.GreaterThan(before));
     }
+
+    // DisableResourceShare selects isolated media readers for delayed child resources. A toggle must invalidate the
+    // delayed render-node cache even when time and proxy selection are unchanged.
+    [Test]
+    public void Resource_BumpsVersionWhenResourceSharingChanges()
+    {
+        var effect = new DelayAnimationEffect();
+        var resource = (DelayAnimationEffect.Resource)effect.ToResource(
+            new CompositionContext(TimeSpan.Zero) { DisableResourceShare = false });
+        int before = resource.Version;
+
+        bool updateOnly = false;
+        resource.Update(
+            effect,
+            new CompositionContext(TimeSpan.Zero) { DisableResourceShare = true },
+            ref updateOnly);
+
+        Assert.That(resource.Version, Is.GreaterThan(before));
+    }
 }

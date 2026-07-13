@@ -662,7 +662,12 @@ public sealed class EffectGraphBuilder
         using var brushPaint = new SKPaint();
         constructor.ConfigurePaint(brushPaint);
 
+        float bridgeX = (float)(input.Bounds.X - session.Bounds.X) * w;
+        float bridgeY = (float)(input.Bounds.Y - session.Bounds.Y) * w;
+        bool bridged = bridgeX != 0 || bridgeY != 0;
+
         using (canvas.PushDeviceSpace())
+        using (bridged ? canvas.PushTransform(Matrix.CreateTranslation(bridgeX, bridgeY)) : default)
         using (wIn == w ? default : canvas.PushTransform(Matrix.CreateScale(w / wIn, w / wIn)))
         {
             input.Draw(canvas, default);

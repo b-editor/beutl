@@ -352,6 +352,41 @@ public class PrefixCacheTests
         });
     }
 
+    // StoreCaptured runs after the executor has returned both the final operations and a shallow-copied prefix lease.
+    // If cache adoption throws, neither ownership set has reached the caller and both must be swept before rethrowing.
+    [Test]
+    public void CaptureFrame_StoreCapturedThrows_ReleasesResultAndCapturedLease()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            ProgramCache.Clear();
+            var (root, gamma, _) = MakeBlurGamma();
+            var resource = (FilterEffect.Resource)root.ToResource(CompositionContext.Default);
+            using var node = new PlanFilterEffectRenderNode(resource);
+            var diagnostics = new PipelineDiagnostics();
+            using var pool = new RenderTargetPool();
+
+            for (int f = 0; f < 3; f++)
+                Step(node, resource, root, gamma, diagnostics, pool, f, 1f);
+
+            var injected = new InvalidOperationException("prefix adoption failed");
+            PlanFilterEffectRenderNode.SetBeforeStoreCapturedForTest(() => throw injected);
+            try
+            {
+                InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(
+                    () => Step(node, resource, root, gamma, diagnostics, pool, 3, 1f));
+                Assert.That(actual, Is.SameAs(injected));
+                Assert.That(pool.LiveLeaseCount, Is.Zero,
+                    "a failed capture adoption must release both the final result and the sink's shallow copy");
+            }
+            finally
+            {
+                PlanFilterEffectRenderNode.SetBeforeStoreCapturedForTest(null);
+            }
+        });
+    }
+
     // Disabling the effect after the prefix has engaged must release the retained cross-frame lease, not pin it until
     // node dispose: the disabled branch bypasses execution entirely, so nothing else would ever return that buffer to
     // the pool while the effect stays off.
