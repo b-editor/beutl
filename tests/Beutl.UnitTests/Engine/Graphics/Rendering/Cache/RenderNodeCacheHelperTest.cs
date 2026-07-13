@@ -229,4 +229,38 @@ public class RenderNodeCacheHelperTest
         // Assert
         Assert.That(containerNode.Cache.IsCached, Is.False);
     }
+
+    [Test]
+    public void CreateDefaultCache_NotificationFailure_RollsBackStoredTargets()
+    {
+        var injected = new InvalidOperationException("cache notification failed");
+        using var node = new ThrowingCacheNotificationNode(injected);
+        var cacheOptions = new RenderCacheOptions(true, new RenderCacheRules(100, 1));
+
+        InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(
+            () => RenderNodeCacheHelper.CreateDefaultCache(node, cacheOptions));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(actual, Is.SameAs(injected));
+            Assert.That(node.Cache.IsCached, Is.False,
+                "a failed notification must release the cache copies as well as the warm-up handles");
+        });
+    }
+
+    private sealed class ThrowingCacheNotificationNode(Exception exception) : RenderNode
+    {
+        public override RenderNodeOperation[] Process(RenderNodeContext context)
+        {
+            var bounds = new Rect(0, 0, 10, 10);
+            return
+            [
+                RenderNodeOperation.CreateLambda(
+                    bounds,
+                    canvas => canvas.DrawRectangle(bounds, Brushes.Resource.White, null)),
+            ];
+        }
+
+        protected internal override void OnServedFromCache() => throw exception;
+    }
 }

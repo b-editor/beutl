@@ -18,8 +18,14 @@ internal sealed class PlanFilterEffectRenderNode(FilterEffect.Resource filterEff
     [ThreadStatic]
     private static Action? s_beforeStoreCapturedForTest;
 
+    [ThreadStatic]
+    private static Action? s_beforeDisabledPrefixReleaseForTest;
+
     internal static void SetBeforeStoreCapturedForTest(Action? callback)
         => s_beforeStoreCapturedForTest = callback;
+
+    internal static void SetBeforeDisabledPrefixReleaseForTest(Action? callback)
+        => s_beforeDisabledPrefixReleaseForTest = callback;
 
     private readonly PlanCache _planCache = new();
     private readonly NestedGraphPlanCache _nestedPlanCache = new();
@@ -32,8 +38,22 @@ internal sealed class PlanFilterEffectRenderNode(FilterEffect.Resource filterEff
             // A disabled/removed effect bypasses execution, but a prefix retained from an earlier enabled frame would
             // stay pinned outside every pool budget until node dispose. Release it (idempotent); a later re-enable
             // re-warms from scratch.
-            if (!context.IsAuxiliaryPull)
-                _prefixCache.Release();
+            try
+            {
+                if (!context.IsAuxiliaryPull)
+                {
+                    s_beforeDisabledPrefixReleaseForTest?.Invoke();
+                    _prefixCache.Release();
+                }
+            }
+            catch
+            {
+                // The disabled path returns before the main exception sweep. If releasing a retained native target
+                // fails, the bypassed input operations must still be consumed exactly like every other Process throw.
+                RenderNodeOperation.DisposeAll(context.Input);
+                throw;
+            }
+
             return context.Input;
         }
 
@@ -93,7 +113,8 @@ internal sealed class PlanFilterEffectRenderNode(FilterEffect.Resource filterEff
                     return PlanExecutor.Execute(
                         plan, resources, context.Input, context.OutputScale, workingScale, context.MaxWorkingScale,
                         context.Diagnostics, context.Pool,
-                        isRenderCacheEnabled: context.IsRenderCacheEnabled);
+                        isRenderCacheEnabled: context.IsRenderCacheEnabled,
+                        isAuxiliaryPull: context.IsAuxiliaryPull);
                 }
 
                 if (context.Pool != null && context.IsRenderCacheEnabled)
@@ -120,7 +141,8 @@ internal sealed class PlanFilterEffectRenderNode(FilterEffect.Resource filterEff
                 return PlanExecutor.Execute(
                     plan, resources, context.Input, context.OutputScale, workingScale, context.MaxWorkingScale,
                     context.Diagnostics, context.Pool,
-                    isRenderCacheEnabled: context.IsRenderCacheEnabled);
+                    isRenderCacheEnabled: context.IsRenderCacheEnabled,
+                    isAuxiliaryPull: context.IsAuxiliaryPull);
             }
             finally
             {
@@ -152,7 +174,8 @@ internal sealed class PlanFilterEffectRenderNode(FilterEffect.Resource filterEff
         return PlanExecutor.Execute(
             plan, resources, [seed], context.OutputScale, workingScale, context.MaxWorkingScale,
             context.Diagnostics, context.Pool, startPass: decision.Pass,
-            isRenderCacheEnabled: context.IsRenderCacheEnabled);
+            isRenderCacheEnabled: context.IsRenderCacheEnabled,
+            isAuxiliaryPull: context.IsAuxiliaryPull);
     }
 
     // Full execution that additionally retains the capture pass's output for subsequent frames to resume from.
@@ -166,7 +189,8 @@ internal sealed class PlanFilterEffectRenderNode(FilterEffect.Resource filterEff
             result = PlanExecutor.Execute(
                 plan, resources, context.Input, context.OutputScale, workingScale, context.MaxWorkingScale,
                 context.Diagnostics, context.Pool, startPass: 0, captureSink: sink,
-                isRenderCacheEnabled: context.IsRenderCacheEnabled);
+                isRenderCacheEnabled: context.IsRenderCacheEnabled,
+                isAuxiliaryPull: context.IsAuxiliaryPull);
         }
         catch
         {

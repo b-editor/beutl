@@ -39,7 +39,8 @@ public partial class SplitEffect : FilterEffect
 
         Action<ISplitEmitter> emit = emitter => EmitTiles(emitter, hDiv, vDiv, hSpacing, vSpacing);
         long branchCount = (long)hDiv * vDiv;
-        bool hasRenderableStaticBranches = hDiv > 0
+        bool hasRenderableStaticBranches = !builder.HasBranchedInput
+            && hDiv > 0
             && vDiv > 0
             && builder.Bounds.Width / hDiv >= 1f
             && builder.Bounds.Height / vDiv >= 1f
@@ -47,9 +48,10 @@ public partial class SplitEffect : FilterEffect
 
         // The division counts are structural when the branches can be declared safely (C3.6). A split whose
         // logical tiles are sub-pixel emits no branches, so keeping it dynamic avoids allocating a massive static
-        // resource plan for outputs that can never exist. Renderable grids are capped as well: the compiler declares
-        // resources per static branch, so a pixel-sized 4K grid would otherwise allocate millions of declarations
-        // before execution can resolve/cull outputs. Larger grids use the dynamic-output path instead.
+        // resource plan for outputs that can never exist. A split after an earlier fan-out is also dynamic because
+        // each runtime branch has its own bounds, so the graph-level Bounds cannot prove its exact output count.
+        // Renderable grids are capped as well: the compiler declares resources per static branch, so a pixel-sized
+        // 4K grid would otherwise allocate millions of declarations before execution can resolve/cull outputs.
         builder.Split(hasRenderableStaticBranches
             ? SplitNodeDescriptor.Static(emit, (int)branchCount, structuralToken: nameof(SplitEffect))
             : SplitNodeDescriptor.Dynamic(emit, structuralToken: nameof(SplitEffect)));

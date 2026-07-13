@@ -26,12 +26,24 @@ internal static class PlanExecutor
     // Test seam: injects a throw at the compute input's PrepareForSampling (a Vulkan layout-transition failure is
     // not forcible from a test). The caller restores the seam afterward.
     private static Exception? s_computePrepareFailureForTests;
+    private static Exception? s_computeCopyFailureForTests;
+    private static Exception? s_geometryInputDisposeFailureForTests;
     private static bool s_forceComputeFallbackForTests;
 
     internal static void ForceComputePrepareFailureForTests(Exception exception)
         => s_computePrepareFailureForTests = exception;
 
     internal static void ResetComputePrepareFailureForTests() => s_computePrepareFailureForTests = null;
+
+    internal static void ForceComputeCopyFailureForTests(Exception exception)
+        => s_computeCopyFailureForTests = exception;
+
+    internal static void ResetComputeCopyFailureForTests() => s_computeCopyFailureForTests = null;
+
+    internal static void ForceGeometryInputDisposeFailureForTests(Exception exception)
+        => s_geometryInputDisposeFailureForTests = exception;
+
+    internal static void ResetGeometryInputDisposeFailureForTests() => s_geometryInputDisposeFailureForTests = null;
 
     // Test seam: CI runs with a compute-capable Vulkan context, so a backend-independent regression test needs a
     // deterministic way to exercise the declared CPU fallback without mutating the process-wide graphics context.
@@ -50,7 +62,8 @@ internal static class PlanExecutor
         RenderTargetPool? pool,
         int startPass = 0,
         PrefixCaptureSink? captureSink = null,
-        bool isRenderCacheEnabled = true)
+        bool isRenderCacheEnabled = true,
+        bool isAuxiliaryPull = false)
     {
         // FR-007 (C3.1) measurement scope: pooled leases live before this execution belong to the caller (an outer
         // plan, a held upstream op) and are subtracted from the peak measured for this plan.
@@ -98,12 +111,12 @@ internal static class PlanExecutor
                     case NestedGraphPass nestedGraph:
                         ExecuteNestedGraph(
                             nestedGraph, current, outputScale, workingScale, maxWorkingScale, maxDimension,
-                            diagnostics, pool);
+                            diagnostics, pool, isRenderCacheEnabled, isAuxiliaryPull);
                         break;
                     case CustomRenderNodePass customNode:
                         ExecuteCustomRenderNode(
                             customNode, current, outputScale, maxWorkingScale, diagnostics, pool,
-                            isRenderCacheEnabled);
+                            isRenderCacheEnabled, isAuxiliaryPull);
                         break;
                     default:
                         MapDescriptorPass(
@@ -146,7 +159,7 @@ internal static class PlanExecutor
     private static void AssertPeakLiveWithinPlan(
         CompiledPlan plan, int inputCount, RenderTargetPool? pool, long leaseBaseline, long captureAllowance)
     {
-        if (pool == null || inputCount != 1)
+        if (pool == null || inputCount != 1 || !plan.Resources.IsStaticallyBounded)
             return;
 
         // A static split branch that calls SetOutputBounds blits into a tight target while the branch target AND the
@@ -177,7 +190,8 @@ internal static class PlanExecutor
     // graph is the identity (the branch passes through).
     private static void ExecuteNestedGraph(
         NestedGraphPass pass, List<RenderNodeOperation> current, float outputScale, float workingScale,
-        float maxWorkingScale, int maxDimension, PipelineDiagnostics? diagnostics, RenderTargetPool? pool)
+        float maxWorkingScale, int maxDimension, PipelineDiagnostics? diagnostics, RenderTargetPool? pool,
+        bool isRenderCacheEnabled, bool isAuxiliaryPull)
     {
         var outputs = new List<RenderNodeOperation>(current.Count);
         pass.PlanCache.PruneBranches(current.Count);
@@ -218,7 +232,9 @@ internal static class PlanExecutor
                     current[i] = null!;
                     outputs.AddRange(Execute(
                         branchPlan, branchResources, [op], outputScale, branchScale, maxWorkingScale,
-                        diagnostics, pool));
+                        diagnostics, pool,
+                        isRenderCacheEnabled: isRenderCacheEnabled,
+                        isAuxiliaryPull: isAuxiliaryPull));
                 }
                 finally
                 {
@@ -271,7 +287,7 @@ internal static class PlanExecutor
     // node-owned caches, child nodes, or native state when Render is called after Process returns.
     private static void ExecuteCustomRenderNode(
         CustomRenderNodePass pass, List<RenderNodeOperation> current, float outputScale, float maxWorkingScale,
-        PipelineDiagnostics? diagnostics, RenderTargetPool? pool, bool isRenderCacheEnabled)
+        PipelineDiagnostics? diagnostics, RenderTargetPool? pool, bool isRenderCacheEnabled, bool isAuxiliaryPull)
     {
         RenderNodeOperation[] inputs = current.ToArray();
         // Ownership passes to the child node (which disposes or returns each input); clearing here keeps the outer
@@ -300,6 +316,7 @@ internal static class PlanExecutor
                 Diagnostics = diagnostics,
                 Pool = pool,
                 IsRenderCacheEnabled = isRenderCacheEnabled,
+                IsAuxiliaryPull = isAuxiliaryPull,
                 // A custom node is opaque to the compiler, so its backward bounds contract is unknown. Passing the
                 // outer crop directly would let a later expanding pass (blur, shadow, stroke) clip the halo before
                 // it is produced. The custom node therefore receives the conservative full-input request; only
@@ -1026,7 +1043,29 @@ internal static class PlanExecutor
             throw;
         }
 
-        inputTarget.Dispose();
+        try
+        {
+            inputTarget.Dispose();
+            if (s_geometryInputDisposeFailureForTests is { } injected)
+            {
+                s_geometryInputDisposeFailureForTests = null;
+                throw injected;
+            }
+        }
+        catch
+        {
+            try
+            {
+                outputTarget.Dispose();
+            }
+            catch
+            {
+            }
+
+            RenderNodeOperation.DisposeAll([op]);
+            throw;
+        }
+
         // DiscardOutput supersedes a requested shrink (§C3): a dropped pass produces nothing regardless of order.
         if (discarded)
         {
@@ -1654,7 +1693,16 @@ internal static class PlanExecutor
                     "CopySourceToDestination is an exclusive terminal operation and cannot be combined with dispatches.");
             }
 
-            gfx.CopyTexture(source, destination);
+            ComputeBackendPreparationFailure.Run(() =>
+            {
+                if (s_computeCopyFailureForTests is { } injected)
+                {
+                    s_computeCopyFailureForTests = null;
+                    throw injected;
+                }
+
+                gfx.CopyTexture(source, destination);
+            });
             _copiedSource = true;
         }
 

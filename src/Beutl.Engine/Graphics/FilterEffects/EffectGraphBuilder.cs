@@ -20,6 +20,7 @@ public sealed class EffectGraphBuilder
     private readonly HashSet<int> _visitedNestedOrdinals = [];
     private int _childScopeDepth;
     private int _currentChildIndex;
+    private bool _hasBranchedInput;
     private BuilderState _state;
 
     private enum BuilderState
@@ -55,6 +56,11 @@ public sealed class EffectGraphBuilder
 
     /// <summary>The working-scale ceiling for brushes constructed at describe time; <c>+Inf</c> = no ceiling (delivery).</summary>
     public float MaxWorkingScale { get; }
+
+    // A later built-in split cannot derive an exact static branch count from the graph-level Bounds after a
+    // preceding fan-out: execution receives each branch's own bounds, which may be smaller or even sub-pixel.
+    // Keep this engine-only state separate from the public authoring surface and use the dynamic-output contract.
+    internal bool HasBranchedInput => _hasBranchedInput;
 
     /// <summary>Appends a shader node (snippet or whole-source).</summary>
     public EffectGraphBuilder Shader(ShaderNodeDescriptor descriptor)
@@ -254,6 +260,13 @@ public sealed class EffectGraphBuilder
             Bounds = output;
         }
 
+        _hasBranchedInput = descriptor switch
+        {
+            CompositeNodeDescriptor => false,
+            SplitNodeDescriptor or NestedGraphNodeDescriptor or CustomRenderNodeDescriptor => true,
+            _ => _hasBranchedInput,
+        };
+
         return this;
     }
 
@@ -273,6 +286,7 @@ public sealed class EffectGraphBuilder
 
         int savedNodeCount = _nodes.Count;
         Rect savedBounds = Bounds;
+        bool savedHasBranchedInput = _hasBranchedInput;
         try
         {
             append();
@@ -284,6 +298,7 @@ public sealed class EffectGraphBuilder
                 _nodes.RemoveRange(savedNodeCount, _nodes.Count - savedNodeCount);
             _visitedNestedOrdinals.RemoveWhere(staticOrdinal => staticOrdinal >= savedNodeCount);
             Bounds = savedBounds;
+            _hasBranchedInput = savedHasBranchedInput;
             onError(ex);
             return false;
         }

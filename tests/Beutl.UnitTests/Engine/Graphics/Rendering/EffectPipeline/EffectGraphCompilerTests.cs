@@ -523,6 +523,63 @@ half4 apply(half4 c) {
     }
 
     [Test]
+    public void StructuralKey_TypeTokensWithSameFullNameFromDifferentAssemblies_Differ()
+    {
+        static Type CreateType(string assemblyName)
+        {
+            var name = new System.Reflection.AssemblyName(assemblyName);
+            System.Reflection.Emit.AssemblyBuilder assembly
+                = System.Reflection.Emit.AssemblyBuilder.DefineDynamicAssembly(
+                    name, System.Reflection.Emit.AssemblyBuilderAccess.Run);
+            System.Reflection.Emit.ModuleBuilder module = assembly.DefineDynamicModule(assemblyName);
+            return module.DefineType("Plugin.CollisionToken").CreateType()!;
+        }
+
+        Type first = CreateType("StructuralTokenAssemblyA");
+        Type second = CreateType("StructuralTokenAssemblyB");
+        using EffectGraph firstGraph = NewBuilder(new Rect(0, 0, 10, 10))
+            .ColorFilter(ColorFilterNodeDescriptor.Create(static () => null, first))
+            .Build();
+        using EffectGraph secondGraph = NewBuilder(new Rect(0, 0, 10, 10))
+            .ColorFilter(ColorFilterNodeDescriptor.Create(static () => null, second))
+            .Build();
+
+        Assert.That(StructuralKey.Compute(firstGraph), Is.Not.EqualTo(StructuralKey.Compute(secondGraph)),
+            "type structural tokens must retain assembly/load-context identity, not only their full name");
+    }
+
+    [Test]
+    public void StructuralKey_WholeSourceTileMode_Differs()
+    {
+        const string source = "uniform shader src; half4 main(float2 coord) { return src.eval(coord); }";
+        ShaderNodeDescriptor clamp = ShaderNodeDescriptor.WholeSource(
+            source, BoundsContract.Identity, srcTileMode: SKShaderTileMode.Clamp);
+        ShaderNodeDescriptor repeat = ShaderNodeDescriptor.WholeSource(
+            source, BoundsContract.Identity, srcTileMode: SKShaderTileMode.Repeat);
+        using EffectGraph clampGraph = NewBuilder(new Rect(0, 0, 10, 10)).Shader(clamp).Build();
+        using EffectGraph repeatGraph = NewBuilder(new Rect(0, 0, 10, 10)).Shader(repeat).Build();
+
+        Assert.That(StructuralKey.Compute(clampGraph), Is.Not.EqualTo(StructuralKey.Compute(repeatGraph)),
+            "the cached runtime stage embeds SrcTileMode, so changing it must miss the plan cache");
+    }
+
+    [Test]
+    public void Compile_ChainedStaticSplitsBeyondCumulativeLimit_UsesRuntimeResourceAccounting()
+    {
+        SplitNodeDescriptor first = SplitNodeDescriptor.Static(static _ => { }, 100, "first-static-split");
+        SplitNodeDescriptor second = SplitNodeDescriptor.Static(static _ => { }, 100, "second-static-split");
+
+        CompiledPlan plan = Compile(NewBuilder(new Rect(0, 0, 100, 100)).Split(first).Split(second));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(plan.Resources.IsStaticallyBounded, Is.False,
+                "the cumulative 10,000-way fan-out must not expand into a static resource declaration array");
+            Assert.That(plan.Resources.Intermediates, Is.Empty);
+        });
+    }
+
+    [Test]
     public void ParameterBlock_RebindRejectsMismatchedPassShapeInReleaseBuilds()
     {
         var bounds = new Rect(0, 0, 100, 100);

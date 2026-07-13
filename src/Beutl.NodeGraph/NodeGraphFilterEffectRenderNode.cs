@@ -55,6 +55,7 @@ internal class NodeGraphFilterEffectRenderNode(NodeGraphFilterEffect.Resource re
                     context.Diagnostics, context.Pool)
                 {
                     RequestedBounds = context.RequestedBounds,
+                    IsAuxiliaryPull = context.IsAuxiliaryPull,
                 };
                 allResults.AddRange(processor.PullToRoot());
             }

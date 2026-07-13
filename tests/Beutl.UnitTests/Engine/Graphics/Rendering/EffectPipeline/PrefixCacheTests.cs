@@ -466,6 +466,37 @@ public class PrefixCacheTests
         });
     }
 
+    [Test]
+    public void DisabledEffect_PrefixReleaseFailure_DisposesBypassedInputs()
+    {
+        var effect = new Blur { IsEnabled = false };
+        using var resource = (FilterEffect.Resource)effect.ToResource(CompositionContext.Default);
+        using var node = new PlanFilterEffectRenderNode(resource);
+        bool inputDisposed = false;
+        RenderNodeOperation input = RenderNodeOperation.CreateLambda(
+            new Rect(0, 0, 10, 10),
+            static _ => { },
+            onDispose: () => inputDisposed = true);
+        var injected = new InvalidOperationException("prefix release failed");
+
+        PlanFilterEffectRenderNode.SetBeforeDisabledPrefixReleaseForTest(() => throw injected);
+        try
+        {
+            InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(
+                () => node.Process(new RenderNodeContext([input])));
+            Assert.Multiple(() =>
+            {
+                Assert.That(actual, Is.SameAs(injected));
+                Assert.That(inputDisposed, Is.True,
+                    "the disabled early-return path must sweep its input when prefix cleanup fails");
+            });
+        }
+        finally
+        {
+            PlanFilterEffectRenderNode.SetBeforeDisabledPrefixReleaseForTest(null);
+        }
+    }
+
     // Once the OUTER RenderNodeCache engages over the effect node's subtree, Process stops running, so the prefix
     // cache's retained cross-frame lease — invisible to the pool's idle-eviction and byte-cap — must be released as
     // the cache engages, not pinned until node dispose. Drive the animate-then-hold sequence: animate the Gamma tail

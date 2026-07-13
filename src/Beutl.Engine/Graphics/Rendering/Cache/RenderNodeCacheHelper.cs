@@ -138,19 +138,45 @@ public static class RenderNodeCacheHelper
         ClearCache(node);
 
         var arr = list.Select(i => (i.RenderTarget, i.Bounds)).ToArray();
-        node.Cache.StoreCache(arr, outputScale);
-
-        // From here this subtree replays from node's tiles, so no descendant's Process runs again. Notify the whole
-        // subtree so any node holding a cross-frame resource outside its own node cache (an effect node's retained
-        // prefix lease) releases it now rather than stranding it until dispose (C10).
-        NotifyServedFromCache(node);
-
-        _logger.LogInformation("Created cache for node {Node}.", node);
-
-        // 参照のデクリメント
-        foreach ((RenderTarget target, Rect _) in arr)
+        try
         {
-            target.Dispose();
+            node.Cache.StoreCache(arr, outputScale);
+
+            // From here this subtree replays from node's tiles, so no descendant's Process runs again. Notify the whole
+            // subtree so any node holding a cross-frame resource outside its own node cache (an effect node's retained
+            // prefix lease) releases it now rather than stranding it until dispose (C10).
+            NotifyServedFromCache(node);
+
+            _logger.LogInformation("Created cache for node {Node}.", node);
+        }
+        catch
+        {
+            // StoreCache may have retained some or all shallow copies before a later notification fails. Roll the
+            // cache back without allowing native cleanup failures to replace the author callback's exception.
+            try
+            {
+                node.Cache.Invalidate();
+            }
+            catch
+            {
+            }
+
+            throw;
+        }
+        finally
+        {
+            // Drop every warm-up handle even if StoreCache or NotifyServedFromCache throws. Each cache tile owns a
+            // shallow copy, so the successful path retains exactly one reference and the failure path retains none.
+            foreach ((RenderTarget target, Rect _) in arr)
+            {
+                try
+                {
+                    target.Dispose();
+                }
+                catch
+                {
+                }
+            }
         }
     }
 }

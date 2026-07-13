@@ -226,9 +226,13 @@ internal sealed record IntermediateDecl(int Id, TextureFormat Format, int FirstU
 
 /// <summary>
 /// The structural half of a plan's resource plan (feature 004, data-model §3): the intermediate declarations and
-/// their peak-live count. Concrete sizes/ROIs are computed per frame by the resource resolution pass.
+/// their peak-live count. Concrete sizes/ROIs are computed per frame by the resource resolution pass. A cumulative
+/// fan-out too large to enumerate sets <see cref="IsStaticallyBounded"/> to <see langword="false"/> and uses runtime
+/// accounting instead of materializing an unbounded declaration array.
 /// </summary>
-internal sealed record ResourcePlan(ImmutableArray<IntermediateDecl> Intermediates)
+internal sealed record ResourcePlan(
+    ImmutableArray<IntermediateDecl> Intermediates,
+    bool IsStaticallyBounded = true)
 {
     /// <summary>Maximum number of declared intermediates live at once (max overlap of lifetime intervals); the FR-007 bound.</summary>
     public int PeakLiveCount { get; } = ComputePeakLive(Intermediates);

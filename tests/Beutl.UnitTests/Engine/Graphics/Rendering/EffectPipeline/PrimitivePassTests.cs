@@ -212,6 +212,38 @@ public class PrimitivePassTests
     }
 
     [Test]
+    public void SplitEffect_AfterFanOut_UsesDynamicBranchContract()
+    {
+        var first = new SplitEffect
+        {
+            HorizontalDivisions = { CurrentValue = 2 },
+            VerticalDivisions = { CurrentValue = 2 },
+        };
+        var second = new SplitEffect
+        {
+            HorizontalDivisions = { CurrentValue = 2 },
+            VerticalDivisions = { CurrentValue = 2 },
+        };
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        using FilterEffect.Resource firstResource
+            = (FilterEffect.Resource)first.ToResource(CompositionContext.Default);
+        using FilterEffect.Resource secondResource
+            = (FilterEffect.Resource)second.ToResource(CompositionContext.Default);
+        first.Describe(builder, firstResource);
+        second.Describe(builder, secondResource);
+        using EffectGraph graph = builder.Build();
+
+        CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(((SplitPass)plan.Passes[0]).IsDynamicOutputs, Is.False);
+            Assert.That(((SplitPass)plan.Passes[1]).IsDynamicOutputs, Is.True,
+                "the second split receives per-branch bounds and cannot promise its graph-level output count");
+        });
+    }
+
+    [Test]
     public void SplitEffect_LargeRenderableGrid_UsesDynamicResourcePlan()
     {
         var split = new SplitEffect

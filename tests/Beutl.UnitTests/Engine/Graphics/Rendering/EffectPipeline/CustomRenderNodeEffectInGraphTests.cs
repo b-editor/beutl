@@ -191,16 +191,19 @@ public class CustomRenderNodeEffectInGraphTests
         var disposed = new bool[1];
         var observedCache = new bool[1];
         var observedRoi = new Rect[1];
+        var observedAuxiliary = new bool[1];
         var requested = new Rect(12, 8, 40, 30);
         var group = new FilterEffectGroup();
-        group.Children.Add(new LifetimeProbeCustomNodeEffect(disposed, observedCache, observedRoi));
+        group.Children.Add(new LifetimeProbeCustomNodeEffect(
+            disposed, observedCache, observedRoi, observedAuxiliary));
 
         CompiledPlan plan = CompileGroup(group);
         FrameResources res = EffectGraphCompiler.ResolveResources(plan, requested, workingScale: 1f);
         RenderNodeOperation[] outputs = PlanExecutor.Execute(
             plan, res, [MakeInput(s_bounds)], outputScale: 1f, workingScale: 1f,
             maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null,
-            isRenderCacheEnabled: false);
+            isRenderCacheEnabled: false,
+            isAuxiliaryPull: true);
         try
         {
             Assert.Multiple(() =>
@@ -212,6 +215,8 @@ public class CustomRenderNodeEffectInGraphTests
                 Assert.That(observedRoi[0].IsInvalid, Is.True,
                     "an opaque embedded node must receive a conservative full-input request; forwarding the outer "
                     + "crop could clip pixels needed by a later expanding pass");
+                Assert.That(observedAuxiliary[0], Is.True,
+                    "an embedded node must preserve the parent auxiliary-pull policy");
             });
 
             using Bitmap rendered = Rasterize(outputs[0]);
@@ -701,22 +706,25 @@ internal sealed class ThrowingRenderNode(FilterEffect.Resource resource) : Filte
 
 [SuppressResourceClassGeneration]
 internal sealed partial class LifetimeProbeCustomNodeEffect(
-    bool[] disposed, bool[] observedCache, Rect[] observedRoi) : CustomRenderNodeFilterEffect
+    bool[] disposed, bool[] observedCache, Rect[] observedRoi, bool[] observedAuxiliary)
+    : CustomRenderNodeFilterEffect
 {
     public override Resource ToResource(CompositionContext context)
     {
-        var resource = new Resource(disposed, observedCache, observedRoi);
+        var resource = new Resource(disposed, observedCache, observedRoi, observedAuxiliary);
         bool updateOnly = false;
         resource.Update(this, context, ref updateOnly);
         return resource;
     }
 
-    public new sealed class Resource(bool[] disposed, bool[] observedCache, Rect[] observedRoi)
+    public new sealed class Resource(
+        bool[] disposed, bool[] observedCache, Rect[] observedRoi, bool[] observedAuxiliary)
         : CustomRenderNodeFilterEffect.Resource
     {
         public bool[] Disposed => disposed;
         public bool[] ObservedCache => observedCache;
         public Rect[] ObservedRoi => observedRoi;
+        public bool[] ObservedAuxiliary => observedAuxiliary;
 
         public override FilterEffectRenderNodeFactory RenderNodeFactory
             => FilterEffectRenderNodeFactory.Of(static r => new LifetimeProbeRenderNode((Resource)r));
@@ -732,6 +740,7 @@ internal sealed class LifetimeProbeRenderNode(LifetimeProbeCustomNodeEffect.Reso
     {
         resource.ObservedCache[0] = context.IsRenderCacheEnabled;
         resource.ObservedRoi[0] = context.RequestedBounds;
+        resource.ObservedAuxiliary[0] = context.IsAuxiliaryPull;
         RenderNodeOperation input = context.Input[0];
         return
         [

@@ -81,6 +81,29 @@ public class NodeGraphFilterEffectRenderNodeTests
     }
 
     [Test]
+    public void Process_ForwardsAuxiliaryPull_IntoGraphOutputSubtree()
+    {
+        using NodeGraphFilterEffect.Resource resource = BuildGraphResource();
+        using FilterEffectRenderNode node = resource.RenderNodeFactory.Create(resource);
+        ScaleProbeRenderNode.SawAuxiliaryPull = false;
+        var context = new RenderNodeContext([SourceOp(1f)])
+        {
+            IsAuxiliaryPull = true,
+        };
+
+        RenderNodeOperation[] ops = node.Process(context);
+        try
+        {
+            Assert.That(ScaleProbeRenderNode.SawAuxiliaryPull, Is.True,
+                "the hosted processor must preserve hit-test/bounds-only execution policy");
+        }
+        finally
+        {
+            DisposeAll(ops);
+        }
+    }
+
+    [Test]
     public void ToResource_CapturesProxyPreferencesFromCompositionContext()
     {
         var effect = new NodeGraphFilterEffect();
@@ -266,8 +289,11 @@ internal sealed partial class ScaleProbeEffect : FilterEffect
 
 internal sealed class ScaleProbeRenderNode(FilterEffect.Resource fe) : FilterEffectRenderNode(fe)
 {
+    public static bool SawAuxiliaryPull { get; set; }
+
     public override RenderNodeOperation[] Process(RenderNodeContext context)
     {
+        SawAuxiliaryPull |= context.IsAuxiliaryPull;
         // Resolve w as FilterEffectRenderNode.Process would, but skip its GPU path (buffer-budget clamp +
         // SkiaSharp build/rasterize). So w is the forwarded supply-driven scale, not a real final scale.
         EffectiveScale[] scales = context.Input.Select(i => i.EffectiveScale).ToArray();

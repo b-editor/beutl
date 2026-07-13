@@ -459,6 +459,7 @@ internal static class EffectGraphCompiler
     // has no static decls (C3.5); the executor skips the peak assert for such plans.
     private static ResourcePlan BuildResourcePlan(ImmutableArray<CompiledPass> passes)
     {
+        const int maxStaticMultiplicity = 4096;
         var decls = ImmutableArray.CreateBuilder<IntermediateDecl>(passes.Length);
         int id = 0;
         int multiplicity = 1;
@@ -476,6 +477,15 @@ internal static class EffectGraphCompiler
             {
                 case SplitPass { IsDynamicOutputs: false } split:
                     Add(multiplicity, idx, idx);
+                    if (split.BranchCount > maxStaticMultiplicity / multiplicity)
+                    {
+                        // A plugin may chain individually valid static splits into an enormous cumulative fan-out.
+                        // Do not expand that product into millions of declarations (or overflow the multiplier):
+                        // execution still enforces every split's exact branch count, while resource accounting uses
+                        // the same runtime-resolved exemption as a dynamic-output plan.
+                        return new ResourcePlan([], IsStaticallyBounded: false);
+                    }
+
                     multiplicity *= split.BranchCount;
                     Add(multiplicity, idx, lastUse);
                     break;

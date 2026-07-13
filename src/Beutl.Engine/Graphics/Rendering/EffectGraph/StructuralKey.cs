@@ -41,6 +41,7 @@ internal readonly struct StructuralKey : IEquatable<StructuralKey>
             case ShaderNodeDescriptor shader:
                 parts.Add(KeyPart.Create(KeyPartKind.SourceIdentity, shader.Source.IdentityHash));
                 parts.Add(KeyPart.Create(KeyPartKind.SourceKind, shader.Source.Kind));
+                parts.Add(KeyPart.Create(KeyPartKind.SrcTileMode, shader.SrcTileMode));
                 parts.Add(KeyPart.Create(KeyPartKind.ChildCount, shader.Children.Length));
                 if (!shader.IsCoordinateInvariant)
                     parts.Add(KeyPart.Create(KeyPartKind.BoundsIdentity, shader.Bounds.StructuralIdentity));
@@ -127,6 +128,7 @@ internal readonly struct StructuralKey : IEquatable<StructuralKey>
         StructuralToken,
         SourceIdentity,
         SourceKind,
+        SrcTileMode,
         ChildCount,
         BoundsIdentity,
         RequiresReadback,
@@ -163,6 +165,13 @@ internal readonly struct StructuralKey : IEquatable<StructuralKey>
         public static KeyPart Token(object value)
         {
             ArgumentNullException.ThrowIfNull(value);
+            if (value is Type type)
+            {
+                // RuntimeType.ToString() omits assembly identity, so two plugin load contexts can legally expose
+                // distinct types with the same full name. Type itself has stable identity and is immutable.
+                return new KeyPart(KeyPartKind.StructuralToken, typeof(Type), type);
+            }
+
             // StructuralToken historically used its textual identity. Snapshot that text now so a mutable token
             // cannot change an already-cached key's equality while retaining the token's runtime type as a separate
             // field. The typed sequence supplies the boundary that the old delimiter-joined string lacked.

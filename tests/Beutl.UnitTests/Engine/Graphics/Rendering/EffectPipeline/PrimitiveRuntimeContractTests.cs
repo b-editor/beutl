@@ -90,6 +90,43 @@ public class PrimitiveRuntimeContractTests
         });
     }
 
+    [Test]
+    public void ComputeTerminalCopy_BackendFailureCannotDegradeToPreviewIdentity()
+    {
+        var graphics = VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.RequireComputeCapable(graphics, "compute terminal-copy failure contract");
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            ComputeNodeDescriptor descriptor = ComputeNodeDescriptor.Create(
+                static ctx => ctx.CopySourceToDestination(),
+                passCount: 1,
+                ComputeFallback.Identity,
+                structuralToken: "terminal-copy-backend-failure",
+                dispatchFailureBehavior: ComputeDispatchFailureBehavior.IdentityInPreview);
+            (CompiledPlan plan, FrameResources resources) = Compile(
+                new EffectGraphBuilder(s_bounds, 1f, 1f).Compute(descriptor));
+            using var pool = new RenderTargetPool();
+            var injected = new InvalidOperationException("copy backend failed");
+
+            PlanExecutor.ForceComputeCopyFailureForTests(injected);
+            try
+            {
+                InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
+                    plan, resources, [Input()], 1f, 1f, maxWorkingScale: 2f, diagnostics: null, pool));
+                Assert.Multiple(() =>
+                {
+                    Assert.That(actual, Is.SameAs(injected),
+                        "backend copy failures must bypass IdentityInPreview without wrapping");
+                    Assert.That(pool.LiveLeaseCount, Is.Zero);
+                });
+            }
+            finally
+            {
+                PlanExecutor.ResetComputeCopyFailureForTests();
+            }
+        });
+    }
+
     [TestCase("copy-twice")]
     [TestCase("scratch-after-copy")]
     [TestCase("run-after-copy")]
@@ -166,6 +203,43 @@ public class PrimitiveRuntimeContractTests
                 Assert.That(pool.LiveLeaseCount, Is.Zero);
             });
         });
+    }
+
+    [Test]
+    public void GeometryInputCleanupFailure_ReleasesCompletedOutputAndInputOperation()
+    {
+        GeometryNodeDescriptor descriptor = GeometryNodeDescriptor.Create(
+            static session => session.Inputs[0].Draw(session.OpenCanvas()),
+            BoundsContract.Identity,
+            structuralToken: "geometry-input-cleanup-failure");
+        (CompiledPlan plan, FrameResources resources) = Compile(
+            new EffectGraphBuilder(s_bounds, 1f, 1f).Geometry(descriptor));
+        using var pool = new RenderTargetPool();
+        bool inputDisposed = false;
+        RenderNodeOperation input = RenderNodeOperation.CreateLambda(
+            s_bounds,
+            canvas => canvas.DrawRectangle(s_bounds, Brushes.Resource.White, null),
+            onDispose: () => inputDisposed = true);
+        var injected = new InvalidOperationException("geometry input cleanup failed");
+
+        PlanExecutor.ForceGeometryInputDisposeFailureForTests(injected);
+        try
+        {
+            InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
+                plan, resources, [input], 1f, 1f, float.PositiveInfinity, diagnostics: null, pool));
+            Assert.Multiple(() =>
+            {
+                Assert.That(actual, Is.SameAs(injected));
+                Assert.That(inputDisposed, Is.True,
+                    "the source operation must be consumed even when releasing its baked target fails");
+                Assert.That(pool.LiveLeaseCount, Is.Zero,
+                    "the already-rendered geometry output must not remain leased after input cleanup fails");
+            });
+        }
+        finally
+        {
+            PlanExecutor.ResetGeometryInputDisposeFailureForTests();
+        }
     }
 
     [Test]
