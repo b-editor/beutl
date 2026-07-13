@@ -63,14 +63,6 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                             totalCount += array.Length;
                             prevCount = array.Length;
                         } while (prevCount == 30);
-
-                        if (_handler.InstalledPackageRepository.ExistsPackage(package.Name))
-                        {
-                            PackageIdentity mostLatested = _handler.InstalledPackageRepository.GetLocalPackages(package.Name)
-                                .Aggregate((x, y) => x.Version > y.Version ? x : y);
-
-                            CurrentRelease.Value = await package.GetReleaseAsync(mostLatested.Version.ToString());
-                        }
                     }
                 }
                 catch (Exception e)
@@ -112,19 +104,25 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
             .DisposeWith(_disposables);
 
         IObservable<bool> installed = _handler.InstalledPackageRepository.GetObservable(package.Name);
+        IObservable<bool> notBusy = IsBusy.Not();
         IsInstallButtonVisible = installed.Not()
-            .AreTrue(CanCancel.Not(), CanInstallOrUpdate)
+            .AreTrue(CanCancel.Not(), CanInstallOrUpdate, notBusy)
             .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
+        _handler.InstalledPackageRepository
+            .GetPackageObservable(package.Name)
+            .Subscribe(id => _ = ResolveCurrentReleaseAsync(id))
             .DisposeWith(_disposables);
 
         IsUpdateButtonVisible = CurrentRelease.CombineLatest(SelectedRelease)
             .Select(x => x.First != null && x.First.Version.Value != x.Second?.Version.Value)
-            .AreTrue(CanCancel.Not(), CanInstallOrUpdate)
+            .AreTrue(CanCancel.Not(), CanInstallOrUpdate, notBusy)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
         IsUninstallButtonVisible = installed
-            .AreTrue(CanCancel.Not())
+            .AreTrue(CanCancel.Not(), notBusy)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -169,6 +167,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                         return;
                     }
 
+                    IsBusy.Value = true;
                     StatusText.Value = ExtensionsStrings.Installing;
                     using (await _app.Lock.LockAsync())
                     {
@@ -204,6 +203,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                 finally
                 {
                     StatusText.Value = null;
+                    IsBusy.Value = false;
                 }
             })
             .DisposeWith(_disposables);
@@ -215,6 +215,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
 
                 try
                 {
+                    IsBusy.Value = true;
                     if (!await _handler.EnsureProjectClosed())
                         return;
 
@@ -255,6 +256,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                 finally
                 {
                     StatusText.Value = null;
+                    IsBusy.Value = false;
                 }
             })
             .DisposeWith(_disposables);
@@ -264,6 +266,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
             {
                 try
                 {
+                    IsBusy.Value = true;
                     if (!await _handler.EnsureProjectClosed())
                         return;
 
@@ -298,6 +301,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                 finally
                 {
                     StatusText.Value = null;
+                    IsBusy.Value = false;
                 }
             })
             .DisposeWith(_disposables);
@@ -337,6 +341,40 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
         }
 
         return (await Package.GetReleasesAsync())[0];
+    }
+
+    private async Task ResolveCurrentReleaseAsync(PackageIdentity? id)
+    {
+        if (id is null)
+        {
+            CurrentRelease.Value = null;
+            return;
+        }
+
+        string versionStr = id.Version.ToString();
+        if (SelectedRelease.Value is { } selected && selected.Version.Value == versionStr)
+        {
+            CurrentRelease.Value = selected;
+            return;
+        }
+
+        foreach (Release r in AllReleases)
+        {
+            if (r.Version.Value == versionStr)
+            {
+                CurrentRelease.Value = r;
+                return;
+            }
+        }
+
+        try
+        {
+            CurrentRelease.Value = await Package.GetReleaseAsync(versionStr);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to resolve installed release for {PackageId}.", Package.Name);
+        }
     }
 
     public Package Package { get; }

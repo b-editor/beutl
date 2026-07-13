@@ -32,19 +32,23 @@ public sealed class LocalUserPackageViewModel : BaseViewModel, IUserPackageViewM
             .DisposeWith(_disposables);
 
         IObservable<bool> installed = _handler.InstalledPackageRepository.GetObservable(package.Name);
+        IObservable<bool> notBusy = IsBusy.Not();
         IsInstallButtonVisible = installed
             .AnyTrue(CanCancel)
             .Not()
+            .AreTrue(notBusy)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        IsUpdateButtonVisible = LatestRelease.Select(x => x != null)
-            .AreTrue(CanCancel.Not())
+        IObservable<PackageIdentity?> installedPackage = _handler.InstalledPackageRepository.GetPackageObservable(package.Name);
+        IsUpdateButtonVisible = LatestRelease.CombineLatest(installedPackage)
+            .Select(x => x.First is { } latest && InstalledPackageRepository.IsNewerThanInstalled(latest.Version.Value, x.Second))
+            .AreTrue(CanCancel.Not(), notBusy)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
         IsUninstallButtonVisible = installed
-            .AreTrue(CanCancel.Not(), IsUpdateButtonVisible.Not())
+            .AreTrue(CanCancel.Not(), IsUpdateButtonVisible.Not(), notBusy)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
