@@ -1,5 +1,10 @@
-﻿using Avalonia.Headless.NUnit;
+﻿using System.Net;
+using System.Net.Http;
+using System.Text;
+using Avalonia.Headless.NUnit;
 using Avalonia.VisualTree;
+using Beutl.Api;
+using Beutl.Api.Services;
 using Beutl.Pages;
 using Beutl.Pages.ExtensionsPages;
 using Beutl.Testing.Headless;
@@ -20,8 +25,12 @@ public class ExtensionsPageInitialNavigationTests
     {
         await TestReset.ResetShellAsync();
         MainViewModel mainViewModel = TestShell.MainViewModel;
+
+        var clients = new BeutlApiApplication(
+            new HttpClient(new EmptyJsonArrayHandler()),
+            new ExtensionProvider());
         var vm = new ExtensionsPageViewModel(
-            mainViewModel._beutlClients,
+            clients,
             mainViewModel.EditorService,
             mainViewModel.ProjectService);
 
@@ -42,6 +51,20 @@ public class ExtensionsPageInitialNavigationTests
             page.Close();
             vm.Dispose();
             HeadlessTestHelpers.Settle();
+        }
+    }
+
+    private sealed class EmptyJsonArrayHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            var response = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("[]", Encoding.UTF8, "application/json"),
+            };
+            return Task.FromResult(response);
         }
     }
 }
