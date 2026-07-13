@@ -27,9 +27,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
         _app = app;
         _handler = new PackageOperationHandler(app, editorService, projectService);
         _library = app.GetResource<LibraryService>();
-        var releaseResolutionRequests = new Subject<PackageIdentity?>();
-        PackageIdentity? installedPackage = null;
-        bool hasInstalledPackageEmission = false;
+        var releasesReady = new BehaviorSubject<bool>(false);
 
         DisplayName = package.DisplayName
             .Select(x => !string.IsNullOrWhiteSpace(x) ? x : Package.Name)
@@ -47,6 +45,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                     {
                         activity?.AddEvent(new("Entered_AsyncLock"));
                         IsBusy.Value = true;
+                        releasesReady.OnNext(false);
                         AllReleases.Clear();
                         LatestRelease.Value = null;
                         await Package.RefreshAsync();
@@ -79,7 +78,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                 finally
                 {
                     IsBusy.Value = false;
-                    releaseResolutionRequests.OnNext(installedPackage);
+                    releasesReady.OnNext(true);
                 }
             })
             .DisposeWith(_disposables);
@@ -114,20 +113,11 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        _handler.InstalledPackageRepository
-            .GetPackageObservable(package.Name)
-            .ObserveOn(AvaloniaScheduler.Instance)
-            .Subscribe(id =>
-            {
-                installedPackage = id;
-                if (hasInstalledPackageEmission)
-                {
-                    releaseResolutionRequests.OnNext(id);
-                }
-
-                hasInstalledPackageEmission = true;
-            })
-            .DisposeWith(_disposables);
+        IObservable<PackageIdentity?> releaseResolutionRequests =
+            PackageReleaseResolver.ObserveWhenReleasesReady(
+                _handler.InstalledPackageRepository.GetPackageObservable(package.Name),
+                releasesReady,
+                AvaloniaScheduler.Instance);
 
         PackageReleaseResolver.ObserveLatest(
                 releaseResolutionRequests,

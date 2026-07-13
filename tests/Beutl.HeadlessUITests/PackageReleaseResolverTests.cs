@@ -121,6 +121,64 @@ public class PackageReleaseResolverTests
     }
 
     [Test]
+    public async Task ObserveLatest_UsesSemanticallyEquivalentCachedReleaseWithoutNetworkRequest()
+    {
+        using var requests = new Subject<PackageIdentity?>();
+        Release cached = CreateRelease("1.0.0");
+        var observed = new TaskCompletionSource<Release?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        int requestCount = 0;
+
+        using IDisposable subscription = PackageReleaseResolver.ObserveLatest(
+                requests,
+                ImmediateScheduler.Instance,
+                () => null,
+                () => [cached],
+                _ =>
+                {
+                    requestCount++;
+                    return Task.FromResult(cached);
+                },
+                ex => Assert.Fail(ex.ToString()))
+            .Subscribe(release => observed.TrySetResult(release));
+
+        requests.OnNext(CreateIdentity("1.0"));
+        Release? result = await observed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.That(result, Is.SameAs(cached));
+        Assert.That(requestCount, Is.Zero);
+    }
+
+    [TestCase(true)]
+    [TestCase(false)]
+    public void ObserveWhenReleasesReady_EmitsAfterBothInputsRegardlessOfOrder(bool readyFirst)
+    {
+        using var installedPackages = new Subject<PackageIdentity?>();
+        using var releasesReady = new BehaviorSubject<bool>(false);
+        PackageIdentity installed = CreateIdentity("1.0.0");
+        var observed = new List<PackageIdentity?>();
+
+        using IDisposable subscription = PackageReleaseResolver.ObserveWhenReleasesReady(
+                installedPackages,
+                releasesReady,
+                ImmediateScheduler.Instance)
+            .Subscribe(observed.Add);
+
+        if (readyFirst)
+        {
+            releasesReady.OnNext(true);
+            installedPackages.OnNext(installed);
+        }
+        else
+        {
+            installedPackages.OnNext(installed);
+            Assert.That(observed, Is.Empty);
+            releasesReady.OnNext(true);
+        }
+
+        Assert.That(observed, Is.EqualTo(new[] { installed }));
+    }
+
+    [Test]
     public async Task ObserveLatest_CapturesStateAndEmitsOnProvidedScheduler()
     {
         using var requests = new Subject<PackageIdentity?>();

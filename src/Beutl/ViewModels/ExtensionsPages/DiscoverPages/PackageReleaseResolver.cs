@@ -2,11 +2,26 @@
 
 using Beutl.Api.Objects;
 using NuGet.Packaging.Core;
+using NuGet.Versioning;
 
 namespace Beutl.ViewModels.ExtensionsPages.DiscoverPages;
 
 internal static class PackageReleaseResolver
 {
+    public static IObservable<PackageIdentity?> ObserveWhenReleasesReady(
+        IObservable<PackageIdentity?> installedPackages,
+        IObservable<bool> releasesReady,
+        IScheduler stateScheduler)
+    {
+        return installedPackages
+            .ObserveOn(stateScheduler)
+            .CombineLatest(
+                releasesReady.ObserveOn(stateScheduler),
+                (installedPackage, isReady) => (InstalledPackage: installedPackage, IsReady: isReady))
+            .Where(x => x.IsReady)
+            .Select(x => x.InstalledPackage);
+    }
+
     public static IObservable<Release?> ObserveLatest(
         IObservable<PackageIdentity?> requests,
         IScheduler stateScheduler,
@@ -62,13 +77,14 @@ internal static class PackageReleaseResolver
                 return null;
             }
 
-            string version = request.InstalledPackage.Version.ToString();
-            if (request.SelectedRelease is { } selected && selected.Version.Value == version)
+            NuGetVersion installedVersion = request.InstalledPackage.Version;
+            string version = installedVersion.ToString();
+            if (request.SelectedRelease is { } selected && MatchesVersion(selected, installedVersion))
             {
                 return selected;
             }
 
-            Release? cached = request.AllReleases.FirstOrDefault(x => x.Version.Value == version);
+            Release? cached = request.AllReleases.FirstOrDefault(x => MatchesVersion(x, installedVersion));
             return cached ?? await getReleaseAsync(version);
         }
         catch (Exception ex)
@@ -76,6 +92,12 @@ internal static class PackageReleaseResolver
             onError(ex);
             return null;
         }
+    }
+
+    private static bool MatchesVersion(Release release, NuGetVersion installedVersion)
+    {
+        return NuGetVersion.TryParse(release.Version.Value, out NuGetVersion? releaseVersion)
+            && VersionComparer.VersionRelease.Equals(releaseVersion, installedVersion);
     }
 
     private sealed record ResolutionRequest(
