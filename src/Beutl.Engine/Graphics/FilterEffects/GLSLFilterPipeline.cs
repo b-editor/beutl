@@ -1,9 +1,36 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Beutl.Graphics.Backend;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Graphics.Effects;
+
+// Marks layout/submission preparation failures without wrapping them, so the executor can distinguish backend state
+// failures from ordinary author-dispatch exceptions while preserving the native exception type and stack trace.
+internal static class ComputeBackendPreparationFailure
+{
+    private static readonly ConditionalWeakTable<Exception, Marker> s_failures = new();
+
+    public static void Run(Action prepare)
+    {
+        try
+        {
+            prepare();
+        }
+        catch (Exception ex)
+        {
+            s_failures.GetValue(ex, static _ => new Marker());
+            throw;
+        }
+    }
+
+    public static bool IsMarked(Exception exception) => s_failures.TryGetValue(exception, out _);
+
+    private sealed class Marker
+    {
+    }
+}
 
 internal sealed class GLSLFilterPipeline : IDisposable
 {
@@ -142,8 +169,8 @@ internal sealed class GLSLFilterPipeline : IDisposable
             throw new InvalidOperationException("This pipeline requires a mask texture. Use the dual-texture Execute overload.");
 
         // Prepare textures for their respective operations
-        sourceTexture.PrepareForSampling();
-        destinationTexture.PrepareForRender();
+        ComputeBackendPreparationFailure.Run(sourceTexture.PrepareForSampling);
+        ComputeBackendPreparationFailure.Run(destinationTexture.PrepareForRender);
 
         // Create framebuffer
         using IFramebuffer3D framebuffer = _context.CreateFramebuffer3D(
@@ -166,7 +193,7 @@ internal sealed class GLSLFilterPipeline : IDisposable
         _renderPass.End();
 
         // Prepare destination for sampling (next stage)
-        destinationTexture.PrepareForSampling();
+        ComputeBackendPreparationFailure.Run(destinationTexture.PrepareForSampling);
     }
 
     // Overload for dual-texture pipelines (source + mask)
@@ -183,9 +210,9 @@ internal sealed class GLSLFilterPipeline : IDisposable
             throw new InvalidOperationException("This pipeline was not created with mask texture support.");
 
         // Prepare textures for their respective operations
-        sourceTexture.PrepareForSampling();
-        maskTexture.PrepareForSampling();
-        destinationTexture.PrepareForRender();
+        ComputeBackendPreparationFailure.Run(sourceTexture.PrepareForSampling);
+        ComputeBackendPreparationFailure.Run(maskTexture.PrepareForSampling);
+        ComputeBackendPreparationFailure.Run(destinationTexture.PrepareForRender);
 
         // Create framebuffer
         using IFramebuffer3D framebuffer = _context.CreateFramebuffer3D(
@@ -209,7 +236,7 @@ internal sealed class GLSLFilterPipeline : IDisposable
         _renderPass.End();
 
         // Prepare destination for sampling (next stage)
-        destinationTexture.PrepareForSampling();
+        ComputeBackendPreparationFailure.Run(destinationTexture.PrepareForSampling);
     }
 
     public void Dispose()

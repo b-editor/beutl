@@ -1,5 +1,6 @@
 ﻿using System.Runtime.InteropServices;
 using Beutl.Graphics;
+using Beutl.Graphics.Backend;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
@@ -150,5 +151,54 @@ public class GLSLShaderTests
             Assert.That(g, Is.EqualTo(0f).Within(0.01f));
             Assert.That(b, Is.EqualTo(1f).Within(0.01f));
         });
+    }
+
+    [Test]
+    public void ExecuteSingleTarget_SourcePreparationFailureIsClassified()
+    {
+        var ctx = VulkanTestEnvironment.EnsureAvailable();
+
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using ITexture2D source = ctx.CreateTexture2D(4, 4, TextureFormat.RGBA16Float);
+            using ITexture2D destination = ctx.CreateTexture2D(4, 4, TextureFormat.RGBA16Float);
+            using ITexture2D depth = ctx.CreateTexture2D(4, 4, TextureFormat.Depth32Float);
+            using var shader = GLSLShader.Create(ConstantBlueFragment);
+            var failingSource = new SamplingFailureTexture(source);
+
+            InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
+                shader.ExecuteSingleTarget(failingSource, destination, depth, new DummyPush()))!;
+
+            Assert.That(ComputeBackendPreparationFailure.IsMarked(error), Is.True,
+                "a texture-layout failure inside GLSL dispatch must bypass identity preview fallback");
+        });
+    }
+
+    private sealed class SamplingFailureTexture(ITexture2D inner) : ITexture2D
+    {
+        public int Width => inner.Width;
+
+        public int Height => inner.Height;
+
+        public TextureFormat Format => inner.Format;
+
+        public IntPtr NativeHandle => inner.NativeHandle;
+
+        public IntPtr NativeViewHandle => inner.NativeViewHandle;
+
+        public void Upload(ReadOnlySpan<byte> data) => inner.Upload(data);
+
+        public byte[] DownloadPixels() => inner.DownloadPixels();
+
+        public SkiaSharp.SKSurface CreateSkiaSurface() => inner.CreateSkiaSurface();
+
+        public void PrepareForRender() => inner.PrepareForRender();
+
+        public void PrepareForSampling() =>
+            throw new InvalidOperationException("simulated GLSL source preparation failure");
+
+        public void Dispose()
+        {
+        }
     }
 }

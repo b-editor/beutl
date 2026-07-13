@@ -91,6 +91,30 @@ public class SkslSnippetMergerTests
         });
     }
 
+    [Test]
+    public void Merge_LayoutQualifierSharingUniformName_IsNotRenamed()
+    {
+        const string source =
+            "layout(color) uniform half4 color;\n"
+            + "half4 apply(half4 c) { return color * c; }";
+
+        string merged = SkslSnippetMerger.Merge([SkslSource.Snippet(source)]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(merged, Does.Contain("layout(color) uniform half4 fe0_color;"),
+                "the uniform declaration is prefixed without changing the layout qualifier");
+            Assert.That(merged, Does.Not.Contain("layout(fe0_color)"),
+                "layout qualifier identifiers are metadata, not references to the renamed uniform");
+            Assert.That(merged, Does.Contain("return fe0_color * c;"),
+                "ordinary uniform references remain part of alpha-renaming");
+
+            using SKRuntimeEffect? effect = SKRuntimeEffect.CreateShader(merged, out string? error);
+            Assert.That(error, Is.Null, $"the merged layout-qualified program compiles ({error})");
+            Assert.That(effect, Is.Not.Null);
+        });
+    }
+
     // Characterization: every top-level declaration kind (uniform, file-scope const, helper, apply) is prefixed feN_.
     [Test]
     public void Merge_TopLevelDeclarations_AreAllPrefixed()

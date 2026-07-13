@@ -1188,12 +1188,13 @@ internal static class PlanExecutor
             pass.DispatchFailureBehavior == ComputeDispatchFailureBehavior.IdentityInPreview
             && ex is not OperationCanceledException
             && ex is not ComputeResourcePlanViolationException
+            && !ComputeBackendPreparationFailure.IsMarked(ex)
             && !float.IsPositiveInfinity(maxWorkingScale))
         {
             // PixelSort's historic preview behavior: a transient dispatch failure keeps the source pixels when the
             // descriptor explicitly declares the dispatch policy. Delivery still throws rather than exporting an
-            // unsorted frame; cancellation and resource-plan violations always propagate; allocation failures remain
-            // governed by C7's preview-drop contract.
+            // unsorted frame; cancellation, resource-plan violations, and backend preparation failures always
+            // propagate; allocation failures remain governed by C7's preview-drop contract.
             ReleaseComputeScratch(scratch, depthScratch);
             outputTarget.Dispose();
             inputTarget.Dispose();
@@ -1603,7 +1604,7 @@ internal static class PlanExecutor
             colorScratch.Add(target);
             // A pooled Skia surface may still have its acquire-time clear queued. Submit that work before Vulkan
             // writes the backing image, otherwise a later Skia flush can overwrite the compute result.
-            target.PrepareForComputeWrite();
+            ComputeBackendPreparationFailure.Run(target.PrepareForComputeWrite);
             return target.Texture
                 ?? throw new ComputeScratchAllocationException("Pooled compute scratch has no Vulkan texture.");
         }

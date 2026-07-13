@@ -64,6 +64,7 @@ internal static class SkslSnippetMerger
     {
         List<Token> tokens = Tokenize(source);
         HashSet<string> names = CollectTopLevelNames(tokens);
+        HashSet<int> layoutQualifierIdentifiers = CollectLayoutQualifierIdentifiers(tokens);
         var result = new StringBuilder(source.Length + (names.Count * prefix.Length));
         int copiedThrough = 0;
         for (int i = 0; i < tokens.Count; i++)
@@ -71,6 +72,7 @@ internal static class SkslSnippetMerger
             Token token = tokens[i];
             if (!token.IsIdent
                 || !names.Contains(token.Text)
+                || layoutQualifierIdentifiers.Contains(i)
                 || (i > 0 && tokens[i - 1].Text == "."))
             {
                 continue;
@@ -83,6 +85,47 @@ internal static class SkslSnippetMerger
 
         result.Append(source, copiedThrough, source.Length - copiedThrough);
         return result.ToString();
+    }
+
+    // `layout(color) uniform half4 color;` contains two equal identifier tokens with different roles: the first is
+    // fixed layout metadata and the second is the uniform declarator. Only the declarator and its value references
+    // participate in alpha-renaming. Record identifier indexes inside every top-level layout(...) group so Prefix can
+    // leave the metadata intact without weakening ordinary renaming inside function bodies.
+    private static HashSet<int> CollectLayoutQualifierIdentifiers(IReadOnlyList<Token> tokens)
+    {
+        var result = new HashSet<int>();
+        for (int i = 0; i + 1 < tokens.Count; i++)
+        {
+            if (tokens[i] is not { IsIdent: true, Text: "layout", Depth: 0 }
+                || tokens[i + 1].Text != "(")
+            {
+                continue;
+            }
+
+            int groupDepth = 0;
+            for (int j = i + 1; j < tokens.Count; j++)
+            {
+                if (tokens[j].Text == "(")
+                {
+                    groupDepth++;
+                }
+                else if (tokens[j].Text == ")")
+                {
+                    groupDepth--;
+                    if (groupDepth == 0)
+                    {
+                        i = j;
+                        break;
+                    }
+                }
+                else if (groupDepth > 0 && tokens[j].IsIdent)
+                {
+                    result.Add(j);
+                }
+            }
+        }
+
+        return result;
     }
 
     // At brace depth 0, `uniform`/`const` [PRECISION] TYPE NAME declares NAME; IDENT IDENT `(` is a function

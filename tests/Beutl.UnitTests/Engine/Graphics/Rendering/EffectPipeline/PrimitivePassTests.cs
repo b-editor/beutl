@@ -585,6 +585,59 @@ public class PrimitivePassTests
         });
     }
 
+    [Test]
+    public void ComputeDispatchFailure_ScratchBackendPreparationAlwaysPropagates()
+    {
+        var context = VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.RequireComputeCapable(context, "compute scratch preparation failure gate");
+
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f)
+                .Compute(ComputeNodeDescriptor.Create(
+                    static ctx => _ = ctx.AcquireColorScratch(),
+                    passCount: 1,
+                    ComputeFallback.Identity,
+                    colorScratchCount: 1,
+                    structuralToken: "scratch-prepare-failure",
+                    dispatchFailureBehavior: ComputeDispatchFailureBehavior.IdentityInPreview));
+            using EffectGraph graph = builder.Build();
+            CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
+            FrameResources frame = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale: 1f);
+            using var pool = new RenderTargetPool();
+
+            int preparations = 0;
+            bool inputDisposed = false;
+            RenderTarget.SetComputeWritePreparedObserverForTest(() =>
+            {
+                preparations++;
+                if (preparations == 2)
+                    throw new InvalidOperationException("simulated scratch backend preparation failure");
+            });
+            try
+            {
+                RenderNodeOperation input = RenderNodeOperation.CreateLambda(
+                    s_bounds, static _ => { }, onDispose: () => inputDisposed = true);
+                Assert.That(
+                    () => PlanExecutor.Execute(
+                        plan, frame, [input], outputScale: 1f, workingScale: 1f,
+                        maxWorkingScale: 2f, diagnostics: null, pool),
+                    Throws.TypeOf<InvalidOperationException>(),
+                    "a backend preparation failure inside the callback must not become an identity preview");
+            }
+            finally
+            {
+                RenderTarget.SetComputeWritePreparedObserverForTest(null);
+            }
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(preparations, Is.EqualTo(2), "the injected failure occurred during scratch preparation");
+                Assert.That(inputDisposed, Is.True, "the propagated backend failure releases the detached input");
+            });
+        });
+    }
+
     // N3: an empty input op reaching a compute pass must pass straight through — on either backend. The
     // GPU path (ExecuteCompute) already guards empty input; the CPU-fallback path (no Vulkan) lacked the same
     // guard and spuriously threw in delivery. Neither the dispatch nor the CPU callback may run for an empty input.
