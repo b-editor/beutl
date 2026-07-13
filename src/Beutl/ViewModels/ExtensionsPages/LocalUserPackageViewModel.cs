@@ -42,7 +42,7 @@ public sealed class LocalUserPackageViewModel : BaseViewModel, IUserPackageViewM
 
         IObservable<PackageIdentity?> installedPackage = _handler.InstalledPackageRepository.GetPackageObservable(package.Name);
         IsUpdateButtonVisible = LatestRelease.CombineLatest(installedPackage)
-            .Select(x => x.First is { } latest && InstalledPackageRepository.IsNewerThanInstalled(latest.Version.Value, x.Second))
+            .Select(x => PackageUpdateAvailability.IsAvailable(x.First?.Version.Value, x.Second))
             .AreTrue(CanCancel.Not(), notBusy)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);

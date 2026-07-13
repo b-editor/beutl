@@ -45,21 +45,6 @@ public class InstalledPackageRepositoryTests
         && Helper.AppRoot.StartsWith(_tempHome, StringComparison.OrdinalIgnoreCase);
 
     [Test]
-    public void IsNewerThanInstalled_NullInstalled_ReturnsTrue()
-    {
-        Assert.That(InstalledPackageRepository.IsNewerThanInstalled("1.0.0", null), Is.True);
-    }
-
-    [TestCase("2.0.0", "1.0.0", true)]
-    [TestCase("1.0.0", "1.0.0", false)]
-    [TestCase("0.9.0", "1.0.0", false)]
-    public void IsNewerThanInstalled_ComparesVersions(string release, string installed, bool expected)
-    {
-        var installedId = new PackageIdentity("P", NuGetVersion.Parse(installed));
-        Assert.That(InstalledPackageRepository.IsNewerThanInstalled(release, installedId), Is.EqualTo(expected));
-    }
-
-    [Test]
     public void GetPackageObservable_EmitsNull_WhenNotInstalled()
     {
         if (!IsHomeIsolated)

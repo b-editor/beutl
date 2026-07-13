@@ -1,4 +1,5 @@
-﻿using Beutl.Api;
+﻿using System.Reactive.Subjects;
+using Beutl.Api;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.Logging;
@@ -25,6 +26,9 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
         _app = app;
         _handler = new PackageOperationHandler(app, editorService, projectService);
         _library = app.GetResource<LibraryService>();
+        var releaseResolutionRequests = new Subject<PackageIdentity?>();
+        PackageIdentity? installedPackage = null;
+        bool hasInstalledPackageEmission = false;
 
         DisplayName = package.DisplayName
             .Select(x => !string.IsNullOrWhiteSpace(x) ? x : Package.Name)
@@ -74,11 +78,10 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                 finally
                 {
                     IsBusy.Value = false;
+                    releaseResolutionRequests.OnNext(installedPackage);
                 }
             })
             .DisposeWith(_disposables);
-
-        Refresh.Execute();
 
         IObservable<PackageChangesQueue.EventType> observable = _handler.Queue.GetObservable(package.Name);
         CanCancel = observable.Select(x => x != PackageChangesQueue.EventType.None)
@@ -112,7 +115,25 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
 
         _handler.InstalledPackageRepository
             .GetPackageObservable(package.Name)
-            .Subscribe(id => _ = ResolveCurrentReleaseAsync(id))
+            .Subscribe(id =>
+            {
+                installedPackage = id;
+                if (hasInstalledPackageEmission)
+                {
+                    releaseResolutionRequests.OnNext(id);
+                }
+
+                hasInstalledPackageEmission = true;
+            })
+            .DisposeWith(_disposables);
+
+        PackageReleaseResolver.ObserveLatest(
+                releaseResolutionRequests,
+                () => SelectedRelease.Value,
+                () => AllReleases,
+                Package.GetReleaseAsync,
+                ex => _logger.LogWarning(ex, "Failed to resolve installed release for {PackageId}.", Package.Name))
+            .Subscribe(release => CurrentRelease.Value = release)
             .DisposeWith(_disposables);
 
         IsUpdateButtonVisible = CurrentRelease.CombineLatest(SelectedRelease)
@@ -325,6 +346,8 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                 }
             })
             .DisposeWith(_disposables);
+
+        Refresh.Execute();
     }
 
     private async Task<Release> AcquireRelease()
@@ -341,40 +364,6 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
         }
 
         return (await Package.GetReleasesAsync())[0];
-    }
-
-    private async Task ResolveCurrentReleaseAsync(PackageIdentity? id)
-    {
-        if (id is null)
-        {
-            CurrentRelease.Value = null;
-            return;
-        }
-
-        string versionStr = id.Version.ToString();
-        if (SelectedRelease.Value is { } selected && selected.Version.Value == versionStr)
-        {
-            CurrentRelease.Value = selected;
-            return;
-        }
-
-        foreach (Release r in AllReleases)
-        {
-            if (r.Version.Value == versionStr)
-            {
-                CurrentRelease.Value = r;
-                return;
-            }
-        }
-
-        try
-        {
-            CurrentRelease.Value = await Package.GetReleaseAsync(versionStr);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to resolve installed release for {PackageId}.", Package.Name);
-        }
     }
 
     public Package Package { get; }

@@ -169,11 +169,6 @@ public class InstalledPackageRepository : IBeutlApiResource
         return new _PackageObservable(this, name);
     }
 
-    public static bool IsNewerThanInstalled(string releaseVersion, PackageIdentity? installed)
-    {
-        return installed is null || NuGetVersion.Parse(releaseVersion) > installed.Version;
-    }
-
     public PackageIdentity[] GetPackagesNeedingDependencyReResolution()
     {
         string currentVersion = BeutlApplication.Version;
