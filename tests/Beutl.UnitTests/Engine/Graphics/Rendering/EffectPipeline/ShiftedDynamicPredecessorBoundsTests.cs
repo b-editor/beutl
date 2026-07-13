@@ -91,7 +91,7 @@ internal sealed partial class ShiftingCustomNodeEffect(Point shift) : CustomRend
         return resource;
     }
 
-    public new sealed class Resource(Point shift) : FilterEffect.Resource
+    public new sealed class Resource(Point shift) : CustomRenderNodeFilterEffect.Resource
     {
         public Point Shift => shift;
 

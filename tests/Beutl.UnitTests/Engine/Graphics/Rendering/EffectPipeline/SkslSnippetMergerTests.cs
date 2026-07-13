@@ -50,6 +50,47 @@ public class SkslSnippetMergerTests
         });
     }
 
+    [Test]
+    public void Merge_WhitespaceSeparatedMemberAccess_IsNotRenamed()
+    {
+        const string source =
+            "uniform half r;\nhalf4 apply(half4 c) { return half4(c . r * r, c . g, c . b, c . a); }";
+
+        string merged = SkslSnippetMerger.Merge([SkslSource.Snippet(source)]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(merged, Does.Contain("c . r * fe0_r"));
+            Assert.That(merged, Does.Not.Contain("c . fe0_r"));
+            using SKRuntimeEffect? effect = SKRuntimeEffect.CreateShader(merged, out string? error);
+            Assert.That(error, Is.Null, $"the whitespace-separated member access remains valid ({error})");
+            Assert.That(effect, Is.Not.Null);
+        });
+    }
+
+    [Test]
+    public void Merge_AuthorIdentifierUsingDefaultPrefix_SelectsCollisionFreePrefixOnce()
+    {
+        const string source =
+            "uniform float x;\nuniform float fe0_x;\n"
+            + "half4 apply(half4 c) { return half4(c.rgb * x + fe0_x, c.a); }";
+        SkslSource snippet = SkslSource.Snippet(source);
+
+        string merged = SkslSnippetMerger.Merge([snippet]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(SkslSnippetMerger.GetPrefix(snippet, 0), Is.EqualTo("fe0__"));
+            Assert.That(merged, Does.Contain("uniform float fe0__x;"));
+            Assert.That(merged, Does.Contain("uniform float fe0__fe0_x;"));
+            Assert.That(merged, Does.Not.Contain("fe0_fe0_x"),
+                "one-pass alpha-renaming must not feed a generated name into a later replacement");
+            using SKRuntimeEffect? effect = SKRuntimeEffect.CreateShader(merged, out string? error);
+            Assert.That(error, Is.Null, $"the collision-free merged program compiles ({error})");
+            Assert.That(effect, Is.Not.Null);
+        });
+    }
+
     // Characterization: every top-level declaration kind (uniform, file-scope const, helper, apply) is prefixed feN_.
     [Test]
     public void Merge_TopLevelDeclarations_AreAllPrefixed()
@@ -126,7 +167,7 @@ public class SkslSnippetMergerTests
             $"uniform {precision} float gain, bias;\n"
             + "half4 apply(half4 c) { return half4(c.rgb * gain + bias, c.a); }";
 
-        ArgumentException error = Assert.Throws<ArgumentException>(() => SkslSource.Snippet(source));
+        ArgumentException error = Assert.Throws<ArgumentException>(() => SkslSource.Snippet(source))!;
         Assert.That(error.Message, Does.Contain("each uniform").And.Contain("comma-separated"));
     }
 

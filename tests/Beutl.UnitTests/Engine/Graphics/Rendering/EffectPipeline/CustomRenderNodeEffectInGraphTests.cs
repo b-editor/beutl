@@ -112,7 +112,7 @@ public class CustomRenderNodeEffectInGraphTests
             FilterEffectRenderNodeFactory.Of<FilterEffectRenderNode>(
                 static r => new ProbeRenderNode((ProbeCustomNodeEffect.Resource)r));
 
-        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => factory.Create(resource));
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => factory.Create(resource))!;
         Assert.That(error.Message, Does.Contain(nameof(ProbeRenderNode)).And.Contain("concrete node type"));
     }
 
@@ -321,6 +321,36 @@ public class CustomRenderNodeEffectInGraphTests
             Assert.That(ssim, Is.GreaterThanOrEqualTo(GoldenThresholds.ExactSsimMin),
                 $"the identity custom child composes byte-identically between the group's stages (SSIM {ssim})");
         });
+    }
+
+    [Test]
+    public void CustomRenderNodeFilterEffect_RequiresDedicatedResourceAndRejectsWrongResourceBeforeRecursion()
+    {
+        System.Reflection.PropertyInfo factory = typeof(CustomRenderNodeFilterEffect.Resource)
+            .GetProperty(nameof(FilterEffect.Resource.RenderNodeFactory))!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(factory.GetMethod!.IsAbstract, Is.True,
+                "a custom-node resource must implement its factory at compile time");
+            Assert.That(typeof(ProbeCustomNodeEffect.Resource)
+                .IsSubclassOf(typeof(CustomRenderNodeFilterEffect.Resource)), Is.True);
+        });
+
+        var effect = new ProbeCustomNodeEffect(new int[1]);
+        using FilterEffect.Resource wrongResource = (FilterEffect.Resource)new Gamma()
+            .ToResource(CompositionContext.Default);
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+
+        try
+        {
+            Assert.That(() => effect.Describe(builder, wrongResource),
+                Throws.ArgumentException.With.Message.Contains(nameof(CustomRenderNodeFilterEffect)),
+                "an invalid resource must fail before the default plan factory can recurse");
+        }
+        finally
+        {
+            builder.Abort();
+        }
     }
 
     // ---- Node-graph end-to-end (Vulkan-gated) ----------------------------------------------------------
@@ -624,7 +654,7 @@ internal sealed partial class ProbeCustomNodeEffect(int[] callCount) : CustomRen
         return resource;
     }
 
-    public new sealed class Resource(int[] callCount) : FilterEffect.Resource
+    public new sealed class Resource(int[] callCount) : CustomRenderNodeFilterEffect.Resource
     {
         public int[] CallCount => callCount;
 
@@ -656,7 +686,7 @@ internal sealed partial class ThrowingCustomNodeEffect : CustomRenderNodeFilterE
         return resource;
     }
 
-    public new sealed class Resource : FilterEffect.Resource
+    public new sealed class Resource : CustomRenderNodeFilterEffect.Resource
     {
         public override FilterEffectRenderNodeFactory RenderNodeFactory
             => FilterEffectRenderNodeFactory.Of(static r => new ThrowingRenderNode(r));
@@ -682,7 +712,7 @@ internal sealed partial class LifetimeProbeCustomNodeEffect(
     }
 
     public new sealed class Resource(bool[] disposed, bool[] observedCache, Rect[] observedRoi)
-        : FilterEffect.Resource
+        : CustomRenderNodeFilterEffect.Resource
     {
         public bool[] Disposed => disposed;
         public bool[] ObservedCache => observedCache;
@@ -735,7 +765,7 @@ internal sealed partial class ThrowingFactoryCustomNodeEffect : CustomRenderNode
         return resource;
     }
 
-    public new sealed class Resource : FilterEffect.Resource
+    public new sealed class Resource : CustomRenderNodeFilterEffect.Resource
     {
         public override FilterEffectRenderNodeFactory RenderNodeFactory
             => FilterEffectRenderNodeFactory.Of<FilterEffectRenderNode>(static _ =>

@@ -110,6 +110,36 @@ public class EffectAuthoringTests
         Assert.That(plan.Passes[1], Is.TypeOf<CompositePass>());
     }
 
+    [Test]
+    public void LegacyConvenienceNames_MapToDeclarativePasses()
+    {
+        CompiledPlan inner = Compile(NewBuilder().InnerShadow(new Point(4, 5), new Size(2, 3), Colors.Black));
+        CompiledPlan innerOnly = Compile(NewBuilder().InnerShadowOnly(new Point(4, 5), new Size(2, 3), Colors.Black));
+        CompiledPlan genericMatrix = Compile(NewBuilder()
+            .ColorMatrix(0.5f, static amount => ColorMatrix.CreateSaturate(amount)));
+
+        var solidBrush = new SolidColorBrush(Colors.Coral);
+        using var solid = (Brush.Resource)solidBrush.ToResource(Composition.CompositionContext.Default);
+        CompiledPlan solidBlend = Compile(NewBuilder().BlendMode(solid, BlendMode.SrcIn));
+
+        var gradientBrush = new LinearGradientBrush();
+        gradientBrush.GradientStops.Add(new GradientStop(Colors.Red, 0));
+        gradientBrush.GradientStops.Add(new GradientStop(Colors.Blue, 1));
+        using var gradient = (Brush.Resource)gradientBrush.ToResource(Composition.CompositionContext.Default);
+        CompiledPlan gradientBlend = Compile(NewBuilder().BlendMode(gradient, BlendMode.SrcIn));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(inner.Passes.Single(), Is.TypeOf<GeometryPass>());
+            Assert.That(innerOnly.Passes.Single(), Is.TypeOf<GeometryPass>());
+            Assert.That(genericMatrix.Passes.Single(), Is.TypeOf<FusedShaderPass>());
+            Assert.That(solidBlend.Passes.Single(), Is.TypeOf<FusedShaderPass>(),
+                "a solid brush remains a fusable color filter");
+            Assert.That(gradientBlend.Passes.Single(), Is.TypeOf<GeometryPass>(),
+                "a coordinate-dependent brush remains a render-time geometry pass");
+        });
+    }
+
     // C9 fold applicability: a coordinate-invariant color-filter run immediately before a SrcOver composite folds
     // into the composite (the fused pass disappears, its factories ride the composite). Before a non-SrcOver
     // (Multiply) composite it must NOT fold — a transparent-affecting filter on that full-canvas layer would filter

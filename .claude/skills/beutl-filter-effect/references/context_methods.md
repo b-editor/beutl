@@ -36,12 +36,14 @@ Each returns the builder (chainable) and expands to the right descriptor. Same n
 EffectGraphBuilder Blur(Size sigma)                                    // bounds expand by sigma * 3
 EffectGraphBuilder DropShadow(Point position, Size sigma, Color color)
 EffectGraphBuilder DropShadowOnly(Point position, Size sigma, Color color)
+EffectGraphBuilder InnerShadow(Point position, Size sigma, Color color)
+EffectGraphBuilder InnerShadowOnly(Point position, Size sigma, Color color)
 ```
-> `InnerShadow` is now a standalone `FilterEffect` (`InnerShadow.cs`), not a builder method.
 
 ### Color correction
 ```csharp
 EffectGraphBuilder ColorMatrix(ColorMatrix matrix)         // 5x4 color matrix
+EffectGraphBuilder ColorMatrix<T>(T data, Func<T, ColorMatrix> factory) where T : IEquatable<T>
 EffectGraphBuilder Saturate(float amount)                  // 1.0 = unchanged, 0.0 = grayscale
 EffectGraphBuilder HueRotate(float degrees)
 EffectGraphBuilder Brightness(float amount)
@@ -50,8 +52,9 @@ EffectGraphBuilder Lighting(Color multiply, Color add)
 EffectGraphBuilder LumaColor()
 EffectGraphBuilder LuminanceToAlpha()
 EffectGraphBuilder BlendMode(Color color, BlendMode blendMode)
+EffectGraphBuilder BlendMode(Brush.Resource? brush, BlendMode blendMode)
 ```
-These all emit coordinate-invariant `ColorFilterNode`s, so **adjacent color methods fuse into a single GPU draw**.
+The color overload and solid-brush blend emit coordinate-invariant `ColorFilterNode`s, so adjacent color methods fuse. A non-solid brush blend emits a render-time `GeometryNode` to preserve brush coordinates.
 
 ### Morphology
 ```csharp

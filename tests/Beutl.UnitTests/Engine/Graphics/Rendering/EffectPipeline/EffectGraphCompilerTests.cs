@@ -1190,9 +1190,9 @@ half4 apply(half4 c) {
         }
     }
 
-    // F3: FlushSyncs discipline is a compiler property (ApplySyncBefore, C4.2), so assert it on a synthetic
-    // mixed-backend plan without a GPU. A Skia -> Vulkan -> Skia schedule sets SyncBefore at exactly the two backend
-    // transitions (the virtual backend before pass 0 is Skia, so a leading Skia pass needs no sync).
+    // A compute pass starts by materializing through Skia and counts its Skia->Vulkan transition at execution. The
+    // compiler flag therefore represents the transition back to that entry backend, not the pass's superficial output
+    // backend. In a Skia -> Compute -> Skia chain only the Vulkan->Skia exit is SyncBefore.
     [Test]
     public void Compile_MixedBackendPlan_SetsSyncBeforeAtEachBackendTransition()
     {
@@ -1208,10 +1208,28 @@ half4 apply(half4 c) {
         Assert.Multiple(() =>
         {
             Assert.That(plan.Passes[0].SyncBefore, Is.False, "a leading Skia pass after the virtual Skia input needs no sync");
-            Assert.That(plan.Passes[1].SyncBefore, Is.True, "the Skia->Vulkan transition syncs");
+            Assert.That(plan.Passes[1].SyncBefore, Is.False,
+                "compute materializes through the current Skia backend; its Skia->Vulkan transition is internal");
             Assert.That(plan.Passes[2].SyncBefore, Is.True, "the Vulkan->Skia transition syncs");
-            Assert.That(plan.Passes.Count(p => p.SyncBefore), Is.EqualTo(2),
-                "FlushSyncs equals the number of backend transitions in the schedule (C4.2)");
+            Assert.That(plan.Passes.Count(p => p.SyncBefore), Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public void Compile_ConsecutiveComputePasses_ReturnToSkiaBeforeTheSecondMaterialization()
+    {
+        var bounds = new Rect(0, 0, 64, 64);
+        static ComputeNodeDescriptor Copy(string token) => ComputeNodeDescriptor.Create(
+            static ctx => ctx.CopySourceToDestination(), 1, ComputeFallback.Identity, structuralToken: token);
+
+        CompiledPlan plan = Compile(NewBuilder(bounds).Compute(Copy("first")).Compute(Copy("second")));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(plan.Passes[0].SyncBefore, Is.False,
+                "the first compute materializes the virtual Skia input directly");
+            Assert.That(plan.Passes[1].SyncBefore, Is.True,
+                "the second compute must transition the first Vulkan output back to Skia for materialization");
         });
     }
 

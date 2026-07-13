@@ -92,7 +92,7 @@ internal sealed partial class GrowingCustomNodeEffect(float pad) : CustomRenderN
         return resource;
     }
 
-    public new sealed class Resource(float pad) : FilterEffect.Resource
+    public new sealed class Resource(float pad) : CustomRenderNodeFilterEffect.Resource
     {
         public float Pad => pad;
 

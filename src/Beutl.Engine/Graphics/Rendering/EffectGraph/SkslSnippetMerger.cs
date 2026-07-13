@@ -1,34 +1,18 @@
 ﻿using System.Text;
-using System.Text.RegularExpressions;
 using Beutl.Graphics.Effects;
 
 namespace Beutl.Graphics.Rendering;
 
 /// <summary>
 /// Merges a run of adjacent coordinate-invariant SKSL snippets (<c>half4 apply(half4 c)</c>) into one generated
-/// whole-source program (feature 004, T024, C1.3/D2). Each snippet <c>N</c> contributes a <c>feN_apply</c>
-/// function with its uniforms prefixed <c>feN_</c>; the generated <c>main</c> samples the <c>src</c> child once
-/// and chains the <c>apply</c> calls in node order. Merging is an <em>optimization</em> that reduces shader-stage
-/// nesting depth and program count; it MUST NOT change ordering or results beyond floating-point tolerance.
+/// whole-source program. Each snippet contributes a prefixed apply function; the generated main samples the source
+/// child once and chains the calls in node order.
 /// </summary>
-/// <remarks>
-/// The executor binds stage <c>N</c>'s uniform <c>name</c> as <c>feN_name</c>, matching the prefix applied here,
-/// so the merger never needs the binding list. Every top-level declaration of a snippet — its uniforms, its file-
-/// scope <c>const</c>s, and its helper functions (including the <c>apply</c> entry) — is renamed whole-word so two
-/// snippets that share a name (two effects with a <c>linearToSrgb</c> helper, a <c>LUMA</c> const, or the same
-/// source appearing twice) merge without a redefinition. Function bodies keep their own local names, which are
-/// block-scoped in the merged program and cannot collide.
-/// </remarks>
 internal static class SkslSnippetMerger
 {
     /// <summary>The child-shader name the generated <c>main</c> samples as the fused group's input.</summary>
     public const string SourceChildName = "src";
 
-    /// <summary>
-    /// Builds the merged whole-source program for <paramref name="snippets"/> (all must be
-    /// <see cref="SkslSourceKind.Snippet"/>). The result declares <c>uniform shader src;</c>, the prefixed
-    /// snippet functions, and a <c>main</c> chaining them.
-    /// </summary>
     public static string Merge(IReadOnlyList<SkslSource> snippets)
     {
         ArgumentNullException.ThrowIfNull(snippets);
@@ -37,6 +21,7 @@ internal static class SkslSnippetMerger
 
         var sb = new StringBuilder();
         sb.Append("uniform shader ").Append(SourceChildName).Append(";\n");
+        var prefixes = new string[snippets.Count];
 
         for (int i = 0; i < snippets.Count; i++)
         {
@@ -44,52 +29,117 @@ internal static class SkslSnippetMerger
             if (snippet.Kind != SkslSourceKind.Snippet)
                 throw new ArgumentException("Only snippet sources can be merged.", nameof(snippets));
 
-            sb.Append(Prefix(snippet.Source, i)).Append('\n');
+            string prefix = GetPrefix(snippet, i);
+            prefixes[i] = prefix;
+            sb.Append(Prefix(snippet.Source, prefix)).Append('\n');
         }
 
         sb.Append("half4 main(float2 coord) {\n");
         sb.Append("    half4 _fused = ").Append(SourceChildName).Append(".eval(coord);\n");
         for (int i = 0; i < snippets.Count; i++)
         {
-            sb.Append("    _fused = fe").Append(i).Append("_apply(_fused);\n");
+            sb.Append("    _fused = ").Append(prefixes[i]).Append("apply(_fused);\n");
         }
 
         sb.Append("    return _fused;\n}\n");
         return sb.ToString();
     }
 
-    // Renames every top-level name a snippet introduces (uniforms, file-scope consts, helper functions incl.
-    // apply) to feN_ so no two snippets in a merged program can redefine the same global. Whole-word replacement
-    // keeps names that are prefixes of one another (lut vs lutSize, contrast vs contrastPivot) independent.
-    private static string Prefix(string source, int index)
+    // Chooses a deterministic stage prefix that no source identifier already starts with. This prevents an author name
+    // such as fe0_x from colliding with the generated name for x. The executor uses the same function when binding.
+    internal static string GetPrefix(SkslSource snippet, int index)
     {
         string prefix = $"fe{index}_";
-        string result = source;
-        foreach (string name in CollectTopLevelNames(source))
-        {
-            // `(?<!\.)` skips a dot-preceded occurrence: a top-level declaration is never `x.name`, so `.name` is
-            // a member/swizzle access (`c.r` when a uniform is named `r`) that must not be renamed. `\b` alone
-            // matches after `.`, so without the lookbehind `c.r` would corrupt to `c.fe0_r`. Struct bodies need no
-            // exclusion: SkSL rejects top-level structs via SkslSource.Snippet and function-local struct statements
-            // in its own front end (canary-pinned by SkslSnippetMergerTests), so no renamable snippet contains one.
-            result = Regex.Replace(result, $@"(?<!\.)\b{Regex.Escape(name)}\b", prefix + name);
-        }
-
-        return result;
+        List<Token> tokens = Tokenize(snippet.Source);
+        while (tokens.Any(token => token.IsIdent && token.Text.StartsWith(prefix, StringComparison.Ordinal)))
+            prefix += "_";
+        return prefix;
     }
 
-    // Collects the names a snippet declares at file scope from a comment-skipping token scan rather than per-line
-    // regexes: a declaration split across lines (`float3\nhelper(...)`) or a second definition after a same-line
-    // body close (`} half4 tint(`) has no single line matching a signature pattern, and a missed name redefines in
-    // the merged program. At brace depth 0, `uniform`/`const` [PRECISION] TYPE NAME declares NAME; IDENT IDENT `(` is a
-    // function definition; and IDENT IDENT followed by `=`/`;`/`[` is a MUTABLE global — SkSL accepts those, and an
-    // unrenamed one shared by two snippets redefines in the merged program even though each compiles standalone
-    // (statements only exist inside bodies at depth > 0, so calls/locals can't be mistaken for declarations).
-    private static HashSet<string> CollectTopLevelNames(string source)
+    // Alpha-renames the original token stream in one pass. Looking at the preceding significant token (comments and
+    // whitespace are absent from the token list) keeps both c.r and c . r member/swizzle accesses unchanged. Because
+    // replacements are emitted from the original source rather than fed into another replacement, generated names can
+    // never be renamed a second time.
+    private static string Prefix(string source, string prefix)
+    {
+        List<Token> tokens = Tokenize(source);
+        HashSet<string> names = CollectTopLevelNames(tokens);
+        var result = new StringBuilder(source.Length + (names.Count * prefix.Length));
+        int copiedThrough = 0;
+        for (int i = 0; i < tokens.Count; i++)
+        {
+            Token token = tokens[i];
+            if (!token.IsIdent
+                || !names.Contains(token.Text)
+                || (i > 0 && tokens[i - 1].Text == "."))
+            {
+                continue;
+            }
+
+            result.Append(source, copiedThrough, token.Start - copiedThrough);
+            result.Append(prefix).Append(token.Text);
+            copiedThrough = token.Start + token.Length;
+        }
+
+        result.Append(source, copiedThrough, source.Length - copiedThrough);
+        return result.ToString();
+    }
+
+    // At brace depth 0, `uniform`/`const` [PRECISION] TYPE NAME declares NAME; IDENT IDENT `(` is a function
+    // definition; and IDENT IDENT followed by `=`/`;`/`[` is a mutable global. Multi-declarator mutable globals are
+    // collected through the terminating semicolon; uniform/const multi-declarators are rejected by SkslSource.
+    private static HashSet<string> CollectTopLevelNames(IReadOnlyList<Token> tokens)
     {
         var names = new HashSet<string>(StringComparer.Ordinal);
-        var tokens = new List<(string Text, bool IsIdent, int Depth)>();
+        for (int t = 0; t + 1 < tokens.Count; t++)
+        {
+            if (!tokens[t].IsIdent || tokens[t].Depth != 0)
+                continue;
 
+            if (tokens[t].Text is "uniform" or "const")
+            {
+                int type = t + 1;
+                if (type < tokens.Count && tokens[type].Text is "lowp" or "mediump" or "highp")
+                    type++;
+
+                int name = type + 1;
+                if (name < tokens.Count && tokens[type].IsIdent && tokens[name].IsIdent)
+                    names.Add(tokens[name].Text);
+                t = name;
+            }
+            else if (tokens[t + 1].IsIdent && t + 2 < tokens.Count && tokens[t + 2].Text == "(")
+            {
+                names.Add(tokens[t + 1].Text);
+                t++;
+            }
+            else if (tokens[t + 1].IsIdent && t + 2 < tokens.Count && tokens[t + 2].Text is "=" or ";" or "[" or ",")
+            {
+                names.Add(tokens[t + 1].Text);
+                int groupDepth = 0;
+                int u = t + 2;
+                for (; u < tokens.Count; u++)
+                {
+                    string text = tokens[u].Text;
+                    if (text is "(" or "[" or "{")
+                        groupDepth++;
+                    else if (text is ")" or "]" or "}")
+                        groupDepth = Math.Max(0, groupDepth - 1);
+                    else if (groupDepth == 0 && text == ";")
+                        break;
+                    else if (groupDepth == 0 && text == "," && u + 1 < tokens.Count && tokens[u + 1].IsIdent)
+                        names.Add(tokens[u + 1].Text);
+                }
+
+                t = u;
+            }
+        }
+
+        return names;
+    }
+
+    private static List<Token> Tokenize(string source)
+    {
+        var tokens = new List<Token>();
         int depth = 0;
         for (int i = 0; i < source.Length; i++)
         {
@@ -118,65 +168,20 @@ internal static class SkslSnippetMerger
                 int start = i;
                 while (i + 1 < source.Length && (char.IsLetterOrDigit(source[i + 1]) || source[i + 1] == '_'))
                     i++;
-                tokens.Add((source[start..(i + 1)], true, depth));
+                tokens.Add(new Token(source[start..(i + 1)], true, depth, start, i + 1 - start));
                 continue;
             }
 
-            // Parentheses count into the depth so function PARAMETERS are never at depth 0: 'half3 c,' inside a
-            // signature would otherwise read as a top-level multi-declarator and rename every bare 'c'.
+            // Parentheses count into depth so signature parameters are never mistaken for top-level declarations.
             if (c is '{' or '(')
                 depth++;
             else if (c is '}' or ')' && depth > 0)
                 depth--;
-            tokens.Add((c.ToString(), false, depth));
+            tokens.Add(new Token(c.ToString(), false, depth, i, 1));
         }
 
-        for (int t = 0; t + 1 < tokens.Count; t++)
-        {
-            if (!tokens[t].IsIdent || tokens[t].Depth != 0)
-                continue;
-
-            if (tokens[t].Text is "uniform" or "const")
-            {
-                int type = t + 1;
-                if (type < tokens.Count && tokens[type].Text is "lowp" or "mediump" or "highp")
-                    type++;
-
-                int name = type + 1;
-                if (name < tokens.Count && tokens[type].IsIdent && tokens[name].IsIdent)
-                    names.Add(tokens[name].Text);
-                t = name;
-            }
-            else if (tokens[t + 1].IsIdent && t + 2 < tokens.Count && tokens[t + 2].Text == "(")
-            {
-                names.Add(tokens[t + 1].Text);
-                t++;
-            }
-            else if (tokens[t + 1].IsIdent && t + 2 < tokens.Count && tokens[t + 2].Text is "=" or ";" or "[" or ",")
-            {
-                // A mutable global declares EVERY comma-separated declarator ('float gain = 1.0, bias = 0.0;'), and
-                // a trailing name left unrenamed redefines in the merged program when two snippets share it - so the
-                // whole list is collected up to the terminating semicolon (group depth skips initializer commas).
-                names.Add(tokens[t + 1].Text);
-                int groupDepth = 0;
-                int u = t + 2;
-                for (; u < tokens.Count; u++)
-                {
-                    string text = tokens[u].Text;
-                    if (text is "(" or "[" or "{")
-                        groupDepth++;
-                    else if (text is ")" or "]" or "}")
-                        groupDepth = Math.Max(0, groupDepth - 1);
-                    else if (groupDepth == 0 && text == ";")
-                        break;
-                    else if (groupDepth == 0 && text == "," && u + 1 < tokens.Count && tokens[u + 1].IsIdent)
-                        names.Add(tokens[u + 1].Text);
-                }
-
-                t = u;
-            }
-        }
-
-        return names;
+        return tokens;
     }
+
+    private readonly record struct Token(string Text, bool IsIdent, int Depth, int Start, int Length);
 }

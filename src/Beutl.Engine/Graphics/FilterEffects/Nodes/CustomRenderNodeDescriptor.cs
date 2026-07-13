@@ -15,7 +15,7 @@ namespace Beutl.Graphics.Effects;
 /// </summary>
 public sealed record CustomRenderNodeDescriptor : EffectNodeDescriptor
 {
-    private CustomRenderNodeDescriptor(FilterEffect.Resource resource, Type nodeType)
+    private CustomRenderNodeDescriptor(CustomRenderNodeFilterEffect.Resource resource, Type nodeType)
     {
         Resource = resource;
         NodeType = nodeType;
@@ -23,7 +23,7 @@ public sealed record CustomRenderNodeDescriptor : EffectNodeDescriptor
 
     /// <summary>The child effect resource whose render node runs this node. Its reference identity is structural; its
     /// <see cref="Beutl.Engine.EngineObject.Resource.Version"/> rebinds per frame (a swap or type change recompiles).</summary>
-    public FilterEffect.Resource Resource { get; }
+    public CustomRenderNodeFilterEffect.Resource Resource { get; }
 
     /// <summary>The child's <see cref="FilterEffectRenderNodeFactory.NodeType"/>, part of the structural identity.</summary>
     public Type NodeType { get; }
@@ -35,7 +35,7 @@ public sealed record CustomRenderNodeDescriptor : EffectNodeDescriptor
     public override bool IsCoordinateInvariant => false;
 
     /// <summary>Builds a custom-render-node descriptor for <paramref name="resource"/>, capturing its render-node type.</summary>
-    public static CustomRenderNodeDescriptor Create(FilterEffect.Resource resource)
+    public static CustomRenderNodeDescriptor Create(CustomRenderNodeFilterEffect.Resource resource)
     {
         ArgumentNullException.ThrowIfNull(resource);
         return new CustomRenderNodeDescriptor(resource, resource.RenderNodeFactory.NodeType);

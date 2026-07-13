@@ -11,11 +11,10 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.EffectPipeline;
 /// Regression for the describe-throw builder-tracked disposable leak: <see cref="EffectGraphBuilder.Sampler"/>,
 /// <see cref="EffectGraphBuilder.Child"/> and <see cref="EffectGraphBuilder.Track{T}"/> register native shaders
 /// eagerly, but ownership transfers to the <c>EffectGraph</c> only at <see cref="EffectGraphBuilder.Build"/>. A
-/// <c>Describe</c> that registers a shader and then throws (before <c>Build</c>) stranded the handle. The builder is now
-/// <see cref="IDisposable"/>: disposing an un-built builder releases the still-owned disposables, while a successful
-/// <c>Build</c> detaches them so disposing the builder afterward does not double-dispose the graph's shaders. The
-/// production sites (<c>PlanFilterEffectRenderNode.Process</c>, the nested-graph branch describe) now
-/// <c>using</c>-scope the builder. SkiaSharp zeroes a shader's handle on dispose, so the handle is the observability seam.
+/// <c>Describe</c> that registers a shader and then throws (before <c>Build</c>) stranded the handle. The engine now
+/// aborts an unbuilt builder, releasing still-owned disposables; a successful <c>Build</c> transfers ownership so a
+/// later abort is a no-op. Effect authors cannot dispose the engine-owned builder themselves. SkiaSharp zeroes a
+/// shader's handle on dispose, so the handle is the observability seam.
 /// </summary>
 [NonParallelizable]
 [TestFixture]
@@ -24,7 +23,7 @@ public class DescribeThrowBuilderLeakTests
     private static readonly Rect s_bounds = new(0, 0, 32, 32);
 
     [Test]
-    public void DescribeThrowsAfterRegisteringSampler_BuilderDisposeReleasesShader()
+    public void DescribeThrowsAfterRegisteringSampler_BuilderAbortReleasesShader()
     {
         SKShader shader = SKShader.CreateColor(SKColors.Red);
         var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
@@ -39,14 +38,14 @@ public class DescribeThrowBuilderLeakTests
         Assert.That(shader.Handle, Is.Not.EqualTo(IntPtr.Zero),
             "sanity: the registered shader is still alive until the builder is disposed");
 
-        builder.Dispose();
+        builder.Abort();
 
         Assert.That(shader.Handle, Is.EqualTo(IntPtr.Zero),
-            "disposing an un-built builder must release the disposables Describe registered before it threw");
+            "aborting an unbuilt builder must release the disposables Describe registered before it threw");
     }
 
     [Test]
-    public void DescribeThrowsAfterRegisteringChildAndTrack_BuilderDisposeReleasesBoth()
+    public void DescribeThrowsAfterRegisteringChildAndTrack_BuilderAbortReleasesBoth()
     {
         SKShader child = SKShader.CreateColor(SKColors.Green);
         SKShader tracked = SKShader.CreateColor(SKColors.Blue);
@@ -59,7 +58,7 @@ public class DescribeThrowBuilderLeakTests
             throw new InvalidOperationException("simulated describe failure after registering a child and a tracked shader");
         });
 
-        builder.Dispose();
+        builder.Abort();
 
         Assert.Multiple(() =>
         {
@@ -69,7 +68,7 @@ public class DescribeThrowBuilderLeakTests
     }
 
     [Test]
-    public void SuccessfulBuild_TransfersOwnership_SoBuilderDisposeDoesNotDoubleDispose()
+    public void SuccessfulBuild_TransfersOwnership_SoBuilderAbortDoesNotDoubleDispose()
     {
         SKShader shader = SKShader.CreateColor(SKColors.Red);
         var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
@@ -77,14 +76,46 @@ public class DescribeThrowBuilderLeakTests
 
         EffectGraph graph = builder.Build();
 
-        // Build transferred ownership: disposing the builder afterward must NOT free the graph's shader.
-        builder.Dispose();
+        Assert.Multiple(() =>
+        {
+            Assert.That(() => builder.Blur(new Size(1, 1)), Throws.InvalidOperationException,
+                "Build permanently closes append surfaces");
+            Assert.That(() => builder.Build(), Throws.InvalidOperationException,
+                "a builder can transfer ownership only once");
+        });
+
+        // Build transferred ownership: aborting the builder afterward must NOT free the graph's shader.
+        builder.Abort();
         Assert.That(shader.Handle, Is.Not.EqualTo(IntPtr.Zero),
-            "a successful Build detaches the disposables, so disposing the builder must not touch the graph's shader");
+            "a successful Build transfers the disposables, so aborting the builder must not touch the graph's shader");
 
         graph.Dispose();
         Assert.That(shader.Handle, Is.EqualTo(IntPtr.Zero),
             "the graph owns the shader after Build and releases it exactly once on its own dispose");
+    }
+
+    [Test]
+    public void BuilderLifetime_IsEngineOwned_AndAbortPermanentlyClosesIt()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(typeof(IDisposable).IsAssignableFrom(typeof(EffectGraphBuilder)), Is.False,
+                "effect authors do not own the builder lifetime");
+            Assert.That(typeof(EffectGraphBuilder).GetMethod("Dispose", Type.EmptyTypes), Is.Null,
+                "the public surface must not expose a disposal trap");
+        });
+
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        builder.Abort();
+        using SKShader rejected = SKShader.CreateColor(SKColors.Red);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(() => builder.Blur(new Size(1, 1)), Throws.InvalidOperationException);
+            Assert.That(() => builder.Track(rejected), Throws.InvalidOperationException);
+            Assert.That(() => builder.Build(), Throws.InvalidOperationException);
+            Assert.That(() => builder.Abort(), Throws.Nothing, "Abort is idempotent");
+        });
     }
 
     [Test]

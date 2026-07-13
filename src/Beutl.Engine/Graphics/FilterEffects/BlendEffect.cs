@@ -3,7 +3,6 @@ using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.Serialization;
-using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
@@ -25,53 +24,7 @@ public sealed partial class BlendEffect : FilterEffect
     public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
-        BlendMode blendMode = r.BlendMode;
-
-        // Brush kind is structural (A4): a solid-colour brush is a per-pixel blend of a constant colour, which is a
-        // fusable ColorFilterNode; any other brush (gradient / image) paints geometry and stays a GeometryNode. The
-        // colour and its opacity are parameters folded into the constant.
-        if (r.Brush is SolidColorBrush.Resource solid)
-        {
-            Color color = solid.Color;
-            float opacity = Math.Clamp(solid.Opacity / 100f, 0f, 1f);
-            var effective = Color.FromArgb((byte)(color.A * opacity), color.R, color.G, color.B);
-            builder.BlendMode(effective, blendMode);
-            return;
-        }
-
-        Brush.Resource? brush = r.Brush;
-        // The brush is anchored to the FULL effect output rect (the input blit at the origin, the fill over
-        // `new Rect(session.Bounds.Size)`). A downstream deflating pass would ROI-crop this pass to an OFFSET sub-rect,
-        // shifting the input blit and re-anchoring the brush into that sub-rect (A3). RenderTime keeps it baking
-        // full-frame — the same choice MosaicEffect makes for its full-frame-anchored grid — forgoing the ROI benefit.
-        builder.Geometry(GeometryNodeDescriptor.Create(
-            session => ApplyBrushBlend(session, brush, blendMode),
-            BoundsContract.RenderTime,
-            structuralToken: nameof(BlendEffect)));
-    }
-
-    private static void ApplyBrushBlend(GeometrySession session, Brush.Resource? brush, BlendMode blendMode)
-    {
-        EffectInput input = session.Inputs[0];
-        ImmediateCanvas canvas = session.OpenCanvas();
-        float w = canvas.Density;
-        float wIn = input.Density.IsUnbounded ? 1f : input.Density.Value;
-        Size size = session.Bounds.Size;
-
-        var constructor = new BrushConstructor(
-            new Rect(size), brush, blendMode, w, session.MaxWorkingScale, session.Diagnostics);
-        using var brushPaint = new SKPaint();
-        constructor.ConfigurePaint(brushPaint);
-
-        // A carried-down input exists at its own density (wIn); scale it up to the output density before the
-        // device-space blit so it fills the frame the brush blends over (the FlatShadow/Clipping seam).
-        using (canvas.PushDeviceSpace())
-        using (wIn == w ? default : canvas.PushTransform(Matrix.CreateScale(w / wIn, w / wIn)))
-        {
-            input.Draw(canvas, default);
-        }
-
-        canvas.Canvas.DrawRect(SKRect.Create(size.ToSKSize()), brushPaint);
+        builder.BlendMode(r.Brush, r.BlendMode);
     }
 
     public override void Deserialize(ICoreSerializationContext context)

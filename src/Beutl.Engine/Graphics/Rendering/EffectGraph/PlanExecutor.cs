@@ -173,20 +173,27 @@ internal static class PlanExecutor
                 // materializing single-op path: the raw outer workingScale would re-raise a density an
                 // upstream clamped op already reduced.
                 float branchScale = CarriedWorkingScale(op, workingScale);
-                // A DescribeBranch that registers a native shader and then throws would strand it; the using releases
-                // what the builder still owns (Build transfers ownership to the graph, after which Dispose is a no-op).
-                using var builder = new EffectGraphBuilder(op.Bounds, outputScale, branchScale, maxWorkingScale);
-                pass.DescribeBranch(builder, i);
-                using EffectGraph graph = builder.Build();
-                CompiledPlan branchPlan = EffectGraphCompiler.Compile(graph, diagnostics);
-                FrameResources branchResources = EffectGraphCompiler.ResolveResources(
-                    branchPlan, builder.Bounds, branchScale, maxDimension);
-                // Hand ownership of op to the recursion only once it is about to consume it: a DescribeBranch/
-                // Build/Compile/ResolveResources throw above still leaves op in current for the catch to dispose.
-                current[i] = null!;
-                outputs.AddRange(Execute(
-                    branchPlan, branchResources, [op], outputScale, branchScale, maxWorkingScale,
-                    diagnostics, pool));
+                // A DescribeBranch that registers a native shader and then throws would strand it; abort the still-open
+                // engine-owned builder (Build transfers ownership to the graph, after which Abort is a no-op).
+                var builder = new EffectGraphBuilder(op.Bounds, outputScale, branchScale, maxWorkingScale);
+                try
+                {
+                    pass.DescribeBranch(builder, i);
+                    using EffectGraph graph = builder.Build();
+                    CompiledPlan branchPlan = EffectGraphCompiler.Compile(graph, diagnostics);
+                    FrameResources branchResources = EffectGraphCompiler.ResolveResources(
+                        branchPlan, builder.Bounds, branchScale, maxDimension);
+                    // Hand ownership of op to the recursion only once it is about to consume it: a DescribeBranch/
+                    // Build/Compile/ResolveResources throw above still leaves op in current for the catch to dispose.
+                    current[i] = null!;
+                    outputs.AddRange(Execute(
+                        branchPlan, branchResources, [op], outputScale, branchScale, maxWorkingScale,
+                        diagnostics, pool));
+                }
+                finally
+                {
+                    builder.Abort();
+                }
             }
         }
         catch
@@ -809,7 +816,7 @@ internal static class PlanExecutor
 
         for (int k = 0; k < run.Count; k++)
         {
-            string prefix = wholeSource ? string.Empty : $"fe{k}_";
+            string prefix = wholeSource ? string.Empty : SkslSnippetMerger.GetPrefix(run[k].Source, k);
             foreach (UniformBinding uniform in run[k].Uniforms)
                 uniform.Apply(builder, prefix + uniform.Name, in uniformContext);
             // An eager child/sampler (a LUT, curve textures) is graph-/caller-owned and left alone; a deferred
@@ -1072,6 +1079,8 @@ internal static class PlanExecutor
             if (s_computePrepareFailureForTests is { } injected)
                 throw injected;
             inputTarget.PrepareForSampling();
+            if (diagnostics != null)
+                diagnostics.FlushSyncs++;
             sourceTexture = inputTarget.Texture;
         }
         catch

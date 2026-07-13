@@ -8,6 +8,8 @@ namespace Beutl.Graphics.Effects;
 [Display(Name = nameof(GraphicsStrings.SplitEffect), ResourceType = typeof(GraphicsStrings))]
 public partial class SplitEffect : FilterEffect
 {
+    private const int MaxStaticBranches = 4096;
+
     public SplitEffect()
     {
         ScanProperties<SplitEffect>();
@@ -41,12 +43,13 @@ public partial class SplitEffect : FilterEffect
             && vDiv > 0
             && builder.Bounds.Width / hDiv >= 1f
             && builder.Bounds.Height / vDiv >= 1f
-            && branchCount <= int.MaxValue;
+            && branchCount <= MaxStaticBranches;
 
         // The division counts are structural when the branches can be declared safely (C3.6). A split whose
         // logical tiles are sub-pixel emits no branches, so keeping it dynamic avoids allocating a massive static
-        // resource plan for outputs that can never exist. The dynamic form also avoids overflowing the declaration
-        // count for serialized division values whose product exceeds Int32.
+        // resource plan for outputs that can never exist. Renderable grids are capped as well: the compiler declares
+        // resources per static branch, so a pixel-sized 4K grid would otherwise allocate millions of declarations
+        // before execution can resolve/cull outputs. Larger grids use the dynamic-output path instead.
         builder.Split(hasRenderableStaticBranches
             ? SplitNodeDescriptor.Static(emit, (int)branchCount, structuralToken: nameof(SplitEffect))
             : SplitNodeDescriptor.Dynamic(emit, structuralToken: nameof(SplitEffect)));

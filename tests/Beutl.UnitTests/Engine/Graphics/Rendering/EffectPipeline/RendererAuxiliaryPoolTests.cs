@@ -36,6 +36,7 @@ public class RendererAuxiliaryPoolTests
                 new PixelSize(128, 96));
 
             using var renderer = new Renderer(128, 96);
+            renderer.Diagnostics.Reset();
             if (hitTest)
                 renderer.HitTest(frame, new Point(64, 48));
             else
@@ -44,8 +45,13 @@ public class RendererAuxiliaryPoolTests
                 renderer.RecalculateBoundaries(shape.ZIndex);
             }
 
-            Assert.That(PoolProbeRenderNode.SawPool, Is.True,
-                "HitTest/RecalculateBoundaries must preserve the renderer pool on the auxiliary pull");
+            Assert.Multiple(() =>
+            {
+                Assert.That(PoolProbeRenderNode.SawPool, Is.True,
+                    "HitTest/RecalculateBoundaries must preserve the renderer pool on the auxiliary pull");
+                Assert.That(renderer.Diagnostics.Snapshot().GpuPasses, Is.Zero,
+                    "auxiliary pulls must not contaminate frame-rendering diagnostics");
+            });
         });
     }
 }
@@ -79,6 +85,8 @@ internal sealed class PoolProbeRenderNode(FilterEffect.Resource resource) : Filt
     public override RenderNodeOperation[] Process(RenderNodeContext context)
     {
         SawPool |= context.Pool != null;
+        if (context.Diagnostics != null)
+            context.Diagnostics.GpuPasses++;
         return context.Input;
     }
 }

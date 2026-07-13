@@ -85,6 +85,36 @@ public class PrimitivePassTests
         });
     }
 
+    [Test]
+    public void ConsecutiveComputePasses_CountMaterializationRoundTrips()
+    {
+        var context = VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.RequireComputeCapable(context, "consecutive compute synchronization");
+
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            static ComputeNodeDescriptor Copy(string token) => ComputeNodeDescriptor.Create(
+                static ctx => ctx.CopySourceToDestination(), 1, ComputeFallback.Identity, structuralToken: token);
+
+            var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f)
+                .Compute(Copy("first"))
+                .Compute(Copy("second"));
+            using EffectGraph graph = builder.Build();
+            var diagnostics = new PipelineDiagnostics();
+            using var pool = new RenderTargetPool();
+            CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics);
+            FrameResources frame = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale: 1f);
+
+            RenderNodeOperation[] outputs = PlanExecutor.Execute(
+                plan, frame, [Input()], outputScale: 1f, workingScale: 1f,
+                maxWorkingScale: float.PositiveInfinity, diagnostics, pool);
+            RenderNodeOperation.DisposeAll(outputs);
+
+            Assert.That(diagnostics.Snapshot().FlushSyncs, Is.EqualTo(3),
+                "first Skia->Vulkan plus Vulkan->Skia->Vulkan before the second compute");
+        });
+    }
+
     // C3.6: the split division count is structural, so animating it recompiles exactly once per change while a
     // parameter-only frame (spacing) hits the cache.
     [Test]
@@ -178,6 +208,30 @@ public class PrimitivePassTests
             Assert.That(pass.IsDynamicOutputs, Is.False);
             Assert.That(pass.BranchCount, Is.EqualTo(6),
                 "renderable division counts remain structural for plan-cache invalidation");
+        });
+    }
+
+    [Test]
+    public void SplitEffect_LargeRenderableGrid_UsesDynamicResourcePlan()
+    {
+        var split = new SplitEffect
+        {
+            HorizontalDivisions = { CurrentValue = 80 },
+            VerticalDivisions = { CurrentValue = 60 },
+        };
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        split.Describe(builder, (FilterEffect.Resource)split.ToResource(CompositionContext.Default));
+        using EffectGraph graph = builder.Build();
+
+        CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
+        var pass = (SplitPass)plan.Passes.Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(pass.IsDynamicOutputs, Is.True,
+                "a 4,800-branch renderable grid must not create a proportional static resource plan");
+            Assert.That(pass.BranchCount, Is.Zero);
+            Assert.That(plan.Resources.Intermediates, Is.Empty);
         });
     }
 

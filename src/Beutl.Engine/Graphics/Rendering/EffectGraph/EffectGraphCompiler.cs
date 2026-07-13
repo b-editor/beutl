@@ -250,10 +250,10 @@ internal static class EffectGraphCompiler
         return builder;
     }
 
-    // Sets SyncBefore at every backend transition (C4.2). The plan's input is a Skia-drawn (baked) buffer, so the
-    // virtual backend before pass 0 is Skia: a leading Vulkan pass syncs, and FlushSyncs equals the number of
-    // backend transitions in the schedule. Backends are structural (fixed by pass kinds), so a cache-hit rebuild
-    // reproduces the same flags.
+    // Sets SyncBefore when the previous pass's output must return to the backend that starts the next pass. A compute
+    // pass starts by materializing its input through Skia, then performs its own Skia->Vulkan sampling transition in
+    // ExecuteCompute. Consequently Compute->Compute has SyncBefore=true for Vulkan->Skia plus the internal transition;
+    // treating both passes as superficially Vulkan would undercount the synchronization actually paid.
     private static ImmutableArray<CompiledPass> ApplySyncBefore(ImmutableArray<CompiledPass> passes)
     {
         if (passes.IsDefaultOrEmpty)
@@ -265,7 +265,8 @@ internal static class EffectGraphCompiler
         PassBackend previous = PassBackend.Skia;
         for (int k = 0; k < passes.Length; k++)
         {
-            bool sync = passes[k].Backend != previous;
+            PassBackend entryBackend = passes[k] is ComputePass ? PassBackend.Skia : passes[k].Backend;
+            bool sync = entryBackend != previous;
             if (sync != passes[k].SyncBefore)
             {
                 builder ??= passes.ToBuilder();

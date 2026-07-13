@@ -343,7 +343,7 @@ public class Renderer : IRenderer
             Entry entry = _allCurrentEntries[i];
             // Same scale pair as the render pass to avoid thrashing scale-stateful nodes.
             var processor = new RenderNodeProcessor(
-                entry.Node, CacheOptions.IsEnabled, OutputScale, MaxWorkingScale, Diagnostics, _pool);
+                entry.Node, CacheOptions.IsEnabled, OutputScale, MaxWorkingScale, diagnostics: null, pool: _pool);
             var arr = processor.PullToRoot();
             try
             {
@@ -423,7 +423,7 @@ public class Renderer : IRenderer
     private Rect CalculateBoundary(Entry entry)
     {
         var processor = new RenderNodeProcessor(
-            entry.Node, CacheOptions.IsEnabled, OutputScale, MaxWorkingScale, Diagnostics, _pool);
+            entry.Node, CacheOptions.IsEnabled, OutputScale, MaxWorkingScale, diagnostics: null, pool: _pool);
         var ops = processor.PullToRoot();
         Rect bounds = Rect.Empty;
         int consumed = 0;

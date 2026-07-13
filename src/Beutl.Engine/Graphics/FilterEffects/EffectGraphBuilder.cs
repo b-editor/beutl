@@ -12,13 +12,20 @@ namespace Beutl.Graphics.Effects;
 /// The builder never renders or allocates; it produces an <see cref="EffectGraph"/> the render node compiles and
 /// executes (A1). Payloads are validated on append so authoring errors surface at describe time, not execute time.
 /// </summary>
-public sealed class EffectGraphBuilder : IDisposable
+public sealed class EffectGraphBuilder
 {
     private readonly List<EffectNode> _nodes = [];
     private readonly HashSet<IDisposable> _disposables = new(ReferenceEqualityComparer.Instance);
     private int _childScopeDepth;
     private int _currentChildIndex;
-    private bool _built;
+    private BuilderState _state;
+
+    private enum BuilderState
+    {
+        Open,
+        Built,
+        Aborted,
+    }
 
     internal EffectGraphBuilder(
         Rect bounds, float outputScale, float workingScale, float maxWorkingScale = float.PositiveInfinity)
@@ -134,7 +141,7 @@ public sealed class EffectGraphBuilder : IDisposable
     /// <see cref="Rendering.FilterEffectRenderNode"/>.
     /// </para>
     /// </summary>
-    public EffectGraphBuilder CustomRenderNode(FilterEffect.Resource child)
+    public EffectGraphBuilder CustomRenderNode(CustomRenderNodeFilterEffect.Resource child)
     {
         ArgumentNullException.ThrowIfNull(child);
         return Append(CustomRenderNodeDescriptor.Create(child));
@@ -177,7 +184,7 @@ public sealed class EffectGraphBuilder : IDisposable
     public T Track<T>(T disposable) where T : IDisposable
     {
         ArgumentNullException.ThrowIfNull(disposable);
-        ThrowIfBuilt();
+        ThrowIfNotOpen();
         _disposables.Add(disposable);
         return disposable;
     }
@@ -185,13 +192,12 @@ public sealed class EffectGraphBuilder : IDisposable
     // The graph holds the node list and disposal set by reference (Build transfers ownership without copying, so
     // the per-frame path stays allocation-free); a stashed builder mutating them after Build would silently change
     // the compiled graph's shape or disposal set, so mutation surfaces here instead.
-    private void ThrowIfBuilt()
+    private void ThrowIfNotOpen()
     {
-        if (_built)
+        if (_state != BuilderState.Open)
         {
             throw new InvalidOperationException(
-                "This EffectGraphBuilder has already built its graph; a builder must not be used after "
-                + nameof(FilterEffect.Describe) + " returns.");
+                $"This EffectGraphBuilder is {_state.ToString().ToLowerInvariant()} and can no longer be used.");
         }
     }
 
@@ -204,6 +210,7 @@ public sealed class EffectGraphBuilder : IDisposable
     /// </summary>
     internal ChildScope BeginChildScope(int index)
     {
+        ThrowIfNotOpen();
         if (_childScopeDepth == 0)
             _currentChildIndex = index;
         _childScopeDepth++;
@@ -224,7 +231,7 @@ public sealed class EffectGraphBuilder : IDisposable
 
     private EffectGraphBuilder Append(EffectNodeDescriptor descriptor)
     {
-        ThrowIfBuilt();
+        ThrowIfNotOpen();
         Rect input = Bounds;
         Rect output = descriptor.Bounds.IsRenderTimeResolved
             ? Rect.Invalid
@@ -250,6 +257,7 @@ public sealed class EffectGraphBuilder : IDisposable
     {
         ArgumentNullException.ThrowIfNull(append);
         ArgumentNullException.ThrowIfNull(onError);
+        ThrowIfNotOpen();
 
         int savedNodeCount = _nodes.Count;
         Rect savedBounds = Bounds;
@@ -270,28 +278,34 @@ public sealed class EffectGraphBuilder : IDisposable
 
     internal EffectGraph Build()
     {
+        ThrowIfNotOpen();
         // Ownership of the tracked disposables transfers to the graph, which releases them once the frame's plan has
-        // executed; Dispose must then not touch them (the graph would double-dispose). Flip the flag only after the
-        // graph exists, or a construction throw leaves Dispose a no-op and leaks the builder-owned disposables.
+        // executed; Abort must then not touch them (the graph would double-dispose). Flip the state only after the
+        // graph exists, or a construction throw leaves the builder open for its caller's finally-block to abort.
         var graph = new EffectGraph(_nodes, OriginalBounds, OutputScale, WorkingScale, _disposables);
-        _built = true;
+        _state = BuilderState.Built;
         return graph;
     }
 
-    /// <summary>
-    /// Releases the per-frame disposables (sampler/child shaders) still owned by the builder — the case where
-    /// <see cref="FilterEffect.Describe"/> registered a native shader via <see cref="Sampler"/>/<see cref="Child"/>/
-    /// <see cref="Track{T}"/> and then threw before <see cref="Build"/> could transfer ownership to the graph. After a
-    /// successful <see cref="Build"/> this is a no-op: the graph owns them.
-    /// </summary>
-    public void Dispose()
+    // Releases per-frame disposables still owned by an unbuilt builder after Describe/Build failed. The builder is
+    // engine-owned; effect authors receive a recording surface, not lifetime ownership, so this cleanup is internal.
+    // Mark it aborted before disposing so a reentrant/faulting disposable can never append or build a half-cleaned graph.
+    internal void Abort()
     {
-        if (_built)
+        if (_state != BuilderState.Open)
             return;
 
+        _state = BuilderState.Aborted;
         foreach (IDisposable disposable in _disposables)
         {
-            disposable.Dispose();
+            try
+            {
+                disposable.Dispose();
+            }
+            catch
+            {
+                // Best effort: one faulting native wrapper must not strand the rest of the builder-owned resources.
+            }
         }
 
         _disposables.Clear();
@@ -357,6 +371,30 @@ public sealed class EffectGraphBuilder : IDisposable
                 r => r.Translate(position).Inflate(inflate),
                 r => r.Translate(-position).Inflate(inflate)),
             structuralToken: "DropShadowOnly"));
+    }
+
+    /// <summary>Appends an inner shadow while retaining the source.</summary>
+    public EffectGraphBuilder InnerShadow(Point position, Size sigma, Color color)
+        => InnerShadowCore(position, sigma, color, Graphics.BlendMode.DstATop, "InnerShadow");
+
+    /// <summary>Appends only the inner-shadow portion of the source.</summary>
+    public EffectGraphBuilder InnerShadowOnly(Point position, Size sigma, Color color)
+        => InnerShadowCore(position, sigma, color, Graphics.BlendMode.DstIn, "InnerShadowOnly");
+
+    private EffectGraphBuilder InnerShadowCore(
+        Point position, Size sigma, Color color, BlendMode blendMode, string structuralToken)
+    {
+        if (sigma.Width < 0) sigma = sigma.WithWidth(0);
+        if (sigma.Height < 0) sigma = sigma.WithHeight(0);
+
+        var data = (Position: position, Sigma: sigma, Color: color, BlendMode: blendMode);
+        var inflate = new Thickness(sigma.Width * 3, sigma.Height * 3);
+        return Geometry(GeometryNodeDescriptor.Create(
+            session => ApplyInnerShadow(session, data),
+            BoundsContract.Create(
+                static rect => rect,
+                rect => rect.Union(rect.Translate(-position).Inflate(inflate))),
+            structuralToken));
     }
 
     /// <summary>Appends a morphological erode. Forward is identity (erode never grows the bounds), but the backward
@@ -442,14 +480,16 @@ public sealed class EffectGraphBuilder : IDisposable
     /// <summary>Appends an arbitrary color matrix as a color-filter node.</summary>
     public EffectGraphBuilder ColorMatrix(ColorMatrix matrix)
     {
+        return ColorFilter(ColorFilterNodeDescriptor.Create(() => CreateColorMatrix(matrix), structuralToken: "ColorMatrix"));
+    }
+
+    /// <summary>Appends a color matrix produced from captured resource data.</summary>
+    public EffectGraphBuilder ColorMatrix<T>(T data, Func<T, ColorMatrix> factory)
+        where T : IEquatable<T>
+    {
+        ArgumentNullException.ThrowIfNull(factory);
         return ColorFilter(ColorFilterNodeDescriptor.Create(
-            () =>
-            {
-                float[] array = new float[20];
-                matrix.ToArrayForSkia(array);
-                return SKColorFilter.CreateColorMatrix(array);
-            },
-            structuralToken: "ColorMatrix"));
+            () => CreateColorMatrix(factory(data)), structuralToken: "ColorMatrix"));
     }
 
     /// <summary>Appends a saturation adjustment as a color-filter node.</summary>
@@ -547,6 +587,88 @@ public sealed class EffectGraphBuilder : IDisposable
         return ColorFilter(ColorFilterNodeDescriptor.Create(
             () => SKColorFilter.CreateBlendMode(color.ToSKColor(), (SKBlendMode)blendMode),
             structuralToken: "BlendMode"));
+    }
+
+    /// <summary>
+    /// Appends a blend against a brush. Solid brushes use a fusable color filter; other brushes render in a
+    /// full-frame geometry pass so their coordinate space and nested diagnostics remain correct.
+    /// </summary>
+    public EffectGraphBuilder BlendMode(Brush.Resource? brush, BlendMode blendMode)
+    {
+        if (brush is SolidColorBrush.Resource solid)
+        {
+            Color color = solid.Color;
+            float opacity = Math.Clamp(solid.Opacity / 100f, 0f, 1f);
+            var effective = Color.FromArgb((byte)(color.A * opacity), color.R, color.G, color.B);
+            return BlendMode(effective, blendMode);
+        }
+
+        return Geometry(GeometryNodeDescriptor.Create(
+            session => ApplyBrushBlend(session, brush, blendMode),
+            BoundsContract.RenderTime,
+            structuralToken: "BlendModeBrush"));
+    }
+
+    private static SKColorFilter CreateColorMatrix(ColorMatrix matrix)
+    {
+        float[] array = new float[20];
+        matrix.ToArrayForSkia(array);
+        return SKColorFilter.CreateColorMatrix(array);
+    }
+
+    private static void ApplyInnerShadow(
+        GeometrySession session, (Point Position, Size Sigma, Color Color, BlendMode BlendMode) data)
+    {
+        EffectInput input = session.Inputs[0];
+        ImmediateCanvas canvas = session.OpenCanvas();
+        float wOut = canvas.Density;
+        float wIn = input.Density.IsUnbounded ? 1f : input.Density.Value;
+
+        using var blur = SKImageFilter.CreateBlur(data.Sigma.Width * wIn, data.Sigma.Height * wIn);
+        using var blend = SKColorFilter.CreateBlendMode(data.Color.ToSKColor(), SKBlendMode.SrcOut);
+        using var filter = SKImageFilter.CreateColorFilter(blend, blur);
+        using var paint = new SKPaint { ImageFilter = filter };
+
+        float bridgeX = (float)(input.Bounds.X - session.Bounds.X) * wOut;
+        float bridgeY = (float)(input.Bounds.Y - session.Bounds.Y) * wOut;
+        bool bridged = bridgeX != 0 || bridgeY != 0;
+
+        using (canvas.PushDeviceSpace())
+        using (bridged ? canvas.PushTransform(Matrix.CreateTranslation(bridgeX, bridgeY)) : default)
+        using (wIn == wOut ? default : canvas.PushTransform(Matrix.CreateScale(wOut / wIn, wOut / wIn)))
+        {
+            using (canvas.PushPaint(paint))
+            {
+                input.Draw(canvas, new Point(data.Position.X * wIn, data.Position.Y * wIn));
+            }
+
+            using (canvas.PushBlendMode(data.BlendMode))
+            {
+                input.Draw(canvas, default);
+            }
+        }
+    }
+
+    private static void ApplyBrushBlend(GeometrySession session, Brush.Resource? brush, BlendMode blendMode)
+    {
+        EffectInput input = session.Inputs[0];
+        ImmediateCanvas canvas = session.OpenCanvas();
+        float w = canvas.Density;
+        float wIn = input.Density.IsUnbounded ? 1f : input.Density.Value;
+        Size size = session.Bounds.Size;
+
+        var constructor = new BrushConstructor(
+            new Rect(size), brush, blendMode, w, session.MaxWorkingScale, session.Diagnostics);
+        using var brushPaint = new SKPaint();
+        constructor.ConfigurePaint(brushPaint);
+
+        using (canvas.PushDeviceSpace())
+        using (wIn == w ? default : canvas.PushTransform(Matrix.CreateScale(w / wIn, w / wIn)))
+        {
+            input.Draw(canvas, default);
+        }
+
+        canvas.Canvas.DrawRect(SKRect.Create(size.ToSKSize()), brushPaint);
     }
 
     private static BoundsContract InflateContract(Thickness inflate)
