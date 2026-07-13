@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using NuGet.Packaging.Core;
 using NuGet.Versioning;
 using Reactive.Bindings;
+using ReactiveUI.Avalonia;
 using LibraryService = Beutl.Api.Services.LibraryService;
 
 namespace Beutl.ViewModels.ExtensionsPages.DiscoverPages;
@@ -115,6 +116,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
 
         _handler.InstalledPackageRepository
             .GetPackageObservable(package.Name)
+            .ObserveOn(AvaloniaScheduler.Instance)
             .Subscribe(id =>
             {
                 installedPackage = id;
@@ -129,6 +131,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
 
         PackageReleaseResolver.ObserveLatest(
                 releaseResolutionRequests,
+                AvaloniaScheduler.Instance,
                 () => SelectedRelease.Value,
                 () => AllReleases,
                 Package.GetReleaseAsync,
