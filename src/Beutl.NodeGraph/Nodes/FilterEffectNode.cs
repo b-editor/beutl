@@ -66,7 +66,18 @@ public partial class FilterEffectNode<T> : ConfigureNode
                 resource = filterEffect;
                 bool updateOnly = false;
                 resource.Update(node.Object, context, ref updateOnly);
-                fen.Update(resource);
+                FilterEffectRenderNodeFactory factory = resource.RenderNodeFactory;
+                if (output.GetType() != factory.NodeType)
+                {
+                    FilterEffectRenderNode replacement = factory.Create(resource);
+                    replacement.BringFrom(output);
+                    OutputPort = replacement;
+                    output.Dispose();
+                }
+                else
+                {
+                    fen.Update(resource);
+                }
             }
         }
 

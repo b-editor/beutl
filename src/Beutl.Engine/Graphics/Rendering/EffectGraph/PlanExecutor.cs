@@ -26,11 +26,18 @@ internal static class PlanExecutor
     // Test seam: injects a throw at the compute input's PrepareForSampling (a Vulkan layout-transition failure is
     // not forcible from a test). The caller restores the seam afterward.
     private static Exception? s_computePrepareFailureForTests;
+    private static bool s_forceComputeFallbackForTests;
 
     internal static void ForceComputePrepareFailureForTests(Exception exception)
         => s_computePrepareFailureForTests = exception;
 
     internal static void ResetComputePrepareFailureForTests() => s_computePrepareFailureForTests = null;
+
+    // Test seam: CI runs with a compute-capable Vulkan context, so a backend-independent regression test needs a
+    // deterministic way to exercise the declared CPU fallback without mutating the process-wide graphics context.
+    internal static void ForceComputeFallbackForTests() => s_forceComputeFallbackForTests = true;
+
+    internal static void ResetComputeFallbackForTests() => s_forceComputeFallbackForTests = false;
 
     public static RenderNodeOperation[] Execute(
         CompiledPlan plan,
@@ -344,27 +351,38 @@ internal static class PlanExecutor
         bool skip;
         if (invariantFused)
         {
-            // Identity: output bounds are the operation's own — surviving an upstream opaque node that did not
-            // advance the builder's logical bounds, and sizing each fan-out branch. On the linear path the density
-            // is the carried resolution.WorkingScale (the FR-012/C3.2 clamp carry, review M2), re-clamped to op.Bounds:
-            // ResolveResources sized resolution.WorkingScale against the (possibly ROI-narrowed) OutputRoi, but the
-            // buffer here spans the larger op.Bounds, so DeviceBufferSize(op.Bounds, resolution.WorkingScale) can
-            // exceed the per-axis budget. A fan-out branch has no per-op resolution and re-clamps locally.
-            outBounds = op.Bounds;
-            // Linear base: the op's carried density caps the pass ONLY when the op escaped the resolver's expected
-            // input — the signature of a dynamic CustomRenderNode/NestedGraph predecessor whose lower-density raster
-            // output must not be re-raised (the C3.2 carry; re-raising over-allocates and over-tags). A MATCHED op
-            // is the effect-boundary input whose supply ResolveWorkingScale already folded into
-            // resolution.WorkingScale, deliberately flooring a sub-output supply UP to the deliverable density
-            // (w = max(s_out, supply), SourceEffectiveScaleFlowTests); min-carrying it would defeat that floor and
-            // ship sub-output-density effect output.
-            w = linear
-                ? RenderNodeContext.ClampWorkingScaleToBufferBudget(
-                    outBounds,
-                    op.Bounds != expectedInput ? CarriedWorkingScale(op, resolution.WorkingScale) : resolution.WorkingScale,
-                    maxDimension)
-                : RenderNodeContext.ClampWorkingScaleToBufferBudget(
-                    outBounds, CarriedWorkingScale(op, workingScale), maxDimension);
+            // A linear invariant pass still has a real resolved ROI. Rendering op.Bounds here would discard the
+            // compiler's backward-ROI result and can turn a small requested crop into a full-frame allocation. Keep
+            // the resolved window when the op matches the resolver's expectation; intersect it with a render-time
+            // shrink; and only fall back to the actual op for a shifted/grown dynamic predecessor whose describe-
+            // time ROI is stale. Fan-out has no per-op resolution, so each branch keeps its own bounds.
+            bool escaped = false;
+            if (!linear)
+            {
+                outBounds = op.Bounds;
+            }
+            else
+            {
+                Rect resolved = resolution.OutputRoi.IsInvalid ? op.Bounds : resolution.OutputRoi;
+                outBounds = resolved;
+                if (op.Bounds != expectedInput)
+                {
+                    if (expectedInput.Contains(op.Bounds))
+                        outBounds = resolved.Intersect(op.Bounds);
+                    else
+                    {
+                        outBounds = op.Bounds;
+                        escaped = true;
+                    }
+                }
+            }
+
+            // A dynamic escaped/fan-out op carries its own supply density. A matched or shrunk linear op keeps the
+            // boundary-resolved density, whose output-scale floor must not be lowered by a sparse input supply.
+            float requestedScale = !linear
+                ? CarriedWorkingScale(op, workingScale)
+                : escaped ? CarriedWorkingScale(op, resolution.WorkingScale) : resolution.WorkingScale;
+            w = RenderNodeContext.ClampWorkingScaleToBufferBudget(outBounds, requestedScale, maxDimension);
             (width, height) = RenderNodeContext.DeviceBufferSize(outBounds, w);
             skip = width <= 0 || height <= 0;
         }
@@ -768,6 +786,9 @@ internal static class PlanExecutor
 
     private static bool SupportsCompute()
     {
+        if (s_forceComputeFallbackForTests)
+            return false;
+
         IGraphicsContext? gfx = GraphicsContextFactory.SharedContext;
         return gfx is { Supports3DRendering: true };
     }
@@ -934,7 +955,7 @@ internal static class PlanExecutor
         PipelineDiagnostics? diagnostics, RenderTargetPool? pool)
     {
         IGraphicsContext? gfx = GraphicsContextFactory.SharedContext;
-        if (gfx is not { Supports3DRendering: true })
+        if (s_forceComputeFallbackForTests || gfx is not { Supports3DRendering: true })
         {
             // Identity/Skip already returned in MapOneOperation; only CpuCallback reaches here without Vulkan.
             return ExecuteComputeCpuFallback(

@@ -1,4 +1,6 @@
 ﻿using System.Collections.Immutable;
+using System.Text;
+using System.Text.RegularExpressions;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Effects;
 
@@ -32,6 +34,18 @@ internal static class EffectGraphCompiler
 {
     /// <summary>Maximum shader stages composed into one fused pass before it splits into a consecutive pass (C1.4, FR-005).</summary>
     public const int MaxFusionStages = 16;
+
+    /// <summary>
+    /// Conservative fragment-uniform floor used for fused runtime programs, expressed as four-component vectors.
+    /// A single authoring node may consume more (it cannot be split internally), but fusion never combines it with
+    /// another node and never makes an otherwise-valid chain exceed the backend floor (FR-005).
+    /// </summary>
+    internal const int MaxFusionUniformVectors = 224;
+
+    private static readonly Regex s_uniformDeclaration = new(
+        @"\buniform\s+(?:(?:lowp|mediump|highp)\s+)?(?<type>[A-Za-z_][A-Za-z0-9_]*)\s+"
+        + @"[A-Za-z_][A-Za-z0-9_]*\s*(?:\[\s*(?<count>\d+)\s*\])?\s*;",
+        RegexOptions.CultureInvariant);
 
     public static CompiledPlan Compile(EffectGraph graph, PipelineDiagnostics? diagnostics)
     {
@@ -277,11 +291,17 @@ internal static class EffectGraphCompiler
         Rect outputBounds = inputBounds;
         int minChild = nodes[start].ChildIndex;
         int maxChild = nodes[start].ChildIndex;
+        int uniformVectors = 0;
 
         int i = start;
         while (i < nodes.Count && IsFusable(nodes[i].Descriptor) && stages.Count < MaxFusionStages)
         {
+            int nextUniformVectors = GetUniformVectorCount(nodes[i].Descriptor);
+            if (stages.Count > 0 && uniformVectors + nextUniformVectors > MaxFusionUniformVectors)
+                break;
+
             stages.Add(ToStage(nodes[i].Descriptor));
+            uniformVectors += nextUniformVectors;
             outputBounds = nodes[i].OutputBounds;
             minChild = Math.Min(minChild, nodes[i].ChildIndex);
             maxChild = Math.Max(maxChild, nodes[i].ChildIndex);
@@ -297,6 +317,69 @@ internal static class EffectGraphCompiler
             ProvenanceMaxChild = maxChild,
         });
         return i;
+    }
+
+    private static int GetUniformVectorCount(EffectNodeDescriptor descriptor)
+    {
+        if (descriptor is not ShaderNodeDescriptor shader)
+            return 0;
+
+        string source = StripComments(shader.Source.Source);
+        int total = 0;
+        foreach (Match match in s_uniformDeclaration.Matches(source))
+        {
+            string type = match.Groups["type"].Value;
+            if (type is "shader" or "colorFilter" or "blender")
+                continue;
+
+            int vectors = UniformTypeVectors(type);
+            if (match.Groups["count"].Success
+                && int.TryParse(match.Groups["count"].Value, out int count))
+            {
+                vectors = checked(vectors * count);
+            }
+
+            total = checked(total + vectors);
+        }
+
+        return total;
+    }
+
+    private static int UniformTypeVectors(string type)
+    {
+        Match matrix = Regex.Match(
+            type, @"^(?:half|float)(?<columns>[2-4])x[2-4]$", RegexOptions.CultureInvariant);
+        return matrix.Success && int.TryParse(matrix.Groups["columns"].Value, out int columns)
+            ? columns
+            : 1;
+    }
+
+    private static string StripComments(string source)
+    {
+        var result = new StringBuilder(source.Length);
+        for (int i = 0; i < source.Length; i++)
+        {
+            if (source[i] == '/' && i + 1 < source.Length && source[i + 1] == '/')
+            {
+                while (i < source.Length && source[i] != '\n')
+                    i++;
+                result.Append('\n');
+            }
+            else if (source[i] == '/' && i + 1 < source.Length && source[i + 1] == '*')
+            {
+                i += 2;
+                while (i + 1 < source.Length && !(source[i] == '*' && source[i + 1] == '/'))
+                    i++;
+                i++;
+                result.Append(' ');
+            }
+            else
+            {
+                result.Append(source[i]);
+            }
+        }
+
+        return result.ToString();
     }
 
     private static int EmitSkiaPass(IReadOnlyList<EffectNode> nodes, int start, ImmutableArray<CompiledPass>.Builder passes)

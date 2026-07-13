@@ -121,12 +121,13 @@ Single-entry (current key → plan) — a render node has one structure at a tim
 
 | Member | Semantics |
 |---|---|
-| `Acquire(int w, int h, TextureFormat fmt)` | exact-size bucket pop or fresh allocation (counted as miss) |
+| `Acquire(int w, int h)` | exact-size RGBA16F Skia-surface bucket pop or fresh allocation (counted as miss) |
+| `AcquireTexture(int w, int h, TextureFormat fmt)` | exact-size raw-texture bucket pop or fresh allocation for non-Skia attachments such as depth |
 | `Release(target)` | return to bucket; contents undefined afterwards. **Lease model**: consumers hold ref-counted `ShallowCopy` handles, so the actual return is hooked into the underlying `RenderTarget`'s last ref-count release — a wrapper's `Dispose` alone never returns a surface other copies still reference. Concretely: today's private `SKSurfaceCounter` *disposes* on last release; a pooled target instead carries a pool-aware deallocator that returns surface+texture to the bucket atomically, plus a generation tag so a stale shallow copy can never observe a reissued target (tested) |
 | `Trim(frameIndex)` | dispose targets unused ≥ N frames; enforce byte soft-cap LRU |
 | Failure | propagate current semantics: preview → drop/degrade; delivery → throw (FR-015) |
 
-Invariants: acquire/release strictly render-thread; every executor-acquired target is released by the end of the frame (leak assertion in debug tests); pooled targets are cleared on acquire.
+Invariants: acquire/release strictly render-thread; every executor-acquired target is released by the end of the frame (leak assertion in debug tests); pooled targets are cleared on acquire. Bucket identity includes resource kind (`Skia surface` versus `raw texture`) in addition to size and format, so a raw RGBA16F texture cannot consume an RGBA16F `RenderTarget` entry or vice versa.
 
 ### `PlanExecutor`
 

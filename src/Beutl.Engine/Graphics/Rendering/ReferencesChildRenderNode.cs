@@ -26,7 +26,10 @@ public class ReferencesChildRenderNode(RenderNode? child) : RenderNode
             // on the owning renderer's PipelineDiagnostics (FR-017) and share its RenderTargetPool (FR-006).
             var processor = new RenderNodeProcessor(
                 Child, context.IsRenderCacheEnabled, context.OutputScale, context.MaxWorkingScale,
-                context.Diagnostics, context.Pool);
+                context.Diagnostics, context.Pool)
+            {
+                RequestedBounds = context.RequestedBounds,
+            };
             return processor.PullToRoot();
         }
 

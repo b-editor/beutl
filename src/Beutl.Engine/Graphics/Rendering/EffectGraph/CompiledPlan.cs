@@ -6,7 +6,7 @@ using SkiaSharp;
 namespace Beutl.Graphics.Rendering;
 
 /// <summary>Which device backend a <see cref="CompiledPass"/> runs on (feature 004, data-model §3).</summary>
-public enum PassBackend
+internal enum PassBackend
 {
     /// <summary>A Skia draw (runs on raster/SwiftShader too, no Vulkan required).</summary>
     Skia,
@@ -22,7 +22,7 @@ public enum PassBackend
 /// <see cref="IsDynamicOutputs"/> flag (execution-time-resolved output count, exempt from the static peak-live
 /// bound). Concrete device sizes and ROIs are <em>not</em> stored here — they are recomputed every frame.
 /// </summary>
-public abstract record CompiledPass
+internal abstract record CompiledPass
 {
     /// <summary>The device backend this pass runs on.</summary>
     public abstract PassBackend Backend { get; }
@@ -69,10 +69,10 @@ public abstract record CompiledPass
 }
 
 /// <summary>One stage of a <see cref="FusedShaderPass"/> (feature 004, data-model §3). Executed in order as one draw.</summary>
-public abstract record FusedStage;
+internal abstract record FusedStage;
 
 /// <summary>A runtime SKSL stage: a snippet or whole-source shader whose <c>src</c> child is the accumulated shader.</summary>
-public sealed record RuntimeShaderStage(
+internal sealed record RuntimeShaderStage(
     SkslSource Source,
     ImmutableArray<UniformBinding> Uniforms,
     ImmutableArray<ChildBinding> Children) : FusedStage
@@ -87,7 +87,7 @@ public sealed record RuntimeShaderStage(
 }
 
 /// <summary>A color-filter stage: wraps the accumulated shader with <c>SKShader.WithColorFilter</c>.</summary>
-public sealed record ColorFilterStage(Func<SKColorFilter?> Factory) : FusedStage;
+internal sealed record ColorFilterStage(Func<SKColorFilter?> Factory) : FusedStage;
 
 /// <summary>
 /// A fused group of coordinate-invariant nodes compiled to one draw (feature 004, C1/D2). The ordered
@@ -96,7 +96,7 @@ public sealed record ColorFilterStage(Func<SKColorFilter?> Factory) : FusedStage
 /// premultiplied linear-light representation between stages. Adjacent runtime snippets are merged into one
 /// generated program by <see cref="SkslSnippetMerger"/> (an optimization on top).
 /// </summary>
-public sealed record FusedShaderPass(ImmutableArray<FusedStage> Stages) : CompiledPass
+internal sealed record FusedShaderPass(ImmutableArray<FusedStage> Stages) : CompiledPass
 {
     /// <summary>
     /// True when every stage is coordinate-invariant, so the pass's output bounds equal its input's and the
@@ -114,7 +114,7 @@ public sealed record FusedShaderPass(ImmutableArray<FusedStage> Stages) : Compil
 /// A group of adjacent Skia image-filter nodes composed into one filtered draw (feature 004, C2). Each factory
 /// composes over the previous filter, reproducing the legacy builder's image-filter accumulation as a plan pass.
 /// </summary>
-public sealed record SkiaFilterPass(ImmutableArray<Func<SKImageFilter?, SKImageFilter?>> Filters) : CompiledPass
+internal sealed record SkiaFilterPass(ImmutableArray<Func<SKImageFilter?, SKImageFilter?>> Filters) : CompiledPass
 {
     /// <inheritdoc/>
     public override PassBackend Backend => PassBackend.Skia;
@@ -125,7 +125,7 @@ public sealed record SkiaFilterPass(ImmutableArray<Func<SKImageFilter?, SKImageF
 /// opens a bracketed canvas over a pooled output target, and invokes <see cref="Render"/> with a
 /// <see cref="GeometrySession"/>. One draw = one output; never fused.
 /// </summary>
-public sealed record GeometryPass(Action<GeometrySession> Render) : CompiledPass
+internal sealed record GeometryPass(Action<GeometrySession> Render) : CompiledPass
 {
     /// <inheritdoc/>
     public override PassBackend Backend => PassBackend.Skia;
@@ -137,7 +137,7 @@ public sealed record GeometryPass(Action<GeometrySession> Render) : CompiledPass
 /// = <see cref="PassCount"/> <c>GpuPasses</c> (C8). On a context without Vulkan the declared <see cref="Fallback"/>
 /// applies.
 /// </summary>
-public sealed record ComputePass(
+internal sealed record ComputePass(
     Action<IComputeContext> Dispatch,
     int PassCount,
     bool RequiresDepth,
@@ -153,7 +153,7 @@ public sealed record ComputePass(
 /// allocates from the pool. <see cref="BranchCount"/> is the structural static count (0 for a dynamic split,
 /// which sets <see cref="CompiledPass.IsDynamicOutputs"/>). Fusion never crosses a split.
 /// </summary>
-public sealed record SplitPass(Action<ISplitEmitter> Render, int BranchCount) : CompiledPass
+internal sealed record SplitPass(Action<ISplitEmitter> Render, int BranchCount) : CompiledPass
 {
     /// <inheritdoc/>
     public override PassBackend Backend => PassBackend.Skia;
@@ -171,7 +171,7 @@ public sealed record SplitPass(Action<ISplitEmitter> Render, int BranchCount) : 
 /// pass and its per-branch targets. Empty when nothing folded; the factories are per-frame parameters (re-extracted
 /// on a plan-cache hit), so an animated fold amount rebinds without a recompile.
 /// </remarks>
-public sealed record CompositePass(BlendMode BlendMode, ImmutableArray<Point> InputOffsets) : CompiledPass
+internal sealed record CompositePass(BlendMode BlendMode, ImmutableArray<Point> InputOffsets) : CompiledPass
 {
     /// <summary>The folded color-filter factories applied to each branch draw, in node order (C9); empty when none folded.</summary>
     public ImmutableArray<Func<SKColorFilter?>> InputColorFilters { get; init; } = [];
@@ -187,7 +187,7 @@ public sealed record CompositePass(BlendMode BlendMode, ImmutableArray<Point> In
 /// buffers are execution-time-resolved (<see cref="CompiledPass.IsDynamicOutputs"/>), exempt from the static
 /// peak-live bound.
 /// </summary>
-public sealed record NestedGraphPass(Action<EffectGraphBuilder, int> DescribeBranch) : CompiledPass
+internal sealed record NestedGraphPass(Action<EffectGraphBuilder, int> DescribeBranch) : CompiledPass
 {
     /// <inheritdoc/>
     public override PassBackend Backend => PassBackend.Skia;
@@ -202,7 +202,7 @@ public sealed record NestedGraphPass(Action<EffectGraphBuilder, int> DescribeBra
 /// <see cref="PipelineDiagnostics"/> like every other pass (C8). <see cref="NodeType"/> is part of the structural
 /// identity so a swapped child type recompiles (plan-cache correctness).
 /// </summary>
-public sealed record CustomRenderNodePass(Effects.FilterEffect.Resource Resource, Type NodeType) : CompiledPass
+internal sealed record CustomRenderNodePass(Effects.FilterEffect.Resource Resource, Type NodeType) : CompiledPass
 {
     /// <inheritdoc/>
     public override PassBackend Backend => PassBackend.Skia;
@@ -213,13 +213,13 @@ public sealed record CustomRenderNodePass(Effects.FilterEffect.Resource Resource
 /// <c>DevicePixelSize</c> is resolved every frame; only the format and lifetime interval are structural.
 /// Peak-live count = maximum overlap of <c>[FirstUse, LastUse]</c> intervals (the FR-007 bound).
 /// </summary>
-public sealed record IntermediateDecl(int Id, TextureFormat Format, int FirstUse, int LastUse);
+internal sealed record IntermediateDecl(int Id, TextureFormat Format, int FirstUse, int LastUse);
 
 /// <summary>
 /// The structural half of a plan's resource plan (feature 004, data-model §3): the intermediate declarations and
 /// their peak-live count. Concrete sizes/ROIs are computed per frame by the resource resolution pass.
 /// </summary>
-public sealed record ResourcePlan(ImmutableArray<IntermediateDecl> Intermediates)
+internal sealed record ResourcePlan(ImmutableArray<IntermediateDecl> Intermediates)
 {
     /// <summary>Maximum number of declared intermediates live at once (max overlap of lifetime intervals); the FR-007 bound.</summary>
     public int PeakLiveCount { get; } = ComputePeakLive(Intermediates);
@@ -249,7 +249,7 @@ public sealed record ResourcePlan(ImmutableArray<IntermediateDecl> Intermediates
 /// schedule, and the resource plan's structural shape. Bounds, ROIs, buffer sizes and the resolved working scale
 /// are per-frame resolution inputs, not part of this plan's identity (C5).
 /// </summary>
-public sealed record CompiledPlan(
+internal sealed record CompiledPlan(
     StructuralKey Key,
     ImmutableArray<CompiledPass> Passes,
     ResourcePlan Resources);

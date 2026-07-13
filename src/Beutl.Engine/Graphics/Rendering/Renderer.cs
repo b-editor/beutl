@@ -219,7 +219,10 @@ public class Renderer : IRenderer
 
         RevalidateAll(entry.Node);
         var processor = new RenderNodeProcessor(
-            entry.Node, CacheOptions.IsEnabled, OutputScale, MaxWorkingScale, Diagnostics, _pool);
+            entry.Node, CacheOptions.IsEnabled, OutputScale, MaxWorkingScale, Diagnostics, _pool)
+        {
+            RequestedBounds = new Rect(default, FrameSize.ToSize(1)),
+        };
         var ops = processor.PullToRoot();
         Rect bounds = Rect.Empty;
         int consumed = 0;
@@ -340,7 +343,8 @@ public class Renderer : IRenderer
         {
             Entry entry = _allCurrentEntries[i];
             // Same scale pair as the render pass to avoid thrashing scale-stateful nodes.
-            var processor = new RenderNodeProcessor(entry.Node, CacheOptions.IsEnabled, OutputScale, MaxWorkingScale, Diagnostics);
+            var processor = new RenderNodeProcessor(
+                entry.Node, CacheOptions.IsEnabled, OutputScale, MaxWorkingScale, Diagnostics, _pool);
             var arr = processor.PullToRoot();
             try
             {
@@ -399,7 +403,8 @@ public class Renderer : IRenderer
     {
         return [.. _allCurrentEntries.Where(e => e.Node.Drawable?.Resource.GetOriginal().ZIndex == zIndex).Select(e =>
         {
-            var processor = new RenderNodeProcessor(e.Node, CacheOptions.IsEnabled, OutputScale, MaxWorkingScale, Diagnostics);
+            var processor = new RenderNodeProcessor(
+                e.Node, CacheOptions.IsEnabled, OutputScale, MaxWorkingScale, Diagnostics, _pool);
             var ops = processor.PullToRoot();
             Rect bounds = Rect.Empty;
             int consumed = 0;

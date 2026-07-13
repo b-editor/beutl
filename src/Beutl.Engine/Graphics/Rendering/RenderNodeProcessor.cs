@@ -32,6 +32,9 @@ public class RenderNodeProcessor(
     /// </summary>
     public RenderTargetPool? Pool { get; } = pool;
 
+    /// <summary>The logical output region requested by this pull's parent; invalid means full output.</summary>
+    public Rect RequestedBounds { get; init; } = Rect.Invalid;
+
     /// <summary>
     /// Allocates the intermediate <see cref="RenderTarget"/> used to rasterize each operation.
     /// Override to substitute a custom allocation (e.g. pooling). Defaults to <see cref="RenderTarget.Create"/>.
@@ -288,6 +291,7 @@ public class RenderNodeProcessor(
             IsRenderCacheEnabled = useRenderCache,
             Diagnostics = Diagnostics,
             Pool = Pool,
+            RequestedBounds = RequestedBounds,
         };
         var result = node.Process(context);
         if (useRenderCache && !context.IsRenderCacheEnabled)

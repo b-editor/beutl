@@ -94,18 +94,10 @@ public sealed class RenderTargetPool : IDisposable
     /// (no counter is touched), so existing call-site failure handling is preserved.
     /// </summary>
     public RenderTarget? Acquire(int width, int height, PipelineDiagnostics? diagnostics = null)
-        => Acquire(width, height, TextureFormat.RGBA16Float, diagnostics);
-
-    /// <summary>
-    /// Acquire overload naming the buffer <paramref name="format"/> (RGBA16F for Skia-drawable surfaces;
-    /// surface-less formats such as <see cref="TextureFormat.Depth32Float"/> pool through
-    /// <see cref="AcquireTexture"/> instead).
-    /// </summary>
-    public RenderTarget? Acquire(int width, int height, TextureFormat format, PipelineDiagnostics? diagnostics = null)
     {
         VerifyAccess();
 
-        var key = new BucketKey(width, height, format);
+        var key = new BucketKey(width, height, TextureFormat.RGBA16Float, HasSurface: true);
         if (_buckets.TryGetValue(key, out List<PooledSurface>? list) && list.Count > 0)
         {
             PooledSurface pooled = list[^1];
@@ -124,7 +116,8 @@ public sealed class RenderTargetPool : IDisposable
         if (_backingFactory(width, height) is not { } backing)
             return null;
 
-        var fresh = new PooledSurface(backing.Surface, backing.Texture, width, height, format);
+        var fresh = new PooledSurface(
+            backing.Surface, backing.Texture, width, height, TextureFormat.RGBA16Float);
         if (diagnostics != null)
         {
             diagnostics.TargetAllocations++;
@@ -140,7 +133,7 @@ public sealed class RenderTargetPool : IDisposable
     /// Acquires a pooled surface-less texture (a compute depth attachment) of exactly
     /// <paramref name="width"/> × <paramref name="height"/> × <paramref name="format"/>: pops a matching idle
     /// entry (a hit) or allocates a fresh <see cref="ITexture2D"/> (a miss), with the same counter semantics as
-    /// <see cref="Acquire(int, int, TextureFormat, PipelineDiagnostics?)"/> (FR-006/C8: every fresh GPU target
+    /// <see cref="Acquire(int, int, PipelineDiagnostics?)"/> (FR-006/C8: every fresh GPU target
     /// creation counts <see cref="PipelineDiagnostics.TargetAllocations"/>). Disposing the returned lease returns
     /// the texture to its bucket. Returns <see langword="null"/> on allocation failure (no counter is touched).
     /// Texture contents are undefined on acquire — a depth attachment is cleared by its render pass.
@@ -150,7 +143,7 @@ public sealed class RenderTargetPool : IDisposable
     {
         VerifyAccess();
 
-        var key = new BucketKey(width, height, format);
+        var key = new BucketKey(width, height, format, HasSurface: false);
         if (_buckets.TryGetValue(key, out List<PooledSurface>? list) && list.Count > 0)
         {
             PooledSurface pooled = list[^1];
@@ -475,7 +468,7 @@ internal sealed class PooledSurface(
     /// <summary>True while sitting idle in a bucket; guards against double return of a re-leased buffer.</summary>
     public bool IsPooled { get; set; }
 
-    public BucketKey Key => new(Width, Height, Format);
+    public BucketKey Key => new(Width, Height, Format, Surface != null);
 
     public long ByteSize => (long)Width * Height * BytesPerPixel(Format);
 
@@ -504,7 +497,7 @@ internal sealed class PooledSurface(
 }
 
 /// <summary>Exact-size bucket identity for <see cref="RenderTargetPool"/> (research D4).</summary>
-internal readonly record struct BucketKey(int Width, int Height, TextureFormat Format);
+internal readonly record struct BucketKey(int Width, int Height, TextureFormat Format, bool HasSurface);
 
 /// <summary>
 /// A lease over a pooled surface-less texture (a compute depth attachment) issued by

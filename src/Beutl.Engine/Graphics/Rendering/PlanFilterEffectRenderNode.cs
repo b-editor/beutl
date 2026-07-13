@@ -69,8 +69,7 @@ internal sealed class PlanFilterEffectRenderNode(FilterEffect.Resource filterEff
             _planCache.Store(key, contextId, plan);
         }
 
-        // The parent wants the effect's full output; Rect.Invalid requests every pass's full bounds (no ROI crop).
-        FrameResources resources = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale);
+        FrameResources resources = EffectGraphCompiler.ResolveResources(plan, context.RequestedBounds, workingScale);
 
         // Pass-prefix output caching (C10): reuse a stable leading run of passes so a heavy static prefix (a blur,
         // a stroke) is not re-executed every frame merely because the tail is animated. Only engaged on the pooled

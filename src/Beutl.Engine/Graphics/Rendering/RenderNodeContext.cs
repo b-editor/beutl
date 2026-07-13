@@ -26,6 +26,12 @@ public class RenderNodeContext(
     public RenderTargetPool? Pool { get; set; }
 
     /// <summary>
+    /// Logical region the parent needs from this node's output. <see cref="Rect.Invalid"/> requests the full
+    /// output. Filter-effect plans seed their backward ROI walk from this value (FR-011).
+    /// </summary>
+    public Rect RequestedBounds { get; init; } = Rect.Invalid;
+
+    /// <summary>
     /// The final render-target scale <c>s_out</c> (device px per logical unit at the root).
     /// Sanitized to positive-finite at construction.
     /// Informational only for intermediates — never clamps working scale.

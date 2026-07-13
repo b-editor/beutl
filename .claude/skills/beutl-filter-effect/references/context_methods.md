@@ -23,7 +23,7 @@ float builder.OutputScale   // 003 s_out (device px per logical unit at the root
 float builder.WorkingScale  // 003 w — the density this boundary's buffers run at
 ```
 
-`RenderNodeContext.DeviceBufferSize(builder.Bounds, builder.WorkingScale)` returns the `(width, height)` device-pixel extent of the pass buffer — use it for resolution uniforms.
+`RenderNodeContext.DeviceBufferSize(builder.Bounds, builder.WorkingScale)` is only a describe-time boundary estimate. Do not use it to freeze resolution uniforms: bind those with `UniformBindingBuilder.Deferred` and read `PassUniformContext.TargetWidth` / `TargetHeight` after the executor has applied the per-pass density clamp.
 
 ---
 
@@ -78,18 +78,21 @@ Append with `builder.Shader/ColorFilter/SkiaFilter/Geometry/Compute/Split/Compos
 // Fusable per-pixel color: `half4 apply(half4 c)`, c is premultiplied linear-light.
 ShaderNodeDescriptor.Snippet(
     string source, Action<UniformBindingBuilder>? uniforms = null,
-    IEnumerable<SamplerBinding>? samplers = null)
+    IEnumerable<ChildBinding>? samplers = null)
 
 // Non-invariant `half4 main(float2 coord)` with an implicit `src` child; bounds contract mandatory.
 ShaderNodeDescriptor.WholeSource(
     string source, BoundsContract bounds, Action<UniformBindingBuilder>? uniforms = null,
-    IEnumerable<SamplerBinding>? samplers = null, IEnumerable<ChildBinding>? children = null,
+    IEnumerable<ChildBinding>? children = null,
     SKShaderTileMode srcTileMode = SKShaderTileMode.Decal)
 
-// Whole-source that provably samples only the current pixel: opts into fusion, identity bounds.
-ShaderNodeDescriptor.WholeSourceInvariant(string source, ...)
+// Whole-source that provably samples only the current pixel: identity bounds, but still its own pass.
+ShaderNodeDescriptor.WholeSourceInvariant(
+    string source, Action<UniformBindingBuilder>? uniforms = null,
+    IEnumerable<ChildBinding>? children = null,
+    SKShaderTileMode srcTileMode = SKShaderTileMode.Decal)
 ```
-Uniforms are bound via the `UniformBindingBuilder`: `u => u.Float("gamma", g).Float2("tileSize", x, y)`.
+There is no separate `SamplerBinding`: eager samplers and extra child shaders are both `ChildBinding`s. Uniforms are bound via the `UniformBindingBuilder`. Device-space values use `DensityScaledFloat2` or `Deferred`, not a describe-time `builder.WorkingScale` multiplier.
 
 ### ColorFilter / SkiaFilter (raw Skia)
 ```csharp
@@ -103,7 +106,7 @@ The `SKImageFilter?` argument is the upstream filter (chain input). Adjacent Ski
 ```csharp
 GeometryNodeDescriptor.Create(
     Action<GeometrySession> render, BoundsContract bounds,
-    int inputCount = 1, object? structuralToken = null)   // bounds MANDATORY
+    object? structuralToken = null)                       // bounds MANDATORY
 ```
 The sole descriptor that carries a rendering callback. Never fused, always its own pass.
 
@@ -111,7 +114,7 @@ The sole descriptor that carries a rendering callback. Never fused, always its o
 ```csharp
 ComputeNodeDescriptor.Create(
     Action<IComputeContext> dispatch, int passCount, ComputeFallback fallback,
-    bool requiresDepth = false, Action<GeometrySession>? cpuCallback = null,
+    bool requiresDepth = true, Action<GeometrySession>? cpuCallback = null,
     object? structuralToken = null)                        // fallback MANDATORY
 ```
 `fallback` (`Identity` / `Skip` / a CPU callback) is applied when Vulkan is unavailable so GPU-less CI passes.

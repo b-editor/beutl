@@ -16,6 +16,7 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.EffectPipeline;
 /// the fused-execution cases run on the raster backend (no Vulkan) so they are GPU-less-CI-safe.
 /// </summary>
 [TestFixture]
+[NonParallelizable]
 public class EffectGraphCompilerTests
 {
     // A coordinate-invariant snippet that scales premultiplied rgb by a uniform. Distinct uniform name per role
@@ -114,6 +115,26 @@ half4 apply(half4 c) {
     }
 
     [Test]
+    public void Compile_ExceedingUniformBudget_SplitsIntoConsecutiveFusedPasses()
+    {
+        const int valuesPerStage = 120;
+        string source =
+            $"uniform lowp float values[{valuesPerStage}];\n"
+            + "half4 apply(half4 c) { return c * values[0]; }";
+        float[] values = Enumerable.Repeat(1f, valuesPerStage).ToArray();
+        var bounds = new Rect(0, 0, 100, 80);
+        EffectGraphBuilder builder = NewBuilder(bounds)
+            .Shader(ShaderNodeDescriptor.Snippet(source, u => u.FloatArray("values", values)))
+            .Shader(ShaderNodeDescriptor.Snippet(source, u => u.FloatArray("values", values)));
+
+        CompiledPlan plan = Compile(builder);
+
+        Assert.That(plan.Passes, Has.Length.EqualTo(2));
+        Assert.That(plan.Passes, Is.All.TypeOf<FusedShaderPass>());
+        Assert.That(plan.Passes.Cast<FusedShaderPass>().Select(p => p.Stages.Length), Is.EqualTo(new[] { 1, 1 }));
+    }
+
+    [Test]
     public void Compile_FusionNeverCrossesASkiaFilter()
     {
         var bounds = new Rect(0, 0, 100, 80);
@@ -126,6 +147,21 @@ half4 apply(half4 c) {
 
         Assert.That(plan.Passes.Select(p => p.GetType()),
             Is.EqualTo(new[] { typeof(FusedShaderPass), typeof(SkiaFilterPass), typeof(FusedShaderPass) }));
+    }
+
+    [Test]
+    public void CompilerRepresentation_IsNotPublicAbi()
+    {
+        Type[] implementationTypes =
+        [
+            typeof(CompiledPlan), typeof(CompiledPass), typeof(FusedStage), typeof(FusedShaderPass),
+            typeof(SkiaFilterPass), typeof(GeometryPass), typeof(ComputePass), typeof(SplitPass),
+            typeof(CompositePass), typeof(ResourcePlan), typeof(IntermediateDecl), typeof(StructuralKey),
+            typeof(PassBackend),
+        ];
+
+        Assert.That(implementationTypes, Is.All.Matches<Type>(type => type.IsNotPublic),
+            "compiler schedule/cache records are internal implementation, not plugin ABI");
     }
 
     // N1: a multi-declarator snippet uniform ('uniform float a, b;') escapes the merger's per-name feN_ prefixing,
@@ -756,13 +792,11 @@ half4 apply(half4 c) {
         }
     }
 
-    // FR-037(b): the linear invariant fused pass renders its whole op.Bounds, but ResolveResources sizes
-    // resolution.WorkingScale against the (possibly ROI-narrowed) OutputRoi. When op.Bounds is much larger than the
-    // ROI, DeviceBufferSize(op.Bounds, resolution.WorkingScale) can exceed the 16384-px budget, so the executor must
-    // re-clamp w against op.Bounds (the fan-out branch already does). A narrow 20000-px frame with a small requested
-    // region leaves resolution.WorkingScale at 1 while op.Bounds needs the clamp — the buffer stays a few px tall.
+    // FR-011: an invariant pass uses its resolved output ROI instead of expanding back to the input operation's
+    // full bounds. A narrow request over a 20000-px input therefore stays at full density and produces only the
+    // requested window.
     [Test]
-    public void Execute_InvariantFusedPass_ReClampsWorkingScaleAgainstOpBounds()
+    public void Execute_InvariantFusedPass_UsesResolvedRoiInsteadOfFullOperationBounds()
     {
         var bounds = new Rect(0, 0, 20000, 8);
         CompiledPlan plan = Compile(NewBuilder(bounds).Shader(Scale(1f)));
@@ -771,17 +805,42 @@ half4 apply(half4 c) {
         Assert.That(res.Passes[0].WorkingScale, Is.EqualTo(1f),
             "sanity: the narrowed ROI fits the budget, so the resolver leaves the pass working scale at 1");
 
-        float expected = RenderNodeContext.ClampWorkingScaleToBufferBudget(bounds, 1f);
-        Assert.That(expected, Is.LessThan(1f), "sanity: the full 20000-px op.Bounds must trigger the buffer-budget clamp");
-
         RenderNodeOperation[] outputs = PlanExecutor.Execute(
             plan, res, [MakeInput(bounds)], outputScale: 1f, workingScale: 1f,
             maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null);
         try
         {
             Assert.That(outputs, Has.Length.EqualTo(1));
-            Assert.That(outputs[0].EffectiveScale.Value, Is.EqualTo(expected).Within(1e-4f),
-                "the invariant fused pass re-clamps w against op.Bounds, not the ROI-sized resolution working scale");
+            Assert.That(outputs[0].Bounds, Is.EqualTo(new Rect(0, 0, 100, 8)),
+                "the invariant fused pass must preserve the resolver's requested ROI");
+            Assert.That(outputs[0].EffectiveScale.Value, Is.EqualTo(1f).Within(1e-4f),
+                "the ROI-sized pass must not lose density because the unrelated full input is oversized");
+        }
+        finally
+        {
+            RenderNodeOperation.DisposeAll(outputs);
+        }
+    }
+
+    [Test]
+    public void PlanRenderNode_SeedsResolverFromParentRequestedBounds()
+    {
+        var bounds = new Rect(0, 0, 400, 400);
+        var requested = new Rect(50, 60, 100, 100);
+        var effect = new Brightness();
+        using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
+        using FilterEffectRenderNode node = resource.RenderNodeFactory.Create(resource);
+        var context = new RenderNodeContext([MakeInput(bounds)], outputScale: 1f)
+        {
+            RequestedBounds = requested,
+        };
+
+        RenderNodeOperation[] outputs = node.Process(context);
+        try
+        {
+            Assert.That(outputs, Has.Length.EqualTo(1));
+            Assert.That(outputs[0].Bounds, Is.EqualTo(requested),
+                "the production render-node path must not replace the parent's requested ROI with full bounds");
         }
         finally
         {
@@ -899,11 +958,6 @@ half4 apply(half4 c) {
     [Test]
     public void Execute_ComputeCpuFallbackInputMaterialization_UsesCarriedClampedWorkingScale()
     {
-        if (GraphicsContextFactory.SharedContext is { Supports3DRendering: true })
-        {
-            Assert.Ignore("A live Vulkan context routes compute to the GPU path; this test exercises the CPU fallback carry.");
-        }
-
         var bounds = new Rect(0, 0, 100, 100);
         float observed = -1f;
         var probe = ComputeNodeDescriptor.Create(
@@ -915,9 +969,17 @@ half4 apply(half4 c) {
         float carried = res.Passes[1].WorkingScale;
         Assert.That(carried, Is.EqualTo(0.5f).Within(1e-4f), "sanity: maxDimension 50 clamps the chain to w=0.5");
 
-        RenderNodeOperation.DisposeAll(PlanExecutor.Execute(
-            plan, res, [MakeInput(bounds)], outputScale: 1f, workingScale: 1f,
-            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null));
+        PlanExecutor.ForceComputeFallbackForTests();
+        try
+        {
+            RenderNodeOperation.DisposeAll(PlanExecutor.Execute(
+                plan, res, [MakeInput(bounds)], outputScale: 1f, workingScale: 1f,
+                maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null));
+        }
+        finally
+        {
+            PlanExecutor.ResetComputeFallbackForTests();
+        }
 
         Assert.That(observed, Is.EqualTo(carried).Within(1e-4f),
             "the compute CPU-fallback input materializes at the carried clamped density, not the boundary working scale (1.0)");
@@ -929,11 +991,6 @@ half4 apply(half4 c) {
     [Test]
     public void Execute_ComputeCpuFallbackHonorsSetOutputBounds()
     {
-        if (GraphicsContextFactory.SharedContext is { Supports3DRendering: true })
-        {
-            Assert.Ignore("A live Vulkan context routes compute to the GPU path; this test exercises the CPU fallback shrink seam.");
-        }
-
         var bounds = new Rect(0, 0, 100, 100);
         var tight = new Rect(20, 20, 40, 40);
         var probe = ComputeNodeDescriptor.Create(
@@ -942,9 +999,18 @@ half4 apply(half4 c) {
         CompiledPlan plan = Compile(NewBuilder(bounds).Compute(probe));
 
         FrameResources res = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale: 1f);
-        RenderNodeOperation[] outputs = PlanExecutor.Execute(
-            plan, res, [MakeInput(bounds)], outputScale: 1f, workingScale: 1f,
-            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null);
+        PlanExecutor.ForceComputeFallbackForTests();
+        RenderNodeOperation[] outputs;
+        try
+        {
+            outputs = PlanExecutor.Execute(
+                plan, res, [MakeInput(bounds)], outputScale: 1f, workingScale: 1f,
+                maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null);
+        }
+        finally
+        {
+            PlanExecutor.ResetComputeFallbackForTests();
+        }
         try
         {
             Assert.That(outputs, Has.Length.EqualTo(1), "the compute CPU fallback emits one output");

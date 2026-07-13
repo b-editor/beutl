@@ -23,6 +23,26 @@ public class FusedSourceTileModeTests
     private const string IdentitySource =
         "uniform shader src;\nhalf4 main(float2 coord){ return src.eval(coord); }";
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void SkslScriptEffect_UsesLegacyClampTileMode(bool coordinateInvariant)
+    {
+        var effect = new SKSLScriptEffect();
+        effect.CoordinateInvariant.CurrentValue = coordinateInvariant;
+        using FilterEffect.Resource resource =
+            (FilterEffect.Resource)(object)effect.ToResource(CompositionContext.Default);
+        var builder = new EffectGraphBuilder(s_source, outputScale: 1f, workingScale: 1f);
+        effect.Describe(builder, resource);
+
+        using EffectGraph graph = builder.Build();
+        CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
+        var pass = (FusedShaderPass)plan.Passes.Single();
+        var stage = (RuntimeShaderStage)pass.Stages.Single();
+
+        Assert.That(stage.SrcTileMode, Is.EqualTo(SKShaderTileMode.Clamp),
+            "SKSLScriptEffect must preserve the legacy SKImage.ToShader() Clamp/Clamp source-edge behavior");
+    }
+
     [Test]
     public void GrowingWholeSource_ClampTileMode_ExtendsTheSourceEdgePixel()
     {

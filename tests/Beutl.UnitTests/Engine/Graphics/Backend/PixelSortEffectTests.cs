@@ -14,7 +14,7 @@ namespace Beutl.UnitTests.Engine.Graphics.Backend;
 public class PixelSortEffectTests
 {
     [Test]
-    public void Describe_HorizontalLuminance_ProducesSortedOutput()
+    public void Describe_HorizontalLuminance_ProducesSortedPixelOrder()
     {
         VulkanTestEnvironment.EnsureAvailable();
 
@@ -33,6 +33,18 @@ public class PixelSortEffectTests
             {
                 Assert.That(outputs, Has.Length.EqualTo(1));
                 Assert.That(outputs[0].Bounds, Is.EqualTo(bounds));
+                using Bitmap bmp = Rasterize(outputs[0]);
+                byte[] values = Enumerable.Range(0, bmp.Width)
+                    .Select(x => bmp.SKBitmap.GetPixel(x, bmp.Height / 2).Red)
+                    .ToArray();
+
+                Assert.Multiple(() =>
+                {
+                    Assert.That(values, Is.Ordered.Ascending,
+                        "PixelSort must reorder the deliberately shuffled luminance row into ascending order");
+                    Assert.That(values.Distinct().Count(), Is.GreaterThan(8),
+                        "the semantic gate needs enough distinct samples to detect an identity output");
+                });
             }
             finally
             {
@@ -131,7 +143,7 @@ public class PixelSortEffectTests
         var resource = (FilterEffect.Resource)(object)effect.ToResource(new CompositionContext(TimeSpan.Zero));
         RenderNodeOperation input = RenderNodeOperation.CreateLambda(
             bounds,
-            canvas => DrawGradient(canvas, bounds),
+            canvas => DrawShuffledLuminanceColumns(canvas, bounds),
             hitTest: bounds.Contains);
 
         var builder = new EffectGraphBuilder(bounds, outputScale: 1f, workingScale: 1f);
@@ -144,13 +156,15 @@ public class PixelSortEffectTests
             maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null);
     }
 
-    private static void DrawGradient(ImmediateCanvas canvas, Rect bounds)
+    private static void DrawShuffledLuminanceColumns(ImmediateCanvas canvas, Rect bounds)
     {
-        // 水平方向に明度勾配
+        // Deliberately non-monotonic: the old bounds-only gate passed even when PixelSort returned identity.
+        ReadOnlySpan<byte> luminance =
+            [224, 32, 192, 64, 160, 96, 128, 16, 240, 48, 208, 80, 176, 112, 144, 8];
         int width = (int)bounds.Width;
         for (int x = 0; x < width; x++)
         {
-            byte v = (byte)(255 * x / Math.Max(1, width - 1));
+            byte v = luminance[x % luminance.Length];
             var brush = new SolidColorBrush(new Color(255, v, v, v));
             var brushResource = (SolidColorBrush.Resource)(object)brush.ToResource(new CompositionContext(TimeSpan.Zero));
             canvas.DrawRectangle(new Rect(x, 0, 1, bounds.Height), brushResource, pen: null);

@@ -148,7 +148,7 @@ Children.RemoveAt(0);
 Children.Clear();
 ```
 
-**Using lists in `Describe`:** describe every child into the *same* builder so their nodes can fuse with each other (a group must not hide its children behind one opaque pass):
+**Using lists in `Describe`:** describe every enabled child into the *same* builder so their nodes can fuse with each other (a group must not hide its children behind one opaque pass):
 ```csharp
 public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
 {
@@ -156,6 +156,9 @@ public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource 
     // r.Children is auto-generated as List<FilterEffect.Resource>
     foreach (FilterEffect.Resource child in r.Children)
     {
+        if (!child.IsEnabled)
+            continue;
+
         child.GetOriginal().Describe(builder, child);
     }
 }
@@ -178,6 +181,9 @@ public sealed partial class FilterEffectGroup : FilterEffect
         var r = (Resource)resource;
         foreach (FilterEffect.Resource item in r.Children)
         {
+            if (!item.IsEnabled)
+                continue;
+
             item.GetOriginal().Describe(builder, item);
         }
     }
@@ -240,6 +246,8 @@ Create your own resource files inside the extension project, or pass a literal s
 
 A coordinate-invariant snippet defines `half4 apply(half4 c)` where `c` is the **premultiplied-alpha, linear-light** source pixel (and your return value must be too). It participates in fusion and gets identity bounds for free — no bounds contract, no target management. Pass parameters as uniforms; never inline them into the source string.
 
+Declare each uniform in its own statement. Precision qualifiers (`lowp`/`mediump`/`highp`) are supported, but do not declare a `struct` at any scope in a snippet: top-level structs are rejected by the descriptor and the pinned Skia compiler rejects function-local struct statements.
+
 ```csharp
 // src/Beutl.Engine/Graphics/FilterEffects/Gamma.cs
 private static readonly string s_snippet =
@@ -268,23 +276,23 @@ public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource 
 
 ### SKSL whole-source (samples other pixels)
 
-When the shader samples coordinates other than the current pixel (mosaic, displacement), use `WholeSource`: an SKSL `half4 main(float2 coord)` with an implicit `src` child, plus a mandatory `BoundsContract`. Compile the holder shader in the static constructor with `SKSLShader.TryCreate`. Device-pixel literals (tile size, resolution) scale by the working scale `w = builder.WorkingScale`; use `RenderNodeContext.DeviceBufferSize(builder.Bounds, w)` for the buffer extent.
+When the shader samples coordinates other than the current pixel (mosaic, displacement), use `WholeSource`: an SKSL `half4 main(float2 coord)` with an implicit `src` child, plus a mandatory `BoundsContract`. Device-pixel uniforms must be late-bound from the pass's execution-time `PassUniformContext`: the executor can re-clamp the pass below `builder.WorkingScale`. Use `DensityScaledFloat2` for logical lengths and `Deferred` for target dimensions or other values that need `TargetWidth`, `TargetHeight`, or the actual `WorkingScale`.
 
 ```csharp
 // src/Beutl.Engine/Graphics/FilterEffects/MosaicEffect.cs (abridged)
 public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
 {
     var r = (Resource)resource;
-    float w = builder.WorkingScale;
-    (int bufW, int bufH) = RenderNodeContext.DeviceBufferSize(builder.Bounds, w);
     Size tileSize = r.TileSize;
 
-    // Output occupies the input rect ⇒ identity bounds (the legacy transformBounds).
+    // The non-local tile-centre samples use full-frame coordinates, so an ROI crop is unsound.
     builder.Shader(ShaderNodeDescriptor.WholeSource(
         ShaderSource,
-        BoundsContract.Identity,
-        u => u.Float2("tileSize", tileSize.Width * w, tileSize.Height * w)
-              .Float2("resolution", bufW, bufH)));
+        BoundsContract.RenderTime,
+        u => u.DensityScaledFloat2(
+                  "tileSize", (float)tileSize.Width, (float)tileSize.Height)
+              .Deferred("resolution", (b, name, ctx) =>
+                  b.Uniforms[name] = new[] { (float)ctx.TargetWidth, (float)ctx.TargetHeight })));
 }
 ```
 
@@ -298,9 +306,11 @@ public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource 
 {
     var r = (Resource)resource;
     var data = (r.Angle, r.Length, r.Brush, r.ShadowOnly);
+    Rect inputBounds = builder.Bounds;
     builder.Geometry(GeometryNodeDescriptor.Create(
         session => ApplyGeometry(session, data),
-        BoundsContract.Create(rect => TransformBounds(data, rect), static r => r),
+        // Contour tracing snapshots the whole input. A requested sub-ROI is not sufficient.
+        BoundsContract.Create(rect => TransformBounds(data, rect), _ => inputBounds),
         structuralToken: nameof(FlatShadow)));
 }
 
@@ -309,7 +319,8 @@ private static void ApplyGeometry(GeometrySession session, (...) data)
     EffectInput input = session.Inputs[0];       // read-only upstream result
     ImmediateCanvas canvas = session.OpenCanvas(); // canvas over the pooled output
     using Bitmap srcBitmap = input.Snapshot();
-    float w = session.WorkingScale;
+    float inputDensity = input.Density.IsUnbounded ? 1f : input.Density.Value;
+    float outputDensity = session.WorkingScale;
     // ... draw into canvas; the executor owns the target, ROI, and sync ...
 }
 ```
@@ -450,10 +461,15 @@ public partial class StrokeEffect : FilterEffect
     public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
+        if (r.Pen is null)
+            return;
+
         var data = (r.Offset, r.Pen);
+        Rect inputBounds = builder.Bounds;
         builder.Geometry(GeometryNodeDescriptor.Create(
             session => Apply(session, data),
-            BoundsContract.Create(rect => TransformBounds(data, rect), static r => r),
+            // Contour tracing snapshots the whole input. A requested sub-ROI is not sufficient.
+            BoundsContract.Create(rect => TransformBounds(data, rect), _ => inputBounds),
             structuralToken: nameof(StrokeEffect)));
     }
 }

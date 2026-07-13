@@ -13,7 +13,7 @@ namespace Beutl.Graphics.Rendering;
 /// an animated blur sigma re-resolves sizes without a recompile (the equality <see cref="PlanCache"/> keys on).
 /// Equality compares a canonical signature string, so it is collision-free.
 /// </summary>
-public readonly struct StructuralKey : IEquatable<StructuralKey>
+internal readonly struct StructuralKey : IEquatable<StructuralKey>
 {
     private readonly string _signature;
 

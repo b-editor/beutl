@@ -118,8 +118,10 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
         // (contract A3). RenderTime keeps it baking full-frame. The CoordinateInvariant opt-in asserts single-pixel
         // sampling, so it keeps identity bounds and participates in ROI propagation by construction.
         builder.Shader(r.CoordinateInvariant
-            ? ShaderNodeDescriptor.WholeSourceInvariant(source, BindUniforms)
-            : ShaderNodeDescriptor.WholeSource(source, BoundsContract.RenderTime, BindUniforms));
+            ? ShaderNodeDescriptor.WholeSourceInvariant(
+                source, BindUniforms, srcTileMode: SKShaderTileMode.Clamp)
+            : ShaderNodeDescriptor.WholeSource(
+                source, BoundsContract.RenderTime, BindUniforms, srcTileMode: SKShaderTileMode.Clamp));
     }
 
     private static void DescribeGenerator(EffectGraphBuilder builder, Resource r)

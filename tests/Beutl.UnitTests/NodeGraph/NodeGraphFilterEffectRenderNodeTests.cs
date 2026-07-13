@@ -114,6 +114,36 @@ public class NodeGraphFilterEffectRenderNodeTests
         Assert.That(resource.PreferProxy, Is.False);
     }
 
+    [Test]
+    public void FilterEffectNode_ReplacesOutputWhenUpdatedFactoryChangesNodeType()
+    {
+        var host = new NodeGraphFilterEffect();
+        GraphModel model = host.Model.CurrentValue!;
+        var inputNode = new FilterEffectInputNode();
+        var effectNode = new FilterEffectNode<SwitchingFactoryEffect>();
+        var outputNode = new OutputNode();
+        model.Nodes.Add(inputNode);
+        model.Nodes.Add(effectNode);
+        model.Nodes.Add(outputNode);
+        model.Connect((IInputPort)effectNode.Items[1], inputNode.Output);
+        model.Connect(outputNode.InputPort, (IOutputPort)effectNode.Items[0]);
+
+        using var resource = (NodeGraphFilterEffect.Resource)host.ToResource(CompositionContext.Default);
+        using FilterEffectRenderNode node = resource.RenderNodeFactory.Create(resource);
+        SecondFactoryRenderNode.SawDisposedChild = false;
+        RenderNodeOperation[] first = node.Process(new RenderNodeContext([SourceOp(1f)]));
+        Assert.That(first.Single().EffectiveScale.Value, Is.EqualTo(1f));
+        DisposeAll(first);
+
+        effectNode.Object.UseSecond.CurrentValue = true;
+        RenderNodeOperation[] second = node.Process(new RenderNodeContext([SourceOp(1f)]));
+        Assert.That(second.Single().EffectiveScale.Value, Is.EqualTo(2f),
+            "the graph must execute the new factory node type after the resource changes");
+        Assert.That(SecondFactoryRenderNode.SawDisposedChild, Is.False,
+            "replacing the effect node must transfer its input children before disposing the old container");
+        DisposeAll(second);
+    }
+
     private static void DisposeAll(RenderNodeOperation[] ops)
     {
         foreach (RenderNodeOperation op in ops)
@@ -162,5 +192,68 @@ internal sealed class ScaleProbeRenderNode(FilterEffect.Resource fe) : FilterEff
                 onDispose: input.Dispose,
                 effectiveScale: EffectiveScale.At(w)))
             .ToArray();
+    }
+}
+
+[SuppressResourceClassGeneration]
+internal sealed partial class SwitchingFactoryEffect : FilterEffect
+{
+    public SwitchingFactoryEffect()
+    {
+        ScanProperties<SwitchingFactoryEffect>();
+    }
+
+    public IProperty<bool> UseSecond { get; } = Property.Create(false);
+
+    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
+    {
+    }
+
+    public override Resource ToResource(CompositionContext context)
+    {
+        var resource = new Resource();
+        bool updateOnly = false;
+        resource.Update(this, context, ref updateOnly);
+        return resource;
+    }
+
+    public new sealed class Resource : FilterEffect.Resource
+    {
+        private bool _useSecond;
+
+        public override FilterEffectRenderNodeFactory RenderNodeFactory => _useSecond
+            ? FilterEffectRenderNodeFactory.Of(static r => new SecondFactoryRenderNode(r))
+            : FilterEffectRenderNodeFactory.Of(static r => new FirstFactoryRenderNode(r));
+
+        public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
+        {
+            base.Update(obj, context, ref updateOnly);
+            _useSecond = ((SwitchingFactoryEffect)obj).UseSecond.CurrentValue;
+        }
+    }
+}
+
+internal sealed class FirstFactoryRenderNode(FilterEffect.Resource resource) : FilterEffectRenderNode(resource)
+{
+    public override RenderNodeOperation[] Process(RenderNodeContext context) => Stamp(context.Input, 1f);
+
+    internal static RenderNodeOperation[] Stamp(RenderNodeOperation[] inputs, float scale)
+    {
+        foreach (RenderNodeOperation input in inputs)
+            input.Dispose();
+
+        return [RenderNodeOperation.CreateLambda(
+            new Rect(0, 0, 1, 1), _ => { }, effectiveScale: EffectiveScale.At(scale))];
+    }
+}
+
+internal sealed class SecondFactoryRenderNode(FilterEffect.Resource resource) : FilterEffectRenderNode(resource)
+{
+    internal static bool SawDisposedChild { get; set; }
+
+    public override RenderNodeOperation[] Process(RenderNodeContext context)
+    {
+        SawDisposedChild |= Children.Any(child => child.IsDisposed);
+        return FirstFactoryRenderNode.Stamp(context.Input, 2f);
     }
 }

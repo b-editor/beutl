@@ -121,8 +121,8 @@ public class EffectPipelineBenchmarks
         s_frameMutator = null;
         _resource = Build(Scene, _size);
 
-        // One render captures the (structure-determined, size-independent) counter snapshot.
-        _counters = RenderThread.Dispatcher.Invoke(() => RenderOnce(_resource, _size));
+        // Warm the persistent render node and pool. Counters are captured by measured RenderFrame invocations.
+        RenderThread.Dispatcher.Invoke(() => RenderOnce(_resource, _size));
     }
 
     [Benchmark]
@@ -131,7 +131,7 @@ public class EffectPipelineBenchmarks
         RenderThread.Dispatcher.Invoke(() =>
         {
             ApplyFrameMutation(_resource);
-            RenderOnce(_resource, _size);
+            _counters = RenderOnce(_resource, _size);
         });
     }
 
@@ -227,7 +227,7 @@ public class EffectPipelineBenchmarks
     private static Drawable.Resource SingleGamma(PixelSize size)
     {
         var gamma = new Gamma();
-        gamma.Amount.CurrentValue = 1.5f;
+        gamma.Amount.CurrentValue = 150f;
         return GradientShape(size, gamma);
     }
 
@@ -237,16 +237,16 @@ public class EffectPipelineBenchmarks
         for (int i = 0; i < 4; i++)
         {
             var gamma = new Gamma();
-            gamma.Amount.CurrentValue = 1.1f;
+            gamma.Amount.CurrentValue = 110f;
             group.Children.Add(gamma);
             var hue = new HueRotate();
             hue.Angle.CurrentValue = 15f * (i + 1);
             group.Children.Add(hue);
             var saturate = new Saturate();
-            saturate.Amount.CurrentValue = 1.05f;
+            saturate.Amount.CurrentValue = 105f;
             group.Children.Add(saturate);
             var brightness = new Brightness();
-            brightness.Amount.CurrentValue = 1.02f;
+            brightness.Amount.CurrentValue = 102f;
             group.Children.Add(brightness);
         }
 
@@ -259,22 +259,22 @@ public class EffectPipelineBenchmarks
     {
         var group = new FilterEffectGroup();
         var gamma = new Gamma();
-        gamma.Amount.CurrentValue = 1.5f;
+        gamma.Amount.CurrentValue = 150f;
         group.Children.Add(gamma);
         var hue = new HueRotate();
         hue.Angle.CurrentValue = 90f;
         group.Children.Add(hue);
         var saturate = new Saturate();
-        saturate.Amount.CurrentValue = 1.4f;
+        saturate.Amount.CurrentValue = 140f;
         group.Children.Add(saturate);
         var brightness = new Brightness();
-        brightness.Amount.CurrentValue = 1.2f;
+        brightness.Amount.CurrentValue = 120f;
         group.Children.Add(brightness);
         var invert = new Invert();
-        invert.Amount.CurrentValue = 1f;
+        invert.Amount.CurrentValue = 100f;
         group.Children.Add(invert);
         long tick = 0;
-        s_frameMutator = () => gamma.Amount.CurrentValue = 1.2f + 0.6f * (++tick % 60) / 60f;
+        s_frameMutator = () => gamma.Amount.CurrentValue = 120f + 60f * (++tick % 60) / 60f;
         return GradientShape(size, group);
     }
 
@@ -284,19 +284,19 @@ public class EffectPipelineBenchmarks
     {
         var group = new FilterEffectGroup();
         var gamma = new Gamma();
-        gamma.Amount.CurrentValue = 1.5f;
+        gamma.Amount.CurrentValue = 150f;
         group.Children.Add(gamma);
         var hue = new HueRotate();
         hue.Angle.CurrentValue = 90f;
         group.Children.Add(hue);
         var saturate = new Saturate();
-        saturate.Amount.CurrentValue = 1.4f;
+        saturate.Amount.CurrentValue = 140f;
         group.Children.Add(saturate);
         var brightness = new Brightness();
-        brightness.Amount.CurrentValue = 1.2f;
+        brightness.Amount.CurrentValue = 120f;
         group.Children.Add(brightness);
         var invert = new Invert();
-        invert.Amount.CurrentValue = 1f;
+        invert.Amount.CurrentValue = 100f;
         group.Children.Add(invert);
         long tick = 0;
         s_frameMutator = () => invert.IsEnabled = (++tick & 1) == 0;
@@ -323,19 +323,19 @@ public class EffectPipelineBenchmarks
     {
         var group = new FilterEffectGroup();
         var gamma = new Gamma();
-        gamma.Amount.CurrentValue = 1.5f;
+        gamma.Amount.CurrentValue = 150f;
         group.Children.Add(gamma);
         var hue = new HueRotate();
         hue.Angle.CurrentValue = 90f;
         group.Children.Add(hue);
         var saturate = new Saturate();
-        saturate.Amount.CurrentValue = 1.4f;
+        saturate.Amount.CurrentValue = 140f;
         group.Children.Add(saturate);
         var brightness = new Brightness();
-        brightness.Amount.CurrentValue = 1.2f;
+        brightness.Amount.CurrentValue = 120f;
         group.Children.Add(brightness);
         var invert = new Invert();
-        invert.Amount.CurrentValue = 1f;
+        invert.Amount.CurrentValue = 100f;
         group.Children.Add(invert);
         return GradientShape(size, group, sizeFactor: 0.1f);
     }
@@ -344,19 +344,19 @@ public class EffectPipelineBenchmarks
     {
         var group = new FilterEffectGroup();
         var gamma = new Gamma();
-        gamma.Amount.CurrentValue = 1.5f;
+        gamma.Amount.CurrentValue = 150f;
         group.Children.Add(gamma);
         var hue = new HueRotate();
         hue.Angle.CurrentValue = 90f;
         group.Children.Add(hue);
         var saturate = new Saturate();
-        saturate.Amount.CurrentValue = 1.4f;
+        saturate.Amount.CurrentValue = 140f;
         group.Children.Add(saturate);
         var brightness = new Brightness();
-        brightness.Amount.CurrentValue = 1.2f;
+        brightness.Amount.CurrentValue = 120f;
         group.Children.Add(brightness);
         var invert = new Invert();
-        invert.Amount.CurrentValue = 1f;
+        invert.Amount.CurrentValue = 100f;
         group.Children.Add(invert);
         return GradientShape(size, group);
     }
@@ -368,7 +368,7 @@ public class EffectPipelineBenchmarks
         blur.Sigma.CurrentValue = new Size(6, 6);
         group.Children.Add(blur);
         var gamma = new Gamma();
-        gamma.Amount.CurrentValue = 1.4f;
+        gamma.Amount.CurrentValue = 140f;
         group.Children.Add(gamma);
         group.Children.Add(new Invert());
         var dropShadow = new DropShadow();
@@ -391,7 +391,7 @@ public class EffectPipelineBenchmarks
         split.VerticalSpacing.CurrentValue = 10;
 
         var saturate = new Saturate();
-        saturate.Amount.CurrentValue = 1.5f;
+        saturate.Amount.CurrentValue = 150f;
 
         var group = new FilterEffectGroup();
         group.Children.Add(split);
@@ -404,12 +404,12 @@ public class EffectPipelineBenchmarks
     {
         var group = new FilterEffectGroup();
         var gamma = new Gamma();
-        gamma.Amount.CurrentValue = 1.3f;
+        gamma.Amount.CurrentValue = 130f;
         group.Children.Add(gamma);
         group.Children.Add(new Invert());
         var grading = new ColorGrading();
-        grading.Contrast.CurrentValue = 1.2f;
-        grading.Saturation.CurrentValue = 1.3f;
+        grading.Contrast.CurrentValue = 20f;
+        grading.Saturation.CurrentValue = 30f;
         group.Children.Add(grading);
 
         var imageSource = new ImageSource();

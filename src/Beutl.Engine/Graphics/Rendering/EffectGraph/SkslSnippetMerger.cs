@@ -81,7 +81,7 @@ internal static class SkslSnippetMerger
     // Collects the names a snippet declares at file scope from a comment-skipping token scan rather than per-line
     // regexes: a declaration split across lines (`float3\nhelper(...)`) or a second definition after a same-line
     // body close (`} half4 tint(`) has no single line matching a signature pattern, and a missed name redefines in
-    // the merged program. At brace depth 0, `uniform`/`const` TYPE NAME declares NAME; IDENT IDENT `(` is a
+    // the merged program. At brace depth 0, `uniform`/`const` [PRECISION] TYPE NAME declares NAME; IDENT IDENT `(` is a
     // function definition; and IDENT IDENT followed by `=`/`;`/`[` is a MUTABLE global — SkSL accepts those, and an
     // unrenamed one shared by two snippets redefines in the merged program even though each compiles standalone
     // (statements only exist inside bodies at depth > 0, so calls/locals can't be mistaken for declarations).
@@ -138,9 +138,14 @@ internal static class SkslSnippetMerger
 
             if (tokens[t].Text is "uniform" or "const")
             {
-                if (t + 2 < tokens.Count && tokens[t + 1].IsIdent && tokens[t + 2].IsIdent)
-                    names.Add(tokens[t + 2].Text);
-                t += 2;
+                int type = t + 1;
+                if (type < tokens.Count && tokens[type].Text is "lowp" or "mediump" or "highp")
+                    type++;
+
+                int name = type + 1;
+                if (name < tokens.Count && tokens[type].IsIdent && tokens[name].IsIdent)
+                    names.Add(tokens[name].Text);
+                t = name;
             }
             else if (tokens[t + 1].IsIdent && t + 2 < tokens.Count && tokens[t + 2].Text == "(")
             {

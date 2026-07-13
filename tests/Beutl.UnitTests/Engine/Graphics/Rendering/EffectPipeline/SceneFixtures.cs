@@ -48,19 +48,19 @@ internal static class SceneFixtures
     {
         var group = new FilterEffectGroup();
         var gamma = new Gamma();
-        gamma.Amount.CurrentValue = 1.5f;
+        gamma.Amount.CurrentValue = 150f;
         group.Children.Add(gamma);
         var hue = new HueRotate();
         hue.Angle.CurrentValue = 90f;
         group.Children.Add(hue);
         var saturate = new Saturate();
-        saturate.Amount.CurrentValue = 1.4f;
+        saturate.Amount.CurrentValue = 140f;
         group.Children.Add(saturate);
         var brightness = new Brightness();
-        brightness.Amount.CurrentValue = 1.2f;
+        brightness.Amount.CurrentValue = 120f;
         group.Children.Add(brightness);
         var invert = new Invert();
-        invert.Amount.CurrentValue = 1f;
+        invert.Amount.CurrentValue = 100f;
         group.Children.Add(invert);
 
         return GradientShape(size, group);
@@ -74,10 +74,10 @@ internal static class SceneFixtures
         blur.Sigma.CurrentValue = new Size(6, 6);
         group.Children.Add(blur);
         var gamma = new Gamma();
-        gamma.Amount.CurrentValue = 1.4f;
+        gamma.Amount.CurrentValue = 140f;
         group.Children.Add(gamma);
         var invert = new Invert();
-        invert.Amount.CurrentValue = 1f;
+        invert.Amount.CurrentValue = 100f;
         group.Children.Add(invert);
         var dropShadow = new DropShadow();
         dropShadow.Position.CurrentValue = new Point(8, 8);
@@ -102,7 +102,7 @@ internal static class SceneFixtures
         split.VerticalSpacing.CurrentValue = 10;
 
         var saturate = new Saturate();
-        saturate.Amount.CurrentValue = 1.5f;
+        saturate.Amount.CurrentValue = 150f;
 
         var group = new FilterEffectGroup();
         group.Children.Add(split);
@@ -117,12 +117,12 @@ internal static class SceneFixtures
     {
         var group = new FilterEffectGroup();
         var gamma = new Gamma();
-        gamma.Amount.CurrentValue = 1.3f;
+        gamma.Amount.CurrentValue = 130f;
         group.Children.Add(gamma);
         group.Children.Add(new Invert());
         var grading = new ColorGrading();
-        grading.Contrast.CurrentValue = 1.2f;
-        grading.Saturation.CurrentValue = 1.3f;
+        grading.Contrast.CurrentValue = 20f;
+        grading.Saturation.CurrentValue = 30f;
         group.Children.Add(grading);
 
         var imageSource = new ImageSource();

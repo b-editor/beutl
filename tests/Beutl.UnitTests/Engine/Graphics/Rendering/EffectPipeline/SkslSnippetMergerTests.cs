@@ -91,6 +91,32 @@ public class SkslSnippetMergerTests
         });
     }
 
+    [TestCase("lowp")]
+    [TestCase("mediump")]
+    [TestCase("highp")]
+    public void Merge_PrecisionQualifiedUniforms_PrefixesTheDeclarator(string precision)
+    {
+        string shared =
+            $"uniform {precision} float gain;\n"
+            + "half4 apply(half4 c) { return half4(c.rgb * gain, c.a); }";
+
+        string merged = SkslSnippetMerger.Merge([SkslSource.Snippet(shared), SkslSource.Snippet(shared)]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(merged, Does.Contain($"uniform {precision} float fe0_gain;")
+                .And.Contain($"uniform {precision} float fe1_gain;"),
+                "the precision qualifier and type stay intact while each uniform declarator is prefixed");
+            Assert.That(merged, Does.Not.Contain($"{precision} fe0_float")
+                .And.Not.Contain($"{precision} fe1_float"),
+                "the uniform type must never be mistaken for the declarator");
+
+            using SKRuntimeEffect? effect = SKRuntimeEffect.CreateShader(merged, out string? error);
+            Assert.That(error, Is.Null, $"the merged precision-qualified program compiles ({error})");
+            Assert.That(effect, Is.Not.Null);
+        });
+    }
+
     // SkSL accepts a MUTABLE top-level global ('float gain = 1.0;'); without a rename, two snippets sharing the
     // name compile standalone but redefine it in the merged program.
     [Test]

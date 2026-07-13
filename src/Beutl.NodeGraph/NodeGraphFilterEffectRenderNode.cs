@@ -46,7 +46,10 @@ internal class NodeGraphFilterEffectRenderNode(NodeGraphFilterEffect.Resource re
             // owning renderer's PipelineDiagnostics (FR-017) and share its RenderTargetPool (FR-006).
             var processor = new RenderNodeProcessor(
                 outputNode, context.IsRenderCacheEnabled, context.OutputScale, context.MaxWorkingScale,
-                context.Diagnostics, context.Pool);
+                context.Diagnostics, context.Pool)
+            {
+                RequestedBounds = context.RequestedBounds,
+            };
             allResults.AddRange(processor.PullToRoot());
         }
 

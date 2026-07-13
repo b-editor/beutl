@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics.Backend.Vulkan;
+﻿using Beutl.Graphics.Backend;
+using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.UnitTests.Engine.Graphics.Backend;
@@ -61,6 +62,33 @@ public class RenderTargetPoolTests
             using RenderTarget other = pool.Acquire(W + 8, H, diag) ?? throw new InvalidOperationException("null");
 
             Assert.That(diag.TargetAllocations, Is.EqualTo(2), "a different bucket cannot reuse");
+        });
+    }
+
+    [Test]
+    public void AcquireTexture_SameRgba16Format_DoesNotShareSkiaSurfaceBucket()
+    {
+        RunOnRenderThread(() =>
+        {
+            var diagnostics = new PipelineDiagnostics();
+            using var pool = new RenderTargetPool();
+
+            pool.Acquire(W, H, diagnostics)!.Dispose();
+            pool.AcquireTexture(W, H, TextureFormat.RGBA16Float, diagnostics)!.Dispose();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(pool.BucketCountForTest, Is.EqualTo(2),
+                    "a Skia surface and a raw texture need distinct buckets even when size/format match");
+                Assert.That(diagnostics.PoolMisses, Is.EqualTo(2));
+                Assert.That(diagnostics.TargetAllocations, Is.EqualTo(2));
+            });
+
+            using RenderTarget surface = pool.Acquire(W, H, diagnostics)!;
+            using PooledTextureLease texture = pool.AcquireTexture(
+                W, H, TextureFormat.RGBA16Float, diagnostics)!;
+            Assert.That(diagnostics.PoolMisses, Is.EqualTo(2),
+                "each resource kind must hit its own warmed bucket");
         });
     }
 

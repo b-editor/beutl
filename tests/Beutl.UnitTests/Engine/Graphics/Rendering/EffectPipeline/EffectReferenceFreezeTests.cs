@@ -1,6 +1,7 @@
 ﻿using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
+using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Logging;
@@ -90,8 +91,8 @@ public class EffectReferenceFreezeTests
         yield return Case("PixelSortEffect", () =>
         {
             var e = new PixelSortEffect();
-            e.ThresholdMin.CurrentValue = 0.2f;
-            e.ThresholdMax.CurrentValue = 0.8f;
+            e.ThresholdMin.CurrentValue = 20f;
+            e.ThresholdMax.CurrentValue = 80f;
             return e;
         }, requiresCompute: true);
     }
@@ -440,13 +441,38 @@ public class EffectReferenceFreezeTests
         );
     }
 
-    // FallbackFilterEffect is the placeholder for a filter-effect type that failed to load. Its legacy
-    // ApplyTo throws unconditionally, so no pre-redesign reference render exists to freeze; the redesign's
-    // identity-graph behavior (research D7) is a post-migration change verified by the migration parity task.
+    // FallbackFilterEffect is the placeholder for a filter-effect type that failed to load. It has no legacy golden
+    // because legacy ApplyTo threw, but its redesigned identity-graph behavior is executable without a GPU.
     [Test]
-    [Ignore("FallbackFilterEffect had no freezable pre-redesign reference (its legacy ApplyTo threw); its "
-        + "post-redesign identity behavior is covered by the migration parity gate. This documents the census omission.")]
-    public void FallbackFilterEffect_HasNoLegacyReference()
+    public void FallbackFilterEffect_DescribeAndExecuteAsIdentity()
     {
+        var bounds = new Rect(0, 0, 64, 48);
+        var effect = new FallbackFilterEffect();
+        var resource = (FilterEffect.Resource)(object)effect.ToResource(CompositionContext.Default);
+        var builder = new EffectGraphBuilder(bounds, outputScale: 1f, workingScale: 1f);
+        effect.Describe(builder, resource);
+        using EffectGraph graph = builder.Build();
+        CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
+        FrameResources frame = EffectGraphCompiler.ResolveResources(plan, bounds, workingScale: 1f);
+        RenderNodeOperation input = RenderNodeOperation.CreateLambda(
+            bounds, static _ => { }, hitTest: bounds.Contains);
+
+        RenderNodeOperation[] outputs = PlanExecutor.Execute(
+            plan, frame, [input], outputScale: 1f, workingScale: 1f,
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null);
+        try
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(graph.Nodes, Is.Empty, "fallback Describe appends no work");
+                Assert.That(plan.Passes, Is.Empty, "the identity graph compiles to no passes");
+                Assert.That(outputs, Has.Length.EqualTo(1));
+                Assert.That(outputs[0], Is.SameAs(input), "execution preserves the original operation");
+            });
+        }
+        finally
+        {
+            RenderNodeOperation.DisposeAll(outputs);
+        }
     }
 }
