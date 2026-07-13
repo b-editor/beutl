@@ -41,7 +41,7 @@ public partial class FlatShadow : FilterEffect
         builder.Geometry(GeometryNodeDescriptor.Create(
             session => ApplyGeometry(session, data),
             BoundsContract.Create(rect => TransformBounds(data, rect), _ => inputBounds),
-            structuralToken: nameof(FlatShadow)));
+            structuralToken: nameof(FlatShadow), requiresReadback: true));
     }
 
     private static void ApplyGeometry(

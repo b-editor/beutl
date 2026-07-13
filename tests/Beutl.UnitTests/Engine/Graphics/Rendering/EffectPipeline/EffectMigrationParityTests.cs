@@ -32,6 +32,8 @@ public class EffectMigrationParityTests
 
     public static IEnumerable<TestCaseData> MigratedEffects()
     {
+        // These exact values are part of the immutable 004-parity provenance and intentionally remain untouched.
+        // Strong percentage-valued workloads are verified separately by PercentageEffect_IsMateriallyNonIdentity.
         yield return Case("Gamma", () => { var e = new Gamma(); e.Amount.CurrentValue = 1.5f; return e; });
         yield return Case("Invert", () => { var e = new Invert(); e.Amount.CurrentValue = 1f; return e; });
         yield return Case("Threshold", () => { var e = new Threshold(); e.Value.CurrentValue = 0.5f; e.Smoothness.CurrentValue = 20f; return e; });
@@ -83,6 +85,36 @@ public class EffectMigrationParityTests
             Position = { CurrentValue = new Point(10, 10) },
             Sigma = { CurrentValue = new Size(6, 6) },
             Color = { CurrentValue = Colors.Black },
+        });
+    }
+
+    public static IEnumerable<TestCaseData> PercentageEffects()
+    {
+        yield return Case("Review-Gamma", () => new Gamma { Amount = { CurrentValue = 150f } });
+        yield return Case("Review-Invert", () => new Invert { Amount = { CurrentValue = 100f } });
+        yield return Case("Review-Threshold", () => new Threshold { Value = { CurrentValue = 50f } });
+        yield return Case("Review-Negaposi", () => new Negaposi { Strength = { CurrentValue = 100f } });
+        yield return Case("Review-Saturate", () => new Saturate { Amount = { CurrentValue = 300f } });
+        yield return Case("Review-Brightness", () => new Brightness { Amount = { CurrentValue = 150f } });
+        yield return Case("Review-HighContrast", () => new HighContrast { Contrast = { CurrentValue = 50f } });
+        yield return Case("Review-ColorGrading", () => new ColorGrading
+        {
+            Contrast = { CurrentValue = 20f },
+            Saturation = { CurrentValue = 30f },
+        });
+    }
+
+    [TestCaseSource(nameof(PercentageEffects))]
+    public void PercentageEffect_IsMateriallyNonIdentity(string name, Func<FilterEffect> makeEffect)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using Bitmap identity = RenderChain([]);
+            using Bitmap effected = RenderChain([makeEffect()]);
+            double mae = ImageMetrics.MeanAbsoluteError(identity, effected);
+            Assert.That(mae, Is.GreaterThan(0.01),
+                $"{name} must be strong enough that deleting the effect cannot pass the parity tolerance (MAE {mae:F6})");
         });
     }
 

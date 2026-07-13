@@ -4,6 +4,7 @@ using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Logging;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.CSharp.Scripting;
 using Microsoft.CodeAnalysis.Scripting;
 using Microsoft.Extensions.Logging;
@@ -15,6 +16,14 @@ public sealed partial class CSharpScriptEffect : FilterEffect, IScriptCompilable
 {
     private static readonly ILogger s_logger = Log.CreateLogger<CSharpScriptEffect>();
     private static readonly ScriptOptions s_scriptOptions = CreateScriptOptions();
+    private const string ContextMigrationDiagnostic =
+        "CSharpScriptEffect no longer exposes FilterEffectContext. Author the declarative effect graph through "
+        + "'Builder' (EffectGraphBuilder): e.g. 'Context.Blur(...)' becomes 'Builder.Blur(...)'. See the migration "
+        + "guide at docs/specs/004-gpu-pass-fusion/contracts/breaking-changes.md.";
+    private const string SessionMigrationDiagnostic =
+        "The 'Session' (GeometrySession) global was replaced by 'Builder' (EffectGraphBuilder). Draw through "
+        + "'Builder.Geometry(session => { ... })'. See the migration guide at "
+        + "docs/specs/004-gpu-pass-fusion/contracts/breaking-changes.md.";
 
     public CSharpScriptEffect()
     {
@@ -64,13 +73,29 @@ public sealed partial class CSharpScriptEffect : FilterEffect, IScriptCompilable
             var errors = diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
 
             return errors.Count > 0
-                ? ScriptCompilationResult.Fail(string.Join(Environment.NewLine, errors.Select(e => e.GetMessage())))
+                ? ScriptCompilationResult.Fail(FormatCompilationErrors(roslynScript, errors))
                 : ScriptCompilationResult.Compiled;
         }
         catch (Exception ex)
         {
             return ScriptCompilationResult.Fail(ex.Message);
         }
+    }
+
+    private static string FormatCompilationErrors(Script<object> script, IReadOnlyList<Diagnostic> errors)
+    {
+        var messages = new List<string>();
+        HashSet<string> identifiers = script.GetCompilation().SyntaxTrees
+            .SelectMany(static tree => tree.GetRoot().DescendantNodes().OfType<IdentifierNameSyntax>())
+            .Select(static identifier => identifier.Identifier.ValueText)
+            .ToHashSet(StringComparer.Ordinal);
+
+        if (identifiers.Contains("Context"))
+            messages.Add(ContextMigrationDiagnostic);
+        if (identifiers.Contains("Session"))
+            messages.Add(SessionMigrationDiagnostic);
+        messages.AddRange(errors.Select(static error => error.GetMessage()));
+        return string.Join(Environment.NewLine, messages);
     }
 
     private static ScriptOptions CreateScriptOptions()
@@ -169,7 +194,7 @@ public sealed partial class CSharpScriptEffect : FilterEffect, IScriptCompilable
 
                 if (errors.Count > 0)
                 {
-                    _compileError = string.Join(Environment.NewLine, errors.Select(e => e.GetMessage()));
+                    _compileError = FormatCompilationErrors(roslynScript, errors);
                     s_logger.LogError("Failed to compile C# script: {ErrorText}", _compileError);
                 }
                 else

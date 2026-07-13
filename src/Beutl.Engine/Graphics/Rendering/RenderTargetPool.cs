@@ -203,7 +203,9 @@ public sealed class RenderTargetPool : IDisposable
     /// Returns a buffer to its bucket at its lease's last release (called by the pool-aware deallocator in
     /// <see cref="RenderTarget"/> and by <see cref="PooledTextureLease.Dispose"/>, never directly by consumers).
     /// Bumps the generation to invalidate any stale lease, stamps the current frame for idle eviction, and
-    /// enforces the byte cap. If the pool is already disposed the buffer is disposed instead of resurrected.
+    /// queues it for reuse. The soft byte cap is enforced once at the next frame-boundary <see cref="Trim"/>, so
+    /// a frame returning several large buffers evicts them under one <see cref="GpuDisposeBatch"/> drain instead
+    /// of synchronously draining once per lease return. If the pool is already disposed the buffer is disposed.
     /// <paramref name="leaseGeneration"/> is the generation the returning lease captured at acquire time: a stale
     /// lease (its buffer force-returned and possibly reissued to a newer lease) is rejected so it can never
     /// re-bucket a buffer the current lease still owns.
@@ -236,7 +238,6 @@ public sealed class RenderTargetPool : IDisposable
         pooled.IsPooled = true;
         GetBucket(pooled.Key).Add(pooled);
         _idleBytes += pooled.ByteSize;
-        EnforceByteCap();
     }
 
     /// <summary>

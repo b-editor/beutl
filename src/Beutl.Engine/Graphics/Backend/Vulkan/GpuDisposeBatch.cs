@@ -20,6 +20,8 @@ internal static class GpuDisposeBatch
     [ThreadStatic]
     private static bool s_drained;
 
+    private static Action? s_drainFailureForTest;
+
     /// <summary>Test seam: total drain-flushes issued (one per batch scope, plus one per non-batched dispose).</summary>
     internal static long FlushCount { get; private set; }
 
@@ -45,6 +47,13 @@ internal static class GpuDisposeBatch
     /// </summary>
     internal static void DrainBeforeDestroy(GRContext? skiaContext)
     {
+        if (s_drainFailureForTest is { } injected)
+        {
+            FlushCount++;
+            injected();
+            return;
+        }
+
         // A destroyed context has nothing to drain, and it must not consume the batch's single drain — the batch's
         // remaining live-context textures would skip theirs, re-opening the teardown UAF the drain exists to prevent.
         if (skiaContext == null)
@@ -63,6 +72,8 @@ internal static class GpuDisposeBatch
     }
 
     internal static void ResetFlushCountForTest() => FlushCount = 0;
+
+    internal static void SetDrainFailureForTest(Action? failure) => s_drainFailureForTest = failure;
 
     internal static bool DrainConsumedForTest => s_drained;
 

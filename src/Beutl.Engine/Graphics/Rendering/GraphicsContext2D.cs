@@ -617,9 +617,8 @@ public sealed class GraphicsContext2D(
     /// <see cref="PushNode{TNode, TParams}(in TParams, Func{TParams, TNode}, Func{TNode, TParams, bool})"/> for
     /// callers whose node factory returns an abstract type: the reuse check compares the existing node's runtime
     /// type against <paramref name="nodeType"/> instead of the generic argument, so a factory-created sealed
-    /// subclass is still reused across re-renders (a recreated node loses its per-node caches). A factory whose
-    /// created type differs from <paramref name="nodeType"/> is still correct — the node is just rebuilt each
-    /// re-render instead of reused.
+    /// subclass is still reused across re-renders (a recreated node loses its per-node caches). The paired
+    /// <see cref="FilterEffectRenderNodeFactory"/> validates that its declared type and created runtime type match.
     /// </summary>
     public PushedState PushNode<TNode, TParams>(in TParams parameters, Type nodeType,
         Func<TParams, TNode> createNode, Func<TNode, TParams, bool> updateNode)

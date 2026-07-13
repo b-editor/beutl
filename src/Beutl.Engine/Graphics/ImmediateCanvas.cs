@@ -1,5 +1,4 @@
-﻿using Beutl.Graphics.Backend;
-using Beutl.Graphics.Rendering;
+﻿using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.Media.TextFormatting;
@@ -146,14 +145,12 @@ public partial class ImmediateCanvas : IDisposable, IPopable
     {
         void DisposeCore()
         {
-            // Must suppress finalizer before GPU ops that might throw.
+            // Closing a canvas records no synchronization. Effect-pipeline flushes and backend transitions are
+            // scheduled by PlanExecutor; root presentation/readback synchronizes at its own explicit boundary.
             IsDisposed = true;
             GC.SuppressFinalize(this);
             try
             {
-                // Flush GPU work while surface and paints are still alive.
-                GraphicsContextFactory.SharedContext?.SkiaContext.Flush(true, true);
-
                 // Undo the base Save() (density != 1). Guard Canvas.Handle: SkiaSharp may have
                 // zeroed it during GrContext teardown; RestoreToCount on a zero Handle SIGSEGVs.
                 if (_baseSaveCount >= 0 && Canvas is not null && Canvas.Handle != IntPtr.Zero)
@@ -163,7 +160,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
             }
             catch
             {
-                // Best-effort GPU-state cleanup; never abort disposal (or crash the finalizer thread) on it.
+                // Best-effort canvas-state cleanup; never abort disposal on a torn-down native canvas.
             }
 
             _sharedFillPaint.Dispose();
@@ -189,20 +186,15 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         _sharedFillPaint.IsAntialias = true;
 
         Canvas.DrawSurface(surface, point.X, point.Y, _sharedFillPaint);
-
-        surface.Flush(true, true);
     }
 
     public void DrawRenderTarget(RenderTarget renderTarget, Point point)
     {
-        // NOTE: renderTargetを保持しておいて次回Flushされたときに開放すると効率的
         renderTarget.VerifyAccess();
         _sharedFillPaint.Reset();
         _sharedFillPaint.IsAntialias = true;
 
         Canvas.DrawSurface(renderTarget.Value, point.X, point.Y, _sharedFillPaint);
-
-        renderTarget.Value.Flush(true, true);
     }
 
     // Draw a buffer into a logical destination rect (Mitchell resample).
@@ -213,8 +205,6 @@ public partial class ImmediateCanvas : IDisposable, IPopable
 
         using SKImage image = renderTarget.Value.Snapshot();
         DrawImageScaled(image, dest);
-
-        renderTarget.Value.Flush(true, true);
     }
 
     // Draw a pre-snapshotted image into a logical destination rect (Mitchell resample).
@@ -239,8 +229,6 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         var src = SKRect.Create(image.Width, image.Height);
         var dest = SKRect.Create((float)origin.X, (float)origin.Y, image.Width / scale, image.Height / scale);
         Canvas.DrawImage(image, src, dest, new SKSamplingOptions(SKCubicResampler.Mitchell), _sharedFillPaint);
-
-        surface.Flush(true, true);
     }
 
     public void DrawDrawable(Drawable.Resource drawable)

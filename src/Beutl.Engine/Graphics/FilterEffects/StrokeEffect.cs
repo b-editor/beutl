@@ -46,7 +46,7 @@ public partial class StrokeEffect : FilterEffect
         builder.Geometry(GeometryNodeDescriptor.Create(
             session => ApplyGeometry(session, data),
             BoundsContract.Create(rect => TransformBounds(data, rect), _ => inputBounds),
-            structuralToken: nameof(StrokeEffect)));
+            structuralToken: nameof(StrokeEffect), requiresReadback: true));
     }
 
     private static void ApplyGeometry(

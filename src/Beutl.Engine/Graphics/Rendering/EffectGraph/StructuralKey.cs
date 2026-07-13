@@ -60,25 +60,28 @@ internal readonly struct StructuralKey : IEquatable<StructuralKey>
             case GeometryNodeDescriptor geometry:
                 sb.Append("geometry:")
                     .Append(geometry.StructuralToken)
+                    .Append(',').Append(geometry.RequiresReadback ? '1' : '0')
                     .Append(',').Append(geometry.Bounds.StructuralIdentity.ToString(CultureInfo.InvariantCulture));
                 break;
 
             case ComputeNodeDescriptor compute:
                 // PassCount is topology (C3.6): it is in the key, so animating it recompiles exactly once.
-                // RequiresDepth is structural too — it decides the extra depth intermediate the resource plan
-                // declares (C3.3), so a depth toggle must not stale-hit a plan that under-declares it (C3/C5).
+                // Scratch maxima are structural: they determine the pass-scoped resource declarations (C3.3).
                 sb.Append("compute:")
                     .Append(compute.StructuralToken)
                     .Append(',').Append(compute.PassCount)
-                    .Append(',').Append(compute.RequiresDepth ? '1' : '0')
-                    .Append(',').Append((int)compute.Fallback);
+                    .Append(',').Append(compute.ColorScratchCount)
+                    .Append(',').Append(compute.DepthScratchCount)
+                    .Append(',').Append((int)compute.Fallback)
+                    .Append(',').Append(compute.CpuFallbackRequiresReadback ? '1' : '0');
                 break;
 
             case SplitNodeDescriptor split:
                 // Branch count is topology (C3.6); a dynamic split keys on its dynamic flag, not a runtime count.
                 sb.Append("split:")
                     .Append(split.StructuralToken)
-                    .Append(',').Append(split.IsDynamicOutputs ? "dyn" : split.BranchCount.ToString(CultureInfo.InvariantCulture));
+                    .Append(',').Append(split.IsDynamicOutputs ? "dyn" : split.BranchCount.ToString(CultureInfo.InvariantCulture))
+                    .Append(',').Append(split.RequiresReadback ? '1' : '0');
                 break;
 
             case CompositeNodeDescriptor composite:

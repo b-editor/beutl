@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics.Backend.Vulkan;
+﻿using Beutl.Graphics.Backend;
+using Beutl.Graphics.Backend.Vulkan;
 
 namespace Beutl.UnitTests.Engine.Graphics.Backend;
 
@@ -27,5 +28,31 @@ public class GpuDisposeBatchTests
                     "the batch's single drain stays available for a live-context texture destroyed later in the batch");
             });
         }
+    }
+
+    [Test]
+    public void VulkanTextureDispose_DrainThrows_StillReleasesNativeHandles()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var context = GraphicsContextFactory.SharedContext
+                ?? throw new InvalidOperationException("A graphics context is required.");
+            var texture = (VulkanTexture2D)context.CreateTexture2D(16, 16, TextureFormat.RGBA16Float);
+
+            GpuDisposeBatch.SetDrainFailureForTest(
+                static () => throw new InvalidOperationException("simulated context-loss drain failure"));
+            try
+            {
+                Assert.DoesNotThrow(texture.Dispose);
+                Assert.That(texture.NativeHandlesReleasedForTest, Is.True,
+                    "drain failure must not skip image-view, image, and memory teardown");
+            }
+            finally
+            {
+                GpuDisposeBatch.SetDrainFailureForTest(null);
+                texture.Dispose();
+            }
+        });
     }
 }

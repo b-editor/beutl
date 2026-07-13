@@ -11,13 +11,16 @@ using Beutl.Serialization;
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.EffectPipeline;
 
 /// <summary>
-/// Deterministic builders for the four O3 effect-pipeline scenes (contracts/observability.md O3):
+/// Strengthened post-redesign builders for the four O3 effect-pipeline scenes.
 /// ColorChain, MixedChain, SplitTree, HeavySource. All parameters and the procedural source bitmap use
 /// fixed values / a fixed seed so a render is reproducible across runs and machines. Each builder takes a
 /// frame <see cref="PixelSize"/>; the <see cref="Hd1080"/> / <see cref="Uhd4K"/> constants are the two
-/// benchmark variants, and <see cref="ReferenceSize"/> is the small size used to freeze parity references.
+/// benchmark variants, and <see cref="ReferenceSize"/> is the small size used to freeze review references.
+/// These deliberately use meaningful percentage-valued parameters. They are kept separate from
+/// <see cref="SceneFixtures"/>, whose exact inputs are frozen together with the pre-redesign
+/// <c>004-baseline</c> blobs and must never be rewritten to match the current implementation.
 /// </summary>
-internal static class SceneFixtures
+internal static class ReviewSceneFixtures
 {
     /// <summary>1920×1080 benchmark variant.</summary>
     public static readonly PixelSize Hd1080 = new(1920, 1080);
@@ -48,19 +51,19 @@ internal static class SceneFixtures
     {
         var group = new FilterEffectGroup();
         var gamma = new Gamma();
-        gamma.Amount.CurrentValue = 1.5f;
+        gamma.Amount.CurrentValue = 150f;
         group.Children.Add(gamma);
         var hue = new HueRotate();
         hue.Angle.CurrentValue = 90f;
         group.Children.Add(hue);
         var saturate = new Saturate();
-        saturate.Amount.CurrentValue = 1.4f;
+        saturate.Amount.CurrentValue = 140f;
         group.Children.Add(saturate);
         var brightness = new Brightness();
-        brightness.Amount.CurrentValue = 1.2f;
+        brightness.Amount.CurrentValue = 120f;
         group.Children.Add(brightness);
         var invert = new Invert();
-        invert.Amount.CurrentValue = 1f;
+        invert.Amount.CurrentValue = 100f;
         group.Children.Add(invert);
 
         return GradientShape(size, group);
@@ -74,10 +77,10 @@ internal static class SceneFixtures
         blur.Sigma.CurrentValue = new Size(6, 6);
         group.Children.Add(blur);
         var gamma = new Gamma();
-        gamma.Amount.CurrentValue = 1.4f;
+        gamma.Amount.CurrentValue = 140f;
         group.Children.Add(gamma);
         var invert = new Invert();
-        invert.Amount.CurrentValue = 1f;
+        invert.Amount.CurrentValue = 100f;
         group.Children.Add(invert);
         var dropShadow = new DropShadow();
         dropShadow.Position.CurrentValue = new Point(8, 8);
@@ -102,7 +105,7 @@ internal static class SceneFixtures
         split.VerticalSpacing.CurrentValue = 10;
 
         var saturate = new Saturate();
-        saturate.Amount.CurrentValue = 1.5f;
+        saturate.Amount.CurrentValue = 150f;
 
         var group = new FilterEffectGroup();
         group.Children.Add(split);
@@ -117,12 +120,12 @@ internal static class SceneFixtures
     {
         var group = new FilterEffectGroup();
         var gamma = new Gamma();
-        gamma.Amount.CurrentValue = 1.3f;
+        gamma.Amount.CurrentValue = 130f;
         group.Children.Add(gamma);
         group.Children.Add(new Invert());
         var grading = new ColorGrading();
-        grading.Contrast.CurrentValue = 1.2f;
-        grading.Saturation.CurrentValue = 1.3f;
+        grading.Contrast.CurrentValue = 20f;
+        grading.Saturation.CurrentValue = 30f;
         group.Children.Add(grading);
 
         var imageSource = new ImageSource();

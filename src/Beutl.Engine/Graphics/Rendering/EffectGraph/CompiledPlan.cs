@@ -47,7 +47,7 @@ internal abstract record CompiledPass
     /// </summary>
     internal Func<Rect, Rect> ForwardBounds { get; init; } = static r => r;
 
-    /// <summary>Set when this pass reads a resource last written by the other backend (C4.2); the only place the executor syncs.</summary>
+    /// <summary>Set when this pass reads a resource last written by the other backend (C4.2).</summary>
     public bool SyncBefore { get; init; }
 
     /// <summary>Set when the output count is resolved at execution time (contour-based part splitting); exempt from the static peak-live bound (C3.5).</summary>
@@ -125,7 +125,7 @@ internal sealed record SkiaFilterPass(ImmutableArray<Func<SKImageFilter?, SKImag
 /// opens a bracketed canvas over a pooled output target, and invokes <see cref="Render"/> with a
 /// <see cref="GeometrySession"/>. One draw = one output; never fused.
 /// </summary>
-internal sealed record GeometryPass(Action<GeometrySession> Render) : CompiledPass
+internal sealed record GeometryPass(Action<GeometrySession> Render, bool RequiresReadback) : CompiledPass
 {
     /// <inheritdoc/>
     public override PassBackend Backend => PassBackend.Skia;
@@ -140,9 +140,11 @@ internal sealed record GeometryPass(Action<GeometrySession> Render) : CompiledPa
 internal sealed record ComputePass(
     Action<IComputeContext> Dispatch,
     int PassCount,
-    bool RequiresDepth,
+    int ColorScratchCount,
+    int DepthScratchCount,
     ComputeFallback Fallback,
-    Action<GeometrySession>? CpuCallback) : CompiledPass
+    Action<GeometrySession>? CpuCallback,
+    bool CpuFallbackRequiresReadback) : CompiledPass
 {
     /// <inheritdoc/>
     public override PassBackend Backend => PassBackend.Vulkan;
@@ -153,7 +155,7 @@ internal sealed record ComputePass(
 /// allocates from the pool. <see cref="BranchCount"/> is the structural static count (0 for a dynamic split,
 /// which sets <see cref="CompiledPass.IsDynamicOutputs"/>). Fusion never crosses a split.
 /// </summary>
-internal sealed record SplitPass(Action<ISplitEmitter> Render, int BranchCount) : CompiledPass
+internal sealed record SplitPass(Action<ISplitEmitter> Render, int BranchCount, bool RequiresReadback) : CompiledPass
 {
     /// <inheritdoc/>
     public override PassBackend Backend => PassBackend.Skia;
@@ -196,7 +198,10 @@ internal sealed record NestedGraphPass(Action<EffectGraphBuilder, int> DescribeB
 /// <summary>
 /// A custom-render-node pass (feature 004): the executor drives an effect's custom
 /// <see cref="FilterEffectRenderNode"/> as one node of this plan — it hands the current ops to the child node's
-/// <see cref="RenderNode.Process"/> (threading the shared diagnostics/pool) and feeds the returned ops onward. Its
+/// <see cref="RenderNode.Process"/> (threading the shared diagnostics/pool and cache policy) and feeds the returned
+/// ops onward. The child receives a full requested region because this opaque pass has no compiler-visible backward
+/// bounds contract; forwarding the outer crop could clip pixels needed by a later expanding pass. The executor keeps
+/// the child node alive until every returned operation is disposed, so deferred rendering may use node-owned state. Its
 /// outputs are execution-time-resolved (<see cref="CompiledPass.IsDynamicOutputs"/>), so it terminates fusion and
 /// the C10 prefix and is exempt from the static peak-live bound; the work it drives counts on the shared
 /// <see cref="PipelineDiagnostics"/> like every other pass (C8). <see cref="NodeType"/> is part of the structural

@@ -103,6 +103,19 @@ public class CustomRenderNodeEffectInGraphTests
             "the capturable-pass predicate only ever matches Fused/Skia passes, so the custom pass ends the prefix");
     }
 
+    [Test]
+    public void RenderNodeFactory_RejectsDeclaredTypeThatDiffersFromCreatedType()
+    {
+        var effect = new ProbeCustomNodeEffect(new int[1]);
+        using var resource = (ProbeCustomNodeEffect.Resource)effect.ToResource(CompositionContext.Default);
+        FilterEffectRenderNodeFactory factory =
+            FilterEffectRenderNodeFactory.Of<FilterEffectRenderNode>(
+                static r => new ProbeRenderNode((ProbeCustomNodeEffect.Resource)r));
+
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => factory.Create(resource));
+        Assert.That(error.Message, Does.Contain(nameof(ProbeRenderNode)).And.Contain("concrete node type"));
+    }
+
     // ---- Executor (GPU-free, raster) -------------------------------------------------------------------
 
     // Proves the CustomRenderNodePass genuinely drives the child render node (the probe counter increments) and threads
@@ -170,6 +183,48 @@ public class CustomRenderNodeEffectInGraphTests
             maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool));
         Assert.That(pool.LiveLeaseCount, Is.EqualTo(0),
             "a factory throw must release the upstream pass output fed to the custom node (no pooled-lease leak)");
+    }
+
+    [Test]
+    public void Execute_CustomRenderNode_KeepsNodeAliveAndForwardsExecutionPolicyUntilOutputsDispose()
+    {
+        var disposed = new bool[1];
+        var observedCache = new bool[1];
+        var observedRoi = new Rect[1];
+        var requested = new Rect(12, 8, 40, 30);
+        var group = new FilterEffectGroup();
+        group.Children.Add(new LifetimeProbeCustomNodeEffect(disposed, observedCache, observedRoi));
+
+        CompiledPlan plan = CompileGroup(group);
+        FrameResources res = EffectGraphCompiler.ResolveResources(plan, requested, workingScale: 1f);
+        RenderNodeOperation[] outputs = PlanExecutor.Execute(
+            plan, res, [MakeInput(s_bounds)], outputScale: 1f, workingScale: 1f,
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null,
+            isRenderCacheEnabled: false);
+        try
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(disposed[0], Is.False,
+                    "the node must stay alive while its lazily-rendered operation can reference node-owned state");
+                Assert.That(observedCache[0], Is.False,
+                    "an embedded node inherits the caller's render-cache policy");
+                Assert.That(observedRoi[0].IsInvalid, Is.True,
+                    "an opaque embedded node must receive a conservative full-input request; forwarding the outer "
+                    + "crop could clip pixels needed by a later expanding pass");
+            });
+
+            using Bitmap rendered = Rasterize(outputs[0]);
+            Assert.That(rendered.Width, Is.GreaterThan(0),
+                "rendering the returned operation succeeds before its owning node is released");
+        }
+        finally
+        {
+            RenderNodeOperation.DisposeAll(outputs);
+        }
+
+        Assert.That(disposed[0], Is.True,
+            "disposing the last returned operation releases the embedded custom node exactly then");
     }
 
     // ---- Plan cache / structural key -------------------------------------------------------------------
@@ -612,6 +667,59 @@ internal sealed class ThrowingRenderNode(FilterEffect.Resource resource) : Filte
 {
     public override RenderNodeOperation[] Process(RenderNodeContext context)
         => throw new InvalidOperationException("custom child render node failed");
+}
+
+[SuppressResourceClassGeneration]
+internal sealed partial class LifetimeProbeCustomNodeEffect(
+    bool[] disposed, bool[] observedCache, Rect[] observedRoi) : CustomRenderNodeFilterEffect
+{
+    public override Resource ToResource(CompositionContext context)
+    {
+        var resource = new Resource(disposed, observedCache, observedRoi);
+        bool updateOnly = false;
+        resource.Update(this, context, ref updateOnly);
+        return resource;
+    }
+
+    public new sealed class Resource(bool[] disposed, bool[] observedCache, Rect[] observedRoi)
+        : FilterEffect.Resource
+    {
+        public bool[] Disposed => disposed;
+        public bool[] ObservedCache => observedCache;
+        public Rect[] ObservedRoi => observedRoi;
+
+        public override FilterEffectRenderNodeFactory RenderNodeFactory
+            => FilterEffectRenderNodeFactory.Of(static r => new LifetimeProbeRenderNode((Resource)r));
+    }
+}
+
+internal sealed class LifetimeProbeRenderNode(LifetimeProbeCustomNodeEffect.Resource resource)
+    : FilterEffectRenderNode(resource)
+{
+    private bool _disposed;
+
+    public override RenderNodeOperation[] Process(RenderNodeContext context)
+    {
+        resource.ObservedCache[0] = context.IsRenderCacheEnabled;
+        resource.ObservedRoi[0] = context.RequestedBounds;
+        RenderNodeOperation input = context.Input[0];
+        return
+        [
+            RenderNodeOperation.CreateDecorator(input, canvas =>
+            {
+                if (_disposed)
+                    throw new ObjectDisposedException(nameof(LifetimeProbeRenderNode));
+                input.Render(canvas);
+            }),
+        ];
+    }
+
+    protected override void OnDispose(bool disposing)
+    {
+        _disposed = true;
+        resource.Disposed[0] = true;
+        base.OnDispose(disposing);
+    }
 }
 
 // A custom-render-node effect whose render-node FACTORY throws (Create fails before any node exists), to exercise the

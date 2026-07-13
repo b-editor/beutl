@@ -78,15 +78,18 @@ public sealed class EffectGraphBuilder : IDisposable
     /// (full-frame, always correct — a script author rarely can declare exact bounds at describe time). The callback
     /// receives a <see cref="GeometrySession"/> over a freshly-cleared pooled output buffer; to keep the pass input
     /// as a passthrough baseline, draw <c>session.Inputs[0]</c> into the canvas first. Pass an explicit
-    /// <paramref name="bounds"/> contract when the geometry's extent is known. This is the ergonomic overload C#
-    /// script effects author custom drawing through; a compiled effect that knows its bounds uses
+    /// <paramref name="bounds"/> contract when the geometry's extent is known, and set
+    /// <paramref name="requiresReadback"/> when the callback calls <see cref="EffectInput.Snapshot"/>. This is the
+    /// ergonomic overload C# script effects author custom drawing through; a compiled effect that knows its bounds uses
     /// <see cref="Geometry(GeometryNodeDescriptor)"/> with an explicit descriptor instead.
     /// </summary>
     public EffectGraphBuilder Geometry(
-        Action<GeometrySession> render, BoundsContract? bounds = null, object? structuralToken = null)
+        Action<GeometrySession> render, BoundsContract? bounds = null, object? structuralToken = null,
+        bool requiresReadback = false)
     {
         ArgumentNullException.ThrowIfNull(render);
-        return Append(GeometryNodeDescriptor.Create(render, bounds ?? BoundsContract.RenderTime, structuralToken));
+        return Append(GeometryNodeDescriptor.Create(
+            render, bounds ?? BoundsContract.RenderTime, structuralToken, requiresReadback));
     }
 
     /// <summary>Appends a Vulkan compute node (GLSL pass set, ping-pong/depth, declared no-Vulkan fallback).</summary>
@@ -123,13 +126,12 @@ public sealed class EffectGraphBuilder : IDisposable
     /// render node as one node of this graph, materializing the current ops as its input. This is what lets such an
     /// effect be embedded anywhere a container walks its children (a group, a delay-animation branch).
     /// <para>
-    /// The embedded child render node is constructed per frame, not persisted, and is DISPOSED as soon as its
-    /// <c>Process</c> returns — before the operations it returned are consumed by later passes — so instance-level
-    /// caches held on a custom node do not survive across frames when the effect is embedded in a graph (top-level
-    /// usage, which renders through the effect's own persistent <see cref="Rendering.FilterEffectRenderNode"/>, keeps
-    /// them), and the returned operations must be self-contained: they own their targets and must not reference
-    /// node-owned state. Keep render caches on graph-model resources instead of on the node — the canonical
-    /// <c>NodeGraphFilterEffect</c> does exactly this and is unaffected.
+    /// The embedded child render node is constructed once per execution, not persisted across frames. It remains
+    /// alive through reference-counted wrappers around all operations returned by <c>Process</c>, and is disposed
+    /// after the last returned operation is disposed. Those operations may therefore reference node-owned state
+    /// during the same execution. Long-lived render caches must still live on persisted graph-model resources;
+    /// top-level effects instead render through their own persistent
+    /// <see cref="Rendering.FilterEffectRenderNode"/>.
     /// </para>
     /// </summary>
     public EffectGraphBuilder CustomRenderNode(FilterEffect.Resource child)

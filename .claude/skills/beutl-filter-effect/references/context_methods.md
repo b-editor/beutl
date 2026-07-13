@@ -106,24 +106,29 @@ The `SKImageFilter?` argument is the upstream filter (chain input). Adjacent Ski
 ```csharp
 GeometryNodeDescriptor.Create(
     Action<GeometrySession> render, BoundsContract bounds,
-    object? structuralToken = null)                       // bounds MANDATORY
+    object? structuralToken = null,
+    bool requiresReadback = false)                        // bounds MANDATORY
 ```
-The sole descriptor that carries a rendering callback. Never fused, always its own pass.
+The sole descriptor that carries a rendering callback. Never fused, always its own pass. Set `requiresReadback` when the callback calls `EffectInput.Snapshot()`; undeclared readback is rejected.
 
 ### Compute (GLSL)
 ```csharp
 ComputeNodeDescriptor.Create(
     Action<IComputeContext> dispatch, int passCount, ComputeFallback fallback,
-    bool requiresDepth = true, Action<GeometrySession>? cpuCallback = null,
-    object? structuralToken = null)                        // fallback MANDATORY
+    int colorScratchCount = 0, int depthScratchCount = 0,
+    Action<GeometrySession>? cpuCallback = null,
+    object? structuralToken = null,
+    bool cpuFallbackRequiresReadback = false)              // fallback MANDATORY
 ```
-`fallback` (`Identity` / `Skip` / a CPU callback) is applied when Vulkan is unavailable so GPU-less CI passes.
+`fallback` (`Identity` / `Skip` / a CPU callback) is applied when Vulkan is unavailable so GPU-less CI passes. Scratch counts are maximum concurrent acquisitions and are enforced at runtime. Set `cpuFallbackRequiresReadback` when the CPU callback snapshots its input.
 
 ### Split / Composite
 ```csharp
-SplitNodeDescriptor.Static(Action<ISplitEmitter> emit, int branchCount, object? structuralToken = null)
+SplitNodeDescriptor.Static(
+    Action<ISplitEmitter> emit, int branchCount, object? structuralToken = null,
+    bool requiresReadback = false)
 ```
-`emitter.Emit(tileBounds, session => { ... })` schedules a branch. Fusion never crosses a split.
+`emitter.Emit(tileBounds, session => { ... })` schedules a branch. Fusion never crosses a split. Set `requiresReadback` when the emitter snapshots `emitter.Input`.
 
 ---
 
@@ -145,7 +150,7 @@ Rect          input.Bounds
 EffectiveScale input.Density
 PixelSize     input.DeviceSize
 SKShader       input.AsShader()
-Bitmap         input.Snapshot()            // dispose it
+Bitmap         input.Snapshot()            // dispose it; descriptor must declare readback
 void           input.Draw(ImmediateCanvas canvas, Point devicePoint)
 void           input.Draw(ImmediateCanvas canvas)
 ```

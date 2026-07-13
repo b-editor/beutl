@@ -318,6 +318,8 @@ public sealed partial class PixelSortEffect : FilterEffect
             ctx => Dispatch(data, ctx),
             passCount: 3,
             ComputeFallback.Identity,
+            colorScratchCount: 2,
+            depthScratchCount: 1,
             structuralToken: nameof(PixelSortEffect)));
     }
 

@@ -39,7 +39,7 @@ public class ComputeInputScaleBasisTests
                 },
                 passCount: 1,
                 ComputeFallback.Identity,
-                requiresDepth: false);
+                depthScratchCount: 0);
 
             var builder = new EffectGraphBuilder(describeBounds, outputScale: 1f, workingScale: 1f);
             builder.Compute(descriptor);

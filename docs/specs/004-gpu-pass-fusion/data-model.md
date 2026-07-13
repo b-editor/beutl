@@ -38,8 +38,8 @@ Per kind:
 - **`ShaderNodeDescriptor`**: `SkslSource source` (snippet or whole-source; identity-hashable), `bool IsCoordinateInvariant`, `UniformBinding[] Uniforms`, `ChildBinding[] Children` (every named child shader bound beyond the implicit `src`: a LUT/curve *sampler* — an eager, invariance-safe value lookup — or a whole-source shader's displacement map; there is one binding type, not a separate `SamplerBinding`). Snippet form must define `half4 apply(half4 c)`; whole-source form must define `half4 main(float2 coord)` with a `src` child (today's `SKSLShader` convention). **Color/alpha contract**: shaders receive and return **premultiplied-alpha, linear-light** `half4` (the working surface is RGBA16F / `SrgbLinear` / `Premul`); a snippet needing straight alpha unpremultiplies and re-premultiplies internally, exactly as today's `Gamma`/`Curves`/`LutEffect` SKSL does. Fused composition never changes representation between stages.
 - **`ColorFilterNodeDescriptor`**: `Func<SKColorFilter>`-style factory + captured data record; always coordinate-invariant.
 - **`SkiaFilterNodeDescriptor`**: `SKImageFilter` factory + captured data record; forward/backward bounds functions (backward defaults to forward's inverse-inflation; may return Unbounded).
-- **`ComputeNodeDescriptor`**: GLSL source set (or precompiled pipeline handle), `int PassCount` (**structural**), ping-pong flag, depth-texture requirement, push-constant writer, declared fallback behavior when `Supports3DRendering == false` (`Identity` | `Skip` | `CpuCallback`).
-- **`GeometryNodeDescriptor`**: `Action<GeometrySession>` callback, explicit `BoundsContract` (mandatory — no default), input count.
+- **`ComputeNodeDescriptor`**: GLSL source set (or precompiled pipeline handle), `int PassCount` (**structural**), exact maximum concurrent color/depth scratch counts (**structural and runtime-enforced**), push-constant writer, declared fallback behavior when `Supports3DRendering == false` (`Identity` | `Skip` | `CpuCallback`), and whether that CPU fallback requires readback.
+- **`GeometryNodeDescriptor`**: `Action<GeometrySession>` callback, explicit `BoundsContract` (mandatory — no default), and an explicit CPU-readback requirement.
 - **`SplitNodeDescriptor` / `CompositeNodeDescriptor`**: branch count (**structural**) / composite operation (blend mode, per-input offsets).
 - **`CustomRenderNodeDescriptor`**: a child `FilterEffect.Resource` whose execution lives in a custom `FilterEffectRenderNode`. Structural identity = the child's `RenderNodeFactory.NodeType` + the child resource's **stable identity token** (`FilterEffect.Resource.StructuralId`, a collision-free per-instance id; a swap or type change recompiles); the child's `Resource.Version` is a per-frame parameter. Render-time bounds, never coordinate-invariant. Appended via `EffectGraphBuilder.CustomRenderNode` (the sealed `Describe` of the `CustomRenderNodeFilterEffect` base); the executor drives the child render node as one plan node (execution-plan §C3.6). This is how an effect whose work is not describable (`NodeGraphFilterEffect`) is embedded in a group/delay-animation.
 
@@ -54,7 +54,7 @@ Per kind:
 
 ### `EffectInput` (public)
 
-Read-only view of a pass input: logical `Bounds`, `EffectiveScale Density`, `SKShader AsShader()`, texture handle for compute passes.
+Read-only view of a pass input: logical `Bounds`, `EffectiveScale Density`, `SKShader AsShader()`, `Bitmap Snapshot()` for descriptor-declared CPU readback, texture handle for compute passes.
 
 ## 2. Bounds & ROI contract
 
@@ -95,7 +95,7 @@ Hash accumulated over: node kinds + topology (branch structure), shader-source i
 - **`GeometryPass`**: session callback ref, inputs, output, ROI.
 - **`CompositePass` / split edges**: composite op + input refs.
 - **`NestedGraphPass`**: per-branch describe callback; the executor re-describes, compiles, and recursively runs a child graph per branch index (dynamic-output).
-- **`CustomRenderNodePass`**: a child `FilterEffect.Resource` + its render-node `Type`; the executor drives the child's custom `FilterEffectRenderNode` as one node of the plan (render-time-resolved, dynamic-output). The declarative home for an effect whose execution lives in a custom render node (`NodeGraphFilterEffect`), so it can be embedded in a group/delay-animation. See execution-plan §C3.6.
+- **`CustomRenderNodePass`**: a child `FilterEffect.Resource` + its render-node `Type`; the executor drives the child's custom `FilterEffectRenderNode` as one node of the plan (render-time-resolved, dynamic-output). The child inherits cache policy and shared diagnostics/pool, remains alive until its returned operations are disposed, and receives a conservative full request because the opaque pass has no compiler-visible backward bounds contract. The declarative home for an effect whose execution lives in a custom render node (`NodeGraphFilterEffect`), so it can be embedded in a group/delay-animation. See execution-plan §C3.6.
 - **`OpaqueLegacyPass`** (transition-only, rollout steps 3–5): wraps an unmigrated effect's legacy item list and executes it via the retained (internal-only) activator machinery; deleted with the bridge in step 6.
 - Common: `Backend` (Skia | Vulkan), `SyncBefore` flags (computed at schedule time: set only at backend transitions — D5), `IsDynamicOutputs` (execution-time-resolved output count; executor-owned pooled allocation, exempt from the static peak-live bound, counted and leak-checked).
 
@@ -141,7 +141,7 @@ Per-frame values bound into `ParameterSlots`: uniform floats/vectors/matrices, `
 
 ### `PipelineDiagnostics` (per renderer/processor)
 
-Counters (`long`): `GpuPasses`, `TargetAllocations`, `PoolAcquires`, `PoolMisses`, `FullFrameMaterializations`, `FlushSyncs`, `PlanCompilations`, `ProgramCreations`. `Snapshot()` returns an immutable struct; `Reset()` for test scoping. Always-on field increments (D9).
+Counters (`long`): `GpuPasses`, `TargetAllocations`, `PoolAcquires`, `PoolMisses`, `FullFrameMaterializations`, `FlushSyncs`, `PlanCompilations`, `ProgramCreations`. The public read surface consists of get-only counters plus `Snapshot()`, which returns an immutable struct. Counter mutation and `Reset()` are engine-internal; tests reach `Reset()` through `InternalsVisibleTo`. Always-on field increments (D9).
 
 ## 6. State transitions
 

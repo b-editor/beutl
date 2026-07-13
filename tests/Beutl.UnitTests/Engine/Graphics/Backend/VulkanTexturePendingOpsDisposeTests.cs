@@ -47,7 +47,9 @@ public class VulkanTexturePendingOpsDisposeTests
                 context.CreateTexture2D(256, 256, TextureFormat.RGBA16Float).Dispose();
             }
 
-            // Executes the orphaned ops; without the Dispose-side drain they render into freed memory.
+            // Executes any orphaned ops explicitly; ImmediateCanvas.Dispose intentionally performs no implicit
+            // per-draw synchronization after FR-008 centralization.
+            GraphicsContextFactory.SharedContext!.SkiaContext.Flush(submit: true, synchronous: true);
             canvas.Dispose();
         });
         Assert.Pass();

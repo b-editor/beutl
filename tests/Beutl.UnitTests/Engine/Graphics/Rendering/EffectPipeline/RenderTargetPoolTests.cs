@@ -177,10 +177,18 @@ public class RenderTargetPoolTests
             pool.Trim(1);
             pool.Acquire(W, H + 4)!.Dispose();   // newer, stamped frame 1, pushes over the cap
 
+            Assert.That(pool.IdleCount, Is.EqualTo(2),
+                "the soft cap is deferred until frame-boundary Trim so return-path eviction can be batched");
+
+            GpuDisposeBatch.ResetFlushCountForTest();
+            pool.Trim(2);
+
             Assert.Multiple(() =>
             {
                 Assert.That(pool.IdleCount, Is.EqualTo(1), "the LRU buffer was evicted to stay under the cap");
                 Assert.That(pool.IdleBytes, Is.LessThanOrEqualTo(12000L));
+                Assert.That(GpuDisposeBatch.FlushCount, Is.LessThanOrEqualTo(1),
+                    "all byte-cap evictions at the frame boundary share at most one GPU drain");
             });
 
             // The survivor is the newer (H+4) bucket: reacquiring it hits, reacquiring the evicted one misses.

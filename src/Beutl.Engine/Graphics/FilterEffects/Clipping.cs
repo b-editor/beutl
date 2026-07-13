@@ -89,7 +89,7 @@ public sealed partial class Clipping : FilterEffect
         builder.Geometry(GeometryNodeDescriptor.Create(
             session => ApplyGeometry(session, thickness, autoCenter, autoClip),
             bounds,
-            structuralToken: nameof(Clipping)));
+            structuralToken: nameof(Clipping), requiresReadback: autoClip));
     }
 
     // Reproduces the legacy Apply layout: the buffer occupies TargetBounds (recentered when AutoCenter), while the

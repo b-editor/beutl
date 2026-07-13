@@ -99,7 +99,8 @@ internal sealed class PlanFilterEffectRenderNode(FilterEffect.Resource filterEff
 
         return PlanExecutor.Execute(
             plan, resources, context.Input, context.OutputScale, workingScale, context.MaxWorkingScale,
-            context.Diagnostics, context.Pool);
+            context.Diagnostics, context.Pool,
+            isRenderCacheEnabled: context.IsRenderCacheEnabled);
     }
 
     // Skips the retained prefix's passes: the cached buffer seeds the pass after it, so passes 0..k neither draw nor
@@ -116,7 +117,8 @@ internal sealed class PlanFilterEffectRenderNode(FilterEffect.Resource filterEff
             decision.SeedBounds, decision.SeedBounds.Position, decision.SeedTarget!.ShallowCopy(), decision.SeedScale);
         return PlanExecutor.Execute(
             plan, resources, [seed], context.OutputScale, workingScale, context.MaxWorkingScale,
-            context.Diagnostics, context.Pool, startPass: decision.Pass);
+            context.Diagnostics, context.Pool, startPass: decision.Pass,
+            isRenderCacheEnabled: context.IsRenderCacheEnabled);
     }
 
     // Full execution that additionally retains the capture pass's output for subsequent frames to resume from.
@@ -129,7 +131,8 @@ internal sealed class PlanFilterEffectRenderNode(FilterEffect.Resource filterEff
         {
             result = PlanExecutor.Execute(
                 plan, resources, context.Input, context.OutputScale, workingScale, context.MaxWorkingScale,
-                context.Diagnostics, context.Pool, startPass: 0, captureSink: sink);
+                context.Diagnostics, context.Pool, startPass: 0, captureSink: sink,
+                isRenderCacheEnabled: context.IsRenderCacheEnabled);
         }
         catch
         {

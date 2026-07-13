@@ -37,10 +37,9 @@ public sealed class PipelineDiagnostics
     public long FullFrameMaterializations { get; internal set; }
 
     /// <summary>
-    /// C8: each schedule-level backend transition (C4.2, a pass whose <c>SyncBefore</c> is set). Counted by the
-    /// plan executor, not inside <see cref="RenderTarget"/>, because <see cref="RenderTarget.PrepareForSampling"/> /
-    /// <see cref="RenderTarget.BeginDraw"/> also fire for non-effect surfaces (root draw, snapshot readback) and
-    /// for the per-draw flushes Skia itself performs inside a pass.
+    /// C8: each executor-owned synchronous boundary: a schedule-level backend transition (<c>SyncBefore</c>) or
+    /// one descriptor-declared CPU readback. Root presentation/readback is outside the effect plan and is not
+    /// counted; same-backend canvas draws do not flush.
     /// </summary>
     public long FlushSyncs { get; internal set; }
 

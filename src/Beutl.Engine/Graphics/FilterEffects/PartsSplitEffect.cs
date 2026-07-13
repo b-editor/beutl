@@ -13,7 +13,8 @@ public partial class PartsSplitEffect : FilterEffect
     {
         // The part count is contour-discovered at execution time — a dynamic-outputs split (C3.5): the executor
         // allocates each part's pooled target at runtime, counts it, and releases it within the frame.
-        builder.Split(SplitNodeDescriptor.Dynamic(EmitParts, structuralToken: nameof(PartsSplitEffect)));
+        builder.Split(SplitNodeDescriptor.Dynamic(
+            EmitParts, structuralToken: nameof(PartsSplitEffect), requiresReadback: true));
     }
 
     private static void EmitParts(ISplitEmitter emitter)

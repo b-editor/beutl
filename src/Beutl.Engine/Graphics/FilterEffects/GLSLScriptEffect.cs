@@ -100,6 +100,7 @@ public sealed partial class GLSLScriptEffect : FilterEffect, IScriptCompilableEf
             },
             passCount: 1,
             ComputeFallback.Identity,
+            depthScratchCount: 1,
             structuralToken: nameof(GLSLScriptEffect)));
     }
 

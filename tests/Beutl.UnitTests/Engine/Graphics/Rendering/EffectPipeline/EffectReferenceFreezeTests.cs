@@ -91,8 +91,8 @@ public class EffectReferenceFreezeTests
         yield return Case("PixelSortEffect", () =>
         {
             var e = new PixelSortEffect();
-            e.ThresholdMin.CurrentValue = 20f;
-            e.ThresholdMax.CurrentValue = 80f;
+            e.ThresholdMin.CurrentValue = 0.2f;
+            e.ThresholdMax.CurrentValue = 0.8f;
             return e;
         }, requiresCompute: true);
     }
@@ -115,6 +115,34 @@ public class EffectReferenceFreezeTests
     public void Chain_FreezesOrMatchesReference(string name, Func<Drawable.Resource> makeScene)
     {
         Freeze($"chain-{name}", makeScene, requiresCompute: false);
+    }
+
+    public static IEnumerable<TestCaseData> ReviewChainScenes()
+    {
+        foreach (string scene in ReviewSceneFixtures.SceneNames)
+        {
+            yield return new TestCaseData(
+                    scene,
+                    (Func<Drawable.Resource>)(() =>
+                        ReviewSceneFixtures.Build(scene, ReviewSceneFixtures.ReferenceSize)))
+                .SetName($"ReviewChain_{scene}");
+        }
+    }
+
+    [TestCaseSource(nameof(ReviewChainScenes))]
+    public void StrengthenedChain_MatchesReviewReference(string name, Func<Drawable.Resource> makeScene)
+    {
+        FreezeReview($"chain-{name}", makeScene, requiresCompute: false);
+    }
+
+    [Test]
+    public void StrengthenedPixelSort_MatchesReviewReference()
+    {
+        FreezeReview("effect-PixelSortEffect", () => MakeShape(() => new PixelSortEffect
+        {
+            ThresholdMin = { CurrentValue = 20f },
+            ThresholdMax = { CurrentValue = 80f },
+        }), requiresCompute: true);
     }
 
     // NodeGraphFilterEffect never flows through the shape FilterEffect path the same way; build the graph
@@ -169,6 +197,20 @@ public class EffectReferenceFreezeTests
         {
             using Bitmap actual = GoldenImageHarness.RenderAtScale(makeResource(), SceneFixtures.ReferenceSize, 1f);
             GoldenReferenceStore.FreezeOrAssert(Category, name, actual);
+        });
+    }
+
+    private static void FreezeReview(string name, Func<Drawable.Resource> makeResource, bool requiresCompute)
+    {
+        var context = VulkanTestEnvironment.EnsureAvailable();
+        if (requiresCompute)
+            VulkanTestEnvironment.RequireComputeCapable(context, name);
+
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using Bitmap actual = GoldenImageHarness.RenderAtScale(
+                makeResource(), ReviewSceneFixtures.ReferenceSize, 1f);
+            GoldenReferenceStore.FreezeOrAssert("004-review", name, actual);
         });
     }
 

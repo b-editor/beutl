@@ -63,7 +63,7 @@ public abstract partial class FilterEffect : EngineObject
             return context.PushNode(
                 this,
                 factory.NodeType,
-                factory.NodeConstructor,
+                factory.Create,
                 static (node, resource) => node.Update(resource));
         }
     }

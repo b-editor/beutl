@@ -5,6 +5,7 @@ using Beutl.Graphics.Backend;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
+using Beutl.UnitTests.Engine.Graphics.Backend;
 using Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 using SkiaSharp;
 
@@ -461,26 +462,79 @@ half4 apply(half4 c) {
         Assert.That(blur.Key, Is.Not.EqualTo(dilate.Key));
     }
 
-    // B3: RequiresDepth is structural — it decides whether the resource plan declares an extra depth intermediate
+    // B3: DepthScratchCount is structural — it decides how many depth intermediates the resource plan declares
     // (C3.3). Two computes identical in every other structural field must key differently so a depth toggle can
     // never stale-hit a plan that under-declares the depth attachment (C3/C5).
     [Test]
-    public void StructuralKey_ComputeRequiresDepthDiffers_ProducesDifferentKey()
+    public void StructuralKey_ComputeDepthScratchCountDiffers_ProducesDifferentKey()
     {
         var bounds = new Rect(0, 0, 100, 100);
 
-        static ComputeNodeDescriptor Compute(bool requiresDepth) => ComputeNodeDescriptor.Create(
-            static _ => { }, passCount: 1, ComputeFallback.Identity, requiresDepth: requiresDepth,
+        static ComputeNodeDescriptor Compute(bool usesDepthScratch) => ComputeNodeDescriptor.Create(
+            static _ => { }, passCount: 1, ComputeFallback.Identity,
+            depthScratchCount: usesDepthScratch ? 1 : 0,
             structuralToken: "depth-key");
 
-        using EffectGraph withDepth = NewBuilder(bounds).Compute(Compute(requiresDepth: true)).Build();
-        using EffectGraph withoutDepth = NewBuilder(bounds).Compute(Compute(requiresDepth: false)).Build();
+        using EffectGraph withDepth = NewBuilder(bounds).Compute(Compute(usesDepthScratch: true)).Build();
+        using EffectGraph withoutDepth = NewBuilder(bounds).Compute(Compute(usesDepthScratch: false)).Build();
 
         Assert.That(StructuralKey.Compute(withDepth), Is.Not.EqualTo(StructuralKey.Compute(withoutDepth)),
             "toggling the structural depth requirement must change the structural key");
     }
 
     // ---- Resource plan (peak-live) ----------------------------------------------------------------------
+
+    [Test]
+    public void ResourcePlan_ComputeDeclaresExactScratchMaxima()
+    {
+        var bounds = new Rect(0, 0, 100, 100);
+        var descriptor = ComputeNodeDescriptor.Create(
+            static _ => { }, passCount: 4, ComputeFallback.Identity,
+            colorScratchCount: 3, depthScratchCount: 2, structuralToken: "scratch-shape");
+        CompiledPlan plan = Compile(NewBuilder(bounds).Compute(descriptor));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(plan.Resources.Intermediates.Count(x => x.Format == TextureFormat.RGBA16Float),
+                Is.EqualTo(5), "materialized input + three declared color scratch + final output");
+            Assert.That(plan.Resources.Intermediates.Count(x => x.Format == TextureFormat.Depth32Float),
+                Is.EqualTo(2), "the exact declared depth scratch maximum is represented");
+            Assert.That(plan.Resources.PeakLiveCount, Is.EqualTo(7));
+        });
+    }
+
+    [Test]
+    public void Execute_ComputeAcquireBeyondDeclaration_ThrowsAndReleasesLeases()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var bounds = new Rect(0, 0, 32, 32);
+            var descriptor = ComputeNodeDescriptor.Create(
+                ctx =>
+                {
+                    ctx.AcquireColorScratch();
+                    ctx.AcquireColorScratch();
+                },
+                passCount: 1,
+                ComputeFallback.Identity,
+                colorScratchCount: 1,
+                structuralToken: "scratch-overrun");
+            CompiledPlan plan = Compile(NewBuilder(bounds).Compute(descriptor));
+            FrameResources resources = EffectGraphCompiler.ResolveResources(plan, bounds, workingScale: 1f);
+            using var pool = new RenderTargetPool();
+
+            InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
+                plan, resources, [MakeInput(bounds)], outputScale: 1f, workingScale: 1f,
+                maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(error.Message, Does.Contain("declared color scratch limit"));
+                Assert.That(pool.LiveLeaseCount, Is.Zero, "the rejected callback releases every acquired lease");
+            });
+        });
+    }
 
     [Test]
     public void ResourcePlan_LinearChain_PeakLiveIsTwo_IndependentOfLength()
@@ -1109,6 +1163,55 @@ half4 apply(half4 c) {
             Assert.That(plan.Passes.Count(p => p.SyncBefore), Is.EqualTo(2),
                 "FlushSyncs equals the number of backend transitions in the schedule (C4.2)");
         });
+    }
+
+    [Test]
+    public void Execute_DeclaredGeometryReadback_IsScheduledAndCountedOnce()
+    {
+        var bounds = new Rect(0, 0, 32, 32);
+        var descriptor = GeometryNodeDescriptor.Create(
+            session =>
+            {
+                using Bitmap snapshot = session.Inputs[0].Snapshot();
+                session.Inputs[0].Draw(session.OpenCanvas());
+            },
+            BoundsContract.Identity,
+            structuralToken: "declared-readback",
+            requiresReadback: true);
+        CompiledPlan plan = Compile(NewBuilder(bounds).Geometry(descriptor));
+        FrameResources resources = EffectGraphCompiler.ResolveResources(plan, bounds, workingScale: 1f);
+        var diagnostics = new PipelineDiagnostics();
+
+        RenderNodeOperation[] outputs = PlanExecutor.Execute(
+            plan, resources, [MakeInput(bounds)], outputScale: 1f, workingScale: 1f,
+            maxWorkingScale: float.PositiveInfinity, diagnostics, pool: null);
+        try
+        {
+            Assert.That(diagnostics.Snapshot().FlushSyncs, Is.EqualTo(1),
+                "the executor owns and observes the one declared CPU readback boundary");
+        }
+        finally
+        {
+            RenderNodeOperation.DisposeAll(outputs);
+        }
+    }
+
+    [Test]
+    public void Execute_UndeclaredGeometryReadback_IsRejected()
+    {
+        var bounds = new Rect(0, 0, 32, 32);
+        var descriptor = GeometryNodeDescriptor.Create(
+            session => session.Inputs[0].Snapshot().Dispose(),
+            BoundsContract.Identity,
+            structuralToken: "undeclared-readback");
+        CompiledPlan plan = Compile(NewBuilder(bounds).Geometry(descriptor));
+        FrameResources resources = EffectGraphCompiler.ResolveResources(plan, bounds, workingScale: 1f);
+
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
+            plan, resources, [MakeInput(bounds)], outputScale: 1f, workingScale: 1f,
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null));
+
+        Assert.That(error.Message, Does.Contain("requiresReadback"));
     }
 
     // U1: a forward-INFLATED pass (ColorShift-style, output wider than its input) can cross the buffer budget while

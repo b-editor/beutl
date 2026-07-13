@@ -176,6 +176,18 @@ public class RenderTarget : IDisposable
     }
 
     /// <summary>
+    /// Reads pixels after an executor-owned pass boundary has already called <see cref="PrepareForSampling"/>.
+    /// Effect callbacks reach this only through an input whose descriptor declared readback.
+    /// </summary>
+    internal Bitmap SnapshotPrepared()
+    {
+        VerifyAccess();
+        var result = CreateSnapshotBitmap();
+        ReadPixelsInto(result);
+        return result;
+    }
+
+    /// <summary>
     /// Allocates a bitmap in the exact format <see cref="Snapshot()"/> produces
     /// (RgbaF16/Premul/LinearSrgb at the render target size). The single source of truth for that
     /// format — callers pre-allocating a destination for <see cref="SnapshotInto(Bitmap)"/> should use

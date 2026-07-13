@@ -76,9 +76,35 @@ public class CSharpScriptEffectMigrationTests
     }
 
     [Test]
+    public void GeometryReadbackScript_CanDeclareExecutorOwnedSynchronization()
+    {
+        const string script =
+            "Builder.Geometry(session => session.Inputs[0].Snapshot().Dispose(), "
+            + "requiresReadback: true);";
+
+        ScriptCompilationResult result = new CSharpScriptEffect().ValidateScript(script);
+
+        Assert.That(result.Status, Is.EqualTo(ScriptCompilationStatus.Compiled),
+            $"A script callback that snapshots its input must be able to declare readback. Diagnostic: {result.Error}");
+    }
+
+    [Test]
     public void EmptyScript_IsAccepted()
     {
         Assert.That(new CSharpScriptEffect().ValidateScript(string.Empty).Status,
             Is.EqualTo(ScriptCompilationStatus.Compiled));
+    }
+
+    [Test]
+    public void ScriptGlobals_DoNotRetainObsoleteCompatibilityMembers()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(typeof(CSharpScriptEffectGlobals).GetProperty("Context"), Is.Null);
+            Assert.That(typeof(CSharpScriptEffectGlobals).GetProperty("Session"), Is.Null);
+            Assert.That(typeof(CSharpScriptEffectGlobals).GetMembers()
+                .Any(static member => member.GetCustomAttributes(typeof(ObsoleteAttribute), inherit: false).Length > 0),
+                Is.False, "migration diagnostics must not be implemented as public obsolete shims");
+        });
     }
 }

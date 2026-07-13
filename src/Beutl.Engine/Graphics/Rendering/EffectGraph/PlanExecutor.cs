@@ -49,7 +49,8 @@ internal static class PlanExecutor
         PipelineDiagnostics? diagnostics,
         RenderTargetPool? pool,
         int startPass = 0,
-        PrefixCaptureSink? captureSink = null)
+        PrefixCaptureSink? captureSink = null,
+        bool isRenderCacheEnabled = true)
     {
         // FR-007 (C3.1) measurement scope: pooled leases live before this execution belong to the caller (an outer
         // plan, a held upstream op) and are subtracted from the peak measured for this plan.
@@ -70,9 +71,9 @@ internal static class PlanExecutor
             {
                 CompiledPass pass = plan.Passes[k];
 
-                // A backend transition is the only place the executor syncs (C4.2); count one FlushSyncs per
-                // transition so the counter equals the number of Skia<->Vulkan boundaries in the schedule. The
-                // actual GPU barrier happens inside the materialize/dispatch path this pass drives.
+                // Count one FlushSyncs per planned Skia<->Vulkan boundary. Descriptor-declared CPU readbacks are
+                // counted separately immediately before their callbacks; no same-backend draw/canvas disposal
+                // synchronizes (C4.2). The backend barrier itself happens in the materialize/dispatch path.
                 if (pass.SyncBefore && diagnostics != null)
                     diagnostics.FlushSyncs++;
 
@@ -92,7 +93,9 @@ internal static class PlanExecutor
                             diagnostics, pool);
                         break;
                     case CustomRenderNodePass customNode:
-                        ExecuteCustomRenderNode(customNode, current, outputScale, maxWorkingScale, diagnostics, pool);
+                        ExecuteCustomRenderNode(
+                            customNode, current, outputScale, maxWorkingScale, diagnostics, pool,
+                            isRenderCacheEnabled);
                         break;
                     default:
                         MapDescriptorPass(
@@ -227,10 +230,11 @@ internal static class PlanExecutor
     // frame; and the realistic child — a NodeGraphFilterEffectRenderNode — rebuilds its inner RenderNodeProcessor on
     // every Process, so its render caches live on the persisted graph-model resources, not on this wrapper. Persisting
     // the wrapper would therefore save no cache while forcing that map through the reentrant executor. Disposing the
-    // wrapper releases only its own (empty) container/cache, never the returned ops.
+    // wrapper stays alive until every operation it returned has been disposed: plugin operations may lazily read
+    // node-owned caches, child nodes, or native state when Render is called after Process returns.
     private static void ExecuteCustomRenderNode(
         CustomRenderNodePass pass, List<RenderNodeOperation> current, float outputScale, float maxWorkingScale,
-        PipelineDiagnostics? diagnostics, RenderTargetPool? pool)
+        PipelineDiagnostics? diagnostics, RenderTargetPool? pool, bool isRenderCacheEnabled)
     {
         RenderNodeOperation[] inputs = current.ToArray();
         // Ownership passes to the child node (which disposes or returns each input); clearing here keeps the outer
@@ -250,6 +254,7 @@ internal static class PlanExecutor
             throw;
         }
 
+        bool nodeOwnedByOutputs = false;
         try
         {
             node.Update(pass.Resource);
@@ -257,8 +262,52 @@ internal static class PlanExecutor
             {
                 Diagnostics = diagnostics,
                 Pool = pool,
+                IsRenderCacheEnabled = isRenderCacheEnabled,
+                // A custom node is opaque to the compiler, so its backward bounds contract is unknown. Passing the
+                // outer crop directly would let a later expanding pass (blur, shadow, stroke) clip the halo before
+                // it is produced. The custom node therefore receives the conservative full-input request; only
+                // descriptor nodes with a compiler-visible bounds contract participate in ROI propagation.
+                RequestedBounds = Rect.Invalid,
             };
-            current.AddRange(node.Process(childContext));
+            RenderNodeOperation[] outputs = node.Process(childContext);
+            if (outputs.Length == 0)
+                return;
+
+            if (Array.Exists(outputs, static output => output is null))
+            {
+                RenderNodeOperation.DisposeAll(outputs);
+                throw new InvalidOperationException("A custom render node returned a null operation.");
+            }
+
+            var lifetime = new CustomNodeLifetime(node, outputs.Length);
+            var wrapped = new RenderNodeOperation[outputs.Length];
+            int wrappedCount = 0;
+            try
+            {
+                for (; wrappedCount < outputs.Length; wrappedCount++)
+                {
+                    RenderNodeOperation output = outputs[wrappedCount];
+                    wrapped[wrappedCount] = RenderNodeOperation.CreateDecorator(
+                        output, output.Render, output.HitTest, lifetime.CreateReleaseOnce());
+                }
+            }
+            catch
+            {
+                RenderNodeOperation.DisposeAll(wrapped.AsSpan(0, wrappedCount));
+                RenderNodeOperation.DisposeAll(outputs.AsSpan(wrappedCount));
+                throw;
+            }
+
+            try
+            {
+                current.AddRange(wrapped);
+                nodeOwnedByOutputs = true;
+            }
+            catch
+            {
+                RenderNodeOperation.DisposeAll(wrapped);
+                throw;
+            }
         }
         catch
         {
@@ -269,7 +318,26 @@ internal static class PlanExecutor
         }
         finally
         {
-            node.Dispose();
+            if (!nodeOwnedByOutputs)
+                node.Dispose();
+        }
+    }
+
+    private sealed class CustomNodeLifetime(FilterEffectRenderNode node, int references)
+    {
+        private int _references = references;
+
+        public Action CreateReleaseOnce()
+        {
+            int released = 0;
+            return () =>
+            {
+                if (Interlocked.Exchange(ref released, 1) == 0
+                    && Interlocked.Decrement(ref _references) == 0)
+                {
+                    node.Dispose();
+                }
+            };
         }
     }
 
@@ -858,7 +926,15 @@ internal static class PlanExecutor
         Rect? shrunk;
         try
         {
-            var input = new EffectInput(inputTarget, op.Bounds, EffectiveScale.At(inW));
+            if (pass.RequiresReadback)
+            {
+                inputTarget.PrepareForSampling();
+                if (diagnostics != null)
+                    diagnostics.FlushSyncs++;
+            }
+
+            var input = new EffectInput(
+                inputTarget, op.Bounds, EffectiveScale.At(inW), readbackPrepared: pass.RequiresReadback);
             using var canvas = new ImmediateCanvas(outputTarget, w, maxWorkingScale, logicalSize: outBounds.Size);
             canvas.Clear();
             var session = new GeometrySession(canvas, [input], outBounds, outputScale, w, maxWorkingScale, diagnostics);
@@ -1035,7 +1111,9 @@ internal static class PlanExecutor
         {
             outputTarget.PrepareForComputeWrite();
             var ctx = new ComputeContext(
-                gfx, sourceTexture, destTexture, width, height, w, scratch, depthScratch, diagnostics, pool);
+                gfx, sourceTexture, destTexture, width, height, w,
+                pass.ColorScratchCount, pass.DepthScratchCount,
+                scratch, depthScratch, diagnostics, pool);
             pass.Dispatch(ctx);
         }
         catch (ComputeScratchAllocationException ex)
@@ -1104,7 +1182,16 @@ internal static class PlanExecutor
         Rect? shrunk;
         try
         {
-            var input = new EffectInput(inputTarget, op.Bounds, EffectiveScale.At(inW));
+            if (pass.CpuFallbackRequiresReadback)
+            {
+                inputTarget.PrepareForSampling();
+                if (diagnostics != null)
+                    diagnostics.FlushSyncs++;
+            }
+
+            var input = new EffectInput(
+                inputTarget, op.Bounds, EffectiveScale.At(inW),
+                readbackPrepared: pass.CpuFallbackRequiresReadback);
             using var canvas = new ImmediateCanvas(outputTarget, w, maxWorkingScale, logicalSize: outBounds.Size);
             canvas.Clear();
             var session = new GeometrySession(canvas, [input], outBounds, outputScale, w, maxWorkingScale, diagnostics);
@@ -1193,7 +1280,15 @@ internal static class PlanExecutor
 
                 try
                 {
-                    var input = new EffectInput(inputTarget, op.Bounds, EffectiveScale.At(inW));
+                    if (pass.RequiresReadback)
+                    {
+                        inputTarget.PrepareForSampling();
+                        if (diagnostics != null)
+                            diagnostics.FlushSyncs++;
+                    }
+
+                    var input = new EffectInput(
+                        inputTarget, op.Bounds, EffectiveScale.At(inW), readbackPrepared: pass.RequiresReadback);
                     var emitter = new SplitEmitter(
                         input, inW, outputScale, maxWorkingScale, maxDimension, diagnostics, pool, outputs);
                     pass.Render(emitter);
@@ -1400,6 +1495,7 @@ internal static class PlanExecutor
     // pass output texture, plus pooled color and depth scratch released when the pass ends.
     private sealed class ComputeContext(
         IGraphicsContext gfx, ITexture2D source, ITexture2D destination, int width, int height, float workingScale,
+        int colorScratchLimit, int depthScratchLimit,
         List<RenderTarget> colorScratch, List<IDisposable> depthScratch, PipelineDiagnostics? diagnostics,
         RenderTargetPool? pool) : IComputeContext
     {
@@ -1415,6 +1511,12 @@ internal static class PlanExecutor
 
         public ITexture2D AcquireColorScratch()
         {
+            if (colorScratch.Count >= colorScratchLimit)
+            {
+                throw new InvalidOperationException(
+                    $"The compute callback exceeded its declared color scratch limit ({colorScratchLimit}).");
+            }
+
             RenderTarget target = RenderTargetPool.Acquire(pool, width, height, diagnostics)
                 ?? throw new ComputeScratchAllocationException(
                     $"Compute ping-pong scratch allocation failed ({width}x{height} px).");
@@ -1430,6 +1532,12 @@ internal static class PlanExecutor
 
         public ITexture2D AcquireDepthScratch()
         {
+            if (depthScratch.Count >= depthScratchLimit)
+            {
+                throw new InvalidOperationException(
+                    $"The compute callback exceeded its declared depth scratch limit ({depthScratchLimit}).");
+            }
+
             if (pool != null)
             {
                 PooledTextureLease lease = pool.AcquireTexture(width, height, TextureFormat.Depth32Float, diagnostics)

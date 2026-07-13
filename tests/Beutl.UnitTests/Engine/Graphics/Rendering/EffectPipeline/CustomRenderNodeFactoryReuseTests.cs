@@ -36,6 +36,27 @@ public class CustomRenderNodeFactoryReuseTests
         });
     }
 
+    [Test]
+    public void ResourcePush_RejectsFactoryWhoseDeclaredTypeDiffersFromCreatedType()
+    {
+        var effect = new MismatchedFactoryEffect();
+        using var resource = (MismatchedFactoryEffect.Resource)effect.ToResource(CompositionContext.Default);
+        using var container = new ContainerRenderNode();
+        using var context = new GraphicsContext2D(container, new Size(120, 90), outputScale: 1f);
+
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => resource.Push(context))!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(error.Message, Does.Contain(nameof(MismatchedFactoryRenderNode))
+                .And.Contain("concrete node type"));
+            Assert.That(resource.MismatchedNodeDisposed, Is.True,
+                "the rejected node must release its owned resources");
+            Assert.That(container.Children, Is.Empty,
+                "the top-level recording path must reject the mismatch before appending it to the render tree");
+        });
+    }
+
     private static FilterEffectRenderNode PushOnce(ContainerRenderNode container, FilterEffect.Resource resource)
     {
         using var context = new GraphicsContext2D(container, new Size(120, 90), outputScale: 1f);
@@ -74,4 +95,41 @@ internal sealed partial class CustomNodeEffect : FilterEffect
 internal sealed class CustomFactoryRenderNode(FilterEffect.Resource fe) : FilterEffectRenderNode(fe)
 {
     public override RenderNodeOperation[] Process(RenderNodeContext context) => context.Input.ToArray();
+}
+
+[SuppressResourceClassGeneration]
+internal sealed partial class MismatchedFactoryEffect : FilterEffect
+{
+    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
+    {
+    }
+
+    public override Resource ToResource(CompositionContext context)
+    {
+        var resource = new Resource();
+        bool updateOnly = false;
+        resource.Update(this, context, ref updateOnly);
+        return resource;
+    }
+
+    public new sealed class Resource : FilterEffect.Resource
+    {
+        public bool MismatchedNodeDisposed { get; set; }
+
+        public override FilterEffectRenderNodeFactory RenderNodeFactory
+            => FilterEffectRenderNodeFactory.Of<FilterEffectRenderNode>(
+                static resource => new MismatchedFactoryRenderNode((Resource)resource));
+    }
+}
+
+internal sealed class MismatchedFactoryRenderNode(MismatchedFactoryEffect.Resource resource)
+    : FilterEffectRenderNode(resource)
+{
+    public override RenderNodeOperation[] Process(RenderNodeContext context) => context.Input.ToArray();
+
+    protected override void OnDispose(bool disposing)
+    {
+        resource.MismatchedNodeDisposed = true;
+        base.OnDispose(disposing);
+    }
 }

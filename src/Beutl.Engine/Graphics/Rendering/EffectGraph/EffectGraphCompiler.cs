@@ -97,7 +97,7 @@ internal static class EffectGraphCompiler
             }
             else if (node.Descriptor is GeometryNodeDescriptor geometry)
             {
-                passes.Add(new GeometryPass(geometry.Render)
+                passes.Add(new GeometryPass(geometry.Render, geometry.RequiresReadback)
                 {
                     InputBounds = node.InputBounds,
                     OutputBounds = node.OutputBounds,
@@ -112,7 +112,8 @@ internal static class EffectGraphCompiler
             else if (node.Descriptor is ComputeNodeDescriptor compute)
             {
                 passes.Add(new ComputePass(
-                    compute.Dispatch, compute.PassCount, compute.RequiresDepth, compute.Fallback, compute.CpuCallback)
+                    compute.Dispatch, compute.PassCount, compute.ColorScratchCount, compute.DepthScratchCount,
+                    compute.Fallback, compute.CpuCallback, compute.CpuFallbackRequiresReadback)
                 {
                     InputBounds = node.InputBounds,
                     OutputBounds = node.OutputBounds,
@@ -126,7 +127,7 @@ internal static class EffectGraphCompiler
             }
             else if (node.Descriptor is SplitNodeDescriptor split)
             {
-                passes.Add(new SplitPass(split.Render, split.BranchCount)
+                passes.Add(new SplitPass(split.Render, split.BranchCount, split.RequiresReadback)
                 {
                     InputBounds = node.InputBounds,
                     OutputBounds = node.OutputBounds,
@@ -481,9 +482,8 @@ internal static class EffectGraphCompiler
                     break;
                 case ComputePass compute:
                     Add(multiplicity, idx, idx);
-                    Add(2 * multiplicity, idx, idx);
-                    if (compute.RequiresDepth)
-                        Add(multiplicity, idx, idx, TextureFormat.Depth32Float);
+                    Add(compute.ColorScratchCount * multiplicity, idx, idx);
+                    Add(compute.DepthScratchCount * multiplicity, idx, idx, TextureFormat.Depth32Float);
                     Add(multiplicity, idx, lastUse);
                     break;
                 case FusedShaderPass { CoordinateInvariant: false, Stages: [RuntimeShaderStage { Source.Kind: SkslSourceKind.WholeSource }] }:

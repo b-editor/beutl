@@ -76,15 +76,18 @@ public interface IComputeContext
 public sealed record ComputeNodeDescriptor : EffectNodeDescriptor
 {
     private ComputeNodeDescriptor(
-        Action<IComputeContext> dispatch, int passCount, bool requiresDepth, ComputeFallback fallback,
-        Action<GeometrySession>? cpuCallback, object structuralToken)
+        Action<IComputeContext> dispatch, int passCount, int colorScratchCount, int depthScratchCount,
+        ComputeFallback fallback,
+        Action<GeometrySession>? cpuCallback, object structuralToken, bool cpuFallbackRequiresReadback)
     {
         Dispatch = dispatch;
         PassCount = passCount;
-        RequiresDepth = requiresDepth;
+        ColorScratchCount = colorScratchCount;
+        DepthScratchCount = depthScratchCount;
         Fallback = fallback;
         CpuCallback = cpuCallback;
         StructuralToken = structuralToken;
+        CpuFallbackRequiresReadback = cpuFallbackRequiresReadback;
     }
 
     /// <summary>The callback that runs the compute stages against the executor-provided textures.</summary>
@@ -93,8 +96,11 @@ public sealed record ComputeNodeDescriptor : EffectNodeDescriptor
     /// <summary>Structural number of GPU dispatches this node performs (each counts one <c>GpuPasses</c>, C8).</summary>
     public int PassCount { get; }
 
-    /// <summary>True when the stages need a depth attachment (the executor pools one).</summary>
-    public bool RequiresDepth { get; }
+    /// <summary>Maximum concurrently acquired RGBA16F scratch textures. Part of the compiled resource plan.</summary>
+    public int ColorScratchCount { get; }
+
+    /// <summary>Maximum concurrently acquired depth scratch textures. Part of the compiled resource plan.</summary>
+    public int DepthScratchCount { get; }
 
     /// <summary>What happens on a context without Vulkan compute support.</summary>
     public ComputeFallback Fallback { get; }
@@ -104,6 +110,9 @@ public sealed record ComputeNodeDescriptor : EffectNodeDescriptor
 
     /// <summary>Identity of the compute <em>kind</em> for the structural key.</summary>
     public object StructuralToken { get; }
+
+    /// <summary>True when the CPU fallback calls <see cref="EffectInput.Snapshot"/>.</summary>
+    public bool CpuFallbackRequiresReadback { get; }
 
     /// <summary>
     /// A compute pass is render-time resolved (A3): its GLSL stages read the whole materialized input at
@@ -127,12 +136,16 @@ public sealed record ComputeNodeDescriptor : EffectNodeDescriptor
         Action<IComputeContext> dispatch,
         int passCount,
         ComputeFallback fallback,
-        bool requiresDepth = true,
+        int colorScratchCount = 0,
+        int depthScratchCount = 0,
         Action<GeometrySession>? cpuCallback = null,
-        object? structuralToken = null)
+        object? structuralToken = null,
+        bool cpuFallbackRequiresReadback = false)
     {
         ArgumentNullException.ThrowIfNull(dispatch);
         ArgumentOutOfRangeException.ThrowIfLessThan(passCount, 1);
+        ArgumentOutOfRangeException.ThrowIfNegative(colorScratchCount);
+        ArgumentOutOfRangeException.ThrowIfNegative(depthScratchCount);
         if (fallback == ComputeFallback.CpuCallback && cpuCallback is null)
         {
             throw new ArgumentNullException(
@@ -140,7 +153,7 @@ public sealed record ComputeNodeDescriptor : EffectNodeDescriptor
         }
 
         return new ComputeNodeDescriptor(
-            dispatch, passCount, requiresDepth, fallback, cpuCallback,
-            structuralToken ?? dispatch.Method.MethodHandle.Value);
+            dispatch, passCount, colorScratchCount, depthScratchCount, fallback, cpuCallback,
+            structuralToken ?? dispatch.Method.MethodHandle.Value, cpuFallbackRequiresReadback);
     }
 }

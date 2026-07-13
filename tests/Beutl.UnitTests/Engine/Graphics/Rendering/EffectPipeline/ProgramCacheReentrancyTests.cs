@@ -56,4 +56,33 @@ public class ProgramCacheReentrancyTests
             ProgramCache.Clear();
         }
     }
+
+    [Test]
+    public void ReturningLease_AfterAllEntriesWereRented_RestoresCapacity()
+    {
+        ProgramCache.Clear();
+        var leases = new List<ProgramCache.Lease>();
+        try
+        {
+            for (int i = 0; i < 257; i++)
+            {
+                int id = i;
+                leases.Add(ProgramCache.GetOrCreate($"test:capacity:{id}", () => Source, diagnostics: null));
+            }
+
+            Assert.That(ProgramCache.CountForTest, Is.EqualTo(257),
+                "all entries are rented, so the cache may temporarily exceed its 256-entry cap");
+
+            leases[0].Dispose();
+            leases.RemoveAt(0);
+            Assert.That(ProgramCache.CountForTest, Is.EqualTo(256),
+                "returning the first rentable entry must immediately restore the retained cache cap");
+        }
+        finally
+        {
+            foreach (ProgramCache.Lease lease in leases)
+                lease.Dispose();
+            ProgramCache.Clear();
+        }
+    }
 }

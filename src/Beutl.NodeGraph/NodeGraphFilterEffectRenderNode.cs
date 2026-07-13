@@ -1,4 +1,5 @@
-﻿using Beutl.Composition;
+﻿using System.Runtime.InteropServices;
+using Beutl.Composition;
 using Beutl.Graphics.Rendering;
 using Beutl.NodeGraph.Composition;
 using Beutl.NodeGraph.Nodes;
@@ -25,36 +26,50 @@ internal class NodeGraphFilterEffectRenderNode(NodeGraphFilterEffect.Resource re
 
         // 2. 入力 operations を OperationWrapperRenderNode に設定（Evaluate の前に行う）
         inputWrapper.SetOperations(context.Input);
-
-        // 3. グラフのノードを評価
-        _compositionContext.Time = lastTime.Value;
-        _compositionContext.PreferProxy = GraphResource.PreferProxy;
-        _compositionContext.PreferredProxyPreset = GraphResource.PreferredProxyPreset;
-        _compositionContext.DisableResourceShare = GraphResource.DisableResourceShare;
-        GraphResource.Snapshot.Evaluate(CompositionTarget.Graphics, _compositionContext);
-
-        // 4. OutputNode から出力 RenderNode を収集
-        var outputRenderNodes = PullOutputValue(model);
-        if (outputRenderNodes.Count == 0)
-            return context.Input;
-
-        // 5. RenderNodeProcessor でグラフ出力ツリーを処理
         var allResults = new List<RenderNodeOperation>();
-        foreach (RenderNode outputNode in outputRenderNodes)
+        try
         {
-            // Thread the parent's diagnostics/pool (not just the scale ceiling): hosted effects must count on the
-            // owning renderer's PipelineDiagnostics (FR-017) and share its RenderTargetPool (FR-006).
-            var processor = new RenderNodeProcessor(
-                outputNode, context.IsRenderCacheEnabled, context.OutputScale, context.MaxWorkingScale,
-                context.Diagnostics, context.Pool)
-            {
-                RequestedBounds = context.RequestedBounds,
-            };
-            allResults.AddRange(processor.PullToRoot());
-        }
+            // 3. グラフのノードを評価
+            _compositionContext.Time = lastTime.Value;
+            _compositionContext.PreferProxy = GraphResource.PreferProxy;
+            _compositionContext.PreferredProxyPreset = GraphResource.PreferredProxyPreset;
+            _compositionContext.DisableResourceShare = GraphResource.DisableResourceShare;
+            GraphResource.Snapshot.Evaluate(CompositionTarget.Graphics, _compositionContext);
 
-        inputWrapper.SetOperations([]);
-        return allResults.ToArray();
+            // 4. OutputNode から出力 RenderNode を収集
+            var outputRenderNodes = PullOutputValue(model);
+            if (outputRenderNodes.Count == 0)
+            {
+                // SetOperations transferred the input into the wrapper's ref-counted ownership. Return proxies
+                // before the finally block clears the wrapper: the proxies keep those refs alive until the caller
+                // disposes the passthrough output, while the wrapper itself retains nothing after Process returns.
+                return inputWrapper.Process(new RenderNodeContext([]));
+            }
+
+            // 5. RenderNodeProcessor でグラフ出力ツリーを処理
+            foreach (RenderNode outputNode in outputRenderNodes)
+            {
+                // Thread the complete parent execution policy through the hosted graph.
+                var processor = new RenderNodeProcessor(
+                    outputNode, context.IsRenderCacheEnabled, context.OutputScale, context.MaxWorkingScale,
+                    context.Diagnostics, context.Pool)
+                {
+                    RequestedBounds = context.RequestedBounds,
+                };
+                allResults.AddRange(processor.PullToRoot());
+            }
+
+            return allResults.ToArray();
+        }
+        catch
+        {
+            RenderNodeOperation.DisposeAll(CollectionsMarshal.AsSpan(allResults));
+            throw;
+        }
+        finally
+        {
+            inputWrapper.SetOperations([]);
+        }
     }
 
     private OperationWrapperRenderNode? FindInputWrapper(GraphModel model)

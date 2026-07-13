@@ -61,7 +61,18 @@ internal sealed record ParameterBlock(ImmutableArray<CompiledPass> Passes)
                         return false;
                     break;
                 case ComputePass compa when b[i] is ComputePass compb:
-                    if (compa.PassCount != compb.PassCount || compa.RequiresDepth != compb.RequiresDepth)
+                    if (compa.PassCount != compb.PassCount
+                        || compa.ColorScratchCount != compb.ColorScratchCount
+                        || compa.DepthScratchCount != compb.DepthScratchCount
+                        || compa.CpuFallbackRequiresReadback != compb.CpuFallbackRequiresReadback)
+                        return false;
+                    break;
+                case GeometryPass geoa when b[i] is GeometryPass geob:
+                    if (geoa.RequiresReadback != geob.RequiresReadback)
+                        return false;
+                    break;
+                case SplitPass splita when b[i] is SplitPass splitb:
+                    if (splita.RequiresReadback != splitb.RequiresReadback)
                         return false;
                     break;
             }

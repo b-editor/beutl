@@ -311,7 +311,8 @@ public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource 
         session => ApplyGeometry(session, data),
         // Contour tracing snapshots the whole input. A requested sub-ROI is not sufficient.
         BoundsContract.Create(rect => TransformBounds(data, rect), _ => inputBounds),
-        structuralToken: nameof(FlatShadow)));
+        structuralToken: nameof(FlatShadow),
+        requiresReadback: true));
 }
 
 private static void ApplyGeometry(GeometrySession session, (...) data)
@@ -378,7 +379,7 @@ public new partial class Resource
 
 ### GLSL (Vulkan) pattern
 
-GLSL fragment shaders run as a `ComputeNode` (`builder.Compute(ComputeNodeDescriptor.Create(...))`); the executor schedules the passes, provides ping-pong/depth textures from the pool, and applies push constants. A compute node MUST declare a no-Vulkan fallback (`Identity` / `Skip` / a CPU callback) so GPU-less CI still passes. See `GLSLScriptEffect.cs` for the full pattern. Declare the shader source as a property:
+GLSL fragment shaders run as a `ComputeNode` (`builder.Compute(ComputeNodeDescriptor.Create(...))`); the executor schedules the passes, provides ping-pong/depth textures from the pool, and applies push constants. Declare the maximum concurrently acquired color/depth scratch counts so the compiled resource plan is exact; an acquire beyond either declaration throws. A compute node MUST declare a no-Vulkan fallback (`Identity` / `Skip` / a CPU callback) so GPU-less CI still passes. If that CPU callback calls `EffectInput.Snapshot()`, also set `cpuFallbackRequiresReadback: true`. See `GLSLScriptEffect.cs` for the full pattern. Declare the shader source as a property:
 
 ```csharp
 [Display(Name = nameof(Strings.Script), ResourceType = typeof(Strings))]
@@ -470,7 +471,8 @@ public partial class StrokeEffect : FilterEffect
             session => Apply(session, data),
             // Contour tracing snapshots the whole input. A requested sub-ROI is not sufficient.
             BoundsContract.Create(rect => TransformBounds(data, rect), _ => inputBounds),
-            structuralToken: nameof(StrokeEffect)));
+            structuralToken: nameof(StrokeEffect),
+            requiresReadback: true));
     }
 }
 ```

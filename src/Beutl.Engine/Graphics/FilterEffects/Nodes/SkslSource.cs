@@ -24,7 +24,8 @@ public sealed partial record SkslSource
     // A uniform declaration whose declarator list continues past the first name (`uniform float a, b;`). The snippet
     // merger prefixes uniforms by name (feN_) one declarator at a time, so a multi-declarator list would leave the
     // trailing names unprefixed — silently binding them wrong in a fused program (A2). Rejected at snippet construction.
-    [GeneratedRegex(@"uniform\s+[A-Za-z_][A-Za-z0-9_]*\s+[A-Za-z_][A-Za-z0-9_]*\s*(?:\[\s*\d+\s*\])?\s*,")]
+    [GeneratedRegex(@"uniform\s+(?:(?:lowp|mediump|highp)\s+)?[A-Za-z_][A-Za-z0-9_]*\s+"
+        + @"[A-Za-z_][A-Za-z0-9_]*\s*(?:\[\s*\d+\s*\])?\s*,")]
     private static partial Regex MultiDeclaratorUniformRegex();
 
     private SkslSource(string source, SkslSourceKind kind)

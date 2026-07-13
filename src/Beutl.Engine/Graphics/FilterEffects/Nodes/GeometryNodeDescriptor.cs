@@ -12,11 +12,12 @@
 public sealed record GeometryNodeDescriptor : EffectNodeDescriptor
 {
     private GeometryNodeDescriptor(
-        Action<GeometrySession> render, BoundsContract bounds, object structuralToken)
+        Action<GeometrySession> render, BoundsContract bounds, object structuralToken, bool requiresReadback)
     {
         Render = render;
         Bounds = bounds;
         StructuralToken = structuralToken;
+        RequiresReadback = requiresReadback;
     }
 
     /// <summary>The rendering callback the executor invokes with a session over the pass's output buffer.</summary>
@@ -32,6 +33,12 @@ public sealed record GeometryNodeDescriptor : EffectNodeDescriptor
     public object StructuralToken { get; }
 
     /// <summary>
+    /// True when the callback calls <see cref="EffectInput.Snapshot"/>. The executor performs and counts the
+    /// required synchronization at the pass boundary before invoking the callback.
+    /// </summary>
+    public bool RequiresReadback { get; }
+
+    /// <summary>
     /// Builds a geometry node from a render callback and its mandatory bounds contract. Both bounds functions must
     /// be non-null (an author who cannot lay out until execution passes <see cref="BoundsContract.RenderTime"/>).
     /// <paramref name="structuralToken"/> defaults to the callback's method identity, so callbacks built at the
@@ -40,10 +47,12 @@ public sealed record GeometryNodeDescriptor : EffectNodeDescriptor
     /// of <see cref="GeometrySession.Inputs"/>; fan-in belongs to <see cref="CompositeNodeDescriptor"/>.
     /// </summary>
     public static GeometryNodeDescriptor Create(
-        Action<GeometrySession> render, BoundsContract bounds, object? structuralToken = null)
+        Action<GeometrySession> render, BoundsContract bounds, object? structuralToken = null,
+        bool requiresReadback = false)
     {
         ArgumentNullException.ThrowIfNull(render);
         bounds.ThrowIfUninitialized(nameof(bounds));
-        return new GeometryNodeDescriptor(render, bounds, structuralToken ?? render.Method.MethodHandle.Value);
+        return new GeometryNodeDescriptor(
+            render, bounds, structuralToken ?? render.Method.MethodHandle.Value, requiresReadback);
     }
 }

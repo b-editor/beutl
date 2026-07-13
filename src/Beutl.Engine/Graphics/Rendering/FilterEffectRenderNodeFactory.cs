@@ -3,8 +3,8 @@
 namespace Beutl.Graphics.Rendering;
 
 /// <summary>
-/// Captures a filter effect's render-node type together with its constructor as one value, so the render-graph diff
-/// and the node it actually creates can never disagree (feature 004). An effect that needs a custom
+/// Captures a filter effect's render-node type together with its constructor as one value, and rejects a constructor
+/// whose result has a different exact runtime type (feature 004). An effect that needs a custom
 /// <see cref="FilterEffectRenderNode"/> (e.g. a non-supply working scale, 003/FR-036) overrides
 /// <see cref="FilterEffect.Resource.RenderNodeFactory"/> once; the diff reuses the effect's node across drawable
 /// re-renders only while the existing node's runtime type equals <see cref="NodeType"/>, and that reuse is what
@@ -26,8 +26,9 @@ public readonly struct FilterEffectRenderNodeFactory
     public Type NodeType { get; }
 
     /// <summary>
-    /// Builds a factory for node type <typeparamref name="TNode"/> from its constructor. The captured type is
-    /// <c>typeof(TNode)</c>, so it always matches the node <paramref name="create"/> produces.
+    /// Builds a factory declaring node type <typeparamref name="TNode"/> from its constructor. The captured type is
+    /// <c>typeof(TNode)</c>; <see cref="Create"/> verifies that the constructor returns that exact type, so callers
+    /// must use the concrete node type rather than a broader base type.
     /// </summary>
     public static FilterEffectRenderNodeFactory Of<TNode>(Func<FilterEffect.Resource, TNode> create)
         where TNode : FilterEffectRenderNode
@@ -46,9 +47,16 @@ public readonly struct FilterEffectRenderNodeFactory
                 $"This {nameof(FilterEffectRenderNodeFactory)} was default-constructed; build one with {nameof(Of)}.");
         }
 
-        return _create(resource);
+        FilterEffectRenderNode node = _create(resource);
+        if (node.GetType() != NodeType)
+        {
+            node.Dispose();
+            throw new InvalidOperationException(
+                $"The render-node factory declared '{NodeType.FullName}' but created "
+                + $"'{node.GetType().FullName}'. Use Of<TNode> with the concrete node type.");
+        }
+
+        return node;
     }
 
-    // The captured constructor, handed straight to PushNode so the recording path allocates no per-call delegate.
-    internal Func<FilterEffect.Resource, FilterEffectRenderNode> NodeConstructor => _create!;
 }

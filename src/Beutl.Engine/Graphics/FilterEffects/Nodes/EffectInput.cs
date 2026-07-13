@@ -16,12 +16,14 @@ namespace Beutl.Graphics.Effects;
 public sealed class EffectInput
 {
     private readonly RenderTarget _target;
+    private readonly bool _readbackPrepared;
 
-    internal EffectInput(RenderTarget target, Rect bounds, EffectiveScale density)
+    internal EffectInput(RenderTarget target, Rect bounds, EffectiveScale density, bool readbackPrepared = false)
     {
         _target = target;
         Bounds = bounds;
         Density = density;
+        _readbackPrepared = readbackPrepared;
     }
 
     /// <summary>The input's logical bounds (position + size in logical units).</summary>
@@ -55,7 +57,17 @@ public sealed class EffectInput
     /// analyze the input (contour tracing, tight-bounds detection); it reads the <em>input</em>, not the pass's
     /// own output, so it does not violate the session's no-snapshot rule. The caller disposes the bitmap.
     /// </summary>
-    public Bitmap Snapshot() => _target.Snapshot();
+    public Bitmap Snapshot()
+    {
+        if (!_readbackPrepared)
+        {
+            throw new InvalidOperationException(
+                "This node did not declare requiresReadback. Set requiresReadback: true on its descriptor so "
+                + "the executor can schedule and count synchronization before the callback.");
+        }
+
+        return _target.SnapshotPrepared();
+    }
 
     /// <summary>
     /// Blits the input into <paramref name="canvas"/> at the given device-space point (call inside

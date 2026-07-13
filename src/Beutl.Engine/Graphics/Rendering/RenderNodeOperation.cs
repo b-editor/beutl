@@ -59,8 +59,14 @@ public abstract class RenderNodeOperation : IDisposable
     {
         return CreateLambda(child.Bounds, render, hitTest: hitTest ?? child.HitTest, onDispose: () =>
         {
-            child.Dispose();
-            onDispose?.Invoke();
+            try
+            {
+                child.Dispose();
+            }
+            finally
+            {
+                onDispose?.Invoke();
+            }
         }, effectiveScale: child.EffectiveScale);
     }
 

@@ -117,6 +117,19 @@ public class SkslSnippetMergerTests
         });
     }
 
+    [TestCase("lowp")]
+    [TestCase("mediump")]
+    [TestCase("highp")]
+    public void Snippet_PrecisionQualifiedMultiDeclaratorUniform_IsRejected(string precision)
+    {
+        string source =
+            $"uniform {precision} float gain, bias;\n"
+            + "half4 apply(half4 c) { return half4(c.rgb * gain + bias, c.a); }";
+
+        ArgumentException error = Assert.Throws<ArgumentException>(() => SkslSource.Snippet(source));
+        Assert.That(error.Message, Does.Contain("each uniform").And.Contain("comma-separated"));
+    }
+
     // SkSL accepts a MUTABLE top-level global ('float gain = 1.0;'); without a rename, two snippets sharing the
     // name compile standalone but redefine it in the merged program.
     [Test]

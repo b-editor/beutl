@@ -69,6 +69,8 @@ internal static class ProgramCache
                 lock (s_gate)
                 {
                     cached.Rented = false;
+                    if (s_map.Count > Capacity)
+                        EvictOldestUnrented();
                 }
             }
             else
@@ -157,6 +159,15 @@ internal static class ProgramCache
                 node.Value.Builder.Dispose();
             s_map.Clear();
             s_lru.Clear();
+        }
+    }
+
+    internal static int CountForTest
+    {
+        get
+        {
+            lock (s_gate)
+                return s_map.Count;
         }
     }
 }

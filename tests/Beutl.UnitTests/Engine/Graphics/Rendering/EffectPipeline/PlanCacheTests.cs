@@ -22,31 +22,32 @@ public class PlanCacheTests
         return (StructuralKey.Compute(graph), EffectGraphCompiler.Compile(graph, diagnostics: null));
     }
 
-    private static (StructuralKey Key, CompiledPlan Plan) CompileCompute(bool requiresDepth)
+    private static (StructuralKey Key, CompiledPlan Plan) CompileCompute(bool usesDepthScratch)
     {
         EffectGraphBuilder builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f)
             .Compute(ComputeNodeDescriptor.Create(
-                static _ => { }, passCount: 1, ComputeFallback.Identity, requiresDepth: requiresDepth,
+                static _ => { }, passCount: 1, ComputeFallback.Identity,
+                depthScratchCount: usesDepthScratch ? 1 : 0,
                 structuralToken: "depth-cache"));
         using EffectGraph graph = builder.Build();
         return (StructuralKey.Compute(graph), EffectGraphCompiler.Compile(graph, diagnostics: null));
     }
 
-    // B3: a compute descriptor toggling RequiresDepth under the same structural token must miss the plan cache — a
+    // B3: a compute descriptor changing DepthScratchCount under the same structural token must miss the plan cache — a
     // stale hit would reuse a resource plan that under-declares the depth intermediate (C3/C5, FR-007 peak-live).
     [Test]
     public void TryGet_ComputeDepthRequirementToggled_Misses()
     {
         var cache = new PlanCache();
         var context = new object();
-        (StructuralKey depthKey, CompiledPlan depthPlan) = CompileCompute(requiresDepth: true);
+        (StructuralKey depthKey, CompiledPlan depthPlan) = CompileCompute(usesDepthScratch: true);
         cache.Store(depthKey, context, depthPlan);
 
-        (StructuralKey noDepthKey, _) = CompileCompute(requiresDepth: false);
+        (StructuralKey noDepthKey, _) = CompileCompute(usesDepthScratch: false);
         Assert.That(cache.TryGet(noDepthKey, context, out _), Is.False,
             "toggling the structural depth requirement must miss the plan cache (recompile exactly once)");
 
-        (StructuralKey sameKey, _) = CompileCompute(requiresDepth: true);
+        (StructuralKey sameKey, _) = CompileCompute(usesDepthScratch: true);
         Assert.That(cache.TryGet(sameKey, context, out CompiledPlan hit), Is.True,
             "an unchanged depth requirement re-describes to an equal key and hits");
         Assert.That(hit, Is.SameAs(depthPlan));

@@ -38,12 +38,14 @@ public interface ISplitEmitter
 public sealed record SplitNodeDescriptor : EffectNodeDescriptor
 {
     private SplitNodeDescriptor(
-        Action<ISplitEmitter> render, int branchCount, bool isDynamicOutputs, object structuralToken)
+        Action<ISplitEmitter> render, int branchCount, bool isDynamicOutputs, object structuralToken,
+        bool requiresReadback)
     {
         Render = render;
         BranchCount = branchCount;
         IsDynamicOutputs = isDynamicOutputs;
         StructuralToken = structuralToken;
+        RequiresReadback = requiresReadback;
     }
 
     /// <summary>The callback that emits the branches through the executor-provided sink.</summary>
@@ -58,6 +60,9 @@ public sealed record SplitNodeDescriptor : EffectNodeDescriptor
     /// <summary>Identity of the split <em>kind</em> for the structural key (paired with <see cref="BranchCount"/>).</summary>
     public object StructuralToken { get; }
 
+    /// <summary>True when the split callback reads <see cref="ISplitEmitter.Input"/> through Snapshot().</summary>
+    public bool RequiresReadback { get; }
+
     /// <summary>The split reshapes the operation set, so it lays out at execution time.</summary>
     public override BoundsContract Bounds => BoundsContract.RenderTime;
 
@@ -66,20 +71,24 @@ public sealed record SplitNodeDescriptor : EffectNodeDescriptor
 
     /// <summary>Builds a static split of exactly <paramref name="branchCount"/> branches.</summary>
     public static SplitNodeDescriptor Static(
-        Action<ISplitEmitter> render, int branchCount, object? structuralToken = null)
+        Action<ISplitEmitter> render, int branchCount, object? structuralToken = null,
+        bool requiresReadback = false)
     {
         ArgumentNullException.ThrowIfNull(render);
         ArgumentOutOfRangeException.ThrowIfLessThan(branchCount, 1);
         return new SplitNodeDescriptor(
-            render, branchCount, isDynamicOutputs: false, structuralToken ?? render.Method.MethodHandle.Value);
+            render, branchCount, isDynamicOutputs: false, structuralToken ?? render.Method.MethodHandle.Value,
+            requiresReadback);
     }
 
     /// <summary>Builds a dynamic split whose branch count is discovered at execution time (contour-based).</summary>
-    public static SplitNodeDescriptor Dynamic(Action<ISplitEmitter> render, object? structuralToken = null)
+    public static SplitNodeDescriptor Dynamic(
+        Action<ISplitEmitter> render, object? structuralToken = null, bool requiresReadback = false)
     {
         ArgumentNullException.ThrowIfNull(render);
         return new SplitNodeDescriptor(
-            render, branchCount: 0, isDynamicOutputs: true, structuralToken ?? render.Method.MethodHandle.Value);
+            render, branchCount: 0, isDynamicOutputs: true, structuralToken ?? render.Method.MethodHandle.Value,
+            requiresReadback);
     }
 }
 
