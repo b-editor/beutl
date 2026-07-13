@@ -12,6 +12,7 @@ var builder = Host.CreateApplicationBuilder(args);
 string workspaceRoot = Environment.GetEnvironmentVariable("BEUTL_WORKSPACE")
                        ?? Directory.GetCurrentDirectory();
 
+builder.Logging.ClearProviders();
 ConfigureConsoleLogging(builder.Logging);
 
 builder.Services

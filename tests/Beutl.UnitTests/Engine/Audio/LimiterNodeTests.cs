@@ -29,7 +29,7 @@ public class LimiterNodeTests
     {
         // Log.LoggerFactory is write-once (??=); skip allocating a factory we would only discard
         // when another fixture already set one.
-        if (Log.LoggerFactory is null)
+        if (!Log.IsLoggerFactoryConfigured)
         {
             Log.LoggerFactory = LoggerFactory.Create(_ => { });
         }
