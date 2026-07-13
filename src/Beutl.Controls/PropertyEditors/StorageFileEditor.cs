@@ -60,7 +60,7 @@ public class StorageFileEditor : StringEditor
 
     private async void OnButtonClick(object sender, RoutedEventArgs e)
     {
-        if (VisualRoot is TopLevel { StorageProvider: { } storage })
+        if (TopLevel.GetTopLevel(this)?.StorageProvider is { } storage)
         {
             IReadOnlyList<IStorageFile> result = await storage.OpenFilePickerAsync(OpenOptions);
             if (result is [var file] && file.TryGetLocalPath() is string localPath)

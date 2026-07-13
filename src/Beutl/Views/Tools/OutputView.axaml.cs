@@ -16,13 +16,13 @@ public partial class OutputView : UserControl
     private async void SelectDestinationFileClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is OutputViewModel viewModel
-            && VisualRoot is TopLevel topLevel)
+            && TopLevel.GetTopLevel(this)?.StorageProvider is { } storage)
         {
             var options = new FilePickerSaveOptions()
             {
                 FileTypeChoices = viewModel.GetFilePickerFileTypes()
             };
-            IStorageFile? file = await topLevel.StorageProvider.SaveFilePickerAsync(options);
+            IStorageFile? file = await storage.SaveFilePickerAsync(options);
 
             if (file != null && file.TryGetLocalPath() is string localPath)
             {

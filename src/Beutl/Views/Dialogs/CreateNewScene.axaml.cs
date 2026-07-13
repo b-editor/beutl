@@ -20,10 +20,11 @@ public sealed partial class CreateNewScene : FAContentDialog
     // 場所を選択
     private async void PickLocation(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is CreateNewSceneViewModel vm && VisualRoot is Window parent)
+        if (DataContext is CreateNewSceneViewModel vm
+            && TopLevel.GetTopLevel(this)?.StorageProvider is { } storage)
         {
             var options = new FolderPickerOpenOptions();
-            IReadOnlyList<IStorageFolder> result = await parent.StorageProvider.OpenFolderPickerAsync(options);
+            IReadOnlyList<IStorageFolder> result = await storage.OpenFolderPickerAsync(options);
 
             if (result.Count > 0 && result[0].TryGetLocalPath() is string localPath)
             {
