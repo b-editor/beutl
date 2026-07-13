@@ -66,8 +66,8 @@ public sealed class ProxyStoreConfig : ConfigurationBase
         double minGiB = MinTotalBytes / bytesPerGiB;
         double maxGiB = MaxTotalBytesLimit / bytesPerGiB;
 
-        // NaN is not orderable, so Math.Clamp would return it unchanged.
-        double safeGiB = double.IsFinite(gib) ? Math.Clamp(gib, minGiB, maxGiB) : DefaultTotalBytes / bytesPerGiB;
+        // NaN is not orderable, so Math.Clamp would return it unchanged; +/-Infinity saturate.
+        double safeGiB = double.IsNaN(gib) ? DefaultTotalBytes / bytesPerGiB : Math.Clamp(gib, minGiB, maxGiB);
         return (long)Math.Round(safeGiB * bytesPerGiB);
     }
 

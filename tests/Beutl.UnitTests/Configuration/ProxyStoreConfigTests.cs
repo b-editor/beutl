@@ -108,20 +108,17 @@ public class ProxyStoreConfigTests
     [TestCase(-1d, ExpectedResult = ProxyStoreConfig.MinTotalBytes)]
     [TestCase(1e10, ExpectedResult = ProxyStoreConfig.MaxTotalBytesLimit)]
     [TestCase(double.MaxValue, ExpectedResult = ProxyStoreConfig.MaxTotalBytesLimit)]
+    [TestCase(double.PositiveInfinity, ExpectedResult = ProxyStoreConfig.MaxTotalBytesLimit)]
+    [TestCase(double.NegativeInfinity, ExpectedResult = ProxyStoreConfig.MinTotalBytes)]
     public long ClampTotalBytesFromGiB_ClampsFreeFormInputWithoutThrowing(double gib)
     {
         return ProxyStoreConfig.ClampTotalBytesFromGiB(gib);
     }
 
     [Test]
-    public void ClampTotalBytesFromGiB_NonFiniteInput_ReturnsDefaultWithoutThrowing()
+    public void ClampTotalBytesFromGiB_NaNInput_ReturnsDefaultWithoutThrowing()
     {
-        Assert.Multiple(() =>
-        {
-            Assert.DoesNotThrow(() => _ = ProxyStoreConfig.ClampTotalBytesFromGiB(double.NaN));
-            Assert.That(ProxyStoreConfig.ClampTotalBytesFromGiB(double.NaN), Is.EqualTo(ProxyStoreConfig.DefaultTotalBytes));
-            Assert.That(ProxyStoreConfig.ClampTotalBytesFromGiB(double.PositiveInfinity), Is.EqualTo(ProxyStoreConfig.DefaultTotalBytes));
-            Assert.That(ProxyStoreConfig.ClampTotalBytesFromGiB(double.NegativeInfinity), Is.EqualTo(ProxyStoreConfig.DefaultTotalBytes));
-        });
+        Assert.DoesNotThrow(() => _ = ProxyStoreConfig.ClampTotalBytesFromGiB(double.NaN));
+        Assert.That(ProxyStoreConfig.ClampTotalBytesFromGiB(double.NaN), Is.EqualTo(ProxyStoreConfig.DefaultTotalBytes));
     }
 }
