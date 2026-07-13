@@ -45,28 +45,21 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                     {
                         activity?.AddEvent(new("Entered_AsyncLock"));
                         IsBusy.Value = true;
-                        releasesReady.OnNext(false);
-                        AllReleases.Clear();
-                        LatestRelease.Value = null;
-                        await Package.RefreshAsync();
-
-                        int totalCount = 0;
-                        int prevCount = 0;
-
-                        do
-                        {
-                            Release[] array = await package.GetReleasesAsync(totalCount, 30);
-                            AllReleases.AddRange(array);
-
-                            if (LatestRelease.Value == null && array.FirstOrDefault() is { } publicRelease)
+                        await PackageReleaseRefreshCoordinator.RefreshAsync(
+                            releasesReady,
+                            Package.RefreshAsync,
+                            package.GetReleasesAsync,
+                            releases =>
                             {
-                                LatestRelease.Value = publicRelease;
-                                SelectedRelease.Value = publicRelease;
-                            }
+                                AllReleases.Clear();
+                                AllReleases.AddRange(releases);
 
-                            totalCount += array.Length;
-                            prevCount = array.Length;
-                        } while (prevCount == 30);
+                                LatestRelease.Value = releases.FirstOrDefault();
+                                if (LatestRelease.Value is { } publicRelease)
+                                {
+                                    SelectedRelease.Value = publicRelease;
+                                }
+                            });
                     }
                 }
                 catch (Exception e)
@@ -78,7 +71,6 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                 finally
                 {
                     IsBusy.Value = false;
-                    releasesReady.OnNext(true);
                 }
             })
             .DisposeWith(_disposables);
