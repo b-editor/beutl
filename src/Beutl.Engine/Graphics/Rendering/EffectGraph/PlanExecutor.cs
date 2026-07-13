@@ -65,16 +65,24 @@ internal static class PlanExecutor
         // and back in and each descriptor pass maps every current operation.
         int maxDimension = resources.MaxDimension;
         var current = new List<RenderNodeOperation>(inputs);
+        PassBackend runtimeBackend = PassBackend.Skia;
         try
         {
             for (int k = startPass; k < plan.Passes.Length; k++)
             {
                 CompiledPass pass = plan.Passes[k];
+                bool supportsCompute = pass is ComputePass && SupportsCompute();
+                bool consumesOnSkia = pass switch
+                {
+                    ComputePass { Fallback: ComputeFallback.Identity or ComputeFallback.Skip }
+                        when !supportsCompute => false,
+                    _ => true,
+                };
 
-                // Count one FlushSyncs per planned Skia<->Vulkan boundary. Descriptor-declared CPU readbacks are
-                // counted separately immediately before their callbacks; no same-backend draw/canvas disposal
-                // synchronizes (C4.2). The backend barrier itself happens in the materialize/dispatch path.
-                if (pass.SyncBefore && diagnostics != null)
+                // Count the runtime Vulkan -> Skia synchronization before materializing an output written by compute.
+                // A real compute pass counts its Skia -> Vulkan synchronization at PrepareForSampling below. An
+                // Identity/Skip fallback consumes nothing, so compiler metadata alone must not increment the counter.
+                if (current.Count > 0 && consumesOnSkia && runtimeBackend == PassBackend.Vulkan && diagnostics != null)
                     diagnostics.FlushSyncs++;
 
                 switch (pass)
@@ -103,6 +111,14 @@ internal static class PlanExecutor
                             outputScale, workingScale, maxWorkingScale, maxDimension,
                             diagnostics, pool, captureSink != null && k == captureSink.CapturePassIndex ? captureSink : null);
                         break;
+                }
+
+                if (current.Count > 0)
+                {
+                    if (supportsCompute)
+                        runtimeBackend = PassBackend.Vulkan;
+                    else if (consumesOnSkia)
+                        runtimeBackend = PassBackend.Skia;
                 }
             }
 
@@ -155,15 +171,16 @@ internal static class PlanExecutor
             $"split-shrink ({splitShrinkAllowance}) allowances.");
     }
 
-    // Executes a nested-graph pass: per branch, describe the child graph at the branch's bounds and index, compile,
-    // and recurse. Each branch's plan compiles fresh per frame (counted in PlanCompilations) — a nested description
-    // is branch-index-dependent by contract, so the outer node's plan cache cannot hold it; program caching still
-    // applies inside. An empty child graph is the identity (the branch passes through).
+    // Executes a nested-graph pass: per branch, describe the child graph at the branch's bounds and index, then
+    // rebind onto that branch's persistent plan-cache entry or compile on a structural/context miss. Each branch owns
+    // a child cache scope for deeper nesting, so local node ordinals never collide across branches. An empty child
+    // graph is the identity (the branch passes through).
     private static void ExecuteNestedGraph(
         NestedGraphPass pass, List<RenderNodeOperation> current, float outputScale, float workingScale,
         float maxWorkingScale, int maxDimension, PipelineDiagnostics? diagnostics, RenderTargetPool? pool)
     {
         var outputs = new List<RenderNodeOperation>(current.Count);
+        pass.PlanCache.PruneBranches(current.Count);
         try
         {
             for (int i = 0; i < current.Count; i++)
@@ -175,12 +192,25 @@ internal static class PlanExecutor
                 float branchScale = CarriedWorkingScale(op, workingScale);
                 // A DescribeBranch that registers a native shader and then throws would strand it; abort the still-open
                 // engine-owned builder (Build transfers ownership to the graph, after which Abort is a no-op).
-                var builder = new EffectGraphBuilder(op.Bounds, outputScale, branchScale, maxWorkingScale);
+                NestedGraphBranchPlanCache branchCache = pass.PlanCache.GetBranch(i);
+                var builder = new EffectGraphBuilder(
+                    op.Bounds, outputScale, branchScale, maxWorkingScale, branchCache.Children);
                 try
                 {
                     pass.DescribeBranch(builder, i);
                     using EffectGraph graph = builder.Build();
-                    CompiledPlan branchPlan = EffectGraphCompiler.Compile(graph, diagnostics);
+                    object contextId = GraphicsContextFactory.SharedContext ?? NestedGraphPlanCache.NoGraphicsContext;
+                    StructuralKey key = StructuralKey.Compute(graph);
+                    CompiledPlan branchPlan;
+                    if (branchCache.Plan.TryGet(key, contextId, out CompiledPlan cached))
+                    {
+                        branchPlan = ParameterBlock.Extract(graph).RebindOnto(cached);
+                    }
+                    else
+                    {
+                        branchPlan = EffectGraphCompiler.Compile(graph, diagnostics);
+                        branchCache.Plan.Store(key, contextId, branchPlan);
+                    }
                     FrameResources branchResources = EffectGraphCompiler.ResolveResources(
                         branchPlan, builder.Bounds, branchScale, maxDimension);
                     // Hand ownership of op to the recursion only once it is about to consume it: a DescribeBranch/
@@ -1169,11 +1199,12 @@ internal static class PlanExecutor
 
         var ctx = new ComputeContext(
             gfx, sourceTexture, destTexture, width, height, w,
-            pass.ColorScratchCount, pass.DepthScratchCount,
+            pass.PassCount, pass.ColorScratchCount, pass.DepthScratchCount,
             scratch, depthScratch, diagnostics, pool);
         try
         {
             pass.Dispatch(ctx);
+            ctx.ValidateCompletion();
         }
         catch (ComputeScratchAllocationException ex)
         {
@@ -1187,7 +1218,7 @@ internal static class PlanExecutor
         catch (Exception ex) when (
             pass.DispatchFailureBehavior == ComputeDispatchFailureBehavior.IdentityInPreview
             && ex is not OperationCanceledException
-            && ex is not ComputeResourcePlanViolationException
+            && ex is not ComputeContractViolationException
             && !ComputeBackendPreparationFailure.IsMarked(ex)
             && !float.IsPositiveInfinity(maxWorkingScale))
         {
@@ -1367,8 +1398,10 @@ internal static class PlanExecutor
                     var input = new EffectInput(
                         inputTarget, op.Bounds, EffectiveScale.At(inW), readbackPrepared: pass.RequiresReadback);
                     var emitter = new SplitEmitter(
-                        input, inW, outputScale, maxWorkingScale, maxDimension, diagnostics, pool, outputs);
+                        input, inW, outputScale, maxWorkingScale, maxDimension,
+                        pass.IsDynamicOutputs ? null : pass.BranchCount, diagnostics, pool, outputs);
                     pass.Render(emitter);
+                    emitter.ValidateCompletion();
                 }
                 finally
                 {
@@ -1552,9 +1585,9 @@ internal static class PlanExecutor
         public ComputeScratchAllocationException(string message, Exception inner) : base(message, inner) { }
     }
 
-    // A callback exceeded the compiled resource plan. This is an authoring/contract violation, never a recoverable
+    // A callback violated its compiled dispatch/resource contract. This is an authoring error, never a recoverable
     // preview dispatch failure, so it bypasses ComputeDispatchFailureBehavior.IdentityInPreview.
-    private sealed class ComputeResourcePlanViolationException(string message) : InvalidOperationException(message);
+    private sealed class ComputeContractViolationException(string message) : InvalidOperationException(message);
 
     // Creates a non-pooled depth scratch target, normalizing a raw create failure to ComputeScratchAllocationException so
     // the pool-less branch routes through the same ExecuteCompute C7 drop/throw as the pooled branch, rather than aborting
@@ -1576,10 +1609,13 @@ internal static class PlanExecutor
     // pass output texture, plus pooled color and depth scratch released when the pass ends.
     private sealed class ComputeContext(
         IGraphicsContext gfx, ITexture2D source, ITexture2D destination, int width, int height, float workingScale,
-        int colorScratchLimit, int depthScratchLimit,
+        int passCount, int colorScratchLimit, int depthScratchLimit,
         List<RenderTarget> colorScratch, List<IDisposable> depthScratch, PipelineDiagnostics? diagnostics,
         RenderTargetPool? pool) : IComputeContext
     {
+        private int _completedDispatches;
+        private bool _copiedSource;
+
         public ITexture2D Source => source;
 
         public ITexture2D Destination => destination;
@@ -1592,9 +1628,10 @@ internal static class PlanExecutor
 
         public ITexture2D AcquireColorScratch()
         {
+            ThrowIfIdentityCompleted();
             if (colorScratch.Count >= colorScratchLimit)
             {
-                throw new ComputeResourcePlanViolationException(
+                throw new ComputeContractViolationException(
                     $"The compute callback exceeded its declared color scratch limit ({colorScratchLimit}).");
             }
 
@@ -1611,14 +1648,22 @@ internal static class PlanExecutor
 
         public void CopySourceToDestination()
         {
+            if (_copiedSource || _completedDispatches != 0)
+            {
+                throw new ComputeContractViolationException(
+                    "CopySourceToDestination is an exclusive terminal operation and cannot be combined with dispatches.");
+            }
+
             gfx.CopyTexture(source, destination);
+            _copiedSource = true;
         }
 
         public ITexture2D AcquireDepthScratch()
         {
+            ThrowIfIdentityCompleted();
             if (depthScratch.Count >= depthScratchLimit)
             {
-                throw new ComputeResourcePlanViolationException(
+                throw new ComputeContractViolationException(
                     $"The compute callback exceeded its declared depth scratch limit ({depthScratchLimit}).");
             }
 
@@ -1642,7 +1687,9 @@ internal static class PlanExecutor
         public void Run<T>(GLSLShader shader, ITexture2D src, ITexture2D dst, ITexture2D depth, T pushConstants)
             where T : unmanaged
         {
+            BeforeRun();
             shader.ExecuteSingleTarget(src, dst, depth, pushConstants);
+            _completedDispatches++;
             if (diagnostics != null)
                 diagnostics.GpuPasses++;
         }
@@ -1651,9 +1698,39 @@ internal static class PlanExecutor
             GLSLShader shader, ITexture2D src, ITexture2D mask, ITexture2D dst, ITexture2D depth, T pushConstants)
             where T : unmanaged
         {
+            BeforeRun();
             shader.ExecuteSingleTargetWithMask(src, mask, dst, depth, pushConstants);
+            _completedDispatches++;
             if (diagnostics != null)
                 diagnostics.GpuPasses++;
+        }
+
+        public void ValidateCompletion()
+        {
+            if (!_copiedSource && _completedDispatches != passCount)
+            {
+                throw new ComputeContractViolationException(
+                    $"The compute callback completed {_completedDispatches} dispatches but declared {passCount}.");
+            }
+        }
+
+        private void BeforeRun()
+        {
+            ThrowIfIdentityCompleted();
+            if (_completedDispatches >= passCount)
+            {
+                throw new ComputeContractViolationException(
+                    $"The compute callback exceeded its declared dispatch count ({passCount}).");
+            }
+        }
+
+        private void ThrowIfIdentityCompleted()
+        {
+            if (_copiedSource)
+            {
+                throw new ComputeContractViolationException(
+                    "CopySourceToDestination is terminal; no scratch acquisition or dispatch may follow it.");
+            }
         }
     }
 
@@ -1662,8 +1739,11 @@ internal static class PlanExecutor
     // applying the C7 drop/throw on a failed allocation.
     private sealed class SplitEmitter(
         EffectInput input, float workingScale, float outputScale, float maxWorkingScale, int maxDimension,
-        PipelineDiagnostics? diagnostics, RenderTargetPool? pool, List<RenderNodeOperation> outputs) : ISplitEmitter
+        int? declaredBranchCount, PipelineDiagnostics? diagnostics, RenderTargetPool? pool,
+        List<RenderNodeOperation> outputs) : ISplitEmitter
     {
+        private int _emitCount;
+
         public EffectInput Input => input;
 
         public float WorkingScale => workingScale;
@@ -1671,6 +1751,13 @@ internal static class PlanExecutor
         public void Emit(Rect logicalBounds, Action<GeometrySession> render)
         {
             ArgumentNullException.ThrowIfNull(render);
+            if (declaredBranchCount is { } count && _emitCount >= count)
+            {
+                throw new InvalidOperationException(
+                    $"The static split exceeded its declared branch count ({count}).");
+            }
+
+            _emitCount++;
 
             float w = RenderNodeContext.ClampWorkingScaleToBufferBudget(logicalBounds, workingScale, maxDimension);
             (int bw, int bh) = RenderNodeContext.DeviceBufferSize(logicalBounds, w);
@@ -1722,6 +1809,15 @@ internal static class PlanExecutor
                 diagnostics.GpuPasses++;
             outputs.Add(RenderNodeOperation.CreateFromRenderTarget(
                 logicalBounds, logicalBounds.Position, target, EffectiveScale.At(w)));
+        }
+
+        public void ValidateCompletion()
+        {
+            if (declaredBranchCount is { } count && _emitCount != count)
+            {
+                throw new InvalidOperationException(
+                    $"The static split emitted {_emitCount} branches but declared {count}.");
+            }
         }
 
         // A split branch that called GeometrySession.SetOutputBounds tightens its emitted op to a sub-rect, mirroring

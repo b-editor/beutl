@@ -15,6 +15,8 @@ namespace Beutl.Graphics.Effects;
 /// </summary>
 public sealed record CustomRenderNodeDescriptor : EffectNodeDescriptor
 {
+    internal override EffectNodeKind Kind => EffectNodeKind.CustomRenderNode;
+
     private CustomRenderNodeDescriptor(CustomRenderNodeFilterEffect.Resource resource, Type nodeType)
     {
         Resource = resource;

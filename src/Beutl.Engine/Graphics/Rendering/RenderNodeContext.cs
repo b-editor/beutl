@@ -10,6 +10,12 @@ public class RenderNodeContext(
     public bool IsRenderCacheEnabled { get; set; } = true;
 
     /// <summary>
+    /// True when this pull is auxiliary work such as hit-testing or boundary calculation rather than the frame draw.
+    /// Auxiliary pulls may execute nodes but must not replace frame-render cache state with their different ROI.
+    /// </summary>
+    internal bool IsAuxiliaryPull { get; init; }
+
+    /// <summary>
     /// The owning renderer's effect-pipeline counters, seeded by <see cref="RenderNodeProcessor"/>. The property
     /// itself defaults to <see langword="null"/>, but the processor-driven pull path always seeds an instance
     /// (<see cref="RenderNodeProcessor"/> fabricates one when none is passed in), so effect nodes see it non-null

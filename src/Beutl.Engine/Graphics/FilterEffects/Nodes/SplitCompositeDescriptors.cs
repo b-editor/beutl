@@ -21,9 +21,9 @@ public interface ISplitEmitter
     /// <summary>
     /// Emits one branch occupying <paramref name="logicalBounds"/>, drawn by <paramref name="render"/>. The
     /// executor sizes and clears the branch's pooled buffer, opens a session over it, and invokes the callback.
-    /// A branch whose bounds resolve to a zero-size device buffer (a sub-pixel tile) emits nothing — the executor
-    /// skips it, so a static split may yield fewer live branches than its declared
-    /// <see cref="SplitNodeDescriptor.BranchCount"/>, matching the legacy pipeline.
+    /// Every call counts toward a static split's exact <see cref="SplitNodeDescriptor.BranchCount"/> contract.
+    /// A branch whose bounds resolve to a zero-size device buffer (a sub-pixel tile) allocates no target and yields
+    /// no live operation, matching the legacy pipeline, but still satisfies one authored branch call.
     /// </summary>
     void Emit(Rect logicalBounds, Action<GeometrySession> render);
 }
@@ -37,6 +37,8 @@ public interface ISplitEmitter
 /// </summary>
 public sealed record SplitNodeDescriptor : EffectNodeDescriptor
 {
+    internal override EffectNodeKind Kind => EffectNodeKind.Split;
+
     private SplitNodeDescriptor(
         Action<ISplitEmitter> render, int branchCount, bool isDynamicOutputs, object structuralToken,
         bool requiresReadback)
@@ -99,6 +101,8 @@ public sealed record SplitNodeDescriptor : EffectNodeDescriptor
 /// </summary>
 public sealed record CompositeNodeDescriptor : EffectNodeDescriptor
 {
+    internal override EffectNodeKind Kind => EffectNodeKind.Composite;
+
     private CompositeNodeDescriptor(BlendMode blendMode, ImmutableArray<Point> inputOffsets, object structuralToken)
     {
         BlendMode = blendMode;

@@ -64,7 +64,9 @@ public interface IComputeContext
     /// <summary>
     /// Blits <see cref="Source"/> into <see cref="Destination"/> unchanged (a GPU image copy, no shader). The
     /// identity a compute pass falls back to when it cannot produce output — e.g. its shaders failed to compile —
-    /// so the layer keeps the source instead of the cleared (transparent) destination.
+    /// so the layer keeps the source instead of the cleared (transparent) destination. This is an exclusive terminal
+    /// operation: it cannot be combined with <see cref="Run{T}(GLSLShader, ITexture2D, ITexture2D, ITexture2D, T)"/>
+    /// or followed by scratch acquisition.
     /// </summary>
     void CopySourceToDestination();
 
@@ -88,6 +90,8 @@ public interface IComputeContext
 /// </summary>
 public sealed record ComputeNodeDescriptor : EffectNodeDescriptor
 {
+    internal override EffectNodeKind Kind => EffectNodeKind.Compute;
+
     private ComputeNodeDescriptor(
         Action<IComputeContext> dispatch, int passCount, int colorScratchCount, int depthScratchCount,
         ComputeFallback fallback,
@@ -108,7 +112,10 @@ public sealed record ComputeNodeDescriptor : EffectNodeDescriptor
     /// <summary>The callback that runs the compute stages against the executor-provided textures.</summary>
     public Action<IComputeContext> Dispatch { get; }
 
-    /// <summary>Structural number of GPU dispatches this node performs (each counts one <c>GpuPasses</c>, C8).</summary>
+    /// <summary>
+    /// Exact structural number of successful <see cref="IComputeContext.Run{T}(GLSLShader, ITexture2D, ITexture2D, ITexture2D, T)"/>
+    /// calls this node performs (each counts one <c>GpuPasses</c>, C8), unless the callback uses the exclusive terminal copy.
+    /// </summary>
     public int PassCount { get; }
 
     /// <summary>Maximum concurrently acquired RGBA16F scratch textures. Part of the compiled resource plan.</summary>
@@ -146,7 +153,9 @@ public sealed record ComputeNodeDescriptor : EffectNodeDescriptor
     public override bool IsCoordinateInvariant => false;
 
     /// <summary>
-    /// Builds a compute node. <paramref name="passCount"/> is the structural dispatch count; <paramref name="fallback"/>
+    /// Builds a compute node. <paramref name="passCount"/> is the exact structural successful-dispatch count; the
+    /// executor rejects over-dispatch before executing it and under-dispatch after a normal callback return.
+    /// <paramref name="fallback"/>
     /// is mandatory (declare <see cref="ComputeFallback.CpuCallback"/> only with a non-null
     /// <paramref name="cpuCallback"/>). <paramref name="dispatchFailureBehavior"/> is independent of that no-Vulkan
     /// fallback and defaults to propagating callback exceptions. <paramref name="structuralToken"/> defaults to the

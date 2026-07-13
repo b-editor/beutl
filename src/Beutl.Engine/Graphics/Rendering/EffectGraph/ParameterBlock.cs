@@ -1,5 +1,4 @@
 ﻿using System.Collections.Immutable;
-using System.Diagnostics;
 
 namespace Beutl.Graphics.Rendering;
 
@@ -27,12 +26,17 @@ internal sealed record ParameterBlock(ImmutableArray<CompiledPass> Passes)
     /// <summary>
     /// Rebinds this frame's parameters onto <paramref name="cached"/>'s structural identity: the cache key and the
     /// structural resource plan are reused verbatim; the executable passes are this block's (fresh parameters and
-    /// bounds). A debug assertion enforces the slot-mapping invariant (identical pass/stage shape and shader-source
-    /// identity) the structural key promised.
+    /// bounds). A release-build runtime guard enforces the slot-mapping invariant (identical pass/stage shape and
+    /// shader-source identity) the structural key promised.
     /// </summary>
     public CompiledPlan RebindOnto(CompiledPlan cached)
     {
-        Debug.Assert(ShapesMatch(cached.Passes, Passes), "structural-key hit but pass shapes diverge");
+        if (!ShapesMatch(cached.Passes, Passes))
+        {
+            throw new InvalidOperationException(
+                "The cached effect plan shape does not match the current structural key.");
+        }
+
         return new CompiledPlan(cached.Key, Passes, cached.Resources);
     }
 
@@ -57,7 +61,9 @@ internal sealed record ParameterBlock(ImmutableArray<CompiledPass> Passes)
                         return false;
                     break;
                 case CompositePass ca when b[i] is CompositePass cb:
-                    if (ca.InputColorFilters.Length != cb.InputColorFilters.Length)
+                    if (ca.BlendMode != cb.BlendMode
+                        || ca.InputOffsets.Length != cb.InputOffsets.Length
+                        || ca.InputColorFilters.Length != cb.InputColorFilters.Length)
                         return false;
                     break;
                 case ComputePass compa when b[i] is ComputePass compb:
@@ -74,7 +80,14 @@ internal sealed record ParameterBlock(ImmutableArray<CompiledPass> Passes)
                         return false;
                     break;
                 case SplitPass splita when b[i] is SplitPass splitb:
-                    if (splita.RequiresReadback != splitb.RequiresReadback)
+                    if (splita.BranchCount != splitb.BranchCount
+                        || splita.IsDynamicOutputs != splitb.IsDynamicOutputs
+                        || splita.RequiresReadback != splitb.RequiresReadback)
+                        return false;
+                    break;
+                case CustomRenderNodePass customa when b[i] is CustomRenderNodePass customb:
+                    if (customa.NodeType != customb.NodeType
+                        || customa.Resource.StructuralId != customb.Resource.StructuralId)
                         return false;
                     break;
             }
@@ -93,9 +106,13 @@ internal sealed record ParameterBlock(ImmutableArray<CompiledPass> Passes)
             if (a[i].GetType() != b[i].GetType())
                 return false;
 
-            if (a[i] is RuntimeShaderStage ra && b[i] is RuntimeShaderStage rb
-                && !string.Equals(ra.Source.IdentityHash, rb.Source.IdentityHash, StringComparison.Ordinal))
-                return false;
+            if (a[i] is RuntimeShaderStage ra && b[i] is RuntimeShaderStage rb)
+            {
+                if (!string.Equals(ra.Source.IdentityHash, rb.Source.IdentityHash, StringComparison.Ordinal)
+                    || ra.Children.Length != rb.Children.Length
+                    || ra.SrcTileMode != rb.SrcTileMode)
+                    return false;
+            }
         }
 
         return true;

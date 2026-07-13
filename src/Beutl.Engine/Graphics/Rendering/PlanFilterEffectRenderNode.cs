@@ -22,6 +22,7 @@ internal sealed class PlanFilterEffectRenderNode(FilterEffect.Resource filterEff
         => s_beforeStoreCapturedForTest = callback;
 
     private readonly PlanCache _planCache = new();
+    private readonly NestedGraphPlanCache _nestedPlanCache = new();
     private readonly EffectPrefixCache _prefixCache = new();
 
     public override RenderNodeOperation[] Process(RenderNodeContext context)
@@ -31,7 +32,8 @@ internal sealed class PlanFilterEffectRenderNode(FilterEffect.Resource filterEff
             // A disabled/removed effect bypasses execution, but a prefix retained from an earlier enabled frame would
             // stay pinned outside every pool budget until node dispose. Release it (idempotent); a later re-enable
             // re-warms from scratch.
-            _prefixCache.Release();
+            if (!context.IsAuxiliaryPull)
+                _prefixCache.Release();
             return context.Input;
         }
 
@@ -55,7 +57,7 @@ internal sealed class PlanFilterEffectRenderNode(FilterEffect.Resource filterEff
             // A Describe that registers a native sampler/child shader and then throws would strand it (ownership only
             // transfers to the graph at Build); the engine aborts the still-open builder in the finally path.
             var graphBuilder = new EffectGraphBuilder(
-                bounds, context.OutputScale, workingScale, context.MaxWorkingScale);
+                bounds, context.OutputScale, workingScale, context.MaxWorkingScale, _nestedPlanCache);
             try
             {
                 resource.GetOriginal().Describe(graphBuilder, resource);
@@ -84,6 +86,16 @@ internal sealed class PlanFilterEffectRenderNode(FilterEffect.Resource filterEff
                 // render path with render caching enabled — a caller that disabled render caching (a delivery render) must
                 // not have frames served from a retained prefix; the pool-less golden/frozen harnesses render once and never
                 // reach the engagement threshold.
+                if (context.IsAuxiliaryPull)
+                {
+                    // Hit-test/bounds pulls commonly request full bounds while the frame render uses a cropped ROI.
+                    // Execute the auxiliary result without consulting or mutating the retained frame-prefix slice.
+                    return PlanExecutor.Execute(
+                        plan, resources, context.Input, context.OutputScale, workingScale, context.MaxWorkingScale,
+                        context.Diagnostics, context.Pool,
+                        isRenderCacheEnabled: context.IsRenderCacheEnabled);
+                }
+
                 if (context.Pool != null && context.IsRenderCacheEnabled)
                 {
                     PrefixDecision decision = _prefixCache.Prepare(

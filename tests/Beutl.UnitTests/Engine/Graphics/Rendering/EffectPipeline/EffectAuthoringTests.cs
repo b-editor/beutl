@@ -47,6 +47,22 @@ public class EffectAuthoringTests
         }
         """;
 
+    [Test]
+    public void DescriptorBase_CannotBeInheritedOutsideTheEngineAssembly()
+    {
+        System.Reflection.PropertyInfo? discriminator = typeof(EffectNodeDescriptor).GetProperty(
+            "Kind", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(discriminator, Is.Not.Null);
+            Assert.That(discriminator!.GetMethod!.IsAssembly, Is.True,
+                "the closed-union discriminator must be inaccessible to external assemblies");
+            Assert.That(discriminator.GetMethod.IsAbstract, Is.True,
+                "every concrete descriptor must implement the engine-only discriminator");
+        });
+    }
+
     // ---- One effect per descriptor kind, all via the public authoring surface --------------------------
 
     [Test]

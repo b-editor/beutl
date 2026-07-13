@@ -153,7 +153,9 @@ internal static class EffectGraphCompiler
             }
             else if (node.Descriptor is NestedGraphNodeDescriptor nested)
             {
-                passes.Add(new NestedGraphPass(nested.DescribeBranch)
+                passes.Add(new NestedGraphPass(
+                    nested.DescribeBranch,
+                    node.NestedPlanCache ?? throw new InvalidOperationException("A nested graph is missing its plan cache scope."))
                 {
                     InputBounds = node.InputBounds,
                     OutputBounds = node.OutputBounds,

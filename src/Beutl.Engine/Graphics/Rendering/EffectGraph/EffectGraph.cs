@@ -10,7 +10,8 @@ namespace Beutl.Graphics.Rendering;
 /// the branching split/composite topology that lands in a later step.
 /// </summary>
 internal sealed class EffectNode(
-    EffectNodeDescriptor descriptor, Rect inputBounds, Rect outputBounds, int childIndex)
+    EffectNodeDescriptor descriptor, Rect inputBounds, Rect outputBounds, int childIndex,
+    NestedGraphNodePlanCache? nestedPlanCache)
 {
     public EffectNodeDescriptor Descriptor { get; } = descriptor;
 
@@ -25,6 +26,9 @@ internal sealed class EffectNode(
     /// node inside a single (non-group) effect are child <c>0</c>; a nested group inherits its outer child index.
     /// </summary>
     public int ChildIndex { get; } = childIndex;
+
+    /// <summary>Persistent branch-plan cache for a nested node; null for every other descriptor kind.</summary>
+    public NestedGraphNodePlanCache? NestedPlanCache { get; } = nestedPlanCache;
 
     public IReadOnlyList<int> InputIndices { get; init; } = [];
 }

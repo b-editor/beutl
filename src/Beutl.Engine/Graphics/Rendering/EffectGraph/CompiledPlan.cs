@@ -185,12 +185,15 @@ internal sealed record CompositePass(BlendMode BlendMode, ImmutableArray<Point> 
 
 /// <summary>
 /// A per-branch nested graph pass (feature 004, research D8): for each current operation the executor invokes
-/// <see cref="DescribeBranch"/> with the branch index, compiles the described child graph, and executes it
-/// recursively against that single operation through the same pipeline (plans, pool, counters). Its outputs and
+/// <see cref="DescribeBranch"/> with the branch index, rebinds or compiles it through that branch's persistent
+/// hierarchical plan cache, and executes it recursively against that single operation through the same pipeline
+/// (plans, pool, counters). Its outputs and
 /// buffers are execution-time-resolved (<see cref="CompiledPass.IsDynamicOutputs"/>), exempt from the static
 /// peak-live bound.
 /// </summary>
-internal sealed record NestedGraphPass(Action<EffectGraphBuilder, int> DescribeBranch) : CompiledPass
+internal sealed record NestedGraphPass(
+    Action<EffectGraphBuilder, int> DescribeBranch,
+    NestedGraphNodePlanCache PlanCache) : CompiledPass
 {
     /// <inheritdoc/>
     public override PassBackend Backend => PassBackend.Skia;

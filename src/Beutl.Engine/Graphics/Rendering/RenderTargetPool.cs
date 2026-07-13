@@ -30,19 +30,13 @@ namespace Beutl.Graphics.Rendering;
 /// of an already-returned (and possibly reissued) lease is rejected before it can read or write the reissued
 /// surface. Under correct ref-counting a return only happens with no live handles, making the tag a
 /// defense-in-depth guard; it is exercised directly by the tests via <see cref="ForceReturnForTest"/>.</para>
-/// <para><b>Failure semantics AT THIS ROLLOUT STEP are unchanged.</b> A pool acquire that must allocate and
-/// fails returns <see langword="null"/> — byte-for-byte the same surface as <see cref="RenderTarget.Create"/>
-/// returning <see langword="null"/> today — so the existing call-site handling (the activator's flush
-/// drop/throw, the custom context's empty-target path) behaves identically. The contracts/execution-plan.md
-/// §C7 normalization (uniform preview-drop / delivery-throw) lands with the new executor in a later step,
-/// not here.</para>
-/// <para><b>Ownership choice: per-renderer, render-thread-affine.</b> Research D4 places the pool on the
-/// shared graphics context. This step instead threads one pool per renderer (mirroring how
-/// <see cref="PipelineDiagnostics"/> was threaded in step 1), because the counter tests and golden harness
-/// each construct their own renderer/processor and must not see pool state leak across tests; a per-renderer
-/// pool that lives on the render thread gives that isolation for free. Cross-renderer sharing (moving the
-/// pool onto the shared context) can come with the executor, when a single owner across renderers is
-/// actually useful. All access is render-thread-affine, like <see cref="RenderTarget.Create"/>.</para>
+/// <para><b>Failure semantics.</b> An acquire that cannot allocate returns <see langword="null"/>, like
+/// <see cref="RenderTarget.Create"/>. The plan executor owns the uniform C7 response: finite-quality preview
+/// drops the affected output and continues, while delivery/export throws <see cref="InvalidOperationException"/>.
+/// Callers outside that executor remain responsible for handling a null acquire.</para>
+/// <para><b>Ownership: per-renderer, render-thread-affine.</b> Each renderer owns one pool so leases, byte caps,
+/// diagnostics, and teardown remain isolated between renderers and test harnesses. All access is
+/// render-thread-affine, like <see cref="RenderTarget.Create"/>.</para>
 /// </remarks>
 public sealed class RenderTargetPool : IDisposable
 {
@@ -92,7 +86,7 @@ public sealed class RenderTargetPool : IDisposable
     /// acquire counts <see cref="PipelineDiagnostics.PoolAcquires"/>; a miss additionally counts
     /// <see cref="PipelineDiagnostics.TargetAllocations"/> and <see cref="PipelineDiagnostics.PoolMisses"/>.
     /// Returns <see langword="null"/> on allocation failure, exactly as <see cref="RenderTarget.Create"/> does
-    /// (no counter is touched), so existing call-site failure handling is preserved.
+    /// (no counter is touched). The plan executor applies the C7 preview-drop / delivery-throw contract.
     /// </summary>
     public RenderTarget? Acquire(int width, int height, PipelineDiagnostics? diagnostics = null)
     {

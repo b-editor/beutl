@@ -16,6 +16,8 @@ public sealed class EffectGraphBuilder
 {
     private readonly List<EffectNode> _nodes = [];
     private readonly HashSet<IDisposable> _disposables = new(ReferenceEqualityComparer.Instance);
+    private readonly NestedGraphPlanCache _nestedPlanCache;
+    private readonly HashSet<int> _visitedNestedOrdinals = [];
     private int _childScopeDepth;
     private int _currentChildIndex;
     private BuilderState _state;
@@ -28,13 +30,15 @@ public sealed class EffectGraphBuilder
     }
 
     internal EffectGraphBuilder(
-        Rect bounds, float outputScale, float workingScale, float maxWorkingScale = float.PositiveInfinity)
+        Rect bounds, float outputScale, float workingScale, float maxWorkingScale = float.PositiveInfinity,
+        NestedGraphPlanCache? nestedPlanCache = null)
     {
         OriginalBounds = bounds;
         Bounds = bounds;
         OutputScale = outputScale;
         WorkingScale = workingScale;
         MaxWorkingScale = maxWorkingScale;
+        _nestedPlanCache = nestedPlanCache ?? new NestedGraphPlanCache();
     }
 
     /// <summary>The current logical bounds, advanced by each appended node's forward bounds.</summary>
@@ -236,7 +240,15 @@ public sealed class EffectGraphBuilder
         Rect output = descriptor.Bounds.IsRenderTimeResolved
             ? Rect.Invalid
             : descriptor.Bounds.TransformBounds(input);
-        _nodes.Add(new EffectNode(descriptor, input, output, _currentChildIndex));
+        int ordinal = _nodes.Count;
+        NestedGraphNodePlanCache? nestedCache = null;
+        if (descriptor is NestedGraphNodeDescriptor)
+        {
+            _visitedNestedOrdinals.Add(ordinal);
+            nestedCache = _nestedPlanCache.GetNode(ordinal);
+        }
+
+        _nodes.Add(new EffectNode(descriptor, input, output, _currentChildIndex, nestedCache));
         if (!output.IsInvalid)
         {
             Bounds = output;
@@ -270,6 +282,7 @@ public sealed class EffectGraphBuilder
         {
             if (_nodes.Count > savedNodeCount)
                 _nodes.RemoveRange(savedNodeCount, _nodes.Count - savedNodeCount);
+            _visitedNestedOrdinals.RemoveWhere(staticOrdinal => staticOrdinal >= savedNodeCount);
             Bounds = savedBounds;
             onError(ex);
             return false;
@@ -279,6 +292,7 @@ public sealed class EffectGraphBuilder
     internal EffectGraph Build()
     {
         ThrowIfNotOpen();
+        _nestedPlanCache.PruneNodes(_visitedNestedOrdinals);
         // Ownership of the tracked disposables transfers to the graph, which releases them once the frame's plan has
         // executed; Abort must then not touch them (the graph would double-dispose). Flip the state only after the
         // graph exists, or a construction throw leaves the builder open for its caller's finally-block to abort.

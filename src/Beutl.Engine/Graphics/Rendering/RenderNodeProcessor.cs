@@ -35,6 +35,9 @@ public class RenderNodeProcessor(
     /// <summary>The logical output region requested by this pull's parent; invalid means full output.</summary>
     public Rect RequestedBounds { get; init; } = Rect.Invalid;
 
+    /// <summary>Marks this pull as hit-test/bounds-only work that must preserve frame-render cache state.</summary>
+    internal bool IsAuxiliaryPull { get; init; }
+
     /// <summary>
     /// Allocates the intermediate <see cref="RenderTarget"/> used to rasterize each operation.
     /// Override to substitute a custom allocation (e.g. pooling). Defaults to <see cref="RenderTarget.Create"/>.
@@ -292,6 +295,7 @@ public class RenderNodeProcessor(
             Diagnostics = Diagnostics,
             Pool = Pool,
             RequestedBounds = RequestedBounds,
+            IsAuxiliaryPull = IsAuxiliaryPull,
         };
         var result = node.Process(context);
         if (useRenderCache && !context.IsRenderCacheEnabled)

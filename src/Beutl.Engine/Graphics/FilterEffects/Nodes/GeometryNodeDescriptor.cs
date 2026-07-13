@@ -11,6 +11,8 @@
 /// </summary>
 public sealed record GeometryNodeDescriptor : EffectNodeDescriptor
 {
+    internal override EffectNodeKind Kind => EffectNodeKind.Geometry;
+
     private GeometryNodeDescriptor(
         Action<GeometrySession> render, BoundsContract bounds, object structuralToken, bool requiresReadback)
     {

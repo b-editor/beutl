@@ -12,6 +12,8 @@ namespace Beutl.Graphics.Effects;
 /// </summary>
 public sealed record SkiaFilterNodeDescriptor : EffectNodeDescriptor
 {
+    internal override EffectNodeKind Kind => EffectNodeKind.SkiaFilter;
+
     private SkiaFilterNodeDescriptor(
         Func<SKImageFilter?, SKImageFilter?> factory, BoundsContract bounds, object structuralToken)
     {

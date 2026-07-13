@@ -11,6 +11,8 @@ namespace Beutl.Graphics.Effects;
 /// </summary>
 public sealed record ColorFilterNodeDescriptor : EffectNodeDescriptor
 {
+    internal override EffectNodeKind Kind => EffectNodeKind.ColorFilter;
+
     private ColorFilterNodeDescriptor(Func<SKColorFilter?> factory, object structuralToken)
     {
         Factory = factory;

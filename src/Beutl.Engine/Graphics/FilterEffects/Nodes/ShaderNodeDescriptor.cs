@@ -17,6 +17,8 @@ namespace Beutl.Graphics.Effects;
 /// </summary>
 public sealed record ShaderNodeDescriptor : EffectNodeDescriptor
 {
+    internal override EffectNodeKind Kind => EffectNodeKind.Shader;
+
     private ShaderNodeDescriptor(
         SkslSource source,
         bool isCoordinateInvariant,

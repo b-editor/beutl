@@ -480,6 +480,64 @@ half4 apply(half4 c) {
         Assert.That(blur.Key, Is.Not.EqualTo(dilate.Key));
     }
 
+    [Test]
+    public void StructuralKey_TokenContainingSerializedNodeText_DoesNotAliasAnotherGraph()
+    {
+        var bounds = new Rect(0, 0, 100, 100);
+        using EffectGraph oneNode = NewBuilder(bounds)
+            .ColorFilter(ColorFilterNodeDescriptor.Create(
+                static () => null, "x|0:split:z,2,0"))
+            .Build();
+        using EffectGraph twoNodes = NewBuilder(bounds)
+            .ColorFilter(ColorFilterNodeDescriptor.Create(static () => null, "x"))
+            .Split(SplitNodeDescriptor.Static(static _ => { }, 2, "z"))
+            .Build();
+
+        Assert.That(StructuralKey.Compute(oneNode), Is.Not.EqualTo(StructuralKey.Compute(twoNodes)),
+            "node boundaries and typed token payloads must remain distinct even when a token contains key syntax");
+    }
+
+    [Test]
+    public void StructuralKey_SnapshotsMutableTokenText()
+    {
+        var bounds = new Rect(0, 0, 100, 100);
+        var token = new MutableStructuralToken("stable");
+        using EffectGraph graph = NewBuilder(bounds)
+            .ColorFilter(ColorFilterNodeDescriptor.Create(static () => null, token))
+            .Build();
+        StructuralKey beforeMutation = StructuralKey.Compute(graph);
+        int beforeHash = beforeMutation.GetHashCode();
+
+        token.Value = "changed";
+        using EffectGraph stableGraph = NewBuilder(bounds)
+            .ColorFilter(ColorFilterNodeDescriptor.Create(
+                static () => null, new MutableStructuralToken("stable")))
+            .Build();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(beforeMutation.GetHashCode(), Is.EqualTo(beforeHash));
+            Assert.That(beforeMutation, Is.EqualTo(StructuralKey.Compute(stableGraph)));
+            Assert.That(beforeMutation, Is.Not.EqualTo(StructuralKey.Compute(graph)));
+        });
+    }
+
+    [Test]
+    public void ParameterBlock_RebindRejectsMismatchedPassShapeInReleaseBuilds()
+    {
+        var bounds = new Rect(0, 0, 100, 100);
+        using EffectGraph cachedGraph = NewBuilder(bounds).Saturate(1.2f).Build();
+        using EffectGraph freshGraph = NewBuilder(bounds)
+            .Saturate(1.2f)
+            .Split(SplitNodeDescriptor.Static(static _ => { }, 2, "shape-mismatch"))
+            .Build();
+        CompiledPlan cached = EffectGraphCompiler.Compile(cachedGraph, diagnostics: null);
+
+        Assert.That(
+            () => ParameterBlock.Extract(freshGraph).RebindOnto(cached),
+            Throws.InvalidOperationException.With.Message.Contains("shape"));
+    }
+
     // B3: DepthScratchCount is structural — it decides how many depth intermediates the resource plan declares
     // (C3.3). Two computes identical in every other structural field must key differently so a depth toggle can
     // never stale-hit a plan that under-declares the depth attachment (C3/C5).
@@ -580,7 +638,11 @@ half4 apply(half4 c) {
         {
             var bounds = new Rect(0, 0, 32, 32);
             var descriptor = ComputeNodeDescriptor.Create(
-                static ctx => ctx.AcquireColorScratch(),
+                static ctx =>
+                {
+                    ctx.AcquireColorScratch();
+                    ctx.CopySourceToDestination();
+                },
                 passCount: 1,
                 ComputeFallback.Identity,
                 colorScratchCount: 1,
@@ -1472,5 +1534,12 @@ half4 apply(half4 c) {
         }
 
         return target.Snapshot();
+    }
+
+    private sealed class MutableStructuralToken(string value)
+    {
+        public string Value { get; set; } = value;
+
+        public override string ToString() => Value;
     }
 }

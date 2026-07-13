@@ -90,18 +90,16 @@ public class EffectMigrationParityTests
 
     public static IEnumerable<TestCaseData> PercentageEffects()
     {
-        yield return Case("Review-Gamma", () => new Gamma { Amount = { CurrentValue = 150f } });
-        yield return Case("Review-Invert", () => new Invert { Amount = { CurrentValue = 100f } });
-        yield return Case("Review-Threshold", () => new Threshold { Value = { CurrentValue = 50f } });
-        yield return Case("Review-Negaposi", () => new Negaposi { Strength = { CurrentValue = 100f } });
-        yield return Case("Review-Saturate", () => new Saturate { Amount = { CurrentValue = 300f } });
-        yield return Case("Review-Brightness", () => new Brightness { Amount = { CurrentValue = 150f } });
-        yield return Case("Review-HighContrast", () => new HighContrast { Contrast = { CurrentValue = 50f } });
-        yield return Case("Review-ColorGrading", () => new ColorGrading
+        foreach ((string name, Func<FilterEffect> make) in StrongPercentageEffects())
+            yield return Case("Review-" + name, make);
+    }
+
+    public static IEnumerable<TestCaseData> StrongPercentageParityCases()
+    {
+        foreach ((string name, Func<FilterEffect> make) in StrongPercentageEffects())
         {
-            Contrast = { CurrentValue = 20f },
-            Saturation = { CurrentValue = 30f },
-        });
+            yield return new TestCaseData(name, make).SetName("StrongLegacy_" + name);
+        }
     }
 
     [TestCaseSource(nameof(PercentageEffects))]
@@ -115,6 +113,17 @@ public class EffectMigrationParityTests
             double mae = ImageMetrics.MeanAbsoluteError(identity, effected);
             Assert.That(mae, Is.GreaterThan(0.01),
                 $"{name} must be strong enough that deleting the effect cannot pass the parity tolerance (MAE {mae:F6})");
+        });
+    }
+
+    [TestCaseSource(nameof(StrongPercentageParityCases))]
+    public void PercentageEffect_MatchesImmutableLegacyReference(string name, Func<FilterEffect> makeEffect)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using Bitmap actual = RenderChain([makeEffect()]);
+            GoldenReferenceStore.FreezeOrAssert("004-parity-strong", "effect-" + name, actual);
         });
     }
 
@@ -199,6 +208,22 @@ public class EffectMigrationParityTests
 
     private static FilterEffect.Resource Capture(FilterEffect effect)
         => (FilterEffect.Resource)(object)effect.ToResource(CompositionContext.Default);
+
+    private static IEnumerable<(string Name, Func<FilterEffect> Make)> StrongPercentageEffects()
+    {
+        yield return ("Gamma", () => new Gamma { Amount = { CurrentValue = 150f } });
+        yield return ("Invert", () => new Invert { Amount = { CurrentValue = 100f } });
+        yield return ("Threshold", () => new Threshold { Value = { CurrentValue = 50f } });
+        yield return ("Negaposi", () => new Negaposi { Strength = { CurrentValue = 100f } });
+        yield return ("Saturate", () => new Saturate { Amount = { CurrentValue = 300f } });
+        yield return ("Brightness", () => new Brightness { Amount = { CurrentValue = 150f } });
+        yield return ("HighContrast", () => new HighContrast { Contrast = { CurrentValue = 50f } });
+        yield return ("ColorGrading", () => new ColorGrading
+        {
+            Contrast = { CurrentValue = 20f },
+            Saturation = { CurrentValue = 30f },
+        });
+    }
 
     // Concentric alpha-gradient regions over a transparent border: the α ∈ {0, 0.25, 0.5, 1} bands exercise both
     // the α ≤ ε early-out and mid-alpha unpremultiply of every migrated snippet.

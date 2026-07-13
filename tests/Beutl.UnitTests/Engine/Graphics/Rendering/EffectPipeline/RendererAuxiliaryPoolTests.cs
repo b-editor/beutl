@@ -22,6 +22,7 @@ public class RendererAuxiliaryPoolTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             PoolProbeRenderNode.SawPool = false;
+            PoolProbeRenderNode.SawAuxiliaryPull = false;
             var shape = new RectShape
             {
                 Width = { CurrentValue = 64 },
@@ -49,6 +50,8 @@ public class RendererAuxiliaryPoolTests
             {
                 Assert.That(PoolProbeRenderNode.SawPool, Is.True,
                     "HitTest/RecalculateBoundaries must preserve the renderer pool on the auxiliary pull");
+                Assert.That(PoolProbeRenderNode.SawAuxiliaryPull, Is.True,
+                    "HitTest/RecalculateBoundaries must mark the pull as cache-state-neutral auxiliary work");
                 Assert.That(renderer.Diagnostics.Snapshot().GpuPasses, Is.Zero,
                     "auxiliary pulls must not contaminate frame-rendering diagnostics");
             });
@@ -82,9 +85,12 @@ internal sealed class PoolProbeRenderNode(FilterEffect.Resource resource) : Filt
 {
     internal static bool SawPool { get; set; }
 
+    internal static bool SawAuxiliaryPull { get; set; }
+
     public override RenderNodeOperation[] Process(RenderNodeContext context)
     {
         SawPool |= context.Pool != null;
+        SawAuxiliaryPull |= context.IsAuxiliaryPull;
         if (context.Diagnostics != null)
             context.Diagnostics.GpuPasses++;
         return context.Input;

@@ -56,23 +56,13 @@ public class EffectReferenceFreezeTests
                 "uniform shader src;\nhalf4 main(float2 fc) { half4 c = src.eval(fc); return half4(1.0 - c.rgb, c.a); }";
             return e;
         }, requiresCompute: false);
-        // CSharpScriptEffect's imperative FilterEffectContext surface was removed (breaking,
-        // contracts/breaking-changes.md) and the interim GeometrySession `Session` global was in turn replaced by
-        // the declarative `Builder` (EffectGraphBuilder). This census case is the new-surface anchor: it exercises a
-        // representative Builder-authored mix (a Geometry pass re-compositing the input then a convenience Blur), so
-        // its reference is frozen from the Builder script and re-freezes on the next Vulkan run.
+        // The immutable reference was captured before the imperative Context API was removed. Builder.Blur is the
+        // direct declarative equivalent of the original Context.Blur script, so this keeps the old output as an
+        // independent migration gate instead of re-freezing a post-redesign scene.
         yield return Case("CSharpScriptEffect", () =>
         {
             var e = new CSharpScriptEffect();
-            e.Script.CurrentValue =
-                "Builder.Geometry(session =>\n"
-                + "{\n"
-                + "    var canvas = session.OpenCanvas();\n"
-                + "    using (canvas.PushDeviceSpace())\n"
-                + "        session.Inputs[0].Draw(canvas, default);\n"
-                + "    canvas.DrawEllipse(new Rect(48, 28, 24, 24), Brushes.Resource.Cyan, null);\n"
-                + "});\n"
-                + "Builder.Blur(new Size(4, 4));";
+            e.Script.CurrentValue = "Builder.Blur(new Size(4, 4));";
             return e;
         }, requiresCompute: false);
 

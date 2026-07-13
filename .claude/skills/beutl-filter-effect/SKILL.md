@@ -196,6 +196,9 @@ public sealed partial class FilterEffectGroup : FilterEffect
 
 **Choosing a node kind:**
 
+`EffectNodeDescriptor` is a closed union. Compose the public sealed descriptor types below; plugins cannot add an
+unknown descriptor kind because the compiler has no registration seam for one.
+
 | Want to… | Use |
 |---|---|
 | Per-pixel color math (gamma, curves, LUT) | `builder.Shader(ShaderNodeDescriptor.Snippet(...))` — fusable, identity bounds |
@@ -379,7 +382,7 @@ public new partial class Resource
 
 ### GLSL (Vulkan) pattern
 
-GLSL fragment shaders run as a `ComputeNode` (`builder.Compute(ComputeNodeDescriptor.Create(...))`); the executor schedules the passes, provides ping-pong/depth textures from the pool, and applies push constants. Declare the maximum concurrently acquired color/depth scratch counts so the compiled resource plan is exact; an acquire beyond either declaration throws. A compute node MUST declare a no-Vulkan fallback (`Identity` / `Skip` / a CPU callback) so GPU-less CI still passes. If that CPU callback calls `EffectInput.Snapshot()`, also set `cpuFallbackRequiresReadback: true`. See `GLSLScriptEffect.cs` for the full pattern. Declare the shader source as a property:
+GLSL fragment shaders run as a `ComputeNode` (`builder.Compute(ComputeNodeDescriptor.Create(...))`); the executor schedules the passes, provides ping-pong/depth textures from the pool, and applies push constants. `passCount` is the exact number of successful `IComputeContext.Run(...)` calls: over-dispatch is rejected before execution and under-dispatch after a normal callback return. `CopySourceToDestination()` is an exclusive terminal alternative that cannot be combined with a dispatch or followed by scratch acquisition. Declare the maximum concurrently acquired color/depth scratch counts so the compiled resource plan is exact; an acquire beyond either declaration throws. A compute node MUST declare a no-Vulkan fallback (`Identity` / `Skip` / a CPU callback) so GPU-less CI still passes. If that CPU callback calls `EffectInput.Snapshot()`, also set `cpuFallbackRequiresReadback: true`. `dispatchFailureBehavior` defaults to `Throw`; opt into `IdentityInPreview` only when an ordinary callback/dispatch exception may preserve the input during interactive preview. It never converts cancellation, dispatch/resource-contract violations, or backend preparation failures to identity, and delivery still propagates the exception; allocation failures retain the executor's preview-drop/delivery-throw behavior. See `GLSLScriptEffect.cs` for the full pattern. Declare the shader source as a property:
 
 ```csharp
 [Display(Name = nameof(Strings.Script), ResourceType = typeof(Strings))]

@@ -147,6 +147,53 @@ public class PrefixCacheTests
         });
     }
 
+    [Test]
+    public void AuxiliaryFullBoundsPull_DoesNotInvalidateFrameRoiPrefix()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var (root, gamma, _) = MakeBlurGamma();
+            using var resource = (FilterEffect.Resource)root.ToResource(CompositionContext.Default);
+            using var node = new PlanFilterEffectRenderNode(resource);
+            using var pool = new RenderTargetPool();
+            var diagnostics = new PipelineDiagnostics();
+            var frameRoi = new Rect(8, 6, 72, 54);
+
+            PipelineDiagnosticsSnapshot ProcessFrame(int frame)
+            {
+                gamma.Amount.CurrentValue = 50f + frame;
+                bool updateOnly = false;
+                resource.Update(root, CompositionContext.Default, ref updateOnly);
+                node.Update(resource);
+                diagnostics.Reset();
+                var context = new RenderNodeContext([MakeInput()])
+                {
+                    Diagnostics = diagnostics,
+                    Pool = pool,
+                    RequestedBounds = frameRoi,
+                };
+                RenderNodeOperation.DisposeAll(node.Process(context));
+                return diagnostics.Snapshot();
+            }
+
+            for (int frame = 0; frame < 6; frame++)
+                ProcessFrame(frame);
+            Assert.That(ProcessFrame(6).PrefixCacheHits, Is.EqualTo(1), "sanity: the frame ROI prefix is warm");
+
+            var auxiliary = new RenderNodeContext([MakeInput()])
+            {
+                Pool = pool,
+                RequestedBounds = Rect.Invalid,
+                IsAuxiliaryPull = true,
+            };
+            RenderNodeOperation.DisposeAll(node.Process(auxiliary));
+
+            Assert.That(ProcessFrame(7).PrefixCacheHits, Is.EqualTo(1),
+                "a full-bounds auxiliary pull must not evict the retained frame-ROI prefix");
+        });
+    }
+
     // ---- Invalidation exactness --------------------------------------------------------------------------
     //
     // Mutating the static child's parameter mid-run must invalidate the cached prefix, re-execute fully, and re-warm.

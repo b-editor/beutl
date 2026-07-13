@@ -36,6 +36,7 @@ public class ComputeInputScaleBasisTests
                     sourceWidth = ctx.Source.Width;
                     sourceHeight = ctx.Source.Height;
                     contextScale = ctx.WorkingScale;
+                    ctx.CopySourceToDestination();
                 },
                 passCount: 1,
                 ComputeFallback.Identity,

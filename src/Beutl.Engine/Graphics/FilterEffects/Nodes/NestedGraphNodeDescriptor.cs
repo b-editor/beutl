@@ -10,6 +10,8 @@
 /// </summary>
 public sealed record NestedGraphNodeDescriptor : EffectNodeDescriptor
 {
+    internal override EffectNodeKind Kind => EffectNodeKind.NestedGraph;
+
     private NestedGraphNodeDescriptor(Action<EffectGraphBuilder, int> describeBranch, object structuralToken)
     {
         DescribeBranch = describeBranch;

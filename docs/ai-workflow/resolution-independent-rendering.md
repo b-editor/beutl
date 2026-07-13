@@ -52,7 +52,7 @@ the CTM handles it, and a manual `× w` would double-scale and regress the resul
   **no `ResolutionPolicy`**: the earlier `Inherit`/`ClampToOutput`/`Oversample(k)`/`PreserveSource` policy
   was removed because no built-in needed a non-default value. An effect that genuinely needs a different
   working scale (clamp-to-output for perf, oversample for SSAA) returns a `FilterEffectRenderNode` subclass from
-  `FilterEffect.Resource.CreateRenderNode()` and overrides `Process` to compute its own `w`.
+  `FilterEffect.Resource.RenderNodeFactory` and overrides `Process` to compute its own `w`.
 - **Bitmap sources.** A decoded image/video op reports its decoded density as `EffectiveScale.At(...)`,
   distinct from its logical footprint. Mixed-scale compositing resamples off-target bitmaps via
   `ImmediateCanvas.DrawRenderTargetScaled` / `DrawSurfaceScaled` (Mitchell). 003 ships only this seam; the
