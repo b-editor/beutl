@@ -321,8 +321,8 @@ public sealed class EffectGraphBuilder
 
         var inflate = new Thickness(sigma.Width * 3, sigma.Height * 3);
         return SkiaFilter(SkiaFilterNodeDescriptor.Create(
-            // A zero-sigma blur is a no-op; null is the canonical no-op signal. Returning inner is also safe now (the
-            // executor skips disposal on reference equality), but null keeps the pass from advancing its filter chain.
+            // Keep the descriptor structural across an animated zero crossing. The executor builds the chain before
+            // acquiring a target and passes the source through when every factory returns null.
             inner => sigma.Width == 0 && sigma.Height == 0
                 ? null
                 : SKImageFilter.CreateBlur(sigma.Width, sigma.Height, inner),

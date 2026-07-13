@@ -434,7 +434,17 @@ public class EffectPipelineCounterTests
         var group = new FilterEffectGroup();
         group.Children.Add(blur);
         group.Children.Add(new Gamma { Amount = { CurrentValue = 140f } });
-        return new Chain(group, f => blur.Sigma.CurrentValue = new Size(1 + f, 1 + f));
+        return new Chain(group, f =>
+        {
+            float sigma = f switch
+            {
+                0 => 0,
+                1 => 2,
+                2 => 0,
+                _ => 1 + f,
+            };
+            blur.Sigma.CurrentValue = new Size(sigma, sigma);
+        });
     }
 
     private static Chain MakeExtremeGammaChain()

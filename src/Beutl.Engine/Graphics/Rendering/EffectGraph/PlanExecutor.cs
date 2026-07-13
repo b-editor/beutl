@@ -552,9 +552,31 @@ internal static class PlanExecutor
                     maxDimension, diagnostics, pool);
         }
 
+        // Skia filter factories are per-frame parameters. Build the chain before acquiring the output so an
+        // all-null chain (notably an animated Blur at sigma zero) is a true runtime identity without changing the
+        // graph shape or StructuralKey. A factory failure still consumes the detached input just as the old
+        // post-acquire execution path did.
+        SKImageFilter? preparedSkiaFilter = null;
+        if (pass is SkiaFilterPass skiaPass)
+        {
+            try
+            {
+                preparedSkiaFilter = BuildSkiaFilter(skiaPass);
+            }
+            catch
+            {
+                op.Dispose();
+                throw;
+            }
+
+            if (preparedSkiaFilter == null)
+                return op;
+        }
+
         RenderTarget? target = RenderTargetPool.Acquire(pool, width, height, diagnostics);
         if (target == null)
         {
+            preparedSkiaFilter?.Dispose();
             return DropOrThrow(op, maxWorkingScale,
                 $"Effect pass buffer allocation failed ({width}x{height} px, w {w}, bounds {outBounds}).");
         }
@@ -582,6 +604,7 @@ internal static class PlanExecutor
                 fusedSrcTarget = RenderTargetPool.Acquire(pool, sw, sh, diagnostics);
                 if (fusedSrcTarget == null)
                 {
+                    preparedSkiaFilter?.Dispose();
                     target.Dispose();
                     return DropOrThrow(op, maxWorkingScale,
                         $"Fused source-halo buffer allocation failed ({sw}x{sh} px, w {fusedSrcScale}, bounds {claimed}).");
@@ -600,8 +623,10 @@ internal static class PlanExecutor
                         fused, target, w, outBounds, op, maxWorkingScale, diagnostics,
                         fusedSrcTarget, fusedSrcRect, fusedSrcScale);
                     break;
-                case SkiaFilterPass skia:
-                    ExecuteSkia(skia, target, w, outBounds, op, maxWorkingScale);
+                case SkiaFilterPass:
+                    SKImageFilter filter = preparedSkiaFilter!;
+                    preparedSkiaFilter = null;
+                    ExecuteSkia(filter, target, w, outBounds, op, maxWorkingScale);
                     break;
                 default:
                     throw new NotSupportedException(
@@ -610,6 +635,7 @@ internal static class PlanExecutor
         }
         catch
         {
+            preparedSkiaFilter?.Dispose();
             fusedSrcTarget?.Dispose();
             target.Dispose();
             op.Dispose();
@@ -696,9 +722,7 @@ internal static class PlanExecutor
         }
     }
 
-    private static void ExecuteSkia(
-        SkiaFilterPass pass, RenderTarget target, float w, Rect outBounds,
-        RenderNodeOperation source, float maxWorkingScale)
+    private static SKImageFilter? BuildSkiaFilter(SkiaFilterPass pass)
     {
         SKImageFilter? filter = null;
         try
@@ -715,14 +739,29 @@ internal static class PlanExecutor
                 }
             }
 
-            using SKPaint? paint = filter != null ? new SKPaint { ImageFilter = filter } : null;
+            return filter;
+        }
+        catch
+        {
+            filter?.Dispose();
+            throw;
+        }
+    }
+
+    private static void ExecuteSkia(
+        SKImageFilter filter, RenderTarget target, float w, Rect outBounds,
+        RenderNodeOperation source, float maxWorkingScale)
+    {
+        try
+        {
+            using var paint = new SKPaint { ImageFilter = filter };
             BakeSource(target, w, outBounds, source, maxWorkingScale, paint);
         }
         finally
         {
-            // A later factory throwing strands the chain accumulated so far, and SKPaint.Dispose does not dispose its
-            // image filter, so the composed filter must be released whether a factory or the bake threw.
-            filter?.Dispose();
+            // SKPaint.Dispose does not own its image filter. The prepared chain transfers here immediately before
+            // the bake and is released whether drawing succeeds or throws.
+            filter.Dispose();
         }
     }
 
@@ -1119,10 +1158,21 @@ internal static class PlanExecutor
         try
         {
             outputTarget.PrepareForComputeWrite();
-            var ctx = new ComputeContext(
-                gfx, sourceTexture, destTexture, width, height, w,
-                pass.ColorScratchCount, pass.DepthScratchCount,
-                scratch, depthScratch, diagnostics, pool);
+        }
+        catch
+        {
+            outputTarget.Dispose();
+            inputTarget.Dispose();
+            op.Dispose();
+            throw;
+        }
+
+        var ctx = new ComputeContext(
+            gfx, sourceTexture, destTexture, width, height, w,
+            pass.ColorScratchCount, pass.DepthScratchCount,
+            scratch, depthScratch, diagnostics, pool);
+        try
+        {
             pass.Dispatch(ctx);
         }
         catch (ComputeScratchAllocationException ex)
@@ -1133,6 +1183,23 @@ internal static class PlanExecutor
             outputTarget.Dispose();
             inputTarget.Dispose();
             return DropOrThrow(op, maxWorkingScale, ex.Message);
+        }
+        catch (Exception ex) when (
+            pass.DispatchFailureBehavior == ComputeDispatchFailureBehavior.IdentityInPreview
+            && ex is not OperationCanceledException
+            && ex is not ComputeResourcePlanViolationException
+            && !float.IsPositiveInfinity(maxWorkingScale))
+        {
+            // PixelSort's historic preview behavior: a transient dispatch failure keeps the source pixels when the
+            // descriptor explicitly declares the dispatch policy. Delivery still throws rather than exporting an
+            // unsorted frame; cancellation and resource-plan violations always propagate; allocation failures remain
+            // governed by C7's preview-drop contract.
+            ReleaseComputeScratch(scratch, depthScratch);
+            outputTarget.Dispose();
+            inputTarget.Dispose();
+            s_logger.LogWarning(ex,
+                "Compute dispatch failed. Preview keeps the source because the pass declares IdentityInPreview.");
+            return op;
         }
         catch
         {
@@ -1484,6 +1551,10 @@ internal static class PlanExecutor
         public ComputeScratchAllocationException(string message, Exception inner) : base(message, inner) { }
     }
 
+    // A callback exceeded the compiled resource plan. This is an authoring/contract violation, never a recoverable
+    // preview dispatch failure, so it bypasses ComputeDispatchFailureBehavior.IdentityInPreview.
+    private sealed class ComputeResourcePlanViolationException(string message) : InvalidOperationException(message);
+
     // Creates a non-pooled depth scratch target, normalizing a raw create failure to ComputeScratchAllocationException so
     // the pool-less branch routes through the same ExecuteCompute C7 drop/throw as the pooled branch, rather than aborting
     // preview as an unclassified dispatch bug.
@@ -1522,7 +1593,7 @@ internal static class PlanExecutor
         {
             if (colorScratch.Count >= colorScratchLimit)
             {
-                throw new InvalidOperationException(
+                throw new ComputeResourcePlanViolationException(
                     $"The compute callback exceeded its declared color scratch limit ({colorScratchLimit}).");
             }
 
@@ -1546,7 +1617,7 @@ internal static class PlanExecutor
         {
             if (depthScratch.Count >= depthScratchLimit)
             {
-                throw new InvalidOperationException(
+                throw new ComputeResourcePlanViolationException(
                     $"The compute callback exceeded its declared depth scratch limit ({depthScratchLimit}).");
             }
 

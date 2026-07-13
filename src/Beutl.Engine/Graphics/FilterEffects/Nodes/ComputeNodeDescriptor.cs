@@ -18,6 +18,19 @@ public enum ComputeFallback
     CpuCallback,
 }
 
+/// <summary>How an ordinary exception thrown by the Vulkan dispatch callback is handled.</summary>
+public enum ComputeDispatchFailureBehavior
+{
+    /// <summary>Propagate the failure after releasing all executor-owned resources.</summary>
+    Throw,
+
+    /// <summary>
+    /// Keep the source operation for an interactive preview, but propagate during delivery. Cancellation,
+    /// resource-plan violations, and allocation failures retain their dedicated semantics.
+    /// </summary>
+    IdentityInPreview,
+}
+
 /// <summary>
 /// The scratch/output resources the executor hands a <see cref="ComputeNodeDescriptor.Dispatch"/> callback
 /// (feature 004, T040). The executor owns every buffer: <see cref="Source"/> is the materialized input texture,
@@ -78,7 +91,8 @@ public sealed record ComputeNodeDescriptor : EffectNodeDescriptor
     private ComputeNodeDescriptor(
         Action<IComputeContext> dispatch, int passCount, int colorScratchCount, int depthScratchCount,
         ComputeFallback fallback,
-        Action<GeometrySession>? cpuCallback, object structuralToken, bool cpuFallbackRequiresReadback)
+        Action<GeometrySession>? cpuCallback, object structuralToken, bool cpuFallbackRequiresReadback,
+        ComputeDispatchFailureBehavior dispatchFailureBehavior)
     {
         Dispatch = dispatch;
         PassCount = passCount;
@@ -88,6 +102,7 @@ public sealed record ComputeNodeDescriptor : EffectNodeDescriptor
         CpuCallback = cpuCallback;
         StructuralToken = structuralToken;
         CpuFallbackRequiresReadback = cpuFallbackRequiresReadback;
+        DispatchFailureBehavior = dispatchFailureBehavior;
     }
 
     /// <summary>The callback that runs the compute stages against the executor-provided textures.</summary>
@@ -114,6 +129,9 @@ public sealed record ComputeNodeDescriptor : EffectNodeDescriptor
     /// <summary>True when the CPU fallback calls <see cref="EffectInput.Snapshot"/>.</summary>
     public bool CpuFallbackRequiresReadback { get; }
 
+    /// <summary>How ordinary Vulkan dispatch exceptions are handled.</summary>
+    public ComputeDispatchFailureBehavior DispatchFailureBehavior { get; }
+
     /// <summary>
     /// A compute pass is render-time resolved (A3): its GLSL stages read the whole materialized input at
     /// full-frame device coordinates (fragCoord / width / height push constants), and non-local kernels
@@ -130,7 +148,9 @@ public sealed record ComputeNodeDescriptor : EffectNodeDescriptor
     /// <summary>
     /// Builds a compute node. <paramref name="passCount"/> is the structural dispatch count; <paramref name="fallback"/>
     /// is mandatory (declare <see cref="ComputeFallback.CpuCallback"/> only with a non-null
-    /// <paramref name="cpuCallback"/>). <paramref name="structuralToken"/> defaults to the dispatch method identity.
+    /// <paramref name="cpuCallback"/>). <paramref name="dispatchFailureBehavior"/> is independent of that no-Vulkan
+    /// fallback and defaults to propagating callback exceptions. <paramref name="structuralToken"/> defaults to the
+    /// dispatch method identity.
     /// </summary>
     public static ComputeNodeDescriptor Create(
         Action<IComputeContext> dispatch,
@@ -140,7 +160,8 @@ public sealed record ComputeNodeDescriptor : EffectNodeDescriptor
         int depthScratchCount = 0,
         Action<GeometrySession>? cpuCallback = null,
         object? structuralToken = null,
-        bool cpuFallbackRequiresReadback = false)
+        bool cpuFallbackRequiresReadback = false,
+        ComputeDispatchFailureBehavior dispatchFailureBehavior = ComputeDispatchFailureBehavior.Throw)
     {
         ArgumentNullException.ThrowIfNull(dispatch);
         ArgumentOutOfRangeException.ThrowIfLessThan(passCount, 1);
@@ -154,6 +175,6 @@ public sealed record ComputeNodeDescriptor : EffectNodeDescriptor
 
         return new ComputeNodeDescriptor(
             dispatch, passCount, colorScratchCount, depthScratchCount, fallback, cpuCallback,
-            structuralToken ?? dispatch.Method.MethodHandle.Value, cpuFallbackRequiresReadback);
+            structuralToken ?? dispatch.Method.MethodHandle.Value, cpuFallbackRequiresReadback, dispatchFailureBehavior);
     }
 }

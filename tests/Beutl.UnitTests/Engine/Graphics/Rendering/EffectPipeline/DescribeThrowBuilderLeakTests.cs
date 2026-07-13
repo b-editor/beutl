@@ -112,6 +112,8 @@ public class DescribeThrowBuilderLeakTests
         Assert.Multiple(() =>
         {
             Assert.That(() => builder.Blur(new Size(1, 1)), Throws.InvalidOperationException);
+            Assert.That(() => builder.Blur(new Size(0, 0)), Throws.InvalidOperationException,
+                "identity conveniences must not bypass the closed-builder state");
             Assert.That(() => builder.Track(rejected), Throws.InvalidOperationException);
             Assert.That(() => builder.Build(), Throws.InvalidOperationException);
             Assert.That(() => builder.Abort(), Throws.Nothing, "Abort is idempotent");

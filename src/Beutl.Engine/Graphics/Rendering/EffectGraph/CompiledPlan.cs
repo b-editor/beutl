@@ -144,7 +144,8 @@ internal sealed record ComputePass(
     int DepthScratchCount,
     ComputeFallback Fallback,
     Action<GeometrySession>? CpuCallback,
-    bool CpuFallbackRequiresReadback) : CompiledPass
+    bool CpuFallbackRequiresReadback,
+    ComputeDispatchFailureBehavior DispatchFailureBehavior) : CompiledPass
 {
     /// <inheritdoc/>
     public override PassBackend Backend => PassBackend.Vulkan;

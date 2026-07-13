@@ -260,6 +260,29 @@ public class EffectAuthoringTests
         Assert.That(spy.DisposeCount, Is.EqualTo(1), "the doubly-registered instance is disposed exactly once");
     }
 
+    // A graph owns every describe-time disposable. One broken native wrapper must not stop the sweep and strand
+    // later resources, nor turn a successfully executed frame into a failure when the graph leaves its using scope.
+    [Test]
+    public void GraphScopedDisposal_ContinuesAfterOneDisposableThrows()
+    {
+        var throwing = new DisposeSpy(throwOnDispose: true);
+        var trailing = new DisposeSpy();
+        EffectGraphBuilder builder = NewBuilder();
+        builder.Track(throwing);
+        builder.Track(trailing);
+        EffectGraph graph = builder.Build();
+
+        Assert.DoesNotThrow(graph.Dispose,
+            "graph cleanup is best-effort so a faulting wrapper cannot abandon already-produced outputs");
+        Assert.DoesNotThrow(graph.Dispose, "graph disposal is idempotent");
+        Assert.Multiple(() =>
+        {
+            Assert.That(throwing.DisposeCount, Is.EqualTo(1), "each graph-owned resource is disposed once");
+            Assert.That(trailing.DisposeCount, Is.EqualTo(1),
+                "resources after the faulting wrapper must still be released");
+        });
+    }
+
     // The Sampler path funnels through the same dedup seam: binding one shader under two sampler names must dispose
     // it once at frame end without throwing a double-dispose.
     [Test]
@@ -274,11 +297,16 @@ public class EffectAuthoringTests
         Assert.DoesNotThrow(graph.Dispose, "the shared sampler shader is disposed once, not twice");
     }
 
-    private sealed class DisposeSpy : IDisposable
+    private sealed class DisposeSpy(bool throwOnDispose = false) : IDisposable
     {
         public int DisposeCount { get; private set; }
 
-        public void Dispose() => DisposeCount++;
+        public void Dispose()
+        {
+            DisposeCount++;
+            if (throwOnDispose)
+                throw new InvalidOperationException("simulated graph-owned disposal failure");
+        }
     }
 
     // ---- A3: a convolution node's declared backward ROI covers the region it samples -------------------

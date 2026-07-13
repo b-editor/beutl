@@ -470,6 +470,121 @@ public class PrimitivePassTests
         });
     }
 
+    // PixelSort historically kept the original operation when a normal Vulkan dispatch failed during preview.
+    // ComputeDispatchFailureBehavior.IdentityInPreview carries that contract separately from the no-Vulkan fallback;
+    // delivery must still fail rather than export unsorted pixels, and every thrown path releases the detached input.
+    [Test]
+    public void ComputeDispatchFailure_IdentityPreviewPassesThroughDeliveryAndCancellationThrow()
+    {
+        var context = VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.RequireComputeCapable(context, "compute dispatch-failure fallback gate");
+
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            static CompiledPlan CompileThrowingPlan(out FrameResources frame)
+            {
+                var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f)
+                    .Compute(ComputeNodeDescriptor.Create(
+                        static _ => throw new InvalidOperationException("simulated Vulkan dispatch failure"),
+                        passCount: 1,
+                        ComputeFallback.Identity,
+                        structuralToken: "throwing-dispatch",
+                        dispatchFailureBehavior: ComputeDispatchFailureBehavior.IdentityInPreview));
+                using EffectGraph graph = builder.Build();
+                CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
+                frame = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale: 1f);
+                return plan;
+            }
+
+            CompiledPlan plan = CompileThrowingPlan(out FrameResources frame);
+            using var pool = new RenderTargetPool();
+
+            RenderNodeOperation previewInput = Input();
+            RenderNodeOperation[] preview = PlanExecutor.Execute(
+                plan, frame, [previewInput], outputScale: 1f, workingScale: 1f, maxWorkingScale: 2f,
+                diagnostics: null, pool);
+            try
+            {
+                Assert.That(preview, Is.EqualTo(new[] { previewInput }),
+                    "an identity-fallback preview keeps the source operation after dispatch failure");
+            }
+            finally
+            {
+                RenderNodeOperation.DisposeAll(preview);
+            }
+
+            bool prepareInputDisposed = false;
+            RenderTarget.SetComputeWritePreparedObserverForTest(
+                static () => throw new InvalidOperationException("simulated output prepare failure"));
+            try
+            {
+                RenderNodeOperation prepareInput = RenderNodeOperation.CreateLambda(
+                    s_bounds, static _ => { }, onDispose: () => prepareInputDisposed = true);
+                Assert.That(
+                    () => PlanExecutor.Execute(
+                        plan, frame, [prepareInput], outputScale: 1f, workingScale: 1f, maxWorkingScale: 2f,
+                        diagnostics: null, pool),
+                    Throws.TypeOf<InvalidOperationException>(),
+                    "IdentityInPreview applies to the callback, not output layout/flush preparation");
+            }
+            finally
+            {
+                RenderTarget.SetComputeWritePreparedObserverForTest(null);
+            }
+            Assert.That(prepareInputDisposed, Is.True,
+                "a failed output preparation releases the detached input operation");
+
+            bool deliveryInputDisposed = false;
+            RenderNodeOperation deliveryInput = RenderNodeOperation.CreateLambda(
+                s_bounds, static _ => { }, onDispose: () => deliveryInputDisposed = true);
+            Assert.That(
+                () => PlanExecutor.Execute(
+                    plan, frame, [deliveryInput], outputScale: 1f, workingScale: 1f,
+                    maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool),
+                Throws.TypeOf<InvalidOperationException>());
+            Assert.That(deliveryInputDisposed, Is.True,
+                "the delivery failure propagates only after releasing its detached input operation");
+
+            var cancellationBuilder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f)
+                .Compute(ComputeNodeDescriptor.Create(
+                    static _ => throw new OperationCanceledException("simulated cancellation"),
+                    passCount: 1,
+                    ComputeFallback.Identity,
+                    structuralToken: "cancelled-dispatch",
+                    dispatchFailureBehavior: ComputeDispatchFailureBehavior.IdentityInPreview));
+            using EffectGraph cancellationGraph = cancellationBuilder.Build();
+            CompiledPlan cancellationPlan = EffectGraphCompiler.Compile(cancellationGraph, diagnostics: null);
+            FrameResources cancellationFrame = EffectGraphCompiler.ResolveResources(
+                cancellationPlan, Rect.Invalid, workingScale: 1f);
+            RenderNodeOperation cancellationInput = Input();
+
+            Assert.That(
+                () => PlanExecutor.Execute(
+                    cancellationPlan, cancellationFrame, [cancellationInput], outputScale: 1f, workingScale: 1f,
+                    maxWorkingScale: 2f, diagnostics: null, pool),
+                Throws.TypeOf<OperationCanceledException>(),
+                "cancellation must propagate even during an identity-fallback preview");
+
+            var defaultBuilder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f)
+                .Compute(ComputeNodeDescriptor.Create(
+                    static _ => throw new InvalidOperationException("default dispatch failure"),
+                    passCount: 1,
+                    ComputeFallback.Identity,
+                    structuralToken: "default-throwing-dispatch"));
+            using EffectGraph defaultGraph = defaultBuilder.Build();
+            CompiledPlan defaultPlan = EffectGraphCompiler.Compile(defaultGraph, diagnostics: null);
+            FrameResources defaultFrame = EffectGraphCompiler.ResolveResources(
+                defaultPlan, Rect.Invalid, workingScale: 1f);
+
+            Assert.That(
+                () => PlanExecutor.Execute(
+                    defaultPlan, defaultFrame, [Input()], outputScale: 1f, workingScale: 1f,
+                    maxWorkingScale: 2f, diagnostics: null, pool),
+                Throws.TypeOf<InvalidOperationException>(),
+                "the no-Vulkan identity fallback must not change the default dispatch-failure policy");
+        });
+    }
+
     // N3: an empty input op reaching a compute pass must pass straight through — on either backend. The
     // GPU path (ExecuteCompute) already guards empty input; the CPU-fallback path (no Vulkan) lacked the same
     // guard and spuriously threw in delivery. Neither the dispatch nor the CPU callback may run for an empty input.

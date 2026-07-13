@@ -320,7 +320,8 @@ public sealed partial class PixelSortEffect : FilterEffect
             ComputeFallback.Identity,
             colorScratchCount: 2,
             depthScratchCount: 1,
-            structuralToken: nameof(PixelSortEffect)));
+            structuralToken: nameof(PixelSortEffect),
+            dispatchFailureBehavior: ComputeDispatchFailureBehavior.IdentityInPreview));
     }
 
     private static void Dispatch(EffectData r, IComputeContext ctx)

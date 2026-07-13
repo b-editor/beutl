@@ -113,7 +113,8 @@ internal static class EffectGraphCompiler
             {
                 passes.Add(new ComputePass(
                     compute.Dispatch, compute.PassCount, compute.ColorScratchCount, compute.DepthScratchCount,
-                    compute.Fallback, compute.CpuCallback, compute.CpuFallbackRequiresReadback)
+                    compute.Fallback, compute.CpuCallback, compute.CpuFallbackRequiresReadback,
+                    compute.DispatchFailureBehavior)
                 {
                     InputBounds = node.InputBounds,
                     OutputBounds = node.OutputBounds,

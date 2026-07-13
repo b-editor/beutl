@@ -500,6 +500,23 @@ half4 apply(half4 c) {
             "toggling the structural depth requirement must change the structural key");
     }
 
+    [Test]
+    public void StructuralKey_ComputeDispatchFailureBehaviorDiffers_ProducesDifferentKey()
+    {
+        var bounds = new Rect(0, 0, 100, 100);
+
+        static ComputeNodeDescriptor Compute(ComputeDispatchFailureBehavior behavior) => ComputeNodeDescriptor.Create(
+            static _ => { }, passCount: 1, ComputeFallback.Identity,
+            structuralToken: "dispatch-failure-key", dispatchFailureBehavior: behavior);
+
+        using EffectGraph throwing = NewBuilder(bounds).Compute(Compute(ComputeDispatchFailureBehavior.Throw)).Build();
+        using EffectGraph previewIdentity = NewBuilder(bounds)
+            .Compute(Compute(ComputeDispatchFailureBehavior.IdentityInPreview)).Build();
+
+        Assert.That(StructuralKey.Compute(throwing), Is.Not.EqualTo(StructuralKey.Compute(previewIdentity)),
+            "changing an execution policy must not stale-hit a cached pass with different failure semantics");
+    }
+
     // ---- Resource plan (peak-live) ----------------------------------------------------------------------
 
     [Test]
@@ -537,14 +554,15 @@ half4 apply(half4 c) {
                 passCount: 1,
                 ComputeFallback.Identity,
                 colorScratchCount: 1,
-                structuralToken: "scratch-overrun");
+                structuralToken: "scratch-overrun",
+                dispatchFailureBehavior: ComputeDispatchFailureBehavior.IdentityInPreview);
             CompiledPlan plan = Compile(NewBuilder(bounds).Compute(descriptor));
             FrameResources resources = EffectGraphCompiler.ResolveResources(plan, bounds, workingScale: 1f);
             using var pool = new RenderTargetPool();
 
-            InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
+            InvalidOperationException error = Assert.Catch<InvalidOperationException>(() => PlanExecutor.Execute(
                 plan, resources, [MakeInput(bounds)], outputScale: 1f, workingScale: 1f,
-                maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool));
+                maxWorkingScale: 2f, diagnostics: null, pool: pool));
 
             Assert.Multiple(() =>
             {

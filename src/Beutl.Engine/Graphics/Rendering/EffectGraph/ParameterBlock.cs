@@ -64,7 +64,9 @@ internal sealed record ParameterBlock(ImmutableArray<CompiledPass> Passes)
                     if (compa.PassCount != compb.PassCount
                         || compa.ColorScratchCount != compb.ColorScratchCount
                         || compa.DepthScratchCount != compb.DepthScratchCount
-                        || compa.CpuFallbackRequiresReadback != compb.CpuFallbackRequiresReadback)
+                        || compa.Fallback != compb.Fallback
+                        || compa.CpuFallbackRequiresReadback != compb.CpuFallbackRequiresReadback
+                        || compa.DispatchFailureBehavior != compb.DispatchFailureBehavior)
                         return false;
                     break;
                 case GeometryPass geoa when b[i] is GeometryPass geob:

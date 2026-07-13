@@ -42,6 +42,8 @@ internal sealed class EffectGraph(
     float workingScale,
     IReadOnlyCollection<IDisposable> disposables) : IDisposable
 {
+    private bool _disposed;
+
     public IReadOnlyList<EffectNode> Nodes { get; } = nodes;
 
     public Rect OriginalBounds { get; } = originalBounds;
@@ -52,9 +54,21 @@ internal sealed class EffectGraph(
 
     public void Dispose()
     {
+        if (_disposed)
+            return;
+
+        _disposed = true;
         foreach (IDisposable disposable in disposables)
         {
-            disposable.Dispose();
+            try
+            {
+                disposable.Dispose();
+            }
+            catch
+            {
+                // Best effort: a broken native wrapper must not strand the rest of the graph-owned resources or
+                // replace a successfully executed frame with a cleanup failure.
+            }
         }
     }
 }

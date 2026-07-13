@@ -73,7 +73,8 @@ internal readonly struct StructuralKey : IEquatable<StructuralKey>
                     .Append(',').Append(compute.ColorScratchCount)
                     .Append(',').Append(compute.DepthScratchCount)
                     .Append(',').Append((int)compute.Fallback)
-                    .Append(',').Append(compute.CpuFallbackRequiresReadback ? '1' : '0');
+                    .Append(',').Append(compute.CpuFallbackRequiresReadback ? '1' : '0')
+                    .Append(',').Append((int)compute.DispatchFailureBehavior);
                 break;
 
             case SplitNodeDescriptor split:

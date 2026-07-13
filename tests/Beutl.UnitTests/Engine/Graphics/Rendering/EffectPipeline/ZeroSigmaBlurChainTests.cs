@@ -8,11 +8,9 @@ using SkiaSharp;
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.EffectPipeline;
 
 /// <summary>
-/// Regression (raster, GPU-less) for the zero-sigma blur use-after-dispose (feature 004). A Skia-filter factory that
-/// returns its own argument (a no-op — the shape a blur takes at σ = 0) made the executor dispose that filter and
-/// then draw with it. The fix is two-fold: the executor only advances when a factory produced a genuinely new
-/// instance (so any identity-returning factory is safe), and the zero-sigma blur factory returns null (a no-op)
-/// rather than its argument. Both halves are pinned here.
+/// Regression (raster, GPU-less) for zero-sigma blur handling (feature 004). An identity-returning filter factory
+/// must not dispose its predecessor. A blur whose clamped sigma is zero keeps its structural pass for plan-cache
+/// stability, but the executor detects the all-null filter chain before allocation and passes the source through.
 /// </summary>
 [TestFixture]
 public class ZeroSigmaBlurChainTests
@@ -55,20 +53,48 @@ public class ZeroSigmaBlurChainTests
         }
     }
 
-    // The authoring fix: a zero-sigma blur is a no-op, so its factory must return null (not its argument), leaving the
-    // accumulated filter unchanged. Returning the argument was what tripped the executor's dispose-predecessor step.
-    [Test]
-    public void Blur_ZeroSigmaFactory_ReturnsNull_NotItsArgument()
+    // A zero-sigma blur is a true graph identity. Keeping an all-null Skia pass would still allocate and rasterize an
+    // intermediate, and could drop an otherwise valid preview solely because that unnecessary allocation failed.
+    [TestCase(0f, 0f)]
+    [TestCase(-3f, -2f)]
+    public void Blur_ClampedZeroSigma_KeepsStructuralPassButExecutesAsIdentity(float sigmaX, float sigmaY)
     {
-        using EffectGraph graph = new EffectGraphBuilder(s_bounds, 1f, 1f).Blur(new Size(0, 0)).Build();
+        using EffectGraph graph = new EffectGraphBuilder(s_bounds, 1f, 1f).Blur(new Size(sigmaX, sigmaY)).Build();
         CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
-        var pass = (SkiaFilterPass)plan.Passes[0];
+        using EffectGraph nonzeroGraph = new EffectGraphBuilder(s_bounds, 1f, 1f).Blur(new Size(2, 2)).Build();
 
-        using SKImageFilter probe = SKImageFilter.CreateBlur(2, 2);
-        SKImageFilter? result = pass.Filters[0](probe);
+        Assert.Multiple(() =>
+        {
+            Assert.That(graph.Nodes, Has.Count.EqualTo(1),
+                "the descriptor remains structural so an animated sigma crossing zero does not recompile");
+            Assert.That(plan.Passes, Has.Length.EqualTo(1));
+            Assert.That(plan.Passes[0], Is.TypeOf<SkiaFilterPass>());
+            Assert.That(StructuralKey.Compute(graph), Is.EqualTo(StructuralKey.Compute(nonzeroGraph)),
+                "zero and nonzero sigma are parameter changes under the same plan shape");
+        });
 
-        Assert.That(result, Is.Null,
-            "a zero-sigma blur factory is a no-op: it must return null, never the inner filter it was handed");
+        FrameResources resources = EffectGraphCompiler.ResolveResources(plan, s_bounds, workingScale: 1f);
+        var diagnostics = new PipelineDiagnostics();
+        using var pool = new RenderTargetPool();
+        pool.SetBackingFactoryForTest(static (_, _) => null);
+        RenderNodeOperation input = MakeInput();
+        RenderNodeOperation[] outputs = PlanExecutor.Execute(
+            plan, resources, [input], outputScale: 1f, workingScale: 1f,
+            maxWorkingScale: float.PositiveInfinity, diagnostics, pool);
+        try
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(outputs, Is.EqualTo(new[] { input }),
+                    "an all-null Skia filter chain passes the original operation through");
+                Assert.That(diagnostics.Snapshot().PoolAcquires, Is.Zero,
+                    "identity is detected before the pass target is acquired");
+            });
+        }
+        finally
+        {
+            RenderNodeOperation.DisposeAll(outputs);
+        }
     }
 
     // End-to-end smoke: a DropShadow whose trailing blur is at σ=0 renders without faulting and matches DropShadow
