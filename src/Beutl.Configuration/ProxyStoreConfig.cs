@@ -58,6 +58,19 @@ public sealed class ProxyStoreConfig : ConfigurationBase
         set => SetValue(DefaultPresetProperty, Math.Clamp(value, MinPreset, MaxPreset));
     }
 
+    // gib comes from a free-form TextBox and may be huge, NaN, or infinite; clamp in GiB
+    // space so the long cast never sees an out-of-range product.
+    public static long ClampTotalBytesFromGiB(double gib)
+    {
+        const double bytesPerGiB = 1024d * 1024d * 1024d;
+        double minGiB = MinTotalBytes / bytesPerGiB;
+        double maxGiB = MaxTotalBytesLimit / bytesPerGiB;
+
+        // NaN is not orderable, so Math.Clamp would return it unchanged; +/-Infinity saturate.
+        double safeGiB = double.IsNaN(gib) ? DefaultTotalBytes / bytesPerGiB : Math.Clamp(gib, minGiB, maxGiB);
+        return (long)Math.Round(safeGiB * bytesPerGiB);
+    }
+
     private static string NormalizeStoreRootPath(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))

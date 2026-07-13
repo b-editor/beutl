@@ -113,24 +113,24 @@
                 <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.ProxyStoreRootPath_Description}"
                                           Header="{x:Static lang:SettingsStrings.ProxyStoreRootPath}">
                     <ctrls:OptionsDisplayItem.ActionButton>
-                        <TextBox MinWidth="250" Text="{Binding ProxyStoreRootPath.Value}" />
+                        <TextBox MinWidth="250"
+                                 VerticalAlignment="Center"
+                                 Text="{Binding ProxyStoreRootPath.Value}" />
                     </ctrls:OptionsDisplayItem.ActionButton>
                 </ctrls:OptionsDisplayItem>
 
                 <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.ProxyStoreMaxTotalGiB_Description}"
                                           Header="{x:Static lang:SettingsStrings.ProxyStoreMaxTotalGiB}">
                     <ctrls:OptionsDisplayItem.ActionButton>
-                        <NumericUpDown MinWidth="250"
-                                       FormatString="F0"
-                                       Maximum="500"
-                                       Minimum="5"
-                                       Value="{Binding ProxyStoreMaxTotalGiB.Value}">
-                            <NumericUpDown.InnerRightContent>
+                        <TextBox MinWidth="250"
+                                 VerticalAlignment="Center"
+                                 Text="{Binding ProxyStoreMaxTotalGiB.Value}">
+                            <TextBox.InnerRightContent>
                                 <TextBlock Margin="8,0"
                                            VerticalAlignment="Center"
                                            Text="GiB" />
-                            </NumericUpDown.InnerRightContent>
-                        </NumericUpDown>
+                            </TextBox.InnerRightContent>
+                        </TextBox>
                     </ctrls:OptionsDisplayItem.ActionButton>
                 </ctrls:OptionsDisplayItem>
 

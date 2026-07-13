@@ -165,8 +165,15 @@ public sealed class EditorSettingsPageViewModel : IDisposable
             .DisposeWith(_disposables);
         ProxyStoreMaxTotalGiB.Subscribe(value =>
             {
-                long bytes = checked((long)Math.Round(value * 1024d * 1024d * 1024d));
+                long bytes = ProxyStoreConfig.ClampTotalBytesFromGiB(value);
                 _proxyStoreConfig.MaxTotalBytes = bytes;
+                // If the clamp left the config unchanged (e.g. already at the cap), no change
+                // notification fires to drive the bound value back, so re-sync it here.
+                double clampedGiB = bytes / 1024d / 1024d / 1024d;
+                if (ProxyStoreMaxTotalGiB.Value != clampedGiB)
+                {
+                    ProxyStoreMaxTotalGiB.Value = clampedGiB;
+                }
             })
             .DisposeWith(_disposables);
 
