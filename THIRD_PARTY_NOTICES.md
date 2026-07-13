@@ -230,7 +230,7 @@ SOFTWARE.
 ## FFmpeg.AutoGen (Beutl.FFmpegWorker only)
 https://github.com/Ruslan-B/FFmpeg.AutoGen
 
-```
+```text
                    GNU LESSER GENERAL PUBLIC LICENSE
                        Version 3, 29 June 2007
 
@@ -401,7 +401,7 @@ Library.
 ## FFmpeg (Beutl.FFmpegWorker only)
 https://www.ffmpeg.org/
 
-```
+```text
                     GNU GENERAL PUBLIC LICENSE
                        Version 3, 29 June 2007
 
@@ -1156,7 +1156,7 @@ SOFTWARE.
 ## ILGPU
 https://github.com/m4rs-mt/ILGPU
 
-```
+```text
 ********************************************************************************
                                   ILGPU License
 ********************************************************************************
@@ -1321,7 +1321,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-Third party licenses may be applicable. These have been disclosed in THIRD_PARTIES.md
+Third party licenses may be applicable. These have been disclosed in THIRD_PARTY_NOTICES.md
 
 ## PanelExtension
 https://github.com/yuto-trd/PanelExtension
@@ -1392,7 +1392,7 @@ specific language governing permissions and limitations under the License.
 ## Serilog
 https://github.com/serilog/serilog
 
-```
+```text
 Apache License
 Version 2.0, January 2004
 http://www.apache.org/licenses/

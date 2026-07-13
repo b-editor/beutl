@@ -105,17 +105,42 @@ thread root's `databaseId`, not a child reply's id).
 | **Praise / discussion** | Ignore |
 
 Always **read the cited code** (`path`,`line`) before classifying — a "nit" can hide a real bug.
-**Read it from the PR head, not the orchestrator checkout.** In `--auto` the current checkout is the
-orchestrator branch, so classification (even for a no-edit reply or a false-positive refutation) would
-otherwise read stale or missing code. Check out the PR head **detached before this step** (do it once,
-up front, so both classification and any later fix read the same head). **Fetch by the PR head ref**
-(`refs/pull/<PR>/head`) so this is correct for **fork / cross-repository** PRs too — `headRefName` is
-only the source branch name and `origin/<headRefName>` would resolve to a same-named branch in the
-base repo (or fail):
+**Read it from the PR head, not a stale checkout.** Fetch the PR head ref so classification (and any
+later fix) reads the same head. **Fetch by the PR head ref** (`refs/pull/<PR>/head`) so this is
+correct for **fork / cross-repository** PRs too — `headRefName` is only the source branch name and
+`origin/<headRefName>` would resolve to a same-named branch in the base repo (or fail):
 ```bash
 HEAD_REF=$(gh pr view ${PR:-} --json headRefName -q .headRefName)   # same-repo push target (Step 5)
+IS_FORK=$(gh pr view ${PR:-} --json isCrossRepository -q .isCrossRepository)
 git fetch origin "pull/$PR/head"
-git checkout --detach FETCH_HEAD
+
+# Stay on the named branch when possible so the working tree is not left detached after the skill.
+# For fork PRs, do NOT use `git checkout "$HEAD_REF"` — headRefName is not globally unique and can
+# resolve to a same-named base-repo branch. For fork PRs, always use detached HEAD from FETCH_HEAD.
+# For same-repo PRs, try to stay on or switch to the PR branch, falling back to --detach only when
+# another worktree owns the branch.
+CURRENT_BRANCH=$(git branch --show-current)
+if [ "$IS_FORK" = "true" ]; then
+    # Fork PR: always detached from FETCH_HEAD (cannot push anyway — see below)
+    git checkout --detach FETCH_HEAD
+elif [ "$CURRENT_BRANCH" = "$HEAD_REF" ]; then
+    # Already on the PR branch — fast-forward to fetched head; if the local branch
+    # diverged and cannot fast-forward, fall back to detached HEAD from FETCH_HEAD
+    if ! git merge --ff-only FETCH_HEAD; then
+        git checkout --detach FETCH_HEAD
+    fi
+else
+    # Try to switch to the PR branch and fast-forward; if either step fails
+    # (e.g. another worktree owns the branch, or the local branch diverged),
+    # fall back to detached HEAD. Do not suppress stderr.
+    if git checkout "$HEAD_REF" && git merge --ff-only FETCH_HEAD; then
+        :
+    else
+        git checkout --detach FETCH_HEAD
+    fi
+fi
+# Track whether we ended up detached for Step 5 push logic
+IS_DETACHED=$(git symbolic-ref -q --short HEAD >/dev/null 2>&1 && echo false || echo true)
 ```
 **Pushing back is only valid for a SAME-REPO PR.** Check `gh pr view $PR --json isCrossRepository`: if
 `isCrossRepository` is true (a **fork** PR), do **not** push a fix — `origin` is the base repo, so
@@ -127,16 +152,18 @@ same-repo PRs, so this matters mainly for standalone/interactive use on fork PRs
 
 ## Step 5 — Act
 
-**You are already on the detached PR head** (checked out in Step 4). A branch-name checkout
-(`gh pr checkout`) is deliberately avoided — it fails when another linked worktree still owns that
-branch (`fatal: '<branch>' is already used by worktree …`). Commit your fixes on the detached HEAD and
-push back with an explicit refspec (never the wrong branch, never the orchestrator branch):
+**You are on the PR head branch** (checked out in Step 4 — either you were already on it, or you
+switched to it). Commit your fixes directly on the branch and push normally:
 
 ```bash
-# (HEAD_REF + detached checkout were done in Step 4)
+# (HEAD_REF + checkout were done in Step 4; IS_DETACHED tracks the resulting state)
 # SAME-REPO ONLY — for a cross-repo (fork) PR, do not push; escalate (see Step 4).
 # … apply review-finding fixes, re-verify, commit -S …
-git push origin "HEAD:$HEAD_REF"
+if [ "$IS_DETACHED" = "true" ]; then
+    git push origin "HEAD:$HEAD_REF"   # detached: push to the PR branch by refspec
+else
+    git push origin "$HEAD_REF"        # on the branch: normal push
+fi
 ```
 
 ### Interactive mode
@@ -185,9 +212,8 @@ without an explicit "Address it".
   escalate (`needs_human`)** rather than pushing untested production code.
 - Commit addressed changes **signed** (`git commit -S -m "fix(review): …"` — the `main` ruleset
   requires signed commits, and the repo config signs by default; never `--no-gpg-sign`, or the pushed
-  fix leaves the PR unmergeable) and push to the PR head with the explicit refspec
-  `git push origin "HEAD:$HEAD_REF"` (you are on a detached checkout — see Step 5 preamble). Never
-  force-push; never push `main`.
+  fix leaves the PR unmergeable) and push to the PR head (see Step 5 preamble for the branch/detached
+  push commands). Never force-push; never push `main`.
 
 ## Step 6 — Reply + resolve handled threads
 

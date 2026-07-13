@@ -17,21 +17,21 @@ public static class JsonHelper
     private static readonly ConditionalWeakTable<Type, JsonConverter> s_converters = [];
     private static ILogger? s_logger;
 
-    // Program.Main は GlobalConfiguration.Restore (JsonHelper を経由) を Telemetry が
-    // Log.LoggerFactory をセットするより前に呼ぶ。Release ビルドでは LoggerFactory が
-    // null のまま CreateLogger を呼ぶと TypeInitializationException で起動が落ちる。
-    // 失敗時は NullLogger を返すが、その値はキャッシュしない。これにより
-    // LoggerFactory 初期化後の呼び出しでは本物のロガーを取得し直せる。
+    // Program.Main calls GlobalConfiguration.Restore through JsonHelper before Telemetry
+    // configures Log.LoggerFactory. Keep that early NullLogger uncached so later calls can
+    // switch to the real application logger.
     private static ILogger Logger
     {
         get
         {
             if (s_logger is not null) return s_logger;
+            if (!Log.IsLoggerFactoryConfigured) return NullLogger.Instance;
+
             try
             {
                 return s_logger = Log.CreateLogger(typeof(JsonHelper));
             }
-            catch
+            catch (Exception)
             {
                 return NullLogger.Instance;
             }

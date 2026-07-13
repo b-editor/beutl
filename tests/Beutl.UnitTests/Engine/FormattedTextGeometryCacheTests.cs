@@ -15,7 +15,7 @@ public class FormattedTextGeometryCacheTests
     public void Setup()
     {
         // Log.LoggerFactory is write-once; don't allocate a factory another fixture may already have set.
-        if (Log.LoggerFactory is null)
+        if (!Log.IsLoggerFactoryConfigured)
         {
             Log.LoggerFactory = LoggerFactory.Create(b => b.AddSimpleConsole());
         }

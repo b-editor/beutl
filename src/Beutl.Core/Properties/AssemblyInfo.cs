@@ -12,3 +12,4 @@
 [assembly: InternalsVisibleTo("Beutl.NodeGraph")]
 [assembly: InternalsVisibleTo("Beutl.FFmpegWorker")]
 [assembly: InternalsVisibleTo("Beutl.FFmpegWorker.Tests")]
+[assembly: InternalsVisibleTo("Beutl.AgentToolkit.Mcp")]
