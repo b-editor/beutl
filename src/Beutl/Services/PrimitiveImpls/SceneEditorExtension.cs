@@ -7,8 +7,8 @@ using Beutl.ProjectSystem;
 using Beutl.ViewModels;
 using Beutl.Views;
 using FluentAvalonia.UI.Controls;
-using FluentIconSource = FluentIcons.Avalonia.Fluent.FluentIconSource;
-using Icon = FluentIcons.Common.Icon;
+using FluentIcons.Avalonia.Fluent;
+using FluentIconKind = FluentIcons.Common.Icon;
 
 namespace Beutl.Services.PrimitiveImpls;
 
@@ -134,9 +134,9 @@ public sealed class SceneEditorExtension : EditorExtension
         return false;
     }
 
-    public override IconSource? GetIcon()
+    public override FAIconSource? GetIcon()
     {
-        return new FluentIconSource { Icon = Icon.Document };
+        return new FluentIconSource { Icon = FluentIconKind.Document };
     }
 
     public override FilePickerFileType GetFilePickerFileType()

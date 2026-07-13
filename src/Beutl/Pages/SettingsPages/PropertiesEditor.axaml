@@ -6,7 +6,7 @@
              d:DesignHeight="450"
              d:DesignWidth="800"
              mc:Ignorable="d">
-    <ItemsControl ItemsSource="{Binding Properties}">
+    <ItemsControl ItemsSource="{ReflectionBinding Properties}">
         <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
                 <StackPanel Spacing="4" />

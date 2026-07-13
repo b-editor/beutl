@@ -1,6 +1,7 @@
 ﻿using System.Numerics;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Beutl.Animation;
@@ -25,6 +26,7 @@ using Beutl.Utilities;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
 using FluentAvalonia.UI.Controls;
+using FluentIcons.Avalonia.Fluent;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using AvaImage = Avalonia.Controls.Image;
@@ -34,9 +36,7 @@ using BtlMatrix = Beutl.Graphics.Matrix;
 using BtlPoint = Beutl.Graphics.Point;
 using BtlRect = Beutl.Graphics.Rect;
 using BtlSize = Beutl.Graphics.Size;
-using FluentIconSource = FluentIcons.Avalonia.Fluent.FluentIconSource;
-using Icon = FluentIcons.Common.Icon;
-
+using FluentIconKind = FluentIcons.Common.Icon;
 namespace Beutl.Views;
 
 public partial class PlayerView
@@ -998,15 +998,15 @@ public partial class PlayerView
 
                 if (ViewModel.TcsForCrop == null)
                 {
-                    var copyAsString = new MenuFlyoutItem()
+                    var copyAsString = new FAMenuFlyoutItem()
                     {
                         Text = Strings.Copy,
-                        IconSource = new FluentIconSource() { Icon = Icon.Copy }
+                        IconSource = new FluentIconSource { Icon = FluentIconKind.Copy }
                     };
-                    var saveAsImage = new MenuFlyoutItem()
+                    var saveAsImage = new FAMenuFlyoutItem()
                     {
                         Text = Strings.SaveAsImage,
-                        IconSource = new FluentIconSource() { Icon = Icon.SaveImage }
+                        IconSource = new FluentIconSource { Icon = FluentIconKind.SaveEdit }
                     };
                     copyAsString.Click += (s, e) =>
                     {
@@ -1041,13 +1041,13 @@ public partial class PlayerView
                         }
                     };
 
-                    var list = new List<MenuFlyoutItem>();
+                    var list = new List<FAMenuFlyoutItem>();
                     if (OperatingSystem.IsWindows())
                     {
-                        var copyAsImage = new MenuFlyoutItem()
+                        var copyAsImage = new FAMenuFlyoutItem()
                         {
                             Text = Strings.CopyAsImage,
-                            IconSource = new FluentIconSource() { Icon = Icon.ImageCopy }
+                            IconSource = new FluentIconSource { Icon = FluentIconKind.ImageCopy }
                         };
                         copyAsImage.Click += (s, e) => OnCopyAsImageClicked(rect);
 

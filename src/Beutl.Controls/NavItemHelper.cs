@@ -3,29 +3,28 @@ using Avalonia.Controls;
 using Avalonia.Xaml.Interactivity;
 
 using FluentAvalonia.UI.Controls;
-
-using FluentIconSource = FluentIcons.Avalonia.Fluent.FluentIconSource;
+using FluentIcons.Avalonia.Fluent;
 
 namespace Beutl.Controls;
 
-public class NavItemHelper : Behavior<NavigationViewItem>
+public class NavItemHelper : Behavior<FANavigationViewItem>
 {
-    public static readonly StyledProperty<IconSource> RegularIconProperty
-        = AvaloniaProperty.Register<NavItemHelper, IconSource>("RegularIcon");
+    public static readonly StyledProperty<FAIconSource> RegularIconProperty
+        = AvaloniaProperty.Register<NavItemHelper, FAIconSource>("RegularIcon");
 
-    public static readonly StyledProperty<IconSource> FilledIconProperty
-        = AvaloniaProperty.Register<NavItemHelper, IconSource>("FilledIcon");
+    public static readonly StyledProperty<FAIconSource> FilledIconProperty
+        = AvaloniaProperty.Register<NavItemHelper, FAIconSource>("FilledIcon");
     private IDisposable _disposable;
-    private IconSourceElement _regular;
-    private IconSourceElement _filled;
+    private FAIconSourceElement _regular;
+    private FAIconSourceElement _filled;
 
-    public IconSource RegularIcon
+    public FAIconSource RegularIcon
     {
         get => GetValue(RegularIconProperty);
         set => SetValue(RegularIconProperty, value);
     }
 
-    public IconSource FilledIcon
+    public FAIconSource FilledIcon
     {
         get => GetValue(FilledIconProperty);
         set => SetValue(FilledIconProperty, value);
@@ -37,7 +36,7 @@ public class NavItemHelper : Behavior<NavigationViewItem>
         SetFontSize(RegularIcon);
         SetFontSize(FilledIcon);
         _disposable = AssociatedObject.GetPropertyChangedObservable(ListBoxItem.IsSelectedProperty)
-            .Subscribe(e => SelectionChanged((NavigationViewItem)e.Sender));
+            .Subscribe(e => SelectionChanged((FANavigationViewItem)e.Sender));
 
         SelectionChanged(AssociatedObject);
     }
@@ -69,19 +68,19 @@ public class NavItemHelper : Behavior<NavigationViewItem>
         }
     }
 
-    private static void SetFontSize(IconSource iconSource)
+    private static void SetFontSize(FAIconSource iconSource)
     {
-        if (iconSource is FontIconSource fontIcon)
+        if (iconSource is FAFontIconSource fontIcon)
         {
             fontIcon.FontSize = 48;
         }
-        else if (iconSource is FluentIconSource symbolIcon)
+        else if (iconSource is FluentIconSource fluentIcon)
         {
-            symbolIcon.FontSize = 48;
+            fluentIcon.FontSize = 48;
         }
     }
 
-    private void SelectionChanged(NavigationViewItem sender)
+    private void SelectionChanged(FANavigationViewItem sender)
     {
         if (sender.IsSelected)
         {

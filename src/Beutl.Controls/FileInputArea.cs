@@ -109,12 +109,12 @@ public class FileInputArea : ContentControl
 
     private async void OnButtonClick(object sender, RoutedEventArgs e)
     {
-        if (VisualRoot is TopLevel toplevel)
+        if (TopLevel.GetTopLevel(this)?.StorageProvider is { } storage)
         {
             try
             {
                 IsEnabled = false;
-                IReadOnlyList<IStorageFile> items = await toplevel.StorageProvider.OpenFilePickerAsync(OpenOptions ?? s_defaultOptions);
+                IReadOnlyList<IStorageFile> items = await storage.OpenFilePickerAsync(OpenOptions ?? s_defaultOptions);
                 if (items.Count > 0)
                 {
                     for (int i = 0; i < items.Count; i++)

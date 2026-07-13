@@ -72,7 +72,7 @@
                                     </Border>
                                 </ToggleButton>
                                 <ToggleButton Name="PaletteTabButton">
-                                    <ui:FontIcon Glyph="&#xF0E2;" />
+                                    <ui:FAFontIcon Glyph="&#xF0E2;" />
                                 </ToggleButton>
                             </WrapPanel>
 
@@ -86,7 +86,7 @@
                                     HorizontalContentAlignment="Center"
                                     VerticalContentAlignment="Center"
                                     Theme="{StaticResource TransparentButton}">
-                                <ui:FontIcon FontFamily="{DynamicResource SymbolThemeFontFamily}" Glyph="&#xE711;" />
+                                <ui:FAFontIcon FontFamily="{DynamicResource SymbolThemeFontFamily}" Glyph="&#xE711;" />
                             </Button>
                         </Grid>
 
@@ -145,16 +145,16 @@
                                                    VerticalAlignment="Center"
                                                    Text="{TemplateBinding DrawableName}" />
 
-                                        <ui:FontIcon Grid.Column="1"
-                                                     MinHeight="{DynamicResource ComboBoxMinHeight}"
-                                                     Margin="0,0,14,0"
-                                                     HorizontalAlignment="Right"
-                                                     VerticalAlignment="Center"
-                                                     FontFamily="{DynamicResource SymbolThemeFontFamily}"
-                                                     FontSize="12"
-                                                     Foreground="{DynamicResource ComboBoxDropDownGlyphForeground}"
-                                                     Glyph="&#xE70D;"
-                                                     IsHitTestVisible="False" />
+                                        <ui:FAFontIcon Grid.Column="1"
+                                                       MinHeight="{DynamicResource ComboBoxMinHeight}"
+                                                       Margin="0,0,14,0"
+                                                       HorizontalAlignment="Right"
+                                                       VerticalAlignment="Center"
+                                                       FontFamily="{DynamicResource SymbolThemeFontFamily}"
+                                                       FontSize="12"
+                                                       Foreground="{DynamicResource ComboBoxDropDownGlyphForeground}"
+                                                       Glyph="&#xE70D;"
+                                                       IsHitTestVisible="False" />
                                     </Grid>
                                 </Button>
 
@@ -248,7 +248,7 @@
                 <Setter Property="Margin" Value="0,0,4,0" />
                 <Setter Property="Theme" Value="{StaticResource ColorPickerTypeTransparentToggleButtonStyle}" />
 
-                <Style Selector="^ &gt; ui|FontIcon">
+                <Style Selector="^ &gt; ui|FAFontIcon">
                     <Setter Property="FontFamily" Value="{DynamicResource SymbolThemeFontFamily}" />
                 </Style>
 

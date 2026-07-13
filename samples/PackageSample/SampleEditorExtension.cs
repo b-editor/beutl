@@ -7,6 +7,8 @@ using Beutl;
 using Beutl.Extensibility;
 using Beutl.ProjectSystem;
 using FluentAvalonia.UI.Controls;
+using FluentIcons.Avalonia.Fluent;
+using FluentIconKind = FluentIcons.Common.Icon;
 
 using Reactive.Bindings;
 
@@ -81,7 +83,10 @@ public class TextEditor : TextBox
 {
     public TextEditor()
     {
-        this[!TextProperty] = new Binding("Text.Value", BindingMode.TwoWay);
+        this[!TextProperty] = new ReflectionBinding("Text.Value")
+        {
+            Mode = BindingMode.TwoWay
+        };
     }
 
     protected override Type StyleKeyOverride => typeof(TextBox);
@@ -102,11 +107,11 @@ public sealed class SampleEditorExtension : EditorExtension
         };
     }
 
-    public override IconSource? GetIcon()
+    public override FAIconSource? GetIcon()
     {
-        return new SymbolIconSource
+        return new FluentIconSource
         {
-            Symbol = Symbol.Add
+            Icon = FluentIconKind.Add
         };
     }
 

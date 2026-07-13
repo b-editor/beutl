@@ -157,26 +157,26 @@ internal class PackageOperationHandler
         if (!_projectService.IsOpened.Value)
             return true;
 
-        var dialog = new ContentDialog
+        var dialog = new FAContentDialog
         {
             Title = ExtensionsStrings.PackageInstaller,
             Content = ExtensionsStrings.PackageInstaller_CloseProjectConfirmation,
             PrimaryButtonText = Strings.OK,
             SecondaryButtonText = ExtensionsStrings.PackageInstaller_SaveAndClose,
             CloseButtonText = Strings.Cancel,
-            DefaultButton = ContentDialogButton.Secondary
+            DefaultButton = FAContentDialogButton.Secondary
         };
 
-        ContentDialogResult result = await dialog.ShowAsync();
+        FAContentDialogResult result = await dialog.ShowAsync();
 
-        if (result == ContentDialogResult.Secondary)
+        if (result == FAContentDialogResult.Secondary)
         {
             await SaveAll();
             _projectService.CloseProject();
             return true;
         }
 
-        if (result == ContentDialogResult.Primary)
+        if (result == FAContentDialogResult.Primary)
         {
             _projectService.CloseProject();
             return true;

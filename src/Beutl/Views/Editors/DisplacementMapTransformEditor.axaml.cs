@@ -23,7 +23,7 @@ public partial class DisplacementMapTransformEditor : UserControl
 
     private void TransformTypeClicked(object? sender, RoutedEventArgs e)
     {
-        if (sender is not MenuFlyoutItem { Tag: string type }) return;
+        if (sender is not FAMenuFlyoutItem { Tag: string type }) return;
         if (DataContext is not DisplacementMapTransformEditorViewModel { IsDisposed: false } viewModel) return;
 
         viewModel.ChangeType(type switch

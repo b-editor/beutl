@@ -13,7 +13,7 @@ public static class CopyPasteMenuHelper
     {
         var dataContext = control.GetObservable(StyledElement.DataContextProperty)
             .Select(obj => obj as BaseEditorViewModel);
-        var copyMenu = new MenuFlyoutItem { Text = Strings.Copy };
+        var copyMenu = new FAMenuFlyoutItem { Text = Strings.Copy };
         copyMenu.Bind(
             InputElement.IsEnabledProperty,
             dataContext.Select(d => d?.CanCopy ?? Observable.ReturnThenNever(false)).Switch());
@@ -29,7 +29,7 @@ public static class CopyPasteMenuHelper
                 NotificationService.ShowError(Strings.Error, ex.Message);
             }
         };
-        var pasteMenu = new MenuFlyoutItem { Text = Strings.Paste };
+        var pasteMenu = new FAMenuFlyoutItem { Text = Strings.Paste };
         pasteMenu.Bind(
             InputElement.IsEnabledProperty,
             dataContext.Select(d => d?.CanPaste ?? Observable.ReturnThenNever(false)).Switch());
@@ -59,7 +59,7 @@ public static class CopyPasteMenuHelper
 
         if (menuFlyout.Items.Count > 0)
         {
-            var separator = new MenuFlyoutSeparator();
+            var separator = new FAMenuFlyoutSeparator();
             separator.Bind(
                 Visual.IsVisibleProperty,
                 dataContext

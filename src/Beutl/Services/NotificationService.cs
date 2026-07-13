@@ -41,7 +41,7 @@ public sealed class NotificationServiceHandler : INotificationServiceHandler
         return null;
     }
 
-    private static void Close(InfoBar infoBar)
+    private static void Close(FAInfoBar infoBar)
     {
         // ShowCoreAsync 側の Expiration 待機が後から `if (!infoBar.IsOpen) return;` を
         // 通過して HiddenNotificationPanel に積み直さないように、ここで明示的に閉じる
@@ -71,7 +71,7 @@ public sealed class NotificationServiceHandler : INotificationServiceHandler
                     if (GetMainView() is not MainView mainView)
                         return;
 
-                    InfoBar infoBar = BuildInfoBar(notification);
+                    FAInfoBar infoBar = BuildInfoBar(notification);
                     mainView.NotificationPanel.Children.Add(infoBar);
 
                     await Task.Delay(notification.Expiration ?? TimeSpan.FromSeconds(3));
@@ -112,9 +112,9 @@ public sealed class NotificationServiceHandler : INotificationServiceHandler
         }
     }
 
-    private InfoBar BuildInfoBar(Notification notification)
+    private FAInfoBar BuildInfoBar(Notification notification)
     {
-        var infoBar = new InfoBar
+        var infoBar = new FAInfoBar
         {
             [!TemplatedControl.BackgroundProperty] =
                 new DynamicResourceExtension("SolidBackgroundFillColorTertiaryBrush"),
@@ -126,16 +126,16 @@ public sealed class NotificationServiceHandler : INotificationServiceHandler
             Width = 350,
             Severity = notification.Type switch
             {
-                NotificationType.Success => InfoBarSeverity.Success,
-                NotificationType.Warning => InfoBarSeverity.Warning,
-                NotificationType.Error => InfoBarSeverity.Error,
-                NotificationType.Information or _ => InfoBarSeverity.Informational,
+                NotificationType.Success => FAInfoBarSeverity.Success,
+                NotificationType.Warning => FAInfoBarSeverity.Warning,
+                NotificationType.Error => FAInfoBarSeverity.Error,
+                NotificationType.Information or _ => FAInfoBarSeverity.Informational,
             }
         };
 
         infoBar.CloseButtonClick += (s, _) =>
         {
-            if (s is InfoBar { DataContext: Notification n } closingBar)
+            if (s is FAInfoBar { DataContext: Notification n } closingBar)
             {
                 InvokeCallback(n.OnClose, n, "OnClose");
                 Close(closingBar);
@@ -151,7 +151,7 @@ public sealed class NotificationServiceHandler : INotificationServiceHandler
                 {
                     InvokeCallback(n.OnActionButtonClick, n, "OnActionButtonClick");
 
-                    InfoBar? ancestor = button.FindLogicalAncestorOfType<InfoBar>();
+                    FAInfoBar? ancestor = button.FindLogicalAncestorOfType<FAInfoBar>();
                     if (ancestor != null)
                         Close(ancestor);
                 }
@@ -180,7 +180,7 @@ public sealed class NotificationServiceHandler : INotificationServiceHandler
         }
     }
 
-    private static Task WaitPointerExitedAsync(InfoBar infoBar)
+    private static Task WaitPointerExitedAsync(FAInfoBar infoBar)
     {
         var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 

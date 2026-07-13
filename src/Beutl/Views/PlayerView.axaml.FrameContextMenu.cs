@@ -108,7 +108,7 @@ public partial class PlayerView
     {
         using var dialogViewModel = new SaveFrameDialogViewModel(baseSize);
         var dialog = new SaveFrameDialog { DataContext = dialogViewModel };
-        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return null;
+        if (await dialog.ShowAsync() != FAContentDialogResult.Primary) return null;
 
         return dialogViewModel.SelectedScale.Value;
     }

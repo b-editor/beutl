@@ -9,13 +9,14 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 
 using FluentAvalonia.Styling;
+using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Windowing;
-
-using Icon = FluentIcons.Common.Icon;
+using FluentIcons.Avalonia.Fluent;
+using FluentIconKind = FluentIcons.Common.Icon;
 
 namespace Beutl.WaitingDialog;
 
-public partial class MainWindow : AppWindow
+public partial class MainWindow : FAAppWindow
 {
     private bool _closable;
     private Process? _parentProcess;
@@ -25,9 +26,6 @@ public partial class MainWindow : AppWindow
         InitializeComponent();
         ShowAsDialog = true;
         Topmost = true;
-#if DEBUG
-        this.AttachDevTools();
-#endif
         var titleOption = new Option<string?>("--title");
         var subtitleOption = new Option<string?>("--subtitle");
         var iconOption = new Option<string?>("--icon");
@@ -66,11 +64,11 @@ public partial class MainWindow : AppWindow
         }
 
         string? icon = result.GetValue(iconOption);
-        if (icon != null && Enum.TryParse(icon, out Icon iconSymbol))
+        if (icon != null && TryParseIcon(icon, out FluentIconKind iconSymbol))
         {
             subheaderRoot.IsVisible = true;
             iconHost.IsVisible = true;
-            iconSourceElement.IconSource = new FluentIcons.Avalonia.Fluent.FluentIconSource
+            iconSourceElement.IconSource = new FluentIconSource
             {
                 Icon = iconSymbol,
             };
@@ -134,4 +132,32 @@ public partial class MainWindow : AppWindow
         base.OnClosing(e);
         e.Cancel = !_closable;
     }
+
+    private static bool TryParseIcon(string value, out FluentIconKind icon)
+    {
+        if (Enum.TryParse(value, ignoreCase: true, out icon))
+        {
+            return true;
+        }
+
+        if (s_legacyIconMap.TryGetValue(value, out icon))
+        {
+            return true;
+        }
+
+        icon = default;
+        return false;
+    }
+
+    private static readonly Dictionary<string, FluentIconKind> s_legacyIconMap = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["AllApps"] = FluentIconKind.Apps,
+        ["ContactInfo"] = FluentIconKind.Info,
+        ["Font"] = FluentIconKind.TextFont,
+        ["MoveToFolder"] = FluentIconKind.FolderArrowRight,
+        ["MusicInfo"] = FluentIconKind.MusicNote2,
+        ["Paste"] = FluentIconKind.ClipboardPaste,
+        ["SaveAs"] = FluentIconKind.SaveEdit,
+        ["View"] = FluentIconKind.Eye,
+    };
 }

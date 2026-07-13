@@ -83,13 +83,13 @@
                                         Orientation="Horizontal"
                                         Spacing="4">
                                 <ToggleButton Name="ToggleDetailsButton" ToolTip.Tip="{x:Static lang:Strings.ShowSliders}">
-                                    <ui:FontIcon Glyph="&#xE9E9;" />
+                                    <ui:FAFontIcon Glyph="&#xE9E9;" />
                                 </ToggleButton>
                                 <ToggleButton Name="ToggleSpectrumShapeButton" ToolTip.Tip="{x:Static lang:Strings.ShowRing}">
-                                    <ui:FontIcon Glyph="&#xEA3A;" />
+                                    <ui:FAFontIcon Glyph="&#xEA3A;" />
                                 </ToggleButton>
                                 <ToggleButton Name="ColorDropperButton" IsVisible="False">
-                                    <ui:FontIcon Glyph="&#xEF3C;" />
+                                    <ui:FAFontIcon Glyph="&#xEF3C;" />
                                 </ToggleButton>
                             </StackPanel>
 
@@ -129,7 +129,7 @@
             <Setter Property="VerticalContentAlignment" Value="Center" />
             <Setter Property="Theme" Value="{StaticResource TransparentToggleButton}" />
 
-            <Style Selector="^ > ui|FontIcon">
+            <Style Selector="^ > ui|FAFontIcon">
                 <Setter Property="FontFamily" Value="{DynamicResource SymbolThemeFontFamily}" />
             </Style>
         </Style>

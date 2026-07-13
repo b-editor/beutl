@@ -2,8 +2,10 @@
 using System.Windows.Input;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Chrome;
 using Avalonia.Platform;
 using Beutl.Configuration;
+using Beutl.Controls;
 using Beutl.Services;
 using Beutl.ViewModels;
 using DynamicData;
@@ -22,8 +24,7 @@ public sealed partial class MacWindow : Window
         {
             ExtendClientAreaToDecorationsHint = true;
             ExtendClientAreaTitleBarHeightHint = 40;
-            ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.OSXThickTitleBar |
-                                          ExtendClientAreaChromeHints.PreferSystemChrome;
+            MacOSTitleBar.SetIsThick(this, true);
         }
 
         InitializeComponent();
@@ -40,10 +41,6 @@ public sealed partial class MacWindow : Window
             var rect = new PixelRect(pos.Value.X, pos.Value.Y, size.Value.Width, size.Value.Height);
             SetRect(rect);
         }
-
-#if DEBUG
-        this.AttachDevTools();
-#endif
     }
 
     private void SetRect(PixelRect rect)

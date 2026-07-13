@@ -15,9 +15,9 @@ using Beutl.Language;
 using Beutl.Reactive;
 using Beutl.Utilities;
 using FluentAvalonia.UI.Controls;
+using FluentIcons.Avalonia.Fluent;
 using Reactive.Bindings.Extensions;
-using FluentIconSource = FluentIcons.Avalonia.Fluent.FluentIconSource;
-using Icon = FluentIcons.Common.Icon;
+using FluentIconKind = FluentIcons.Common.Icon;
 
 namespace Beutl.Controls.PropertyEditors;
 
@@ -36,7 +36,7 @@ public class GradientStopsSlider : TemplatedControl
     private readonly GradientStops _unorderedStops = [];
     private IDisposable? _stopsSubscription;
     private FAMenuFlyout? _menuFlyout;
-    private MenuFlyoutItem? _deleteMenuItem;
+    private FAMenuFlyoutItem? _deleteMenuItem;
     private double _oldOffset;
     private int _oldIndex;
 
@@ -374,17 +374,17 @@ public class GradientStopsSlider : TemplatedControl
             if (_menuFlyout == null || _deleteMenuItem == null)
             {
                 _menuFlyout = new FAMenuFlyout();
-                _deleteMenuItem = new MenuFlyoutItem
+                _deleteMenuItem = new FAMenuFlyoutItem
                 {
                     Text = Strings.Delete,
                     IconSource = new FluentIconSource
                     {
-                        Icon = Icon.Delete
+                        Icon = FluentIconKind.Delete
                     }
                 };
                 _deleteMenuItem.Click += (s, e) =>
                 {
-                    if (s is MenuFlyoutItem { Tag: GradientStop obj } menu)
+                    if (s is FAMenuFlyoutItem { Tag: GradientStop obj } menu)
                     {
                         int index = Stops.IndexOf(obj);
                         if (ReferenceEquals(SelectedStop, obj))

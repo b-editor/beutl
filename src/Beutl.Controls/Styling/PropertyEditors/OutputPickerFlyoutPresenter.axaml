@@ -229,7 +229,7 @@
                                     HorizontalContentAlignment="Center"
                                     VerticalContentAlignment="Center"
                                     Theme="{StaticResource TransparentButton}">
-                                <ui:FontIcon FontFamily="{DynamicResource SymbolThemeFontFamily}" Glyph="&#xE711;" />
+                                <ui:FAFontIcon FontFamily="{DynamicResource SymbolThemeFontFamily}" Glyph="&#xE711;" />
                             </Button>
                         </Grid>
 
@@ -330,6 +330,10 @@
                 <Setter Property="Height" Value="32" />
                 <Setter Property="Margin" Value="0,0,4,0" />
                 <Setter Property="Theme" Value="{StaticResource ColorPickerTypeTransparentToggleButtonStyle}" />
+
+                <Style Selector="^ > ui|FAFontIcon">
+                    <Setter Property="FontFamily" Value="{DynamicResource SymbolThemeFontFamily}" />
+                </Style>
             </Style>
         </Style>
     </ControlTheme>

@@ -564,7 +564,7 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
 
     private static async Task<bool> ShowDeleteAllForProjectConfirmationAsync(int entryCount)
     {
-        var dialog = new ContentDialog
+        var dialog = new FAContentDialog
         {
             Title = Strings.ProxyDeleteProjectProxies,
             Content = string.Format(
@@ -573,10 +573,10 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
                 entryCount),
             PrimaryButtonText = Strings.Yes,
             CloseButtonText = Strings.No,
-            DefaultButton = ContentDialogButton.Close,
+            DefaultButton = FAContentDialogButton.Close,
         };
 
-        return await dialog.ShowAsync() == ContentDialogResult.Primary;
+        return await dialog.ShowAsync() == FAContentDialogResult.Primary;
     }
 
     // Collapse a burst of store/job events (e.g. a "Generate all" completing N clips raises ~2N

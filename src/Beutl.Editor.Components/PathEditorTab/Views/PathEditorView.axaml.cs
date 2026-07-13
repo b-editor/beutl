@@ -16,12 +16,11 @@ using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Media;
 using FluentAvalonia.UI.Controls;
+using FluentIcons.Avalonia.Fluent;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings.Extensions;
+using FluentIconKind = FluentIcons.Common.Icon;
 using BtlPoint = Beutl.Graphics.Point;
-using FluentIconSource = FluentIcons.Avalonia.Fluent.FluentIconSource;
-using Icon = FluentIcons.Common.Icon;
-
 namespace Beutl.Editor.Components.PathEditorTab.Views;
 
 public partial class PathEditorView : UserControl, IPathEditorView
@@ -182,12 +181,12 @@ public partial class PathEditorView : UserControl, IPathEditorView
             [!ThemeProperty] = new DynamicResourceExtension("PathEditorControlPointThumbTheme")
         };
         var flyout = new FAMenuFlyout();
-        var delete = new MenuFlyoutItem
+        var delete = new FAMenuFlyoutItem
         {
             Text = Strings.Delete,
             IconSource = new FluentIconSource
             {
-                Icon = Icon.Delete
+                Icon = FluentIconKind.Delete
             }
         };
         delete.Click += OnDeleteClicked;
@@ -202,7 +201,7 @@ public partial class PathEditorView : UserControl, IPathEditorView
 
     private void OnDeleteClicked(object? sender, RoutedEventArgs e)
     {
-        if (sender is MenuFlyoutItem { DataContext: PathSegment op }
+        if (sender is FAMenuFlyoutItem { DataContext: PathSegment op }
             && DataContext is PathEditorViewModel viewModel
             && viewModel.FigureContext.Value is IPathFigureEditorContext figureContext)
         {
@@ -223,7 +222,7 @@ public partial class PathEditorView : UserControl, IPathEditorView
 
     private void ToggleDragModeClick(object? sender, RoutedEventArgs e)
     {
-        if (sender is RadioMenuFlyoutItem button && DataContext is PathEditorViewModel viewModel)
+        if (sender is FARadioMenuFlyoutItem button && DataContext is PathEditorViewModel viewModel)
         {
             viewModel.Symmetry.Value = false;
             viewModel.Asymmetry.Value = false;
@@ -246,7 +245,7 @@ public partial class PathEditorView : UserControl, IPathEditorView
 
     private void AddOpClicked(object? sender, RoutedEventArgs e)
     {
-        if (sender is MenuFlyoutItem item
+        if (sender is FAMenuFlyoutItem item
             && DataContext is PathEditorViewModel viewModel
             && viewModel.PathFigure.Value is { } figure
             && viewModel.FigureContext.Value is IPathFigureEditorContext figureContext)

@@ -123,15 +123,15 @@ public partial class MainView
         {
             string path = element.Uri!.LocalPath;
             string name = Path.GetFileName(path);
-            var dialog = new ContentDialog
+            var dialog = new FAContentDialog
             {
                 CloseButtonText = Strings.Cancel,
                 PrimaryButtonText = Strings.OK,
-                DefaultButton = ContentDialogButton.Primary,
+                DefaultButton = FAContentDialogButton.Primary,
                 Content = MessageStrings.ConfirmDeleteFile + "\n" + name
             };
 
-            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+            if (await dialog.ShowAsync() == FAContentDialogResult.Primary)
             {
                 viewModel.GetRequiredService<IElementStructureService>()
                     .Delete(scene, [element], GlobalConfiguration.Instance.EditorConfig.IsRippleEnabled);
@@ -152,15 +152,15 @@ public partial class MainView
             if (projItem == null)
                 return;
 
-            var dialog = new ContentDialog
+            var dialog = new FAContentDialog
             {
                 CloseButtonText = Strings.Cancel,
                 PrimaryButtonText = Strings.OK,
-                DefaultButton = ContentDialogButton.Primary,
+                DefaultButton = FAContentDialogButton.Primary,
                 Content = MessageStrings.ConfirmExcludeItem + "\n" + filePath
             };
 
-            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+            if (await dialog.ShowAsync() == FAContentDialogResult.Primary)
             {
                 try
                 {
@@ -178,7 +178,8 @@ public partial class MainView
 
     private async void OnOpenFile()
     {
-        if (VisualRoot is not Window window || DataContext is not MainViewModel viewModel)
+        if (TopLevel.GetTopLevel(this)?.StorageProvider is not { } storage
+            || DataContext is not MainViewModel viewModel)
         {
             return;
         }
@@ -190,7 +191,7 @@ public partial class MainView
             .ToArray());
         var options = new FilePickerOpenOptions { AllowMultiple = true, FileTypeFilter = filters };
 
-        IReadOnlyList<IStorageFile> files = await window.StorageProvider.OpenFilePickerAsync(options);
+        IReadOnlyList<IStorageFile> files = await storage.OpenFilePickerAsync(options);
         if (files.Count > 0)
         {
             foreach (IStorageFile file in files)
@@ -205,7 +206,7 @@ public partial class MainView
 
     private async void OnOpenProject()
     {
-        if (VisualRoot is Window window)
+        if (TopLevel.GetTopLevel(this)?.StorageProvider is { } storage)
         {
             var options = new FilePickerOpenOptions
             {
@@ -218,7 +219,7 @@ public partial class MainView
                 ]
             };
 
-            IReadOnlyList<IStorageFile> result = await window.StorageProvider.OpenFilePickerAsync(options);
+            IReadOnlyList<IStorageFile> result = await storage.OpenFilePickerAsync(options);
             if (result.Count > 0
                 && result[0].TryGetLocalPath() is string localPath)
             {
@@ -229,7 +230,7 @@ public partial class MainView
 
     private async Task OnExportProject()
     {
-        if (VisualRoot is not Window window)
+        if (TopLevel.GetTopLevel(this)?.StorageProvider is not { } storage)
         {
             return;
         }
@@ -255,7 +256,7 @@ public partial class MainView
             ]
         };
 
-        IStorageFile? file = await window.StorageProvider.SaveFilePickerAsync(options);
+        IStorageFile? file = await storage.SaveFilePickerAsync(options);
         if (file?.TryGetLocalPath() is string outputPath)
         {
             try
@@ -304,7 +305,7 @@ public partial class MainView
 
     private async Task OnImportProject()
     {
-        if (VisualRoot is not Window window)
+        if (TopLevel.GetTopLevel(this)?.StorageProvider is not { } storage)
         {
             return;
         }
@@ -321,7 +322,7 @@ public partial class MainView
             ]
         };
 
-        IReadOnlyList<IStorageFile> files = await window.StorageProvider.OpenFilePickerAsync(openOptions);
+        IReadOnlyList<IStorageFile> files = await storage.OpenFilePickerAsync(openOptions);
         if (files.Count == 0 || files[0].TryGetLocalPath() is not string packagePath)
         {
             return;
@@ -333,7 +334,7 @@ public partial class MainView
             Title = Strings.SelectDestinationFolder
         };
 
-        IReadOnlyList<IStorageFolder> folders = await window.StorageProvider.OpenFolderPickerAsync(folderOptions);
+        IReadOnlyList<IStorageFolder> folders = await storage.OpenFolderPickerAsync(folderOptions);
         if (folders.Count == 0 || folders[0].TryGetLocalPath() is not string destinationDir)
         {
             return;

@@ -7,8 +7,8 @@
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:p="using:Beutl.Services.PrimitiveImpls"
-             xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:tutorial="using:Beutl.Views.Tutorial"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:views="using:Beutl.Views"
              xmlns:vm="using:Beutl.ViewModels"
              xmlns:wnd="using:FluentAvalonia.UI.Windowing"
@@ -34,7 +34,8 @@
     <Grid RowDefinitions="Auto,1,*">
         <Grid x:Name="Titlebar"
               Background="Transparent"
-              ColumnDefinitions="Auto,Auto,Auto,*">
+              ColumnDefinitions="Auto,Auto,Auto,*"
+              WindowDecorationProperties.ElementRole="TitleBar">
             <Image Name="WindowIcon"
                    MaxWidth="24"
                    MaxHeight="24"
@@ -51,7 +52,7 @@
 
             <Menu x:Name="MenuBar"
                   Grid.Column="1"
-                  wnd:AppWindow.AllowInteractionInTitleBar="True">
+                  WindowDecorationProperties.ElementRole="User">
                 <!--  ファイル  -->
                 <MenuItem Header="{x:Static lang:Strings.File}">
                     <!--  新規作成  -->
@@ -125,8 +126,7 @@
                         </MenuItem.Icon>
                     </MenuItem>
                     <!--  プロジェクトをインポート  -->
-                    <MenuItem Command="{CompiledBinding MenuBar.ImportProject}"
-                              Header="{x:Static lang:Strings.ImportProject}">
+                    <MenuItem Command="{CompiledBinding MenuBar.ImportProject}" Header="{x:Static lang:Strings.ImportProject}">
                         <MenuItem.Icon>
                             <icons:FluentIcon Icon="ArrowImport" />
                         </MenuItem.Icon>
@@ -173,8 +173,7 @@
                     <MenuItem x:Name="editorTabMenuItem" Header="{x:Static lang:Strings.Editors}" />
                     <MenuItem x:Name="toolTabMenuItem" Header="{x:Static lang:Strings.Tools}" />
                     <Separator />
-                    <MenuItem Command="{CompiledBinding MenuBar.ResetDockLayout}"
-                              Header="{x:Static lang:Strings.ResetDockLayout}" />
+                    <MenuItem Command="{CompiledBinding MenuBar.ResetDockLayout}" Header="{x:Static lang:Strings.ResetDockLayout}" />
                 </MenuItem>
                 <MenuItem x:Name="toolWindowMenuItem" Header="{x:Static lang:Strings.Tools}" />
                 <!--  シーン  -->
@@ -218,8 +217,8 @@
 
             <views:TitleBreadcrumbBar Name="TitleBreadcrumbBar"
                                       Grid.Column="2"
-                                      wnd:AppWindow.AllowInteractionInTitleBar="True"
-                                      DataContext="{Binding TitleBreadcrumbBar}" />
+                                      DataContext="{Binding TitleBreadcrumbBar}"
+                                      WindowDecorationProperties.ElementRole="User" />
 
             <StackPanel Grid.Column="3"
                         Margin="0,0,4,0"
@@ -233,9 +232,9 @@
                            Text="Debug" />
 
                 <Border Margin="4,0,0,0"
-                        wnd:AppWindow.AllowInteractionInTitleBar="True"
                         Background="Transparent"
-                        ToolTip.Tip="{x:Static lang:Strings.RunningStartupTasks}">
+                        ToolTip.Tip="{x:Static lang:Strings.RunningStartupTasks}"
+                        WindowDecorationProperties.ElementRole="User">
                     <ProgressRing Width="20"
                                   Height="20"
                                   MinWidth="0"
@@ -246,19 +245,19 @@
                 </Border>
 
                 <Button x:Name="OpenFeedbackButton"
-                        wnd:AppWindow.AllowInteractionInTitleBar="True"
                         Click="OpenFeedbackClick"
+                        Theme="{StaticResource TitleBarButtonStyle}"
                         ToolTip.Tip="{x:Static lang:Strings.Feedback}"
-                        Theme="{StaticResource TitleBarButtonStyle}">
+                        WindowDecorationProperties.ElementRole="User">
                     <icons:FluentIcon Icon="Chat" Margin="0,0,0,2" />
                 </Button>
 
                 <Button x:Name="OpenNotificationsButton"
                         HorizontalContentAlignment="Stretch"
                         VerticalContentAlignment="Stretch"
-                        wnd:AppWindow.AllowInteractionInTitleBar="True"
                         Click="OpenNotificationsClick"
-                        Theme="{StaticResource TitleBarButtonStyle}">
+                        Theme="{StaticResource TitleBarButtonStyle}"
+                        WindowDecorationProperties.ElementRole="User">
                     <Button.Flyout>
                         <Flyout FlyoutPresenterTheme="{StaticResource SmallPaddingFlyoutPresenterStyle}">
                             <ScrollViewer>
@@ -270,12 +269,12 @@
                         <icons:FluentIcon HorizontalAlignment="Center"
                                           VerticalAlignment="Center"
                                           Icon="Alert" />
-                        <ui:InfoBadge Width="8"
-                                      Height="8"
-                                      Margin="0,4,4,0"
-                                      HorizontalAlignment="Right"
-                                      VerticalAlignment="Top"
-                                      IsVisible="{Binding !!#HiddenNotificationPanel.Children.Count}" />
+                        <ui:FAInfoBadge Width="8"
+                                        Height="8"
+                                        Margin="0,4,4,0"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Top"
+                                        IsVisible="{Binding !!#HiddenNotificationPanel.Children.Count}" />
                     </Panel>
                 </Button>
             </StackPanel>
@@ -297,7 +296,7 @@
                     VerticalAlignment="Top"
                     Spacing="4">
             <StackPanel.Styles>
-                <Style Selector="ui|InfoBar">
+                <Style Selector="ui|FAInfoBar">
                     <Style Selector="^">
                         <Style.Animations>
                             <Animation FillMode="Forward" Duration="00:00:00.250">
@@ -339,14 +338,13 @@
             </StackPanel.Styles>
         </StackPanel>
 
-        <!-- チュートリアルオーバーレイ -->
+        <!--  チュートリアルオーバーレイ  -->
         <tutorial:TutorialOverlay x:Name="TutorialOverlayPanel"
                                   Grid.RowSpan="3"
                                   IsVisible="False" />
 
-        <!-- コマンドパレット -->
-        <views:CommandPaletteView Grid.RowSpan="3"
-                                  DataContext="{Binding CommandPalette}" />
+        <!--  コマンドパレット  -->
+        <views:CommandPaletteView Grid.RowSpan="3" DataContext="{Binding CommandPalette}" />
     </Grid>
 
 </UserControl>

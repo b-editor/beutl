@@ -55,8 +55,8 @@
                         </ToggleButton>
 
                         <!--
-                            added 1px left margin, otherwise we can get strange artifacts while
-                            animating, I'm guessing from bad invalidation rects?
+                        added 1px left margin, otherwise we can get strange artifacts while
+                        animating, I'm guessing from bad invalidation rects?
                         -->
                         <Rectangle Name="SelectionIndicator"
                                    Width="3"
@@ -209,7 +209,7 @@
                                     HorizontalContentAlignment="Center"
                                     VerticalContentAlignment="Center"
                                     Theme="{StaticResource TransparentButton}">
-                                <ui:FontIcon FontFamily="{DynamicResource SymbolThemeFontFamily}" Glyph="&#xE711;" />
+                                <ui:FAFontIcon FontFamily="{DynamicResource SymbolThemeFontFamily}" Glyph="&#xE711;" />
                             </Button>
                         </Grid>
 
@@ -247,7 +247,7 @@
                                      Classes="clearButton"
                                      IsVisible="False"
                                      Text="{TemplateBinding SearchText, Mode=TwoWay}"
-                                     Watermark="{x:Static lang:Strings.Search}" />
+                                     PlaceholderText="{x:Static lang:Strings.Search}" />
 
                             <ListBox x:Name="PART_ListBox"
                                      Height="250"

@@ -86,7 +86,7 @@ public partial class PathFigureListItemEditor : UserControl, IListItemEditor
     private void AddClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is PathFigureEditorViewModel { IsDisposed: false } viewModel
-            && sender is MenuFlyoutItem item)
+            && sender is FAMenuFlyoutItem item)
         {
             try
             {

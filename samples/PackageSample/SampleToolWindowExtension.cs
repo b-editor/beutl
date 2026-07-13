@@ -3,6 +3,8 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Beutl.Extensibility;
 using FluentAvalonia.UI.Controls;
+using FluentIcons.Avalonia.Fluent;
+using FluentIconKind = FluentIcons.Common.Icon;
 
 namespace PackageSample;
 
@@ -28,7 +30,7 @@ public sealed class SampleToolWindowExtension : ToolWindowExtension
 
     public override bool CanMultiple => true;
 
-    public override IconSource? GetIcon() => new SymbolIconSource { Symbol = Symbol.Mail };
+    public override FAIconSource? GetIcon() => new FluentIconSource { Icon = FluentIconKind.Mail };
 
     public override bool TryCreateContent([NotNullWhen(true)] out Window? window)
     {

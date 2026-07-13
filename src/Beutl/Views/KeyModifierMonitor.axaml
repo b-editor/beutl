@@ -1,4 +1,4 @@
-<wnd:AppWindow x:Class="Beutl.KeyModifierMonitor"
+<wnd:FAAppWindow x:Class="Beutl.KeyModifierMonitor"
                xmlns="https://github.com/avaloniaui"
                xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -22,4 +22,4 @@
             </Style>
         </StackPanel.Styles>
     </StackPanel>
-</wnd:AppWindow>
+</wnd:FAAppWindow>

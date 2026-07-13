@@ -1,4 +1,4 @@
-<ui:ContentDialog x:Class="Beutl.Views.Dialogs.CreateNewScene"
+<ui:FAContentDialog x:Class="Beutl.Views.Dialogs.CreateNewScene"
                   xmlns="https://github.com/avaloniaui"
                   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                   xmlns:converters="clr-namespace:Beutl.Converters;assembly=Beutl"
@@ -37,4 +37,4 @@
         <TextBlock Margin="0,8,0,0" Text="{x:Static lang:Strings.Size}" />
         <TextBox Text="{CompiledBinding Size.Value, Mode=TwoWay, Converter={x:Static converters:AvaloniaPixelSizeConverter.Instance}}" />
     </StackPanel>
-</ui:ContentDialog>
+</ui:FAContentDialog>

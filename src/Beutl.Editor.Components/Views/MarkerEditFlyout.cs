@@ -12,7 +12,7 @@ using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.Editor.Components.Views;
 
-public sealed class MarkerEditFlyout : PickerFlyoutBase
+public sealed class MarkerEditFlyout : FAPickerFlyoutBase
 {
     public static readonly StyledProperty<TimeSpan> TimeProperty
         = AvaloniaProperty.Register<MarkerEditFlyout, TimeSpan>(nameof(Time));
@@ -119,7 +119,7 @@ public sealed class MarkerEditFlyout : PickerFlyoutBase
             },
         };
 
-        var pfp = new PickerFlyoutPresenter
+        var pfp = new FAPickerFlyoutPresenter
         {
             Width = 240,
             Padding = new Thickness(8),
@@ -153,12 +153,12 @@ public sealed class MarkerEditFlyout : PickerFlyoutBase
 
     protected override bool ShouldShowConfirmationButtons() => true;
 
-    private void OnFlyoutConfirmed(PickerFlyoutPresenter sender, object args)
+    private void OnFlyoutConfirmed(FAPickerFlyoutPresenter sender, object args)
     {
         OnConfirmed();
     }
 
-    private void OnFlyoutDismissed(PickerFlyoutPresenter sender, object args)
+    private void OnFlyoutDismissed(FAPickerFlyoutPresenter sender, object args)
     {
         MarkerName = _initial.Name;
         Note = _initial.Note;

@@ -34,36 +34,36 @@
         <Canvas Name="canvas" Background="Transparent">
             <Canvas.ContextFlyout>
                 <ui:FAMenuFlyout>
-                    <ui:MenuFlyoutItem Click="AddOpClicked"
-                                       Tag="Cubic"
-                                       Text="{x:Static lang:GraphicsStrings.CubicBezierSegment}" />
-                    <ui:MenuFlyoutItem Click="AddOpClicked"
-                                       Tag="Quad"
-                                       Text="{x:Static lang:GraphicsStrings.QuadraticBezierSegment}" />
-                    <ui:MenuFlyoutItem Click="AddOpClicked"
-                                       Tag="Line"
-                                       Text="{x:Static lang:GraphicsStrings.LineSegment}" />
-                    <ui:MenuFlyoutItem Click="AddOpClicked"
-                                       Tag="Arc"
-                                       Text="{x:Static lang:GraphicsStrings.ArcSegment}" />
-                    <ui:MenuFlyoutItem Click="AddOpClicked"
-                                       Tag="Conic"
-                                       Text="{x:Static lang:GraphicsStrings.ConicSegment}" />
-                    <ui:MenuFlyoutSeparator />
-                    <ui:RadioMenuFlyoutItem Click="ToggleDragModeClick"
-                                            IsChecked="{Binding Symmetry.Value, Mode=OneWay}"
-                                            Tag="Symmetry"
-                                            Text="{x:Static lang:Strings.Symmetry}" />
-                    <ui:RadioMenuFlyoutItem Click="ToggleDragModeClick"
-                                            IsChecked="{Binding Asymmetry.Value, Mode=OneWay}"
-                                            Tag="Asymmetry"
-                                            Text="{x:Static lang:Strings.Asymmetry}" />
-                    <ui:RadioMenuFlyoutItem Click="ToggleDragModeClick"
-                                            IsChecked="{Binding Separately.Value, Mode=OneWay}"
-                                            Tag="Separately"
-                                            Text="{x:Static lang:Strings.Separately}" />
-                    <ui:MenuFlyoutSeparator />
-                    <ui:MenuFlyoutItem Click="ResetZoomClicked" Text="{x:Static lang:Strings.ResetZoom}" />
+                    <ui:FAMenuFlyoutItem Click="AddOpClicked"
+                                         Tag="Cubic"
+                                         Text="{x:Static lang:GraphicsStrings.CubicBezierSegment}" />
+                    <ui:FAMenuFlyoutItem Click="AddOpClicked"
+                                         Tag="Quad"
+                                         Text="{x:Static lang:GraphicsStrings.QuadraticBezierSegment}" />
+                    <ui:FAMenuFlyoutItem Click="AddOpClicked"
+                                         Tag="Line"
+                                         Text="{x:Static lang:GraphicsStrings.LineSegment}" />
+                    <ui:FAMenuFlyoutItem Click="AddOpClicked"
+                                         Tag="Arc"
+                                         Text="{x:Static lang:GraphicsStrings.ArcSegment}" />
+                    <ui:FAMenuFlyoutItem Click="AddOpClicked"
+                                         Tag="Conic"
+                                         Text="{x:Static lang:GraphicsStrings.ConicSegment}" />
+                    <ui:FAMenuFlyoutSeparator />
+                    <ui:FARadioMenuFlyoutItem Click="ToggleDragModeClick"
+                                              IsChecked="{Binding Symmetry.Value, Mode=OneWay}"
+                                              Tag="Symmetry"
+                                              Text="{x:Static lang:Strings.Symmetry}" />
+                    <ui:FARadioMenuFlyoutItem Click="ToggleDragModeClick"
+                                              IsChecked="{Binding Asymmetry.Value, Mode=OneWay}"
+                                              Tag="Asymmetry"
+                                              Text="{x:Static lang:Strings.Asymmetry}" />
+                    <ui:FARadioMenuFlyoutItem Click="ToggleDragModeClick"
+                                              IsChecked="{Binding Separately.Value, Mode=OneWay}"
+                                              Tag="Separately"
+                                              Text="{x:Static lang:Strings.Separately}" />
+                    <ui:FAMenuFlyoutSeparator />
+                    <ui:FAMenuFlyoutItem Click="ResetZoomClicked" Text="{x:Static lang:Strings.ResetZoom}" />
                 </ui:FAMenuFlyout>
             </Canvas.ContextFlyout>
         </Canvas>

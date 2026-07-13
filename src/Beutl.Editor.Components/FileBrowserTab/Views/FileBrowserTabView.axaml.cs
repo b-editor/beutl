@@ -196,7 +196,7 @@ public partial class FileBrowserTabView : UserControl
         flyout.ShowAt(target, true);
     }
 
-    private void BreadcrumbBarItemClicked(BreadcrumbBar sender, BreadcrumbBarItemClickedEventArgs args)
+    private void BreadcrumbBarItemClicked(FABreadcrumbBar sender, FABreadcrumbBarItemClickedEventArgs args)
     {
         ViewModel?.NavigateToBreadcrumb(args.Index);
     }

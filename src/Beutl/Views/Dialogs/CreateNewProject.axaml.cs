@@ -8,7 +8,7 @@ using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Views.Dialogs;
 
-public sealed partial class CreateNewProject : ContentDialog
+public sealed partial class CreateNewProject : FAContentDialog
 {
     private IDisposable? _sBtnBinding;
 
@@ -17,10 +17,10 @@ public sealed partial class CreateNewProject : ContentDialog
         InitializeComponent();
     }
 
-    protected override Type StyleKeyOverride => typeof(ContentDialog);
+    protected override Type StyleKeyOverride => typeof(FAContentDialog);
 
     // 戻る
-    protected override void OnPrimaryButtonClick(ContentDialogButtonClickEventArgs args)
+    protected override void OnPrimaryButtonClick(FAContentDialogButtonClickEventArgs args)
     {
         base.OnPrimaryButtonClick(args);
         if (carousel.SelectedIndex == 1)
@@ -39,7 +39,7 @@ public sealed partial class CreateNewProject : ContentDialog
     }
 
     // '次へ' or '新規作成'
-    protected override void OnSecondaryButtonClick(ContentDialogButtonClickEventArgs args)
+    protected override void OnSecondaryButtonClick(FAContentDialogButtonClickEventArgs args)
     {
         base.OnSecondaryButtonClick(args);
         if (DataContext is not CreateNewProjectViewModel vm) return;
@@ -65,10 +65,11 @@ public sealed partial class CreateNewProject : ContentDialog
     // 場所を選択
     private async void PickLocation(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is CreateNewProjectViewModel vm && VisualRoot is Window parent)
+        if (DataContext is CreateNewProjectViewModel vm
+            && TopLevel.GetTopLevel(this)?.StorageProvider is { } storage)
         {
             var options = new FolderPickerOpenOptions();
-            IReadOnlyList<IStorageFolder> result = await parent.StorageProvider.OpenFolderPickerAsync(options);
+            IReadOnlyList<IStorageFolder> result = await storage.OpenFolderPickerAsync(options);
 
             if (result.Count > 0
                 && result[0].TryGetLocalPath() is string localPath)
