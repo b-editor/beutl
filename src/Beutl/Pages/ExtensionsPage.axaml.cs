@@ -34,11 +34,13 @@ public sealed partial class ExtensionsPage : Window
         nav.BackRequested += Nav_BackRequested;
 
         nav.SelectedItem = selected;
+
+        Loaded += OnFirstLoaded;
     }
 
-    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    private void OnFirstLoaded(object? sender, RoutedEventArgs e)
     {
-        base.OnAttachedToVisualTree(e);
+        Loaded -= OnFirstLoaded;
         if (nav.SelectedItem is NavigationViewItem selected)
         {
             OnItemInvoked(selected);
