@@ -127,6 +127,49 @@ public class PrimitiveRuntimeContractTests
         });
     }
 
+    [Test]
+    public void ComputeInputCleanupFailure_ReleasesCompletedOutputAndInputOperation()
+    {
+        var graphics = VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.RequireComputeCapable(graphics, "compute cleanup-failure contract");
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            ComputeNodeDescriptor descriptor = ComputeNodeDescriptor.Create(
+                static ctx => ctx.CopySourceToDestination(),
+                passCount: 1,
+                ComputeFallback.Identity,
+                structuralToken: "compute-input-cleanup-failure");
+            (CompiledPlan plan, FrameResources resources) = Compile(
+                new EffectGraphBuilder(s_bounds, 1f, 1f).Compute(descriptor));
+            using var pool = new RenderTargetPool();
+            bool inputDisposed = false;
+            RenderNodeOperation input = RenderNodeOperation.CreateLambda(
+                s_bounds,
+                canvas => canvas.DrawRectangle(s_bounds, Brushes.Resource.White, null),
+                onDispose: () => inputDisposed = true);
+            var injected = new InvalidOperationException("compute input cleanup failed");
+
+            PlanExecutor.ForceComputeInputDisposeFailureForTests(injected);
+            try
+            {
+                InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
+                    plan, resources, [input], 1f, 1f, float.PositiveInfinity, diagnostics: null, pool));
+                Assert.Multiple(() =>
+                {
+                    Assert.That(actual, Is.SameAs(injected));
+                    Assert.That(inputDisposed, Is.True,
+                        "the source operation must be consumed even when compute input cleanup fails");
+                    Assert.That(pool.LiveLeaseCount, Is.Zero,
+                        "the completed compute output must not remain leased after cleanup fails");
+                });
+            }
+            finally
+            {
+                PlanExecutor.ResetComputeInputDisposeFailureForTests();
+            }
+        });
+    }
+
     [TestCase("copy-twice")]
     [TestCase("scratch-after-copy")]
     [TestCase("run-after-copy")]
@@ -202,6 +245,48 @@ public class PrimitiveRuntimeContractTests
                 Assert.That(error.Message, Does.Contain(declared.ToString()));
                 Assert.That(pool.LiveLeaseCount, Is.Zero);
             });
+        });
+    }
+
+    [Test]
+    public void SplitInputCleanupFailure_DisposesDetachedSourceOperation()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            SplitNodeDescriptor descriptor = SplitNodeDescriptor.Static(
+                emitter => emitter.Emit(emitter.Input.Bounds, session =>
+                    session.Inputs[0].Draw(session.OpenCanvas(), default)),
+                branchCount: 1,
+                structuralToken: "split-input-cleanup-failure");
+            (CompiledPlan plan, FrameResources resources) = Compile(
+                new EffectGraphBuilder(s_bounds, 1f, 1f).Split(descriptor));
+            using var pool = new RenderTargetPool();
+            bool inputDisposed = false;
+            RenderNodeOperation input = RenderNodeOperation.CreateLambda(
+                s_bounds,
+                canvas => canvas.DrawRectangle(s_bounds, Brushes.Resource.White, null),
+                onDispose: () => inputDisposed = true);
+            var injected = new InvalidOperationException("split input cleanup failed");
+
+            PlanExecutor.ForceSplitInputDisposeFailureForTests(injected);
+            try
+            {
+                InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
+                    plan, resources, [input], 1f, 1f, float.PositiveInfinity, diagnostics: null, pool));
+                Assert.Multiple(() =>
+                {
+                    Assert.That(actual, Is.SameAs(injected));
+                    Assert.That(inputDisposed, Is.True,
+                        "the detached source operation must be consumed when split input cleanup fails");
+                    Assert.That(pool.LiveLeaseCount, Is.Zero,
+                        "already-emitted split branches must be released after cleanup fails");
+                });
+            }
+            finally
+            {
+                PlanExecutor.ResetSplitInputDisposeFailureForTests();
+            }
         });
     }
 

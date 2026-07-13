@@ -137,6 +137,25 @@ public class RenderTargetPoolTests
     }
 
     [Test]
+    public void DisposeBackings_SurfaceFailureStillDisposesTexture()
+    {
+        var injected = new InvalidOperationException("surface dispose failed");
+        var surface = new DisposeSpy(injected);
+        var texture = new DisposeSpy();
+
+        InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() =>
+            PooledSurface.DisposeBackings(surface, texture));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(actual, Is.SameAs(injected));
+            Assert.That(surface.DisposeCount, Is.EqualTo(1));
+            Assert.That(texture.DisposeCount, Is.EqualTo(1),
+                "the native texture must be released even when surface teardown fails");
+        });
+    }
+
+    [Test]
     public void Trim_EvictsBuffersIdleBeyondThreshold()
     {
         RunOnRenderThread(() =>
@@ -344,6 +363,18 @@ public class RenderTargetPoolTests
     }
 
     private static bool IsAllZero(ReadOnlySpan<byte> span) => span.IndexOfAnyExcept((byte)0) < 0;
+
+    private sealed class DisposeSpy(Exception? failure = null) : IDisposable
+    {
+        public int DisposeCount { get; private set; }
+
+        public void Dispose()
+        {
+            DisposeCount++;
+            if (failure != null)
+                throw failure;
+        }
+    }
 
     private static void RunOnRenderThread(Action action)
     {

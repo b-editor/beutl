@@ -64,6 +64,53 @@ public class CompositeFoldFactoryThrowLeakTests
             "a throwing folded color-filter factory must still release the composite target and the branch ops");
     }
 
+    [Test]
+    public void CompositeFold_FilterCleanupThrows_ReleasesTargetAndBranchOperations()
+    {
+        using var pool = new RenderTargetPool();
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        builder.Split(SplitNodeDescriptor.Static(
+            emitter =>
+            {
+                for (int i = 0; i < 2; i++)
+                {
+                    emitter.Emit(emitter.Input.Bounds, session =>
+                        session.Inputs[0].Draw(session.OpenCanvas(), default));
+                }
+            },
+            branchCount: 2,
+            structuralToken: "composite-filter-cleanup-failure-split"));
+        builder.ColorFilter(ColorFilterNodeDescriptor.Create(
+            SKColorFilter.CreateLumaColor,
+            structuralToken: "composite-filter-cleanup-failure-filter"));
+        builder.Composite(CompositeNodeDescriptor.Create(
+            BlendMode.SrcOver,
+            structuralToken: "composite-filter-cleanup-failure"));
+
+        using EffectGraph graph = builder.Build();
+        CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
+        FrameResources frame = EffectGraphCompiler.ResolveResources(plan, s_bounds, workingScale: 1f);
+        var injected = new InvalidOperationException("composite filter cleanup failed");
+
+        PlanExecutor.ForceCompositeFilterDisposeFailureForTests(injected);
+        try
+        {
+            InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
+                plan, frame, [Input()], outputScale: 1f, workingScale: 1f,
+                maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool));
+            Assert.Multiple(() =>
+            {
+                Assert.That(actual, Is.SameAs(injected));
+                Assert.That(pool.LiveLeaseCount, Is.Zero,
+                    "a filter cleanup failure must release the composite target and every branch operation");
+            });
+        }
+        finally
+        {
+            PlanExecutor.ResetCompositeFilterDisposeFailureForTests();
+        }
+    }
+
     private static RenderNodeOperation Input()
     {
         return RenderNodeOperation.CreateLambda(

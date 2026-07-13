@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics.Backend;
+﻿using System.Runtime.ExceptionServices;
+using Beutl.Graphics.Backend;
 using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Threading;
 using SkiaSharp;
@@ -490,8 +491,32 @@ internal sealed class PooledSurface(
             return;
 
         _backingDisposed = true;
-        Surface?.Dispose();
-        Texture?.Dispose();
+        DisposeBackings(Surface, Texture);
+    }
+
+    internal static void DisposeBackings(IDisposable? surface, IDisposable? texture)
+    {
+        Exception? failure = null;
+        try
+        {
+            surface?.Dispose();
+        }
+        catch (Exception ex)
+        {
+            failure = ex;
+        }
+
+        try
+        {
+            texture?.Dispose();
+        }
+        catch (Exception ex)
+        {
+            failure ??= ex;
+        }
+
+        if (failure != null)
+            ExceptionDispatchInfo.Capture(failure).Throw();
     }
 
     private static int BytesPerPixel(TextureFormat format) => format switch

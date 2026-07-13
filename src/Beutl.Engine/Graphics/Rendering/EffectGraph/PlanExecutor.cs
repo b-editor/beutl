@@ -1,5 +1,6 @@
 ﻿using System.Collections.Immutable;
 using System.Diagnostics;
+using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Effects;
@@ -27,7 +28,10 @@ internal static class PlanExecutor
     // not forcible from a test). The caller restores the seam afterward.
     private static Exception? s_computePrepareFailureForTests;
     private static Exception? s_computeCopyFailureForTests;
+    private static Exception? s_computeInputDisposeFailureForTests;
     private static Exception? s_geometryInputDisposeFailureForTests;
+    private static Exception? s_splitInputDisposeFailureForTests;
+    private static Exception? s_compositeFilterDisposeFailureForTests;
     private static bool s_forceComputeFallbackForTests;
 
     internal static void ForceComputePrepareFailureForTests(Exception exception)
@@ -40,10 +44,26 @@ internal static class PlanExecutor
 
     internal static void ResetComputeCopyFailureForTests() => s_computeCopyFailureForTests = null;
 
+    internal static void ForceComputeInputDisposeFailureForTests(Exception exception)
+        => s_computeInputDisposeFailureForTests = exception;
+
+    internal static void ResetComputeInputDisposeFailureForTests() => s_computeInputDisposeFailureForTests = null;
+
     internal static void ForceGeometryInputDisposeFailureForTests(Exception exception)
         => s_geometryInputDisposeFailureForTests = exception;
 
     internal static void ResetGeometryInputDisposeFailureForTests() => s_geometryInputDisposeFailureForTests = null;
+
+    internal static void ForceSplitInputDisposeFailureForTests(Exception exception)
+        => s_splitInputDisposeFailureForTests = exception;
+
+    internal static void ResetSplitInputDisposeFailureForTests() => s_splitInputDisposeFailureForTests = null;
+
+    internal static void ForceCompositeFilterDisposeFailureForTests(Exception exception)
+        => s_compositeFilterDisposeFailureForTests = exception;
+
+    internal static void ResetCompositeFilterDisposeFailureForTests()
+        => s_compositeFilterDisposeFailureForTests = null;
 
     // Test seam: CI runs with a compute-capable Vulkan context, so a backend-independent regression test needs a
     // deterministic way to exercise the declared CPU fallback without mutating the process-wide graphics context.
@@ -1037,9 +1057,10 @@ internal static class PlanExecutor
         }
         catch
         {
-            outputTarget.Dispose();
-            inputTarget.Dispose();
-            op.Dispose();
+            Exception? cleanupFailure = null;
+            CaptureDisposeFailure(outputTarget, ref cleanupFailure);
+            CaptureDisposeFailure(inputTarget, ref cleanupFailure);
+            CaptureDisposeFailure(op, ref cleanupFailure);
             throw;
         }
 
@@ -1249,9 +1270,10 @@ internal static class PlanExecutor
         {
             // A ping-pong / depth scratch acquire failed mid-dispatch: normalize like every other pass kind (C7,
             // review M1) — preview drops and continues, delivery throws — instead of aborting preview by rethrowing.
-            ReleaseComputeScratch(scratch, depthScratch);
-            outputTarget.Dispose();
-            inputTarget.Dispose();
+            Exception? cleanupFailure = null;
+            ReleaseComputeScratch(scratch, depthScratch, ref cleanupFailure);
+            CaptureDisposeFailure(outputTarget, ref cleanupFailure);
+            CaptureDisposeFailure(inputTarget, ref cleanupFailure);
             return DropOrThrow(op, maxWorkingScale, ex.Message);
         }
         catch (Exception ex) when (
@@ -1265,25 +1287,39 @@ internal static class PlanExecutor
             // descriptor explicitly declares the dispatch policy. Delivery still throws rather than exporting an
             // unsorted frame; cancellation, resource-plan violations, and backend preparation failures always
             // propagate; allocation failures remain governed by C7's preview-drop contract.
-            ReleaseComputeScratch(scratch, depthScratch);
-            outputTarget.Dispose();
-            inputTarget.Dispose();
+            Exception? cleanupFailure = null;
+            ReleaseComputeScratch(scratch, depthScratch, ref cleanupFailure);
+            CaptureDisposeFailure(outputTarget, ref cleanupFailure);
+            CaptureDisposeFailure(inputTarget, ref cleanupFailure);
             s_logger.LogWarning(ex,
                 "Compute dispatch failed. Preview keeps the source because the pass declares IdentityInPreview.");
             return op;
         }
         catch
         {
-            ReleaseComputeScratch(scratch, depthScratch);
-            outputTarget.Dispose();
-            inputTarget.Dispose();
-            op.Dispose();
+            Exception? cleanupFailure = null;
+            ReleaseComputeScratch(scratch, depthScratch, ref cleanupFailure);
+            CaptureDisposeFailure(outputTarget, ref cleanupFailure);
+            CaptureDisposeFailure(inputTarget, ref cleanupFailure);
+            CaptureDisposeFailure(op, ref cleanupFailure);
             throw;
         }
 
-        ReleaseComputeScratch(scratch, depthScratch);
-        inputTarget.Dispose();
-        op.Dispose();
+        Exception? successCleanupFailure = null;
+        ReleaseComputeScratch(scratch, depthScratch, ref successCleanupFailure);
+        CaptureDisposeFailure(inputTarget, ref successCleanupFailure);
+        if (s_computeInputDisposeFailureForTests is { } inputDisposeFailure)
+        {
+            s_computeInputDisposeFailureForTests = null;
+            successCleanupFailure ??= inputDisposeFailure;
+        }
+        CaptureDisposeFailure(op, ref successCleanupFailure);
+        if (successCleanupFailure is { } computeCleanupFailure)
+        {
+            CaptureDisposeFailure(outputTarget, ref successCleanupFailure);
+            ExceptionDispatchInfo.Capture(computeCleanupFailure).Throw();
+        }
+
         return RenderNodeOperation.CreateFromRenderTarget(
             outBounds, outBounds.Position, outputTarget, EffectiveScale.At(w));
     }
@@ -1373,12 +1409,25 @@ internal static class PlanExecutor
             outBounds, outBounds.Position, outputTarget, EffectiveScale.At(w));
     }
 
-    private static void ReleaseComputeScratch(List<RenderTarget> scratch, List<IDisposable> depthScratch)
+    private static void ReleaseComputeScratch(
+        List<RenderTarget> scratch, List<IDisposable> depthScratch, ref Exception? cleanupFailure)
     {
         foreach (RenderTarget t in scratch)
-            t.Dispose();
+            CaptureDisposeFailure(t, ref cleanupFailure);
         foreach (IDisposable d in depthScratch)
-            d.Dispose();
+            CaptureDisposeFailure(d, ref cleanupFailure);
+    }
+
+    private static void CaptureDisposeFailure(IDisposable? disposable, ref Exception? cleanupFailure)
+    {
+        try
+        {
+            disposable?.Dispose();
+        }
+        catch (Exception ex)
+        {
+            cleanupFailure ??= ex;
+        }
     }
 
     // Fan-out: each current op is materialized once and split into the branches its callback emits (a static count
@@ -1444,8 +1493,16 @@ internal static class PlanExecutor
                 }
                 finally
                 {
-                    inputTarget.Dispose();
-                    op.Dispose();
+                    Exception? cleanupFailure = null;
+                    CaptureDisposeFailure(inputTarget, ref cleanupFailure);
+                    if (s_splitInputDisposeFailureForTests is { } inputDisposeFailure)
+                    {
+                        s_splitInputDisposeFailureForTests = null;
+                        cleanupFailure ??= inputDisposeFailure;
+                    }
+                    CaptureDisposeFailure(op, ref cleanupFailure);
+                    if (cleanupFailure != null)
+                        ExceptionDispatchInfo.Capture(cleanupFailure).Throw();
                 }
             }
         }
@@ -1548,14 +1605,29 @@ internal static class PlanExecutor
         }
         catch
         {
-            branchFilter?.Dispose();
-            target.Dispose();
+            Exception? cleanupFailure = null;
+            CaptureDisposeFailure(branchFilter, ref cleanupFailure);
+            CaptureDisposeFailure(target, ref cleanupFailure);
             RenderNodeOperation.DisposeAll(CollectionsMarshal.AsSpan(current));
             current.Clear();
             throw;
         }
 
-        branchFilter?.Dispose();
+        Exception? filterCleanupFailure = null;
+        CaptureDisposeFailure(branchFilter, ref filterCleanupFailure);
+        if (s_compositeFilterDisposeFailureForTests is { } filterDisposeFailure)
+        {
+            s_compositeFilterDisposeFailureForTests = null;
+            filterCleanupFailure ??= filterDisposeFailure;
+        }
+
+        if (filterCleanupFailure is { } compositeCleanupFailure)
+        {
+            CaptureDisposeFailure(target, ref filterCleanupFailure);
+            RenderNodeOperation.DisposeAll(CollectionsMarshal.AsSpan(current));
+            current.Clear();
+            ExceptionDispatchInfo.Capture(compositeCleanupFailure).Throw();
+        }
 
         RenderNodeOperation.DisposeAll(CollectionsMarshal.AsSpan(current));
         current.Clear();
