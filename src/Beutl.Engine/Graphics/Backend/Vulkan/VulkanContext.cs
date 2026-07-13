@@ -344,6 +344,10 @@ internal sealed class VulkanContext : IGraphicsContext
 
         // Transition source back to shader read optimal
         vulkanSource.TransitionTo(ImageLayout.ShaderReadOnlyOptimal);
+        // The in-command transitions above bypass TransitionTo, so sync the destination's tracked layout to the
+        // layout the command buffer actually left the image in.
+        vulkanDest.MarkLayout(ImageLayout.ColorAttachmentOptimal);
+
     }
 
     public unsafe void CopyTextureToCubeFace(ITexture2D source, ITextureCube destination, int faceIndex)

@@ -316,6 +316,13 @@ internal unsafe class VulkanTexture2D : ITexture2D
         _currentLayout = layout;
     }
 
+    // CopyTexture transitions this image inside its own command buffer (Undefined -> TransferDst ->
+    // ColorAttachmentOptimal) without going through TransitionTo; the tracker must follow, or the next
+    // TransitionTo issues its barrier from a stale oldLayout (undefined behavior on strict drivers).
+    internal void MarkLayout(ImageLayout layout) => _currentLayout = layout;
+
+    internal ImageLayout CurrentLayoutForTest => _currentLayout;
+
     public virtual void Dispose()
     {
         if (_disposed) return;

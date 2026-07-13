@@ -283,6 +283,9 @@ public class RenderNodeProcessor(
 
         var context = new RenderNodeContext(input, OutputScale, MaxWorkingScale)
         {
+            // Seeded from the processor's useRenderCache so cache-consuming nodes (the pass-prefix cache) can honor
+            // a caller's disabled render caching; a node may still CLEAR it to opt its subtree out (read back below).
+            IsRenderCacheEnabled = useRenderCache,
             Diagnostics = Diagnostics,
             Pool = Pool,
         };

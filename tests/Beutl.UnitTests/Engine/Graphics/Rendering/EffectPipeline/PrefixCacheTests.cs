@@ -680,6 +680,46 @@ public class PrefixCacheTests
         });
     }
 
+    // A caller that disabled render caching (RenderCacheOptions.Disabled — the delivery render paths) must never
+    // be served from a retained prefix, even on the pooled path: the processor seeds the flag into the context and
+    // the prefix cache only engages when it is set.
+    [Test]
+    public void DisabledRenderCaching_NeverEngagesThePrefixCache()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            ProgramCache.Clear();
+            var (root, gamma, _) = MakeBlurGamma();
+            var resource = (FilterEffect.Resource)root.ToResource(CompositionContext.Default);
+            using var node = new PlanFilterEffectRenderNode(resource);
+            var diagnostics = new PipelineDiagnostics();
+            using var pool = new RenderTargetPool();
+
+            for (int f = 0; f < 8; f++)
+            {
+                pool.Trim(f);
+                gamma.Amount.CurrentValue = 50f + 2f * f;
+                bool updateOnly = false;
+                resource.Update(root, CompositionContext.Default, ref updateOnly);
+                node.Update(resource);
+
+                diagnostics.Reset();
+                var context = new RenderNodeContext([MakeInput()])
+                {
+                    IsRenderCacheEnabled = false,
+                    Diagnostics = diagnostics,
+                    Pool = pool,
+                };
+                RenderNodeOperation[] ops = node.Process(context);
+                RenderNodeOperation.DisposeAll(ops);
+
+                Assert.That(diagnostics.Snapshot().PrefixCacheHits, Is.Zero,
+                    $"frame {f}: disabled render caching must never resume from a retained prefix");
+            }
+        });
+    }
+
     // ---- Drivers -----------------------------------------------------------------------------------------
 
     private static PipelineDiagnosticsSnapshot Step(
