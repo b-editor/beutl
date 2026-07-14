@@ -139,6 +139,55 @@ public class FusedSourceTileModeTests
         });
     }
 
+    [Test]
+    public void WholeSourceHaloAllocationFailure_PreviewDropsAfterOutputCleanupFailure()
+    {
+        using var pool = new RenderTargetPool();
+        var cleanup = new InvalidOperationException("descriptor output cleanup failed");
+        pool.SetDisposeBackingForTest(pooled =>
+        {
+            pooled.DisposeBacking();
+            throw cleanup;
+        });
+        int acquireCount = 0;
+        pool.SetBackingFactoryForTest((width, height) =>
+        {
+            if (acquireCount++ == 0)
+                return RenderTarget.CreateBackingSurface(width, height);
+
+            // The output target is still live. Marking the pool disposed makes its best-effort return exercise the
+            // native-teardown failure path after the source-halo allocation reports null.
+            pool.Dispose();
+            return null;
+        });
+
+        bool inputDisposed = false;
+        RenderNodeOperation input = RenderNodeOperation.CreateLambda(
+            s_source,
+            canvas => canvas.DrawRectangle(s_source, Brushes.Resource.Red, null),
+            onDispose: () => inputDisposed = true);
+        var builder = new EffectGraphBuilder(s_source, outputScale: 1f, workingScale: 1f);
+        builder.Shader(ShaderNodeDescriptor.WholeSource(
+            IdentitySource,
+            BoundsContract.Create(static r => r.Inflate(4), static r => r.Inflate(4)),
+            srcTileMode: SKShaderTileMode.Clamp));
+        using EffectGraph graph = builder.Build();
+        CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
+        FrameResources frame = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale: 1f);
+
+        RenderNodeOperation[] outputs = PlanExecutor.Execute(
+            plan, frame, [input], outputScale: 1f, workingScale: 1f,
+            maxWorkingScale: 2f, diagnostics: null, pool: pool);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outputs, Is.Empty,
+                "preview must keep the source-halo allocation-failure drop contract when output cleanup faults");
+            Assert.That(inputDisposed, Is.True, "the source operation must still be consumed");
+            Assert.That(pool.LiveLeaseCount, Is.Zero, "the descriptor output must not remain leased");
+        });
+    }
+
     private static RenderNodeOperation[] Execute(SKShaderTileMode tileMode)
     {
         RenderNodeOperation input = RenderNodeOperation.CreateLambda(

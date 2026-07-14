@@ -98,6 +98,86 @@ public class PrimitiveRuntimeContractTests
         });
     }
 
+    [Test]
+    public void GeometryOutputAllocationFailure_PreviewDropsAfterInputCleanupFailure()
+    {
+        GeometryNodeDescriptor descriptor = GeometryNodeDescriptor.Create(
+            static session => session.Inputs[0].Draw(session.OpenCanvas()),
+            BoundsContract.Identity,
+            structuralToken: "geometry-output-allocation-cleanup");
+        (CompiledPlan plan, FrameResources resources) = Compile(
+            new EffectGraphBuilder(s_bounds, 1f, 1f).Geometry(descriptor));
+        using var pool = new RenderTargetPool();
+        pool.SetBackingFactoryFailingAfterForTest(successfulAcquires: 1);
+        bool inputDisposed = false;
+        RenderNodeOperation input = RenderNodeOperation.CreateLambda(
+            s_bounds,
+            canvas => canvas.DrawRectangle(s_bounds, Brushes.Resource.White, null),
+            onDispose: () => inputDisposed = true);
+        var cleanupFailure = new InvalidOperationException("geometry materialized-input cleanup failed");
+
+        PlanExecutor.ForceGeometryInputDisposeFailureForTests(cleanupFailure);
+        try
+        {
+            RenderNodeOperation[] outputs = PlanExecutor.Execute(
+                plan, resources, [input], 1f, 1f, maxWorkingScale: 2f, diagnostics: null, pool);
+            Assert.Multiple(() =>
+            {
+                Assert.That(outputs, Is.Empty,
+                    "preview must keep the allocation-failure drop contract when cleanup also faults");
+                Assert.That(inputDisposed, Is.True,
+                    "the detached source operation must still be consumed after materialized-input cleanup faults");
+                Assert.That(pool.LiveLeaseCount, Is.Zero);
+            });
+        }
+        finally
+        {
+            PlanExecutor.ResetGeometryInputDisposeFailureForTests();
+        }
+    }
+
+    [Test]
+    public void ComputeCpuFallbackOutputAllocationFailure_PreviewDropsAfterInputCleanupFailure()
+    {
+        ComputeNodeDescriptor descriptor = ComputeNodeDescriptor.Create(
+            static _ => throw new AssertionException("dispatch must not run"),
+            passCount: 1,
+            ComputeFallback.CpuCallback,
+            cpuCallback: static _ => throw new AssertionException("callback must not run after allocation fails"),
+            structuralToken: "compute-cpu-output-allocation-cleanup");
+        (CompiledPlan plan, FrameResources resources) = Compile(
+            new EffectGraphBuilder(s_bounds, 1f, 1f).Compute(descriptor));
+        using var pool = new RenderTargetPool();
+        pool.SetBackingFactoryFailingAfterForTest(successfulAcquires: 1);
+        bool inputDisposed = false;
+        RenderNodeOperation input = RenderNodeOperation.CreateLambda(
+            s_bounds,
+            canvas => canvas.DrawRectangle(s_bounds, Brushes.Resource.White, null),
+            onDispose: () => inputDisposed = true);
+        var cleanupFailure = new InvalidOperationException("CPU-fallback materialized-input cleanup failed");
+
+        PlanExecutor.ForceComputeFallbackForTests();
+        PlanExecutor.ForceComputeInputDisposeFailureForTests(cleanupFailure);
+        try
+        {
+            RenderNodeOperation[] outputs = PlanExecutor.Execute(
+                plan, resources, [input], 1f, 1f, maxWorkingScale: 2f, diagnostics: null, pool);
+            Assert.Multiple(() =>
+            {
+                Assert.That(outputs, Is.Empty,
+                    "preview must keep the CPU-fallback allocation-failure drop contract when cleanup also faults");
+                Assert.That(inputDisposed, Is.True,
+                    "the detached source operation must still be consumed after materialized-input cleanup faults");
+                Assert.That(pool.LiveLeaseCount, Is.Zero);
+            });
+        }
+        finally
+        {
+            PlanExecutor.ResetComputeInputDisposeFailureForTests();
+            PlanExecutor.ResetComputeFallbackForTests();
+        }
+    }
+
     [TestCase(1, 0)]
     [TestCase(1, 2)]
     public void ComputeDispatchCount_MustExactlyMatchDeclaration(int declared, int actual)

@@ -667,7 +667,9 @@ internal static class PlanExecutor
         RenderTarget? target = RenderTargetPool.Acquire(pool, width, height, diagnostics);
         if (target == null)
         {
-            preparedSkiaFilter?.Dispose();
+            Exception? cleanupFailure = null;
+            CaptureDisposeFailure(preparedSkiaFilter, ref cleanupFailure);
+            LogCleanupFailure(cleanupFailure, "descriptor output-allocation cleanup");
             return DropOrThrow(op, maxWorkingScale,
                 $"Effect pass buffer allocation failed ({width}x{height} px, w {w}, bounds {outBounds}).");
         }
@@ -695,8 +697,10 @@ internal static class PlanExecutor
                 fusedSrcTarget = RenderTargetPool.Acquire(pool, sw, sh, diagnostics);
                 if (fusedSrcTarget == null)
                 {
-                    preparedSkiaFilter?.Dispose();
-                    target.Dispose();
+                    Exception? cleanupFailure = null;
+                    CaptureDisposeFailure(preparedSkiaFilter, ref cleanupFailure);
+                    CaptureDisposeFailure(target, ref cleanupFailure);
+                    LogCleanupFailure(cleanupFailure, "fused source-halo allocation cleanup");
                     return DropOrThrow(op, maxWorkingScale,
                         $"Fused source-halo buffer allocation failed ({sw}x{sh} px, w {fusedSrcScale}, bounds {claimed}).");
                 }
@@ -1039,7 +1043,9 @@ internal static class PlanExecutor
         }
         catch
         {
-            target.Dispose();
+            Exception? cleanupFailure = null;
+            CaptureDisposeFailure(target, ref cleanupFailure);
+            LogCleanupFailure(cleanupFailure, "input materialization failure cleanup");
             throw;
         }
 
@@ -1068,7 +1074,9 @@ internal static class PlanExecutor
         }
         catch
         {
-            op.Dispose();
+            Exception? cleanupFailure = null;
+            CaptureDisposeFailure(op, ref cleanupFailure);
+            LogCleanupFailure(cleanupFailure, "geometry materialization failure cleanup");
             throw;
         }
 
@@ -1078,7 +1086,9 @@ internal static class PlanExecutor
         RenderTarget? outputTarget = RenderTargetPool.Acquire(pool, width, height, diagnostics);
         if (outputTarget == null)
         {
-            inputTarget.Dispose();
+            Exception? cleanupFailure = null;
+            CaptureGeometryInputDisposeFailure(inputTarget, ref cleanupFailure);
+            LogCleanupFailure(cleanupFailure, "geometry output-allocation cleanup");
             return DropOrThrow(op, maxWorkingScale,
                 $"Geometry output allocation failed ({width}x{height} px, w {w}, bounds {outBounds}).");
         }
@@ -1113,27 +1123,13 @@ internal static class PlanExecutor
             throw;
         }
 
-        try
+        Exception? inputCleanupFailure = null;
+        CaptureGeometryInputDisposeFailure(inputTarget, ref inputCleanupFailure);
+        if (inputCleanupFailure is { } inputFailure)
         {
-            inputTarget.Dispose();
-            if (s_geometryInputDisposeFailureForTests is { } injected)
-            {
-                s_geometryInputDisposeFailureForTests = null;
-                throw injected;
-            }
-        }
-        catch
-        {
-            try
-            {
-                outputTarget.Dispose();
-            }
-            catch
-            {
-            }
-
-            RenderNodeOperation.DisposeAll([op]);
-            throw;
+            CaptureDisposeFailure(outputTarget, ref inputCleanupFailure);
+            CaptureDisposeFailure(op, ref inputCleanupFailure);
+            ExceptionDispatchInfo.Capture(inputFailure).Throw();
         }
 
         // DiscardOutput supersedes a requested shrink (§C3): a dropped pass produces nothing regardless of order.
@@ -1270,7 +1266,9 @@ internal static class PlanExecutor
         }
         catch
         {
-            op.Dispose();
+            Exception? cleanupFailure = null;
+            CaptureDisposeFailure(op, ref cleanupFailure);
+            LogCleanupFailure(cleanupFailure, "compute materialization failure cleanup");
             throw;
         }
 
@@ -1425,7 +1423,9 @@ internal static class PlanExecutor
         }
         catch
         {
-            op.Dispose();
+            Exception? cleanupFailure = null;
+            CaptureDisposeFailure(op, ref cleanupFailure);
+            LogCleanupFailure(cleanupFailure, "compute CPU-fallback materialization failure cleanup");
             throw;
         }
 
@@ -1435,7 +1435,9 @@ internal static class PlanExecutor
         RenderTarget? outputTarget = RenderTargetPool.Acquire(pool, width, height, diagnostics);
         if (outputTarget == null)
         {
-            inputTarget.Dispose();
+            Exception? cleanupFailure = null;
+            CaptureComputeInputDisposeFailure(inputTarget, ref cleanupFailure);
+            LogCleanupFailure(cleanupFailure, "compute CPU-fallback output-allocation cleanup");
             return DropOrThrow(op, maxWorkingScale, "Compute CPU-fallback output allocation failed.");
         }
 
@@ -1530,6 +1532,16 @@ internal static class PlanExecutor
         }
     }
 
+    private static void CaptureGeometryInputDisposeFailure(RenderTarget inputTarget, ref Exception? cleanupFailure)
+    {
+        CaptureDisposeFailure(inputTarget, ref cleanupFailure);
+        if (s_geometryInputDisposeFailureForTests is { } inputDisposeFailure)
+        {
+            s_geometryInputDisposeFailureForTests = null;
+            cleanupFailure ??= inputDisposeFailure;
+        }
+    }
+
     private static void LogCleanupFailure(Exception? cleanupFailure, string operation)
     {
         if (cleanupFailure != null)
@@ -1569,7 +1581,9 @@ internal static class PlanExecutor
                 }
                 catch
                 {
-                    op.Dispose();
+                    Exception? cleanupFailure = null;
+                    CaptureDisposeFailure(op, ref cleanupFailure);
+                    LogCleanupFailure(cleanupFailure, "split materialization failure cleanup");
                     throw;
                 }
 
