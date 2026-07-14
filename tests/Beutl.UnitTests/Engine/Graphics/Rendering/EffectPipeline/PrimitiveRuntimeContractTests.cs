@@ -168,6 +168,52 @@ public class PrimitiveRuntimeContractTests
         });
     }
 
+    [Test]
+    public void ComputeCpuFallbackInputCleanupFailure_ReleasesCompletedOutputAndInputOperation()
+    {
+        using var pool = new RenderTargetPool();
+        var injected = new InvalidOperationException("CPU fallback input cleanup failed");
+        int disposeCount = 0;
+        pool.SetDisposeBackingForTest(pooled =>
+        {
+            pooled.DisposeBacking();
+            if (disposeCount++ == 0)
+                throw injected;
+        });
+        ComputeNodeDescriptor descriptor = ComputeNodeDescriptor.Create(
+            dispatch: static _ => throw new AssertionException("dispatch must not run"),
+            passCount: 1,
+            ComputeFallback.CpuCallback,
+            cpuCallback: _ => pool.Dispose(),
+            structuralToken: "compute-cpu-input-cleanup-failure");
+        (CompiledPlan plan, FrameResources resources) = Compile(
+            new EffectGraphBuilder(s_bounds, 1f, 1f).Compute(descriptor));
+        bool inputDisposed = false;
+        RenderNodeOperation input = RenderNodeOperation.CreateLambda(
+            s_bounds,
+            canvas => canvas.DrawRectangle(s_bounds, Brushes.Resource.White, null),
+            onDispose: () => inputDisposed = true);
+
+        PlanExecutor.ForceComputeFallbackForTests();
+        try
+        {
+            InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
+                plan, resources, [input], 1f, 1f, float.PositiveInfinity, diagnostics: null, pool));
+            Assert.Multiple(() =>
+            {
+                Assert.That(actual, Is.SameAs(injected));
+                Assert.That(inputDisposed, Is.True,
+                    "the source operation must be consumed when CPU-fallback input cleanup fails");
+                Assert.That(pool.LiveLeaseCount, Is.Zero,
+                    "the completed CPU-fallback output must not remain leased after input cleanup fails");
+            });
+        }
+        finally
+        {
+            PlanExecutor.ResetComputeFallbackForTests();
+        }
+    }
+
     [TestCase("copy-twice")]
     [TestCase("scratch-after-copy")]
     [TestCase("run-after-copy")]

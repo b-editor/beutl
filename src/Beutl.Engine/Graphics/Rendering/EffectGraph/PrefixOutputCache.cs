@@ -52,8 +52,9 @@ internal sealed class PrefixCaptureSink : IDisposable
     /// </summary>
     public void Dispose()
     {
-        CapturedTarget?.Dispose();
+        RenderTarget? target = CapturedTarget;
         CapturedTarget = null;
+        target?.Dispose();
     }
 }
 

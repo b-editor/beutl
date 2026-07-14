@@ -1,13 +1,17 @@
 ﻿using System.Runtime.InteropServices;
 using Beutl.Composition;
 using Beutl.Graphics.Rendering;
+using Beutl.Logging;
 using Beutl.NodeGraph.Composition;
 using Beutl.NodeGraph.Nodes;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.NodeGraph;
 
 internal class NodeGraphFilterEffectRenderNode(NodeGraphFilterEffect.Resource resource) : FilterEffectRenderNode(resource)
 {
+    private static readonly ILogger s_logger = Log.CreateLogger<NodeGraphFilterEffectRenderNode>();
+
     private readonly CompositionContext _compositionContext = new(TimeSpan.Zero);
 
     private NodeGraphFilterEffect.Resource? GraphResource => FilterEffect?.Resource as NodeGraphFilterEffect.Resource;
@@ -69,7 +73,17 @@ internal class NodeGraphFilterEffectRenderNode(NodeGraphFilterEffect.Resource re
         }
         finally
         {
-            inputWrapper.SetOperations([]);
+            try
+            {
+                inputWrapper.SetOperations([]);
+            }
+            catch (Exception ex)
+            {
+                // SetOperations publishes the empty wrapper and sweeps every reference before surfacing a cleanup
+                // failure. The graph outputs are already complete (or a primary pull failure is already in flight),
+                // so teardown must not make those outputs unreachable or replace that primary exception.
+                s_logger.LogWarning(ex, "A node-graph input operation failed to dispose after graph evaluation");
+            }
         }
     }
 

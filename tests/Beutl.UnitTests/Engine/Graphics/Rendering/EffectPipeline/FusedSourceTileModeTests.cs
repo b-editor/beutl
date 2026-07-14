@@ -87,6 +87,58 @@ public class FusedSourceTileModeTests
         }
     }
 
+    [Test]
+    public void WholeSourceHaloCleanupFailure_ReleasesCompletedOutputAndInputOperation()
+    {
+        using var pool = new RenderTargetPool();
+        var injected = new InvalidOperationException("source halo cleanup failed");
+        int disposeCount = 0;
+        pool.SetDisposeBackingForTest(pooled =>
+        {
+            pooled.DisposeBacking();
+            if (disposeCount++ == 0)
+                throw injected;
+        });
+
+        bool inputDisposed = false;
+        RenderNodeOperation input = RenderNodeOperation.CreateLambda(
+            s_source,
+            canvas => canvas.DrawRectangle(s_source, Brushes.Resource.Red, null),
+            onDispose: () => inputDisposed = true);
+        var builder = new EffectGraphBuilder(s_source, outputScale: 1f, workingScale: 1f);
+        builder.Shader(ShaderNodeDescriptor.WholeSource(
+            """
+            uniform shader src;
+            uniform float trigger;
+            half4 main(float2 coord) { return src.eval(coord) * trigger; }
+            """,
+            BoundsContract.Create(static r => r.Inflate(4), static r => r.Inflate(4)),
+            uniforms: uniforms => uniforms.Deferred("trigger", (runtime, name, _) =>
+            {
+                // Both the output and separate source-halo targets are live here. Disposing the pool makes their
+                // subsequent final returns exercise the native-teardown failure path without a production seam.
+                pool.Dispose();
+                runtime.Uniforms[name] = 1f;
+            }),
+            srcTileMode: SKShaderTileMode.Clamp));
+        using EffectGraph graph = builder.Build();
+        CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
+        FrameResources frame = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale: 1f);
+
+        InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
+            plan, frame, [input], outputScale: 1f, workingScale: 1f,
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(actual, Is.SameAs(injected));
+            Assert.That(inputDisposed, Is.True,
+                "the source operation must be consumed when source-halo cleanup fails after a successful draw");
+            Assert.That(pool.LiveLeaseCount, Is.Zero,
+                "the completed output must not remain leased when source-halo cleanup fails");
+        });
+    }
+
     private static RenderNodeOperation[] Execute(SKShaderTileMode tileMode)
     {
         RenderNodeOperation input = RenderNodeOperation.CreateLambda(

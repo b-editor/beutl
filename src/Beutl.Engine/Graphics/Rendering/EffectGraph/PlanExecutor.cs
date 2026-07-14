@@ -709,16 +709,25 @@ internal static class PlanExecutor
         }
         catch
         {
-            preparedSkiaFilter?.Dispose();
-            fusedSrcTarget?.Dispose();
-            target.Dispose();
-            op.Dispose();
+            Exception? cleanupFailure = null;
+            CaptureDisposeFailure(preparedSkiaFilter, ref cleanupFailure);
+            CaptureDisposeFailure(fusedSrcTarget, ref cleanupFailure);
+            CaptureDisposeFailure(target, ref cleanupFailure);
+            CaptureDisposeFailure(op, ref cleanupFailure);
+            LogCleanupFailure(cleanupFailure, "descriptor-pass failure cleanup");
             throw;
         }
 
         // The src snapshot must stay alive through the fused draw, so the halo buffer's lease releases only here —
         // it overlaps the output lease exactly as declared ([idx, idx] scratch, §C3.1).
-        fusedSrcTarget?.Dispose();
+        Exception? sourceCleanupFailure = null;
+        CaptureDisposeFailure(fusedSrcTarget, ref sourceCleanupFailure);
+        if (sourceCleanupFailure is { } sourceFailure)
+        {
+            CaptureDisposeFailure(target, ref sourceCleanupFailure);
+            CaptureDisposeFailure(op, ref sourceCleanupFailure);
+            ExceptionDispatchInfo.Capture(sourceFailure).Throw();
+        }
 
         if (diagnostics != null)
             diagnostics.GpuPasses++;
@@ -1403,13 +1412,22 @@ internal static class PlanExecutor
         }
         catch
         {
-            outputTarget.Dispose();
-            inputTarget.Dispose();
-            op.Dispose();
+            Exception? cleanupFailure = null;
+            CaptureDisposeFailure(outputTarget, ref cleanupFailure);
+            CaptureDisposeFailure(inputTarget, ref cleanupFailure);
+            CaptureDisposeFailure(op, ref cleanupFailure);
+            LogCleanupFailure(cleanupFailure, "compute CPU-fallback failure cleanup");
             throw;
         }
 
-        inputTarget.Dispose();
+        Exception? inputCleanupFailure = null;
+        CaptureDisposeFailure(inputTarget, ref inputCleanupFailure);
+        if (inputCleanupFailure is { } inputFailure)
+        {
+            CaptureDisposeFailure(outputTarget, ref inputCleanupFailure);
+            CaptureDisposeFailure(op, ref inputCleanupFailure);
+            ExceptionDispatchInfo.Capture(inputFailure).Throw();
+        }
         // DiscardOutput supersedes a requested shrink (§C3): a dropped pass produces nothing regardless of order.
         if (discarded)
         {
@@ -1421,7 +1439,13 @@ internal static class PlanExecutor
         if (shrunk is { } tight)
             return EmitShrunkGeometry(tight, w, outBounds, outputTarget, op, maxWorkingScale, diagnostics, pool);
 
-        op.Dispose();
+        Exception? operationCleanupFailure = null;
+        CaptureDisposeFailure(op, ref operationCleanupFailure);
+        if (operationCleanupFailure is { } operationFailure)
+        {
+            CaptureDisposeFailure(outputTarget, ref operationCleanupFailure);
+            ExceptionDispatchInfo.Capture(operationFailure).Throw();
+        }
         if (diagnostics != null)
             diagnostics.GpuPasses++;
         return RenderNodeOperation.CreateFromRenderTarget(

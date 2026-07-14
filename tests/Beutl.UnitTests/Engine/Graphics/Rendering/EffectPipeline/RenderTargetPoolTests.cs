@@ -195,6 +195,37 @@ public class RenderTargetPoolTests
     }
 
     [Test]
+    public void Trim_DisposeFailureStillEvictsEveryIdleBackingWithoutAbortingFrame()
+    {
+        RunOnRenderThread(() =>
+        {
+            using var pool = new RenderTargetPool();
+            pool.Trim(0);
+            for (int i = 0; i < 3; i++)
+                pool.Acquire(W + i, H)!.Dispose();
+
+            int disposeCount = 0;
+            pool.SetDisposeBackingForTest(pooled =>
+            {
+                disposeCount++;
+                pooled.DisposeBacking();
+                if (disposeCount == 1)
+                    throw new InvalidOperationException("first maintenance dispose failed");
+            });
+
+            Assert.DoesNotThrow(() => pool.Trim(RenderTargetPool.IdleFrameThreshold));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(disposeCount, Is.EqualTo(3), "a fault must not abort the remaining maintenance sweep");
+                Assert.That(pool.IdleCount, Is.Zero);
+                Assert.That(pool.IdleBytes, Is.Zero);
+                Assert.That(pool.BucketCountForTest, Is.Zero);
+            });
+        });
+    }
+
+    [Test]
     public void Trim_EvictsBuffersIdleBeyondThreshold()
     {
         RunOnRenderThread(() =>

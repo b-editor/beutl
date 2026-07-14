@@ -225,6 +225,66 @@ public class NodeGraphFilterEffectRenderNodeTests
     }
 
     [Test]
+    public void Process_InputWrapperCleanupThrows_ReturnsSuccessfulOutputAndSweepsEveryInput()
+    {
+        var host = new NodeGraphFilterEffect();
+        GraphModel model = host.Model.CurrentValue!;
+        var inputNode = new FilterEffectInputNode();
+        var successfulNode = new FilterEffectNode<TrackedResultEffect>();
+        var outputNode = new OutputNode();
+        model.Nodes.Add(inputNode);
+        model.Nodes.Add(successfulNode);
+        model.Nodes.Add(outputNode);
+        model.Connect((IInputPort)successfulNode.Items[1], inputNode.Output);
+        model.Connect(outputNode.InputPort, (IOutputPort)successfulNode.Items[0]);
+
+        using var resource = (NodeGraphFilterEffect.Resource)host.ToResource(CompositionContext.Default);
+        using FilterEffectRenderNode node = resource.RenderNodeFactory.Create(resource);
+        bool firstDisposeAttempted = false;
+        bool secondDisposed = false;
+        RenderNodeOperation first = RenderNodeOperation.CreateLambda(
+            new Rect(0, 0, 1, 1),
+            static _ => { },
+            onDispose: () =>
+            {
+                firstDisposeAttempted = true;
+                throw new InvalidOperationException("simulated wrapper cleanup failure");
+            });
+        RenderNodeOperation second = RenderNodeOperation.CreateLambda(
+            new Rect(0, 0, 1, 1),
+            static _ => { },
+            onDispose: () => secondDisposed = true);
+        TrackedResultRenderNode.ResultDisposed = false;
+
+        RenderNodeOperation[] outputs = node.Process(new RenderNodeContext([first, second]));
+
+        int slot = resource.Snapshot.FindSlotIndex(inputNode);
+        var inputResource = (FilterEffectInputNode.Resource)resource.Snapshot.GetResource(slot)!;
+        RenderNodeOperation[] retained = inputResource.Wrapper.Process(new RenderNodeContext([]));
+        try
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(outputs, Has.Length.EqualTo(1),
+                    "wrapper cleanup must not make an already-produced graph output unreachable");
+                Assert.That(firstDisposeAttempted, Is.True);
+                Assert.That(secondDisposed, Is.True,
+                    "one throwing input must not abort cleanup of later wrapper references");
+                Assert.That(retained, Is.Empty, "the wrapper must publish its cleared state before cleanup begins");
+                Assert.That(TrackedResultRenderNode.ResultDisposed, Is.False,
+                    "the successful output remains caller-owned after Process returns");
+            });
+        }
+        finally
+        {
+            DisposeAll(retained);
+            DisposeAll(outputs);
+        }
+
+        Assert.That(TrackedResultRenderNode.ResultDisposed, Is.True);
+    }
+
+    [Test]
     public void FilterEffectNode_ReplacesOutputWhenUpdatedFactoryChangesNodeType()
     {
         var host = new NodeGraphFilterEffect();

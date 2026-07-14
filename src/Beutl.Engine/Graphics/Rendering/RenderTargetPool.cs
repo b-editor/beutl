@@ -2,7 +2,9 @@
 using System.Threading;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Backend.Vulkan;
+using Beutl.Logging;
 using Beutl.Threading;
+using Microsoft.Extensions.Logging;
 using SkiaSharp;
 
 namespace Beutl.Graphics.Rendering;
@@ -42,6 +44,8 @@ namespace Beutl.Graphics.Rendering;
 /// </remarks>
 public sealed class RenderTargetPool : IDisposable
 {
+    private static readonly ILogger s_logger = Log.CreateLogger<RenderTargetPool>();
+
     /// <summary>A pooled buffer is evicted once it has been idle for at least this many frames.</summary>
     public const int IdleFrameThreshold = 8;
 
@@ -291,7 +295,12 @@ public sealed class RenderTargetPool : IDisposable
         }
 
         if (failure != null)
-            ExceptionDispatchInfo.Capture(failure).Throw();
+        {
+            // Frame-boundary maintenance is best-effort: failed backings have already left every bucket and the
+            // sweep continued through the remaining entries. Explicit Clear/Dispose teardown keeps its throwing
+            // contract; Trim reports the native fault without aborting the frame that requested maintenance.
+            s_logger.LogWarning(failure, "A render-target backing failed to dispose during pool maintenance");
+        }
     }
 
     /// <summary>Test seam: disposes every idle buffer and resets the pool to empty deterministically.</summary>

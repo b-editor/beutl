@@ -110,7 +110,7 @@ internal sealed class GLSLFilterPipeline : IDisposable
             // Compile fragment shader
             byte[] fragmentShaderSpirv = compiler.CompileToSpirv(fragmentShaderSource, ShaderStage.Fragment);
 
-            // Create render pass for BGRA8 format (matching RenderTarget format)
+            // Create a color-only render pass matching the pooled RGBA16Float targets.
             IRenderPass3D renderPass = context.CreateRenderPass3D(
                 [TextureFormat.RGBA16Float],
                 depthFormat: null,

@@ -2,6 +2,8 @@
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering.Cache;
+using Beutl.Logging;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.Graphics.Rendering;
 
@@ -11,6 +13,8 @@ namespace Beutl.Graphics.Rendering;
 // RenderNodeFactory to build its own FilterEffectRenderNode subclass and reimplements Process (without these caches).
 internal sealed class PlanFilterEffectRenderNode(FilterEffect.Resource filterEffect) : FilterEffectRenderNode(filterEffect)
 {
+    private static readonly ILogger s_logger = Log.CreateLogger<PlanFilterEffectRenderNode>();
+
     // Keyed on the graphics-context identity when none is resolved yet (the pool-less / no-GPU path), so the cache
     // still functions and a later real context is treated as a change.
     private static readonly object s_noContext = new();
@@ -197,7 +201,15 @@ internal sealed class PlanFilterEffectRenderNode(FilterEffect.Resource filterEff
             // A pass after the capture pass threw once the capture pass had already shallow-copied its pooled
             // buffer into the sink; StoreCaptured never runs, so release that ref here (C7 — a thrown pass frees
             // every resource it acquired). On success the sink's ref is adopted by StoreCaptured instead.
-            sink.Dispose();
+            try
+            {
+                sink.Dispose();
+            }
+            catch (Exception ex)
+            {
+                s_logger.LogWarning(ex, "A captured prefix target failed to dispose after plan execution failed");
+            }
+
             throw;
         }
 

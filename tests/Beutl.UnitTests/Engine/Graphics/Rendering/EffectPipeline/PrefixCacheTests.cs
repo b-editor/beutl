@@ -55,12 +55,13 @@ public class PrefixCacheTests
     // A group [static Blur (SkiaFilterPass, child 0), a color filter that throws at execution (child 1)]: the Blur
     // forms the capturable prefix while the throwing tail is a distinct later fused pass. The tail's resource bumps
     // its Version on every update, keeping child 1 perpetually unstable so only the Blur stabilizes into the prefix.
-    private static FilterEffect MakeBlurThrowing(float sigma = 5f)
+    private static FilterEffect MakeBlurThrowing(
+        float sigma = 5f, Action? beforeThrow = null, Exception? failure = null)
     {
         var blur = new Blur { Sigma = { CurrentValue = new Size(sigma, sigma) } };
         var group = new FilterEffectGroup();
         group.Children.Add(blur);
-        group.Children.Add(new ThrowingColorEffect());
+        group.Children.Add(new ThrowingColorEffect(beforeThrow, failure));
         return group;
     }
 
@@ -454,6 +455,98 @@ public class PrefixCacheTests
 
             Assert.That(pool.LiveLeaseCount, Is.EqualTo(0),
                 "a capture frame whose later pass throws must release the captured prefix's pooled lease");
+        });
+    }
+
+    [Test]
+    public void CaptureFrame_LaterPassFailureRemainsPrimaryWhenSinkCleanupAlsoFails()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            ProgramCache.Clear();
+            using var pool = new RenderTargetPool();
+            var primary = new InvalidOperationException("simulated later pass failure");
+            var cleanup = new InvalidOperationException("simulated captured-target cleanup failure");
+            bool armCleanupFailure = false;
+            int disposeCount = 0;
+            FilterEffect root = MakeBlurThrowing(
+                beforeThrow: () =>
+                {
+                    if (!armCleanupFailure)
+                        return;
+
+                    pool.Clear();
+                    pool.SetDisposeBackingForTest(pooled =>
+                    {
+                        pooled.DisposeBacking();
+                        if (disposeCount++ == 1)
+                            throw cleanup;
+                    });
+                    pool.Dispose();
+                },
+                failure: primary);
+            var resource = (FilterEffect.Resource)root.ToResource(CompositionContext.Default);
+            using var node = new PlanFilterEffectRenderNode(resource);
+            var diagnostics = new PipelineDiagnostics();
+
+            for (int f = 0; f < 3; f++)
+            {
+                pool.Trim(f);
+                bool updateOnly = false;
+                resource.Update(root, CompositionContext.Default, ref updateOnly);
+                node.Update(resource);
+                var warmup = new RenderNodeContext([MakeInput()]) { Diagnostics = diagnostics, Pool = pool };
+                Assert.That(Assert.Throws<InvalidOperationException>(() => node.Process(warmup)), Is.SameAs(primary));
+            }
+
+            armCleanupFailure = true;
+            pool.Trim(3);
+            bool captureUpdateOnly = false;
+            resource.Update(root, CompositionContext.Default, ref captureUpdateOnly);
+            node.Update(resource);
+            var capture = new RenderNodeContext([MakeInput()]) { Diagnostics = diagnostics, Pool = pool };
+
+            InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => node.Process(capture));
+            Assert.Multiple(() =>
+            {
+                Assert.That(actual, Is.SameAs(primary),
+                    "captured-target cleanup must not replace the later pass's primary failure");
+                Assert.That(pool.LiveLeaseCount, Is.Zero,
+                    "the captured lease accounting must be released even when its backing teardown fails");
+            });
+        });
+    }
+
+    [Test]
+    public void PrefixCaptureSink_DisposeFailureDetachesCapturedTarget()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using var pool = new RenderTargetPool();
+            using var sink = new PrefixCaptureSink();
+            RenderTarget target = pool.Acquire(16, 16)!;
+            sink.Capture(target, new Rect(0, 0, 16, 16), EffectiveScale.At(1f));
+            target.Dispose();
+            var injected = new InvalidOperationException("captured target dispose failed");
+            int disposeCount = 0;
+            pool.SetDisposeBackingForTest(pooled =>
+            {
+                pooled.DisposeBacking();
+                if (disposeCount++ == 0)
+                    throw injected;
+            });
+            pool.Dispose();
+
+            Assert.That(Assert.Throws<InvalidOperationException>(sink.Dispose), Is.SameAs(injected));
+            Assert.Multiple(() =>
+            {
+                Assert.That(sink.Captured, Is.False);
+                Assert.That(sink.CapturedTarget, Is.Null,
+                    "the sink must detach ownership before a potentially-throwing target disposal");
+                Assert.That(pool.LiveLeaseCount, Is.Zero);
+            });
         });
     }
 
@@ -1099,12 +1192,16 @@ public class PrefixCacheTests
 // Manual resource (the generator does not run in tests): its Update bumps Version on every call so the effect is
 // perpetually "changed" and never joins the reusable stable prefix.
 [SuppressResourceClassGeneration]
-internal sealed partial class ThrowingColorEffect : FilterEffect
+internal sealed partial class ThrowingColorEffect(Action? beforeThrow = null, Exception? failure = null) : FilterEffect
 {
     public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
     {
         builder.ColorFilter(ColorFilterNodeDescriptor.Create(
-            () => throw new InvalidOperationException("ThrowingColorEffect: simulated pass failure"),
+            () =>
+            {
+                beforeThrow?.Invoke();
+                throw failure ?? new InvalidOperationException("ThrowingColorEffect: simulated pass failure");
+            },
             structuralToken: "ThrowingColor"));
     }
 

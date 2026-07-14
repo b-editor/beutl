@@ -1,4 +1,5 @@
-﻿using Beutl.Media.Source;
+﻿using System.Runtime.ExceptionServices;
+using Beutl.Media.Source;
 
 namespace Beutl.Graphics.Rendering;
 
@@ -8,15 +9,15 @@ public class OperationWrapperRenderNode : RenderNode
 
     public void SetOperations(RenderNodeOperation[] operations)
     {
-        foreach (var r in _operations)
-            r.Dispose();
-
         var refs = new Ref<RenderNodeOperation>[operations.Length];
         for (int i = 0; i < operations.Length; i++)
             refs[i] = Ref<RenderNodeOperation>.Create(operations[i]);
 
+        Ref<RenderNodeOperation>[] previous = _operations;
         _operations = refs;
         HasChanges = true;
+
+        DisposeReferences(previous);
     }
 
     public override RenderNodeOperation[] Process(RenderNodeContext context)
@@ -33,10 +34,29 @@ public class OperationWrapperRenderNode : RenderNode
         base.OnDispose(disposing);
         if (disposing)
         {
-            foreach (var r in _operations)
-                r.Dispose();
+            Ref<RenderNodeOperation>[] previous = _operations;
             _operations = [];
+            DisposeReferences(previous);
         }
+    }
+
+    private static void DisposeReferences(Ref<RenderNodeOperation>[] references)
+    {
+        Exception? failure = null;
+        foreach (Ref<RenderNodeOperation> reference in references)
+        {
+            try
+            {
+                reference.Dispose();
+            }
+            catch (Exception ex)
+            {
+                failure ??= ex;
+            }
+        }
+
+        if (failure != null)
+            ExceptionDispatchInfo.Capture(failure).Throw();
     }
 
     private sealed class RefCountedProxy(Ref<RenderNodeOperation> inner) : RenderNodeOperation
