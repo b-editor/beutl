@@ -205,6 +205,15 @@ internal static class ProgramCache
         lock (s_gate)
         {
             foreach (Entry entry in s_lru)
+            {
+                if (entry.Rented)
+                {
+                    throw new InvalidOperationException(
+                        "ProgramCache cannot be cleared while a shader builder lease is active.");
+                }
+            }
+
+            foreach (Entry entry in s_lru)
                 entry.Builder.Dispose();
             s_map.Clear();
             s_lru.Clear();

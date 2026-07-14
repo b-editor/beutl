@@ -63,7 +63,11 @@ internal sealed record ParameterBlock(ImmutableArray<CompiledPass> Passes)
                 case CompositePass ca when b[i] is CompositePass cb:
                     if (ca.BlendMode != cb.BlendMode
                         || ca.InputOffsets.Length != cb.InputOffsets.Length
-                        || ca.InputColorFilters.Length != cb.InputColorFilters.Length)
+                        || ca.InputColorFilters.Length != cb.InputColorFilters.Length
+                        || (ca.InputColorFilterFallback is null) != (cb.InputColorFilterFallback is null)
+                        || (ca.InputColorFilterFallback is { } fallbackA
+                            && cb.InputColorFilterFallback is { } fallbackB
+                            && !StagesMatch(fallbackA.Stages, fallbackB.Stages)))
                         return false;
                     break;
                 case ComputePass compa when b[i] is ComputePass compb:

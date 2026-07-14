@@ -190,14 +190,14 @@ internal static class EffectGraphCompiler
     }
 
     // Folds a coordinate-invariant color-filter-only FusedShaderPass that immediately precedes a CompositePass into
-    // that composite's per-branch draw (C9). The composite draws each branch once, so applying the run's composed
-    // SKColorFilter to each branch draw is identical to baking each branch through the filter and then compositing,
-    // while eliminating the fused pass and its per-branch intermediate targets. Only a pure color-filter run folds:
-    // a run containing a runtime SKSL stage is not an SKColorFilter and stays its own pass. The fold is restricted to
-    // a SrcOver composite: a non-SrcOver composite needs a full-canvas SaveLayer per branch (C9.5), and a transparent-
-    // affecting color filter riding that full-canvas layer would filter transparent pixels OUTSIDE the branch bounds,
-    // diverging from the unfused plan whose intermediate is branch-bounded. Shared by the compile and plan-cache-hit
-    // paths, so the folded shape is identical on both (the structural key promises it).
+    // that composite's per-branch draw (C9). The fast path eliminates the fused pass and its per-branch intermediate
+    // targets when branch and composite densities match. The original pass is retained as a runtime fallback because
+    // applying a paint filter after density-changing texture interpolation is not equivalent to filtering first. Only
+    // a pure color-filter run folds: a run containing a runtime SKSL stage is not an SKColorFilter and stays its own
+    // pass. The fold is restricted to a SrcOver composite: a non-SrcOver composite needs a full-canvas SaveLayer per
+    // branch (C9.5), and a transparent-affecting color filter riding that full-canvas layer would filter transparent
+    // pixels OUTSIDE the branch bounds, diverging from the unfused plan whose intermediate is branch-bounded. Shared
+    // by the compile and plan-cache-hit paths, so the folded shape is identical on both (the structural key promises it).
     private static ImmutableArray<CompiledPass> FoldColorFiltersIntoComposites(ImmutableArray<CompiledPass> passes)
     {
         int n = passes.Length;
@@ -213,7 +213,11 @@ internal static class EffectGraphCompiler
                 && passes[i + 1] is CompositePass { BlendMode: BlendMode.SrcOver } composite)
             {
                 folded ??= CopyPrefix(passes, i);
-                folded.Add(composite with { InputColorFilters = ColorFilterFactories(stages) });
+                folded.Add(composite with
+                {
+                    InputColorFilters = ColorFilterFactories(stages),
+                    InputColorFilterFallback = fused,
+                });
                 i++; // consumed both the fused pass and the composite
                 continue;
             }

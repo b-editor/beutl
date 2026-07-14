@@ -481,6 +481,23 @@ half4 apply(half4 c) {
     }
 
     [Test]
+    public void StructuralKey_DifferentSkslSources_KeepExactIdentity()
+    {
+        const string firstSource = "half4 apply(half4 c) { return c; }";
+        const string secondSource = "half4 apply(half4 c) { return half4(c.rgb, c.a * 0.5); }";
+        var bounds = new Rect(0, 0, 32, 32);
+        using EffectGraph first = NewBuilder(bounds)
+            .Shader(ShaderNodeDescriptor.Snippet(firstSource))
+            .Build();
+        using EffectGraph second = NewBuilder(bounds)
+            .Shader(ShaderNodeDescriptor.Snippet(secondSource))
+            .Build();
+
+        Assert.That(StructuralKey.Compute(first), Is.Not.EqualTo(StructuralKey.Compute(second)),
+            "the compact precomputed hash must remain only an index; exact SKSL text determines equality");
+    }
+
+    [Test]
     public void StructuralKey_TokenContainingSerializedNodeText_DoesNotAliasAnotherGraph()
     {
         var bounds = new Rect(0, 0, 100, 100);

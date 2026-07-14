@@ -38,12 +38,30 @@ public abstract partial class DisplacementMapTransform : EngineObject
         GradientSpreadMethod spreadMethod, DisplacementMapChannel channel, bool signed);
 
     private static bool s_forceMapShaderNullForTests;
+    private static Exception? s_mapPresenceBindFailureForTests;
+    private static SKShader? s_mapShaderBuiltForTests;
 
     // Test seam: forces the render-time map-shader resolution to null (as a preview allocation failure would) so the
     // absent-map fallback can be exercised without an unallocatable brush. The caller restores the flag afterward.
     internal static void ForceMapShaderNullForTests() => s_forceMapShaderNullForTests = true;
 
     internal static void ResetMapShaderForTests() => s_forceMapShaderNullForTests = false;
+
+    internal static void ForceMapPresenceBindFailureForTests(Exception exception)
+    {
+        s_mapShaderBuiltForTests?.Dispose();
+        s_mapShaderBuiltForTests = null;
+        s_mapPresenceBindFailureForTests = exception;
+    }
+
+    internal static SKShader? MapShaderBuiltForTests => s_mapShaderBuiltForTests;
+
+    internal static void ResetMapPresenceBindFailureForTests()
+    {
+        s_mapPresenceBindFailureForTests = null;
+        s_mapShaderBuiltForTests?.Dispose();
+        s_mapShaderBuiltForTests = null;
+    }
 
     // Binds the displacement-map child as a DEFERRED child shader (A4): it is cross-sampled in device space with no
     // canvas density transform, so its local matrix must track the pass's EXECUTION working scale, not the describe-time
@@ -85,32 +103,59 @@ public abstract partial class DisplacementMapTransform : EngineObject
         public UniformBindingBuilder BindPresence(UniformBindingBuilder uniforms)
             => uniforms.Deferred("uMapPresent", (builder, name, context) =>
             {
-                Build(context);
-                builder.Uniforms[name] = _present ? 1 : 0;
+                try
+                {
+                    Build(context);
+                    if (s_mapPresenceBindFailureForTests is { } injected)
+                    {
+                        s_mapPresenceBindFailureForTests = null;
+                        s_mapShaderBuiltForTests = _shader;
+                        throw injected;
+                    }
+
+                    builder.Uniforms[name] = _present ? 1 : 0;
+                }
+                catch
+                {
+                    DisposePendingShader();
+                    throw;
+                }
             });
 
         // Builds this pass's fresh displacement-map shader and records its presence for the paired uMapPresent uniform.
         private void Build(in PassUniformContext context)
         {
+            DisposePendingShader();
             float w = context.WorkingScale;
-            SKShader? created = s_forceMapShaderNullForTests
-                ? null
-                : new BrushConstructor(mapBounds, map, BlendMode.SrcOver, w, maxWorkingScale, context.Diagnostics)
-                    .CreateShader();
-            _present = created is not null;
-
-            SKShader shader = created ?? SKShader.CreateColor(SKColors.Transparent);
-            if (w != 1f)
+            SKShader? shader = null;
+            try
             {
-                // WithLocalMatrix returns a new shader holding a native ref to `shader`, so disposing the base here is
-                // leak-free (it survives inside `scaled`) and leaves the executor one shader to own.
-                SKShader scaled = shader.WithLocalMatrix(SKMatrix.CreateScale(w, w));
-                shader.Dispose();
-                shader = scaled;
-            }
+                SKShader? created = s_forceMapShaderNullForTests
+                    ? null
+                    : new BrushConstructor(mapBounds, map, BlendMode.SrcOver, w, maxWorkingScale, context.Diagnostics)
+                        .CreateShader();
+                _present = created is not null;
 
-            _shader = shader;
-            _pending = true;
+                shader = created ?? SKShader.CreateColor(SKColors.Transparent);
+                if (w != 1f)
+                {
+                    // WithLocalMatrix returns a new shader holding a native ref to `shader`, so disposing the base here
+                    // is leak-free (it survives inside `scaled`) and leaves the executor one shader to own.
+                    SKShader scaled = shader.WithLocalMatrix(SKMatrix.CreateScale(w, w));
+                    shader.Dispose();
+                    shader = scaled;
+                }
+
+                _shader = shader;
+                shader = null;
+                _pending = true;
+            }
+            finally
+            {
+                // If creation or local-matrix wrapping fails before ownership reaches the paired child binding, the
+                // partially built shader has no graph/executor owner and must be released here.
+                shader?.Dispose();
+            }
         }
 
         // Hands the executor the shader built by the paired presence resolve and CLEARS the holder so the next fan-out
@@ -125,6 +170,14 @@ public abstract partial class DisplacementMapTransform : EngineObject
             _shader = null;
             _pending = false;
             return shader;
+        }
+
+        private void DisposePendingShader()
+        {
+            _shader?.Dispose();
+            _shader = null;
+            _pending = false;
+            _present = false;
         }
     }
 }

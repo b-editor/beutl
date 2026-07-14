@@ -5,6 +5,7 @@ using Beutl.Graphics.Rendering;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.UnitTests.Engine.Graphics.Backend;
+using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.EffectPipeline;
 
@@ -48,6 +49,33 @@ public class DisplacementAbsentMapIdentityTests
             Assert.That(absentDiff, Is.LessThanOrEqualTo(2.0),
                 "a signed displacement whose map resolves null at render time must pass the source through unchanged, "
                 + "not apply a full negative shift");
+        });
+    }
+
+    [Test]
+    public void MapPresenceBindingThrows_DisposesPendingShaderBeforeChildTake()
+    {
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var injected = new InvalidOperationException("simulated map-presence uniform bind failure");
+            DisplacementMapTransform.ForceMapPresenceBindFailureForTests(injected);
+            try
+            {
+                InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(
+                    () => RenderChain(MakeSignedTranslateEffect));
+                SKShader? pending = DisplacementMapTransform.MapShaderBuiltForTests;
+                Assert.Multiple(() =>
+                {
+                    Assert.That(actual, Is.SameAs(injected));
+                    Assert.That(pending, Is.Not.Null, "the test seam must fail after the map shader is built");
+                    Assert.That(pending!.Handle, Is.EqualTo(IntPtr.Zero),
+                        "a shader not yet transferred through ChildBinding.Take must be disposed on bind failure");
+                });
+            }
+            finally
+            {
+                DisplacementMapTransform.ResetMapPresenceBindFailureForTests();
+            }
         });
     }
 

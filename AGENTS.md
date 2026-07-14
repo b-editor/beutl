@@ -13,7 +13,7 @@ Beutl is a cross-platform video editing / compositing application built on Avalo
 
 - License: the main app is **MIT**; `Beutl.FFmpegWorker` alone is **GPL-3.0-or-later** (a separate process)
 - UI: Avalonia (XAML + ViewModel)
-- Tests: NUnit + Moq under `tests/` (per-area projects, e.g. `tests/Beutl.UnitTests/`, `tests/Beutl.Graphics3DTests/`, `tests/SourceGeneratorTest/`, `tests/Beutl.FFmpegIpc.Tests/`). `tests/Beutl.Graphics3DTests/` is a Vulkan-gated NUnit suite that self-skips when no Vulkan device is available — see `tests/CLAUDE.md`
+- Tests: NUnit + Moq under `tests/` (per-area projects, e.g. `tests/Beutl.UnitTests/`, `tests/Beutl.PublicApiContractTests/`, `tests/Beutl.Graphics3DTests/`, `tests/SourceGeneratorTest/`, `tests/Beutl.FFmpegIpc.Tests/`). `tests/Beutl.PublicApiContractTests/` is a non-friend compile gate for public authoring APIs; `tests/Beutl.Graphics3DTests/` is a Vulkan-gated NUnit suite that self-skips when no Vulkan device is available — see `tests/CLAUDE.md`
 - Benchmarks: BenchmarkDotNet suites under `tests/Beutl.Benchmarks/`
 - E2E / headless-UI tests: `tests/Beutl.E2ETests/` (library-level) and `tests/Beutl.HeadlessUITests/` (drives the real shell, the sole test referencing `src/Beutl`) on `Avalonia.Headless.NUnit`, with shared helpers in `tests/Beutl.Testing.Headless/`. They run on headless CI without xvfb or a GPU — see `tests/CLAUDE.md`
 - Build: Nuke (`nukebuild/`) or `dotnet` directly

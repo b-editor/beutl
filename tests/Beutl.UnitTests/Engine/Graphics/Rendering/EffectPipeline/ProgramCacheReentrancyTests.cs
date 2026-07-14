@@ -64,6 +64,36 @@ public class ProgramCacheReentrancyTests
     }
 
     [Test]
+    public void Clear_WhileLeaseIsActive_FailsWithoutDisposingTheBuilder()
+    {
+        ProgramCache.Clear();
+        ProgramCache.Lease lease = ProgramCache.GetOrCreate(
+            "test:clear-active", s_stages, () => Source, diagnostics: null);
+        SKRuntimeShaderBuilder builder = lease.Builder;
+        try
+        {
+            InvalidOperationException? error = Assert.Throws<InvalidOperationException>(ProgramCache.Clear);
+            Assert.Multiple(() =>
+            {
+                Assert.That(error!.Message, Does.Contain("lease is active"));
+                Assert.That(ProgramCache.CountForTest, Is.EqualTo(1),
+                    "a rejected clear must preserve bookkeeping for the eventual lease return");
+            });
+
+            using SKShader child = SKShader.CreateColor(SKColors.Red);
+            builder.Children["src"] = child;
+            using SKShader built = builder.Build();
+            Assert.That(built.Handle, Is.Not.EqualTo(IntPtr.Zero),
+                "Clear must not dispose a builder that the active lease can still use");
+        }
+        finally
+        {
+            lease.Dispose();
+            ProgramCache.Clear();
+        }
+    }
+
+    [Test]
     public void ReturningLease_AfterAllEntriesWereRented_RestoresCapacity()
     {
         ProgramCache.Clear();

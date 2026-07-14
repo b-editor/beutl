@@ -139,7 +139,8 @@ internal static class PlanExecutor
                         break;
                     case CompositePass composite:
                         ExecuteComposite(
-                            composite, current, workingScale, maxWorkingScale, maxDimension, diagnostics, pool);
+                            composite, current, outputScale, workingScale, maxWorkingScale, maxDimension,
+                            diagnostics, pool);
                         break;
                     case NestedGraphPass nestedGraph:
                         ExecuteNestedGraph(
@@ -777,7 +778,9 @@ internal static class PlanExecutor
             throw new InvalidOperationException(message);
         }
 
-        op.Dispose();
+        Exception? previewCleanupFailure = null;
+        CaptureDisposeFailure(op, ref previewCleanupFailure);
+        LogCleanupFailure(previewCleanupFailure, "preview allocation-failure cleanup");
         s_logger.LogWarning("{Message} Preview drops this pass output.", message);
         return null;
     }
@@ -1303,7 +1306,9 @@ internal static class PlanExecutor
         RenderTarget? outputTarget = RenderTargetPool.Acquire(pool, width, height, diagnostics);
         if (outputTarget == null)
         {
-            inputTarget.Dispose();
+            Exception? cleanupFailure = null;
+            CaptureComputeInputDisposeFailure(inputTarget, ref cleanupFailure);
+            LogCleanupFailure(cleanupFailure, "compute output-allocation cleanup");
             return DropOrThrow(op, maxWorkingScale,
                 $"Compute output allocation failed ({width}x{height} px, w {w}, bounds {outBounds}).");
         }
@@ -1311,8 +1316,10 @@ internal static class PlanExecutor
         ITexture2D? destTexture = outputTarget.Texture;
         if (destTexture == null)
         {
-            outputTarget.Dispose();
-            inputTarget.Dispose();
+            Exception? cleanupFailure = null;
+            CaptureDisposeFailure(outputTarget, ref cleanupFailure);
+            CaptureComputeInputDisposeFailure(inputTarget, ref cleanupFailure);
+            LogCleanupFailure(cleanupFailure, "texture-less compute output cleanup");
             return DropOrThrow(op, maxWorkingScale, $"Pooled compute output has no Vulkan texture ({width}x{height} px).");
         }
 
@@ -1381,12 +1388,7 @@ internal static class PlanExecutor
 
         Exception? successCleanupFailure = null;
         ReleaseComputeScratch(scratch, ref successCleanupFailure);
-        CaptureDisposeFailure(inputTarget, ref successCleanupFailure);
-        if (s_computeInputDisposeFailureForTests is { } inputDisposeFailure)
-        {
-            s_computeInputDisposeFailureForTests = null;
-            successCleanupFailure ??= inputDisposeFailure;
-        }
+        CaptureComputeInputDisposeFailure(inputTarget, ref successCleanupFailure);
         CaptureDisposeFailure(op, ref successCleanupFailure);
         if (successCleanupFailure is { } computeCleanupFailure)
         {
@@ -1518,6 +1520,16 @@ internal static class PlanExecutor
         }
     }
 
+    private static void CaptureComputeInputDisposeFailure(RenderTarget inputTarget, ref Exception? cleanupFailure)
+    {
+        CaptureDisposeFailure(inputTarget, ref cleanupFailure);
+        if (s_computeInputDisposeFailureForTests is { } inputDisposeFailure)
+        {
+            s_computeInputDisposeFailureForTests = null;
+            cleanupFailure ??= inputDisposeFailure;
+        }
+    }
+
     private static void LogCleanupFailure(Exception? cleanupFailure, string operation)
     {
         if (cleanupFailure != null)
@@ -1624,8 +1636,8 @@ internal static class PlanExecutor
     // Fan-in: composite the whole current branch set into one output under the blend mode, applying each branch's
     // per-input offset. Draws each branch once onto a single pooled target.
     private static void ExecuteComposite(
-        CompositePass pass, List<RenderNodeOperation> current, float workingScale, float maxWorkingScale,
-        int maxDimension, PipelineDiagnostics? diagnostics, RenderTargetPool? pool)
+        CompositePass pass, List<RenderNodeOperation> current, float outputScale, float workingScale,
+        float maxWorkingScale, int maxDimension, PipelineDiagnostics? diagnostics, RenderTargetPool? pool)
     {
         if (current.Count == 0)
             return;
@@ -1650,6 +1662,38 @@ internal static class PlanExecutor
             return;
         }
 
+        // A paint color-filter runs after texture interpolation. The C9 fold is therefore equivalent to a standalone
+        // branch pass only when each raster branch already has the composite's density (or is vector/unbounded). If a
+        // concrete branch carries fewer pixels, execute the preserved color-filter pass at that carried density before
+        // the composite resamples it. This keeps the fast folded path for the canonical vector SplitTree while
+        // preserving filter-before-resample ordering for mixed-density fan-in.
+        bool materializeFoldedFilters = pass.InputColorFilterFallback is { }
+            && current.Any(op => !op.EffectiveScale.IsUnbounded && op.EffectiveScale.Value != w);
+        if (materializeFoldedFilters)
+        {
+            ExecuteCompositeColorFilterFallback(
+                pass.InputColorFilterFallback!, current, outputScale, workingScale, maxWorkingScale,
+                maxDimension, diagnostics, pool);
+            if (current.Count == 0)
+                return;
+
+            union = default;
+            for (int i = 0; i < current.Count; i++)
+            {
+                Point offset = i < pass.InputOffsets.Length ? pass.InputOffsets[i] : default;
+                union = union.Union(current[i].Bounds.Translate(offset));
+            }
+
+            w = RenderNodeContext.ClampWorkingScaleToBufferBudget(union, workingScale, maxDimension);
+            (bw, bh) = RenderNodeContext.DeviceBufferSize(union, w);
+            if (bw <= 0 || bh <= 0)
+            {
+                RenderNodeOperation.DisposeAll(CollectionsMarshal.AsSpan(current));
+                current.Clear();
+                return;
+            }
+        }
+
         RenderTarget? target = RenderTargetPool.Acquire(pool, bw, bh, diagnostics);
         if (target == null)
         {
@@ -1669,7 +1713,7 @@ internal static class PlanExecutor
         SKColorFilter? branchFilter = null;
         try
         {
-            branchFilter = ComposeCompositeColorFilter(pass.InputColorFilters);
+            branchFilter = materializeFoldedFilters ? null : ComposeCompositeColorFilter(pass.InputColorFilters);
             using var canvas = new ImmediateCanvas(target, w, maxWorkingScale, logicalSize: union.Size);
             canvas.Clear();
             using (canvas.PushTransform(Matrix.CreateTranslation(-union.X, -union.Y)))
@@ -1740,6 +1784,25 @@ internal static class PlanExecutor
         if (diagnostics != null)
             diagnostics.GpuPasses++;
         current.Add(RenderNodeOperation.CreateFromRenderTarget(union, union.Position, target, EffectiveScale.At(w)));
+    }
+
+    private static void ExecuteCompositeColorFilterFallback(
+        FusedShaderPass fallback, List<RenderNodeOperation> current, float outputScale, float workingScale,
+        float maxWorkingScale, int maxDimension, PipelineDiagnostics? diagnostics, RenderTargetPool? pool)
+    {
+        bool linear = current.Count == 1;
+        Rect expectedInput = linear ? current[0].Bounds : Rect.Invalid;
+        float resolvedScale = linear
+            ? RenderNodeContext.ClampWorkingScaleToBufferBudget(
+                expectedInput, CarriedWorkingScale(current[0], workingScale), maxDimension)
+            : workingScale;
+        (int width, int height) = linear
+            ? RenderNodeContext.DeviceBufferSize(expectedInput, resolvedScale)
+            : default;
+        var resolution = new PassResolution(expectedInput, width, height, resolvedScale, SkipEmpty: false);
+        MapDescriptorPass(
+            fallback, resolution, expectedInput, current, outputScale, workingScale, maxWorkingScale,
+            maxDimension, diagnostics, pool);
     }
 
     // Composes the folded color-filter factories into one SKColorFilter in node order (C9): stage 0 is innermost, so

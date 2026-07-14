@@ -54,6 +54,50 @@ public class PrimitiveRuntimeContractTests
         });
     }
 
+    [Test]
+    public void ComputeOutputAllocationFailure_PreviewDropsAfterInputCleanupFailure()
+    {
+        var graphics = VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.RequireComputeCapable(graphics, "compute output-allocation cleanup contract");
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            ComputeNodeDescriptor descriptor = ComputeNodeDescriptor.Create(
+                static _ => throw new AssertionException("dispatch must not run after output allocation fails"),
+                passCount: 1,
+                ComputeFallback.Identity,
+                structuralToken: "compute-output-allocation-cleanup");
+            (CompiledPlan plan, FrameResources resources) = Compile(
+                new EffectGraphBuilder(s_bounds, 1f, 1f).Compute(descriptor));
+            using var pool = new RenderTargetPool();
+            pool.SetBackingFactoryFailingAfterForTest(successfulAcquires: 1);
+            bool inputDisposed = false;
+            RenderNodeOperation input = RenderNodeOperation.CreateLambda(
+                s_bounds,
+                canvas => canvas.DrawRectangle(s_bounds, Brushes.Resource.White, null),
+                onDispose: () => inputDisposed = true);
+            var cleanupFailure = new InvalidOperationException("compute materialized-input cleanup failed");
+
+            PlanExecutor.ForceComputeInputDisposeFailureForTests(cleanupFailure);
+            try
+            {
+                RenderNodeOperation[] outputs = PlanExecutor.Execute(
+                    plan, resources, [input], 1f, 1f, maxWorkingScale: 2f, diagnostics: null, pool);
+                Assert.Multiple(() =>
+                {
+                    Assert.That(outputs, Is.Empty,
+                        "preview must keep the allocation-failure drop contract when cleanup also faults");
+                    Assert.That(inputDisposed, Is.True,
+                        "the detached source operation must still be consumed after materialized-input cleanup faults");
+                    Assert.That(pool.LiveLeaseCount, Is.Zero);
+                });
+            }
+            finally
+            {
+                PlanExecutor.ResetComputeInputDisposeFailureForTests();
+            }
+        });
+    }
+
     [TestCase(1, 0)]
     [TestCase(1, 2)]
     public void ComputeDispatchCount_MustExactlyMatchDeclaration(int declared, int actual)

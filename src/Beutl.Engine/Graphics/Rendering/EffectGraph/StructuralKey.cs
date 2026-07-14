@@ -39,9 +39,9 @@ internal readonly struct StructuralKey : IEquatable<StructuralKey>
         switch (descriptor)
         {
             case ShaderNodeDescriptor shader:
-                // The stable 64-bit hash is only an index hint. Structural equality must compare the complete
-                // public source text so a hash collision can never alias two shader programs.
-                parts.Add(KeyPart.Create(KeyPartKind.SourceIdentity, shader.Source.Source));
+                // The stable 64-bit hash is only an index hint. ShaderSourceIdentity uses it for O(1)-sized key
+                // hashing but keeps complete source equality, so a collision can never alias two shader programs.
+                parts.Add(KeyPart.Create(KeyPartKind.SourceIdentity, new ShaderSourceIdentity(shader.Source)));
                 parts.Add(KeyPart.Create(KeyPartKind.SourceKind, shader.Source.Kind));
                 parts.Add(KeyPart.Create(KeyPartKind.SrcTileMode, shader.SrcTileMode));
                 parts.Add(KeyPart.Create(KeyPartKind.ChildCount, shader.Children.Length));
@@ -144,6 +144,28 @@ internal readonly struct StructuralKey : IEquatable<StructuralKey>
         InputOffsetCount,
         CustomNodeType,
         ResourceIdentity,
+    }
+
+    private readonly struct ShaderSourceIdentity : IEquatable<ShaderSourceIdentity>
+    {
+        private readonly SkslSource _source;
+        private readonly int _hashCode;
+
+        public ShaderSourceIdentity(SkslSource source)
+        {
+            _source = source;
+            // IdentityHash has fixed size. The full source remains the collision check in Equals, not hash input.
+            _hashCode = HashCode.Combine(source.Kind, source.IdentityHash);
+        }
+
+        public bool Equals(ShaderSourceIdentity other)
+            => _source.Kind == other._source.Kind
+                && string.Equals(_source.Source, other._source.Source, StringComparison.Ordinal);
+
+        public override bool Equals(object? obj)
+            => obj is ShaderSourceIdentity other && Equals(other);
+
+        public override int GetHashCode() => _hashCode;
     }
 
     private readonly struct KeyPart : IEquatable<KeyPart>
