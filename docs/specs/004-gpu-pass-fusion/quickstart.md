@@ -10,8 +10,9 @@ Effects stop *executing* and start *describing*: `FilterEffect.Describe(EffectGr
 
 ```csharp
 // A fusable per-pixel color effect: one SKSL snippet, identity bounds.
-public override void Describe(EffectGraphBuilder builder, Resource r)
+public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
 {
+    var r = (Resource)resource;                 // cast; an override cannot narrow the base parameter type
     builder.Shader(ShaderNodeDescriptor.Snippet(
         source: s_gammaSksl,                    // half4 apply(half4 c) { ... }
         uniforms: u => u.Float("gamma", r.Gamma)));

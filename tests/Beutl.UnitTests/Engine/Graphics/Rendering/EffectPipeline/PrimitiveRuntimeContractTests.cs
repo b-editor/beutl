@@ -29,6 +29,31 @@ public class PrimitiveRuntimeContractTests
         public float Dummy;
     }
 
+    [Test]
+    public void DeliveryAllocationFailure_IsNotReplacedByInputDisposeFailure()
+    {
+        var cleanup = new InvalidOperationException("simulated input cleanup failure");
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        builder.Shader(ShaderNodeDescriptor.Snippet("half4 apply(half4 c) { return c; }"));
+        (CompiledPlan plan, FrameResources resources) = Compile(builder);
+        using var pool = new RenderTargetPool();
+        pool.SetBackingFactoryForTest(static (_, _) => null);
+        RenderNodeOperation input = RenderNodeOperation.CreateLambda(
+            s_bounds,
+            static _ => { },
+            onDispose: () => throw cleanup);
+
+        InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
+            plan, resources, [input], outputScale: 1f, workingScale: 1f,
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(actual, Is.Not.SameAs(cleanup));
+            Assert.That(actual!.Message, Does.Contain("Effect pass buffer allocation failed"));
+        });
+    }
+
     [TestCase(1, 0)]
     [TestCase(1, 2)]
     public void ComputeDispatchCount_MustExactlyMatchDeclaration(int declared, int actual)

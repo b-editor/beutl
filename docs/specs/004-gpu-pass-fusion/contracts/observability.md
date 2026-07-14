@@ -22,7 +22,7 @@ Names, increment rules, and threading are fixed by [execution-plan.md §C8](./ex
 | Mixed chain | Blur→Gamma→Invert→DropShadow→LUT ⇒ pass/allocation counts strictly below the recorded legacy baseline (US1-AS2) |
 | Animated bounds | blur-sigma animation over 100 frames ⇒ `PlanCompilations == 1`, sizes re-resolved per frame (C5) |
 | Clamp carry parity | a chain whose inflated bounds trigger the 16 384 px clamp renders with legacy-parity densities (monotonic `w` carry — C3.2, FR-012) |
-| Structural threshold | animating SplitEffect division counts ⇒ one recompile per topology change, no stale reuse (C3.6/C5) |
+| Structural threshold | animating a static-eligible SplitEffect grid ⇒ one recompile per branch-count change; animating within a dynamic regime (sub-pixel, after fan-out, or >4096) ⇒ cache hit with runtime output resolution; crossing static↔dynamic ⇒ one recompile, no stale reuse (C3.6/C5) |
 | Allocation failure | forced pool failure on fused / geometry-session / compute paths ⇒ preview drops + continues, delivery throws (C7 normalization) |
 
 ## O3. Benchmark suite (`tests/Beutl.Benchmarks/Rendering/EffectPipelineBenchmarks.cs`)

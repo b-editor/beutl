@@ -164,6 +164,30 @@ public class CustomRenderNodeEffectInGraphTests
     }
 
     [Test]
+    public void Execute_CustomRenderNodeChildFailure_IsNotReplacedByNodeDisposeFailure()
+    {
+        var primary = new InvalidOperationException("custom render-node process failed");
+        var cleanup = new InvalidOperationException("custom render-node dispose failed");
+        var group = new FilterEffectGroup();
+        group.Children.Add(new ThrowingProcessAndDisposeCustomNodeEffect(primary, cleanup));
+
+        CompiledPlan plan = CompileGroup(group);
+        FrameResources res = EffectGraphCompiler.ResolveResources(plan, s_bounds, workingScale: 1f);
+        RenderNodeOperation input = MakeInput(s_bounds);
+
+        InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
+            plan, res, [input], outputScale: 1f, workingScale: 1f,
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(actual, Is.SameAs(primary),
+                "custom-node cleanup must not replace the primary Process failure");
+            Assert.That(input.IsDisposed, Is.True);
+        });
+    }
+
+    [Test]
     public void Execute_CustomRenderNodeReturnsNullArray_ThrowsClearContractErrorAndReleasesInputs()
     {
         var group = new FilterEffectGroup();
@@ -723,6 +747,50 @@ internal sealed class ThrowingRenderNode(FilterEffect.Resource resource) : Filte
 {
     public override RenderNodeOperation[] Process(RenderNodeContext context)
         => throw new InvalidOperationException("custom child render node failed");
+}
+
+[SuppressResourceClassGeneration]
+internal sealed partial class ThrowingProcessAndDisposeCustomNodeEffect(
+    Exception processFailure, Exception disposeFailure) : CustomRenderNodeFilterEffect
+{
+    public override Resource ToResource(CompositionContext context)
+    {
+        var resource = new Resource(processFailure, disposeFailure);
+        bool updateOnly = false;
+        resource.Update(this, context, ref updateOnly);
+        return resource;
+    }
+
+    public new sealed class Resource(Exception processFailure, Exception disposeFailure)
+        : CustomRenderNodeFilterEffect.Resource
+    {
+        public Exception ProcessFailure => processFailure;
+
+        public Exception DisposeFailure => disposeFailure;
+
+        public override FilterEffectRenderNodeFactory RenderNodeFactory
+            => FilterEffectRenderNodeFactory.Of<Resource, ThrowingProcessAndDisposeRenderNode>(
+                static r => new ThrowingProcessAndDisposeRenderNode(r));
+    }
+}
+
+internal sealed class ThrowingProcessAndDisposeRenderNode(
+    ThrowingProcessAndDisposeCustomNodeEffect.Resource resource) : FilterEffectRenderNode(resource)
+{
+    private bool _disposeFailureInjected;
+
+    public override RenderNodeOperation[] Process(RenderNodeContext context)
+        => throw resource.ProcessFailure;
+
+    protected override void OnDispose(bool disposing)
+    {
+        base.OnDispose(disposing);
+        if (!_disposeFailureInjected)
+        {
+            _disposeFailureInjected = true;
+            throw resource.DisposeFailure;
+        }
+    }
 }
 
 [SuppressResourceClassGeneration]

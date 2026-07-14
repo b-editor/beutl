@@ -337,17 +337,34 @@ public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource 
 {
     var r = (Resource)resource;
     int hDiv = r.HorizontalDivisions, vDiv = r.VerticalDivisions;
-    // Division counts are structural — animating them recompiles exactly once.
-    builder.Split(SplitNodeDescriptor.Static(
-        emitter => EmitTiles(emitter, hDiv, vDiv, r.HorizontalSpacing, r.VerticalSpacing),
-        branchCount: Math.Max(1, hDiv * vDiv),
-        structuralToken: nameof(SplitEffect)));
+    long branchCount = (long)hDiv * vDiv;
+    bool useStaticPlan = !builder.HasBranchedInput // engine-only condition in the built-in implementation
+        && hDiv > 0 && vDiv > 0
+        && builder.Bounds.Width / hDiv >= 1f
+        && builder.Bounds.Height / vDiv >= 1f
+        && branchCount <= 4096;
+    Action<ISplitEmitter> emit =
+        emitter => EmitTiles(emitter, hDiv, vDiv, r.HorizontalSpacing, r.VerticalSpacing);
+
+    // Only a safely declarable grid is structural. Sub-pixel grids, a split after fan-out, and grids above
+    // 4096 branches use dynamic outputs so resource-plan construction stays bounded.
+    builder.Split(useStaticPlan
+        ? SplitNodeDescriptor.Static(emit, (int)branchCount, nameof(SplitEffect))
+        : SplitNodeDescriptor.Dynamic(emit, nameof(SplitEffect)));
 }
 ```
 
+`EffectGraphBuilder.HasBranchedInput` is engine-internal; plugin authors should choose `Static` only when their
+branch count is small, exact, and independent of per-branch runtime bounds. Otherwise use `Dynamic`. A static
+descriptor's `branchCount` is structural and must match exactly; a dynamic descriptor keeps its runtime count out
+of the plan key.
+
 ### Dynamic SKSL pattern
 
-When the user can edit the script, compile it inside the `Resource` class (see `SKSLScriptEffect.cs` for the full pattern; a script that declares no `src` child runs as a generator geometry pass, and `CoordinateInvariant` opts a whole-source script into fusion):
+When the user can edit the script, compile it inside the `Resource` class (see `SKSLScriptEffect.cs` for the full
+pattern). A script that declares no `src` child runs as a generator geometry pass. `CoordinateInvariant` asserts
+identity bounds and single-pixel sampling for ROI/sizing, but a whole-source script still runs as its own pass;
+only `ShaderNodeDescriptor.Snippet(...)` participates in shader-source fusion:
 
 ```csharp
 public new partial class Resource
@@ -396,10 +413,12 @@ public IProperty<string> FragmentShader { get; } = Property.Create("""
     layout(set = 0, binding = 0) uniform sampler2D srcTexture;
 
     layout(push_constant) uniform PushConstants {
-        float progress;
-        float time;
-        float width;
-        float height;
+        float progress;   // 0.0 - 1.0
+        float duration;   // seconds
+        float time;       // seconds
+        float width;      // render target width (device px)
+        float height;     // render target height (device px)
+        float scale;      // working scale w; multiply absolute-px literals by this
     } pc;
 
     void main() {

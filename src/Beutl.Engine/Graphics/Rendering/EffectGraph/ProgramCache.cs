@@ -1,12 +1,14 @@
-﻿using SkiaSharp;
+﻿using Beutl.Graphics.Effects;
+using SkiaSharp;
 
 namespace Beutl.Graphics.Rendering;
 
 /// <summary>
-/// Caches compiled runtime shader programs by a source-identity signature (feature 004, T035, data-model §3). A
-/// fused pass looks up its program here instead of parsing SKSL every execution, so after the first frame that
-/// compiles a given program <see cref="PipelineDiagnostics.ProgramCreations"/> stays at zero (SC-002). The
-/// signature also memoizes the <see cref="SkslSnippetMerger"/> merge: identical snippet runs never re-generate
+/// Caches compiled runtime shader programs by a source-hash bucket plus exact ordered sources (feature 004, T035,
+/// data-model §3). A fused pass looks up its program here instead of parsing SKSL every execution, so after the
+/// first frame that compiles a given program <see cref="PipelineDiagnostics.ProgramCreations"/> stays at zero
+/// (SC-002). Exact source comparison makes the 64-bit hash an index only: a collision creates a distinct entry.
+/// The cache also memoizes the <see cref="SkslSnippetMerger"/> merge: identical snippet runs never re-generate
 /// their merged source.
 /// </summary>
 /// <remarks>
@@ -42,12 +44,14 @@ internal static class ProgramCache
     private const int Capacity = 256;
 
     private static readonly object s_gate = new();
-    private static readonly Dictionary<string, LinkedListNode<Entry>> s_map = new(StringComparer.Ordinal);
+    private static readonly Dictionary<string, List<LinkedListNode<Entry>>> s_map = new(StringComparer.Ordinal);
     private static readonly LinkedList<Entry> s_lru = new();
 
-    private sealed class Entry(string signature, SKRuntimeShaderBuilder builder)
+    private sealed class Entry(string signature, SkslSource[] sources, SKRuntimeShaderBuilder builder)
     {
         public string Signature { get; } = signature;
+
+        public SkslSource[] Sources { get; } = sources;
 
         public SKRuntimeShaderBuilder Builder { get; } = builder;
 
@@ -69,7 +73,7 @@ internal static class ProgramCache
                 lock (s_gate)
                 {
                     cached.Rented = false;
-                    if (s_map.Count > Capacity)
+                    if (s_lru.Count > Capacity)
                         EvictOldestUnrented();
                 }
             }
@@ -81,40 +85,82 @@ internal static class ProgramCache
     }
 
     /// <summary>
-    /// Leases the shader builder for <paramref name="signature"/>, building its effect via
+    /// Leases the shader builder in the hash bucket selected by <paramref name="signature"/>, matching the ordered
+    /// <paramref name="stages"/> by complete source text and kind, and building its effect via
     /// <paramref name="buildSource"/> on a miss. The source is generated (and SKSL parsed) only on a miss — or on
-    /// a reentrant request while the cached builder is rented, which returns a transient builder — incrementing
+    /// a reentrant request while the exact cached builder is rented, which returns a transient builder — incrementing
     /// <see cref="PipelineDiagnostics.ProgramCreations"/> either way. Callers set uniforms/children and call
     /// <c>Build()</c>, then dispose the lease (never the builder itself).
     /// </summary>
     public static Lease GetOrCreate(
-        string signature, Func<string> buildSource, PipelineDiagnostics? diagnostics)
+        string signature, IReadOnlyList<RuntimeShaderStage> stages,
+        Func<string> buildSource, PipelineDiagnostics? diagnostics)
     {
         lock (s_gate)
         {
-            if (s_map.TryGetValue(signature, out LinkedListNode<Entry>? node))
+            if (s_map.TryGetValue(signature, out List<LinkedListNode<Entry>>? bucket))
             {
-                if (!node.Value.Rented)
+                foreach (LinkedListNode<Entry> node in bucket)
                 {
-                    s_lru.Remove(node);
-                    s_lru.AddFirst(node);
-                    node.Value.Rented = true;
-                    return new Lease(node.Value, node.Value.Builder);
-                }
+                    if (!SourcesMatch(node.Value.Sources, stages))
+                        continue;
 
-                // Reentrant same-signature use while the cached builder is mid-bind: a transient builder keeps the
-                // outer pass's bindings intact; the lease disposes it.
-                return new Lease(null, CreateBuilder(signature, buildSource, diagnostics));
+                    if (!node.Value.Rented)
+                    {
+                        s_lru.Remove(node);
+                        s_lru.AddFirst(node);
+                        node.Value.Rented = true;
+                        return new Lease(node.Value, node.Value.Builder);
+                    }
+
+                    // Reentrant use of the same exact sources while the cached builder is mid-bind: a transient
+                    // builder keeps the outer pass's bindings intact; the lease disposes it.
+                    return new Lease(null, CreateBuilder(signature, buildSource, diagnostics));
+                }
             }
 
-            var entry = new Entry(signature, CreateBuilder(signature, buildSource, diagnostics)) { Rented = true };
+            var entry = new Entry(
+                signature, SnapshotSources(stages), CreateBuilder(signature, buildSource, diagnostics))
+            {
+                Rented = true,
+            };
             var inserted = s_lru.AddFirst(entry);
-            s_map[signature] = inserted;
-            if (s_map.Count > Capacity)
+            if (bucket == null)
+            {
+                bucket = [];
+                s_map.Add(signature, bucket);
+            }
+
+            bucket.Add(inserted);
+            if (s_lru.Count > Capacity)
                 EvictOldestUnrented();
 
             return new Lease(entry, entry.Builder);
         }
+    }
+
+    private static bool SourcesMatch(SkslSource[] cached, IReadOnlyList<RuntimeShaderStage> stages)
+    {
+        if (cached.Length != stages.Count)
+            return false;
+
+        for (int i = 0; i < cached.Length; i++)
+        {
+            SkslSource current = stages[i].Source;
+            if (cached[i].Kind != current.Kind
+                || !string.Equals(cached[i].Source, current.Source, StringComparison.Ordinal))
+                return false;
+        }
+
+        return true;
+    }
+
+    private static SkslSource[] SnapshotSources(IReadOnlyList<RuntimeShaderStage> stages)
+    {
+        var result = new SkslSource[stages.Count];
+        for (int i = 0; i < stages.Count; i++)
+            result[i] = stages[i].Source;
+        return result;
     }
 
     private static SKRuntimeShaderBuilder CreateBuilder(
@@ -144,7 +190,10 @@ internal static class ProgramCache
                 continue;
 
             s_lru.Remove(node);
-            s_map.Remove(node.Value.Signature);
+            List<LinkedListNode<Entry>> bucket = s_map[node.Value.Signature];
+            bucket.Remove(node);
+            if (bucket.Count == 0)
+                s_map.Remove(node.Value.Signature);
             node.Value.Builder.Dispose();
             return;
         }
@@ -155,8 +204,8 @@ internal static class ProgramCache
     {
         lock (s_gate)
         {
-            foreach (LinkedListNode<Entry> node in s_map.Values)
-                node.Value.Builder.Dispose();
+            foreach (Entry entry in s_lru)
+                entry.Builder.Dispose();
             s_map.Clear();
             s_lru.Clear();
         }
@@ -167,7 +216,7 @@ internal static class ProgramCache
         get
         {
             lock (s_gate)
-                return s_map.Count;
+                return s_lru.Count;
         }
     }
 }

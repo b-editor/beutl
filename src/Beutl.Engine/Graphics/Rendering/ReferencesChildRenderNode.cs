@@ -29,6 +29,7 @@ public class ReferencesChildRenderNode(RenderNode? child) : RenderNode
                 context.Diagnostics, context.Pool)
             {
                 RequestedBounds = context.RequestedBounds,
+                IsAuxiliaryPull = context.IsAuxiliaryPull,
             };
             return processor.PullToRoot();
         }

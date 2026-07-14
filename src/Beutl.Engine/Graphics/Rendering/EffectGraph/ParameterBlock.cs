@@ -107,7 +107,8 @@ internal sealed record ParameterBlock(ImmutableArray<CompiledPass> Passes)
 
             if (a[i] is RuntimeShaderStage ra && b[i] is RuntimeShaderStage rb)
             {
-                if (!string.Equals(ra.Source.IdentityHash, rb.Source.IdentityHash, StringComparison.Ordinal)
+                if (ra.Source.Kind != rb.Source.Kind
+                    || !string.Equals(ra.Source.Source, rb.Source.Source, StringComparison.Ordinal)
                     || ra.Children.Length != rb.Children.Length
                     || ra.SrcTileMode != rb.SrcTileMode)
                     return false;

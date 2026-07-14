@@ -50,7 +50,7 @@ A shader node's extra child shaders (a LUT/curve **sampler**, a whole-source sha
 
 ## A4. Structure vs parameters
 
-- Descriptor fields marked **structural** (shader source identity, pass counts, branch counts, invariance flags, bounds-contract identity) MUST only change when the effect meaningfully restructures; the engine recompiles on any structural change (exactly once, FR-010).
+- Descriptor fields marked **structural** (exact shader source identity, pass counts, static branch counts, invariance flags, bounds-contract identity) MUST only change when the effect meaningfully restructures; the engine recompiles on any structural change (exactly once, FR-010). A `Dynamic` split explicitly keeps its execution-time branch count out of the key.
 - A custom `StructuralToken` is compared by exact runtime type plus `Equals`/`GetHashCode`, never by `ToString()`. Tokens that compare equal share a plan shape. Token values therefore MUST be immutable, and their equality/hash code MUST remain stable for as long as they can occupy the plan cache.
 - Everything else (uniform values, colors, matrices, LUT texture *contents*) is a **parameter**: changing it MUST NOT change the compiled plan. Authors MUST NOT encode parameters into shader source strings (that would defeat the program cache and force recompiles).
 - Bounds MAY depend on parameters (an animated blur radius inflating `TransformBounds` is normal): bounds, ROIs, and buffer sizes are re-resolved every frame and are **not** structural — only the graph's *shape* is. A parameter that changes the *number or kind* of nodes/passes/branches is structural and must be declared as such.

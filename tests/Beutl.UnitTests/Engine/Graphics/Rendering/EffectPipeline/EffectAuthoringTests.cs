@@ -9,9 +9,10 @@ using SkiaSharp;
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.EffectPipeline;
 
 /// <summary>
-/// The plugin-authoring gate (feature 004, T049, research D7). Every one of the seven descriptor kinds that
-/// realize the spec's five primitives is authored here against the <b>public</b> builder/descriptor surface only —
-/// the same API an out-of-tree plugin has — and compiled to its expected pass. It also proves SC-006 (a
+/// Engine-internal execution-shape tests for the plugin-authoring surface (feature 004, T049, research D7). Every
+/// one of the seven descriptor kinds that realize the spec's five primitives is compiled to its expected pass.
+/// The separate non-friend Beutl.PublicApiContractTests project is the compile gate for public accessibility.
+/// This fixture also proves SC-006 (a
 /// plugin-authored coordinate-invariant snippet fuses between two built-in color effects into one draw) and the A3
 /// obligation that a convolution-style node's declared <c>GetRequiredInputBounds</c> covers the region it samples:
 /// the compiler-level cases run without a GPU; the crop-vs-full ROI render is Vulkan-gated.

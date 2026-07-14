@@ -65,4 +65,35 @@ public class MapOperationThrowLeakTests
                 "the detached branch op's pooled lease must be released when the forward bounds lambda throws");
         });
     }
+
+    [Test]
+    public void ForwardBoundsFailure_IsNotReplacedByDetachedOperationCleanupFailure()
+    {
+        var primary = new InvalidOperationException("simulated plugin forward-bounds failure");
+        var cleanup = new InvalidOperationException("simulated operation cleanup failure");
+        bool armed = false;
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        builder.SkiaFilter(SkiaFilterNodeDescriptor.Create(
+            static inner => inner,
+            BoundsContract.Create(
+                rect => armed ? throw primary : rect,
+                static rect => rect),
+            structuralToken: "throwing-forward-and-cleanup"));
+
+        using EffectGraph graph = builder.Build();
+        CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
+        FrameResources frame = EffectGraphCompiler.ResolveResources(plan, s_bounds, workingScale: 1f);
+        armed = true;
+        RenderNodeOperation input = RenderNodeOperation.CreateLambda(
+            new Rect(64, 0, 32, 32),
+            static _ => { },
+            onDispose: () => throw cleanup);
+
+        InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
+            plan, frame, [input], outputScale: 1f, workingScale: 1f,
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null));
+
+        Assert.That(actual, Is.SameAs(primary),
+            "cleanup of the detached operation must not replace the plugin's primary bounds failure");
+    }
 }

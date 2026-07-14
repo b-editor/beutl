@@ -16,9 +16,9 @@ public enum SkslSourceKind
 
 /// <summary>
 /// An identity-hashable SKSL source string (feature 004, data-model §1). The <see cref="IdentityHash"/> is a
-/// stable content hash used as the structural-key contribution and (in a later step) as the program-cache key,
-/// so two effects sharing a source string share a compiled program. The source is treated as <em>structure</em>:
-/// authors must never bake parameter values into it (A4) or the program cache and structural key are defeated.
+/// stable content hash used to select a program-cache bucket; cache and structural equality also compare the full
+/// source text and <see cref="Kind"/>, so a 64-bit collision cannot alias programs. The source is treated as
+/// <em>structure</em>: authors must never bake parameter values into it (A4) or the caches are defeated.
 /// </summary>
 public sealed partial record SkslSource
 {
@@ -42,7 +42,10 @@ public sealed partial record SkslSource
     /// <summary>Whether this is a fusable snippet or a standalone whole-source shader.</summary>
     public SkslSourceKind Kind { get; }
 
-    /// <summary>A stable 64-bit content hash (hex) of <see cref="Source"/>. Equal sources hash equal on every run and machine.</summary>
+    /// <summary>
+    /// A stable 64-bit content hash (hex) of <see cref="Source"/>. Equal sources hash equal on every run and machine;
+    /// consumers must still compare <see cref="Source"/> and <see cref="Kind"/> before treating a match as identity.
+    /// </summary>
     public string IdentityHash { get; }
 
     /// <summary>

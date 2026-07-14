@@ -358,43 +358,43 @@ internal static class PlanExecutor
             };
             RenderNodeOperation[] outputs = node.Process(childContext)
                 ?? throw new InvalidOperationException("A custom render node returned a null operation array.");
-            if (outputs.Length == 0)
-                return;
-
-            if (Array.Exists(outputs, static output => output is null))
+            if (outputs.Length > 0 && Array.Exists(outputs, static output => output is null))
             {
                 RenderNodeOperation.DisposeAll(outputs);
                 throw new InvalidOperationException("A custom render node returned a null operation.");
             }
 
-            var lifetime = new CustomNodeLifetime(node, outputs.Length);
-            var wrapped = new RenderNodeOperation[outputs.Length];
-            int wrappedCount = 0;
-            try
+            if (outputs.Length > 0)
             {
-                for (; wrappedCount < outputs.Length; wrappedCount++)
+                var lifetime = new CustomNodeLifetime(node, outputs.Length);
+                var wrapped = new RenderNodeOperation[outputs.Length];
+                int wrappedCount = 0;
+                try
                 {
-                    RenderNodeOperation output = outputs[wrappedCount];
-                    wrapped[wrappedCount] = RenderNodeOperation.CreateDecorator(
-                        output, output.Render, output.HitTest, lifetime.CreateReleaseOnce());
+                    for (; wrappedCount < outputs.Length; wrappedCount++)
+                    {
+                        RenderNodeOperation output = outputs[wrappedCount];
+                        wrapped[wrappedCount] = RenderNodeOperation.CreateDecorator(
+                            output, output.Render, output.HitTest, lifetime.CreateReleaseOnce());
+                    }
                 }
-            }
-            catch
-            {
-                RenderNodeOperation.DisposeAll(wrapped.AsSpan(0, wrappedCount));
-                RenderNodeOperation.DisposeAll(outputs.AsSpan(wrappedCount));
-                throw;
-            }
+                catch
+                {
+                    RenderNodeOperation.DisposeAll(wrapped.AsSpan(0, wrappedCount));
+                    RenderNodeOperation.DisposeAll(outputs.AsSpan(wrappedCount));
+                    throw;
+                }
 
-            try
-            {
-                current.AddRange(wrapped);
-                nodeOwnedByOutputs = true;
-            }
-            catch
-            {
-                RenderNodeOperation.DisposeAll(wrapped);
-                throw;
+                try
+                {
+                    current.AddRange(wrapped);
+                    nodeOwnedByOutputs = true;
+                }
+                catch
+                {
+                    RenderNodeOperation.DisposeAll(wrapped);
+                    throw;
+                }
             }
         }
         catch
@@ -402,13 +402,15 @@ internal static class PlanExecutor
             // A throw mid-Process leaves ownership ambiguous; dispose the inputs best-effort (idempotent, so a
             // partially-consumed set is safe) so nothing the child had not yet adopted is stranded (C7).
             RenderNodeOperation.DisposeAll(inputs);
+            Exception? cleanupFailure = null;
+            if (!nodeOwnedByOutputs)
+                CaptureDisposeFailure(node, ref cleanupFailure);
+            LogCleanupFailure(cleanupFailure, "custom render-node failure cleanup");
             throw;
         }
-        finally
-        {
-            if (!nodeOwnedByOutputs)
-                node.Dispose();
-        }
+
+        if (!nodeOwnedByOutputs)
+            node.Dispose();
     }
 
     private sealed class CustomNodeLifetime(FilterEffectRenderNode node, int references)
@@ -466,7 +468,9 @@ internal static class PlanExecutor
                     // Execute's current sweep) can't reach it; a throw BEFORE MapOneOperation takes ownership — a
                     // plugin bounds lambda inside ForwardBounds — would strand its pooled lease. Dispose is
                     // idempotent, so the C7 paths that already disposed op before rethrowing are unaffected.
-                    op.Dispose();
+                    Exception? cleanupFailure = null;
+                    CaptureDisposeFailure(op, ref cleanupFailure);
+                    LogCleanupFailure(cleanupFailure, "descriptor map failure cleanup");
                     throw;
                 }
 
@@ -765,10 +769,15 @@ internal static class PlanExecutor
     // (returns null) and logs. Either way the consumed input is released.
     private static RenderNodeOperation? DropOrThrow(RenderNodeOperation op, float maxWorkingScale, string message)
     {
-        op.Dispose();
         if (float.IsPositiveInfinity(maxWorkingScale))
+        {
+            Exception? cleanupFailure = null;
+            CaptureDisposeFailure(op, ref cleanupFailure);
+            LogCleanupFailure(cleanupFailure, "delivery allocation-failure cleanup");
             throw new InvalidOperationException(message);
+        }
 
+        op.Dispose();
         s_logger.LogWarning("{Message} Preview drops this pass output.", message);
         return null;
     }
@@ -945,6 +954,7 @@ internal static class PlanExecutor
         string signature = ProgramSignature(run, wholeSource);
         using ProgramCache.Lease lease = ProgramCache.GetOrCreate(
             signature,
+            run,
             () => wholeSource ? run[0].Source.Source : SkslSnippetMerger.Merge(run.Select(s => s.Source).ToList()),
             diagnostics);
         SKRuntimeShaderBuilder builder = lease.Builder;
@@ -976,8 +986,8 @@ internal static class PlanExecutor
         return Track(builder.Build(), disposables);
     }
 
-    // The program-cache key: the ordered source identities of a runtime run. A whole-source stage keys on its one
-    // source; a merged snippet run keys on the sequence of snippet hashes, which fully determines the merged text.
+    // The program-cache bucket key: the ordered source hashes of a runtime run. ProgramCache performs the final
+    // identity check against every source's complete text and kind, so a 64-bit collision cannot alias programs.
     private static string ProgramSignature(List<RuntimeShaderStage> run, bool wholeSource)
     {
         if (wholeSource)

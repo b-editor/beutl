@@ -39,7 +39,9 @@ internal readonly struct StructuralKey : IEquatable<StructuralKey>
         switch (descriptor)
         {
             case ShaderNodeDescriptor shader:
-                parts.Add(KeyPart.Create(KeyPartKind.SourceIdentity, shader.Source.IdentityHash));
+                // The stable 64-bit hash is only an index hint. Structural equality must compare the complete
+                // public source text so a hash collision can never alias two shader programs.
+                parts.Add(KeyPart.Create(KeyPartKind.SourceIdentity, shader.Source.Source));
                 parts.Add(KeyPart.Create(KeyPartKind.SourceKind, shader.Source.Kind));
                 parts.Add(KeyPart.Create(KeyPartKind.SrcTileMode, shader.SrcTileMode));
                 parts.Add(KeyPart.Create(KeyPartKind.ChildCount, shader.Children.Length));
