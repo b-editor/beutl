@@ -388,10 +388,11 @@ internal sealed class EffectPrefixCache : IDisposable
 
     private void DisposeRetainedTarget()
     {
-        _retainedTarget?.Dispose();
+        RenderTarget? target = _retainedTarget;
         _retainedTarget = null;
         _resumeFromPass = -1;
         _entryMaxChild = -1;
+        target?.Dispose();
     }
 }
 

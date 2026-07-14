@@ -417,6 +417,48 @@ public class PrefixCacheTests
         });
     }
 
+    [Test]
+    public void RendererRetainedBudget_DisposeFailureDetachesEvictedPrefix()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            ProgramCache.Clear();
+            var (root, gamma, _) = MakeBlurGamma();
+            using var resource = (FilterEffect.Resource)root.ToResource(CompositionContext.Default);
+            using var node = new PlanFilterEffectRenderNode(resource);
+            var diagnostics = new PipelineDiagnostics();
+            using var pool = new RenderTargetPool();
+
+            for (int frame = 0; frame <= 4; frame++)
+                Step(node, resource, root, gamma, diagnostics, pool, frame, 1f);
+
+            Assert.That(pool.RetainedPrefixCount, Is.EqualTo(1));
+
+            var injected = new InvalidOperationException("retained prefix dispose failed");
+            int disposeCount = 0;
+            pool.SetDisposeBackingForTest(pooled =>
+            {
+                pooled.DisposeBacking();
+                if (disposeCount++ == 0)
+                    throw injected;
+            });
+
+            Assert.That(Assert.Throws<InvalidOperationException>(pool.Dispose), Is.SameAs(injected));
+            Assert.Multiple(() =>
+            {
+                Assert.That(pool.RetainedPrefixCount, Is.Zero);
+                Assert.That(pool.RetainedPrefixBytes, Is.Zero);
+                Assert.That(pool.LiveLeaseCount, Is.Zero);
+            });
+
+            using var replacementPool = new RenderTargetPool();
+            Assert.DoesNotThrow(() =>
+                Step(node, resource, root, gamma, diagnostics, replacementPool, frame: 5, outputScale: 1f),
+                "a cache evicted by a failed target disposal must re-capture instead of resuming the disposed target");
+        });
+    }
+
     // A capture frame whose LATER pass throws (a real Skia/shader fault, not the preview allocation-drop path) must
     // still release the ref the capture pass shallow-copied into the sink. Group [static Blur (child 0), a throwing
     // color filter (child 1, kept perpetually unstable)]: frames 0..2 warm the Blur's stability, frame 3 captures the
