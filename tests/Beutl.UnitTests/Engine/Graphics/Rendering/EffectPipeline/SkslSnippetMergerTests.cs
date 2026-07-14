@@ -182,6 +182,27 @@ public class SkslSnippetMergerTests
         });
     }
 
+    [Test]
+    public void Merge_ArrayTypeUniforms_PrefixesTheDeclarator()
+    {
+        const string source =
+            "uniform float[3] weights;\n"
+            + "half4 apply(half4 c) { return half4(c.rgb * weights[0], c.a); }";
+
+        string merged = SkslSnippetMerger.Merge([SkslSource.Snippet(source), SkslSource.Snippet(source)]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(merged, Does.Contain("uniform float[3] fe0_weights;")
+                .And.Contain("uniform float[3] fe1_weights;"));
+            Assert.That(merged, Does.Contain("fe0_weights[0]").And.Contain("fe1_weights[0]"));
+
+            using SKRuntimeEffect? effect = SKRuntimeEffect.CreateShader(merged, out string? error);
+            Assert.That(error, Is.Null, $"the merged array-uniform program compiles ({error})");
+            Assert.That(effect, Is.Not.Null);
+        });
+    }
+
     [TestCase("lowp")]
     [TestCase("mediump")]
     [TestCase("highp")]

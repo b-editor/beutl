@@ -2,6 +2,7 @@
 using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Media;
+using Beutl.Media.Pixel;
 using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
@@ -235,9 +236,10 @@ public sealed partial class Clipping : FilterEffect
         bool any = false;
         for (int y = 0; y < bitmap.Height; y++)
         {
+            ReadOnlySpan<RgbaF16> row = bitmap.GetRow<RgbaF16>(y);
             for (int x = 0; x < bitmap.Width; x++)
             {
-                if (bitmap.SKBitmap.GetPixel(x, y).Alpha != 0)
+                if (row[x].A != (Half)0)
                 {
                     any = true;
                     if (x0 > x) x0 = x;

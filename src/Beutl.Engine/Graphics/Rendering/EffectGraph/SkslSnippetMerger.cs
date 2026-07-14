@@ -145,7 +145,7 @@ internal static class SkslSnippetMerger
                 if (type < tokens.Count && tokens[type].Text is "lowp" or "mediump" or "highp")
                     type++;
 
-                int name = type + 1;
+                int name = SkipArrayDimensions(tokens, type + 1);
                 if (name < tokens.Count && tokens[type].IsIdent && tokens[name].IsIdent)
                     names.Add(tokens[name].Text);
                 t = name;
@@ -178,6 +178,25 @@ internal static class SkslSnippetMerger
         }
 
         return names;
+    }
+
+    private static int SkipArrayDimensions(IReadOnlyList<Token> tokens, int index)
+    {
+        while (index < tokens.Count && tokens[index].Text == "[")
+        {
+            int depth = 1;
+            index++;
+            while (index < tokens.Count && depth > 0)
+            {
+                if (tokens[index].Text == "[")
+                    depth++;
+                else if (tokens[index].Text == "]")
+                    depth--;
+                index++;
+            }
+        }
+
+        return index;
     }
 
     private static List<Token> Tokenize(string source)

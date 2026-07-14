@@ -48,11 +48,12 @@ internal sealed class NestedGraphNodePlanCache
         return branch;
     }
 
-    public void PruneBranches(int branchCount)
+    public void PruneBranches(IReadOnlySet<int> liveBranchIndices)
     {
+        ArgumentNullException.ThrowIfNull(liveBranchIndices);
         foreach (int branchIndex in _branches.Keys.ToArray())
         {
-            if (branchIndex < 0 || branchIndex >= branchCount)
+            if (!liveBranchIndices.Contains(branchIndex))
                 _branches.Remove(branchIndex);
         }
     }

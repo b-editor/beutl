@@ -120,6 +120,25 @@ public class DescribeThrowBuilderLeakTests
         });
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Effect_RejectsPlanChildAfterBuilderCloses(bool abort)
+    {
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        EffectGraph? graph = null;
+        if (abort)
+            builder.Abort();
+        else
+            graph = builder.Build();
+
+        using (graph)
+        using (FilterEffect.Resource child = new FallbackFilterEffect().ToResource(CompositionContext.Default))
+        {
+            Assert.That(() => builder.Effect(child), Throws.InvalidOperationException,
+                "an empty plan child must not bypass the builder's Built/Aborted invariant");
+        }
+    }
+
     [Test]
     public void PlanSetupThrows_DisposesInputOperationsBeforeExecutorOwnership()
     {

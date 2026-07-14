@@ -96,6 +96,21 @@ public class CSharpScriptEffectMigrationTests
     }
 
     [Test]
+    public void MemberNamedLikeRemovedGlobal_DoesNotAddMigrationDiagnostic()
+    {
+        const string script = "var holder = new { Context = 1, Session = 2 }; _ = holder.Context + holder.Session; MissingSymbol();";
+
+        ScriptCompilationResult result = new CSharpScriptEffect().ValidateScript(script);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Error, Does.Contain("MissingSymbol"), "sanity: the unrelated compile error is reported");
+            Assert.That(result.Error, Does.Not.Contain("no longer exposes FilterEffectContext"));
+            Assert.That(result.Error, Does.Not.Contain("'Session' (GeometrySession) global"));
+        });
+    }
+
+    [Test]
     public void ScriptGlobals_DoNotRetainObsoleteCompatibilityMembers()
     {
         Assert.Multiple(() =>

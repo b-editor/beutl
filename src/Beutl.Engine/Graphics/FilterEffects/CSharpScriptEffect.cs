@@ -85,17 +85,35 @@ public sealed partial class CSharpScriptEffect : FilterEffect, IScriptCompilable
     private static string FormatCompilationErrors(Script<object> script, IReadOnlyList<Diagnostic> errors)
     {
         var messages = new List<string>();
-        HashSet<string> identifiers = script.GetCompilation().SyntaxTrees
-            .SelectMany(static tree => tree.GetRoot().DescendantNodes().OfType<IdentifierNameSyntax>())
-            .Select(static identifier => identifier.Identifier.ValueText)
+        Compilation compilation = script.GetCompilation();
+        HashSet<string> unresolvedIdentifiers = compilation.SyntaxTrees
+            .SelectMany(tree =>
+            {
+                SemanticModel model = compilation.GetSemanticModel(tree);
+                return tree.GetRoot().DescendantNodes()
+                    .OfType<IdentifierNameSyntax>()
+                    .Where(IsUnqualifiedIdentifier)
+                    .Where(identifier => model.GetSymbolInfo(identifier).Symbol == null)
+                    .Select(identifier => identifier.Identifier.ValueText);
+            })
             .ToHashSet(StringComparer.Ordinal);
 
-        if (identifiers.Contains("Context"))
+        if (unresolvedIdentifiers.Contains("Context"))
             messages.Add(ContextMigrationDiagnostic);
-        if (identifiers.Contains("Session"))
+        if (unresolvedIdentifiers.Contains("Session"))
             messages.Add(SessionMigrationDiagnostic);
         messages.AddRange(errors.Select(static error => error.GetMessage()));
         return string.Join(Environment.NewLine, messages);
+    }
+
+    private static bool IsUnqualifiedIdentifier(IdentifierNameSyntax identifier)
+    {
+        return identifier.Parent switch
+        {
+            MemberAccessExpressionSyntax access when access.Name == identifier => false,
+            MemberBindingExpressionSyntax binding when binding.Name == identifier => false,
+            _ => true,
+        };
     }
 
     private static ScriptOptions CreateScriptOptions()

@@ -146,6 +146,7 @@ public sealed class EffectGraphBuilder
     public EffectGraphBuilder Effect(FilterEffect.Resource child)
     {
         ArgumentNullException.ThrowIfNull(child);
+        ThrowIfNotOpen();
         FilterEffectRenderNodeFactory factory = child.RenderNodeFactory
             ?? throw new InvalidOperationException("A filter effect returned a null render-node factory.");
         if (factory.NodeType == typeof(PlanFilterEffectRenderNode))

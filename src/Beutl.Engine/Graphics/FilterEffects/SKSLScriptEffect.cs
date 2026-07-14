@@ -135,22 +135,22 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
             session =>
             {
                 ImmediateCanvas canvas = session.OpenCanvas();
-                SKRuntimeShaderBuilder shaderBuilder = shader.CreateBuilder();
                 SKRuntimeEffect effect = shader.Effect;
+                using var uniforms = new SKRuntimeEffectUniforms(effect);
 
                 // Resolution uniforms report device px at the output buffer's real (possibly clamped) density.
                 float w = canvas.Density;
                 (int devW, int devH) = RenderNodeContext.DeviceBufferSize(session.Bounds, w);
-                if (effect.Uniforms.Contains("progress")) shaderBuilder.Uniforms["progress"] = progress;
-                if (effect.Uniforms.Contains("duration")) shaderBuilder.Uniforms["duration"] = duration;
-                if (effect.Uniforms.Contains("time")) shaderBuilder.Uniforms["time"] = time;
-                if (effect.Uniforms.Contains("width")) shaderBuilder.Uniforms["width"] = (float)devW;
-                if (effect.Uniforms.Contains("height")) shaderBuilder.Uniforms["height"] = (float)devH;
-                if (effect.Uniforms.Contains("iResolution")) shaderBuilder.Uniforms["iResolution"] = new SKPoint(devW, devH);
-                if (effect.Uniforms.Contains("iScale")) shaderBuilder.Uniforms["iScale"] = w;
-                if (effect.Uniforms.Contains("iTime")) shaderBuilder.Uniforms["iTime"] = time;
+                if (effect.Uniforms.Contains("progress")) uniforms["progress"] = progress;
+                if (effect.Uniforms.Contains("duration")) uniforms["duration"] = duration;
+                if (effect.Uniforms.Contains("time")) uniforms["time"] = time;
+                if (effect.Uniforms.Contains("width")) uniforms["width"] = (float)devW;
+                if (effect.Uniforms.Contains("height")) uniforms["height"] = (float)devH;
+                if (effect.Uniforms.Contains("iResolution")) uniforms["iResolution"] = new SKPoint(devW, devH);
+                if (effect.Uniforms.Contains("iScale")) uniforms["iScale"] = w;
+                if (effect.Uniforms.Contains("iTime")) uniforms["iTime"] = time;
 
-                using SKShader built = shaderBuilder.Build();
+                using SKShader built = effect.ToShader(uniforms);
                 using var paint = new SKPaint { Shader = built };
                 using (canvas.PushDeviceSpace())
                 {
