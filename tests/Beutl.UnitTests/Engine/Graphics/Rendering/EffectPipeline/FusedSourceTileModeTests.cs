@@ -178,14 +178,20 @@ public class FusedSourceTileModeTests
         RenderNodeOperation[] outputs = PlanExecutor.Execute(
             plan, frame, [input], outputScale: 1f, workingScale: 1f,
             maxWorkingScale: 2f, diagnostics: null, pool: pool);
-
-        Assert.Multiple(() =>
+        try
         {
-            Assert.That(outputs, Is.Empty,
-                "preview must keep the source-halo allocation-failure drop contract when output cleanup faults");
-            Assert.That(inputDisposed, Is.True, "the source operation must still be consumed");
-            Assert.That(pool.LiveLeaseCount, Is.Zero, "the descriptor output must not remain leased");
-        });
+            Assert.Multiple(() =>
+            {
+                Assert.That(outputs, Is.Empty,
+                    "preview must keep the source-halo allocation-failure drop contract when output cleanup faults");
+                Assert.That(inputDisposed, Is.True, "the source operation must still be consumed");
+                Assert.That(pool.LiveLeaseCount, Is.Zero, "the descriptor output must not remain leased");
+            });
+        }
+        finally
+        {
+            RenderNodeOperation.DisposeAll(outputs);
+        }
     }
 
     private static RenderNodeOperation[] Execute(SKShaderTileMode tileMode)

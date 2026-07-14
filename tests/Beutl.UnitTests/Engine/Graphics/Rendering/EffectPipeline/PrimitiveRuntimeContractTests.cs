@@ -82,14 +82,21 @@ public class PrimitiveRuntimeContractTests
             {
                 RenderNodeOperation[] outputs = PlanExecutor.Execute(
                     plan, resources, [input], 1f, 1f, maxWorkingScale: 2f, diagnostics: null, pool);
-                Assert.Multiple(() =>
+                try
                 {
-                    Assert.That(outputs, Is.Empty,
-                        "preview must keep the allocation-failure drop contract when cleanup also faults");
-                    Assert.That(inputDisposed, Is.True,
-                        "the detached source operation must still be consumed after materialized-input cleanup faults");
-                    Assert.That(pool.LiveLeaseCount, Is.Zero);
-                });
+                    Assert.Multiple(() =>
+                    {
+                        Assert.That(outputs, Is.Empty,
+                            "preview must keep the allocation-failure drop contract when cleanup also faults");
+                        Assert.That(inputDisposed, Is.True,
+                            "the detached source operation must still be consumed after materialized-input cleanup faults");
+                        Assert.That(pool.LiveLeaseCount, Is.Zero);
+                    });
+                }
+                finally
+                {
+                    RenderNodeOperation.DisposeAll(outputs);
+                }
             }
             finally
             {
@@ -121,14 +128,21 @@ public class PrimitiveRuntimeContractTests
         {
             RenderNodeOperation[] outputs = PlanExecutor.Execute(
                 plan, resources, [input], 1f, 1f, maxWorkingScale: 2f, diagnostics: null, pool);
-            Assert.Multiple(() =>
+            try
             {
-                Assert.That(outputs, Is.Empty,
-                    "preview must keep the allocation-failure drop contract when cleanup also faults");
-                Assert.That(inputDisposed, Is.True,
-                    "the detached source operation must still be consumed after materialized-input cleanup faults");
-                Assert.That(pool.LiveLeaseCount, Is.Zero);
-            });
+                Assert.Multiple(() =>
+                {
+                    Assert.That(outputs, Is.Empty,
+                        "preview must keep the allocation-failure drop contract when cleanup also faults");
+                    Assert.That(inputDisposed, Is.True,
+                        "the detached source operation must still be consumed after materialized-input cleanup faults");
+                    Assert.That(pool.LiveLeaseCount, Is.Zero);
+                });
+            }
+            finally
+            {
+                RenderNodeOperation.DisposeAll(outputs);
+            }
         }
         finally
         {
@@ -162,14 +176,21 @@ public class PrimitiveRuntimeContractTests
         {
             RenderNodeOperation[] outputs = PlanExecutor.Execute(
                 plan, resources, [input], 1f, 1f, maxWorkingScale: 2f, diagnostics: null, pool);
-            Assert.Multiple(() =>
+            try
             {
-                Assert.That(outputs, Is.Empty,
-                    "preview must keep the CPU-fallback allocation-failure drop contract when cleanup also faults");
-                Assert.That(inputDisposed, Is.True,
-                    "the detached source operation must still be consumed after materialized-input cleanup faults");
-                Assert.That(pool.LiveLeaseCount, Is.Zero);
-            });
+                Assert.Multiple(() =>
+                {
+                    Assert.That(outputs, Is.Empty,
+                        "preview must keep the CPU-fallback allocation-failure drop contract when cleanup also faults");
+                    Assert.That(inputDisposed, Is.True,
+                        "the detached source operation must still be consumed after materialized-input cleanup faults");
+                    Assert.That(pool.LiveLeaseCount, Is.Zero);
+                });
+            }
+            finally
+            {
+                RenderNodeOperation.DisposeAll(outputs);
+            }
         }
         finally
         {
@@ -271,6 +292,63 @@ public class PrimitiveRuntimeContractTests
             {
                 PlanExecutor.ResetComputeCopyFailureForTests();
             }
+        });
+    }
+
+    [Test]
+    public void ComputeTerminalCopy_SamplingPreparationFailurePropagatesAndReleasesResources()
+    {
+        var graphics = VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.RequireComputeCapable(graphics, "compute terminal-copy preparation contract");
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            ComputeNodeDescriptor descriptor = ComputeNodeDescriptor.Create(
+                static ctx => ctx.CopySourceToDestination(),
+                passCount: 1,
+                ComputeFallback.Identity,
+                structuralToken: "terminal-copy-prepare-failure");
+            (CompiledPlan plan, FrameResources resources) = Compile(
+                new EffectGraphBuilder(s_bounds, 1f, 1f).Compute(descriptor));
+            using var pool = new RenderTargetPool();
+            var injected = new InvalidOperationException("copy destination preparation failed");
+
+            PlanExecutor.ForceComputeCopyPrepareFailureForTests(injected);
+            try
+            {
+                InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
+                    plan, resources, [Input()], 1f, 1f, float.PositiveInfinity, diagnostics: null, pool));
+                Assert.Multiple(() =>
+                {
+                    Assert.That(actual, Is.SameAs(injected));
+                    Assert.That(pool.LiveLeaseCount, Is.Zero);
+                });
+            }
+            finally
+            {
+                PlanExecutor.ResetComputeCopyPrepareFailureForTests();
+            }
+        });
+    }
+
+    [Test]
+    public void DisposeDisposablesCapturingFailure_SweepsAllAndReturnsFirstFailure()
+    {
+        var firstFailure = new InvalidOperationException("first cleanup failure");
+        var disposalOrder = new List<int>();
+        IDisposable[] disposables =
+        [
+            new TrackingDisposable(0, disposalOrder),
+            new TrackingDisposable(1, disposalOrder, firstFailure),
+            new TrackingDisposable(2, disposalOrder),
+        ];
+
+        Exception? actual = PlanExecutor.DisposeDisposablesCapturingFailure(disposables);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(actual, Is.SameAs(firstFailure));
+            Assert.That(disposalOrder, Is.EqualTo(new[] { 2, 1, 0 }),
+                "a teardown fault must not abort the reverse-order fused-stage cleanup sweep");
         });
     }
 
@@ -810,4 +888,15 @@ public class PrimitiveRuntimeContractTests
             s_bounds,
             canvas => canvas.DrawRectangle(s_bounds, Brushes.Resource.White, null),
             hitTest: s_bounds.Contains);
+
+    private sealed class TrackingDisposable(
+        int id, List<int> disposalOrder, Exception? failure = null) : IDisposable
+    {
+        public void Dispose()
+        {
+            disposalOrder.Add(id);
+            if (failure != null)
+                throw failure;
+        }
+    }
 }

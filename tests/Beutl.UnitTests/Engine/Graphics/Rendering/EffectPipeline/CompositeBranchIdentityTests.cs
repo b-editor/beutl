@@ -97,6 +97,32 @@ public class CompositeBranchIdentityTests
     }
 
     [Test]
+    public void NestedGraph_AfterNestedStaticSplit_PreservesSparseParentBranchIndices()
+    {
+        var seen = new List<int>();
+        var builder = CreateSplitBuilder(discardInsideSplit: true);
+        builder.Split(SplitNodeDescriptor.Static(
+            emitter =>
+            {
+                for (int i = 0; i < 2; i++)
+                {
+                    emitter.Emit(emitter.Input.Bounds, session => DrawInput(session));
+                }
+            },
+            branchCount: 2,
+            structuralToken: "nested-static-split"));
+        builder.NestedGraph(NestedGraphNodeDescriptor.Create(
+            (_, branchIndex) => seen.Add(branchIndex),
+            structuralToken: "nested-static-split-indices"));
+
+        RenderNodeOperation[] outputs = Execute(builder);
+        RenderNodeOperation.DisposeAll(outputs);
+
+        Assert.That(seen, Is.EqualTo(new[] { 0, 1, 4, 5 }),
+            "each child ordinal must be based on its sparse parent ordinal, not the compressed live-input index");
+    }
+
+    [Test]
     public void FoldedColorFilterFallback_AfterGeometryDropsMiddleBranch_KeepsOriginalOffset()
     {
         var builder = CreateSplitBuilder(discardInsideSplit: false, thirdBranchWidth: 100);

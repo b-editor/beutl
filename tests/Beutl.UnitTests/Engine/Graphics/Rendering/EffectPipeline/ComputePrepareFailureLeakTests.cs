@@ -37,10 +37,12 @@ public class ComputePrepareFailureLeakTests
             FrameResources frame = EffectGraphCompiler.ResolveResources(plan, bounds, workingScale: 1f);
 
             using var pool = new RenderTargetPool();
+            var cleanupFailure = new InvalidOperationException("simulated source-operation cleanup failure");
             RenderNodeOperation input = RenderNodeOperation.CreateLambda(
                 bounds,
                 canvas => canvas.DrawRectangle(bounds, Brushes.Resource.White, null),
-                hitTest: bounds.Contains);
+                hitTest: bounds.Contains,
+                onDispose: () => throw cleanupFailure);
 
             var injected = new InvalidOperationException("simulated layout-transition failure");
             PlanExecutor.ForceComputePrepareFailureForTests(injected);
@@ -50,7 +52,8 @@ public class ComputePrepareFailureLeakTests
                     PlanExecutor.Execute(
                         plan, frame, [input], outputScale: 1f, workingScale: 1f,
                         maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool));
-                Assert.That(thrown, Is.SameAs(injected), "the prepare failure surfaces unwrapped");
+                Assert.That(thrown, Is.SameAs(injected),
+                    "the prepare failure surfaces unwrapped even when source-operation cleanup also fails");
             }
             finally
             {

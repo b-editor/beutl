@@ -70,6 +70,50 @@ public class SkiaFilterFactoryThrowLeakTests
         });
     }
 
+    [Test]
+    public void SkiaFilter_PredecessorCleanupThrows_DisposesNewOuterFilter()
+    {
+        SKImageFilter? outer = null;
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        builder.SkiaFilter(SkiaFilterNodeDescriptor.Create(
+            static inner => SKImageFilter.CreateBlur(2f, 2f, inner),
+            InflateContract(new Thickness(6)),
+            structuralToken: "skia-filter-predecessor-cleanup-first"));
+        builder.SkiaFilter(SkiaFilterNodeDescriptor.Create(
+            inner => outer = SKImageFilter.CreateBlur(3f, 3f, inner),
+            InflateContract(new Thickness(9)),
+            structuralToken: "skia-filter-predecessor-cleanup-outer"));
+        using EffectGraph graph = builder.Build();
+        CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
+        FrameResources frame = EffectGraphCompiler.ResolveResources(plan, s_bounds, workingScale: 1f);
+        var injected = new InvalidOperationException("predecessor filter cleanup failed");
+
+        PlanExecutor.ForceSkiaFilterDisposeFailureForTests(injected);
+        try
+        {
+            InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
+                plan, frame, [Input()], outputScale: 1f, workingScale: 1f,
+                maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null));
+            Assert.Multiple(() =>
+            {
+                Assert.That(actual, Is.SameAs(injected));
+                Assert.That(outer, Is.Not.Null);
+                Assert.That(outer!.Handle, Is.EqualTo(nint.Zero),
+                    "the newly created outer filter must remain tracked when predecessor cleanup fails");
+            });
+        }
+        finally
+        {
+            PlanExecutor.ResetSkiaFilterDisposeFailureForTests();
+        }
+    }
+
     private static BoundsContract InflateContract(Thickness inflate)
         => BoundsContract.Create(rect => rect.Inflate(inflate), rect => rect.Inflate(inflate));
+
+    private static RenderNodeOperation Input()
+        => RenderNodeOperation.CreateLambda(
+            s_bounds,
+            canvas => canvas.DrawRectangle(s_bounds, Brushes.Resource.White, null),
+            hitTest: s_bounds.Contains);
 }

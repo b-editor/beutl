@@ -111,6 +111,49 @@ public class CompositeFoldFactoryThrowLeakTests
         }
     }
 
+    [Test]
+    public void Composite_BranchCleanupThrows_SweepsRemainingBranchesAndReleasesTarget()
+    {
+        using var pool = new RenderTargetPool();
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        builder.Composite(CompositeNodeDescriptor.Create(
+            BlendMode.SrcOver,
+            structuralToken: "composite-branch-cleanup-failure"));
+        using EffectGraph graph = builder.Build();
+        CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
+        FrameResources frame = EffectGraphCompiler.ResolveResources(plan, s_bounds, workingScale: 1f);
+        var injected = new InvalidOperationException("composite branch cleanup failed");
+        bool secondDisposed = false;
+        RenderNodeOperation first = RenderNodeOperation.CreateLambda(
+            s_bounds,
+            canvas => canvas.DrawRectangle(s_bounds, Brushes.Resource.White, null),
+            onDispose: () => throw injected);
+        RenderNodeOperation second = RenderNodeOperation.CreateLambda(
+            s_bounds,
+            canvas => canvas.DrawRectangle(s_bounds.Deflate(4), Brushes.Resource.Red, null),
+            onDispose: () => secondDisposed = true);
+        RenderNodeOperation[] unexpectedOutputs = [];
+
+        try
+        {
+            InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() =>
+                unexpectedOutputs = PlanExecutor.Execute(
+                    plan, frame, [first, second], outputScale: 1f, workingScale: 1f,
+                    maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool));
+            Assert.Multiple(() =>
+            {
+                Assert.That(actual, Is.SameAs(injected));
+                Assert.That(secondDisposed, Is.True, "one branch failure must not abort the remaining cleanup sweep");
+                Assert.That(pool.LiveLeaseCount, Is.Zero,
+                    "a branch cleanup failure must release the completed composite target");
+            });
+        }
+        finally
+        {
+            RenderNodeOperation.DisposeAll(unexpectedOutputs);
+        }
+    }
+
     private static RenderNodeOperation Input()
     {
         return RenderNodeOperation.CreateLambda(

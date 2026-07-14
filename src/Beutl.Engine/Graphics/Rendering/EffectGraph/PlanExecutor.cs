@@ -29,12 +29,14 @@ internal static class PlanExecutor
     // not forcible from a test). The caller restores the seam afterward.
     private static Exception? s_computePrepareFailureForTests;
     private static Exception? s_computeCopyFailureForTests;
+    private static Exception? s_computeCopyPrepareFailureForTests;
     private static Exception? s_computeInputDisposeFailureForTests;
     private static Exception? s_geometryInputDisposeFailureForTests;
     private static Exception? s_geometryOutputDisposeFailureForTests;
     private static Exception? s_splitInputDisposeFailureForTests;
     private static Exception? s_splitBranchDisposeFailureForTests;
     private static Exception? s_compositeFilterDisposeFailureForTests;
+    private static Exception? s_skiaFilterDisposeFailureForTests;
     private static bool s_forceComputeFallbackForTests;
 
     internal static void ForceComputePrepareFailureForTests(Exception exception)
@@ -46,6 +48,11 @@ internal static class PlanExecutor
         => s_computeCopyFailureForTests = exception;
 
     internal static void ResetComputeCopyFailureForTests() => s_computeCopyFailureForTests = null;
+
+    internal static void ForceComputeCopyPrepareFailureForTests(Exception exception)
+        => s_computeCopyPrepareFailureForTests = exception;
+
+    internal static void ResetComputeCopyPrepareFailureForTests() => s_computeCopyPrepareFailureForTests = null;
 
     internal static void ForceComputeInputDisposeFailureForTests(Exception exception)
         => s_computeInputDisposeFailureForTests = exception;
@@ -77,6 +84,11 @@ internal static class PlanExecutor
 
     internal static void ResetCompositeFilterDisposeFailureForTests()
         => s_compositeFilterDisposeFailureForTests = null;
+
+    internal static void ForceSkiaFilterDisposeFailureForTests(Exception exception)
+        => s_skiaFilterDisposeFailureForTests = exception;
+
+    internal static void ResetSkiaFilterDisposeFailureForTests() => s_skiaFilterDisposeFailureForTests = null;
 
     // Test seam: CI runs with a compute-capable Vulkan context, so a backend-independent regression test needs a
     // deterministic way to exercise the declared CPU fallback without mutating the process-wide graphics context.
@@ -874,6 +886,7 @@ internal static class PlanExecutor
 
         var uniformContext = new PassUniformContext(w, target.Width, target.Height, diagnostics);
         var disposables = new List<IDisposable>();
+        Exception? executionFailure = null;
         try
         {
             SKShader composed = ComposeStages(pass.Stages, srcShader, uniformContext, diagnostics, disposables);
@@ -885,10 +898,21 @@ internal static class PlanExecutor
                 canvas.Canvas.DrawRect(new SKRect(0, 0, target.Width, target.Height), paint);
             }
         }
+        catch (Exception ex)
+        {
+            executionFailure = ex;
+            throw;
+        }
         finally
         {
-            for (int i = disposables.Count - 1; i >= 0; i--)
-                disposables[i].Dispose();
+            Exception? cleanupFailure = DisposeDisposablesCapturingFailure(disposables);
+            if (cleanupFailure != null)
+            {
+                if (executionFailure != null)
+                    LogCleanupFailure(cleanupFailure, "fused stage cleanup");
+                else
+                    ExceptionDispatchInfo.Capture(cleanupFailure).Throw();
+            }
         }
     }
 
@@ -904,8 +928,14 @@ internal static class PlanExecutor
                 // filter still in use. Only advance when the factory produced a genuinely new instance.
                 if (outer != null && !ReferenceEquals(outer, filter))
                 {
-                    filter?.Dispose();
+                    SKImageFilter? predecessor = filter;
                     filter = outer;
+                    predecessor?.Dispose();
+                    if (predecessor != null && s_skiaFilterDisposeFailureForTests is { } injected)
+                    {
+                        s_skiaFilterDisposeFailureForTests = null;
+                        throw injected;
+                    }
                 }
             }
 
@@ -1349,8 +1379,10 @@ internal static class PlanExecutor
         }
         catch
         {
-            inputTarget.Dispose();
-            op.Dispose();
+            Exception? cleanupFailure = null;
+            CaptureComputeInputDisposeFailure(inputTarget, ref cleanupFailure);
+            CaptureDisposeFailure(op, ref cleanupFailure);
+            LogCleanupFailure(cleanupFailure, "compute sampling-preparation failure cleanup");
             throw;
         }
         RenderTarget? outputTarget = RenderTargetPool.Acquire(pool, width, height, diagnostics);
@@ -1574,6 +1606,26 @@ internal static class PlanExecutor
         }
     }
 
+    internal static Exception? DisposeDisposablesCapturingFailure(IReadOnlyList<IDisposable> disposables)
+    {
+        Exception? cleanupFailure = null;
+        for (int i = disposables.Count - 1; i >= 0; i--)
+        {
+            CaptureDisposeFailure(disposables[i], ref cleanupFailure);
+        }
+
+        return cleanupFailure;
+    }
+
+    private static void CaptureOperationDisposeFailures(
+        ReadOnlySpan<RenderNodeOperation> operations, ref Exception? cleanupFailure)
+    {
+        foreach (RenderNodeOperation operation in operations)
+        {
+            CaptureDisposeFailure(operation, ref cleanupFailure);
+        }
+    }
+
     private static void CaptureComputeInputDisposeFailure(RenderTarget inputTarget, ref Exception? cleanupFailure)
     {
         CaptureDisposeFailure(inputTarget, ref cleanupFailure);
@@ -1616,6 +1668,9 @@ internal static class PlanExecutor
             {
                 RenderNodeOperation op = current[i];
                 current[i] = null!;
+                int firstBranchOrdinal = pass.IsDynamicOutputs
+                    ? nextBranchOrdinal
+                    : ResolveBranchOrdinal(branchOrdinals[i], i) * pass.BranchCount;
 
                 float inW = RenderNodeContext.ClampWorkingScaleToBufferBudget(
             op.Bounds, CarriedWorkingScale(op, workingScale), maxDimension);
@@ -1623,7 +1678,9 @@ internal static class PlanExecutor
                 if (bw <= 0 || bh <= 0)
                 {
                     outputs.Add(op);
-                    outputOrdinals.Add(nextBranchOrdinal++);
+                    outputOrdinals.Add(firstBranchOrdinal);
+                    if (pass.IsDynamicOutputs)
+                        nextBranchOrdinal++;
                     continue;
                 }
 
@@ -1665,10 +1722,11 @@ internal static class PlanExecutor
                     var emitter = new SplitEmitter(
                         input, inW, outputScale, maxWorkingScale, maxDimension,
                         pass.IsDynamicOutputs ? null : pass.BranchCount, diagnostics, pool,
-                        outputs, outputOrdinals, nextBranchOrdinal);
+                        outputs, outputOrdinals, firstBranchOrdinal);
                     pass.Render(emitter);
                     emitter.ValidateCompletion();
-                    nextBranchOrdinal += emitter.EmitCount;
+                    if (pass.IsDynamicOutputs)
+                        nextBranchOrdinal += emitter.EmitCount;
                 }
                 catch (Exception ex)
                 {
@@ -1860,9 +1918,16 @@ internal static class PlanExecutor
             ExceptionDispatchInfo.Capture(compositeCleanupFailure).Throw();
         }
 
-        RenderNodeOperation.DisposeAll(CollectionsMarshal.AsSpan(current));
+        Exception? branchCleanupFailure = null;
+        CaptureOperationDisposeFailures(CollectionsMarshal.AsSpan(current), ref branchCleanupFailure);
         current.Clear();
         branchOrdinals.Clear();
+        if (branchCleanupFailure is { } branchFailure)
+        {
+            CaptureDisposeFailure(target, ref branchCleanupFailure);
+            ExceptionDispatchInfo.Capture(branchFailure).Throw();
+        }
+
         if (diagnostics != null)
             diagnostics.GpuPasses++;
         current.Add(RenderNodeOperation.CreateFromRenderTarget(union, union.Position, target, EffectiveScale.At(w)));
@@ -2020,6 +2085,13 @@ internal static class PlanExecutor
                 }
 
                 gfx.CopyTexture(source, destination);
+                if (s_computeCopyPrepareFailureForTests is { } prepareFailure)
+                {
+                    s_computeCopyPrepareFailureForTests = null;
+                    throw prepareFailure;
+                }
+
+                destination.PrepareForSampling();
             });
             _copiedSource = true;
         }

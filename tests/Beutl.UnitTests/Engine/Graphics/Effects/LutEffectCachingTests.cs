@@ -42,4 +42,18 @@ public class LutEffectCachingTests
             Assert.That(first.Handle, Is.EqualTo(nint.Zero), "the superseded LUT shader must be disposed on rebuild");
         });
     }
+
+    [Test]
+    public void Describe_WithoutSourceCube_ReleasesCachedShader()
+    {
+        var effect = new LutEffect();
+        using var resource = (LutEffect.Resource)effect.ToResource(CompositionContext.Default);
+        SKShader cached = resource.GetOrBuildLutShader(MakeCube());
+        var builder = new EffectGraphBuilder(new Rect(0, 0, 16, 16), outputScale: 1f, workingScale: 1f);
+
+        effect.Describe(builder, resource);
+
+        Assert.That(cached.Handle, Is.EqualTo(nint.Zero),
+            "removing the LUT source must release the cached native shader immediately");
+    }
 }
