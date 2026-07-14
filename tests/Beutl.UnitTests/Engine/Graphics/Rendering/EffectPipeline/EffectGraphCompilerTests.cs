@@ -595,26 +595,6 @@ half4 apply(half4 c) {
             Throws.InvalidOperationException.With.Message.Contains("shape"));
     }
 
-    // B3: DepthScratchCount is structural — it decides how many depth intermediates the resource plan declares
-    // (C3.3). Two computes identical in every other structural field must key differently so a depth toggle can
-    // never stale-hit a plan that under-declares the depth attachment (C3/C5).
-    [Test]
-    public void StructuralKey_ComputeDepthScratchCountDiffers_ProducesDifferentKey()
-    {
-        var bounds = new Rect(0, 0, 100, 100);
-
-        static ComputeNodeDescriptor Compute(bool usesDepthScratch) => ComputeNodeDescriptor.Create(
-            static _ => { }, passCount: 1, ComputeFallback.Identity,
-            depthScratchCount: usesDepthScratch ? 1 : 0,
-            structuralToken: "depth-key");
-
-        using EffectGraph withDepth = NewBuilder(bounds).Compute(Compute(usesDepthScratch: true)).Build();
-        using EffectGraph withoutDepth = NewBuilder(bounds).Compute(Compute(usesDepthScratch: false)).Build();
-
-        Assert.That(StructuralKey.Compute(withDepth), Is.Not.EqualTo(StructuralKey.Compute(withoutDepth)),
-            "toggling the structural depth requirement must change the structural key");
-    }
-
     [Test]
     public void StructuralKey_ComputeDispatchFailureBehaviorDiffers_ProducesDifferentKey()
     {
@@ -635,12 +615,12 @@ half4 apply(half4 c) {
     // ---- Resource plan (peak-live) ----------------------------------------------------------------------
 
     [Test]
-    public void ResourcePlan_ComputeDeclaresExactScratchMaxima()
+    public void ResourcePlan_ComputeDeclaresExactColorScratchMaximum()
     {
         var bounds = new Rect(0, 0, 100, 100);
         var descriptor = ComputeNodeDescriptor.Create(
             static _ => { }, passCount: 4, ComputeFallback.Identity,
-            colorScratchCount: 3, depthScratchCount: 2, structuralToken: "scratch-shape");
+            colorScratchCount: 3, structuralToken: "scratch-shape");
         CompiledPlan plan = Compile(NewBuilder(bounds).Compute(descriptor));
 
         Assert.Multiple(() =>
@@ -648,8 +628,8 @@ half4 apply(half4 c) {
             Assert.That(plan.Resources.Intermediates.Count(x => x.Format == TextureFormat.RGBA16Float),
                 Is.EqualTo(5), "materialized input + three declared color scratch + final output");
             Assert.That(plan.Resources.Intermediates.Count(x => x.Format == TextureFormat.Depth32Float),
-                Is.EqualTo(2), "the exact declared depth scratch maximum is represented");
-            Assert.That(plan.Resources.PeakLiveCount, Is.EqualTo(7));
+                Is.Zero, "fullscreen compute passes do not declare an unused depth attachment");
+            Assert.That(plan.Resources.PeakLiveCount, Is.EqualTo(5));
         });
     }
 

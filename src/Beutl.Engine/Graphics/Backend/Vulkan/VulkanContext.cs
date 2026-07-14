@@ -168,19 +168,48 @@ internal sealed class VulkanContext : IGraphicsContext
 
     public IRenderPass3D CreateRenderPass3D(
         IReadOnlyList<TextureFormat> colorFormats,
-        TextureFormat depthFormat = TextureFormat.Depth32Float,
+        TextureFormat? depthFormat,
         AttachmentLoadOp colorLoadOp = AttachmentLoadOp.Clear,
         AttachmentLoadOp depthLoadOp = AttachmentLoadOp.Clear)
     {
+        if (depthFormat is { } format && !format.IsDepthFormat())
+            throw new ArgumentException("The depth attachment format must be a depth format.", nameof(depthFormat));
+
         var vulkanColorFormats = colorFormats.Select(f => f.ToVulkanFormat()).ToList();
-        return new VulkanRenderPass3D(this, vulkanColorFormats, depthFormat.ToVulkanFormat(), colorLoadOp, depthLoadOp);
+        Format? vulkanDepthFormat = depthFormat?.ToVulkanFormat();
+        return new VulkanRenderPass3D(this, vulkanColorFormats, vulkanDepthFormat, colorLoadOp, depthLoadOp);
     }
 
-    public IFramebuffer3D CreateFramebuffer3D(IRenderPass3D renderPass, IReadOnlyList<ITexture2D> colorTextures, ITexture2D depthTexture)
+    public IFramebuffer3D CreateFramebuffer3D(
+        IRenderPass3D renderPass, IReadOnlyList<ITexture2D> colorTextures, ITexture2D? depthTexture)
     {
         var vulkanRenderPass = (VulkanRenderPass3D)renderPass;
         var vulkanColorTextures = colorTextures.Cast<VulkanTexture2D>().ToList();
-        var vulkanDepthTexture = (VulkanTexture2D)depthTexture;
+        var vulkanDepthTexture = (VulkanTexture2D?)depthTexture;
+        if (vulkanRenderPass.HasDepthAttachment != (vulkanDepthTexture != null))
+        {
+            throw new ArgumentException(
+                "The framebuffer depth texture must match the render pass depth attachment declaration.",
+                nameof(depthTexture));
+        }
+        if (vulkanDepthTexture != null)
+        {
+            if (vulkanDepthTexture.Format.ToVulkanFormat() != vulkanRenderPass.DepthFormat)
+            {
+                throw new ArgumentException(
+                    "The framebuffer depth texture format must match the render pass depth format.",
+                    nameof(depthTexture));
+            }
+
+            if (vulkanColorTextures.Any(texture =>
+                    texture.Width != vulkanDepthTexture.Width || texture.Height != vulkanDepthTexture.Height))
+            {
+                throw new ArgumentException(
+                    "The framebuffer depth texture dimensions must match every color attachment.",
+                    nameof(depthTexture));
+            }
+        }
+
         return new VulkanFramebuffer3D(this, vulkanRenderPass.Handle, vulkanColorTextures, vulkanDepthTexture);
     }
 
@@ -198,6 +227,13 @@ internal sealed class VulkanContext : IGraphicsContext
             .ToArray();
         var vulkanVertexInput = VulkanFlagConverter.ToVulkan(vertexInput);
         var pipelineOptions = options ?? PipelineOptions.Default;
+        if (!vulkanRenderPass.HasDepthAttachment
+            && (pipelineOptions.DepthTestEnabled || pipelineOptions.DepthWriteEnabled))
+        {
+            throw new ArgumentException(
+                "A color-only render pass cannot use a pipeline with depth testing or depth writes enabled.",
+                nameof(options));
+        }
 
         return new VulkanPipeline3D(
             this,

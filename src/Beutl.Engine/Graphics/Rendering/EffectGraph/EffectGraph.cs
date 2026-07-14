@@ -1,4 +1,6 @@
 ﻿using Beutl.Graphics.Effects;
+using Beutl.Logging;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.Graphics.Rendering;
 
@@ -46,6 +48,7 @@ internal sealed class EffectGraph(
     float workingScale,
     IReadOnlyCollection<IDisposable> disposables) : IDisposable
 {
+    private static readonly ILogger s_logger = Log.CreateLogger<EffectGraph>();
     private bool _disposed;
 
     public IReadOnlyList<EffectNode> Nodes { get; } = nodes;
@@ -68,10 +71,11 @@ internal sealed class EffectGraph(
             {
                 disposable.Dispose();
             }
-            catch
+            catch (Exception ex)
             {
                 // Best effort: a broken native wrapper must not strand the rest of the graph-owned resources or
                 // replace a successfully executed frame with a cleanup failure.
+                s_logger.LogWarning(ex, "Effect graph disposable threw during cleanup");
             }
         }
     }

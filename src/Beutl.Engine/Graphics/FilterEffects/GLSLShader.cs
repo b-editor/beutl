@@ -98,11 +98,10 @@ public sealed class GLSLShader : IDisposable
     internal void ExecuteSingleTarget<T>(
         ITexture2D source,
         ITexture2D destination,
-        ITexture2D depth,
         T pushConstants) where T : unmanaged
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        _pipeline.Execute(source, destination, depth, pushConstants);
+        _pipeline.Execute(source, destination, pushConstants);
     }
 
     // Execute a single pass with mask texture (for use by multi-pass effects)
@@ -110,11 +109,10 @@ public sealed class GLSLShader : IDisposable
         ITexture2D source,
         ITexture2D mask,
         ITexture2D destination,
-        ITexture2D depth,
         T pushConstants) where T : unmanaged
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        _pipeline.Execute(source, mask, destination, depth, pushConstants);
+        _pipeline.Execute(source, mask, destination, pushConstants);
     }
 
     public void Dispose()

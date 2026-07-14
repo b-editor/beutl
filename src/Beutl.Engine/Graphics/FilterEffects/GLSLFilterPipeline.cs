@@ -113,9 +113,8 @@ internal sealed class GLSLFilterPipeline : IDisposable
             // Create render pass for BGRA8 format (matching RenderTarget format)
             IRenderPass3D renderPass = context.CreateRenderPass3D(
                 [TextureFormat.RGBA16Float],
-                TextureFormat.Depth32Float,
-                AttachmentLoadOp.DontCare,
-                AttachmentLoadOp.DontCare);
+                depthFormat: null,
+                colorLoadOp: AttachmentLoadOp.DontCare);
 
             // Create sampler
             ISampler sampler = context.CreateSampler(
@@ -160,7 +159,6 @@ internal sealed class GLSLFilterPipeline : IDisposable
     public void Execute<T>(
         ITexture2D sourceTexture,
         ITexture2D destinationTexture,
-        ITexture2D depthTexture,
         T pushConstants) where T : unmanaged
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -176,7 +174,7 @@ internal sealed class GLSLFilterPipeline : IDisposable
         using IFramebuffer3D framebuffer = _context.CreateFramebuffer3D(
             _renderPass,
             [destinationTexture],
-            depthTexture);
+            depthTexture: null);
 
         // Create descriptor set and bind source texture
         using IDescriptorSet descriptorSet = _context.CreateDescriptorSet(
@@ -201,7 +199,6 @@ internal sealed class GLSLFilterPipeline : IDisposable
         ITexture2D sourceTexture,
         ITexture2D maskTexture,
         ITexture2D destinationTexture,
-        ITexture2D depthTexture,
         T pushConstants) where T : unmanaged
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -218,7 +215,7 @@ internal sealed class GLSLFilterPipeline : IDisposable
         using IFramebuffer3D framebuffer = _context.CreateFramebuffer3D(
             _renderPass,
             [destinationTexture],
-            depthTexture);
+            depthTexture: null);
 
         // Create descriptor set and bind both textures
         using IDescriptorSet descriptorSet = _context.CreateDescriptorSet(

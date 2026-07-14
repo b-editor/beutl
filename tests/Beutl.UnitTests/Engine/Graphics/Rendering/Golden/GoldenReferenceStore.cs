@@ -64,6 +64,26 @@ internal static class GoldenReferenceStore
             return true;
         }
 
+        AssertMatches(category, path, name, actual);
+        return false;
+    }
+
+    /// <summary>
+    /// Requires an already committed reference and asserts that <paramref name="actual"/> matches it.
+    /// Unlike <see cref="FreezeOrAssert"/>, this method never creates a missing reference.
+    /// </summary>
+    public static void AssertExisting(string category, string name, Bitmap actual)
+    {
+        string path = ResolvePath(category, name);
+        Assert.That(
+            File.Exists(path), Is.True,
+            $"[golden-ref] {category}/{name}: immutable reference is missing; restore it from source control. "
+            + "Do not regenerate it from the implementation under test.");
+        AssertMatches(category, path, name, actual);
+    }
+
+    private static void AssertMatches(string category, string path, string name, Bitmap actual)
+    {
         using Bitmap reference = Load(path);
         Assert.That(actual.Width, Is.EqualTo(reference.Width), $"{name}: width differs from frozen reference");
         Assert.That(actual.Height, Is.EqualTo(reference.Height), $"{name}: height differs from frozen reference");
@@ -76,7 +96,6 @@ internal static class GoldenReferenceStore
             Assert.That(ssim, Is.GreaterThanOrEqualTo(GoldenThresholds.ExactSsimMin), $"{name}: SSIM below parity floor");
             Assert.That(mae, Is.LessThanOrEqualTo(GoldenThresholds.ExactMaeMax), $"{name}: MAE above parity ceiling");
         });
-        return false;
     }
 
     /// <summary>Serializes <paramref name="bitmap"/>'s raw RGBA16F samples to <paramref name="path"/> (Deflate-compressed).</summary>

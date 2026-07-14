@@ -14,11 +14,13 @@ using Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.EffectPipeline;
 
 /// <summary>
-/// Freezes the pre-redesign reference renders (T004) that every 004 parity gate compares against.
+/// Freezes the 004 reference renders (T004) that the baseline and determinism gates compare against.
 /// Each case renders at output scale 1.0 at <see cref="SceneFixtures.ReferenceSize"/>; when the frozen
 /// reference is missing it is written, and when present the fresh render is asserted against it within
 /// the golden thresholds (SSIM ≥ 0.99 / MAE ≤ 0.02, linear RGBA16F). Run this on a Vulkan-capable machine
 /// once to produce and commit the references under <c>Golden/References/004-baseline/</c>.
+/// All census cases are pre-redesign references except <c>effect-CSharpScriptEffect</c>, whose inline
+/// comment records its post-removal determinism-only provenance.
 /// </summary>
 [NonParallelizable]
 [TestFixture]
@@ -56,9 +58,9 @@ public class EffectReferenceFreezeTests
                 "uniform shader src;\nhalf4 main(float2 fc) { half4 c = src.eval(fc); return half4(1.0 - c.rgb, c.a); }";
             return e;
         }, requiresCompute: false);
-        // The immutable reference was captured before the imperative Context API was removed. Builder.Blur is the
-        // direct declarative equivalent of the original Context.Blur script, so this keeps the old output as an
-        // independent migration gate instead of re-freezing a post-redesign scene.
+        // This is a post-removal Builder-surface determinism anchor, not an independent legacy parity gate. The
+        // blob was re-frozen at 60f7b4731 and updated at 2097c930d. Its 004-baseline path is historical; treat it
+        // like an 004-review reference and regenerate it only when the intended Builder script output changes.
         yield return Case("CSharpScriptEffect", () =>
         {
             var e = new CSharpScriptEffect();

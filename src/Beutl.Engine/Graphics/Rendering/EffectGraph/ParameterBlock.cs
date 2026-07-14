@@ -69,7 +69,6 @@ internal sealed record ParameterBlock(ImmutableArray<CompiledPass> Passes)
                 case ComputePass compa when b[i] is ComputePass compb:
                     if (compa.PassCount != compb.PassCount
                         || compa.ColorScratchCount != compb.ColorScratchCount
-                        || compa.DepthScratchCount != compb.DepthScratchCount
                         || compa.Fallback != compb.Fallback
                         || compa.CpuFallbackRequiresReadback != compb.CpuFallbackRequiresReadback
                         || compa.DispatchFailureBehavior != compb.DispatchFailureBehavior)

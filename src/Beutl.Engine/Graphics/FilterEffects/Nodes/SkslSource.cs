@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.Buffers;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace Beutl.Graphics.Effects;
@@ -228,11 +229,27 @@ public sealed partial record SkslSource
     {
         const ulong offset = 14695981039346656037UL;
         const ulong prime = 1099511628211UL;
+        const int StackBufferSize = 512;
+        int byteCount = Encoding.UTF8.GetByteCount(source);
+        byte[]? rented = null;
+        Span<byte> bytes = byteCount <= StackBufferSize
+            ? stackalloc byte[byteCount]
+            : (rented = ArrayPool<byte>.Shared.Rent(byteCount));
+
         ulong hash = offset;
-        foreach (byte b in Encoding.UTF8.GetBytes(source))
+        try
         {
-            hash ^= b;
-            hash *= prime;
+            int written = Encoding.UTF8.GetBytes(source, bytes);
+            foreach (byte b in bytes[..written])
+            {
+                hash ^= b;
+                hash *= prime;
+            }
+        }
+        finally
+        {
+            if (rented != null)
+                ArrayPool<byte>.Shared.Return(rented);
         }
 
         return hash.ToString("x16");

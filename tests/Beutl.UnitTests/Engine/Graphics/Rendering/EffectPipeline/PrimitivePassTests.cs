@@ -306,8 +306,8 @@ public class PrimitivePassTests
         });
     }
 
-    // FR-006 steady state on a compute-bearing chain: every intermediate — including the compute pass's ping-pong
-    // color scratch AND its Depth32Float attachment — is pooled, so a structurally constant PixelSort chain
+    // FR-006 steady state on a compute-bearing chain: every intermediate, including the compute pass's ping-pong
+    // color scratch, is pooled, so a structurally constant PixelSort chain
     // allocates only on frame 1; frames 2..K are all pool hits with zero fresh target creations.
     [Test]
     public void PixelSortChain_SteadyState_AllocatesNothingAfterWarmup()
@@ -320,6 +320,8 @@ public class PrimitivePassTests
             const int frames = 4;
             var diagnostics = new PipelineDiagnostics();
             using var pool = new RenderTargetPool();
+            pool.SetTextureFactoryForTest(static (_, _, _) =>
+                throw new InvalidOperationException("PixelSort must not acquire a raw depth texture."));
             var snapshots = new PipelineDiagnosticsSnapshot[frames];
 
             for (int f = 0; f < frames; f++)
@@ -340,16 +342,15 @@ public class PrimitivePassTests
             Assert.Multiple(() =>
             {
                 // Frame 1 may already reuse intra-frame (a buffer released mid-frame satisfies a later same-size
-                // acquire), so misses <= acquires; what matters is that every miss — incl. the depth attachment —
-                // is a counted fresh creation.
+                // acquire), so misses <= acquires; what matters is that every miss is a counted fresh creation.
                 Assert.That(snapshots[0].PoolMisses, Is.GreaterThan(0), "frame 1 warms the pool");
                 Assert.That(snapshots[0].TargetAllocations, Is.EqualTo(snapshots[0].PoolMisses),
-                    "each frame-1 miss is one fresh target creation — the depth attachment is counted, not silent");
+                    "each frame-1 miss is one fresh target creation");
 
                 for (int f = 1; f < frames; f++)
                 {
                     Assert.That(snapshots[f].TargetAllocations, Is.EqualTo(0),
-                        $"frame {f + 1} allocates no fresh targets (FR-006 steady state incl. depth)");
+                        $"frame {f + 1} allocates no fresh targets (FR-006 steady state)");
                     Assert.That(snapshots[f].PoolMisses, Is.EqualTo(0), $"frame {f + 1} has no pool misses");
                     Assert.That(snapshots[f].PoolAcquires, Is.EqualTo(snapshots[0].PoolAcquires),
                         $"frame {f + 1} re-acquires the same buffer set, now all hits");

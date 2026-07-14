@@ -123,7 +123,7 @@ public class EffectMigrationParityTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             using Bitmap actual = RenderChain([makeEffect()]);
-            GoldenReferenceStore.FreezeOrAssert("004-parity-strong", "effect-" + name, actual);
+            GoldenReferenceStore.AssertExisting("004-parity-strong", "effect-" + name, actual);
         });
     }
 

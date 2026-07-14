@@ -11,6 +11,9 @@
 /// without a recompile.
 /// </summary>
 /// <remarks>
+/// The cache is render-thread-affine with its owning render node. It is intentionally lock-free and must not be
+/// shared across concurrent render threads; rendering the same node concurrently is outside the renderer contract.
+///
 /// Exhaustive invalidation (C5): a structural-key mismatch, a graphics-context change (device loss/recreation),
 /// and node dispose. <b>Bounds, ROIs, buffer sizes, and the resolved working scale are never invalidation
 /// triggers</b> — they are per-frame resource-resolution inputs, so an animated blur sigma or drop-shadow offset

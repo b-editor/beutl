@@ -107,7 +107,7 @@ public class GLSLShaderTests
             shader.Dispose();
 
             Assert.Throws<ObjectDisposedException>(() =>
-                shader.ExecuteSingleTarget<DummyPush>(null!, null!, null!, new DummyPush()));
+                shader.ExecuteSingleTarget<DummyPush>(null!, null!, new DummyPush()));
         });
     }
 
@@ -131,11 +131,9 @@ public class GLSLShaderTests
 
             using Beutl.Graphics.Backend.ITexture2D destination =
                 ctx.CreateTexture2D(4, 4, Beutl.Graphics.Backend.TextureFormat.RGBA16Float);
-            using Beutl.Graphics.Backend.ITexture2D depth =
-                ctx.CreateTexture2D(4, 4, Beutl.Graphics.Backend.TextureFormat.Depth32Float);
 
             using var shader = GLSLShader.Create(ConstantBlueFragment);
-            shader.ExecuteSingleTarget(sourceRenderTarget.Texture!, destination, depth, new DummyPush());
+            shader.ExecuteSingleTarget(sourceRenderTarget.Texture!, destination, new DummyPush());
 
             ctx.WaitIdle();
 
@@ -162,12 +160,11 @@ public class GLSLShaderTests
         {
             using ITexture2D source = ctx.CreateTexture2D(4, 4, TextureFormat.RGBA16Float);
             using ITexture2D destination = ctx.CreateTexture2D(4, 4, TextureFormat.RGBA16Float);
-            using ITexture2D depth = ctx.CreateTexture2D(4, 4, TextureFormat.Depth32Float);
             using var shader = GLSLShader.Create(ConstantBlueFragment);
             var failingSource = new SamplingFailureTexture(source);
 
             InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
-                shader.ExecuteSingleTarget(failingSource, destination, depth, new DummyPush()))!;
+                shader.ExecuteSingleTarget(failingSource, destination, new DummyPush()))!;
 
             Assert.That(ComputeBackendPreparationFailure.IsMarked(error), Is.True,
                 "a texture-layout failure inside GLSL dispatch must bypass identity preview fallback");

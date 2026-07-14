@@ -119,12 +119,12 @@ The sole descriptor that carries a rendering callback. Never fused, always its o
 ```csharp
 ComputeNodeDescriptor.Create(
     Action<IComputeContext> dispatch, int passCount, ComputeFallback fallback,
-    int colorScratchCount = 0, int depthScratchCount = 0,
+    int colorScratchCount = 0,
     Action<GeometrySession>? cpuCallback = null,
     object? structuralToken = null,
     bool cpuFallbackRequiresReadback = false)              // fallback MANDATORY
 ```
-`passCount` is the exact number of successful `IComputeContext.Run(...)` calls. An excess call is rejected before dispatch and a shortfall after the callback returns normally. `CopySourceToDestination()` is an exclusive terminal alternative: do not combine it with `Run(...)` or acquire scratch afterward. `fallback` (`Identity` / `Skip` / a CPU callback) is applied when Vulkan is unavailable so GPU-less CI passes. Scratch counts are maximum concurrent acquisitions and are enforced at runtime. Set `cpuFallbackRequiresReadback` when the CPU callback snapshots its input.
+`passCount` is the exact number of successful `IComputeContext.Run(...)` calls. An excess call is rejected before dispatch and a shortfall after the callback returns normally. `CopySourceToDestination()` is an exclusive terminal alternative: do not combine it with `Run(...)` or acquire scratch afterward. `fallback` (`Identity` / `Skip` / a CPU callback) is applied when Vulkan is unavailable so GPU-less CI passes. The color scratch count is the maximum concurrent acquisition and is enforced at runtime. Fullscreen compute passes are color-only; there is no depth scratch API. Set `cpuFallbackRequiresReadback` when the CPU callback snapshots its input.
 
 ### Split / Composite
 ```csharp

@@ -214,6 +214,21 @@ public class RenderNodeProcessorExceptionSafetyTests
         Assert.That(disposed, Is.EqualTo(new[] { "first", "throws", "remaining" }));
     }
 
+    [Test]
+    public void DisposeAll_SkipsUnfilledOperationSlots()
+    {
+        var disposed = new List<string>();
+        RenderNodeOperation[] ops =
+        [
+            CreateOperation("first", disposed),
+            null!,
+            CreateOperation("remaining", disposed),
+        ];
+
+        Assert.DoesNotThrow(() => RenderNodeOperation.DisposeAll(ops));
+        Assert.That(disposed, Is.EqualTo(new[] { "first", "remaining" }));
+    }
+
     // RasterizeToRenderTargets keeps successfully-rendered targets in a list, so a list-resident
     // target that throws on Dispose during cleanup must not stop the sweep or mask the render
     // exception. Rasterize snapshots and disposes each target immediately and RasterizeAndConcat

@@ -41,6 +41,9 @@ public abstract class RenderNodeOperation : IDisposable
     {
         foreach (var op in ops)
         {
+            if (op is null)
+                continue;
+
             try
             {
                 op.Dispose();

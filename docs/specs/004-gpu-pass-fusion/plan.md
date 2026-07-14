@@ -88,7 +88,7 @@ src/Beutl.Engine/Graphics/
     ├── EffectGraph/                    # NEW — EffectGraph, StructuralKey, compiler,
     │                                   #       CompiledPlan/CompiledPass, ResourcePlan,
     │                                   #       PlanExecutor, ParameterBlock, ProgramCache
-    ├── RenderTargetPool.cs             # NEW — pooled RGBA16F/depth targets
+    ├── RenderTargetPool.cs             # NEW — pooled RGBA16F and surface-less raw textures
     └── PipelineDiagnostics.cs          # NEW — counters (wired into legacy path at step 1)
 
 tests/

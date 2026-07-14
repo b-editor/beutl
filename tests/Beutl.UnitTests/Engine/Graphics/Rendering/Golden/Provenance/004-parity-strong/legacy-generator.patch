@@ -1,0 +1,152 @@
+diff --git a/tests/Beutl.UnitTests/Beutl.UnitTests.csproj b/tests/Beutl.UnitTests/Beutl.UnitTests.csproj
+index fd6528dde..c9c6d7bba 100644
+--- a/tests/Beutl.UnitTests/Beutl.UnitTests.csproj
++++ b/tests/Beutl.UnitTests/Beutl.UnitTests.csproj
+@@ -6,0 +7,5 @@
++
++  <PropertyGroup Condition="'$(LegacyStrongProbe)' == 'true'">
++    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
++    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
++  </PropertyGroup>
+@@ -25 +30 @@
+-  <ItemGroup>
++  <ItemGroup Condition="'$(LegacyStrongProbe)' != 'true'">
+@@ -32 +37 @@
+-  <ItemGroup>
++  <ItemGroup Condition="'$(LegacyStrongProbe)' != 'true'">
+@@ -45 +50,21 @@
+-  <ItemGroup>
++  <ItemGroup Condition="'$(LegacyStrongProbe)' == 'true'">
++    <ProjectReference Include="..\..\src\Beutl.Core\Beutl.Core.csproj" />
++    <ProjectReference Include="..\..\src\Beutl.Engine\Beutl.Engine.csproj" />
++    <ProjectReference Include="..\..\src\Beutl.Threading\Beutl.Threading.csproj" />
++    <PackageReference Include="Microsoft.Extensions.ObjectPool" />
++    <PackageReference Include="Silk.NET.MoltenVK.Native" />
++    <PackageReference Include="Silk.NET.Vulkan" />
++    <PackageReference Include="Silk.NET.Vulkan.Extensions.EXT" />
++    <PackageReference Include="Silk.NET.Vulkan.Extensions.KHR" />
++    <PackageReference Include="Silk.NET.Vulkan.Loader.Native" />
++    <PackageReference Include="Silk.NET.Vulkan.SwiftShader.Native" />
++    <PackageReference Include="SkiaSharp" />
++    <PackageReference Include="System.Reactive" />
++    <Compile Include="Engine\Graphics\Backend\VulkanTestEnvironment.cs" />
++    <Compile Include="Engine\Graphics\Rendering\Golden\GoldenReferenceStore.cs" />
++    <Compile Include="Engine\Graphics\Rendering\Golden\GoldenThresholds.cs" />
++    <Compile Include="Engine\Graphics\Rendering\Golden\ImageMetrics.cs" />
++    <Compile Include="Engine\Graphics\Rendering\EffectPipeline\LegacyStrongParityProbeTests.cs" />
++  </ItemGroup>
++
++  <ItemGroup Condition="'$(LegacyStrongProbe)' != 'true'">
+diff --git a/tests/Beutl.UnitTests/Engine/Graphics/Rendering/EffectPipeline/LegacyStrongParityProbeTests.cs b/tests/Beutl.UnitTests/Engine/Graphics/Rendering/EffectPipeline/LegacyStrongParityProbeTests.cs
+new file mode 100644
+index 000000000..0e9d547f4
+--- /dev/null
++++ b/tests/Beutl.UnitTests/Engine/Graphics/Rendering/EffectPipeline/LegacyStrongParityProbeTests.cs
+@@ -0,0 +1,107 @@
++using Beutl.Composition;
++using Beutl.Graphics;
++using Beutl.Graphics.Effects;
++using Beutl.Graphics.Rendering;
++using Beutl.Logging;
++using Beutl.Media;
++using Beutl.UnitTests.Engine.Graphics.Backend;
++using Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
++
++namespace Beutl.UnitTests.Engine.Graphics.Rendering.EffectPipeline;
++
++[NonParallelizable]
++[TestFixture]
++public class LegacyStrongParityProbeTests
++{
++    private static readonly Rect s_bounds = new(0, 0, 192, 108);
++
++    [OneTimeSetUp]
++    public void SeedLoggerFactory()
++    {
++        Log.LoggerFactory = Microsoft.Extensions.Logging.LoggerFactory.Create(static _ => { });
++    }
++
++    public static IEnumerable<TestCaseData> StrongPercentageEffects()
++    {
++        yield return Case("Brightness", () => new Brightness { Amount = { CurrentValue = 150f } });
++        yield return Case("ColorGrading", () => new ColorGrading
++        {
++            Contrast = { CurrentValue = 20f },
++            Saturation = { CurrentValue = 30f },
++        });
++        yield return Case("Gamma", () => new Gamma { Amount = { CurrentValue = 150f } });
++        yield return Case("HighContrast", () => new HighContrast { Contrast = { CurrentValue = 50f } });
++        yield return Case("Invert", () => new Invert { Amount = { CurrentValue = 100f } });
++        yield return Case("Negaposi", () => new Negaposi { Strength = { CurrentValue = 100f } });
++        yield return Case("Saturate", () => new Saturate { Amount = { CurrentValue = 300f } });
++        yield return Case("Threshold", () => new Threshold { Value = { CurrentValue = 50f } });
++    }
++
++    [TestCaseSource(nameof(StrongPercentageEffects))]
++    public void FreezeStrongLegacyReference(string name, Func<FilterEffect> makeEffect)
++    {
++        Assert.That(VulkanTestEnvironment.IsAvailable, Is.True, VulkanTestEnvironment.UnavailableReason);
++        VulkanTestEnvironment.InvokeOnRenderThread(() =>
++        {
++            using Bitmap legacy = RenderLegacy([makeEffect()]);
++            GoldenReferenceStore.Save(
++                GoldenReferenceStore.ResolvePath("004-parity-strong-probe", "effect-" + name),
++                legacy);
++        });
++    }
++
++    private static Bitmap RenderLegacy(IReadOnlyList<FilterEffect> effects)
++    {
++        RenderNodeOperation[] inputs = [MakeSemitransparentInput(s_bounds)];
++        using var context = new FilterEffectContext(s_bounds, outputScale: 1f, workingScale: 1f);
++        foreach (FilterEffect effect in effects)
++            effect.ApplyTo(context, Capture(effect));
++
++        RenderNodeOperation[] outputs = LegacyBridgeExecutor.Execute(
++            context, inputs, s_bounds, outputScale: 1f, workingScale: 1f,
++            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null);
++        return Rasterize(outputs, s_bounds);
++    }
++
++    private static FilterEffect.Resource Capture(FilterEffect effect)
++        => (FilterEffect.Resource)(object)effect.ToResource(CompositionContext.Default);
++
++    private static RenderNodeOperation MakeSemitransparentInput(Rect bounds)
++    {
++        return RenderNodeOperation.CreateLambda(
++            bounds,
++            canvas =>
++            {
++                canvas.DrawRectangle(bounds.Deflate(10), Fill(128, 0, 255, 0), null);
++                canvas.DrawRectangle(bounds.Deflate(35), Fill(64, 255, 0, 0), null);
++                canvas.DrawRectangle(bounds.Deflate(60), Fill(255, 0, 0, 255), null);
++            },
++            hitTest: bounds.Contains);
++    }
++
++    private static Brush.Resource Fill(byte a, byte r, byte g, byte b)
++        => (Brush.Resource)new SolidColorBrush(Color.FromArgb(a, r, g, b))
++            .ToResource(CompositionContext.Default);
++
++    private static Bitmap Rasterize(RenderNodeOperation[] ops, Rect bounds)
++    {
++        var size = PixelRect.FromRect(bounds);
++        using RenderTarget target = RenderTarget.Create(size.Width, size.Height)
++            ?? throw new InvalidOperationException("RenderTarget.Create returned null.");
++        using (var canvas = new ImmediateCanvas(target, 1f, logicalSize: bounds.Size))
++        {
++            canvas.Clear();
++            using (canvas.PushTransform(Matrix.CreateTranslation(-bounds.X, -bounds.Y)))
++            {
++                foreach (RenderNodeOperation op in ops)
++                    op.Render(canvas);
++            }
++        }
++
++        RenderNodeOperation.DisposeAll(ops);
++        return target.Snapshot();
++    }
++
++    private static TestCaseData Case(string name, Func<FilterEffect> make)
++        => new TestCaseData(name, make).SetName($"LegacyStrong_{name}");
++}

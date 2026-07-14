@@ -24,9 +24,9 @@ public interface IFramebuffer3D : IDisposable
     IReadOnlyList<ITexture2D> ColorTextures { get; }
 
     /// <summary>
-    /// Gets the depth texture attachment.
+    /// Gets the optional depth texture attachment.
     /// </summary>
-    ITexture2D DepthTexture { get; }
+    ITexture2D? DepthTexture { get; }
 
     /// <summary>
     /// Prepares all textures for sampling.

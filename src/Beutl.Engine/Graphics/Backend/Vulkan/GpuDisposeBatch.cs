@@ -1,4 +1,5 @@
-﻿using SkiaSharp;
+﻿using System.Threading;
+using SkiaSharp;
 
 namespace Beutl.Graphics.Backend.Vulkan;
 
@@ -24,7 +25,9 @@ internal static class GpuDisposeBatch
     private static Action? s_drainFailureForTest;
 
     /// <summary>Test seam: total drain-flushes issued (one per batch scope, plus one per non-batched dispose).</summary>
-    internal static long FlushCount { get; private set; }
+    private static long s_flushCount;
+
+    internal static long FlushCount => Interlocked.Read(ref s_flushCount);
 
     internal static bool IsActive => s_depth > 0;
 
@@ -50,7 +53,7 @@ internal static class GpuDisposeBatch
     {
         if (s_drainFailureForTest is { } injected)
         {
-            FlushCount++;
+            Interlocked.Increment(ref s_flushCount);
             injected();
             return;
         }
@@ -68,11 +71,11 @@ internal static class GpuDisposeBatch
             s_drained = true;
         }
 
-        FlushCount++;
+        Interlocked.Increment(ref s_flushCount);
         skiaContext.Flush(submit: true, synchronous: true);
     }
 
-    internal static void ResetFlushCountForTest() => FlushCount = 0;
+    internal static void ResetFlushCountForTest() => Interlocked.Exchange(ref s_flushCount, 0);
 
     internal static void SetDrainFailureForTest(Action? failure) => s_drainFailureForTest = failure;
 

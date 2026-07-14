@@ -1,4 +1,5 @@
 ﻿using System.Runtime.ExceptionServices;
+using System.Threading;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Threading;
@@ -48,11 +49,13 @@ public sealed class RenderTargetPool : IDisposable
     public const long DefaultMaxIdleBytes = 256L * 1024 * 1024;
 
     private readonly Dispatcher? _dispatcher = Dispatcher.Current;
-    private readonly Dictionary<BucketKey, List<PooledSurface>> _buckets = [];
+    private readonly Dictionary<BucketKey, LinkedList<PooledSurface>> _buckets = [];
+    private readonly LinkedList<PooledSurface> _lru = [];
     private readonly long _maxIdleBytes;
     private Func<int, int, (SKSurface Surface, ITexture2D? Texture)?> _backingFactory = RenderTarget.CreateBackingSurface;
     private Func<int, int, TextureFormat, ITexture2D?> _textureFactory = CreateBackingTexture;
     private Action<PooledSurface> _clearForReuse = ClearForReuse;
+    private Action<PooledSurface> _disposeBacking = static pooled => pooled.DisposeBacking();
     private long _idleBytes;
     private long _currentFrame;
     private long _liveLeases;
@@ -65,7 +68,7 @@ public sealed class RenderTargetPool : IDisposable
     }
 
     /// <summary>Number of idle (available) buffers currently held. Test/diagnostic surface.</summary>
-    public int IdleCount => _buckets.Values.Sum(l => l.Count);
+    public int IdleCount => _lru.Count;
 
     internal int BucketCountForTest => _buckets.Count;
 
@@ -94,14 +97,10 @@ public sealed class RenderTargetPool : IDisposable
         VerifyAccess();
 
         var key = new BucketKey(width, height, TextureFormat.RGBA16Float, HasSurface: true);
-        if (_buckets.TryGetValue(key, out List<PooledSurface>? list) && list.Count > 0)
+        if (_buckets.TryGetValue(key, out LinkedList<PooledSurface>? list) && list.Last is { } node)
         {
-            PooledSurface pooled = list[^1];
-            list.RemoveAt(list.Count - 1);
-            if (list.Count == 0)
-                _buckets.Remove(key);
-            pooled.IsPooled = false;
-            _idleBytes -= pooled.ByteSize;
+            PooledSurface pooled = node.Value;
+            RemoveIdle(pooled);
             try
             {
                 _clearForReuse(pooled);
@@ -136,13 +135,13 @@ public sealed class RenderTargetPool : IDisposable
     }
 
     /// <summary>
-    /// Acquires a pooled surface-less texture (a compute depth attachment) of exactly
+    /// Acquires a pooled surface-less texture of exactly
     /// <paramref name="width"/> × <paramref name="height"/> × <paramref name="format"/>: pops a matching idle
     /// entry (a hit) or allocates a fresh <see cref="ITexture2D"/> (a miss), with the same counter semantics as
     /// <see cref="Acquire(int, int, PipelineDiagnostics?)"/> (FR-006/C8: every fresh GPU target
     /// creation counts <see cref="PipelineDiagnostics.TargetAllocations"/>). Disposing the returned lease returns
     /// the texture to its bucket. Returns <see langword="null"/> on allocation failure (no counter is touched).
-    /// Texture contents are undefined on acquire — a depth attachment is cleared by its render pass.
+    /// Texture contents are undefined on acquire; the consumer is responsible for initialization.
     /// </summary>
     public PooledTextureLease? AcquireTexture(
         int width, int height, TextureFormat format, PipelineDiagnostics? diagnostics = null)
@@ -150,14 +149,10 @@ public sealed class RenderTargetPool : IDisposable
         VerifyAccess();
 
         var key = new BucketKey(width, height, format, HasSurface: false);
-        if (_buckets.TryGetValue(key, out List<PooledSurface>? list) && list.Count > 0)
+        if (_buckets.TryGetValue(key, out LinkedList<PooledSurface>? list) && list.Last is { } node)
         {
-            PooledSurface pooled = list[^1];
-            list.RemoveAt(list.Count - 1);
-            if (list.Count == 0)
-                _buckets.Remove(key);
-            pooled.IsPooled = false;
-            _idleBytes -= pooled.ByteSize;
+            PooledSurface pooled = node.Value;
+            RemoveIdle(pooled);
             if (diagnostics != null)
                 diagnostics.PoolAcquires++;
             OnLeaseIssued();
@@ -242,7 +237,8 @@ public sealed class RenderTargetPool : IDisposable
         pooled.Generation++;
         pooled.LastUsedFrame = _currentFrame;
         pooled.IsPooled = true;
-        GetBucket(pooled.Key).Add(pooled);
+        pooled.BucketNode = GetBucket(pooled.Key).AddLast(pooled);
+        pooled.LruNode = _lru.AddLast(pooled);
         _idleBytes += pooled.ByteSize;
     }
 
@@ -259,35 +255,27 @@ public sealed class RenderTargetPool : IDisposable
 
         // One GPU drain for the whole eviction sweep instead of one per evicted buffer (GpuDisposeBatch). The batch
         // drain is lazy, so a sweep that evicts nothing issues no flush.
+        Exception? failure = null;
         using (GpuDisposeBatch.Begin())
         {
-            foreach (List<PooledSurface> list in _buckets.Values)
+            while (_lru.First is { } node
+                   && frameIndex - node.Value.LastUsedFrame >= IdleFrameThreshold)
             {
-                for (int i = list.Count - 1; i >= 0; i--)
+                try
                 {
-                    if (frameIndex - list[i].LastUsedFrame >= IdleFrameThreshold)
-                    {
-                        EvictAt(list, i);
-                    }
+                    Evict(node.Value);
+                }
+                catch (Exception ex)
+                {
+                    failure ??= ex;
                 }
             }
 
-            EnforceByteCap();
+            EnforceByteCap(ref failure);
         }
 
-        RemoveEmptyBuckets();
-    }
-
-    // Eviction empties bucket lists in place (EvictAt has no key to remove by); without this per-frame sweep a
-    // scene whose buffer size varies continuously (animated bounds → a new key per frame) grows the dictionary
-    // without bound and degrades the O(buckets) LRU scan. Dictionary.Remove during enumeration is supported.
-    private void RemoveEmptyBuckets()
-    {
-        foreach ((BucketKey key, List<PooledSurface> list) in _buckets)
-        {
-            if (list.Count == 0)
-                _buckets.Remove(key);
-        }
+        if (failure != null)
+            ExceptionDispatchInfo.Capture(failure).Throw();
     }
 
     /// <summary>Test seam: disposes every idle buffer and resets the pool to empty deterministically.</summary>
@@ -301,18 +289,30 @@ public sealed class RenderTargetPool : IDisposable
     {
         // Drain once for the whole teardown (GpuDisposeBatch) when it runs on the render thread; a cross-thread
         // Dispose dispatches the disposals and falls back to the per-texture drain.
+        Exception? failure = null;
         using (GpuDisposeBatch.Begin())
         {
-            foreach (List<PooledSurface> list in _buckets.Values)
+            while (_lru.First is { } node)
             {
-                foreach (PooledSurface pooled in list)
+                PooledSurface pooled = node.Value;
+                RemoveIdle(pooled);
+                try
+                {
                     DisposeBacking(pooled);
-                list.Clear();
+                }
+                catch (Exception ex)
+                {
+                    failure ??= ex;
+                }
             }
         }
 
         _buckets.Clear();
+        _lru.Clear();
         _idleBytes = 0;
+
+        if (failure != null)
+            ExceptionDispatchInfo.Capture(failure).Throw();
     }
 
     /// <summary>
@@ -350,6 +350,10 @@ public sealed class RenderTargetPool : IDisposable
     internal void SetClearForReuseForTest(Action<PooledSurface> clearForReuse)
         => _clearForReuse = clearForReuse;
 
+    /// <summary>Test seam: observes/injects backing-disposal failures while retaining sweep semantics.</summary>
+    internal void SetDisposeBackingForTest(Action<PooledSurface> disposeBacking)
+        => _disposeBacking = disposeBacking;
+
     // Must fail with null (never throw), matching CreateBackingSurface's failure shape.
     private static ITexture2D? CreateBackingTexture(int width, int height, TextureFormat format)
     {
@@ -373,45 +377,44 @@ public sealed class RenderTargetPool : IDisposable
         DisposeAllIdle();
     }
 
-    private void EnforceByteCap()
+    private void EnforceByteCap(ref Exception? failure)
     {
-        while (_idleBytes > _maxIdleBytes)
+        while (_idleBytes > _maxIdleBytes && _lru.First is { } node)
         {
-            (List<PooledSurface> list, int index) = FindLeastRecentlyUsed();
-            if (list.Count == 0)
-                break;
-
-            EvictAt(list, index);
-        }
-    }
-
-    private (List<PooledSurface> List, int Index) FindLeastRecentlyUsed()
-    {
-        List<PooledSurface> lruList = [];
-        int lruIndex = -1;
-        long oldest = long.MaxValue;
-        foreach (List<PooledSurface> list in _buckets.Values)
-        {
-            for (int i = 0; i < list.Count; i++)
+            try
             {
-                if (list[i].LastUsedFrame < oldest)
-                {
-                    oldest = list[i].LastUsedFrame;
-                    lruList = list;
-                    lruIndex = i;
-                }
+                Evict(node.Value);
+            }
+            catch (Exception ex)
+            {
+                failure ??= ex;
             }
         }
-
-        return lruIndex >= 0 ? (lruList, lruIndex) : ([], 0);
     }
 
-    private void EvictAt(List<PooledSurface> list, int index)
+    private void Evict(PooledSurface pooled)
     {
-        PooledSurface pooled = list[index];
-        list.RemoveAt(index);
-        _idleBytes -= pooled.ByteSize;
+        RemoveIdle(pooled);
         DisposeBacking(pooled);
+    }
+
+    private void RemoveIdle(PooledSurface pooled)
+    {
+        if (pooled.BucketNode is { } bucketNode
+            && _buckets.TryGetValue(pooled.Key, out LinkedList<PooledSurface>? bucket))
+        {
+            bucket.Remove(bucketNode);
+            if (bucket.Count == 0)
+                _buckets.Remove(pooled.Key);
+        }
+
+        if (pooled.LruNode is { } lruNode)
+            _lru.Remove(lruNode);
+
+        pooled.BucketNode = null;
+        pooled.LruNode = null;
+        pooled.IsPooled = false;
+        _idleBytes -= pooled.ByteSize;
     }
 
     // GPU teardown is render-thread-affine; marshal it the same way SKSurfaceCounter marshals disposal, so
@@ -419,16 +422,16 @@ public sealed class RenderTargetPool : IDisposable
     private void DisposeBacking(PooledSurface pooled)
     {
         if (_dispatcher == null || _dispatcher.CheckAccess())
-            pooled.DisposeBacking();
+            _disposeBacking(pooled);
         else
-            _dispatcher.Dispatch(pooled.DisposeBacking);
+            _dispatcher.Dispatch(() => _disposeBacking(pooled));
     }
 
-    private List<PooledSurface> GetBucket(BucketKey key)
+    private LinkedList<PooledSurface> GetBucket(BucketKey key)
     {
-        if (!_buckets.TryGetValue(key, out List<PooledSurface>? list))
+        if (!_buckets.TryGetValue(key, out LinkedList<PooledSurface>? list))
         {
-            list = [];
+            list = new LinkedList<PooledSurface>();
             _buckets[key] = list;
         }
 
@@ -438,8 +441,7 @@ public sealed class RenderTargetPool : IDisposable
     private static void ClearForReuse(PooledSurface pooled)
     {
         // A reused buffer must be byte-indistinguishable from a fresh one (frozen-reference suite asserts
-        // SSIM 1.0), so wipe residual content on acquire. Surface-less entries (depth) are cleared by their
-        // render pass instead.
+        // SSIM 1.0), so wipe residual content on acquire. Surface-less entries are initialized by their consumer.
         pooled.Surface?.Canvas.Clear(SKColors.Transparent);
     }
 
@@ -453,8 +455,8 @@ public sealed class RenderTargetPool : IDisposable
 /// <summary>
 /// One reusable GPU buffer owned by a <see cref="RenderTargetPool"/> plus the pooling bookkeeping (generation
 /// tag, last-used frame). Two entry kinds share the bucket machinery: a Skia-drawable surface (RGBA16F, with its
-/// backing texture) leased as a <see cref="RenderTarget"/>, and a surface-less raw texture (a depth attachment,
-/// <see cref="Surface"/> <see langword="null"/>) leased as a <see cref="PooledTextureLease"/>. The pool owns
+/// backing texture) leased as a <see cref="RenderTarget"/>, and a surface-less raw texture (whose
+/// <see cref="Surface"/> is <see langword="null"/>) leased as a <see cref="PooledTextureLease"/>. The pool owns
 /// disposal; leases only borrow it.
 /// </summary>
 internal sealed class PooledSurface(
@@ -478,6 +480,10 @@ internal sealed class PooledSurface(
 
     /// <summary>True while sitting idle in a bucket; guards against double return of a re-leased buffer.</summary>
     public bool IsPooled { get; set; }
+
+    internal LinkedListNode<PooledSurface>? BucketNode { get; set; }
+
+    internal LinkedListNode<PooledSurface>? LruNode { get; set; }
 
     public BucketKey Key => new(Width, Height, Format, Surface != null);
 
@@ -535,7 +541,7 @@ internal sealed class PooledSurface(
 internal readonly record struct BucketKey(int Width, int Height, TextureFormat Format, bool HasSurface);
 
 /// <summary>
-/// A lease over a pooled surface-less texture (a compute depth attachment) issued by
+/// A lease over a pooled surface-less texture issued by
 /// <see cref="RenderTargetPool.AcquireTexture"/>. <see cref="Dispose"/> returns the texture to its bucket;
 /// the captured generation rejects access through a lease whose buffer was already returned, mirroring the
 /// <see cref="RenderTarget"/> lease guard.
@@ -545,7 +551,7 @@ public sealed class PooledTextureLease : IDisposable
     private readonly RenderTargetPool _pool;
     private readonly PooledSurface _pooled;
     private readonly int _generation;
-    private bool _disposed;
+    private int _disposed;
 
     internal PooledTextureLease(RenderTargetPool pool, PooledSurface pooled)
     {
@@ -559,7 +565,7 @@ public sealed class PooledTextureLease : IDisposable
     {
         get
         {
-            ObjectDisposedException.ThrowIf(_disposed, this);
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
             if (_pooled.Generation != _generation)
             {
                 throw new ObjectDisposedException(
@@ -574,10 +580,9 @@ public sealed class PooledTextureLease : IDisposable
     /// <summary>Returns the texture to the pool. Idempotent; safe from any thread (the pool marshals).</summary>
     public void Dispose()
     {
-        if (_disposed)
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
             return;
 
-        _disposed = true;
         _pool.Return(_pooled, _generation);
     }
 }

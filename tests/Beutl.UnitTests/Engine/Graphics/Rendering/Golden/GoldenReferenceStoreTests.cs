@@ -47,4 +47,27 @@ public class GoldenReferenceStoreTests
                 Directory.Delete(dir, recursive: true);
         }
     }
+
+    [Test]
+    public void AssertExisting_MissingReference_FailsWithoutWriting()
+    {
+        const string category = "004-store-test";
+        string name = "immutable-" + Guid.NewGuid().ToString("N");
+        string path = GoldenReferenceStore.ResolvePath(category, name);
+        try
+        {
+            using Bitmap bmp = new(4, 4, BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb);
+
+            Assert.That(
+                () => GoldenReferenceStore.AssertExisting(category, name, bmp),
+                Throws.InstanceOf<Exception>());
+            Assert.That(File.Exists(path), Is.False, "immutable gates must never freeze from the current renderer");
+        }
+        finally
+        {
+            string dir = Path.GetDirectoryName(path)!;
+            if (Directory.Exists(dir))
+                Directory.Delete(dir, recursive: true);
+        }
+    }
 }

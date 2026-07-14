@@ -1,10 +1,10 @@
 ﻿using System.Runtime.InteropServices;
 using Beutl.Graphics;
-using Beutl.Graphics.Backend;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.UnitTests.Engine.Graphics.Backend;
+using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.EffectPipeline;
 
@@ -41,15 +41,13 @@ public class PrimitiveRuntimeContractTests
             ComputeNodeDescriptor descriptor = ComputeNodeDescriptor.Create(
                 ctx =>
                 {
-                    ITexture2D depth = ctx.AcquireDepthScratch();
                     for (int i = 0; i < actual; i++)
                     {
-                        ctx.Run(shader, ctx.Source, ctx.Destination, depth, new PushConstants());
+                        ctx.Run(shader, ctx.Source, ctx.Destination, new PushConstants());
                     }
                 },
                 declared,
                 ComputeFallback.Identity,
-                depthScratchCount: 1,
                 structuralToken: $"dispatch-count-{declared}-{actual}");
             (CompiledPlan plan, FrameResources resources) = Compile(
                 new EffectGraphBuilder(s_bounds, 1f, 1f).Compute(descriptor));
@@ -183,7 +181,6 @@ public class PrimitiveRuntimeContractTests
             ComputeNodeDescriptor descriptor = ComputeNodeDescriptor.Create(
                 ctx =>
                 {
-                    ITexture2D? depth = violation == "run-after-copy" ? ctx.AcquireDepthScratch() : null;
                     ctx.CopySourceToDestination();
                     switch (violation)
                     {
@@ -194,14 +191,13 @@ public class PrimitiveRuntimeContractTests
                             ctx.AcquireColorScratch();
                             break;
                         case "run-after-copy":
-                            ctx.Run(shader, ctx.Source, ctx.Destination, depth!, new PushConstants());
+                            ctx.Run(shader, ctx.Source, ctx.Destination, new PushConstants());
                             break;
                     }
                 },
                 passCount: 1,
                 ComputeFallback.Identity,
                 colorScratchCount: 1,
-                depthScratchCount: 1,
                 structuralToken: "terminal-copy-" + violation);
             (CompiledPlan plan, FrameResources resources) = Compile(
                 new EffectGraphBuilder(s_bounds, 1f, 1f).Compute(descriptor));
@@ -400,6 +396,49 @@ public class PrimitiveRuntimeContractTests
         {
             PlanExecutor.ResetComputeFallbackForTests();
         }
+    }
+
+    [Test]
+    public void ComputeInputWithoutBackendTexture_DoesNotCountFlushSync()
+    {
+        var graphics = VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.RequireComputeCapable(graphics, "compute null-texture identity contract");
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            ComputeNodeDescriptor descriptor = ComputeNodeDescriptor.Create(
+                static _ => throw new AssertionException("dispatch must not run without a backend texture"),
+                1,
+                ComputeFallback.Identity,
+                structuralToken: "null-texture-input");
+            (CompiledPlan plan, FrameResources resources) = Compile(
+                new EffectGraphBuilder(s_bounds, 1f, 1f).Compute(descriptor));
+            var diagnostics = new PipelineDiagnostics();
+            using var pool = new RenderTargetPool();
+            pool.SetBackingFactoryForTest(static (width, height) =>
+            {
+                var info = new SKImageInfo(
+                    width, height, SKColorType.RgbaF16, SKAlphaType.Premul, SKColorSpace.CreateSrgbLinear());
+                return (SKSurface.Create(info) ?? throw new InvalidOperationException("raster surface unavailable"), null);
+            });
+            RenderNodeOperation input = Input();
+
+            RenderNodeOperation[] outputs = PlanExecutor.Execute(
+                plan, resources, [input], 1f, 1f, float.PositiveInfinity, diagnostics, pool);
+            try
+            {
+                Assert.Multiple(() =>
+                {
+                    Assert.That(outputs, Has.Length.EqualTo(1));
+                    Assert.That(outputs[0], Is.SameAs(input), "a surface without a backend texture is identity");
+                    Assert.That(diagnostics.Snapshot().FlushSyncs, Is.Zero,
+                        "no backend texture means no Skia-to-Vulkan transition occurred");
+                });
+            }
+            finally
+            {
+                RenderNodeOperation.DisposeAll(outputs);
+            }
+        });
     }
 
     [Test]

@@ -87,8 +87,7 @@ public sealed partial class GLSLScriptEffect : FilterEffect, IScriptCompilableEf
         builder.Compute(ComputeNodeDescriptor.Create(
             ctx =>
             {
-                ITexture2D depth = ctx.AcquireDepthScratch();
-                ctx.Run(shader, ctx.Source, ctx.Destination, depth, new PushConstants
+                ctx.Run(shader, ctx.Source, ctx.Destination, new PushConstants
                 {
                     Progress = progress,
                     Duration = duration,
@@ -100,7 +99,6 @@ public sealed partial class GLSLScriptEffect : FilterEffect, IScriptCompilableEf
             },
             passCount: 1,
             ComputeFallback.Identity,
-            depthScratchCount: 1,
             structuralToken: nameof(GLSLScriptEffect)));
     }
 

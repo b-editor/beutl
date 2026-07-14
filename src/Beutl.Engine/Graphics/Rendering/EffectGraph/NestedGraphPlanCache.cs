@@ -3,7 +3,8 @@
 /// <summary>
 /// Hierarchical cache storage for nested graphs. Each persisted render node owns one root; node ordinals are scoped
 /// below their parent branch, so identical local ordinals in separate branches never collide. The cache contains
-/// compiled CPU plans only and follows the owning render node's lifetime.
+/// compiled CPU plans only and follows the owning render node's lifetime. Like the root <see cref="PlanCache"/>,
+/// it is render-thread-affine and intentionally lock-free; it must not be shared across concurrent render threads.
 /// </summary>
 internal sealed class NestedGraphPlanCache
 {

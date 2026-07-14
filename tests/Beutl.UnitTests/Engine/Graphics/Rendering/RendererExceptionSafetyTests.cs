@@ -78,6 +78,29 @@ public class RendererExceptionSafetyTests
         });
     }
 
+    [Test]
+    public void Dispose_OnDisposeThrows_StillReleasesRendererResources()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var renderer = new ThrowingDisposeRenderer(16, 16);
+            ImmediateCanvas canvas = Renderer.GetInternalCanvas(renderer);
+            RenderTarget target = Renderer.GetInternalRenderTarget(renderer);
+
+            InvalidOperationException? error = Assert.Throws<InvalidOperationException>(renderer.Dispose);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(error!.Message, Is.EqualTo("injected renderer disposal failure"));
+                Assert.That(renderer.IsDisposed, Is.True);
+                Assert.That(canvas.IsDisposed, Is.True, "canvas teardown must run after OnDispose fails");
+                Assert.That(target.IsDisposed, Is.True, "surface teardown must run after OnDispose fails");
+                Assert.DoesNotThrow(renderer.Dispose, "a completed cleanup remains idempotent");
+            });
+        });
+    }
+
     private static CompositionFrame CreateFrame(params RenderNodeOperation[] operations)
     {
         var drawable = new FaultingDrawable(operations);
@@ -112,6 +135,12 @@ public class RendererExceptionSafetyTests
                 }
             });
     }
+}
+
+internal sealed class ThrowingDisposeRenderer(int width, int height) : Renderer(width, height)
+{
+    protected override void OnDispose(bool disposing)
+        => throw new InvalidOperationException("injected renderer disposal failure");
 }
 
 // Emits a fixed set of ops into the render graph, with Render overridden to bypass the blend/opacity/filter

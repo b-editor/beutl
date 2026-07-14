@@ -34,8 +34,8 @@ public enum ComputeDispatchFailureBehavior
 /// <summary>
 /// The scratch/output resources the executor hands a <see cref="ComputeNodeDescriptor.Dispatch"/> callback
 /// (feature 004, T040). The executor owns every buffer: <see cref="Source"/> is the materialized input texture,
-/// <see cref="Destination"/> the pass's output texture, and <see cref="AcquireColorScratch"/>/
-/// <see cref="AcquireDepthScratch"/> hand out pooled ping-pong and depth textures released when the pass ends —
+/// <see cref="Destination"/> the pass's output texture, and <see cref="AcquireColorScratch"/> hands out pooled
+/// ping-pong textures released when the pass ends —
 /// so a K-pass effect drives K dispatches over pooled buffers instead of allocating fresh textures each frame.
 /// </summary>
 public interface IComputeContext
@@ -58,31 +58,28 @@ public interface IComputeContext
     /// <summary>Acquires a pooled RGBA16F ping-pong scratch texture; released by the executor at pass end.</summary>
     ITexture2D AcquireColorScratch();
 
-    /// <summary>Acquires a depth scratch texture the fixed-function pipeline needs; released by the executor at pass end.</summary>
-    ITexture2D AcquireDepthScratch();
-
     /// <summary>
     /// Blits <see cref="Source"/> into <see cref="Destination"/> unchanged (a GPU image copy, no shader). The
     /// identity a compute pass falls back to when it cannot produce output — e.g. its shaders failed to compile —
     /// so the layer keeps the source instead of the cleared (transparent) destination. This is an exclusive terminal
-    /// operation: it cannot be combined with <see cref="Run{T}(GLSLShader, ITexture2D, ITexture2D, ITexture2D, T)"/>
+    /// operation: it cannot be combined with <see cref="Run{T}(GLSLShader, ITexture2D, ITexture2D, T)"/>
     /// or followed by scratch acquisition.
     /// </summary>
     void CopySourceToDestination();
 
     /// <summary>Runs one single-texture GLSL pass; counts one <see cref="Rendering.PipelineDiagnostics.GpuPasses"/> (C8).</summary>
-    void Run<T>(GLSLShader shader, ITexture2D source, ITexture2D destination, ITexture2D depth, T pushConstants)
+    void Run<T>(GLSLShader shader, ITexture2D source, ITexture2D destination, T pushConstants)
         where T : unmanaged;
 
     /// <summary>Runs one dual-texture GLSL pass (source + mask); counts one <see cref="Rendering.PipelineDiagnostics.GpuPasses"/> (C8).</summary>
     void Run<T>(
-        GLSLShader shader, ITexture2D source, ITexture2D mask, ITexture2D destination, ITexture2D depth,
+        GLSLShader shader, ITexture2D source, ITexture2D mask, ITexture2D destination,
         T pushConstants) where T : unmanaged;
 }
 
 /// <summary>
 /// A Vulkan compute node (feature 004, data-model §1, contract A2, research D7): a fixed set of GLSL fragment
-/// passes the executor schedules on the Vulkan backend, feeding them pooled ping-pong/depth textures and driving
+/// passes the executor schedules on the Vulkan backend, feeding them pooled ping-pong textures and driving
 /// the per-frame push constants through the author's <see cref="Dispatch"/> callback. Never fused. The
 /// <see cref="PassCount"/> is <b>structural</b> (changing it recompiles, C3.6); the push-constant values the
 /// callback writes each frame are parameters. On a context without Vulkan the declared <see cref="Fallback"/>
@@ -93,7 +90,7 @@ public sealed record ComputeNodeDescriptor : EffectNodeDescriptor
     internal override EffectNodeKind Kind => EffectNodeKind.Compute;
 
     private ComputeNodeDescriptor(
-        Action<IComputeContext> dispatch, int passCount, int colorScratchCount, int depthScratchCount,
+        Action<IComputeContext> dispatch, int passCount, int colorScratchCount,
         ComputeFallback fallback,
         Action<GeometrySession>? cpuCallback, object structuralToken, bool cpuFallbackRequiresReadback,
         ComputeDispatchFailureBehavior dispatchFailureBehavior)
@@ -101,7 +98,6 @@ public sealed record ComputeNodeDescriptor : EffectNodeDescriptor
         Dispatch = dispatch;
         PassCount = passCount;
         ColorScratchCount = colorScratchCount;
-        DepthScratchCount = depthScratchCount;
         Fallback = fallback;
         CpuCallback = cpuCallback;
         StructuralToken = structuralToken;
@@ -113,16 +109,13 @@ public sealed record ComputeNodeDescriptor : EffectNodeDescriptor
     public Action<IComputeContext> Dispatch { get; }
 
     /// <summary>
-    /// Exact structural number of successful <see cref="IComputeContext.Run{T}(GLSLShader, ITexture2D, ITexture2D, ITexture2D, T)"/>
+    /// Exact structural number of successful <see cref="IComputeContext.Run{T}(GLSLShader, ITexture2D, ITexture2D, T)"/>
     /// calls this node performs (each counts one <c>GpuPasses</c>, C8), unless the callback uses the exclusive terminal copy.
     /// </summary>
     public int PassCount { get; }
 
     /// <summary>Maximum concurrently acquired RGBA16F scratch textures. Part of the compiled resource plan.</summary>
     public int ColorScratchCount { get; }
-
-    /// <summary>Maximum concurrently acquired depth scratch textures. Part of the compiled resource plan.</summary>
-    public int DepthScratchCount { get; }
 
     /// <summary>What happens on a context without Vulkan compute support.</summary>
     public ComputeFallback Fallback { get; }
@@ -166,7 +159,6 @@ public sealed record ComputeNodeDescriptor : EffectNodeDescriptor
         int passCount,
         ComputeFallback fallback,
         int colorScratchCount = 0,
-        int depthScratchCount = 0,
         Action<GeometrySession>? cpuCallback = null,
         object? structuralToken = null,
         bool cpuFallbackRequiresReadback = false,
@@ -175,7 +167,6 @@ public sealed record ComputeNodeDescriptor : EffectNodeDescriptor
         ArgumentNullException.ThrowIfNull(dispatch);
         ArgumentOutOfRangeException.ThrowIfLessThan(passCount, 1);
         ArgumentOutOfRangeException.ThrowIfNegative(colorScratchCount);
-        ArgumentOutOfRangeException.ThrowIfNegative(depthScratchCount);
         if (fallback == ComputeFallback.CpuCallback && cpuCallback is null)
         {
             throw new ArgumentNullException(
@@ -183,7 +174,7 @@ public sealed record ComputeNodeDescriptor : EffectNodeDescriptor
         }
 
         return new ComputeNodeDescriptor(
-            dispatch, passCount, colorScratchCount, depthScratchCount, fallback, cpuCallback,
+            dispatch, passCount, colorScratchCount, fallback, cpuCallback,
             structuralToken ?? dispatch.Method.MethodHandle.Value, cpuFallbackRequiresReadback, dispatchFailureBehavior);
     }
 }

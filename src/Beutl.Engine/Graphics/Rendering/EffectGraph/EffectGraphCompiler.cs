@@ -112,7 +112,7 @@ internal static class EffectGraphCompiler
             else if (node.Descriptor is ComputeNodeDescriptor compute)
             {
                 passes.Add(new ComputePass(
-                    compute.Dispatch, compute.PassCount, compute.ColorScratchCount, compute.DepthScratchCount,
+                    compute.Dispatch, compute.PassCount, compute.ColorScratchCount,
                     compute.Fallback, compute.CpuCallback, compute.CpuFallbackRequiresReadback,
                     compute.DispatchFailureBehavior)
                 {
@@ -502,7 +502,6 @@ internal static class EffectGraphCompiler
                 case ComputePass compute:
                     Add(multiplicity, idx, idx);
                     Add(compute.ColorScratchCount * multiplicity, idx, idx);
-                    Add(compute.DepthScratchCount * multiplicity, idx, idx, TextureFormat.Depth32Float);
                     Add(multiplicity, idx, lastUse);
                     break;
                 case FusedShaderPass { CoordinateInvariant: false, Stages: [RuntimeShaderStage { Source.Kind: SkslSourceKind.WholeSource }] }:

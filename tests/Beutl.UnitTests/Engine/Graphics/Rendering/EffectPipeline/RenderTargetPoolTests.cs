@@ -82,13 +82,20 @@ public class RenderTargetPoolTests
                     "a Skia surface and a raw texture need distinct buckets even when size/format match");
                 Assert.That(diagnostics.PoolMisses, Is.EqualTo(2));
                 Assert.That(diagnostics.TargetAllocations, Is.EqualTo(2));
+                Assert.That(pool.IdleBytes, Is.EqualTo(2L * W * H * 8),
+                    "surface and raw-texture idle bytes are each counted exactly once");
             });
 
             using RenderTarget surface = pool.Acquire(W, H, diagnostics)!;
             using PooledTextureLease texture = pool.AcquireTexture(
                 W, H, TextureFormat.RGBA16Float, diagnostics)!;
-            Assert.That(diagnostics.PoolMisses, Is.EqualTo(2),
-                "each resource kind must hit its own warmed bucket");
+            Assert.Multiple(() =>
+            {
+                Assert.That(diagnostics.PoolMisses, Is.EqualTo(2),
+                    "each resource kind must hit its own warmed bucket");
+                Assert.That(pool.IdleBytes, Is.Zero,
+                    "checking out both idle resources balances the idle-byte accounting");
+            });
         });
     }
 
@@ -152,6 +159,38 @@ public class RenderTargetPoolTests
             Assert.That(surface.DisposeCount, Is.EqualTo(1));
             Assert.That(texture.DisposeCount, Is.EqualTo(1),
                 "the native texture must be released even when surface teardown fails");
+        });
+    }
+
+    [Test]
+    public void Clear_DisposeFailureStillReleasesEveryIdleBackingAndResetsAccounting()
+    {
+        RunOnRenderThread(() =>
+        {
+            using var pool = new RenderTargetPool();
+            for (int i = 0; i < 3; i++)
+                pool.Acquire(W + i, H)!.Dispose();
+
+            int disposeCount = 0;
+            var injected = new InvalidOperationException("first backing dispose failed");
+            pool.SetDisposeBackingForTest(pooled =>
+            {
+                disposeCount++;
+                pooled.DisposeBacking();
+                if (disposeCount == 1)
+                    throw injected;
+            });
+
+            InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(pool.Clear);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(actual, Is.SameAs(injected), "the first cleanup failure is preserved");
+                Assert.That(disposeCount, Is.EqualTo(3), "a failure must not abort the remaining teardown");
+                Assert.That(pool.IdleCount, Is.Zero);
+                Assert.That(pool.IdleBytes, Is.Zero);
+                Assert.That(pool.BucketCountForTest, Is.Zero);
+            });
         });
     }
 

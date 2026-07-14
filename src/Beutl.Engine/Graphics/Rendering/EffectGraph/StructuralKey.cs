@@ -66,7 +66,6 @@ internal readonly struct StructuralKey : IEquatable<StructuralKey>
                 parts.Add(KeyPart.Token(compute.StructuralToken));
                 parts.Add(KeyPart.Create(KeyPartKind.PassCount, compute.PassCount));
                 parts.Add(KeyPart.Create(KeyPartKind.ColorScratchCount, compute.ColorScratchCount));
-                parts.Add(KeyPart.Create(KeyPartKind.DepthScratchCount, compute.DepthScratchCount));
                 parts.Add(KeyPart.Create(KeyPartKind.ComputeFallback, compute.Fallback));
                 parts.Add(KeyPart.Create(KeyPartKind.CpuReadback, compute.CpuFallbackRequiresReadback));
                 parts.Add(KeyPart.Create(KeyPartKind.DispatchFailureBehavior, compute.DispatchFailureBehavior));
@@ -134,7 +133,6 @@ internal readonly struct StructuralKey : IEquatable<StructuralKey>
         RequiresReadback,
         PassCount,
         ColorScratchCount,
-        DepthScratchCount,
         ComputeFallback,
         CpuReadback,
         DispatchFailureBehavior,

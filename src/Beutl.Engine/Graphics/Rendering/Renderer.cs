@@ -1,4 +1,5 @@
 ﻿using System.Runtime.CompilerServices;
+using System.Runtime.ExceptionServices;
 using Beutl.Composition;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Logging;
@@ -140,17 +141,34 @@ public class Renderer : IRenderer
 
     public void Dispose()
     {
-        if (!IsDisposed)
+        if (IsDisposed)
+            return;
+
+        _isDisposed = true;
+        Exception? failure = null;
+
+        void SafeStep(Action action)
         {
-            _isDisposed = true;
-            OnDispose(true);
-            _pool.Dispose();
-            _immediateCanvas.Dispose();
-            _surface.Dispose();
-            ClearAllCaches();
-            DisposeAllEntries();
-            GC.SuppressFinalize(this);
+            try
+            {
+                action();
+            }
+            catch (Exception ex)
+            {
+                failure ??= ex;
+            }
         }
+
+        SafeStep(() => OnDispose(true));
+        SafeStep(_pool.Dispose);
+        SafeStep(_immediateCanvas.Dispose);
+        SafeStep(_surface.Dispose);
+        SafeStep(ClearAllCaches);
+        SafeStep(DisposeAllEntries);
+        GC.SuppressFinalize(this);
+
+        if (failure != null)
+            ExceptionDispatchInfo.Capture(failure).Throw();
     }
 
     /// <remarks><see cref="IsDisposed"/> is already <c>true</c> when this method is called.</remarks>

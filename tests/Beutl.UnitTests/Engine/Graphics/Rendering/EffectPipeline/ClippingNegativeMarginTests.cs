@@ -89,6 +89,35 @@ public class ClippingNegativeMarginTests
         }
     }
 
+    [Test]
+    public void AutoClip_FractionalNegativeLeadingMargin_StaysInsideDeclaredGrowAllowance()
+    {
+        RenderNodeOperation[] ops = RenderClipping(clip =>
+        {
+            clip.AutoClip.CurrentValue = true;
+            clip.Left.CurrentValue = -50.25f;
+            clip.Top.CurrentValue = -20.5f;
+        });
+        try
+        {
+            Assert.That(ops, Has.Length.EqualTo(1),
+                "fractional leading-edge rounding must not push SetOutputBounds beyond the allocated grow allowance");
+            Assert.Multiple(() =>
+            {
+                Assert.That(ops[0].Bounds.Left, Is.LessThan(0));
+                Assert.That(ops[0].Bounds.Top, Is.LessThan(s_content.Top));
+            });
+
+            using Bitmap bmp = Rasterize(ops[0], ops[0].Bounds);
+            Assert.That(PixelAt(bmp, ops[0].Bounds, new Point(45, 45)).Alpha, Is.Not.Zero,
+                "the fractional expansion must preserve the detected content");
+        }
+        finally
+        {
+            RenderNodeOperation.DisposeAll(ops);
+        }
+    }
+
     // The fixed (non-AutoClip) path: Left = -10 inflates the output rect directly (legacy Apply expanded its target),
     // with the new strip transparent.
     [Test]

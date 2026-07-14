@@ -39,8 +39,7 @@ public class ComputeInputScaleBasisTests
                     ctx.CopySourceToDestination();
                 },
                 passCount: 1,
-                ComputeFallback.Identity,
-                depthScratchCount: 0);
+                ComputeFallback.Identity);
 
             var builder = new EffectGraphBuilder(describeBounds, outputScale: 1f, workingScale: 1f);
             builder.Compute(descriptor);

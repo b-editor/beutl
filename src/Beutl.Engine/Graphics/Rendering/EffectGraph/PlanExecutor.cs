@@ -343,7 +343,8 @@ internal static class PlanExecutor
                 // descriptor nodes with a compiler-visible bounds contract participate in ROI propagation.
                 RequestedBounds = Rect.Invalid,
             };
-            RenderNodeOperation[] outputs = node.Process(childContext);
+            RenderNodeOperation[] outputs = node.Process(childContext)
+                ?? throw new InvalidOperationException("A custom render node returned a null operation array.");
             if (outputs.Length == 0)
                 return;
 
@@ -1061,6 +1062,7 @@ internal static class PlanExecutor
             CaptureDisposeFailure(outputTarget, ref cleanupFailure);
             CaptureDisposeFailure(inputTarget, ref cleanupFailure);
             CaptureDisposeFailure(op, ref cleanupFailure);
+            LogCleanupFailure(cleanupFailure, "geometry failure cleanup");
             throw;
         }
 
@@ -1157,8 +1159,16 @@ internal static class PlanExecutor
         op.Dispose();
         if (diagnostics != null)
             diagnostics.GpuPasses++;
-        return RenderNodeOperation.CreateFromRenderTarget(
-            tight, tight.Position, tightTarget, EffectiveScale.At(w));
+        try
+        {
+            return RenderNodeOperation.CreateFromRenderTarget(
+                tight, tight.Position, tightTarget, EffectiveScale.At(w));
+        }
+        catch
+        {
+            tightTarget.Dispose();
+            throw;
+        }
     }
 
     private static RenderNodeOperation? ExecuteCompute(
@@ -1178,8 +1188,8 @@ internal static class PlanExecutor
         // The source bakes at the pass-resolved w — not the boundary workingScale — because IComputeContext exposes
         // a single coordinate basis (Width/Height/WorkingScale at w) and dispatches texelFetch the source with
         // destination-derived coordinates; a boundary-scale bake would shift the sampling grid whenever the resolver
-        // carried a lower w. w already mins against the op's carried density (C3.2), so this never re-raises a
-        // reduced density; the budget clamp keeps the input allocatable (FR-037(b)).
+        // carried a lower w. Resource resolution already carries dynamic-predecessor density where C3.2 requires it;
+        // the clamp below only keeps this pass's input within the buffer budget (FR-037(b)).
         float inW = RenderNodeContext.ClampWorkingScaleToBufferBudget(op.Bounds, w, maxDimension);
         (int inBw, int inBh) = RenderNodeContext.DeviceBufferSize(op.Bounds, inW);
         if (inBw <= 0 || inBh <= 0)
@@ -1205,12 +1215,20 @@ internal static class PlanExecutor
         ITexture2D? sourceTexture;
         try
         {
+            sourceTexture = inputTarget.Texture;
+            if (sourceTexture == null)
+            {
+                // A raster backing has no Skia -> Vulkan transition to perform or count. Keep the source op as
+                // identity without touching the compute output allocation path.
+                inputTarget.Dispose();
+                return op;
+            }
+
             if (s_computePrepareFailureForTests is { } injected)
                 throw injected;
             inputTarget.PrepareForSampling();
             if (diagnostics != null)
                 diagnostics.FlushSyncs++;
-            sourceTexture = inputTarget.Texture;
         }
         catch
         {
@@ -1218,15 +1236,6 @@ internal static class PlanExecutor
             op.Dispose();
             throw;
         }
-        if (sourceTexture == null)
-        {
-            // Genuinely surface-less context (a raster surface behind a compute-capable context): identity so the
-            // content survives. Decided BEFORE the output acquire so a later allocation failure is never mistaken
-            // for it (review M1) — the input passes through unchanged.
-            inputTarget.Dispose();
-            return op;
-        }
-
         RenderTarget? outputTarget = RenderTargetPool.Acquire(pool, width, height, diagnostics);
         if (outputTarget == null)
         {
@@ -1244,7 +1253,6 @@ internal static class PlanExecutor
         }
 
         var scratch = new List<RenderTarget>();
-        var depthScratch = new List<IDisposable>();
         try
         {
             outputTarget.PrepareForComputeWrite();
@@ -1259,8 +1267,7 @@ internal static class PlanExecutor
 
         var ctx = new ComputeContext(
             gfx, sourceTexture, destTexture, width, height, w,
-            pass.PassCount, pass.ColorScratchCount, pass.DepthScratchCount,
-            scratch, depthScratch, diagnostics, pool);
+            pass.PassCount, pass.ColorScratchCount, scratch, diagnostics, pool);
         try
         {
             pass.Dispatch(ctx);
@@ -1268,12 +1275,13 @@ internal static class PlanExecutor
         }
         catch (ComputeScratchAllocationException ex)
         {
-            // A ping-pong / depth scratch acquire failed mid-dispatch: normalize like every other pass kind (C7,
+            // A ping-pong scratch acquire failed mid-dispatch: normalize like every other pass kind (C7,
             // review M1) — preview drops and continues, delivery throws — instead of aborting preview by rethrowing.
             Exception? cleanupFailure = null;
-            ReleaseComputeScratch(scratch, depthScratch, ref cleanupFailure);
+            ReleaseComputeScratch(scratch, ref cleanupFailure);
             CaptureDisposeFailure(outputTarget, ref cleanupFailure);
             CaptureDisposeFailure(inputTarget, ref cleanupFailure);
+            LogCleanupFailure(cleanupFailure, "compute scratch-allocation cleanup");
             return DropOrThrow(op, maxWorkingScale, ex.Message);
         }
         catch (Exception ex) when (
@@ -1288,9 +1296,10 @@ internal static class PlanExecutor
             // unsorted frame; cancellation, resource-plan violations, and backend preparation failures always
             // propagate; allocation failures remain governed by C7's preview-drop contract.
             Exception? cleanupFailure = null;
-            ReleaseComputeScratch(scratch, depthScratch, ref cleanupFailure);
+            ReleaseComputeScratch(scratch, ref cleanupFailure);
             CaptureDisposeFailure(outputTarget, ref cleanupFailure);
             CaptureDisposeFailure(inputTarget, ref cleanupFailure);
+            LogCleanupFailure(cleanupFailure, "compute preview-identity cleanup");
             s_logger.LogWarning(ex,
                 "Compute dispatch failed. Preview keeps the source because the pass declares IdentityInPreview.");
             return op;
@@ -1298,15 +1307,16 @@ internal static class PlanExecutor
         catch
         {
             Exception? cleanupFailure = null;
-            ReleaseComputeScratch(scratch, depthScratch, ref cleanupFailure);
+            ReleaseComputeScratch(scratch, ref cleanupFailure);
             CaptureDisposeFailure(outputTarget, ref cleanupFailure);
             CaptureDisposeFailure(inputTarget, ref cleanupFailure);
             CaptureDisposeFailure(op, ref cleanupFailure);
+            LogCleanupFailure(cleanupFailure, "compute failure cleanup");
             throw;
         }
 
         Exception? successCleanupFailure = null;
-        ReleaseComputeScratch(scratch, depthScratch, ref successCleanupFailure);
+        ReleaseComputeScratch(scratch, ref successCleanupFailure);
         CaptureDisposeFailure(inputTarget, ref successCleanupFailure);
         if (s_computeInputDisposeFailureForTests is { } inputDisposeFailure)
         {
@@ -1409,13 +1419,10 @@ internal static class PlanExecutor
             outBounds, outBounds.Position, outputTarget, EffectiveScale.At(w));
     }
 
-    private static void ReleaseComputeScratch(
-        List<RenderTarget> scratch, List<IDisposable> depthScratch, ref Exception? cleanupFailure)
+    private static void ReleaseComputeScratch(List<RenderTarget> scratch, ref Exception? cleanupFailure)
     {
         foreach (RenderTarget t in scratch)
             CaptureDisposeFailure(t, ref cleanupFailure);
-        foreach (IDisposable d in depthScratch)
-            CaptureDisposeFailure(d, ref cleanupFailure);
     }
 
     private static void CaptureDisposeFailure(IDisposable? disposable, ref Exception? cleanupFailure)
@@ -1428,6 +1435,12 @@ internal static class PlanExecutor
         {
             cleanupFailure ??= ex;
         }
+    }
+
+    private static void LogCleanupFailure(Exception? cleanupFailure, string operation)
+    {
+        if (cleanupFailure != null)
+            s_logger.LogWarning(cleanupFailure, "A resource failed to dispose during {Operation}", operation);
     }
 
     // Fan-out: each current op is materialized once and split into the branches its callback emits (a static count
@@ -1610,6 +1623,7 @@ internal static class PlanExecutor
             CaptureDisposeFailure(target, ref cleanupFailure);
             RenderNodeOperation.DisposeAll(CollectionsMarshal.AsSpan(current));
             current.Clear();
+            LogCleanupFailure(cleanupFailure, "composite failure cleanup");
             throw;
         }
 
@@ -1687,7 +1701,7 @@ internal static class PlanExecutor
         return composed;
     }
 
-    // A compute pass's ping-pong/depth scratch acquire failed. Distinct from a genuine dispatch bug so ExecuteCompute
+    // A compute pass's ping-pong scratch acquire failed. Distinct from a genuine dispatch bug so ExecuteCompute
     // can route it through the uniform C7 drop/throw (preview drops, delivery throws) rather than aborting preview.
     internal sealed class ComputeScratchAllocationException : Exception
     {
@@ -1700,28 +1714,11 @@ internal static class PlanExecutor
     // preview dispatch failure, so it bypasses ComputeDispatchFailureBehavior.IdentityInPreview.
     private sealed class ComputeContractViolationException(string message) : InvalidOperationException(message);
 
-    // Creates a non-pooled depth scratch target, normalizing a raw create failure to ComputeScratchAllocationException so
-    // the pool-less branch routes through the same ExecuteCompute C7 drop/throw as the pooled branch, rather than aborting
-    // preview as an unclassified dispatch bug.
-    internal static ITexture2D CreateNonPooledDepthScratch(IGraphicsContext gfx, int width, int height)
-    {
-        try
-        {
-            return gfx.CreateTexture2D(width, height, TextureFormat.Depth32Float);
-        }
-        catch (Exception ex) when (ex is not ComputeScratchAllocationException)
-        {
-            throw new ComputeScratchAllocationException(
-                $"Compute depth scratch allocation failed ({width}x{height} px).", ex);
-        }
-    }
-
     // The executor-owned resources handed to a compute node's dispatch callback: the materialized source and the
-    // pass output texture, plus pooled color and depth scratch released when the pass ends.
+    // pass output texture, plus pooled color scratch released when the pass ends.
     private sealed class ComputeContext(
         IGraphicsContext gfx, ITexture2D source, ITexture2D destination, int width, int height, float workingScale,
-        int passCount, int colorScratchLimit, int depthScratchLimit,
-        List<RenderTarget> colorScratch, List<IDisposable> depthScratch, PipelineDiagnostics? diagnostics,
+        int passCount, int colorScratchLimit, List<RenderTarget> colorScratch, PipelineDiagnostics? diagnostics,
         RenderTargetPool? pool) : IComputeContext
     {
         private int _completedDispatches;
@@ -1778,48 +1775,22 @@ internal static class PlanExecutor
             _copiedSource = true;
         }
 
-        public ITexture2D AcquireDepthScratch()
-        {
-            ThrowIfIdentityCompleted();
-            if (depthScratch.Count >= depthScratchLimit)
-            {
-                throw new ComputeContractViolationException(
-                    $"The compute callback exceeded its declared depth scratch limit ({depthScratchLimit}).");
-            }
-
-            if (pool != null)
-            {
-                PooledTextureLease lease = pool.AcquireTexture(width, height, TextureFormat.Depth32Float, diagnostics)
-                    ?? throw new ComputeScratchAllocationException(
-                        $"Compute depth scratch allocation failed ({width}x{height} px).");
-                depthScratch.Add(lease);
-                return lease.Texture;
-            }
-
-            ITexture2D depth = CreateNonPooledDepthScratch(gfx, width, height);
-            // C8: a fresh non-pooled GPU target creation still counts TargetAllocations.
-            if (diagnostics != null)
-                diagnostics.TargetAllocations++;
-            depthScratch.Add(depth);
-            return depth;
-        }
-
-        public void Run<T>(GLSLShader shader, ITexture2D src, ITexture2D dst, ITexture2D depth, T pushConstants)
+        public void Run<T>(GLSLShader shader, ITexture2D src, ITexture2D dst, T pushConstants)
             where T : unmanaged
         {
             BeforeRun();
-            shader.ExecuteSingleTarget(src, dst, depth, pushConstants);
+            shader.ExecuteSingleTarget(src, dst, pushConstants);
             _completedDispatches++;
             if (diagnostics != null)
                 diagnostics.GpuPasses++;
         }
 
         public void Run<T>(
-            GLSLShader shader, ITexture2D src, ITexture2D mask, ITexture2D dst, ITexture2D depth, T pushConstants)
+            GLSLShader shader, ITexture2D src, ITexture2D mask, ITexture2D dst, T pushConstants)
             where T : unmanaged
         {
             BeforeRun();
-            shader.ExecuteSingleTargetWithMask(src, mask, dst, depth, pushConstants);
+            shader.ExecuteSingleTargetWithMask(src, mask, dst, pushConstants);
             _completedDispatches++;
             if (diagnostics != null)
                 diagnostics.GpuPasses++;
@@ -1988,8 +1959,21 @@ internal static class PlanExecutor
             branchTarget.Dispose();
             if (diagnostics != null)
                 diagnostics.GpuPasses++;
-            outputs.Add(RenderNodeOperation.CreateFromRenderTarget(
-                tight, tight.Position, tightTarget, EffectiveScale.At(w)));
+            RenderNodeOperation? output = null;
+            try
+            {
+                output = RenderNodeOperation.CreateFromRenderTarget(
+                    tight, tight.Position, tightTarget, EffectiveScale.At(w));
+                outputs.Add(output);
+            }
+            catch
+            {
+                if (output != null)
+                    output.Dispose();
+                else
+                    tightTarget.Dispose();
+                throw;
+            }
         }
     }
 }

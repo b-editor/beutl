@@ -312,14 +312,13 @@ public sealed partial class PixelSortEffect : FilterEffect
     {
         var r = (Resource)resource;
         var data = new EffectData(r.Direction, r.SortKey, r.ThresholdMin / 100f, r.ThresholdMax / 100f, r.Ascending);
-        // Three coordinate-invariant-in-bounds compute passes (prepare -> rank -> gather+restore), pooled ping-pong
-        // color + one depth attachment. Without Vulkan the effect is inactive today, so the fallback is identity.
+        // Three coordinate-invariant-in-bounds compute passes (prepare -> rank -> gather+restore) over pooled
+        // ping-pong color targets. Without Vulkan the effect is inactive today, so the fallback is identity.
         builder.Compute(ComputeNodeDescriptor.Create(
             ctx => Dispatch(data, ctx),
             passCount: 3,
             ComputeFallback.Identity,
             colorScratchCount: 2,
-            depthScratchCount: 1,
             structuralToken: nameof(PixelSortEffect),
             dispatchFailureBehavior: ComputeDispatchFailureBehavior.IdentityInPreview));
     }
@@ -340,9 +339,8 @@ public sealed partial class PixelSortEffect : FilterEffect
 
         ITexture2D prep = ctx.AcquireColorScratch();
         ITexture2D rank = ctx.AcquireColorScratch();
-        ITexture2D depth = ctx.AcquireDepthScratch();
 
-        ctx.Run(s_prepareShader, ctx.Source, prep, depth,
+        ctx.Run(s_prepareShader, ctx.Source, prep,
             new PreparePushConstants
             {
                 ThresholdMin = r.ThresholdMin,
@@ -353,7 +351,7 @@ public sealed partial class PixelSortEffect : FilterEffect
                 Height = height,
             });
 
-        ctx.Run(s_rankShader, prep, rank, depth,
+        ctx.Run(s_rankShader, prep, rank,
             new RankPushConstants
             {
                 SortDir = (int)r.Direction,
@@ -361,7 +359,7 @@ public sealed partial class PixelSortEffect : FilterEffect
                 Height = height,
             });
 
-        ctx.Run(s_gatherShader, rank, ctx.Source, ctx.Destination, depth,
+        ctx.Run(s_gatherShader, rank, ctx.Source, ctx.Destination,
             new GatherPushConstants
             {
                 SortDir = (int)r.Direction,

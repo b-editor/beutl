@@ -163,6 +163,27 @@ public class CustomRenderNodeEffectInGraphTests
         Assert.That(input.IsDisposed, Is.True, "the executor released the op it fed to the throwing child (no leak)");
     }
 
+    [Test]
+    public void Execute_CustomRenderNodeReturnsNullArray_ThrowsClearContractErrorAndReleasesInputs()
+    {
+        var group = new FilterEffectGroup();
+        group.Children.Add(new NullArrayCustomNodeEffect());
+
+        CompiledPlan plan = CompileGroup(group);
+        FrameResources res = EffectGraphCompiler.ResolveResources(plan, s_bounds, workingScale: 1f);
+        RenderNodeOperation input = MakeInput(s_bounds);
+
+        InvalidOperationException? error = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
+            plan, res, [input], outputScale: 1f, workingScale: 1f,
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(error!.Message, Does.Contain("null operation array"));
+            Assert.That(input.IsDisposed, Is.True, "the invalid child result must not strand its input operation");
+        });
+    }
+
     // A custom-render-node whose FACTORY (RenderNodeFactory.Create) throws before the child node exists must still
     // release the ops the pass detached from the working set (C7). The upstream Gamma pass acquires one pooled output
     // buffer; if the factory throw stranded that op, its lease would leak. Before the fix the Create ran outside the
@@ -702,6 +723,29 @@ internal sealed class ThrowingRenderNode(FilterEffect.Resource resource) : Filte
 {
     public override RenderNodeOperation[] Process(RenderNodeContext context)
         => throw new InvalidOperationException("custom child render node failed");
+}
+
+[SuppressResourceClassGeneration]
+internal sealed partial class NullArrayCustomNodeEffect : CustomRenderNodeFilterEffect
+{
+    public override Resource ToResource(CompositionContext context)
+    {
+        var resource = new Resource();
+        bool updateOnly = false;
+        resource.Update(this, context, ref updateOnly);
+        return resource;
+    }
+
+    public new sealed class Resource : CustomRenderNodeFilterEffect.Resource
+    {
+        public override FilterEffectRenderNodeFactory RenderNodeFactory
+            => FilterEffectRenderNodeFactory.Of(static r => new NullArrayRenderNode(r));
+    }
+}
+
+internal sealed class NullArrayRenderNode(FilterEffect.Resource resource) : FilterEffectRenderNode(resource)
+{
+    public override RenderNodeOperation[] Process(RenderNodeContext context) => null!;
 }
 
 [SuppressResourceClassGeneration]

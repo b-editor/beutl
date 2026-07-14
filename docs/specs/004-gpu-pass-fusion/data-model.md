@@ -38,7 +38,7 @@ Per kind:
 - **`ShaderNodeDescriptor`**: `SkslSource source` (snippet or whole-source; identity-hashable), `bool IsCoordinateInvariant`, `UniformBinding[] Uniforms`, `ChildBinding[] Children` (every named child shader bound beyond the implicit `src`: a LUT/curve *sampler* — an eager, invariance-safe value lookup — or a whole-source shader's displacement map; there is one binding type, not a separate `SamplerBinding`). Snippet form must define `half4 apply(half4 c)`; whole-source form must define `half4 main(float2 coord)` with a `src` child (today's `SKSLShader` convention). **Color/alpha contract**: shaders receive and return **premultiplied-alpha, linear-light** `half4` (the working surface is RGBA16F / `SrgbLinear` / `Premul`); a snippet needing straight alpha unpremultiplies and re-premultiplies internally, exactly as today's `Gamma`/`Curves`/`LutEffect` SKSL does. Fused composition never changes representation between stages.
 - **`ColorFilterNodeDescriptor`**: `Func<SKColorFilter>`-style factory + captured data record; always coordinate-invariant.
 - **`SkiaFilterNodeDescriptor`**: `SKImageFilter` factory + captured data record; forward/backward bounds functions (backward defaults to forward's inverse-inflation; may return Unbounded).
-- **`ComputeNodeDescriptor`**: GLSL source set (or precompiled pipeline handle), exact successful-dispatch `int PassCount` (**structural and runtime-enforced**, with one exclusive terminal source-copy alternative), exact maximum concurrent color/depth scratch counts (**structural and runtime-enforced**), push-constant writer, declared fallback behavior when `Supports3DRendering == false` (`Identity` | `Skip` | `CpuCallback`), whether that CPU fallback requires readback, and a separate ordinary-dispatch failure policy (`Throw` by default; `IdentityInPreview` only for effects whose established preview behavior keeps the source).
+- **`ComputeNodeDescriptor`**: GLSL source set (or precompiled pipeline handle), exact successful-dispatch `int PassCount` (**structural and runtime-enforced**, with one exclusive terminal source-copy alternative), exact maximum concurrent color scratch count (**structural and runtime-enforced**), push-constant writer, declared fallback behavior when `Supports3DRendering == false` (`Identity` | `Skip` | `CpuCallback`), whether that CPU fallback requires readback, and a separate ordinary-dispatch failure policy (`Throw` by default; `IdentityInPreview` only for effects whose established preview behavior keeps the source).
 - **`GeometryNodeDescriptor`**: `Action<GeometrySession>` callback, explicit `BoundsContract` (mandatory — no default), and an explicit CPU-readback requirement.
 - **`SplitNodeDescriptor` / `CompositeNodeDescriptor`**: branch count (**structural**) / composite operation (blend mode, per-input offsets).
 - **`CustomRenderNodeDescriptor`**: a child `CustomRenderNodeFilterEffect.Resource` whose execution lives in a custom `FilterEffectRenderNode`. The dedicated resource requires `RenderNodeFactory` at compile time. Structural identity = the child's `RenderNodeFactory.NodeType` + the child resource's **stable identity token** (`FilterEffect.Resource.StructuralId`, a collision-free per-instance id; a swap or type change recompiles); the child's `Resource.Version` is a per-frame parameter. Render-time bounds, never coordinate-invariant. Appended via `EffectGraphBuilder.CustomRenderNode` (the sealed `Describe` of the `CustomRenderNodeFilterEffect` base); the executor drives the child render node as one plan node (execution-plan §C3.6). This is how an effect whose work is not describable (`NodeGraphFilterEffect`) is embedded in a group/delay-animation.
@@ -91,7 +91,7 @@ Hash accumulated over: node kinds + topology (branch structure), shader-source i
 
 - **`FusedShaderPass`**: composition recipe — ordered stages (`RuntimeShaderStage(SKRuntimeEffect ref, uniform slots)` | `ColorFilterStage(filter slot)`), one input, one output, device ROI. Executes as one draw (D2).
 - **`SkiaFilterPass`**: composed `SKImageFilter` chain slot, input, output, ROI.
-- **`ComputePass`**: Vulkan pipeline ref, ping-pong/depth resource refs, push-constant slot, iteration count.
+- **`ComputePass`**: Vulkan pipeline ref, ping-pong color resource refs, push-constant slot, iteration count.
 - **`GeometryPass`**: session callback ref, inputs, output, ROI.
 - **`CompositePass` / split edges**: composite op + input refs.
 - **`NestedGraphPass`**: per-branch describe callback; the executor re-describes, compiles, and recursively runs a child graph per branch index (dynamic-output).
@@ -101,7 +101,7 @@ Hash accumulated over: node kinds + topology (branch structure), shader-source i
 
 ### `ResourcePlan` (structural shape) + per-frame resource resolution
 
-`ResourcePlan` is the structural half: `IntermediateDecl { Id, Format (RGBA16F | Depth32Float), FirstUse, LastUse }`. Peak-live count = max overlap of `[FirstUse, LastUse]` intervals — the FR-007 bound asserted in tests. Ping-pong pairs are two decls with alternating lifetimes.
+`ResourcePlan` is the structural half: `IntermediateDecl { Id, Format (currently RGBA16F), FirstUse, LastUse }`. Peak-live count = max overlap of `[FirstUse, LastUse]` intervals — the FR-007 bound asserted in tests. Ping-pong pairs are two decls with alternating lifetimes.
 
 Concrete `DevicePixelSize` per decl and per-pass ROIs are computed **every frame** by the **resource resolution** pass: pure `Rect` math over the freshly described bounds, applying the working-scale carry (§6 note) and the 003 per-axis clamp, feeding the pool's `Acquire` sizes. This runs on cache hits and misses alike; it never creates programs or passes.
 
@@ -122,7 +122,7 @@ Single-entry (current key → plan) — a render node has one structure at a tim
 | Member | Semantics |
 |---|---|
 | `Acquire(int w, int h)` | exact-size RGBA16F Skia-surface bucket pop or fresh allocation (counted as miss) |
-| `AcquireTexture(int w, int h, TextureFormat fmt)` | exact-size raw-texture bucket pop or fresh allocation for non-Skia attachments such as depth |
+| `AcquireTexture(int w, int h, TextureFormat fmt)` | exact-size surface-less raw-texture bucket pop or fresh allocation for custom render-node resources |
 | `Release(target)` | return to bucket; contents undefined afterwards. **Lease model**: consumers hold ref-counted `ShallowCopy` handles, so the actual return is hooked into the underlying `RenderTarget`'s last ref-count release — a wrapper's `Dispose` alone never returns a surface other copies still reference. Concretely: today's private `SKSurfaceCounter` *disposes* on last release; a pooled target instead carries a pool-aware deallocator that returns surface+texture to the bucket atomically, plus a generation tag so a stale shallow copy can never observe a reissued target (tested) |
 | `Trim(frameIndex)` | dispose targets unused ≥ N frames; enforce byte soft-cap LRU |
 | Failure | propagate current semantics: preview → drop/degrade; delivery → throw (FR-015) |
@@ -141,7 +141,7 @@ Per-frame values bound into `ParameterSlots`: uniform floats/vectors/matrices, `
 
 ### `PipelineDiagnostics` (per renderer/processor)
 
-Counters (`long`): `GpuPasses`, `TargetAllocations`, `PoolAcquires`, `PoolMisses`, `FullFrameMaterializations`, `FlushSyncs`, `PlanCompilations`, `ProgramCreations`. The public read surface consists of get-only counters plus `Snapshot()`, which returns an immutable struct. Counter mutation and `Reset()` are engine-internal; tests reach `Reset()` through `InternalsVisibleTo`. Always-on field increments (D9).
+Counters (`long`): `GpuPasses`, `TargetAllocations`, `PoolAcquires`, `PoolMisses`, `FullFrameMaterializations`, `FlushSyncs`, `PlanCompilations`, `ProgramCreations`, `PrefixCacheHits`, `CompositeLayerSaves`. The public read surface consists of get-only counters plus `Snapshot()`, which returns an immutable struct. Counter mutation and `Reset()` are engine-internal; tests reach `Reset()` through `InternalsVisibleTo`. Always-on field increments (D9).
 
 ## 6. State transitions
 

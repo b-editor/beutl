@@ -46,6 +46,14 @@ public abstract record UniformBinding(string Name)
     /// </summary>
     protected internal abstract void Apply(
         SKRuntimeShaderBuilder builder, string effectiveName, in PassUniformContext context);
+
+    /// <summary>
+    /// Writes a short-lived vector immediately. The scoped parameter lets callers use stack storage while
+    /// <see cref="SKRuntimeEffectUniforms.Add"/> copies the samples into Skia's owned uniform buffer.
+    /// </summary>
+    protected static void ApplyFloatVector(
+        SKRuntimeShaderBuilder builder, string effectiveName, scoped ReadOnlySpan<float> values)
+        => builder.Uniforms.Add(effectiveName, values);
 }
 
 /// <summary>A scalar <c>float</c> uniform.</summary>
@@ -61,7 +69,10 @@ public sealed record Float2Uniform(string Name, float X, float Y) : UniformBindi
 {
     /// <inheritdoc/>
     protected internal override void Apply(SKRuntimeShaderBuilder builder, string effectiveName, in PassUniformContext context)
-        => builder.Uniforms[effectiveName] = new[] { X, Y };
+    {
+        Span<float> values = stackalloc float[] { X, Y };
+        ApplyFloatVector(builder, effectiveName, values);
+    }
 }
 
 /// <summary>A <c>float3</c> uniform.</summary>
@@ -69,7 +80,10 @@ public sealed record Float3Uniform(string Name, float X, float Y, float Z) : Uni
 {
     /// <inheritdoc/>
     protected internal override void Apply(SKRuntimeShaderBuilder builder, string effectiveName, in PassUniformContext context)
-        => builder.Uniforms[effectiveName] = new[] { X, Y, Z };
+    {
+        Span<float> values = stackalloc float[] { X, Y, Z };
+        ApplyFloatVector(builder, effectiveName, values);
+    }
 }
 
 /// <summary>A <c>float4</c> uniform.</summary>
@@ -77,7 +91,10 @@ public sealed record Float4Uniform(string Name, float X, float Y, float Z, float
 {
     /// <inheritdoc/>
     protected internal override void Apply(SKRuntimeShaderBuilder builder, string effectiveName, in PassUniformContext context)
-        => builder.Uniforms[effectiveName] = new[] { X, Y, Z, W };
+    {
+        Span<float> values = stackalloc float[] { X, Y, Z, W };
+        ApplyFloatVector(builder, effectiveName, values);
+    }
 }
 
 /// <summary>An <c>int</c> uniform.</summary>
@@ -91,6 +108,9 @@ public sealed record IntUniform(string Name, int Value) : UniformBinding(Name)
 /// <summary>A <c>float[]</c> uniform (SKSL fixed-size float array; the array length must match the declaration).</summary>
 public sealed record FloatArrayUniform(string Name, float[] Values) : UniformBinding(Name)
 {
+    /// <summary>The values written to the fixed-size SKSL array uniform.</summary>
+    public float[] Values { get; init; } = Values ?? throw new ArgumentNullException(nameof(Values));
+
     /// <inheritdoc/>
     protected internal override void Apply(SKRuntimeShaderBuilder builder, string effectiveName, in PassUniformContext context)
         => builder.Uniforms[effectiveName] = Values;
@@ -115,7 +135,14 @@ public sealed record DensityScaledFloat2Uniform(string Name, float LogicalX, flo
 {
     /// <inheritdoc/>
     protected internal override void Apply(SKRuntimeShaderBuilder builder, string effectiveName, in PassUniformContext context)
-        => builder.Uniforms[effectiveName] = new[] { LogicalX * context.WorkingScale, LogicalY * context.WorkingScale };
+    {
+        Span<float> values = stackalloc float[]
+        {
+            LogicalX * context.WorkingScale,
+            LogicalY * context.WorkingScale,
+        };
+        ApplyFloatVector(builder, effectiveName, values);
+    }
 }
 
 /// <summary>

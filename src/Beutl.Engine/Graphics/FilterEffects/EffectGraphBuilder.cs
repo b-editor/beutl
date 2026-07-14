@@ -109,7 +109,7 @@ public sealed class EffectGraphBuilder
             render, bounds ?? BoundsContract.RenderTime, structuralToken, requiresReadback));
     }
 
-    /// <summary>Appends a Vulkan compute node (GLSL pass set, ping-pong/depth, declared no-Vulkan fallback).</summary>
+    /// <summary>Appends a Vulkan compute node (GLSL pass set, ping-pong scratch, declared no-Vulkan fallback).</summary>
     public EffectGraphBuilder Compute(ComputeNodeDescriptor descriptor)
     {
         ArgumentNullException.ThrowIfNull(descriptor);

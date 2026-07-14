@@ -133,7 +133,7 @@ internal sealed record GeometryPass(Action<GeometrySession> Render, bool Require
 
 /// <summary>
 /// A Vulkan compute pass (feature 004, data-model §3, T040): the executor materializes the input texture, hands
-/// the node pooled ping-pong/depth textures, and runs <see cref="Dispatch"/>. <see cref="PassCount"/> dispatches
+/// the node pooled ping-pong textures, and runs <see cref="Dispatch"/>. <see cref="PassCount"/> dispatches
 /// = <see cref="PassCount"/> <c>GpuPasses</c> (C8). On a context without Vulkan the declared <see cref="Fallback"/>
 /// applies.
 /// </summary>
@@ -141,7 +141,6 @@ internal sealed record ComputePass(
     Action<IComputeContext> Dispatch,
     int PassCount,
     int ColorScratchCount,
-    int DepthScratchCount,
     ComputeFallback Fallback,
     Action<GeometrySession>? CpuCallback,
     bool CpuFallbackRequiresReadback,

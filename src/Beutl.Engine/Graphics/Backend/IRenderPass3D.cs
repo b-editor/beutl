@@ -13,7 +13,7 @@ public interface IRenderPass3D : IDisposable
     /// </summary>
     /// <param name="framebuffer">The framebuffer to render to.</param>
     /// <param name="clearColors">Clear colors for each color attachment.</param>
-    /// <param name="clearDepth">The depth value to clear the depth buffer with.</param>
+    /// <param name="clearDepth">The depth value to clear the depth buffer with. Ignored by color-only passes.</param>
     void Begin(IFramebuffer3D framebuffer, ReadOnlySpan<Color> clearColors, float clearDepth = 1.0f);
 
     /// <summary>
