@@ -98,7 +98,8 @@ public sealed class VideoExporter(EncoderRegistration encoders)
             // Video export is a final output, so force original media (proxies are preview-only);
             // otherwise the default PreferProxy setting would encode from cached proxies here.
             using var renderer = new SceneRenderer(
-                scene, normalizedScale, disableResourceShare: true, maxWorkingScale: float.PositiveInfinity, forceOriginalSource: true);
+                scene, normalizedScale, disableResourceShare: true, maxWorkingScale: float.PositiveInfinity,
+                forceOriginalSource: true, renderIntent: RenderIntent.Delivery);
             renderer.CacheOptions = RenderCacheOptions.Disabled;
             using var frameProgress = new Subject<TimeSpan>();
             using var frameProvider = new FrameProviderImpl(scene, frameRate, renderer, frameProgress);

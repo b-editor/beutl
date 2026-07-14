@@ -56,7 +56,7 @@ internal class NodeGraphFilterEffectRenderNode(NodeGraphFilterEffect.Resource re
                 // Thread the complete parent execution policy through the hosted graph.
                 var processor = new RenderNodeProcessor(
                     outputNode, context.IsRenderCacheEnabled, context.OutputScale, context.MaxWorkingScale,
-                    context.Diagnostics, context.Pool)
+                    context.Diagnostics, context.Pool, context.RenderIntent)
                 {
                     RequestedBounds = context.RequestedBounds,
                     IsAuxiliaryPull = context.IsAuxiliaryPull,

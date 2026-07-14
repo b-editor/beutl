@@ -74,7 +74,8 @@ public partial class DisplacementMapEffect : FilterEffect
         float w = canvas.Density;
         using SKShader? shader =
             new BrushConstructor(
-                    new Rect(session.Bounds.Size), map, BlendMode.SrcOver, w, session.MaxWorkingScale, session.Diagnostics)
+                    new Rect(session.Bounds.Size), map, BlendMode.SrcOver, w, session.MaxWorkingScale,
+                    session.Diagnostics, session.RenderIntent)
                 .CreateShader();
         using var paint = new SKPaint { Shader = shader };
         canvas.Canvas.DrawRect(new SKRect(0, 0, (float)session.Bounds.Width, (float)session.Bounds.Height), paint);

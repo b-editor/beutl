@@ -374,13 +374,14 @@ public class PrimitivePassTests
 
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            // Delivery (MaxWorkingScale == +Inf) must throw with the parity message.
+            // Delivery must throw even when it uses the same finite quality ceiling as preview.
             using (var deliveryPool = new RenderTargetPool())
             {
                 deliveryPool.SetBackingFactoryForTest(static (_, _) => null);
                 Assert.That(
                     () => RenderNodeOperation.DisposeAll(RenderThroughPlan(
-                        [MakeEffect(kind)], [Input()], float.PositiveInfinity, new PipelineDiagnostics(), deliveryPool)),
+                        [MakeEffect(kind)], [Input()], 2f, new PipelineDiagnostics(), deliveryPool,
+                        RenderIntent.Delivery)),
                     Throws.TypeOf<InvalidOperationException>(),
                     "delivery render throws on allocation failure");
             }
@@ -390,7 +391,8 @@ public class PrimitivePassTests
             {
                 previewPool.SetBackingFactoryForTest(static (_, _) => null);
                 RenderNodeOperation[] outputs = RenderThroughPlan(
-                    [MakeEffect(kind)], [Input()], maxWorkingScale: 2f, new PipelineDiagnostics(), previewPool);
+                    [MakeEffect(kind)], [Input()], maxWorkingScale: 2f, new PipelineDiagnostics(), previewPool,
+                    RenderIntent.Preview);
                 Assert.That(outputs, Is.Empty, "preview drops the failed pass output");
                 RenderNodeOperation.DisposeAll(outputs);
             }
@@ -749,7 +751,7 @@ public class PrimitivePassTests
 
     private static RenderNodeOperation[] RenderThroughPlan(
         IReadOnlyList<FilterEffect> effects, RenderNodeOperation[] inputs, float maxWorkingScale,
-        PipelineDiagnostics diagnostics, RenderTargetPool pool)
+        PipelineDiagnostics diagnostics, RenderTargetPool pool, RenderIntent? renderIntent = null)
     {
         var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
         foreach (FilterEffect effect in effects)
@@ -762,7 +764,8 @@ public class PrimitivePassTests
         FrameResources frame = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale: 1f);
         return PlanExecutor.Execute(
             plan, frame, inputs, outputScale: 1f, workingScale: 1f,
-            maxWorkingScale: maxWorkingScale, diagnostics: diagnostics, pool: pool);
+            maxWorkingScale: maxWorkingScale, diagnostics: diagnostics, pool: pool,
+            renderIntent: renderIntent);
     }
 
     private static RenderNodeOperation Input()

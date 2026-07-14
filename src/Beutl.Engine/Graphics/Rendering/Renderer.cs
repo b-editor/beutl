@@ -56,13 +56,16 @@ public class Renderer : IRenderer
         }
     }
 
-    public Renderer(int width, int height, float renderScale = 1f, float maxWorkingScale = float.PositiveInfinity)
+    public Renderer(
+        int width, int height, float renderScale = 1f, float maxWorkingScale = float.PositiveInfinity,
+        RenderIntent? renderIntent = null)
     {
         float outputScale = float.IsFinite(renderScale) && renderScale > 0f ? renderScale : 1f;
         float maxScale = RenderNodeContext.SanitizeMaxWorkingScale(maxWorkingScale);
         FrameSize = new PixelSize(width, height);
         OutputScale = outputScale;
         MaxWorkingScale = maxScale;
+        RenderIntent = RenderIntentResolver.Resolve(renderIntent, maxScale);
         DeviceSize = new PixelSize(
             (int)MathF.Ceiling(width * outputScale),
             (int)MathF.Ceiling(height * outputScale));
@@ -72,8 +75,8 @@ public class Renderer : IRenderer
                                    ?? throw new InvalidOperationException(
                                        $"Could not create a canvas of this size. (width: {DeviceSize.Width}, height: {DeviceSize.Height})");
 
-            var canvas = new ImmediateCanvas(surface, outputScale, maxScale,
-                logicalSize: FrameSize.ToSize(1));
+            var canvas = new ImmediateCanvas(
+                surface, outputScale, maxScale, logicalSize: FrameSize.ToSize(1), renderIntent: RenderIntent);
             return (canvas, surface);
         });
     }
@@ -130,8 +133,11 @@ public class Renderer : IRenderer
     /// <summary>Output scale <c>s_out</c> (device px per logical unit). <see cref="FrameSize"/> stays logical.</summary>
     public float OutputScale { get; }
 
-    /// <summary>Working-scale ceiling. Preview: <c>2 * s_out</c>; export: <c>+Inf</c>.</summary>
+    /// <summary>Working-scale ceiling, independent of <see cref="RenderIntent"/>.</summary>
     public float MaxWorkingScale { get; }
+
+    /// <summary>Explicit preview/delivery failure policy for this renderer.</summary>
+    public RenderIntent RenderIntent { get; }
 
     /// <summary>
     /// The physical backing-surface size, <c>ceil(FrameSize × OutputScale)</c>.
@@ -240,7 +246,7 @@ public class Renderer : IRenderer
 
         RevalidateAll(entry.Node);
         var processor = new RenderNodeProcessor(
-            entry.Node, CacheOptions.IsEnabled, OutputScale, MaxWorkingScale, Diagnostics, _pool)
+            entry.Node, CacheOptions.IsEnabled, OutputScale, MaxWorkingScale, Diagnostics, _pool, RenderIntent)
         {
             RequestedBounds = new Rect(default, FrameSize.ToSize(1)),
         };
@@ -261,7 +267,8 @@ public class Renderer : IRenderer
             throw;
         }
 
-        RenderNodeCacheHelper.MakeCache(entry.Node, CacheOptions, OutputScale, MaxWorkingScale, Diagnostics, _pool);
+        RenderNodeCacheHelper.MakeCache(
+            entry.Node, CacheOptions, OutputScale, MaxWorkingScale, Diagnostics, _pool, RenderIntent);
         return entry;
     }
 
@@ -361,7 +368,8 @@ public class Renderer : IRenderer
             Entry entry = _allCurrentEntries[i];
             // Same scale pair as the render pass to avoid thrashing scale-stateful nodes.
             var processor = new RenderNodeProcessor(
-                entry.Node, CacheOptions.IsEnabled, OutputScale, MaxWorkingScale, diagnostics: null, pool: _pool)
+                entry.Node, CacheOptions.IsEnabled, OutputScale, MaxWorkingScale, diagnostics: null, pool: _pool,
+                renderIntent: RenderIntent)
             {
                 IsAuxiliaryPull = true,
             };
@@ -444,7 +452,8 @@ public class Renderer : IRenderer
     private Rect CalculateBoundary(Entry entry)
     {
         var processor = new RenderNodeProcessor(
-            entry.Node, CacheOptions.IsEnabled, OutputScale, MaxWorkingScale, diagnostics: null, pool: _pool)
+            entry.Node, CacheOptions.IsEnabled, OutputScale, MaxWorkingScale, diagnostics: null, pool: _pool,
+            renderIntent: RenderIntent)
         {
             IsAuxiliaryPull = true,
         };

@@ -324,7 +324,8 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                     renderScale,
                     disableResourceShare: true,
                     maxWorkingScale,
-                    forceOriginalSource: true);
+                    forceOriginalSource: true,
+                    renderIntent: RenderIntent.Delivery);
                 renderer.CacheOptions = RenderCacheOptions.Disabled;
                 var frameProgress = new Subject<TimeSpan>();
                 using var frameProvider = new FrameProviderImpl(Model, videoSettings.FrameRate, renderer, frameProgress);

@@ -213,7 +213,7 @@ public class LateBoundUniformTests
     [Test]
     public void ChildBinding_Deferred_ResolvesExecutorOwnedWithContext_EagerStaysCallerOwned()
     {
-        var ctx = new PassUniformContext(0.5f, 60, 40);
+        var ctx = new PassUniformContext(0.5f, 60, 40, new Rect(10, 20, 120, 80));
 
         PassUniformContext seen = default;
         using SKShader deferredProduct = SKShader.CreateColor(SKColors.Red);

@@ -9,6 +9,7 @@ using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.Observers;
 using Beutl.Editor.Operations;
+using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Helpers;
 using Beutl.Logging;
@@ -96,7 +97,9 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
                 .DistinctUntilChanged();
 
         Renderer = frameSizeAndScale
-            .Select(t => new SceneRenderer(Scene, t.OutputScale, maxWorkingScale: WorkingScaleCeiling.Preview(t.OutputScale)))
+            .Select(t => new SceneRenderer(
+                Scene, t.OutputScale, maxWorkingScale: WorkingScaleCeiling.Preview(t.OutputScale),
+                renderIntent: RenderIntent.Preview))
             .DisposePreviousValue()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables)!;

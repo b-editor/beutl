@@ -117,6 +117,7 @@ internal sealed class EffectPrefixCache : IDisposable
     // policy would otherwise resume from a buffer rendered under the previous scale policy.
     private float _outputScale;
     private float _maxWorkingScale;
+    private RenderIntent _renderIntent;
 
     // The bounds + supply density of the ops that fed the plan on the last engagement frame, compared EXACTLY (not
     // a hash) so no collision can ever contribute to a false stability match (C10 input-bounds gate). The buffer is
@@ -133,7 +134,7 @@ internal sealed class EffectPrefixCache : IDisposable
 
     public PrefixDecision Prepare(
         FilterEffect.Resource resource, CompiledPlan plan, StructuralKey key, object contextId,
-        float workingScale, float outputScale, float maxWorkingScale,
+        float workingScale, float outputScale, float maxWorkingScale, RenderIntent renderIntent,
         ReadOnlySpan<RenderNodeOperation> input, bool inputSubtreeStable,
         FrameResources resources)
     {
@@ -143,6 +144,7 @@ internal sealed class EffectPrefixCache : IDisposable
             && _workingScale == workingScale
             && _outputScale == outputScale
             && _maxWorkingScale == maxWorkingScale
+            && _renderIntent == renderIntent
             && InputSignatureEquals(input);
 
         // Any signature change or input-subtree instability voids the cached prefix's assumptions: release the
@@ -157,6 +159,7 @@ internal sealed class EffectPrefixCache : IDisposable
             _workingScale = workingScale;
             _outputScale = outputScale;
             _maxWorkingScale = maxWorkingScale;
+            _renderIntent = renderIntent;
             CaptureInputSignature(input);
         }
 

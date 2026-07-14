@@ -1,4 +1,6 @@
 ﻿using System.Text;
+using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 using Beutl.Graphics.Effects;
 
 namespace Beutl.Graphics.Rendering;
@@ -10,6 +12,8 @@ namespace Beutl.Graphics.Rendering;
 /// </summary>
 internal static class SkslSnippetMerger
 {
+    private static readonly ConditionalWeakTable<SkslSource, SourceBindingCache> s_bindingCaches = new();
+
     /// <summary>The child-shader name the generated <c>main</c> samples as the fused group's input.</summary>
     public const string SourceChildName = "src";
 
@@ -48,12 +52,40 @@ internal static class SkslSnippetMerger
     // Chooses a deterministic stage prefix that no source identifier already starts with. This prevents an author name
     // such as fe0_x from colliding with the generated name for x. The executor uses the same function when binding.
     internal static string GetPrefix(SkslSource snippet, int index)
+        => GetStageBindingCache(snippet, index).Prefix;
+
+    internal static string GetPrefixedName(SkslSource snippet, int index, string name)
+    {
+        StageBindingCache cache = GetStageBindingCache(snippet, index);
+        return cache.Names.GetOrAdd(name, static (value, prefix) => prefix + value, cache.Prefix);
+    }
+
+    private static StageBindingCache GetStageBindingCache(SkslSource snippet, int index)
+    {
+        SourceBindingCache sourceCache = s_bindingCaches.GetValue(snippet, static _ => new());
+        return sourceCache.Stages.GetOrAdd(
+            index, static (stageIndex, source) => new(ComputePrefix(source, stageIndex)), snippet);
+    }
+
+    private static string ComputePrefix(SkslSource snippet, int index)
     {
         string prefix = $"fe{index}_";
         List<Token> tokens = Tokenize(snippet.Source);
         while (tokens.Any(token => token.IsIdent && token.Text.StartsWith(prefix, StringComparison.Ordinal)))
             prefix += "_";
         return prefix;
+    }
+
+    private sealed class SourceBindingCache
+    {
+        public ConcurrentDictionary<int, StageBindingCache> Stages { get; } = new();
+    }
+
+    private sealed class StageBindingCache(string prefix)
+    {
+        public string Prefix { get; } = prefix;
+
+        public ConcurrentDictionary<string, string> Names { get; } = new(StringComparer.Ordinal);
     }
 
     // Alpha-renames the original token stream in one pass. Looking at the preceding significant token (comments and

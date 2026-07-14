@@ -84,6 +84,9 @@ internal sealed record RuntimeShaderStage(
     /// coordinate-invariant snippet run (it only samples the current pixel); left at the <c>Decal</c> default there.
     /// </summary>
     public SKShaderTileMode SrcTileMode { get; init; } = SKShaderTileMode.Decal;
+
+    /// <summary>Structural identity of the stage's forward/backward bounds contract.</summary>
+    public long BoundsIdentity { get; init; }
 }
 
 /// <summary>A color-filter stage: wraps the accumulated shader with <c>SKShader.WithColorFilter</c>.</summary>

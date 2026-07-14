@@ -82,6 +82,34 @@ public class DisplacementSplitFanOutTests
         });
     }
 
+    [Test]
+    public void SplitFanOut_ThenScaleDisplacement_MatchesPerTargetLegacyAnchoring()
+    {
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using Bitmap actual = RenderGroup(MakeSplitThenScaleDisplacementGroup());
+            using Bitmap expectedTile = RenderGroup(
+                MakeScaleDisplacementOnlyGroup(),
+                new Rect(0, 0, 80, 60),
+                SingleTileInput);
+
+            foreach ((int x, int y, string name) in new[]
+            {
+                (0, 0, "top-left"),
+                (80, 0, "top-right"),
+                (0, 60, "bottom-left"),
+                (80, 60, "bottom-right"),
+            })
+            {
+                double diff = MeanRegionDiff(actual, x, y, expectedTile, 0, 0, 80, 60);
+                TestContext.WriteLine($"{name} branch vs independent target diff = {diff:F3}");
+                Assert.That(diff, Is.LessThanOrEqualTo(1.0),
+                    $"the {name} scale-displacement branch must size its map and pivot from the branch target, "
+                    + "matching the legacy per-EffectTarget execution");
+            }
+        });
+    }
+
     private static FilterEffectGroup MakeSplitOnlyGroup()
     {
         var group = new FilterEffectGroup();
@@ -94,6 +122,20 @@ public class DisplacementSplitFanOutTests
         var group = new FilterEffectGroup();
         group.Children.Add(MakeSplit());
         group.Children.Add(MakeSignedTranslateEffect());
+        return group;
+    }
+
+    private static FilterEffectGroup MakeSplitThenScaleDisplacementGroup()
+    {
+        var group = MakeScaleDisplacementOnlyGroup();
+        group.Children.Insert(0, MakeSplit());
+        return group;
+    }
+
+    private static FilterEffectGroup MakeScaleDisplacementOnlyGroup()
+    {
+        var group = new FilterEffectGroup();
+        group.Children.Add(MakeSignedScaleEffect());
         return group;
     }
 
@@ -120,6 +162,22 @@ public class DisplacementSplitFanOutTests
         {
             X = { CurrentValue = 40 },
             Y = { CurrentValue = 30 },
+        };
+        return effect;
+    }
+
+    private static DisplacementMapEffect MakeSignedScaleEffect()
+    {
+        var effect = new DisplacementMapEffect
+        {
+            DisplacementMap = { CurrentValue = HorizontalRamp() },
+            Signed = { CurrentValue = true },
+            Channel = { CurrentValue = DisplacementMapChannel.Red },
+        };
+        effect.Transform.CurrentValue = new DisplacementMapScaleTransform
+        {
+            ScaleX = { CurrentValue = 160 },
+            ScaleY = { CurrentValue = 160 },
         };
         return effect;
     }
@@ -152,10 +210,27 @@ public class DisplacementSplitFanOutTests
             hitTest: s_bounds.Contains);
     }
 
+    private static RenderNodeOperation SingleTileInput()
+    {
+        var bounds = new Rect(0, 0, 80, 60);
+        return RenderNodeOperation.CreateLambda(
+            bounds,
+            canvas =>
+            {
+                canvas.DrawRectangle(bounds, Brushes.Resource.White, null);
+                canvas.DrawRectangle(new Rect(15, 10, 45, 35), Brushes.Resource.Red, null);
+            },
+            hitTest: bounds.Contains);
+    }
+
     private static Bitmap RenderGroup(FilterEffectGroup group)
+        => RenderGroup(group, s_bounds, ShapeInput);
+
+    private static Bitmap RenderGroup(
+        FilterEffectGroup group, Rect bounds, Func<RenderNodeOperation> inputFactory)
     {
         using FilterEffect.Resource resource = (FilterEffect.Resource)group.ToResource(CompositionContext.Default);
-        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(bounds, outputScale: 1f, workingScale: 1f);
         group.Describe(builder, resource);
 
         using EffectGraph graph = builder.Build();
@@ -163,12 +238,12 @@ public class DisplacementSplitFanOutTests
         CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
         FrameResources frame = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale: 1f);
         RenderNodeOperation[] ops = PlanExecutor.Execute(
-            plan, frame, [ShapeInput()], outputScale: 1f, workingScale: 1f,
+            plan, frame, [inputFactory()], outputScale: 1f, workingScale: 1f,
             maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool);
 
-        int w = (int)s_bounds.Width, h = (int)s_bounds.Height;
+        int w = (int)bounds.Width, h = (int)bounds.Height;
         using RenderTarget target = RenderTarget.Create(w, h)!;
-        using (var canvas = new ImmediateCanvas(target, 1f, logicalSize: s_bounds.Size))
+        using (var canvas = new ImmediateCanvas(target, 1f, logicalSize: bounds.Size))
         {
             canvas.Clear(Colors.Black);
             foreach (RenderNodeOperation op in ops)
@@ -189,6 +264,27 @@ public class DisplacementSplitFanOutTests
             {
                 SkiaSharp.SKColor ca = a.SKBitmap.GetPixel(x, y);
                 SkiaSharp.SKColor cb = b.SKBitmap.GetPixel(x, y);
+                sum += Math.Abs(ca.Red - cb.Red);
+                sum += Math.Abs(ca.Green - cb.Green);
+                sum += Math.Abs(ca.Blue - cb.Blue);
+                count += 3;
+            }
+        }
+
+        return count == 0 ? 0 : (double)sum / count;
+    }
+
+    private static double MeanRegionDiff(
+        Bitmap a, int aX, int aY, Bitmap b, int bX, int bY, int width, int height)
+    {
+        long sum = 0;
+        long count = 0;
+        for (int y = 0; y < height; y++)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                SkiaSharp.SKColor ca = a.SKBitmap.GetPixel(aX + x, aY + y);
+                SkiaSharp.SKColor cb = b.SKBitmap.GetPixel(bX + x, bY + y);
                 sum += Math.Abs(ca.Red - cb.Red);
                 sum += Math.Abs(ca.Green - cb.Green);
                 sum += Math.Abs(ca.Blue - cb.Blue);

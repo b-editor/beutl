@@ -9,7 +9,8 @@ public class RenderNodeProcessor(
     float outputScale = 1f,
     float maxWorkingScale = float.PositiveInfinity,
     PipelineDiagnostics? diagnostics = null,
-    RenderTargetPool? pool = null)
+    RenderTargetPool? pool = null,
+    RenderIntent? renderIntent = null)
 {
     public RenderNode Root { get; } = root;
 
@@ -31,6 +32,9 @@ public class RenderNodeProcessor(
     /// to allocate effect intermediates directly (behavior-identical to the pre-pool pipeline).
     /// </summary>
     public RenderTargetPool? Pool { get; } = pool;
+
+    /// <summary>Preview/delivery failure policy seeded into every pulled node context.</summary>
+    public RenderIntent RenderIntent { get; } = RenderIntentResolver.Resolve(renderIntent, maxWorkingScale);
 
     /// <summary>The logical output region requested by this pull's parent; invalid means full output.</summary>
     public Rect RequestedBounds { get; init; } = Rect.Invalid;
@@ -287,7 +291,7 @@ public class RenderNodeProcessor(
             input = operations.ToArray();
         }
 
-        var context = new RenderNodeContext(input, OutputScale, MaxWorkingScale)
+        var context = new RenderNodeContext(input, OutputScale, MaxWorkingScale, RenderIntent)
         {
             // Seeded from the processor's useRenderCache so cache-consuming nodes (the pass-prefix cache) can honor
             // a caller's disabled render caching; a node may still CLEAR it to opt its subtree out (read back below).

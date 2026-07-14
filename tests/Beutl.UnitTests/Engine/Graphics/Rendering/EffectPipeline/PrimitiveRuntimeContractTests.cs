@@ -400,18 +400,11 @@ public class PrimitiveRuntimeContractTests
     {
         using var pool = new RenderTargetPool();
         var injected = new InvalidOperationException("CPU fallback input cleanup failed");
-        int disposeCount = 0;
-        pool.SetDisposeBackingForTest(pooled =>
-        {
-            pooled.DisposeBacking();
-            if (disposeCount++ == 0)
-                throw injected;
-        });
         ComputeNodeDescriptor descriptor = ComputeNodeDescriptor.Create(
             dispatch: static _ => throw new AssertionException("dispatch must not run"),
             passCount: 1,
             ComputeFallback.CpuCallback,
-            cpuCallback: _ => pool.Dispose(),
+            cpuCallback: static session => session.Inputs[0].Draw(session.OpenCanvas()),
             structuralToken: "compute-cpu-input-cleanup-failure");
         (CompiledPlan plan, FrameResources resources) = Compile(
             new EffectGraphBuilder(s_bounds, 1f, 1f).Compute(descriptor));
@@ -422,6 +415,7 @@ public class PrimitiveRuntimeContractTests
             onDispose: () => inputDisposed = true);
 
         PlanExecutor.ForceComputeFallbackForTests();
+        PlanExecutor.ForceComputeInputDisposeFailureForTests(injected);
         try
         {
             InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
@@ -437,6 +431,7 @@ public class PrimitiveRuntimeContractTests
         }
         finally
         {
+            PlanExecutor.ResetComputeInputDisposeFailureForTests();
             PlanExecutor.ResetComputeFallbackForTests();
         }
     }

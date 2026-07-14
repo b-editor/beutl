@@ -45,8 +45,11 @@ public sealed class GeometrySession
     /// </summary>
     public float WorkingScale { get; }
 
-    /// <summary>The working-scale ceiling forwarded into brushes/canvases. <c>+Inf</c> = no ceiling (delivery).</summary>
+    /// <summary>The working-scale ceiling forwarded into brushes/canvases. <c>+Inf</c> means no quality ceiling.</summary>
     public float MaxWorkingScale { get; }
+
+    /// <summary>Explicit preview/delivery failure policy for nested work.</summary>
+    public RenderIntent RenderIntent => _canvas.RenderIntent;
 
     /// <summary>
     /// The owning renderer's effect-pipeline counters (or <see langword="null"/> when unobserved). Forward it into a

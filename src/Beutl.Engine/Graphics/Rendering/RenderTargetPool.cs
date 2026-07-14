@@ -64,6 +64,7 @@ public sealed class RenderTargetPool : IDisposable
     private Func<int, int, TextureFormat, ITexture2D?> _textureFactory = CreateBackingTexture;
     private Action<PooledSurface> _clearForReuse = ClearForReuse;
     private Action<PooledSurface> _disposeBacking = static pooled => pooled.DisposeBacking();
+    private Func<object?> _contextIdentityProvider = static () => GraphicsContextFactory.SharedContext;
     private long _idleBytes;
     private long _currentFrame;
     private long _liveLeases;
@@ -117,9 +118,16 @@ public sealed class RenderTargetPool : IDisposable
         VerifyAccess();
 
         var key = new BucketKey(width, height, TextureFormat.RGBA16Float, HasSurface: true);
-        if (_buckets.TryGetValue(key, out LinkedList<PooledSurface>? list) && list.Last is { } node)
+        object? contextId = _contextIdentityProvider();
+        while (_buckets.TryGetValue(key, out LinkedList<PooledSurface>? list) && list.Last is { } node)
         {
             PooledSurface pooled = node.Value;
+            if (!ReferenceEquals(pooled.ContextId, contextId))
+            {
+                Evict(pooled);
+                continue;
+            }
+
             RemoveIdle(pooled);
             try
             {
@@ -142,7 +150,7 @@ public sealed class RenderTargetPool : IDisposable
             return null;
 
         var fresh = new PooledSurface(
-            backing.Surface, backing.Texture, width, height, TextureFormat.RGBA16Float);
+            backing.Surface, backing.Texture, width, height, TextureFormat.RGBA16Float, _contextIdentityProvider());
         if (diagnostics != null)
         {
             diagnostics.TargetAllocations++;
@@ -169,9 +177,16 @@ public sealed class RenderTargetPool : IDisposable
         VerifyAccess();
 
         var key = new BucketKey(width, height, format, HasSurface: false);
-        if (_buckets.TryGetValue(key, out LinkedList<PooledSurface>? list) && list.Last is { } node)
+        object? contextId = _contextIdentityProvider();
+        while (_buckets.TryGetValue(key, out LinkedList<PooledSurface>? list) && list.Last is { } node)
         {
             PooledSurface pooled = node.Value;
+            if (!ReferenceEquals(pooled.ContextId, contextId))
+            {
+                Evict(pooled);
+                continue;
+            }
+
             RemoveIdle(pooled);
             if (diagnostics != null)
                 diagnostics.PoolAcquires++;
@@ -183,7 +198,8 @@ public sealed class RenderTargetPool : IDisposable
         if (texture == null)
             return null;
 
-        var fresh = new PooledSurface(surface: null, texture, width, height, format);
+        var fresh = new PooledSurface(
+            surface: null, texture, width, height, format, _contextIdentityProvider());
         if (diagnostics != null)
         {
             diagnostics.TargetAllocations++;
@@ -312,8 +328,8 @@ public sealed class RenderTargetPool : IDisposable
 
     private void DisposeAllIdle()
     {
-        // Drain once for the whole teardown (GpuDisposeBatch) when it runs on the render thread; a cross-thread
-        // Dispose dispatches the disposals and falls back to the per-texture drain.
+        // Dispose marshals the entire teardown to the owning dispatcher, so this structure sweep and the batched GPU
+        // drain always run on the render thread together.
         Exception? failure = null;
         using (GpuDisposeBatch.Begin())
         {
@@ -379,6 +395,10 @@ public sealed class RenderTargetPool : IDisposable
     internal void SetDisposeBackingForTest(Action<PooledSurface> disposeBacking)
         => _disposeBacking = disposeBacking;
 
+    /// <summary>Test seam: supplies the identity of the graphics context that owns newly allocated backings.</summary>
+    internal void SetContextIdentityProviderForTest(Func<object?> contextIdentityProvider)
+        => _contextIdentityProvider = contextIdentityProvider;
+
     // Must fail with null (never throw), matching CreateBackingSurface's failure shape.
     private static ITexture2D? CreateBackingTexture(int width, int height, TextureFormat format)
     {
@@ -395,6 +415,12 @@ public sealed class RenderTargetPool : IDisposable
 
     public void Dispose()
     {
+        if (_dispatcher != null && !_dispatcher.CheckAccess())
+        {
+            _dispatcher.Invoke(Dispose);
+            return;
+        }
+
         if (_isDisposed)
             return;
 
@@ -505,7 +531,7 @@ public sealed class RenderTargetPool : IDisposable
 /// disposal; leases only borrow it.
 /// </summary>
 internal sealed class PooledSurface(
-    SKSurface? surface, ITexture2D? texture, int width, int height, TextureFormat format)
+    SKSurface? surface, ITexture2D? texture, int width, int height, TextureFormat format, object? contextId)
 {
     public SKSurface? Surface { get; } = surface;
 
@@ -516,6 +542,9 @@ internal sealed class PooledSurface(
     public int Height { get; } = height;
 
     public TextureFormat Format { get; } = format;
+
+    /// <summary>The exact graphics-context instance that created this backing.</summary>
+    public object? ContextId { get; } = contextId;
 
     /// <summary>Bumped on every return to the pool; a lease captures this at acquire time to detect staleness.</summary>
     public int Generation { get; set; }

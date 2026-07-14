@@ -92,6 +92,28 @@ public class SkslSnippetMergerTests
     }
 
     [Test]
+    public void Snippet_RepeatedStaticSource_ReusesValidatedIdentityAndBindingNames()
+    {
+        string source = new string(
+            "uniform float gain;\nhalf4 apply(half4 c) { return c * gain; }".AsSpan());
+
+        SkslSource first = SkslSource.Snippet(source);
+        SkslSource second = SkslSource.Snippet(source);
+        string firstPrefix = SkslSnippetMerger.GetPrefix(first, 0);
+        string secondPrefix = SkslSnippetMerger.GetPrefix(second, 0);
+        string firstName = SkslSnippetMerger.GetPrefixedName(first, 0, "gain");
+        string secondName = SkslSnippetMerger.GetPrefixedName(second, 0, "gain");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(second, Is.SameAs(first));
+            Assert.That(secondPrefix, Is.SameAs(firstPrefix));
+            Assert.That(secondName, Is.SameAs(firstName));
+            Assert.That(firstName, Is.EqualTo("fe0_gain"));
+        });
+    }
+
+    [Test]
     public void Merge_LayoutQualifierSharingUniformName_IsNotRenamed()
     {
         const string source =
@@ -213,6 +235,18 @@ public class SkslSnippetMergerTests
             + "half4 apply(half4 c) { return half4(c.rgb * gain + bias, c.a); }";
 
         ArgumentException error = Assert.Throws<ArgumentException>(() => SkslSource.Snippet(source))!;
+        Assert.That(error.Message, Does.Contain("each uniform").And.Contain("comma-separated"));
+    }
+
+    [Test]
+    public void Snippet_IdentifierSizedArrayInMultiDeclaratorUniform_IsRejected()
+    {
+        const string source =
+            "const int SIZE = 4;\nuniform float a[SIZE], b;\n"
+            + "half4 apply(half4 c) { return c * (a[0] + b); }";
+
+        ArgumentException error = Assert.Throws<ArgumentException>(() => SkslSource.Snippet(source))!;
+
         Assert.That(error.Message, Does.Contain("each uniform").And.Contain("comma-separated"));
     }
 

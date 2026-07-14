@@ -230,8 +230,12 @@ public sealed partial class Clipping : FilterEffect
     // Alpha-based transparent-margin detection (the AutoClip helper), reading the input snapshot instead of the
     // legacy surface. Device-pixel margins; the caller converts to logical by dividing by the working scale.
     // Returns null when the input has no non-transparent pixel, so the caller can drop the empty clip result.
-    private static Thickness? FindTransparentMargins(Bitmap bitmap)
+    internal static Thickness? FindTransparentMargins(Bitmap bitmap)
     {
+        // The legacy path converted the snapshot to Alpha8 before scanning byte != 0. Match that conversion's
+        // half-LSB rounding boundary while reading RgbaF16 directly, so sub-byte blur/shadow tails that would
+        // quantize to zero remain transparent.
+        Half alpha8NonZeroThreshold = (Half)(0.5f / byte.MaxValue);
         int x0 = bitmap.Width, y0 = bitmap.Height, x1 = 0, y1 = 0;
         bool any = false;
         for (int y = 0; y < bitmap.Height; y++)
@@ -239,7 +243,7 @@ public sealed partial class Clipping : FilterEffect
             ReadOnlySpan<RgbaF16> row = bitmap.GetRow<RgbaF16>(y);
             for (int x = 0; x < bitmap.Width; x++)
             {
-                if (row[x].A != (Half)0)
+                if (row[x].A >= alpha8NonZeroThreshold)
                 {
                     any = true;
                     if (x0 > x) x0 = x;

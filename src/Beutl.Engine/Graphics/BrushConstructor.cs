@@ -10,7 +10,8 @@ namespace Beutl.Graphics;
 
 public readonly struct BrushConstructor(
     Rect bounds, Brush.Resource? brush, BlendMode blendMode, float scale = 1f,
-    float maxWorkingScale = float.PositiveInfinity, PipelineDiagnostics? diagnostics = null)
+    float maxWorkingScale = float.PositiveInfinity, PipelineDiagnostics? diagnostics = null,
+    RenderIntent? renderIntent = null)
 {
     private static readonly ILogger s_logger = Log.CreateLogger("BrushConstructor");
 
@@ -28,6 +29,9 @@ public readonly struct BrushConstructor(
 
     /// <summary>Working-scale ceiling forwarded into nested pulls (e.g. <see cref="DrawableBrush"/>).</summary>
     public float MaxWorkingScale { get; } = RenderNodeContext.SanitizeMaxWorkingScale(maxWorkingScale);
+
+    /// <summary>Explicit preview/delivery failure policy for nested brush allocations.</summary>
+    public RenderIntent RenderIntent { get; } = RenderIntentResolver.Resolve(renderIntent, maxWorkingScale);
 
     /// <summary>
     /// The owning renderer's effect-pipeline counters when this brush is constructed <em>during effect
@@ -68,7 +72,8 @@ public readonly struct BrushConstructor(
         // Handle BrushPresenter by delegating to the target brush
         if (Brush is BrushPresenter.Resource presenter && presenter.Target != null)
         {
-            new BrushConstructor(Bounds, presenter.Target, BlendMode, Scale, MaxWorkingScale, Diagnostics)
+            new BrushConstructor(
+                Bounds, presenter.Target, BlendMode, Scale, MaxWorkingScale, Diagnostics, RenderIntent)
                 .ConfigurePaint(paint);
             return;
         }
@@ -106,7 +111,8 @@ public readonly struct BrushConstructor(
         // Handle BrushPresenter by delegating to the target brush
         if (Brush is BrushPresenter.Resource presenter && presenter.Target != null)
         {
-            return new BrushConstructor(Bounds, presenter.Target, BlendMode, Scale, MaxWorkingScale, Diagnostics)
+            return new BrushConstructor(
+                Bounds, presenter.Target, BlendMode, Scale, MaxWorkingScale, Diagnostics, RenderIntent)
                 .CreateShader();
         }
 
@@ -289,7 +295,8 @@ public readonly struct BrushConstructor(
             // Thread the owning renderer's diagnostics (not the pool) into the nested pull: an effect inside the
             // drawable then counts on IRenderer.Diagnostics (FR-017) instead of a throwaway instance. The pool is
             // deliberately withheld — see the Diagnostics doc (FR-007 static peak-live bound).
-            var processor = new RenderNodeProcessor(node, true, s, MaxWorkingScale, Diagnostics);
+            var processor = new RenderNodeProcessor(
+                node, true, s, MaxWorkingScale, Diagnostics, renderIntent: RenderIntent);
             var ops = processor.RasterizeToRenderTargets();
             var totalBounds = ops.Aggregate(Rect.Empty, (current, item) => current.Union(item.Bounds));
 
@@ -312,7 +319,8 @@ public readonly struct BrushConstructor(
             }
 
             // Density 1: raw device-px blits with hand-computed offsets (no base CTM re-scale).
-            using (var icanvas = new ImmediateCanvas(renderTarget, 1f, MaxWorkingScale))
+            using (var icanvas = new ImmediateCanvas(
+                       renderTarget, 1f, MaxWorkingScale, renderIntent: RenderIntent))
             {
                 icanvas.Clear();
 
@@ -355,7 +363,8 @@ public readonly struct BrushConstructor(
             }
 
             // Density 1: the SetMatrix below builds an absolute device matrix with Scale(s) folded in.
-            using (var canvas = new ImmediateCanvas(intermediate, 1f, MaxWorkingScale))
+            using (var canvas = new ImmediateCanvas(
+                       intermediate, 1f, MaxWorkingScale, renderIntent: RenderIntent))
             using (var paintTmp = new SKPaint())
             {
                 canvas.Canvas.Clear();
@@ -419,7 +428,7 @@ public readonly struct BrushConstructor(
 
     private void ThrowIfDeliveryAllocationFailure(string message)
     {
-        if (float.IsPositiveInfinity(MaxWorkingScale))
+        if (RenderIntent == RenderIntent.Delivery)
         {
             throw new InvalidOperationException(message);
         }

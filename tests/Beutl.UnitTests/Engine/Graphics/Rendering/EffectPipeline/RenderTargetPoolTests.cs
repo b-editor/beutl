@@ -2,6 +2,7 @@
 using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
+using Beutl.Threading;
 using Beutl.UnitTests.Engine.Graphics.Backend;
 using SkiaSharp;
 
@@ -160,6 +161,93 @@ public class RenderTargetPoolTests
             Assert.That(texture.DisposeCount, Is.EqualTo(1),
                 "the native texture must be released even when surface teardown fails");
         });
+    }
+
+    [Test]
+    public void Acquire_AfterContextIdentityChange_EvictsStaleBackingInsteadOfReissuingIt()
+    {
+        var firstContext = new object();
+        var secondContext = new object();
+        object currentContext = firstContext;
+        var diagnostics = new PipelineDiagnostics();
+        using var pool = new RenderTargetPool();
+        pool.SetContextIdentityProviderForTest(() => currentContext);
+        pool.SetBackingFactoryForTest((width, height) =>
+        {
+            SKSurface surface = SKSurface.Create(new SKImageInfo(width, height))
+                ?? throw new InvalidOperationException("Could not create the test surface.");
+            return (surface, null);
+        });
+
+        pool.Acquire(W, H, diagnostics)!.Dispose();
+        Assert.That(pool.IdleCount, Is.EqualTo(1));
+
+        int staleDisposeCount = 0;
+        pool.SetDisposeBackingForTest(pooled =>
+        {
+            if (ReferenceEquals(pooled.ContextId, firstContext))
+                staleDisposeCount++;
+            pooled.DisposeBacking();
+        });
+        currentContext = secondContext;
+
+        using RenderTarget replacement = pool.Acquire(W, H, diagnostics)!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(staleDisposeCount, Is.EqualTo(1));
+            Assert.That(diagnostics.PoolMisses, Is.EqualTo(2),
+                "a context change must allocate a backing owned by the recreated device");
+            Assert.That(diagnostics.TargetAllocations, Is.EqualTo(2));
+            Assert.That(pool.IdleCount, Is.Zero);
+        });
+    }
+
+    [Test]
+    public void Dispose_FromWorkerThread_MarshalsEntireIdleSweepToOwningDispatcher()
+    {
+        Dispatcher dispatcher = Dispatcher.Spawn();
+        RenderTargetPool? pool = null;
+        try
+        {
+            int dispatcherThreadId = dispatcher.Invoke(() => Environment.CurrentManagedThreadId);
+            int disposeThreadId = -1;
+            pool = dispatcher.Invoke(() =>
+            {
+                var created = new RenderTargetPool();
+                created.SetBackingFactoryForTest((width, height) =>
+                {
+                    SKSurface surface = SKSurface.Create(new SKImageInfo(width, height))
+                        ?? throw new InvalidOperationException("Could not create the test surface.");
+                    return (surface, null);
+                });
+                created.SetDisposeBackingForTest(pooled =>
+                {
+                    disposeThreadId = Environment.CurrentManagedThreadId;
+                    pooled.DisposeBacking();
+                });
+                created.Acquire(W, H)!.Dispose();
+                return created;
+            });
+
+            Task.Run(pool.Dispose).GetAwaiter().GetResult();
+
+            dispatcher.Invoke(() =>
+            {
+                Assert.Multiple(() =>
+                {
+                    Assert.That(disposeThreadId, Is.EqualTo(dispatcherThreadId));
+                    Assert.That(pool.IdleCount, Is.Zero);
+                    Assert.That(pool.IdleBytes, Is.Zero);
+                    Assert.That(pool.BucketCountForTest, Is.Zero);
+                });
+            });
+        }
+        finally
+        {
+            pool?.Dispose();
+            dispatcher.Shutdown();
+        }
     }
 
     [Test]

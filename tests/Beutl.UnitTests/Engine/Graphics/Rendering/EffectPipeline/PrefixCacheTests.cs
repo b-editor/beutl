@@ -184,14 +184,13 @@ public class PrefixCacheTests
 
             var auxiliary = new RenderNodeContext([MakeInput()])
             {
-                Pool = pool,
                 RequestedBounds = Rect.Invalid,
                 IsAuxiliaryPull = true,
             };
             RenderNodeOperation.DisposeAll(node.Process(auxiliary));
 
             Assert.That(ProcessFrame(7).PrefixCacheHits, Is.EqualTo(1),
-                "a full-bounds auxiliary pull must not evict the retained frame-ROI prefix");
+                "a pool-less full-bounds tap pull must not evict the retained frame-ROI prefix");
         });
     }
 

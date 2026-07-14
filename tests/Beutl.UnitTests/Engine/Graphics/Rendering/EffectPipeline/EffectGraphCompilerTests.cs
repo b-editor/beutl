@@ -154,6 +154,24 @@ half4 apply(half4 c) {
     }
 
     [Test]
+    public void Compile_TypeSideMatrixArrays_ConsumeFullFusionBudget()
+    {
+        const string source =
+            "uniform mat4[29] transforms;\n"
+            + "half4 apply(half4 c) { return c * transforms[0][0][0]; }";
+        var bounds = new Rect(0, 0, 100, 80);
+        EffectGraphBuilder builder = NewBuilder(bounds)
+            .Shader(ShaderNodeDescriptor.Snippet(source))
+            .Shader(ShaderNodeDescriptor.Snippet(source));
+
+        CompiledPlan plan = Compile(builder);
+
+        Assert.That(plan.Passes.Cast<FusedShaderPass>().Select(pass => pass.Stages.Length),
+            Is.EqualTo(new[] { 1, 1 }),
+            "each mat4[29] consumes 116 vectors, so two stages exceed the 224-vector floor");
+    }
+
+    [Test]
     public void Compile_FusionNeverCrossesASkiaFilter()
     {
         var bounds = new Rect(0, 0, 100, 80);
@@ -658,6 +676,15 @@ half4 apply(half4 c) {
         public override string ToString() => "same-text";
     }
 
+    private sealed record UnknownDescriptor : EffectNodeDescriptor
+    {
+        internal override EffectNodeKind Kind => (EffectNodeKind)(-1);
+
+        public override BoundsContract Bounds => BoundsContract.Identity;
+
+        public override bool IsCoordinateInvariant => true;
+    }
+
     [Test]
     public void ParameterBlock_RebindRejectsMismatchedPassShapeInReleaseBuilds()
     {
@@ -672,6 +699,42 @@ half4 apply(half4 c) {
         Assert.That(
             () => ParameterBlock.Extract(freshGraph).RebindOnto(cached),
             Throws.InvalidOperationException.With.Message.Contains("shape"));
+    }
+
+    [Test]
+    public void ParameterBlock_RebindRejectsDifferentWholeSourceBoundsIdentity()
+    {
+        const string source = "uniform shader src; half4 main(float2 coord) { return src.eval(coord); }";
+        var bounds = new Rect(0, 0, 100, 100);
+        BoundsContract firstBounds = BoundsContract.Create(FirstForward, static rect => rect);
+        BoundsContract secondBounds = BoundsContract.Create(SecondForward, static rect => rect);
+        using EffectGraph cachedGraph = NewBuilder(bounds)
+            .Shader(ShaderNodeDescriptor.WholeSource(source, firstBounds))
+            .Build();
+        using EffectGraph freshGraph = NewBuilder(bounds)
+            .Shader(ShaderNodeDescriptor.WholeSource(source, secondBounds))
+            .Build();
+        CompiledPlan cached = EffectGraphCompiler.Compile(cachedGraph, diagnostics: null);
+
+        Assert.That(
+            () => ParameterBlock.Extract(freshGraph).RebindOnto(cached),
+            Throws.InvalidOperationException.With.Message.Contains("shape"));
+
+        static Rect FirstForward(Rect rect) => rect.Inflate(1);
+        static Rect SecondForward(Rect rect) => rect.Inflate(2);
+    }
+
+    [Test]
+    public void StructuralKey_UnknownDescriptor_ThrowsInsteadOfProducingPartialIdentity()
+    {
+        var bounds = new Rect(0, 0, 100, 100);
+        using var graph = new EffectGraph(
+            [new EffectNode(new UnknownDescriptor(), bounds, bounds, 0, nestedPlanCache: null)],
+            bounds, outputScale: 1f, workingScale: 1f, disposables: []);
+
+        Assert.That(
+            () => StructuralKey.Compute(graph),
+            Throws.TypeOf<NotSupportedException>().With.Message.Contains(nameof(UnknownDescriptor)));
     }
 
     [Test]

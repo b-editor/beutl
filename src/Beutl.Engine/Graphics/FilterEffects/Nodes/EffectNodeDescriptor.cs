@@ -10,12 +10,12 @@
 /// </summary>
 public abstract record EffectNodeDescriptor
 {
-    private protected EffectNodeDescriptor()
+    internal EffectNodeDescriptor()
     {
     }
 
-    // A non-public abstract discriminator makes this a closed union even though C# requires a non-sealed record's
-    // synthesized copy constructor to be protected. Code outside Beutl.Engine cannot implement this member.
+    // The non-public constructor and discriminator keep this a closed union outside Beutl.Engine and its explicit
+    // friend test assemblies.
     internal abstract EffectNodeKind Kind { get; }
 
     /// <summary>This node's forward/backward bounds contract. Identity for coordinate-invariant nodes.</summary>

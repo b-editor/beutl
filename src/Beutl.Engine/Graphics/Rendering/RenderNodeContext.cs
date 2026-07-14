@@ -3,7 +3,8 @@
 public class RenderNodeContext(
     RenderNodeOperation[] input,
     float outputScale = 1f,
-    float maxWorkingScale = float.PositiveInfinity)
+    float maxWorkingScale = float.PositiveInfinity,
+    RenderIntent? renderIntent = null)
 {
     public RenderNodeOperation[] Input { get; } = input;
 
@@ -46,10 +47,14 @@ public class RenderNodeContext(
         float.IsFinite(outputScale) && outputScale > 0f ? outputScale : 1f;
 
     /// <summary>
-    /// Global working-scale ceiling. Preview caps at <c>2 * s_out</c>; export passes <c>+Inf</c>.
+    /// Global working-scale ceiling. Interactive preview commonly caps at <c>2 * s_out</c>; export commonly passes <c>+Inf</c>.
+    /// Failure policy is carried independently by <see cref="RenderIntent"/>.
     /// A degenerate value (NaN / non-positive) is treated as <c>+Inf</c>.
     /// </summary>
     public float MaxWorkingScale { get; } = SanitizeMaxWorkingScale(maxWorkingScale);
+
+    /// <summary>Explicit preview/delivery failure policy, independent of the working-scale ceiling.</summary>
+    public RenderIntent RenderIntent { get; } = RenderIntentResolver.Resolve(renderIntent, maxWorkingScale);
 
     /// <summary>Canonical ceiling rule: a degenerate value (NaN or non-positive) means "no ceiling" (+Inf); other values pass through.</summary>
     public static float SanitizeMaxWorkingScale(float maxWorkingScale) =>

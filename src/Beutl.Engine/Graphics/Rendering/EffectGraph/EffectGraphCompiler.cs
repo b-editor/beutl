@@ -1,6 +1,4 @@
 ﻿using System.Collections.Immutable;
-using System.Text;
-using System.Text.RegularExpressions;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Effects;
 
@@ -41,11 +39,6 @@ internal static class EffectGraphCompiler
     /// another node and never makes an otherwise-valid chain exceed the backend floor (FR-005).
     /// </summary>
     internal const int MaxFusionUniformVectors = 224;
-
-    private static readonly Regex s_uniformDeclaration = new(
-        @"\buniform\s+(?:(?:lowp|mediump|highp)\s+)?(?<type>[A-Za-z_][A-Za-z0-9_]*)\s+"
-        + @"[A-Za-z_][A-Za-z0-9_]*\s*(?:\[\s*(?<count>\d+)\s*\])?\s*;",
-        RegexOptions.CultureInvariant);
 
     public static CompiledPlan Compile(EffectGraph graph, PipelineDiagnostics? diagnostics)
     {
@@ -333,67 +326,7 @@ internal static class EffectGraphCompiler
         if (descriptor is not ShaderNodeDescriptor shader)
             return 0;
 
-        string source = StripComments(shader.Source.Source);
-        int total = 0;
-        foreach (Match match in s_uniformDeclaration.Matches(source))
-        {
-            string type = match.Groups["type"].Value;
-            if (type is "shader" or "colorFilter" or "blender")
-                continue;
-
-            long vectors = UniformTypeVectors(type);
-            if (match.Groups["count"].Success
-                && int.TryParse(match.Groups["count"].Value, out int count))
-            {
-                vectors *= count;
-            }
-
-            // The fusion decision only needs to know whether the conservative backend floor was exceeded. Saturate
-            // at the first value above it so hostile or generated array extents cannot overflow compiler bookkeeping.
-            if (vectors > MaxFusionUniformVectors || total > MaxFusionUniformVectors - vectors)
-                return MaxFusionUniformVectors + 1;
-
-            total += (int)vectors;
-        }
-
-        return total;
-    }
-
-    private static int UniformTypeVectors(string type)
-    {
-        Match matrix = Regex.Match(
-            type, @"^(?:half|float)(?<columns>[2-4])x[2-4]$", RegexOptions.CultureInvariant);
-        return matrix.Success && int.TryParse(matrix.Groups["columns"].Value, out int columns)
-            ? columns
-            : 1;
-    }
-
-    private static string StripComments(string source)
-    {
-        var result = new StringBuilder(source.Length);
-        for (int i = 0; i < source.Length; i++)
-        {
-            if (source[i] == '/' && i + 1 < source.Length && source[i + 1] == '/')
-            {
-                while (i < source.Length && source[i] != '\n')
-                    i++;
-                result.Append('\n');
-            }
-            else if (source[i] == '/' && i + 1 < source.Length && source[i + 1] == '*')
-            {
-                i += 2;
-                while (i + 1 < source.Length && !(source[i] == '*' && source[i + 1] == '/'))
-                    i++;
-                i++;
-                result.Append(' ');
-            }
-            else
-            {
-                result.Append(source[i]);
-            }
-        }
-
-        return result.ToString();
+        return Math.Min(shader.Source.UniformVectorCount, MaxFusionUniformVectors + 1);
     }
 
     private static int EmitSkiaPass(IReadOnlyList<EffectNode> nodes, int start, ImmutableArray<CompiledPass>.Builder passes)
@@ -451,6 +384,7 @@ internal static class EffectGraphCompiler
             shader.Source, shader.Uniforms, shader.Children)
         {
             SrcTileMode = shader.SrcTileMode,
+            BoundsIdentity = shader.Bounds.StructuralIdentity,
         },
         ColorFilterNodeDescriptor colorFilter => new ColorFilterStage(colorFilter.Factory),
         _ => throw new NotSupportedException($"'{descriptor.GetType().Name}' is not a fused stage."),

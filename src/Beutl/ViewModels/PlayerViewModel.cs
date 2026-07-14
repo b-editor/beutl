@@ -1931,7 +1931,8 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 renderScale: outputScale,
                 disableResourceShare: true,
                 maxWorkingScale: WorkingScaleCeiling.Export(),
-                forceOriginalSource: true);
+                forceOriginalSource: true,
+                renderIntent: RenderIntent.Delivery);
             renderer.CacheOptions = RenderCacheOptions.Disabled;
 
             var compositionFrame = renderer.Compositor.EvaluateGraphics(CurrentFrame.Value);

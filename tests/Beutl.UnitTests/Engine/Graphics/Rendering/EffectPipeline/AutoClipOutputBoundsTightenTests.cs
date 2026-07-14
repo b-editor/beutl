@@ -154,6 +154,57 @@ public class AutoClipOutputBoundsTightenTests
         }
     }
 
+    [Test]
+    public void AutoClipThenCompute_UsesTightenedInputBoundsForDestination()
+    {
+        var clip = new Clipping();
+        clip.AutoClip.CurrentValue = true;
+
+        FilterEffect.Resource resource = clip.ToResource(CompositionContext.Default);
+        var builder = new EffectGraphBuilder(s_input, outputScale: 1f, workingScale: 1f);
+        clip.Describe(builder, resource);
+
+        Rect observedBounds = Rect.Invalid;
+        builder.Compute(ComputeNodeDescriptor.Create(
+            dispatch: static _ => { },
+            passCount: 1,
+            fallback: ComputeFallback.CpuCallback,
+            cpuCallback: session => observedBounds = session.Bounds,
+            structuralToken: "auto-clip-compute-bounds"));
+
+        using EffectGraph graph = builder.Build();
+        CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
+        FrameResources resources = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale: 1f);
+
+        PlanExecutor.ForceComputeFallbackForTests();
+        RenderNodeOperation[] outputs;
+        try
+        {
+            outputs = PlanExecutor.Execute(
+                plan, resources, [MakeContentRect(s_input, s_content)], outputScale: 1f, workingScale: 1f,
+                maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null);
+        }
+        finally
+        {
+            PlanExecutor.ResetComputeFallbackForTests();
+        }
+
+        try
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(observedBounds, Is.EqualTo(s_tightened),
+                    "the compute destination must use the AutoClip operation's runtime-tightened bounds");
+                Assert.That(outputs, Has.Length.EqualTo(1));
+                Assert.That(outputs[0].Bounds, Is.EqualTo(s_tightened));
+            });
+        }
+        finally
+        {
+            RenderNodeOperation.DisposeAll(outputs);
+        }
+    }
+
     private static RenderNodeOperation[] RenderAutoClip()
     {
         var clip = new Clipping();

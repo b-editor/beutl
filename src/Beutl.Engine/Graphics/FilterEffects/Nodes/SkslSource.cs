@@ -1,4 +1,5 @@
 ﻿using System.Buffers;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -26,9 +27,21 @@ public sealed partial record SkslSource
     // merger prefixes uniforms by name (feN_) one declarator at a time, so a multi-declarator list would leave the
     // trailing names unprefixed — silently binding them wrong in a fused program (A2). Rejected at snippet construction.
     [GeneratedRegex(@"uniform\s+(?:(?:lowp|mediump|highp)\s+)?[A-Za-z_][A-Za-z0-9_]*"
-        + @"(?:\s*\[\s*\d+\s*\])*\s+"
-        + @"[A-Za-z_][A-Za-z0-9_]*\s*(?:\[\s*\d+\s*\])?\s*,")]
+        + @"(?:\s*\[[^\]]*\])*\s+"
+        + @"[A-Za-z_][A-Za-z0-9_]*\s*(?:\s*\[[^\]]*\])*\s*,")]
     private static partial Regex MultiDeclaratorUniformRegex();
+
+    [GeneratedRegex(@"\buniform\s+(?:(?:lowp|mediump|highp)\s+)?"
+        + @"(?<type>[A-Za-z_][A-Za-z0-9_]*)"
+        + @"(?<array>\s*\[\s*(?<extent>[^\]]*)\s*\])*\s+"
+        + @"[A-Za-z_][A-Za-z0-9_]*"
+        + @"(?<array>\s*\[\s*(?<extent>[^\]]*)\s*\])*\s*;",
+        RegexOptions.CultureInvariant)]
+    private static partial Regex UniformDeclarationRegex();
+
+    private static readonly ConditionalWeakTable<string, SkslSource> s_snippets = new();
+    private static readonly ConditionalWeakTable<string, SkslSource> s_wholeSources = new();
+    private static readonly ConditionalWeakTable<SkslSource, UniformMetadata> s_uniformMetadata = new();
 
     private SkslSource(string source, SkslSourceKind kind)
     {
@@ -49,6 +62,10 @@ public sealed partial record SkslSource
     /// </summary>
     public string IdentityHash { get; }
 
+    /// <summary>Number of four-component uniform vectors consumed by this source.</summary>
+    internal int UniformVectorCount
+        => s_uniformMetadata.GetValue(this, static source => new(ComputeUniformVectorCount(source.Source))).Count;
+
     /// <summary>
     /// Wraps a <c>half4 apply(half4 c)</c> snippet source. Must be non-empty. Each uniform must be declared in its
     /// own statement (single declarator): a comma-separated list is rejected because it would escape the fused
@@ -57,7 +74,11 @@ public sealed partial record SkslSource
     public static SkslSource Snippet(string source)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(source);
+        return s_snippets.GetValue(source, static text => CreateSnippet(text));
+    }
 
+    private static SkslSource CreateSnippet(string source)
+    {
         // Comments may legally mention a rejected form ('// uniform float a, b; is not allowed'), so every
         // structural check runs over a comment-stripped copy.
         string stripped = StripComments(source);
@@ -225,8 +246,52 @@ public sealed partial record SkslSource
     public static SkslSource WholeSource(string source)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(source);
-        return new SkslSource(source, SkslSourceKind.WholeSource);
+        return s_wholeSources.GetValue(
+            source, static text => new SkslSource(text, SkslSourceKind.WholeSource));
     }
+
+    private static int ComputeUniformVectorCount(string source)
+    {
+        string stripped = StripComments(source);
+        long total = 0;
+        foreach (Match match in UniformDeclarationRegex().Matches(stripped))
+        {
+            string type = match.Groups["type"].Value;
+            if (type is "shader" or "colorFilter" or "blender")
+                continue;
+
+            long vectors = UniformTypeVectors(type);
+            foreach (Capture extent in match.Groups["extent"].Captures)
+            {
+                if (!int.TryParse(extent.Value.Trim(), out int count))
+                    return int.MaxValue;
+
+                vectors *= count;
+                if (vectors >= int.MaxValue)
+                    return int.MaxValue;
+            }
+
+            total += vectors;
+            if (total >= int.MaxValue)
+                return int.MaxValue;
+        }
+
+        return (int)total;
+    }
+
+    private static int UniformTypeVectors(string type)
+    {
+        if (type is "mat2" or "mat3" or "mat4")
+            return type[^1] - '0';
+
+        Match matrix = Regex.Match(
+            type, @"^(?:half|float)(?<columns>[2-4])x[2-4]$", RegexOptions.CultureInvariant);
+        return matrix.Success && int.TryParse(matrix.Groups["columns"].Value, out int columns)
+            ? columns
+            : 1;
+    }
+
+    private sealed record UniformMetadata(int Count);
 
     // FNV-1a over UTF-8 bytes: deterministic across runs/machines (unlike string.GetHashCode's randomized seed).
     private static string ComputeHash(string source)

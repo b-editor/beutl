@@ -114,7 +114,8 @@ internal sealed record ParameterBlock(ImmutableArray<CompiledPass> Passes)
                 if (ra.Source.Kind != rb.Source.Kind
                     || !string.Equals(ra.Source.Source, rb.Source.Source, StringComparison.Ordinal)
                     || ra.Children.Length != rb.Children.Length
-                    || ra.SrcTileMode != rb.SrcTileMode)
+                    || ra.SrcTileMode != rb.SrcTileMode
+                    || ra.BoundsIdentity != rb.BoundsIdentity)
                     return false;
             }
         }

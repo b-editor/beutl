@@ -32,13 +32,14 @@ public sealed class EffectGraphBuilder
 
     internal EffectGraphBuilder(
         Rect bounds, float outputScale, float workingScale, float maxWorkingScale = float.PositiveInfinity,
-        NestedGraphPlanCache? nestedPlanCache = null)
+        NestedGraphPlanCache? nestedPlanCache = null, RenderIntent? renderIntent = null)
     {
         OriginalBounds = bounds;
         Bounds = bounds;
         OutputScale = outputScale;
         WorkingScale = workingScale;
         MaxWorkingScale = maxWorkingScale;
+        RenderIntent = RenderIntentResolver.Resolve(renderIntent, maxWorkingScale);
         _nestedPlanCache = nestedPlanCache ?? new NestedGraphPlanCache();
     }
 
@@ -54,8 +55,11 @@ public sealed class EffectGraphBuilder
     /// <summary>The working density <c>w</c> the render node resolved for this boundary (FR-012); read-only to authors.</summary>
     public float WorkingScale { get; }
 
-    /// <summary>The working-scale ceiling for brushes constructed at describe time; <c>+Inf</c> = no ceiling (delivery).</summary>
+    /// <summary>The working-scale ceiling for brushes constructed at describe time; <c>+Inf</c> means no quality ceiling.</summary>
     public float MaxWorkingScale { get; }
+
+    /// <summary>Explicit preview/delivery failure policy for deferred authoring resources.</summary>
+    public RenderIntent RenderIntent { get; }
 
     // A later built-in split cannot derive an exact static branch count from the graph-level Bounds after a
     // preceding fan-out: execution receives each branch's own bounds, which may be smaller or even sub-pixel.
@@ -688,7 +692,8 @@ public sealed class EffectGraphBuilder
         Size size = session.Bounds.Size;
 
         var constructor = new BrushConstructor(
-            new Rect(size), brush, blendMode, w, session.MaxWorkingScale, session.Diagnostics);
+            new Rect(size), brush, blendMode, w, session.MaxWorkingScale, session.Diagnostics,
+            session.RenderIntent);
         using var brushPaint = new SKPaint();
         constructor.ConfigurePaint(brushPaint);
 

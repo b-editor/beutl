@@ -184,10 +184,12 @@ public sealed partial class SceneDrawable : Drawable
             if (_renderer == null
                 || _renderer.FrameSize != size
                 || _renderer.OutputScale != w
-                || _renderer.MaxWorkingScale != context.MaxWorkingScale)
+                || _renderer.MaxWorkingScale != context.MaxWorkingScale
+                || _renderer.RenderIntent != context.RenderIntent)
             {
                 _renderer?.Dispose();
-                _renderer = new Renderer(size.Width, size.Height, w, context.MaxWorkingScale);
+                _renderer = new Renderer(
+                    size.Width, size.Height, w, context.MaxWorkingScale, context.RenderIntent);
             }
 
             Renderer renderer = _renderer;

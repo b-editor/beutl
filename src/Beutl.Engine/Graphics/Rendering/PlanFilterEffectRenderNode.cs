@@ -81,7 +81,8 @@ internal sealed class PlanFilterEffectRenderNode(FilterEffect.Resource filterEff
             // A Describe that registers a native sampler/child shader and then throws would strand it (ownership only
             // transfers to the graph at Build); the engine aborts the still-open builder in the finally path.
             var graphBuilder = new EffectGraphBuilder(
-                bounds, context.OutputScale, workingScale, context.MaxWorkingScale, _nestedPlanCache);
+                bounds, context.OutputScale, workingScale, context.MaxWorkingScale, _nestedPlanCache,
+                context.RenderIntent);
             try
             {
                 resource.GetOriginal().Describe(graphBuilder, resource);
@@ -118,14 +119,16 @@ internal sealed class PlanFilterEffectRenderNode(FilterEffect.Resource filterEff
                         plan, resources, context.Input, context.OutputScale, workingScale, context.MaxWorkingScale,
                         context.Diagnostics, context.Pool,
                         isRenderCacheEnabled: context.IsRenderCacheEnabled,
-                        isAuxiliaryPull: context.IsAuxiliaryPull);
+                        isAuxiliaryPull: context.IsAuxiliaryPull,
+                        renderIntent: context.RenderIntent);
                 }
 
                 if (context.Pool != null && context.IsRenderCacheEnabled)
                 {
                     PrefixDecision decision = _prefixCache.Prepare(
                         resource, plan, key, contextId, workingScale, context.OutputScale, context.MaxWorkingScale,
-                        context.Input, RenderNodeCacheHelper.CanCacheRecursiveChildrenOnly(this), resources);
+                        context.RenderIntent, context.Input, RenderNodeCacheHelper.CanCacheRecursiveChildrenOnly(this),
+                        resources);
 
                     switch (decision.Mode)
                     {
@@ -146,7 +149,8 @@ internal sealed class PlanFilterEffectRenderNode(FilterEffect.Resource filterEff
                     plan, resources, context.Input, context.OutputScale, workingScale, context.MaxWorkingScale,
                     context.Diagnostics, context.Pool,
                     isRenderCacheEnabled: context.IsRenderCacheEnabled,
-                    isAuxiliaryPull: context.IsAuxiliaryPull);
+                    isAuxiliaryPull: context.IsAuxiliaryPull,
+                    renderIntent: context.RenderIntent);
             }
             finally
             {
@@ -179,7 +183,8 @@ internal sealed class PlanFilterEffectRenderNode(FilterEffect.Resource filterEff
             plan, resources, [seed], context.OutputScale, workingScale, context.MaxWorkingScale,
             context.Diagnostics, context.Pool, startPass: decision.Pass,
             isRenderCacheEnabled: context.IsRenderCacheEnabled,
-            isAuxiliaryPull: context.IsAuxiliaryPull);
+            isAuxiliaryPull: context.IsAuxiliaryPull,
+            renderIntent: context.RenderIntent);
     }
 
     // Full execution that additionally retains the capture pass's output for subsequent frames to resume from.
@@ -194,7 +199,8 @@ internal sealed class PlanFilterEffectRenderNode(FilterEffect.Resource filterEff
                 plan, resources, context.Input, context.OutputScale, workingScale, context.MaxWorkingScale,
                 context.Diagnostics, context.Pool, startPass: 0, captureSink: sink,
                 isRenderCacheEnabled: context.IsRenderCacheEnabled,
-                isAuxiliaryPull: context.IsAuxiliaryPull);
+                isAuxiliaryPull: context.IsAuxiliaryPull,
+                renderIntent: context.RenderIntent);
         }
         catch
         {
