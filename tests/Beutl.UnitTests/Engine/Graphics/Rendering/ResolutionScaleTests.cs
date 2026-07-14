@@ -417,4 +417,41 @@ public class ResolutionScaleTests
                 r.Dispose();
         }
     }
+
+    [Test]
+    public void OperationWrapperSetOperations_PreviousCleanupFailureReleasesReplacementAndClearsState()
+    {
+        using var node = new OperationWrapperRenderNode();
+        var previousFailure = new InvalidOperationException("simulated previous-operation cleanup failure");
+        bool replacementDisposed = false;
+        RenderNodeOperation previous = RenderNodeOperation.CreateLambda(
+            new Rect(0, 0, 1, 1),
+            render: static _ => { },
+            onDispose: () => throw previousFailure);
+        RenderNodeOperation replacement = RenderNodeOperation.CreateLambda(
+            new Rect(0, 0, 1, 1),
+            render: static _ => { },
+            onDispose: () => replacementDisposed = true);
+        node.SetOperations([previous]);
+
+        InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(
+            () => node.SetOperations([replacement]));
+        RenderNodeOperation[] retained = node.Process(new RenderNodeContext([]));
+        try
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(actual, Is.SameAs(previousFailure),
+                    "replacement cleanup must not replace the original disposal failure");
+                Assert.That(replacementDisposed, Is.True,
+                    "a failed replacement must immediately release the newly acquired operation");
+                Assert.That(retained, Is.Empty,
+                    "a failed replacement must leave the wrapper empty instead of pinning the new operation");
+            });
+        }
+        finally
+        {
+            RenderNodeOperation.DisposeAll(retained);
+        }
+    }
 }

@@ -1,10 +1,14 @@
 ﻿using System.Runtime.ExceptionServices;
+using Beutl.Logging;
 using Beutl.Media.Source;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.Graphics.Rendering;
 
 public class OperationWrapperRenderNode : RenderNode
 {
+    private static readonly ILogger s_logger = Log.CreateLogger<OperationWrapperRenderNode>();
+
     private Ref<RenderNodeOperation>[] _operations = [];
 
     public void SetOperations(RenderNodeOperation[] operations)
@@ -17,7 +21,27 @@ public class OperationWrapperRenderNode : RenderNode
         _operations = refs;
         HasChanges = true;
 
-        DisposeReferences(previous);
+        try
+        {
+            DisposeReferences(previous);
+        }
+        catch (Exception ex)
+        {
+            // The previous refs have already been swept and cannot be restored. Detach the replacement before its
+            // best-effort sweep so a caller that never reaches its own finally block cannot leave those inputs pinned.
+            _operations = [];
+            try
+            {
+                DisposeReferences(refs);
+            }
+            catch (Exception cleanupException)
+            {
+                s_logger.LogWarning(cleanupException,
+                    "Replacement render-node operations failed to dispose after an earlier cleanup fault");
+            }
+
+            ExceptionDispatchInfo.Capture(ex).Throw();
+        }
     }
 
     public override RenderNodeOperation[] Process(RenderNodeContext context)
