@@ -4,7 +4,7 @@
 
 ## The one-paragraph idea
 
-Effects stop *executing* and start *describing*: `FilterEffect.Describe(EffectGraphBuilder, Resource)` appends node descriptors (seven kinds — shader / color-filter / Skia-filter / compute / geometry / split / composite — realizing the spec's five primitives). A compiler turns the graph into a cached `CompiledPlan` — adjacent coordinate-invariant color nodes collapse into **one draw** via Skia shader composition — and a `PlanExecutor` runs it with pooled render targets and sync only at Skia↔Vulkan boundaries. Structure is the cache key; animated values rewrite uniforms, and bounds/ROIs/buffer sizes are re-resolved every frame (an animated blur radius never recompiles the plan).
+Effects stop *executing* and start *describing*: `FilterEffect.Describe(EffectGraphBuilder, Resource)` appends one of nine sealed descriptor kinds — shader, color-filter, Skia-filter, compute, geometry, split, composite, nested graph, or custom render node. The first seven realize the spec's five rendering primitives; the final two compose child execution boundaries. A compiler turns the graph into a cached `CompiledPlan` — adjacent coordinate-invariant color nodes collapse into **one draw** via Skia shader composition — and a `PlanExecutor` runs it with pooled render targets and sync only at actual Skia↔Vulkan boundaries. Structure is the cache key; animated values rewrite uniforms, and bounds/ROIs/buffer sizes are re-resolved every frame (an animated blur radius never recompiles the plan).
 
 ## Authoring an effect (after the redesign)
 
@@ -29,7 +29,7 @@ public override void Describe(EffectGraphBuilder builder, Resource r)
 |---|---|
 | Authoring surface (public) | `src/Beutl.Engine/Graphics/FilterEffects/` (`EffectGraphBuilder`, descriptors, `GeometrySession`) |
 | Compiler / plan / executor / pool (internal) | `src/Beutl.Engine/Graphics/Rendering/` |
-| Entry point (unchanged seam) | `FilterEffectRenderNode.Process` — resolves 003 working scale, then describe → cache → execute |
+| Default execution entry point | internal `PlanFilterEffectRenderNode.Process` — resolves 003 working scale, then describe → cache → execute; plugin custom nodes override `Resource.RenderNodeFactory` |
 | Counters | `PipelineDiagnostics` per renderer; definitions in [contracts/execution-plan.md §C8](./contracts/execution-plan.md) |
 | Counter/parity tests | `tests/Beutl.UnitTests/Engine/Graphics/Rendering/` (+ `Golden/` harness reuse) |
 | Benchmarks | `tests/Beutl.Benchmarks/Rendering/EffectPipelineBenchmarks.cs` |

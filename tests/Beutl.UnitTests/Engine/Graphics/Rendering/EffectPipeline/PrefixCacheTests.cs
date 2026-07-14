@@ -358,6 +358,64 @@ public class PrefixCacheTests
         });
     }
 
+    [Test]
+    public void RendererRetainedBudget_EvictsLeastRecentlyUsedNodePrefix()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            ProgramCache.Clear();
+            const long retainedCap = 400_000;
+            using var pool = new RenderTargetPool(maxRetainedPrefixBytes: retainedCap);
+            var diagnostics = new PipelineDiagnostics();
+            var (rootA, gammaA, _) = MakeBlurGamma();
+            var (rootB, gammaB, _) = MakeBlurGamma();
+            var (rootC, gammaC, _) = MakeBlurGamma();
+            using var resourceA = (FilterEffect.Resource)rootA.ToResource(CompositionContext.Default);
+            using var resourceB = (FilterEffect.Resource)rootB.ToResource(CompositionContext.Default);
+            using var resourceC = (FilterEffect.Resource)rootC.ToResource(CompositionContext.Default);
+            using var nodeA = new PlanFilterEffectRenderNode(resourceA);
+            using var nodeB = new PlanFilterEffectRenderNode(resourceB);
+            using var nodeC = new PlanFilterEffectRenderNode(resourceC);
+
+            for (int frame = 0; frame <= 4; frame++)
+                Step(nodeA, resourceA, rootA, gammaA, diagnostics, pool, frame, 1f);
+            for (int frame = 5; frame <= 9; frame++)
+                Step(nodeB, resourceB, rootB, gammaB, diagnostics, pool, frame, 1f);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(pool.RetainedPrefixCount, Is.EqualTo(2));
+                Assert.That(pool.RetainedPrefixBytes, Is.LessThanOrEqualTo(retainedCap));
+            });
+
+            // A hit makes A newer than B. Capturing C must therefore evict B, the renderer-wide LRU entry.
+            PipelineDiagnosticsSnapshot touchedA = Step(
+                nodeA, resourceA, rootA, gammaA, diagnostics, pool, frame: 10, outputScale: 1f);
+            Assert.That(touchedA.PrefixCacheHits, Is.EqualTo(1));
+            for (int frame = 11; frame <= 15; frame++)
+                Step(nodeC, resourceC, rootC, gammaC, diagnostics, pool, frame, 1f);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(pool.RetainedPrefixCount, Is.EqualTo(2));
+                Assert.That(pool.RetainedPrefixBytes, Is.LessThanOrEqualTo(retainedCap));
+                Assert.That(pool.LiveLeaseCount, Is.EqualTo(2));
+            });
+
+            PipelineDiagnosticsSnapshot stillCachedA = Step(
+                nodeA, resourceA, rootA, gammaA, diagnostics, pool, frame: 16, outputScale: 1f);
+            PipelineDiagnosticsSnapshot evictedB = Step(
+                nodeB, resourceB, rootB, gammaB, diagnostics, pool, frame: 17, outputScale: 1f);
+            Assert.Multiple(() =>
+            {
+                Assert.That(stillCachedA.PrefixCacheHits, Is.EqualTo(1), "the recently touched A entry must survive");
+                Assert.That(evictedB.PrefixCacheHits, Is.Zero, "the least-recently-used B entry must re-capture");
+                Assert.That(pool.RetainedPrefixBytes, Is.LessThanOrEqualTo(retainedCap));
+            });
+        });
+    }
+
     // A capture frame whose LATER pass throws (a real Skia/shader fault, not the preview allocation-drop path) must
     // still release the ref the capture pass shallow-copied into the sink. Group [static Blur (child 0), a throwing
     // color filter (child 1, kept perpetually unstable)]: frames 0..2 warm the Blur's stability, frame 3 captures the

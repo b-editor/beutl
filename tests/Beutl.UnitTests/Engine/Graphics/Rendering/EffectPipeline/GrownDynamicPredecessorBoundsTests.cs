@@ -97,7 +97,7 @@ internal sealed partial class GrowingCustomNodeEffect(float pad) : CustomRenderN
         public float Pad => pad;
 
         public override FilterEffectRenderNodeFactory RenderNodeFactory
-            => FilterEffectRenderNodeFactory.Of(static r => new GrowingRenderNode((Resource)r));
+            => FilterEffectRenderNodeFactory.Of<Resource, GrowingRenderNode>(static r => new GrowingRenderNode(r));
     }
 }
 

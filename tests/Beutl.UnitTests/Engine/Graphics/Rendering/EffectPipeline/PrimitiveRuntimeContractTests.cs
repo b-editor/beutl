@@ -287,6 +287,40 @@ public class PrimitiveRuntimeContractTests
     }
 
     [Test]
+    public void SplitRenderFailure_RemainsPrimaryWhenCleanupAlsoFails()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var primary = new InvalidOperationException("split callback failed");
+            var cleanup = new InvalidOperationException("split cleanup failed");
+            SplitNodeDescriptor descriptor = SplitNodeDescriptor.Static(
+                _ => throw primary,
+                branchCount: 1,
+                structuralToken: "split-primary-failure");
+            (CompiledPlan plan, FrameResources resources) = Compile(
+                new EffectGraphBuilder(s_bounds, 1f, 1f).Split(descriptor));
+            using var pool = new RenderTargetPool();
+
+            PlanExecutor.ForceSplitInputDisposeFailureForTests(cleanup);
+            try
+            {
+                InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
+                    plan, resources, [Input()], 1f, 1f, float.PositiveInfinity, diagnostics: null, pool));
+                Assert.Multiple(() =>
+                {
+                    Assert.That(actual, Is.SameAs(primary));
+                    Assert.That(pool.LiveLeaseCount, Is.Zero);
+                });
+            }
+            finally
+            {
+                PlanExecutor.ResetSplitInputDisposeFailureForTests();
+            }
+        });
+    }
+
+    [Test]
     public void GeometryInputCleanupFailure_ReleasesCompletedOutputAndInputOperation()
     {
         GeometryNodeDescriptor descriptor = GeometryNodeDescriptor.Create(
@@ -411,7 +445,9 @@ public class PrimitiveRuntimeContractTests
                 ComputeFallback.Identity,
                 structuralToken: "null-texture-input");
             (CompiledPlan plan, FrameResources resources) = Compile(
-                new EffectGraphBuilder(s_bounds, 1f, 1f).Compute(descriptor));
+                new EffectGraphBuilder(s_bounds, 1f, 1f)
+                    .Compute(descriptor)
+                    .Brightness(1.1f));
             var diagnostics = new PipelineDiagnostics();
             using var pool = new RenderTargetPool();
             pool.SetBackingFactoryForTest(static (width, height) =>
@@ -429,9 +465,8 @@ public class PrimitiveRuntimeContractTests
                 Assert.Multiple(() =>
                 {
                     Assert.That(outputs, Has.Length.EqualTo(1));
-                    Assert.That(outputs[0], Is.SameAs(input), "a surface without a backend texture is identity");
                     Assert.That(diagnostics.Snapshot().FlushSyncs, Is.Zero,
-                        "no backend texture means no Skia-to-Vulkan transition occurred");
+                        "an identity compute must not invent a Vulkan-to-Skia transition before the following pass");
                 });
             }
             finally

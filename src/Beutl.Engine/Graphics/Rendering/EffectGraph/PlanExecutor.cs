@@ -118,6 +118,7 @@ internal static class PlanExecutor
                 if (current.Count > 0 && consumesOnSkia && runtimeBackend == PassBackend.Vulkan && diagnostics != null)
                     diagnostics.FlushSyncs++;
 
+                bool wroteVulkanOutput = false;
                 switch (pass)
                 {
                     case SplitPass split:
@@ -139,7 +140,7 @@ internal static class PlanExecutor
                             isRenderCacheEnabled, isAuxiliaryPull);
                         break;
                     default:
-                        MapDescriptorPass(
+                        wroteVulkanOutput = MapDescriptorPass(
                             pass, resources.Passes[k], ExpectedInputBounds(plan, resources, k), current,
                             outputScale, workingScale, maxWorkingScale, maxDimension,
                             diagnostics, pool, captureSink != null && k == captureSink.CapturePassIndex ? captureSink : null);
@@ -148,7 +149,7 @@ internal static class PlanExecutor
 
                 if (current.Count > 0)
                 {
-                    if (supportsCompute)
+                    if (wroteVulkanOutput)
                         runtimeBackend = PassBackend.Vulkan;
                     else if (consumesOnSkia)
                         runtimeBackend = PassBackend.Skia;
@@ -319,7 +320,7 @@ internal static class PlanExecutor
         FilterEffectRenderNode node;
         try
         {
-            node = pass.Resource.RenderNodeFactory.Create(pass.Resource);
+            node = pass.Factory.Create(pass.Resource);
         }
         catch
         {
@@ -420,7 +421,7 @@ internal static class PlanExecutor
     // per-frame resolution (resolved size, working-scale carry, empty-ROI skip); a fanned-out set (an upstream
     // opaque split) sizes each branch from its own bounds — a coordinate-invariant fused pass is identity, so an
     // operation's output bounds equal its input bounds.
-    private static void MapDescriptorPass(
+    private static bool MapDescriptorPass(
         CompiledPass pass, PassResolution resolution, Rect expectedInput, List<RenderNodeOperation> current,
         float outputScale, float workingScale, float maxWorkingScale, int maxDimension,
         PipelineDiagnostics? diagnostics, RenderTargetPool? pool, PrefixCaptureSink? captureSink = null)
@@ -430,6 +431,7 @@ internal static class PlanExecutor
         // never a capture site; drop the sink in that case so no partial branch is retained.
         PrefixCaptureSink? sink = linear ? captureSink : null;
         var outputs = new List<RenderNodeOperation>(current.Count);
+        bool wroteVulkanOutput = false;
         try
         {
             for (int i = 0; i < current.Count; i++)
@@ -443,7 +445,8 @@ internal static class PlanExecutor
                 {
                     mapped = MapOneOperation(
                         pass, resolution, expectedInput, linear, op, outputScale, workingScale, maxWorkingScale,
-                        maxDimension, diagnostics, pool, sink);
+                        maxDimension, diagnostics, pool, sink, out bool operationWroteVulkanOutput);
+                    wroteVulkanOutput |= operationWroteVulkanOutput;
                 }
                 catch
                 {
@@ -467,13 +470,16 @@ internal static class PlanExecutor
 
         current.Clear();
         current.AddRange(outputs);
+        return wroteVulkanOutput;
     }
 
     private static RenderNodeOperation? MapOneOperation(
         CompiledPass pass, PassResolution resolution, Rect expectedInput, bool linear, RenderNodeOperation op,
         float outputScale, float workingScale, float maxWorkingScale, int maxDimension,
-        PipelineDiagnostics? diagnostics, RenderTargetPool? pool, PrefixCaptureSink? captureSink = null)
+        PipelineDiagnostics? diagnostics, RenderTargetPool? pool, PrefixCaptureSink? captureSink,
+        out bool wroteVulkanOutput)
     {
+        wroteVulkanOutput = false;
         // A compute pass on a context without Vulkan takes its declared fallback before any allocation (C6/A7).
         if (pass is ComputePass compute && !SupportsCompute())
         {
@@ -617,7 +623,7 @@ internal static class PlanExecutor
             case ComputePass computePass:
                 return ExecuteCompute(
                     computePass, width, height, w, outBounds, op, outputScale, workingScale, maxWorkingScale,
-                    maxDimension, diagnostics, pool);
+                    maxDimension, diagnostics, pool, out wroteVulkanOutput);
         }
 
         // Skia filter factories are per-frame parameters. Build the chain before acquiring the output so an
@@ -1174,8 +1180,9 @@ internal static class PlanExecutor
     private static RenderNodeOperation? ExecuteCompute(
         ComputePass pass, int width, int height, float w, Rect outBounds, RenderNodeOperation op,
         float outputScale, float workingScale, float maxWorkingScale, int maxDimension,
-        PipelineDiagnostics? diagnostics, RenderTargetPool? pool)
+        PipelineDiagnostics? diagnostics, RenderTargetPool? pool, out bool wroteVulkanOutput)
     {
+        wroteVulkanOutput = false;
         IGraphicsContext? gfx = GraphicsContextFactory.SharedContext;
         if (s_forceComputeFallbackForTests || gfx is not { Supports3DRendering: true })
         {
@@ -1330,8 +1337,10 @@ internal static class PlanExecutor
             ExceptionDispatchInfo.Capture(computeCleanupFailure).Throw();
         }
 
-        return RenderNodeOperation.CreateFromRenderTarget(
+        RenderNodeOperation result = RenderNodeOperation.CreateFromRenderTarget(
             outBounds, outBounds.Position, outputTarget, EffectiveScale.At(w));
+        wroteVulkanOutput = true;
+        return result;
     }
 
     private static RenderNodeOperation? ExecuteComputeCpuFallback(
@@ -1487,6 +1496,7 @@ internal static class PlanExecutor
                     continue;
                 }
 
+                Exception? renderFailure = null;
                 try
                 {
                     if (pass.RequiresReadback)
@@ -1504,6 +1514,11 @@ internal static class PlanExecutor
                     pass.Render(emitter);
                     emitter.ValidateCompletion();
                 }
+                catch (Exception ex)
+                {
+                    renderFailure = ex;
+                    throw;
+                }
                 finally
                 {
                     Exception? cleanupFailure = null;
@@ -1515,7 +1530,12 @@ internal static class PlanExecutor
                     }
                     CaptureDisposeFailure(op, ref cleanupFailure);
                     if (cleanupFailure != null)
-                        ExceptionDispatchInfo.Capture(cleanupFailure).Throw();
+                    {
+                        if (renderFailure != null)
+                            LogCleanupFailure(cleanupFailure, "split failure cleanup");
+                        else
+                            ExceptionDispatchInfo.Capture(cleanupFailure).Throw();
+                    }
                 }
             }
         }

@@ -204,7 +204,9 @@ internal sealed class PlanFilterEffectRenderNode(FilterEffect.Resource filterEff
         try
         {
             s_beforeStoreCapturedForTest?.Invoke();
-            _prefixCache.StoreCaptured(sink, capturePass, plan, resources);
+            _prefixCache.StoreCaptured(
+                sink, capturePass, plan, resources,
+                context.Pool ?? throw new InvalidOperationException("Prefix capture requires a render-target pool."));
         }
         catch
         {

@@ -124,7 +124,13 @@ All `float` for v1 (the `Beutl.Graphics.Vector` primitive overloads exist for th
 
 ---
 
-## Changed filter-effect types
+## Historical 003 filter-effect types (superseded by feature 004)
+
+The types below describe the imperative pipeline as implemented by feature 003. Feature 004 subsequently removed
+`FilterEffectContext`, `CustomFilterEffectContext`, `FilterEffectActivator`, and `EffectTarget`. Current effects
+implement `FilterEffect.Describe(EffectGraphBuilder, Resource)` with sealed node descriptors; `PlanFilterEffectRenderNode`,
+`EffectGraphCompiler`, `PlanExecutor`, `RenderTargetPool`, and `EffectInput` now carry the same scale/density contracts.
+Keep this section as 003 design history, not as current authoring guidance; use the 004 quickstart and contracts for code.
 
 ### `FilterEffectContext` *(changed)* — `Graphics/FilterEffects/FilterEffectContext.cs`
 | Member | Change | Rule |

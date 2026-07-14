@@ -522,7 +522,8 @@ public class PrimitivePassTests
                         passCount: 1,
                         ComputeFallback.Identity,
                         structuralToken: "throwing-dispatch",
-                        dispatchFailureBehavior: ComputeDispatchFailureBehavior.IdentityInPreview));
+                        dispatchFailureBehavior: ComputeDispatchFailureBehavior.IdentityInPreview))
+                    .Brightness(1.1f);
                 using EffectGraph graph = builder.Build();
                 CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
                 frame = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale: 1f);
@@ -531,15 +532,20 @@ public class PrimitivePassTests
 
             CompiledPlan plan = CompileThrowingPlan(out FrameResources frame);
             using var pool = new RenderTargetPool();
+            var diagnostics = new PipelineDiagnostics();
 
             RenderNodeOperation previewInput = Input();
             RenderNodeOperation[] preview = PlanExecutor.Execute(
                 plan, frame, [previewInput], outputScale: 1f, workingScale: 1f, maxWorkingScale: 2f,
-                diagnostics: null, pool);
+                diagnostics, pool);
             try
             {
-                Assert.That(preview, Is.EqualTo(new[] { previewInput }),
-                    "an identity-fallback preview keeps the source operation after dispatch failure");
+                Assert.Multiple(() =>
+                {
+                    Assert.That(preview, Has.Length.EqualTo(1));
+                    Assert.That(diagnostics.Snapshot().FlushSyncs, Is.EqualTo(1),
+                        "the failed compute performs its real Skia-to-Vulkan preparation, but must not invent a Vulkan output transition");
+                });
             }
             finally
             {

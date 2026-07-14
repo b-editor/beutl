@@ -18,7 +18,8 @@ Effects describe a graph in `FilterEffect.Describe(EffectGraphBuilder builder, F
 ## Builder properties
 
 ```csharp
-Rect  builder.Bounds        // the input rect this effect is described against
+Rect  builder.OriginalBounds // the initial input rect at the start of this graph
+Rect  builder.Bounds         // the current logical rect after all descriptors appended so far
 float builder.OutputScale   // 003 s_out (device px per logical unit at the root)
 float builder.WorkingScale  // 003 w — the density this boundary's buffers run at
 ```

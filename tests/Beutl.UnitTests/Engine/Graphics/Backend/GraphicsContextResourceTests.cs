@@ -106,6 +106,36 @@ public class GraphicsContextResourceTests
     }
 
     [Test]
+    public void CreateFramebuffer3D_ColorAttachmentsMustMatchRenderPass()
+    {
+        var ctx = VulkanTestEnvironment.EnsureAvailable();
+
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using ITexture2D rgba = ctx.CreateTexture2D(8, 8, TextureFormat.RGBA8Unorm);
+            using ITexture2D bgra = ctx.CreateTexture2D(8, 8, TextureFormat.BGRA8Unorm);
+            using ITexture2D wrongSize = ctx.CreateTexture2D(4, 8, TextureFormat.RGBA8Unorm);
+            using IRenderPass3D single = ctx.CreateRenderPass3D(
+                [TextureFormat.RGBA8Unorm], depthFormat: null);
+            using IRenderPass3D doubleColor = ctx.CreateRenderPass3D(
+                [TextureFormat.RGBA8Unorm, TextureFormat.RGBA8Unorm], depthFormat: null);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(
+                    () => ctx.CreateFramebuffer3D(doubleColor, [rgba], depthTexture: null),
+                    Throws.ArgumentException.With.Message.Contains("count"));
+                Assert.That(
+                    () => ctx.CreateFramebuffer3D(single, [bgra], depthTexture: null),
+                    Throws.ArgumentException.With.Message.Contains("format"));
+                Assert.That(
+                    () => ctx.CreateFramebuffer3D(doubleColor, [rgba, wrongSize], depthTexture: null),
+                    Throws.ArgumentException.With.Message.Contains("dimensions"));
+            });
+        });
+    }
+
+    [Test]
     public void CreatePipeline3D_ColorOnlyRejectsDepthEnabledOptions()
     {
         var ctx = VulkanTestEnvironment.EnsureAvailable();

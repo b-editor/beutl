@@ -77,7 +77,7 @@ internal sealed partial class PoolProbeEffect : FilterEffect
     public new sealed class Resource : FilterEffect.Resource
     {
         public override FilterEffectRenderNodeFactory RenderNodeFactory
-            => FilterEffectRenderNodeFactory.Of(static r => new PoolProbeRenderNode(r));
+            => FilterEffectRenderNodeFactory.Of<Resource, PoolProbeRenderNode>(static r => new PoolProbeRenderNode(r));
     }
 }
 

@@ -168,7 +168,7 @@ internal static class EffectGraphCompiler
             }
             else if (node.Descriptor is CustomRenderNodeDescriptor custom)
             {
-                passes.Add(new CustomRenderNodePass(custom.Resource, custom.NodeType)
+                passes.Add(new CustomRenderNodePass(custom.Resource, custom.Factory)
                 {
                     InputBounds = node.InputBounds,
                     OutputBounds = node.OutputBounds,
@@ -455,20 +455,27 @@ internal static class EffectGraphCompiler
     // Declares every intermediate the executor concurrently holds, so PeakLiveCount bounds the runtime FR-007
     // assert: one output per current operation, read by the next pass ([idx, idx+1]; the tail's output is the
     // frame result), plus pass-scoped scratch ([idx, idx]) — the baked input for geometry/compute/split, and the
-    // C3.3 ping-pong pair and depth attachment for compute. A dynamic-output pass (dynamic split, nested graph)
+    // C3.3 color scratch set for compute. A dynamic-output pass (dynamic split, nested graph)
     // has no static decls (C3.5); the executor skips the peak assert for such plans.
     private static ResourcePlan BuildResourcePlan(ImmutableArray<CompiledPass> passes)
     {
-        const int maxStaticMultiplicity = 4096;
+        const int maxStaticDeclarations = 4096;
         var decls = ImmutableArray.CreateBuilder<IntermediateDecl>(passes.Length);
         int id = 0;
         int multiplicity = 1;
 
-        void Add(int count, int firstUse, int lastUse, TextureFormat format = TextureFormat.RGBA16Float)
+        bool Add(long count, int firstUse, int lastUse, TextureFormat format = TextureFormat.RGBA16Float)
         {
-            for (int c = 0; c < count; c++)
+            if (count < 0 || count > maxStaticDeclarations - decls.Count)
+                return false;
+
+            for (int c = 0; c < (int)count; c++)
                 decls.Add(new IntermediateDecl(id++, format, firstUse, lastUse));
+
+            return true;
         }
+
+        static ResourcePlan RuntimeBounded() => new([], IsStaticallyBounded: false);
 
         for (int idx = 0; idx < passes.Length; idx++)
         {
@@ -476,42 +483,48 @@ internal static class EffectGraphCompiler
             switch (passes[idx])
             {
                 case SplitPass { IsDynamicOutputs: false } split:
-                    Add(multiplicity, idx, idx);
-                    if (split.BranchCount > maxStaticMultiplicity / multiplicity)
+                    if (!Add(multiplicity, idx, idx)
+                        || split.BranchCount > maxStaticDeclarations / multiplicity)
                     {
                         // A plugin may chain individually valid static splits into an enormous cumulative fan-out.
                         // Do not expand that product into millions of declarations (or overflow the multiplier):
                         // execution still enforces every split's exact branch count, while resource accounting uses
                         // the same runtime-resolved exemption as a dynamic-output plan.
-                        return new ResourcePlan([], IsStaticallyBounded: false);
+                        return RuntimeBounded();
                     }
 
                     multiplicity *= split.BranchCount;
-                    Add(multiplicity, idx, lastUse);
+                    if (!Add(multiplicity, idx, lastUse))
+                        return RuntimeBounded();
                     break;
                 case SplitPass or NestedGraphPass or CustomRenderNodePass:
                     break;
                 case CompositePass:
                     multiplicity = 1;
-                    Add(1, idx, lastUse);
+                    if (!Add(1, idx, lastUse))
+                        return RuntimeBounded();
                     break;
                 case GeometryPass:
-                    Add(multiplicity, idx, idx);
-                    Add(multiplicity, idx, lastUse);
+                    if (!Add(multiplicity, idx, idx) || !Add(multiplicity, idx, lastUse))
+                        return RuntimeBounded();
                     break;
                 case ComputePass compute:
-                    Add(multiplicity, idx, idx);
-                    Add(compute.ColorScratchCount * multiplicity, idx, idx);
-                    Add(multiplicity, idx, lastUse);
+                    if (!Add(multiplicity, idx, idx)
+                        || !Add((long)compute.ColorScratchCount * multiplicity, idx, idx)
+                        || !Add(multiplicity, idx, lastUse))
+                    {
+                        return RuntimeBounded();
+                    }
                     break;
                 case FusedShaderPass { CoordinateInvariant: false, Stages: [RuntimeShaderStage { Source.Kind: SkslSourceKind.WholeSource }] }:
                     // The source-halo bake buffer (§C3.1): acquired only when a downstream deflate narrows the
                     // output below the backward-claimed input rect; declared unconditionally as the upper bound.
-                    Add(multiplicity, idx, idx);
-                    Add(multiplicity, idx, lastUse);
+                    if (!Add(multiplicity, idx, idx) || !Add(multiplicity, idx, lastUse))
+                        return RuntimeBounded();
                     break;
                 default:
-                    Add(multiplicity, idx, lastUse);
+                    if (!Add(multiplicity, idx, lastUse))
+                        return RuntimeBounded();
                     break;
             }
         }

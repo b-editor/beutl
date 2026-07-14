@@ -498,7 +498,7 @@ half4 apply(half4 c) {
     }
 
     [Test]
-    public void StructuralKey_SnapshotsMutableTokenText()
+    public void StructuralKey_DoesNotDependOnMutableTokenText()
     {
         var bounds = new Rect(0, 0, 100, 100);
         var token = new MutableStructuralToken("stable");
@@ -517,8 +517,10 @@ half4 apply(half4 c) {
         Assert.Multiple(() =>
         {
             Assert.That(beforeMutation.GetHashCode(), Is.EqualTo(beforeHash));
-            Assert.That(beforeMutation, Is.EqualTo(StructuralKey.Compute(stableGraph)));
-            Assert.That(beforeMutation, Is.Not.EqualTo(StructuralKey.Compute(graph)));
+            Assert.That(beforeMutation, Is.EqualTo(StructuralKey.Compute(graph)),
+                "reference-identity equality stays stable when an unrelated ToString value changes");
+            Assert.That(beforeMutation, Is.Not.EqualTo(StructuralKey.Compute(stableGraph)),
+                "distinct reference tokens do not alias merely because their text once matched");
         });
     }
 
@@ -577,6 +579,66 @@ half4 apply(half4 c) {
                 "the cumulative 10,000-way fan-out must not expand into a static resource declaration array");
             Assert.That(plan.Resources.Intermediates, Is.Empty);
         });
+    }
+
+    [Test]
+    public void Compile_HugeColorScratchDeclaration_UsesRuntimeResourceAccountingWithoutOverflow()
+    {
+        ComputeNodeDescriptor compute = ComputeNodeDescriptor.Create(
+            static _ => { }, passCount: 1, ComputeFallback.Identity,
+            colorScratchCount: int.MaxValue, structuralToken: "huge-scratch");
+
+        CompiledPlan plan = Compile(NewBuilder(new Rect(0, 0, 100, 100)).Compute(compute));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(plan.Resources.IsStaticallyBounded, Is.False);
+            Assert.That(plan.Resources.Intermediates, Is.Empty,
+                "an unenumerable declaration must use runtime accounting, not overflow into an empty bounded plan");
+        });
+    }
+
+    [Test]
+    public void StructuralKey_UnequalTokensWithSameText_DoNotAlias()
+    {
+        var first = new SameTextToken(1);
+        var second = new SameTextToken(2);
+        using EffectGraph firstGraph = NewBuilder(new Rect(0, 0, 10, 10))
+            .ColorFilter(ColorFilterNodeDescriptor.Create(static () => null, first))
+            .Build();
+        using EffectGraph secondGraph = NewBuilder(new Rect(0, 0, 10, 10))
+            .ColorFilter(ColorFilterNodeDescriptor.Create(static () => null, second))
+            .Build();
+
+        Assert.That(StructuralKey.Compute(firstGraph), Is.Not.EqualTo(StructuralKey.Compute(secondGraph)));
+    }
+
+    [Test]
+    public void StructuralKey_EqualRecordTokensShareShape_ButDifferentRuntimeTypesDoNot()
+    {
+        using EffectGraph first = NewBuilder(new Rect(0, 0, 10, 10))
+            .ColorFilter(ColorFilterNodeDescriptor.Create(static () => null, new SameTextToken(7)))
+            .Build();
+        using EffectGraph equal = NewBuilder(new Rect(0, 0, 10, 10))
+            .ColorFilter(ColorFilterNodeDescriptor.Create(static () => null, new SameTextToken(7)))
+            .Build();
+        using EffectGraph integer = NewBuilder(new Rect(0, 0, 10, 10))
+            .ColorFilter(ColorFilterNodeDescriptor.Create(static () => null, 7))
+            .Build();
+        using EffectGraph longInteger = NewBuilder(new Rect(0, 0, 10, 10))
+            .ColorFilter(ColorFilterNodeDescriptor.Create(static () => null, 7L))
+            .Build();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(StructuralKey.Compute(first), Is.EqualTo(StructuralKey.Compute(equal)));
+            Assert.That(StructuralKey.Compute(integer), Is.Not.EqualTo(StructuralKey.Compute(longInteger)));
+        });
+    }
+
+    private sealed record SameTextToken(int Value)
+    {
+        public override string ToString() => "same-text";
     }
 
     [Test]
@@ -657,7 +719,7 @@ half4 apply(half4 c) {
 
             InvalidOperationException error = Assert.Catch<InvalidOperationException>(() => PlanExecutor.Execute(
                 plan, resources, [MakeInput(bounds)], outputScale: 1f, workingScale: 1f,
-                maxWorkingScale: 2f, diagnostics: null, pool: pool));
+                maxWorkingScale: 2f, diagnostics: null, pool: pool))!;
 
             Assert.Multiple(() =>
             {
@@ -1394,7 +1456,7 @@ half4 apply(half4 c) {
 
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
             plan, resources, [MakeInput(bounds)], outputScale: 1f, workingScale: 1f,
-            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null));
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null))!;
 
         Assert.That(error.Message, Does.Contain("requiresReadback"));
     }

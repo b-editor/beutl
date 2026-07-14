@@ -342,21 +342,23 @@ public class EffectPipelineBenchmarks
 
     private static Drawable.Resource ColorChain(PixelSize size)
     {
+        // These four official O3 builders duplicate SceneFixtures intentionally. Their parameter values are pinned to
+        // the workload used by notes/baseline.md; changing them invalidates the recorded SC-005 comparison.
         var group = new FilterEffectGroup();
         var gamma = new Gamma();
-        gamma.Amount.CurrentValue = 150f;
+        gamma.Amount.CurrentValue = 1.5f;
         group.Children.Add(gamma);
         var hue = new HueRotate();
         hue.Angle.CurrentValue = 90f;
         group.Children.Add(hue);
         var saturate = new Saturate();
-        saturate.Amount.CurrentValue = 140f;
+        saturate.Amount.CurrentValue = 1.4f;
         group.Children.Add(saturate);
         var brightness = new Brightness();
-        brightness.Amount.CurrentValue = 120f;
+        brightness.Amount.CurrentValue = 1.2f;
         group.Children.Add(brightness);
         var invert = new Invert();
-        invert.Amount.CurrentValue = 100f;
+        invert.Amount.CurrentValue = 1f;
         group.Children.Add(invert);
         return GradientShape(size, group);
     }
@@ -368,9 +370,11 @@ public class EffectPipelineBenchmarks
         blur.Sigma.CurrentValue = new Size(6, 6);
         group.Children.Add(blur);
         var gamma = new Gamma();
-        gamma.Amount.CurrentValue = 140f;
+        gamma.Amount.CurrentValue = 1.4f;
         group.Children.Add(gamma);
-        group.Children.Add(new Invert());
+        var invert = new Invert();
+        invert.Amount.CurrentValue = 1f;
+        group.Children.Add(invert);
         var dropShadow = new DropShadow();
         dropShadow.Position.CurrentValue = new Point(8, 8);
         dropShadow.Sigma.CurrentValue = new Size(6, 6);
@@ -391,7 +395,7 @@ public class EffectPipelineBenchmarks
         split.VerticalSpacing.CurrentValue = 10;
 
         var saturate = new Saturate();
-        saturate.Amount.CurrentValue = 150f;
+        saturate.Amount.CurrentValue = 1.5f;
 
         var group = new FilterEffectGroup();
         group.Children.Add(split);
@@ -404,12 +408,14 @@ public class EffectPipelineBenchmarks
     {
         var group = new FilterEffectGroup();
         var gamma = new Gamma();
-        gamma.Amount.CurrentValue = 130f;
+        gamma.Amount.CurrentValue = 1.3f;
         group.Children.Add(gamma);
-        group.Children.Add(new Invert());
+        var invert = new Invert();
+        invert.Amount.CurrentValue = 1f;
+        group.Children.Add(invert);
         var grading = new ColorGrading();
-        grading.Contrast.CurrentValue = 20f;
-        grading.Saturation.CurrentValue = 30f;
+        grading.Contrast.CurrentValue = 1.2f;
+        grading.Saturation.CurrentValue = 1.3f;
         group.Children.Add(grading);
 
         var imageSource = new ImageSource();

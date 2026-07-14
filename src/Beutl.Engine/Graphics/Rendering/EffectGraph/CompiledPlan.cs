@@ -210,8 +210,12 @@ internal sealed record NestedGraphPass(
 /// <see cref="PipelineDiagnostics"/> like every other pass (C8). <see cref="NodeType"/> is part of the structural
 /// identity so a swapped child type recompiles (plan-cache correctness).
 /// </summary>
-internal sealed record CustomRenderNodePass(Effects.FilterEffect.Resource Resource, Type NodeType) : CompiledPass
+internal sealed record CustomRenderNodePass(
+    Effects.FilterEffect.Resource Resource,
+    FilterEffectRenderNodeFactory Factory) : CompiledPass
 {
+    internal Type NodeType => Factory.NodeType;
+
     /// <inheritdoc/>
     public override PassBackend Backend => PassBackend.Skia;
 }
@@ -238,18 +242,26 @@ internal sealed record ResourcePlan(
 
     private static int ComputePeakLive(ImmutableArray<IntermediateDecl> decls)
     {
-        int peak = 0;
-        foreach (IntermediateDecl outer in decls)
-        {
-            int live = 0;
-            foreach (IntermediateDecl inner in decls)
-            {
-                if (inner.FirstUse <= outer.FirstUse && outer.FirstUse <= inner.LastUse)
-                    live++;
-            }
+        if (decls.IsEmpty)
+            return 0;
 
-            if (live > peak)
-                peak = live;
+        int lastUse = 0;
+        foreach (IntermediateDecl decl in decls)
+            lastUse = Math.Max(lastUse, decl.LastUse);
+
+        var deltas = new int[lastUse + 2];
+        foreach (IntermediateDecl decl in decls)
+        {
+            deltas[decl.FirstUse]++;
+            deltas[decl.LastUse + 1]--;
+        }
+
+        int peak = 0;
+        int live = 0;
+        foreach (int delta in deltas)
+        {
+            live += delta;
+            peak = Math.Max(peak, live);
         }
 
         return peak;

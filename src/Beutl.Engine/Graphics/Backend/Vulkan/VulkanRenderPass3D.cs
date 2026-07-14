@@ -13,6 +13,7 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
     private readonly VulkanContext _context;
     private readonly RenderPass _renderPass;
     private readonly int _colorAttachmentCount;
+    private readonly Format[] _colorFormats;
     private readonly bool _hasDepthAttachment;
     private readonly Format? _depthFormat;
     private CommandBuffer _currentCommandBuffer;
@@ -42,6 +43,9 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
 
         _context = context;
         _colorAttachmentCount = colorFormats.Count;
+        _colorFormats = new Format[colorFormats.Count];
+        for (int i = 0; i < colorFormats.Count; i++)
+            _colorFormats[i] = colorFormats[i];
         _hasDepthAttachment = depthFormat.HasValue;
         _depthFormat = depthFormat;
 
@@ -147,6 +151,8 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
     public RenderPass Handle => _renderPass;
 
     public int ColorAttachmentCount => _colorAttachmentCount;
+
+    internal IReadOnlyList<Format> ColorFormats => _colorFormats;
 
     public bool HasDepthAttachment => _hasDepthAttachment;
 

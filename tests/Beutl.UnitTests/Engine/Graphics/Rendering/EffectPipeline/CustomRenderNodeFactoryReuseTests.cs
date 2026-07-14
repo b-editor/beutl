@@ -57,6 +57,71 @@ public class CustomRenderNodeFactoryReuseTests
         });
     }
 
+    [Test]
+    public void Group_UsesCustomFactoryForLegacyFilterEffectSubclass()
+    {
+        var custom = new CustomNodeEffect();
+        var group = new FilterEffectGroup();
+        group.Children.Add(custom);
+        using FilterEffect.Resource resource = group.ToResource(CompositionContext.Default);
+        var builder = new EffectGraphBuilder(new Rect(0, 0, 120, 90), 1f, 1f);
+
+        group.Describe(builder, resource);
+        using EffectGraph graph = builder.Build();
+        CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
+
+        Assert.That(plan.Passes, Has.Length.EqualTo(1));
+        Assert.That(plan.Passes[0], Is.TypeOf<CustomRenderNodePass>(),
+            "a factory override must keep the same custom execution path inside a group");
+    }
+
+    [Test]
+    public void TypedFactory_RejectsWrongResourceBeforeInvokingPluginConstructor()
+    {
+        bool invoked = false;
+        FilterEffectRenderNodeFactory factory =
+            FilterEffectRenderNodeFactory.Of<CustomNodeEffect.Resource, CustomFactoryRenderNode>(resource =>
+            {
+                invoked = true;
+                return new CustomFactoryRenderNode(resource);
+            });
+        var otherEffect = new FallbackFilterEffect();
+        using FilterEffect.Resource other = otherEffect.ToResource(CompositionContext.Default);
+
+        Assert.That(() => factory.Create(other), Throws.ArgumentException.With.Message.Contains("requires resource type"));
+        Assert.That(invoked, Is.False);
+    }
+
+    [Test]
+    public void EmbeddedPass_ExecutesTheSameFactoryInstanceCapturedDuringDescription()
+    {
+        var effect = new StatefulFactoryEffect();
+        using var resource = (StatefulFactoryEffect.Resource)effect.ToResource(CompositionContext.Default);
+        var builder = new EffectGraphBuilder(new Rect(0, 0, 120, 90), 1f, 1f);
+        builder.Effect(resource);
+        using EffectGraph graph = builder.Build();
+        CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
+        FrameResources frame = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, 1f);
+        RenderNodeOperation input = RenderNodeOperation.CreateLambda(
+            new Rect(0, 0, 120, 90), static _ => { });
+
+        RenderNodeOperation[] outputs = PlanExecutor.Execute(
+            plan, frame, [input], 1f, 1f, float.PositiveInfinity, diagnostics: null, pool: null);
+        try
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(outputs, Has.Length.EqualTo(1));
+                Assert.That(resource.FactoryReads, Is.EqualTo(1),
+                    "the executor must use the factory captured by Effect instead of re-reading a stateful getter");
+            });
+        }
+        finally
+        {
+            RenderNodeOperation.DisposeAll(outputs);
+        }
+    }
+
     private static FilterEffectRenderNode PushOnce(ContainerRenderNode container, FilterEffect.Resource resource)
     {
         using var context = new GraphicsContext2D(container, new Size(120, 90), outputScale: 1f);
@@ -88,7 +153,8 @@ internal sealed partial class CustomNodeEffect : FilterEffect
     public new sealed class Resource : FilterEffect.Resource
     {
         public override FilterEffectRenderNodeFactory RenderNodeFactory
-            => FilterEffectRenderNodeFactory.Of(static r => new CustomFactoryRenderNode(r));
+            => FilterEffectRenderNodeFactory.Of<Resource, CustomFactoryRenderNode>(
+                static r => new CustomFactoryRenderNode(r));
     }
 }
 
@@ -117,8 +183,8 @@ internal sealed partial class MismatchedFactoryEffect : FilterEffect
         public bool MismatchedNodeDisposed { get; set; }
 
         public override FilterEffectRenderNodeFactory RenderNodeFactory
-            => FilterEffectRenderNodeFactory.Of<FilterEffectRenderNode>(
-                static resource => new MismatchedFactoryRenderNode((Resource)resource));
+            => FilterEffectRenderNodeFactory.Of<Resource, FilterEffectRenderNode>(
+                static resource => new MismatchedFactoryRenderNode(resource));
     }
 }
 
@@ -132,4 +198,46 @@ internal sealed class MismatchedFactoryRenderNode(MismatchedFactoryEffect.Resour
         resource.MismatchedNodeDisposed = true;
         base.OnDispose(disposing);
     }
+}
+
+[SuppressResourceClassGeneration]
+internal sealed partial class StatefulFactoryEffect : FilterEffect
+{
+    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
+    {
+    }
+
+    public override Resource ToResource(CompositionContext context)
+    {
+        var resource = new Resource();
+        bool updateOnly = false;
+        resource.Update(this, context, ref updateOnly);
+        return resource;
+    }
+
+    public new sealed class Resource : FilterEffect.Resource
+    {
+        private static readonly FilterEffectRenderNodeFactory s_expected =
+            FilterEffectRenderNodeFactory.Of<Resource, StatefulFactoryRenderNode>(
+                static resource => new StatefulFactoryRenderNode(resource));
+        private static readonly FilterEffectRenderNodeFactory s_unexpected =
+            FilterEffectRenderNodeFactory.Of<Resource, UnexpectedFactoryRenderNode>(
+                static resource => new UnexpectedFactoryRenderNode(resource));
+
+        public int FactoryReads { get; private set; }
+
+        public override FilterEffectRenderNodeFactory RenderNodeFactory
+            => ++FactoryReads == 1 ? s_expected : s_unexpected;
+    }
+}
+
+internal sealed class StatefulFactoryRenderNode(FilterEffect.Resource resource) : FilterEffectRenderNode(resource)
+{
+    public override RenderNodeOperation[] Process(RenderNodeContext context) => context.Input.ToArray();
+}
+
+internal sealed class UnexpectedFactoryRenderNode(FilterEffect.Resource resource) : FilterEffectRenderNode(resource)
+{
+    public override RenderNodeOperation[] Process(RenderNodeContext context)
+        => throw new AssertionException("The executor re-read the stateful render-node factory.");
 }

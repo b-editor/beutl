@@ -65,8 +65,12 @@ public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource 
 // (As shipped since 004: the seam is `RenderNodeFactory`, not `CreateRenderNode()`.)
 public new partial class Resource
 {
+    private static readonly FilterEffectRenderNodeFactory s_factory =
+        FilterEffectRenderNodeFactory.Of<Resource, MyCompleteCustomNode>(
+            static resource => new MyCompleteCustomNode(resource));
+
     public override FilterEffectRenderNodeFactory RenderNodeFactory
-        => FilterEffectRenderNodeFactory.Of(static r => new MyCompleteCustomNode(r));
+        => s_factory;
 }
 ```
 

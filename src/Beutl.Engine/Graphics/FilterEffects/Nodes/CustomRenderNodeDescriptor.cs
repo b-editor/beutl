@@ -17,18 +17,21 @@ public sealed record CustomRenderNodeDescriptor : EffectNodeDescriptor
 {
     internal override EffectNodeKind Kind => EffectNodeKind.CustomRenderNode;
 
-    private CustomRenderNodeDescriptor(CustomRenderNodeFilterEffect.Resource resource, Type nodeType)
+    private CustomRenderNodeDescriptor(
+        FilterEffect.Resource resource, FilterEffectRenderNodeFactory factory)
     {
         Resource = resource;
-        NodeType = nodeType;
+        Factory = factory;
     }
 
     /// <summary>The child effect resource whose render node runs this node. Its reference identity is structural; its
     /// <see cref="Beutl.Engine.EngineObject.Resource.Version"/> rebinds per frame (a swap or type change recompiles).</summary>
-    public CustomRenderNodeFilterEffect.Resource Resource { get; }
+    public FilterEffect.Resource Resource { get; }
 
     /// <summary>The child's <see cref="FilterEffectRenderNodeFactory.NodeType"/>, part of the structural identity.</summary>
-    public Type NodeType { get; }
+    public Type NodeType => Factory.NodeType;
+
+    internal FilterEffectRenderNodeFactory Factory { get; }
 
     /// <inheritdoc/>
     public override BoundsContract Bounds => BoundsContract.RenderTime;
@@ -37,9 +40,20 @@ public sealed record CustomRenderNodeDescriptor : EffectNodeDescriptor
     public override bool IsCoordinateInvariant => false;
 
     /// <summary>Builds a custom-render-node descriptor for <paramref name="resource"/>, capturing its render-node type.</summary>
-    public static CustomRenderNodeDescriptor Create(CustomRenderNodeFilterEffect.Resource resource)
+    public static CustomRenderNodeDescriptor Create(FilterEffect.Resource resource)
     {
         ArgumentNullException.ThrowIfNull(resource);
-        return new CustomRenderNodeDescriptor(resource, resource.RenderNodeFactory.NodeType);
+        FilterEffectRenderNodeFactory factory = resource.RenderNodeFactory
+            ?? throw new InvalidOperationException("A filter effect returned a null render-node factory.");
+        if (factory.NodeType == typeof(PlanFilterEffectRenderNode))
+        {
+            throw new ArgumentException(
+                "A custom-render-node descriptor requires a non-default RenderNodeFactory.", nameof(resource));
+        }
+        return Create(resource, factory);
     }
+
+    internal static CustomRenderNodeDescriptor Create(
+        FilterEffect.Resource resource, FilterEffectRenderNodeFactory factory)
+        => new(resource, factory);
 }

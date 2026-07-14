@@ -3,7 +3,7 @@
 namespace Beutl.Graphics.Rendering;
 
 /// <summary>
-/// Captures a filter effect's render-node type together with its constructor as one value, and rejects a constructor
+/// Captures a filter effect's resource type, render-node type, and constructor as one value, and rejects a constructor
 /// whose result has a different exact runtime type (feature 004). An effect that needs a custom
 /// <see cref="FilterEffectRenderNode"/> (e.g. a non-supply working scale, 003/FR-036) overrides
 /// <see cref="FilterEffect.Resource.RenderNodeFactory"/> once; the diff reuses the effect's node across drawable
@@ -12,51 +12,61 @@ namespace Beutl.Graphics.Rendering;
 /// removes the earlier drift hazard where overriding one of two members and forgetting the other silently
 /// recompiled the plan every frame.
 /// </summary>
-public readonly struct FilterEffectRenderNodeFactory
+public sealed class FilterEffectRenderNodeFactory
 {
-    private readonly Func<FilterEffect.Resource, FilterEffectRenderNode>? _create;
+    private readonly Func<FilterEffect.Resource, FilterEffectRenderNode> _create;
 
-    private FilterEffectRenderNodeFactory(Type nodeType, Func<FilterEffect.Resource, FilterEffectRenderNode> create)
+    private FilterEffectRenderNodeFactory(
+        Type resourceType, Type nodeType, Func<FilterEffect.Resource, FilterEffectRenderNode> create)
     {
+        ResourceType = resourceType;
         NodeType = nodeType;
         _create = create;
     }
+
+    /// <summary>The resource type accepted by the captured constructor.</summary>
+    public Type ResourceType { get; }
 
     /// <summary>The concrete <see cref="FilterEffectRenderNode"/> type <see cref="Create"/> instantiates.</summary>
     public Type NodeType { get; }
 
     /// <summary>
-    /// Builds a factory declaring node type <typeparamref name="TNode"/> from its constructor. The captured type is
-    /// <c>typeof(TNode)</c>; <see cref="Create"/> verifies that the constructor returns that exact type, so callers
-    /// must use the concrete node type rather than a broader base type.
+    /// Builds a factory whose constructor accepts the concrete resource type <typeparamref name="TResource"/> and
+    /// creates the concrete node type <typeparamref name="TNode"/>. Both types are retained and checked before the
+    /// plugin callback runs, eliminating per-call casts and giving a mismatched resource a deterministic diagnostic.
     /// </summary>
-    public static FilterEffectRenderNodeFactory Of<TNode>(Func<FilterEffect.Resource, TNode> create)
+    public static FilterEffectRenderNodeFactory Of<TResource, TNode>(Func<TResource, TNode> create)
+        where TResource : FilterEffect.Resource
         where TNode : FilterEffectRenderNode
     {
         ArgumentNullException.ThrowIfNull(create);
-        return new FilterEffectRenderNodeFactory(typeof(TNode), create);
+        return new FilterEffectRenderNodeFactory(
+            typeof(TResource), typeof(TNode),
+            resource => create((TResource)resource));
     }
 
     /// <summary>Instantiates the render node for <paramref name="resource"/>.</summary>
     public FilterEffectRenderNode Create(FilterEffect.Resource resource)
     {
         ArgumentNullException.ThrowIfNull(resource);
-        if (_create is null)
+        if (!ResourceType.IsInstanceOfType(resource))
         {
-            throw new InvalidOperationException(
-                $"This {nameof(FilterEffectRenderNodeFactory)} was default-constructed; build one with {nameof(Of)}.");
+            throw new ArgumentException(
+                $"The render-node factory requires resource type '{ResourceType.FullName}' but received "
+                + $"'{resource.GetType().FullName}'.", nameof(resource));
         }
 
-        FilterEffectRenderNode node = _create(resource);
+        FilterEffectRenderNode? node = _create(resource);
+        if (node is null)
+            throw new InvalidOperationException("The render-node factory returned null.");
         if (node.GetType() != NodeType)
         {
             node.Dispose();
             throw new InvalidOperationException(
                 $"The render-node factory declared '{NodeType.FullName}' but created "
-                + $"'{node.GetType().FullName}'. Use Of<TNode> with the concrete node type.");
+                + $"'{node.GetType().FullName}'. Use Of<TResource, TNode> with the concrete node type.");
         }
 
         return node;
     }
-
 }

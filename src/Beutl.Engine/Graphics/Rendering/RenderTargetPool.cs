@@ -48,10 +48,14 @@ public sealed class RenderTargetPool : IDisposable
     /// <summary>Default total-bytes soft cap for idle buffers before LRU eviction kicks in (256 MiB).</summary>
     public const long DefaultMaxIdleBytes = 256L * 1024 * 1024;
 
+    /// <summary>Default byte cap for cross-frame prefix buffers retained by render nodes (256 MiB).</summary>
+    public const long DefaultMaxRetainedPrefixBytes = 256L * 1024 * 1024;
+
     private readonly Dispatcher? _dispatcher = Dispatcher.Current;
     private readonly Dictionary<BucketKey, LinkedList<PooledSurface>> _buckets = [];
     private readonly LinkedList<PooledSurface> _lru = [];
     private readonly long _maxIdleBytes;
+    private readonly PrefixRetentionBudget _prefixRetentionBudget;
     private Func<int, int, (SKSurface Surface, ITexture2D? Texture)?> _backingFactory = RenderTarget.CreateBackingSurface;
     private Func<int, int, TextureFormat, ITexture2D?> _textureFactory = CreateBackingTexture;
     private Action<PooledSurface> _clearForReuse = ClearForReuse;
@@ -62,9 +66,13 @@ public sealed class RenderTargetPool : IDisposable
     private long _peakLiveLeases;
     private bool _isDisposed;
 
-    public RenderTargetPool(long maxIdleBytes = DefaultMaxIdleBytes)
+    public RenderTargetPool(
+        long maxIdleBytes = DefaultMaxIdleBytes,
+        long maxRetainedPrefixBytes = DefaultMaxRetainedPrefixBytes)
     {
         _maxIdleBytes = maxIdleBytes > 0 ? maxIdleBytes : DefaultMaxIdleBytes;
+        _prefixRetentionBudget = new PrefixRetentionBudget(
+            maxRetainedPrefixBytes > 0 ? maxRetainedPrefixBytes : DefaultMaxRetainedPrefixBytes);
     }
 
     /// <summary>Number of idle (available) buffers currently held. Test/diagnostic surface.</summary>
@@ -74,6 +82,14 @@ public sealed class RenderTargetPool : IDisposable
 
     /// <summary>Total bytes of idle buffers currently held. Test/diagnostic surface.</summary>
     public long IdleBytes => _idleBytes;
+
+    /// <summary>Total bytes held by live cross-frame prefix-cache leases in this renderer.</summary>
+    public long RetainedPrefixBytes => _prefixRetentionBudget.RetainedBytes;
+
+    /// <summary>Number of render-node prefix entries currently retained by this renderer.</summary>
+    public int RetainedPrefixCount => _prefixRetentionBudget.Count;
+
+    internal PrefixRetentionBudget PrefixRetentionBudget => _prefixRetentionBudget;
 
     /// <summary>Number of leases currently issued and not yet returned. Test/diagnostic surface.</summary>
     public long LiveLeaseCount => _liveLeases;
@@ -374,7 +390,27 @@ public sealed class RenderTargetPool : IDisposable
             return;
 
         _isDisposed = true;
-        DisposeAllIdle();
+        Exception? failure = null;
+        try
+        {
+            _prefixRetentionBudget.Clear();
+        }
+        catch (Exception ex)
+        {
+            failure = ex;
+        }
+
+        try
+        {
+            DisposeAllIdle();
+        }
+        catch (Exception ex)
+        {
+            failure ??= ex;
+        }
+
+        if (failure != null)
+            ExceptionDispatchInfo.Capture(failure).Throw();
     }
 
     private void EnforceByteCap(ref Exception? failure)

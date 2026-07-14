@@ -138,23 +138,23 @@ public sealed class EffectGraphBuilder
     }
 
     /// <summary>
-    /// Appends a custom-render-node node for a <paramref name="child"/> effect whose execution lives in a custom
-    /// <see cref="Rendering.FilterEffectRenderNode"/> (e.g. a <c>NodeGraphFilterEffect</c>): the executor drives that
-    /// render node as one node of this graph, materializing the current ops as its input. This is what lets such an
-    /// effect be embedded anywhere a container walks its children (a group, a delay-animation branch).
-    /// <para>
-    /// The embedded child render node is constructed once per execution, not persisted across frames. It remains
-    /// alive through reference-counted wrappers around all operations returned by <c>Process</c>, and is disposed
-    /// after the last returned operation is disposed. Those operations may therefore reference node-owned state
-    /// during the same execution. Long-lived render caches must still live on persisted graph-model resources;
-    /// top-level effects instead render through their own persistent
-    /// <see cref="Rendering.FilterEffectRenderNode"/>.
-    /// </para>
+    /// Appends an enabled child effect using the same execution path it has at the top level. A resource with the
+    /// default plan factory contributes its declarative descriptors; a resource with a custom render-node factory is
+    /// represented by one opaque <see cref="CustomRenderNodeDescriptor"/>. Containers should use this method instead
+    /// of calling <see cref="FilterEffect.Describe"/> directly so placement never changes an effect's behavior.
     /// </summary>
-    public EffectGraphBuilder CustomRenderNode(CustomRenderNodeFilterEffect.Resource child)
+    public EffectGraphBuilder Effect(FilterEffect.Resource child)
     {
         ArgumentNullException.ThrowIfNull(child);
-        return Append(CustomRenderNodeDescriptor.Create(child));
+        FilterEffectRenderNodeFactory factory = child.RenderNodeFactory
+            ?? throw new InvalidOperationException("A filter effect returned a null render-node factory.");
+        if (factory.NodeType == typeof(PlanFilterEffectRenderNode))
+        {
+            child.GetOriginal().Describe(this, child);
+            return this;
+        }
+
+        return Append(CustomRenderNodeDescriptor.Create(child, factory));
     }
 
     /// <summary>

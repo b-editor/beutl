@@ -283,7 +283,7 @@ internal sealed partial class ScaleProbeEffect : FilterEffect
     public new sealed class Resource : FilterEffect.Resource
     {
         public override FilterEffectRenderNodeFactory RenderNodeFactory
-            => FilterEffectRenderNodeFactory.Of(static r => new ScaleProbeRenderNode(r));
+            => FilterEffectRenderNodeFactory.Of<Resource, ScaleProbeRenderNode>(static r => new ScaleProbeRenderNode(r));
     }
 }
 
@@ -335,8 +335,8 @@ internal sealed partial class SwitchingFactoryEffect : FilterEffect
         private bool _useSecond;
 
         public override FilterEffectRenderNodeFactory RenderNodeFactory => _useSecond
-            ? FilterEffectRenderNodeFactory.Of(static r => new SecondFactoryRenderNode(r))
-            : FilterEffectRenderNodeFactory.Of(static r => new FirstFactoryRenderNode(r));
+            ? FilterEffectRenderNodeFactory.Of<Resource, SecondFactoryRenderNode>(static r => new SecondFactoryRenderNode(r))
+            : FilterEffectRenderNodeFactory.Of<Resource, FirstFactoryRenderNode>(static r => new FirstFactoryRenderNode(r));
 
         public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
         {
@@ -389,7 +389,8 @@ internal sealed partial class TrackedResultEffect : FilterEffect
     public new sealed class Resource : FilterEffect.Resource
     {
         public override FilterEffectRenderNodeFactory RenderNodeFactory
-            => FilterEffectRenderNodeFactory.Of(static resource => new TrackedResultRenderNode(resource));
+            => FilterEffectRenderNodeFactory.Of<Resource, TrackedResultRenderNode>(
+                static resource => new TrackedResultRenderNode(resource));
     }
 }
 
@@ -429,7 +430,8 @@ internal sealed partial class ThrowingProcessEffect : FilterEffect
     public new sealed class Resource : FilterEffect.Resource
     {
         public override FilterEffectRenderNodeFactory RenderNodeFactory
-            => FilterEffectRenderNodeFactory.Of(static resource => new ThrowingProcessRenderNode(resource));
+            => FilterEffectRenderNodeFactory.Of<Resource, ThrowingProcessRenderNode>(
+                static resource => new ThrowingProcessRenderNode(resource));
     }
 }
 

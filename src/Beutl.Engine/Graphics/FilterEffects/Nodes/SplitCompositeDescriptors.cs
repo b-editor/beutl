@@ -59,7 +59,9 @@ public sealed record SplitNodeDescriptor : EffectNodeDescriptor
     /// <summary>True when the branch count is resolved at execution time (dynamic outputs, C3.5).</summary>
     public bool IsDynamicOutputs { get; }
 
-    /// <summary>Identity of the split <em>kind</em> for the structural key (paired with <see cref="BranchCount"/>).</summary>
+    /// <summary>Identity of the split <em>kind</em> for the structural key (paired with <see cref="BranchCount"/>).
+    /// Tokens share a plan only when their runtime types and <see cref="object.Equals(object?)"/> values match;
+    /// equality and hash code must stay stable.</summary>
     public object StructuralToken { get; }
 
     /// <summary>True when the split callback reads <see cref="ISplitEmitter.Input"/> through Snapshot().</summary>
@@ -116,7 +118,8 @@ public sealed record CompositeNodeDescriptor : EffectNodeDescriptor
     /// <summary>Per-branch logical offsets applied while compositing (empty = branches drawn at their own bounds).</summary>
     public ImmutableArray<Point> InputOffsets { get; }
 
-    /// <summary>Identity of the composite <em>kind</em> for the structural key.</summary>
+    /// <summary>Identity of the composite <em>kind</em> for the structural key. Tokens share a plan only when their
+    /// runtime types and <see cref="object.Equals(object?)"/> values match; equality and hash code must stay stable.</summary>
     public object StructuralToken { get; }
 
     /// <summary>The composite reshapes the operation set (many to one), so it lays out at execution time.</summary>

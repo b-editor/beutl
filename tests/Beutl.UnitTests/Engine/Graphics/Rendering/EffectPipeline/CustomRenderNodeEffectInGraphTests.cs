@@ -109,8 +109,8 @@ public class CustomRenderNodeEffectInGraphTests
         var effect = new ProbeCustomNodeEffect(new int[1]);
         using var resource = (ProbeCustomNodeEffect.Resource)effect.ToResource(CompositionContext.Default);
         FilterEffectRenderNodeFactory factory =
-            FilterEffectRenderNodeFactory.Of<FilterEffectRenderNode>(
-                static r => new ProbeRenderNode((ProbeCustomNodeEffect.Resource)r));
+            FilterEffectRenderNodeFactory.Of<ProbeCustomNodeEffect.Resource, FilterEffectRenderNode>(
+                static r => new ProbeRenderNode(r));
 
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => factory.Create(resource))!;
         Assert.That(error.Message, Does.Contain(nameof(ProbeRenderNode)).And.Contain("concrete node type"));
@@ -685,7 +685,7 @@ internal sealed partial class ProbeCustomNodeEffect(int[] callCount) : CustomRen
         public int[] CallCount => callCount;
 
         public override FilterEffectRenderNodeFactory RenderNodeFactory
-            => FilterEffectRenderNodeFactory.Of(static r => new ProbeRenderNode((Resource)r));
+            => FilterEffectRenderNodeFactory.Of<Resource, ProbeRenderNode>(static r => new ProbeRenderNode(r));
     }
 }
 
@@ -715,7 +715,7 @@ internal sealed partial class ThrowingCustomNodeEffect : CustomRenderNodeFilterE
     public new sealed class Resource : CustomRenderNodeFilterEffect.Resource
     {
         public override FilterEffectRenderNodeFactory RenderNodeFactory
-            => FilterEffectRenderNodeFactory.Of(static r => new ThrowingRenderNode(r));
+            => FilterEffectRenderNodeFactory.Of<Resource, ThrowingRenderNode>(static r => new ThrowingRenderNode(r));
     }
 }
 
@@ -739,7 +739,7 @@ internal sealed partial class NullArrayCustomNodeEffect : CustomRenderNodeFilter
     public new sealed class Resource : CustomRenderNodeFilterEffect.Resource
     {
         public override FilterEffectRenderNodeFactory RenderNodeFactory
-            => FilterEffectRenderNodeFactory.Of(static r => new NullArrayRenderNode(r));
+            => FilterEffectRenderNodeFactory.Of<Resource, NullArrayRenderNode>(static r => new NullArrayRenderNode(r));
     }
 }
 
@@ -771,7 +771,8 @@ internal sealed partial class LifetimeProbeCustomNodeEffect(
         public bool[] ObservedAuxiliary => observedAuxiliary;
 
         public override FilterEffectRenderNodeFactory RenderNodeFactory
-            => FilterEffectRenderNodeFactory.Of(static r => new LifetimeProbeRenderNode((Resource)r));
+            => FilterEffectRenderNodeFactory.Of<Resource, LifetimeProbeRenderNode>(
+                static r => new LifetimeProbeRenderNode(r));
     }
 }
 
@@ -821,7 +822,7 @@ internal sealed partial class ThrowingFactoryCustomNodeEffect : CustomRenderNode
     public new sealed class Resource : CustomRenderNodeFilterEffect.Resource
     {
         public override FilterEffectRenderNodeFactory RenderNodeFactory
-            => FilterEffectRenderNodeFactory.Of<FilterEffectRenderNode>(static _ =>
+            => FilterEffectRenderNodeFactory.Of<Resource, FilterEffectRenderNode>(static _ =>
                 throw new InvalidOperationException("custom render-node factory failed"));
     }
 }

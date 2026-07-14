@@ -100,6 +100,11 @@ measured workload iterations. `PoolAcquires`/`PoolMisses` equal the acquires per
 steady state (SC-003 gate); `PlanCompilations` = 1 per structural change, `ProgramCreations` = 0 on warm
 frames (SC-002 gate) — asserted exactly in NUnit rather than tabulated here.
 
+The four official O3 benchmark builders are pinned to the same parameter values as `SceneFixtures`
+(`Gamma = 1.5`, `Saturate = 1.4`, and so on). A later percentage-style rewrite (`150`, `140`, ...) changed
+the workload without re-measuring this table; the builders were restored on 2026-07-14. Changing these values
+again requires a new legacy/current measurement and an update to this evidence.
+
 ## SC-005 verdict (step 6, ColorChain — the pinned scene)
 
 | Metric | Re-pinned target | Measured | Verdict |

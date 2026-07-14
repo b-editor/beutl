@@ -4,7 +4,7 @@
 
 ## Principle
 
-Existing uniforms **keep their device-pixel meaning** = the size of the *scaled* target (`ceil(logicalBounds × w)`, where `w` is this effect's **working scale** — the supply-driven scale its `CustomFilterEffectContext` target is allocated at, FR-036); they are NOT redefined to logical. A new, explicitly-named **scale uniform** carries `w` so author code can scale absolute-pixel literals. **Scale-unaware shaders behave as `w = 1.0`** (device == logical) — fully backward compatible.
+Existing uniforms **keep their device-pixel meaning** = the size of the *scaled* target (`ceil(logicalBounds × w)`, where `w` is the pass's resolved **working scale**). In the current 004 pipeline, `PlanExecutor` allocates that target from the shared pool and binds the values from `PassUniformContext`; they are NOT redefined to logical. An explicitly named **scale uniform/push constant** carries `w` so author code can scale absolute-pixel literals. **Scale-unaware shaders behave as `w = 1.0`** (device == logical) — fully backward compatible.
 
 > **`w` is the CLAMPED buffer density (FR-037(b)).** The `w` bound into `iScale` / `width` / `height` / `Width` / `Height` is the density the target buffer was actually **allocated** at — `ClampWorkingScaleToBufferBudget(bounds, WorkingScale)` — which drops **below** the nominal working scale when `ceil(bounds × WorkingScale)` would exceed the 16384-px GPU axis limit. On a very large target `iScale` and the resolution uniforms shrink to keep the buffer allocatable, always agreeing with the buffer the shader iterates. In the common (unclamped) case the bound equals the working scale.
 

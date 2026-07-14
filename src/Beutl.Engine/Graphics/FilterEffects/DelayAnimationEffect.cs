@@ -64,7 +64,7 @@ public partial class DelayAnimationEffect : FilterEffect
                 cache[i].Update(childEffect, delayedContext, ref updateOnly);
                 if (cache[i].IsEnabled)
                 {
-                    childEffect.Describe(branchBuilder, cache[i]);
+                    branchBuilder.Effect(cache[i]);
                 }
             },
             structuralToken: nameof(DelayAnimationEffect)));

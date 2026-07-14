@@ -4,7 +4,7 @@
 
 Namespaces: new types live in `Beutl.Graphics.Effects` (authoring surface) and `Beutl.Graphics.Rendering` (compilation/execution), matching the current layout. Names below are the plan-level contract; exact accessibility follows the "public authoring surface, internal machinery" rule stated per entity.
 
-Taxonomy (canonical, research D7): **seven concrete descriptor kinds realize the spec's five primitives** — shader → `ShaderNodeDescriptor` + `ColorFilterNodeDescriptor`; geometry → `SkiaFilterNodeDescriptor` + `GeometryNodeDescriptor`; compute → `ComputeNodeDescriptor`; split → `SplitNodeDescriptor`; composite → `CompositeNodeDescriptor`.
+Taxonomy (canonical, research D7 plus the completed meta-effect work): **nine sealed descriptor kinds**. Seven realize the spec's five rendering primitives — shader → `ShaderNodeDescriptor` + `ColorFilterNodeDescriptor`; geometry → `SkiaFilterNodeDescriptor` + `GeometryNodeDescriptor`; compute → `ComputeNodeDescriptor`; split → `SplitNodeDescriptor`; composite → `CompositeNodeDescriptor`. `NestedGraphNodeDescriptor` and `CustomRenderNodeDescriptor` are composition boundaries for branch-local graphs and plugin render nodes. The union is deliberately closed; plugin extensibility means composing these public descriptors, not registering an unknown compiler discriminator.
 
 ## 1. Authoring layer (public)
 
@@ -19,7 +19,7 @@ Taxonomy (canonical, research D7): **seven concrete descriptor kinds realize the
 ### `EffectGraphBuilder` (public, new — replaces `FilterEffectContext`'s recording role)
 
 - **Fields/state**: current logical `Bounds` (advanced by each appended node's forward bounds), `OriginalBounds`, `OutputScale`, `WorkingScale` (read-only, resolved by the render node per FR-012).
-- **Primitive appenders**: `Shader(ShaderNodeDescriptor)`, `ColorFilter(ColorFilterNodeDescriptor)`, `SkiaFilter(SkiaFilterNodeDescriptor)`, `Compute(ComputeNodeDescriptor)`, `Geometry(GeometryNodeDescriptor)`, `Split(int count, ...)`, `Composite(CompositeNodeDescriptor)`.
+- **Primitive appenders**: `Shader(ShaderNodeDescriptor)`, `ColorFilter(ColorFilterNodeDescriptor)`, `SkiaFilter(SkiaFilterNodeDescriptor)`, `Compute(ComputeNodeDescriptor)`, `Geometry(GeometryNodeDescriptor)`, `Split(int count, ...)`, `Composite(CompositeNodeDescriptor)`, and `NestedGraph(NestedGraphNodeDescriptor)`. Containers call `Effect(FilterEffect.Resource)`, which either describes the child through the default plan path or appends a `CustomRenderNodeDescriptor` from the child's captured factory.
 - **Convenience methods** (same vocabulary as today): `Blur`, `DropShadow`, `ColorMatrix`, `Saturate`, `HueRotate`, `Brightness`, `HighContrast`, `Lighting`, `LumaColor`, `Transform`, `MatrixConvolution`, `Erode`, `Dilate`, `BlendMode`, … — each constructs the corresponding descriptor.
 - **Validation**: appending after a `Split` requires addressing a branch; `Composite` arity must match open branches; descriptor payloads are validated on append (non-null sources, finite bounds functions) so errors surface at describe time, not execute time.
 - **Output**: `EffectGraph Build()` (called by the render node, not by effects).

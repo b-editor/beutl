@@ -180,55 +180,49 @@ public sealed record DeferredUniform(string Name, Action<SKRuntimeShaderBuilder,
 public sealed class UniformBindingBuilder
 {
     private readonly List<UniformBinding> _bindings = [];
+    private readonly HashSet<string> _names = new(StringComparer.Ordinal);
 
     /// <summary>Appends a <c>float</c> uniform.</summary>
     public UniformBindingBuilder Float(string name, float value)
     {
-        _bindings.Add(new FloatUniform(Validate(name), value));
-        return this;
+        return AddBinding(new FloatUniform(Validate(name), value));
     }
 
     /// <summary>Appends a <c>float2</c> uniform.</summary>
     public UniformBindingBuilder Float2(string name, float x, float y)
     {
-        _bindings.Add(new Float2Uniform(Validate(name), x, y));
-        return this;
+        return AddBinding(new Float2Uniform(Validate(name), x, y));
     }
 
     /// <summary>Appends a <c>float3</c> uniform.</summary>
     public UniformBindingBuilder Float3(string name, float x, float y, float z)
     {
-        _bindings.Add(new Float3Uniform(Validate(name), x, y, z));
-        return this;
+        return AddBinding(new Float3Uniform(Validate(name), x, y, z));
     }
 
     /// <summary>Appends a <c>float4</c> uniform.</summary>
     public UniformBindingBuilder Float4(string name, float x, float y, float z, float w)
     {
-        _bindings.Add(new Float4Uniform(Validate(name), x, y, z, w));
-        return this;
+        return AddBinding(new Float4Uniform(Validate(name), x, y, z, w));
     }
 
     /// <summary>Appends an <c>int</c> uniform.</summary>
     public UniformBindingBuilder Int(string name, int value)
     {
-        _bindings.Add(new IntUniform(Validate(name), value));
-        return this;
+        return AddBinding(new IntUniform(Validate(name), value));
     }
 
     /// <summary>Appends a <c>float[]</c> uniform. The array length must match the SKSL declaration.</summary>
     public UniformBindingBuilder FloatArray(string name, float[] values)
     {
         ArgumentNullException.ThrowIfNull(values);
-        _bindings.Add(new FloatArrayUniform(Validate(name), values));
-        return this;
+        return AddBinding(new FloatArrayUniform(Validate(name), values));
     }
 
     /// <summary>Appends a <c>float3x3</c> uniform from a 2D <see cref="Matrix"/>.</summary>
     public UniformBindingBuilder Matrix3x3(string name, Matrix value)
     {
-        _bindings.Add(new Matrix3x3Uniform(Validate(name), value));
-        return this;
+        return AddBinding(new Matrix3x3Uniform(Validate(name), value));
     }
 
     /// <summary>
@@ -238,30 +232,40 @@ public sealed class UniformBindingBuilder
     /// </summary>
     public UniformBindingBuilder DensityScaledFloat2(string name, float logicalX, float logicalY)
     {
-        _bindings.Add(new DensityScaledFloat2Uniform(Validate(name), logicalX, logicalY));
-        return this;
+        return AddBinding(new DensityScaledFloat2Uniform(Validate(name), logicalX, logicalY));
     }
 
     /// <summary>Appends a <see cref="RawUniform"/> escape-hatch binding (see its contract).</summary>
     public UniformBindingBuilder Raw(string name, Action<SKRuntimeShaderBuilder, string> writer)
     {
         ArgumentNullException.ThrowIfNull(writer);
-        _bindings.Add(new RawUniform(Validate(name), writer));
-        return this;
+        return AddBinding(new RawUniform(Validate(name), writer));
     }
 
     /// <summary>Appends a <see cref="DeferredUniform"/> late-bound escape-hatch binding (see its contract).</summary>
     public UniformBindingBuilder Deferred(string name, Action<SKRuntimeShaderBuilder, string, PassUniformContext> writer)
     {
         ArgumentNullException.ThrowIfNull(writer);
-        _bindings.Add(new DeferredUniform(Validate(name), writer));
-        return this;
+        return AddBinding(new DeferredUniform(Validate(name), writer));
     }
 
     /// <summary>Appends a pre-constructed binding (e.g. a plugin-defined <see cref="UniformBinding"/> subclass).</summary>
     public UniformBindingBuilder Add(UniformBinding binding)
     {
         ArgumentNullException.ThrowIfNull(binding);
+        Validate(binding.Name);
+        return AddBinding(binding);
+    }
+
+    private UniformBindingBuilder AddBinding(UniformBinding binding)
+    {
+        if (!_names.Add(binding.Name))
+        {
+            throw new ArgumentException(
+                $"Duplicate uniform binding name '{binding.Name}': uniforms bind by name, so a later value would "
+                + "silently replace the earlier binding.", nameof(binding));
+        }
+
         _bindings.Add(binding);
         return this;
     }

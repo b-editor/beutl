@@ -21,7 +21,8 @@ public sealed record NestedGraphNodeDescriptor : EffectNodeDescriptor
     /// <summary>Describes the child graph for one branch: (builder over the branch's bounds, branch index).</summary>
     public Action<EffectGraphBuilder, int> DescribeBranch { get; }
 
-    /// <summary>Identity of the nested-graph kind for the structural key; equal tokens share a plan shape.</summary>
+    /// <summary>Identity of the nested-graph kind for the structural key. Tokens share a plan only when their
+    /// runtime types and <see cref="object.Equals(object?)"/> values match; equality and hash code must stay stable.</summary>
     public object StructuralToken { get; }
 
     /// <inheritdoc/>

@@ -559,7 +559,8 @@ internal sealed partial class ClampToOutputEffect : FilterEffect
     public new sealed class Resource : FilterEffect.Resource
     {
         public override FilterEffectRenderNodeFactory RenderNodeFactory
-            => FilterEffectRenderNodeFactory.Of(static r => new ClampToOutputEscapeHatchNode(r));
+            => FilterEffectRenderNodeFactory.Of<Resource, ClampToOutputEscapeHatchNode>(
+                static r => new ClampToOutputEscapeHatchNode(r));
     }
 }
 

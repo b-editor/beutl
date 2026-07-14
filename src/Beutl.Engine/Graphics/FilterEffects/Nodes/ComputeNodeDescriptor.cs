@@ -123,7 +123,8 @@ public sealed record ComputeNodeDescriptor : EffectNodeDescriptor
     /// <summary>The CPU fallback callback, present iff <see cref="Fallback"/> is <see cref="ComputeFallback.CpuCallback"/>.</summary>
     public Action<GeometrySession>? CpuCallback { get; }
 
-    /// <summary>Identity of the compute <em>kind</em> for the structural key.</summary>
+    /// <summary>Identity of the compute <em>kind</em> for the structural key. Tokens share a plan only when their
+    /// runtime types and <see cref="object.Equals(object?)"/> values match; equality and hash code must stay stable.</summary>
     public object StructuralToken { get; }
 
     /// <summary>True when the CPU fallback calls <see cref="EffectInput.Snapshot"/>.</summary>

@@ -25,7 +25,8 @@ public sealed record SkiaFilterNodeDescriptor : EffectNodeDescriptor
     /// <summary>Composes this node's <c>SKImageFilter</c> over the <paramref name="inner"/> upstream filter. Called at execution time.</summary>
     public Func<SKImageFilter?, SKImageFilter?> Factory { get; }
 
-    /// <summary>Identity of the filter <em>kind</em> for the structural key.</summary>
+    /// <summary>Identity of the filter <em>kind</em> for the structural key. Tokens share a plan only when their
+    /// runtime types and <see cref="object.Equals(object?)"/> values match; equality and hash code must stay stable.</summary>
     public object StructuralToken { get; }
 
     /// <inheritdoc/>

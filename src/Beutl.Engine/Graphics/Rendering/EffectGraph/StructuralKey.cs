@@ -163,17 +163,10 @@ internal readonly struct StructuralKey : IEquatable<StructuralKey>
         public static KeyPart Token(object value)
         {
             ArgumentNullException.ThrowIfNull(value);
-            if (value is Type type)
-            {
-                // RuntimeType.ToString() omits assembly identity, so two plugin load contexts can legally expose
-                // distinct types with the same full name. Type itself has stable identity and is immutable.
-                return new KeyPart(KeyPartKind.StructuralToken, typeof(Type), type);
-            }
-
-            // StructuralToken historically used its textual identity. Snapshot that text now so a mutable token
-            // cannot change an already-cached key's equality while retaining the token's runtime type as a separate
-            // field. The typed sequence supplies the boundary that the old delimiter-joined string lacked.
-            return new KeyPart(KeyPartKind.StructuralToken, value.GetType(), value.ToString() ?? string.Empty);
+            // Structural-token equality is the public authoring contract: equal, same-runtime-type values share a
+            // plan shape. Keep the value itself so two unequal plugin tokens with the same ToString() can never alias.
+            // Like every dictionary key, a custom token must keep Equals/GetHashCode stable for its lifetime.
+            return new KeyPart(KeyPartKind.StructuralToken, value.GetType(), value);
         }
 
         public bool Equals(KeyPart other)

@@ -159,7 +159,7 @@ public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource 
         if (!child.IsEnabled)
             continue;
 
-        child.GetOriginal().Describe(builder, child);
+        builder.Effect(child);
     }
 }
 ```
@@ -184,7 +184,7 @@ public sealed partial class FilterEffectGroup : FilterEffect
             if (!item.IsEnabled)
                 continue;
 
-            item.GetOriginal().Describe(builder, item);
+            builder.Effect(item);
         }
     }
 }
@@ -355,7 +355,7 @@ public new partial class Resource
     internal SKRuntimeEffect? _runtimeEffect;
     internal string? _compiledScript;
 
-    partial void PostUpdate(YourEffect obj, RenderContext context)
+    partial void PostUpdate(YourEffect obj, CompositionContext context)
     {
         CompileScript(Script);
     }
@@ -505,7 +505,7 @@ public new partial class Resource
 {
     internal SKRuntimeEffect? _effect;
 
-    partial void PostUpdate(YourEffect obj, RenderContext context)
+    partial void PostUpdate(YourEffect obj, CompositionContext context)
     {
         // Additional update logic
     }

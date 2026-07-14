@@ -33,6 +33,10 @@ public sealed partial class NodeGraphFilterEffect : CustomRenderNodeFilterEffect
 
     public new sealed class Resource : CustomRenderNodeFilterEffect.Resource
     {
+        private static readonly FilterEffectRenderNodeFactory s_renderNodeFactory =
+            FilterEffectRenderNodeFactory.Of<Resource, NodeGraphFilterEffectRenderNode>(
+                static resource => new NodeGraphFilterEffectRenderNode(resource));
+
         public GraphSnapshot Snapshot { get; } = new();
 
         public GraphModel? Model { get; private set; }
@@ -50,7 +54,7 @@ public sealed partial class NodeGraphFilterEffect : CustomRenderNodeFilterEffect
         public bool DisableResourceShare { get; private set; }
 
         public override FilterEffectRenderNodeFactory RenderNodeFactory
-            => FilterEffectRenderNodeFactory.Of(static r => new NodeGraphFilterEffectRenderNode((Resource)r));
+            => s_renderNodeFactory;
 
         public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
         {

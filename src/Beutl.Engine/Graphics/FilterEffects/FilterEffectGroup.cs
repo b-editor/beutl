@@ -31,7 +31,7 @@ public sealed partial class FilterEffectGroup : FilterEffect
 
             using (builder.BeginChildScope(i))
             {
-                item.GetOriginal().Describe(builder, item);
+                builder.Effect(item);
             }
         }
     }

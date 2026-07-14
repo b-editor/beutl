@@ -100,6 +100,7 @@ internal sealed class EffectPrefixCache : IDisposable
     private int[] _childStableFrames = [];
 
     private RenderTarget? _retainedTarget;
+    private PrefixRetentionBudget? _retentionBudget;
     private Rect _bounds;
     private EffectiveScale _scale;
     private int _resumeFromPass = -1;
@@ -172,7 +173,10 @@ internal sealed class EffectPrefixCache : IDisposable
             // below _entryMaxChild, and a tail-driven ROI change shifts the resolution slice — either invalidates
             // the buffer and re-warms.
             if (stableChildren > _entryMaxChild && ResolutionSignatureEquals(resources))
+            {
+                _retentionBudget?.Touch(this);
                 return new PrefixDecision(PrefixMode.Resume, _resumeFromPass, _retainedTarget, _bounds, _scale);
+            }
 
             ReleaseEntry();
         }
@@ -184,7 +188,8 @@ internal sealed class EffectPrefixCache : IDisposable
     }
 
     /// <summary>Records the captured prefix output after a <see cref="PrefixMode.Capture"/> execution completed.</summary>
-    public void StoreCaptured(PrefixCaptureSink sink, int capturePass, CompiledPlan plan, FrameResources resources)
+    public void StoreCaptured(
+        PrefixCaptureSink sink, int capturePass, CompiledPlan plan, FrameResources resources, RenderTargetPool pool)
     {
         if (!sink.Captured)
             return;
@@ -193,9 +198,24 @@ internal sealed class EffectPrefixCache : IDisposable
         _bounds = sink.CapturedBounds;
         _scale = sink.CapturedScale;
         _retainedTarget = sink.Adopt();
+        if (_retainedTarget == null)
+            return;
         _resumeFromPass = capturePass + 1;
         _entryMaxChild = plan.Passes[capturePass].ProvenanceMaxChild;
         CaptureResolutionSignature(resources, capturePass);
+
+        _retentionBudget = pool.PrefixRetentionBudget;
+        long retainedBytes = checked((long)_retainedTarget.Width * _retainedTarget.Height * 8);
+        try
+        {
+            if (!_retentionBudget.TryRetain(this, retainedBytes))
+                ReleaseEntry();
+        }
+        catch
+        {
+            ReleaseEntry();
+            throw;
+        }
     }
 
     /// <summary>
@@ -350,9 +370,121 @@ internal sealed class EffectPrefixCache : IDisposable
 
     private void ReleaseEntry()
     {
+        PrefixRetentionBudget? budget = _retentionBudget;
+        _retentionBudget = null;
+        budget?.Release(this);
+        DisposeRetainedTarget();
+    }
+
+    internal void EvictFromBudget(PrefixRetentionBudget budget)
+    {
+        if (!ReferenceEquals(_retentionBudget, budget))
+            return;
+
+        _retentionBudget = null;
+        DisposeRetainedTarget();
+    }
+
+    private void DisposeRetainedTarget()
+    {
         _retainedTarget?.Dispose();
         _retainedTarget = null;
         _resumeFromPass = -1;
         _entryMaxChild = -1;
+    }
+}
+
+/// <summary>
+/// Renderer-scoped byte-budget and LRU for prefix outputs retained by otherwise-independent render nodes.
+/// Entries are live pool leases, so they are accounted separately from idle buffers and evicted before the retained
+/// set can grow past the renderer's cap.
+/// </summary>
+internal sealed class PrefixRetentionBudget(long maxBytes)
+{
+    private readonly record struct Entry(EffectPrefixCache Owner, long Bytes);
+
+    private readonly Dictionary<EffectPrefixCache, LinkedListNode<Entry>> _nodes = [];
+    private readonly LinkedList<Entry> _lru = [];
+    private long _retainedBytes;
+
+    public long RetainedBytes => _retainedBytes;
+
+    public int Count => _nodes.Count;
+
+    public bool TryRetain(EffectPrefixCache owner, long bytes)
+    {
+        ArgumentNullException.ThrowIfNull(owner);
+        if (bytes <= 0)
+            throw new ArgumentOutOfRangeException(nameof(bytes));
+        if (bytes > maxBytes)
+            return false;
+
+        Release(owner);
+        LinkedListNode<Entry> node = _lru.AddLast(new Entry(owner, bytes));
+        _nodes.Add(owner, node);
+        _retainedBytes += bytes;
+
+        Exception? failure = null;
+        while (_retainedBytes > maxBytes && _lru.First is { } victim)
+        {
+            EffectPrefixCache victimOwner = victim.Value.Owner;
+            Remove(victim);
+            try
+            {
+                victimOwner.EvictFromBudget(this);
+            }
+            catch (Exception ex)
+            {
+                failure ??= ex;
+            }
+        }
+
+        if (failure != null)
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(failure).Throw();
+
+        return true;
+    }
+
+    public void Touch(EffectPrefixCache owner)
+    {
+        if (_nodes.TryGetValue(owner, out LinkedListNode<Entry>? node) && node != _lru.Last)
+        {
+            _lru.Remove(node);
+            _lru.AddLast(node);
+        }
+    }
+
+    public void Release(EffectPrefixCache owner)
+    {
+        if (_nodes.TryGetValue(owner, out LinkedListNode<Entry>? node))
+            Remove(node);
+    }
+
+    public void Clear()
+    {
+        Exception? failure = null;
+        while (_lru.First is { } node)
+        {
+            EffectPrefixCache owner = node.Value.Owner;
+            Remove(node);
+            try
+            {
+                owner.EvictFromBudget(this);
+            }
+            catch (Exception ex)
+            {
+                failure ??= ex;
+            }
+        }
+
+        if (failure != null)
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(failure).Throw();
+    }
+
+    private void Remove(LinkedListNode<Entry> node)
+    {
+        _lru.Remove(node);
+        _nodes.Remove(node.Value.Owner);
+        _retainedBytes -= node.Value.Bytes;
     }
 }

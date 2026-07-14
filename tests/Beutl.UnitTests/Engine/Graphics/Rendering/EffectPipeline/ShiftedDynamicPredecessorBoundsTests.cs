@@ -96,7 +96,7 @@ internal sealed partial class ShiftingCustomNodeEffect(Point shift) : CustomRend
         public Point Shift => shift;
 
         public override FilterEffectRenderNodeFactory RenderNodeFactory
-            => FilterEffectRenderNodeFactory.Of(static r => new ShiftingRenderNode((Resource)r));
+            => FilterEffectRenderNodeFactory.Of<Resource, ShiftingRenderNode>(static r => new ShiftingRenderNode(r));
     }
 }
 

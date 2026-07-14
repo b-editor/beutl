@@ -22,7 +22,11 @@ public sealed record ColorFilterNodeDescriptor : EffectNodeDescriptor
     /// <summary>Produces the frame's <c>SKColorFilter</c> (or <see langword="null"/> for a no-op). Called at execution time.</summary>
     public Func<SKColorFilter?> Factory { get; }
 
-    /// <summary>Identity of the filter <em>kind</em> for the structural key; equal tokens fuse and share a plan shape.</summary>
+    /// <summary>
+    /// Identity of the filter <em>kind</em> for the structural key. Tokens of the same runtime type that compare equal
+    /// share a plan shape; custom token implementations must keep <see cref="object.Equals(object?)"/> and
+    /// <see cref="object.GetHashCode"/> stable for their lifetime.
+    /// </summary>
     public object StructuralToken { get; }
 
     /// <inheritdoc/>

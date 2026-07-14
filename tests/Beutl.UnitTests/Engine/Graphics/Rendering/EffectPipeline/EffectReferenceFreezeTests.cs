@@ -14,13 +14,10 @@ using Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.EffectPipeline;
 
 /// <summary>
-/// Freezes the 004 reference renders (T004) that the baseline and determinism gates compare against.
-/// Each case renders at output scale 1.0 at <see cref="SceneFixtures.ReferenceSize"/>; when the frozen
-/// reference is missing it is written, and when present the fresh render is asserted against it within
-/// the golden thresholds (SSIM ≥ 0.99 / MAE ≤ 0.02, linear RGBA16F). Run this on a Vulkan-capable machine
-/// once to produce and commit the references under <c>Golden/References/004-baseline/</c>.
-/// All census cases are pre-redesign references except <c>effect-CSharpScriptEffect</c>, whose inline
-/// comment records its post-removal determinism-only provenance.
+/// Verifies the 004 reference renders (T004) at output scale 1.0 and
+/// <see cref="SceneFixtures.ReferenceSize"/>. A missing pre-redesign baseline always fails and must be restored
+/// from source control; the implementation under test can never recreate it. Post-redesign determinism references
+/// live under <c>004-review</c> and may be regenerated only when their intended output changes.
 /// </summary>
 [NonParallelizable]
 [TestFixture]
@@ -59,8 +56,8 @@ public class EffectReferenceFreezeTests
             return e;
         }, requiresCompute: false);
         // This is a post-removal Builder-surface determinism anchor, not an independent legacy parity gate. The
-        // blob was re-frozen at 60f7b4731 and updated at 2097c930d. Its 004-baseline path is historical; treat it
-        // like an 004-review reference and regenerate it only when the intended Builder script output changes.
+        // blob was re-frozen at 60f7b4731 and updated at 2097c930d. It lives under 004-review and may be regenerated
+        // only when the intended Builder script output changes.
         yield return Case("CSharpScriptEffect", () =>
         {
             var e = new CSharpScriptEffect();
@@ -98,15 +95,19 @@ public class EffectReferenceFreezeTests
     }
 
     [TestCaseSource(nameof(CensusEffects))]
-    public void Effect_FreezesOrMatchesReference(string name, Func<FilterEffect> makeEffect, bool requiresCompute)
+    public void Effect_MatchesReference(string name, Func<FilterEffect> makeEffect, bool requiresCompute)
     {
-        Freeze($"effect-{name}", () => MakeShape(makeEffect), requiresCompute);
+        string referenceName = $"effect-{name}";
+        if (name == "CSharpScriptEffect")
+            FreezeReview(referenceName, () => MakeShape(makeEffect), requiresCompute);
+        else
+            AssertFrozen(referenceName, () => MakeShape(makeEffect), requiresCompute);
     }
 
     [TestCaseSource(nameof(ChainScenes))]
-    public void Chain_FreezesOrMatchesReference(string name, Func<Drawable.Resource> makeScene)
+    public void Chain_MatchesReference(string name, Func<Drawable.Resource> makeScene)
     {
-        Freeze($"chain-{name}", makeScene, requiresCompute: false);
+        AssertFrozen($"chain-{name}", makeScene, requiresCompute: false);
     }
 
     public static IEnumerable<TestCaseData> ReviewChainScenes()
@@ -140,9 +141,9 @@ public class EffectReferenceFreezeTests
     // NodeGraphFilterEffect never flows through the shape FilterEffect path the same way; build the graph
     // explicitly (Input -> FilterEffectNode<Invert> -> Output) and drive it through a host shape.
     [Test]
-    public void NodeGraphFilterEffect_FreezesOrMatchesReference()
+    public void NodeGraphFilterEffect_MatchesReference()
     {
-        Freeze("effect-NodeGraphFilterEffect", MakeNodeGraphHost, requiresCompute: false);
+        AssertFrozen("effect-NodeGraphFilterEffect", MakeNodeGraphHost, requiresCompute: false);
     }
 
     // A post-redesign determinism reference (NOT a pre-redesign parity gate): a spaced SplitEffect followed by a
@@ -179,7 +180,7 @@ public class EffectReferenceFreezeTests
         return MakeShape(() => group);
     }
 
-    private static void Freeze(string name, Func<Drawable.Resource> makeResource, bool requiresCompute)
+    private static void AssertFrozen(string name, Func<Drawable.Resource> makeResource, bool requiresCompute)
     {
         var context = VulkanTestEnvironment.EnsureAvailable();
         if (requiresCompute)
@@ -188,7 +189,7 @@ public class EffectReferenceFreezeTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             using Bitmap actual = GoldenImageHarness.RenderAtScale(makeResource(), SceneFixtures.ReferenceSize, 1f);
-            GoldenReferenceStore.FreezeOrAssert(Category, name, actual);
+            GoldenReferenceStore.AssertExisting(Category, name, actual);
         });
     }
 

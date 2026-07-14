@@ -90,7 +90,7 @@ The GLSL/Vulkan pipeline path (`GLSLFilterPipeline`) is retained for `ComputeNod
 
 ## D7 — Node taxonomy and the migration map
 
-**Decision**: **Seven concrete descriptor kinds realizing the spec's five primitives** (the canonical taxonomy for all 004 documents): shader → `ShaderNode` + `ColorFilterNode`; geometry → `SkiaFilterNode` + `GeometryNode`; compute → `ComputeNode`; split → `SplitNode`; composite → `CompositeNode`:
+**Decision**: **Nine sealed descriptor kinds**: seven realize the spec's five rendering primitives—shader → `ShaderNode` + `ColorFilterNode`; geometry → `SkiaFilterNode` + `GeometryNode`; compute → `ComputeNode`; split → `SplitNode`; composite → `CompositeNode`—and two completed composition boundaries (`NestedGraphNode`, `CustomRenderNode`) represent branch-local graphs and custom plugin render nodes. Plugins extend behavior by composing this public closed union; unknown compiler discriminators are intentionally not registrable.
 
 | Primitive | Payload | Fusion | Backend |
 |---|---|---|---|
@@ -100,6 +100,8 @@ The GLSL/Vulkan pipeline path (`GLSLFilterPipeline`) is retained for `ComputeNod
 | `ComputeNode` | GLSL sources, pass count, ping-pong color declaration, push-constant layout | Never fused; scheduled pass(es) | Vulkan (Skia-composited fallback: none — requires `Supports3DRendering`, else the node's declared CPU/identity fallback applies, as today) |
 | `GeometryNode` | Canvas-drawing session callback + explicit bounds contract | Never fused; opaque pass | Skia |
 | `SplitNode` / `CompositeNode` | Fan-out count / fan-in composite op (blend mode, offsets) | Fusion never crosses them | Skia |
+| `NestedGraphNode` | Per-branch graph-description callback | Never fused; owns a hierarchical child plan cache | Mixed |
+| `CustomRenderNode` | Captured resource + typed `FilterEffectRenderNodeFactory` | Never fused; render-time/dynamic boundary | Plugin-defined |
 
 Migration map for the 41 built-ins (+ scripts + node graph):
 
@@ -110,7 +112,7 @@ Migration map for the 41 built-ins (+ scripts + node graph):
 - **→ `ComputeNode`**: `PixelSortEffect` (3-shader multi-pass), `GLSLScriptEffect`.
 - **→ `GeometryNode`**: `FlatShadow`, `StrokeEffect`, `Clipping`, `LayerEffect`, `DelayAnimationEffect`, `ShakeEffect`, `PathFollowEffect`, `DisplacementMapEffect` (mask composition part), `TransformEffect` (custom path), `BlendEffect` (brush-based via `BrushConstructor`; MAY lower to a `ColorFilterNode` as an optimization when the brush is structurally a solid color). *(Superseded for `CSharpScriptEffect`: originally planned as a fusion-ineligible compat session; post-removal its scripts author the full declarative vocabulary via `Builder` globals — including fusable color nodes — with `GeometrySession` available only inside `Builder.Geometry(session => ...)`.)*
 - **→ `SplitNode`/`CompositeNode`**: `SplitEffect` (division counts are **structural**), `PartsSplitEffect` (split side — its output count is contour-discovered at execution time, so it uses the **dynamic-outputs** contract: the pass is marked dynamic, the executor allocates its outputs from the pool at runtime, counted and leak-checked, exempt from the static peak-live bound), `InnerShadow`/`DropShadowOnly`-style composites where applicable.
-- **Meta**: `FilterEffectGroup` concatenates children's descriptions into one graph (as today, one context); `FallbackFilterEffect` describes an identity graph; `FilterEffectPresenter` delegates — it describes whatever its target's current effect describes. `NodeGraphFilterEffect` stays a **render-node boundary** on the 003 seam now exposed as `RenderNodeFactory` (its legacy `ApplyTo` already throws today): `NodeGraphFilterEffectRenderNode` keeps evaluating the node graph and processing child `RenderNode` outputs, while the `FilterEffect`s *inside* the graph migrate individually — it never flows through `EffectGraphBuilder`.
+- **Meta**: `FilterEffectGroup`, `FilterEffectPresenter`, and branch containers call `EffectGraphBuilder.Effect(childResource)`. A child using the default plan factory contributes its descriptors; a child overriding `RenderNodeFactory` contributes a `CustomRenderNodeDescriptor`, so placement cannot change its behavior. `FallbackFilterEffect` describes identity. `NodeGraphFilterEffect` remains a custom render-node boundary, but can now appear inside groups and nested graphs through that descriptor.
 
 **Rationale**: Every current behavior has a home; the fusable set matches the spec's FR-004 list exactly; `GeometryNode` is the honest representation of genuinely imperative composite work (it is a *declared, bounded* escape hatch — the executor still owns its target, ROI, pooling, and sync — unlike today's free-form `CustomFilterEffectContext`).
 

@@ -27,6 +27,9 @@ public abstract partial class FilterEffect : EngineObject
 
     public abstract partial class Resource
     {
+        private static readonly FilterEffectRenderNodeFactory s_defaultRenderNodeFactory =
+            FilterEffectRenderNodeFactory.Of<Resource, PlanFilterEffectRenderNode>(
+                static resource => new PlanFilterEffectRenderNode(resource));
         private static long s_nextStructuralId;
         private long _structuralId;
 
@@ -55,11 +58,12 @@ public abstract partial class FilterEffect : EngineObject
         /// drift from the node actually created.
         /// </summary>
         public virtual FilterEffectRenderNodeFactory RenderNodeFactory
-            => FilterEffectRenderNodeFactory.Of(static r => new PlanFilterEffectRenderNode(r));
+            => s_defaultRenderNodeFactory;
 
         public virtual PushedState Push(GraphicsContext2D context)
         {
-            FilterEffectRenderNodeFactory factory = RenderNodeFactory;
+            FilterEffectRenderNodeFactory factory = RenderNodeFactory
+                ?? throw new InvalidOperationException("A filter effect returned a null render-node factory.");
             return context.PushNode(
                 this,
                 factory.NodeType,

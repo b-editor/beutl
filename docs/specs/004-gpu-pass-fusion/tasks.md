@@ -32,7 +32,7 @@
 **⚠️ CRITICAL**: generate these from the *unmodified* pipeline before any behavior change lands
 
 - [x] T003 Add reference-freezing support to the golden harness (render + store per-effect and per-chain reference images with existing harness conventions) in tests/Beutl.UnitTests/Engine/Graphics/Rendering/Golden/GoldenImageHarness.cs
-- [x] T004 Generate and commit frozen pre-redesign reference renders for every effect in the research §0 census (42 incl. NodeGraphFilterEffect; meta/delegating effects via representative compositions) and the O3 chains at output scale 1.0 under tests/Beutl.UnitTests/Engine/Graphics/Rendering/Golden/References/004-baseline/ (contracts/observability.md O4)
+- [x] T004 Generate and commit frozen pre-redesign reference renders for the research §0 census and O3 chains at output scale 1.0 under `Golden/References/004-baseline/`; the later `effect-CSharpScriptEffect` replacement is explicitly a post-removal Builder determinism anchor under `004-review/`, not legacy evidence (contracts/observability.md O4)
 
 **Checkpoint**: references frozen — story phases may begin
 
@@ -151,7 +151,7 @@
 ### US4 gates
 
 - [x] T048 [US4] Extend parity tests to the full research §0 census (42 effects) + SplitTree/HeavySource chains vs frozen references; confirm existing 003 golden suites remain green, in tests/Beutl.UnitTests/Engine/Graphics/Rendering/EffectPipeline/EffectMigrationParityTests.cs
-- [x] T049 [P] [US4] Add plugin-style authoring test: one effect per descriptor kind (all seven realizing the spec's five primitives — research D7 taxonomy) implemented against public API only; invariant shader node fuses between two built-ins (SC-006); declared-ROI vs sampled-region debug assertion for a convolution-style node (A3) in tests/Beutl.UnitTests/Engine/Graphics/Rendering/EffectPipeline/EffectAuthoringTests.cs
+- [x] T049 [P] [US4] Add plugin-style authoring tests for the seven rendering descriptor kinds realizing the spec's five primitives, plus the completed nested-graph and custom-render-node composition boundaries, implemented against public API only; invariant shader node fuses between two built-ins (SC-006); declared-ROI vs sampled-region debug assertion for a convolution-style node (A3) in tests/Beutl.UnitTests/Engine/Graphics/Rendering/EffectPipeline/EffectAuthoringTests.cs
 - [x] T050 [P] [US4] Add FR-007 peak-intermediates test (10-effect chain peak-live ≤ same-shape 3-effect chain; dynamic-outputs passes counted and leak-checked but exempt from the static bound), structural-threshold test (animating SplitEffect divisions ⇒ one recompile per topology change), allocation-failure normalization tests (forced pool failure on fused/geometry/compute paths ⇒ preview drop, delivery throw — C7), and no-Vulkan fallback tests (Skia-only context executes fused plans; ComputeNode declared fallback applies — FR-014) in tests/Beutl.UnitTests/Engine/Graphics/Rendering/EffectPipeline/EffectPipelineCounterTests.cs
 
 **Checkpoint**: legacy path unreachable in production — PR for rollout step 5

@@ -182,7 +182,7 @@ public class EffectMigrationParityTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             using Bitmap fused = RenderChain(effects);
-            GoldenReferenceStore.FreezeOrAssert("004-parity", referenceName, fused);
+            GoldenReferenceStore.AssertExisting("004-parity", referenceName, fused);
         });
     }
 

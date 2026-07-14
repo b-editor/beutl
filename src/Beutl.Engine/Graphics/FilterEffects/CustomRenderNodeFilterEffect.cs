@@ -36,6 +36,6 @@ public abstract partial class CustomRenderNodeFilterEffect : FilterEffect
                 + $"{typeof(Resource).FullName}.", nameof(resource));
         }
 
-        builder.CustomRenderNode(customResource);
+        builder.Effect(customResource);
     }
 }

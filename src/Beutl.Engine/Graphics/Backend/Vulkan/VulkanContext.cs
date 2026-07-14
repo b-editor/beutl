@@ -186,6 +186,33 @@ internal sealed class VulkanContext : IGraphicsContext
         var vulkanRenderPass = (VulkanRenderPass3D)renderPass;
         var vulkanColorTextures = colorTextures.Cast<VulkanTexture2D>().ToList();
         var vulkanDepthTexture = (VulkanTexture2D?)depthTexture;
+        if (vulkanColorTextures.Count != vulkanRenderPass.ColorAttachmentCount)
+        {
+            throw new ArgumentException(
+                "The framebuffer color texture count must match the render pass color attachment count.",
+                nameof(colorTextures));
+        }
+        if (vulkanColorTextures.Count == 0)
+            throw new ArgumentException("At least one color texture is required.", nameof(colorTextures));
+
+        for (int i = 0; i < vulkanColorTextures.Count; i++)
+        {
+            if (vulkanColorTextures[i].Format.ToVulkanFormat() != vulkanRenderPass.ColorFormats[i])
+            {
+                throw new ArgumentException(
+                    $"Framebuffer color texture {i} must match the corresponding render pass format.",
+                    nameof(colorTextures));
+            }
+        }
+
+        int width = vulkanColorTextures[0].Width;
+        int height = vulkanColorTextures[0].Height;
+        if (vulkanColorTextures.Any(texture => texture.Width != width || texture.Height != height))
+        {
+            throw new ArgumentException(
+                "Every framebuffer color texture must have matching dimensions.", nameof(colorTextures));
+        }
+
         if (vulkanRenderPass.HasDepthAttachment != (vulkanDepthTexture != null))
         {
             throw new ArgumentException(
@@ -201,8 +228,7 @@ internal sealed class VulkanContext : IGraphicsContext
                     nameof(depthTexture));
             }
 
-            if (vulkanColorTextures.Any(texture =>
-                    texture.Width != vulkanDepthTexture.Width || texture.Height != vulkanDepthTexture.Height))
+            if (vulkanDepthTexture.Width != width || vulkanDepthTexture.Height != height)
             {
                 throw new ArgumentException(
                     "The framebuffer depth texture dimensions must match every color attachment.",
