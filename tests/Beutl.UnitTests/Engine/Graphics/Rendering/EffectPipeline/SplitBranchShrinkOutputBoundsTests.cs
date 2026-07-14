@@ -93,6 +93,43 @@ public class SplitBranchShrinkOutputBoundsTests
         });
     }
 
+    [Test]
+    public void SplitBranch_ShrinkCleanupFailure_ReleasesTightOutput()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var effect = new ShrinkingSplitEffect(branchBounds: s_input, shrunkTo: s_shrunk);
+            var resource = (FilterEffect.Resource)(object)effect.ToResource(CompositionContext.Default);
+            using var pool = new RenderTargetPool();
+            var builder = new EffectGraphBuilder(s_input, outputScale: 1f, workingScale: 1f);
+            effect.Describe(builder, resource);
+            using EffectGraph graph = builder.Build();
+            CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
+            FrameResources frame = EffectGraphCompiler.ResolveResources(plan, s_input, workingScale: 1f);
+            var injected = new InvalidOperationException("split branch cleanup failed");
+
+            PlanExecutor.ForceSplitBranchDisposeFailureForTests(injected);
+            try
+            {
+                InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
+                    plan, frame, [MakeContentRect(s_input)], outputScale: 1f, workingScale: 1f,
+                    maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool));
+                Assert.Multiple(() =>
+                {
+                    Assert.That(actual, Is.SameAs(injected));
+                    Assert.That(pool.LiveLeaseCount, Is.Zero,
+                        "the completed tight branch output must be released when branch cleanup fails");
+                });
+            }
+            finally
+            {
+                PlanExecutor.ResetSplitBranchDisposeFailureForTests();
+            }
+        });
+    }
+
     private static RenderNodeOperation MakeContentRect(Rect bounds)
         => RenderNodeOperation.CreateLambda(
             bounds,

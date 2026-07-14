@@ -30,7 +30,9 @@ internal static class PlanExecutor
     private static Exception? s_computeCopyFailureForTests;
     private static Exception? s_computeInputDisposeFailureForTests;
     private static Exception? s_geometryInputDisposeFailureForTests;
+    private static Exception? s_geometryOutputDisposeFailureForTests;
     private static Exception? s_splitInputDisposeFailureForTests;
+    private static Exception? s_splitBranchDisposeFailureForTests;
     private static Exception? s_compositeFilterDisposeFailureForTests;
     private static bool s_forceComputeFallbackForTests;
 
@@ -54,10 +56,20 @@ internal static class PlanExecutor
 
     internal static void ResetGeometryInputDisposeFailureForTests() => s_geometryInputDisposeFailureForTests = null;
 
+    internal static void ForceGeometryOutputDisposeFailureForTests(Exception exception)
+        => s_geometryOutputDisposeFailureForTests = exception;
+
+    internal static void ResetGeometryOutputDisposeFailureForTests() => s_geometryOutputDisposeFailureForTests = null;
+
     internal static void ForceSplitInputDisposeFailureForTests(Exception exception)
         => s_splitInputDisposeFailureForTests = exception;
 
     internal static void ResetSplitInputDisposeFailureForTests() => s_splitInputDisposeFailureForTests = null;
+
+    internal static void ForceSplitBranchDisposeFailureForTests(Exception exception)
+        => s_splitBranchDisposeFailureForTests = exception;
+
+    internal static void ResetSplitBranchDisposeFailureForTests() => s_splitBranchDisposeFailureForTests = null;
 
     internal static void ForceCompositeFilterDisposeFailureForTests(Exception exception)
         => s_compositeFilterDisposeFailureForTests = exception;
@@ -736,7 +748,14 @@ internal static class PlanExecutor
         // ref keeps the pooled buffer alive across frames so the next frame can resume from this pass's output.
         captureSink?.Capture(target, outBounds, EffectiveScale.At(w));
 
-        op.Dispose();
+        Exception? operationCleanupFailure = null;
+        CaptureDisposeFailure(op, ref operationCleanupFailure);
+        if (operationCleanupFailure is { } operationFailure)
+        {
+            CaptureDisposeFailure(target, ref operationCleanupFailure);
+            ExceptionDispatchInfo.Capture(operationFailure).Throw();
+        }
+
         return RenderNodeOperation.CreateFromRenderTarget(
             outBounds, outBounds.Position, target, EffectiveScale.At(w));
     }
@@ -1115,7 +1134,14 @@ internal static class PlanExecutor
         if (shrunk is { } tight)
             return EmitShrunkGeometry(tight, w, outBounds, outputTarget, op, maxWorkingScale, diagnostics, pool);
 
-        op.Dispose();
+        Exception? operationCleanupFailure = null;
+        CaptureDisposeFailure(op, ref operationCleanupFailure);
+        if (operationCleanupFailure is { } operationFailure)
+        {
+            CaptureDisposeFailure(outputTarget, ref operationCleanupFailure);
+            ExceptionDispatchInfo.Capture(operationFailure).Throw();
+        }
+
         if (diagnostics != null)
             diagnostics.GpuPasses++;
         return RenderNodeOperation.CreateFromRenderTarget(
@@ -1170,8 +1196,20 @@ internal static class PlanExecutor
             throw;
         }
 
-        outputTarget.Dispose();
-        op.Dispose();
+        Exception? successCleanupFailure = null;
+        CaptureDisposeFailure(outputTarget, ref successCleanupFailure);
+        if (s_geometryOutputDisposeFailureForTests is { } outputDisposeFailure)
+        {
+            s_geometryOutputDisposeFailureForTests = null;
+            successCleanupFailure ??= outputDisposeFailure;
+        }
+        CaptureDisposeFailure(op, ref successCleanupFailure);
+        if (successCleanupFailure is { } cleanupFailure)
+        {
+            CaptureDisposeFailure(tightTarget, ref successCleanupFailure);
+            ExceptionDispatchInfo.Capture(cleanupFailure).Throw();
+        }
+
         if (diagnostics != null)
             diagnostics.GpuPasses++;
         try
@@ -2000,7 +2038,19 @@ internal static class PlanExecutor
                 throw;
             }
 
-            branchTarget.Dispose();
+            Exception? branchCleanupFailure = null;
+            CaptureDisposeFailure(branchTarget, ref branchCleanupFailure);
+            if (s_splitBranchDisposeFailureForTests is { } branchDisposeFailure)
+            {
+                s_splitBranchDisposeFailureForTests = null;
+                branchCleanupFailure ??= branchDisposeFailure;
+            }
+            if (branchCleanupFailure is { } cleanupFailure)
+            {
+                CaptureDisposeFailure(tightTarget, ref branchCleanupFailure);
+                ExceptionDispatchInfo.Capture(cleanupFailure).Throw();
+            }
+
             if (diagnostics != null)
                 diagnostics.GpuPasses++;
             RenderNodeOperation? output = null;

@@ -57,6 +57,50 @@ public class GpuDisposeBatchTests
     }
 
     [Test]
+    public void DrainBeforeDestroy_FailedFlush_DoesNotConsumeBatchAndCanRetry()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var context = GraphicsContextFactory.SharedContext
+                ?? throw new InvalidOperationException("A graphics context is required.");
+            var injected = new InvalidOperationException("simulated batch flush failure");
+            GpuDisposeBatch.ResetFlushCountForTest();
+
+            using (GpuDisposeBatch.Begin())
+            {
+                GpuDisposeBatch.SetDrainFailureForTest(() => throw injected);
+                InvalidOperationException? actual;
+                try
+                {
+                    actual = Assert.Throws<InvalidOperationException>(
+                        () => GpuDisposeBatch.DrainBeforeDestroy(context.SkiaContext));
+                }
+                finally
+                {
+                    GpuDisposeBatch.SetDrainFailureForTest(null);
+                }
+
+                Assert.Multiple(() =>
+                {
+                    Assert.That(actual, Is.SameAs(injected));
+                    Assert.That(GpuDisposeBatch.FlushCount, Is.EqualTo(1));
+                    Assert.That(GpuDisposeBatch.DrainConsumedForTest, Is.False,
+                        "a failed flush must leave the batch drain available for a later texture");
+                });
+
+                GpuDisposeBatch.DrainBeforeDestroy(context.SkiaContext);
+                Assert.Multiple(() =>
+                {
+                    Assert.That(GpuDisposeBatch.FlushCount, Is.EqualTo(2),
+                        "the next live texture must retry the drain");
+                    Assert.That(GpuDisposeBatch.DrainConsumedForTest, Is.True);
+                });
+            }
+        });
+    }
+
+    [Test]
     public void DrainFailureInjection_DoesNotLeakAcrossThreads()
     {
         GpuDisposeBatch.SetDrainFailureForTest(

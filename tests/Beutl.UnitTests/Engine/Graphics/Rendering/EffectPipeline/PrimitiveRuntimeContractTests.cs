@@ -404,6 +404,98 @@ public class PrimitiveRuntimeContractTests
     }
 
     [Test]
+    public void DescriptorOperationCleanupFailure_ReleasesCompletedOutput()
+    {
+        (CompiledPlan plan, FrameResources resources) = Compile(
+            new EffectGraphBuilder(s_bounds, 1f, 1f).Brightness(1.1f));
+        using var pool = new RenderTargetPool();
+        var injected = new InvalidOperationException("descriptor operation cleanup failed");
+        RenderNodeOperation input = RenderNodeOperation.CreateLambda(
+            s_bounds,
+            canvas => canvas.DrawRectangle(s_bounds, Brushes.Resource.White, null),
+            onDispose: () => throw injected);
+
+        InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
+            plan, resources, [input], 1f, 1f, float.PositiveInfinity, diagnostics: null, pool));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(actual, Is.SameAs(injected));
+            Assert.That(pool.LiveLeaseCount, Is.Zero,
+                "the completed descriptor output must be released when consuming its input operation fails");
+        });
+    }
+
+    [Test]
+    public void GeometryOperationCleanupFailure_ReleasesCompletedOutput()
+    {
+        GeometryNodeDescriptor descriptor = GeometryNodeDescriptor.Create(
+            static session => session.Inputs[0].Draw(session.OpenCanvas()),
+            BoundsContract.Identity,
+            structuralToken: "geometry-operation-cleanup-failure");
+        (CompiledPlan plan, FrameResources resources) = Compile(
+            new EffectGraphBuilder(s_bounds, 1f, 1f).Geometry(descriptor));
+        using var pool = new RenderTargetPool();
+        var injected = new InvalidOperationException("geometry operation cleanup failed");
+        RenderNodeOperation input = RenderNodeOperation.CreateLambda(
+            s_bounds,
+            canvas => canvas.DrawRectangle(s_bounds, Brushes.Resource.White, null),
+            onDispose: () => throw injected);
+
+        InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
+            plan, resources, [input], 1f, 1f, float.PositiveInfinity, diagnostics: null, pool));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(actual, Is.SameAs(injected));
+            Assert.That(pool.LiveLeaseCount, Is.Zero,
+                "the completed geometry output must be released when consuming its input operation fails");
+        });
+    }
+
+    [Test]
+    public void GeometryShrinkOutputCleanupFailure_ReleasesTightOutputAndInputOperation()
+    {
+        Rect tight = s_bounds.Deflate(4);
+        GeometryNodeDescriptor descriptor = GeometryNodeDescriptor.Create(
+            session =>
+            {
+                session.Inputs[0].Draw(session.OpenCanvas());
+                session.SetOutputBounds(tight);
+            },
+            BoundsContract.Identity,
+            structuralToken: "geometry-shrink-output-cleanup-failure");
+        (CompiledPlan plan, FrameResources resources) = Compile(
+            new EffectGraphBuilder(s_bounds, 1f, 1f).Geometry(descriptor));
+        using var pool = new RenderTargetPool();
+        bool inputDisposed = false;
+        RenderNodeOperation input = RenderNodeOperation.CreateLambda(
+            s_bounds,
+            canvas => canvas.DrawRectangle(s_bounds, Brushes.Resource.White, null),
+            onDispose: () => inputDisposed = true);
+        var injected = new InvalidOperationException("geometry full output cleanup failed");
+
+        PlanExecutor.ForceGeometryOutputDisposeFailureForTests(injected);
+        try
+        {
+            InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
+                plan, resources, [input], 1f, 1f, float.PositiveInfinity, diagnostics: null, pool));
+            Assert.Multiple(() =>
+            {
+                Assert.That(actual, Is.SameAs(injected));
+                Assert.That(inputDisposed, Is.True,
+                    "the source operation must still be consumed after the tight output is rendered");
+                Assert.That(pool.LiveLeaseCount, Is.Zero,
+                    "the completed tight output must be released when full-output cleanup fails");
+            });
+        }
+        finally
+        {
+            PlanExecutor.ResetGeometryOutputDisposeFailureForTests();
+        }
+    }
+
+    [Test]
     public void ForcedIdentityFallback_BetweenSkiaPassesDoesNotCountSyncs()
     {
         ComputeNodeDescriptor descriptor = ComputeNodeDescriptor.Create(

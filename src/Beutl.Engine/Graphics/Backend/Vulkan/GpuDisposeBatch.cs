@@ -51,28 +51,26 @@ internal static class GpuDisposeBatch
     /// </summary>
     internal static void DrainBeforeDestroy(GRContext? skiaContext)
     {
-        if (s_drainFailureForTest is { } injected)
-        {
-            Interlocked.Increment(ref s_flushCount);
-            injected();
-            return;
-        }
-
         // A destroyed context has nothing to drain, and it must not consume the batch's single drain — the batch's
         // remaining live-context textures would skip theirs, re-opening the teardown UAF the drain exists to prevent.
         if (skiaContext == null)
             return;
 
-        if (s_depth > 0)
+        bool isBatched = s_depth > 0;
+        if (isBatched)
         {
             if (s_drained)
                 return;
-
-            s_drained = true;
         }
 
         Interlocked.Increment(ref s_flushCount);
-        skiaContext.Flush(submit: true, synchronous: true);
+        if (s_drainFailureForTest is { } injected)
+            injected();
+        else
+            skiaContext.Flush(submit: true, synchronous: true);
+
+        if (isBatched)
+            s_drained = true;
     }
 
     internal static void ResetFlushCountForTest() => Interlocked.Exchange(ref s_flushCount, 0);
