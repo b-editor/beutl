@@ -53,4 +53,19 @@ internal sealed class TimerQueue(TimeProvider timeProvider)
         operations = default;
         return false;
     }
+
+    public List<DispatcherOperation> Drain()
+    {
+        lock (_lock)
+        {
+            var result = new List<DispatcherOperation>();
+            foreach (List<DispatcherOperation> operations in _operations.Values)
+            {
+                result.AddRange(operations);
+            }
+
+            _operations.Clear();
+            return result;
+        }
+    }
 }

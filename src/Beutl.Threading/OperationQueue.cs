@@ -58,4 +58,22 @@ internal sealed class OperationQueue
     {
         return Count(minPriority) > 0;
     }
+
+    public List<DispatcherOperation> Drain()
+    {
+        lock (_lock)
+        {
+            var result = new List<DispatcherOperation>();
+            for (DispatchPriority priority = DispatchPriority.High; priority >= DispatchPriority.Low; --priority)
+            {
+                Queue<DispatcherOperation> queue = _queuedOperations[(int)priority];
+                while (queue.TryDequeue(out DispatcherOperation? operation))
+                {
+                    result.Add(operation);
+                }
+            }
+
+            return result;
+        }
+    }
 }

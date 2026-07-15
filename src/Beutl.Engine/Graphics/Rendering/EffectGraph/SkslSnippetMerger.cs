@@ -70,8 +70,8 @@ internal static class SkslSnippetMerger
     private static string ComputePrefix(SkslSource snippet, int index)
     {
         string prefix = $"fe{index}_";
-        List<Token> tokens = Tokenize(snippet.Source);
-        while (tokens.Any(token => token.IsIdent && token.Text.StartsWith(prefix, StringComparison.Ordinal)))
+        List<SkslToken> tokens = SkslLexer.Tokenize(snippet.Source);
+        while (tokens.Any(token => token.IsIdentifier && token.Text.StartsWith(prefix, StringComparison.Ordinal)))
             prefix += "_";
         return prefix;
     }
@@ -94,15 +94,15 @@ internal static class SkslSnippetMerger
     // never be renamed a second time.
     private static string Prefix(string source, string prefix)
     {
-        List<Token> tokens = Tokenize(source);
+        List<SkslToken> tokens = SkslLexer.Tokenize(source);
         HashSet<string> names = CollectTopLevelNames(tokens);
         HashSet<int> layoutQualifierIdentifiers = CollectLayoutQualifierIdentifiers(tokens);
         var result = new StringBuilder(source.Length + (names.Count * prefix.Length));
         int copiedThrough = 0;
         for (int i = 0; i < tokens.Count; i++)
         {
-            Token token = tokens[i];
-            if (!token.IsIdent
+            SkslToken token = tokens[i];
+            if (!token.IsIdentifier
                 || !names.Contains(token.Text)
                 || layoutQualifierIdentifiers.Contains(i)
                 || (i > 0 && tokens[i - 1].Text == "."))
@@ -123,12 +123,12 @@ internal static class SkslSnippetMerger
     // fixed layout metadata and the second is the uniform declarator. Only the declarator and its value references
     // participate in alpha-renaming. Record identifier indexes inside every top-level layout(...) group so Prefix can
     // leave the metadata intact without weakening ordinary renaming inside function bodies.
-    private static HashSet<int> CollectLayoutQualifierIdentifiers(IReadOnlyList<Token> tokens)
+    private static HashSet<int> CollectLayoutQualifierIdentifiers(IReadOnlyList<SkslToken> tokens)
     {
         var result = new HashSet<int>();
         for (int i = 0; i + 1 < tokens.Count; i++)
         {
-            if (tokens[i] is not { IsIdent: true, Text: "layout", Depth: 0 }
+            if (tokens[i] is not { IsIdentifier: true, Text: "layout", Depth: 0 }
                 || tokens[i + 1].Text != "(")
             {
                 continue;
@@ -150,7 +150,7 @@ internal static class SkslSnippetMerger
                         break;
                     }
                 }
-                else if (groupDepth > 0 && tokens[j].IsIdent)
+                else if (groupDepth > 0 && tokens[j].IsIdentifier)
                 {
                     result.Add(j);
                 }
@@ -163,12 +163,12 @@ internal static class SkslSnippetMerger
     // At brace depth 0, `uniform`/`const` [PRECISION] TYPE NAME declares NAME; IDENT IDENT `(` is a function
     // definition; and IDENT IDENT followed by `=`/`;`/`[` is a mutable global. Multi-declarator mutable globals are
     // collected through the terminating semicolon; uniform/const multi-declarators are rejected by SkslSource.
-    private static HashSet<string> CollectTopLevelNames(IReadOnlyList<Token> tokens)
+    private static HashSet<string> CollectTopLevelNames(IReadOnlyList<SkslToken> tokens)
     {
         var names = new HashSet<string>(StringComparer.Ordinal);
         for (int t = 0; t + 1 < tokens.Count; t++)
         {
-            if (!tokens[t].IsIdent || tokens[t].Depth != 0)
+            if (!tokens[t].IsIdentifier || tokens[t].Depth != 0)
                 continue;
 
             if (tokens[t].Text is "uniform" or "const")
@@ -178,16 +178,16 @@ internal static class SkslSnippetMerger
                     type++;
 
                 int name = SkipArrayDimensions(tokens, type + 1);
-                if (name < tokens.Count && tokens[type].IsIdent && tokens[name].IsIdent)
+                if (name < tokens.Count && tokens[type].IsIdentifier && tokens[name].IsIdentifier)
                     names.Add(tokens[name].Text);
                 t = name;
             }
-            else if (tokens[t + 1].IsIdent && t + 2 < tokens.Count && tokens[t + 2].Text == "(")
+            else if (tokens[t + 1].IsIdentifier && t + 2 < tokens.Count && tokens[t + 2].Text == "(")
             {
                 names.Add(tokens[t + 1].Text);
                 t++;
             }
-            else if (tokens[t + 1].IsIdent && t + 2 < tokens.Count && tokens[t + 2].Text is "=" or ";" or "[" or ",")
+            else if (tokens[t + 1].IsIdentifier && t + 2 < tokens.Count && tokens[t + 2].Text is "=" or ";" or "[" or ",")
             {
                 names.Add(tokens[t + 1].Text);
                 int groupDepth = 0;
@@ -201,7 +201,7 @@ internal static class SkslSnippetMerger
                         groupDepth = Math.Max(0, groupDepth - 1);
                     else if (groupDepth == 0 && text == ";")
                         break;
-                    else if (groupDepth == 0 && text == "," && u + 1 < tokens.Count && tokens[u + 1].IsIdent)
+                    else if (groupDepth == 0 && text == "," && u + 1 < tokens.Count && tokens[u + 1].IsIdentifier)
                         names.Add(tokens[u + 1].Text);
                 }
 
@@ -212,7 +212,7 @@ internal static class SkslSnippetMerger
         return names;
     }
 
-    private static int SkipArrayDimensions(IReadOnlyList<Token> tokens, int index)
+    private static int SkipArrayDimensions(IReadOnlyList<SkslToken> tokens, int index)
     {
         while (index < tokens.Count && tokens[index].Text == "[")
         {
@@ -231,51 +231,4 @@ internal static class SkslSnippetMerger
         return index;
     }
 
-    private static List<Token> Tokenize(string source)
-    {
-        var tokens = new List<Token>();
-        int depth = 0;
-        for (int i = 0; i < source.Length; i++)
-        {
-            char c = source[i];
-            if (c == '/' && i + 1 < source.Length && source[i + 1] == '/')
-            {
-                while (i < source.Length && source[i] != '\n')
-                    i++;
-                continue;
-            }
-
-            if (c == '/' && i + 1 < source.Length && source[i + 1] == '*')
-            {
-                i += 2;
-                while (i + 1 < source.Length && !(source[i] == '*' && source[i + 1] == '/'))
-                    i++;
-                i++;
-                continue;
-            }
-
-            if (char.IsWhiteSpace(c))
-                continue;
-
-            if (char.IsLetter(c) || c == '_')
-            {
-                int start = i;
-                while (i + 1 < source.Length && (char.IsLetterOrDigit(source[i + 1]) || source[i + 1] == '_'))
-                    i++;
-                tokens.Add(new Token(source[start..(i + 1)], true, depth, start, i + 1 - start));
-                continue;
-            }
-
-            // Parentheses count into depth so signature parameters are never mistaken for top-level declarations.
-            if (c is '{' or '(')
-                depth++;
-            else if (c is '}' or ')' && depth > 0)
-                depth--;
-            tokens.Add(new Token(c.ToString(), false, depth, i, 1));
-        }
-
-        return tokens;
-    }
-
-    private readonly record struct Token(string Text, bool IsIdent, int Depth, int Start, int Length);
 }

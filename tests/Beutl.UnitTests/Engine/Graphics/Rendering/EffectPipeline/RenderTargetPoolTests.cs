@@ -10,7 +10,7 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.EffectPipeline;
 
 /// <summary>
 /// Covers <see cref="RenderTargetPool"/> behavior (feature 004, T012): hit/miss counters, idle-frame and
-/// byte-cap eviction, cleared-on-acquire byte determinism, the leak invariant, generation-tag safety under a
+/// byte-cap eviction, consumer-owned initialization, the leak invariant, generation-tag safety under a
 /// live stale shallow copy, and the unchanged (this-step) allocation-failure semantics. Pooled buffers are
 /// GPU surfaces, so every case runs on the Vulkan render thread and self-skips when no device is available.
 /// </summary>
@@ -101,7 +101,7 @@ public class RenderTargetPoolTests
     }
 
     [Test]
-    public void Acquire_ReusedBuffer_IsClearedForByteDeterminism()
+    public void Acquire_ReusedBuffer_IsLeftForConsumerInitialization()
     {
         RunOnRenderThread(() =>
         {
@@ -118,29 +118,8 @@ public class RenderTargetPoolTests
 
             using RenderTarget reused = pool.Acquire(W, H) ?? throw new InvalidOperationException("null");
             using Bitmap after = reused.Snapshot();
-            Assert.That(IsAllZero(after.GetPixelSpan()), Is.True,
-                "a reused buffer must be cleared so it is byte-indistinguishable from a fresh one");
-        });
-    }
-
-    [Test]
-    public void Acquire_ReusedBufferClearThrows_EvictsRemovedBackingWithoutIssuingLease()
-    {
-        RunOnRenderThread(() =>
-        {
-            using var pool = new RenderTargetPool();
-            pool.Acquire(W, H)!.Dispose();
-            pool.SetClearForReuseForTest(
-                static _ => throw new InvalidOperationException("simulated reuse-clear failure"));
-
-            Assert.Throws<InvalidOperationException>(() => pool.Acquire(W, H));
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(pool.IdleCount, Is.Zero, "the failed hit is not orphaned in a bucket");
-                Assert.That(pool.IdleBytes, Is.Zero, "idle byte accounting remains balanced");
-                Assert.That(pool.LiveLeaseCount, Is.Zero, "a failed clear never issues a lease");
-            });
+            Assert.That(IsAllZero(after.GetPixelSpan()), Is.False,
+                "the pool must not clear a target that every drawing consumer initializes itself");
         });
     }
 

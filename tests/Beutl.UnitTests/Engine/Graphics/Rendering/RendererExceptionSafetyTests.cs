@@ -17,6 +17,17 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 public class RendererExceptionSafetyTests
 {
     [Test]
+    public void Renderer_DoesNotSynchronouslyDisposeOnTheFinalizerThread()
+    {
+        System.Reflection.MethodInfo finalize = typeof(Renderer).GetMethod(
+            "Finalize",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+
+        Assert.That(finalize.DeclaringType, Is.Not.EqualTo(typeof(Renderer)),
+            "renderer teardown is render-thread-affine and must remain an explicit Dispose operation");
+    }
+
+    [Test]
     public void RenderDrawable_DisposesFaultingAndRemainingOperations_WhenRenderThrows()
     {
         VulkanTestEnvironment.EnsureAvailable();

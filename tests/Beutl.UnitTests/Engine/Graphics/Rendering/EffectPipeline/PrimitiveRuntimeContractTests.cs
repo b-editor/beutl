@@ -77,7 +77,7 @@ public class PrimitiveRuntimeContractTests
                 onDispose: () => inputDisposed = true);
             var cleanupFailure = new InvalidOperationException("compute materialized-input cleanup failed");
 
-            PlanExecutor.ForceComputeInputDisposeFailureForTests(cleanupFailure);
+            IDisposable computeInputDisposeHook = PlanExecutor.UseTestHooks(hooks => hooks.ComputeInputDisposeFailure = cleanupFailure);
             try
             {
                 RenderNodeOperation[] outputs = PlanExecutor.Execute(
@@ -100,7 +100,7 @@ public class PrimitiveRuntimeContractTests
             }
             finally
             {
-                PlanExecutor.ResetComputeInputDisposeFailureForTests();
+                computeInputDisposeHook.Dispose();
             }
         });
     }
@@ -123,7 +123,7 @@ public class PrimitiveRuntimeContractTests
             onDispose: () => inputDisposed = true);
         var cleanupFailure = new InvalidOperationException("geometry materialized-input cleanup failed");
 
-        PlanExecutor.ForceGeometryInputDisposeFailureForTests(cleanupFailure);
+        IDisposable geometryInputDisposeHook = PlanExecutor.UseTestHooks(hooks => hooks.GeometryInputDisposeFailure = cleanupFailure);
         try
         {
             RenderNodeOperation[] outputs = PlanExecutor.Execute(
@@ -146,7 +146,7 @@ public class PrimitiveRuntimeContractTests
         }
         finally
         {
-            PlanExecutor.ResetGeometryInputDisposeFailureForTests();
+            geometryInputDisposeHook.Dispose();
         }
     }
 
@@ -171,8 +171,8 @@ public class PrimitiveRuntimeContractTests
             onDispose: () => inputDisposed = true);
         var cleanupFailure = new InvalidOperationException("CPU-fallback materialized-input cleanup failed");
 
-        PlanExecutor.ForceComputeFallbackForTests();
-        PlanExecutor.ForceComputeInputDisposeFailureForTests(cleanupFailure);
+        IDisposable computeFallbackHook = PlanExecutor.UseTestHooks(static hooks => hooks.ForceComputeFallback = true);
+        IDisposable computeInputDisposeHook = PlanExecutor.UseTestHooks(hooks => hooks.ComputeInputDisposeFailure = cleanupFailure);
         try
         {
             RenderNodeOperation[] outputs = PlanExecutor.Execute(
@@ -195,8 +195,8 @@ public class PrimitiveRuntimeContractTests
         }
         finally
         {
-            PlanExecutor.ResetComputeInputDisposeFailureForTests();
-            PlanExecutor.ResetComputeFallbackForTests();
+            computeInputDisposeHook.Dispose();
+            computeFallbackHook.Dispose();
         }
     }
 
@@ -277,7 +277,7 @@ public class PrimitiveRuntimeContractTests
             using var pool = new RenderTargetPool();
             var injected = new InvalidOperationException("copy backend failed");
 
-            PlanExecutor.ForceComputeCopyFailureForTests(injected);
+            IDisposable computeCopyHook = PlanExecutor.UseTestHooks(hooks => hooks.ComputeCopyFailure = injected);
             try
             {
                 InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
@@ -291,7 +291,7 @@ public class PrimitiveRuntimeContractTests
             }
             finally
             {
-                PlanExecutor.ResetComputeCopyFailureForTests();
+                computeCopyHook.Dispose();
             }
         });
     }
@@ -313,7 +313,7 @@ public class PrimitiveRuntimeContractTests
             using var pool = new RenderTargetPool();
             var injected = new InvalidOperationException("copy destination preparation failed");
 
-            PlanExecutor.ForceComputeCopyPrepareFailureForTests(injected);
+            IDisposable computeCopyPrepareHook = PlanExecutor.UseTestHooks(hooks => hooks.ComputeCopyPrepareFailure = injected);
             try
             {
                 InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
@@ -326,7 +326,7 @@ public class PrimitiveRuntimeContractTests
             }
             finally
             {
-                PlanExecutor.ResetComputeCopyPrepareFailureForTests();
+                computeCopyPrepareHook.Dispose();
             }
         });
     }
@@ -375,7 +375,7 @@ public class PrimitiveRuntimeContractTests
                 onDispose: () => inputDisposed = true);
             var injected = new InvalidOperationException("compute input cleanup failed");
 
-            PlanExecutor.ForceComputeInputDisposeFailureForTests(injected);
+            IDisposable computeInputDisposeHook = PlanExecutor.UseTestHooks(hooks => hooks.ComputeInputDisposeFailure = injected);
             try
             {
                 InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
@@ -391,7 +391,7 @@ public class PrimitiveRuntimeContractTests
             }
             finally
             {
-                PlanExecutor.ResetComputeInputDisposeFailureForTests();
+                computeInputDisposeHook.Dispose();
             }
         });
     }
@@ -415,8 +415,8 @@ public class PrimitiveRuntimeContractTests
             canvas => canvas.DrawRectangle(s_bounds, Brushes.Resource.White, null),
             onDispose: () => inputDisposed = true);
 
-        PlanExecutor.ForceComputeFallbackForTests();
-        PlanExecutor.ForceComputeInputDisposeFailureForTests(injected);
+        IDisposable computeFallbackHook = PlanExecutor.UseTestHooks(static hooks => hooks.ForceComputeFallback = true);
+        IDisposable computeInputDisposeHook = PlanExecutor.UseTestHooks(hooks => hooks.ComputeInputDisposeFailure = injected);
         try
         {
             InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
@@ -432,8 +432,8 @@ public class PrimitiveRuntimeContractTests
         }
         finally
         {
-            PlanExecutor.ResetComputeInputDisposeFailureForTests();
-            PlanExecutor.ResetComputeFallbackForTests();
+            computeInputDisposeHook.Dispose();
+            computeFallbackHook.Dispose();
         }
     }
 
@@ -534,7 +534,7 @@ public class PrimitiveRuntimeContractTests
                 onDispose: () => inputDisposed = true);
             var injected = new InvalidOperationException("split input cleanup failed");
 
-            PlanExecutor.ForceSplitInputDisposeFailureForTests(injected);
+            IDisposable splitInputDisposeHook = PlanExecutor.UseTestHooks(hooks => hooks.SplitInputDisposeFailure = injected);
             try
             {
                 InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
@@ -550,7 +550,7 @@ public class PrimitiveRuntimeContractTests
             }
             finally
             {
-                PlanExecutor.ResetSplitInputDisposeFailureForTests();
+                splitInputDisposeHook.Dispose();
             }
         });
     }
@@ -571,7 +571,7 @@ public class PrimitiveRuntimeContractTests
                 new EffectGraphBuilder(s_bounds, 1f, 1f, RenderIntent.Delivery).Split(descriptor));
             using var pool = new RenderTargetPool();
 
-            PlanExecutor.ForceSplitInputDisposeFailureForTests(cleanup);
+            IDisposable splitInputDisposeHook = PlanExecutor.UseTestHooks(hooks => hooks.SplitInputDisposeFailure = cleanup);
             try
             {
                 InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
@@ -584,7 +584,7 @@ public class PrimitiveRuntimeContractTests
             }
             finally
             {
-                PlanExecutor.ResetSplitInputDisposeFailureForTests();
+                splitInputDisposeHook.Dispose();
             }
         });
     }
@@ -606,7 +606,7 @@ public class PrimitiveRuntimeContractTests
             onDispose: () => inputDisposed = true);
         var injected = new InvalidOperationException("geometry input cleanup failed");
 
-        PlanExecutor.ForceGeometryInputDisposeFailureForTests(injected);
+        IDisposable geometryInputDisposeHook = PlanExecutor.UseTestHooks(hooks => hooks.GeometryInputDisposeFailure = injected);
         try
         {
             InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
@@ -622,7 +622,7 @@ public class PrimitiveRuntimeContractTests
         }
         finally
         {
-            PlanExecutor.ResetGeometryInputDisposeFailureForTests();
+            geometryInputDisposeHook.Dispose();
         }
     }
 
@@ -698,7 +698,7 @@ public class PrimitiveRuntimeContractTests
             onDispose: () => inputDisposed = true);
         var injected = new InvalidOperationException("geometry full output cleanup failed");
 
-        PlanExecutor.ForceGeometryOutputDisposeFailureForTests(injected);
+        IDisposable geometryOutputDisposeHook = PlanExecutor.UseTestHooks(hooks => hooks.GeometryOutputDisposeFailure = injected);
         try
         {
             InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
@@ -714,7 +714,7 @@ public class PrimitiveRuntimeContractTests
         }
         finally
         {
-            PlanExecutor.ResetGeometryOutputDisposeFailureForTests();
+            geometryOutputDisposeHook.Dispose();
         }
     }
 
@@ -732,7 +732,7 @@ public class PrimitiveRuntimeContractTests
         using var pool = new RenderTargetPool();
         RenderNodeOperation input = Input();
 
-        PlanExecutor.ForceComputeFallbackForTests();
+        IDisposable computeFallbackHook = PlanExecutor.UseTestHooks(static hooks => hooks.ForceComputeFallback = true);
         try
         {
             RenderNodeOperation[] outputs = PlanExecutor.Execute(
@@ -750,7 +750,7 @@ public class PrimitiveRuntimeContractTests
         }
         finally
         {
-            PlanExecutor.ResetComputeFallbackForTests();
+            computeFallbackHook.Dispose();
         }
     }
 
@@ -768,7 +768,7 @@ public class PrimitiveRuntimeContractTests
         using var pool = new RenderTargetPool();
         RenderNodeOperation input = Input();
 
-        PlanExecutor.ForceComputeFallbackForTests();
+        IDisposable computeFallbackHook = PlanExecutor.UseTestHooks(static hooks => hooks.ForceComputeFallback = true);
         try
         {
             RenderNodeOperation[] outputs = PlanExecutor.Execute(
@@ -789,7 +789,7 @@ public class PrimitiveRuntimeContractTests
         }
         finally
         {
-            PlanExecutor.ResetComputeFallbackForTests();
+            computeFallbackHook.Dispose();
         }
     }
 
@@ -853,7 +853,7 @@ public class PrimitiveRuntimeContractTests
         RenderNodeOperation input = RenderNodeOperation.CreateLambda(
             s_bounds, static _ => { }, onDispose: () => disposed = true);
 
-        PlanExecutor.ForceComputeFallbackForTests();
+        IDisposable computeFallbackHook = PlanExecutor.UseTestHooks(static hooks => hooks.ForceComputeFallback = true);
         try
         {
             RenderNodeOperation[] outputs = PlanExecutor.Execute(
@@ -868,7 +868,7 @@ public class PrimitiveRuntimeContractTests
         }
         finally
         {
-            PlanExecutor.ResetComputeFallbackForTests();
+            computeFallbackHook.Dispose();
         }
     }
 

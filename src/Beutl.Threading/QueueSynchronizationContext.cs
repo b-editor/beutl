@@ -2,15 +2,24 @@
 
 internal sealed class QueueSynchronizationContext(Dispatcher dispatcher, TimeProvider timeProvider) : SynchronizationContext
 {
+    private enum LifecycleState
+    {
+        Created,
+        Running,
+        Stopping,
+        Finished,
+    }
+
     // CancelAfter throws when the delay exceeds int.MaxValue milliseconds; clamp to it.
     private static readonly TimeSpan s_maxCancelAfter = TimeSpan.FromMilliseconds(int.MaxValue);
 
     private readonly OperationQueue _operationQueue = new();
     private readonly TimerQueue _timerQueue = new(timeProvider);
+    private readonly object _gate = new();
 
     // Written by Shutdown() outside the lock, read unlocked elsewhere; volatile stops a stale read
     // that misses a shutdown on weak-memory architectures.
-    private volatile bool _running;
+    private volatile LifecycleState _state;
     private CancellationTokenSource? _waitToken;
 
     // Volatile for the same reason as _running: written on one thread, read cross-thread through the
@@ -30,35 +39,96 @@ internal sealed class QueueSynchronizationContext(Dispatcher dispatcher, TimePro
 
     internal void Start()
     {
-        _running = true;
-
-        while (_running)
+        bool shouldRun;
+        lock (_gate)
         {
-            ExecuteAvailableOperations();
-            WaitForPendingOperations();
+            shouldRun = _state == LifecycleState.Created;
+            if (shouldRun)
+                _state = LifecycleState.Running;
         }
 
-        HasShutdownFinished = true;
-        ShutdownFinished?.Invoke(dispatcher, EventArgs.Empty);
+        if (!shouldRun)
+        {
+            Finish();
+            return;
+        }
+
+        try
+        {
+            while (_state == LifecycleState.Running)
+            {
+                ExecuteAvailableOperations();
+                WaitForPendingOperations();
+            }
+        }
+        finally
+        {
+            Finish();
+        }
     }
 
     internal void Shutdown()
     {
-        HasShutdownStarted = true;
-        _running = false;
-        lock (this)
+        List<DispatcherOperation> abandoned;
+        lock (_gate)
         {
+            if (_state >= LifecycleState.Stopping)
+                return;
+
+            _state = LifecycleState.Stopping;
+            HasShutdownStarted = true;
             _waitToken?.Cancel();
+            abandoned = DrainQueues();
         }
 
+        Abort(abandoned);
         ShutdownStarted?.Invoke(dispatcher, EventArgs.Empty);
+    }
+
+    private void Finish()
+    {
+        List<DispatcherOperation> abandoned;
+        bool raiseStarted;
+        lock (_gate)
+        {
+            if (_state == LifecycleState.Finished)
+                return;
+
+            raiseStarted = !HasShutdownStarted;
+            HasShutdownStarted = true;
+            _state = LifecycleState.Finished;
+            HasShutdownFinished = true;
+            _waitToken?.Cancel();
+            abandoned = DrainQueues();
+        }
+
+        Abort(abandoned);
+        if (raiseStarted)
+            ShutdownStarted?.Invoke(dispatcher, EventArgs.Empty);
+        ShutdownFinished?.Invoke(dispatcher, EventArgs.Empty);
+    }
+
+    private List<DispatcherOperation> DrainQueues()
+    {
+        List<DispatcherOperation> result = _operationQueue.Drain();
+        result.AddRange(_timerQueue.Drain());
+        return result;
+    }
+
+    private static void Abort(List<DispatcherOperation> operations)
+    {
+        var exception = new ObjectDisposedException(nameof(Dispatcher), "The dispatcher is shutting down.");
+        foreach (DispatcherOperation operation in operations)
+        {
+            operation.Abort(exception);
+        }
     }
 
     private void ExecuteAvailableOperations()
     {
         FlushTimerQueue();
 
-        while (_running && _operationQueue.TryDequeue(out DispatcherOperation? operation))
+        while (_state == LifecycleState.Running && _operationQueue.TryDequeue(out DispatcherOperation? operation))
         {
             try
             {
@@ -80,15 +150,15 @@ internal sealed class QueueSynchronizationContext(Dispatcher dispatcher, TimePro
 
     private void WaitForPendingOperations()
     {
-        if (!_running)
+        if (_state != LifecycleState.Running)
             return;
 
         CancellationTokenSource cts;
-        lock (this)
+        lock (_gate)
         {
             // Shutdown() may have cleared _running since the check above; bail out so we
             // don't arm a _waitToken nothing cancels and block on WaitOne() forever.
-            if (!_running)
+            if (_state != LifecycleState.Running)
                 return;
 
             // An operation may have been posted before we took the lock; re-check.
@@ -119,7 +189,7 @@ internal sealed class QueueSynchronizationContext(Dispatcher dispatcher, TimePro
 
         cts.Token.WaitHandle.WaitOne();
 
-        lock (this)
+        lock (_gate)
         {
             _waitToken = null;
         }
@@ -130,21 +200,82 @@ internal sealed class QueueSynchronizationContext(Dispatcher dispatcher, TimePro
 
     public override void Send(SendOrPostCallback d, object? state)
     {
-        Send(DispatchPriority.High, () => d(state), default).Wait();
+        Send(DispatchPriority.High, () => d(state), default).GetAwaiter().GetResult();
     }
 
     internal Task Send(DispatchPriority priority, Action operation, CancellationToken ct)
     {
-        var task = new Task(operation, ct);
-        Post(priority, () => task.RunSynchronously(), ct);
-        return task;
+        var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        CancellationTokenRegistration registration = default;
+        if (ct.CanBeCanceled)
+            registration = ct.Register(() => completion.TrySetCanceled(ct));
+
+        var queued = new DispatcherOperation(
+            () =>
+            {
+                try
+                {
+                    if (!completion.Task.IsCompleted)
+                    {
+                        operation();
+                        completion.TrySetResult();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    completion.TrySetException(ex);
+                }
+                finally
+                {
+                    registration.Dispose();
+                }
+            },
+            priority,
+            default,
+            ex =>
+            {
+                registration.Dispose();
+                completion.TrySetException(ex);
+            });
+        if (!TryPost(queued))
+            queued.Abort(new ObjectDisposedException(nameof(Dispatcher), "The dispatcher is shutting down."));
+        return completion.Task;
     }
 
     internal Task<T> Send<T>(DispatchPriority priority, Func<T> operation, CancellationToken ct)
     {
-        var task = new Task<T>(operation, ct);
-        Post(priority, () => task.RunSynchronously(), ct);
-        return task;
+        var completion = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
+        CancellationTokenRegistration registration = default;
+        if (ct.CanBeCanceled)
+            registration = ct.Register(() => completion.TrySetCanceled(ct));
+
+        var queued = new DispatcherOperation(
+            () =>
+            {
+                try
+                {
+                    if (!completion.Task.IsCompleted)
+                        completion.TrySetResult(operation());
+                }
+                catch (Exception ex)
+                {
+                    completion.TrySetException(ex);
+                }
+                finally
+                {
+                    registration.Dispose();
+                }
+            },
+            priority,
+            default,
+            ex =>
+            {
+                registration.Dispose();
+                completion.TrySetException(ex);
+            });
+        if (!TryPost(queued))
+            queued.Abort(new ObjectDisposedException(nameof(Dispatcher), "The dispatcher is shutting down."));
+        return completion.Task;
     }
 
     public override void Post(SendOrPostCallback d, object? state)
@@ -154,27 +285,38 @@ internal sealed class QueueSynchronizationContext(Dispatcher dispatcher, TimePro
 
     internal void Post(DispatchPriority priority, Action operation, CancellationToken ct)
     {
-        _operationQueue.Enqueue(new(operation, priority, ct));
-        lock (this)
-        {
-            _waitToken?.Cancel();
-        }
+        DispatcherOperation queued = new(operation, priority, ct);
+        if (!TryPost(queued))
+            queued.Abort(new ObjectDisposedException(nameof(Dispatcher), "The dispatcher is shutting down."));
     }
 
     internal void Post(DispatcherOperation operation)
     {
-        _operationQueue.Enqueue(operation);
-        lock (this)
+        if (!TryPost(operation))
+            operation.Abort(new ObjectDisposedException(nameof(Dispatcher), "The dispatcher is shutting down."));
+    }
+
+    private bool TryPost(DispatcherOperation operation)
+    {
+        lock (_gate)
         {
+            if (_state >= LifecycleState.Stopping)
+                return false;
+
+            _operationQueue.Enqueue(operation);
             _waitToken?.Cancel();
+            return true;
         }
     }
 
     internal void PostDelayed(DateTimeOffset dateTime, DispatchPriority priority, Action action, CancellationToken ct)
     {
-        _timerQueue.Enqueue(dateTime, priority, action, ct);
-        lock (this)
+        lock (_gate)
         {
+            if (_state >= LifecycleState.Stopping)
+                return;
+
+            _timerQueue.Enqueue(dateTime, priority, action, ct);
             _waitToken?.Cancel();
         }
     }

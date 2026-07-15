@@ -15,7 +15,7 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.EffectPipeline;
 public class ProgramCacheReentrancyTests
 {
     private const string Source = "uniform shader src; half4 main(float2 p) { return src.eval(p); }";
-    private static readonly RuntimeShaderStage[] s_stages = Stages(Source);
+    private static readonly RuntimeProgram s_program = Program(Source, "test:reentrancy");
 
     [Test]
     public void GetOrCreate_WhileLeased_ReturnsDistinctTransientBuilder()
@@ -23,14 +23,12 @@ public class ProgramCacheReentrancyTests
         ProgramCache.Clear();
         var diagnostics = new PipelineDiagnostics();
 
-        ProgramCache.Lease outer = ProgramCache.GetOrCreate(
-            "test:reentrancy", s_stages, () => Source, diagnostics);
+        ProgramCache.Lease outer = ProgramCache.GetOrCreate(s_program, diagnostics);
         try
         {
             Assert.That(diagnostics.ProgramCreations, Is.EqualTo(1), "the first lease parses the program once");
 
-            ProgramCache.Lease inner = ProgramCache.GetOrCreate(
-                "test:reentrancy", s_stages, () => Source, diagnostics);
+            ProgramCache.Lease inner = ProgramCache.GetOrCreate(s_program, diagnostics);
             try
             {
                 Assert.That(inner.Builder, Is.Not.SameAs(outer.Builder),
@@ -49,12 +47,13 @@ public class ProgramCacheReentrancyTests
         }
 
         // With every lease returned, the cached builder serves again without a new parse (SC-002 stays intact).
-        ProgramCache.Lease warm = ProgramCache.GetOrCreate(
-            "test:reentrancy", s_stages, () => Source, diagnostics);
+        ProgramCache.Lease warm = ProgramCache.GetOrCreate(s_program, diagnostics);
         try
         {
             Assert.That(warm.Builder, Is.SameAs(outer.Builder), "the cached builder is reused once un-rented");
             Assert.That(diagnostics.ProgramCreations, Is.EqualTo(2), "a warm lease never re-parses");
+            Assert.That(ProgramCache.ColdLookupCountForTest, Is.EqualTo(1),
+                "the direct descriptor handle must bypass the global cache-map lock on reentrant and warm leases");
         }
         finally
         {
@@ -67,8 +66,8 @@ public class ProgramCacheReentrancyTests
     public void Clear_WhileLeaseIsActive_FailsWithoutDisposingTheBuilder()
     {
         ProgramCache.Clear();
-        ProgramCache.Lease lease = ProgramCache.GetOrCreate(
-            "test:clear-active", s_stages, () => Source, diagnostics: null);
+        RuntimeProgram program = Program(Source, "test:clear-active");
+        ProgramCache.Lease lease = ProgramCache.GetOrCreate(program, diagnostics: null);
         SKRuntimeShaderBuilder builder = lease.Builder;
         try
         {
@@ -104,7 +103,7 @@ public class ProgramCacheReentrancyTests
             {
                 int id = i;
                 leases.Add(ProgramCache.GetOrCreate(
-                    $"test:capacity:{id}", s_stages, () => Source, diagnostics: null));
+                    Program(Source, $"test:capacity:{id}"), diagnostics: null));
             }
 
             Assert.That(ProgramCache.CountForTest, Is.EqualTo(257),
@@ -128,19 +127,18 @@ public class ProgramCacheReentrancyTests
     {
         const string otherSource =
             "uniform shader src; half4 main(float2 p) { return half4(1, 0, 0, 1); }";
-        RuntimeShaderStage[] otherStages = Stages(otherSource);
+        RuntimeProgram firstProgram = Program(Source, "test:forced-hash-collision");
+        RuntimeProgram otherProgram = Program(otherSource, "test:forced-hash-collision");
         ProgramCache.Clear();
         var diagnostics = new PipelineDiagnostics();
 
         SKRuntimeShaderBuilder? firstBuilder;
-        using (ProgramCache.Lease first = ProgramCache.GetOrCreate(
-                   "test:forced-hash-collision", s_stages, () => Source, diagnostics))
+        using (ProgramCache.Lease first = ProgramCache.GetOrCreate(firstProgram, diagnostics))
         {
             firstBuilder = first.Builder;
         }
 
-        using (ProgramCache.Lease second = ProgramCache.GetOrCreate(
-                   "test:forced-hash-collision", otherStages, () => otherSource, diagnostics))
+        using (ProgramCache.Lease second = ProgramCache.GetOrCreate(otherProgram, diagnostics))
         {
             Assert.That(second.Builder, Is.Not.SameAs(firstBuilder),
                 "different sources in one hash bucket must compile to distinct programs");
@@ -154,6 +152,15 @@ public class ProgramCacheReentrancyTests
         ProgramCache.Clear();
     }
 
-    private static RuntimeShaderStage[] Stages(string source)
-        => [new RuntimeShaderStage(SkslSource.WholeSource(source), [], [])];
+    private static RuntimeProgram Program(string source, string signature)
+    {
+        SkslSource sksl = SkslSource.WholeSource(source);
+        return new RuntimeProgram(
+            startStage: 0,
+            stageCount: 1,
+            isWholeSource: true,
+            signature,
+            sources: [sksl],
+            sourceText: source);
+    }
 }

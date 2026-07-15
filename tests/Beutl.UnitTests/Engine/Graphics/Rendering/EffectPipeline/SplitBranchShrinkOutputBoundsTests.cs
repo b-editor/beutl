@@ -110,7 +110,7 @@ public class SplitBranchShrinkOutputBoundsTests
             FrameResources frame = EffectGraphCompiler.ResolveResources(plan, s_input, workingScale: 1f);
             var injected = new InvalidOperationException("split branch cleanup failed");
 
-            PlanExecutor.ForceSplitBranchDisposeFailureForTests(injected);
+            IDisposable splitBranchDisposeHook = PlanExecutor.UseTestHooks(hooks => hooks.SplitBranchDisposeFailure = injected);
             try
             {
                 InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
@@ -125,7 +125,7 @@ public class SplitBranchShrinkOutputBoundsTests
             }
             finally
             {
-                PlanExecutor.ResetSplitBranchDisposeFailureForTests();
+                splitBranchDisposeHook.Dispose();
             }
         });
     }

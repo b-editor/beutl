@@ -71,6 +71,42 @@ public class DrawableTextureSourceDensityTests
     }
 
     [Test]
+    public void GetTexture_AuxiliaryPullAtFrameDensity_ReusesFrameTexture()
+    {
+        IGraphicsContext context = VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using DrawableTextureSource.Resource source = MakeVectorTextureSource();
+
+            ITexture2D? frame = source.GetTexture(
+                context, RenderIntent.Preview, RenderPullPurpose.Frame, 1f);
+            ITexture2D? auxiliary = source.GetTexture(
+                context, RenderIntent.Preview, RenderPullPurpose.Auxiliary, 1f);
+
+            Assert.That(auxiliary, Is.SameAs(frame),
+                "A same-density hit-test pull must borrow the frame texture instead of retaining a second full-resolution target.");
+        });
+    }
+
+    [Test]
+    public void GetTexture_FrameAfterAuxiliaryPull_AdoptsTheExistingTexture()
+    {
+        IGraphicsContext context = VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using DrawableTextureSource.Resource source = MakeVectorTextureSource();
+
+            ITexture2D? auxiliary = source.GetTexture(
+                context, RenderIntent.Preview, RenderPullPurpose.Auxiliary, 1f);
+            ITexture2D? frame = source.GetTexture(
+                context, RenderIntent.Preview, RenderPullPurpose.Frame, 1f);
+
+            Assert.That(frame, Is.SameAs(auxiliary),
+                "A frame following an early hit test must adopt its matching texture instead of retaining a duplicate.");
+        });
+    }
+
+    [Test]
     public void GetTexture_VectorDrawable_RasterizesAtSurfaceDensity()
     {
         IGraphicsContext context = VulkanTestEnvironment.EnsureAvailable();

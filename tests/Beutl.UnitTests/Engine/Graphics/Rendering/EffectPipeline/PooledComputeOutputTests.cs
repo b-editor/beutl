@@ -8,11 +8,10 @@ using Beutl.UnitTests.Engine.Graphics.Backend;
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.EffectPipeline;
 
 /// <summary>
-/// A pooled compute output must survive the pool's acquire-time Skia clear. The clear is only RECORDED on the
-/// pooled SKSurface; a compute pass then writes the same VkImage through raw Vulkan, and the first downstream
-/// Skia flush would replay the recorded clear over the compute result, wiping it to transparent. Pool-hit
-/// frames are exactly the steady state SC-003 pins, and frame 1 is always an all-miss frame, so the regression
-/// frame is frame 2 — a single-frame render (the golden/parity suites) can never catch this.
+/// A pooled compute output must survive recorded Skia work carried by its previous lease. The compute transition
+/// flushes that work before raw Vulkan writes the same image; otherwise a downstream Skia flush could replay it over
+/// the compute result. Pool-hit frames are exactly the steady state SC-003 pins, and frame 1 is always an all-miss
+/// frame, so the regression frame is frame 2 — a single-frame render cannot catch this.
 /// </summary>
 [NonParallelizable]
 [TestFixture]
@@ -42,7 +41,7 @@ public class PooledComputeOutputTests
                     Assert.That(outputs, Has.Length.EqualTo(1), $"frame {frame}");
                     using Bitmap bmp = Rasterize(outputs[0]);
                     Assert.That(HasVisibleContent(bmp), Is.True,
-                        $"frame {frame}: the compute output was wiped by the deferred acquire-time pool clear");
+                        $"frame {frame}: deferred Skia work overwrote the pooled compute output");
                 }
                 finally
                 {

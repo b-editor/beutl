@@ -88,7 +88,7 @@ public class SkiaFilterFactoryThrowLeakTests
         FrameResources frame = EffectGraphCompiler.ResolveResources(plan, s_bounds, workingScale: 1f);
         var injected = new InvalidOperationException("predecessor filter cleanup failed");
 
-        PlanExecutor.ForceSkiaFilterDisposeFailureForTests(injected);
+        IDisposable skiaFilterHook = PlanExecutor.UseTestHooks(hooks => hooks.SkiaFilterDisposeFailure = injected);
         try
         {
             InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
@@ -104,7 +104,7 @@ public class SkiaFilterFactoryThrowLeakTests
         }
         finally
         {
-            PlanExecutor.ResetSkiaFilterDisposeFailureForTests();
+            skiaFilterHook.Dispose();
         }
     }
 

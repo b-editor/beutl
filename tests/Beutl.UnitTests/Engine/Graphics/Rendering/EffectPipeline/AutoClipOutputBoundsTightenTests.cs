@@ -176,7 +176,7 @@ public class AutoClipOutputBoundsTightenTests
         CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
         FrameResources resources = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale: 1f);
 
-        PlanExecutor.ForceComputeFallbackForTests();
+        IDisposable computeFallbackHook = PlanExecutor.UseTestHooks(static hooks => hooks.ForceComputeFallback = true);
         RenderNodeOperation[] outputs;
         try
         {
@@ -186,7 +186,7 @@ public class AutoClipOutputBoundsTightenTests
         }
         finally
         {
-            PlanExecutor.ResetComputeFallbackForTests();
+            computeFallbackHook.Dispose();
         }
 
         try

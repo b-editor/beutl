@@ -96,34 +96,6 @@ public class Renderer : IRenderer
         });
     }
 
-    ~Renderer()
-    {
-        // A finalizer must never throw. Each step is guarded independently so a failure cannot
-        // skip releasing the GPU surface.
-        if (IsDisposed)
-            return;
-
-        static void SafeStep(string step, Action action)
-        {
-            try
-            {
-                action();
-            }
-            catch (Exception ex)
-            {
-                s_logger.LogDebug(ex, "Renderer finalizer: {Step} threw during last-resort disposal", step);
-            }
-        }
-
-        _isDisposed = true;
-        SafeStep(nameof(OnDispose), () => OnDispose(false));
-        SafeStep(nameof(_pool), () => _pool?.Dispose());
-        SafeStep(nameof(_immediateCanvas), () => _immediateCanvas?.Dispose());
-        SafeStep(nameof(_surface), () => _surface?.Dispose());
-        SafeStep(nameof(ClearAllCaches), ClearAllCaches);
-        SafeStep(nameof(DisposeAllEntries), DisposeAllEntries);
-    }
-
     private volatile bool _isDisposed;
 
     public bool IsDisposed => _isDisposed;
@@ -270,11 +242,13 @@ public class Renderer : IRenderer
             RequestedBounds = new Rect(default, FrameSize.ToSize(1)),
         };
         var ops = processor.PullToRoot();
+        Rect bounds = Rect.Empty;
         int consumed = 0;
         try
         {
             foreach (var op in ops)
             {
+                bounds = bounds.Union(op.Bounds);
                 op.Render(_immediateCanvas);
                 consumed++;
                 op.Dispose();
@@ -285,6 +259,18 @@ public class Renderer : IRenderer
             RenderNodeOperation.DisposeAll(ops.AsSpan(consumed));
             throw;
         }
+
+        entry.Bounds = bounds;
+        // A frame pull is cropped to the viewport. Reuse its bounds only when they are strictly inside that crop;
+        // touching an edge cannot distinguish exact content from clipped content, so preserve the dirty flag and let
+        // the auxiliary full-bounds pull recover the off-screen extent. Empty output is already exact.
+        Rect requestedBounds = processor.RequestedBounds;
+        entry.IsBoundsDirty = !bounds.IsEmpty
+            && !requestedBounds.IsInvalid
+            && (bounds.Left <= requestedBounds.Left
+                || bounds.Top <= requestedBounds.Top
+                || bounds.Right >= requestedBounds.Right
+                || bounds.Bottom >= requestedBounds.Bottom);
 
         if (PullPurpose == RenderPullPurpose.Frame)
         {
@@ -459,7 +445,7 @@ public class Renderer : IRenderer
         [
             .. _allCurrentEntries
                 .Where(e => e.Node.Drawable?.Resource.GetOriginal().ZIndex == zIndex)
-                .Select(CalculateBoundary)
+                .Select(EnsureBoundary)
         ];
     }
 

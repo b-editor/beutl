@@ -45,7 +45,7 @@ public class ComputePrepareFailureLeakTests
                 onDispose: () => throw cleanupFailure);
 
             var injected = new InvalidOperationException("simulated layout-transition failure");
-            PlanExecutor.ForceComputePrepareFailureForTests(injected);
+            IDisposable computePrepareHook = PlanExecutor.UseTestHooks(hooks => hooks.ComputePrepareFailure = injected);
             try
             {
                 InvalidOperationException? thrown = Assert.Throws<InvalidOperationException>(() =>
@@ -57,7 +57,7 @@ public class ComputePrepareFailureLeakTests
             }
             finally
             {
-                PlanExecutor.ResetComputePrepareFailureForTests();
+                computePrepareHook.Dispose();
             }
 
             Assert.That(pool.LiveLeaseCount, Is.EqualTo(0),
@@ -92,7 +92,7 @@ public class ComputePrepareFailureLeakTests
                 onDispose: () => throw cleanupFailure);
 
             var injected = new InvalidOperationException("simulated compute write-preparation failure");
-            PlanExecutor.ForceComputeOutputPrepareFailureForTests(injected);
+            IDisposable computeOutputPrepareHook = PlanExecutor.UseTestHooks(hooks => hooks.ComputeOutputPrepareFailure = injected);
             try
             {
                 InvalidOperationException? thrown = Assert.Throws<InvalidOperationException>(() =>
@@ -104,7 +104,7 @@ public class ComputePrepareFailureLeakTests
             }
             finally
             {
-                PlanExecutor.ResetComputeOutputPrepareFailureForTests();
+                computeOutputPrepareHook.Dispose();
             }
 
             Assert.That(pool.LiveLeaseCount, Is.EqualTo(0),

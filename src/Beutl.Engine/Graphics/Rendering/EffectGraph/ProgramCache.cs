@@ -8,8 +8,8 @@ namespace Beutl.Graphics.Rendering;
 /// data-model §3). A fused pass looks up its program here instead of parsing SKSL every execution, so after the
 /// first frame that compiles a given program <see cref="PipelineDiagnostics.ProgramCreations"/> stays at zero
 /// (SC-002). Exact source comparison makes the 64-bit hash an index only: a collision creates a distinct entry.
-/// The cache also memoizes the <see cref="SkslSnippetMerger"/> merge: identical snippet runs never re-generate
-/// their merged source.
+/// The pass-owned <see cref="RuntimeProgram"/> memoizes the <see cref="SkslSnippetMerger"/> merge and holds a
+/// direct entry handle: identical warm runs neither regenerate their source nor acquire the global cache-map lock.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -28,7 +28,8 @@ namespace Beutl.Graphics.Rendering;
 /// T035 are preserved.
 /// </para>
 /// <para>
-/// Cache-map mutations are serialized by a lock. The rented builder's per-frame mutation (uniforms/children/
+/// Cache-map mutations and cold lookups are serialized by a lock; a warm descriptor leases its resolved entry under
+/// that entry's own gate. The rented builder's per-frame mutation (uniforms/children/
 /// <c>Build()</c>) is not locked: the render pipeline is render-thread-affine, and a builder's SkSL-parse state is
 /// immutable. Sequential reuse is NOT the only shape, though — binding a deferred child can render a
 /// <c>DrawableBrush</c>, whose nested fused pass may request the SAME signature while the outer pass is mid-bind.
@@ -46,9 +47,15 @@ internal static class ProgramCache
     private static readonly object s_gate = new();
     private static readonly Dictionary<string, List<LinkedListNode<Entry>>> s_map = new(StringComparer.Ordinal);
     private static readonly LinkedList<Entry> s_lru = new();
+    private static int s_count;
+    private static int s_coldLookupCountForTest;
+    private static long s_accessClock;
+    private static int s_clearing;
 
-    private sealed class Entry(string signature, SkslSource[] sources, SKRuntimeShaderBuilder builder)
+    internal sealed class Entry(string signature, SkslSource[] sources, SKRuntimeShaderBuilder builder)
     {
+        public object Gate { get; } = new();
+
         public string Signature { get; } = signature;
 
         public SkslSource[] Sources { get; } = sources;
@@ -56,6 +63,10 @@ internal static class ProgramCache
         public SKRuntimeShaderBuilder Builder { get; } = builder;
 
         public bool Rented { get; set; }
+
+        public bool IsDisposed { get; set; }
+
+        public long LastUsed;
     }
 
     /// <summary>
@@ -70,10 +81,15 @@ internal static class ProgramCache
         {
             if (entry is Entry cached)
             {
-                lock (s_gate)
+                lock (cached.Gate)
                 {
-                    cached.Rented = false;
-                    if (s_lru.Count > Capacity)
+                    if (!cached.IsDisposed)
+                        cached.Rented = false;
+                }
+
+                if (Volatile.Read(ref s_count) > Capacity)
+                {
+                    lock (s_gate)
                         EvictOldestUnrented();
                 }
             }
@@ -85,53 +101,85 @@ internal static class ProgramCache
     }
 
     /// <summary>
-    /// Leases the shader builder in the hash bucket selected by <paramref name="signature"/>, matching the ordered
-    /// <paramref name="stages"/> by complete source text and kind, and building its effect via
-    /// <paramref name="buildSource"/> on a miss. The source is generated (and SKSL parsed) only on a miss — or on
+    /// Leases the shader builder for <paramref name="program"/>, matching the ordered sources by complete text and
+    /// kind. Its source and signature were generated once with the compiled pass. SKSL is parsed only on a miss — or on
     /// a reentrant request while the exact cached builder is rented, which returns a transient builder — incrementing
     /// <see cref="PipelineDiagnostics.ProgramCreations"/> either way. Callers set uniforms/children and call
     /// <c>Build()</c>, then dispose the lease (never the builder itself).
     /// </summary>
-    public static Lease GetOrCreate(
-        string signature, IReadOnlyList<RuntimeShaderStage> stages,
-        Func<string> buildSource, PipelineDiagnostics? diagnostics)
+    public static Lease GetOrCreate(RuntimeProgram program, PipelineDiagnostics? diagnostics)
     {
+        if (program.CacheEntry is { } resolved)
+        {
+            lock (resolved.Gate)
+            {
+                if (!resolved.IsDisposed
+                    && Volatile.Read(ref s_clearing) == 0
+                    && SourcesMatch(resolved.Sources, program.Sources))
+                {
+                    Touch(resolved);
+                    if (!resolved.Rented)
+                    {
+                        resolved.Rented = true;
+                        return new Lease(resolved, resolved.Builder);
+                    }
+
+                    return new Lease(null, CreateBuilder(program, diagnostics));
+                }
+            }
+
+            program.CacheEntry = null;
+        }
+
+        Interlocked.Increment(ref s_coldLookupCountForTest);
         lock (s_gate)
         {
-            if (s_map.TryGetValue(signature, out List<LinkedListNode<Entry>>? bucket))
+            if (s_map.TryGetValue(program.Signature, out List<LinkedListNode<Entry>>? bucket))
             {
                 foreach (LinkedListNode<Entry> node in bucket)
                 {
-                    if (!SourcesMatch(node.Value.Sources, stages))
+                    Entry foundEntry = node.Value;
+                    if (!SourcesMatch(foundEntry.Sources, program.Sources))
                         continue;
 
-                    if (!node.Value.Rented)
+                    lock (foundEntry.Gate)
                     {
-                        s_lru.Remove(node);
-                        s_lru.AddFirst(node);
-                        node.Value.Rented = true;
-                        return new Lease(node.Value, node.Value.Builder);
-                    }
+                        if (foundEntry.IsDisposed)
+                            continue;
 
-                    // Reentrant use of the same exact sources while the cached builder is mid-bind: a transient
-                    // builder keeps the outer pass's bindings intact; the lease disposes it.
-                    return new Lease(null, CreateBuilder(signature, buildSource, diagnostics));
+                        program.CacheEntry = foundEntry;
+                        Touch(foundEntry);
+                        if (!foundEntry.Rented)
+                        {
+                            s_lru.Remove(node);
+                            s_lru.AddFirst(node);
+                            foundEntry.Rented = true;
+                            return new Lease(foundEntry, foundEntry.Builder);
+                        }
+
+                        // Reentrant use of the same exact sources while the cached builder is mid-bind: a transient
+                        // builder keeps the outer pass's bindings intact; the lease disposes it.
+                        return new Lease(null, CreateBuilder(program, diagnostics));
+                    }
                 }
             }
 
             var entry = new Entry(
-                signature, SnapshotSources(stages), CreateBuilder(signature, buildSource, diagnostics))
+                program.Signature, [.. program.Sources], CreateBuilder(program, diagnostics))
             {
                 Rented = true,
             };
+            Touch(entry);
             var inserted = s_lru.AddFirst(entry);
+            Volatile.Write(ref s_count, s_lru.Count);
             if (bucket == null)
             {
                 bucket = [];
-                s_map.Add(signature, bucket);
+                s_map.Add(program.Signature, bucket);
             }
 
             bucket.Add(inserted);
+            program.CacheEntry = entry;
             if (s_lru.Count > Capacity)
                 EvictOldestUnrented();
 
@@ -139,14 +187,14 @@ internal static class ProgramCache
         }
     }
 
-    private static bool SourcesMatch(SkslSource[] cached, IReadOnlyList<RuntimeShaderStage> stages)
+    private static bool SourcesMatch(SkslSource[] cached, IReadOnlyList<SkslSource> sources)
     {
-        if (cached.Length != stages.Count)
+        if (cached.Length != sources.Count)
             return false;
 
         for (int i = 0; i < cached.Length; i++)
         {
-            SkslSource current = stages[i].Source;
+            SkslSource current = sources[i];
             if (cached[i].Kind != current.Kind
                 || !string.Equals(cached[i].Source, current.Source, StringComparison.Ordinal))
                 return false;
@@ -155,19 +203,9 @@ internal static class ProgramCache
         return true;
     }
 
-    private static SkslSource[] SnapshotSources(IReadOnlyList<RuntimeShaderStage> stages)
+    private static SKRuntimeShaderBuilder CreateBuilder(RuntimeProgram program, PipelineDiagnostics? diagnostics)
     {
-        var result = new SkslSource[stages.Count];
-        for (int i = 0; i < stages.Count; i++)
-            result[i] = stages[i].Source;
-        return result;
-    }
-
-    private static SKRuntimeShaderBuilder CreateBuilder(
-        string signature, Func<string> buildSource, PipelineDiagnostics? diagnostics)
-    {
-        string source = buildSource();
-        SKRuntimeEffect? effect = SKRuntimeEffect.CreateShader(source, out string? error);
+        SKRuntimeEffect? effect = SKRuntimeEffect.CreateShader(program.SourceText, out string? error);
         if (effect == null || error != null)
         {
             effect?.Dispose();
@@ -180,21 +218,51 @@ internal static class ProgramCache
         return new SKRuntimeShaderBuilder(effect);
     }
 
+    private static void Touch(Entry entry)
+        => Volatile.Write(ref entry.LastUsed, Interlocked.Increment(ref s_accessClock));
+
     // Disposing a rented builder would be a use-after-free in the pass holding its lease, so eviction walks past
     // rented entries; with every entry rented (pathological) the cache temporarily exceeds Capacity instead.
     private static void EvictOldestUnrented()
     {
-        for (LinkedListNode<Entry>? node = s_lru.Last; node != null; node = node.Previous)
+        while (true)
         {
-            if (node.Value.Rented)
-                continue;
+            LinkedListNode<Entry>? oldest = null;
+            long oldestUse = long.MaxValue;
+            for (LinkedListNode<Entry>? node = s_lru.First; node != null; node = node.Next)
+            {
+                Entry candidate = node.Value;
+                lock (candidate.Gate)
+                {
+                    long lastUsed = Volatile.Read(ref candidate.LastUsed);
+                    if (!candidate.Rented && !candidate.IsDisposed && lastUsed < oldestUse)
+                    {
+                        oldest = node;
+                        oldestUse = lastUsed;
+                    }
+                }
+            }
 
-            s_lru.Remove(node);
-            List<LinkedListNode<Entry>> bucket = s_map[node.Value.Signature];
-            bucket.Remove(node);
+            if (oldest == null)
+                return;
+
+            Entry entry = oldest.Value;
+            lock (entry.Gate)
+            {
+                // A warm direct lookup can rent the candidate without the global map lock. Retry the scan if it won
+                // this race; disposing a rented builder would invalidate the pass currently binding it.
+                if (entry.Rented || entry.IsDisposed)
+                    continue;
+                entry.IsDisposed = true;
+            }
+
+            s_lru.Remove(oldest);
+            List<LinkedListNode<Entry>> bucket = s_map[entry.Signature];
+            bucket.Remove(oldest);
             if (bucket.Count == 0)
-                s_map.Remove(node.Value.Signature);
-            node.Value.Builder.Dispose();
+                s_map.Remove(entry.Signature);
+            entry.Builder.Dispose();
+            Volatile.Write(ref s_count, s_lru.Count);
             return;
         }
     }
@@ -204,19 +272,37 @@ internal static class ProgramCache
     {
         lock (s_gate)
         {
-            foreach (Entry entry in s_lru)
+            Volatile.Write(ref s_clearing, 1);
+            try
             {
-                if (entry.Rented)
+                foreach (Entry entry in s_lru)
                 {
-                    throw new InvalidOperationException(
-                        "ProgramCache cannot be cleared while a shader builder lease is active.");
+                    lock (entry.Gate)
+                    {
+                        if (entry.Rented)
+                        {
+                            throw new InvalidOperationException(
+                                "ProgramCache cannot be cleared while a shader builder lease is active.");
+                        }
+                    }
                 }
-            }
 
-            foreach (Entry entry in s_lru)
-                entry.Builder.Dispose();
-            s_map.Clear();
-            s_lru.Clear();
+                foreach (Entry entry in s_lru)
+                {
+                    lock (entry.Gate)
+                        entry.IsDisposed = true;
+                    entry.Builder.Dispose();
+                }
+                s_map.Clear();
+                s_lru.Clear();
+                Volatile.Write(ref s_count, 0);
+                Volatile.Write(ref s_coldLookupCountForTest, 0);
+                Volatile.Write(ref s_accessClock, 0);
+            }
+            finally
+            {
+                Volatile.Write(ref s_clearing, 0);
+            }
         }
     }
 
@@ -228,4 +314,6 @@ internal static class ProgramCache
                 return s_lru.Count;
         }
     }
+
+    internal static int ColdLookupCountForTest => Volatile.Read(ref s_coldLookupCountForTest);
 }

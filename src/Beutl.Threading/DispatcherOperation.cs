@@ -3,11 +3,18 @@ namespace Beutl.Threading;
 
 internal sealed class DispatcherOperation
 {
-    public DispatcherOperation(Action action, DispatchPriority priority, CancellationToken ct)
+    private readonly Action<Exception>? _abort;
+
+    public DispatcherOperation(
+        Action action,
+        DispatchPriority priority,
+        CancellationToken ct,
+        Action<Exception>? abort = null)
     {
         Action = action;
         Priority = priority;
         Token = ct;
+        _abort = abort;
         if (!ExecutionContext.IsFlowSuppressed())
         {
             ExecutionContext = ExecutionContext.Capture();
@@ -45,6 +52,18 @@ internal sealed class DispatcherOperation
         else
         {
             Action();
+        }
+    }
+
+    public void Abort(Exception exception)
+    {
+        try
+        {
+            _abort?.Invoke(exception);
+        }
+        finally
+        {
+            ExecutionContext?.Dispose();
         }
     }
 }

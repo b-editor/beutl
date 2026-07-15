@@ -707,6 +707,28 @@ half4 apply(half4 c) {
     }
 
     [Test]
+    public void ParameterBlock_RebindReusesFusedProgramMetadata()
+    {
+        var bounds = new Rect(0, 0, 100, 100);
+        using EffectGraph cachedGraph = NewBuilder(bounds).Shader(Scale(1.2f)).Build();
+        using EffectGraph freshGraph = NewBuilder(bounds).Shader(Scale(3.5f)).Build();
+        CompiledPlan cached = EffectGraphCompiler.Compile(cachedGraph, diagnostics: null);
+        var cachedPass = (FusedShaderPass)cached.Passes[0];
+        FusedProgramLayout layout = cachedPass.ProgramLayout;
+
+        CompiledPlan rebound = ParameterBlock.Extract(freshGraph).RebindOnto(cached);
+        var reboundPass = (FusedShaderPass)rebound.Passes[0];
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(reboundPass.ProgramLayout, Is.SameAs(layout),
+                "a parameter-only cache hit must not rebuild runtime-run lists, signatures, or merged source");
+            Assert.That(reboundPass.ProgramLayout.RuntimePrograms[0],
+                Is.SameAs(layout.RuntimePrograms[0]), "the direct program-cache handle is shared too");
+        });
+    }
+
+    [Test]
     public void ParameterBlock_RebindRejectsDifferentWholeSourceBoundsIdentity()
     {
         const string source = "uniform shader src; half4 main(float2 coord) { return src.eval(coord); }";
@@ -1342,7 +1364,7 @@ half4 apply(half4 c) {
         float carried = res.Passes[1].WorkingScale;
         Assert.That(carried, Is.EqualTo(0.5f).Within(1e-4f), "sanity: maxDimension 50 clamps the chain to w=0.5");
 
-        PlanExecutor.ForceComputeFallbackForTests();
+        IDisposable computeFallbackHook = PlanExecutor.UseTestHooks(static hooks => hooks.ForceComputeFallback = true);
         try
         {
             RenderNodeOperation.DisposeAll(PlanExecutor.Execute(
@@ -1351,7 +1373,7 @@ half4 apply(half4 c) {
         }
         finally
         {
-            PlanExecutor.ResetComputeFallbackForTests();
+            computeFallbackHook.Dispose();
         }
 
         Assert.That(observed, Is.EqualTo(carried).Within(1e-4f),
@@ -1384,7 +1406,7 @@ half4 apply(half4 c) {
         FrameResources resources = EffectGraphCompiler.ResolveResources(
             plan, Rect.Invalid, workingScale: 1.5f);
 
-        PlanExecutor.ForceComputeFallbackForTests();
+        IDisposable computeFallbackHook = PlanExecutor.UseTestHooks(static hooks => hooks.ForceComputeFallback = true);
         try
         {
             RenderNodeOperation.DisposeAll(PlanExecutor.Execute(
@@ -1394,7 +1416,7 @@ half4 apply(half4 c) {
         }
         finally
         {
-            PlanExecutor.ResetComputeFallbackForTests();
+            computeFallbackHook.Dispose();
         }
 
         Assert.Multiple(() =>
@@ -1421,7 +1443,7 @@ half4 apply(half4 c) {
         CompiledPlan plan = Compile(NewBuilder(bounds).Compute(probe));
 
         FrameResources res = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale: 1f);
-        PlanExecutor.ForceComputeFallbackForTests();
+        IDisposable computeFallbackHook = PlanExecutor.UseTestHooks(static hooks => hooks.ForceComputeFallback = true);
         RenderNodeOperation[] outputs;
         try
         {
@@ -1431,7 +1453,7 @@ half4 apply(half4 c) {
         }
         finally
         {
-            PlanExecutor.ResetComputeFallbackForTests();
+            computeFallbackHook.Dispose();
         }
         try
         {

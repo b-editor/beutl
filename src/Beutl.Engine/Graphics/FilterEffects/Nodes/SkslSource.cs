@@ -81,7 +81,8 @@ public sealed partial record SkslSource
     {
         // Comments may legally mention a rejected form ('// uniform float a, b; is not allowed'), so every
         // structural check runs over a comment-stripped copy.
-        string stripped = StripComments(source);
+        string stripped = SkslLexer.StripComments(source);
+        List<SkslToken> tokens = SkslLexer.Tokenize(source);
         if (MultiDeclaratorUniformRegex().IsMatch(stripped))
         {
             throw new ArgumentException(
@@ -92,7 +93,7 @@ public sealed partial record SkslSource
                 nameof(source));
         }
 
-        if (HasTopLevelMultiDeclaratorConst(stripped))
+        if (HasTopLevelMultiDeclaratorConst(tokens))
         {
             throw new ArgumentException(
                 "A fusable snippet must declare each top-level const in its own statement (e.g. 'const float A = "
@@ -103,7 +104,7 @@ public sealed partial record SkslSource
                 nameof(source));
         }
 
-        if (HasTopLevelStruct(stripped))
+        if (HasTopLevelStruct(tokens))
         {
             throw new ArgumentException(
                 "A fusable snippet must not declare a top-level struct: the snippet merger prefixes uniforms and "
@@ -121,51 +122,38 @@ public sealed partial record SkslSource
     // braces (`float3(1, 2, 3)`, `{1, 2}`) are not separators; function-local consts (brace depth > 0) are
     // block-scoped and left alone, and a `const`-qualified function PARAMETER (paren depth > 0) is not a
     // declaration — its parameter-list comma must not read as a declarator list. Expects comment-stripped input.
-    private static bool HasTopLevelMultiDeclaratorConst(string source)
+    private static bool HasTopLevelMultiDeclaratorConst(IReadOnlyList<SkslToken> tokens)
     {
-        int braceDepth = 0;
-        int parenDepth = 0;
         int groupDepth = 0;
         bool inConst = false;
 
-        for (int i = 0; i < source.Length; i++)
+        foreach (SkslToken token in tokens)
         {
-            char c = source[i];
-
             if (!inConst)
             {
-                if (c == '{')
-                    braceDepth++;
-                else if (c == '}' && braceDepth > 0)
-                    braceDepth--;
-                else if (c == '(')
-                    parenDepth++;
-                else if (c == ')' && parenDepth > 0)
-                    parenDepth--;
-                else if (braceDepth == 0 && parenDepth == 0 && IsKeywordAt(source, i, "const"))
+                if (token is { IsIdentifier: true, Text: "const", Depth: 0 })
                 {
                     inConst = true;
                     groupDepth = 0;
-                    i += 4;
                 }
 
                 continue;
             }
 
-            if (c is '(' or '[' or '{')
+            if (token.Text is "(" or "[" or "{")
             {
                 groupDepth++;
             }
-            else if (c is ')' or ']' or '}')
+            else if (token.Text is ")" or "]" or "}")
             {
                 if (groupDepth > 0)
                     groupDepth--;
             }
-            else if (c == ';')
+            else if (token.Text == ";" && groupDepth == 0)
             {
                 inConst = false;
             }
-            else if (c == ',' && groupDepth == 0)
+            else if (token.Text == "," && groupDepth == 0)
             {
                 return true;
             }
@@ -178,69 +166,8 @@ public sealed partial record SkslSource
     // (feN_) but does NOT rename a struct TYPE, so two fused snippets each declaring a top-level struct of the same
     // name collide in the merged program (A2). A function-local struct (brace depth > 0) is block-scoped and left
     // alone. Expects comment-stripped input.
-    private static bool HasTopLevelStruct(string source)
-    {
-        int braceDepth = 0;
-
-        for (int i = 0; i < source.Length; i++)
-        {
-            char c = source[i];
-
-            if (c == '{')
-                braceDepth++;
-            else if (c == '}' && braceDepth > 0)
-                braceDepth--;
-            else if (braceDepth == 0 && IsKeywordAt(source, i, "struct"))
-                return true;
-        }
-
-        return false;
-    }
-
-    // Replaces line/block comments with whitespace so the structural checks never match text an author merely
-    // mentions in a comment. Whitespace (not deletion) keeps token boundaries: '/**/'-joined identifiers stay split.
-    private static string StripComments(string source)
-    {
-        var sb = new StringBuilder(source.Length);
-
-        for (int i = 0; i < source.Length; i++)
-        {
-            char c = source[i];
-
-            if (c == '/' && i + 1 < source.Length && source[i + 1] == '/')
-            {
-                while (i < source.Length && source[i] != '\n')
-                    i++;
-                if (i < source.Length)
-                    sb.Append('\n');
-                continue;
-            }
-
-            if (c == '/' && i + 1 < source.Length && source[i + 1] == '*')
-            {
-                i += 2;
-                while (i + 1 < source.Length && !(source[i] == '*' && source[i + 1] == '/'))
-                    i++;
-                i++;
-                sb.Append(' ');
-                continue;
-            }
-
-            sb.Append(c);
-        }
-
-        return sb.ToString();
-    }
-
-    private static bool IsKeywordAt(string s, int i, string keyword)
-    {
-        if (i + keyword.Length > s.Length || !s.AsSpan(i, keyword.Length).SequenceEqual(keyword))
-            return false;
-        if (i > 0 && (char.IsLetterOrDigit(s[i - 1]) || s[i - 1] == '_'))
-            return false;
-        int after = i + keyword.Length;
-        return after >= s.Length || (!char.IsLetterOrDigit(s[after]) && s[after] != '_');
-    }
+    private static bool HasTopLevelStruct(IReadOnlyList<SkslToken> tokens)
+        => tokens.Any(static token => token is { IsIdentifier: true, Text: "struct", Depth: 0 });
 
     /// <summary>Wraps a whole-source shader defining <c>half4 main(float2 coord)</c> with a <c>src</c> child. Must be non-empty.</summary>
     public static SkslSource WholeSource(string source)
@@ -252,7 +179,7 @@ public sealed partial record SkslSource
 
     private static int ComputeUniformVectorCount(string source)
     {
-        string stripped = StripComments(source);
+        string stripped = SkslLexer.StripComments(source);
         long total = 0;
         foreach (Match match in UniformDeclarationRegex().Matches(stripped))
         {

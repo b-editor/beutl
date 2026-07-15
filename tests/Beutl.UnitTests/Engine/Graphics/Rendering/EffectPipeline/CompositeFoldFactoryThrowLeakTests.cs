@@ -92,7 +92,7 @@ public class CompositeFoldFactoryThrowLeakTests
         FrameResources frame = EffectGraphCompiler.ResolveResources(plan, s_bounds, workingScale: 1f);
         var injected = new InvalidOperationException("composite filter cleanup failed");
 
-        PlanExecutor.ForceCompositeFilterDisposeFailureForTests(injected);
+        IDisposable compositeFilterHook = PlanExecutor.UseTestHooks(hooks => hooks.CompositeFilterDisposeFailure = injected);
         try
         {
             InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
@@ -107,7 +107,7 @@ public class CompositeFoldFactoryThrowLeakTests
         }
         finally
         {
-            PlanExecutor.ResetCompositeFilterDisposeFailureForTests();
+            compositeFilterHook.Dispose();
         }
     }
 

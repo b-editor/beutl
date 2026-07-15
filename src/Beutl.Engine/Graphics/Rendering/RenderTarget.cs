@@ -305,9 +305,8 @@ public class RenderTarget : IDisposable
         _texture?.Value?.PrepareForSampling();
     }
 
-    // A pooled surface can carry recorded-but-unflushed Skia ops (the pool's acquire-time ClearForReuse). They must
-    // be submitted BEFORE raw Vulkan writes the same VkImage: a deferred op replays at the surface's next Skia flush,
-    // which happens after the compute submission and would wipe the compute result.
+    // A reused surface can carry recorded-but-unflushed Skia ops from its previous lease. Submit them BEFORE raw
+    // Vulkan writes the same VkImage: a deferred op replayed by a later Skia flush would overwrite the compute result.
     internal void PrepareForComputeWrite()
     {
         VerifyAccess();

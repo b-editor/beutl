@@ -11,10 +11,11 @@ namespace Beutl.Graphics.Rendering;
 
 /// <summary>
 /// Reuses effect-intermediate <see cref="RenderTarget"/> buffers across frames (feature 004, US3 /
-/// research D4). Exact-size <c>(width, height, format)</c> buckets keep a pooled buffer indistinguishable
-/// from a fresh one so shader resolution uniforms and the 003 density bookkeeping never change; a hit is
-/// a re-wrap of a cleared existing buffer, a miss allocates. Steady-state, structurally-and-size-stable
-/// scenes reuse identical sizes, so allocations drop to zero after the first frame (SC-003).
+/// research D4). Exact-size <c>(width, height, format)</c> buckets keep shader resolution uniforms and the 003
+/// density bookkeeping unchanged; a hit re-wraps an existing buffer and a miss allocates. Steady-state,
+/// structurally-and-size-stable
+/// scenes reuse identical sizes, so allocations drop to zero after the first frame (SC-003). Surface contents are
+/// undefined on acquire; the drawing operation that owns the target initializes it exactly once.
 /// </summary>
 /// <remarks>
 /// <para><b>Lease state machine (ownership inside <see cref="RenderTarget"/>).</b> The pool does not hand
@@ -25,7 +26,7 @@ namespace Beutl.Graphics.Rendering;
 /// target's <em>last</em> ref-count release — never when an individual shallow copy disposes while others
 /// live. States per <see cref="PooledSurface"/>:</para>
 /// <list type="bullet">
-/// <item><description><b>Idle</b> — in a bucket, available. <see cref="Acquire"/> pops, clears, re-wraps → Leased.</description></item>
+/// <item><description><b>Idle</b> — in a bucket, available. <see cref="Acquire"/> pops and re-wraps → Leased.</description></item>
 /// <item><description><b>Leased</b> — one or more live shallow-copy handles. Last release → <see cref="Return"/> → Idle (generation bumped).</description></item>
 /// <item><description><b>Evicted</b> — idle ≥ <see cref="IdleFrameThreshold"/> frames, or trimmed by the byte soft-cap; the backing surface + texture are disposed and the buffer leaves the pool.</description></item>
 /// </list>
@@ -62,7 +63,6 @@ internal sealed class RenderTargetPool : IDisposable
     private readonly PrefixRetentionBudget _prefixRetentionBudget;
     private Func<int, int, (SKSurface Surface, ITexture2D? Texture)?> _backingFactory = RenderTarget.CreateBackingSurface;
     private Func<int, int, TextureFormat, ITexture2D?> _textureFactory = CreateBackingTexture;
-    private Action<PooledSurface> _clearForReuse = ClearForReuse;
     private Action<PooledSurface> _disposeBacking = static pooled => pooled.DisposeBacking();
     private Func<object?> _contextIdentityProvider = static () => GraphicsContextFactory.SharedContext;
     private long _idleBytes;
@@ -106,8 +106,9 @@ internal sealed class RenderTargetPool : IDisposable
     internal void ResetPeakLiveLeases() => _peakLiveLeases = _liveLeases;
 
     /// <summary>
-    /// Acquires a cleared RGBA16F buffer of exactly <paramref name="width"/> × <paramref name="height"/>:
-    /// pops and clears a matching idle buffer (a hit), or allocates a fresh one (a miss). Every successful
+    /// Acquires an RGBA16F buffer of exactly <paramref name="width"/> × <paramref name="height"/>:
+    /// pops a matching idle buffer (a hit), or allocates a fresh one (a miss). Contents are undefined and the
+    /// consumer must initialize them. Every successful
     /// acquire counts <see cref="PipelineDiagnostics.PoolAcquires"/>; a miss additionally counts
     /// <see cref="PipelineDiagnostics.TargetAllocations"/> and <see cref="PipelineDiagnostics.PoolMisses"/>.
     /// Returns <see langword="null"/> on allocation failure, exactly as <see cref="RenderTarget.Create"/> does
@@ -129,17 +130,6 @@ internal sealed class RenderTargetPool : IDisposable
             }
 
             RemoveIdle(pooled);
-            try
-            {
-                _clearForReuse(pooled);
-            }
-            catch
-            {
-                // The entry has already left its bucket and accounting. Its contents are now unknown, so destroy the
-                // backing rather than orphaning it or returning an uncleared surface to a later lease.
-                DisposeBacking(pooled);
-                throw;
-            }
             if (diagnostics != null)
                 diagnostics.PoolAcquires++;
             OnLeaseIssued();
@@ -387,10 +377,6 @@ internal sealed class RenderTargetPool : IDisposable
     internal void SetTextureFactoryForTest(Func<int, int, TextureFormat, ITexture2D?> factory)
         => _textureFactory = factory;
 
-    /// <summary>Test seam: overrides the reuse clear to simulate a deterministic pooled-hit failure.</summary>
-    internal void SetClearForReuseForTest(Action<PooledSurface> clearForReuse)
-        => _clearForReuse = clearForReuse;
-
     /// <summary>Test seam: observes/injects backing-disposal failures while retaining sweep semantics.</summary>
     internal void SetDisposeBackingForTest(Action<PooledSurface> disposeBacking)
         => _disposeBacking = disposeBacking;
@@ -507,13 +493,6 @@ internal sealed class RenderTargetPool : IDisposable
         }
 
         return list;
-    }
-
-    private static void ClearForReuse(PooledSurface pooled)
-    {
-        // A reused buffer must be byte-indistinguishable from a fresh one (frozen-reference suite asserts
-        // SSIM 1.0), so wipe residual content on acquire. Surface-less entries are initialized by their consumer.
-        pooled.Surface?.Canvas.Clear(SKColors.Transparent);
     }
 
     private void VerifyAccess()

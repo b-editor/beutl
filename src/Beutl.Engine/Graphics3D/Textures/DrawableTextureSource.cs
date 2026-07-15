@@ -47,10 +47,6 @@ public sealed partial class DrawableTextureSource : TextureSource
                 return null;
             }
 
-            TextureCache cache = pullPurpose == RenderPullPurpose.Auxiliary
-                ? _auxiliaryCache
-                : _frameCache;
-
             // Rasterize at surfaceDensity so vector content stays crisp.
             int textureWidth = TextureWidth;
             int textureHeight = TextureHeight;
@@ -59,6 +55,20 @@ public sealed partial class DrawableTextureSource : TextureSource
                 new Rect(0, 0, textureWidth, textureHeight), density);
             int deviceWidth = Math.Max(1, (int)Math.Ceiling(textureWidth * (double)density));
             int deviceHeight = Math.Max(1, (int)Math.Ceiling(textureHeight * (double)density));
+
+            // Hit testing normally runs at the same density and version as the frame render. Borrow that texture
+            // instead of retaining a second full-resolution target merely to keep auxiliary state isolated.
+            if (pullPurpose == RenderPullPurpose.Frame
+                && _frameCache.RenderTarget == null
+                && _auxiliaryCache.Matches(deviceWidth, deviceHeight, Version, density))
+            {
+                _auxiliaryCache.MoveTo(_frameCache);
+            }
+
+            TextureCache cache = pullPurpose == RenderPullPurpose.Auxiliary
+                                 && !_frameCache.Matches(deviceWidth, deviceHeight, Version, density)
+                ? _auxiliaryCache
+                : _frameCache;
 
             if (cache.Width != deviceWidth || cache.Height != deviceHeight || cache.RenderTarget == null)
             {
@@ -129,6 +139,31 @@ public sealed partial class DrawableTextureSource : TextureSource
             public int Height { get; set; }
 
             public float Density { get; set; } = -1f;
+
+            public bool Matches(int width, int height, int version, float density)
+                => RenderTarget != null
+                   && Width == width
+                   && Height == height
+                   && RenderTargetVersion == version
+                   && Density == density;
+
+            public void MoveTo(TextureCache destination)
+            {
+                destination.Dispose();
+                destination.DrawableNode = DrawableNode;
+                destination.RenderTarget = RenderTarget;
+                destination.RenderTargetVersion = RenderTargetVersion;
+                destination.Width = Width;
+                destination.Height = Height;
+                destination.Density = Density;
+
+                DrawableNode = null;
+                RenderTarget = null;
+                RenderTargetVersion = -1;
+                Width = 0;
+                Height = 0;
+                Density = -1f;
+            }
 
             public void DisposeRenderTarget()
             {

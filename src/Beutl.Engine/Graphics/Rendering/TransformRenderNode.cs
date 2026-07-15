@@ -48,6 +48,14 @@ public sealed class TransformRenderNode(Matrix transform, TransformOperator tran
             .ToArray();
     }
 
+    internal Rect MapRequestedBoundsToChild(Rect requestedBounds)
+    {
+        if (requestedBounds.IsInvalid || !Transform.HasInverse)
+            return Rect.Invalid;
+
+        return requestedBounds.TransformToAABB(Transform.Invert());
+    }
+
     /// <summary>
     /// Re-scales a bitmap supply density across <paramref name="transform"/>. Enlarging lowers density;
     /// shrinking raises it. Vector (Unbounded) inputs pass through unchanged.

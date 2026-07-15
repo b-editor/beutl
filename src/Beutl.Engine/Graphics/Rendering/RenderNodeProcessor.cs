@@ -301,6 +301,11 @@ public class RenderNodeProcessor
 
     public RenderNodeOperation[] Pull(RenderNode node)
     {
+        return Pull(node, RequestedBounds);
+    }
+
+    private RenderNodeOperation[] Pull(RenderNode node, Rect requestedBounds)
+    {
         if (_useRenderCache && node.Cache is { IsCached: true } cache)
         {
             // Replay tiles with the density they were rasterized at.
@@ -316,10 +321,13 @@ public class RenderNodeProcessor
         RenderNodeOperation[] input = [];
         if (node is ContainerRenderNode container)
         {
+            Rect childRequestedBounds = node is TransformRenderNode transform
+                ? transform.MapRequestedBoundsToChild(requestedBounds)
+                : requestedBounds;
             using var operations = new PooledList<RenderNodeOperation>();
             foreach (RenderNode innerNode in container.Children)
             {
-                operations.AddRange(Pull(innerNode));
+                operations.AddRange(Pull(innerNode, childRequestedBounds));
             }
 
             input = operations.ToArray();
@@ -332,7 +340,7 @@ public class RenderNodeProcessor
             IsRenderCacheEnabled = _useRenderCache,
             Diagnostics = Diagnostics,
             Pool = Pool,
-            RequestedBounds = RequestedBounds,
+            RequestedBounds = requestedBounds,
         };
         var result = node.Process(context);
         if (_useRenderCache && !context.IsRenderCacheEnabled)

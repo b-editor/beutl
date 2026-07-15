@@ -1,4 +1,5 @@
 ﻿using Beutl.Composition;
+using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics3D;
 using Beutl.UnitTests.Engine.Graphics.Backend;
@@ -35,6 +36,7 @@ public class Scene3DRenderNodeScaleTests
                 Assert.Multiple(() =>
                 {
                     Assert.That(ops, Is.Not.Empty);
+                    Assert.That(ops[0].Bounds, Is.EqualTo(new Rect(0, 0, 32, 32)));
                     Assert.That(resource.Renderer, Is.Null,
                         "an auxiliary pull must not create or replace the retained frame renderer");
                 });

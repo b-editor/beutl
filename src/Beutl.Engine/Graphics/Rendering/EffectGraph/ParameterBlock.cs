@@ -37,6 +37,25 @@ internal sealed record ParameterBlock(ImmutableArray<CompiledPass> Passes)
                 "The cached effect plan shape does not match the current structural key.");
         }
 
+        for (int i = 0; i < Passes.Length; i++)
+        {
+            if (Passes[i] is FusedShaderPass current && cached.Passes[i] is FusedShaderPass previous)
+            {
+                current.ReuseProgramLayout(previous);
+            }
+            else if (Passes[i] is CompositePass
+                     {
+                         InputColorFilterFallback: { } currentFallback,
+                     }
+                     && cached.Passes[i] is CompositePass
+                     {
+                         InputColorFilterFallback: { } previousFallback,
+                     })
+            {
+                currentFallback.ReuseProgramLayout(previousFallback);
+            }
+        }
+
         return new CompiledPlan(cached.Key, Passes, cached.Resources);
     }
 

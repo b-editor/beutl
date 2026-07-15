@@ -533,6 +533,52 @@ public class DispatcherTests
         }
     }
 
+    [Test]
+    public async Task Invoke_AfterShutdown_CompletesWithFailureInsteadOfBlocking()
+    {
+        var dispatcher = Dispatcher.Spawn();
+        dispatcher.Shutdown();
+        Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(5)), Is.True);
+
+        Task invoke = Task.Run(() => dispatcher.Invoke(() => { }));
+        Task completed = await Task.WhenAny(invoke, Task.Delay(TimeSpan.FromSeconds(2)));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(completed, Is.SameAs(invoke),
+                "Invoke queued after shutdown must not wait forever for a dispatcher that has already exited.");
+            Assert.That(invoke.Exception?.InnerException, Is.InstanceOf<ObjectDisposedException>());
+        });
+    }
+
+    [Test]
+    public async Task Invoke_AcceptedBeforeShutdown_IsFaultedWhenQueueIsDrained()
+    {
+        var dispatcher = Dispatcher.Spawn();
+        dispatcher.Thread.IsBackground = true;
+        using var entered = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        dispatcher.Dispatch(() =>
+        {
+            entered.Set();
+            release.Wait();
+        }, DispatchPriority.High);
+        Assert.That(entered.Wait(TimeSpan.FromSeconds(5)), Is.True);
+
+        Task pending = dispatcher.InvokeAsync(() => { }, DispatchPriority.Low);
+        dispatcher.Shutdown();
+        Task completed = await Task.WhenAny(pending, Task.Delay(TimeSpan.FromSeconds(2)));
+        release.Set();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(completed, Is.SameAs(pending),
+                "an accepted synchronous request must be faulted instead of orphaned during shutdown");
+            Assert.That(pending.Exception?.InnerException, Is.InstanceOf<ObjectDisposedException>());
+            Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(5)), Is.True);
+        });
+    }
+
     // Regression: an unguarded negative `next - now` (timer slips past between flush and wait)
     // used to throw in CancelAfter and kill the dispatcher thread.
     [Test]

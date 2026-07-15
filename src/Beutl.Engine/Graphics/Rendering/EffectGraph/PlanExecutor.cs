@@ -27,83 +27,78 @@ internal static class PlanExecutor
 
     private readonly record struct BranchOperation(RenderNodeOperation Op, int Ordinal);
 
-    // Test seams: inject throws at compute input/output layout preparation (a native transition failure is not
-    // reliably forcible from a test). The caller restores each seam afterward.
-    private static Exception? s_computePrepareFailureForTests;
-    private static Exception? s_computeOutputPrepareFailureForTests;
-    private static Exception? s_computeCopyFailureForTests;
-    private static Exception? s_computeCopyPrepareFailureForTests;
-    private static Exception? s_computeInputDisposeFailureForTests;
-    private static Exception? s_geometryInputDisposeFailureForTests;
-    private static Exception? s_geometryOutputDisposeFailureForTests;
-    private static Exception? s_splitInputDisposeFailureForTests;
-    private static Exception? s_splitBranchDisposeFailureForTests;
-    private static Exception? s_compositeFilterDisposeFailureForTests;
-    private static Exception? s_skiaFilterDisposeFailureForTests;
-    private static bool s_forceComputeFallbackForTests;
+    // Failure injection is scoped to the caller's execution context. Dispatcher operations capture that context, so
+    // render-thread tests still see their hooks without mutating process-wide state or racing parallel fixtures.
+    private static readonly AsyncLocal<TestHooks?> s_testHooks = new();
 
-    internal static void ForceComputePrepareFailureForTests(Exception exception)
-        => s_computePrepareFailureForTests = exception;
+    internal sealed class TestHooks
+    {
+        public Exception? ComputePrepareFailure { get; set; }
 
-    internal static void ResetComputePrepareFailureForTests() => s_computePrepareFailureForTests = null;
+        public Exception? ComputeOutputPrepareFailure { get; set; }
 
-    internal static void ForceComputeOutputPrepareFailureForTests(Exception exception)
-        => s_computeOutputPrepareFailureForTests = exception;
+        public Exception? ComputeCopyFailure { get; set; }
 
-    internal static void ResetComputeOutputPrepareFailureForTests()
-        => s_computeOutputPrepareFailureForTests = null;
+        public Exception? ComputeCopyPrepareFailure { get; set; }
 
-    internal static void ForceComputeCopyFailureForTests(Exception exception)
-        => s_computeCopyFailureForTests = exception;
+        public Exception? ComputeInputDisposeFailure { get; set; }
 
-    internal static void ResetComputeCopyFailureForTests() => s_computeCopyFailureForTests = null;
+        public Exception? GeometryInputDisposeFailure { get; set; }
 
-    internal static void ForceComputeCopyPrepareFailureForTests(Exception exception)
-        => s_computeCopyPrepareFailureForTests = exception;
+        public Exception? GeometryOutputDisposeFailure { get; set; }
 
-    internal static void ResetComputeCopyPrepareFailureForTests() => s_computeCopyPrepareFailureForTests = null;
+        public Exception? SplitInputDisposeFailure { get; set; }
 
-    internal static void ForceComputeInputDisposeFailureForTests(Exception exception)
-        => s_computeInputDisposeFailureForTests = exception;
+        public Exception? SplitBranchDisposeFailure { get; set; }
 
-    internal static void ResetComputeInputDisposeFailureForTests() => s_computeInputDisposeFailureForTests = null;
+        public Exception? CompositeFilterDisposeFailure { get; set; }
 
-    internal static void ForceGeometryInputDisposeFailureForTests(Exception exception)
-        => s_geometryInputDisposeFailureForTests = exception;
+        public Exception? SkiaFilterDisposeFailure { get; set; }
 
-    internal static void ResetGeometryInputDisposeFailureForTests() => s_geometryInputDisposeFailureForTests = null;
+        public bool ForceComputeFallback { get; set; }
 
-    internal static void ForceGeometryOutputDisposeFailureForTests(Exception exception)
-        => s_geometryOutputDisposeFailureForTests = exception;
+        internal TestHooks Copy()
+            => new()
+            {
+                ComputePrepareFailure = ComputePrepareFailure,
+                ComputeOutputPrepareFailure = ComputeOutputPrepareFailure,
+                ComputeCopyFailure = ComputeCopyFailure,
+                ComputeCopyPrepareFailure = ComputeCopyPrepareFailure,
+                ComputeInputDisposeFailure = ComputeInputDisposeFailure,
+                GeometryInputDisposeFailure = GeometryInputDisposeFailure,
+                GeometryOutputDisposeFailure = GeometryOutputDisposeFailure,
+                SplitInputDisposeFailure = SplitInputDisposeFailure,
+                SplitBranchDisposeFailure = SplitBranchDisposeFailure,
+                CompositeFilterDisposeFailure = CompositeFilterDisposeFailure,
+                SkiaFilterDisposeFailure = SkiaFilterDisposeFailure,
+                ForceComputeFallback = ForceComputeFallback,
+            };
+    }
 
-    internal static void ResetGeometryOutputDisposeFailureForTests() => s_geometryOutputDisposeFailureForTests = null;
+    internal static IDisposable UseTestHooks(Action<TestHooks> configure)
+    {
+        ArgumentNullException.ThrowIfNull(configure);
+        TestHooks? previous = s_testHooks.Value;
+        TestHooks hooks = previous?.Copy() ?? new TestHooks();
+        configure(hooks);
+        s_testHooks.Value = hooks;
+        return new TestHookScope(previous, hooks);
+    }
 
-    internal static void ForceSplitInputDisposeFailureForTests(Exception exception)
-        => s_splitInputDisposeFailureForTests = exception;
+    private sealed class TestHookScope(TestHooks? previous, TestHooks current) : IDisposable
+    {
+        private bool _disposed;
 
-    internal static void ResetSplitInputDisposeFailureForTests() => s_splitInputDisposeFailureForTests = null;
+        public void Dispose()
+        {
+            if (_disposed)
+                return;
 
-    internal static void ForceSplitBranchDisposeFailureForTests(Exception exception)
-        => s_splitBranchDisposeFailureForTests = exception;
-
-    internal static void ResetSplitBranchDisposeFailureForTests() => s_splitBranchDisposeFailureForTests = null;
-
-    internal static void ForceCompositeFilterDisposeFailureForTests(Exception exception)
-        => s_compositeFilterDisposeFailureForTests = exception;
-
-    internal static void ResetCompositeFilterDisposeFailureForTests()
-        => s_compositeFilterDisposeFailureForTests = null;
-
-    internal static void ForceSkiaFilterDisposeFailureForTests(Exception exception)
-        => s_skiaFilterDisposeFailureForTests = exception;
-
-    internal static void ResetSkiaFilterDisposeFailureForTests() => s_skiaFilterDisposeFailureForTests = null;
-
-    // Test seam: CI runs with a compute-capable Vulkan context, so a backend-independent regression test needs a
-    // deterministic way to exercise the declared CPU fallback without mutating the process-wide graphics context.
-    internal static void ForceComputeFallbackForTests() => s_forceComputeFallbackForTests = true;
-
-    internal static void ResetComputeFallbackForTests() => s_forceComputeFallbackForTests = false;
+            _disposed = true;
+            if (ReferenceEquals(s_testHooks.Value, current))
+                s_testHooks.Value = previous;
+        }
+    }
 
     public static RenderNodeOperation[] Execute(
         CompiledPlan plan,
@@ -761,7 +756,7 @@ internal static class PlanExecutor
         Rect fusedSrcRect = outBounds;
         float fusedSrcScale = w;
         RenderTarget? fusedSrcTarget = null;
-        if (pass is FusedShaderPass { CoordinateInvariant: false, Stages: [RuntimeShaderStage { Source.Kind: SkslSourceKind.WholeSource } wsStage] })
+        if (pass is FusedShaderPass { NeedsSourceHaloBake: true, Stages: [RuntimeShaderStage wsStage] })
         {
             bool nonDecal = wsStage.SrcTileMode != SKShaderTileMode.Decal;
             Rect claimed = nonDecal ? op.Bounds : op.Bounds.Union(outBounds);
@@ -902,7 +897,7 @@ internal static class PlanExecutor
         Exception? executionFailure = null;
         try
         {
-            SKShader composed = ComposeStages(pass.Stages, srcShader, uniformContext, diagnostics, disposables);
+            SKShader composed = ComposeStages(pass, srcShader, uniformContext, diagnostics, disposables);
             using var paint = new SKPaint { Shader = composed };
             using var canvas = new ImmediateCanvas(
                 target, renderIntent, w, maxWorkingScale, logicalSize: outBounds.Size,
@@ -946,9 +941,9 @@ internal static class PlanExecutor
                     SKImageFilter? predecessor = filter;
                     filter = outer;
                     predecessor?.Dispose();
-                    if (predecessor != null && s_skiaFilterDisposeFailureForTests is { } injected)
+                    if (predecessor != null && s_testHooks.Value?.SkiaFilterDisposeFailure is { } injected)
                     {
-                        s_skiaFilterDisposeFailureForTests = null;
+                        s_testHooks.Value.SkiaFilterDisposeFailure = null;
                         throw injected;
                     }
                 }
@@ -1009,11 +1004,14 @@ internal static class PlanExecutor
     }
 
     private static SKShader ComposeStages(
-        ImmutableArray<FusedStage> stages, SKShader srcShader, in PassUniformContext uniformContext,
+        FusedShaderPass pass, SKShader srcShader, in PassUniformContext uniformContext,
         PipelineDiagnostics? diagnostics, List<IDisposable> disposables)
     {
+        ImmutableArray<FusedStage> stages = pass.Stages;
+        ImmutableArray<RuntimeProgram> programs = pass.ProgramLayout.RuntimePrograms;
         SKShader current = srcShader;
         int i = 0;
+        int programIndex = 0;
         while (i < stages.Length)
         {
             if (stages[i] is ColorFilterStage colorFilter)
@@ -1029,16 +1027,10 @@ internal static class PlanExecutor
             }
             else
             {
-                int j = i;
-                var run = new List<RuntimeShaderStage>();
-                while (j < stages.Length && stages[j] is RuntimeShaderStage runtime)
-                {
-                    run.Add(runtime);
-                    j++;
-                }
-
-                current = BuildRuntimeRun(run, current, uniformContext, diagnostics, disposables);
-                i = j;
+                RuntimeProgram program = programs[programIndex++];
+                current = BuildRuntimeRun(
+                    program, stages, current, uniformContext, diagnostics, disposables);
+                i += program.StageCount;
             }
         }
 
@@ -1046,39 +1038,34 @@ internal static class PlanExecutor
     }
 
     private static SKShader BuildRuntimeRun(
-        List<RuntimeShaderStage> run, SKShader srcChild, in PassUniformContext uniformContext,
+        RuntimeProgram program, ImmutableArray<FusedStage> stages, SKShader srcChild,
+        in PassUniformContext uniformContext,
         PipelineDiagnostics? diagnostics, List<IDisposable> disposables)
     {
-        bool wholeSource = run.Count == 1 && run[0].Source.Kind == SkslSourceKind.WholeSource;
-        string childName = wholeSource ? "src" : SkslSnippetMerger.SourceChildName;
-
         // The program (merged/whole SKSL parse) is structural, so it is cached process-wide by a source-identity
-        // signature: a warm run neither re-merges nor re-parses, keeping ProgramCreations at zero (SC-002). The
+        // descriptor: a warm run neither allocates run metadata, re-merges, takes the global map lock, nor re-parses,
+        // keeping ProgramCreations at zero (SC-002). The
         // leased builder (which owns its SKRuntimeEffect) is reused, its per-frame uniforms/children overwritten and
         // Build() re-run below; only the lease is disposed here — disposing the builder would free the shared effect
         // (the cache disposes it on eviction). Its built shader is independent and IS disposed per frame. The lease
         // spans the whole bind: a deferred child resolved below can render a DrawableBrush whose nested pass requests
         // this same signature, and the lease is what routes that reentrant use onto its own builder.
-        string signature = ProgramSignature(run, wholeSource);
-        using ProgramCache.Lease lease = ProgramCache.GetOrCreate(
-            signature,
-            run,
-            () => wholeSource ? run[0].Source.Source : SkslSnippetMerger.Merge(run.Select(s => s.Source).ToList()),
-            diagnostics);
+        using ProgramCache.Lease lease = ProgramCache.GetOrCreate(program, diagnostics);
         SKRuntimeShaderBuilder builder = lease.Builder;
         // Clear the reused builder's prior-frame state before rebinding (still O(bindings) per frame): a same-signature
         // run that omits a binding this frame must see the program default, not the stale value — and a stale
         // executor-owned child would reference a shader disposed after that earlier draw.
         builder.Uniforms.Reset();
         builder.Children.Reset();
-        builder.Children[childName] = srcChild;
+        builder.Children[program.ChildName] = srcChild;
 
-        for (int k = 0; k < run.Count; k++)
+        for (int k = 0; k < program.StageCount; k++)
         {
-            SkslSource source = run[k].Source;
-            foreach (UniformBinding uniform in run[k].Uniforms)
+            var stage = (RuntimeShaderStage)stages[program.StartStage + k];
+            SkslSource source = stage.Source;
+            foreach (UniformBinding uniform in stage.Uniforms)
             {
-                string name = wholeSource
+                string name = program.IsWholeSource
                     ? uniform.Name
                     : SkslSnippetMerger.GetPrefixedName(source, k, uniform.Name);
                 uniform.Apply(builder, name, in uniformContext);
@@ -1087,12 +1074,12 @@ internal static class PlanExecutor
             // child's shader is produced here from this pass's real density (executorOwned == true) and tracked for
             // disposal after the draw. Either way the graph releases eager bindings after execution even when this
             // pass is skipped for an empty ROI (contract A2).
-            foreach (ChildBinding child in run[k].Children)
+            foreach (ChildBinding child in stage.Children)
             {
                 SKShader childShader = child.Resolve(in uniformContext, out bool executorOwned);
                 if (executorOwned)
                     disposables.Add(childShader);
-                string name = wholeSource
+                string name = program.IsWholeSource
                     ? child.Name
                     : SkslSnippetMerger.GetPrefixedName(source, k, child.Name);
                 builder.Children[name] = childShader;
@@ -1100,24 +1087,6 @@ internal static class PlanExecutor
         }
 
         return Track(builder.Build(), disposables);
-    }
-
-    // The program-cache bucket key: the ordered source hashes of a runtime run. ProgramCache performs the final
-    // identity check against every source's complete text and kind, so a 64-bit collision cannot alias programs.
-    private static string ProgramSignature(List<RuntimeShaderStage> run, bool wholeSource)
-    {
-        if (wholeSource)
-            return "w:" + run[0].Source.IdentityHash;
-
-        var sb = new System.Text.StringBuilder("m:");
-        for (int i = 0; i < run.Count; i++)
-        {
-            if (i > 0)
-                sb.Append(',');
-            sb.Append(run[i].Source.IdentityHash);
-        }
-
-        return sb.ToString();
     }
 
     private static SKShader Track(SKShader shader, List<IDisposable> disposables)
@@ -1128,7 +1097,7 @@ internal static class PlanExecutor
 
     private static bool SupportsCompute()
     {
-        if (s_forceComputeFallbackForTests)
+        if (s_testHooks.Value?.ForceComputeFallback == true)
             return false;
 
         IGraphicsContext? gfx = GraphicsContextFactory.SharedContext;
@@ -1235,9 +1204,9 @@ internal static class PlanExecutor
 
         Exception? successCleanupFailure = null;
         CaptureDisposeFailure(outputTarget, ref successCleanupFailure);
-        if (s_geometryOutputDisposeFailureForTests is { } outputDisposeFailure)
+        if (s_testHooks.Value?.GeometryOutputDisposeFailure is { } outputDisposeFailure)
         {
-            s_geometryOutputDisposeFailureForTests = null;
+            s_testHooks.Value.GeometryOutputDisposeFailure = null;
             successCleanupFailure ??= outputDisposeFailure;
         }
         CaptureDisposeFailure(op, ref successCleanupFailure);
@@ -1269,7 +1238,7 @@ internal static class PlanExecutor
     {
         wroteVulkanOutput = false;
         IGraphicsContext? gfx = GraphicsContextFactory.SharedContext;
-        if (s_forceComputeFallbackForTests || gfx is not { Supports3DRendering: true })
+        if (s_testHooks.Value?.ForceComputeFallback == true || gfx is not { Supports3DRendering: true })
         {
             // Identity/Skip already returned in MapOneOperation; only CpuCallback reaches here without Vulkan.
             return ExecuteComputeCpuFallback(
@@ -1319,7 +1288,7 @@ internal static class PlanExecutor
                 return op;
             }
 
-            if (s_computePrepareFailureForTests is { } injected)
+            if (s_testHooks.Value?.ComputePrepareFailure is { } injected)
                 throw injected;
             inputTarget.PrepareForSampling();
             if (diagnostics != null)
@@ -1356,7 +1325,7 @@ internal static class PlanExecutor
         var scratch = new List<RenderTarget>();
         try
         {
-            if (s_computeOutputPrepareFailureForTests is { } injected)
+            if (s_testHooks.Value?.ComputeOutputPrepareFailure is { } injected)
                 throw injected;
             outputTarget.PrepareForComputeWrite();
         }
@@ -1621,9 +1590,9 @@ internal static class PlanExecutor
     private static void CaptureComputeInputDisposeFailure(RenderTarget inputTarget, ref Exception? cleanupFailure)
     {
         CaptureDisposeFailure(inputTarget, ref cleanupFailure);
-        if (s_computeInputDisposeFailureForTests is { } inputDisposeFailure)
+        if (s_testHooks.Value?.ComputeInputDisposeFailure is { } inputDisposeFailure)
         {
-            s_computeInputDisposeFailureForTests = null;
+            s_testHooks.Value.ComputeInputDisposeFailure = null;
             cleanupFailure ??= inputDisposeFailure;
         }
     }
@@ -1631,9 +1600,9 @@ internal static class PlanExecutor
     private static void CaptureGeometryInputDisposeFailure(RenderTarget inputTarget, ref Exception? cleanupFailure)
     {
         CaptureDisposeFailure(inputTarget, ref cleanupFailure);
-        if (s_geometryInputDisposeFailureForTests is { } inputDisposeFailure)
+        if (s_testHooks.Value?.GeometryInputDisposeFailure is { } inputDisposeFailure)
         {
-            s_geometryInputDisposeFailureForTests = null;
+            s_testHooks.Value.GeometryInputDisposeFailure = null;
             cleanupFailure ??= inputDisposeFailure;
         }
     }
@@ -1730,9 +1699,9 @@ internal static class PlanExecutor
                 {
                     Exception? cleanupFailure = null;
                     CaptureDisposeFailure(inputTarget, ref cleanupFailure);
-                    if (s_splitInputDisposeFailureForTests is { } inputDisposeFailure)
+                    if (s_testHooks.Value?.SplitInputDisposeFailure is { } inputDisposeFailure)
                     {
-                        s_splitInputDisposeFailureForTests = null;
+                        s_testHooks.Value.SplitInputDisposeFailure = null;
                         cleanupFailure ??= inputDisposeFailure;
                     }
                     CaptureDisposeFailure(op, ref cleanupFailure);
@@ -1894,9 +1863,9 @@ internal static class PlanExecutor
 
         Exception? filterCleanupFailure = null;
         CaptureDisposeFailure(branchFilter, ref filterCleanupFailure);
-        if (s_compositeFilterDisposeFailureForTests is { } filterDisposeFailure)
+        if (s_testHooks.Value?.CompositeFilterDisposeFailure is { } filterDisposeFailure)
         {
-            s_compositeFilterDisposeFailureForTests = null;
+            s_testHooks.Value.CompositeFilterDisposeFailure = null;
             filterCleanupFailure ??= filterDisposeFailure;
         }
 
@@ -2060,7 +2029,7 @@ internal static class PlanExecutor
                 ?? throw new ComputeScratchAllocationException(
                     $"Compute ping-pong scratch allocation failed ({width}x{height} px).");
             colorScratch.Add(target);
-            // A pooled Skia surface may still have its acquire-time clear queued. Submit that work before Vulkan
+            // A reused Skia surface may still carry queued work from its previous lease. Submit it before Vulkan
             // writes the backing image, otherwise a later Skia flush can overwrite the compute result.
             ComputeBackendPreparationFailure.Run(target.PrepareForComputeWrite);
             return target.Texture
@@ -2077,16 +2046,16 @@ internal static class PlanExecutor
 
             ComputeBackendPreparationFailure.Run(() =>
             {
-                if (s_computeCopyFailureForTests is { } injected)
+                if (s_testHooks.Value?.ComputeCopyFailure is { } injected)
                 {
-                    s_computeCopyFailureForTests = null;
+                    s_testHooks.Value.ComputeCopyFailure = null;
                     throw injected;
                 }
 
                 gfx.CopyTexture(source, destination);
-                if (s_computeCopyPrepareFailureForTests is { } prepareFailure)
+                if (s_testHooks.Value?.ComputeCopyPrepareFailure is { } prepareFailure)
                 {
-                    s_computeCopyPrepareFailureForTests = null;
+                    s_testHooks.Value.ComputeCopyPrepareFailure = null;
                     throw prepareFailure;
                 }
 
@@ -2288,9 +2257,9 @@ internal static class PlanExecutor
 
             Exception? branchCleanupFailure = null;
             CaptureDisposeFailure(branchTarget, ref branchCleanupFailure);
-            if (s_splitBranchDisposeFailureForTests is { } branchDisposeFailure)
+            if (s_testHooks.Value?.SplitBranchDisposeFailure is { } branchDisposeFailure)
             {
-                s_splitBranchDisposeFailureForTests = null;
+                s_testHooks.Value.SplitBranchDisposeFailure = null;
                 branchCleanupFailure ??= branchDisposeFailure;
             }
             if (branchCleanupFailure is { } cleanupFailure)

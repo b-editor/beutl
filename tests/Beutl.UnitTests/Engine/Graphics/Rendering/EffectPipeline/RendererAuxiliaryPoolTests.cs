@@ -14,6 +14,42 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.EffectPipeline;
 [TestFixture]
 public class RendererAuxiliaryPoolTests
 {
+    [Test]
+    public void RecalculateBoundaries_AfterFrameRender_ReusesTheRenderedBounds()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            PoolProbeRenderNode.ProcessCount = 0;
+            var shape = new RectShape
+            {
+                Width = { CurrentValue = 64 },
+                Height = { CurrentValue = 48 },
+                Fill = { CurrentValue = Brushes.White },
+                FilterEffect = { CurrentValue = new PoolProbeEffect() },
+            };
+            Drawable.Resource resource = shape.ToResource(CompositionContext.Default);
+            var frame = new CompositionFrame(
+                ImmutableArray.Create<EngineObject.Resource>(resource),
+                new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
+                new PixelSize(128, 96));
+
+            using var renderer = new Renderer(128, 96, RenderIntent.Delivery);
+            renderer.Render(frame);
+            int frameProcessCount = PoolProbeRenderNode.ProcessCount;
+
+            Rect[] boundaries = renderer.RecalculateBoundaries(shape.ZIndex);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(boundaries, Has.Length.EqualTo(1));
+                Assert.That(boundaries[0], Is.EqualTo(new Rect(32, 24, 64, 48)));
+                Assert.That(PoolProbeRenderNode.ProcessCount, Is.EqualTo(frameProcessCount),
+                    "The selection overlay must reuse bounds collected during the frame pull instead of executing the effect pipeline again.");
+            });
+        });
+    }
+
     [TestCase(false)]
     [TestCase(true)]
     public void AuxiliaryPull_ForwardsRendererPoolToFilterEffects(bool hitTest)
@@ -86,8 +122,11 @@ internal sealed class PoolProbeRenderNode(FilterEffect.Resource resource) : Filt
 
     internal static bool SawAuxiliaryPull { get; set; }
 
+    internal static int ProcessCount { get; set; }
+
     public override RenderNodeOperation[] Process(RenderNodeContext context)
     {
+        ProcessCount++;
         SawPool |= context.Pool != null;
         SawAuxiliaryPull |= context.IsAuxiliaryPull;
         if (context.Diagnostics != null)

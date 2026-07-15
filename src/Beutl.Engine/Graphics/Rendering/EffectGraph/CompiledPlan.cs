@@ -104,6 +104,8 @@ internal sealed record ColorFilterStage(Func<SKColorFilter?> Factory) : FusedSta
 /// </summary>
 internal sealed record FusedShaderPass(ImmutableArray<FusedStage> Stages) : CompiledPass
 {
+    private FusedProgramLayout? _programLayout;
+
     /// <summary>
     /// True when every stage is coordinate-invariant, so the pass's output bounds equal its input's and the
     /// executor may size/place it from the operation's own bounds. A pass wrapping a single non-invariant
@@ -112,8 +114,111 @@ internal sealed record FusedShaderPass(ImmutableArray<FusedStage> Stages) : Comp
     /// </summary>
     public bool CoordinateInvariant { get; init; } = true;
 
+    /// <summary>
+    /// True when the executor may need a second target to bake source pixels outside the resolved output ROI.
+    /// Resource planning and execution must use this single predicate so the FR-007 declaration cannot drift
+    /// from the buffer the executor actually acquires.
+    /// </summary>
+    internal bool NeedsSourceHaloBake
+        => !CoordinateInvariant
+            && Stages is [RuntimeShaderStage { Source.Kind: SkslSourceKind.WholeSource }];
+
+    /// <summary>
+    /// Structural runtime-program metadata shared with every parameter-only rebind of this pass. It owns the merged
+    /// source, signature, stage slice, and direct cache handle, so warm execution does not rebuild any of them.
+    /// </summary>
+    internal FusedProgramLayout ProgramLayout => _programLayout ??= FusedProgramLayout.Create(Stages);
+
+    internal void ReuseProgramLayout(FusedShaderPass cached)
+        => _programLayout = cached.ProgramLayout;
+
     /// <inheritdoc/>
     public override PassBackend Backend => PassBackend.Skia;
+}
+
+internal sealed record FusedProgramLayout(ImmutableArray<RuntimeProgram> RuntimePrograms)
+{
+    public static FusedProgramLayout Create(ImmutableArray<FusedStage> stages)
+    {
+        var programs = ImmutableArray.CreateBuilder<RuntimeProgram>();
+        for (int i = 0; i < stages.Length;)
+        {
+            if (stages[i] is not RuntimeShaderStage)
+            {
+                i++;
+                continue;
+            }
+
+            int start = i;
+            while (i < stages.Length && stages[i] is RuntimeShaderStage)
+                i++;
+            programs.Add(RuntimeProgram.Create(stages, start, i - start));
+        }
+
+        return new FusedProgramLayout(programs.ToImmutable());
+    }
+}
+
+internal sealed class RuntimeProgram
+{
+    internal RuntimeProgram(
+        int startStage, int stageCount, bool isWholeSource, string signature,
+        SkslSource[] sources, string sourceText)
+    {
+        StartStage = startStage;
+        StageCount = stageCount;
+        IsWholeSource = isWholeSource;
+        Signature = signature;
+        Sources = sources;
+        SourceText = sourceText;
+    }
+
+    public int StartStage { get; }
+
+    public int StageCount { get; }
+
+    public bool IsWholeSource { get; }
+
+    public string ChildName => IsWholeSource ? "src" : SkslSnippetMerger.SourceChildName;
+
+    public string Signature { get; }
+
+    public SkslSource[] Sources { get; }
+
+    public string SourceText { get; }
+
+    internal ProgramCache.Entry? CacheEntry { get; set; }
+
+    public static RuntimeProgram Create(ImmutableArray<FusedStage> stages, int startStage, int stageCount)
+    {
+        var sources = new SkslSource[stageCount];
+        for (int i = 0; i < stageCount; i++)
+            sources[i] = ((RuntimeShaderStage)stages[startStage + i]).Source;
+
+        bool wholeSource = stageCount == 1 && sources[0].Kind == SkslSourceKind.WholeSource;
+        string signature;
+        string sourceText;
+        if (wholeSource)
+        {
+            signature = "w:" + sources[0].IdentityHash;
+            sourceText = sources[0].Source;
+        }
+        else
+        {
+            var builder = new System.Text.StringBuilder("m:");
+            for (int i = 0; i < sources.Length; i++)
+            {
+                if (i > 0)
+                    builder.Append(',');
+                builder.Append(sources[i].IdentityHash);
+            }
+
+            signature = builder.ToString();
+            sourceText = SkslSnippetMerger.Merge(sources);
+        }
+
+        return new RuntimeProgram(startStage, stageCount, wholeSource, signature, sources, sourceText);
+    }
 }
 
 /// <summary>
