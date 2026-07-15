@@ -1,5 +1,6 @@
 ﻿using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
+using Beutl.Media;
 using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
@@ -222,6 +223,18 @@ public class RenderNodeProcessorExceptionSafetyTests
     }
 
     [Test]
+    public void CreateChildProcessor_InheritsParentRenderTargetAllocator()
+    {
+        using var root = new ChildRasterizingNode();
+        var processor = new FakeRenderNodeProcessor(root, _ => false, throwOnCreate: true);
+
+        InvalidOperationException? error = Assert.Throws<InvalidOperationException>(() => processor.PullToRoot());
+
+        Assert.That(error!.Message, Is.EqualTo("rt-create-fault"),
+            "nested rasterization must use the allocation policy supplied by the parent processor");
+    }
+
+    [Test]
     public void DisposeAll_DisposesEveryOperation_EvenWhenAnOperationThrowsOnDispose()
     {
         var disposed = new List<string>();
@@ -362,6 +375,20 @@ public class RenderNodeProcessorExceptionSafetyTests
     private sealed class ThrowingProcessNode(Exception exception) : RenderNode
     {
         public override RenderNodeOperation[] Process(RenderNodeContext context) => throw exception;
+    }
+
+    private sealed class ChildRasterizingNode : RenderNode
+    {
+        public override RenderNodeOperation[] Process(RenderNodeContext context)
+        {
+            using var child = new StaticRenderNode(
+                CreateOperation("nested", new List<string>()));
+            RenderNodeProcessor processor = context.CreateChildProcessor(child, useRenderCache: false);
+            List<Bitmap> bitmaps = processor.Rasterize();
+            foreach (Bitmap bitmap in bitmaps)
+                bitmap.Dispose();
+            return [];
+        }
     }
 
     // Substitutes RenderTarget allocation so the exception-safety paths can run with a RenderTarget

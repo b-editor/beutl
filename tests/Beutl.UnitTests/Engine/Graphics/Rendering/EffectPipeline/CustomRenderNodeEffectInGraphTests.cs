@@ -456,6 +456,54 @@ public class CustomRenderNodeEffectInGraphTests
     }
 
     [Test]
+    public void AuxiliaryPull_WithDifferentStructure_PreservesFrameCustomNodeState()
+    {
+        var calls = new int[1];
+        var creations = new int[1];
+        var disposals = new int[1];
+        var observedStates = new List<int>();
+        var effect = new PurposeConditionalCustomNodeEffect(
+            new ProbeCustomNodeEffect(calls, creations, disposals, observedStates));
+        using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
+        using var owner = new PlanFilterEffectRenderNode(resource);
+        var diagnostics = new PipelineDiagnostics();
+
+        RenderNodeOperation.DisposeAll(owner.Process(
+            new RenderNodeContext([MakeInput(s_bounds)], RenderIntent.Delivery)
+            {
+                Diagnostics = diagnostics,
+            }));
+        RenderNodeOperation.DisposeAll(owner.Process(
+            new RenderNodeContext(
+                [MakeInput(s_bounds)], RenderIntent.Delivery,
+                pullPurpose: RenderPullPurpose.Auxiliary)
+            {
+                Diagnostics = diagnostics,
+            }));
+        RenderNodeOperation.DisposeAll(owner.Process(
+            new RenderNodeContext([MakeInput(s_bounds)], RenderIntent.Delivery)
+            {
+                Diagnostics = diagnostics,
+            }));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(creations[0], Is.EqualTo(1),
+                "an auxiliary graph must not retire the persistent custom node owned by the frame graph");
+            Assert.That(disposals[0], Is.Zero,
+                "the frame custom node stays live until its frame-plan owner is disposed");
+            Assert.That(observedStates, Is.EqualTo(new[] { 1, 2 }),
+                "the frame custom node's mutable state survives a structurally different auxiliary pull");
+            Assert.That(diagnostics.Snapshot().PlanCompilations, Is.EqualTo(2),
+                "the auxiliary plan compiles independently and must not evict the frame plan");
+        });
+
+        owner.Dispose();
+        Assert.That(disposals[0], Is.EqualTo(1),
+            "the retained frame custom node is disposed exactly once with its owner");
+    }
+
+    [Test]
     public void EmbeddedCustomRenderNode_ReplacementAndPruneDisposeRetiredNodes()
     {
         var calls = new int[1];
@@ -640,6 +688,22 @@ public class CustomRenderNodeEffectInGraphTests
         {
             builder.Abort();
         }
+    }
+
+    [Test]
+    public void Execute_CustomRenderNodeChildProcessor_InheritsRootAllocator()
+    {
+        var group = new FilterEffectGroup();
+        group.Children.Add(new ChildRasterizingCustomNodeEffect());
+        using FilterEffect.Resource resource = group.ToResource(CompositionContext.Default);
+        using var owner = new PlanFilterEffectRenderNode(resource);
+        owner.AddChild(new AllocationProbeInputNode());
+        var processor = new ThrowingAllocationRenderNodeProcessor(owner);
+
+        InvalidOperationException? error = Assert.Throws<InvalidOperationException>(() => processor.PullToRoot());
+
+        Assert.That(error!.Message, Is.EqualTo("inherited-allocation-fault"),
+            "a custom-node context created by PlanExecutor must preserve the root processor's allocation policy");
     }
 
     // ---- Node-graph end-to-end (Vulkan-gated) ----------------------------------------------------------
@@ -1000,6 +1064,36 @@ internal sealed partial class ProbeCustomNodeEffect(
     }
 }
 
+[SuppressResourceClassGeneration]
+internal sealed partial class PurposeConditionalCustomNodeEffect(ProbeCustomNodeEffect child) : FilterEffect
+{
+    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
+    {
+        if (builder.PullPurpose == RenderPullPurpose.Frame)
+            builder.Effect(((Resource)resource).Child);
+    }
+
+    public override Resource ToResource(CompositionContext context)
+    {
+        var resource = new Resource(
+            (ProbeCustomNodeEffect.Resource)child.ToResource(context));
+        bool updateOnly = false;
+        resource.Update(this, context, ref updateOnly);
+        return resource;
+    }
+
+    public new sealed class Resource(ProbeCustomNodeEffect.Resource childResource) : FilterEffect.Resource
+    {
+        public ProbeCustomNodeEffect.Resource Child => childResource;
+
+        protected override void Dispose(bool disposing)
+        {
+            childResource.Dispose();
+            base.Dispose(disposing);
+        }
+    }
+}
+
 internal sealed class ProbeRenderNode : FilterEffectRenderNode
 {
     private readonly ProbeCustomNodeEffect.Resource _resource;
@@ -1037,6 +1131,57 @@ internal sealed class ProbeRenderNode : FilterEffectRenderNode
             _resource.ServedFromCacheCount[0]++;
         base.OnServedFromCache();
     }
+}
+
+[SuppressResourceClassGeneration]
+internal sealed partial class ChildRasterizingCustomNodeEffect : CustomRenderNodeFilterEffect
+{
+    public override Resource ToResource(CompositionContext context)
+    {
+        var resource = new Resource();
+        bool updateOnly = false;
+        resource.Update(this, context, ref updateOnly);
+        return resource;
+    }
+
+    public new sealed class Resource : CustomRenderNodeFilterEffect.Resource
+    {
+        private static readonly FilterEffectRenderNodeFactory s_factory =
+            FilterEffectRenderNodeFactory.Of<Resource, ChildRasterizingRenderNode>(
+                static resource => new ChildRasterizingRenderNode(resource));
+
+        public override FilterEffectRenderNodeFactory RenderNodeFactory => s_factory;
+    }
+}
+
+internal sealed class ChildRasterizingRenderNode(FilterEffect.Resource resource) : FilterEffectRenderNode(resource)
+{
+    public override RenderNodeOperation[] Process(RenderNodeContext context)
+    {
+        using var child = new AllocationProbeInputNode();
+        RenderNodeProcessor processor = context.CreateChildProcessor(child, useRenderCache: false);
+        List<Bitmap> bitmaps = processor.Rasterize();
+        foreach (Bitmap bitmap in bitmaps)
+            bitmap.Dispose();
+        return context.Input;
+    }
+}
+
+internal sealed class AllocationProbeInputNode : RenderNode
+{
+    public override RenderNodeOperation[] Process(RenderNodeContext context)
+        =>
+        [
+            RenderNodeOperation.CreateLambda(
+                new Rect(0, 0, 4, 4), static _ => { }),
+        ];
+}
+
+internal sealed class ThrowingAllocationRenderNodeProcessor(RenderNode root)
+    : RenderNodeProcessor(root, useRenderCache: false, RenderIntent.Delivery)
+{
+    protected override RenderTarget? CreateRenderTarget(int width, int height)
+        => throw new InvalidOperationException("inherited-allocation-fault");
 }
 
 [SuppressResourceClassGeneration]

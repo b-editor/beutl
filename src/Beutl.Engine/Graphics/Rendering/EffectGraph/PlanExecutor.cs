@@ -119,7 +119,8 @@ internal static class PlanExecutor
         int startPass = 0,
         PrefixCaptureSink? captureSink = null,
         bool isRenderCacheEnabled = true,
-        RenderPullPurpose pullPurpose = RenderPullPurpose.Frame)
+        RenderPullPurpose pullPurpose = RenderPullPurpose.Frame,
+        Func<int, int, RenderTarget?>? renderTargetFactory = null)
     {
         renderIntent = RenderPolicyValidation.Validate(renderIntent, nameof(renderIntent));
         pullPurpose = RenderPolicyValidation.Validate(pullPurpose, nameof(pullPurpose));
@@ -129,7 +130,8 @@ internal static class PlanExecutor
 
         BranchExecutionResult result = ExecuteBranches(
             plan, resources, inputBranches, outputScale, workingScale, maxWorkingScale,
-            diagnostics, pool, renderIntent, startPass, captureSink, isRenderCacheEnabled, pullPurpose);
+            diagnostics, pool, renderIntent, startPass, captureSink, isRenderCacheEnabled, pullPurpose,
+            renderTargetFactory: renderTargetFactory);
         return result.Outputs.Select(static branch => branch.Op).ToArray();
     }
 
@@ -149,7 +151,8 @@ internal static class PlanExecutor
         RenderPullPurpose pullPurpose = RenderPullPurpose.Frame,
         int ordinalGeneration = 0,
         int ordinalSpan = 0,
-        PassBackend initialBackend = PassBackend.Skia)
+        PassBackend initialBackend = PassBackend.Skia,
+        Func<int, int, RenderTarget?>? renderTargetFactory = null)
     {
         // FR-007 (C3.1) measurement scope: pooled leases live before this execution belong to the caller (an outer
         // plan, a held upstream op) and are subtracted from the peak measured for this plan.
@@ -217,12 +220,12 @@ internal static class PlanExecutor
                         ExecuteNestedGraph(
                             nestedGraph, current, outputScale, workingScale, maxWorkingScale, maxDimension,
                             diagnostics, pool, isRenderCacheEnabled, pullPurpose, renderIntent,
-                            ref ordinalGeneration, ref ordinalSpan, ref runtimeBackend);
+                            ref ordinalGeneration, ref ordinalSpan, ref runtimeBackend, renderTargetFactory);
                         break;
                     case CustomRenderNodePass customNode:
                         ExecuteCustomRenderNode(
                             customNode, current, outputScale, maxWorkingScale, diagnostics, pool,
-                            isRenderCacheEnabled, pullPurpose, renderIntent);
+                            isRenderCacheEnabled, pullPurpose, renderIntent, renderTargetFactory);
                         break;
                     default:
                         wroteVulkanOutput = MapDescriptorPass(
@@ -300,7 +303,8 @@ internal static class PlanExecutor
         float outputScale, float workingScale,
         float maxWorkingScale, int maxDimension, PipelineDiagnostics? diagnostics, RenderTargetPool? pool,
         bool isRenderCacheEnabled, RenderPullPurpose pullPurpose, RenderIntent renderIntent,
-        ref int ordinalGeneration, ref int ordinalSpan, ref PassBackend runtimeBackend)
+        ref int ordinalGeneration, ref int ordinalSpan, ref PassBackend runtimeBackend,
+        Func<int, int, RenderTarget?>? renderTargetFactory)
     {
         var branchResults = new List<BranchExecutionResult>(current.Count);
         var branchEntryOrdinals = new List<int>(current.Count);
@@ -354,7 +358,8 @@ internal static class PlanExecutor
                         pullPurpose: pullPurpose,
                         ordinalGeneration: ordinalGeneration,
                         ordinalSpan: ordinalSpan,
-                        initialBackend: runtimeBackend);
+                        initialBackend: runtimeBackend,
+                        renderTargetFactory: renderTargetFactory);
                     runtimeBackend = branchResult.Backend;
                     branchResults.Add(branchResult);
                     branchEntryOrdinals.Add(branchIndex);
@@ -461,7 +466,8 @@ internal static class PlanExecutor
         float outputScale, float maxWorkingScale,
         PipelineDiagnostics? diagnostics, RenderTargetPool? pool, bool isRenderCacheEnabled,
         RenderPullPurpose pullPurpose,
-        RenderIntent renderIntent)
+        RenderIntent renderIntent,
+        Func<int, int, RenderTarget?>? renderTargetFactory)
     {
         RenderNodeOperation[] inputs = current.Select(static branch => branch.Op).ToArray();
         int[] inputOrdinals = current.Select(static branch => branch.Ordinal).ToArray();
@@ -491,6 +497,7 @@ internal static class PlanExecutor
             {
                 Diagnostics = diagnostics,
                 Pool = pool,
+                RenderTargetFactory = renderTargetFactory,
                 IsRenderCacheEnabled = isRenderCacheEnabled,
                 // Inputs arrive from the executing parent plan rather than this node's container children. Their
                 // pixels may change while bounds and density stay fixed, so a nested plan must fail closed instead

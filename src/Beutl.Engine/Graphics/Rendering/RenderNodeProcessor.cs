@@ -6,6 +6,7 @@ namespace Beutl.Graphics.Rendering;
 public class RenderNodeProcessor
 {
     private readonly bool _useRenderCache;
+    private readonly Func<int, int, RenderTarget?>? _inheritedRenderTargetFactory;
 
     public RenderNodeProcessor(
         RenderNode root,
@@ -29,7 +30,8 @@ public class RenderNodeProcessor
         float outputScale = 1f,
         float maxWorkingScale = float.PositiveInfinity,
         PipelineDiagnostics? diagnostics = null,
-        RenderPullPurpose pullPurpose = RenderPullPurpose.Frame)
+        RenderPullPurpose pullPurpose = RenderPullPurpose.Frame,
+        Func<int, int, RenderTarget?>? renderTargetFactory = null)
     {
         ArgumentNullException.ThrowIfNull(root);
         Root = root;
@@ -40,6 +42,7 @@ public class RenderNodeProcessor
         Pool = pool;
         RenderIntent = RenderPolicyValidation.Validate(renderIntent, nameof(renderIntent));
         PullPurpose = RenderPolicyValidation.Validate(pullPurpose, nameof(pullPurpose));
+        _inheritedRenderTargetFactory = renderTargetFactory;
     }
 
     public RenderNode Root { get; }
@@ -77,7 +80,9 @@ public class RenderNodeProcessor
     /// Override to substitute a custom allocation (e.g. pooling). Defaults to <see cref="RenderTarget.Create"/>.
     /// </summary>
     protected virtual RenderTarget? CreateRenderTarget(int width, int height)
-        => RenderTarget.Create(width, height);
+        => _inheritedRenderTargetFactory is { } factory
+            ? factory(width, height)
+            : RenderTarget.Create(width, height);
 
     public void Render(ImmediateCanvas canvas)
     {
@@ -356,6 +361,7 @@ public class RenderNodeProcessor
             IsRenderCacheEnabled = _useRenderCache,
             Diagnostics = Diagnostics,
             Pool = Pool,
+            RenderTargetFactory = _inheritedRenderTargetFactory ?? CreateRenderTarget,
             RequestedBounds = requestedBounds,
         };
         var result = node.Process(context);

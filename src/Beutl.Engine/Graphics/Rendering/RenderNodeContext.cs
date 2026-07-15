@@ -38,6 +38,12 @@ public class RenderNodeContext(
     internal RenderTargetPool? Pool { get; set; }
 
     /// <summary>
+    /// The owning processor's render-target allocation capability. It stays internal so nested processing can inherit
+    /// custom allocation without exposing renderer-owned pool state through the public authoring surface.
+    /// </summary>
+    internal Func<int, int, RenderTarget?>? RenderTargetFactory { get; set; }
+
+    /// <summary>
     /// Overrides the render-tree stability predicate when an executor supplies the input operations through an
     /// opaque seam instead of container children. A false value keeps content-blind prefix signatures from treating
     /// same-bounds animated input as stable.
@@ -85,7 +91,8 @@ public class RenderNodeContext(
         Rect? requestedBounds = null)
     {
         return new RenderNodeProcessor(
-            Pool, root, useRenderCache, RenderIntent, OutputScale, MaxWorkingScale, Diagnostics, PullPurpose)
+            Pool, root, useRenderCache, RenderIntent, OutputScale, MaxWorkingScale, Diagnostics, PullPurpose,
+            RenderTargetFactory)
         {
             RequestedBounds = requestedBounds ?? RequestedBounds,
         };

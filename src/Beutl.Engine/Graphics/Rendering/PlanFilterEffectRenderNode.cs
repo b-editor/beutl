@@ -32,12 +32,13 @@ public class PlanFilterEffectRenderNode(FilterEffect.Resource filterEffect) : Fi
     internal static void SetBeforeDisabledPrefixReleaseForTest(Action? callback)
         => s_beforeDisabledPrefixReleaseForTest = callback;
 
-    private readonly PlanCache _planCache = new();
-    private readonly NestedGraphPlanCache _nestedPlanCache = new();
+    private readonly RuntimeState _frameState = new();
+    private readonly RuntimeState _auxiliaryState = new();
     private readonly EffectPrefixCache _prefixCache = new();
 
     public sealed override RenderNodeOperation[] Process(RenderNodeContext context)
     {
+        RuntimeState runtimeState = context.IsAuxiliaryPull ? _auxiliaryState : _frameState;
         if (FilterEffect == null || !FilterEffect.Value.Resource.IsEnabled)
         {
             // A disabled/removed effect bypasses execution, but a prefix retained from an earlier enabled frame would
@@ -49,8 +50,9 @@ public class PlanFilterEffectRenderNode(FilterEffect.Resource filterEffect) : Fi
                 {
                     s_beforeDisabledPrefixReleaseForTest?.Invoke();
                     _prefixCache.Release();
-                    _nestedPlanCache.NotifyServedFromCache();
                 }
+
+                runtimeState.NestedPlanCache.NotifyServedFromCache();
             }
             catch
             {
@@ -90,7 +92,7 @@ public class PlanFilterEffectRenderNode(FilterEffect.Resource filterEffect) : Fi
             // transfers to the graph at Build); the engine aborts the still-open builder in the finally path.
             var graphBuilder = new EffectGraphBuilder(
                 bounds, context.OutputScale, workingScale, context.RenderIntent,
-                context.MaxWorkingScale, _nestedPlanCache, context.PullPurpose);
+                context.MaxWorkingScale, runtimeState.NestedPlanCache, context.PullPurpose);
             try
             {
                 resource.GetOriginal().Describe(graphBuilder, resource);
@@ -102,14 +104,14 @@ public class PlanFilterEffectRenderNode(FilterEffect.Resource filterEffect) : Fi
                 object contextId = GraphicsContextFactory.SharedContext ?? s_noContext;
                 StructuralKey key = StructuralKey.Compute(graph);
                 CompiledPlan plan;
-                if (_planCache.TryGet(key, contextId, out CompiledPlan cached))
+                if (runtimeState.PlanCache.TryGet(key, contextId, out CompiledPlan cached))
                 {
                     plan = ParameterBlock.Extract(graph).RebindOnto(cached);
                 }
                 else
                 {
                     plan = EffectGraphCompiler.Compile(graph, context.Diagnostics);
-                    _planCache.Store(key, contextId, plan);
+                    runtimeState.PlanCache.Store(key, contextId, plan);
                 }
 
                 FrameResources resources = EffectGraphCompiler.ResolveResources(plan, context.RequestedBounds, workingScale);
@@ -128,7 +130,8 @@ public class PlanFilterEffectRenderNode(FilterEffect.Resource filterEffect) : Fi
                         context.Diagnostics, context.Pool,
                         isRenderCacheEnabled: context.IsRenderCacheEnabled,
                         pullPurpose: context.PullPurpose,
-                        renderIntent: context.RenderIntent);
+                        renderIntent: context.RenderIntent,
+                        renderTargetFactory: context.RenderTargetFactory);
                 }
 
                 if (context.Pool != null && context.IsRenderCacheEnabled)
@@ -161,7 +164,8 @@ public class PlanFilterEffectRenderNode(FilterEffect.Resource filterEffect) : Fi
                     context.Diagnostics, context.Pool,
                     isRenderCacheEnabled: context.IsRenderCacheEnabled,
                     pullPurpose: context.PullPurpose,
-                    renderIntent: context.RenderIntent);
+                    renderIntent: context.RenderIntent,
+                    renderTargetFactory: context.RenderTargetFactory);
             }
             finally
             {
@@ -210,7 +214,8 @@ public class PlanFilterEffectRenderNode(FilterEffect.Resource filterEffect) : Fi
             context.Diagnostics, context.Pool, startPass: decision.Pass,
             isRenderCacheEnabled: context.IsRenderCacheEnabled,
             pullPurpose: context.PullPurpose,
-            renderIntent: context.RenderIntent);
+            renderIntent: context.RenderIntent,
+            renderTargetFactory: context.RenderTargetFactory);
     }
 
     internal static Exception? DisposeResumedInputs(ReadOnlySpan<RenderNodeOperation> input)
@@ -233,7 +238,8 @@ public class PlanFilterEffectRenderNode(FilterEffect.Resource filterEffect) : Fi
                 context.Diagnostics, context.Pool, startPass: 0, captureSink: sink,
                 isRenderCacheEnabled: context.IsRenderCacheEnabled,
                 pullPurpose: context.PullPurpose,
-                renderIntent: context.RenderIntent);
+                renderIntent: context.RenderIntent,
+                renderTargetFactory: context.RenderTargetFactory);
         }
         catch
         {
@@ -301,7 +307,16 @@ public class PlanFilterEffectRenderNode(FilterEffect.Resource filterEffect) : Fi
 
         try
         {
-            _nestedPlanCache.NotifyServedFromCache();
+            _frameState.NestedPlanCache.NotifyServedFromCache();
+        }
+        catch (Exception ex)
+        {
+            cleanupFailure ??= ex;
+        }
+
+        try
+        {
+            _auxiliaryState.NestedPlanCache.NotifyServedFromCache();
         }
         catch (Exception ex)
         {
@@ -324,10 +339,18 @@ public class PlanFilterEffectRenderNode(FilterEffect.Resource filterEffect) : Fi
             cleanupFailure = ex;
         }
 
-        _planCache.Invalidate();
         try
         {
-            _nestedPlanCache.Dispose();
+            _frameState.Dispose();
+        }
+        catch (Exception ex)
+        {
+            cleanupFailure ??= ex;
+        }
+
+        try
+        {
+            _auxiliaryState.Dispose();
         }
         catch (Exception ex)
         {
@@ -345,5 +368,18 @@ public class PlanFilterEffectRenderNode(FilterEffect.Resource filterEffect) : Fi
 
         if (cleanupFailure != null)
             System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(cleanupFailure).Throw();
+    }
+
+    private sealed class RuntimeState : IDisposable
+    {
+        public PlanCache PlanCache { get; } = new();
+
+        public NestedGraphPlanCache NestedPlanCache { get; } = new();
+
+        public void Dispose()
+        {
+            PlanCache.Invalidate();
+            NestedPlanCache.Dispose();
+        }
     }
 }
