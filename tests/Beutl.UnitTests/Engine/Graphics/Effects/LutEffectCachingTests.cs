@@ -44,7 +44,21 @@ public class LutEffectCachingTests
     }
 
     [Test]
-    public void Describe_WithoutSourceCube_ReleasesCachedShader()
+    public void Update_WithoutSourceCube_ReleasesCachedShader()
+    {
+        var effect = new LutEffect();
+        using var resource = (LutEffect.Resource)effect.ToResource(CompositionContext.Default);
+        SKShader cached = resource.GetOrBuildLutShader(MakeCube());
+
+        bool updateOnly = true;
+        resource.Update(effect, CompositionContext.Default, ref updateOnly);
+
+        Assert.That(cached.Handle, Is.EqualTo(nint.Zero),
+            "removing the LUT source must release the cached native shader immediately");
+    }
+
+    [Test]
+    public void Describe_WithoutSourceCube_DoesNotMutateCachedShader()
     {
         var effect = new LutEffect();
         using var resource = (LutEffect.Resource)effect.ToResource(CompositionContext.Default);
@@ -53,7 +67,7 @@ public class LutEffectCachingTests
 
         effect.Describe(builder, resource);
 
-        Assert.That(cached.Handle, Is.EqualTo(nint.Zero),
-            "removing the LUT source must release the cached native shader immediately");
+        Assert.That(cached.Handle, Is.Not.EqualTo(nint.Zero),
+            "Describe must remain side-effect-free apart from appending graph descriptors");
     }
 }

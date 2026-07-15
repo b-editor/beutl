@@ -27,9 +27,10 @@ internal static class PlanExecutor
 
     private readonly record struct BranchOperation(RenderNodeOperation Op, int Ordinal);
 
-    // Test seam: injects a throw at the compute input's PrepareForSampling (a Vulkan layout-transition failure is
-    // not forcible from a test). The caller restores the seam afterward.
+    // Test seams: inject throws at compute input/output layout preparation (a native transition failure is not
+    // reliably forcible from a test). The caller restores each seam afterward.
     private static Exception? s_computePrepareFailureForTests;
+    private static Exception? s_computeOutputPrepareFailureForTests;
     private static Exception? s_computeCopyFailureForTests;
     private static Exception? s_computeCopyPrepareFailureForTests;
     private static Exception? s_computeInputDisposeFailureForTests;
@@ -45,6 +46,12 @@ internal static class PlanExecutor
         => s_computePrepareFailureForTests = exception;
 
     internal static void ResetComputePrepareFailureForTests() => s_computePrepareFailureForTests = null;
+
+    internal static void ForceComputeOutputPrepareFailureForTests(Exception exception)
+        => s_computeOutputPrepareFailureForTests = exception;
+
+    internal static void ResetComputeOutputPrepareFailureForTests()
+        => s_computeOutputPrepareFailureForTests = null;
 
     internal static void ForceComputeCopyFailureForTests(Exception exception)
         => s_computeCopyFailureForTests = exception;
@@ -1339,13 +1346,17 @@ internal static class PlanExecutor
         var scratch = new List<RenderTarget>();
         try
         {
+            if (s_computeOutputPrepareFailureForTests is { } injected)
+                throw injected;
             outputTarget.PrepareForComputeWrite();
         }
         catch
         {
-            outputTarget.Dispose();
-            inputTarget.Dispose();
-            op.Dispose();
+            Exception? cleanupFailure = null;
+            CaptureDisposeFailure(outputTarget, ref cleanupFailure);
+            CaptureComputeInputDisposeFailure(inputTarget, ref cleanupFailure);
+            CaptureDisposeFailure(op, ref cleanupFailure);
+            LogCleanupFailure(cleanupFailure, "compute write-preparation failure cleanup");
             throw;
         }
 

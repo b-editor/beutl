@@ -64,4 +64,51 @@ public class ComputePrepareFailureLeakTests
                 "the PrepareForSampling throw stranded the materialized compute input's pooled lease");
         });
     }
+
+    [Test]
+    public void ComputeOutput_PrepareForWriteThrows_PreservesFailureAndReleasesEveryInput()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var bounds = new Rect(0, 0, 16, 16);
+            var effect = new PixelSortEffect();
+            effect.Direction.CurrentValue = PixelSortDirection.Horizontal;
+            effect.SortKey.CurrentValue = PixelSortKey.Luminance;
+            var resource = (FilterEffect.Resource)effect.ToResource(new CompositionContext(TimeSpan.Zero));
+
+            var builder = new EffectGraphBuilder(bounds, outputScale: 1f, workingScale: 1f);
+            effect.Describe(builder, resource);
+            using EffectGraph graph = builder.Build();
+            CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
+            FrameResources frame = EffectGraphCompiler.ResolveResources(plan, bounds, workingScale: 1f);
+
+            using var pool = new RenderTargetPool();
+            var cleanupFailure = new InvalidOperationException("simulated source-operation cleanup failure");
+            RenderNodeOperation input = RenderNodeOperation.CreateLambda(
+                bounds,
+                canvas => canvas.DrawRectangle(bounds, Brushes.Resource.White, null),
+                hitTest: bounds.Contains,
+                onDispose: () => throw cleanupFailure);
+
+            var injected = new InvalidOperationException("simulated compute write-preparation failure");
+            PlanExecutor.ForceComputeOutputPrepareFailureForTests(injected);
+            try
+            {
+                InvalidOperationException? thrown = Assert.Throws<InvalidOperationException>(() =>
+                    PlanExecutor.Execute(
+                        plan, frame, [input], outputScale: 1f, workingScale: 1f,
+                        maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool));
+                Assert.That(thrown, Is.SameAs(injected),
+                    "the write-preparation failure must survive a source-operation cleanup failure");
+            }
+            finally
+            {
+                PlanExecutor.ResetComputeOutputPrepareFailureForTests();
+            }
+
+            Assert.That(pool.LiveLeaseCount, Is.EqualTo(0),
+                "write-preparation cleanup must release both the output and materialized input leases");
+        });
+    }
 }

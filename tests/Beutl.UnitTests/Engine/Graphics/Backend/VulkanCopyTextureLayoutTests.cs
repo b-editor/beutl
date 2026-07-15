@@ -5,18 +5,16 @@ using Silk.NET.Vulkan;
 namespace Beutl.UnitTests.Engine.Graphics.Backend;
 
 /// <summary>
-/// <see cref="VulkanContext.CopyTexture"/> transitions the destination inside its own command buffer
-/// (Undefined → TransferDst → ColorAttachmentOptimal) without going through <c>TransitionTo</c>, so the
-/// destination's tracked layout went stale; the next <c>TransitionTo</c> then issued its barrier from the wrong
-/// <c>oldLayout</c> — undefined behavior on strict drivers (the compute shader-init fallback
-/// <c>CopySourceToDestination</c> reaches this path in-tree).
+/// <see cref="VulkanContext.CopyTexture"/> must transition a reused destination from its tracked layout before the
+/// blit, then keep that tracker synchronized with its final in-command transition. The compute shader-init fallback
+/// <c>CopySourceToDestination</c> reaches this path in-tree.
 /// </summary>
 [NonParallelizable]
 [TestFixture]
 public class VulkanCopyTextureLayoutTests
 {
     [Test]
-    public void CopyTexture_SyncsTheDestinationsTrackedLayout()
+    public void CopyTexture_TransitionsReusedDestinationAndKeepsItsTrackerSynchronized()
     {
         VulkanTestEnvironment.EnsureAvailable();
 
@@ -37,8 +35,8 @@ public class VulkanCopyTextureLayoutTests
 
             Assert.That(((VulkanTexture2D)destination).CurrentLayoutForTest,
                 Is.EqualTo(ImageLayout.ColorAttachmentOptimal),
-                "the tracker must follow the copy's in-command transition, or the next TransitionTo issues its "
-                + "barrier from a stale oldLayout");
+                "the copy must transition from the tracked sampling layout and leave the tracker at its final "
+                + "attachment layout");
         });
     }
 }

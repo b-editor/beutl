@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Numerics;
+using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Media.Source;
@@ -185,10 +186,7 @@ public sealed partial class LutEffect : FilterEffect
         // No source cube renders identity today (ApplyTo appends nothing); describe nothing so the effect is a
         // true no-op node in the graph.
         if (cube == null)
-        {
-            r.ClearCachedLutShader();
             return;
-        }
 
         float strength = r.Strength / 100f;
         string snippet = cube.Dimention == CubeFileDimension.OneDimension ? s_1dSnippet : s_snippet3d;
@@ -225,6 +223,12 @@ public sealed partial class LutEffect : FilterEffect
             _cachedLutShader?.Dispose();
             _cachedLutShader = null;
             _cachedCube = null;
+        }
+
+        partial void PostUpdate(LutEffect obj, CompositionContext context)
+        {
+            if (Source?.Cube == null)
+                ClearCachedLutShader();
         }
 
         partial void PostDispose(bool disposing)

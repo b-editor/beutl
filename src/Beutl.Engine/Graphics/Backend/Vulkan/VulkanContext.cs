@@ -320,40 +320,12 @@ internal sealed class VulkanContext : IGraphicsContext
 
         // Transition source to transfer source layout
         vulkanSource.TransitionTo(ImageLayout.TransferSrcOptimal);
+        // Pooled destinations may already be in a sampling or attachment layout. Transition from the tracked layout
+        // instead of declaring their previous contents undefined.
+        vulkanDest.TransitionTo(ImageLayout.TransferDstOptimal);
 
-        // Transition destination to transfer destination
         SubmitImmediateCommands(cmd =>
         {
-            // Transition destination to transfer destination
-            var barrier = new ImageMemoryBarrier
-            {
-                SType = StructureType.ImageMemoryBarrier,
-                OldLayout = ImageLayout.Undefined,
-                NewLayout = ImageLayout.TransferDstOptimal,
-                SrcQueueFamilyIndex = Vk.QueueFamilyIgnored,
-                DstQueueFamilyIndex = Vk.QueueFamilyIgnored,
-                Image = vulkanDest.ImageHandle,
-                SubresourceRange = new ImageSubresourceRange
-                {
-                    AspectMask = ImageAspectFlags.ColorBit,
-                    BaseMipLevel = 0,
-                    LevelCount = 1,
-                    BaseArrayLayer = 0,
-                    LayerCount = 1
-                },
-                SrcAccessMask = 0,
-                DstAccessMask = AccessFlags.TransferWriteBit
-            };
-
-            Vk.CmdPipelineBarrier(
-                cmd,
-                PipelineStageFlags.TopOfPipeBit,
-                PipelineStageFlags.TransferBit,
-                0,
-                0, null,
-                0, null,
-                1, &barrier);
-
             // Use blit for format conversion (RGBA8 -> BGRA8)
             var blitRegion = new ImageBlit
             {
@@ -389,10 +361,25 @@ internal sealed class VulkanContext : IGraphicsContext
                 Filter.Nearest);
 
             // Transition destination back to color attachment optimal
-            barrier.OldLayout = ImageLayout.TransferDstOptimal;
-            barrier.NewLayout = ImageLayout.ColorAttachmentOptimal;
-            barrier.SrcAccessMask = AccessFlags.TransferWriteBit;
-            barrier.DstAccessMask = AccessFlags.ColorAttachmentReadBit | AccessFlags.ColorAttachmentWriteBit;
+            var barrier = new ImageMemoryBarrier
+            {
+                SType = StructureType.ImageMemoryBarrier,
+                OldLayout = ImageLayout.TransferDstOptimal,
+                NewLayout = ImageLayout.ColorAttachmentOptimal,
+                SrcQueueFamilyIndex = Vk.QueueFamilyIgnored,
+                DstQueueFamilyIndex = Vk.QueueFamilyIgnored,
+                Image = vulkanDest.ImageHandle,
+                SubresourceRange = new ImageSubresourceRange
+                {
+                    AspectMask = ImageAspectFlags.ColorBit,
+                    BaseMipLevel = 0,
+                    LevelCount = 1,
+                    BaseArrayLayer = 0,
+                    LayerCount = 1
+                },
+                SrcAccessMask = AccessFlags.TransferWriteBit,
+                DstAccessMask = AccessFlags.ColorAttachmentReadBit | AccessFlags.ColorAttachmentWriteBit
+            };
 
             Vk.CmdPipelineBarrier(
                 cmd,
@@ -406,7 +393,7 @@ internal sealed class VulkanContext : IGraphicsContext
 
         // Transition source back to shader read optimal
         vulkanSource.TransitionTo(ImageLayout.ShaderReadOnlyOptimal);
-        // The in-command transitions above bypass TransitionTo, so sync the destination's tracked layout to the
+        // The final in-command transition bypasses TransitionTo, so sync the destination's tracked layout to the
         // layout the command buffer actually left the image in.
         vulkanDest.MarkLayout(ImageLayout.ColorAttachmentOptimal);
 

@@ -310,6 +310,20 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
             srcAccess = AccessFlags.TransferReadBit;
             dstAccess = AccessFlags.ColorAttachmentWriteBit;
         }
+        else if (oldLayout == ImageLayout.ColorAttachmentOptimal && newLayout == ImageLayout.TransferDstOptimal)
+        {
+            srcStage = PipelineStageFlags.ColorAttachmentOutputBit;
+            dstStage = PipelineStageFlags.TransferBit;
+            srcAccess = AccessFlags.ColorAttachmentWriteBit;
+            dstAccess = AccessFlags.TransferWriteBit;
+        }
+        else if (oldLayout == ImageLayout.ShaderReadOnlyOptimal && newLayout == ImageLayout.TransferDstOptimal)
+        {
+            srcStage = PipelineStageFlags.FragmentShaderBit | PipelineStageFlags.ComputeShaderBit;
+            dstStage = PipelineStageFlags.TransferBit;
+            srcAccess = AccessFlags.ShaderReadBit;
+            dstAccess = AccessFlags.TransferWriteBit;
+        }
         // Depth image transitions
         else if (oldLayout == ImageLayout.Undefined && newLayout == ImageLayout.DepthStencilAttachmentOptimal)
         {
