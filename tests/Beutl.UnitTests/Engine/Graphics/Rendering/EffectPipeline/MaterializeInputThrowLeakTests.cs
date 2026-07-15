@@ -30,8 +30,8 @@ public class MaterializeInputThrowLeakTests
         RunLeakProbe(builder => builder.Compute(ComputeNodeDescriptor.Create(
             dispatch: _ => { },
             passCount: 1,
-            fallback: ComputeFallback.CpuCallback,
-            cpuCallback: _ => { })));
+            bounds: BoundsContract.FullFrame,
+            fallback: ComputeFallbackPolicy.Cpu(_ => { }))));
     }
 
     [Test]
@@ -82,7 +82,7 @@ public class MaterializeInputThrowLeakTests
             },
             effectiveScale: EffectiveScale.At(1f));
 
-        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
         appendPass(builder);
         using EffectGraph graph = builder.Build();
         CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
@@ -90,7 +90,7 @@ public class MaterializeInputThrowLeakTests
 
         InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
             plan, res, [input], outputScale: 1f, workingScale: 1f,
-            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool));
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool, renderIntent: RenderIntent.Delivery));
 
         Assert.Multiple(() =>
         {

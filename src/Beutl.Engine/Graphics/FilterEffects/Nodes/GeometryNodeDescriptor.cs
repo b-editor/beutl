@@ -43,7 +43,7 @@ public sealed record GeometryNodeDescriptor : EffectNodeDescriptor
 
     /// <summary>
     /// Builds a geometry node from a render callback and its mandatory bounds contract. Both bounds functions must
-    /// be non-null (an author who cannot lay out until execution passes <see cref="BoundsContract.RenderTime"/>).
+    /// be non-null (an author that requires the complete input frame passes <see cref="BoundsContract.FullFrame"/>).
     /// <paramref name="structuralToken"/> defaults to the callback's method identity, so callbacks built at the
     /// same call site (differing only in parameters) share a structural identity and never force a recompile.
     /// A geometry node consumes exactly one upstream operation — the executor materializes it as the single entry
@@ -56,6 +56,6 @@ public sealed record GeometryNodeDescriptor : EffectNodeDescriptor
         ArgumentNullException.ThrowIfNull(render);
         bounds.ThrowIfUninitialized(nameof(bounds));
         return new GeometryNodeDescriptor(
-            render, bounds, structuralToken ?? render.Method.MethodHandle.Value, requiresReadback);
+            render, bounds, structuralToken ?? render.Method, requiresReadback);
     }
 }

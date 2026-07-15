@@ -33,8 +33,11 @@ internal abstract record CompiledPass
     /// <summary>The logical output bounds this pass produces.</summary>
     public Rect OutputBounds { get; init; }
 
-    /// <summary>True when this pass cannot lay out until execution; the resolver falls back to full input bounds for the ROI.</summary>
-    public bool IsRenderTimeResolved { get; init; }
+    /// <summary>True when this pass must receive the complete input instead of an ROI crop.</summary>
+    public bool RequiresFullInput { get; init; }
+
+    /// <summary>Exact structural identities of the bounds contracts represented by this pass.</summary>
+    internal ImmutableArray<BoundsStructuralIdentity> BoundsIdentities { get; init; } = [];
 
     /// <summary>Backward map (required input region for a requested output region); identity for invariant passes.</summary>
     internal Func<Rect, Rect> BackwardBounds { get; init; } = static r => r;
@@ -43,7 +46,7 @@ internal abstract record CompiledPass
     /// Forward map (output region an input region produces); the composition of the pass's node forward bounds.
     /// The executor applies it to a fan-out branch's own bounds so each branch is sized from its post-split rect
     /// rather than the graph-level <see cref="OutputBounds"/> computed before the split (review B1). Identity for
-    /// invariant passes; returns <see cref="Rect.Invalid"/> for a render-time-resolved pass.
+    /// invariant and full-frame passes.
     /// </summary>
     internal Func<Rect, Rect> ForwardBounds { get; init; } = static r => r;
 
@@ -86,7 +89,7 @@ internal sealed record RuntimeShaderStage(
     public SKShaderTileMode SrcTileMode { get; init; } = SKShaderTileMode.Decal;
 
     /// <summary>Structural identity of the stage's forward/backward bounds contract.</summary>
-    public long BoundsIdentity { get; init; }
+    public BoundsStructuralIdentity BoundsIdentity { get; init; }
 }
 
 /// <summary>A color-filter stage: wraps the accumulated shader with <c>SKShader.WithColorFilter</c>.</summary>
@@ -144,9 +147,7 @@ internal sealed record ComputePass(
     Action<IComputeContext> Dispatch,
     int PassCount,
     int ColorScratchCount,
-    ComputeFallback Fallback,
-    Action<GeometrySession>? CpuCallback,
-    bool CpuFallbackRequiresReadback,
+    ComputeFallbackPolicy Fallback,
     ComputeDispatchFailureBehavior DispatchFailureBehavior) : CompiledPass
 {
     /// <inheritdoc/>

@@ -68,7 +68,7 @@ public sealed record SplitNodeDescriptor : EffectNodeDescriptor
     public bool RequiresReadback { get; }
 
     /// <summary>The split reshapes the operation set, so it lays out at execution time.</summary>
-    public override BoundsContract Bounds => BoundsContract.RenderTime;
+    public override BoundsContract Bounds => BoundsContract.FullFrame;
 
     /// <inheritdoc/>
     public override bool IsCoordinateInvariant => false;
@@ -81,7 +81,7 @@ public sealed record SplitNodeDescriptor : EffectNodeDescriptor
         ArgumentNullException.ThrowIfNull(render);
         ArgumentOutOfRangeException.ThrowIfLessThan(branchCount, 1);
         return new SplitNodeDescriptor(
-            render, branchCount, isDynamicOutputs: false, structuralToken ?? render.Method.MethodHandle.Value,
+            render, branchCount, isDynamicOutputs: false, structuralToken ?? render.Method,
             requiresReadback);
     }
 
@@ -91,7 +91,7 @@ public sealed record SplitNodeDescriptor : EffectNodeDescriptor
     {
         ArgumentNullException.ThrowIfNull(render);
         return new SplitNodeDescriptor(
-            render, branchCount: 0, isDynamicOutputs: true, structuralToken ?? render.Method.MethodHandle.Value,
+            render, branchCount: 0, isDynamicOutputs: true, structuralToken ?? render.Method,
             requiresReadback);
     }
 }
@@ -123,7 +123,7 @@ public sealed record CompositeNodeDescriptor : EffectNodeDescriptor
     public object StructuralToken { get; }
 
     /// <summary>The composite reshapes the operation set (many to one), so it lays out at execution time.</summary>
-    public override BoundsContract Bounds => BoundsContract.RenderTime;
+    public override BoundsContract Bounds => BoundsContract.FullFrame;
 
     /// <inheritdoc/>
     public override bool IsCoordinateInvariant => false;

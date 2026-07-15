@@ -113,7 +113,7 @@ public class EffectPipelineCounterTests
             gamma.Amount.CurrentValue = 1.5f;
             var resource = (FilterEffect.Resource)(object)gamma.ToResource(Beutl.Composition.CompositionContext.Default);
 
-            var builder = new EffectGraphBuilder(bounds, outputScale: 1f, workingScale: 1f);
+            var builder = new EffectGraphBuilder(bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
             gamma.Describe(builder, resource);
             using EffectGraph graph = builder.Build();
             CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
@@ -123,7 +123,7 @@ public class EffectPipelineCounterTests
             Assert.That(
                 () => outputs = PlanExecutor.Execute(
                     plan, frame, [op], outputScale: 1f, workingScale: 1f,
-                    maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null),
+                    maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null, renderIntent: RenderIntent.Delivery),
                 Throws.Nothing);
             Assert.That(outputs, Has.Length.EqualTo(1));
             RenderNodeOperation.DisposeAll(outputs);
@@ -181,7 +181,7 @@ public class EffectPipelineCounterTests
 
                 using RenderTarget target = RenderTarget.Create(size.Width, size.Height)
                                             ?? throw new InvalidOperationException("RenderTarget.Create returned null.");
-                using var canvas = new ImmediateCanvas(target, 1f, logicalSize: size.ToSize(1));
+                using var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 1f, logicalSize: size.ToSize(1));
                 canvas.Clear(Colors.Black);
 
                 Drawable.Resource resource = makeScene();
@@ -192,7 +192,8 @@ public class EffectPipelineCounterTests
                 }
 
                 var processor = new RenderNodeProcessor(
-                    node, useRenderCache: false, outputScale: 1f, diagnostics: diagnostics, pool: pool);
+                    pool, node, useRenderCache: false, RenderIntent.Delivery, outputScale: 1f,
+                    diagnostics: diagnostics);
                 RenderNodeOperation[] ops = processor.PullToRoot();
                 foreach (RenderNodeOperation op in ops)
                 {
@@ -217,7 +218,7 @@ public class EffectPipelineCounterTests
             PixelSize size = SceneFixtures.ReferenceSize;
             using RenderTarget target = RenderTarget.Create(size.Width, size.Height)
                                         ?? throw new InvalidOperationException("RenderTarget.Create returned null.");
-            using var canvas = new ImmediateCanvas(target, 1f, logicalSize: size.ToSize(1));
+            using var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 1f, logicalSize: size.ToSize(1));
             canvas.Clear(Colors.Black);
 
             using var node = new DrawableRenderNode(resource);
@@ -226,7 +227,7 @@ public class EffectPipelineCounterTests
                 resource.GetOriginal().Render(ctx, resource);
             }
 
-            var processor = new RenderNodeProcessor(node, useRenderCache: false, outputScale: 1f);
+            var processor = new RenderNodeProcessor(node, useRenderCache: false, RenderIntent.Delivery, outputScale: 1f);
             RenderNodeOperation[] ops = processor.PullToRoot();
             foreach (RenderNodeOperation op in ops)
             {
@@ -494,7 +495,7 @@ public class EffectPipelineCounterTests
             node.Update(resource);
 
             diagnostics.Reset();
-            var context = new RenderNodeContext([AnimInput()]) { Diagnostics = diagnostics, Pool = pool };
+            var context = new RenderNodeContext([AnimInput()], RenderIntent.Delivery) { Diagnostics = diagnostics, Pool = pool };
             RenderNodeOperation[] ops = node.Process(context);
             snaps[f] = diagnostics.Snapshot();
             bounds[f] = ops.Aggregate<RenderNodeOperation, Rect>(default, (u, op) => u.Union(op.Bounds));
@@ -519,7 +520,7 @@ public class EffectPipelineCounterTests
         chain.SetFrame(frame);
         var resource = (FilterEffect.Resource)chain.Root.ToResource(CompositionContext.Default);
         using var node = new PlanFilterEffectRenderNode(resource);
-        var context = new RenderNodeContext([AnimInput()]);
+        var context = new RenderNodeContext([AnimInput()], RenderIntent.Delivery);
         RenderNodeOperation[] ops = node.Process(context);
         return Rasterize(ops);
     }
@@ -537,7 +538,7 @@ public class EffectPipelineCounterTests
         var size = PixelRect.FromRect(s_animBounds);
         using RenderTarget target = RenderTarget.Create(size.Width, size.Height)
             ?? throw new InvalidOperationException("RenderTarget.Create returned null.");
-        using (var canvas = new ImmediateCanvas(target, 1f, logicalSize: s_animBounds.Size))
+        using (var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 1f, logicalSize: s_animBounds.Size))
         {
             canvas.Clear();
             using (canvas.PushTransform(Matrix.CreateTranslation(-s_animBounds.X, -s_animBounds.Y)))

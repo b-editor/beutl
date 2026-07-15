@@ -26,9 +26,59 @@ namespace Beutl.Graphics.Effects;
 /// <c>IRenderer.Diagnostics</c> (FR-017). Observation only — the executor still owns every buffer decision.
 /// </param>
 /// <param name="RenderIntent">Explicit preview/delivery failure policy for deferred child rendering.</param>
-public readonly record struct PassUniformContext(
-    float WorkingScale, int TargetWidth, int TargetHeight, Rect TargetBounds,
-    PipelineDiagnostics? Diagnostics = null, RenderIntent RenderIntent = RenderIntent.Delivery);
+/// <param name="PullPurpose">The pull purpose for deferred child rendering.</param>
+public readonly record struct PassUniformContext
+{
+    public PassUniformContext(
+        float WorkingScale,
+        int TargetWidth,
+        int TargetHeight,
+        Rect TargetBounds,
+        RenderIntent RenderIntent,
+        RenderPullPurpose PullPurpose,
+        PipelineDiagnostics? Diagnostics = null)
+    {
+        this.WorkingScale = WorkingScale;
+        this.TargetWidth = TargetWidth;
+        this.TargetHeight = TargetHeight;
+        this.TargetBounds = TargetBounds;
+        this.RenderIntent = RenderPolicyValidation.Validate(RenderIntent, nameof(RenderIntent));
+        this.PullPurpose = RenderPolicyValidation.Validate(PullPurpose, nameof(PullPurpose));
+        this.Diagnostics = Diagnostics;
+    }
+
+    public float WorkingScale { get; }
+
+    public int TargetWidth { get; }
+
+    public int TargetHeight { get; }
+
+    public Rect TargetBounds { get; }
+
+    public RenderIntent RenderIntent { get; }
+
+    public RenderPullPurpose PullPurpose { get; }
+
+    public PipelineDiagnostics? Diagnostics { get; }
+
+    public void Deconstruct(
+        out float WorkingScale,
+        out int TargetWidth,
+        out int TargetHeight,
+        out Rect TargetBounds,
+        out RenderIntent RenderIntent,
+        out RenderPullPurpose PullPurpose,
+        out PipelineDiagnostics? Diagnostics)
+    {
+        WorkingScale = this.WorkingScale;
+        TargetWidth = this.TargetWidth;
+        TargetHeight = this.TargetHeight;
+        TargetBounds = this.TargetBounds;
+        RenderIntent = this.RenderIntent;
+        PullPurpose = this.PullPurpose;
+        Diagnostics = this.Diagnostics;
+    }
+}
 
 /// <summary>
 /// One per-frame uniform value bound into a <see cref="ShaderNodeDescriptor"/> (feature 004, data-model §1).

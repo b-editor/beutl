@@ -317,7 +317,7 @@ public class ResolutionScaleTests
     [TestCase(float.PositiveInfinity)]
     public void RenderNodeContext_SanitizesDegenerateOutputScaleToOne(float bad)
     {
-        var ctx = new RenderNodeContext([], outputScale: bad);
+        var ctx = new RenderNodeContext([], RenderIntent.Delivery, outputScale: bad);
         Assert.That(ctx.OutputScale, Is.EqualTo(1f));
     }
 
@@ -326,7 +326,7 @@ public class ResolutionScaleTests
     [TestCase(-1f)]
     public void RenderNodeContext_DegenerateMaxWorkingScale_IsTreatedAsNoCeiling(float bad)
     {
-        var ctx = new RenderNodeContext([], outputScale: 1f, maxWorkingScale: bad);
+        var ctx = new RenderNodeContext([], RenderIntent.Delivery, outputScale: 1f, maxWorkingScale: bad);
         Assert.That(ctx.MaxWorkingScale, Is.EqualTo(float.PositiveInfinity));
         // and it must not pull a resolved working scale to zero / NaN
         float w = RenderNodeContext.ResolveWorkingScale([EffectiveScale.At(3f)], 1f, ctx.MaxWorkingScale);
@@ -339,7 +339,7 @@ public class ResolutionScaleTests
     public void RenderNodeProcessor_DegenerateMaxWorkingScale_IsTreatedAsNoCeiling(float bad)
     {
         using var node = new OperationWrapperRenderNode();
-        var processor = new RenderNodeProcessor(node, false, 1f, bad);
+        var processor = new RenderNodeProcessor(node, false, RenderIntent.Delivery, 1f, bad);
         Assert.That(processor.MaxWorkingScale, Is.EqualTo(float.PositiveInfinity));
     }
 
@@ -349,7 +349,7 @@ public class ResolutionScaleTests
     public void RenderNodeProcessor_DegenerateOutputScale_DefaultsToOne(float bad)
     {
         using var node = new OperationWrapperRenderNode();
-        var processor = new RenderNodeProcessor(node, false, bad);
+        var processor = new RenderNodeProcessor(node, false, RenderIntent.Delivery, bad);
         Assert.That(processor.OutputScale, Is.EqualTo(1f));
     }
 
@@ -376,7 +376,7 @@ public class ResolutionScaleTests
         // Unbounded supply density; a wrongly-concrete value would inflate the upstream working scale.
         using var node = new LayerRenderNode(new Rect(0, 0, 100, 100));
 
-        RenderNodeOperation[] result = node.Process(new RenderNodeContext([]));
+        RenderNodeOperation[] result = node.Process(new RenderNodeContext([], RenderIntent.Delivery));
         try
         {
             Assert.That(result, Has.Length.EqualTo(1));
@@ -403,7 +403,7 @@ public class ResolutionScaleTests
             effectiveScale: EffectiveScale.At(0.5f));
         node.SetOperations([op]);
 
-        RenderNodeOperation[] result = node.Process(new RenderNodeContext([]));
+        RenderNodeOperation[] result = node.Process(new RenderNodeContext([], RenderIntent.Delivery));
         try
         {
             Assert.That(result, Has.Length.EqualTo(1));
@@ -436,7 +436,7 @@ public class ResolutionScaleTests
 
         InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(
             () => node.SetOperations([replacement]));
-        RenderNodeOperation[] retained = node.Process(new RenderNodeContext([]));
+        RenderNodeOperation[] retained = node.Process(new RenderNodeContext([], RenderIntent.Delivery));
         try
         {
             Assert.Multiple(() =>

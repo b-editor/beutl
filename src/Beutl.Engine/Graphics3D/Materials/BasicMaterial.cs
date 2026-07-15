@@ -133,7 +133,8 @@ public sealed partial class BasicMaterial : Material3D
             var graphicsContext = context.GraphicsContext;
 
             // Get texture
-            ITexture2D? diffuseTex = DiffuseMap?.GetTexture(graphicsContext, context.SurfaceDensity);
+            ITexture2D? diffuseTex = DiffuseMap?.GetTexture(
+                graphicsContext, context.RenderIntent, context.PullPurpose, context.SurfaceDensity);
             int hasTexture = diffuseTex != null ? 1 : 0;
 
             // Update texture binding

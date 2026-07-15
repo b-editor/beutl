@@ -1853,7 +1853,8 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 drawable.Render(context, resource);
             }
 
-            var processor = new RenderNodeProcessor(root, false);
+            var processor = new RenderNodeProcessor(
+                root, false, RenderIntent.Preview, pullPurpose: RenderPullPurpose.Auxiliary);
             var bounds = Rect.Empty;
             foreach (var op in processor.PullToRoot())
             {
@@ -1886,7 +1887,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             }
 
             var processor = new RenderNodeProcessor(
-                root, false, outputScale, WorkingScaleCeiling.Export());
+                root, false, RenderIntent.Delivery, outputScale, WorkingScaleCeiling.Export());
             return processor.RasterizeAndConcat();
         });
     }
@@ -1928,11 +1929,11 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             // Throwaway renderer with disableResourceShare to avoid mutating live preview resources.
             using var renderer = new SceneRenderer(
                 Scene,
+                RenderIntent.Delivery,
                 renderScale: outputScale,
                 disableResourceShare: true,
                 maxWorkingScale: WorkingScaleCeiling.Export(),
-                forceOriginalSource: true,
-                renderIntent: RenderIntent.Delivery);
+                forceOriginalSource: true);
             renderer.CacheOptions = RenderCacheOptions.Disabled;
 
             var compositionFrame = renderer.Compositor.EvaluateGraphics(CurrentFrame.Value);

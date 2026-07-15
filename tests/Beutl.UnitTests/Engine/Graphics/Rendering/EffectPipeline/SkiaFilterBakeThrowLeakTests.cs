@@ -40,7 +40,7 @@ public class SkiaFilterBakeThrowLeakTests
             onDispose: target.Dispose,
             effectiveScale: EffectiveScale.At(1f));
 
-        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
         builder.SkiaFilter(SkiaFilterNodeDescriptor.Create(
             inner =>
             {
@@ -56,7 +56,7 @@ public class SkiaFilterBakeThrowLeakTests
 
         Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
             plan, frame, [input], outputScale: 1f, workingScale: 1f,
-            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool));
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool, renderIntent: RenderIntent.Delivery));
 
         Assert.Multiple(() =>
         {

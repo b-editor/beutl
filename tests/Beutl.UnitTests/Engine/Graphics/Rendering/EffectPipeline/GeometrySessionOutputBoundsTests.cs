@@ -99,7 +99,7 @@ public class GeometrySessionOutputBoundsTests
         var size = PixelRect.FromRect(s_bounds);
         using RenderTarget target = RenderTarget.Create(size.Width, size.Height)
             ?? throw new InvalidOperationException("RenderTarget.Create returned null (raster surface unavailable).");
-        using var canvas = new ImmediateCanvas(target, 1f, logicalSize: s_bounds.Size);
+        using var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 1f, logicalSize: s_bounds.Size);
         var session = new GeometrySession(
             canvas, [], s_bounds, outputScale: 1f, workingScale: 1f, maxWorkingScale: float.PositiveInfinity);
         body(session);

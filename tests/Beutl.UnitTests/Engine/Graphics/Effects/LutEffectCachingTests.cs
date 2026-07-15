@@ -2,6 +2,7 @@
 using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
+using Beutl.Graphics.Rendering;
 using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Effects;
@@ -63,7 +64,7 @@ public class LutEffectCachingTests
         var effect = new LutEffect();
         using var resource = (LutEffect.Resource)effect.ToResource(CompositionContext.Default);
         SKShader cached = resource.GetOrBuildLutShader(MakeCube());
-        var builder = new EffectGraphBuilder(new Rect(0, 0, 16, 16), outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(new Rect(0, 0, 16, 16), outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
 
         effect.Describe(builder, resource);
 

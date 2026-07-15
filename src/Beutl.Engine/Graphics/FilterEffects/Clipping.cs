@@ -40,7 +40,7 @@ public sealed partial class Clipping : FilterEffect
         bool autoCenter = r.AutoCenter;
         bool autoClip = r.AutoClip;
 
-        // autoClip lays out from the input pixels (execution-time), so its bounds are render-time; a fixed clip
+        // autoClip lays out from the input pixels (execution-time), so it requires the full frame; a fixed clip
         // resolves its output bounds forward from the input rect, exactly as the legacy CustomEffect did.
         // Backward: the output buffer occupies TargetBounds, but the source is anchored to NewBounds. When AutoCenter
         // re-centers TargetBounds away from NewBounds, an output texel at o maps to input at o + (NewBounds − Target);
@@ -48,12 +48,12 @@ public sealed partial class Clipping : FilterEffect
         // otherwise mis-claims and crops the upstream by the centering offset (A3).
         // A negative component expands OUTSIDE with a transparent margin. AutoClip only learns its detected margins
         // at render time, but the requested expansion is describe-time, so the forward map must declare the grow
-        // allowance up front — the plain RenderTime contract allocates exactly the input rect (Append maps a
-        // render-time forward to Rect.Invalid) and SetOutputBounds (shrink-only) would reject the expanded emit.
+        // allowance up front — the plain FullFrame contract allocates exactly the input rect, and
+        // SetOutputBounds (shrink-only) would reject the expanded emit.
         // The +1 right/bottom slack ceilings ComputeClip's leading-edge Ceiling rounding, which can push the far
         // edge up to one logical px past the raw allowance. Backward claims the full input: margin detection reads
         // the whole snapshot, so an ROI-cropped input would shift the detected margins — the same reason the
-        // non-negative path stays RenderTime (whose ROI fallback is that same full-input claim).
+        // non-negative path stays FullFrame (whose ROI fallback is that same full-input claim).
         Rect inputBounds = builder.Bounds;
         BoundsContract bounds;
         if (autoClip)
@@ -72,7 +72,7 @@ public sealed partial class Clipping : FilterEffect
             }
             else
             {
-                bounds = BoundsContract.RenderTime;
+                bounds = BoundsContract.FullFrame;
             }
         }
         else
@@ -83,8 +83,7 @@ public sealed partial class Clipping : FilterEffect
                 {
                     (Rect targetBounds, Rect newBounds, _, _) = ComputeClip(inputBounds, thickness, autoCenter);
                     return rect.Translate(newBounds.Position - targetBounds.Position);
-                },
-                isRenderTimeResolved: false);
+                });
         }
 
         builder.Geometry(GeometryNodeDescriptor.Create(

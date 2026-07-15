@@ -40,7 +40,7 @@ public class ZeroSigmaBlurChainTests
             BoundsContract.Create(static r => r.Inflate(3), static r => r.Inflate(3)),
             structuralToken: "chain-probe");
 
-        RenderNodeOperation[] ops = Execute(new EffectGraphBuilder(s_bounds, 1f, 1f)
+        RenderNodeOperation[] ops = Execute(new EffectGraphBuilder(s_bounds, 1f, 1f, RenderIntent.Delivery)
             .SkiaFilter(blur).SkiaFilter(identity).SkiaFilter(probe));
         try
         {
@@ -59,9 +59,9 @@ public class ZeroSigmaBlurChainTests
     [TestCase(-3f, -2f)]
     public void Blur_ClampedZeroSigma_KeepsStructuralPassButExecutesAsIdentity(float sigmaX, float sigmaY)
     {
-        using EffectGraph graph = new EffectGraphBuilder(s_bounds, 1f, 1f).Blur(new Size(sigmaX, sigmaY)).Build();
+        using EffectGraph graph = new EffectGraphBuilder(s_bounds, 1f, 1f, RenderIntent.Delivery).Blur(new Size(sigmaX, sigmaY)).Build();
         CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
-        using EffectGraph nonzeroGraph = new EffectGraphBuilder(s_bounds, 1f, 1f).Blur(new Size(2, 2)).Build();
+        using EffectGraph nonzeroGraph = new EffectGraphBuilder(s_bounds, 1f, 1f, RenderIntent.Delivery).Blur(new Size(2, 2)).Build();
 
         Assert.Multiple(() =>
         {
@@ -80,7 +80,7 @@ public class ZeroSigmaBlurChainTests
         RenderNodeOperation input = MakeInput();
         RenderNodeOperation[] outputs = PlanExecutor.Execute(
             plan, resources, [input], outputScale: 1f, workingScale: 1f,
-            maxWorkingScale: float.PositiveInfinity, diagnostics, pool);
+            maxWorkingScale: float.PositiveInfinity, diagnostics, pool, renderIntent: RenderIntent.Delivery);
         try
         {
             Assert.Multiple(() =>
@@ -110,11 +110,11 @@ public class ZeroSigmaBlurChainTests
         RenderNodeOperation[] shadowOnly = null!;
         Assert.DoesNotThrow(
             () => withBlur = Execute(
-                new EffectGraphBuilder(s_bounds, 1f, 1f)
+                new EffectGraphBuilder(s_bounds, 1f, 1f, RenderIntent.Delivery)
                     .DropShadow(position, sigma, color)
                     .Blur(new Size(0, 0))),
             "a Skia chain whose blur is at σ=0 must render without a use-after-dispose fault");
-        shadowOnly = Execute(new EffectGraphBuilder(s_bounds, 1f, 1f).DropShadow(position, sigma, color));
+        shadowOnly = Execute(new EffectGraphBuilder(s_bounds, 1f, 1f, RenderIntent.Delivery).DropShadow(position, sigma, color));
 
         try
         {
@@ -145,7 +145,7 @@ public class ZeroSigmaBlurChainTests
         FrameResources res = EffectGraphCompiler.ResolveResources(plan, s_bounds, workingScale: 1f);
         return PlanExecutor.Execute(
             plan, res, [MakeInput()], outputScale: 1f, workingScale: 1f,
-            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null);
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null, renderIntent: RenderIntent.Delivery);
     }
 
     private static RenderNodeOperation MakeInput()
@@ -159,7 +159,7 @@ public class ZeroSigmaBlurChainTests
         var size = PixelRect.FromRect(op.Bounds);
         using RenderTarget target = RenderTarget.Create(Math.Max(1, size.Width), Math.Max(1, size.Height))
             ?? throw new InvalidOperationException("RenderTarget.Create returned null (raster surface unavailable).");
-        using (var canvas = new ImmediateCanvas(target, 1f, logicalSize: op.Bounds.Size))
+        using (var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 1f, logicalSize: op.Bounds.Size))
         {
             canvas.Clear();
             using (canvas.PushTransform(Matrix.CreateTranslation(-op.Bounds.X, -op.Bounds.Y)))

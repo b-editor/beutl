@@ -3,44 +3,74 @@ using Beutl.Media;
 
 namespace Beutl.Graphics.Rendering;
 
-public class RenderNodeProcessor(
-    RenderNode root,
-    bool useRenderCache,
-    float outputScale = 1f,
-    float maxWorkingScale = float.PositiveInfinity,
-    PipelineDiagnostics? diagnostics = null,
-    RenderTargetPool? pool = null,
-    RenderIntent? renderIntent = null)
+public class RenderNodeProcessor
 {
-    public RenderNode Root { get; } = root;
+    private readonly bool _useRenderCache;
+
+    public RenderNodeProcessor(
+        RenderNode root,
+        bool useRenderCache,
+        RenderIntent renderIntent,
+        float outputScale = 1f,
+        float maxWorkingScale = float.PositiveInfinity,
+        PipelineDiagnostics? diagnostics = null,
+        RenderPullPurpose pullPurpose = RenderPullPurpose.Frame)
+        : this(
+            pool: null, root, useRenderCache, renderIntent, outputScale, maxWorkingScale, diagnostics,
+            pullPurpose)
+    {
+    }
+
+    internal RenderNodeProcessor(
+        RenderTargetPool? pool,
+        RenderNode root,
+        bool useRenderCache,
+        RenderIntent renderIntent,
+        float outputScale = 1f,
+        float maxWorkingScale = float.PositiveInfinity,
+        PipelineDiagnostics? diagnostics = null,
+        RenderPullPurpose pullPurpose = RenderPullPurpose.Frame)
+    {
+        ArgumentNullException.ThrowIfNull(root);
+        Root = root;
+        _useRenderCache = useRenderCache;
+        OutputScale = float.IsFinite(outputScale) && outputScale > 0f ? outputScale : 1f;
+        MaxWorkingScale = RenderNodeContext.SanitizeMaxWorkingScale(maxWorkingScale);
+        Diagnostics = diagnostics ?? new PipelineDiagnostics();
+        Pool = pool;
+        RenderIntent = RenderPolicyValidation.Validate(renderIntent, nameof(renderIntent));
+        PullPurpose = RenderPolicyValidation.Validate(pullPurpose, nameof(pullPurpose));
+    }
+
+    public RenderNode Root { get; }
 
     /// <summary>Output scale <c>s_out</c> seeded into every <see cref="RenderNodeContext"/>. Sanitized to positive-finite.</summary>
-    public float OutputScale { get; } = float.IsFinite(outputScale) && outputScale > 0f ? outputScale : 1f;
+    public float OutputScale { get; }
 
     /// <summary>Working-scale ceiling seeded into every <see cref="RenderNodeContext"/>. <c>+Inf</c> = no ceiling.</summary>
-    public float MaxWorkingScale { get; } = RenderNodeContext.SanitizeMaxWorkingScale(maxWorkingScale);
+    public float MaxWorkingScale { get; }
 
     /// <summary>
     /// Effect-pipeline counters seeded into every pulled <see cref="RenderNodeContext"/>. A renderer that
     /// creates processors per frame hands in its own instance so counts accumulate per renderer; a
     /// standalone processor owns a fresh one.
     /// </summary>
-    public PipelineDiagnostics Diagnostics { get; } = diagnostics ?? new PipelineDiagnostics();
+    public PipelineDiagnostics Diagnostics { get; }
 
     /// <summary>
     /// Render-target pool seeded into every pulled <see cref="RenderNodeContext"/>, or <see langword="null"/>
     /// to allocate effect intermediates directly (behavior-identical to the pre-pool pipeline).
     /// </summary>
-    public RenderTargetPool? Pool { get; } = pool;
+    internal RenderTargetPool? Pool { get; }
 
     /// <summary>Preview/delivery failure policy seeded into every pulled node context.</summary>
-    public RenderIntent RenderIntent { get; } = RenderIntentResolver.Resolve(renderIntent, maxWorkingScale);
+    public RenderIntent RenderIntent { get; }
 
     /// <summary>The logical output region requested by this pull's parent; invalid means full output.</summary>
     public Rect RequestedBounds { get; init; } = Rect.Invalid;
 
     /// <summary>Marks this pull as hit-test/bounds-only work that must preserve frame-render cache state.</summary>
-    internal bool IsAuxiliaryPull { get; init; }
+    public RenderPullPurpose PullPurpose { get; }
 
     /// <summary>
     /// Allocates the intermediate <see cref="RenderTarget"/> used to rasterize each operation.
@@ -96,7 +126,9 @@ public class RenderNodeProcessor(
                 throw new Exception("RenderTarget is null");
             }
 
-            using var canvas = new ImmediateCanvas(renderTarget, w, MaxWorkingScale, logicalSize: op.Bounds.Size);
+            using var canvas = new ImmediateCanvas(
+                renderTarget, RenderIntent, w, MaxWorkingScale, logicalSize: op.Bounds.Size,
+                pullPurpose: PullPurpose);
             canvas.Clear();
 
             Rect opBounds = op.Bounds;
@@ -200,7 +232,9 @@ public class RenderNodeProcessor(
         {
             renderTarget =
                 CreateRenderTarget(rect.Width, rect.Height) ?? throw new Exception("RenderTarget is null");
-            canvas = new ImmediateCanvas(renderTarget, w, MaxWorkingScale, logicalSize: bounds.Size);
+            canvas = new ImmediateCanvas(
+                renderTarget, RenderIntent, w, MaxWorkingScale, logicalSize: bounds.Size,
+                pullPurpose: PullPurpose);
             canvas.Clear();
 
             using (canvas.PushTransform(Matrix.CreateTranslation(-bounds.X, -bounds.Y)))
@@ -267,7 +301,7 @@ public class RenderNodeProcessor(
 
     public RenderNodeOperation[] Pull(RenderNode node)
     {
-        if (useRenderCache && node.Cache is { IsCached: true } cache)
+        if (_useRenderCache && node.Cache is { IsCached: true } cache)
         {
             // Replay tiles with the density they were rasterized at.
             return cache.UseCache()
@@ -291,18 +325,17 @@ public class RenderNodeProcessor(
             input = operations.ToArray();
         }
 
-        var context = new RenderNodeContext(input, OutputScale, MaxWorkingScale, RenderIntent)
+        var context = new RenderNodeContext(input, RenderIntent, OutputScale, MaxWorkingScale, PullPurpose)
         {
             // Seeded from the processor's useRenderCache so cache-consuming nodes (the pass-prefix cache) can honor
             // a caller's disabled render caching; a node may still CLEAR it to opt its subtree out (read back below).
-            IsRenderCacheEnabled = useRenderCache,
+            IsRenderCacheEnabled = _useRenderCache,
             Diagnostics = Diagnostics,
             Pool = Pool,
             RequestedBounds = RequestedBounds,
-            IsAuxiliaryPull = IsAuxiliaryPull,
         };
         var result = node.Process(context);
-        if (useRenderCache && !context.IsRenderCacheEnabled)
+        if (_useRenderCache && !context.IsRenderCacheEnabled)
         {
             node.Cache.ReportRenderCount(0);
         }

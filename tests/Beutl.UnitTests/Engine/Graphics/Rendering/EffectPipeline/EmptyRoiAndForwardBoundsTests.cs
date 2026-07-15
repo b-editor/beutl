@@ -30,7 +30,7 @@ public class EmptyRoiAndForwardBoundsTests
         FilterEffect.Resource resource = clip.ToResource(CompositionContext.Default);
         using var node = new PlanFilterEffectRenderNode(resource);
         node.AddChild(new SourceRectNode(s_input));
-        var processor = new RenderNodeProcessor(node, useRenderCache: false);
+        var processor = new RenderNodeProcessor(node, useRenderCache: false, RenderIntent.Delivery);
 
         List<Bitmap> bitmaps = processor.Rasterize();
         try
@@ -53,7 +53,7 @@ public class EmptyRoiAndForwardBoundsTests
         FilterEffect.Resource resource = clip.ToResource(CompositionContext.Default);
         using var node = new PlanFilterEffectRenderNode(resource);
         node.AddChild(new SourceRectNode(s_input));
-        var processor = new RenderNodeProcessor(node, useRenderCache: false);
+        var processor = new RenderNodeProcessor(node, useRenderCache: false, RenderIntent.Delivery);
 
         int RenderVisible(float leftRight)
         {
@@ -94,7 +94,7 @@ public class EmptyRoiAndForwardBoundsTests
 
         FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         using var node = new PlanFilterEffectRenderNode(resource);
-        var context = new RenderNodeContext([MakeWhiteRect(s_input)]);
+        var context = new RenderNodeContext([MakeWhiteRect(s_input)], RenderIntent.Delivery);
 
         RenderNodeOperation[] ops = node.Process(context);
         try
@@ -146,7 +146,7 @@ public class EmptyRoiAndForwardBoundsTests
 
         FilterEffect.Resource resource = group.ToResource(CompositionContext.Default);
         using var node = new PlanFilterEffectRenderNode(resource);
-        var context = new RenderNodeContext([MakeWhiteRect(s_input)]);
+        var context = new RenderNodeContext([MakeWhiteRect(s_input)], RenderIntent.Delivery);
 
         RenderNodeOperation[] ops = node.Process(context);
         try
@@ -201,7 +201,7 @@ public class EmptyRoiAndForwardBoundsTests
         var size = PixelRect.FromRect(op.Bounds);
         using RenderTarget target = RenderTarget.Create(size.Width, size.Height)
             ?? throw new InvalidOperationException("RenderTarget.Create returned null (raster surface unavailable).");
-        using (var canvas = new ImmediateCanvas(target, 1f, logicalSize: op.Bounds.Size))
+        using (var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 1f, logicalSize: op.Bounds.Size))
         {
             canvas.Clear();
             using (canvas.PushTransform(Matrix.CreateTranslation(-op.Bounds.X, -op.Bounds.Y)))

@@ -42,7 +42,7 @@ namespace Beutl.Graphics.Rendering;
 /// diagnostics, and teardown remain isolated between renderers and test harnesses. All access is
 /// render-thread-affine, like <see cref="RenderTarget.Create"/>.</para>
 /// </remarks>
-public sealed class RenderTargetPool : IDisposable
+internal sealed class RenderTargetPool : IDisposable
 {
     private static readonly ILogger s_logger = Log.CreateLogger<RenderTargetPool>();
 
@@ -103,7 +103,7 @@ public sealed class RenderTargetPool : IDisposable
     public long PeakLiveLeaseCount => _peakLiveLeases;
 
     /// <summary>Restarts the peak-live window at the current live count; the plan executor calls this once per plan execution.</summary>
-    public void ResetPeakLiveLeases() => _peakLiveLeases = _liveLeases;
+    internal void ResetPeakLiveLeases() => _peakLiveLeases = _liveLeases;
 
     /// <summary>
     /// Acquires a cleared RGBA16F buffer of exactly <paramref name="width"/> × <paramref name="height"/>:
@@ -113,7 +113,7 @@ public sealed class RenderTargetPool : IDisposable
     /// Returns <see langword="null"/> on allocation failure, exactly as <see cref="RenderTarget.Create"/> does
     /// (no counter is touched). The plan executor applies the C7 preview-drop / delivery-throw contract.
     /// </summary>
-    public RenderTarget? Acquire(int width, int height, PipelineDiagnostics? diagnostics = null)
+    internal RenderTarget? Acquire(int width, int height, PipelineDiagnostics? diagnostics = null)
     {
         VerifyAccess();
 
@@ -171,7 +171,7 @@ public sealed class RenderTargetPool : IDisposable
     /// the texture to its bucket. Returns <see langword="null"/> on allocation failure (no counter is touched).
     /// Texture contents are undefined on acquire; the consumer is responsible for initialization.
     /// </summary>
-    public PooledTextureLease? AcquireTexture(
+    internal PooledTextureLease? AcquireTexture(
         int width, int height, TextureFormat format, PipelineDiagnostics? diagnostics = null)
     {
         VerifyAccess();
@@ -224,7 +224,7 @@ public sealed class RenderTargetPool : IDisposable
     /// direct <see cref="RenderTarget.Create"/> and counts <see cref="PipelineDiagnostics.TargetAllocations"/>
     /// itself, so the total <c>TargetAllocations</c> is identical whether or not pooling is enabled.
     /// </summary>
-    public static RenderTarget? Acquire(
+    internal static RenderTarget? Acquire(
         RenderTargetPool? pool, int width, int height, PipelineDiagnostics? diagnostics)
     {
         if (pool != null)
@@ -620,7 +620,7 @@ internal readonly record struct BucketKey(int Width, int Height, TextureFormat F
 /// the captured generation rejects access through a lease whose buffer was already returned, mirroring the
 /// <see cref="RenderTarget"/> lease guard.
 /// </summary>
-public sealed class PooledTextureLease : IDisposable
+internal sealed class PooledTextureLease : IDisposable
 {
     private readonly RenderTargetPool _pool;
     private readonly PooledSurface _pooled;

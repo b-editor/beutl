@@ -321,11 +321,11 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 float maxWorkingScale = WorkingScaleCeiling.Export();
                 using var renderer = new SceneRenderer(
                     Model,
+                    RenderIntent.Delivery,
                     renderScale,
                     disableResourceShare: true,
                     maxWorkingScale,
-                    forceOriginalSource: true,
-                    renderIntent: RenderIntent.Delivery);
+                    forceOriginalSource: true);
                 renderer.CacheOptions = RenderCacheOptions.Disabled;
                 var frameProgress = new Subject<TimeSpan>();
                 using var frameProvider = new FrameProviderImpl(Model, videoSettings.FrameRate, renderer, frameProgress);

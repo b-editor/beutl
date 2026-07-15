@@ -34,7 +34,7 @@ public class NestedGraphPlanCacheTests
                 bool updateOnly = false;
                 resource.Update(effect, new CompositionContext(TimeSpan.FromMilliseconds(frame * 16)), ref updateOnly);
                 node.Update(resource);
-                var context = new RenderNodeContext([Input(s_left), Input(s_right)])
+                var context = new RenderNodeContext([Input(s_left), Input(s_right)], RenderIntent.Delivery)
                 {
                     Diagnostics = diagnostics,
                     Pool = pool,
@@ -45,7 +45,7 @@ public class NestedGraphPlanCacheTests
             Assert.That(diagnostics.Snapshot().PlanCompilations, Is.EqualTo(3),
                 "the outer plan and two branch-specific child plans compile once each across all frames");
 
-            var oneBranch = new RenderNodeContext([Input(s_left)])
+            var oneBranch = new RenderNodeContext([Input(s_left)], RenderIntent.Delivery)
             {
                 Diagnostics = diagnostics,
                 Pool = pool,
@@ -54,7 +54,7 @@ public class NestedGraphPlanCacheTests
             Assert.That(diagnostics.Snapshot().PlanCompilations, Is.EqualTo(3),
                 "shrinking the runtime branch set reuses branch zero without recompiling");
 
-            var grownAgain = new RenderNodeContext([Input(s_left), Input(s_right)])
+            var grownAgain = new RenderNodeContext([Input(s_left), Input(s_right)], RenderIntent.Delivery)
             {
                 Diagnostics = diagnostics,
                 Pool = pool,

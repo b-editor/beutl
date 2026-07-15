@@ -155,7 +155,7 @@ public class ClippingNegativeMarginTests
 
         FilterEffect.Resource resource = clip.ToResource(CompositionContext.Default);
         using var node = new PlanFilterEffectRenderNode(resource);
-        var context = new RenderNodeContext([MakeContentRect(s_input, s_content)]);
+        var context = new RenderNodeContext([MakeContentRect(s_input, s_content)], RenderIntent.Delivery);
         return node.Process(context);
     }
 
@@ -173,7 +173,7 @@ public class ClippingNegativeMarginTests
         var size = PixelRect.FromRect(window);
         using RenderTarget target = RenderTarget.Create(size.Width, size.Height)
             ?? throw new InvalidOperationException("RenderTarget.Create returned null (raster surface unavailable).");
-        using (var canvas = new ImmediateCanvas(target, 1f, logicalSize: window.Size))
+        using (var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 1f, logicalSize: window.Size))
         {
             canvas.Clear();
             using (canvas.PushTransform(Matrix.CreateTranslation(-window.X, -window.Y)))

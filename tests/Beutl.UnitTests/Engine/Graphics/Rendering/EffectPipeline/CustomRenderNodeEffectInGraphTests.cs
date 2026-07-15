@@ -52,7 +52,7 @@ public class CustomRenderNodeEffectInGraphTests
         group.Children.Add(invert);
 
         using FilterEffect.Resource resource = (FilterEffect.Resource)group.ToResource(CompositionContext.Default);
-        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
 
         Assert.DoesNotThrow(() => group.Describe(builder, resource));
         using EffectGraph graph = builder.Build();
@@ -67,7 +67,7 @@ public class CustomRenderNodeEffectInGraphTests
         delay.Effect.CurrentValue = new NodeGraphFilterEffect();
 
         using FilterEffect.Resource resource = (FilterEffect.Resource)delay.ToResource(CompositionContext.Default);
-        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
 
         // The delay describes a nested-graph node; the branch callback (which describes the child NodeGraphFilterEffect)
         // runs at execution, so a describe-time crash would have to be in the outer append — assert it stays clean.
@@ -86,7 +86,7 @@ public class CustomRenderNodeEffectInGraphTests
         var custom = (CustomRenderNodePass)plan.Passes[1];
         Assert.Multiple(() =>
         {
-            Assert.That(custom.IsRenderTimeResolved, Is.True, "a custom node cannot lay out until execution");
+            Assert.That(custom.RequiresFullInput, Is.True, "a custom node cannot lay out until execution");
             Assert.That(custom.IsDynamicOutputs, Is.True, "its output count is execution-time-resolved (exempt from the peak-live bound)");
             Assert.That(custom.NodeType, Is.EqualTo(typeof(ProbeRenderNode)), "the pass carries the child's render-node type");
         });
@@ -159,7 +159,7 @@ public class CustomRenderNodeEffectInGraphTests
 
         Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
             plan, res, [input], outputScale: 1f, workingScale: 1f,
-            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null));
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null, renderIntent: RenderIntent.Delivery));
         Assert.That(input.IsDisposed, Is.True, "the executor released the op it fed to the throwing child (no leak)");
     }
 
@@ -177,7 +177,7 @@ public class CustomRenderNodeEffectInGraphTests
 
         InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
             plan, res, [input], outputScale: 1f, workingScale: 1f,
-            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null));
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null, renderIntent: RenderIntent.Delivery));
 
         Assert.Multiple(() =>
         {
@@ -199,7 +199,7 @@ public class CustomRenderNodeEffectInGraphTests
 
         InvalidOperationException? error = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
             plan, res, [input], outputScale: 1f, workingScale: 1f,
-            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null));
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null, renderIntent: RenderIntent.Delivery));
 
         Assert.Multiple(() =>
         {
@@ -225,7 +225,7 @@ public class CustomRenderNodeEffectInGraphTests
 
         Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
             plan, res, [MakeInput(s_bounds)], outputScale: 1f, workingScale: 1f,
-            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool));
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool, renderIntent: RenderIntent.Delivery));
         Assert.That(pool.LiveLeaseCount, Is.EqualTo(0),
             "a factory throw must release the upstream pass output fed to the custom node (no pooled-lease leak)");
     }
@@ -248,7 +248,7 @@ public class CustomRenderNodeEffectInGraphTests
             plan, res, [MakeInput(s_bounds)], outputScale: 1f, workingScale: 1f,
             maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null,
             isRenderCacheEnabled: false,
-            isAuxiliaryPull: true);
+            pullPurpose: RenderPullPurpose.Auxiliary, renderIntent: RenderIntent.Delivery);
         try
         {
             Assert.Multiple(() =>
@@ -326,7 +326,7 @@ public class CustomRenderNodeEffectInGraphTests
             node.Update(resource);
 
             diagnostics.Reset();
-            var context = new RenderNodeContext([MakeInput(s_bounds)]) { Diagnostics = diagnostics, Pool = pool };
+            var context = new RenderNodeContext([MakeInput(s_bounds)], RenderIntent.Delivery) { Diagnostics = diagnostics, Pool = pool };
             RenderNodeOperation.DisposeAll(node.Process(context));
             perFrameCompiles[f] = diagnostics.Snapshot().PlanCompilations;
         }
@@ -358,7 +358,7 @@ public class CustomRenderNodeEffectInGraphTests
         group.Children.Add(new Invert { Amount = { CurrentValue = 1f } });
 
         using FilterEffect.Resource resource = (FilterEffect.Resource)group.ToResource(CompositionContext.Default);
-        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
         Assert.DoesNotThrow(() => group.Describe(builder, resource),
             "the base's sealed Describe appends the custom node, so the group describes cleanly");
 
@@ -377,7 +377,7 @@ public class CustomRenderNodeEffectInGraphTests
     public void CustomRenderNodeFilterEffect_RequiresDedicatedResourceAndRejectsWrongResourceBeforeRecursion()
     {
         System.Reflection.PropertyInfo factory = typeof(CustomRenderNodeFilterEffect.Resource)
-            .GetProperty(nameof(FilterEffect.Resource.RenderNodeFactory))!;
+            .GetProperty(nameof(CustomRenderNodeFilterEffect.Resource.RenderNodeFactory))!;
         Assert.Multiple(() =>
         {
             Assert.That(factory.GetMethod!.IsAbstract, Is.True,
@@ -389,7 +389,7 @@ public class CustomRenderNodeEffectInGraphTests
         var effect = new ProbeCustomNodeEffect(new int[1]);
         using FilterEffect.Resource wrongResource = (FilterEffect.Resource)new Gamma()
             .ToResource(CompositionContext.Default);
-        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
 
         try
         {
@@ -536,7 +536,7 @@ public class CustomRenderNodeEffectInGraphTests
     private static CompiledPlan CompileGroup(FilterEffectGroup group)
     {
         using FilterEffect.Resource resource = (FilterEffect.Resource)group.ToResource(CompositionContext.Default);
-        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
         group.Describe(builder, resource);
         using EffectGraph graph = builder.Build();
         return EffectGraphCompiler.Compile(graph, diagnostics: null);
@@ -544,7 +544,7 @@ public class CustomRenderNodeEffectInGraphTests
 
     private static StructuralKey KeyOf(FilterEffectGroup group, FilterEffect.Resource resource)
     {
-        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
         group.Describe(builder, resource);
         using EffectGraph graph = builder.Build();
         return StructuralKey.Compute(graph);
@@ -553,14 +553,14 @@ public class CustomRenderNodeEffectInGraphTests
     private static Bitmap RenderGroupRaster(FilterEffectGroup group)
     {
         using FilterEffect.Resource resource = (FilterEffect.Resource)group.ToResource(CompositionContext.Default);
-        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
         group.Describe(builder, resource);
         using EffectGraph graph = builder.Build();
         CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
         FrameResources res = EffectGraphCompiler.ResolveResources(plan, s_bounds, workingScale: 1f);
         RenderNodeOperation[] ops = PlanExecutor.Execute(
             plan, res, [MakeInput(s_bounds)], outputScale: 1f, workingScale: 1f,
-            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null);
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null, renderIntent: RenderIntent.Delivery);
         try
         {
             return Rasterize(ops[0]);
@@ -589,7 +589,7 @@ public class CustomRenderNodeEffectInGraphTests
         var size = PixelRect.FromRect(s_bounds);
         using RenderTarget target = RenderTarget.Create(size.Width, size.Height)
             ?? throw new InvalidOperationException("RenderTarget.Create returned null (raster surface unavailable).");
-        using (var canvas = new ImmediateCanvas(target, 1f, logicalSize: s_bounds.Size))
+        using (var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 1f, logicalSize: s_bounds.Size))
         {
             canvas.Clear();
             using (canvas.PushTransform(Matrix.CreateTranslation(-s_bounds.X, -s_bounds.Y)))
@@ -608,7 +608,7 @@ public class CustomRenderNodeEffectInGraphTests
         PixelSize size = SceneFixtures.ReferenceSize;
         using RenderTarget target = RenderTarget.Create(size.Width, size.Height)
                                     ?? throw new InvalidOperationException("RenderTarget.Create returned null.");
-        using var canvas = new ImmediateCanvas(target, 1f, logicalSize: size.ToSize(1));
+        using var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 1f, logicalSize: size.ToSize(1));
         canvas.Clear(Colors.Black);
 
         using var node = new DrawableRenderNode(resource);
@@ -617,7 +617,7 @@ public class CustomRenderNodeEffectInGraphTests
             resource.GetOriginal().Render(ctx, resource);
         }
 
-        var processor = new RenderNodeProcessor(node, useRenderCache: false, outputScale: 1f);
+        var processor = new RenderNodeProcessor(node, useRenderCache: false, RenderIntent.Delivery, outputScale: 1f);
         RenderNodeOperation[] ops = processor.PullToRoot();
         foreach (RenderNodeOperation op in ops)
         {
@@ -644,7 +644,7 @@ public class CustomRenderNodeEffectInGraphTests
 
                 using RenderTarget target = RenderTarget.Create(size.Width, size.Height)
                                             ?? throw new InvalidOperationException("RenderTarget.Create returned null.");
-                using var canvas = new ImmediateCanvas(target, 1f, logicalSize: size.ToSize(1));
+                using var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 1f, logicalSize: size.ToSize(1));
                 canvas.Clear(Colors.Black);
 
                 Drawable.Resource resource = makeScene();
@@ -655,7 +655,8 @@ public class CustomRenderNodeEffectInGraphTests
                 }
 
                 var processor = new RenderNodeProcessor(
-                    node, useRenderCache: false, outputScale: 1f, diagnostics: diagnostics, pool: pool);
+                    pool, node, useRenderCache: false, RenderIntent.Delivery, outputScale: 1f,
+                    diagnostics: diagnostics);
                 RenderNodeOperation[] ops = processor.PullToRoot();
                 foreach (RenderNodeOperation op in ops)
                 {
@@ -706,10 +707,13 @@ internal sealed partial class ProbeCustomNodeEffect(int[] callCount) : CustomRen
 
     public new sealed class Resource(int[] callCount) : CustomRenderNodeFilterEffect.Resource
     {
+        private static readonly FilterEffectRenderNodeFactory s_factory =
+            FilterEffectRenderNodeFactory.Of<Resource, ProbeRenderNode>(static r => new ProbeRenderNode(r));
+
         public int[] CallCount => callCount;
 
         public override FilterEffectRenderNodeFactory RenderNodeFactory
-            => FilterEffectRenderNodeFactory.Of<Resource, ProbeRenderNode>(static r => new ProbeRenderNode(r));
+            => s_factory;
     }
 }
 
@@ -738,8 +742,11 @@ internal sealed partial class ThrowingCustomNodeEffect : CustomRenderNodeFilterE
 
     public new sealed class Resource : CustomRenderNodeFilterEffect.Resource
     {
+        private static readonly FilterEffectRenderNodeFactory s_factory =
+            FilterEffectRenderNodeFactory.Of<Resource, ThrowingRenderNode>(static r => new ThrowingRenderNode(r));
+
         public override FilterEffectRenderNodeFactory RenderNodeFactory
-            => FilterEffectRenderNodeFactory.Of<Resource, ThrowingRenderNode>(static r => new ThrowingRenderNode(r));
+            => s_factory;
     }
 }
 
@@ -764,13 +771,16 @@ internal sealed partial class ThrowingProcessAndDisposeCustomNodeEffect(
     public new sealed class Resource(Exception processFailure, Exception disposeFailure)
         : CustomRenderNodeFilterEffect.Resource
     {
+        private static readonly FilterEffectRenderNodeFactory s_factory =
+            FilterEffectRenderNodeFactory.Of<Resource, ThrowingProcessAndDisposeRenderNode>(
+                static r => new ThrowingProcessAndDisposeRenderNode(r));
+
         public Exception ProcessFailure => processFailure;
 
         public Exception DisposeFailure => disposeFailure;
 
         public override FilterEffectRenderNodeFactory RenderNodeFactory
-            => FilterEffectRenderNodeFactory.Of<Resource, ThrowingProcessAndDisposeRenderNode>(
-                static r => new ThrowingProcessAndDisposeRenderNode(r));
+            => s_factory;
     }
 }
 
@@ -806,8 +816,11 @@ internal sealed partial class NullArrayCustomNodeEffect : CustomRenderNodeFilter
 
     public new sealed class Resource : CustomRenderNodeFilterEffect.Resource
     {
+        private static readonly FilterEffectRenderNodeFactory s_factory =
+            FilterEffectRenderNodeFactory.Of<Resource, NullArrayRenderNode>(static r => new NullArrayRenderNode(r));
+
         public override FilterEffectRenderNodeFactory RenderNodeFactory
-            => FilterEffectRenderNodeFactory.Of<Resource, NullArrayRenderNode>(static r => new NullArrayRenderNode(r));
+            => s_factory;
     }
 }
 
@@ -833,14 +846,17 @@ internal sealed partial class LifetimeProbeCustomNodeEffect(
         bool[] disposed, bool[] observedCache, Rect[] observedRoi, bool[] observedAuxiliary)
         : CustomRenderNodeFilterEffect.Resource
     {
+        private static readonly FilterEffectRenderNodeFactory s_factory =
+            FilterEffectRenderNodeFactory.Of<Resource, LifetimeProbeRenderNode>(
+                static r => new LifetimeProbeRenderNode(r));
+
         public bool[] Disposed => disposed;
         public bool[] ObservedCache => observedCache;
         public Rect[] ObservedRoi => observedRoi;
         public bool[] ObservedAuxiliary => observedAuxiliary;
 
         public override FilterEffectRenderNodeFactory RenderNodeFactory
-            => FilterEffectRenderNodeFactory.Of<Resource, LifetimeProbeRenderNode>(
-                static r => new LifetimeProbeRenderNode(r));
+            => s_factory;
     }
 }
 
@@ -889,8 +905,11 @@ internal sealed partial class ThrowingFactoryCustomNodeEffect : CustomRenderNode
 
     public new sealed class Resource : CustomRenderNodeFilterEffect.Resource
     {
-        public override FilterEffectRenderNodeFactory RenderNodeFactory
-            => FilterEffectRenderNodeFactory.Of<Resource, FilterEffectRenderNode>(static _ =>
+        private static readonly FilterEffectRenderNodeFactory s_factory =
+            FilterEffectRenderNodeFactory.Of<Resource, FilterEffectRenderNode>(static _ =>
                 throw new InvalidOperationException("custom render-node factory failed"));
+
+        public override FilterEffectRenderNodeFactory RenderNodeFactory
+            => s_factory;
     }
 }

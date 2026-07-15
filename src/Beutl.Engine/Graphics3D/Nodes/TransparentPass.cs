@@ -1,6 +1,7 @@
 ﻿using System.Numerics;
 using Beutl.Composition;
 using Beutl.Graphics.Backend;
+using Beutl.Graphics.Rendering;
 using Beutl.Graphics3D.Lighting;
 using Beutl.Graphics3D.Meshes;
 using Beutl.Media;
@@ -99,6 +100,8 @@ public sealed class TransparentPass : GraphicsNode3D
         Color ambientColor,
         float ambientIntensity,
         float aspectRatio,
+        RenderIntent renderIntent,
+        RenderPullPurpose pullPurpose,
         float surfaceDensity = 1f)
     {
         if (Framebuffer == null || RenderPass == null || OutputTexture == null || _colorInput == null)
@@ -124,6 +127,8 @@ public sealed class TransparentPass : GraphicsNode3D
             ambientColor.ToLinearPremultiplied().AsVector3() * ambientIntensity,
             lights,
             compositionContext,
+            renderIntent,
+            pullPurpose,
             surfaceDensity);
 
         // Begin transparent pass with load (preserves copied content and depth buffer)

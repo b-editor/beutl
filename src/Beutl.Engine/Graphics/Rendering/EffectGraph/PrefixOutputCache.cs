@@ -233,7 +233,7 @@ internal sealed class EffectPrefixCache : IDisposable
     public void Dispose() => ReleaseEntry();
 
     // The last capturable linear pass whose whole provenance range lies within the stable leading run. The prefix
-    // ends at the first non-fused/Skia (or render-time-resolved / dynamic) pass — the C10 v1 linear-prefix scope —
+    // ends at the first non-fused/Skia (or full-frame / dynamic) pass — the C10 v1 linear-prefix scope —
     // and never covers the whole plan (the all-stable case belongs to the outer node cache, so keep a tail pass).
     private static int ComputeCapturablePass(CompiledPlan plan, int stableChildren)
     {
@@ -256,7 +256,7 @@ internal sealed class EffectPrefixCache : IDisposable
     }
 
     private static bool IsCapturable(CompiledPass pass)
-        => pass is FusedShaderPass or SkiaFilterPass && !pass.IsRenderTimeResolved && !pass.IsDynamicOutputs;
+        => pass is FusedShaderPass or SkiaFilterPass && !pass.RequiresFullInput && !pass.IsDynamicOutputs;
 
     private void UpdateChildStability(FilterEffect.Resource resource)
     {

@@ -81,7 +81,7 @@ internal static class EffectGraphCompiler
                     OutputBounds = node.OutputBounds,
                     BackwardBounds = shader.Bounds.GetRequiredInputBounds,
                     ForwardBounds = shader.Bounds.TransformBounds,
-                    IsRenderTimeResolved = shader.Bounds.IsRenderTimeResolved,
+                    RequiresFullInput = shader.Bounds.RequiresFullInput,
                     CoordinateInvariant = shader.IsCoordinateInvariant,
                     ProvenanceMinChild = node.ChildIndex,
                     ProvenanceMaxChild = node.ChildIndex,
@@ -96,7 +96,8 @@ internal static class EffectGraphCompiler
                     OutputBounds = node.OutputBounds,
                     BackwardBounds = geometry.Bounds.GetRequiredInputBounds,
                     ForwardBounds = geometry.Bounds.TransformBounds,
-                    IsRenderTimeResolved = geometry.Bounds.IsRenderTimeResolved,
+                    RequiresFullInput = geometry.Bounds.RequiresFullInput,
+                    BoundsIdentities = [geometry.Bounds.StructuralIdentity],
                     ProvenanceMinChild = node.ChildIndex,
                     ProvenanceMaxChild = node.ChildIndex,
                 });
@@ -106,14 +107,14 @@ internal static class EffectGraphCompiler
             {
                 passes.Add(new ComputePass(
                     compute.Dispatch, compute.PassCount, compute.ColorScratchCount,
-                    compute.Fallback, compute.CpuCallback, compute.CpuFallbackRequiresReadback,
-                    compute.DispatchFailureBehavior)
+                    compute.Fallback, compute.DispatchFailureBehavior)
                 {
                     InputBounds = node.InputBounds,
                     OutputBounds = node.OutputBounds,
                     BackwardBounds = compute.Bounds.GetRequiredInputBounds,
                     ForwardBounds = compute.Bounds.TransformBounds,
-                    IsRenderTimeResolved = compute.Bounds.IsRenderTimeResolved,
+                    RequiresFullInput = compute.Bounds.RequiresFullInput,
+                    BoundsIdentities = [compute.Bounds.StructuralIdentity],
                     ProvenanceMinChild = node.ChildIndex,
                     ProvenanceMaxChild = node.ChildIndex,
                 });
@@ -125,7 +126,7 @@ internal static class EffectGraphCompiler
                 {
                     InputBounds = node.InputBounds,
                     OutputBounds = node.OutputBounds,
-                    IsRenderTimeResolved = true,
+                    RequiresFullInput = true,
                     IsDynamicOutputs = split.IsDynamicOutputs,
                     ProvenanceMinChild = node.ChildIndex,
                     ProvenanceMaxChild = node.ChildIndex,
@@ -138,7 +139,7 @@ internal static class EffectGraphCompiler
                 {
                     InputBounds = node.InputBounds,
                     OutputBounds = node.OutputBounds,
-                    IsRenderTimeResolved = true,
+                    RequiresFullInput = true,
                     ProvenanceMinChild = node.ChildIndex,
                     ProvenanceMaxChild = node.ChildIndex,
                 });
@@ -152,7 +153,7 @@ internal static class EffectGraphCompiler
                 {
                     InputBounds = node.InputBounds,
                     OutputBounds = node.OutputBounds,
-                    IsRenderTimeResolved = true,
+                    RequiresFullInput = true,
                     IsDynamicOutputs = true,
                     ProvenanceMinChild = node.ChildIndex,
                     ProvenanceMaxChild = node.ChildIndex,
@@ -165,7 +166,7 @@ internal static class EffectGraphCompiler
                 {
                     InputBounds = node.InputBounds,
                     OutputBounds = node.OutputBounds,
-                    IsRenderTimeResolved = true,
+                    RequiresFullInput = true,
                     IsDynamicOutputs = true,
                     ProvenanceMinChild = node.ChildIndex,
                     ProvenanceMaxChild = node.ChildIndex,
@@ -332,9 +333,10 @@ internal static class EffectGraphCompiler
     private static int EmitSkiaPass(IReadOnlyList<EffectNode> nodes, int start, ImmutableArray<CompiledPass>.Builder passes)
     {
         var filters = ImmutableArray.CreateBuilder<Func<SkiaSharp.SKImageFilter?, SkiaSharp.SKImageFilter?>>();
+        var boundsIdentities = ImmutableArray.CreateBuilder<BoundsStructuralIdentity>();
         Rect inputBounds = nodes[start].InputBounds;
         Rect outputBounds = inputBounds;
-        bool renderTime = false;
+        bool requiresFullInput = false;
         int minChild = nodes[start].ChildIndex;
         int maxChild = nodes[start].ChildIndex;
 
@@ -342,8 +344,9 @@ internal static class EffectGraphCompiler
         while (end < nodes.Count && nodes[end].Descriptor is SkiaFilterNodeDescriptor filter)
         {
             filters.Add(filter.Factory);
+            boundsIdentities.Add(filter.Bounds.StructuralIdentity);
             outputBounds = nodes[end].OutputBounds;
-            renderTime |= filter.Bounds.IsRenderTimeResolved;
+            requiresFullInput |= filter.Bounds.RequiresFullInput;
             minChild = Math.Min(minChild, nodes[end].ChildIndex);
             maxChild = Math.Max(maxChild, nodes[end].ChildIndex);
             end++;
@@ -371,7 +374,8 @@ internal static class EffectGraphCompiler
             OutputBounds = outputBounds,
             BackwardBounds = backward,
             ForwardBounds = forward,
-            IsRenderTimeResolved = renderTime,
+            RequiresFullInput = requiresFullInput,
+            BoundsIdentities = boundsIdentities.ToImmutable(),
             ProvenanceMinChild = minChild,
             ProvenanceMaxChild = maxChild,
         });
@@ -472,7 +476,7 @@ internal static class EffectGraphCompiler
 
     /// <summary>
     /// Recomputes per-frame device sizes and ROIs (feature 004, C3). Walks the passes backward from the requested
-    /// output region applying each pass's backward bounds (full-bounds fallback for render-time passes), then
+    /// output region applying each pass's backward bounds (complete input for full-frame passes), then
     /// forward in schedule order applying the monotonically non-increasing working-scale carry and the 003 per-axis
     /// clamp. Pure <see cref="Rect"/> math — never creates programs or targets.
     /// </summary>
@@ -490,7 +494,7 @@ internal static class EffectGraphCompiler
         for (int k = n - 2; k >= 0; k--)
         {
             CompiledPass next = passes[k + 1];
-            Rect required = next.IsRenderTimeResolved || outputRoi[k + 1].IsInvalid
+            Rect required = next.RequiresFullInput || outputRoi[k + 1].IsInvalid
                 ? FullBounds(passes[k])
                 : next.BackwardBounds(outputRoi[k + 1]);
             outputRoi[k] = ClampToOutput(passes[k], required);
@@ -513,7 +517,7 @@ internal static class EffectGraphCompiler
 
     private static Rect ResolveLastRoi(CompiledPass pass, Rect requestedBounds)
     {
-        if (pass.IsRenderTimeResolved || pass.OutputBounds.IsInvalid)
+        if (pass.RequiresFullInput || pass.OutputBounds.IsInvalid)
             return FullBounds(pass);
 
         return requestedBounds.IsInvalid ? pass.OutputBounds : pass.OutputBounds.Intersect(requestedBounds);
@@ -521,7 +525,7 @@ internal static class EffectGraphCompiler
 
     private static Rect ClampToOutput(CompiledPass pass, Rect required)
     {
-        if (pass.IsRenderTimeResolved || pass.OutputBounds.IsInvalid)
+        if (pass.RequiresFullInput || pass.OutputBounds.IsInvalid)
             return FullBounds(pass);
 
         return required.IsInvalid ? pass.OutputBounds : pass.OutputBounds.Intersect(required);

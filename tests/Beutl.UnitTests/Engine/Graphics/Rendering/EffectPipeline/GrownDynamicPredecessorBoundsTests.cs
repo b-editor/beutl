@@ -10,7 +10,7 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.EffectPipeline;
 
 /// <summary>
 /// Regression (raster, GPU-less) for the pure-GROW case of the linear non-invariant bake-window gating (feature 004,
-/// §C3.5). A render-time-resolved predecessor (a dynamic CustomRenderNode / NestedGraph) can emit an op whose bounds
+/// §C3.5). A full-frame predecessor (a dynamic CustomRenderNode / NestedGraph) can emit an op whose bounds
 /// GREW beyond the resolver's expected input (<c>op.Bounds ⊇ expectedInput</c>). The engage condition originally only
 /// fired when the op did not CONTAIN the expected input — true for a shift or a shrink, but false for a pure grow —
 /// so a grown op kept the stale frame-start resolved ROI (derived from the pre-grow describe-time bounds) and a later
@@ -48,7 +48,7 @@ public class GrownDynamicPredecessorBoundsTests
 
         FilterEffect.Resource resource = group.ToResource(CompositionContext.Default);
         using var node = new PlanFilterEffectRenderNode(resource);
-        var context = new RenderNodeContext([MakeContentRect(s_bounds)]);
+        var context = new RenderNodeContext([MakeContentRect(s_bounds)], RenderIntent.Delivery);
 
         RenderNodeOperation[] ops = node.Process(context);
         try
@@ -79,7 +79,7 @@ public class GrownDynamicPredecessorBoundsTests
             hitTest: bounds.Contains);
 }
 
-// A custom-render-node effect (the dynamic-outputs, render-time-resolved primitive) whose node inflates every input
+// A custom-render-node effect (the dynamic-outputs, full-frame primitive) whose node inflates every input
 // op's bounds by a fixed pad, reproducing a NodeGraph/CustomRenderNode predecessor that grows its content region.
 [SuppressResourceClassGeneration]
 internal sealed partial class GrowingCustomNodeEffect(float pad) : CustomRenderNodeFilterEffect
@@ -94,10 +94,13 @@ internal sealed partial class GrowingCustomNodeEffect(float pad) : CustomRenderN
 
     public new sealed class Resource(float pad) : CustomRenderNodeFilterEffect.Resource
     {
+        private static readonly FilterEffectRenderNodeFactory s_factory =
+            FilterEffectRenderNodeFactory.Of<Resource, GrowingRenderNode>(static r => new GrowingRenderNode(r));
+
         public float Pad => pad;
 
         public override FilterEffectRenderNodeFactory RenderNodeFactory
-            => FilterEffectRenderNodeFactory.Of<Resource, GrowingRenderNode>(static r => new GrowingRenderNode(r));
+            => s_factory;
     }
 }
 

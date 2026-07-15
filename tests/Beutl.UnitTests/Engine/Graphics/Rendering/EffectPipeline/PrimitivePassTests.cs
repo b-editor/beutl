@@ -94,9 +94,9 @@ public class PrimitivePassTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             static ComputeNodeDescriptor Copy(string token) => ComputeNodeDescriptor.Create(
-                static ctx => ctx.CopySourceToDestination(), 1, ComputeFallback.Identity, structuralToken: token);
+                static ctx => ctx.CopySourceToDestination(), 1, BoundsContract.FullFrame, ComputeFallbackPolicy.Identity, structuralToken: token);
 
-            var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f)
+            var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery)
                 .Compute(Copy("first"))
                 .Compute(Copy("second"));
             using EffectGraph graph = builder.Build();
@@ -107,7 +107,7 @@ public class PrimitivePassTests
 
             RenderNodeOperation[] outputs = PlanExecutor.Execute(
                 plan, frame, [Input()], outputScale: 1f, workingScale: 1f,
-                maxWorkingScale: float.PositiveInfinity, diagnostics, pool);
+                maxWorkingScale: float.PositiveInfinity, diagnostics, pool, renderIntent: RenderIntent.Delivery);
             RenderNodeOperation.DisposeAll(outputs);
 
             Assert.That(diagnostics.Snapshot().FlushSyncs, Is.EqualTo(3),
@@ -148,7 +148,7 @@ public class PrimitivePassTests
                 node.Update(resource);
 
                 diagnostics.Reset();
-                var context = new RenderNodeContext([Input()]) { Diagnostics = diagnostics, Pool = pool };
+                var context = new RenderNodeContext([Input()], RenderIntent.Delivery) { Diagnostics = diagnostics, Pool = pool };
                 RenderNodeOperation.DisposeAll(node.Process(context));
                 compiles[f] = diagnostics.Snapshot().PlanCompilations;
             }
@@ -172,7 +172,7 @@ public class PrimitivePassTests
             HorizontalDivisions = { CurrentValue = 1000 },
             VerticalDivisions = { CurrentValue = 1000 },
         };
-        var builder = new EffectGraphBuilder(bounds, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
         split.Describe(builder, (FilterEffect.Resource)split.ToResource(CompositionContext.Default));
         using EffectGraph graph = builder.Build();
 
@@ -197,7 +197,7 @@ public class PrimitivePassTests
             HorizontalDivisions = { CurrentValue = 2 },
             VerticalDivisions = { CurrentValue = 3 },
         };
-        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
         split.Describe(builder, (FilterEffect.Resource)split.ToResource(CompositionContext.Default));
         using EffectGraph graph = builder.Build();
 
@@ -224,7 +224,7 @@ public class PrimitivePassTests
             HorizontalDivisions = { CurrentValue = 2 },
             VerticalDivisions = { CurrentValue = 2 },
         };
-        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
         using FilterEffect.Resource firstResource
             = (FilterEffect.Resource)first.ToResource(CompositionContext.Default);
         using FilterEffect.Resource secondResource
@@ -251,7 +251,7 @@ public class PrimitivePassTests
             HorizontalDivisions = { CurrentValue = 80 },
             VerticalDivisions = { CurrentValue = 60 },
         };
-        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
         split.Describe(builder, (FilterEffect.Resource)split.ToResource(CompositionContext.Default));
         using EffectGraph graph = builder.Build();
 
@@ -407,7 +407,7 @@ public class PrimitivePassTests
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+            var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
             builder.Split(SplitNodeDescriptor.Static(
                 emitter =>
                 {
@@ -433,7 +433,7 @@ public class PrimitivePassTests
             FrameResources frame = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale: 1f);
             RenderNodeOperation[] outputs = PlanExecutor.Execute(
                 plan, frame, [Input()], outputScale: 1f, workingScale: 1f,
-                maxWorkingScale: float.PositiveInfinity, diagnostics: diagnostics, pool: pool);
+                maxWorkingScale: float.PositiveInfinity, diagnostics: diagnostics, pool: pool, renderIntent: RenderIntent.Delivery);
 
             int count = outputs.Length;
             RenderNodeOperation.DisposeAll(outputs);
@@ -466,7 +466,8 @@ public class PrimitivePassTests
             {
                 previewPool.SetBackingFactoryFailingAfterForTest(1);
                 RenderNodeOperation[] outputs = RenderThroughPlan(
-                    [new PixelSortEffect()], [Input()], maxWorkingScale: 2f, new PipelineDiagnostics(), previewPool);
+                    [new PixelSortEffect()], [Input()], maxWorkingScale: 2f, new PipelineDiagnostics(), previewPool,
+                    RenderIntent.Preview);
                 Assert.That(outputs, Is.Empty, "preview drops the compute pass output on output allocation failure");
                 RenderNodeOperation.DisposeAll(outputs);
             }
@@ -498,7 +499,8 @@ public class PrimitivePassTests
             {
                 previewPool.SetBackingFactoryFailingAfterForTest(2);
                 RenderNodeOperation[] outputs = RenderThroughPlan(
-                    [new PixelSortEffect()], [Input()], maxWorkingScale: 2f, new PipelineDiagnostics(), previewPool);
+                    [new PixelSortEffect()], [Input()], maxWorkingScale: 2f, new PipelineDiagnostics(), previewPool,
+                    RenderIntent.Preview);
                 Assert.That(outputs, Is.Empty, "preview drops the compute pass output on scratch allocation failure");
                 RenderNodeOperation.DisposeAll(outputs);
             }
@@ -518,11 +520,11 @@ public class PrimitivePassTests
         {
             static CompiledPlan CompileThrowingPlan(out FrameResources frame)
             {
-                var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f)
+                var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Preview)
                     .Compute(ComputeNodeDescriptor.Create(
                         static _ => throw new InvalidOperationException("simulated Vulkan dispatch failure"),
                         passCount: 1,
-                        ComputeFallback.Identity,
+                        BoundsContract.FullFrame, ComputeFallbackPolicy.Identity,
                         structuralToken: "throwing-dispatch",
                         dispatchFailureBehavior: ComputeDispatchFailureBehavior.IdentityInPreview))
                     .Brightness(1.1f);
@@ -539,7 +541,7 @@ public class PrimitivePassTests
             RenderNodeOperation previewInput = Input();
             RenderNodeOperation[] preview = PlanExecutor.Execute(
                 plan, frame, [previewInput], outputScale: 1f, workingScale: 1f, maxWorkingScale: 2f,
-                diagnostics, pool);
+                diagnostics, pool, renderIntent: RenderIntent.Preview);
             try
             {
                 Assert.Multiple(() =>
@@ -564,7 +566,7 @@ public class PrimitivePassTests
                 Assert.That(
                     () => PlanExecutor.Execute(
                         plan, frame, [prepareInput], outputScale: 1f, workingScale: 1f, maxWorkingScale: 2f,
-                        diagnostics: null, pool),
+                        diagnostics: null, pool, renderIntent: RenderIntent.Preview),
                     Throws.TypeOf<InvalidOperationException>(),
                     "IdentityInPreview applies to the callback, not output layout/flush preparation");
             }
@@ -581,16 +583,16 @@ public class PrimitivePassTests
             Assert.That(
                 () => PlanExecutor.Execute(
                     plan, frame, [deliveryInput], outputScale: 1f, workingScale: 1f,
-                    maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool),
+                    maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool, renderIntent: RenderIntent.Delivery),
                 Throws.TypeOf<InvalidOperationException>());
             Assert.That(deliveryInputDisposed, Is.True,
                 "the delivery failure propagates only after releasing its detached input operation");
 
-            var cancellationBuilder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f)
+            var cancellationBuilder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Preview)
                 .Compute(ComputeNodeDescriptor.Create(
                     static _ => throw new OperationCanceledException("simulated cancellation"),
                     passCount: 1,
-                    ComputeFallback.Identity,
+                    BoundsContract.FullFrame, ComputeFallbackPolicy.Identity,
                     structuralToken: "cancelled-dispatch",
                     dispatchFailureBehavior: ComputeDispatchFailureBehavior.IdentityInPreview));
             using EffectGraph cancellationGraph = cancellationBuilder.Build();
@@ -602,15 +604,15 @@ public class PrimitivePassTests
             Assert.That(
                 () => PlanExecutor.Execute(
                     cancellationPlan, cancellationFrame, [cancellationInput], outputScale: 1f, workingScale: 1f,
-                    maxWorkingScale: 2f, diagnostics: null, pool),
+                    maxWorkingScale: 2f, diagnostics: null, pool, renderIntent: RenderIntent.Preview),
                 Throws.TypeOf<OperationCanceledException>(),
                 "cancellation must propagate even during an identity-fallback preview");
 
-            var defaultBuilder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f)
+            var defaultBuilder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Preview)
                 .Compute(ComputeNodeDescriptor.Create(
                     static _ => throw new InvalidOperationException("default dispatch failure"),
                     passCount: 1,
-                    ComputeFallback.Identity,
+                    BoundsContract.FullFrame, ComputeFallbackPolicy.Identity,
                     structuralToken: "default-throwing-dispatch"));
             using EffectGraph defaultGraph = defaultBuilder.Build();
             CompiledPlan defaultPlan = EffectGraphCompiler.Compile(defaultGraph, diagnostics: null);
@@ -620,7 +622,7 @@ public class PrimitivePassTests
             Assert.That(
                 () => PlanExecutor.Execute(
                     defaultPlan, defaultFrame, [Input()], outputScale: 1f, workingScale: 1f,
-                    maxWorkingScale: 2f, diagnostics: null, pool),
+                    maxWorkingScale: 2f, diagnostics: null, pool, renderIntent: RenderIntent.Preview),
                 Throws.TypeOf<InvalidOperationException>(),
                 "the no-Vulkan identity fallback must not change the default dispatch-failure policy");
         });
@@ -634,11 +636,11 @@ public class PrimitivePassTests
 
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f)
+            var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Preview)
                 .Compute(ComputeNodeDescriptor.Create(
                     static ctx => _ = ctx.AcquireColorScratch(),
                     passCount: 1,
-                    ComputeFallback.Identity,
+                    BoundsContract.FullFrame, ComputeFallbackPolicy.Identity,
                     colorScratchCount: 1,
                     structuralToken: "scratch-prepare-failure",
                     dispatchFailureBehavior: ComputeDispatchFailureBehavior.IdentityInPreview));
@@ -662,7 +664,7 @@ public class PrimitivePassTests
                 Assert.That(
                     () => PlanExecutor.Execute(
                         plan, frame, [input], outputScale: 1f, workingScale: 1f,
-                        maxWorkingScale: 2f, diagnostics: null, pool),
+                        maxWorkingScale: 2f, diagnostics: null, pool, renderIntent: RenderIntent.Preview),
                     Throws.TypeOf<InvalidOperationException>(),
                     "a backend preparation failure inside the callback must not become an identity preview");
             }
@@ -692,10 +694,11 @@ public class PrimitivePassTests
             var compute = ComputeNodeDescriptor.Create(
                 dispatch: static _ => throw new InvalidOperationException("dispatch must not run for an empty input"),
                 passCount: 1,
-                fallback: ComputeFallback.CpuCallback,
-                cpuCallback: static _ => throw new InvalidOperationException("CPU callback must not run for an empty input"));
+                bounds: BoundsContract.FullFrame,
+                fallback: ComputeFallbackPolicy.Cpu(
+                    static _ => throw new InvalidOperationException("CPU callback must not run for an empty input")));
 
-            var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+            var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
             builder.Compute(compute);
             using EffectGraph graph = builder.Build();
             CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
@@ -706,7 +709,7 @@ public class PrimitivePassTests
 
             RenderNodeOperation[] outputs = PlanExecutor.Execute(
                 plan, frame, [empty], outputScale: 1f, workingScale: 1f,
-                maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null);
+                maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null, renderIntent: RenderIntent.Delivery);
 
             int count = outputs.Length;
             RenderNodeOperation.DisposeAll(outputs);
@@ -729,7 +732,7 @@ public class PrimitivePassTests
         PixelSize size = SceneFixtures.ReferenceSize;
         using RenderTarget target = RenderTarget.Create(size.Width, size.Height)
             ?? throw new InvalidOperationException("RenderTarget.Create returned null.");
-        using var canvas = new ImmediateCanvas(target, 1f, logicalSize: size.ToSize(1));
+        using var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 1f, logicalSize: size.ToSize(1));
         canvas.Clear(Colors.Black);
 
         using var node = new DrawableRenderNode(resource);
@@ -738,7 +741,7 @@ public class PrimitivePassTests
             resource.GetOriginal().Render(ctx, resource);
         }
 
-        var processor = new RenderNodeProcessor(node, useRenderCache: false, outputScale: 1f);
+        var processor = new RenderNodeProcessor(node, useRenderCache: false, RenderIntent.Delivery, outputScale: 1f);
         RenderNodeOperation[] ops = processor.PullToRoot();
         foreach (RenderNodeOperation op in ops)
         {
@@ -751,9 +754,10 @@ public class PrimitivePassTests
 
     private static RenderNodeOperation[] RenderThroughPlan(
         IReadOnlyList<FilterEffect> effects, RenderNodeOperation[] inputs, float maxWorkingScale,
-        PipelineDiagnostics diagnostics, RenderTargetPool pool, RenderIntent? renderIntent = null)
+        PipelineDiagnostics diagnostics, RenderTargetPool pool,
+        RenderIntent renderIntent = RenderIntent.Delivery)
     {
-        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: renderIntent);
         foreach (FilterEffect effect in effects)
         {
             effect.Describe(builder, (FilterEffect.Resource)(object)effect.ToResource(CompositionContext.Default));

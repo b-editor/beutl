@@ -25,7 +25,7 @@ public class DisabledChildDescribeTests
     private static EffectGraphBuilder Describe(FilterEffect effect)
     {
         using FilterEffect.Resource resource = (FilterEffect.Resource)effect.ToResource(CompositionContext.Default);
-        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
         effect.Describe(builder, resource);
         return builder;
     }
@@ -103,7 +103,7 @@ public class DisabledChildDescribeTests
 
         using var resource = (FilterEffectGroup.Resource)group.ToResource(CompositionContext.Default);
 
-        var builder1 = new EffectGraphBuilder(s_bounds, 1f, 1f);
+        var builder1 = new EffectGraphBuilder(s_bounds, 1f, 1f, RenderIntent.Delivery);
         group.Describe(builder1, resource);
         using EffectGraph graph1 = builder1.Build();
         StructuralKey key1 = StructuralKey.Compute(graph1);
@@ -113,7 +113,7 @@ public class DisabledChildDescribeTests
         bool updateOnly = false;
         resource.Update(group, CompositionContext.Default, ref updateOnly);
 
-        var builder2 = new EffectGraphBuilder(s_bounds, 1f, 1f);
+        var builder2 = new EffectGraphBuilder(s_bounds, 1f, 1f, RenderIntent.Delivery);
         group.Describe(builder2, resource);
         using EffectGraph graph2 = builder2.Build();
         StructuralKey key2 = StructuralKey.Compute(graph2);

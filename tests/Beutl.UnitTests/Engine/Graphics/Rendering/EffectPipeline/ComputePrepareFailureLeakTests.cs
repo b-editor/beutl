@@ -30,7 +30,7 @@ public class ComputePrepareFailureLeakTests
             effect.SortKey.CurrentValue = PixelSortKey.Luminance;
             var resource = (FilterEffect.Resource)effect.ToResource(new CompositionContext(TimeSpan.Zero));
 
-            var builder = new EffectGraphBuilder(bounds, outputScale: 1f, workingScale: 1f);
+            var builder = new EffectGraphBuilder(bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
             effect.Describe(builder, resource);
             using EffectGraph graph = builder.Build();
             CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
@@ -51,7 +51,7 @@ public class ComputePrepareFailureLeakTests
                 InvalidOperationException? thrown = Assert.Throws<InvalidOperationException>(() =>
                     PlanExecutor.Execute(
                         plan, frame, [input], outputScale: 1f, workingScale: 1f,
-                        maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool));
+                        maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool, renderIntent: RenderIntent.Delivery));
                 Assert.That(thrown, Is.SameAs(injected),
                     "the prepare failure surfaces unwrapped even when source-operation cleanup also fails");
             }
@@ -77,7 +77,7 @@ public class ComputePrepareFailureLeakTests
             effect.SortKey.CurrentValue = PixelSortKey.Luminance;
             var resource = (FilterEffect.Resource)effect.ToResource(new CompositionContext(TimeSpan.Zero));
 
-            var builder = new EffectGraphBuilder(bounds, outputScale: 1f, workingScale: 1f);
+            var builder = new EffectGraphBuilder(bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
             effect.Describe(builder, resource);
             using EffectGraph graph = builder.Build();
             CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
@@ -98,7 +98,7 @@ public class ComputePrepareFailureLeakTests
                 InvalidOperationException? thrown = Assert.Throws<InvalidOperationException>(() =>
                     PlanExecutor.Execute(
                         plan, frame, [input], outputScale: 1f, workingScale: 1f,
-                        maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool));
+                        maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool, renderIntent: RenderIntent.Delivery));
                 Assert.That(thrown, Is.SameAs(injected),
                     "the write-preparation failure must survive a source-operation cleanup failure");
             }

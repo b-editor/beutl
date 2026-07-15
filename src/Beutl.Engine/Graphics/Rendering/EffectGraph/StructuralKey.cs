@@ -70,9 +70,10 @@ internal readonly struct StructuralKey : IEquatable<StructuralKey>
                 parts.Add(KeyPart.Token(compute.StructuralToken));
                 parts.Add(KeyPart.Create(KeyPartKind.PassCount, compute.PassCount));
                 parts.Add(KeyPart.Create(KeyPartKind.ColorScratchCount, compute.ColorScratchCount));
-                parts.Add(KeyPart.Create(KeyPartKind.ComputeFallback, compute.Fallback));
-                parts.Add(KeyPart.Create(KeyPartKind.CpuReadback, compute.CpuFallbackRequiresReadback));
+                parts.Add(KeyPart.Create(KeyPartKind.ComputeFallback, compute.Fallback.Kind));
+                parts.Add(KeyPart.Create(KeyPartKind.CpuReadback, compute.Fallback.RequiresReadback));
                 parts.Add(KeyPart.Create(KeyPartKind.DispatchFailureBehavior, compute.DispatchFailureBehavior));
+                parts.Add(KeyPart.Create(KeyPartKind.BoundsIdentity, compute.Bounds.StructuralIdentity));
                 break;
 
             case SplitNodeDescriptor split:
@@ -210,7 +211,7 @@ internal readonly struct StructuralKey : IEquatable<StructuralKey>
         public static KeyPart Create(KeyPartKind kind, SKShaderTileMode value)
             => new(kind, KeyPartValueKind.ShaderTileMode, (long)value, null);
 
-        public static KeyPart Create(KeyPartKind kind, ComputeFallback value)
+        public static KeyPart Create(KeyPartKind kind, ComputeFallbackKind value)
             => new(kind, KeyPartValueKind.ComputeFallback, (long)value, null);
 
         public static KeyPart Create(KeyPartKind kind, ComputeDispatchFailureBehavior value)
@@ -218,6 +219,9 @@ internal readonly struct StructuralKey : IEquatable<StructuralKey>
 
         public static KeyPart Create(KeyPartKind kind, BlendMode value)
             => new(kind, KeyPartValueKind.BlendMode, (long)value, null);
+
+        public static KeyPart Create(KeyPartKind kind, BoundsStructuralIdentity value)
+            => new(kind, KeyPartValueKind.BoundsIdentity, 0, value);
 
         public static KeyPart Create(KeyPartKind kind, Type value)
         {
@@ -254,6 +258,8 @@ internal readonly struct StructuralKey : IEquatable<StructuralKey>
                 KeyPartValueKind.StructuralToken =>
                     _reference!.GetType() == other._reference!.GetType()
                         && Equals(_reference, other._reference),
+                KeyPartValueKind.BoundsIdentity =>
+                    (BoundsStructuralIdentity)_reference! == (BoundsStructuralIdentity)other._reference!,
                 _ => _scalar == other._scalar,
             };
         }
@@ -301,8 +307,8 @@ internal readonly struct StructuralKey : IEquatable<StructuralKey>
                     hash.Add((SKShaderTileMode)_scalar);
                     break;
                 case KeyPartValueKind.ComputeFallback:
-                    hash.Add(typeof(ComputeFallback));
-                    hash.Add((ComputeFallback)_scalar);
+                    hash.Add(typeof(ComputeFallbackKind));
+                    hash.Add((ComputeFallbackKind)_scalar);
                     break;
                 case KeyPartValueKind.DispatchFailureBehavior:
                     hash.Add(typeof(ComputeDispatchFailureBehavior));
@@ -323,6 +329,10 @@ internal readonly struct StructuralKey : IEquatable<StructuralKey>
                 case KeyPartValueKind.StructuralToken:
                     hash.Add(_reference!.GetType());
                     hash.Add(_reference);
+                    break;
+                case KeyPartValueKind.BoundsIdentity:
+                    hash.Add(typeof(BoundsStructuralIdentity));
+                    hash.Add((BoundsStructuralIdentity)_reference!);
                     break;
                 default:
                     throw new UnreachableException();
@@ -345,5 +355,6 @@ internal readonly struct StructuralKey : IEquatable<StructuralKey>
         Type,
         ShaderSourceIdentity,
         StructuralToken,
+        BoundsIdentity,
     }
 }

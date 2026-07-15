@@ -2,19 +2,24 @@
 
 public class RenderNodeContext(
     RenderNodeOperation[] input,
+    RenderIntent renderIntent,
     float outputScale = 1f,
     float maxWorkingScale = float.PositiveInfinity,
-    RenderIntent? renderIntent = null)
+    RenderPullPurpose pullPurpose = RenderPullPurpose.Frame)
 {
     public RenderNodeOperation[] Input { get; } = input;
 
     public bool IsRenderCacheEnabled { get; set; } = true;
 
     /// <summary>
-    /// True when this pull is auxiliary work such as hit-testing or boundary calculation rather than the frame draw.
+    /// Identifies a frame pull versus auxiliary work such as hit-testing or boundary calculation.
     /// Auxiliary pulls may execute nodes but must not replace frame-render cache state with their different ROI.
     /// </summary>
-    internal bool IsAuxiliaryPull { get; init; }
+    public RenderPullPurpose PullPurpose { get; } =
+        RenderPolicyValidation.Validate(pullPurpose, nameof(pullPurpose));
+
+    /// <summary>True when this pull must preserve retained frame-render state.</summary>
+    internal bool IsAuxiliaryPull => PullPurpose == RenderPullPurpose.Auxiliary;
 
     /// <summary>
     /// The owning renderer's effect-pipeline counters, seeded by <see cref="RenderNodeProcessor"/>. The property
@@ -30,7 +35,7 @@ public class RenderNodeContext(
     /// <see langword="null"/> when the pull path was given no pool; effect intermediates then allocate
     /// directly via <see cref="RenderTarget.Create"/>, behavior-identical to the pre-pool pipeline.
     /// </summary>
-    public RenderTargetPool? Pool { get; set; }
+    internal RenderTargetPool? Pool { get; set; }
 
     /// <summary>
     /// Logical region the parent needs from this node's output. <see cref="Rect.Invalid"/> requests the full
@@ -54,7 +59,30 @@ public class RenderNodeContext(
     public float MaxWorkingScale { get; } = SanitizeMaxWorkingScale(maxWorkingScale);
 
     /// <summary>Explicit preview/delivery failure policy, independent of the working-scale ceiling.</summary>
-    public RenderIntent RenderIntent { get; } = RenderIntentResolver.Resolve(renderIntent, maxWorkingScale);
+    public RenderIntent RenderIntent { get; } =
+        RenderPolicyValidation.Validate(renderIntent, nameof(renderIntent));
+
+    /// <summary>
+    /// Creates a processor for a nested render-node tree while inheriting this pull's scale, diagnostics,
+    /// render policy, purpose, and executor-owned target pool. The pool remains opaque to the caller.
+    /// </summary>
+    /// <param name="root">The nested tree root.</param>
+    /// <param name="useRenderCache">Whether the nested tree may consume and populate render caches.</param>
+    /// <param name="requestedBounds">
+    /// The logical output region requested from the nested tree, or <see langword="null"/> to inherit
+    /// <see cref="RequestedBounds"/>.
+    /// </param>
+    public RenderNodeProcessor CreateChildProcessor(
+        RenderNode root,
+        bool useRenderCache,
+        Rect? requestedBounds = null)
+    {
+        return new RenderNodeProcessor(
+            Pool, root, useRenderCache, RenderIntent, OutputScale, MaxWorkingScale, Diagnostics, PullPurpose)
+        {
+            RequestedBounds = requestedBounds ?? RequestedBounds,
+        };
+    }
 
     /// <summary>Canonical ceiling rule: a degenerate value (NaN or non-positive) means "no ceiling" (+Inf); other values pass through.</summary>
     public static float SanitizeMaxWorkingScale(float maxWorkingScale) =>

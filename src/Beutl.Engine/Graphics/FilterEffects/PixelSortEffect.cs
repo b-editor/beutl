@@ -317,7 +317,8 @@ public sealed partial class PixelSortEffect : FilterEffect
         builder.Compute(ComputeNodeDescriptor.Create(
             ctx => Dispatch(data, ctx),
             passCount: 3,
-            ComputeFallback.Identity,
+            BoundsContract.FullFrame,
+            ComputeFallbackPolicy.Identity,
             colorScratchCount: 2,
             structuralToken: nameof(PixelSortEffect),
             dispatchFailureBehavior: ComputeDispatchFailureBehavior.IdentityInPreview));

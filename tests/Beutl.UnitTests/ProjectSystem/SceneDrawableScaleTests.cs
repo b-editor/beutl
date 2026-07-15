@@ -16,7 +16,8 @@ public class SceneDrawableScaleTests
     private static string GetTempPath()
         => Path.Combine(Path.GetTempPath(), $"beutl_scenedrawable_{Guid.NewGuid():N}");
 
-    private static Scene CreateInnerScene(string basePath, int width, int height)
+    private static Scene CreateInnerScene(
+        string basePath, int width, int height, Drawable? content = null)
     {
         Directory.CreateDirectory(basePath);
         var scene = new Scene(width, height, string.Empty)
@@ -37,9 +38,27 @@ public class SceneDrawableScaleTests
             IsEnabled = true,
             Uri = new Uri(Path.Combine(basePath, $"{Guid.NewGuid():N}.layer"))
         };
-        element.AddObject(rect);
+        element.AddObject(content ?? rect);
         scene.Children.Add(element);
         return scene;
+    }
+
+    private static void RenderRecordedRoot(
+        DrawableRenderNode root,
+        PixelSize logicalSize,
+        float outputScale,
+        RenderPullPurpose pullPurpose)
+    {
+        var processor = new RenderNodeProcessor(
+            root, useRenderCache: false, RenderIntent.Preview, outputScale,
+            pullPurpose: pullPurpose);
+        int width = (int)MathF.Ceiling(logicalSize.Width * outputScale);
+        int height = (int)MathF.Ceiling(logicalSize.Height * outputScale);
+        using RenderTarget target = RenderTarget.Create(width, height)!;
+        using var canvas = new ImmediateCanvas(
+            target, RenderIntent.Preview, outputScale, logicalSize: logicalSize.ToSize(1),
+            pullPurpose: pullPurpose);
+        processor.Render(canvas);
     }
 
     // Pulls the single concrete op at the given output scale.
@@ -52,7 +71,7 @@ public class SceneDrawableScaleTests
             drawable.Render(ctx, resource);
         }
 
-        var processor = new RenderNodeProcessor(root, useRenderCache: false, outputScale: outputScale);
+        var processor = new RenderNodeProcessor(root, useRenderCache: false, RenderIntent.Delivery, outputScale: outputScale);
         RenderNodeOperation[] ops = processor.PullToRoot();
 
         RenderNodeOperation? concrete = null;
@@ -104,5 +123,52 @@ public class SceneDrawableScaleTests
         {
             if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
         }
+    }
+
+    [Test]
+    public void NestedScene_AuxiliaryScaleDoesNotReplaceFrameRenderer()
+    {
+        string basePath = GetTempPath();
+        try
+        {
+            VulkanTestEnvironment.EnsureAvailable();
+            VulkanTestEnvironment.InvokeOnRenderThread(() =>
+            {
+                var counter = new CountingSceneDrawable();
+                Scene inner = CreateInnerScene(basePath, 120, 90, counter);
+                var drawable = new SceneDrawable();
+                drawable.ReferencedScene.CurrentValue = inner;
+                using Drawable.Resource resource = drawable.ToResource(new CompositionContext(TimeSpan.Zero));
+                using var root = new DrawableRenderNode(resource);
+                using (var context = new GraphicsContext2D(root, inner.FrameSize.ToSize(1), outputScale: 1f))
+                {
+                    drawable.Render(context, resource);
+                }
+
+                RenderRecordedRoot(root, inner.FrameSize, 1f, RenderPullPurpose.Frame);
+                RenderRecordedRoot(root, inner.FrameSize, 2f, RenderPullPurpose.Auxiliary);
+                RenderRecordedRoot(root, inner.FrameSize, 1f, RenderPullPurpose.Frame);
+
+                Assert.That(counter.RenderCount, Is.EqualTo(2),
+                    "the retained frame renderer should survive an auxiliary pull at a different scale");
+            });
+        }
+        finally
+        {
+            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+        }
+    }
+}
+
+internal sealed partial class CountingSceneDrawable : Drawable
+{
+    public int RenderCount { get; private set; }
+
+    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource) => new(20, 20);
+
+    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
+    {
+        RenderCount++;
+        context.DrawRectangle(new Rect(0, 0, 20, 20), Brushes.Resource.White, null);
     }
 }

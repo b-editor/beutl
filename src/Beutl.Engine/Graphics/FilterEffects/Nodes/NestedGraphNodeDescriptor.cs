@@ -6,7 +6,7 @@
 /// that single operation through the same pipeline (plans, pool, counters). This is the declarative home for meta
 /// effects whose child chain must be re-described per branch — e.g. <see cref="DelayAnimationEffect"/>, whose
 /// child effect runs at a clock delayed by <c>delay × branchIndex</c> after an upstream split fan-out.
-/// Never fused; bounds are render-time resolved (each branch's child graph lays itself out at execution).
+/// Never fused; its full-frame contract prevents ROI cropping while each branch's child graph lays itself out.
 /// </summary>
 public sealed record NestedGraphNodeDescriptor : EffectNodeDescriptor
 {
@@ -26,7 +26,7 @@ public sealed record NestedGraphNodeDescriptor : EffectNodeDescriptor
     public object StructuralToken { get; }
 
     /// <inheritdoc/>
-    public override BoundsContract Bounds => BoundsContract.RenderTime;
+    public override BoundsContract Bounds => BoundsContract.FullFrame;
 
     /// <inheritdoc/>
     public override bool IsCoordinateInvariant => false;
@@ -40,6 +40,6 @@ public sealed record NestedGraphNodeDescriptor : EffectNodeDescriptor
     {
         ArgumentNullException.ThrowIfNull(describeBranch);
         return new NestedGraphNodeDescriptor(
-            describeBranch, structuralToken ?? describeBranch.Method.MethodHandle.Value);
+            describeBranch, structuralToken ?? describeBranch.Method);
     }
 }

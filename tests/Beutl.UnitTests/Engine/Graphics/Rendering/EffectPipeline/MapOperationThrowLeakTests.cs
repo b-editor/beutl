@@ -34,7 +34,7 @@ public class MapOperationThrowLeakTests
             // The forward lambda must survive describe-time evaluation (Append calls it once with the union
             // bounds), so it only starts throwing once armed — i.e. at execution, per fanned-out branch.
             bool armed = false;
-            var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+            var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
             builder.Split(SplitNodeDescriptor.Static(
                 emitter =>
                 {
@@ -59,7 +59,7 @@ public class MapOperationThrowLeakTests
 
             Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
                 plan, frame, [input], outputScale: 1f, workingScale: 1f,
-                maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool));
+                maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool, renderIntent: RenderIntent.Delivery));
 
             Assert.That(pool.LiveLeaseCount, Is.Zero,
                 "the detached branch op's pooled lease must be released when the forward bounds lambda throws");
@@ -72,7 +72,7 @@ public class MapOperationThrowLeakTests
         var primary = new InvalidOperationException("simulated plugin forward-bounds failure");
         var cleanup = new InvalidOperationException("simulated operation cleanup failure");
         bool armed = false;
-        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
         builder.SkiaFilter(SkiaFilterNodeDescriptor.Create(
             static inner => inner,
             BoundsContract.Create(
@@ -91,7 +91,7 @@ public class MapOperationThrowLeakTests
 
         InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
             plan, frame, [input], outputScale: 1f, workingScale: 1f,
-            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null));
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null, renderIntent: RenderIntent.Delivery));
 
         Assert.That(actual, Is.SameAs(primary),
             "cleanup of the detached operation must not replace the plugin's primary bounds failure");

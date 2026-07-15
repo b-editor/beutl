@@ -56,25 +56,37 @@ public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource 
                 // ... device-pixel output work ...
             }
         },
-        BoundsContract.RenderTime,
+        BoundsContract.FullFrame,
         structuralToken: nameof(MyEffect)));
 }
 
-// An effect that needs a working scale OTHER than the supply density (clamp-to-output for perf,
-// oversample for SSAA) overrides the render node instead of declaring a policy.
-// (As shipped since 004: the seam is `RenderNodeFactory`, not `CreateRenderNode()`.)
+// An effect that needs a working scale OTHER than the supply density keeps the standard
+// plan pipeline and overrides only its working-scale policy.
 public new partial class Resource
 {
-    private static readonly FilterEffectRenderNodeFactory s_factory =
-        FilterEffectRenderNodeFactory.Of<Resource, MyCompleteCustomNode>(
-            static resource => new MyCompleteCustomNode(resource));
+    private static readonly PlanFilterEffectRenderNodeFactory s_factory =
+        PlanFilterEffectRenderNodeFactory.Of<Resource, MyScalePlanNode>(
+            static resource => new MyScalePlanNode(resource));
 
-    public override FilterEffectRenderNodeFactory RenderNodeFactory
+    public override PlanFilterEffectRenderNodeFactory PlanRenderNodeFactory
         => s_factory;
+}
+
+public sealed class MyScalePlanNode(FilterEffect.Resource resource)
+    : PlanFilterEffectRenderNode(resource)
+{
+    protected override float ResolveWorkingScale(
+        RenderNodeContext context,
+        ReadOnlySpan<EffectiveScale> inputs)
+    {
+        float supply = RenderNodeContext.ResolveWorkingScale(
+            inputs, context.OutputScale, context.MaxWorkingScale);
+        return MathF.Min(MathF.Max(supply, 2f * context.OutputScale), context.MaxWorkingScale);
+    }
 }
 ```
 
-> **Note (as shipped):** the custom-render-node override is honoured on every push path. The seam was reshaped in 004: `CreateRenderNode()` + `RenderNodeType` became one `FilterEffect.Resource.RenderNodeFactory`, and `FilterEffectRenderNode` / `Process` became abstract. `MyCompleteCustomNode` above therefore represents a plugin-owned subclass that implements the complete `Process(RenderNodeContext)` operation construction; there is no `base.Process(context)` fallback. The base supplies only captured-resource/update plumbing, while the engine's declarative plan execution and prefix cache live in its internal default node. A plugin should override the factory only when it genuinely owns that complete execution path. See 004 [`breaking-changes.md`](../../004-gpu-pass-fusion/contracts/breaking-changes.md).
+> **Note:** `PlanFilterEffectRenderNode` retains declarative compilation, ROI, pooling, and plan/prefix caches. A genuinely opaque effect instead derives from `CustomRenderNodeFilterEffect` and supplies a static `FilterEffectRenderNodeFactory`; that route owns the complete `Process(RenderNodeContext)` implementation. See 004 [`breaking-changes.md`](../../004-gpu-pass-fusion/contracts/breaking-changes.md).
 
 ## Working scale — what scale an effect runs at
 
@@ -86,9 +98,9 @@ Every effect runs at the **supply-driven working scale `w`**, computed from its 
 
 **Every built-in runs supply-driven** — including the FR-013 resolution-sensitive set (`PixelSort`, contour `Stroke`/`FlatShadow`/`PartsSplit`, `AutoClip`, `Dilate`, `Erode`, `Mosaic`, custom SKSL/GLSL, image-map `Displacement`), since running at the supply density already keeps a high source's density through them. The working scale MUST NOT change the `s_out = 1.0` output.
 
-**Need a different working scale?** An effect that genuinely needs clamp-to-output (perf) or oversampling (SSAA) returns a `FilterEffectRenderNode` subclass from `FilterEffect.Resource.RenderNodeFactory` (as shipped since 004; formerly `CreateRenderNode()`) and overrides `Process` to compute its own `w` (see the example above). There is intentionally no declarative `ResolutionPolicy` — no built-in needed one, and a custom render node is more flexible than a closed enum. *(Earlier drafts had an `Inherit`/`ClampToOutput`/`Oversample(k)`/`PreserveSource` policy; it was removed.)*
+**Need a different working scale?** Override `FilterEffect.Resource.PlanRenderNodeFactory` with a retained `PlanFilterEffectRenderNodeFactory`, and override `PlanFilterEffectRenderNode.ResolveWorkingScale` as above. There is intentionally no closed `ResolutionPolicy` enum.
 
-> **Footgun — `w` is per-boundary, not per-op; and shrinking a source makes it *more* expensive (2026-06-15).** `w` = the **densest concrete input** applies to the **whole buffer-allocating boundary**, so a single small high-density sibling raises the working scale — and thus the buffer **area** (`∝ w²`) — of the *entire* boundary, not just its own region. Example: a 4K logo shrunk into a corner carries `At(16)` density; under a shared effect (or any container allocating one buffer for the group) it lifts the whole boundary to `w = 16`, allocating a `16×`-denser buffer for mostly-low-density content. Because density is *backing pixels per logical unit*, scaling a high-resolution source **down** **raises** its density — so the source gets **more** expensive the smaller you draw it (inverting the usual "smaller = cheaper" intuition). The per-buffer **dimension** clamp (`ClampWorkingScaleToBufferBudget`) keeps such a buffer *allocatable* but does not stop it from dominating the boundary's cost. **Follow-up (deferred):** per-target (per-region) `w` scoping and a request-scoped area/byte budget — so a small dense sibling raises only its own region's density — are the proper fix.
+> **Footgun — `w` is per-boundary, not per-op; and shrinking a source makes it *more* expensive (2026-06-15).** `w` = the **densest concrete input** applies to the **whole buffer-allocating boundary**, so a single small high-density sibling raises the working scale — and thus the buffer **area** (`∝ w²`) — of the *entire* boundary, not just its own region. Example: a 4K logo shrunk into a corner carries `At(16)` density; under a shared effect (or any container allocating one buffer for the group) it lifts the whole boundary to `w = 16`, allocating a `16×`-denser buffer for mostly-low-density content. Because density is *backing pixels per logical unit*, scaling a high-resolution source **down** **raises** its density — so the source gets **more** expensive the smaller you draw it (inverting the usual "smaller = cheaper" intuition). The per-buffer **dimension** clamp (`ClampWorkingScaleToBufferBudget`) keeps such a buffer *allocatable* but does not stop it from dominating the boundary's cost. This contract is intentionally per-boundary; per-region working scales and a request-scoped area/byte budget would be a separate allocator design.
 
 ## Resolution-sensitive effects (FR-013)
 
@@ -107,4 +119,4 @@ Relatedly, `RenderNodeContext` **sanitizes degenerate inputs once at constructio
 
 ## Mechanism summary
 
-Centralized scaling lives in the compiled effect plan and executor. Logical convenience/Skia-filter parameters need no manual scaling; execution-time shader values come from `PassUniformContext`, geometry values from `GeometrySession`, and compute values from `IComputeContext`. A custom `FilterEffectRenderNode` remains the escape hatch for a plugin that owns a complete non-default execution path. A plugin effect that uses only logical descriptor values still renders correctly at `s_out=1.0` (supply-driven + `Unbounded` inputs → `w=1.0`).
+Centralized scaling lives in the compiled effect plan and executor. Logical convenience/Skia-filter parameters need no manual scaling; execution-time shader values come from `PassUniformContext`, geometry values from `GeometrySession`, and compute values from `IComputeContext`. A plugin that owns a complete non-default execution path derives from `CustomRenderNodeFilterEffect` and supplies its dedicated `FilterEffectRenderNode`; ordinary effects cannot accidentally enter that opaque route. A plugin effect that uses only logical descriptor values still renders correctly at `s_out=1.0` (supply-driven + `Unbounded` inputs → `w=1.0`).

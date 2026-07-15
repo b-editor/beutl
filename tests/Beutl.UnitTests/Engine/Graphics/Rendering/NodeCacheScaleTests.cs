@@ -32,7 +32,7 @@ public class NodeCacheScaleTests
 
     private static float PullSingleDensity(RenderNode node, bool useRenderCache, float outputScale)
     {
-        var processor = new RenderNodeProcessor(node, useRenderCache, outputScale, maxWorkingScale: 8f);
+        var processor = new RenderNodeProcessor(node, useRenderCache, RenderIntent.Delivery, outputScale, maxWorkingScale: 8f);
         RenderNodeOperation[] ops = processor.PullToRoot();
         try
         {
@@ -56,13 +56,12 @@ public class NodeCacheScaleTests
             try
             {
                 RenderNodeCacheHelper.MakeCache(
-                    node, RenderCacheOptions.Default, outputScale, maxWorkingScale: 2f * outputScale);
+                    node, RenderCacheOptions.Default, RenderIntent.Delivery, outputScale, maxWorkingScale: 2f * outputScale);
 
                 Assert.That(node.Cache.IsCached, Is.True);
                 Assert.That(node.Cache.Density, Is.EqualTo(outputScale));
 
-                var processor = new RenderNodeProcessor(
-                    node, useRenderCache: true, outputScale, maxWorkingScale: 2f * outputScale);
+                var processor = new RenderNodeProcessor(node, useRenderCache: true, RenderIntent.Delivery, outputScale, maxWorkingScale: 2f * outputScale);
                 RenderNodeOperation[] ops = processor.PullToRoot();
                 try
                 {
@@ -99,7 +98,7 @@ public class NodeCacheScaleTests
             try
             {
                 RenderNodeCacheHelper.CreateDefaultCache(
-                    node, RenderCacheOptions.Default, outputScale: 1f, maxWorkingScale: 8f);
+                    node, RenderCacheOptions.Default, RenderIntent.Delivery, outputScale: 1f, maxWorkingScale: 8f);
 
                 Assert.That(node.Cache.IsCached, Is.False,
                     "a subtree whose supply density exceeds outputScale must not be cached");
@@ -124,7 +123,7 @@ public class NodeCacheScaleTests
             try
             {
                 float uncached = PullSingleDensity(node, useRenderCache: false, outputScale: 1f);
-                RenderNodeCacheHelper.MakeCache(node, RenderCacheOptions.Default, outputScale: 1f, maxWorkingScale: 8f);
+                RenderNodeCacheHelper.MakeCache(node, RenderCacheOptions.Default, RenderIntent.Delivery, outputScale: 1f, maxWorkingScale: 8f);
                 float cached = PullSingleDensity(node, useRenderCache: true, outputScale: 1f);
 
                 Assert.That(uncached, Is.EqualTo(4f), "the uncached supply density must be the source's At(4)");
@@ -149,7 +148,7 @@ public class NodeCacheScaleTests
             try
             {
                 RenderNodeCacheHelper.CreateDefaultCache(
-                    node, RenderCacheOptions.Default, outputScale: 0.5f, maxWorkingScale: 1f);
+                    node, RenderCacheOptions.Default, RenderIntent.Delivery, outputScale: 0.5f, maxWorkingScale: 1f);
 
                 Assert.That(node.Cache.IsCached, Is.True);
                 foreach ((RenderTarget rt, Rect bounds) in node.Cache.UseCache())
@@ -227,7 +226,7 @@ public class NodeCacheScaleTests
             node.Cache.ReportRenderCount(RenderNodeCache.Count);
             try
             {
-                RenderNodeCacheHelper.MakeCache(node, RenderCacheOptions.Default, outputScale: 1f, maxWorkingScale: 8f);
+                RenderNodeCacheHelper.MakeCache(node, RenderCacheOptions.Default, RenderIntent.Delivery, outputScale: 1f, maxWorkingScale: 8f);
 
                 Assert.That(node.Cache.IsCached, Is.False);
                 Assert.That(node.Cache.IsCacheRejected, Is.True,

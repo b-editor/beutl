@@ -9,12 +9,12 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.EffectPipeline;
 
 /// <summary>
 /// Regression cover for finding F2 (feature 004): a non-invariant SKSL script that samples non-locally must
-/// declare <see cref="BoundsContract.RenderTime"/>, not identity, so a downstream deflating pass (a fixed
+/// declare <see cref="BoundsContract.FullFrame"/>, not identity, so a downstream deflating pass (a fixed
 /// <see cref="Clipping"/>) cannot ROI-crop its bake and shift/clip the non-local samples (contract A3).
 /// </summary>
 [NonParallelizable]
 [TestFixture]
-public class SkslRenderTimeBoundsTests
+public class SkslFullFrameBoundsTests
 {
     private static readonly Rect s_bounds = new(0, 0, 160, 120);
 
@@ -26,7 +26,7 @@ public class SkslRenderTimeBoundsTests
 
     // A non-invariant SKSL script that samples with an offset, followed by a fixed (deflating) Clipping. The
     // backward-ROI walk would crop the script pass to the clip's deflated sub-rect if it declared identity bounds;
-    // RenderTime keeps it baking full-frame. Assert the script pass resolves to the full input bounds.
+    // FullFrame keeps it baking full-frame. Assert the script pass resolves to the full input bounds.
     [Test]
     public void OffsetSamplingScriptUnderDeflatingClip_ResolvesFullFrame_NotDeflatedRoi()
     {
@@ -74,7 +74,7 @@ public class SkslRenderTimeBoundsTests
 
     private static FrameResources ResolveChain(params FilterEffect[] effects)
     {
-        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
         foreach (FilterEffect effect in effects)
             effect.Describe(builder, (FilterEffect.Resource)(object)effect.ToResource(CompositionContext.Default));
 
@@ -85,7 +85,7 @@ public class SkslRenderTimeBoundsTests
 
     private static int RenderAndCountOpaque(params FilterEffect[] effects)
     {
-        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
         foreach (FilterEffect effect in effects)
             effect.Describe(builder, (FilterEffect.Resource)(object)effect.ToResource(CompositionContext.Default));
 
@@ -95,11 +95,11 @@ public class SkslRenderTimeBoundsTests
         FrameResources frame = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale: 1f);
         RenderNodeOperation[] ops = PlanExecutor.Execute(
             plan, frame, [OpaqueInput()], outputScale: 1f, workingScale: 1f,
-            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool);
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool, renderIntent: RenderIntent.Delivery);
 
         int w = (int)s_bounds.Width, h = (int)s_bounds.Height;
         using RenderTarget target = RenderTarget.Create(w, h)!;
-        using (var canvas = new ImmediateCanvas(target, 1f, logicalSize: s_bounds.Size))
+        using (var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 1f, logicalSize: s_bounds.Size))
         {
             canvas.Clear(Colors.Black);
             foreach (RenderNodeOperation op in ops)

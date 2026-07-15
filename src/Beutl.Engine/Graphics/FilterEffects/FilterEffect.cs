@@ -27,8 +27,8 @@ public abstract partial class FilterEffect : EngineObject
 
     public abstract partial class Resource
     {
-        private static readonly FilterEffectRenderNodeFactory s_defaultRenderNodeFactory =
-            FilterEffectRenderNodeFactory.Of<Resource, PlanFilterEffectRenderNode>(
+        private static readonly PlanFilterEffectRenderNodeFactory s_defaultPlanRenderNodeFactory =
+            PlanFilterEffectRenderNodeFactory.Of<Resource, PlanFilterEffectRenderNode>(
                 static resource => new PlanFilterEffectRenderNode(resource));
         private static long s_nextStructuralId;
         private long _structuralId;
@@ -49,26 +49,32 @@ public abstract partial class FilterEffect : EngineObject
         }
 
         /// <summary>
-        /// The factory that creates this effect's render node — the concrete node type and its constructor as one
-        /// value. The default runs the internal compiled-plan node (<see cref="PlanFilterEffectRenderNode"/>) with
-        /// per-node plan and prefix caching. Override to supply a custom <see cref="FilterEffectRenderNode"/>
-        /// subclass (e.g. a different working scale); such a subclass implements
-        /// <see cref="FilterEffectRenderNode.Process"/> itself and does not inherit that caching. Because the
-        /// factory captures the node type alongside its constructor, the render-graph diff's reuse check can never
-        /// drift from the node actually created.
+        /// Creates the standard compiled-plan render node. Override with a retained singleton factory whose node
+        /// derives from <see cref="PlanFilterEffectRenderNode"/> to customize a narrow execution policy while keeping
+        /// compiler, ROI, pooling, and cache behavior. Fully opaque execution belongs to
+        /// <see cref="CustomRenderNodeFilterEffect.Resource"/> instead.
         /// </summary>
-        public virtual FilterEffectRenderNodeFactory RenderNodeFactory
-            => s_defaultRenderNodeFactory;
+        public virtual PlanFilterEffectRenderNodeFactory PlanRenderNodeFactory
+            => s_defaultPlanRenderNodeFactory;
+
+        internal (FilterEffectRenderNodeFactory Factory, bool CanInline) ResolveRenderNodeFactory()
+        {
+            if (this is CustomRenderNodeFilterEffect.Resource custom)
+            {
+                FilterEffectRenderNodeFactory customFactory = custom.RenderNodeFactory
+                    ?? throw new InvalidOperationException("A custom filter effect returned a null render-node factory.");
+                return (customFactory, false);
+            }
+
+            PlanFilterEffectRenderNodeFactory planFactory = PlanRenderNodeFactory
+                ?? throw new InvalidOperationException("A filter effect returned a null plan render-node factory.");
+            return (planFactory.Inner, ReferenceEquals(planFactory, s_defaultPlanRenderNodeFactory));
+        }
 
         public virtual PushedState Push(GraphicsContext2D context)
         {
-            FilterEffectRenderNodeFactory factory = RenderNodeFactory
-                ?? throw new InvalidOperationException("A filter effect returned a null render-node factory.");
-            return context.PushNode(
-                this,
-                factory.NodeType,
-                factory.Create,
-                static (node, resource) => node.Update(resource));
+            (FilterEffectRenderNodeFactory factory, _) = ResolveRenderNodeFactory();
+            return context.PushFilterEffectNode(this, factory);
         }
     }
 }

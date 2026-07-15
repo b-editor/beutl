@@ -168,7 +168,8 @@ public partial class SourceVideo : IThumbnailsProvider
             int effectiveEnd = endIndex < 0 ? count - 1 : Math.Min(endIndex, count - 1);
 
             node = new DrawableRenderNode(resource);
-            var processor = new RenderNodeProcessor(node, false);
+            var processor = new RenderNodeProcessor(
+                node, false, RenderIntent.Preview, pullPurpose: RenderPullPurpose.Auxiliary);
 
             for (int i = effectiveStart; i <= effectiveEnd; i++)
             {

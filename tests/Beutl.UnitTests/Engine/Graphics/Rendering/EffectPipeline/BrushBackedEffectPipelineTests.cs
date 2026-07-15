@@ -58,7 +58,7 @@ public class BrushBackedEffectPipelineTests
 
             var resource = (FilterEffect.Resource)effect.ToResource(CompositionContext.Default);
             var builder = new EffectGraphBuilder(
-                new Rect(0, 0, 64, 64), outputScale: 1f, workingScale: 1f, maxWorkingScale: float.PositiveInfinity);
+                new Rect(0, 0, 64, 64), outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery, maxWorkingScale: float.PositiveInfinity);
             resource.GetOriginal().Describe(builder, resource);
             return counter.RenderCount;
         });
@@ -97,7 +97,7 @@ public class BrushBackedEffectPipelineTests
 
             using RenderTarget target = RenderTarget.Create(size.Width, size.Height)
                                         ?? throw new InvalidOperationException("RenderTarget.Create returned null.");
-            using var canvas = new ImmediateCanvas(target, 1f, logicalSize: size.ToSize(1));
+            using var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 1f, logicalSize: size.ToSize(1));
             canvas.Clear(Colors.Black);
 
             Drawable.Resource resource = makeScene();
@@ -108,7 +108,8 @@ public class BrushBackedEffectPipelineTests
             }
 
             var processor = new RenderNodeProcessor(
-                node, useRenderCache: false, outputScale: 1f, diagnostics: diagnostics, pool: pool);
+                pool, node, useRenderCache: false, RenderIntent.Delivery, outputScale: 1f,
+                diagnostics: diagnostics);
             RenderNodeOperation[] ops = processor.PullToRoot();
             foreach (RenderNodeOperation op in ops)
             {
@@ -125,7 +126,7 @@ public class BrushBackedEffectPipelineTests
         PixelSize size = SceneFixtures.ReferenceSize;
         using RenderTarget target = RenderTarget.Create(size.Width, size.Height)
                                     ?? throw new InvalidOperationException("RenderTarget.Create returned null.");
-        using var canvas = new ImmediateCanvas(target, 1f, logicalSize: size.ToSize(1));
+        using var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 1f, logicalSize: size.ToSize(1));
         canvas.Clear(Colors.Black);
 
         Drawable.Resource resource = makeScene();
@@ -135,7 +136,7 @@ public class BrushBackedEffectPipelineTests
             resource.GetOriginal().Render(ctx, resource);
         }
 
-        var processor = new RenderNodeProcessor(node, useRenderCache: false, outputScale: 1f);
+        var processor = new RenderNodeProcessor(node, useRenderCache: false, RenderIntent.Delivery, outputScale: 1f);
         RenderNodeOperation[] ops = processor.PullToRoot();
         foreach (RenderNodeOperation op in ops)
         {

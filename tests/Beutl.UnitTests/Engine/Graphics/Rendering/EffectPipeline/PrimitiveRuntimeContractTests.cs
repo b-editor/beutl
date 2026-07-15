@@ -33,7 +33,7 @@ public class PrimitiveRuntimeContractTests
     public void DeliveryAllocationFailure_IsNotReplacedByInputDisposeFailure()
     {
         var cleanup = new InvalidOperationException("simulated input cleanup failure");
-        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
         builder.Shader(ShaderNodeDescriptor.Snippet("half4 apply(half4 c) { return c; }"));
         (CompiledPlan plan, FrameResources resources) = Compile(builder);
         using var pool = new RenderTargetPool();
@@ -45,7 +45,7 @@ public class PrimitiveRuntimeContractTests
 
         InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
             plan, resources, [input], outputScale: 1f, workingScale: 1f,
-            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool));
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool, renderIntent: RenderIntent.Delivery));
 
         Assert.Multiple(() =>
         {
@@ -64,10 +64,10 @@ public class PrimitiveRuntimeContractTests
             ComputeNodeDescriptor descriptor = ComputeNodeDescriptor.Create(
                 static _ => throw new AssertionException("dispatch must not run after output allocation fails"),
                 passCount: 1,
-                ComputeFallback.Identity,
+                BoundsContract.FullFrame, ComputeFallbackPolicy.Identity,
                 structuralToken: "compute-output-allocation-cleanup");
             (CompiledPlan plan, FrameResources resources) = Compile(
-                new EffectGraphBuilder(s_bounds, 1f, 1f).Compute(descriptor));
+                new EffectGraphBuilder(s_bounds, 1f, 1f, RenderIntent.Preview).Compute(descriptor));
             using var pool = new RenderTargetPool();
             pool.SetBackingFactoryFailingAfterForTest(successfulAcquires: 1);
             bool inputDisposed = false;
@@ -81,7 +81,7 @@ public class PrimitiveRuntimeContractTests
             try
             {
                 RenderNodeOperation[] outputs = PlanExecutor.Execute(
-                    plan, resources, [input], 1f, 1f, maxWorkingScale: 2f, diagnostics: null, pool);
+                    plan, resources, [input], 1f, 1f, maxWorkingScale: 2f, diagnostics: null, pool, renderIntent: RenderIntent.Preview);
                 try
                 {
                     Assert.Multiple(() =>
@@ -113,7 +113,7 @@ public class PrimitiveRuntimeContractTests
             BoundsContract.Identity,
             structuralToken: "geometry-output-allocation-cleanup");
         (CompiledPlan plan, FrameResources resources) = Compile(
-            new EffectGraphBuilder(s_bounds, 1f, 1f).Geometry(descriptor));
+            new EffectGraphBuilder(s_bounds, 1f, 1f, RenderIntent.Preview).Geometry(descriptor));
         using var pool = new RenderTargetPool();
         pool.SetBackingFactoryFailingAfterForTest(successfulAcquires: 1);
         bool inputDisposed = false;
@@ -127,7 +127,7 @@ public class PrimitiveRuntimeContractTests
         try
         {
             RenderNodeOperation[] outputs = PlanExecutor.Execute(
-                plan, resources, [input], 1f, 1f, maxWorkingScale: 2f, diagnostics: null, pool);
+                plan, resources, [input], 1f, 1f, maxWorkingScale: 2f, diagnostics: null, pool, renderIntent: RenderIntent.Preview);
             try
             {
                 Assert.Multiple(() =>
@@ -156,11 +156,12 @@ public class PrimitiveRuntimeContractTests
         ComputeNodeDescriptor descriptor = ComputeNodeDescriptor.Create(
             static _ => throw new AssertionException("dispatch must not run"),
             passCount: 1,
-            ComputeFallback.CpuCallback,
-            cpuCallback: static _ => throw new AssertionException("callback must not run after allocation fails"),
+            BoundsContract.FullFrame,
+            ComputeFallbackPolicy.Cpu(
+                static _ => throw new AssertionException("callback must not run after allocation fails")),
             structuralToken: "compute-cpu-output-allocation-cleanup");
         (CompiledPlan plan, FrameResources resources) = Compile(
-            new EffectGraphBuilder(s_bounds, 1f, 1f).Compute(descriptor));
+            new EffectGraphBuilder(s_bounds, 1f, 1f, RenderIntent.Preview).Compute(descriptor));
         using var pool = new RenderTargetPool();
         pool.SetBackingFactoryFailingAfterForTest(successfulAcquires: 1);
         bool inputDisposed = false;
@@ -175,7 +176,7 @@ public class PrimitiveRuntimeContractTests
         try
         {
             RenderNodeOperation[] outputs = PlanExecutor.Execute(
-                plan, resources, [input], 1f, 1f, maxWorkingScale: 2f, diagnostics: null, pool);
+                plan, resources, [input], 1f, 1f, maxWorkingScale: 2f, diagnostics: null, pool, renderIntent: RenderIntent.Preview);
             try
             {
                 Assert.Multiple(() =>
@@ -217,14 +218,14 @@ public class PrimitiveRuntimeContractTests
                     }
                 },
                 declared,
-                ComputeFallback.Identity,
+                BoundsContract.FullFrame, ComputeFallbackPolicy.Identity,
                 structuralToken: $"dispatch-count-{declared}-{actual}");
             (CompiledPlan plan, FrameResources resources) = Compile(
-                new EffectGraphBuilder(s_bounds, 1f, 1f).Compute(descriptor));
+                new EffectGraphBuilder(s_bounds, 1f, 1f, RenderIntent.Delivery).Compute(descriptor));
             using var pool = new RenderTargetPool();
 
             InvalidOperationException error = Assert.Catch<InvalidOperationException>(() => PlanExecutor.Execute(
-                plan, resources, [Input()], 1f, 1f, float.PositiveInfinity, diagnostics: null, pool))!;
+                plan, resources, [Input()], 1f, 1f, float.PositiveInfinity, diagnostics: null, pool, renderIntent: RenderIntent.Delivery))!;
             Assert.Multiple(() =>
             {
                 Assert.That(error.Message, Does.Contain("dispatch"));
@@ -244,14 +245,14 @@ public class PrimitiveRuntimeContractTests
             ComputeNodeDescriptor descriptor = ComputeNodeDescriptor.Create(
                 static ctx => ctx.CopySourceToDestination(),
                 passCount: 3,
-                ComputeFallback.Identity,
+                BoundsContract.FullFrame, ComputeFallbackPolicy.Identity,
                 structuralToken: "terminal-copy-success");
             (CompiledPlan plan, FrameResources resources) = Compile(
-                new EffectGraphBuilder(s_bounds, 1f, 1f).Compute(descriptor));
+                new EffectGraphBuilder(s_bounds, 1f, 1f, RenderIntent.Delivery).Compute(descriptor));
             using var pool = new RenderTargetPool();
 
             RenderNodeOperation[] outputs = PlanExecutor.Execute(
-                plan, resources, [Input()], 1f, 1f, float.PositiveInfinity, diagnostics: null, pool);
+                plan, resources, [Input()], 1f, 1f, float.PositiveInfinity, diagnostics: null, pool, renderIntent: RenderIntent.Delivery);
             RenderNodeOperation.DisposeAll(outputs);
 
             Assert.That(pool.LiveLeaseCount, Is.Zero);
@@ -268,11 +269,11 @@ public class PrimitiveRuntimeContractTests
             ComputeNodeDescriptor descriptor = ComputeNodeDescriptor.Create(
                 static ctx => ctx.CopySourceToDestination(),
                 passCount: 1,
-                ComputeFallback.Identity,
+                BoundsContract.FullFrame, ComputeFallbackPolicy.Identity,
                 structuralToken: "terminal-copy-backend-failure",
                 dispatchFailureBehavior: ComputeDispatchFailureBehavior.IdentityInPreview);
             (CompiledPlan plan, FrameResources resources) = Compile(
-                new EffectGraphBuilder(s_bounds, 1f, 1f).Compute(descriptor));
+                new EffectGraphBuilder(s_bounds, 1f, 1f, RenderIntent.Preview).Compute(descriptor));
             using var pool = new RenderTargetPool();
             var injected = new InvalidOperationException("copy backend failed");
 
@@ -280,7 +281,7 @@ public class PrimitiveRuntimeContractTests
             try
             {
                 InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
-                    plan, resources, [Input()], 1f, 1f, maxWorkingScale: 2f, diagnostics: null, pool));
+                    plan, resources, [Input()], 1f, 1f, maxWorkingScale: 2f, diagnostics: null, pool, renderIntent: RenderIntent.Preview));
                 Assert.Multiple(() =>
                 {
                     Assert.That(actual, Is.SameAs(injected),
@@ -305,10 +306,10 @@ public class PrimitiveRuntimeContractTests
             ComputeNodeDescriptor descriptor = ComputeNodeDescriptor.Create(
                 static ctx => ctx.CopySourceToDestination(),
                 passCount: 1,
-                ComputeFallback.Identity,
+                BoundsContract.FullFrame, ComputeFallbackPolicy.Identity,
                 structuralToken: "terminal-copy-prepare-failure");
             (CompiledPlan plan, FrameResources resources) = Compile(
-                new EffectGraphBuilder(s_bounds, 1f, 1f).Compute(descriptor));
+                new EffectGraphBuilder(s_bounds, 1f, 1f, RenderIntent.Delivery).Compute(descriptor));
             using var pool = new RenderTargetPool();
             var injected = new InvalidOperationException("copy destination preparation failed");
 
@@ -316,7 +317,7 @@ public class PrimitiveRuntimeContractTests
             try
             {
                 InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
-                    plan, resources, [Input()], 1f, 1f, float.PositiveInfinity, diagnostics: null, pool));
+                    plan, resources, [Input()], 1f, 1f, float.PositiveInfinity, diagnostics: null, pool, renderIntent: RenderIntent.Delivery));
                 Assert.Multiple(() =>
                 {
                     Assert.That(actual, Is.SameAs(injected));
@@ -362,10 +363,10 @@ public class PrimitiveRuntimeContractTests
             ComputeNodeDescriptor descriptor = ComputeNodeDescriptor.Create(
                 static ctx => ctx.CopySourceToDestination(),
                 passCount: 1,
-                ComputeFallback.Identity,
+                BoundsContract.FullFrame, ComputeFallbackPolicy.Identity,
                 structuralToken: "compute-input-cleanup-failure");
             (CompiledPlan plan, FrameResources resources) = Compile(
-                new EffectGraphBuilder(s_bounds, 1f, 1f).Compute(descriptor));
+                new EffectGraphBuilder(s_bounds, 1f, 1f, RenderIntent.Delivery).Compute(descriptor));
             using var pool = new RenderTargetPool();
             bool inputDisposed = false;
             RenderNodeOperation input = RenderNodeOperation.CreateLambda(
@@ -378,7 +379,7 @@ public class PrimitiveRuntimeContractTests
             try
             {
                 InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
-                    plan, resources, [input], 1f, 1f, float.PositiveInfinity, diagnostics: null, pool));
+                    plan, resources, [input], 1f, 1f, float.PositiveInfinity, diagnostics: null, pool, renderIntent: RenderIntent.Delivery));
                 Assert.Multiple(() =>
                 {
                     Assert.That(actual, Is.SameAs(injected));
@@ -403,11 +404,11 @@ public class PrimitiveRuntimeContractTests
         ComputeNodeDescriptor descriptor = ComputeNodeDescriptor.Create(
             dispatch: static _ => throw new AssertionException("dispatch must not run"),
             passCount: 1,
-            ComputeFallback.CpuCallback,
-            cpuCallback: static session => session.Inputs[0].Draw(session.OpenCanvas()),
+            BoundsContract.FullFrame,
+            ComputeFallbackPolicy.Cpu(static session => session.Inputs[0].Draw(session.OpenCanvas())),
             structuralToken: "compute-cpu-input-cleanup-failure");
         (CompiledPlan plan, FrameResources resources) = Compile(
-            new EffectGraphBuilder(s_bounds, 1f, 1f).Compute(descriptor));
+            new EffectGraphBuilder(s_bounds, 1f, 1f, RenderIntent.Delivery).Compute(descriptor));
         bool inputDisposed = false;
         RenderNodeOperation input = RenderNodeOperation.CreateLambda(
             s_bounds,
@@ -419,7 +420,7 @@ public class PrimitiveRuntimeContractTests
         try
         {
             InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
-                plan, resources, [input], 1f, 1f, float.PositiveInfinity, diagnostics: null, pool));
+                plan, resources, [input], 1f, 1f, float.PositiveInfinity, diagnostics: null, pool, renderIntent: RenderIntent.Delivery));
             Assert.Multiple(() =>
             {
                 Assert.That(actual, Is.SameAs(injected));
@@ -464,15 +465,15 @@ public class PrimitiveRuntimeContractTests
                     }
                 },
                 passCount: 1,
-                ComputeFallback.Identity,
+                BoundsContract.FullFrame, ComputeFallbackPolicy.Identity,
                 colorScratchCount: 1,
                 structuralToken: "terminal-copy-" + violation);
             (CompiledPlan plan, FrameResources resources) = Compile(
-                new EffectGraphBuilder(s_bounds, 1f, 1f).Compute(descriptor));
+                new EffectGraphBuilder(s_bounds, 1f, 1f, RenderIntent.Delivery).Compute(descriptor));
             using var pool = new RenderTargetPool();
 
             InvalidOperationException error = Assert.Catch<InvalidOperationException>(() => PlanExecutor.Execute(
-                plan, resources, [Input()], 1f, 1f, float.PositiveInfinity, diagnostics: null, pool))!;
+                plan, resources, [Input()], 1f, 1f, float.PositiveInfinity, diagnostics: null, pool, renderIntent: RenderIntent.Delivery))!;
 
             Assert.Multiple(() =>
             {
@@ -498,11 +499,11 @@ public class PrimitiveRuntimeContractTests
                 declared,
                 structuralToken: $"split-count-{declared}-{actual}");
             (CompiledPlan plan, FrameResources resources) = Compile(
-                new EffectGraphBuilder(s_bounds, 1f, 1f).Split(descriptor));
+                new EffectGraphBuilder(s_bounds, 1f, 1f, RenderIntent.Delivery).Split(descriptor));
             using var pool = new RenderTargetPool();
 
             InvalidOperationException error = Assert.Catch<InvalidOperationException>(() => PlanExecutor.Execute(
-                plan, resources, [Input()], 1f, 1f, float.PositiveInfinity, diagnostics: null, pool))!;
+                plan, resources, [Input()], 1f, 1f, float.PositiveInfinity, diagnostics: null, pool, renderIntent: RenderIntent.Delivery))!;
             Assert.Multiple(() =>
             {
                 Assert.That(error.Message, Does.Contain("branch"));
@@ -524,7 +525,7 @@ public class PrimitiveRuntimeContractTests
                 branchCount: 1,
                 structuralToken: "split-input-cleanup-failure");
             (CompiledPlan plan, FrameResources resources) = Compile(
-                new EffectGraphBuilder(s_bounds, 1f, 1f).Split(descriptor));
+                new EffectGraphBuilder(s_bounds, 1f, 1f, RenderIntent.Delivery).Split(descriptor));
             using var pool = new RenderTargetPool();
             bool inputDisposed = false;
             RenderNodeOperation input = RenderNodeOperation.CreateLambda(
@@ -537,7 +538,7 @@ public class PrimitiveRuntimeContractTests
             try
             {
                 InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
-                    plan, resources, [input], 1f, 1f, float.PositiveInfinity, diagnostics: null, pool));
+                    plan, resources, [input], 1f, 1f, float.PositiveInfinity, diagnostics: null, pool, renderIntent: RenderIntent.Delivery));
                 Assert.Multiple(() =>
                 {
                     Assert.That(actual, Is.SameAs(injected));
@@ -567,14 +568,14 @@ public class PrimitiveRuntimeContractTests
                 branchCount: 1,
                 structuralToken: "split-primary-failure");
             (CompiledPlan plan, FrameResources resources) = Compile(
-                new EffectGraphBuilder(s_bounds, 1f, 1f).Split(descriptor));
+                new EffectGraphBuilder(s_bounds, 1f, 1f, RenderIntent.Delivery).Split(descriptor));
             using var pool = new RenderTargetPool();
 
             PlanExecutor.ForceSplitInputDisposeFailureForTests(cleanup);
             try
             {
                 InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
-                    plan, resources, [Input()], 1f, 1f, float.PositiveInfinity, diagnostics: null, pool));
+                    plan, resources, [Input()], 1f, 1f, float.PositiveInfinity, diagnostics: null, pool, renderIntent: RenderIntent.Delivery));
                 Assert.Multiple(() =>
                 {
                     Assert.That(actual, Is.SameAs(primary));
@@ -596,7 +597,7 @@ public class PrimitiveRuntimeContractTests
             BoundsContract.Identity,
             structuralToken: "geometry-input-cleanup-failure");
         (CompiledPlan plan, FrameResources resources) = Compile(
-            new EffectGraphBuilder(s_bounds, 1f, 1f).Geometry(descriptor));
+            new EffectGraphBuilder(s_bounds, 1f, 1f, RenderIntent.Delivery).Geometry(descriptor));
         using var pool = new RenderTargetPool();
         bool inputDisposed = false;
         RenderNodeOperation input = RenderNodeOperation.CreateLambda(
@@ -609,7 +610,7 @@ public class PrimitiveRuntimeContractTests
         try
         {
             InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
-                plan, resources, [input], 1f, 1f, float.PositiveInfinity, diagnostics: null, pool));
+                plan, resources, [input], 1f, 1f, float.PositiveInfinity, diagnostics: null, pool, renderIntent: RenderIntent.Delivery));
             Assert.Multiple(() =>
             {
                 Assert.That(actual, Is.SameAs(injected));
@@ -629,7 +630,7 @@ public class PrimitiveRuntimeContractTests
     public void DescriptorOperationCleanupFailure_ReleasesCompletedOutput()
     {
         (CompiledPlan plan, FrameResources resources) = Compile(
-            new EffectGraphBuilder(s_bounds, 1f, 1f).Brightness(1.1f));
+            new EffectGraphBuilder(s_bounds, 1f, 1f, RenderIntent.Delivery).Brightness(1.1f));
         using var pool = new RenderTargetPool();
         var injected = new InvalidOperationException("descriptor operation cleanup failed");
         RenderNodeOperation input = RenderNodeOperation.CreateLambda(
@@ -638,7 +639,7 @@ public class PrimitiveRuntimeContractTests
             onDispose: () => throw injected);
 
         InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
-            plan, resources, [input], 1f, 1f, float.PositiveInfinity, diagnostics: null, pool));
+            plan, resources, [input], 1f, 1f, float.PositiveInfinity, diagnostics: null, pool, renderIntent: RenderIntent.Delivery));
 
         Assert.Multiple(() =>
         {
@@ -656,7 +657,7 @@ public class PrimitiveRuntimeContractTests
             BoundsContract.Identity,
             structuralToken: "geometry-operation-cleanup-failure");
         (CompiledPlan plan, FrameResources resources) = Compile(
-            new EffectGraphBuilder(s_bounds, 1f, 1f).Geometry(descriptor));
+            new EffectGraphBuilder(s_bounds, 1f, 1f, RenderIntent.Delivery).Geometry(descriptor));
         using var pool = new RenderTargetPool();
         var injected = new InvalidOperationException("geometry operation cleanup failed");
         RenderNodeOperation input = RenderNodeOperation.CreateLambda(
@@ -665,7 +666,7 @@ public class PrimitiveRuntimeContractTests
             onDispose: () => throw injected);
 
         InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
-            plan, resources, [input], 1f, 1f, float.PositiveInfinity, diagnostics: null, pool));
+            plan, resources, [input], 1f, 1f, float.PositiveInfinity, diagnostics: null, pool, renderIntent: RenderIntent.Delivery));
 
         Assert.Multiple(() =>
         {
@@ -688,7 +689,7 @@ public class PrimitiveRuntimeContractTests
             BoundsContract.Identity,
             structuralToken: "geometry-shrink-output-cleanup-failure");
         (CompiledPlan plan, FrameResources resources) = Compile(
-            new EffectGraphBuilder(s_bounds, 1f, 1f).Geometry(descriptor));
+            new EffectGraphBuilder(s_bounds, 1f, 1f, RenderIntent.Delivery).Geometry(descriptor));
         using var pool = new RenderTargetPool();
         bool inputDisposed = false;
         RenderNodeOperation input = RenderNodeOperation.CreateLambda(
@@ -701,7 +702,7 @@ public class PrimitiveRuntimeContractTests
         try
         {
             InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
-                plan, resources, [input], 1f, 1f, float.PositiveInfinity, diagnostics: null, pool));
+                plan, resources, [input], 1f, 1f, float.PositiveInfinity, diagnostics: null, pool, renderIntent: RenderIntent.Delivery));
             Assert.Multiple(() =>
             {
                 Assert.That(actual, Is.SameAs(injected));
@@ -723,10 +724,10 @@ public class PrimitiveRuntimeContractTests
         ComputeNodeDescriptor descriptor = ComputeNodeDescriptor.Create(
             static _ => throw new AssertionException("dispatch must not run"),
             1,
-            ComputeFallback.Identity,
+            BoundsContract.FullFrame, ComputeFallbackPolicy.Identity,
             structuralToken: "forced-identity");
         (CompiledPlan plan, FrameResources resources) = Compile(
-            new EffectGraphBuilder(s_bounds, 1f, 1f).Saturate(1.2f).Compute(descriptor).Brightness(1.1f));
+            new EffectGraphBuilder(s_bounds, 1f, 1f, RenderIntent.Delivery).Saturate(1.2f).Compute(descriptor).Brightness(1.1f));
         var diagnostics = new PipelineDiagnostics();
         using var pool = new RenderTargetPool();
         RenderNodeOperation input = Input();
@@ -735,7 +736,7 @@ public class PrimitiveRuntimeContractTests
         try
         {
             RenderNodeOperation[] outputs = PlanExecutor.Execute(
-                plan, resources, [input], 1f, 1f, float.PositiveInfinity, diagnostics, pool);
+                plan, resources, [input], 1f, 1f, float.PositiveInfinity, diagnostics, pool, renderIntent: RenderIntent.Delivery);
             try
             {
                 Assert.That(outputs, Has.Length.EqualTo(1));
@@ -759,10 +760,10 @@ public class PrimitiveRuntimeContractTests
         ComputeNodeDescriptor descriptor = ComputeNodeDescriptor.Create(
             static _ => throw new AssertionException("dispatch must not run"),
             1,
-            ComputeFallback.Identity,
+            BoundsContract.FullFrame, ComputeFallbackPolicy.Identity,
             structuralToken: "forced-identity-operation");
         (CompiledPlan plan, FrameResources resources) = Compile(
-            new EffectGraphBuilder(s_bounds, 1f, 1f).Compute(descriptor));
+            new EffectGraphBuilder(s_bounds, 1f, 1f, RenderIntent.Delivery).Compute(descriptor));
         var diagnostics = new PipelineDiagnostics();
         using var pool = new RenderTargetPool();
         RenderNodeOperation input = Input();
@@ -771,7 +772,7 @@ public class PrimitiveRuntimeContractTests
         try
         {
             RenderNodeOperation[] outputs = PlanExecutor.Execute(
-                plan, resources, [input], 1f, 1f, float.PositiveInfinity, diagnostics, pool);
+                plan, resources, [input], 1f, 1f, float.PositiveInfinity, diagnostics, pool, renderIntent: RenderIntent.Delivery);
             try
             {
                 Assert.Multiple(() =>
@@ -802,10 +803,10 @@ public class PrimitiveRuntimeContractTests
             ComputeNodeDescriptor descriptor = ComputeNodeDescriptor.Create(
                 static _ => throw new AssertionException("dispatch must not run without a backend texture"),
                 1,
-                ComputeFallback.Identity,
+                BoundsContract.FullFrame, ComputeFallbackPolicy.Identity,
                 structuralToken: "null-texture-input");
             (CompiledPlan plan, FrameResources resources) = Compile(
-                new EffectGraphBuilder(s_bounds, 1f, 1f)
+                new EffectGraphBuilder(s_bounds, 1f, 1f, RenderIntent.Delivery)
                     .Compute(descriptor)
                     .Brightness(1.1f));
             var diagnostics = new PipelineDiagnostics();
@@ -819,7 +820,7 @@ public class PrimitiveRuntimeContractTests
             RenderNodeOperation input = Input();
 
             RenderNodeOperation[] outputs = PlanExecutor.Execute(
-                plan, resources, [input], 1f, 1f, float.PositiveInfinity, diagnostics, pool);
+                plan, resources, [input], 1f, 1f, float.PositiveInfinity, diagnostics, pool, renderIntent: RenderIntent.Delivery);
             try
             {
                 Assert.Multiple(() =>
@@ -842,10 +843,10 @@ public class PrimitiveRuntimeContractTests
         ComputeNodeDescriptor descriptor = ComputeNodeDescriptor.Create(
             static _ => throw new AssertionException("dispatch must not run"),
             1,
-            ComputeFallback.Skip,
+            BoundsContract.FullFrame, ComputeFallbackPolicy.Skip,
             structuralToken: "forced-skip");
         (CompiledPlan plan, FrameResources resources) = Compile(
-            new EffectGraphBuilder(s_bounds, 1f, 1f).Compute(descriptor).Brightness(1.1f));
+            new EffectGraphBuilder(s_bounds, 1f, 1f, RenderIntent.Delivery).Compute(descriptor).Brightness(1.1f));
         var diagnostics = new PipelineDiagnostics();
         using var pool = new RenderTargetPool();
         bool disposed = false;
@@ -856,7 +857,7 @@ public class PrimitiveRuntimeContractTests
         try
         {
             RenderNodeOperation[] outputs = PlanExecutor.Execute(
-                plan, resources, [input], 1f, 1f, float.PositiveInfinity, diagnostics, pool);
+                plan, resources, [input], 1f, 1f, float.PositiveInfinity, diagnostics, pool, renderIntent: RenderIntent.Delivery);
             Assert.Multiple(() =>
             {
                 Assert.That(outputs, Is.Empty);

@@ -49,6 +49,8 @@ internal sealed record ParameterBlock(ImmutableArray<CompiledPass> Passes)
         {
             if (a[i].GetType() != b[i].GetType())
                 return false;
+            if (!a[i].BoundsIdentities.SequenceEqual(b[i].BoundsIdentities))
+                return false;
 
             switch (a[i])
             {
@@ -73,8 +75,8 @@ internal sealed record ParameterBlock(ImmutableArray<CompiledPass> Passes)
                 case ComputePass compa when b[i] is ComputePass compb:
                     if (compa.PassCount != compb.PassCount
                         || compa.ColorScratchCount != compb.ColorScratchCount
-                        || compa.Fallback != compb.Fallback
-                        || compa.CpuFallbackRequiresReadback != compb.CpuFallbackRequiresReadback
+                        || compa.Fallback.Kind != compb.Fallback.Kind
+                        || compa.Fallback.RequiresReadback != compb.Fallback.RequiresReadback
                         || compa.DispatchFailureBehavior != compb.DispatchFailureBehavior)
                         return false;
                     break;

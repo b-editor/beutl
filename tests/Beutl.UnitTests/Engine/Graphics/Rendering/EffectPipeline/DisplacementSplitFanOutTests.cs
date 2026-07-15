@@ -230,7 +230,7 @@ public class DisplacementSplitFanOutTests
         FilterEffectGroup group, Rect bounds, Func<RenderNodeOperation> inputFactory)
     {
         using FilterEffect.Resource resource = (FilterEffect.Resource)group.ToResource(CompositionContext.Default);
-        var builder = new EffectGraphBuilder(bounds, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
         group.Describe(builder, resource);
 
         using EffectGraph graph = builder.Build();
@@ -239,11 +239,11 @@ public class DisplacementSplitFanOutTests
         FrameResources frame = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale: 1f);
         RenderNodeOperation[] ops = PlanExecutor.Execute(
             plan, frame, [inputFactory()], outputScale: 1f, workingScale: 1f,
-            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool);
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool, renderIntent: RenderIntent.Delivery);
 
         int w = (int)bounds.Width, h = (int)bounds.Height;
         using RenderTarget target = RenderTarget.Create(w, h)!;
-        using (var canvas = new ImmediateCanvas(target, 1f, logicalSize: bounds.Size))
+        using (var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 1f, logicalSize: bounds.Size))
         {
             canvas.Clear(Colors.Black);
             foreach (RenderNodeOperation op in ops)

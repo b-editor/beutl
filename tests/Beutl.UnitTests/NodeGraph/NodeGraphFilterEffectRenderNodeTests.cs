@@ -53,7 +53,7 @@ public class NodeGraphFilterEffectRenderNodeTests
     {
         using NodeGraphFilterEffect.Resource resource = BuildGraphResource();
         using FilterEffectRenderNode node = resource.RenderNodeFactory.Create(resource);
-        var context = new RenderNodeContext([SourceOp(1.0f)], outputScale: outputScale);
+        var context = new RenderNodeContext([SourceOp(1.0f)], RenderIntent.Delivery, outputScale: outputScale);
 
         RenderNodeOperation[] ops = node.Process(context);
 
@@ -70,7 +70,7 @@ public class NodeGraphFilterEffectRenderNodeTests
     {
         using NodeGraphFilterEffect.Resource resource = BuildGraphResource();
         using FilterEffectRenderNode node = resource.RenderNodeFactory.Create(resource);
-        var context = new RenderNodeContext([SourceOp(4.0f)], outputScale: 1.0f, maxWorkingScale: maxWorkingScale);
+        var context = new RenderNodeContext([SourceOp(4.0f)], RenderIntent.Delivery, outputScale: 1.0f, maxWorkingScale: maxWorkingScale);
 
         RenderNodeOperation[] ops = node.Process(context);
 
@@ -86,10 +86,9 @@ public class NodeGraphFilterEffectRenderNodeTests
         using NodeGraphFilterEffect.Resource resource = BuildGraphResource();
         using FilterEffectRenderNode node = resource.RenderNodeFactory.Create(resource);
         ScaleProbeRenderNode.SawAuxiliaryPull = false;
-        var context = new RenderNodeContext([SourceOp(1f)])
-        {
-            IsAuxiliaryPull = true,
-        };
+        var context = new RenderNodeContext(
+            [SourceOp(1f)], RenderIntent.Delivery,
+            pullPurpose: RenderPullPurpose.Auxiliary);
 
         RenderNodeOperation[] ops = node.Process(context);
         try
@@ -148,11 +147,11 @@ public class NodeGraphFilterEffectRenderNodeTests
         using var resource = (NodeGraphFilterEffect.Resource)effect.ToResource(CompositionContext.Default);
         using FilterEffectRenderNode node = resource.RenderNodeFactory.Create(resource);
         RenderNodeOperation input = SourceOp(1f);
-        RenderNodeOperation[] outputs = node.Process(new RenderNodeContext([input]));
+        RenderNodeOperation[] outputs = node.Process(new RenderNodeContext([input], RenderIntent.Delivery));
 
         int slot = resource.Snapshot.FindSlotIndex(inputNode);
         var inputResource = (FilterEffectInputNode.Resource)resource.Snapshot.GetResource(slot)!;
-        RenderNodeOperation[] retained = inputResource.Wrapper.Process(new RenderNodeContext([]));
+        RenderNodeOperation[] retained = inputResource.Wrapper.Process(new RenderNodeContext([], RenderIntent.Delivery));
         try
         {
             Assert.Multiple(() =>
@@ -201,11 +200,11 @@ public class NodeGraphFilterEffectRenderNodeTests
         RenderNodeOperation input = SourceOp(1f);
         TrackedResultRenderNode.ResultDisposed = false;
 
-        Assert.Throws<InvalidOperationException>(() => node.Process(new RenderNodeContext([input])));
+        Assert.Throws<InvalidOperationException>(() => node.Process(new RenderNodeContext([input], RenderIntent.Delivery)));
 
         int slot = resource.Snapshot.FindSlotIndex(inputNode);
         var inputResource = (FilterEffectInputNode.Resource)resource.Snapshot.GetResource(slot)!;
-        RenderNodeOperation[] retained = inputResource.Wrapper.Process(new RenderNodeContext([]));
+        RenderNodeOperation[] retained = inputResource.Wrapper.Process(new RenderNodeContext([], RenderIntent.Delivery));
         try
         {
             Assert.Multiple(() =>
@@ -256,11 +255,11 @@ public class NodeGraphFilterEffectRenderNodeTests
             onDispose: () => secondDisposed = true);
         TrackedResultRenderNode.ResultDisposed = false;
 
-        RenderNodeOperation[] outputs = node.Process(new RenderNodeContext([first, second]));
+        RenderNodeOperation[] outputs = node.Process(new RenderNodeContext([first, second], RenderIntent.Delivery));
 
         int slot = resource.Snapshot.FindSlotIndex(inputNode);
         var inputResource = (FilterEffectInputNode.Resource)resource.Snapshot.GetResource(slot)!;
-        RenderNodeOperation[] retained = inputResource.Wrapper.Process(new RenderNodeContext([]));
+        RenderNodeOperation[] retained = inputResource.Wrapper.Process(new RenderNodeContext([], RenderIntent.Delivery));
         try
         {
             Assert.Multiple(() =>
@@ -301,12 +300,12 @@ public class NodeGraphFilterEffectRenderNodeTests
         using var resource = (NodeGraphFilterEffect.Resource)host.ToResource(CompositionContext.Default);
         using FilterEffectRenderNode node = resource.RenderNodeFactory.Create(resource);
         SecondFactoryRenderNode.SawDisposedChild = false;
-        RenderNodeOperation[] first = node.Process(new RenderNodeContext([SourceOp(1f)]));
+        RenderNodeOperation[] first = node.Process(new RenderNodeContext([SourceOp(1f)], RenderIntent.Delivery));
         Assert.That(first.Single().EffectiveScale.Value, Is.EqualTo(1f));
         DisposeAll(first);
 
         effectNode.Object.UseSecond.CurrentValue = true;
-        RenderNodeOperation[] second = node.Process(new RenderNodeContext([SourceOp(1f)]));
+        RenderNodeOperation[] second = node.Process(new RenderNodeContext([SourceOp(1f)], RenderIntent.Delivery));
         Assert.That(second.Single().EffectiveScale.Value, Is.EqualTo(2f),
             "the graph must execute the new factory node type after the resource changes");
         Assert.That(SecondFactoryRenderNode.SawDisposedChild, Is.False,
@@ -326,12 +325,8 @@ public class NodeGraphFilterEffectRenderNodeTests
 // A GPU-free FilterEffect whose render node stamps the resolved working scale onto passthrough ops,
 // exposing the scale that NodeGraphFilterEffectRenderNode forwarded.
 [SuppressResourceClassGeneration]
-internal sealed partial class ScaleProbeEffect : FilterEffect
+internal sealed partial class ScaleProbeEffect : CustomRenderNodeFilterEffect
 {
-    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
-    {
-    }
-
     public override Resource ToResource(CompositionContext context)
     {
         var resource = new Resource();
@@ -340,10 +335,13 @@ internal sealed partial class ScaleProbeEffect : FilterEffect
         return resource;
     }
 
-    public new sealed class Resource : FilterEffect.Resource
+    public new sealed class Resource : CustomRenderNodeFilterEffect.Resource
     {
+        private static readonly FilterEffectRenderNodeFactory s_factory =
+            FilterEffectRenderNodeFactory.Of<Resource, ScaleProbeRenderNode>(static r => new ScaleProbeRenderNode(r));
+
         public override FilterEffectRenderNodeFactory RenderNodeFactory
-            => FilterEffectRenderNodeFactory.Of<Resource, ScaleProbeRenderNode>(static r => new ScaleProbeRenderNode(r));
+            => s_factory;
     }
 }
 
@@ -369,7 +367,7 @@ internal sealed class ScaleProbeRenderNode(FilterEffect.Resource fe) : FilterEff
 }
 
 [SuppressResourceClassGeneration]
-internal sealed partial class SwitchingFactoryEffect : FilterEffect
+internal sealed partial class SwitchingFactoryEffect : CustomRenderNodeFilterEffect
 {
     public SwitchingFactoryEffect()
     {
@@ -377,10 +375,6 @@ internal sealed partial class SwitchingFactoryEffect : FilterEffect
     }
 
     public IProperty<bool> UseSecond { get; } = Property.Create(false);
-
-    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
-    {
-    }
 
     public override Resource ToResource(CompositionContext context)
     {
@@ -390,13 +384,17 @@ internal sealed partial class SwitchingFactoryEffect : FilterEffect
         return resource;
     }
 
-    public new sealed class Resource : FilterEffect.Resource
+    public new sealed class Resource : CustomRenderNodeFilterEffect.Resource
     {
+        private static readonly FilterEffectRenderNodeFactory s_firstFactory =
+            FilterEffectRenderNodeFactory.Of<Resource, FirstFactoryRenderNode>(static r => new FirstFactoryRenderNode(r));
+        private static readonly FilterEffectRenderNodeFactory s_secondFactory =
+            FilterEffectRenderNodeFactory.Of<Resource, SecondFactoryRenderNode>(static r => new SecondFactoryRenderNode(r));
         private bool _useSecond;
 
         public override FilterEffectRenderNodeFactory RenderNodeFactory => _useSecond
-            ? FilterEffectRenderNodeFactory.Of<Resource, SecondFactoryRenderNode>(static r => new SecondFactoryRenderNode(r))
-            : FilterEffectRenderNodeFactory.Of<Resource, FirstFactoryRenderNode>(static r => new FirstFactoryRenderNode(r));
+            ? s_secondFactory
+            : s_firstFactory;
 
         public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
         {
@@ -432,12 +430,8 @@ internal sealed class SecondFactoryRenderNode(FilterEffect.Resource resource) : 
 }
 
 [SuppressResourceClassGeneration]
-internal sealed partial class TrackedResultEffect : FilterEffect
+internal sealed partial class TrackedResultEffect : CustomRenderNodeFilterEffect
 {
-    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
-    {
-    }
-
     public override Resource ToResource(CompositionContext context)
     {
         var resource = new Resource();
@@ -446,11 +440,14 @@ internal sealed partial class TrackedResultEffect : FilterEffect
         return resource;
     }
 
-    public new sealed class Resource : FilterEffect.Resource
+    public new sealed class Resource : CustomRenderNodeFilterEffect.Resource
     {
-        public override FilterEffectRenderNodeFactory RenderNodeFactory
-            => FilterEffectRenderNodeFactory.Of<Resource, TrackedResultRenderNode>(
+        private static readonly FilterEffectRenderNodeFactory s_factory =
+            FilterEffectRenderNodeFactory.Of<Resource, TrackedResultRenderNode>(
                 static resource => new TrackedResultRenderNode(resource));
+
+        public override FilterEffectRenderNodeFactory RenderNodeFactory
+            => s_factory;
     }
 }
 
@@ -473,12 +470,8 @@ internal sealed class TrackedResultRenderNode(FilterEffect.Resource resource) : 
 }
 
 [SuppressResourceClassGeneration]
-internal sealed partial class ThrowingProcessEffect : FilterEffect
+internal sealed partial class ThrowingProcessEffect : CustomRenderNodeFilterEffect
 {
-    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
-    {
-    }
-
     public override Resource ToResource(CompositionContext context)
     {
         var resource = new Resource();
@@ -487,11 +480,14 @@ internal sealed partial class ThrowingProcessEffect : FilterEffect
         return resource;
     }
 
-    public new sealed class Resource : FilterEffect.Resource
+    public new sealed class Resource : CustomRenderNodeFilterEffect.Resource
     {
-        public override FilterEffectRenderNodeFactory RenderNodeFactory
-            => FilterEffectRenderNodeFactory.Of<Resource, ThrowingProcessRenderNode>(
+        private static readonly FilterEffectRenderNodeFactory s_factory =
+            FilterEffectRenderNodeFactory.Of<Resource, ThrowingProcessRenderNode>(
                 static resource => new ThrowingProcessRenderNode(resource));
+
+        public override FilterEffectRenderNodeFactory RenderNodeFactory
+            => s_factory;
     }
 }
 

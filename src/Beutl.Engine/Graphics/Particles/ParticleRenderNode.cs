@@ -38,10 +38,36 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
         if (particles.Length == 0) return [];
 
         float w = RenderNodeContext.ResolveWorkingScale([], context.OutputScale, context.MaxWorkingScale);
-        if (!_cachedRenderTarget.HasValue ||
-            _renderScale != w ||
-            !ReferenceEquals(_cachedRenderTarget.Value.Resource, resource.ParticleDrawable) ||
-            _cachedRenderTarget.Value.Version != resource.ParticleDrawable?.Version)
+        bool cacheMatches = _cachedRenderTarget.HasValue
+            && _renderScale == w
+            && ReferenceEquals(_cachedRenderTarget.Value.Resource, resource.ParticleDrawable)
+            && _cachedRenderTarget.Value.Version == resource.ParticleDrawable?.Version;
+        (RenderTarget RT, Drawable.Resource? Resource, int? Version, float Density)? selected;
+        Rect drawableBounds;
+        bool ownsSelected = false;
+        if (cacheMatches)
+        {
+            selected = _cachedRenderTarget;
+            drawableBounds = _drawableBounds;
+        }
+        else if (context.IsAuxiliaryPull)
+        {
+            if (resource.ParticleDrawable is { } tracked)
+            {
+                selected = RenderDrawableToTarget(
+                    tracked, w, context.MaxWorkingScale, context.RenderIntent, context.PullPurpose,
+                    out drawableBounds);
+            }
+            else
+            {
+                selected = RenderFallbackEllipse(
+                    w, context.MaxWorkingScale, context.RenderIntent, context.PullPurpose,
+                    out drawableBounds);
+            }
+
+            ownsSelected = selected.HasValue;
+        }
+        else
         {
             _cachedRenderTarget?.RT.Dispose();
             _cachedRenderTarget = null;
@@ -49,15 +75,22 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
 
             if (resource.ParticleDrawable is { } tracked)
             {
-                _cachedRenderTarget = RenderDrawableToTarget(tracked, w, context.MaxWorkingScale, out _drawableBounds);
+                _cachedRenderTarget = RenderDrawableToTarget(
+                    tracked, w, context.MaxWorkingScale, context.RenderIntent, context.PullPurpose,
+                    out _drawableBounds);
             }
             else
             {
-                _cachedRenderTarget = RenderFallbackEllipse(w, context.MaxWorkingScale, out _drawableBounds);
+                _cachedRenderTarget = RenderFallbackEllipse(
+                    w, context.MaxWorkingScale, context.RenderIntent, context.PullPurpose,
+                    out _drawableBounds);
             }
+
+            selected = _cachedRenderTarget;
+            drawableBounds = _drawableBounds;
         }
 
-        if (_cachedRenderTarget == null)
+        if (selected == null)
         {
             return [];
         }
@@ -74,7 +107,7 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
             if (scale <= 0) continue;
 
             // Use a conservative square bounding box that safely encloses any rotation
-            float maxDim = MathF.Max((float)_drawableBounds.Width, (float)_drawableBounds.Height) * scale;
+            float maxDim = MathF.Max((float)drawableBounds.Width, (float)drawableBounds.Height) * scale;
             var particleBounds = new Rect(
                 p.X - maxDim / 2f,
                 p.Y - maxDim / 2f,
@@ -85,15 +118,15 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
         }
 
         // Capture references for the lambda
-        RenderTarget cachedRT = _cachedRenderTarget.Value.RT;
-        float cachedDensity = _cachedRenderTarget.Value.Density;
-        Rect drawableBounds = _drawableBounds;
+        RenderTarget cachedRT = selected.Value.RT;
+        float cachedDensity = selected.Value.Density;
 
         return
         [
             RenderNodeOperation.CreateLambda(
                 totalBounds,
                 canvas => DrawAllParticles(canvas, cachedRT, particles, drawableBounds, cachedDensity),
+                onDispose: ownsSelected ? cachedRT.Dispose : null,
                 effectiveScale: EffectiveScale.At(cachedDensity))
         ];
     }
@@ -180,6 +213,8 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
         Drawable.Resource drawable,
         float nominalScale,
         float maxWorkingScale,
+        RenderIntent renderIntent,
+        RenderPullPurpose pullPurpose,
         out Rect bounds)
     {
         using var node = new DrawableRenderNode(drawable);
@@ -189,7 +224,8 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
             drawable.GetOriginal().Render(gctx, drawable);
         }
 
-        var processor = new RenderNodeProcessor(node, false, nominalScale, maxWorkingScale);
+        var processor = new RenderNodeProcessor(
+            node, false, renderIntent, nominalScale, maxWorkingScale, pullPurpose: pullPurpose);
         var ops = processor.PullToRoot();
 
         bounds = ops.Aggregate(Rect.Empty, (a, n) => a.Union(n.Bounds));
@@ -214,13 +250,17 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
             s_logger.LogWarning(
                 "Particle drawable buffer allocation failed ({Width}x{Height} px, density {Scale}, bounds {Bounds}); particles will be omitted from this frame.",
                 rect.Width, rect.Height, w, bounds);
+            ThrowIfDelivery(renderIntent,
+                $"Particle drawable buffer allocation failed ({rect.Width}x{rect.Height} px, density {w}).");
             return null;
         }
 
         int consumed = 0;
         try
         {
-            using var canvas = new ImmediateCanvas(renderTarget, w, maxWorkingScale, logicalSize: bounds.Size);
+            using var canvas = new ImmediateCanvas(
+                renderTarget, renderIntent, w, maxWorkingScale, logicalSize: bounds.Size,
+                pullPurpose: pullPurpose);
             canvas.Clear();
             using (canvas.PushTransform(Matrix.CreateTranslation(-bounds.X, -bounds.Y)))
             {
@@ -252,7 +292,11 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
     }
 
     private static (RenderTarget, Drawable.Resource?, int?, float)? RenderFallbackEllipse(
-        float w, float maxWorkingScale, out Rect bounds)
+        float w,
+        float maxWorkingScale,
+        RenderIntent renderIntent,
+        RenderPullPurpose pullPurpose,
+        out Rect bounds)
     {
         bounds = new Rect(-5, -5, 10, 10);
         w = w > 1f
@@ -266,10 +310,14 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
             s_logger.LogWarning(
                 "Fallback particle buffer allocation failed ({Width}x{Height} px, density {Scale}); particles will be omitted from this frame.",
                 dim, dim, w);
+            ThrowIfDelivery(renderIntent,
+                $"Fallback particle buffer allocation failed ({dim}x{dim} px, density {w}).");
             return null;
         }
 
-        using (var canvas = new ImmediateCanvas(renderTarget, w, maxWorkingScale, logicalSize: bounds.Size))
+        using (var canvas = new ImmediateCanvas(
+                   renderTarget, renderIntent, w, maxWorkingScale, logicalSize: bounds.Size,
+                   pullPurpose: pullPurpose))
         {
             canvas.Clear();
             using (canvas.PushTransform(Matrix.CreateTranslation(5, 5)))
@@ -279,6 +327,12 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
         }
 
         return (renderTarget, null, null, w);
+    }
+
+    private static void ThrowIfDelivery(RenderIntent renderIntent, string message)
+    {
+        if (renderIntent == RenderIntent.Delivery)
+            throw new InvalidOperationException(message);
     }
 
     protected override void OnDispose(bool disposing)

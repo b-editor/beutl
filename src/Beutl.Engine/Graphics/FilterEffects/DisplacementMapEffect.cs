@@ -54,11 +54,11 @@ public partial class DisplacementMapEffect : FilterEffect
         {
             // The map-preview path anchors the displacement brush to the FULL output rect (`new Rect(session.Bounds
             // .Size)`), exactly as the real transform passes anchor the map in full-frame device space and declare
-            // RenderTime (DisplacementMapTransform). Identity would let a downstream deflating pass ROI-crop this to an
-            // OFFSET sub-rect and re-anchor the brush there (A3); RenderTime keeps it baking full-frame.
+            // FullFrame (DisplacementMapTransform). Identity would let a downstream deflating pass ROI-crop this to an
+            // OFFSET sub-rect and re-anchor the brush there (A3); FullFrame keeps it baking full-frame.
             builder.Geometry(GeometryNodeDescriptor.Create(
                 session => DrawDisplacementMap(session, displacementMap),
-                BoundsContract.RenderTime,
+                BoundsContract.FullFrame,
                 structuralToken: nameof(DisplacementMapEffect) + ".Show"));
         }
         else if (r.Transform is { } transform)
@@ -74,8 +74,8 @@ public partial class DisplacementMapEffect : FilterEffect
         float w = canvas.Density;
         using SKShader? shader =
             new BrushConstructor(
-                    new Rect(session.Bounds.Size), map, BlendMode.SrcOver, w, session.MaxWorkingScale,
-                    session.Diagnostics, session.RenderIntent)
+                    new Rect(session.Bounds.Size), map, BlendMode.SrcOver, session.RenderIntent, w,
+                    session.MaxWorkingScale, session.Diagnostics, session.PullPurpose)
                 .CreateShader();
         using var paint = new SKPaint { Shader = shader };
         canvas.Canvas.DrawRect(new SKRect(0, 0, (float)session.Bounds.Width, (float)session.Bounds.Height), paint);

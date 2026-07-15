@@ -139,7 +139,8 @@ public sealed partial class TransparentMaterial : Material3D
             var graphicsContext = context.GraphicsContext;
 
             // Get texture
-            ITexture2D? colorTex = ColorMap?.GetTexture(graphicsContext, context.SurfaceDensity);
+            ITexture2D? colorTex = ColorMap?.GetTexture(
+                graphicsContext, context.RenderIntent, context.PullPurpose, context.SurfaceDensity);
             int hasTexture = colorTex != null ? 1 : 0;
 
             // Update texture binding

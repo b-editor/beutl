@@ -47,20 +47,14 @@ internal class NodeGraphFilterEffectRenderNode(NodeGraphFilterEffect.Resource re
                 // SetOperations transferred the input into the wrapper's ref-counted ownership. Return proxies
                 // before the finally block clears the wrapper: the proxies keep those refs alive until the caller
                 // disposes the passthrough output, while the wrapper itself retains nothing after Process returns.
-                return inputWrapper.Process(new RenderNodeContext([]));
+                return context.CreateChildProcessor(inputWrapper, context.IsRenderCacheEnabled).PullToRoot();
             }
 
             // 5. RenderNodeProcessor でグラフ出力ツリーを処理
             foreach (RenderNode outputNode in outputRenderNodes)
             {
                 // Thread the complete parent execution policy through the hosted graph.
-                var processor = new RenderNodeProcessor(
-                    outputNode, context.IsRenderCacheEnabled, context.OutputScale, context.MaxWorkingScale,
-                    context.Diagnostics, context.Pool, context.RenderIntent)
-                {
-                    RequestedBounds = context.RequestedBounds,
-                    IsAuxiliaryPull = context.IsAuxiliaryPull,
-                };
+                var processor = context.CreateChildProcessor(outputNode, context.IsRenderCacheEnabled);
                 allResults.AddRange(processor.PullToRoot());
             }
 

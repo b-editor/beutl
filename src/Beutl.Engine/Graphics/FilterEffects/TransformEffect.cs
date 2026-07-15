@@ -49,7 +49,7 @@ public sealed partial class TransformEffect : FilterEffect
         // op's bounds equal the builder's; a fanned-out set (upstream split) still pivots each branch on its own rect.
         // Backward inverts the same transform the forward applies (pivoted on the describe-time input bounds, which the
         // forward map also uses): an identity backward crops an upstream pass to the un-transformed region and loses
-        // the pixels the rotation/scale pulls in (A3). RenderTime is unavailable here — the forward inflates the AABB,
+        // the pixels the rotation/scale pulls in (A3). FullFrame is unavailable here — the forward inflates the AABB,
         // so it would collapse the buffer to the input rect and clip the transformed content (the FlatShadow rationale).
         Rect inputBounds = builder.Bounds;
         builder.Geometry(GeometryNodeDescriptor.Create(

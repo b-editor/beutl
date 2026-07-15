@@ -48,15 +48,15 @@ public partial class MosaicEffect : FilterEffect
         RelativePoint originPoint = r.Origin;
 
         // The tile grid (origin/tileSize/resolution) is authored in the FULL-frame device space, so the pass MUST
-        // bake at full input bounds: a RenderTime contract keeps it full-frame even when a downstream deflating pass
+        // bake at full input bounds: a FullFrame contract keeps it full-frame even when a downstream deflating pass
         // (a fixed Clipping) would otherwise ROI-crop it to a sub-rect and shift/clip the grid (review M2). Identity
         // bounds would forgo nothing here — the shader samples non-local tile centres, so an ROI crop is never sound.
         // The uniforms are late-bound to the pass's execution-time density and buffer size (execution-plan §C3.2):
         // the resolution and tile grid are then correct by construction even if the budget re-clamp lowers the pass's
-        // working scale below the describe-time one (rather than relying on RenderTime full-frame bake alone).
+        // working scale below the describe-time one (rather than relying on FullFrame full-frame bake alone).
         builder.Shader(ShaderNodeDescriptor.WholeSource(
             ShaderSource,
-            BoundsContract.RenderTime,
+            BoundsContract.FullFrame,
             u => u.Deferred("origin", (b, name, ctx) =>
                       {
                           Point origin = originPoint.Unit == RelativeUnit.Relative

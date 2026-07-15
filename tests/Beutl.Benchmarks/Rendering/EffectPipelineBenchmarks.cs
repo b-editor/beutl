@@ -176,7 +176,7 @@ public class EffectPipelineBenchmarks
 
         using RenderTarget target = RenderTarget.Create(size.Width, size.Height)
                                     ?? throw new InvalidOperationException("RenderTarget.Create returned null.");
-        using var canvas = new ImmediateCanvas(target, 1f, logicalSize: size.ToSize(1));
+        using var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 1f, logicalSize: size.ToSize(1));
         canvas.Clear(Colors.Black);
 
         if (shouldRender)
@@ -185,7 +185,8 @@ public class EffectPipelineBenchmarks
             resource.GetOriginal().Render(ctx, resource);
         }
 
-        var processor = new RenderNodeProcessor(node, useRenderCache: false, outputScale: 1f, pool: s_pool);
+        var processor = new RenderNodeProcessor(
+            s_pool, node, useRenderCache: false, RenderIntent.Delivery, outputScale: 1f);
         RenderNodeOperation[] ops = processor.PullToRoot();
         foreach (RenderNodeOperation op in ops)
         {

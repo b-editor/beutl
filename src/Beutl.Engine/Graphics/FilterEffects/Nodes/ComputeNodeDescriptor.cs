@@ -3,19 +3,48 @@
 namespace Beutl.Graphics.Effects;
 
 /// <summary>
-/// What a <see cref="ComputeNodeDescriptor"/> does on a context without Vulkan compute support
-/// (<c>Supports3DRendering == false</c>). The author MUST declare one (contract A7).
+/// A valid no-Vulkan fallback policy for a <see cref="ComputeNodeDescriptor"/>. The closed factory surface keeps
+/// callback and readback state attached only to the CPU policy, so contradictory fallback states cannot be created.
 /// </summary>
-public enum ComputeFallback
+public sealed class ComputeFallbackPolicy
 {
-    /// <summary>Pass the input through unchanged (the pass is a no-op). PixelSort's historic behavior.</summary>
+    private ComputeFallbackPolicy(
+        ComputeFallbackKind kind,
+        Action<GeometrySession>? cpuCallback = null,
+        bool requiresReadback = false)
+    {
+        Kind = kind;
+        CpuCallback = cpuCallback;
+        RequiresReadback = requiresReadback;
+    }
+
+    /// <summary>Passes the input through unchanged.</summary>
+    public static ComputeFallbackPolicy Identity { get; } = new(ComputeFallbackKind.Identity);
+
+    /// <summary>Drops the pass output.</summary>
+    public static ComputeFallbackPolicy Skip { get; } = new(ComputeFallbackKind.Skip);
+
+    /// <summary>Runs <paramref name="callback"/> when Vulkan compute is unavailable.</summary>
+    public static ComputeFallbackPolicy Cpu(
+        Action<GeometrySession> callback,
+        bool requiresReadback = false)
+    {
+        ArgumentNullException.ThrowIfNull(callback);
+        return new ComputeFallbackPolicy(ComputeFallbackKind.Cpu, callback, requiresReadback);
+    }
+
+    internal ComputeFallbackKind Kind { get; }
+
+    internal Action<GeometrySession>? CpuCallback { get; }
+
+    internal bool RequiresReadback { get; }
+}
+
+internal enum ComputeFallbackKind
+{
     Identity,
-
-    /// <summary>Drop the pass's output (the content vanishes) — for effects whose absence is preferable to identity.</summary>
     Skip,
-
-    /// <summary>Invoke the declared CPU callback instead of the GPU stages.</summary>
-    CpuCallback,
+    Cpu,
 }
 
 /// <summary>How an ordinary exception thrown by the Vulkan dispatch callback is handled.</summary>
@@ -52,7 +81,16 @@ public interface IComputeContext
     /// <summary>The buffer height in device pixels.</summary>
     int Height { get; }
 
-    /// <summary>The working density <c>w</c> resolved for this pass (device px per logical unit); scale absolute-px push constants by it.</summary>
+    /// <summary>The exact logical bounds of <see cref="Source"/>.</summary>
+    Rect SourceBounds { get; }
+
+    /// <summary>The exact logical bounds of <see cref="Destination"/>.</summary>
+    Rect TargetBounds { get; }
+
+    /// <summary>The materialized source density (device px per logical unit).</summary>
+    float SourceScale { get; }
+
+    /// <summary>The destination working density <c>w</c> resolved for this pass (device px per logical unit); scale absolute-px push constants by it.</summary>
     float WorkingScale { get; }
 
     /// <summary>Acquires a pooled RGBA16F ping-pong scratch texture; released by the executor at pass end.</summary>
@@ -91,17 +129,16 @@ public sealed record ComputeNodeDescriptor : EffectNodeDescriptor
 
     private ComputeNodeDescriptor(
         Action<IComputeContext> dispatch, int passCount, int colorScratchCount,
-        ComputeFallback fallback,
-        Action<GeometrySession>? cpuCallback, object structuralToken, bool cpuFallbackRequiresReadback,
+        BoundsContract bounds, ComputeFallbackPolicy fallback,
+        object structuralToken,
         ComputeDispatchFailureBehavior dispatchFailureBehavior)
     {
         Dispatch = dispatch;
         PassCount = passCount;
         ColorScratchCount = colorScratchCount;
+        Bounds = bounds;
         Fallback = fallback;
-        CpuCallback = cpuCallback;
         StructuralToken = structuralToken;
-        CpuFallbackRequiresReadback = cpuFallbackRequiresReadback;
         DispatchFailureBehavior = dispatchFailureBehavior;
     }
 
@@ -118,64 +155,52 @@ public sealed record ComputeNodeDescriptor : EffectNodeDescriptor
     public int ColorScratchCount { get; }
 
     /// <summary>What happens on a context without Vulkan compute support.</summary>
-    public ComputeFallback Fallback { get; }
-
-    /// <summary>The CPU fallback callback, present iff <see cref="Fallback"/> is <see cref="ComputeFallback.CpuCallback"/>.</summary>
-    public Action<GeometrySession>? CpuCallback { get; }
+    public ComputeFallbackPolicy Fallback { get; }
 
     /// <summary>Identity of the compute <em>kind</em> for the structural key. Tokens share a plan only when their
     /// runtime types and <see cref="object.Equals(object?)"/> values match; equality and hash code must stay stable.</summary>
     public object StructuralToken { get; }
 
-    /// <summary>True when the CPU fallback calls <see cref="EffectInput.Snapshot"/>.</summary>
-    public bool CpuFallbackRequiresReadback { get; }
-
     /// <summary>How ordinary Vulkan dispatch exceptions are handled.</summary>
     public ComputeDispatchFailureBehavior DispatchFailureBehavior { get; }
 
     /// <summary>
-    /// A compute pass is render-time resolved (A3): its GLSL stages read the whole materialized input at
-    /// full-frame device coordinates (fragCoord / width / height push constants), and non-local kernels
-    /// (PixelSort's row/column gather, an arbitrary GLSLScriptEffect sampler) are not coordinate-invariant.
-    /// A downstream deflating pass must therefore never ROI-crop it to an offset sub-rect — that would
-    /// materialize a cropped source and feed truncated width/height, so crop-then-sort ≠ sort-then-crop.
-    /// RenderTime keeps the resolver at full input bounds for the pass's ROI.
+    /// The authored forward/backward bounds and ROI contract. Full-frame kernels use
+    /// <see cref="BoundsContract.FullFrame"/>; local kernels may provide an exact custom contract.
     /// </summary>
-    public override BoundsContract Bounds => BoundsContract.RenderTime;
+    public override BoundsContract Bounds { get; }
 
     /// <inheritdoc/>
-    public override bool IsCoordinateInvariant => false;
+    public override bool IsCoordinateInvariant => Bounds.IsIdentity;
 
     /// <summary>
     /// Builds a compute node. <paramref name="passCount"/> is the exact structural successful-dispatch count; the
     /// executor rejects over-dispatch before executing it and under-dispatch after a normal callback return.
-    /// <paramref name="fallback"/>
-    /// is mandatory (declare <see cref="ComputeFallback.CpuCallback"/> only with a non-null
-    /// <paramref name="cpuCallback"/>). <paramref name="dispatchFailureBehavior"/> is independent of that no-Vulkan
+    /// <paramref name="bounds"/> explicitly declares full-frame or local ROI behavior. <paramref name="fallback"/>
+    /// is mandatory and can only be constructed as identity, skip, or a complete CPU callback policy.
+    /// <paramref name="dispatchFailureBehavior"/> is independent of that no-Vulkan
     /// fallback and defaults to propagating callback exceptions. <paramref name="structuralToken"/> defaults to the
     /// dispatch method identity.
     /// </summary>
     public static ComputeNodeDescriptor Create(
         Action<IComputeContext> dispatch,
         int passCount,
-        ComputeFallback fallback,
+        BoundsContract bounds,
+        ComputeFallbackPolicy fallback,
         int colorScratchCount = 0,
-        Action<GeometrySession>? cpuCallback = null,
         object? structuralToken = null,
-        bool cpuFallbackRequiresReadback = false,
         ComputeDispatchFailureBehavior dispatchFailureBehavior = ComputeDispatchFailureBehavior.Throw)
     {
         ArgumentNullException.ThrowIfNull(dispatch);
+        ArgumentNullException.ThrowIfNull(fallback);
         ArgumentOutOfRangeException.ThrowIfLessThan(passCount, 1);
         ArgumentOutOfRangeException.ThrowIfNegative(colorScratchCount);
-        if (fallback == ComputeFallback.CpuCallback && cpuCallback is null)
-        {
-            throw new ArgumentNullException(
-                nameof(cpuCallback), "ComputeFallback.CpuCallback requires a non-null CPU callback.");
-        }
+        bounds.ThrowIfUninitialized(nameof(bounds));
+        if (!Enum.IsDefined(dispatchFailureBehavior))
+            throw new ArgumentOutOfRangeException(nameof(dispatchFailureBehavior));
 
         return new ComputeNodeDescriptor(
-            dispatch, passCount, colorScratchCount, fallback, cpuCallback,
-            structuralToken ?? dispatch.Method.MethodHandle.Value, cpuFallbackRequiresReadback, dispatchFailureBehavior);
+            dispatch, passCount, colorScratchCount, bounds, fallback,
+            structuralToken ?? dispatch.Method, dispatchFailureBehavior);
     }
 }

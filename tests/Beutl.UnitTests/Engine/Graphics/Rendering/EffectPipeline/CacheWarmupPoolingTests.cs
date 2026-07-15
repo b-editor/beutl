@@ -43,7 +43,8 @@ public class CacheWarmupPoolingTests
 
             RenderNodeCacheHelper.MakeCache(
                 container, new RenderCacheOptions(true, RenderCacheRules.Default),
-                outputScale: 1f, maxWorkingScale: float.PositiveInfinity, diagnostics, pool);
+                RenderIntent.Delivery, outputScale: 1f,
+                maxWorkingScale: float.PositiveInfinity, diagnostics, pool);
 
             Assert.Multiple(() =>
             {

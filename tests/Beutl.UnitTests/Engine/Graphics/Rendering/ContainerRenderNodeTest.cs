@@ -56,7 +56,7 @@ public class ContainerRenderNodeTest
     public void Process_ShouldReturnContextInput()
     {
         var node = new ContainerRenderNode();
-        var context = new RenderNodeContext([]);
+        var context = new RenderNodeContext([], RenderIntent.Delivery);
         var result = node.Process(context);
 
         Assert.That(result, Is.EqualTo(context.Input));

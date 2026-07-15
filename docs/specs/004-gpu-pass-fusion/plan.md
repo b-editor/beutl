@@ -84,7 +84,7 @@ src/Beutl.Engine/Graphics/
 │   │                                   #   EffectTarget(s), SKImageFilterBuilder, FEImpl.cs)
 │   └── ...
 └── Rendering/                          # internal machinery (existing dir)
-    ├── FilterEffectRenderNode.cs       # Process: resolve w → describe → plan cache → execute
+    ├── PlanFilterEffectRenderNode.cs   # Process: resolve w → describe → plan cache → execute
     ├── EffectGraph/                    # NEW — EffectGraph, StructuralKey, compiler,
     │                                   #       CompiledPlan/CompiledPass, ResourcePlan,
     │                                   #       PlanExecutor, ParameterBlock, ProgramCache

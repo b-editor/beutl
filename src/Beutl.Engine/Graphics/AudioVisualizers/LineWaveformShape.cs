@@ -54,7 +54,10 @@ public sealed partial class LineWaveformShape : WaveformShape
             bool mirrored = Mirrored;
 
             _paint ??= new SKPaint();
-            new BrushConstructor(bounds, fill, BlendMode.SrcOver, canvas.Density, canvas.MaxWorkingScale).ConfigurePaint(_paint);
+            new BrushConstructor(
+                bounds, fill, BlendMode.SrcOver, canvas.RenderIntent, canvas.Density, canvas.MaxWorkingScale,
+                pullPurpose: canvas.PullPurpose)
+                .ConfigurePaint(_paint);
             _paint.Style = SKPaintStyle.Stroke;
             _paint.StrokeCap = SKStrokeCap.Round;
             _paint.StrokeJoin = SKStrokeJoin.Round;

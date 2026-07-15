@@ -205,11 +205,16 @@ public sealed partial class PBRMaterial : Material3D
 
             // Determine which textures are available
             int textureFlags = 0;
-            ITexture2D? albedoTex = AlbedoMap?.GetTexture(graphicsContext, context.SurfaceDensity);
-            ITexture2D? normalTex = NormalMap?.GetTexture(graphicsContext, context.SurfaceDensity);
-            ITexture2D? metallicRoughnessTex = MetallicRoughnessMap?.GetTexture(graphicsContext, context.SurfaceDensity);
-            ITexture2D? emissiveTex = EmissiveMap?.GetTexture(graphicsContext, context.SurfaceDensity);
-            ITexture2D? aoTex = AOMap?.GetTexture(graphicsContext, context.SurfaceDensity);
+            ITexture2D? albedoTex = AlbedoMap?.GetTexture(
+                graphicsContext, context.RenderIntent, context.PullPurpose, context.SurfaceDensity);
+            ITexture2D? normalTex = NormalMap?.GetTexture(
+                graphicsContext, context.RenderIntent, context.PullPurpose, context.SurfaceDensity);
+            ITexture2D? metallicRoughnessTex = MetallicRoughnessMap?.GetTexture(
+                graphicsContext, context.RenderIntent, context.PullPurpose, context.SurfaceDensity);
+            ITexture2D? emissiveTex = EmissiveMap?.GetTexture(
+                graphicsContext, context.RenderIntent, context.PullPurpose, context.SurfaceDensity);
+            ITexture2D? aoTex = AOMap?.GetTexture(
+                graphicsContext, context.RenderIntent, context.PullPurpose, context.SurfaceDensity);
 
             if (albedoTex != null) textureFlags |= 1;
             if (normalTex != null) textureFlags |= 2;

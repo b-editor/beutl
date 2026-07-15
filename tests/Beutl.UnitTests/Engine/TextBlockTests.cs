@@ -55,7 +55,7 @@ public class TextBlockTests
             tb.Render(context, resource);
         }
 
-        var processor = new RenderNodeProcessor(node, false);
+        var processor = new RenderNodeProcessor(node, false, RenderIntent.Delivery);
         using Bitmap bmp = processor.RasterizeAndConcat();
 
         Assert.That(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"{id}.png"), EncodedImageFormat.Png), Is.True);
@@ -85,7 +85,7 @@ public class TextBlockTests
         var bounds = PenHelper.GetBounds(skpath.Bounds.ToGraphicsRect(), penResource);
 
         using var renderTarget = RenderTarget.Create((int)bounds.Width, (int)bounds.Height)!;
-        using var graphics = new ImmediateCanvas(renderTarget);
+        using var graphics = new ImmediateCanvas(renderTarget, RenderIntent.Delivery);
 
         graphics.Clear(Colors.White);
         graphics.DrawSKPath(skpath, true, null, penResource);

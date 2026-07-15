@@ -54,7 +54,7 @@ public sealed class FilterEffectCrashSafetyTests
     [Test]
     public void PixelSort_renders_without_throwing_and_degrades_when_gpu_absent()
     {
-        // PixelSort is a Vulkan compute effect; its ComputeFallback.Identity makes the pass a no-op when no compute
+        // PixelSort is a Vulkan compute effect; its identity fallback makes the pass a no-op when no compute
         // context is available, so the render must complete without throwing on either path.
         var shape = new RectShape();
         shape.Width.CurrentValue = 120;

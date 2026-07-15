@@ -22,7 +22,7 @@ public class ImmediateCanvasVulkanTests
             using var target = RenderTarget.Create(8, 8);
             Assert.That(target, Is.Not.Null);
 
-            using (var canvas = new ImmediateCanvas(target!))
+            using (var canvas = new ImmediateCanvas(target!, RenderIntent.Delivery))
             {
                 canvas.Clear(Colors.Red);
             }
@@ -42,7 +42,7 @@ public class ImmediateCanvasVulkanTests
             using var target = RenderTarget.Create(16, 16);
             Assert.That(target, Is.Not.Null);
 
-            using (var canvas = new ImmediateCanvas(target!))
+            using (var canvas = new ImmediateCanvas(target!, RenderIntent.Delivery))
             {
                 canvas.Clear(Colors.Black);
                 canvas.DrawRectangle(new Rect(0, 0, 16, 16), Brushes.Resource.Lime, pen: null);
@@ -63,7 +63,7 @@ public class ImmediateCanvasVulkanTests
             using var target = RenderTarget.Create(16, 16);
             Assert.That(target, Is.Not.Null);
 
-            using (var canvas = new ImmediateCanvas(target!))
+            using (var canvas = new ImmediateCanvas(target!, RenderIntent.Delivery))
             {
                 canvas.Clear(Colors.Black);
                 using (canvas.PushClip(new Rect(0, 0, 8, 16)))

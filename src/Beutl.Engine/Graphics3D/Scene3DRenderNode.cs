@@ -63,9 +63,12 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
         int dw = w == 1f ? width : (int)MathF.Ceiling(width * w);
         int dh = w == 1f ? height : (int)MathF.Ceiling(height * w);
 
-        var renderer = scene.Renderer ??= new Renderer3D(graphicsContext);
+        Renderer3D? auxiliaryRenderer = context.IsAuxiliaryPull
+            ? new Renderer3D(graphicsContext)
+            : null;
+        Renderer3D renderer = auxiliaryRenderer ?? (scene.Renderer ??= new Renderer3D(graphicsContext));
 
-        // Catch allocation failures (e.g. vkCreateImage past GPU limit) and drop the 3D op.
+        // Preview may drop allocation failures; delivery must surface them so exports cannot silently lose 3D content.
         if (renderer.Width != dw || renderer.Height != dh)
         {
             try
@@ -80,11 +83,19 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
             catch (Exception ex)
             {
                 s_logger.LogWarning(ex,
-                    "3D render surface allocation failed ({Width}x{Height} px, density {Scale}); dropping the 3D op for this frame.",
-                    dw, dh, w);
-                // Failed resize may leave the renderer inconsistent; discard so next frame rebuilds.
-                scene.Renderer?.Dispose();
-                scene.Renderer = null;
+                    "3D render surface allocation failed ({Width}x{Height} px, density {Scale}, intent {RenderIntent}).",
+                    dw, dh, w, context.RenderIntent);
+                // Failed resize may leave the renderer inconsistent. An auxiliary renderer is isolated from the
+                // retained frame renderer; a failed frame renderer is discarded so the next frame rebuilds it.
+                renderer.Dispose();
+                if (auxiliaryRenderer == null)
+                    scene.Renderer = null;
+                if (context.RenderIntent == RenderIntent.Delivery)
+                {
+                    throw new InvalidOperationException(
+                        $"3D render surface allocation failed ({dw}x{dh} px, density {w}).", ex);
+                }
+
                 return [];
             }
         }
@@ -104,24 +115,44 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
         }
 
         // Render
-        renderer.Render(
-            new CompositionContext(scene.Time)
-            {
-                DisableResourceShare = scene.DisableResourceShare,
-            },
-            cameraResource,
-            objectResources,
-            lightResources,
-            scene.BackgroundColor,
-            scene.AmbientColor,
-            scene.AmbientIntensity,
-            gizmoTarget,
-            scene.GizmoMode);
+        SkiaSharp.SKSurface? surface;
+        try
+        {
+            renderer.Render(
+                new CompositionContext(scene.Time)
+                {
+                    DisableResourceShare = scene.DisableResourceShare,
+                },
+                cameraResource,
+                objectResources,
+                lightResources,
+                scene.BackgroundColor,
+                scene.AmbientColor,
+                scene.AmbientIntensity,
+                context.RenderIntent,
+                context.PullPurpose,
+                gizmoTarget,
+                scene.GizmoMode);
 
-        // Get the rendered surface
-        var surface = renderer.CreateSkiaSurface();
+            surface = renderer.CreateSkiaSurface();
+        }
+        catch
+        {
+            auxiliaryRenderer?.Dispose();
+            throw;
+        }
+
         if (surface == null)
+        {
+            auxiliaryRenderer?.Dispose();
+            if (context.RenderIntent == RenderIntent.Delivery)
+            {
+                throw new InvalidOperationException(
+                    $"Could not create the 3D output surface ({dw}x{dh} px, density {w}).");
+            }
+
             return [];
+        }
 
         // Tag the concrete bitmap surface at its rendered density At(w).
         var operation = RenderNodeOperation.CreateFromSurface(
@@ -130,7 +161,16 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
             surface,
             EffectiveScale.At(w));
 
-        return [operation];
+        if (auxiliaryRenderer == null)
+            return [operation];
+
+        // The Skia surface wraps the temporary renderer's output texture. Keep the renderer alive through deferred
+        // operation execution, then dispose the surface first and the renderer second.
+        return
+        [
+            RenderNodeOperation.CreateDecorator(
+                operation, operation.Render, onDispose: auxiliaryRenderer.Dispose)
+        ];
     }
 
     private static Object3D.Resource? FindObjectById(IEnumerable<Object3D.Resource> objects, Guid targetId)

@@ -31,7 +31,7 @@ public class FusedSourceTileModeTests
         effect.CoordinateInvariant.CurrentValue = coordinateInvariant;
         using FilterEffect.Resource resource =
             (FilterEffect.Resource)(object)effect.ToResource(CompositionContext.Default);
-        var builder = new EffectGraphBuilder(s_source, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(s_source, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
         effect.Describe(builder, resource);
 
         using EffectGraph graph = builder.Build();
@@ -105,7 +105,7 @@ public class FusedSourceTileModeTests
             s_source,
             canvas => canvas.DrawRectangle(s_source, Brushes.Resource.Red, null),
             onDispose: () => inputDisposed = true);
-        var builder = new EffectGraphBuilder(s_source, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(s_source, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
         builder.Shader(ShaderNodeDescriptor.WholeSource(
             """
             uniform shader src;
@@ -127,7 +127,7 @@ public class FusedSourceTileModeTests
 
         InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
             plan, frame, [input], outputScale: 1f, workingScale: 1f,
-            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool));
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool, renderIntent: RenderIntent.Delivery));
 
         Assert.Multiple(() =>
         {
@@ -166,7 +166,7 @@ public class FusedSourceTileModeTests
             s_source,
             canvas => canvas.DrawRectangle(s_source, Brushes.Resource.Red, null),
             onDispose: () => inputDisposed = true);
-        var builder = new EffectGraphBuilder(s_source, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(s_source, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Preview);
         builder.Shader(ShaderNodeDescriptor.WholeSource(
             IdentitySource,
             BoundsContract.Create(static r => r.Inflate(4), static r => r.Inflate(4)),
@@ -177,7 +177,7 @@ public class FusedSourceTileModeTests
 
         RenderNodeOperation[] outputs = PlanExecutor.Execute(
             plan, frame, [input], outputScale: 1f, workingScale: 1f,
-            maxWorkingScale: 2f, diagnostics: null, pool: pool);
+            maxWorkingScale: 2f, diagnostics: null, pool: pool, renderIntent: RenderIntent.Preview);
         try
         {
             Assert.Multiple(() =>
@@ -201,7 +201,7 @@ public class FusedSourceTileModeTests
             canvas => canvas.DrawRectangle(s_source, Brushes.Resource.Red, null),
             hitTest: s_source.Contains);
 
-        var builder = new EffectGraphBuilder(s_source, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(s_source, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
         builder.Shader(ShaderNodeDescriptor.WholeSource(
             IdentitySource,
             BoundsContract.Create(static r => r.Inflate(4), static r => r.Inflate(4)),
@@ -211,7 +211,7 @@ public class FusedSourceTileModeTests
         FrameResources frame = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale: 1f);
         return PlanExecutor.Execute(
             plan, frame, [input], outputScale: 1f, workingScale: 1f,
-            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null);
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null, renderIntent: RenderIntent.Delivery);
     }
 
     private static SKColor PixelAt(Bitmap bmp, Rect window, Point logical)
@@ -222,7 +222,7 @@ public class FusedSourceTileModeTests
         var size = PixelRect.FromRect(window);
         using RenderTarget target = RenderTarget.Create(size.Width, size.Height)
             ?? throw new InvalidOperationException("RenderTarget.Create returned null (raster surface unavailable).");
-        using (var canvas = new ImmediateCanvas(target, 1f, logicalSize: window.Size))
+        using (var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 1f, logicalSize: window.Size))
         {
             canvas.Clear();
             using (canvas.PushTransform(Matrix.CreateTranslation(-window.X, -window.Y)))

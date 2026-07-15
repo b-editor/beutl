@@ -23,7 +23,11 @@ public abstract partial class CustomRenderNodeFilterEffect : FilterEffect
     /// </summary>
     public new abstract partial class Resource
     {
-        public abstract override FilterEffectRenderNodeFactory RenderNodeFactory { get; }
+        /// <summary>
+        /// A retained singleton factory for the fully opaque render node. Returning a new factory instance invalidates
+        /// node reuse and is therefore unsupported.
+        /// </summary>
+        public abstract FilterEffectRenderNodeFactory RenderNodeFactory { get; }
     }
 
     /// <inheritdoc/>

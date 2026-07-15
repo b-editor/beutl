@@ -168,7 +168,7 @@ public class PrefixCacheTests
                 resource.Update(root, CompositionContext.Default, ref updateOnly);
                 node.Update(resource);
                 diagnostics.Reset();
-                var context = new RenderNodeContext([MakeInput()])
+                var context = new RenderNodeContext([MakeInput()], RenderIntent.Delivery)
                 {
                     Diagnostics = diagnostics,
                     Pool = pool,
@@ -182,10 +182,11 @@ public class PrefixCacheTests
                 ProcessFrame(frame);
             Assert.That(ProcessFrame(6).PrefixCacheHits, Is.EqualTo(1), "sanity: the frame ROI prefix is warm");
 
-            var auxiliary = new RenderNodeContext([MakeInput()])
+            var auxiliary = new RenderNodeContext(
+                [MakeInput()], RenderIntent.Delivery,
+                pullPurpose: RenderPullPurpose.Auxiliary)
             {
                 RequestedBounds = Rect.Invalid,
-                IsAuxiliaryPull = true,
             };
             RenderNodeOperation.DisposeAll(node.Process(auxiliary));
 
@@ -489,7 +490,7 @@ public class PrefixCacheTests
                 node.Update(resource);
 
                 diagnostics.Reset();
-                var context = new RenderNodeContext([MakeInput()]) { Diagnostics = diagnostics, Pool = pool };
+                var context = new RenderNodeContext([MakeInput()], RenderIntent.Delivery) { Diagnostics = diagnostics, Pool = pool };
                 Assert.Throws<InvalidOperationException>(() => node.Process(context),
                     $"frame {f}: the throwing tail pass was expected to fault");
             }
@@ -537,7 +538,7 @@ public class PrefixCacheTests
                 bool updateOnly = false;
                 resource.Update(root, CompositionContext.Default, ref updateOnly);
                 node.Update(resource);
-                var warmup = new RenderNodeContext([MakeInput()]) { Diagnostics = diagnostics, Pool = pool };
+                var warmup = new RenderNodeContext([MakeInput()], RenderIntent.Delivery) { Diagnostics = diagnostics, Pool = pool };
                 Assert.That(Assert.Throws<InvalidOperationException>(() => node.Process(warmup)), Is.SameAs(primary));
             }
 
@@ -546,7 +547,7 @@ public class PrefixCacheTests
             bool captureUpdateOnly = false;
             resource.Update(root, CompositionContext.Default, ref captureUpdateOnly);
             node.Update(resource);
-            var capture = new RenderNodeContext([MakeInput()]) { Diagnostics = diagnostics, Pool = pool };
+            var capture = new RenderNodeContext([MakeInput()], RenderIntent.Delivery) { Diagnostics = diagnostics, Pool = pool };
 
             InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => node.Process(capture));
             Assert.Multiple(() =>
@@ -675,7 +676,7 @@ public class PrefixCacheTests
         try
         {
             InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(
-                () => node.Process(new RenderNodeContext([input])));
+                () => node.Process(new RenderNodeContext([input], RenderIntent.Delivery)));
             Assert.Multiple(() =>
             {
                 Assert.That(actual, Is.SameAs(injected));
@@ -739,7 +740,7 @@ public class PrefixCacheTests
             container.Cache.ReportRenderCount(RenderNodeCache.Count);
             effectNode.Cache.ReportRenderCount(RenderNodeCache.Count);
             inputNode.Cache.ReportRenderCount(RenderNodeCache.Count);
-            RenderNodeCacheHelper.MakeCache(container, RenderCacheOptions.Default, 1f);
+            RenderNodeCacheHelper.MakeCache(container, RenderCacheOptions.Default, RenderIntent.Delivery, 1f);
 
             Assert.That(container.Cache.IsCached, Is.True, "the outer node cache did not engage");
             Assert.That(pool.LiveLeaseCount, Is.EqualTo(0),
@@ -780,7 +781,7 @@ public class PrefixCacheTests
                 node.Update(resource);
 
                 diagnostics.Reset();
-                var context = new RenderNodeContext([MakeInput()]) { Diagnostics = diagnostics, Pool = pool };
+                var context = new RenderNodeContext([MakeInput()], RenderIntent.Delivery) { Diagnostics = diagnostics, Pool = pool };
                 RenderNodeOperation[] ops = node.Process(context);
                 snaps[f] = diagnostics.Snapshot();
 
@@ -832,7 +833,7 @@ public class PrefixCacheTests
         var (root, _) = MakeBlurClip(sigma, left);
         var resource = (FilterEffect.Resource)root.ToResource(CompositionContext.Default);
         using var node = new PlanFilterEffectRenderNode(resource);
-        var context = new RenderNodeContext([MakeInput()]);
+        var context = new RenderNodeContext([MakeInput()], RenderIntent.Delivery);
         return Rasterize(node.Process(context));
     }
 
@@ -1010,7 +1011,7 @@ public class PrefixCacheTests
                 node.Update(resource);
 
                 diagnostics.Reset();
-                var context = new RenderNodeContext([MakeInput()])
+                var context = new RenderNodeContext([MakeInput()], RenderIntent.Delivery)
                 {
                     IsRenderCacheEnabled = false,
                     Diagnostics = diagnostics,
@@ -1038,7 +1039,7 @@ public class PrefixCacheTests
         node.Update(resource);
 
         diagnostics.Reset();
-        var context = new RenderNodeContext([MakeInput()], outputScale) { Diagnostics = diagnostics, Pool = pool };
+        var context = new RenderNodeContext([MakeInput()], RenderIntent.Delivery, outputScale) { Diagnostics = diagnostics, Pool = pool };
         RenderNodeOperation[] ops = node.Process(context);
         PipelineDiagnosticsSnapshot snap = diagnostics.Snapshot();
         RenderNodeOperation.DisposeAll(ops);
@@ -1056,7 +1057,7 @@ public class PrefixCacheTests
         node.Update(resource);
 
         diagnostics.Reset();
-        var context = new RenderNodeContext([MakeInput()], outputScale: 1f, maxWorkingScale)
+        var context = new RenderNodeContext([MakeInput()], RenderIntent.Delivery, outputScale: 1f, maxWorkingScale)
         {
             Diagnostics = diagnostics,
             Pool = pool,
@@ -1077,7 +1078,7 @@ public class PrefixCacheTests
         node.Update(resource);
 
         diagnostics.Reset();
-        var context = new RenderNodeContext([MakeInput()]) { Diagnostics = diagnostics, Pool = pool };
+        var context = new RenderNodeContext([MakeInput()], RenderIntent.Delivery) { Diagnostics = diagnostics, Pool = pool };
         RenderNodeOperation[] ops = node.Process(context);
         PipelineDiagnosticsSnapshot snap = diagnostics.Snapshot();
         RenderNodeOperation.DisposeAll(ops);
@@ -1099,7 +1100,7 @@ public class PrefixCacheTests
         node.Update(resource);
 
         diagnostics.Reset();
-        var context = new RenderNodeContext([MakeInput()], outputScale) { Diagnostics = diagnostics, Pool = pool };
+        var context = new RenderNodeContext([MakeInput()], RenderIntent.Delivery, outputScale) { Diagnostics = diagnostics, Pool = pool };
         RenderNodeOperation[] ops = node.Process(context);
         PipelineDiagnosticsSnapshot snap = diagnostics.Snapshot();
 
@@ -1116,7 +1117,7 @@ public class PrefixCacheTests
         gamma.Amount.CurrentValue = gammaAmount;
         var resource = (FilterEffect.Resource)root.ToResource(CompositionContext.Default);
         using var node = new PlanFilterEffectRenderNode(resource);
-        var context = new RenderNodeContext([MakeInput()], outputScale);
+        var context = new RenderNodeContext([MakeInput()], RenderIntent.Delivery, outputScale);
         RenderNodeOperation[] ops = node.Process(context);
         return Rasterize(ops);
     }
@@ -1133,7 +1134,7 @@ public class PrefixCacheTests
         node.Update(resource);
 
         diagnostics.Reset();
-        var context = new RenderNodeContext([MakeInput()]) { Diagnostics = diagnostics, Pool = pool };
+        var context = new RenderNodeContext([MakeInput()], RenderIntent.Delivery) { Diagnostics = diagnostics, Pool = pool };
         RenderNodeOperation[] ops = node.Process(context);
         PipelineDiagnosticsSnapshot snap = diagnostics.Snapshot();
         RenderNodeOperation.DisposeAll(ops);
@@ -1151,7 +1152,7 @@ public class PrefixCacheTests
         node.Update(resource);
 
         diagnostics.Reset();
-        var context = new RenderNodeContext([MakeInput()]) { Diagnostics = diagnostics, Pool = pool };
+        var context = new RenderNodeContext([MakeInput()], RenderIntent.Delivery) { Diagnostics = diagnostics, Pool = pool };
         RenderNodeOperation[] ops = node.Process(context);
         PipelineDiagnosticsSnapshot snap = diagnostics.Snapshot();
 
@@ -1166,7 +1167,7 @@ public class PrefixCacheTests
         var (root, _, _) = MakeLutBlur(cube, BlurSigma(frame));
         var resource = (FilterEffect.Resource)root.ToResource(CompositionContext.Default);
         using var node = new PlanFilterEffectRenderNode(resource);
-        var context = new RenderNodeContext([MakeInput()]);
+        var context = new RenderNodeContext([MakeInput()], RenderIntent.Delivery);
         return Rasterize(node.Process(context));
     }
 
@@ -1183,7 +1184,7 @@ public class PrefixCacheTests
         node.Update(resource);
 
         diagnostics.Reset();
-        var context = new RenderNodeContext([MakeInput(inputBounds)]) { Diagnostics = diagnostics, Pool = pool };
+        var context = new RenderNodeContext([MakeInput(inputBounds)], RenderIntent.Delivery) { Diagnostics = diagnostics, Pool = pool };
         RenderNodeOperation[] ops = node.Process(context);
         PipelineDiagnosticsSnapshot snap = diagnostics.Snapshot();
         RenderNodeOperation.DisposeAll(ops);
@@ -1198,7 +1199,7 @@ public class PrefixCacheTests
         int h = Math.Max(1, rect.Height);
         using RenderTarget target = RenderTarget.Create(w, h)
             ?? throw new InvalidOperationException("RenderTarget.Create returned null.");
-        using (var canvas = new ImmediateCanvas(target, 1f, logicalSize: bounds.Size))
+        using (var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 1f, logicalSize: bounds.Size))
         {
             canvas.Clear();
             using (canvas.PushTransform(Matrix.CreateTranslation(-bounds.X, -bounds.Y)))

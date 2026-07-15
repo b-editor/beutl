@@ -1,5 +1,6 @@
 ﻿using Beutl.Composition;
 using Beutl.Graphics;
+using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.Logging;
 using Beutl.Media;
@@ -56,7 +57,8 @@ public class BrushConstructorCanCreateShaderTests
             Brush.Resource brush = DrawableBrushResource(shape);
 
             bool predicted = BrushConstructor.CanCreateShader(brush);
-            using SKShader? shader = new BrushConstructor(new Rect(0, 0, 32, 32), brush, BlendMode.SrcOver).CreateShader();
+            using SKShader? shader = new BrushConstructor(
+                new Rect(0, 0, 32, 32), brush, BlendMode.SrcOver, RenderIntent.Delivery).CreateShader();
             Assert.That(predicted, Is.EqualTo(shader != null),
                 "CanCreateShader must match CreateShader for a drawable brush with a drawable");
         });
@@ -73,7 +75,8 @@ public class BrushConstructorCanCreateShaderTests
 
     private static void AssertParity(Brush.Resource? brush, string because)
     {
-        using SKShader? shader = new BrushConstructor(new Rect(0, 0, 40, 40), brush, BlendMode.SrcOver).CreateShader();
+        using SKShader? shader = new BrushConstructor(
+            new Rect(0, 0, 40, 40), brush, BlendMode.SrcOver, RenderIntent.Delivery).CreateShader();
         Assert.That(BrushConstructor.CanCreateShader(brush), Is.EqualTo(shader != null), because);
     }
 

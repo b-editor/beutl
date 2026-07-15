@@ -25,7 +25,7 @@ public class RenderTargetSnapshotTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             using var target = RenderTarget.Create(64, 48)!;
-            using (var canvas = new ImmediateCanvas(target, 1f))
+            using (var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 1f))
             {
                 canvas.Clear(Colors.Black);
                 canvas.DrawRectangle(new Rect(16, 12, 32, 24), Brushes.Resource.White, null);
@@ -49,7 +49,7 @@ public class RenderTargetSnapshotTests
             using var target = RenderTarget.Create(32, 32)!;
             using Bitmap scratch = NewScratch(32, 32);
 
-            using (var canvas = new ImmediateCanvas(target, 1f))
+            using (var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 1f))
             {
                 canvas.Clear(Colors.White);
             }
@@ -57,7 +57,7 @@ public class RenderTargetSnapshotTests
             target.SnapshotInto(scratch);
             Assert.That(IsWhite(scratch, 16, 16), Is.True, "first snapshot should read the white surface");
 
-            using (var canvas = new ImmediateCanvas(target, 1f))
+            using (var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 1f))
             {
                 canvas.Clear(Colors.Black);
             }
@@ -176,7 +176,7 @@ public class RenderTargetSnapshotTests
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using var renderer = new Renderer(64, 48);
+            using var renderer = new Renderer(64, 48, RenderIntent.Delivery);
 
             using Bitmap allocated = renderer.Snapshot();
             using Bitmap reused = NewScratch(allocated.Width, allocated.Height);

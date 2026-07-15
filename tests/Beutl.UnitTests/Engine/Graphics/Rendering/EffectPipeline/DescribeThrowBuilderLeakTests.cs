@@ -26,7 +26,7 @@ public class DescribeThrowBuilderLeakTests
     public void DescribeThrowsAfterRegisteringSampler_BuilderAbortReleasesShader()
     {
         SKShader shader = SKShader.CreateColor(SKColors.Red);
-        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
 
         // A Describe that registers an eager sampler and then fails: ownership never reaches a graph.
         Assert.Throws<InvalidOperationException>(() =>
@@ -49,7 +49,7 @@ public class DescribeThrowBuilderLeakTests
     {
         SKShader child = SKShader.CreateColor(SKColors.Green);
         SKShader tracked = SKShader.CreateColor(SKColors.Blue);
-        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
 
         Assert.Throws<InvalidOperationException>(() =>
         {
@@ -71,7 +71,7 @@ public class DescribeThrowBuilderLeakTests
     public void SuccessfulBuild_TransfersOwnership_SoBuilderAbortDoesNotDoubleDispose()
     {
         SKShader shader = SKShader.CreateColor(SKColors.Red);
-        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
         builder.Sampler("lut", shader);
 
         EffectGraph graph = builder.Build();
@@ -105,7 +105,7 @@ public class DescribeThrowBuilderLeakTests
                 "the public surface must not expose a disposal trap");
         });
 
-        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
         builder.Abort();
         using SKShader rejected = SKShader.CreateColor(SKColors.Red);
 
@@ -124,7 +124,7 @@ public class DescribeThrowBuilderLeakTests
     [TestCase(true)]
     public void Effect_RejectsPlanChildAfterBuilderCloses(bool abort)
     {
-        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
         EffectGraph? graph = null;
         if (abort)
             builder.Abort();
@@ -149,7 +149,7 @@ public class DescribeThrowBuilderLeakTests
         RenderNodeOperation input = RenderNodeOperation.CreateLambda(
             s_bounds, static _ => { }, onDispose: () => disposed = true);
 
-        Assert.Throws<InvalidOperationException>(() => node.Process(new RenderNodeContext([input])));
+        Assert.Throws<InvalidOperationException>(() => node.Process(new RenderNodeContext([input], RenderIntent.Delivery)));
 
         Assert.That(disposed, Is.True,
             "the plan node must release inputs when Describe fails before ownership reaches PlanExecutor");

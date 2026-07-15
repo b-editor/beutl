@@ -80,7 +80,7 @@ public class MixedDensityBlendInputTests
         RenderNodeOperation input = RenderNodeOperation.CreateLambda(
             s_inputBounds, draw, hitTest: s_inputBounds.Contains, onDispose: null, effectiveScale: inputDensity);
 
-        var builder = new EffectGraphBuilder(s_inputBounds, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(s_inputBounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
         effect.Describe(builder, (FilterEffect.Resource)(object)effect.ToResource(Composition.CompositionContext.Default));
 
         using EffectGraph graph = builder.Build();
@@ -89,13 +89,13 @@ public class MixedDensityBlendInputTests
         FrameResources frame = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale: 1f);
         RenderNodeOperation[] ops = PlanExecutor.Execute(
             plan, frame, [input], outputScale: 1f, workingScale: 1f,
-            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool);
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool, renderIntent: RenderIntent.Delivery);
         try
         {
             Rect outBounds = ops[0].Bounds;
             var size = PixelRect.FromRect(outBounds);
             using RenderTarget target = RenderTarget.Create(size.Width, size.Height)!;
-            using (var canvas = new ImmediateCanvas(target, 1f, logicalSize: outBounds.Size))
+            using (var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 1f, logicalSize: outBounds.Size))
             {
                 canvas.Clear();
                 using (canvas.PushTransform(Matrix.CreateTranslation(-outBounds.X, -outBounds.Y)))

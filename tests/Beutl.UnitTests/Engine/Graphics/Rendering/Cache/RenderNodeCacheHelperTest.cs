@@ -155,7 +155,7 @@ public class RenderNodeCacheHelperTest
         var cacheOptions = new RenderCacheOptions(true, RenderCacheRules.Default);
 
         // Act
-        RenderNodeCacheHelper.MakeCache(containerNode, cacheOptions);
+        RenderNodeCacheHelper.MakeCache(containerNode, cacheOptions, RenderIntent.Delivery);
 
         // Assert
         Assert.That(containerNode.Cache.IsCached, Is.True);
@@ -173,7 +173,7 @@ public class RenderNodeCacheHelperTest
         var cacheOptions = new RenderCacheOptions(false, RenderCacheRules.Default);
 
         // Act
-        RenderNodeCacheHelper.MakeCache(containerNode, cacheOptions);
+        RenderNodeCacheHelper.MakeCache(containerNode, cacheOptions, RenderIntent.Delivery);
 
         // Assert
         Assert.That(containerNode.Cache.IsCached, Is.False);
@@ -190,7 +190,7 @@ public class RenderNodeCacheHelperTest
         var cacheOptions = new RenderCacheOptions(true, RenderCacheRules.Default);
 
         // Act
-        RenderNodeCacheHelper.MakeCache(containerNode, cacheOptions);
+        RenderNodeCacheHelper.MakeCache(containerNode, cacheOptions, RenderIntent.Delivery);
 
         // Assert
         Assert.That(containerNode.Cache.IsCached, Is.False);
@@ -208,7 +208,7 @@ public class RenderNodeCacheHelperTest
         var cacheOptions = new RenderCacheOptions(true, new RenderCacheRules(10000, 1));
 
         // Act
-        RenderNodeCacheHelper.CreateDefaultCache(containerNode, cacheOptions);
+        RenderNodeCacheHelper.CreateDefaultCache(containerNode, cacheOptions, RenderIntent.Delivery);
 
         // Assert
         Assert.That(containerNode.Cache.IsCached, Is.True);
@@ -224,7 +224,7 @@ public class RenderNodeCacheHelperTest
         var cacheOptions = new RenderCacheOptions(true, new RenderCacheRules(1, 1));
 
         // Act
-        RenderNodeCacheHelper.CreateDefaultCache(containerNode, cacheOptions);
+        RenderNodeCacheHelper.CreateDefaultCache(containerNode, cacheOptions, RenderIntent.Delivery);
 
         // Assert
         Assert.That(containerNode.Cache.IsCached, Is.False);
@@ -238,7 +238,7 @@ public class RenderNodeCacheHelperTest
         var cacheOptions = new RenderCacheOptions(true, new RenderCacheRules(100, 1));
 
         InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(
-            () => RenderNodeCacheHelper.CreateDefaultCache(node, cacheOptions));
+            () => RenderNodeCacheHelper.CreateDefaultCache(node, cacheOptions, RenderIntent.Delivery));
 
         Assert.Multiple(() =>
         {

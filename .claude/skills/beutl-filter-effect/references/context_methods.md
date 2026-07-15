@@ -167,11 +167,11 @@ Do NOT allocate/dispose targets, catch-and-continue, or apply Skia image filters
 
 ```csharp
 BoundsContract.Identity                                     // output == input rect
-BoundsContract.RenderTime                                   // cannot lay out until execution (no ROI benefit)
+BoundsContract.FullFrame                                    // allocate at complete input bounds and disable ROI cropping
 BoundsContract.Create(Func<Rect,Rect> transformBounds,     // forward: how output bounds grow
                       Func<Rect,Rect> getRequiredInputBounds) // backward: input texels a region samples
 ```
-Every non-invariant node MUST declare one. Backward MUST cover every input texel the node samples for a given output region; the engine may render inputs cropped to exactly that region. Common forward shapes: expand `bounds.Inflate(thickness)`, unchanged `bounds`.
+Every non-invariant node MUST declare one. Backward MUST cover every input texel the node samples for a given output region; the engine may render inputs cropped to exactly that region. `FullFrame` uses identity forward/backward maps but requires the complete input; a geometry callback may shrink or discard its allocation at execution, but cannot grow or move it outside the allocated input frame. Common forward shapes: expand `bounds.Inflate(thickness)`, unchanged `bounds`.
 
 ---
 

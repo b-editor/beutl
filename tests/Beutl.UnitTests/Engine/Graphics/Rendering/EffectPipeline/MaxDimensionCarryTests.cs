@@ -40,7 +40,7 @@ public class MaxDimensionCarryTests
 
             RenderNodeOperation[] ops = PlanExecutor.Execute(
                 plan, frame, [input], outputScale: 1f, workingScale: 1f,
-                maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null);
+                maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null, renderIntent: RenderIntent.Delivery);
 
             try
             {
@@ -70,7 +70,7 @@ public class MaxDimensionCarryTests
         var gamma = new Gamma();
         gamma.Amount.CurrentValue = 150f;
         var resource = (FilterEffect.Resource)gamma.ToResource(CompositionContext.Default);
-        var builder = new EffectGraphBuilder(s_describeBounds, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(s_describeBounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
         gamma.Describe(builder, resource);
         using EffectGraph graph = builder.Build();
         return EffectGraphCompiler.Compile(graph, diagnostics: null);

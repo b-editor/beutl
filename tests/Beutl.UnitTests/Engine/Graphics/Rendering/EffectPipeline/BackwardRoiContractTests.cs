@@ -17,7 +17,7 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.EffectPipeline;
 /// up every pass's <see cref="CompiledPass.BackwardBounds"/> map.
 /// <list type="bullet">
 /// <item><see cref="SKSLScriptEffect"/>'s generator branch derives fragCoord/width/height from the pass output rect,
-/// so an <c>Identity</c> contract lets a crop re-anchor the pattern into the sub-rect (must be <c>RenderTime</c>) —
+/// so an <c>Identity</c> contract lets a crop re-anchor the pattern into the sub-rect (must be <c>FullFrame</c>) —
 /// probed at the pixel level.</item>
 /// <item><see cref="ShakeEffect"/> translates its input, so its backward must claim <c>r − translate</c>; an identity
 /// backward under-claims and crops an upstream pass, losing the translated source band.</item>
@@ -25,7 +25,7 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.EffectPipeline;
 /// input; an identity backward feeds a cropped snapshot into the tracer and drops content outside the ROI.</item>
 /// <item><see cref="TransformEffect"/>'s ApplyToTarget pass rotates/scales its input, so its backward must inverse-map
 /// the requested region; an identity backward crops the upstream to the un-transformed region and loses pulled-in
-/// pixels. RenderTime is unavailable (the forward inflates), so the pass keeps the inflating forward and inverts.</item>
+/// pixels. FullFrame is unavailable (the forward inflates), so the pass keeps the inflating forward and inverts.</item>
 /// </list>
 /// The three backward-map defects are asserted directly against the compiled backward map — the faithful probe used by
 /// <see cref="PositionAnchoredCropTests.FlatShadow_BackwardRoi_CoversExtrusionSourceBand"/> — because a blur/clip
@@ -46,7 +46,7 @@ public class BackwardRoiContractTests
 
     // A generator (no `src` child) whose colour is a function of the full-frame device coordinate. Under Identity the
     // downstream clip bakes it into an OFFSET sub-rect with a LOCAL fragCoord origin and a sub-rect width/height, so
-    // the ramp rescales and shifts; RenderTime keeps it baking full-frame.
+    // the ramp rescales and shifts; FullFrame keeps it baking full-frame.
     [Test]
     public void SkslGenerator_KeptRegionUnshiftedUnderDeflatingClip()
     {
@@ -263,7 +263,7 @@ public class BackwardRoiContractTests
 
     private static CompiledPlan CompileBuilder(Action<EffectGraphBuilder> describe)
     {
-        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
         describe(builder);
         using EffectGraph graph = builder.Build();
         return EffectGraphCompiler.Compile(graph, diagnostics: null);
@@ -271,7 +271,7 @@ public class BackwardRoiContractTests
 
     private static CompiledPlan Compile(FilterEffect effect)
     {
-        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
         effect.Describe(builder, (FilterEffect.Resource)(object)effect.ToResource(CompositionContext.Default));
         using EffectGraph graph = builder.Build();
         return EffectGraphCompiler.Compile(graph, diagnostics: null);
@@ -296,7 +296,7 @@ public class BackwardRoiContractTests
 
     private static Bitmap RenderChain(FilterEffect[] effects, Func<RenderNodeOperation> input, Rect requestedBounds)
     {
-        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
         foreach (FilterEffect effect in effects)
             effect.Describe(builder, (FilterEffect.Resource)(object)effect.ToResource(CompositionContext.Default));
 
@@ -306,11 +306,11 @@ public class BackwardRoiContractTests
         FrameResources frame = EffectGraphCompiler.ResolveResources(plan, requestedBounds, workingScale: 1f);
         RenderNodeOperation[] ops = PlanExecutor.Execute(
             plan, frame, [input()], outputScale: 1f, workingScale: 1f,
-            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool);
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool, renderIntent: RenderIntent.Delivery);
 
         int w = (int)s_bounds.Width, h = (int)s_bounds.Height;
         using RenderTarget target = RenderTarget.Create(w, h)!;
-        using (var canvas = new ImmediateCanvas(target, 1f, logicalSize: s_bounds.Size))
+        using (var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 1f, logicalSize: s_bounds.Size))
         {
             canvas.Clear(Colors.Black);
             foreach (RenderNodeOperation op in ops)

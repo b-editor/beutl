@@ -72,7 +72,7 @@ public abstract partial class DisplacementMapTransform : EngineObject
     // kind produces no shader at all — decided by the non-rendering BrushConstructor.CanCreateShader predicate so
     // Describe does NO rendering, target allocation, or GPU work (contract A1 / FR-001); the removed describe-time
     // probe used to render a DrawableBrush map here. The map (and the scale/rotation pivot) is anchored to the
-    // executed target's local device space, so every transform declares a RenderTime bounds contract: an ROI crop by
+    // executed target's local device space, so every transform declares a FullFrame bounds contract: an ROI crop by
     // a downstream deflating pass would otherwise change that target and re-anchor the map/pivot. Fan-out still
     // executes one full branch at a time; MapChild uses PassUniformContext.TargetBounds so each branch preserves the
     // legacy per-effect-target anchoring.
@@ -135,8 +135,8 @@ public abstract partial class DisplacementMapTransform : EngineObject
                 SKShader? created = s_forceMapShaderNullForTests
                     ? null
                     : new BrushConstructor(
-                        new Rect(context.TargetBounds.Size), map, BlendMode.SrcOver, w, maxWorkingScale,
-                        context.Diagnostics, context.RenderIntent).CreateShader();
+                        new Rect(context.TargetBounds.Size), map, BlendMode.SrcOver, context.RenderIntent, w,
+                        maxWorkingScale, context.Diagnostics, context.PullPurpose).CreateShader();
                 _present = created is not null;
 
                 shader = created ?? SKShader.CreateColor(SKColors.Transparent);
@@ -228,7 +228,7 @@ public partial class DisplacementMapTranslateTransform : DisplacementMapTransfor
 
         builder.Shader(ShaderNodeDescriptor.WholeSource(
             s_describeSource,
-            BoundsContract.RenderTime,
+            BoundsContract.FullFrame,
             u => mapChild.BindPresence(
                 u.DensityScaledFloat2("uTranslation", r.X, r.Y)
                  .Int("uChannel", (int)channel)
@@ -291,7 +291,7 @@ public partial class DisplacementMapScaleTransform : DisplacementMapTransform
 
         builder.Shader(ShaderNodeDescriptor.WholeSource(
             s_describeSource,
-            BoundsContract.RenderTime,
+            BoundsContract.FullFrame,
             u => mapChild.BindPresence(
                 u.Float2("uScale", r.Scale * r.ScaleX / 10000, r.Scale * r.ScaleY / 10000)
                  .Deferred("uPivot", (shaderBuilder, name, context) =>
@@ -357,7 +357,7 @@ public partial class DisplacementMapRotationTransform : DisplacementMapTransform
 
         builder.Shader(ShaderNodeDescriptor.WholeSource(
             s_describeSource,
-            BoundsContract.RenderTime,
+            BoundsContract.FullFrame,
             u => mapChild.BindPresence(
                 u.Float("uAngle", MathUtilities.Deg2Rad(r.Rotation))
                  .Deferred("uPivot", (shaderBuilder, name, context) =>

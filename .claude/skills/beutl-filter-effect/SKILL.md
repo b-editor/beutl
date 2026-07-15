@@ -291,7 +291,7 @@ public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource 
     // The non-local tile-centre samples use full-frame coordinates, so an ROI crop is unsound.
     builder.Shader(ShaderNodeDescriptor.WholeSource(
         ShaderSource,
-        BoundsContract.RenderTime,
+        BoundsContract.FullFrame,
         u => u.DensityScaledFloat2(
                   "tileSize", (float)tileSize.Width, (float)tileSize.Height)
               .Deferred("resolution", (b, name, ctx) =>

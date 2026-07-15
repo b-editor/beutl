@@ -71,7 +71,7 @@ public class PooledComputeOutputTests
         var size = PixelRect.FromRect(op.Bounds);
         using RenderTarget target = RenderTarget.Create(Math.Max(1, size.Width), Math.Max(1, size.Height))
             ?? throw new InvalidOperationException("RenderTarget.Create returned null (raster surface unavailable).");
-        using (var canvas = new ImmediateCanvas(target, 1f, logicalSize: op.Bounds.Size))
+        using (var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 1f, logicalSize: op.Bounds.Size))
         {
             canvas.Clear();
             using (canvas.PushTransform(Matrix.CreateTranslation(-op.Bounds.X, -op.Bounds.Y)))
@@ -91,14 +91,14 @@ public class PooledComputeOutputTests
             canvas => DrawGradient(canvas, bounds),
             hitTest: bounds.Contains);
 
-        var builder = new EffectGraphBuilder(bounds, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
         effect.Describe(builder, resource);
         using EffectGraph graph = builder.Build();
         CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
         FrameResources frame = EffectGraphCompiler.ResolveResources(plan, bounds, workingScale: 1f);
         return PlanExecutor.Execute(
             plan, frame, [input], outputScale: 1f, workingScale: 1f,
-            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool);
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool, renderIntent: RenderIntent.Delivery);
     }
 
     private static void DrawGradient(ImmediateCanvas canvas, Rect bounds)

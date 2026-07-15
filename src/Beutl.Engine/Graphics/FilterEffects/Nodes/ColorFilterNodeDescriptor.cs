@@ -19,7 +19,11 @@ public sealed record ColorFilterNodeDescriptor : EffectNodeDescriptor
         StructuralToken = structuralToken;
     }
 
-    /// <summary>Produces the frame's <c>SKColorFilter</c> (or <see langword="null"/> for a no-op). Called at execution time.</summary>
+    /// <summary>
+    /// Produces an independently disposable <c>SKColorFilter</c> (or <see langword="null"/> for a no-op) for each
+    /// invocation. Execution may invoke the factory more than once per frame after fan-out. Every non-null result is
+    /// owned and disposed by the executor; returning a cached or previously returned instance is invalid.
+    /// </summary>
     public Func<SKColorFilter?> Factory { get; }
 
     /// <summary>
@@ -37,12 +41,13 @@ public sealed record ColorFilterNodeDescriptor : EffectNodeDescriptor
 
     /// <summary>
     /// Builds a color-filter node. <paramref name="structuralToken"/> distinguishes filter kinds in the
-    /// structural key; when omitted it is derived from <paramref name="factory"/>'s method, so filters built at
+    /// structural key. Each invocation must return a fresh owned filter reference or null; when the token is omitted
+    /// it is derived from <paramref name="factory"/>'s method, so filters built at
     /// the same call site (differing only in parameters) share an identity.
     /// </summary>
     public static ColorFilterNodeDescriptor Create(Func<SKColorFilter?> factory, object? structuralToken = null)
     {
         ArgumentNullException.ThrowIfNull(factory);
-        return new ColorFilterNodeDescriptor(factory, structuralToken ?? factory.Method.MethodHandle.Value);
+        return new ColorFilterNodeDescriptor(factory, structuralToken ?? factory.Method);
     }
 }

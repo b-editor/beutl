@@ -161,15 +161,15 @@ public class AutoClipOutputBoundsTightenTests
         clip.AutoClip.CurrentValue = true;
 
         FilterEffect.Resource resource = clip.ToResource(CompositionContext.Default);
-        var builder = new EffectGraphBuilder(s_input, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(s_input, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
         clip.Describe(builder, resource);
 
         Rect observedBounds = Rect.Invalid;
         builder.Compute(ComputeNodeDescriptor.Create(
             dispatch: static _ => { },
             passCount: 1,
-            fallback: ComputeFallback.CpuCallback,
-            cpuCallback: session => observedBounds = session.Bounds,
+            bounds: BoundsContract.FullFrame,
+            fallback: ComputeFallbackPolicy.Cpu(session => observedBounds = session.Bounds),
             structuralToken: "auto-clip-compute-bounds"));
 
         using EffectGraph graph = builder.Build();
@@ -182,7 +182,7 @@ public class AutoClipOutputBoundsTightenTests
         {
             outputs = PlanExecutor.Execute(
                 plan, resources, [MakeContentRect(s_input, s_content)], outputScale: 1f, workingScale: 1f,
-                maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null);
+                maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null, renderIntent: RenderIntent.Delivery);
         }
         finally
         {
@@ -212,7 +212,7 @@ public class AutoClipOutputBoundsTightenTests
 
         FilterEffect.Resource resource = clip.ToResource(CompositionContext.Default);
         using var node = new PlanFilterEffectRenderNode(resource);
-        var context = new RenderNodeContext([MakeContentRect(s_input, s_content)]);
+        var context = new RenderNodeContext([MakeContentRect(s_input, s_content)], RenderIntent.Delivery);
         return node.Process(context);
     }
 
@@ -233,7 +233,7 @@ public class AutoClipOutputBoundsTightenTests
 
         FilterEffect.Resource resource = group.ToResource(CompositionContext.Default);
         using var node = new PlanFilterEffectRenderNode(resource);
-        var context = new RenderNodeContext([MakeContentRect(s_input, s_content)]);
+        var context = new RenderNodeContext([MakeContentRect(s_input, s_content)], RenderIntent.Delivery);
         return node.Process(context);
     }
 
@@ -248,7 +248,7 @@ public class AutoClipOutputBoundsTightenTests
         var size = PixelRect.FromRect(window);
         using RenderTarget target = RenderTarget.Create(size.Width, size.Height)
             ?? throw new InvalidOperationException("RenderTarget.Create returned null (raster surface unavailable).");
-        using (var canvas = new ImmediateCanvas(target, 1f, logicalSize: window.Size))
+        using (var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 1f, logicalSize: window.Size))
         {
             canvas.Clear();
             using (canvas.PushTransform(Matrix.CreateTranslation(-window.X, -window.Y)))

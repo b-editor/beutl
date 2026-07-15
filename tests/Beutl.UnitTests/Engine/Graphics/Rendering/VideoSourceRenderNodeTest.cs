@@ -34,7 +34,8 @@ public class VideoSourceRenderNodeTest
     public void Process_OpReportsConcreteNativeDensity_NotUnbounded()
     {
         var node = new VideoSourceRenderNode(_resource!, frame: 0, Brushes.Resource.White, null);
-        var operations = node.Process(new Beutl.Graphics.Rendering.RenderNodeContext([]));
+        var operations = node.Process(new Beutl.Graphics.Rendering.RenderNodeContext(
+            [], Beutl.Graphics.Rendering.RenderIntent.Delivery));
 
         Assert.That(operations, Is.Not.Empty);
         Assert.That(operations[0].EffectiveScale.IsUnbounded, Is.False,

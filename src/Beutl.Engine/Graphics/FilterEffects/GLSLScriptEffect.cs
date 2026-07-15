@@ -98,7 +98,8 @@ public sealed partial class GLSLScriptEffect : FilterEffect, IScriptCompilableEf
                 });
             },
             passCount: 1,
-            ComputeFallback.Identity,
+            BoundsContract.FullFrame,
+            ComputeFallbackPolicy.Identity,
             structuralToken: nameof(GLSLScriptEffect)));
     }
 

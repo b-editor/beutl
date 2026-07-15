@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics;
+﻿using System.Linq.Expressions;
+using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
@@ -20,7 +21,7 @@ public class EffectPipelineGateTests
     private static readonly Rect s_bounds = new(0, 0, 128, 96);
 
     private static EffectGraphBuilder NewBuilder()
-        => new(s_bounds, outputScale: 1f, workingScale: 1f);
+        => new(s_bounds, outputScale: 1f, workingScale: 1f, RenderIntent.Delivery);
 
     private static CompiledPlan Compile(EffectGraphBuilder builder)
     {
@@ -82,7 +83,7 @@ public class EffectPipelineGateTests
 
         RenderNodeOperation[] outputs = PlanExecutor.Execute(
             plan, frame, [input], outputScale: 1f, workingScale: 1f,
-            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool);
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool, renderIntent: RenderIntent.Delivery);
         RenderNodeOperation.DisposeAll(outputs);
         return (pool.PeakLiveLeaseCount, plan);
     }
@@ -108,28 +109,112 @@ public class EffectPipelineGateTests
         CompiledPlan plan = Compile(NewBuilder()
             .Saturate(1.2f)
             .Compute(ComputeNodeDescriptor.Create(
-                _ => { }, passCount: 1, ComputeFallback.Identity, structuralToken: "gate")));
+                _ => { }, passCount: 1, BoundsContract.FullFrame, ComputeFallbackPolicy.Identity, structuralToken: "gate")));
 
         var compute = plan.Passes.OfType<ComputePass>().Single();
         Assert.Multiple(() =>
         {
             Assert.That(compute.Backend, Is.EqualTo(PassBackend.Vulkan), "compute is the only Vulkan-backed pass");
-            Assert.That(compute.Fallback, Is.EqualTo(ComputeFallback.Identity),
+            Assert.That(compute.Fallback, Is.SameAs(ComputeFallbackPolicy.Identity),
                 "FR-014: the ComputeNode carries a declared no-Vulkan fallback the executor applies without a context");
         });
     }
 
     [Test]
-    public void ComputeNode_CpuCallbackFallback_RequiresACallback()
+    public void ComputeNode_CpuFallbackPolicy_RequiresACallback()
     {
-        // A7: declaring CpuCallback without a callback is an authoring error surfaced at describe time.
         Assert.That(
-            () => ComputeNodeDescriptor.Create(_ => { }, passCount: 1, ComputeFallback.CpuCallback),
+            () => ComputeFallbackPolicy.Cpu(null!),
             Throws.ArgumentNullException);
 
         Assert.That(
             () => ComputeNodeDescriptor.Create(
-                _ => { }, passCount: 1, ComputeFallback.CpuCallback, cpuCallback: _ => { }),
+                _ => { }, passCount: 1, BoundsContract.FullFrame, ComputeFallbackPolicy.Cpu(_ => { })),
             Throws.Nothing);
+    }
+
+    [Test]
+    public void ComputeNode_InvalidDispatchFailureBehavior_IsRejected()
+    {
+        Assert.That(
+            () => ComputeNodeDescriptor.Create(
+                static _ => { }, 1, BoundsContract.Identity, ComputeFallbackPolicy.Identity,
+                dispatchFailureBehavior: (ComputeDispatchFailureBehavior)int.MaxValue),
+            Throws.TypeOf<ArgumentOutOfRangeException>());
+    }
+
+    [Test]
+    public void ComputeNode_LocalBounds_RemainsCoordinateInvariant()
+    {
+        ComputeNodeDescriptor descriptor = ComputeNodeDescriptor.Create(
+            static _ => { }, 1, BoundsContract.Identity, ComputeFallbackPolicy.Identity);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(descriptor.IsCoordinateInvariant, Is.True);
+            Assert.That(descriptor.Bounds.RequiresFullInput, Is.False);
+        });
+    }
+
+    [Test]
+    public void DescriptorDefaultStructuralIdentity_AcceptsExpressionCompiledDelegates()
+    {
+        ParameterExpression boundsParameter = Expression.Parameter(typeof(Rect), "bounds");
+        Func<Rect, Rect> boundsMap = Expression.Lambda<Func<Rect, Rect>>(
+            boundsParameter, boundsParameter).Compile();
+        Func<SKColorFilter?> colorFactory = Expression.Lambda<Func<SKColorFilter?>>(
+            Expression.Default(typeof(SKColorFilter))).Compile();
+        ParameterExpression innerParameter = Expression.Parameter(typeof(SKImageFilter), "inner");
+        Func<SKImageFilter?, SKImageFilter?> skiaFactory =
+            Expression.Lambda<Func<SKImageFilter?, SKImageFilter?>>(
+                Expression.Default(typeof(SKImageFilter)), innerParameter).Compile();
+        ParameterExpression geometryParameter = Expression.Parameter(typeof(GeometrySession), "session");
+        Action<GeometrySession> geometry = Expression.Lambda<Action<GeometrySession>>(
+            Expression.Empty(), geometryParameter).Compile();
+        ParameterExpression computeParameter = Expression.Parameter(typeof(IComputeContext), "context");
+        Action<IComputeContext> compute = Expression.Lambda<Action<IComputeContext>>(
+            Expression.Empty(), computeParameter).Compile();
+        ParameterExpression splitParameter = Expression.Parameter(typeof(ISplitEmitter), "emitter");
+        Action<ISplitEmitter> split = Expression.Lambda<Action<ISplitEmitter>>(
+            Expression.Empty(), splitParameter).Compile();
+        ParameterExpression builderParameter = Expression.Parameter(typeof(EffectGraphBuilder), "builder");
+        ParameterExpression branchParameter = Expression.Parameter(typeof(int), "branch");
+        Action<EffectGraphBuilder, int> nested = Expression.Lambda<Action<EffectGraphBuilder, int>>(
+            Expression.Empty(), builderParameter, branchParameter).Compile();
+
+        BoundsContract bounds = default;
+        ColorFilterNodeDescriptor? color = null;
+        SkiaFilterNodeDescriptor? skia = null;
+        GeometryNodeDescriptor? geometryNode = null;
+        ComputeNodeDescriptor? computeNode = null;
+        SplitNodeDescriptor? staticSplit = null;
+        SplitNodeDescriptor? dynamicSplit = null;
+        NestedGraphNodeDescriptor? nestedNode = null;
+
+        Assert.DoesNotThrow(() =>
+        {
+            bounds = BoundsContract.Create(boundsMap, boundsMap);
+            color = ColorFilterNodeDescriptor.Create(colorFactory);
+            skia = SkiaFilterNodeDescriptor.Create(skiaFactory, bounds);
+            geometryNode = GeometryNodeDescriptor.Create(geometry, bounds);
+            computeNode = ComputeNodeDescriptor.Create(
+                compute, 1, bounds, ComputeFallbackPolicy.Identity);
+            staticSplit = SplitNodeDescriptor.Static(split, 1);
+            dynamicSplit = SplitNodeDescriptor.Dynamic(split);
+            nestedNode = NestedGraphNodeDescriptor.Create(nested);
+        });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(bounds.StructuralIdentity.TransformMethod, Is.SameAs(boundsMap.Method));
+            Assert.That(bounds.StructuralIdentity.RequiredInputMethod, Is.SameAs(boundsMap.Method));
+            Assert.That(color!.StructuralToken, Is.SameAs(colorFactory.Method));
+            Assert.That(skia!.StructuralToken, Is.SameAs(skiaFactory.Method));
+            Assert.That(geometryNode!.StructuralToken, Is.SameAs(geometry.Method));
+            Assert.That(computeNode!.StructuralToken, Is.SameAs(compute.Method));
+            Assert.That(staticSplit!.StructuralToken, Is.SameAs(split.Method));
+            Assert.That(dynamicSplit!.StructuralToken, Is.SameAs(split.Method));
+            Assert.That(nestedNode!.StructuralToken, Is.SameAs(nested.Method));
+        });
     }
 }

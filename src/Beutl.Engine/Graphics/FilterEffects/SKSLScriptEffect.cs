@@ -99,7 +99,7 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
         // The resolution/density uniforms (width/height/iResolution/iScale) are late-bound to the pass's
         // execution-time buffer and working scale (execution-plan §C3.2): the budget re-clamp — and, for a
         // non-invariant script, the monotonic carry from an upstream forward-inflating pass — can execute the
-        // script below the describe-time working scale, and RenderTime alone does not protect against that. The
+        // script below the describe-time working scale, and FullFrame alone does not protect against that. The
         // time/progress uniforms are density-independent and stay describe-time.
         void BindUniforms(UniformBindingBuilder u)
         {
@@ -115,13 +115,13 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
 
         // A non-invariant script may sample non-locally (src.eval(fragCoord + offset)); a downstream deflating pass
         // (a fixed Clipping) would ROI-crop an Identity-bounds bake to a sub-rect and shift/clip those samples
-        // (contract A3). RenderTime keeps it baking full-frame. The CoordinateInvariant opt-in asserts single-pixel
+        // (contract A3). FullFrame keeps it baking full-frame. The CoordinateInvariant opt-in asserts single-pixel
         // sampling, so it keeps identity bounds and participates in ROI propagation by construction.
         builder.Shader(r.CoordinateInvariant
             ? ShaderNodeDescriptor.WholeSourceInvariant(
                 source, BindUniforms, srcTileMode: SKShaderTileMode.Clamp)
             : ShaderNodeDescriptor.WholeSource(
-                source, BoundsContract.RenderTime, BindUniforms, srcTileMode: SKShaderTileMode.Clamp));
+                source, BoundsContract.FullFrame, BindUniforms, srcTileMode: SKShaderTileMode.Clamp));
     }
 
     private static void DescribeGenerator(EffectGraphBuilder builder, Resource r)
@@ -160,8 +160,8 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
             // The generated pattern is anchored to the FULL output rect: fragCoord/width/height are the pass buffer's
             // device coordinates (A3). Identity would let a downstream deflating pass ROI-crop this to an OFFSET
             // sub-rect with a LOCAL fragCoord origin and a sub-rect width/height, rescaling and shifting the pattern.
-            // RenderTime keeps it baking full-frame — the BlendEffect / DisplacementMap show-map precedent.
-            BoundsContract.RenderTime,
+            // FullFrame keeps it baking full-frame — the BlendEffect / DisplacementMap show-map precedent.
+            BoundsContract.FullFrame,
             structuralToken: nameof(SKSLScriptEffect) + ".Generator"));
     }
 

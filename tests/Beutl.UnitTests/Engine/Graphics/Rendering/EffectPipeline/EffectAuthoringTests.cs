@@ -23,7 +23,7 @@ public class EffectAuthoringTests
     private static readonly Rect s_bounds = new(0, 0, 128, 96);
 
     private static EffectGraphBuilder NewBuilder(float workingScale = 1f)
-        => new(s_bounds, outputScale: 1f, workingScale: workingScale);
+        => new(s_bounds, outputScale: 1f, workingScale: workingScale, RenderIntent.Delivery);
 
     private static CompiledPlan Compile(EffectGraphBuilder builder)
     {
@@ -104,7 +104,7 @@ public class EffectAuthoringTests
     public void ComputeNode_CompilesToAComputePass()
     {
         CompiledPlan plan = Compile(NewBuilder().Compute(
-            ComputeNodeDescriptor.Create(_ => { }, passCount: 1, ComputeFallback.Identity, structuralToken: "authoring")));
+            ComputeNodeDescriptor.Create(_ => { }, passCount: 1, BoundsContract.FullFrame, ComputeFallbackPolicy.Identity, structuralToken: "authoring")));
         Assert.That(plan.Passes[0], Is.TypeOf<ComputePass>());
     }
 
@@ -252,7 +252,7 @@ public class EffectAuthoringTests
             [RenderNodeOperation.CreateLambda(
                 s_bounds, canvas => canvas.DrawRectangle(s_bounds.Deflate(10), Fill(180, 255, 255, 255), null),
                 hitTest: s_bounds.Contains)],
-            outputScale: 1f, workingScale: 1f, maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null);
+            outputScale: 1f, workingScale: 1f, maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null, renderIntent: RenderIntent.Delivery);
         return Rasterize(outputs, s_bounds);
     }
 
@@ -388,7 +388,7 @@ public class EffectAuthoringTests
         FrameResources frame = EffectGraphCompiler.ResolveResources(plan, s_bounds, workingScale: 1f);
         RenderNodeOperation[] outputs = PlanExecutor.Execute(
             plan, frame, [input], outputScale: 1f, workingScale: 1f,
-            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null);
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null, renderIntent: RenderIntent.Delivery);
         return Rasterize(outputs, s_bounds);
     }
 
@@ -417,7 +417,7 @@ public class EffectAuthoringTests
         var size = PixelRect.FromRect(bounds);
         using RenderTarget target = RenderTarget.Create(size.Width, size.Height)
             ?? throw new InvalidOperationException("RenderTarget.Create returned null.");
-        using (var canvas = new ImmediateCanvas(target, 1f, logicalSize: bounds.Size))
+        using (var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 1f, logicalSize: bounds.Size))
         {
             canvas.Clear();
             using (canvas.PushTransform(Matrix.CreateTranslation(-bounds.X, -bounds.Y)))

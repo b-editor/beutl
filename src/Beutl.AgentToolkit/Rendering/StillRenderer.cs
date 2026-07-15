@@ -170,8 +170,8 @@ public sealed class StillRenderer
             // Agent still render is a final output, so force original media (proxies are preview-only);
             // otherwise the default PreferProxy setting would decode cached proxies here.
             using var renderer = new SceneRenderer(
-                scene, normalizedScale, disableResourceShare: true, maxWorkingScale: float.PositiveInfinity,
-                forceOriginalSource: true, renderIntent: RenderIntent.Delivery);
+                scene, RenderIntent.Delivery, normalizedScale, disableResourceShare: true,
+                maxWorkingScale: float.PositiveInfinity, forceOriginalSource: true);
             renderer.CacheOptions = RenderCacheOptions.Disabled;
 
             ThrowIfSourcesMissing(scene, time + scene.Start);
@@ -201,8 +201,8 @@ public sealed class StillRenderer
             // Agent still render is a final output, so force original media (proxies are preview-only);
             // otherwise the default PreferProxy setting would decode cached proxies here.
             using var renderer = new SceneRenderer(
-                scene, normalizedScale, disableResourceShare: true, maxWorkingScale: float.PositiveInfinity,
-                forceOriginalSource: true, renderIntent: RenderIntent.Delivery);
+                scene, RenderIntent.Delivery, normalizedScale, disableResourceShare: true,
+                maxWorkingScale: float.PositiveInfinity, forceOriginalSource: true);
             renderer.CacheOptions = RenderCacheOptions.Disabled;
 
             ThrowIfSourcesMissing(scene, time + scene.Start);

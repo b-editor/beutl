@@ -59,7 +59,7 @@ public class CompositeDrawPathTests
     {
         return VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+            var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
             builder.Split(SplitNodeDescriptor.Static(
                 emitter =>
                 {
@@ -85,7 +85,7 @@ public class CompositeDrawPathTests
             FrameResources frame = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale: 1f);
             RenderNodeOperation[] outputs = PlanExecutor.Execute(
                 plan, frame, [Input()], outputScale: 1f, workingScale: 1f,
-                maxWorkingScale: float.PositiveInfinity, diagnostics: diagnostics, pool: pool);
+                maxWorkingScale: float.PositiveInfinity, diagnostics: diagnostics, pool: pool, renderIntent: RenderIntent.Delivery);
             Assert.That(outputs, Has.Length.EqualTo(1), "the composite fans the two branches into one output");
             RenderNodeOperation.DisposeAll(outputs);
             return diagnostics.Snapshot();
@@ -107,7 +107,7 @@ public class CompositeDrawPathTests
             PixelSize size = SceneFixtures.ReferenceSize;
             using RenderTarget target = RenderTarget.Create(size.Width, size.Height)
                                         ?? throw new InvalidOperationException("RenderTarget.Create returned null.");
-            using var canvas = new ImmediateCanvas(target, 1f, logicalSize: size.ToSize(1));
+            using var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 1f, logicalSize: size.ToSize(1));
             canvas.Clear(Colors.Black);
 
             using var node = new DrawableRenderNode(resource);
@@ -116,7 +116,7 @@ public class CompositeDrawPathTests
                 resource.GetOriginal().Render(ctx, resource);
             }
 
-            var processor = new RenderNodeProcessor(node, useRenderCache: false, outputScale: 1f);
+            var processor = new RenderNodeProcessor(node, useRenderCache: false, RenderIntent.Delivery, outputScale: 1f);
             RenderNodeOperation[] ops = processor.PullToRoot();
             foreach (RenderNodeOperation op in ops)
             {

@@ -55,7 +55,7 @@ public class GeometryRenderNodeTest
         var geometryResource = geometry.ToResource(CompositionContext.Default);
         var fillResource = fill.ToResource(CompositionContext.Default);
         var penResource = pen.ToResource(CompositionContext.Default);
-        var context = new RenderNodeContext([]);
+        var context = new RenderNodeContext([], RenderIntent.Delivery);
 
         var node = new GeometryRenderNode(geometryResource, fillResource, penResource);
         var operations = node.Process(context);
@@ -73,7 +73,7 @@ public class GeometryRenderNodeTest
         var geometryResource = geometry.ToResource(CompositionContext.Default);
         var fillResource = fill.ToResource(CompositionContext.Default);
         var penResource = pen.ToResource(CompositionContext.Default);
-        var context = new RenderNodeContext([]);
+        var context = new RenderNodeContext([], RenderIntent.Delivery);
 
         var node = new GeometryRenderNode(geometryResource, fillResource, penResource);
         var operations = node.Process(context);
@@ -91,7 +91,7 @@ public class GeometryRenderNodeTest
         var geometryResource = geometry.ToResource(CompositionContext.Default);
         var fillResource = fill.ToResource(CompositionContext.Default);
         var penResource = pen.ToResource(CompositionContext.Default);
-        var context = new RenderNodeContext([]);
+        var context = new RenderNodeContext([], RenderIntent.Delivery);
 
         var node = new GeometryRenderNode(geometryResource, fillResource, penResource);
         var operations = node.Process(context);
@@ -107,7 +107,7 @@ public class GeometryRenderNodeTest
         Pen pen = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 50 } };
         var geometryResource = geometry.ToResource(CompositionContext.Default);
         var penResource = pen.ToResource(CompositionContext.Default);
-        var context = new RenderNodeContext([]);
+        var context = new RenderNodeContext([], RenderIntent.Delivery);
 
         var node = new GeometryRenderNode(geometryResource, null, penResource);
         var operations = node.Process(context);

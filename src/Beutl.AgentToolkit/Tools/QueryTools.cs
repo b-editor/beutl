@@ -1493,7 +1493,9 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
             drawable.Render(graphicsContext, resource);
         }
 
-        var processor = new RenderNodeProcessor(node, useRenderCache: false, outputScale: 1f, maxWorkingScale: 1f);
+        var processor = new RenderNodeProcessor(
+            node, useRenderCache: false, RenderIntent.Preview, outputScale: 1f, maxWorkingScale: 1f,
+            pullPurpose: RenderPullPurpose.Auxiliary);
         RenderNodeOperation[] operations = processor.PullToRoot();
         Rect bounds = Rect.Empty;
         bool hasBounds = false;

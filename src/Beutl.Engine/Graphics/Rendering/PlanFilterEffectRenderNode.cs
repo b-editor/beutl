@@ -7,11 +7,11 @@ using Microsoft.Extensions.Logging;
 
 namespace Beutl.Graphics.Rendering;
 
-// The default filter-effect render node (produced by FilterEffect.Resource.RenderNodeFactory): runs the compiled-plan
-// execution pipeline (describe -> PlanCache -> ParameterBlock rebind -> ResolveResources -> PlanExecutor) and owns the
-// per-node plan/prefix caches. Sealed and internal — a plugin that needs a different working scale overrides
-// RenderNodeFactory to build its own FilterEffectRenderNode subclass and reimplements Process (without these caches).
-internal sealed class PlanFilterEffectRenderNode(FilterEffect.Resource filterEffect) : FilterEffectRenderNode(filterEffect)
+/// <summary>
+/// The standard declarative filter-effect render node. It owns compilation, parameter rebind, ROI, pooling, and
+/// plan/prefix caches while exposing narrow policy hooks to subclasses.
+/// </summary>
+public class PlanFilterEffectRenderNode(FilterEffect.Resource filterEffect) : FilterEffectRenderNode(filterEffect)
 {
     private static readonly ILogger s_logger = Log.CreateLogger<PlanFilterEffectRenderNode>();
 
@@ -35,7 +35,7 @@ internal sealed class PlanFilterEffectRenderNode(FilterEffect.Resource filterEff
     private readonly NestedGraphPlanCache _nestedPlanCache = new();
     private readonly EffectPrefixCache _prefixCache = new();
 
-    public override RenderNodeOperation[] Process(RenderNodeContext context)
+    public sealed override RenderNodeOperation[] Process(RenderNodeContext context)
     {
         if (FilterEffect == null || !FilterEffect.Value.Resource.IsEnabled)
         {
@@ -72,8 +72,13 @@ internal sealed class PlanFilterEffectRenderNode(FilterEffect.Resource filterEff
                 inputScales[i] = context.Input[i].EffectiveScale;
             }
 
-            float workingScale = RenderNodeContext.ResolveWorkingScale(
-                inputScales, context.OutputScale, context.MaxWorkingScale);
+            float workingScale = ResolveWorkingScale(context, inputScales);
+            if (!float.IsFinite(workingScale) || workingScale <= 0f || workingScale > context.MaxWorkingScale)
+            {
+                throw new InvalidOperationException(
+                    $"{GetType().Name}.{nameof(ResolveWorkingScale)} returned {workingScale}; the value must be "
+                    + $"positive, finite, and no greater than {context.MaxWorkingScale}.");
+            }
 
             Rect bounds = context.CalculateBounds();
 
@@ -81,8 +86,8 @@ internal sealed class PlanFilterEffectRenderNode(FilterEffect.Resource filterEff
             // A Describe that registers a native sampler/child shader and then throws would strand it (ownership only
             // transfers to the graph at Build); the engine aborts the still-open builder in the finally path.
             var graphBuilder = new EffectGraphBuilder(
-                bounds, context.OutputScale, workingScale, context.MaxWorkingScale, _nestedPlanCache,
-                context.RenderIntent);
+                bounds, context.OutputScale, workingScale, context.RenderIntent,
+                context.MaxWorkingScale, _nestedPlanCache, context.PullPurpose);
             try
             {
                 resource.GetOriginal().Describe(graphBuilder, resource);
@@ -119,7 +124,7 @@ internal sealed class PlanFilterEffectRenderNode(FilterEffect.Resource filterEff
                         plan, resources, context.Input, context.OutputScale, workingScale, context.MaxWorkingScale,
                         context.Diagnostics, context.Pool,
                         isRenderCacheEnabled: context.IsRenderCacheEnabled,
-                        isAuxiliaryPull: context.IsAuxiliaryPull,
+                        pullPurpose: context.PullPurpose,
                         renderIntent: context.RenderIntent);
                 }
 
@@ -149,7 +154,7 @@ internal sealed class PlanFilterEffectRenderNode(FilterEffect.Resource filterEff
                     plan, resources, context.Input, context.OutputScale, workingScale, context.MaxWorkingScale,
                     context.Diagnostics, context.Pool,
                     isRenderCacheEnabled: context.IsRenderCacheEnabled,
-                    isAuxiliaryPull: context.IsAuxiliaryPull,
+                    pullPurpose: context.PullPurpose,
                     renderIntent: context.RenderIntent);
             }
             finally
@@ -167,6 +172,16 @@ internal sealed class PlanFilterEffectRenderNode(FilterEffect.Resource filterEff
         }
     }
 
+    /// <summary>
+    /// Resolves the working density used by the standard plan pipeline. Overrides must return a positive finite value
+    /// no greater than <see cref="RenderNodeContext.MaxWorkingScale"/>.
+    /// </summary>
+    protected virtual float ResolveWorkingScale(
+        RenderNodeContext context,
+        ReadOnlySpan<EffectiveScale> inputScales)
+        => RenderNodeContext.ResolveWorkingScale(
+            inputScales, context.OutputScale, context.MaxWorkingScale);
+
     // Skips the retained prefix's passes: the cached buffer seeds the pass after it, so passes 0..k neither draw nor
     // allocate. The fresh input ops are discarded (the stable prefix already encapsulates them), counting one hit.
     private RenderNodeOperation[] ExecuteResumed(
@@ -183,7 +198,7 @@ internal sealed class PlanFilterEffectRenderNode(FilterEffect.Resource filterEff
             plan, resources, [seed], context.OutputScale, workingScale, context.MaxWorkingScale,
             context.Diagnostics, context.Pool, startPass: decision.Pass,
             isRenderCacheEnabled: context.IsRenderCacheEnabled,
-            isAuxiliaryPull: context.IsAuxiliaryPull,
+            pullPurpose: context.PullPurpose,
             renderIntent: context.RenderIntent);
     }
 
@@ -199,7 +214,7 @@ internal sealed class PlanFilterEffectRenderNode(FilterEffect.Resource filterEff
                 plan, resources, context.Input, context.OutputScale, workingScale, context.MaxWorkingScale,
                 context.Diagnostics, context.Pool, startPass: 0, captureSink: sink,
                 isRenderCacheEnabled: context.IsRenderCacheEnabled,
-                isAuxiliaryPull: context.IsAuxiliaryPull,
+                pullPurpose: context.PullPurpose,
                 renderIntent: context.RenderIntent);
         }
         catch

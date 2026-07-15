@@ -29,7 +29,7 @@ public class RectClipRenderNodeTest
     [Test]
     public void Process_WithoutInput_ShouldReturnEmptyRenderNodeOperation()
     {
-        var context = new RenderNodeContext([]);
+        var context = new RenderNodeContext([], RenderIntent.Delivery);
 
         var node = new RectClipRenderNode(new Rect(0, 0, 100, 100), ClipOperation.Intersect);
         var operations = node.Process(context);
@@ -42,7 +42,7 @@ public class RectClipRenderNodeTest
     {
         var context = new RenderNodeContext([
             RenderNodeOperation.CreateLambda(default, _ => {  })
-        ]);
+        ], RenderIntent.Delivery);
 
         var node = new RectClipRenderNode(new Rect(0, 0, 100, 100), ClipOperation.Intersect);
         var operations = node.Process(context);

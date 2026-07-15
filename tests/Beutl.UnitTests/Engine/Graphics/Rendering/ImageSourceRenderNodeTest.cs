@@ -69,7 +69,7 @@ public class ImageSourceRenderNodeTest
     [Test]
     public void Process_WithoutInput_ShouldReturnEmptyRenderNodeOperation()
     {
-        var context = new RenderNodeContext([]);
+        var context = new RenderNodeContext([], RenderIntent.Delivery);
 
         ImageSource.Resource source = GetTestImageSourceResource();
         var node = new ImageSourceRenderNode(source, null, null);
@@ -83,7 +83,7 @@ public class ImageSourceRenderNodeTest
     {
         var context = new RenderNodeContext([
             RenderNodeOperation.CreateLambda(default, _ => { })
-        ]);
+        ], RenderIntent.Delivery);
 
         ImageSource.Resource source = GetTestImageSourceResource();
         var node = new ImageSourceRenderNode(source, null, null);
@@ -100,7 +100,7 @@ public class ImageSourceRenderNodeTest
         pen.Brush.CurrentValue = Brushes.Black;
         pen.Thickness.CurrentValue = 50;
         var penResource = pen.ToResource(CompositionContext.Default);
-        var context = new RenderNodeContext([]);
+        var context = new RenderNodeContext([], RenderIntent.Delivery);
 
         var node = new ImageSourceRenderNode(source, null, penResource);
         var operations = node.Process(context);
@@ -117,7 +117,7 @@ public class ImageSourceRenderNodeTest
         pen.Brush.CurrentValue = Brushes.Black;
         pen.Thickness.CurrentValue = 50;
         var penResource = pen.ToResource(CompositionContext.Default);
-        var context = new RenderNodeContext([]);
+        var context = new RenderNodeContext([], RenderIntent.Delivery);
 
         var node = new ImageSourceRenderNode(source, null, penResource);
         var operations = node.Process(context);
@@ -131,7 +131,7 @@ public class ImageSourceRenderNodeTest
     {
         ImageSource.Resource source = GetTestImageSourceResource();
         Brush.Resource fill = Brushes.Resource.White;
-        var context = new RenderNodeContext([]);
+        var context = new RenderNodeContext([], RenderIntent.Delivery);
 
         var node = new ImageSourceRenderNode(source, fill, null);
         var operations = node.Process(context);
@@ -145,7 +145,7 @@ public class ImageSourceRenderNodeTest
     {
         ImageSource.Resource source = GetTestImageSourceResource();
         Brush.Resource fill = Brushes.Resource.White;
-        var context = new RenderNodeContext([]);
+        var context = new RenderNodeContext([], RenderIntent.Delivery);
 
         var node = new ImageSourceRenderNode(source, fill, null);
         var operations = node.Process(context);
@@ -160,7 +160,7 @@ public class ImageSourceRenderNodeTest
     {
         ImageSource.Resource source = GetTestImageSourceResource();
         var node = new ImageSourceRenderNode(source, Brushes.Resource.White, null);
-        var operations = node.Process(new RenderNodeContext([]));
+        var operations = node.Process(new RenderNodeContext([], RenderIntent.Delivery));
 
         Assert.That(operations[0].EffectiveScale.IsUnbounded, Is.False,
             "an image source must report a concrete density, not the vector Unbounded sentinel");

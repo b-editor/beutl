@@ -42,7 +42,7 @@ public class SkiaFilterFactoryThrowLeakTests
 
         // Two consecutive Skia filters fold into one SkiaFilterPass with two factories. The first produces a real image
         // filter (captured), the second throws mid-loop, so the accumulated chain leaks unless the guard covers the loop.
-        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
         builder.SkiaFilter(SkiaFilterNodeDescriptor.Create(
             inner => captured = SKImageFilter.CreateBlur(2f, 2f, inner),
             InflateContract(new Thickness(6)),
@@ -58,7 +58,7 @@ public class SkiaFilterFactoryThrowLeakTests
 
         Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
             plan, frame, [input], outputScale: 1f, workingScale: 1f,
-            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool));
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool, renderIntent: RenderIntent.Delivery));
 
         Assert.Multiple(() =>
         {
@@ -74,7 +74,7 @@ public class SkiaFilterFactoryThrowLeakTests
     public void SkiaFilter_PredecessorCleanupThrows_DisposesNewOuterFilter()
     {
         SKImageFilter? outer = null;
-        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
         builder.SkiaFilter(SkiaFilterNodeDescriptor.Create(
             static inner => SKImageFilter.CreateBlur(2f, 2f, inner),
             InflateContract(new Thickness(6)),
@@ -93,7 +93,7 @@ public class SkiaFilterFactoryThrowLeakTests
         {
             InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
                 plan, frame, [Input()], outputScale: 1f, workingScale: 1f,
-                maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null));
+                maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null, renderIntent: RenderIntent.Delivery));
             Assert.Multiple(() =>
             {
                 Assert.That(actual, Is.SameAs(injected));

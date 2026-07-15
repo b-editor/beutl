@@ -84,11 +84,11 @@ public class CSharpScriptEffectBuilderTests
             effect.Script.CurrentValue = script;
             var resource = (FilterEffect.Resource)effect.ToResource(CompositionContext.Default);
 
-            var scriptBuilder = new EffectGraphBuilder(bounds, outputScale: 1f, workingScale: 1f);
+            var scriptBuilder = new EffectGraphBuilder(bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
             effect.Describe(scriptBuilder, resource);
             using EffectGraph scriptGraph = scriptBuilder.Build();
 
-            var refBuilder = new EffectGraphBuilder(bounds, outputScale: 1f, workingScale: 1f);
+            var refBuilder = new EffectGraphBuilder(bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
             refBuilder.Saturate(1.4f);
             refBuilder.Geometry(session =>
             {
@@ -204,7 +204,7 @@ public class CSharpScriptEffectBuilderTests
         var resource = (FilterEffect.Resource)effect.ToResource(CompositionContext.Default);
 
         var builder = new EffectGraphBuilder(
-            new Rect(0, 0, s_size.Width, s_size.Height), outputScale: 1f, workingScale: 1f);
+            new Rect(0, 0, s_size.Width, s_size.Height), outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
 
         Assert.That(() => effect.Describe(builder, resource), Throws.Nothing,
             "a script runtime exception must not escape Describe");
@@ -224,7 +224,7 @@ public class CSharpScriptEffectBuilderTests
         var throwingResource = (FilterEffect.Resource)throwing.ToResource(CompositionContext.Default);
 
         var builder = new EffectGraphBuilder(
-            new Rect(0, 0, s_size.Width, s_size.Height), outputScale: 1f, workingScale: 1f);
+            new Rect(0, 0, s_size.Width, s_size.Height), outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
         builder.Saturate(1.2f);
 
         throwing.Describe(builder, throwingResource);
@@ -240,7 +240,7 @@ public class CSharpScriptEffectBuilderTests
     {
         var ctx = new CompositionContext(TimeSpan.FromSeconds(progressSeconds));
         var resource = (FilterEffect.Resource)effect.ToResource(ctx);
-        var builder = new EffectGraphBuilder(new Rect(0, 0, 100, 100), outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(new Rect(0, 0, 100, 100), outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
         effect.Describe(builder, resource);
         using EffectGraph graph = builder.Build();
         return StructuralKey.Compute(graph);
@@ -263,7 +263,7 @@ public class CSharpScriptEffectBuilderTests
             node.Update(resource);
 
             diagnostics.Reset();
-            var context = new RenderNodeContext([Input()]) { Diagnostics = diagnostics, Pool = pool };
+            var context = new RenderNodeContext([Input()], RenderIntent.Delivery) { Diagnostics = diagnostics, Pool = pool };
             RenderNodeOperation[] ops = node.Process(context);
             Rect bounds = ops.Aggregate<RenderNodeOperation, Rect>(default, (u, op) => u.Union(op.Bounds));
             RenderNodeOperation.DisposeAll(ops);
@@ -288,7 +288,7 @@ public class CSharpScriptEffectBuilderTests
         FrameResources frame = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale: 1f);
         RenderNodeOperation[] ops = PlanExecutor.Execute(
             plan, frame, [ColorInput(bounds)], outputScale: 1f, workingScale: 1f,
-            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null);
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null, renderIntent: RenderIntent.Delivery);
         return Rasterize(ops, bounds);
     }
 
@@ -309,7 +309,7 @@ public class CSharpScriptEffectBuilderTests
         var size = PixelRect.FromRect(bounds);
         using RenderTarget target = RenderTarget.Create(size.Width, size.Height)
             ?? throw new InvalidOperationException("RenderTarget.Create returned null.");
-        using (var canvas = new ImmediateCanvas(target, 1f, logicalSize: bounds.Size))
+        using (var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 1f, logicalSize: bounds.Size))
         {
             canvas.Clear(Colors.Black);
             using (canvas.PushTransform(Matrix.CreateTranslation(-bounds.X, -bounds.Y)))
@@ -355,7 +355,7 @@ public class CSharpScriptEffectBuilderTests
     {
         using RenderTarget target = RenderTarget.Create(s_size.Width, s_size.Height)
             ?? throw new InvalidOperationException("RenderTarget.Create returned null.");
-        using var canvas = new ImmediateCanvas(target, 1f, logicalSize: s_size.ToSize(1));
+        using var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 1f, logicalSize: s_size.ToSize(1));
         canvas.Clear(Colors.Black);
 
         using var node = new DrawableRenderNode(resource);
@@ -364,7 +364,7 @@ public class CSharpScriptEffectBuilderTests
             resource.GetOriginal().Render(ctx, resource);
         }
 
-        var processor = new RenderNodeProcessor(node, useRenderCache: false, outputScale: 1f);
+        var processor = new RenderNodeProcessor(node, useRenderCache: false, RenderIntent.Delivery, outputScale: 1f);
         RenderNodeOperation[] ops = processor.PullToRoot();
         foreach (RenderNodeOperation op in ops)
         {

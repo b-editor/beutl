@@ -50,7 +50,10 @@ public sealed partial class FilledEnvelopeWaveformShape : WaveformShape
             bool symmetric = Symmetric;
 
             _paint ??= new SKPaint();
-            new BrushConstructor(bounds, fill, BlendMode.SrcOver, canvas.Density, canvas.MaxWorkingScale).ConfigurePaint(_paint);
+            new BrushConstructor(
+                bounds, fill, BlendMode.SrcOver, canvas.RenderIntent, canvas.Density, canvas.MaxWorkingScale,
+                pullPurpose: canvas.PullPurpose)
+                .ConfigurePaint(_paint);
             _paint.Style = SKPaintStyle.Fill;
             if (_lastCornerRadius != cornerRadius)
             {

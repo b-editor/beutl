@@ -16,7 +16,7 @@ public class FilterEffectRenderNodeTest
                 canvas => canvas.DrawEllipse(new Rect(0, 0, 100, 100), Brushes.Resource.White, null),
                 point => false
             )
-        ]);
+        ], RenderIntent.Delivery);
     }
 
     [Test]

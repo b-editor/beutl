@@ -56,13 +56,13 @@ public class DelayAnimationCacheTrimTests
     // node's per-branch callback branchCount times, exactly as the executor's ExecuteNestedGraph would.
     private static void DescribePass(DelayAnimationEffect effect, FilterEffect.Resource resource, int branchCount)
     {
-        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
         effect.Describe(builder, resource);
         using EffectGraph graph = builder.Build();
         var descriptor = (NestedGraphNodeDescriptor)graph.Nodes[0].Descriptor;
         for (int i = 0; i < branchCount; i++)
         {
-            var branchBuilder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+            var branchBuilder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
             descriptor.DescribeBranch(branchBuilder, i);
         }
     }

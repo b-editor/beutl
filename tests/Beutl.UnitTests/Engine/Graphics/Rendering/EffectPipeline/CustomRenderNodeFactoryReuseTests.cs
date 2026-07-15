@@ -37,6 +37,28 @@ public class CustomRenderNodeFactoryReuseTests
     }
 
     [Test]
+    public void SameNodeType_FromDifferentFactoryInstance_IsReplaced()
+    {
+        var effect = new SameTypeSwitchingFactoryEffect();
+        using var resource = (SameTypeSwitchingFactoryEffect.Resource)effect.ToResource(CompositionContext.Default);
+        using var container = new ContainerRenderNode();
+
+        FilterEffectRenderNode first = PushOnce(container, resource);
+        resource.UseSecond = true;
+        FilterEffectRenderNode second = PushOnce(container, resource);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(second, Is.TypeOf<SameTypeFactoryRenderNode>());
+            Assert.That(second, Is.Not.SameAs(first),
+                "node type alone must not alias two factories with different constructors or captured policy");
+            Assert.That(first.IsDisposed, Is.True,
+                "the node created by the previous factory must be released when the factory identity changes");
+            Assert.That(container.Children, Has.Count.EqualTo(1));
+        });
+    }
+
+    [Test]
     public void ResourcePush_RejectsFactoryWhoseDeclaredTypeDiffersFromCreatedType()
     {
         var effect = new MismatchedFactoryEffect();
@@ -64,7 +86,8 @@ public class CustomRenderNodeFactoryReuseTests
         var group = new FilterEffectGroup();
         group.Children.Add(custom);
         using FilterEffect.Resource resource = group.ToResource(CompositionContext.Default);
-        var builder = new EffectGraphBuilder(new Rect(0, 0, 120, 90), 1f, 1f);
+        var builder = new EffectGraphBuilder(
+            new Rect(0, 0, 120, 90), 1f, 1f, RenderIntent.Delivery);
 
         group.Describe(builder, resource);
         using EffectGraph graph = builder.Build();
@@ -73,6 +96,25 @@ public class CustomRenderNodeFactoryReuseTests
         Assert.That(plan.Passes, Has.Length.EqualTo(1));
         Assert.That(plan.Passes[0], Is.TypeOf<CustomRenderNodePass>(),
             "a factory override must keep the same custom execution path inside a group");
+    }
+
+    [Test]
+    public void Group_UsesNonDefaultPlanFactoryAsAPlannedBoundary()
+    {
+        var customPlan = new ClampToOutputEffect();
+        var group = new FilterEffectGroup();
+        group.Children.Add(customPlan);
+        using FilterEffect.Resource resource = group.ToResource(CompositionContext.Default);
+        var builder = new EffectGraphBuilder(
+            new Rect(0, 0, 120, 90), 1f, 1f, RenderIntent.Delivery);
+
+        group.Describe(builder, resource);
+        using EffectGraph graph = builder.Build();
+        CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
+
+        var customPass = (CustomRenderNodePass)plan.Passes.Single();
+        Assert.That(customPass.NodeType, Is.EqualTo(typeof(ClampToOutputPlanNode)),
+            "a non-default plan factory must preserve its narrow execution policy inside a group");
     }
 
     [Test]
@@ -97,7 +139,8 @@ public class CustomRenderNodeFactoryReuseTests
     {
         var effect = new StatefulFactoryEffect();
         using var resource = (StatefulFactoryEffect.Resource)effect.ToResource(CompositionContext.Default);
-        var builder = new EffectGraphBuilder(new Rect(0, 0, 120, 90), 1f, 1f);
+        var builder = new EffectGraphBuilder(
+            new Rect(0, 0, 120, 90), 1f, 1f, RenderIntent.Delivery);
         builder.Effect(resource);
         using EffectGraph graph = builder.Build();
         CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
@@ -106,7 +149,7 @@ public class CustomRenderNodeFactoryReuseTests
             new Rect(0, 0, 120, 90), static _ => { });
 
         RenderNodeOperation[] outputs = PlanExecutor.Execute(
-            plan, frame, [input], 1f, 1f, float.PositiveInfinity, diagnostics: null, pool: null);
+            plan, frame, [input], 1f, 1f, float.PositiveInfinity, diagnostics: null, pool: null, renderIntent: RenderIntent.Delivery);
         try
         {
             Assert.Multiple(() =>
@@ -136,12 +179,8 @@ public class CustomRenderNodeFactoryReuseTests
 // A FilterEffect whose Resource returns a plugin-defined FilterEffectRenderNode subclass via RenderNodeFactory,
 // mirroring the NodeGraphFilterEffect pattern (manual Resource + SuppressResourceClassGeneration).
 [SuppressResourceClassGeneration]
-internal sealed partial class CustomNodeEffect : FilterEffect
+internal sealed partial class CustomNodeEffect : CustomRenderNodeFilterEffect
 {
-    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
-    {
-    }
-
     public override Resource ToResource(CompositionContext context)
     {
         var resource = new Resource();
@@ -150,11 +189,14 @@ internal sealed partial class CustomNodeEffect : FilterEffect
         return resource;
     }
 
-    public new sealed class Resource : FilterEffect.Resource
+    public new sealed class Resource : CustomRenderNodeFilterEffect.Resource
     {
-        public override FilterEffectRenderNodeFactory RenderNodeFactory
-            => FilterEffectRenderNodeFactory.Of<Resource, CustomFactoryRenderNode>(
+        private static readonly FilterEffectRenderNodeFactory s_factory =
+            FilterEffectRenderNodeFactory.Of<Resource, CustomFactoryRenderNode>(
                 static r => new CustomFactoryRenderNode(r));
+
+        public override FilterEffectRenderNodeFactory RenderNodeFactory
+            => s_factory;
     }
 }
 
@@ -164,12 +206,8 @@ internal sealed class CustomFactoryRenderNode(FilterEffect.Resource fe) : Filter
 }
 
 [SuppressResourceClassGeneration]
-internal sealed partial class MismatchedFactoryEffect : FilterEffect
+internal sealed partial class MismatchedFactoryEffect : CustomRenderNodeFilterEffect
 {
-    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
-    {
-    }
-
     public override Resource ToResource(CompositionContext context)
     {
         var resource = new Resource();
@@ -178,13 +216,16 @@ internal sealed partial class MismatchedFactoryEffect : FilterEffect
         return resource;
     }
 
-    public new sealed class Resource : FilterEffect.Resource
+    public new sealed class Resource : CustomRenderNodeFilterEffect.Resource
     {
+        private static readonly FilterEffectRenderNodeFactory s_factory =
+            FilterEffectRenderNodeFactory.Of<Resource, FilterEffectRenderNode>(
+                static resource => new MismatchedFactoryRenderNode(resource));
+
         public bool MismatchedNodeDisposed { get; set; }
 
         public override FilterEffectRenderNodeFactory RenderNodeFactory
-            => FilterEffectRenderNodeFactory.Of<Resource, FilterEffectRenderNode>(
-                static resource => new MismatchedFactoryRenderNode(resource));
+            => s_factory;
     }
 }
 
@@ -201,12 +242,8 @@ internal sealed class MismatchedFactoryRenderNode(MismatchedFactoryEffect.Resour
 }
 
 [SuppressResourceClassGeneration]
-internal sealed partial class StatefulFactoryEffect : FilterEffect
+internal sealed partial class StatefulFactoryEffect : CustomRenderNodeFilterEffect
 {
-    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
-    {
-    }
-
     public override Resource ToResource(CompositionContext context)
     {
         var resource = new Resource();
@@ -215,7 +252,7 @@ internal sealed partial class StatefulFactoryEffect : FilterEffect
         return resource;
     }
 
-    public new sealed class Resource : FilterEffect.Resource
+    public new sealed class Resource : CustomRenderNodeFilterEffect.Resource
     {
         private static readonly FilterEffectRenderNodeFactory s_expected =
             FilterEffectRenderNodeFactory.Of<Resource, StatefulFactoryRenderNode>(
@@ -240,4 +277,40 @@ internal sealed class UnexpectedFactoryRenderNode(FilterEffect.Resource resource
 {
     public override RenderNodeOperation[] Process(RenderNodeContext context)
         => throw new AssertionException("The executor re-read the stateful render-node factory.");
+}
+
+[SuppressResourceClassGeneration]
+internal sealed partial class SameTypeSwitchingFactoryEffect : CustomRenderNodeFilterEffect
+{
+    public override Resource ToResource(CompositionContext context)
+    {
+        var resource = new Resource();
+        bool updateOnly = false;
+        resource.Update(this, context, ref updateOnly);
+        return resource;
+    }
+
+    public new sealed class Resource : CustomRenderNodeFilterEffect.Resource
+    {
+        private static readonly FilterEffectRenderNodeFactory s_first =
+            FilterEffectRenderNodeFactory.Of<Resource, SameTypeFactoryRenderNode>(
+                static resource => new SameTypeFactoryRenderNode(resource, 1));
+        private static readonly FilterEffectRenderNodeFactory s_second =
+            FilterEffectRenderNodeFactory.Of<Resource, SameTypeFactoryRenderNode>(
+                static resource => new SameTypeFactoryRenderNode(resource, 2));
+
+        public bool UseSecond { get; set; }
+
+        public override FilterEffectRenderNodeFactory RenderNodeFactory
+            => UseSecond ? s_second : s_first;
+    }
+}
+
+internal sealed class SameTypeFactoryRenderNode(
+    FilterEffect.Resource resource,
+    int policy) : FilterEffectRenderNode(resource)
+{
+    public int Policy { get; } = policy;
+
+    public override RenderNodeOperation[] Process(RenderNodeContext context) => context.Input;
 }

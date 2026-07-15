@@ -39,7 +39,7 @@ public class SourceEffectiveScaleFlowTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             using FilterEffectRenderNode node = MosaicNode();
-            var context = new RenderNodeContext([SourceOp(density)], outputScale: 1.0f);
+            var context = new RenderNodeContext([SourceOp(density)], RenderIntent.Delivery, outputScale: 1.0f);
 
             RenderNodeOperation[] ops = node.Process(context);
 
@@ -65,7 +65,7 @@ public class SourceEffectiveScaleFlowTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             using FilterEffectRenderNode node = MosaicNode();
-            var context = new RenderNodeContext([SourceOp(2.0f)], outputScale: 0.5f);
+            var context = new RenderNodeContext([SourceOp(2.0f)], RenderIntent.Delivery, outputScale: 0.5f);
 
             RenderNodeOperation[] ops = node.Process(context);
 
@@ -92,7 +92,7 @@ public class SourceEffectiveScaleFlowTests
             var effect = new Brightness { Amount = { CurrentValue = 20f } };
             using var resource = (FilterEffect.Resource)effect.ToResource(CompositionContext.Default);
             using var node = new PlanFilterEffectRenderNode(resource);
-            var context = new RenderNodeContext([input], outputScale: 2f)
+            var context = new RenderNodeContext([input], RenderIntent.Delivery, outputScale: 2f)
             {
                 RequestedBounds = requested,
             };
@@ -127,7 +127,7 @@ public class SourceEffectiveScaleFlowTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             using FilterEffectRenderNode node = MosaicNode();
-            var context = new RenderNodeContext([SourceOp(density)], outputScale: outputScale);
+            var context = new RenderNodeContext([SourceOp(density)], RenderIntent.Delivery, outputScale: outputScale);
 
             RenderNodeOperation[] ops = node.Process(context);
 
@@ -153,7 +153,7 @@ public class SourceEffectiveScaleFlowTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             using FilterEffectRenderNode node = MosaicNode();
-            var context = new RenderNodeContext([SourceOp(4.0f)], outputScale: 1.0f, maxWorkingScale: maxWorkingScale);
+            var context = new RenderNodeContext([SourceOp(4.0f)], RenderIntent.Delivery, outputScale: 1.0f, maxWorkingScale: maxWorkingScale);
 
             RenderNodeOperation[] ops = node.Process(context);
 
@@ -192,10 +192,10 @@ public class SourceEffectiveScaleFlowTests
             effectiveScale: srcScale);
 
         using FilterEffectRenderNode node = MosaicNode();
-        RenderNodeOperation[] ops = node.Process(new RenderNodeContext([srcOp], outputScale: 1f));
+        RenderNodeOperation[] ops = node.Process(new RenderNodeContext([srcOp], RenderIntent.Delivery, outputScale: 1f));
 
         using RenderTarget target = RenderTarget.Create(120, 90)!;
-        using (var canvas = new ImmediateCanvas(target, 1f))
+        using (var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 1f))
         {
             canvas.Clear(Colors.Black);
             foreach (RenderNodeOperation op in ops)
@@ -217,7 +217,7 @@ public class SourceEffectiveScaleFlowTests
     {
         var transform = new TransformRenderNode(Matrix.CreateScale(scale, scale), TransformOperator.Prepend);
 
-        RenderNodeOperation[] ops = transform.Process(new RenderNodeContext([SourceOp(density)]));
+        RenderNodeOperation[] ops = transform.Process(new RenderNodeContext([SourceOp(density)], RenderIntent.Delivery));
         Assert.That(ops[0].EffectiveScale.IsUnbounded, Is.False);
         Assert.That(ops[0].EffectiveScale.Value, Is.EqualTo(expected).Within(1e-4),
             $"Scale({scale}) on At({density}) must resolve to At({expected}) (density = px / logical unit)");
@@ -230,7 +230,7 @@ public class SourceEffectiveScaleFlowTests
     {
         var transform = new TransformRenderNode(Matrix.CreateScale(0.5f, 0.25f), TransformOperator.Prepend);
 
-        RenderNodeOperation[] ops = transform.Process(new RenderNodeContext([SourceOp(1.0f)]));
+        RenderNodeOperation[] ops = transform.Process(new RenderNodeContext([SourceOp(1.0f)], RenderIntent.Delivery));
         // min(0.5, 0.25) = 0.25 -> At(1 / 0.25) = At(4)
         Assert.That(ops[0].EffectiveScale.Value, Is.EqualTo(4.0f).Within(1e-4),
             "an anisotropic transform must project to the densest (most-shrunk) axis");
@@ -243,7 +243,7 @@ public class SourceEffectiveScaleFlowTests
     {
         var transform = new TransformRenderNode(Matrix.CreateRotation(MathF.PI / 4f), TransformOperator.Prepend);
 
-        RenderNodeOperation[] ops = transform.Process(new RenderNodeContext([SourceOp(2.0f)]));
+        RenderNodeOperation[] ops = transform.Process(new RenderNodeContext([SourceOp(2.0f)], RenderIntent.Delivery));
         Assert.That(ops[0].EffectiveScale.Value, Is.EqualTo(2.0f).Within(1e-4),
             "a pure rotation must not change the supply density");
         DisposeAll(ops);
@@ -255,7 +255,7 @@ public class SourceEffectiveScaleFlowTests
     {
         // Zero scale: singular matrix, density unchanged.
         var zero = new TransformRenderNode(Matrix.CreateScale(0f, 0f), TransformOperator.Prepend);
-        RenderNodeOperation[] z = zero.Process(new RenderNodeContext([SourceOp(2.0f)]));
+        RenderNodeOperation[] z = zero.Process(new RenderNodeContext([SourceOp(2.0f)], RenderIntent.Delivery));
         Assert.That(z[0].EffectiveScale.Value, Is.EqualTo(2.0f).Within(1e-4));
         Assert.That(float.IsFinite(z[0].EffectiveScale.Value), Is.True);
         DisposeAll(z);
@@ -263,7 +263,7 @@ public class SourceEffectiveScaleFlowTests
         // Non-finite scale: density unchanged, never At(0).
         var inf = new TransformRenderNode(
             Matrix.CreateScale(float.PositiveInfinity, float.PositiveInfinity), TransformOperator.Prepend);
-        RenderNodeOperation[] f = inf.Process(new RenderNodeContext([SourceOp(2.0f)]));
+        RenderNodeOperation[] f = inf.Process(new RenderNodeContext([SourceOp(2.0f)], RenderIntent.Delivery));
         Assert.That(f[0].EffectiveScale.Value, Is.EqualTo(2.0f).Within(1e-4),
             "an infinite transform scale must not collapse the density to At(0)");
         DisposeAll(f);
@@ -276,7 +276,7 @@ public class SourceEffectiveScaleFlowTests
         var transform = new TransformRenderNode(Matrix.CreateScale(0.5f, 0.5f), TransformOperator.Prepend);
 
         var vectorOp = RenderNodeOperation.CreateLambda(new Rect(0, 0, 10, 10), _ => { }, _ => false);
-        RenderNodeOperation[] ops = transform.Process(new RenderNodeContext([vectorOp]));
+        RenderNodeOperation[] ops = transform.Process(new RenderNodeContext([vectorOp], RenderIntent.Delivery));
         Assert.That(ops[0].EffectiveScale.IsUnbounded, Is.True, "a vector child must stay Unbounded through a transform");
         DisposeAll(ops);
     }
@@ -290,7 +290,7 @@ public class SourceEffectiveScaleFlowTests
             scale, default, new Size(120, 90), AlignmentX.Left, AlignmentY.Top,
             new MemoryNode<Rect>(new Rect(0, 0, 120, 90)));
 
-        RenderNodeOperation[] ops = node.Process(new RenderNodeContext([SourceOp(2.0f)]));
+        RenderNodeOperation[] ops = node.Process(new RenderNodeContext([SourceOp(2.0f)], RenderIntent.Delivery));
         Assert.That(ops[0].EffectiveScale.IsUnbounded, Is.False,
             "the group/decorator transform dropped a concrete density to Unbounded");
         // 0.5x shrink doubles density: At(2) -> At(4)
@@ -309,7 +309,7 @@ public class SourceEffectiveScaleFlowTests
             new MemoryNode<Rect>(new Rect(0, 0, 10, 10)));
 
         var vectorOp = RenderNodeOperation.CreateLambda(new Rect(0, 0, 10, 10), _ => { }, _ => false);
-        RenderNodeOperation[] ops = node.Process(new RenderNodeContext([vectorOp]));
+        RenderNodeOperation[] ops = node.Process(new RenderNodeContext([vectorOp], RenderIntent.Delivery));
         Assert.That(ops[0].EffectiveScale.IsUnbounded, Is.True,
             "a vector child must stay Unbounded through the group/decorator transform");
         DisposeAll(ops);
@@ -333,7 +333,7 @@ public class SourceEffectiveScaleFlowTests
             group.Children.Add(blur);
 
             using var node = new PlanFilterEffectRenderNode(group.ToResource(CompositionContext.Default));
-            var context = new RenderNodeContext([SourceOp(density)], outputScale: 1.0f);
+            var context = new RenderNodeContext([SourceOp(density)], RenderIntent.Delivery, outputScale: 1.0f);
 
             RenderNodeOperation[] ops = node.Process(context);
 
@@ -367,7 +367,7 @@ public class SourceEffectiveScaleFlowTests
             RenderNodeOperation[] ops = null!;
             Assert.DoesNotThrow(() =>
             {
-                ops = node.Process(new RenderNodeContext([SourceOp(1f)], outputScale: 1f));
+                ops = node.Process(new RenderNodeContext([SourceOp(1f)], RenderIntent.Delivery, outputScale: 1f));
             });
 
             Assert.That(ops, Is.Not.Empty, "the over-budget StrokeEffect dropped its op");
@@ -405,51 +405,27 @@ public class SourceEffectiveScaleFlowTests
         var fe = new MosaicEffect().ToResource(CompositionContext.Default);
         using var node = new ClampToOutputRenderNode(fe);
 
-        RenderNodeOperation[] ops = node.Process(new RenderNodeContext([SourceOp(2.0f)], outputScale: outputScale));
+        RenderNodeOperation[] ops = node.Process(new RenderNodeContext(
+            [SourceOp(2.0f)], RenderIntent.Delivery, outputScale: outputScale));
 
         Assert.That(ops, Is.Not.Empty);
         Assert.That(ops[0].EffectiveScale.Value, Is.EqualTo(expectedW).Within(1e-4),
-            "the custom render node did not apply its clamp-to-output working scale — the RenderNodeFactory escape hatch is broken");
+            "the custom render node did not apply its clamp-to-output working scale");
         DisposeAll(ops);
     }
 
     // End-to-end escape hatch: runs a real Mosaic at w = max(supplyDriven, 2 * s_out) (SSAA-on-demand).
-    private sealed class OversampleMosaicRenderNode(FilterEffect.Resource fe) : FilterEffectRenderNode(fe)
+    private sealed class OversampleMosaicRenderNode(FilterEffect.Resource fe) : PlanFilterEffectRenderNode(fe)
     {
-        public override RenderNodeOperation[] Process(RenderNodeContext context)
+        protected override float ResolveWorkingScale(
+            RenderNodeContext context,
+            ReadOnlySpan<EffectiveScale> inputScales)
         {
-            if (FilterEffect == null || !FilterEffect.Value.Resource.IsEnabled)
-            {
-                return context.Input;
-            }
-
-            Span<EffectiveScale> inputScales = context.Input.Length <= 16
-                ? stackalloc EffectiveScale[context.Input.Length]
-                : new EffectiveScale[context.Input.Length];
-            for (int i = 0; i < context.Input.Length; i++)
-            {
-                inputScales[i] = context.Input[i].EffectiveScale;
-            }
-
             float supplyDriven = RenderNodeContext.ResolveWorkingScale(
                 inputScales, context.OutputScale, context.MaxWorkingScale);
             // Oversample to 2x the deliverable density, bounded by the global ceiling.
-            float workingScale = MathF.Min(
+            return MathF.Min(
                 MathF.Max(supplyDriven, 2f * context.OutputScale), context.MaxWorkingScale);
-
-            Rect bounds = context.CalculateBounds();
-            workingScale = RenderNodeContext.ClampWorkingScaleToBufferBudget(bounds, workingScale);
-
-            FilterEffect.Resource resource = FilterEffect.Value.Resource;
-            var graphBuilder = new EffectGraphBuilder(
-                bounds, context.OutputScale, workingScale, context.MaxWorkingScale);
-            resource.GetOriginal().Describe(graphBuilder, resource);
-            using EffectGraph graph = graphBuilder.Build();
-            CompiledPlan plan = EffectGraphCompiler.Compile(graph, context.Diagnostics);
-            FrameResources resources = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale);
-            return PlanExecutor.Execute(
-                plan, resources, context.Input, context.OutputScale, workingScale,
-                context.MaxWorkingScale, context.Diagnostics, context.Pool);
         }
     }
 
@@ -465,7 +441,8 @@ public class SourceEffectiveScaleFlowTests
             using FilterEffectRenderNode node =
                 new OversampleMosaicRenderNode(mosaic.ToResource(CompositionContext.Default));
             // At(1) source at s_out 1.0: supply-driven gives w=1; oversample hatch lifts to 2.0.
-            var context = new RenderNodeContext([SourceOp(1.0f)], outputScale: 1.0f);
+            var context = new RenderNodeContext(
+                [SourceOp(1.0f)], RenderIntent.Delivery, outputScale: 1.0f);
 
             RenderNodeOperation[] ops = node.Process(context);
 
@@ -477,7 +454,7 @@ public class SourceEffectiveScaleFlowTests
 
             // Render into a real target to verify the flush/blit path executes.
             using RenderTarget target = RenderTarget.Create(120, 90)!;
-            using (var canvas = new ImmediateCanvas(target, 1f))
+            using (var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 1f))
             {
                 canvas.Clear(Colors.Black);
                 foreach (RenderNodeOperation op in ops)
@@ -489,7 +466,7 @@ public class SourceEffectiveScaleFlowTests
             using Bitmap snapshot = target.Snapshot();
             // Vacuity guard: the oversampled Mosaic must leave visible content (not all-black).
             using RenderTarget blackTarget = RenderTarget.Create(120, 90)!;
-            using (var blackCanvas = new ImmediateCanvas(blackTarget))
+            using (var blackCanvas = new ImmediateCanvas(blackTarget, RenderIntent.Delivery))
                 blackCanvas.Clear(Colors.Black);
             using Bitmap black = blackTarget.Snapshot();
             Assert.That(ImageMetrics.MeanAbsoluteError(snapshot, black), Is.GreaterThan(0.01),
@@ -499,10 +476,8 @@ public class SourceEffectiveScaleFlowTests
         });
     }
 
-    // End-to-end FR-036 escape hatch: FilterEffect.Resource.Push must build the render node via the
-    // overridden RenderNodeFactory, and that custom node's non-supply working scale must then drive the
-    // pipeline. The other escape-hatch tests instantiate the custom node directly (bypassing Push), so a
-    // regression hardcoding Push to 'new PlanFilterEffectRenderNode(this)' would pass them; this one fails.
+    // End-to-end narrow policy hook: FilterEffect.Resource.Push must build the plan render node via the
+    // overridden PlanRenderNodeFactory, and that node's non-supply working scale must drive the standard pipeline.
     [Test]
     public void Push_RoutesThroughOverriddenRenderNodeFactory_AndCustomWorkingScaleApplies()
     {
@@ -516,16 +491,17 @@ public class SourceEffectiveScaleFlowTests
         }
 
         Assert.That(container.Children, Has.Count.EqualTo(1), "Push added no render node");
-        Assert.That(container.Children[0], Is.TypeOf<ClampToOutputEscapeHatchNode>(),
-            "Push bypassed the overridden RenderNodeFactory escape hatch (FR-036)");
+        Assert.That(container.Children[0], Is.TypeOf<ClampToOutputPlanNode>(),
+            "Push bypassed the overridden PlanRenderNodeFactory");
 
-        var node = (FilterEffectRenderNode)container.Children[0];
+        var node = (ClampToOutputPlanNode)container.Children[0];
         // At(2) supply at s_out 1: supply-driven w would be 2.0; the custom node clamps to s_out = 1.0.
-        RenderNodeOperation[] ops = node.Process(new RenderNodeContext([SourceOp(2.0f)], outputScale: 1.0f));
+        RenderNodeOperation[] ops = node.Process(new RenderNodeContext(
+            [SourceOp(2.0f)], RenderIntent.Delivery, outputScale: 1.0f));
 
         Assert.That(ops, Is.Not.Empty);
-        Assert.That(ops[0].EffectiveScale.Value, Is.EqualTo(1.0f).Within(1e-4),
-            "the overridden render node's clamp-to-output working scale did not drive the pipeline end-to-end");
+        Assert.That(node.LastWorkingScale, Is.EqualTo(1.0f).Within(1e-4),
+            "the overridden plan node's clamp-to-output policy did not drive the standard pipeline");
         DisposeAll(ops);
     }
 
@@ -538,7 +514,7 @@ public class SourceEffectiveScaleFlowTests
     }
 }
 
-// A FilterEffect whose Resource overrides only RenderNodeFactory (not Push), so the inherited
+// A FilterEffect whose Resource overrides only PlanRenderNodeFactory (not Push), so the inherited
 // FilterEffect.Resource.Push is the path under test. Mirrors the NodeGraphFilterEffect pattern
 // (manual Resource + SuppressResourceClassGeneration).
 [SuppressResourceClassGeneration]
@@ -558,27 +534,27 @@ internal sealed partial class ClampToOutputEffect : FilterEffect
 
     public new sealed class Resource : FilterEffect.Resource
     {
-        public override FilterEffectRenderNodeFactory RenderNodeFactory
-            => FilterEffectRenderNodeFactory.Of<Resource, ClampToOutputEscapeHatchNode>(
-                static r => new ClampToOutputEscapeHatchNode(r));
+        private static readonly PlanFilterEffectRenderNodeFactory s_factory =
+            PlanFilterEffectRenderNodeFactory.Of<Resource, ClampToOutputPlanNode>(
+                static r => new ClampToOutputPlanNode(r));
+
+        public override PlanFilterEffectRenderNodeFactory PlanRenderNodeFactory
+            => s_factory;
     }
 }
 
-// Escape-hatch render node: overrides the supply-driven working scale with clamp-to-output
+// Plan render node: overrides only the supply-driven working scale with clamp-to-output
 // (w = min(supply, s_out)), so its effect on the resolved scale is observable end-to-end.
-internal sealed class ClampToOutputEscapeHatchNode(FilterEffect.Resource fe) : FilterEffectRenderNode(fe)
+internal sealed class ClampToOutputPlanNode(FilterEffect.Resource fe) : PlanFilterEffectRenderNode(fe)
 {
-    public override RenderNodeOperation[] Process(RenderNodeContext context)
+    public float LastWorkingScale { get; private set; }
+
+    protected override float ResolveWorkingScale(
+        RenderNodeContext context,
+        ReadOnlySpan<EffectiveScale> inputScales)
     {
-        EffectiveScale[] scales = context.Input.Select(i => i.EffectiveScale).ToArray();
-        float supplyW = RenderNodeContext.ResolveWorkingScale(scales, context.OutputScale, context.MaxWorkingScale);
-        float clampedW = MathF.Min(supplyW, context.OutputScale);
-        return context.Input.Select(input => RenderNodeOperation.CreateLambda(
-                input.Bounds,
-                input.Render,
-                hitTest: input.HitTest,
-                onDispose: input.Dispose,
-                effectiveScale: EffectiveScale.At(clampedW)))
-            .ToArray();
+        float supplyW = RenderNodeContext.ResolveWorkingScale(
+            inputScales, context.OutputScale, context.MaxWorkingScale);
+        return LastWorkingScale = MathF.Min(supplyW, context.OutputScale);
     }
 }

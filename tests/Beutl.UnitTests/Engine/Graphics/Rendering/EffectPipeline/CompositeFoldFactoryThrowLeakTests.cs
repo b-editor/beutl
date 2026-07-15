@@ -30,7 +30,7 @@ public class CompositeFoldFactoryThrowLeakTests
         // Split(2) -> ColorFilter(throwing) -> Composite(SrcOver): the compiler folds the color-filter run into the
         // composite's per-branch draw (C9), so the throwing factory fires from ComposeCompositeColorFilter inside
         // ExecuteComposite, after the composite target has been acquired.
-        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
         builder.Split(SplitNodeDescriptor.Static(
             emitter =>
             {
@@ -58,7 +58,7 @@ public class CompositeFoldFactoryThrowLeakTests
 
         Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
             plan, frame, [Input()], outputScale: 1f, workingScale: 1f,
-            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool));
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool, renderIntent: RenderIntent.Delivery));
 
         Assert.That(pool.LiveLeaseCount, Is.Zero,
             "a throwing folded color-filter factory must still release the composite target and the branch ops");
@@ -68,7 +68,7 @@ public class CompositeFoldFactoryThrowLeakTests
     public void CompositeFold_FilterCleanupThrows_ReleasesTargetAndBranchOperations()
     {
         using var pool = new RenderTargetPool();
-        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
         builder.Split(SplitNodeDescriptor.Static(
             emitter =>
             {
@@ -97,7 +97,7 @@ public class CompositeFoldFactoryThrowLeakTests
         {
             InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
                 plan, frame, [Input()], outputScale: 1f, workingScale: 1f,
-                maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool));
+                maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool, renderIntent: RenderIntent.Delivery));
             Assert.Multiple(() =>
             {
                 Assert.That(actual, Is.SameAs(injected));
@@ -115,7 +115,7 @@ public class CompositeFoldFactoryThrowLeakTests
     public void Composite_BranchCleanupThrows_SweepsRemainingBranchesAndReleasesTarget()
     {
         using var pool = new RenderTargetPool();
-        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
         builder.Composite(CompositeNodeDescriptor.Create(
             BlendMode.SrcOver,
             structuralToken: "composite-branch-cleanup-failure"));
@@ -139,7 +139,7 @@ public class CompositeFoldFactoryThrowLeakTests
             InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() =>
                 unexpectedOutputs = PlanExecutor.Execute(
                     plan, frame, [first, second], outputScale: 1f, workingScale: 1f,
-                    maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool));
+                    maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool, renderIntent: RenderIntent.Delivery));
             Assert.Multiple(() =>
             {
                 Assert.That(actual, Is.SameAs(injected));

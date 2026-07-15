@@ -98,8 +98,8 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
 
         Renderer = frameSizeAndScale
             .Select(t => new SceneRenderer(
-                Scene, t.OutputScale, maxWorkingScale: WorkingScaleCeiling.Preview(t.OutputScale),
-                renderIntent: RenderIntent.Preview))
+                Scene, RenderIntent.Preview, t.OutputScale,
+                maxWorkingScale: WorkingScaleCeiling.Preview(t.OutputScale)))
             .DisposePreviousValue()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables)!;

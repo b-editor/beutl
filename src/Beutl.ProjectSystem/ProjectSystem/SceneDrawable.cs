@@ -181,18 +181,23 @@ public sealed partial class SceneDrawable : Drawable
             // Inherit the outer render scale so nested scenes are not rasterized at 1x and upscaled.
             float w = context.OutputScale;
             var size = frame.Value.Size;
-            if (_renderer == null
-                || _renderer.FrameSize != size
-                || _renderer.OutputScale != w
-                || _renderer.MaxWorkingScale != context.MaxWorkingScale
-                || _renderer.RenderIntent != context.RenderIntent)
+            if (!context.IsAuxiliaryPull
+                && (_renderer == null
+                    || _renderer.FrameSize != size
+                    || _renderer.OutputScale != w
+                    || _renderer.MaxWorkingScale != context.MaxWorkingScale
+                    || _renderer.RenderIntent != context.RenderIntent))
             {
                 _renderer?.Dispose();
                 _renderer = new Renderer(
-                    size.Width, size.Height, w, context.MaxWorkingScale, context.RenderIntent);
+                    size.Width, size.Height, context.RenderIntent, w, context.MaxWorkingScale);
             }
 
-            Renderer renderer = _renderer;
+            Renderer? renderer = context.IsAuxiliaryPull ? null : _renderer;
+            RenderIntent renderIntent = context.RenderIntent;
+            float maxWorkingScale = context.MaxWorkingScale;
+            RenderPullPurpose pullPurpose = context.PullPurpose;
+            Renderer? auxiliaryRenderer = null;
             var bounds = new Rect(0, 0, size.Width, size.Height);
             return
             [
@@ -200,8 +205,17 @@ public sealed partial class SceneDrawable : Drawable
                     bounds,
                     canvas =>
                     {
-                        renderer.Render(frame.Value);
-                        RenderTarget renderTarget = Renderer.GetInternalRenderTarget(renderer);
+                        if (pullPurpose == RenderPullPurpose.Auxiliary)
+                        {
+                            auxiliaryRenderer ??= new Renderer(
+                                size.Width, size.Height, renderIntent, w, maxWorkingScale,
+                                RenderPullPurpose.Auxiliary);
+                        }
+
+                        Renderer activeRenderer = auxiliaryRenderer ?? renderer
+                            ?? throw new InvalidOperationException("The nested-scene renderer is unavailable.");
+                        activeRenderer.Render(frame.Value);
+                        RenderTarget renderTarget = Renderer.GetInternalRenderTarget(activeRenderer);
                         // Point-blit only when both buffer and canvas are at density 1; otherwise use scaled blit.
                         if (w == 1f && canvas.Density == 1f)
                         {
@@ -212,6 +226,7 @@ public sealed partial class SceneDrawable : Drawable
                             canvas.DrawRenderTargetScaled(renderTarget, bounds);
                         }
                     },
+                    onDispose: () => auxiliaryRenderer?.Dispose(),
                     effectiveScale: EffectiveScale.At(w))
             ];
         }

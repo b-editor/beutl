@@ -48,7 +48,7 @@ public class NestedGraphCarriedScaleTests
             Effect = { CurrentValue = blend },
         };
 
-        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: outerWorkingScale);
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: outerWorkingScale, renderIntent: RenderIntent.Delivery);
         delay.Describe(builder, (FilterEffect.Resource)(object)delay.ToResource(CompositionContext.Default));
         using EffectGraph graph = builder.Build();
         using var pool = new RenderTargetPool();
@@ -63,7 +63,7 @@ public class NestedGraphCarriedScaleTests
 
         RenderNodeOperation[] ops = PlanExecutor.Execute(
             plan, frame, [input], outputScale: 1f, workingScale: outerWorkingScale,
-            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool);
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool, renderIntent: RenderIntent.Delivery);
         try
         {
             Assert.That(ops, Has.Length.EqualTo(1), "a single-input nested graph produces one branch output");

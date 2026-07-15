@@ -28,10 +28,8 @@ public partial class PreviewNode : GraphNode
             if (Input is RenderNode renderNode)
             {
                 // Scale 1 intentional: GraphCompositionContext carries no output scale; thumbnails are logical-res.
-                var processor = new RenderNodeProcessor(renderNode, true)
-                {
-                    IsAuxiliaryPull = true,
-                };
+                var processor = new RenderNodeProcessor(
+                    renderNode, true, RenderIntent.Preview, pullPurpose: RenderPullPurpose.Auxiliary);
                 var bitmap = processor.RasterizeAndConcat();
                 node._preview.Value?.Dispose();
                 node._preview.Value = Ref<Bitmap>.Create(bitmap);

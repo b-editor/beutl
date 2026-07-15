@@ -9,22 +9,22 @@ public sealed class SceneRenderer : Renderer
 
     public SceneRenderer(
         Scene scene,
+        RenderIntent renderIntent,
         float renderScale = 1f,
         bool disableResourceShare = false,
-        float maxWorkingScale = float.PositiveInfinity,
-        RenderIntent? renderIntent = null)
-        : this(scene, renderScale, disableResourceShare, maxWorkingScale, forceOriginalSource: false, renderIntent)
+        float maxWorkingScale = float.PositiveInfinity)
+        : this(scene, renderIntent, renderScale, disableResourceShare, maxWorkingScale, forceOriginalSource: false)
     {
     }
 
     public SceneRenderer(
         Scene scene,
+        RenderIntent renderIntent,
         float renderScale,
         bool disableResourceShare,
         float maxWorkingScale,
-        bool forceOriginalSource,
-        RenderIntent? renderIntent = null)
-        : base(scene.FrameSize.Width, scene.FrameSize.Height, renderScale, maxWorkingScale, renderIntent)
+        bool forceOriginalSource)
+        : base(scene.FrameSize.Width, scene.FrameSize.Height, renderIntent, renderScale, maxWorkingScale)
     {
         _compositor = new SceneCompositor(scene)
         {

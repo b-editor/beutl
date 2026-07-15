@@ -15,7 +15,7 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.EffectPipeline;
 /// bounds-DEFLATING pass (a fixed <see cref="Clipping"/>) crops its resolved ROI to a sub-rect. The backward-ROI
 /// walk is active in production for INTERMEDIATE passes (M5): <c>ResolveLastRoi</c> seeds the last pass from its own
 /// <c>OutputBounds</c> when the request is <c>Rect.Invalid</c>, then propagates concrete (deflating) ROIs upstream.
-/// The fix declares these passes <see cref="BoundsContract.RenderTime"/> so they always bake at full input bounds,
+/// The fix declares these passes <see cref="BoundsContract.FullFrame"/> so they always bake at full input bounds,
 /// keeping the absolute uniforms consistent with the baked buffer.
 /// </summary>
 [NonParallelizable]
@@ -99,7 +99,7 @@ public class RoiRelativeBakeTests
 
     private static FrameResources ResolveChain(params FilterEffect[] effects)
     {
-        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
         foreach (FilterEffect effect in effects)
             effect.Describe(builder, (FilterEffect.Resource)(object)effect.ToResource(CompositionContext.Default));
 
@@ -127,7 +127,7 @@ public class RoiRelativeBakeTests
 
     private static int RenderAndCountOpaque(FilterEffect[] effects)
     {
-        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
         foreach (FilterEffect effect in effects)
             effect.Describe(builder, (FilterEffect.Resource)(object)effect.ToResource(CompositionContext.Default));
 
@@ -137,11 +137,11 @@ public class RoiRelativeBakeTests
         FrameResources frame = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale: 1f);
         RenderNodeOperation[] ops = PlanExecutor.Execute(
             plan, frame, [OpaqueInput()], outputScale: 1f, workingScale: 1f,
-            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool);
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool, renderIntent: RenderIntent.Delivery);
 
         int w = (int)s_bounds.Width, h = (int)s_bounds.Height;
         using RenderTarget target = RenderTarget.Create(w, h)!;
-        using (var canvas = new ImmediateCanvas(target, 1f, logicalSize: s_bounds.Size))
+        using (var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 1f, logicalSize: s_bounds.Size))
         {
             canvas.Clear(Colors.Black);
             foreach (RenderNodeOperation op in ops)

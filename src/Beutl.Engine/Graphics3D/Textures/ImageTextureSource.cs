@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Engine;
 using Beutl.Graphics.Backend;
+using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.Source;
@@ -25,8 +26,14 @@ public sealed partial class ImageTextureSource : TextureSource
 
         // A decoded bitmap has a fixed pixel count, so surfaceDensity is ignored here —
         // unlike DrawableTextureSource, whose vector content re-rasterizes at the surface density.
-        public override ITexture2D? GetTexture(IGraphicsContext graphicsContext, float surfaceDensity = 1f)
+        public override ITexture2D? GetTexture(
+            IGraphicsContext graphicsContext,
+            RenderIntent renderIntent,
+            RenderPullPurpose pullPurpose,
+            float surfaceDensity = 1f)
         {
+            RenderPolicyValidation.Validate(renderIntent, nameof(renderIntent));
+            RenderPolicyValidation.Validate(pullPurpose, nameof(pullPurpose));
             if (Source?.Bitmap == null)
             {
                 DisposeGpuTexture();

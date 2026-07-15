@@ -71,11 +71,12 @@ public class EffectNodeReuseTests
     {
         var diagnostics = new PipelineDiagnostics();
         var processor = new RenderNodeProcessor(
-            node, useRenderCache: false, outputScale: 1f, float.PositiveInfinity, diagnostics, pool: null);
+            pool: null, node, useRenderCache: false, RenderIntent.Delivery, outputScale: 1f,
+            float.PositiveInfinity, diagnostics);
         RenderNodeOperation[] ops = processor.PullToRoot();
         using RenderTarget target = RenderTarget.Create(s_size.Width, s_size.Height)
                                     ?? throw new InvalidOperationException("RenderTarget.Create returned null.");
-        using var canvas = new ImmediateCanvas(target, 1f, logicalSize: s_size.ToSize(1));
+        using var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 1f, logicalSize: s_size.ToSize(1));
         foreach (RenderNodeOperation op in ops)
         {
             op.Render(canvas);

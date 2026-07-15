@@ -36,7 +36,7 @@ public class CompositeDensityTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             const float boundary = 2f;
-            var builder = new EffectGraphBuilder(s_bounds, outputScale: boundary, workingScale: boundary);
+            var builder = new EffectGraphBuilder(s_bounds, outputScale: boundary, workingScale: boundary, renderIntent: RenderIntent.Delivery);
             builder.Composite(CompositeNodeDescriptor.Create(BlendMode.SrcOver, structuralToken: "m1-composite"));
 
             using EffectGraph graph = builder.Build();
@@ -47,7 +47,7 @@ public class CompositeDensityTests
 
             RenderNodeOperation[] outputs = PlanExecutor.Execute(
                 plan, frame, [OpAtScale(2f), OpAtScale(1f)], outputScale: boundary, workingScale: boundary,
-                maxWorkingScale: float.PositiveInfinity, diagnostics: diagnostics, pool: pool);
+                maxWorkingScale: float.PositiveInfinity, diagnostics: diagnostics, pool: pool, renderIntent: RenderIntent.Delivery);
 
             float density = outputs[0].EffectiveScale.Value;
             RenderNodeOperation.DisposeAll(outputs);
@@ -63,7 +63,7 @@ public class CompositeDensityTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             const float boundary = 2f;
-            var builder = new EffectGraphBuilder(s_bounds, outputScale: boundary, workingScale: boundary);
+            var builder = new EffectGraphBuilder(s_bounds, outputScale: boundary, workingScale: boundary, renderIntent: RenderIntent.Delivery);
             builder.Split(SplitNodeDescriptor.Static(
                 emitter =>
                 {
@@ -89,7 +89,7 @@ public class CompositeDensityTests
 
             RenderNodeOperation[] outputs = PlanExecutor.Execute(
                 plan, frame, [OpAtScale(1f)], outputScale: boundary, workingScale: boundary,
-                maxWorkingScale: float.PositiveInfinity, diagnostics: diagnostics, pool: pool);
+                maxWorkingScale: float.PositiveInfinity, diagnostics: diagnostics, pool: pool, renderIntent: RenderIntent.Delivery);
             float density = outputs[0].EffectiveScale.Value;
             RenderNodeOperation.DisposeAll(outputs);
 

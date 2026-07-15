@@ -3,14 +3,14 @@
 namespace Beutl.Graphics.Rendering;
 
 /// <summary>
-/// Captures a filter effect's resource type, render-node type, and constructor as one value, and rejects a constructor
-/// whose result has a different exact runtime type (feature 004). An effect that needs a custom
-/// <see cref="FilterEffectRenderNode"/> (e.g. a non-supply working scale, 003/FR-036) overrides
-/// <see cref="FilterEffect.Resource.RenderNodeFactory"/> once; the diff reuses the effect's node across drawable
-/// re-renders only while the existing node's runtime type equals <see cref="NodeType"/>, and that reuse is what
+/// Captures a fully opaque filter effect's resource type, render-node type, and constructor as one value, and rejects
+/// a constructor whose result has a different exact runtime type (feature 004). A
+/// <see cref="CustomRenderNodeFilterEffect.Resource"/> returns one retained factory instance; the diff reuses the
+/// effect's node across drawable re-renders only while it was created by that same instance, and that reuse is what
 /// keeps the node's plan and prefix caches alive on animated frames. Pairing the type and the constructor here
 /// removes the earlier drift hazard where overriding one of two members and forgetting the other silently
-/// recompiled the plan every frame.
+/// recreated the node every frame. Standard compiled-plan customization uses
+/// <see cref="PlanFilterEffectRenderNodeFactory"/> instead.
 /// </summary>
 public sealed class FilterEffectRenderNodeFactory
 {
@@ -67,6 +67,36 @@ public sealed class FilterEffectRenderNodeFactory
                 + $"'{node.GetType().FullName}'. Use Of<TResource, TNode> with the concrete node type.");
         }
 
+        node.CreationFactory = this;
         return node;
+    }
+
+    internal bool Matches(FilterEffectRenderNode node)
+        => ReferenceEquals(node.CreationFactory, this);
+}
+
+/// <summary>
+/// Creates a standard compiled-plan render node with a narrowly overridable execution policy. This route retains
+/// the engine's graph compiler, ROI propagation, pooling, and caches; use
+/// <see cref="FilterEffectRenderNodeFactory"/> on <see cref="CustomRenderNodeFilterEffect.Resource"/> only for a
+/// fully opaque execution implementation.
+/// </summary>
+public sealed class PlanFilterEffectRenderNodeFactory
+{
+    private PlanFilterEffectRenderNodeFactory(FilterEffectRenderNodeFactory inner)
+    {
+        Inner = inner;
+    }
+
+    internal FilterEffectRenderNodeFactory Inner { get; }
+
+    /// <summary>Creates a plan-node factory for a concrete resource and plan-node subclass.</summary>
+    public static PlanFilterEffectRenderNodeFactory Of<TResource, TNode>(Func<TResource, TNode> create)
+        where TResource : FilterEffect.Resource
+        where TNode : PlanFilterEffectRenderNode
+    {
+        ArgumentNullException.ThrowIfNull(create);
+        return new PlanFilterEffectRenderNodeFactory(
+            FilterEffectRenderNodeFactory.Of<TResource, TNode>(create));
     }
 }

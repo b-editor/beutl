@@ -16,7 +16,7 @@ public class PlanCacheTests
 
     private static (StructuralKey Key, CompiledPlan Plan) Compile(float saturation = 1.2f)
     {
-        EffectGraphBuilder builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f)
+        EffectGraphBuilder builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery)
             .Saturate(saturation);
         using EffectGraph graph = builder.Build();
         return (StructuralKey.Compute(graph), EffectGraphCompiler.Compile(graph, diagnostics: null));

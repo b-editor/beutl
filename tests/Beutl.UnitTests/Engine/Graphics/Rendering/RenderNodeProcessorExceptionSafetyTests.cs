@@ -28,7 +28,7 @@ public class RenderNodeProcessorExceptionSafetyTests
             CreateOperation("first", disposed),
             CreateOperation("fault", disposed, throwOnRender: true),
             CreateOperation("remaining", disposed));
-        var processor = new RenderNodeProcessor(node, useRenderCache: false);
+        var processor = new RenderNodeProcessor(node, useRenderCache: false, RenderIntent.Delivery);
 
         var ex = Assert.Throws<InvalidOperationException>(() => rasterize(processor));
 
@@ -44,7 +44,7 @@ public class RenderNodeProcessorExceptionSafetyTests
             CreateOperation("first", disposed),
             CreateOperation("fault", disposed, throwOnDispose: true),
             CreateOperation("remaining", disposed));
-        var processor = new RenderNodeProcessor(node, useRenderCache: false);
+        var processor = new RenderNodeProcessor(node, useRenderCache: false, RenderIntent.Delivery);
 
         // A double-dispose would re-run the faulting op's OnDispose (use-after-free for GPU-backed
         // ops) and skip the remaining op, so the faulting op must be disposed exactly once.
@@ -60,7 +60,7 @@ public class RenderNodeProcessorExceptionSafetyTests
     {
         var disposed = new List<string>();
         using var node = CreateRenderThrowWithThrowingRemainingOps(disposed);
-        var processor = new RenderNodeProcessor(node, useRenderCache: false);
+        var processor = new RenderNodeProcessor(node, useRenderCache: false, RenderIntent.Delivery);
 
         var ex = Assert.Throws<InvalidOperationException>(() => rasterize(processor));
 
@@ -87,7 +87,7 @@ public class RenderNodeProcessorExceptionSafetyTests
             CreateOperation("render-fault", disposed, throwOnRender: true, throwOnDispose: true,
                 disposeFaultMessage: "dispose-fault"),
             CreateOperation("remaining", disposed));
-        var processor = new RenderNodeProcessor(node, useRenderCache: false);
+        var processor = new RenderNodeProcessor(node, useRenderCache: false, RenderIntent.Delivery);
 
         var ex = Assert.Throws<InvalidOperationException>(() => rasterize(processor));
 
@@ -167,10 +167,10 @@ public class RenderNodeProcessorExceptionSafetyTests
             CreateOperation("first", disposed),
             CreateOperation("fault", disposed, throwOnRender: true),
             CreateOperation("remaining", disposed));
-        var processor = new RenderNodeProcessor(node, useRenderCache: false);
+        var processor = new RenderNodeProcessor(node, useRenderCache: false, RenderIntent.Delivery);
 
         using var renderTarget = RenderTarget.CreateNull(4, 4);
-        using var canvas = new ImmediateCanvas(renderTarget);
+        using var canvas = new ImmediateCanvas(renderTarget, RenderIntent.Delivery);
 
         var ex = Assert.Throws<InvalidOperationException>(() => processor.Render(canvas));
 
@@ -188,10 +188,10 @@ public class RenderNodeProcessorExceptionSafetyTests
             CreateOperation("first", disposed),
             CreateOperation("fault", disposed, throwOnDispose: true),
             CreateOperation("remaining", disposed));
-        var processor = new RenderNodeProcessor(node, useRenderCache: false);
+        var processor = new RenderNodeProcessor(node, useRenderCache: false, RenderIntent.Delivery);
 
         using var renderTarget = RenderTarget.CreateNull(4, 4);
-        using var canvas = new ImmediateCanvas(renderTarget);
+        using var canvas = new ImmediateCanvas(renderTarget, RenderIntent.Delivery);
 
         var ex = Assert.Throws<InvalidOperationException>(() => processor.Render(canvas));
 
@@ -344,7 +344,7 @@ public class RenderNodeProcessorExceptionSafetyTests
         Func<int, bool> shouldThrowOnDispose,
         bool throwOnCreate = false,
         bool returnNullOnCreate = false)
-        : RenderNodeProcessor(root, useRenderCache: false)
+        : RenderNodeProcessor(root, useRenderCache: false, RenderIntent.Delivery)
     {
         public List<FakeRenderTarget> CreatedTargets { get; } = new();
 

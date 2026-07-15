@@ -51,6 +51,9 @@ public sealed class GeometrySession
     /// <summary>Explicit preview/delivery failure policy for nested work.</summary>
     public RenderIntent RenderIntent => _canvas.RenderIntent;
 
+    /// <summary>The pull purpose for nested work started by this callback.</summary>
+    public RenderPullPurpose PullPurpose => _canvas.PullPurpose;
+
     /// <summary>
     /// The owning renderer's effect-pipeline counters (or <see langword="null"/> when unobserved). Forward it into a
     /// <see cref="BrushConstructor"/> built in the callback so a <see cref="DrawableBrush"/> fill's nested render is

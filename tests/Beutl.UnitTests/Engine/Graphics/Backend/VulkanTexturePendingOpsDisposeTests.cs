@@ -31,7 +31,7 @@ public class VulkanTexturePendingOpsDisposeTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             var target = RenderTarget.Create(256, 256)!;
-            var canvas = new ImmediateCanvas(target);
+            var canvas = new ImmediateCanvas(target, RenderIntent.Delivery);
             canvas.Clear(Colors.Red);
             canvas.DrawRectangle(new Rect(8, 8, 200, 200), Brushes.Resource.White, null);
 

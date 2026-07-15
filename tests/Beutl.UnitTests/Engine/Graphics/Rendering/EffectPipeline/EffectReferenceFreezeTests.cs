@@ -484,7 +484,7 @@ public class EffectReferenceFreezeTests
         var bounds = new Rect(0, 0, 64, 48);
         var effect = new FallbackFilterEffect();
         var resource = (FilterEffect.Resource)(object)effect.ToResource(CompositionContext.Default);
-        var builder = new EffectGraphBuilder(bounds, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
         effect.Describe(builder, resource);
         using EffectGraph graph = builder.Build();
         CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
@@ -494,7 +494,7 @@ public class EffectReferenceFreezeTests
 
         RenderNodeOperation[] outputs = PlanExecutor.Execute(
             plan, frame, [input], outputScale: 1f, workingScale: 1f,
-            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null);
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null, renderIntent: RenderIntent.Delivery);
         try
         {
             Assert.Multiple(() =>

@@ -59,15 +59,15 @@ public partial class FilterEffectNode<T> : ConfigureNode
             if (output == null || output.IsDisposed)
             {
                 resource = node.Object.ToResource(context);
-                OutputPort = resource.RenderNodeFactory.Create(resource);
+                OutputPort = resource.ResolveRenderNodeFactory().Factory.Create(resource);
             }
             else if (output is FilterEffectRenderNode { FilterEffect.Resource: { } filterEffect } fen)
             {
                 resource = filterEffect;
                 bool updateOnly = false;
                 resource.Update(node.Object, context, ref updateOnly);
-                FilterEffectRenderNodeFactory factory = resource.RenderNodeFactory;
-                if (output.GetType() != factory.NodeType)
+                FilterEffectRenderNodeFactory factory = resource.ResolveRenderNodeFactory().Factory;
+                if (!factory.Matches(fen))
                 {
                     FilterEffectRenderNode replacement = factory.Create(resource);
                     replacement.BringFrom(output);

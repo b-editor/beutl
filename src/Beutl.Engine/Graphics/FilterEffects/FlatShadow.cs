@@ -118,8 +118,8 @@ public partial class FlatShadow : FilterEffect
         // a gradient/image brush would otherwise re-anchor into the crop. The fill rides the same origin bridge as
         // the silhouette draws (in logical units here; the base CTM applies wOut), and SrcIn clips it to the shadow.
         var c = new BrushConstructor(
-            new(outputBounds.Size), brush, BlendMode.SrcIn, wOut, session.MaxWorkingScale, session.Diagnostics,
-            session.RenderIntent);
+            new(outputBounds.Size), brush, BlendMode.SrcIn, session.RenderIntent, wOut,
+            session.MaxWorkingScale, session.Diagnostics, session.PullPurpose);
         c.ConfigurePaint(brushPaint);
         using (bridged
             ? newCanvas.PushTransform(Matrix.CreateTranslation(

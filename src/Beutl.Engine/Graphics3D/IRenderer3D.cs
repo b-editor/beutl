@@ -1,5 +1,6 @@
 ﻿using Beutl.Composition;
 using Beutl.Graphics;
+using Beutl.Graphics.Rendering;
 using Beutl.Graphics3D.Camera;
 using Beutl.Graphics3D.Gizmo;
 using Beutl.Graphics3D.Lighting;
@@ -55,6 +56,8 @@ public interface IRenderer3D : IDisposable
     /// <param name="backgroundColor">The background clear color.</param>
     /// <param name="ambientColor">The ambient light color.</param>
     /// <param name="ambientIntensity">The ambient light intensity.</param>
+    /// <param name="renderIntent">The preview/delivery failure policy for nested texture rendering.</param>
+    /// <param name="pullPurpose">Whether nested rendering may update retained frame caches.</param>
     /// <param name="gizmoTarget">The object to display gizmo for, or null.</param>
     /// <param name="gizmoMode">The gizmo visualization mode.</param>
     void Render(
@@ -65,6 +68,8 @@ public interface IRenderer3D : IDisposable
         Color backgroundColor,
         Color ambientColor,
         float ambientIntensity,
+        RenderIntent renderIntent,
+        RenderPullPurpose pullPurpose,
         Object3D.Resource? gizmoTarget = null,
         GizmoMode gizmoMode = GizmoMode.None);
 

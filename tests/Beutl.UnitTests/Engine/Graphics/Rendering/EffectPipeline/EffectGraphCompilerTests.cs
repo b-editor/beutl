@@ -71,7 +71,7 @@ half4 apply(half4 c) {
 """;
 
     private static EffectGraphBuilder NewBuilder(Rect bounds, float workingScale = 1f)
-        => new(bounds, outputScale: 1f, workingScale: workingScale);
+        => new(bounds, outputScale: 1f, workingScale: workingScale, RenderIntent.Delivery);
 
     private static CompiledPlan Compile(EffectGraphBuilder builder)
     {
@@ -315,7 +315,7 @@ half4 apply(half4 c) {
         {
             Assert.That(
                 () => ShaderNodeDescriptor.WholeSource(
-                    source, BoundsContract.RenderTime, children: [new ChildBinding("src", extra)]),
+                    source, BoundsContract.FullFrame, children: [new ChildBinding("src", extra)]),
                 Throws.ArgumentException,
                 "'src' is the reserved implicit source child of a whole-source shader");
             Assert.That(
@@ -325,7 +325,7 @@ half4 apply(half4 c) {
                 "the invariant whole-source form reserves 'src' identically");
             Assert.DoesNotThrow(
                 () => ShaderNodeDescriptor.WholeSource(
-                    source, BoundsContract.RenderTime, children: [new ChildBinding("map", extra)]),
+                    source, BoundsContract.FullFrame, children: [new ChildBinding("map", extra)]),
                 "a differently-named extra child stays valid");
         });
     }
@@ -343,7 +343,7 @@ half4 apply(half4 c) {
         {
             Assert.That(
                 () => ShaderNodeDescriptor.WholeSource(
-                    wholeSource, BoundsContract.RenderTime,
+                    wholeSource, BoundsContract.FullFrame,
                     children: [new ChildBinding("map", a), new ChildBinding("map", b)]),
                 Throws.ArgumentException,
                 "duplicate whole-source child names would silently bind the later shader");
@@ -355,7 +355,7 @@ half4 apply(half4 c) {
                 "duplicate snippet sampler names would silently bind the later shader");
             Assert.That(
                 () => ShaderNodeDescriptor.WholeSource(
-                    wholeSource, BoundsContract.RenderTime, children: [new ChildBinding("map", a), null!]),
+                    wholeSource, BoundsContract.FullFrame, children: [new ChildBinding("map", a), null!]),
                 Throws.ArgumentException,
                 "a null child element surfaces as argument validation, not a NullReferenceException");
         });
@@ -366,7 +366,7 @@ half4 apply(half4 c) {
     [Test]
     public void Builder_UsedAfterBuild_Throws()
     {
-        var builder = new EffectGraphBuilder(new Rect(0, 0, 100, 100), outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(new Rect(0, 0, 100, 100), outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
         builder.Saturate(0.5f);
         using EffectGraph graph = builder.Build();
 
@@ -402,9 +402,14 @@ half4 apply(half4 c) {
                 () => ShaderNodeDescriptor.WholeSource(wholeSource, default),
                 Throws.ArgumentException,
                 "a whole-source shader's contract must be an authored one, never the uninitialized default");
+            Assert.That(
+                () => ComputeNodeDescriptor.Create(
+                    static _ => { }, 1, default, ComputeFallbackPolicy.Identity),
+                Throws.ArgumentException,
+                "a compute node must declare whether its kernel is local or full-frame");
             Assert.DoesNotThrow(
-                () => GeometryNodeDescriptor.Create(static _ => { }, BoundsContract.RenderTime),
-                "the render-time contract stays the sanctioned 'unknown until execution' escape hatch");
+                () => GeometryNodeDescriptor.Create(static _ => { }, BoundsContract.FullFrame),
+                "the full-frame contract stays the sanctioned non-local execution contract");
         });
     }
 
@@ -620,7 +625,7 @@ half4 apply(half4 c) {
     public void Compile_HugeColorScratchDeclaration_UsesRuntimeResourceAccountingWithoutOverflow()
     {
         ComputeNodeDescriptor compute = ComputeNodeDescriptor.Create(
-            static _ => { }, passCount: 1, ComputeFallback.Identity,
+            static _ => { }, passCount: 1, BoundsContract.FullFrame, ComputeFallbackPolicy.Identity,
             colorScratchCount: int.MaxValue, structuralToken: "huge-scratch");
 
         CompiledPlan plan = Compile(NewBuilder(new Rect(0, 0, 100, 100)).Compute(compute));
@@ -716,6 +721,8 @@ half4 apply(half4 c) {
             .Build();
         CompiledPlan cached = EffectGraphCompiler.Compile(cachedGraph, diagnostics: null);
 
+        Assert.That(StructuralKey.Compute(cachedGraph), Is.Not.EqualTo(StructuralKey.Compute(freshGraph)),
+            "bounds methods are compared by exact structural identity rather than a collision-prone hash");
         Assert.That(
             () => ParameterBlock.Extract(freshGraph).RebindOnto(cached),
             Throws.InvalidOperationException.With.Message.Contains("shape"));
@@ -743,7 +750,7 @@ half4 apply(half4 c) {
         var bounds = new Rect(0, 0, 100, 100);
 
         static ComputeNodeDescriptor Compute(ComputeDispatchFailureBehavior behavior) => ComputeNodeDescriptor.Create(
-            static _ => { }, passCount: 1, ComputeFallback.Identity,
+            static _ => { }, passCount: 1, BoundsContract.FullFrame, ComputeFallbackPolicy.Identity,
             structuralToken: "dispatch-failure-key", dispatchFailureBehavior: behavior);
 
         using EffectGraph throwing = NewBuilder(bounds).Compute(Compute(ComputeDispatchFailureBehavior.Throw)).Build();
@@ -761,7 +768,7 @@ half4 apply(half4 c) {
     {
         var bounds = new Rect(0, 0, 100, 100);
         var descriptor = ComputeNodeDescriptor.Create(
-            static _ => { }, passCount: 4, ComputeFallback.Identity,
+            static _ => { }, passCount: 4, BoundsContract.FullFrame, ComputeFallbackPolicy.Identity,
             colorScratchCount: 3, structuralToken: "scratch-shape");
         CompiledPlan plan = Compile(NewBuilder(bounds).Compute(descriptor));
 
@@ -789,7 +796,7 @@ half4 apply(half4 c) {
                     ctx.AcquireColorScratch();
                 },
                 passCount: 1,
-                ComputeFallback.Identity,
+                BoundsContract.FullFrame, ComputeFallbackPolicy.Identity,
                 colorScratchCount: 1,
                 structuralToken: "scratch-overrun",
                 dispatchFailureBehavior: ComputeDispatchFailureBehavior.IdentityInPreview);
@@ -799,7 +806,7 @@ half4 apply(half4 c) {
 
             InvalidOperationException error = Assert.Catch<InvalidOperationException>(() => PlanExecutor.Execute(
                 plan, resources, [MakeInput(bounds)], outputScale: 1f, workingScale: 1f,
-                maxWorkingScale: 2f, diagnostics: null, pool: pool))!;
+                maxWorkingScale: 2f, diagnostics: null, pool: pool, renderIntent: RenderIntent.Preview))!;
 
             Assert.Multiple(() =>
             {
@@ -823,7 +830,7 @@ half4 apply(half4 c) {
                     ctx.CopySourceToDestination();
                 },
                 passCount: 1,
-                ComputeFallback.Identity,
+                BoundsContract.FullFrame, ComputeFallbackPolicy.Identity,
                 colorScratchCount: 1,
                 structuralToken: "scratch-prepare");
             CompiledPlan plan = Compile(NewBuilder(bounds).Compute(descriptor));
@@ -836,7 +843,7 @@ half4 apply(half4 c) {
             {
                 RenderNodeOperation[] outputs = PlanExecutor.Execute(
                     plan, resources, [MakeInput(bounds)], outputScale: 1f, workingScale: 1f,
-                    maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool);
+                    maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool, renderIntent: RenderIntent.Delivery);
                 RenderNodeOperation.DisposeAll(outputs);
             }
             finally
@@ -970,23 +977,25 @@ half4 apply(half4 c) {
     }
 
     [Test]
-    public void ResolveResources_RenderTimePass_FallsBackToFullInputBounds()
+    public void ResolveResources_FullFramePass_UsesFullInputBoundsWithoutGrowingOutput()
     {
         var bounds = new Rect(0, 0, 300, 200);
-        var renderTime = ShaderNodeDescriptor.WholeSource(
+        var fullFrame = ShaderNodeDescriptor.WholeSource(
             "uniform shader src; half4 main(float2 coord){ return src.eval(coord); }",
-            BoundsContract.Create(static r => r, static r => r, isRenderTimeResolved: true));
-        CompiledPlan plan = Compile(NewBuilder(bounds).Shader(renderTime));
+            BoundsContract.FullFrame);
+        CompiledPlan plan = Compile(NewBuilder(bounds).Shader(fullFrame));
 
-        // A small requested region cannot narrow a render-time pass: it uses the full input bounds.
+        // A small requested region cannot narrow a full-frame pass: it uses the full input bounds.
         FrameResources res = EffectGraphCompiler.ResolveResources(plan, new Rect(10, 10, 20, 20), workingScale: 1f);
 
         Assert.That(res.Passes[0].Width, Is.EqualTo(300));
         Assert.That(res.Passes[0].Height, Is.EqualTo(200));
+        Assert.That(plan.Passes[0].OutputBounds, Is.EqualTo(bounds),
+            "a full-frame requirement must not use an invalid forward bound or grow the logical output");
     }
 
     // A compute pass reads the whole materialized input at full-frame device coordinates (a non-local GLSL kernel:
-    // PixelSort's row/column gather), so it must be render-time resolved — a downstream deflating pass must NOT
+    // PixelSort's row/column gather), so it must require the full frame — a downstream deflating pass must NOT
     // ROI-crop it to an offset sub-rect, which would feed truncated width/height push constants (crop-then-sort ≠
     // sort-then-crop). The compute pass's ROI must stay the full input frame under a deflating successor.
     [Test]
@@ -1000,7 +1009,7 @@ half4 apply(half4 c) {
             structuralToken: "DeflateClip");
         CompiledPlan plan = Compile(NewBuilder(bounds)
             .Compute(ComputeNodeDescriptor.Create(
-                static _ => { }, passCount: 1, ComputeFallback.Identity, structuralToken: "roi-compute"))
+                static _ => { }, passCount: 1, BoundsContract.FullFrame, ComputeFallbackPolicy.Identity, structuralToken: "roi-compute"))
             .SkiaFilter(deflate));
 
         FrameResources res = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale: 1f);
@@ -1107,7 +1116,7 @@ half4 apply(half4 c) {
         var bounds = new Rect(0, 0, 20000, 50);
         var effect = new MosaicEffect();
         FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
-        var builder = new EffectGraphBuilder(bounds, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
         effect.Describe(builder, resource);
 
         using EffectGraph graph = builder.Build();
@@ -1142,7 +1151,7 @@ half4 apply(half4 c) {
 
         RenderNodeOperation[] outputs = PlanExecutor.Execute(
             plan, res, [MakeInput(bounds)], outputScale: 1f, workingScale: 1f,
-            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null);
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null, renderIntent: RenderIntent.Delivery);
         try
         {
             Assert.That(outputs, Has.Length.EqualTo(1));
@@ -1170,7 +1179,7 @@ half4 apply(half4 c) {
 
         RenderNodeOperation[] outputs = PlanExecutor.Execute(
             plan, res, [MakeInput(bounds)], outputScale: 1f, workingScale: 1f,
-            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null);
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null, renderIntent: RenderIntent.Delivery);
         try
         {
             Assert.That(outputs, Has.Length.EqualTo(1));
@@ -1192,8 +1201,8 @@ half4 apply(half4 c) {
         var requested = new Rect(50, 60, 100, 100);
         var effect = new Brightness();
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
-        using FilterEffectRenderNode node = resource.RenderNodeFactory.Create(resource);
-        var context = new RenderNodeContext([MakeInput(bounds)], outputScale: 1f)
+        using FilterEffectRenderNode node = new PlanFilterEffectRenderNode(resource);
+        var context = new RenderNodeContext([MakeInput(bounds)], RenderIntent.Delivery, outputScale: 1f)
         {
             RequestedBounds = requested,
         };
@@ -1223,7 +1232,7 @@ half4 apply(half4 c) {
         var describeBounds = new Rect(0, 0, 100, 100);
         var passthrough = ShaderNodeDescriptor.WholeSource(
             "uniform shader src; half4 main(float2 coord){ return src.eval(coord); }",
-            BoundsContract.RenderTime);
+            BoundsContract.FullFrame);
         CompiledPlan plan = Compile(NewBuilder(describeBounds).Shader(passthrough));
 
         FrameResources res = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale: 1f);
@@ -1237,7 +1246,7 @@ half4 apply(half4 c) {
 
         RenderNodeOperation[] outputs = PlanExecutor.Execute(
             plan, res, [MakeInput(grownBounds)], outputScale: 1f, workingScale: 1f,
-            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null);
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null, renderIntent: RenderIntent.Delivery);
         try
         {
             Assert.That(outputs, Has.Length.EqualTo(1));
@@ -1261,7 +1270,7 @@ half4 apply(half4 c) {
         var describeBounds = new Rect(0, 0, 100, 100);
         var passthrough = ShaderNodeDescriptor.WholeSource(
             "uniform shader src; half4 main(float2 coord){ return src.eval(coord); }",
-            BoundsContract.RenderTime);
+            BoundsContract.FullFrame);
         CompiledPlan plan = Compile(NewBuilder(describeBounds).Shader(passthrough));
 
         FrameResources res = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale: 1f);
@@ -1277,7 +1286,7 @@ half4 apply(half4 c) {
 
         RenderNodeOperation[] outputs = PlanExecutor.Execute(
             plan, res, [input], outputScale: 1f, workingScale: 1f,
-            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null);
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null, renderIntent: RenderIntent.Delivery);
         try
         {
             Assert.That(outputs, Has.Length.EqualTo(1));
@@ -1312,7 +1321,7 @@ half4 apply(half4 c) {
 
         RenderNodeOperation.DisposeAll(PlanExecutor.Execute(
             plan, res, [MakeInput(bounds)], outputScale: 1f, workingScale: 1f,
-            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null));
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null, renderIntent: RenderIntent.Delivery));
 
         Assert.That(observed, Is.EqualTo(carried).Within(1e-4f),
             "the geometry input materializes at the carried clamped density, not the boundary working scale (1.0)");
@@ -1324,8 +1333,9 @@ half4 apply(half4 c) {
         var bounds = new Rect(0, 0, 100, 100);
         float observed = -1f;
         var probe = ComputeNodeDescriptor.Create(
-            dispatch: static _ => { }, passCount: 1, ComputeFallback.CpuCallback,
-            cpuCallback: session => observed = session.Inputs[0].Density.Value, structuralToken: "b2-compute-probe");
+            dispatch: static _ => { }, passCount: 1, BoundsContract.FullFrame,
+            ComputeFallbackPolicy.Cpu(session => observed = session.Inputs[0].Density.Value),
+            structuralToken: "b2-compute-probe");
         CompiledPlan plan = Compile(NewBuilder(bounds).Shader(Scale(1f)).Compute(probe));
 
         FrameResources res = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale: 1f, maxDimension: 50);
@@ -1337,7 +1347,7 @@ half4 apply(half4 c) {
         {
             RenderNodeOperation.DisposeAll(PlanExecutor.Execute(
                 plan, res, [MakeInput(bounds)], outputScale: 1f, workingScale: 1f,
-                maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null));
+                maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null, renderIntent: RenderIntent.Delivery));
         }
         finally
         {
@@ -1346,6 +1356,54 @@ half4 apply(half4 c) {
 
         Assert.That(observed, Is.EqualTo(carried).Within(1e-4f),
             "the compute CPU-fallback input materializes at the carried clamped density, not the boundary working scale (1.0)");
+    }
+
+    [Test]
+    public void Execute_ComputeCpuFallback_ExposesTheSameLogicalSourceAndTargetContract()
+    {
+        var sourceBounds = new Rect(3, 5, 40, 30);
+        var targetBounds = new Rect(10, 16, 40, 30);
+        BoundsContract bounds = BoundsContract.Create(
+            static input => new Rect(input.X + 7, input.Y + 11, input.Width, input.Height),
+            static output => new Rect(output.X - 7, output.Y - 11, output.Width, output.Height));
+        Rect observedSourceBounds = Rect.Invalid;
+        Rect observedTargetBounds = Rect.Invalid;
+        float observedSourceScale = float.NaN;
+        float observedTargetScale = float.NaN;
+        var probe = ComputeNodeDescriptor.Create(
+            dispatch: static _ => { }, passCount: 1, bounds,
+            ComputeFallbackPolicy.Cpu(session =>
+            {
+                observedSourceBounds = session.Inputs[0].Bounds;
+                observedTargetBounds = session.Bounds;
+                observedSourceScale = session.Inputs[0].Density.Value;
+                observedTargetScale = session.WorkingScale;
+            }),
+            structuralToken: "cpu-fallback-logical-contract");
+        CompiledPlan plan = Compile(NewBuilder(sourceBounds).Compute(probe));
+        FrameResources resources = EffectGraphCompiler.ResolveResources(
+            plan, Rect.Invalid, workingScale: 1.5f);
+
+        PlanExecutor.ForceComputeFallbackForTests();
+        try
+        {
+            RenderNodeOperation.DisposeAll(PlanExecutor.Execute(
+                plan, resources, [MakeInput(sourceBounds)], outputScale: 1f, workingScale: 1.5f,
+                maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null,
+                renderIntent: RenderIntent.Delivery));
+        }
+        finally
+        {
+            PlanExecutor.ResetComputeFallbackForTests();
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(observedSourceBounds, Is.EqualTo(sourceBounds));
+            Assert.That(observedTargetBounds, Is.EqualTo(targetBounds));
+            Assert.That(observedSourceScale, Is.EqualTo(1.5f).Within(1e-6f));
+            Assert.That(observedTargetScale, Is.EqualTo(1.5f).Within(1e-6f));
+        });
     }
 
     // The compute CPU fallback must honor a render-time SetOutputBounds shrink exactly as the geometry pass does
@@ -1357,8 +1415,9 @@ half4 apply(half4 c) {
         var bounds = new Rect(0, 0, 100, 100);
         var tight = new Rect(20, 20, 40, 40);
         var probe = ComputeNodeDescriptor.Create(
-            dispatch: static _ => { }, passCount: 1, ComputeFallback.CpuCallback,
-            cpuCallback: session => session.SetOutputBounds(tight), structuralToken: "cpu-fallback-shrink-probe");
+            dispatch: static _ => { }, passCount: 1, BoundsContract.FullFrame,
+            ComputeFallbackPolicy.Cpu(session => session.SetOutputBounds(tight)),
+            structuralToken: "cpu-fallback-shrink-probe");
         CompiledPlan plan = Compile(NewBuilder(bounds).Compute(probe));
 
         FrameResources res = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale: 1f);
@@ -1368,7 +1427,7 @@ half4 apply(half4 c) {
         {
             outputs = PlanExecutor.Execute(
                 plan, res, [MakeInput(bounds)], outputScale: 1f, workingScale: 1f,
-                maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null);
+                maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null, renderIntent: RenderIntent.Delivery);
         }
         finally
         {
@@ -1406,7 +1465,7 @@ half4 apply(half4 c) {
 
         RenderNodeOperation.DisposeAll(PlanExecutor.Execute(
             plan, res, [MakeInput(bounds)], outputScale: 1f, workingScale: 1f,
-            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null));
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null, renderIntent: RenderIntent.Delivery));
 
         Assert.That(observed, Is.EqualTo(carried).Within(1e-4f),
             "the split input materializes at the carried clamped density, not the boundary working scale (1.0)");
@@ -1433,7 +1492,7 @@ half4 apply(half4 c) {
 
         RenderNodeOperation[] outputs = PlanExecutor.Execute(
             plan, res, [MakeInput(bounds)], outputScale: 1f, workingScale: 1f,
-            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null);
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null, renderIntent: RenderIntent.Delivery);
         try
         {
             Assert.That(outputs, Has.Length.EqualTo(2), "the two split branches survive the fused pass");
@@ -1459,7 +1518,7 @@ half4 apply(half4 c) {
         CompiledPlan plan = Compile(NewBuilder(bounds)
             .Shader(Scale(1f))
             .Compute(ComputeNodeDescriptor.Create(
-                static _ => { }, passCount: 1, ComputeFallback.Identity, structuralToken: "sync-test"))
+                static _ => { }, passCount: 1, BoundsContract.FullFrame, ComputeFallbackPolicy.Identity, structuralToken: "sync-test"))
             .Shader(Scale(1f)));
 
         Assert.That(plan.Passes.Select(p => p.Backend),
@@ -1479,7 +1538,7 @@ half4 apply(half4 c) {
     {
         var bounds = new Rect(0, 0, 64, 64);
         static ComputeNodeDescriptor Copy(string token) => ComputeNodeDescriptor.Create(
-            static ctx => ctx.CopySourceToDestination(), 1, ComputeFallback.Identity, structuralToken: token);
+            static ctx => ctx.CopySourceToDestination(), 1, BoundsContract.FullFrame, ComputeFallbackPolicy.Identity, structuralToken: token);
 
         CompiledPlan plan = Compile(NewBuilder(bounds).Compute(Copy("first")).Compute(Copy("second")));
 
@@ -1511,7 +1570,7 @@ half4 apply(half4 c) {
 
         RenderNodeOperation[] outputs = PlanExecutor.Execute(
             plan, resources, [MakeInput(bounds)], outputScale: 1f, workingScale: 1f,
-            maxWorkingScale: float.PositiveInfinity, diagnostics, pool: null);
+            maxWorkingScale: float.PositiveInfinity, diagnostics, pool: null, renderIntent: RenderIntent.Delivery);
         try
         {
             Assert.That(diagnostics.Snapshot().FlushSyncs, Is.EqualTo(1),
@@ -1536,7 +1595,7 @@ half4 apply(half4 c) {
 
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
             plan, resources, [MakeInput(bounds)], outputScale: 1f, workingScale: 1f,
-            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null))!;
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null, renderIntent: RenderIntent.Delivery))!;
 
         Assert.That(error.Message, Does.Contain("requiresReadback"));
     }
@@ -1653,7 +1712,7 @@ half4 apply(half4 c) {
         RenderNodeOperation[] current = [MakeInput(bounds)];
         if (fuse)
         {
-            EffectGraphBuilder builder = new(bounds, 1f, 1f);
+            EffectGraphBuilder builder = new(bounds, 1f, 1f, RenderIntent.Delivery);
             foreach (ShaderNodeDescriptor snippet in snippets)
                 builder.Shader(snippet);
             current = Execute(builder, bounds, current, diagnostics, pool);
@@ -1662,7 +1721,7 @@ half4 apply(half4 c) {
         {
             foreach (ShaderNodeDescriptor snippet in snippets)
             {
-                var builder = new EffectGraphBuilder(bounds, 1f, 1f);
+                var builder = new EffectGraphBuilder(bounds, 1f, 1f, RenderIntent.Delivery);
                 builder.Shader(snippet);
                 current = Execute(builder, bounds, current, diagnostics, pool);
             }
@@ -1682,7 +1741,7 @@ half4 apply(half4 c) {
         FrameResources res = EffectGraphCompiler.ResolveResources(plan, bounds, workingScale: 1f);
         return PlanExecutor.Execute(
             plan, res, inputs, outputScale: 1f, workingScale: 1f,
-            maxWorkingScale: float.PositiveInfinity, diagnostics, pool);
+            maxWorkingScale: float.PositiveInfinity, diagnostics, pool, renderIntent: RenderIntent.Delivery);
     }
 
     private static RenderNodeOperation MakeInput(Rect bounds)
@@ -1703,7 +1762,7 @@ half4 apply(half4 c) {
         var size = PixelRect.FromRect(bounds);
         using RenderTarget target = RenderTarget.Create(size.Width, size.Height)
             ?? throw new InvalidOperationException("RenderTarget.Create returned null (raster surface unavailable).");
-        using (var canvas = new ImmediateCanvas(target, 1f, logicalSize: bounds.Size))
+        using (var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 1f, logicalSize: bounds.Size))
         {
             canvas.Clear();
             using (canvas.PushTransform(Matrix.CreateTranslation(-bounds.X, -bounds.Y)))

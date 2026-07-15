@@ -30,7 +30,7 @@ public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource 
 |---|---|
 | Authoring surface (public) | `src/Beutl.Engine/Graphics/FilterEffects/` (`EffectGraphBuilder`, descriptors, `GeometrySession`) |
 | Compiler / plan / executor / pool (internal) | `src/Beutl.Engine/Graphics/Rendering/` |
-| Default execution entry point | internal `PlanFilterEffectRenderNode.Process` — resolves 003 working scale, then describe → cache → execute; plugin custom nodes override `Resource.RenderNodeFactory` |
+| Default execution entry point | `PlanFilterEffectRenderNode.Process` — resolves 003 working scale, then describe → cache → execute; narrow plan policy uses `Resource.PlanRenderNodeFactory`, while opaque execution uses `CustomRenderNodeFilterEffect.Resource.RenderNodeFactory` |
 | Counters | `PipelineDiagnostics` per renderer; definitions in [contracts/execution-plan.md §C8](./contracts/execution-plan.md) |
 | Counter/parity tests | `tests/Beutl.UnitTests/Engine/Graphics/Rendering/` (+ `Golden/` harness reuse) |
 | Benchmarks | `tests/Beutl.Benchmarks/Rendering/EffectPipelineBenchmarks.cs` |

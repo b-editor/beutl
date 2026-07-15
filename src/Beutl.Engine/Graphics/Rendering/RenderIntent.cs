@@ -10,10 +10,25 @@ public enum RenderIntent
     Delivery,
 }
 
-internal static class RenderIntentResolver
+/// <summary>The purpose of a render-tree pull and whether it may mutate retained frame-render state.</summary>
+public enum RenderPullPurpose
 {
-    public static RenderIntent Resolve(RenderIntent? intent, float maxWorkingScale)
-        => intent ?? (float.IsPositiveInfinity(RenderNodeContext.SanitizeMaxWorkingScale(maxWorkingScale))
-            ? RenderIntent.Delivery
-            : RenderIntent.Preview);
+    /// <summary>A normal frame render that may update retained frame caches.</summary>
+    Frame,
+
+    /// <summary>Measurement, hit-testing, thumbnails, or other work that must preserve frame caches.</summary>
+    Auxiliary,
+}
+
+internal static class RenderPolicyValidation
+{
+    public static RenderIntent Validate(RenderIntent value, string paramName)
+        => value is RenderIntent.Preview or RenderIntent.Delivery
+            ? value
+            : throw new ArgumentOutOfRangeException(paramName, value, "Unknown render intent.");
+
+    public static RenderPullPurpose Validate(RenderPullPurpose value, string paramName)
+        => value is RenderPullPurpose.Frame or RenderPullPurpose.Auxiliary
+            ? value
+            : throw new ArgumentOutOfRangeException(paramName, value, "Unknown render pull purpose.");
 }

@@ -155,7 +155,7 @@ public class CompositeBranchIdentityTests
 
     private static EffectGraphBuilder CreateSplitBuilder(bool discardInsideSplit, float thirdBranchWidth = 10)
     {
-        var builder = new EffectGraphBuilder(s_input, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(s_input, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
         builder.Split(SplitNodeDescriptor.Static(
             emitter =>
             {
@@ -197,6 +197,6 @@ public class CompositeBranchIdentityTests
             hitTest: s_input.Contains);
         return PlanExecutor.Execute(
             plan, frame, [input], outputScale: 1f, workingScale: 1f,
-            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null);
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null, renderIntent: RenderIntent.Delivery);
     }
 }

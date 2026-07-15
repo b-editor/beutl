@@ -35,7 +35,7 @@ public class SplitBranchShrinkOutputBoundsTests
         var effect = new ShrinkingSplitEffect(branchBounds: s_input, shrunkTo: s_shrunk);
         FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         using var node = new PlanFilterEffectRenderNode(resource);
-        var context = new RenderNodeContext([MakeContentRect(s_input)]);
+        var context = new RenderNodeContext([MakeContentRect(s_input)], RenderIntent.Delivery);
 
         RenderNodeOperation[] ops = node.Process(context);
         try
@@ -72,7 +72,7 @@ public class SplitBranchShrinkOutputBoundsTests
             var resource = (FilterEffect.Resource)(object)effect.ToResource(CompositionContext.Default);
 
             using var pool = new RenderTargetPool();
-            var builder = new EffectGraphBuilder(s_input, outputScale: 1f, workingScale: 1f);
+            var builder = new EffectGraphBuilder(s_input, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
             effect.Describe(builder, resource);
             using EffectGraph graph = builder.Build();
             CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
@@ -80,7 +80,7 @@ public class SplitBranchShrinkOutputBoundsTests
 
             RenderNodeOperation[] ops = PlanExecutor.Execute(
                 plan, frame, [MakeContentRect(s_input)], outputScale: 1f, workingScale: 1f,
-                maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool);
+                maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool, renderIntent: RenderIntent.Delivery);
             try
             {
                 Assert.That(ops, Has.Length.EqualTo(1));
@@ -103,7 +103,7 @@ public class SplitBranchShrinkOutputBoundsTests
             var effect = new ShrinkingSplitEffect(branchBounds: s_input, shrunkTo: s_shrunk);
             var resource = (FilterEffect.Resource)(object)effect.ToResource(CompositionContext.Default);
             using var pool = new RenderTargetPool();
-            var builder = new EffectGraphBuilder(s_input, outputScale: 1f, workingScale: 1f);
+            var builder = new EffectGraphBuilder(s_input, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
             effect.Describe(builder, resource);
             using EffectGraph graph = builder.Build();
             CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
@@ -115,7 +115,7 @@ public class SplitBranchShrinkOutputBoundsTests
             {
                 InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
                     plan, frame, [MakeContentRect(s_input)], outputScale: 1f, workingScale: 1f,
-                    maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool));
+                    maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool, renderIntent: RenderIntent.Delivery));
                 Assert.Multiple(() =>
                 {
                     Assert.That(actual, Is.SameAs(injected));

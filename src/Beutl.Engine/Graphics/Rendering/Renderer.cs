@@ -57,15 +57,29 @@ public class Renderer : IRenderer
     }
 
     public Renderer(
-        int width, int height, float renderScale = 1f, float maxWorkingScale = float.PositiveInfinity,
-        RenderIntent? renderIntent = null)
+        int width, int height, RenderIntent renderIntent, float renderScale = 1f,
+        float maxWorkingScale = float.PositiveInfinity)
+        : this(
+            width, height, renderIntent, renderScale, maxWorkingScale,
+            RenderPullPurpose.Frame)
+    {
+    }
+
+    internal Renderer(
+        int width,
+        int height,
+        RenderIntent renderIntent,
+        float renderScale,
+        float maxWorkingScale,
+        RenderPullPurpose pullPurpose)
     {
         float outputScale = float.IsFinite(renderScale) && renderScale > 0f ? renderScale : 1f;
         float maxScale = RenderNodeContext.SanitizeMaxWorkingScale(maxWorkingScale);
         FrameSize = new PixelSize(width, height);
         OutputScale = outputScale;
         MaxWorkingScale = maxScale;
-        RenderIntent = RenderIntentResolver.Resolve(renderIntent, maxScale);
+        RenderIntent = RenderPolicyValidation.Validate(renderIntent, nameof(renderIntent));
+        PullPurpose = RenderPolicyValidation.Validate(pullPurpose, nameof(pullPurpose));
         DeviceSize = new PixelSize(
             (int)MathF.Ceiling(width * outputScale),
             (int)MathF.Ceiling(height * outputScale));
@@ -76,7 +90,8 @@ public class Renderer : IRenderer
                                        $"Could not create a canvas of this size. (width: {DeviceSize.Width}, height: {DeviceSize.Height})");
 
             var canvas = new ImmediateCanvas(
-                surface, outputScale, maxScale, logicalSize: FrameSize.ToSize(1), renderIntent: RenderIntent);
+                surface, RenderIntent, outputScale, maxScale, logicalSize: FrameSize.ToSize(1),
+                pullPurpose: PullPurpose);
             return (canvas, surface);
         });
     }
@@ -138,6 +153,9 @@ public class Renderer : IRenderer
 
     /// <summary>Explicit preview/delivery failure policy for this renderer.</summary>
     public RenderIntent RenderIntent { get; }
+
+    /// <summary>The purpose forwarded through every render-tree pull owned by this renderer.</summary>
+    internal RenderPullPurpose PullPurpose { get; }
 
     /// <summary>
     /// The physical backing-surface size, <c>ceil(FrameSize × OutputScale)</c>.
@@ -246,7 +264,8 @@ public class Renderer : IRenderer
 
         RevalidateAll(entry.Node);
         var processor = new RenderNodeProcessor(
-            entry.Node, CacheOptions.IsEnabled, OutputScale, MaxWorkingScale, Diagnostics, _pool, RenderIntent)
+            _pool, entry.Node, CacheOptions.IsEnabled, RenderIntent, OutputScale, MaxWorkingScale, Diagnostics,
+            PullPurpose)
         {
             RequestedBounds = new Rect(default, FrameSize.ToSize(1)),
         };
@@ -267,8 +286,11 @@ public class Renderer : IRenderer
             throw;
         }
 
-        RenderNodeCacheHelper.MakeCache(
-            entry.Node, CacheOptions, OutputScale, MaxWorkingScale, Diagnostics, _pool, RenderIntent);
+        if (PullPurpose == RenderPullPurpose.Frame)
+        {
+            RenderNodeCacheHelper.MakeCache(
+                entry.Node, CacheOptions, RenderIntent, OutputScale, MaxWorkingScale, Diagnostics, _pool);
+        }
         return entry;
     }
 
@@ -368,11 +390,8 @@ public class Renderer : IRenderer
             Entry entry = _allCurrentEntries[i];
             // Same scale pair as the render pass to avoid thrashing scale-stateful nodes.
             var processor = new RenderNodeProcessor(
-                entry.Node, CacheOptions.IsEnabled, OutputScale, MaxWorkingScale, diagnostics: null, pool: _pool,
-                renderIntent: RenderIntent)
-            {
-                IsAuxiliaryPull = true,
-            };
+                _pool, entry.Node, CacheOptions.IsEnabled, RenderIntent, OutputScale, MaxWorkingScale,
+                diagnostics: null, pullPurpose: RenderPullPurpose.Auxiliary);
             var arr = processor.PullToRoot();
             try
             {
@@ -452,11 +471,8 @@ public class Renderer : IRenderer
     private Rect CalculateBoundary(Entry entry)
     {
         var processor = new RenderNodeProcessor(
-            entry.Node, CacheOptions.IsEnabled, OutputScale, MaxWorkingScale, diagnostics: null, pool: _pool,
-            renderIntent: RenderIntent)
-        {
-            IsAuxiliaryPull = true,
-        };
+            _pool, entry.Node, CacheOptions.IsEnabled, RenderIntent, OutputScale, MaxWorkingScale,
+            diagnostics: null, pullPurpose: RenderPullPurpose.Auxiliary);
         var ops = processor.PullToRoot();
         Rect bounds = Rect.Empty;
         int consumed = 0;

@@ -20,7 +20,7 @@ internal static class GoldenImageHarness
         using RenderTarget target = RenderTarget.Create(dw, dh)
                                     ?? throw new InvalidOperationException("RenderTarget.Create returned null.");
         // The canvas bakes CreateScale(scale) at construction.
-        using var canvas = new ImmediateCanvas(target, scale, logicalSize: logicalSize.ToSize(1));
+        using var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, scale, logicalSize: logicalSize.ToSize(1));
         canvas.Clear(Colors.Black);
 
         // Layout uses logical frame size; canvas base CTM maps to device surface.
@@ -30,7 +30,7 @@ internal static class GoldenImageHarness
             resource.GetOriginal().Render(ctx, resource);
         }
 
-        var processor = new RenderNodeProcessor(node, useRenderCache: false, outputScale: scale);
+        var processor = new RenderNodeProcessor(node, useRenderCache: false, RenderIntent.Delivery, outputScale: scale);
         RenderNodeOperation[] ops = processor.PullToRoot();
 
         foreach (RenderNodeOperation op in ops)

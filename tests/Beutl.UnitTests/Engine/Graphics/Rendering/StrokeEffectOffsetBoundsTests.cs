@@ -1,6 +1,7 @@
 ﻿using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
+using Beutl.Graphics.Rendering;
 using Beutl.Media;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
@@ -27,7 +28,7 @@ public class StrokeEffectOffsetBoundsTests
 
         var resource = effect.ToResource(CompositionContext.Default);
         // Describe advances the builder's Bounds via the node's forward bounds contract — no GPU needed.
-        var builder = new EffectGraphBuilder(Source, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(Source, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
         resource.GetOriginal().Describe(builder, resource);
         return builder.Bounds;
     }

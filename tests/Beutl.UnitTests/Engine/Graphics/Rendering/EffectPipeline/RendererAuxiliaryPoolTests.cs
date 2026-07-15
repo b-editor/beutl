@@ -36,7 +36,7 @@ public class RendererAuxiliaryPoolTests
                 new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
                 new PixelSize(128, 96));
 
-            using var renderer = new Renderer(128, 96);
+            using var renderer = new Renderer(128, 96, RenderIntent.Delivery);
             renderer.Diagnostics.Reset();
             if (hitTest)
                 renderer.HitTest(frame, new Point(64, 48));
@@ -60,12 +60,8 @@ public class RendererAuxiliaryPoolTests
 }
 
 [SuppressResourceClassGeneration]
-internal sealed partial class PoolProbeEffect : FilterEffect
+internal sealed partial class PoolProbeEffect : CustomRenderNodeFilterEffect
 {
-    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
-    {
-    }
-
     public override Resource ToResource(CompositionContext context)
     {
         var resource = new Resource();
@@ -74,10 +70,13 @@ internal sealed partial class PoolProbeEffect : FilterEffect
         return resource;
     }
 
-    public new sealed class Resource : FilterEffect.Resource
+    public new sealed class Resource : CustomRenderNodeFilterEffect.Resource
     {
+        private static readonly FilterEffectRenderNodeFactory s_factory =
+            FilterEffectRenderNodeFactory.Of<Resource, PoolProbeRenderNode>(static r => new PoolProbeRenderNode(r));
+
         public override FilterEffectRenderNodeFactory RenderNodeFactory
-            => FilterEffectRenderNodeFactory.Of<Resource, PoolProbeRenderNode>(static r => new PoolProbeRenderNode(r));
+            => s_factory;
     }
 }
 

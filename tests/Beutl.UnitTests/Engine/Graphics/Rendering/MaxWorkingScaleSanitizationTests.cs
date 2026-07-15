@@ -95,7 +95,7 @@ public class MaxWorkingScaleSanitizationTests
     [TestCaseSource(nameof(DegenerateCeilings))]
     public void RenderNodeContext_DegenerateCeiling_StoredAsPositiveInfinity(float maxWorkingScale)
     {
-        var context = new RenderNodeContext([], outputScale: 1f, maxWorkingScale: maxWorkingScale);
+        var context = new RenderNodeContext([], RenderIntent.Delivery, outputScale: 1f, maxWorkingScale: maxWorkingScale);
 
         Assert.That(context.MaxWorkingScale, Is.EqualTo(float.PositiveInfinity));
     }
@@ -104,7 +104,8 @@ public class MaxWorkingScaleSanitizationTests
     public void RenderNodeProcessor_DegenerateCeiling_StoredAsPositiveInfinity(float maxWorkingScale)
     {
         var processor = new RenderNodeProcessor(
-            new ContainerRenderNode(), useRenderCache: false, outputScale: 1f, maxWorkingScale: maxWorkingScale);
+            new ContainerRenderNode(), useRenderCache: false, RenderIntent.Delivery,
+            outputScale: 1f, maxWorkingScale: maxWorkingScale);
 
         Assert.That(processor.MaxWorkingScale, Is.EqualTo(float.PositiveInfinity));
     }
@@ -113,7 +114,8 @@ public class MaxWorkingScaleSanitizationTests
     public void RenderNodeProcessor_FinitePositiveCeiling_PassesThrough()
     {
         var processor = new RenderNodeProcessor(
-            new ContainerRenderNode(), useRenderCache: false, outputScale: 1f, maxWorkingScale: 3f);
+            new ContainerRenderNode(), useRenderCache: false, RenderIntent.Delivery,
+            outputScale: 1f, maxWorkingScale: 3f);
 
         Assert.That(processor.MaxWorkingScale, Is.EqualTo(3f));
     }
@@ -122,7 +124,7 @@ public class MaxWorkingScaleSanitizationTests
     public void ImmediateCanvas_DegenerateCeiling_StoredAsPositiveInfinity(float maxWorkingScale)
     {
         using var renderTarget = RenderTarget.CreateNull(1, 1);
-        using var canvas = new ImmediateCanvas(renderTarget, density: 1f, maxWorkingScale: maxWorkingScale);
+        using var canvas = new ImmediateCanvas(renderTarget, RenderIntent.Delivery, density: 1f, maxWorkingScale: maxWorkingScale);
 
         Assert.That(canvas.MaxWorkingScale, Is.EqualTo(float.PositiveInfinity));
     }
@@ -131,7 +133,7 @@ public class MaxWorkingScaleSanitizationTests
     public void ImmediateCanvas_FinitePositiveCeiling_PassesThrough()
     {
         using var renderTarget = RenderTarget.CreateNull(1, 1);
-        using var canvas = new ImmediateCanvas(renderTarget, density: 1f, maxWorkingScale: 3f);
+        using var canvas = new ImmediateCanvas(renderTarget, RenderIntent.Delivery, density: 1f, maxWorkingScale: 3f);
 
         Assert.That(canvas.MaxWorkingScale, Is.EqualTo(3f));
     }
@@ -140,7 +142,8 @@ public class MaxWorkingScaleSanitizationTests
     public void BrushConstructor_DegenerateCeiling_StoredAsPositiveInfinity(float maxWorkingScale)
     {
         var ctor = new BrushConstructor(
-            default, brush: null, BlendMode.SrcOver, scale: 1f, maxWorkingScale: maxWorkingScale);
+            default, brush: null, BlendMode.SrcOver, RenderIntent.Delivery,
+            scale: 1f, maxWorkingScale: maxWorkingScale);
 
         Assert.That(ctor.MaxWorkingScale, Is.EqualTo(float.PositiveInfinity));
     }
@@ -148,7 +151,9 @@ public class MaxWorkingScaleSanitizationTests
     [Test]
     public void BrushConstructor_FinitePositiveCeiling_PassesThrough()
     {
-        var ctor = new BrushConstructor(default, brush: null, BlendMode.SrcOver, scale: 1f, maxWorkingScale: 3f);
+        var ctor = new BrushConstructor(
+            default, brush: null, BlendMode.SrcOver, RenderIntent.Delivery,
+            scale: 1f, maxWorkingScale: 3f);
 
         Assert.That(ctor.MaxWorkingScale, Is.EqualTo(3f));
     }

@@ -23,7 +23,7 @@ public class RendererExceptionSafetyTests
         var disposed = new List<string>();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using var renderer = new Renderer(16, 16);
+            using var renderer = new Renderer(16, 16, RenderIntent.Delivery);
             CompositionFrame frame = CreateFrame(
                 CreateOperation("first", disposed),
                 CreateOperation("fault", disposed, throwOnRender: true),
@@ -43,7 +43,7 @@ public class RendererExceptionSafetyTests
         var disposed = new List<string>();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using var renderer = new Renderer(16, 16);
+            using var renderer = new Renderer(16, 16, RenderIntent.Delivery);
             CompositionFrame frame = CreateFrame(
                 CreateOperation("first", disposed),
                 CreateOperation("fault", disposed, throwOnDispose: true),
@@ -64,7 +64,7 @@ public class RendererExceptionSafetyTests
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using var renderer = new Renderer(16, 16);
+            using var renderer = new Renderer(16, 16, RenderIntent.Delivery);
             var drawable = new RoiAwareBoundsDrawable();
             var resource = (Drawable.Resource)drawable.ToResource(CompositionContext.Default);
             var frame = new CompositionFrame(
@@ -137,7 +137,8 @@ public class RendererExceptionSafetyTests
     }
 }
 
-internal sealed class ThrowingDisposeRenderer(int width, int height) : Renderer(width, height)
+internal sealed class ThrowingDisposeRenderer(int width, int height)
+    : Renderer(width, height, RenderIntent.Delivery)
 {
     protected override void OnDispose(bool disposing)
         => throw new InvalidOperationException("injected renderer disposal failure");

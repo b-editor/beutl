@@ -276,7 +276,8 @@ public static class AvaloniaTypeConverter
                     _drawableBrush.Drawable.GetOriginal()!.Render(context, _drawableBrush.Drawable);
                 }
 
-                var processor = new RenderNodeProcessor(node, false);
+                var processor = new RenderNodeProcessor(
+                    node, false, RenderIntent.Preview, pullPurpose: RenderPullPurpose.Auxiliary);
                 using var bitmap = processor.RasterizeAndConcat();
 
                 var previous = _bitmap;

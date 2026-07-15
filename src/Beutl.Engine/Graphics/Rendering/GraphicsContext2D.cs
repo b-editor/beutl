@@ -613,30 +613,22 @@ public sealed class GraphicsContext2D(
         return new(this, _nodes.Count);
     }
 
-    /// <summary>
-    /// <see cref="PushNode{TNode, TParams}(in TParams, Func{TParams, TNode}, Func{TNode, TParams, bool})"/> for
-    /// callers whose node factory returns an abstract type: the reuse check compares the existing node's runtime
-    /// type against <paramref name="nodeType"/> instead of the generic argument, so a factory-created sealed
-    /// subclass is still reused across re-renders (a recreated node loses its per-node caches). The paired
-    /// <see cref="FilterEffectRenderNodeFactory"/> validates that its declared type and created runtime type match.
-    /// </summary>
-    public PushedState PushNode<TNode, TParams>(in TParams parameters, Type nodeType,
-        Func<TParams, TNode> createNode, Func<TNode, TParams, bool> updateNode)
-        where TNode : ContainerRenderNode
+    internal PushedState PushFilterEffectNode(
+        FilterEffect.Resource resource,
+        FilterEffectRenderNodeFactory factory)
     {
-        ArgumentNullException.ThrowIfNull(nodeType);
-        ArgumentNullException.ThrowIfNull(createNode);
-        ArgumentNullException.ThrowIfNull(updateNode);
+        ArgumentNullException.ThrowIfNull(resource);
+        ArgumentNullException.ThrowIfNull(factory);
 
         RenderNode? peeked = Next();
-        if (peeked is TNode next && peeked.GetType() == nodeType)
+        if (peeked is FilterEffectRenderNode next && factory.Matches(next))
         {
-            _hasChanges = updateNode(next, parameters);
+            _hasChanges = next.Update(resource);
             Push(next);
         }
         else
         {
-            TNode node = createNode(parameters);
+            FilterEffectRenderNode node = factory.Create(resource);
             AddAndPush(node);
         }
 

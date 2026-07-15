@@ -10,7 +10,7 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.EffectPipeline;
 
 /// <summary>
 /// Regression (raster, GPU-less) for the shrink-intersection gating (feature 004, §C3.5): a linear non-invariant
-/// pass fed by a render-time-resolved predecessor that emits a SHIFTED op (a dynamic CustomRenderNode / NestedGraph
+/// pass fed by a full-frame predecessor that emits a SHIFTED op (a dynamic CustomRenderNode / NestedGraph
 /// translating its output) must size its output from the ACTUAL shifted op's forward map, not from the stale
 /// frame-start ROI. The engage condition originally fired for any op that did not contain the resolver's expected
 /// input — which is true for a shift as well as a shrink — and intersected the shifted forward with the stale ROI,
@@ -47,7 +47,7 @@ public class ShiftedDynamicPredecessorBoundsTests
 
         FilterEffect.Resource resource = group.ToResource(CompositionContext.Default);
         using var node = new PlanFilterEffectRenderNode(resource);
-        var context = new RenderNodeContext([MakeContentRect(s_bounds)]);
+        var context = new RenderNodeContext([MakeContentRect(s_bounds)], RenderIntent.Delivery);
 
         RenderNodeOperation[] ops = node.Process(context);
         try
@@ -78,7 +78,7 @@ public class ShiftedDynamicPredecessorBoundsTests
             hitTest: bounds.Contains);
 }
 
-// A custom-render-node effect (the dynamic-outputs, render-time-resolved primitive) whose node translates every
+// A custom-render-node effect (the dynamic-outputs, full-frame primitive) whose node translates every
 // input op by a fixed shift, reproducing a NodeGraph/CustomRenderNode predecessor that moves its content.
 [SuppressResourceClassGeneration]
 internal sealed partial class ShiftingCustomNodeEffect(Point shift) : CustomRenderNodeFilterEffect
@@ -93,10 +93,13 @@ internal sealed partial class ShiftingCustomNodeEffect(Point shift) : CustomRend
 
     public new sealed class Resource(Point shift) : CustomRenderNodeFilterEffect.Resource
     {
+        private static readonly FilterEffectRenderNodeFactory s_factory =
+            FilterEffectRenderNodeFactory.Of<Resource, ShiftingRenderNode>(static r => new ShiftingRenderNode(r));
+
         public Point Shift => shift;
 
         public override FilterEffectRenderNodeFactory RenderNodeFactory
-            => FilterEffectRenderNodeFactory.Of<Resource, ShiftingRenderNode>(static r => new ShiftingRenderNode(r));
+            => s_factory;
     }
 }
 

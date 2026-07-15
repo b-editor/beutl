@@ -32,13 +32,13 @@ public class NestedGraphExceptionLeakTests
         var nested = NestedGraphNodeDescriptor.Create(
             (_, _) => throw new InvalidOperationException("NestedGraph: simulated describe failure"),
             structuralToken: "leak-probe");
-        using EffectGraph graph = new EffectGraphBuilder(s_bounds, 1f, 1f).NestedGraph(nested).Build();
+        using EffectGraph graph = new EffectGraphBuilder(s_bounds, 1f, 1f, RenderIntent.Delivery).NestedGraph(nested).Build();
         CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
         FrameResources res = EffectGraphCompiler.ResolveResources(plan, s_bounds, workingScale: 1f);
 
         Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
             plan, res, [input], outputScale: 1f, workingScale: 1f,
-            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool));
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool, renderIntent: RenderIntent.Delivery));
 
         Assert.That(pool.LiveLeaseCount, Is.EqualTo(0),
             "a nested-graph branch whose describe throws must still dispose the input, returning its pooled lease");

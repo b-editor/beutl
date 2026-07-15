@@ -122,7 +122,7 @@ public class GLSLShaderTests
             using var sourceRenderTarget = RenderTarget.Create(4, 4);
             Assume.That(sourceRenderTarget, Is.Not.Null);
             Assume.That(sourceRenderTarget!.Texture, Is.Not.Null);
-            using (var canvas = new ImmediateCanvas(sourceRenderTarget))
+            using (var canvas = new ImmediateCanvas(sourceRenderTarget, RenderIntent.Delivery))
             {
                 canvas.Clear(Colors.Red);
             }

@@ -22,7 +22,12 @@ public sealed record SkiaFilterNodeDescriptor : EffectNodeDescriptor
         StructuralToken = structuralToken;
     }
 
-    /// <summary>Composes this node's <c>SKImageFilter</c> over the <paramref name="inner"/> upstream filter. Called at execution time.</summary>
+    /// <summary>
+    /// Composes this node over a borrowed <paramref name="inner"/> filter. The callback must not dispose or retain
+    /// <paramref name="inner"/>. Returning null or the same instance is identity; a different result transfers one
+    /// fresh, independently disposable owned reference to the executor. Execution may invoke the factory more than
+    /// once per frame after fan-out, so cached results are invalid.
+    /// </summary>
     public Func<SKImageFilter?, SKImageFilter?> Factory { get; }
 
     /// <summary>Identity of the filter <em>kind</em> for the structural key. Tokens share a plan only when their
@@ -37,15 +42,16 @@ public sealed record SkiaFilterNodeDescriptor : EffectNodeDescriptor
 
     /// <summary>
     /// Builds a Skia-filter node from a filter-composing factory and its bounds contract. The backward bounds
-    /// SHOULD cover the region the filter samples (a blur reads its inflation radius); when unknown, pass a
-    /// render-time contract and the compiler falls back to the full input bounds. <paramref name="structuralToken"/>
-    /// defaults to the factory's method identity.
+    /// SHOULD cover the region the filter samples (a blur reads its inflation radius); when unknown, pass
+    /// <see cref="BoundsContract.FullFrame"/> so the compiler uses the complete input. <paramref name="structuralToken"/>
+    /// defaults to the factory's method identity. The factory ownership rules documented on <see cref="Factory"/>
+    /// apply to every invocation.
     /// </summary>
     public static SkiaFilterNodeDescriptor Create(
         Func<SKImageFilter?, SKImageFilter?> factory, BoundsContract bounds, object? structuralToken = null)
     {
         ArgumentNullException.ThrowIfNull(factory);
         bounds.ThrowIfUninitialized(nameof(bounds));
-        return new SkiaFilterNodeDescriptor(factory, bounds, structuralToken ?? factory.Method.MethodHandle.Value);
+        return new SkiaFilterNodeDescriptor(factory, bounds, structuralToken ?? factory.Method);
     }
 }

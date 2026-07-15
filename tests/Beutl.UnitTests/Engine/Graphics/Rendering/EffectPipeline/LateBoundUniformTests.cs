@@ -73,7 +73,7 @@ public class LateBoundUniformTests
             BoundsContract.Create(static r => r.Inflate(new Thickness(0, 0, 20, 0)), static r => r),
             u => u.Deferred("probe", static (b, name, ctx) => b.Uniforms[name] = ctx.TargetWidth * 0.5f));
 
-        var builder = new EffectGraphBuilder(inputBounds, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(inputBounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
         builder.Shader(descriptor);
         using EffectGraph graph = builder.Build();
         using var pool = new RenderTargetPool();
@@ -83,13 +83,13 @@ public class LateBoundUniformTests
 
         RenderNodeOperation[] ops = PlanExecutor.Execute(
             plan, frame, [OpaqueInput(inputBounds)], outputScale: 1f, workingScale: 1f,
-            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool);
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool, renderIntent: RenderIntent.Delivery);
         try
         {
             Rect outBounds = ops[0].Bounds;
             var size = PixelRect.FromRect(outBounds);
             using RenderTarget target = RenderTarget.Create(size.Width, size.Height)!;
-            using (var canvas = new ImmediateCanvas(target, 1f, logicalSize: outBounds.Size))
+            using (var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 1f, logicalSize: outBounds.Size))
             {
                 canvas.Clear();
                 using (canvas.PushTransform(Matrix.CreateTranslation(-outBounds.X, -outBounds.Y)))
@@ -179,7 +179,7 @@ public class LateBoundUniformTests
                 }),
             ]);
 
-        var builder = new EffectGraphBuilder(inputBounds, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(inputBounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
         builder.Shader(descriptor);
         using EffectGraph graph = builder.Build();
         using var pool = new RenderTargetPool();
@@ -189,7 +189,7 @@ public class LateBoundUniformTests
 
         RenderNodeOperation[] ops = PlanExecutor.Execute(
             plan, frame, [OpaqueInput(inputBounds)], outputScale: 1f, workingScale: 1f,
-            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool);
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool, renderIntent: RenderIntent.Delivery);
         try
         {
             Assert.Multiple(() =>
@@ -213,7 +213,9 @@ public class LateBoundUniformTests
     [Test]
     public void ChildBinding_Deferred_ResolvesExecutorOwnedWithContext_EagerStaysCallerOwned()
     {
-        var ctx = new PassUniformContext(0.5f, 60, 40, new Rect(10, 20, 120, 80));
+        var ctx = new PassUniformContext(
+            0.5f, 60, 40, new Rect(10, 20, 120, 80),
+            RenderIntent.Delivery, RenderPullPurpose.Frame);
 
         PassUniformContext seen = default;
         using SKShader deferredProduct = SKShader.CreateColor(SKColors.Red);
@@ -280,7 +282,7 @@ public class LateBoundUniformTests
         string source, Rect inputBounds, Action<UniformBindingBuilder>? uniforms)
     {
         var descriptor = ShaderNodeDescriptor.WholeSource(source, BoundsContract.Identity, uniforms);
-        var builder = new EffectGraphBuilder(inputBounds, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(inputBounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
         builder.Shader(descriptor);
         using EffectGraph graph = builder.Build();
         using var pool = new RenderTargetPool();
@@ -288,13 +290,13 @@ public class LateBoundUniformTests
         FrameResources frame = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale: 1f);
         RenderNodeOperation[] ops = PlanExecutor.Execute(
             plan, frame, [OpaqueInput(inputBounds)], outputScale: 1f, workingScale: 1f,
-            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool);
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool, renderIntent: RenderIntent.Delivery);
         try
         {
             Rect outBounds = ops[0].Bounds;
             var size = PixelRect.FromRect(outBounds);
             using RenderTarget target = RenderTarget.Create(size.Width, size.Height)!;
-            using (var canvas = new ImmediateCanvas(target, 1f, logicalSize: outBounds.Size))
+            using (var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 1f, logicalSize: outBounds.Size))
             {
                 canvas.Clear();
                 using (canvas.PushTransform(Matrix.CreateTranslation(-outBounds.X, -outBounds.Y)))
@@ -317,7 +319,7 @@ public class LateBoundUniformTests
     private static Bitmap RenderSingleEffectClamped(
         FilterEffect effect, RenderNodeOperation input, Rect inputBounds, float boundaryScale, int maxDimension)
     {
-        var builder = new EffectGraphBuilder(inputBounds, outputScale: 1f, workingScale: boundaryScale);
+        var builder = new EffectGraphBuilder(inputBounds, outputScale: 1f, workingScale: boundaryScale, renderIntent: RenderIntent.Delivery);
         effect.Describe(builder, (FilterEffect.Resource)(object)effect.ToResource(CompositionContext.Default));
 
         using EffectGraph graph = builder.Build();
@@ -326,13 +328,13 @@ public class LateBoundUniformTests
         FrameResources frame = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, boundaryScale, maxDimension);
         RenderNodeOperation[] ops = PlanExecutor.Execute(
             plan, frame, [input], outputScale: 1f, workingScale: boundaryScale,
-            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool);
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool, renderIntent: RenderIntent.Delivery);
         try
         {
             Rect outBounds = ops[0].Bounds;
             var size = PixelRect.FromRect(outBounds);
             using RenderTarget target = RenderTarget.Create(size.Width, size.Height)!;
-            using (var canvas = new ImmediateCanvas(target, 1f, logicalSize: outBounds.Size))
+            using (var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 1f, logicalSize: outBounds.Size))
             {
                 canvas.Clear();
                 using (canvas.PushTransform(Matrix.CreateTranslation(-outBounds.X, -outBounds.Y)))

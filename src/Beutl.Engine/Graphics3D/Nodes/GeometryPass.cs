@@ -1,6 +1,7 @@
 ﻿using System.Numerics;
 using Beutl.Composition;
 using Beutl.Graphics.Backend;
+using Beutl.Graphics.Rendering;
 using Beutl.Graphics3D.Lighting;
 using Beutl.Graphics3D.Materials;
 using Beutl.Media;
@@ -104,6 +105,8 @@ public sealed class GeometryPass : GraphicsNode3D
         IReadOnlyList<LightData> lightDataList,
         Color ambientColor,
         float ambientIntensity,
+        RenderIntent renderIntent,
+        RenderPullPurpose pullPurpose,
         float surfaceDensity = 1f)
     {
         if (Framebuffer == null || RenderPass == null)
@@ -120,6 +123,8 @@ public sealed class GeometryPass : GraphicsNode3D
             ambientColor.ToLinearPremultiplied().AsVector3() * ambientIntensity,
             lightDataList,
             compositionContext,
+            renderIntent,
+            pullPurpose,
             surfaceDensity);
 
         // Clear colors for G-Buffer (black/zero for most, except normal which should be (0,0,1) for up)

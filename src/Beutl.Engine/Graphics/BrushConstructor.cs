@@ -9,9 +9,9 @@ using SkiaSharp;
 namespace Beutl.Graphics;
 
 public readonly struct BrushConstructor(
-    Rect bounds, Brush.Resource? brush, BlendMode blendMode, float scale = 1f,
+    Rect bounds, Brush.Resource? brush, BlendMode blendMode, RenderIntent renderIntent, float scale = 1f,
     float maxWorkingScale = float.PositiveInfinity, PipelineDiagnostics? diagnostics = null,
-    RenderIntent? renderIntent = null)
+    RenderPullPurpose pullPurpose = RenderPullPurpose.Frame)
 {
     private static readonly ILogger s_logger = Log.CreateLogger("BrushConstructor");
 
@@ -31,7 +31,12 @@ public readonly struct BrushConstructor(
     public float MaxWorkingScale { get; } = RenderNodeContext.SanitizeMaxWorkingScale(maxWorkingScale);
 
     /// <summary>Explicit preview/delivery failure policy for nested brush allocations.</summary>
-    public RenderIntent RenderIntent { get; } = RenderIntentResolver.Resolve(renderIntent, maxWorkingScale);
+    public RenderIntent RenderIntent { get; } =
+        RenderPolicyValidation.Validate(renderIntent, nameof(renderIntent));
+
+    /// <summary>The pull purpose forwarded into nested drawable-brush rendering.</summary>
+    public RenderPullPurpose PullPurpose { get; } =
+        RenderPolicyValidation.Validate(pullPurpose, nameof(pullPurpose));
 
     /// <summary>
     /// The owning renderer's effect-pipeline counters when this brush is constructed <em>during effect
@@ -73,7 +78,7 @@ public readonly struct BrushConstructor(
         if (Brush is BrushPresenter.Resource presenter && presenter.Target != null)
         {
             new BrushConstructor(
-                Bounds, presenter.Target, BlendMode, Scale, MaxWorkingScale, Diagnostics, RenderIntent)
+                Bounds, presenter.Target, BlendMode, RenderIntent, Scale, MaxWorkingScale, Diagnostics, PullPurpose)
                 .ConfigurePaint(paint);
             return;
         }
@@ -112,7 +117,7 @@ public readonly struct BrushConstructor(
         if (Brush is BrushPresenter.Resource presenter && presenter.Target != null)
         {
             return new BrushConstructor(
-                Bounds, presenter.Target, BlendMode, Scale, MaxWorkingScale, Diagnostics, RenderIntent)
+                Bounds, presenter.Target, BlendMode, RenderIntent, Scale, MaxWorkingScale, Diagnostics, PullPurpose)
                 .CreateShader();
         }
 
@@ -296,7 +301,8 @@ public readonly struct BrushConstructor(
             // drawable then counts on IRenderer.Diagnostics (FR-017) instead of a throwaway instance. The pool is
             // deliberately withheld — see the Diagnostics doc (FR-007 static peak-live bound).
             var processor = new RenderNodeProcessor(
-                node, true, s, MaxWorkingScale, Diagnostics, renderIntent: RenderIntent);
+                node, true, RenderIntent, s, MaxWorkingScale, Diagnostics,
+                pullPurpose: PullPurpose);
             var ops = processor.RasterizeToRenderTargets();
             var totalBounds = ops.Aggregate(Rect.Empty, (current, item) => current.Union(item.Bounds));
 
@@ -320,7 +326,7 @@ public readonly struct BrushConstructor(
 
             // Density 1: raw device-px blits with hand-computed offsets (no base CTM re-scale).
             using (var icanvas = new ImmediateCanvas(
-                       renderTarget, 1f, MaxWorkingScale, renderIntent: RenderIntent))
+                       renderTarget, RenderIntent, 1f, MaxWorkingScale, pullPurpose: PullPurpose))
             {
                 icanvas.Clear();
 
@@ -364,7 +370,7 @@ public readonly struct BrushConstructor(
 
             // Density 1: the SetMatrix below builds an absolute device matrix with Scale(s) folded in.
             using (var canvas = new ImmediateCanvas(
-                       intermediate, 1f, MaxWorkingScale, renderIntent: RenderIntent))
+                       intermediate, RenderIntent, 1f, MaxWorkingScale, pullPurpose: PullPurpose))
             using (var paintTmp = new SKPaint())
             {
                 canvas.Canvas.Clear();

@@ -55,7 +55,7 @@ public class PositionAnchoredCropTests
         AssertKeptRegionMatchesUncropped(effect, tolerance: 3.0, GradientInput);
     }
 
-    // AutoClip tightens its operation to an offset content rect at render time, while the following RenderTime brush
+    // AutoClip tightens its operation to an offset content rect at render time, while the following FullFrame brush
     // blend keeps the full resolved session bounds. The input blit must bridge those origins instead of moving the
     // tightened pixels to the session's top-left corner.
     [Test]
@@ -211,7 +211,7 @@ public class PositionAnchoredCropTests
             Length = { CurrentValue = 40 },
         };
 
-        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
         effect.Describe(builder, (FilterEffect.Resource)(object)effect.ToResource(CompositionContext.Default));
         using EffectGraph graph = builder.Build();
         CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
@@ -267,7 +267,7 @@ public class PositionAnchoredCropTests
     private static Rect ClipBackward(bool autoCenter, Rect requested)
     {
         var clip = new Clipping { Left = { CurrentValue = 40 }, AutoCenter = { CurrentValue = autoCenter } };
-        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
         clip.Describe(builder, (FilterEffect.Resource)(object)clip.ToResource(CompositionContext.Default));
         using EffectGraph graph = builder.Build();
         CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
@@ -301,7 +301,7 @@ public class PositionAnchoredCropTests
     private static Bitmap RenderChain(
         FilterEffect[] effects, Func<RenderNodeOperation> input, Rect requestedBounds, bool clearTransparent = false)
     {
-        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
         foreach (FilterEffect effect in effects)
             effect.Describe(builder, (FilterEffect.Resource)(object)effect.ToResource(CompositionContext.Default));
 
@@ -311,11 +311,11 @@ public class PositionAnchoredCropTests
         FrameResources frame = EffectGraphCompiler.ResolveResources(plan, requestedBounds, workingScale: 1f);
         RenderNodeOperation[] ops = PlanExecutor.Execute(
             plan, frame, [input()], outputScale: 1f, workingScale: 1f,
-            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool);
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: pool, renderIntent: RenderIntent.Delivery);
 
         int w = (int)s_bounds.Width, h = (int)s_bounds.Height;
         using RenderTarget target = RenderTarget.Create(w, h)!;
-        using (var canvas = new ImmediateCanvas(target, 1f, logicalSize: s_bounds.Size))
+        using (var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 1f, logicalSize: s_bounds.Size))
         {
             canvas.Clear(clearTransparent ? Colors.Transparent : Colors.Black);
             foreach (RenderNodeOperation op in ops)

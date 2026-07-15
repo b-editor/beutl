@@ -189,7 +189,7 @@ public class EffectMigrationParityTests
     private static Bitmap RenderChain(IReadOnlyList<FilterEffect> effects)
     {
         RenderNodeOperation[] inputs = [MakeSemitransparentInput(s_bounds)];
-        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f);
+        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
         foreach (FilterEffect effect in effects)
         {
             FilterEffect.Resource resource = Capture(effect);
@@ -201,7 +201,7 @@ public class EffectMigrationParityTests
         FrameResources frame = EffectGraphCompiler.ResolveResources(plan, s_bounds, workingScale: 1f);
         RenderNodeOperation[] outputs = PlanExecutor.Execute(
             plan, frame, inputs, outputScale: 1f, workingScale: 1f,
-            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null);
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null, renderIntent: RenderIntent.Delivery);
 
         return Rasterize(outputs, s_bounds);
     }
@@ -248,7 +248,7 @@ public class EffectMigrationParityTests
         var size = PixelRect.FromRect(bounds);
         using RenderTarget target = RenderTarget.Create(size.Width, size.Height)
             ?? throw new InvalidOperationException("RenderTarget.Create returned null.");
-        using (var canvas = new ImmediateCanvas(target, 1f, logicalSize: bounds.Size))
+        using (var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 1f, logicalSize: bounds.Size))
         {
             canvas.Clear();
             using (canvas.PushTransform(Matrix.CreateTranslation(-bounds.X, -bounds.Y)))

@@ -29,20 +29,27 @@ public sealed partial class DrawableTextureSource : TextureSource
 
     public partial class Resource
     {
-        private DrawableRenderNode? _drawableNode;
-        private RenderTarget? _renderTarget;
-        private int _renderTargetVersion = -1;
-        private int _lastWidth;
-        private int _lastHeight;
-        private float _lastDensity = -1f;
+        private readonly TextureCache _frameCache = new();
+        private readonly TextureCache _auxiliaryCache = new();
 
-        public override ITexture2D? GetTexture(IGraphicsContext graphicsContext, float surfaceDensity = 1f)
+        public override ITexture2D? GetTexture(
+            IGraphicsContext graphicsContext,
+            RenderIntent renderIntent,
+            RenderPullPurpose pullPurpose,
+            float surfaceDensity = 1f)
         {
+            renderIntent = RenderPolicyValidation.Validate(renderIntent, nameof(renderIntent));
+            pullPurpose = RenderPolicyValidation.Validate(pullPurpose, nameof(pullPurpose));
             if (Drawable == null)
             {
-                DisposeRenderTarget();
+                _frameCache.Dispose();
+                _auxiliaryCache.Dispose();
                 return null;
             }
+
+            TextureCache cache = pullPurpose == RenderPullPurpose.Auxiliary
+                ? _auxiliaryCache
+                : _frameCache;
 
             // Rasterize at surfaceDensity so vector content stays crisp.
             int textureWidth = TextureWidth;
@@ -53,54 +60,92 @@ public sealed partial class DrawableTextureSource : TextureSource
             int deviceWidth = Math.Max(1, (int)Math.Ceiling(textureWidth * (double)density));
             int deviceHeight = Math.Max(1, (int)Math.Ceiling(textureHeight * (double)density));
 
-            if (_lastWidth != deviceWidth || _lastHeight != deviceHeight || _renderTarget == null)
+            if (cache.Width != deviceWidth || cache.Height != deviceHeight || cache.RenderTarget == null)
             {
-                DisposeRenderTarget();
+                cache.DisposeRenderTarget();
 
-                _renderTarget = RenderTarget.Create(deviceWidth, deviceHeight);
-                if (_renderTarget == null) return null;
+                cache.RenderTarget = RenderTarget.Create(deviceWidth, deviceHeight);
+                if (cache.RenderTarget == null)
+                {
+                    if (renderIntent == RenderIntent.Delivery)
+                    {
+                        throw new InvalidOperationException(
+                            $"Drawable texture allocation failed ({deviceWidth}x{deviceHeight} px, density {density}).");
+                    }
 
-                _lastWidth = deviceWidth;
-                _lastHeight = deviceHeight;
-                _renderTargetVersion = -1; // force a re-render into the resized target
+                    return null;
+                }
+
+                cache.Width = deviceWidth;
+                cache.Height = deviceHeight;
+                cache.RenderTargetVersion = -1; // force a re-render into the resized target
             }
 
             // Re-render on content change or density change.
-            if (_renderTargetVersion != Version || _lastDensity != density)
+            if (cache.RenderTargetVersion != Version || cache.Density != density)
             {
-                _lastDensity = density;
-                _drawableNode ??= new DrawableRenderNode(Drawable);
-                _drawableNode.Update(Drawable);
+                cache.Density = density;
+                cache.DrawableNode ??= new DrawableRenderNode(Drawable);
+                cache.DrawableNode.Update(Drawable);
                 using (var context = new GraphicsContext2D(
-                           _drawableNode, new Size(textureWidth, textureHeight), density))
+                           cache.DrawableNode, new Size(textureWidth, textureHeight), density))
                 {
                     Drawable.GetOriginal().Render(context, Drawable);
                 }
 
-                var processor = new RenderNodeProcessor(_drawableNode, true, density, density);
-                using (var canvas = new ImmediateCanvas(_renderTarget, density, density))
+                var processor = new RenderNodeProcessor(
+                    cache.DrawableNode, true, renderIntent, density, density, pullPurpose: pullPurpose);
+                using (var canvas = new ImmediateCanvas(
+                           cache.RenderTarget, renderIntent, density, density, pullPurpose: pullPurpose))
                 {
                     canvas.Clear();
                     processor.Render(canvas);
                 }
 
                 // Prepare for sampling (flush the surface)
-                _renderTarget.PrepareForSampling();
-                _renderTargetVersion = Version;
+                cache.RenderTarget.PrepareForSampling();
+                cache.RenderTargetVersion = Version;
             }
 
-            return _renderTarget?.Texture;
-        }
-
-        private void DisposeRenderTarget()
-        {
-            _renderTarget?.Dispose();
-            _renderTarget = null;
+            return cache.RenderTarget?.Texture;
         }
 
         partial void PostDispose(bool disposing)
         {
-            DisposeRenderTarget();
+            _frameCache.Dispose();
+            _auxiliaryCache.Dispose();
+        }
+
+        private sealed class TextureCache : IDisposable
+        {
+            public DrawableRenderNode? DrawableNode { get; set; }
+
+            public RenderTarget? RenderTarget { get; set; }
+
+            public int RenderTargetVersion { get; set; } = -1;
+
+            public int Width { get; set; }
+
+            public int Height { get; set; }
+
+            public float Density { get; set; } = -1f;
+
+            public void DisposeRenderTarget()
+            {
+                RenderTarget?.Dispose();
+                RenderTarget = null;
+            }
+
+            public void Dispose()
+            {
+                DisposeRenderTarget();
+                DrawableNode?.Dispose();
+                DrawableNode = null;
+                RenderTargetVersion = -1;
+                Width = 0;
+                Height = 0;
+                Density = -1f;
+            }
         }
     }
 }

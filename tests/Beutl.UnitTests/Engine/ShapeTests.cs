@@ -30,7 +30,7 @@ public class ShapeTests
         var resource = shape.ToResource(CompositionContext.Default);
 
         using var renderTarget = RenderTarget.Create(250, 250)!;
-        using var canvas = new ImmediateCanvas(renderTarget);
+        using var canvas = new ImmediateCanvas(renderTarget, RenderIntent.Delivery);
 
         canvas.Clear(Colors.Black);
         canvas.DrawDrawable(resource);
@@ -60,7 +60,7 @@ public class ShapeTests
         var resource = shape.ToResource(CompositionContext.Default);
 
         using var renderTarget = RenderTarget.Create(250, 250)!;
-        using var canvas = new ImmediateCanvas(renderTarget);
+        using var canvas = new ImmediateCanvas(renderTarget, RenderIntent.Delivery);
 
         canvas.Clear(Colors.Black);
 
@@ -84,7 +84,7 @@ public class ShapeTests
         var resource = shape.ToResource(CompositionContext.Default);
 
         using var renderTarget = RenderTarget.Create(250, 250)!;
-        using var canvas = new ImmediateCanvas(renderTarget);
+        using var canvas = new ImmediateCanvas(renderTarget, RenderIntent.Delivery);
 
         canvas.Clear(Colors.Black);
         canvas.DrawDrawable(resource);
@@ -108,7 +108,7 @@ public class ShapeTests
         var resource = shape.ToResource(CompositionContext.Default);
 
         using var renderTarget = RenderTarget.Create(250, 250)!;
-        using var canvas = new ImmediateCanvas(renderTarget);
+        using var canvas = new ImmediateCanvas(renderTarget, RenderIntent.Delivery);
 
         canvas.Clear(Colors.Black);
         canvas.DrawDrawable(resource);
@@ -141,7 +141,7 @@ public class ShapeTests
         var resource = shape.ToResource(CompositionContext.Default);
 
         using var renderTarget = RenderTarget.Create(250, 250)!;
-        using var canvas = new ImmediateCanvas(renderTarget);
+        using var canvas = new ImmediateCanvas(renderTarget, RenderIntent.Delivery);
 
         canvas.Clear(Colors.Black);
         canvas.DrawDrawable(resource);
@@ -183,7 +183,7 @@ public class ShapeTests
         resource.Update(shape, CompositionContext.Default, ref updateOnly);
 
         using var renderTarget = RenderTarget.Create(250, 250)!;
-        using var canvas = new ImmediateCanvas(renderTarget);
+        using var canvas = new ImmediateCanvas(renderTarget, RenderIntent.Delivery);
 
         canvas.Clear(Colors.Black);
         canvas.DrawDrawable(resource);
@@ -240,7 +240,7 @@ public class ShapeTests
         resource.Update(shape, CompositionContext.Default, ref updateOnly);
 
         using var renderTarget = RenderTarget.Create(250, 250)!;
-        using var canvas = new ImmediateCanvas(renderTarget);
+        using var canvas = new ImmediateCanvas(renderTarget, RenderIntent.Delivery);
 
         canvas.Clear(Colors.Black);
         canvas.DrawDrawable(resource);

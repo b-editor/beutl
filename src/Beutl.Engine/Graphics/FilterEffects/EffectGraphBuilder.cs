@@ -31,15 +31,17 @@ public sealed class EffectGraphBuilder
     }
 
     internal EffectGraphBuilder(
-        Rect bounds, float outputScale, float workingScale, float maxWorkingScale = float.PositiveInfinity,
-        NestedGraphPlanCache? nestedPlanCache = null, RenderIntent? renderIntent = null)
+        Rect bounds, float outputScale, float workingScale, RenderIntent renderIntent,
+        float maxWorkingScale = float.PositiveInfinity, NestedGraphPlanCache? nestedPlanCache = null,
+        RenderPullPurpose pullPurpose = RenderPullPurpose.Frame)
     {
         OriginalBounds = bounds;
         Bounds = bounds;
         OutputScale = outputScale;
         WorkingScale = workingScale;
         MaxWorkingScale = maxWorkingScale;
-        RenderIntent = RenderIntentResolver.Resolve(renderIntent, maxWorkingScale);
+        RenderIntent = RenderPolicyValidation.Validate(renderIntent, nameof(renderIntent));
+        PullPurpose = RenderPolicyValidation.Validate(pullPurpose, nameof(pullPurpose));
         _nestedPlanCache = nestedPlanCache ?? new NestedGraphPlanCache();
     }
 
@@ -60,6 +62,9 @@ public sealed class EffectGraphBuilder
 
     /// <summary>Explicit preview/delivery failure policy for deferred authoring resources.</summary>
     public RenderIntent RenderIntent { get; }
+
+    /// <summary>The pull purpose for deferred authoring resources and nested work.</summary>
+    public RenderPullPurpose PullPurpose { get; }
 
     // A later built-in split cannot derive an exact static branch count from the graph-level Bounds after a
     // preceding fan-out: execution receives each branch's own bounds, which may be smaller or even sub-pixel.
@@ -95,8 +100,8 @@ public sealed class EffectGraphBuilder
     }
 
     /// <summary>
-    /// Appends an imperative geometry node from a raw draw callback, defaulting to the render-time bounds contract
-    /// (full-frame, always correct — a script author rarely can declare exact bounds at describe time). The callback
+    /// Appends an imperative geometry node from a raw draw callback, defaulting to the full-frame bounds contract
+    /// (always correct — a script author rarely can declare exact bounds at describe time). The callback
     /// receives a <see cref="GeometrySession"/> over a freshly-cleared pooled output buffer; to keep the pass input
     /// as a passthrough baseline, draw <c>session.Inputs[0]</c> into the canvas first. Pass an explicit
     /// <paramref name="bounds"/> contract when the geometry's extent is known, and set
@@ -110,7 +115,7 @@ public sealed class EffectGraphBuilder
     {
         ArgumentNullException.ThrowIfNull(render);
         return Append(GeometryNodeDescriptor.Create(
-            render, bounds ?? BoundsContract.RenderTime, structuralToken, requiresReadback));
+            render, bounds ?? BoundsContract.FullFrame, structuralToken, requiresReadback));
     }
 
     /// <summary>Appends a Vulkan compute node (GLSL pass set, ping-pong scratch, declared no-Vulkan fallback).</summary>
@@ -151,9 +156,8 @@ public sealed class EffectGraphBuilder
     {
         ArgumentNullException.ThrowIfNull(child);
         ThrowIfNotOpen();
-        FilterEffectRenderNodeFactory factory = child.RenderNodeFactory
-            ?? throw new InvalidOperationException("A filter effect returned a null render-node factory.");
-        if (factory.NodeType == typeof(PlanFilterEffectRenderNode))
+        (FilterEffectRenderNodeFactory factory, bool canInline) = child.ResolveRenderNodeFactory();
+        if (canInline)
         {
             child.GetOriginal().Describe(this, child);
             return this;
@@ -248,9 +252,7 @@ public sealed class EffectGraphBuilder
     {
         ThrowIfNotOpen();
         Rect input = Bounds;
-        Rect output = descriptor.Bounds.IsRenderTimeResolved
-            ? Rect.Invalid
-            : descriptor.Bounds.TransformBounds(input);
+        Rect output = descriptor.Bounds.TransformBounds(input);
         int ordinal = _nodes.Count;
         NestedGraphNodePlanCache? nestedCache = null;
         if (descriptor is NestedGraphNodeDescriptor)
@@ -639,7 +641,7 @@ public sealed class EffectGraphBuilder
 
         return Geometry(GeometryNodeDescriptor.Create(
             session => ApplyBrushBlend(session, brush, blendMode),
-            BoundsContract.RenderTime,
+            BoundsContract.FullFrame,
             structuralToken: "BlendModeBrush"));
     }
 
@@ -692,8 +694,8 @@ public sealed class EffectGraphBuilder
         Size size = session.Bounds.Size;
 
         var constructor = new BrushConstructor(
-            new Rect(size), brush, blendMode, w, session.MaxWorkingScale, session.Diagnostics,
-            session.RenderIntent);
+            new Rect(size), brush, blendMode, session.RenderIntent, w,
+            session.MaxWorkingScale, session.Diagnostics, session.PullPurpose);
         using var brushPaint = new SKPaint();
         constructor.ConfigurePaint(brushPaint);
 
