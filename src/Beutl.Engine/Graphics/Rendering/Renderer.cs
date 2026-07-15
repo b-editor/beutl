@@ -193,41 +193,62 @@ public class Renderer : IRenderer
         }
         else
         {
-            shouldRender = entry.Node.Update(resource);
+            bool resourceChanged = entry.Node.Update(resource);
+            shouldRender = resourceChanged || entry.Node.HasChanges;
         }
 
-        if (shouldRender)
-        {
-            using var ctx = new GraphicsContext2D(entry.Node, FrameSize.ToSize(1), OutputScale);
-            drawable.Render(ctx, resource);
-        }
-
-        RevalidateAll(entry.Node);
-        var processor = new RenderNodeProcessor(entry.Node, CacheOptions.IsEnabled, OutputScale, MaxWorkingScale);
-        var ops = processor.PullToRoot();
-        Rect bounds = Rect.Empty;
-        int consumed = 0;
         try
         {
-            foreach (var op in ops)
+            if (shouldRender)
             {
-                op.Render(_immediateCanvas);
-                bounds = bounds.Union(op.Bounds);
-                // consumed++ trails op.Bounds (a throw site) so a throw before op.Dispose leaves
-                // this op in the cleanup sweep below.
-                consumed++;
-                op.Dispose();
+                using var ctx = new GraphicsContext2D(entry.Node, FrameSize.ToSize(1), OutputScale);
+                drawable.Render(ctx, resource);
             }
+
+            RevalidateAll(entry.Node);
+            var processor = new RenderNodeProcessor(entry.Node, CacheOptions.IsEnabled, OutputScale, MaxWorkingScale);
+            var ops = processor.PullToRoot();
+            Rect bounds = Rect.Empty;
+            int consumed = 0;
+            try
+            {
+                foreach (var op in ops)
+                {
+                    op.Render(_immediateCanvas);
+                    bounds = bounds.Union(op.Bounds);
+                    // consumed++ trails op.Bounds (a throw site) so a throw before op.Dispose leaves
+                    // this op in the cleanup sweep below.
+                    consumed++;
+                    op.Dispose();
+                }
+            }
+            catch
+            {
+                RenderNodeOperation.DisposeAll(ops.AsSpan(consumed));
+                throw;
+            }
+
+            entry.Bounds = bounds;
+            RenderNodeCacheHelper.MakeCache(entry.Node, CacheOptions, OutputScale, MaxWorkingScale);
+            return entry;
         }
         catch
         {
-            RenderNodeOperation.DisposeAll(ops.AsSpan(consumed));
+            // RevalidateAll clears HasChanges before the operations execute. If any later stage
+            // fails, mark the node dirty again so the next frame rebuilds the partially evaluated
+            // graph instead of replaying the same faulting operations indefinitely.
+            entry.Node.HasChanges = true;
+            try
+            {
+                RenderNodeCacheHelper.ClearCache(entry.Node);
+            }
+            catch (Exception cleanupEx)
+            {
+                s_logger.LogWarning(cleanupEx, "Failed to clear a render-node cache after rendering faulted.");
+            }
+
             throw;
         }
-
-        entry.Bounds = bounds;
-        RenderNodeCacheHelper.MakeCache(entry.Node, CacheOptions, OutputScale, MaxWorkingScale);
-        return entry;
     }
 
     private void AddDetachedHandler(Drawable drawable)
