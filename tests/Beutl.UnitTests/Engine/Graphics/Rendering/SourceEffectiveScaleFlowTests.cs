@@ -476,7 +476,7 @@ public class SourceEffectiveScaleFlowTests
         });
     }
 
-    // End-to-end narrow policy hook: FilterEffect.Resource.Push must build the plan render node via the
+    // End-to-end narrow policy hook: GraphicsContext2D.PushFilterEffect must build the plan render node via the
     // overridden PlanRenderNodeFactory, and that node's non-supply working scale must drive the standard pipeline.
     [Test]
     public void Push_RoutesThroughOverriddenRenderNodeFactory_AndCustomWorkingScaleApplies()
@@ -486,7 +486,7 @@ public class SourceEffectiveScaleFlowTests
         using var container = new ContainerRenderNode();
         using var context = new GraphicsContext2D(container, new Size(120, 90), outputScale: 1f);
 
-        using (resource.Push(context))
+        using (context.PushFilterEffect(resource))
         {
         }
 
@@ -514,8 +514,8 @@ public class SourceEffectiveScaleFlowTests
     }
 }
 
-// A FilterEffect whose Resource overrides only PlanRenderNodeFactory (not Push), so the inherited
-// FilterEffect.Resource.Push is the path under test. Mirrors the NodeGraphFilterEffect pattern
+// A FilterEffect whose Resource overrides only PlanRenderNodeFactory, so GraphicsContext2D.PushFilterEffect's
+// canonical factory-resolution path is under test. Mirrors the NodeGraphFilterEffect pattern
 // (manual Resource + SuppressResourceClassGeneration).
 [SuppressResourceClassGeneration]
 internal sealed partial class ClampToOutputEffect : FilterEffect

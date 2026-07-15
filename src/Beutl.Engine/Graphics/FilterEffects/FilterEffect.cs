@@ -71,10 +71,5 @@ public abstract partial class FilterEffect : EngineObject
             return (planFactory.Inner, ReferenceEquals(planFactory, s_defaultPlanRenderNodeFactory));
         }
 
-        public virtual PushedState Push(GraphicsContext2D context)
-        {
-            (FilterEffectRenderNodeFactory factory, _) = ResolveRenderNodeFactory();
-            return context.PushFilterEffectNode(this, factory);
-        }
     }
 }

@@ -44,9 +44,9 @@ internal sealed record ParameterBlock(ImmutableArray<CompiledPass> Passes)
                 current.ReuseProgramLayout(previous);
             }
             else if (Passes[i] is CompositePass
-                     {
-                         InputColorFilterFallback: { } currentFallback,
-                     }
+            {
+                InputColorFilterFallback: { } currentFallback,
+            }
                      && cached.Passes[i] is CompositePass
                      {
                          InputColorFilterFallback: { } previousFallback,

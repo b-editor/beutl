@@ -38,7 +38,7 @@ public class EffectPipelineBenchmarks
     [Params("1080p", "4K")]
     public string Resolution = "1080p";
 
-    private Drawable.Resource _resource = null!;
+    private Drawable.Resource? _resource;
     private PixelSize _size;
     private PipelineDiagnosticsSnapshot _counters;
 
@@ -57,6 +57,23 @@ public class EffectPipelineBenchmarks
         {
             s_node?.Dispose();
             s_node = null;
+        });
+    }
+
+    private static void DisposePersistentNodeAndResource(Drawable.Resource? resource)
+    {
+        RenderThread.Dispatcher.Invoke(() =>
+        {
+            try
+            {
+                s_node?.Dispose();
+            }
+            finally
+            {
+                s_node = null;
+                s_frameMutator = null;
+                resource?.Dispose();
+            }
         });
     }
 
@@ -93,16 +110,23 @@ public class EffectPipelineBenchmarks
         ResetPersistentNode();
         s_frameMutator = null;
         Drawable.Resource resource = Build(scene, size);
-        for (int i = 0; i < frames; i++)
+        try
         {
-            var sw = System.Diagnostics.Stopwatch.StartNew();
-            PipelineDiagnosticsSnapshot snap = RenderThread.Dispatcher.Invoke(() =>
+            for (int i = 0; i < frames; i++)
             {
-                ApplyFrameMutation(resource);
-                return RenderOnce(resource, size);
-            });
-            sw.Stop();
-            Console.WriteLine($"frame {i}: {sw.Elapsed.TotalMilliseconds,7:F2} ms  {snap}");
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                PipelineDiagnosticsSnapshot snap = RenderThread.Dispatcher.Invoke(() =>
+                {
+                    ApplyFrameMutation(resource);
+                    return RenderOnce(resource, size);
+                });
+                sw.Stop();
+                Console.WriteLine($"frame {i}: {sw.Elapsed.TotalMilliseconds,7:F2} ms  {snap}");
+            }
+        }
+        finally
+        {
+            DisposePersistentNodeAndResource(resource);
         }
     }
 
@@ -122,7 +146,17 @@ public class EffectPipelineBenchmarks
         _resource = Build(Scene, _size);
 
         // Warm the persistent render node and pool. Counters are captured by measured RenderFrame invocations.
-        RenderThread.Dispatcher.Invoke(() => RenderOnce(_resource, _size));
+        try
+        {
+            RenderThread.Dispatcher.Invoke(() => RenderOnce(_resource!, _size));
+        }
+        catch
+        {
+            Drawable.Resource? resource = _resource;
+            _resource = null;
+            DisposePersistentNodeAndResource(resource);
+            throw;
+        }
     }
 
     [Benchmark]
@@ -130,8 +164,8 @@ public class EffectPipelineBenchmarks
     {
         RenderThread.Dispatcher.Invoke(() =>
         {
-            ApplyFrameMutation(_resource);
-            _counters = RenderOnce(_resource, _size);
+            ApplyFrameMutation(_resource!);
+            _counters = RenderOnce(_resource!, _size);
         });
     }
 
@@ -148,11 +182,20 @@ public class EffectPipelineBenchmarks
     [GlobalCleanup]
     public void ReportCounters()
     {
-        Console.WriteLine(
-            $"[counters] {Scene} {Resolution}: GpuPasses={_counters.GpuPasses} "
-            + $"TargetAllocations={_counters.TargetAllocations} "
-            + $"FullFrameMaterializations={_counters.FullFrameMaterializations} "
-            + $"FlushSyncs={_counters.FlushSyncs}");
+        try
+        {
+            Console.WriteLine(
+                $"[counters] {Scene} {Resolution}: GpuPasses={_counters.GpuPasses} "
+                + $"TargetAllocations={_counters.TargetAllocations} "
+                + $"FullFrameMaterializations={_counters.FullFrameMaterializations} "
+                + $"FlushSyncs={_counters.FlushSyncs}");
+        }
+        finally
+        {
+            Drawable.Resource? resource = _resource;
+            _resource = null;
+            DisposePersistentNodeAndResource(resource);
+        }
     }
 
     // Mirrors the production Renderer's frame loop at output scale 1.0 and returns the always-on counter

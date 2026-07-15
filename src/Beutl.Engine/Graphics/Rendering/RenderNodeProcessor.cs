@@ -325,12 +325,22 @@ public class RenderNodeProcessor
                 ? transform.MapRequestedBoundsToChild(requestedBounds)
                 : requestedBounds;
             using var operations = new PooledList<RenderNodeOperation>();
-            foreach (RenderNode innerNode in container.Children)
+            try
             {
-                operations.AddRange(Pull(innerNode, childRequestedBounds));
-            }
+                foreach (RenderNode innerNode in container.Children)
+                {
+                    operations.AddRange(Pull(innerNode, childRequestedBounds));
+                }
 
-            input = operations.ToArray();
+                input = operations.ToArray();
+            }
+            catch
+            {
+                // A later child pull can fail after earlier siblings produced operations. Preserve that
+                // pull failure while sweeping every already-produced operation, including faulting disposals.
+                RenderNodeOperation.DisposeAll(operations.Span);
+                throw;
+            }
         }
 
         var context = new RenderNodeContext(input, RenderIntent, OutputScale, MaxWorkingScale, PullPurpose)

@@ -39,6 +39,17 @@ public abstract class RenderNodeOperation : IDisposable
     /// </summary>
     internal static void DisposeAll(ReadOnlySpan<RenderNodeOperation> ops)
     {
+        Exception? ignored = null;
+        DisposeAll(ops, ref ignored);
+    }
+
+    /// <summary>
+    /// Disposes every operation and records the first cleanup failure without stopping the sweep.
+    /// A caller with an in-flight primary failure can ignore the captured cleanup failure; a successful
+    /// operation can rethrow it after all resources have been released.
+    /// </summary>
+    internal static void DisposeAll(ReadOnlySpan<RenderNodeOperation> ops, ref Exception? failure)
+    {
         foreach (var op in ops)
         {
             if (op is null)
@@ -48,9 +59,9 @@ public abstract class RenderNodeOperation : IDisposable
             {
                 op.Dispose();
             }
-            catch
+            catch (Exception ex)
             {
-                // Best-effort: a faulting Dispose must not stop the remaining ops from being released.
+                failure ??= ex;
             }
         }
     }

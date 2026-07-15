@@ -96,6 +96,222 @@ public class DispatcherTests
     }
 
     [Test]
+    public void InvokeAsyncVoid_CancelWhileQueued_CancelsWithoutExecuting()
+    {
+        var dispatcher = Dispatcher.Spawn();
+        using var blockerStarted = new ManualResetEventSlim();
+        using var releaseBlocker = new ManualResetEventSlim();
+        using var cts = new CancellationTokenSource();
+        bool executed = false;
+
+        try
+        {
+            dispatcher.Dispatch(() =>
+            {
+                blockerStarted.Set();
+                releaseBlocker.Wait();
+            }, DispatchPriority.High);
+            Assert.That(blockerStarted.Wait(TimeSpan.FromSeconds(5)), Is.True, "The queue blocker did not start.");
+
+            Task task = dispatcher.InvokeAsync(() => executed = true, ct: cts.Token);
+            cts.Cancel();
+
+            Assert.CatchAsync<OperationCanceledException>(async () => await task);
+            Assert.That(executed, Is.False);
+        }
+        finally
+        {
+            releaseBlocker.Set();
+            dispatcher.Shutdown();
+        }
+    }
+
+    [Test]
+    public void InvokeAsyncResult_CancelWhileQueued_CancelsWithoutExecuting()
+    {
+        var dispatcher = Dispatcher.Spawn();
+        using var blockerStarted = new ManualResetEventSlim();
+        using var releaseBlocker = new ManualResetEventSlim();
+        using var cts = new CancellationTokenSource();
+        bool executed = false;
+
+        try
+        {
+            dispatcher.Dispatch(() =>
+            {
+                blockerStarted.Set();
+                releaseBlocker.Wait();
+            }, DispatchPriority.High);
+            Assert.That(blockerStarted.Wait(TimeSpan.FromSeconds(5)), Is.True, "The queue blocker did not start.");
+
+            Task<int> task = dispatcher.InvokeAsync(() =>
+            {
+                executed = true;
+                return 42;
+            }, ct: cts.Token);
+            cts.Cancel();
+
+            Assert.CatchAsync<OperationCanceledException>(async () => await task);
+            Assert.That(executed, Is.False);
+        }
+        finally
+        {
+            releaseBlocker.Set();
+            dispatcher.Shutdown();
+        }
+    }
+
+    [Test]
+    public async Task InvokeVoid_CancelAfterExecutionStarts_WaitsForCompletion()
+    {
+        var dispatcher = Dispatcher.Spawn();
+        using var started = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        using var callerReturned = new ManualResetEventSlim();
+        using var cts = new CancellationTokenSource();
+
+        try
+        {
+            Task invocation = Task.Run(() =>
+            {
+                try
+                {
+                    dispatcher.Invoke(() =>
+                    {
+                        started.Set();
+                        release.Wait();
+                    }, ct: cts.Token);
+                }
+                finally
+                {
+                    callerReturned.Set();
+                }
+            });
+
+            Assert.That(started.Wait(TimeSpan.FromSeconds(5)), Is.True, "The dispatcher operation did not start.");
+            cts.Cancel();
+
+            Assert.That(callerReturned.Wait(TimeSpan.FromMilliseconds(250)), Is.False,
+                "Cancellation after execution starts must not return before the operation finishes.");
+            release.Set();
+            await invocation;
+        }
+        finally
+        {
+            release.Set();
+            dispatcher.Shutdown();
+        }
+    }
+
+    [Test]
+    public async Task InvokeResult_CancelAfterExecutionStarts_ReturnsResult()
+    {
+        var dispatcher = Dispatcher.Spawn();
+        using var started = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        using var callerReturned = new ManualResetEventSlim();
+        using var cts = new CancellationTokenSource();
+
+        try
+        {
+            int result = 0;
+            Task invocation = Task.Run(() =>
+            {
+                try
+                {
+                    result = dispatcher.Invoke(() =>
+                    {
+                        started.Set();
+                        release.Wait();
+                        return 42;
+                    }, ct: cts.Token);
+                }
+                finally
+                {
+                    callerReturned.Set();
+                }
+            });
+
+            Assert.That(started.Wait(TimeSpan.FromSeconds(5)), Is.True, "The dispatcher operation did not start.");
+            cts.Cancel();
+
+            Assert.That(callerReturned.Wait(TimeSpan.FromMilliseconds(250)), Is.False,
+                "Cancellation after execution starts must not return before the operation finishes.");
+            release.Set();
+            await invocation;
+            Assert.That(result, Is.EqualTo(42));
+        }
+        finally
+        {
+            release.Set();
+            dispatcher.Shutdown();
+        }
+    }
+
+    [Test]
+    public async Task InvokeAsyncVoid_CancelAfterExecutionStarts_DoesNotCancelCompletion()
+    {
+        var dispatcher = Dispatcher.Spawn();
+        using var started = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        using var cts = new CancellationTokenSource();
+
+        try
+        {
+            Task task = dispatcher.InvokeAsync(() =>
+            {
+                started.Set();
+                release.Wait();
+            }, ct: cts.Token);
+
+            Assert.That(started.Wait(TimeSpan.FromSeconds(5)), Is.True, "The dispatcher operation did not start.");
+            cts.Cancel();
+
+            Assert.That(task.IsCompleted, Is.False,
+                "Cancellation after execution starts must not complete the task before the operation finishes.");
+            release.Set();
+            await task;
+        }
+        finally
+        {
+            release.Set();
+            dispatcher.Shutdown();
+        }
+    }
+
+    [Test]
+    public async Task InvokeAsyncResult_CancelAfterExecutionStarts_ReturnsResult()
+    {
+        var dispatcher = Dispatcher.Spawn();
+        using var started = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        using var cts = new CancellationTokenSource();
+
+        try
+        {
+            Task<int> task = dispatcher.InvokeAsync(() =>
+            {
+                started.Set();
+                release.Wait();
+                return 42;
+            }, ct: cts.Token);
+
+            Assert.That(started.Wait(TimeSpan.FromSeconds(5)), Is.True, "The dispatcher operation did not start.");
+            cts.Cancel();
+
+            Assert.That(task.IsCompleted, Is.False,
+                "Cancellation after execution starts must not complete the task before the operation finishes.");
+            release.Set();
+            Assert.That(await task, Is.EqualTo(42));
+        }
+        finally
+        {
+            release.Set();
+            dispatcher.Shutdown();
+        }
+    }
+
+    [Test]
     public void InvokeExecutionContext()
     {
         var dispatcher = Dispatcher.Spawn();

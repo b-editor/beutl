@@ -1,4 +1,5 @@
 ﻿using Beutl.Composition;
+using Beutl.Graphics;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
@@ -23,8 +24,13 @@ public class DrawableTextureSourceDensityTests
         rect.Height.CurrentValue = AuthorSize;
         rect.Fill.CurrentValue = Brushes.White;
 
+        return MakeTextureSource(rect);
+    }
+
+    private static DrawableTextureSource.Resource MakeTextureSource(Drawable drawable)
+    {
         var source = new DrawableTextureSource();
-        source.Drawable.CurrentValue = rect;
+        source.Drawable.CurrentValue = drawable;
         source.TextureWidth.CurrentValue = AuthorSize;
         source.TextureHeight.CurrentValue = AuthorSize;
         return (DrawableTextureSource.Resource)source.ToResource(CompositionContext.Default);
@@ -84,12 +90,12 @@ public class DrawableTextureSourceDensityTests
                 context, RenderIntent.Preview, RenderPullPurpose.Auxiliary, 1f);
 
             Assert.That(auxiliary, Is.SameAs(frame),
-                "A same-density hit-test pull must borrow the frame texture instead of retaining a second full-resolution target.");
+                "A compatible auxiliary pull may read the retained frame texture without mutating it.");
         });
     }
 
     [Test]
-    public void GetTexture_FrameAfterAuxiliaryPull_AdoptsTheExistingTexture()
+    public void GetTexture_FrameAfterAuxiliaryPull_UsesIsolatedTexture()
     {
         IGraphicsContext context = VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
@@ -101,8 +107,30 @@ public class DrawableTextureSourceDensityTests
             ITexture2D? frame = source.GetTexture(
                 context, RenderIntent.Preview, RenderPullPurpose.Frame, 1f);
 
-            Assert.That(frame, Is.SameAs(auxiliary),
-                "A frame following an early hit test must adopt its matching texture instead of retaining a duplicate.");
+            Assert.That(frame, Is.Not.SameAs(auxiliary),
+                "A frame must not adopt a texture rendered with auxiliary policy.");
+        });
+    }
+
+    [Test]
+    public void GetTexture_PolicyChanges_ReprocessPolicySensitiveDrawable()
+    {
+        IGraphicsContext context = VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var drawable = new PolicySensitiveTextureDrawable();
+            using DrawableTextureSource.Resource source = MakeTextureSource(drawable);
+
+            _ = source.GetTexture(context, RenderIntent.Preview, RenderPullPurpose.Auxiliary, 1f);
+            _ = source.GetTexture(context, RenderIntent.Preview, RenderPullPurpose.Frame, 1f);
+            _ = source.GetTexture(context, RenderIntent.Delivery, RenderPullPurpose.Frame, 1f);
+
+            Assert.That(drawable.Observations, Is.EqualTo(new[]
+            {
+                (RenderIntent.Preview, RenderPullPurpose.Auxiliary),
+                (RenderIntent.Preview, RenderPullPurpose.Frame),
+                (RenderIntent.Delivery, RenderPullPurpose.Frame),
+            }));
         });
     }
 
@@ -137,5 +165,31 @@ public class DrawableTextureSourceDensityTests
             Assert.That(width2, Is.EqualTo(width1 * 2));
             Assert.That(height2, Is.EqualTo(height1 * 2));
         });
+    }
+}
+
+internal sealed partial class PolicySensitiveTextureDrawable : Drawable
+{
+    private const int TextureSize = 256;
+
+    public List<(RenderIntent, RenderPullPurpose)> Observations { get; } = [];
+
+    public override void Render(GraphicsContext2D context, Drawable.Resource resource)
+        => context.DrawNode(new PolicySensitiveTextureNode(Observations));
+
+    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
+        => new(TextureSize, TextureSize);
+
+    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
+    {
+    }
+}
+
+internal sealed class PolicySensitiveTextureNode(List<(RenderIntent, RenderPullPurpose)> observations) : RenderNode
+{
+    public override RenderNodeOperation[] Process(RenderNodeContext context)
+    {
+        observations.Add((context.RenderIntent, context.PullPurpose));
+        return [RenderNodeOperation.CreateLambda(new Rect(0, 0, 1, 1), static _ => { })];
     }
 }

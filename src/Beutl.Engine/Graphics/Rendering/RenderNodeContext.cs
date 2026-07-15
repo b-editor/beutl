@@ -28,7 +28,7 @@ public class RenderNodeContext(
     /// there. It stays <see langword="null"/> only when a context is constructed directly without one; effect nodes
     /// then skip counting after a single null check (zero overhead).
     /// </summary>
-    public PipelineDiagnostics? Diagnostics { get; set; }
+    public PipelineDiagnostics? Diagnostics { get; internal set; }
 
     /// <summary>
     /// The owning renderer's render-target pool, seeded by <see cref="RenderNodeProcessor"/>.

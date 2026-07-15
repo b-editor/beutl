@@ -528,8 +528,10 @@ public sealed class GraphicsContext2D(
 
         // A group is one render node so its whole child chain describes into a single graph and fuses
         // (research D7). Flattening it into a node per child would put each effect in its own graph, defeating
-        // fusion. FilterEffectGroup.Describe concatenates the children (mirroring its ApplyTo).
-        return effect.Push(this);
+        // fusion. Resolve the same retained factory that EffectGraphBuilder.Effect uses so top-level and embedded
+        // placement cannot select different customization routes.
+        (FilterEffectRenderNodeFactory factory, _) = effect.ResolveRenderNodeFactory();
+        return PushFilterEffectNode(effect, factory);
     }
 
     public PushedState PushOpacityMask(Brush.Resource mask, Rect bounds, bool invert = false)
@@ -613,7 +615,7 @@ public sealed class GraphicsContext2D(
         return new(this, _nodes.Count);
     }
 
-    internal PushedState PushFilterEffectNode(
+    private PushedState PushFilterEffectNode(
         FilterEffect.Resource resource,
         FilterEffectRenderNodeFactory factory)
     {

@@ -56,17 +56,17 @@ public sealed partial class DrawableTextureSource : TextureSource
             int deviceWidth = Math.Max(1, (int)Math.Ceiling(textureWidth * (double)density));
             int deviceHeight = Math.Max(1, (int)Math.Ceiling(textureHeight * (double)density));
 
-            // Hit testing normally runs at the same density and version as the frame render. Borrow that texture
-            // instead of retaining a second full-resolution target merely to keep auxiliary state isolated.
-            if (pullPurpose == RenderPullPurpose.Frame
-                && _frameCache.RenderTarget == null
-                && _auxiliaryCache.Matches(deviceWidth, deviceHeight, Version, density))
+            // An auxiliary pull may read an already-compatible frame texture without mutating frame state.
+            // The reverse is intentionally forbidden: output produced under auxiliary policy must never seed a
+            // retained frame cache.
+            if (pullPurpose == RenderPullPurpose.Auxiliary
+                && _frameCache.Matches(
+                    deviceWidth, deviceHeight, Version, density, renderIntent, RenderPullPurpose.Frame))
             {
-                _auxiliaryCache.MoveTo(_frameCache);
+                return _frameCache.RenderTarget!.Texture;
             }
 
             TextureCache cache = pullPurpose == RenderPullPurpose.Auxiliary
-                                 && !_frameCache.Matches(deviceWidth, deviceHeight, Version, density)
                 ? _auxiliaryCache
                 : _frameCache;
 
@@ -92,7 +92,7 @@ public sealed partial class DrawableTextureSource : TextureSource
             }
 
             // Re-render on content change or density change.
-            if (cache.RenderTargetVersion != Version || cache.Density != density)
+            if (!cache.Matches(deviceWidth, deviceHeight, Version, density, renderIntent, pullPurpose))
             {
                 cache.Density = density;
                 cache.DrawableNode ??= new DrawableRenderNode(Drawable);
@@ -115,6 +115,8 @@ public sealed partial class DrawableTextureSource : TextureSource
                 // Prepare for sampling (flush the surface)
                 cache.RenderTarget.PrepareForSampling();
                 cache.RenderTargetVersion = Version;
+                cache.RenderIntent = renderIntent;
+                cache.PullPurpose = pullPurpose;
             }
 
             return cache.RenderTarget?.Texture;
@@ -140,30 +142,24 @@ public sealed partial class DrawableTextureSource : TextureSource
 
             public float Density { get; set; } = -1f;
 
-            public bool Matches(int width, int height, int version, float density)
+            public RenderIntent? RenderIntent { get; set; }
+
+            public RenderPullPurpose? PullPurpose { get; set; }
+
+            public bool Matches(
+                int width,
+                int height,
+                int version,
+                float density,
+                RenderIntent renderIntent,
+                RenderPullPurpose pullPurpose)
                 => RenderTarget != null
                    && Width == width
                    && Height == height
                    && RenderTargetVersion == version
-                   && Density == density;
-
-            public void MoveTo(TextureCache destination)
-            {
-                destination.Dispose();
-                destination.DrawableNode = DrawableNode;
-                destination.RenderTarget = RenderTarget;
-                destination.RenderTargetVersion = RenderTargetVersion;
-                destination.Width = Width;
-                destination.Height = Height;
-                destination.Density = Density;
-
-                DrawableNode = null;
-                RenderTarget = null;
-                RenderTargetVersion = -1;
-                Width = 0;
-                Height = 0;
-                Density = -1f;
-            }
+                   && Density == density
+                   && RenderIntent == renderIntent
+                   && PullPurpose == pullPurpose;
 
             public void DisposeRenderTarget()
             {
@@ -180,6 +176,8 @@ public sealed partial class DrawableTextureSource : TextureSource
                 Width = 0;
                 Height = 0;
                 Density = -1f;
+                RenderIntent = null;
+                PullPurpose = null;
             }
         }
     }

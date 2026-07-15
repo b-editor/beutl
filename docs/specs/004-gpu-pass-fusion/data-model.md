@@ -14,7 +14,7 @@ Taxonomy (canonical, research D7 plus the completed meta-effect work): **nine se
 |---|---|
 | `abstract void ApplyTo(FilterEffectContext, Resource)` | **Removed** |
 | `abstract void Describe(EffectGraphBuilder builder, Resource resource)` | **Added** — appends node descriptors; must not render or allocate |
-| `Resource.PlanRenderNodeFactory` / `Resource.Push(...)` | The normal route creates a `PlanFilterEffectRenderNode`; a retained non-default `PlanFilterEffectRenderNodeFactory` customizes narrow plan policy while preserving compiler, ROI, pooling, and caches. Fully opaque execution uses `CustomRenderNodeFilterEffect.Resource.RenderNodeFactory`. |
+| `Resource.PlanRenderNodeFactory` | The normal route creates a `PlanFilterEffectRenderNode`; a retained non-default `PlanFilterEffectRenderNodeFactory` customizes narrow plan policy while preserving compiler, ROI, pooling, and caches. Fully opaque execution uses `CustomRenderNodeFilterEffect.Resource.RenderNodeFactory`. `GraphicsContext2D.PushFilterEffect` and `EffectGraphBuilder.Effect` resolve the same two routes; resources expose no placement-specific push override. |
 
 ### `EffectGraphBuilder` (public, new — replaces `FilterEffectContext`'s recording role)
 
@@ -37,7 +37,7 @@ Per kind:
 
 - **`ShaderNodeDescriptor`**: `SkslSource source` (snippet or whole-source; identity-hashable), `bool IsCoordinateInvariant`, `UniformBinding[] Uniforms`, `ChildBinding[] Children` (every named child shader bound beyond the implicit `src`: a LUT/curve *sampler* — an eager, invariance-safe value lookup — or a whole-source shader's displacement map; there is one binding type, not a separate `SamplerBinding`). Snippet form must define `half4 apply(half4 c)`; whole-source form must define `half4 main(float2 coord)` with a `src` child (today's `SKSLShader` convention). **Color/alpha contract**: shaders receive and return **premultiplied-alpha, linear-light** `half4` (the working surface is RGBA16F / `SrgbLinear` / `Premul`); a snippet needing straight alpha unpremultiplies and re-premultiplies internally, exactly as today's `Gamma`/`Curves`/`LutEffect` SKSL does. Fused composition never changes representation between stages.
 - **`ColorFilterNodeDescriptor`**: `Func<SKColorFilter>`-style factory + captured data record; always coordinate-invariant.
-- **`SkiaFilterNodeDescriptor`**: `SKImageFilter` factory + captured data record; forward/backward bounds functions (backward defaults to forward's inverse-inflation; may return Unbounded).
+- **`SkiaFilterNodeDescriptor`**: `SKImageFilter` factory + captured data record + mandatory authored `BoundsContract`. Local filters declare exact forward/backward bounds; filters whose sampling extent cannot be bounded locally use `BoundsContract.FullFrame`.
 - **`ComputeNodeDescriptor`**: dispatch callback, exact successful-dispatch `int PassCount`, mandatory authored `BoundsContract`, exact maximum concurrent color scratch count, closed `ComputeFallbackPolicy` (`Identity`, `Skip`, or `Cpu(callback, requiresReadback)`), and a separate ordinary-dispatch failure policy. Invalid callback/readback combinations cannot be represented. Its `IComputeContext` exposes source logical bounds/density (`SourceBounds`, `SourceScale`) independently from destination logical bounds/density (`TargetBounds`, `WorkingScale`); `Width`/`Height` describe the destination device buffer. The CPU fallback receives the same split contract through `GeometrySession.Inputs[0]` and the session output members.
 - **`GeometryNodeDescriptor`**: `Action<GeometrySession>` callback, explicit `BoundsContract` (mandatory — no default), and an explicit CPU-readback requirement.
 - **`SplitNodeDescriptor` / `CompositeNodeDescriptor`**: `Static(callback, branchCount, token)` declares an exact structural branch count; `Dynamic(callback, token)` resolves the count at execution and omits it from the key. The composite operation carries its blend mode and optional per-input offsets; it consumes the current runtime branch set rather than declaring an arity.
@@ -54,7 +54,7 @@ Per kind:
 
 ### `EffectInput` (public)
 
-Read-only view of a pass input: logical `Bounds`, `EffectiveScale Density`, `SKShader AsShader()`, `Bitmap Snapshot()` for descriptor-declared CPU readback, texture handle for compute passes.
+Read-only public view of a pass input: logical `Bounds`, `EffectiveScale Density`, `PixelSize DeviceSize`, `SKShader AsShader()`, `Bitmap Snapshot()` for descriptor-declared CPU readback, and `Draw(...)` helpers. The executor alone sees the internal backing target and Vulkan texture used to run compute callbacks through `IComputeContext`.
 
 ## 2. Bounds & ROI contract
 
@@ -111,9 +111,9 @@ Passes flagged `IsDynamicOutputs` (contour-based part splitting) have no static 
 
 Single-entry (current key → plan) — a render node has one structure at a time; history beyond 1 buys nothing. Invalidation: key mismatch on describe, context device-lost, or node dispose (returns pooled resources). **Bounds/size/working-scale changes are NOT invalidations** — they flow through the per-frame resource resolution.
 
-### `ProgramCache` (per graphics context, global across plans)
+### `ProgramCache` (process-wide, global across contexts and plans)
 
-`Dictionary<SkslSourceHash, SKRuntimeEffect>` + composed-source cache for merged snippets. Never evicted below a small floor (program count is bounded by distinct effect-source combinations); LRU above a cap.
+The process-wide cache buckets entries by composed-source signature and verifies the exact ordered `SkslSource` sequence, so hash/signature collisions never alias programs. Each entry retains a reusable `SKRuntimeShaderBuilder` (which owns its `SKRuntimeEffect`), resets per-frame bindings before `Build()`, and is protected by an entry lease; a reentrant request for an already-rented signature receives a transient builder. A global LRU evicts unrented entries above the capacity. Runtime effects are CPU-side SKSL programs with no graphics-context handles, so entries remain valid across context loss.
 
 ## 4. Execution layer (internal)
 

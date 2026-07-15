@@ -156,8 +156,9 @@ public class EffectReferenceFreezeTests
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
+            using Drawable.Resource resource = MakeSplitDropShadowScene();
             using Bitmap actual = GoldenImageHarness.RenderAtScale(
-                MakeSplitDropShadowScene(), SceneFixtures.ReferenceSize, 1f);
+                resource, SceneFixtures.ReferenceSize, 1f);
             GoldenReferenceStore.FreezeOrAssert("004-review", "chain-SplitDropShadow", actual);
         });
     }
@@ -188,7 +189,8 @@ public class EffectReferenceFreezeTests
 
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using Bitmap actual = GoldenImageHarness.RenderAtScale(makeResource(), SceneFixtures.ReferenceSize, 1f);
+            using Drawable.Resource resource = makeResource();
+            using Bitmap actual = GoldenImageHarness.RenderAtScale(resource, SceneFixtures.ReferenceSize, 1f);
             GoldenReferenceStore.AssertExisting(Category, name, actual);
         });
     }
@@ -201,8 +203,9 @@ public class EffectReferenceFreezeTests
 
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
+            using Drawable.Resource resource = makeResource();
             using Bitmap actual = GoldenImageHarness.RenderAtScale(
-                makeResource(), ReviewSceneFixtures.ReferenceSize, 1f);
+                resource, ReviewSceneFixtures.ReferenceSize, 1f);
             GoldenReferenceStore.FreezeOrAssert("004-review", name, actual);
         });
     }
@@ -483,7 +486,7 @@ public class EffectReferenceFreezeTests
     {
         var bounds = new Rect(0, 0, 64, 48);
         var effect = new FallbackFilterEffect();
-        var resource = (FilterEffect.Resource)(object)effect.ToResource(CompositionContext.Default);
+        using var resource = (FilterEffect.Resource)(object)effect.ToResource(CompositionContext.Default);
         var builder = new EffectGraphBuilder(bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
         effect.Describe(builder, resource);
         using EffectGraph graph = builder.Build();

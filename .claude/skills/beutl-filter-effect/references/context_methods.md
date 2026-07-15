@@ -22,6 +22,9 @@ Rect  builder.OriginalBounds // the initial input rect at the start of this grap
 Rect  builder.Bounds         // the current logical rect after all descriptors appended so far
 float builder.OutputScale   // 003 s_out (device px per logical unit at the root)
 float builder.WorkingScale  // 003 w — the density this boundary's buffers run at
+float builder.MaxWorkingScale // quality ceiling forwarded to nested authoring work; +Inf means no ceiling
+RenderIntent builder.RenderIntent // preview/delivery failure policy for deferred authoring resources
+RenderPullPurpose builder.PullPurpose // frame/auxiliary purpose for deferred resources and nested work
 ```
 
 `RenderNodeContext.DeviceBufferSize(builder.Bounds, builder.WorkingScale)` is only a describe-time boundary estimate. Do not use it to freeze resolution uniforms: bind those with `UniformBindingBuilder.Deferred` and read `PassUniformContext.TargetWidth` / `TargetHeight` after the executor has applied the per-pass density clamp.
@@ -119,13 +122,13 @@ The sole descriptor that carries a rendering callback. Never fused, always its o
 ### Compute (GLSL)
 ```csharp
 ComputeNodeDescriptor.Create(
-    Action<IComputeContext> dispatch, int passCount, ComputeFallback fallback,
+    Action<IComputeContext> dispatch, int passCount,
+    BoundsContract bounds, ComputeFallbackPolicy fallback,
     int colorScratchCount = 0,
-    Action<GeometrySession>? cpuCallback = null,
     object? structuralToken = null,
-    bool cpuFallbackRequiresReadback = false)              // fallback MANDATORY
+    ComputeDispatchFailureBehavior dispatchFailureBehavior = ComputeDispatchFailureBehavior.Throw)
 ```
-`passCount` is the exact number of successful `IComputeContext.Run(...)` calls. An excess call is rejected before dispatch and a shortfall after the callback returns normally. `CopySourceToDestination()` is an exclusive terminal alternative: do not combine it with `Run(...)` or acquire scratch afterward. `fallback` (`Identity` / `Skip` / a CPU callback) is applied when Vulkan is unavailable so GPU-less CI passes. The color scratch count is the maximum concurrent acquisition and is enforced at runtime. Fullscreen compute passes are color-only; there is no depth scratch API. Set `cpuFallbackRequiresReadback` when the CPU callback snapshots its input.
+`passCount` is the exact number of successful `IComputeContext.Run(...)` calls. An excess call is rejected before dispatch and a shortfall after the callback returns normally. `CopySourceToDestination()` is an exclusive terminal alternative: do not combine it with `Run(...)` or acquire scratch afterward. `bounds` is mandatory: use `BoundsContract.FullFrame` for a full-frame kernel or an exact local contract. The no-Vulkan `fallback` is one closed policy value: `ComputeFallbackPolicy.Identity`, `.Skip`, or `.Cpu(callback, requiresReadback: true)`. Set `requiresReadback: true` on the CPU policy when its callback snapshots an input. The color scratch count is the maximum concurrent acquisition and is enforced at runtime. Fullscreen compute passes are color-only; there is no depth scratch API.
 
 ### Split / Composite
 ```csharp
@@ -147,8 +150,13 @@ Rect  session.Bounds                       // output buffer rect
 float session.OutputScale                  // 003 s_out
 float session.WorkingScale                 // 003 w
 float session.MaxWorkingScale
+RenderIntent session.RenderIntent
+RenderPullPurpose session.PullPurpose
+PipelineDiagnostics? session.Diagnostics
 IReadOnlyList<EffectInput> session.Inputs
 ImmediateCanvas session.OpenCanvas()       // canvas over the pooled output target
+void session.DiscardOutput()                // drop an empty result
+void session.SetOutputBounds(Rect bounds)   // shrink the emitted result within session.Bounds
 
 // EffectInput (read-only upstream result)
 Rect          input.Bounds

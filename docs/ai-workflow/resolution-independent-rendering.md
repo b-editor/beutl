@@ -31,22 +31,21 @@ the CTM handles it, and a manual `× w` would double-scale and regress the resul
 
 ## When scale matters
 
-- **Reading the working scale.** A `Geometry` / SKSL / GLSL node author who draws to the session canvas
-  or hard-codes a pixel literal reads `GeometrySession.WorkingScale` (or `EffectGraphBuilder.WorkingScale`
-  in `Describe`); both default to `1.0`. The executor allocates the pass's pooled `ceil(bounds × w)` device
-  buffer tagged `EffectiveScale.At(w)`, so the runtime shader
-  evaluates in DEVICE pixels: multiply any **absolute-length** pixel literal
-  (tile size, displacement amount, split offset, a hard-coded `iResolution`-style constant) by `w` to
-  stay logically constant. Content-relative logic (a luminance pixel-sort, a normalized-uv shader)
-  needs nothing. The built-ins already do this — Mosaic (`tileSize × w`), DisplacementMap (translate /
-  pivot `× w`, plus a `CreateScale(w)` local matrix on the displacement-map shader so it shares the base
-  texture's device-px coord space), PartsSplit (contour bounds `/ w`), SKSL (`iResolution`/`width`/`height`
-  `× w` + `iScale = w`), GLSL (`Width`/`Height` push constants `× w`, plus a `scale` push constant `= w`
-  mirroring SKSL's `iScale`) — verified by `CustomEffectSupersampleTests` (Mosaic + DisplacementMap 2×-delivered vs 1:1 SSIM
-  1.0000; Mosaic strictly closer to ground truth than 1:1).
+- **Reading the working scale.** Geometry callbacks read `GeometrySession.WorkingScale` because it is the
+  execution-time density of their canvas. SKSL authors late-bind every device-space uniform from
+  `PassUniformContext`: use `UniformBindingBuilder.DensityScaledFloat2` for logical lengths and `Deferred` for
+  target dimensions, pivots, or other values that need `WorkingScale`, `TargetWidth`, `TargetHeight`, or
+  `TargetBounds`. GLSL compute authors read the corresponding execution values from `IComputeContext`
+  (`WorkingScale`, `Width`, `Height`, `TargetBounds`) inside the dispatch callback. Do not freeze either kind of
+  shader value from `EffectGraphBuilder.WorkingScale` in `Describe`; the executor can re-clamp the actual pass below
+  that density when the buffer crosses the per-axis budget. Runtime shaders evaluate in DEVICE pixels, so
+  absolute-length values still scale by the execution-time `w`, while content-relative logic such as normalized UV
+  needs no conversion. The built-ins already follow this rule — Mosaic late-binds tile size and resolution,
+  DisplacementMap late-binds translation/pivot and its deferred child, and script effects receive the executed
+  buffer dimensions and scale.
 - **Working scale (supply-driven).** Every effect runs at its **input supply density** — the densest
   concrete (bitmap) input, with `s_out` as the floor for vector-only/mixed boundaries, capped only by the
-  global memory ceiling (`MaxWorkingScale`). `s_out` is **not** a ceiling. Resolution-sensitive effects
+  global quality ceiling (`MaxWorkingScale`). `s_out` is **not** a ceiling. Resolution-sensitive effects
   (PixelSort, Dilate/Erode, Mosaic, contour Stroke/FlatShadow/PartsSplit, Displacement, custom SKSL/GLSL,
   Clipping) get a high-resolution source's detail through them for free, with no per-effect knob. There is
   **no `ResolutionPolicy`**: the earlier `Inherit`/`ClampToOutput`/`Oversample(k)`/`PreserveSource` policy

@@ -206,20 +206,33 @@ internal sealed class QueueSynchronizationContext(Dispatcher dispatcher, TimePro
     internal Task Send(DispatchPriority priority, Action operation, CancellationToken ct)
     {
         var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        const int queuedState = 0;
+        const int runningState = 1;
+        const int finishedState = 2;
+        int state = queuedState;
         CancellationTokenRegistration registration = default;
         if (ct.CanBeCanceled)
-            registration = ct.Register(() => completion.TrySetCanceled(ct));
+        {
+            registration = ct.Register(() =>
+            {
+                if (Interlocked.CompareExchange(ref state, finishedState, queuedState) == queuedState)
+                    completion.TrySetCanceled(ct);
+            });
+        }
 
         var queued = new DispatcherOperation(
             () =>
             {
+                if (Interlocked.CompareExchange(ref state, runningState, queuedState) != queuedState)
+                {
+                    registration.Dispose();
+                    return;
+                }
+
                 try
                 {
-                    if (!completion.Task.IsCompleted)
-                    {
-                        operation();
-                        completion.TrySetResult();
-                    }
+                    operation();
+                    completion.TrySetResult();
                 }
                 catch (Exception ex)
                 {
@@ -227,6 +240,7 @@ internal sealed class QueueSynchronizationContext(Dispatcher dispatcher, TimePro
                 }
                 finally
                 {
+                    Volatile.Write(ref state, finishedState);
                     registration.Dispose();
                 }
             },
@@ -235,7 +249,8 @@ internal sealed class QueueSynchronizationContext(Dispatcher dispatcher, TimePro
             ex =>
             {
                 registration.Dispose();
-                completion.TrySetException(ex);
+                if (Interlocked.CompareExchange(ref state, finishedState, queuedState) == queuedState)
+                    completion.TrySetException(ex);
             });
         if (!TryPost(queued))
             queued.Abort(new ObjectDisposedException(nameof(Dispatcher), "The dispatcher is shutting down."));
@@ -245,17 +260,32 @@ internal sealed class QueueSynchronizationContext(Dispatcher dispatcher, TimePro
     internal Task<T> Send<T>(DispatchPriority priority, Func<T> operation, CancellationToken ct)
     {
         var completion = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
+        const int queuedState = 0;
+        const int runningState = 1;
+        const int finishedState = 2;
+        int state = queuedState;
         CancellationTokenRegistration registration = default;
         if (ct.CanBeCanceled)
-            registration = ct.Register(() => completion.TrySetCanceled(ct));
+        {
+            registration = ct.Register(() =>
+            {
+                if (Interlocked.CompareExchange(ref state, finishedState, queuedState) == queuedState)
+                    completion.TrySetCanceled(ct);
+            });
+        }
 
         var queued = new DispatcherOperation(
             () =>
             {
+                if (Interlocked.CompareExchange(ref state, runningState, queuedState) != queuedState)
+                {
+                    registration.Dispose();
+                    return;
+                }
+
                 try
                 {
-                    if (!completion.Task.IsCompleted)
-                        completion.TrySetResult(operation());
+                    completion.TrySetResult(operation());
                 }
                 catch (Exception ex)
                 {
@@ -263,6 +293,7 @@ internal sealed class QueueSynchronizationContext(Dispatcher dispatcher, TimePro
                 }
                 finally
                 {
+                    Volatile.Write(ref state, finishedState);
                     registration.Dispose();
                 }
             },
@@ -271,7 +302,8 @@ internal sealed class QueueSynchronizationContext(Dispatcher dispatcher, TimePro
             ex =>
             {
                 registration.Dispose();
-                completion.TrySetException(ex);
+                if (Interlocked.CompareExchange(ref state, finishedState, queuedState) == queuedState)
+                    completion.TrySetException(ex);
             });
         if (!TryPost(queued))
             queued.Abort(new ObjectDisposedException(nameof(Dispatcher), "The dispatcher is shutting down."));

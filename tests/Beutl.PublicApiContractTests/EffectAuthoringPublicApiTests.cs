@@ -26,8 +26,17 @@ public sealed class EffectAuthoringPublicApiTests
                 Is.True);
             Assert.That(typeof(PublicPlanResource).GetProperty(nameof(FilterEffect.Resource.PlanRenderNodeFactory)),
                 Is.Not.Null);
+            Assert.That(typeof(FilterEffect.Resource).GetMethod(
+                "Push", BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly), Is.Null,
+                "top-level placement must not expose a third virtual customization route");
             Assert.That(typeof(RenderPullPurpose).IsPublic, Is.True);
             Assert.That(typeof(RenderNodeContext).GetProperty(nameof(RenderNodeContext.PullPurpose)), Is.Not.Null);
+            PropertyInfo diagnosticsProperty = typeof(RenderNodeContext).GetProperty(
+                nameof(RenderNodeContext.Diagnostics))!;
+            Assert.That(diagnosticsProperty.GetMethod!.IsPublic, Is.True,
+                "plugins must be able to observe the owning renderer's counters");
+            Assert.That(diagnosticsProperty.GetSetMethod(nonPublic: true)!.IsPublic, Is.False,
+                "plugins must not replace the owning renderer's diagnostics instance");
             Assert.That(typeof(RenderNodeContext).GetProperty(
                 "Pool", BindingFlags.Instance | BindingFlags.Public), Is.Null,
                 "the executor-owned target pool must remain opaque to plugins");
@@ -58,7 +67,9 @@ public sealed class EffectAuthoringPublicApiTests
     {
         public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
         {
-            builder.Shader(ShaderNodeDescriptor.Snippet("half4 apply(half4 c) { return c; }"));
+            builder.Shader(ShaderNodeDescriptor.Snippet(
+                "uniform float pluginValue; half4 apply(half4 c) { return c * pluginValue; }",
+                static uniforms => uniforms.Add(new PublicUniformBinding("pluginValue"))));
             builder.ColorFilter(ColorFilterNodeDescriptor.Create(
                 static () => SKColorFilter.CreateLumaColor(), "public-color-filter"));
             builder.SkiaFilter(SkiaFilterNodeDescriptor.Create(
@@ -103,7 +114,11 @@ public sealed class EffectAuthoringPublicApiTests
 
     public sealed class PublicCustomRenderNode(FilterEffect.Resource resource) : FilterEffectRenderNode(resource)
     {
-        public override RenderNodeOperation[] Process(RenderNodeContext context) => context.Input;
+        public override RenderNodeOperation[] Process(RenderNodeContext context)
+        {
+            _ = context.Diagnostics;
+            return context.Input;
+        }
 
         public static RenderNodeProcessor CreateNestedProcessor(RenderNodeContext context, RenderNode root)
             => context.CreateChildProcessor(root, useRenderCache: false);
@@ -124,5 +139,29 @@ public sealed class EffectAuthoringPublicApiTests
             RenderNodeContext context,
             ReadOnlySpan<EffectiveScale> inputScales)
             => Math.Min(context.OutputScale, context.MaxWorkingScale);
+    }
+
+    public sealed record PublicUniformBinding(string Name) : UniformBinding(Name)
+    {
+        protected override void Apply(
+            SKRuntimeShaderBuilder builder, string effectiveName, in PassUniformContext context)
+            => builder.Uniforms[effectiveName] = context.WorkingScale;
+    }
+
+    // Compile-only coverage for the three shader-ownership modes in the public authoring contract:
+    // graph-owned eager products, caller-owned cached products, and executor-owned deferred products.
+    private static void ReferenceShaderOwnership(
+        EffectGraphBuilder builder,
+        SKShader graphOwnedSampler,
+        SKShader graphOwnedChild,
+        SKShader callerOwnedChild,
+        IDisposable graphOwnedDisposable,
+        Func<PassUniformContext, SKShader> deferredFactory)
+    {
+        _ = builder.Sampler("publicSampler", graphOwnedSampler);
+        _ = builder.Child("publicChild", graphOwnedChild);
+        _ = builder.Track(graphOwnedDisposable);
+        _ = new ChildBinding("publicCachedChild", callerOwnedChild);
+        _ = ChildBinding.Deferred("publicDeferredChild", deferredFactory);
     }
 }

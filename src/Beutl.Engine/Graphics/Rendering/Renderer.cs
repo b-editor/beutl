@@ -263,14 +263,15 @@ public class Renderer : IRenderer
         entry.Bounds = bounds;
         // A frame pull is cropped to the viewport. Reuse its bounds only when they are strictly inside that crop;
         // touching an edge cannot distinguish exact content from clipped content, so preserve the dirty flag and let
-        // the auxiliary full-bounds pull recover the off-screen extent. Empty output is already exact.
+        // the auxiliary full-bounds pull recover the off-screen extent. Empty output is ambiguous: it may be
+        // genuinely empty or entirely outside the viewport, so only a full-bounds pull can make it exact.
         Rect requestedBounds = processor.RequestedBounds;
-        entry.IsBoundsDirty = !bounds.IsEmpty
-            && !requestedBounds.IsInvalid
-            && (bounds.Left <= requestedBounds.Left
+        entry.IsBoundsDirty = bounds.IsEmpty
+            || (!requestedBounds.IsInvalid
+                && (bounds.Left <= requestedBounds.Left
                 || bounds.Top <= requestedBounds.Top
                 || bounds.Right >= requestedBounds.Right
-                || bounds.Bottom >= requestedBounds.Bottom);
+                || bounds.Bottom >= requestedBounds.Bottom));
 
         if (PullPurpose == RenderPullPurpose.Frame)
         {
@@ -379,6 +380,7 @@ public class Renderer : IRenderer
                 _pool, entry.Node, CacheOptions.IsEnabled, RenderIntent, OutputScale, MaxWorkingScale,
                 diagnostics: null, pullPurpose: RenderPullPurpose.Auxiliary);
             var arr = processor.PullToRoot();
+            Exception? operationFailure = null;
             try
             {
                 if (arr.Any(op => op.HitTest(point)))
@@ -386,11 +388,18 @@ public class Renderer : IRenderer
                     return entry.Node.Drawable?.Resource.GetOriginal();
                 }
             }
+            catch (Exception ex)
+            {
+                operationFailure = ex;
+                throw;
+            }
             finally
             {
-                foreach (var op in arr)
+                Exception? cleanupFailure = null;
+                RenderNodeOperation.DisposeAll(arr, ref cleanupFailure);
+                if (operationFailure == null && cleanupFailure != null)
                 {
-                    op.Dispose();
+                    ExceptionDispatchInfo.Capture(cleanupFailure).Throw();
                 }
             }
         }
@@ -548,11 +557,30 @@ public class Renderer : IRenderer
     {
         var entries = _nodeCache.ToArray();
         _nodeCache.Clear();
+        Exception? failure = null;
         foreach (var item in entries)
         {
-            RenderNodeCacheHelper.ClearCache(item.Value.Node);
-            item.Value.Dispose();
+            try
+            {
+                RenderNodeCacheHelper.ClearCache(item.Value.Node);
+            }
+            catch (Exception ex)
+            {
+                failure ??= ex;
+            }
+
+            try
+            {
+                item.Value.Dispose();
+            }
+            catch (Exception ex)
+            {
+                failure ??= ex;
+            }
         }
+
+        if (failure != null)
+            ExceptionDispatchInfo.Capture(failure).Throw();
     }
 
     private void DisposeAllEntries()

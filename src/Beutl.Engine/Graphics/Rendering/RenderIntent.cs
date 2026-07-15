@@ -1,4 +1,4 @@
-namespace Beutl.Graphics.Rendering;
+﻿namespace Beutl.Graphics.Rendering;
 
 /// <summary>Whether a render may degrade recoverably or must produce delivery-complete output.</summary>
 public enum RenderIntent

@@ -248,6 +248,67 @@ public class RenderNodeCacheHelperTest
         });
     }
 
+    [Test]
+    public void CreateDefaultCache_HighDensityReject_SweepsOperationsAndThrowsFirstCleanupFailure()
+    {
+        var cleanupFailure = new InvalidOperationException("operation cleanup failure");
+        var disposed = new List<string>();
+        using var node = new HighDensityNode(disposed, cleanupFailure);
+
+        InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(
+            () => RenderNodeCacheHelper.CreateDefaultCache(
+                node, RenderCacheOptions.Default, RenderIntent.Delivery, outputScale: 1f));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(actual, Is.SameAs(cleanupFailure));
+            Assert.That(disposed, Is.EqualTo(new[] { "first", "remaining" }));
+            Assert.That(node.Cache.IsCacheRejected, Is.True,
+                "cleanup failure must not leave a rejected cache eligible for another warm-up");
+        });
+    }
+
+    [Test]
+    [NonParallelizable]
+    public void CreateDefaultCache_RuleReject_SweepsTargetsAndThrowsFirstCleanupFailure()
+    {
+        var cleanupFailure = new InvalidOperationException("target cleanup failure");
+        using var node = new TwoOperationNode();
+        int disposeCalls = 0;
+        RenderNodeCacheHelper.SetRejectTargetDisposerForTest(target =>
+        {
+            disposeCalls++;
+            target.Dispose();
+            if (disposeCalls == 1)
+            {
+                throw cleanupFailure;
+            }
+
+            throw new InvalidOperationException("second target cleanup failure");
+        });
+
+        try
+        {
+            InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(
+                () => RenderNodeCacheHelper.CreateDefaultCache(
+                    node,
+                    new RenderCacheOptions(true, new RenderCacheRules(1, 1)),
+                    RenderIntent.Delivery));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(actual, Is.SameAs(cleanupFailure));
+                Assert.That(disposeCalls, Is.EqualTo(2));
+                Assert.That(node.Cache.IsCacheRejected, Is.True,
+                    "cleanup failure must not leave a rejected cache eligible for another warm-up");
+            });
+        }
+        finally
+        {
+            RenderNodeCacheHelper.SetRejectTargetDisposerForTest(null);
+        }
+    }
+
     private sealed class ThrowingCacheNotificationNode(Exception exception) : RenderNode
     {
         public override RenderNodeOperation[] Process(RenderNodeContext context)
@@ -262,5 +323,47 @@ public class RenderNodeCacheHelperTest
         }
 
         protected internal override void OnServedFromCache() => throw exception;
+    }
+
+    private sealed class HighDensityNode(ICollection<string> disposed, Exception cleanupFailure) : RenderNode
+    {
+        public override RenderNodeOperation[] Process(RenderNodeContext context)
+        {
+            var bounds = new Rect(0, 0, 4, 4);
+            return
+            [
+                RenderNodeOperation.CreateLambda(
+                    bounds,
+                    static _ => { },
+                    onDispose: () =>
+                    {
+                        disposed.Add("first");
+                        throw cleanupFailure;
+                    },
+                    effectiveScale: EffectiveScale.At(2f)),
+                RenderNodeOperation.CreateLambda(
+                    bounds,
+                    static _ => { },
+                    onDispose: () =>
+                    {
+                        disposed.Add("remaining");
+                        throw new InvalidOperationException("second operation cleanup failure");
+                    },
+                    effectiveScale: EffectiveScale.At(2f)),
+            ];
+        }
+    }
+
+    private sealed class TwoOperationNode : RenderNode
+    {
+        public override RenderNodeOperation[] Process(RenderNodeContext context)
+        {
+            var bounds = new Rect(0, 0, 4, 4);
+            return
+            [
+                RenderNodeOperation.CreateLambda(bounds, static _ => { }),
+                RenderNodeOperation.CreateLambda(bounds, static _ => { }),
+            ];
+        }
     }
 }

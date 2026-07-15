@@ -59,14 +59,14 @@ public class CustomRenderNodeFactoryReuseTests
     }
 
     [Test]
-    public void ResourcePush_RejectsFactoryWhoseDeclaredTypeDiffersFromCreatedType()
+    public void PushFilterEffect_RejectsFactoryWhoseDeclaredTypeDiffersFromCreatedType()
     {
         var effect = new MismatchedFactoryEffect();
         using var resource = (MismatchedFactoryEffect.Resource)effect.ToResource(CompositionContext.Default);
         using var container = new ContainerRenderNode();
         using var context = new GraphicsContext2D(container, new Size(120, 90), outputScale: 1f);
 
-        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => resource.Push(context))!;
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => context.PushFilterEffect(resource))!;
 
         Assert.Multiple(() =>
         {
@@ -168,7 +168,7 @@ public class CustomRenderNodeFactoryReuseTests
     private static FilterEffectRenderNode PushOnce(ContainerRenderNode container, FilterEffect.Resource resource)
     {
         using var context = new GraphicsContext2D(container, new Size(120, 90), outputScale: 1f);
-        using (resource.Push(context))
+        using (context.PushFilterEffect(resource))
         {
         }
 

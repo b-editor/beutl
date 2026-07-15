@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Serialization;
+﻿using System.Runtime.ExceptionServices;
+using System.Text.Json.Serialization;
 using Beutl.Configuration;
 using Beutl.Logging;
 using Beutl.Media;
@@ -9,6 +10,11 @@ namespace Beutl.Graphics.Rendering.Cache;
 public static class RenderNodeCacheHelper
 {
     internal static readonly ILogger _logger = Log.CreateLogger("RenderNodeCache");
+    [ThreadStatic]
+    private static Action<RenderTarget>? s_rejectTargetDisposerForTest;
+
+    internal static void SetRejectTargetDisposerForTest(Action<RenderTarget>? disposer)
+        => s_rejectTargetDisposerForTest = disposer;
 
     public static bool CanCacheRecursive(RenderNode node)
     {
@@ -130,9 +136,11 @@ public static class RenderNodeCacheHelper
         // discard the extra detail and silently lower downstream working scales.
         if (ops.Any(o => !o.EffectiveScale.IsUnbounded && o.EffectiveScale.Value > outputScale))
         {
-            foreach (var op in ops)
-                op.Dispose();
+            Exception? cleanupFailure = null;
+            RenderNodeOperation.DisposeAll(ops, ref cleanupFailure);
             node.Cache.RejectCache();
+            if (cleanupFailure != null)
+                ExceptionDispatchInfo.Capture(cleanupFailure).Throw();
             return;
         }
 
@@ -145,9 +153,22 @@ public static class RenderNodeCacheHelper
         if (!cacheOptions.Rules.Match(pixels))
         {
             // Release rasterized tiles on the reject path to avoid leaking RenderTarget surfaces.
+            Exception? cleanupFailure = null;
             foreach (var i in list)
-                i.RenderTarget.Dispose();
+            {
+                try
+                {
+                    (s_rejectTargetDisposerForTest ?? (static target => target.Dispose()))(i.RenderTarget);
+                }
+                catch (Exception ex)
+                {
+                    cleanupFailure ??= ex;
+                }
+            }
+
             node.Cache.RejectCache();
+            if (cleanupFailure != null)
+                ExceptionDispatchInfo.Capture(cleanupFailure).Throw();
             return;
         }
 

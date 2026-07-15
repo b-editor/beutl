@@ -200,6 +200,28 @@ public class RenderNodeProcessorExceptionSafetyTests
     }
 
     [Test]
+    public void Pull_DisposesCompletedChildOperations_WhenLaterChildPullThrows()
+    {
+        var pullFailure = new InvalidOperationException("child-pull-fault");
+        var disposed = new List<string>();
+        using var root = new ContainerRenderNode();
+        root.AddChild(new StaticRenderNode(
+            CreateOperation("throwing-cleanup", disposed, throwOnDispose: true),
+            CreateOperation("remaining-cleanup", disposed)));
+        root.AddChild(new ThrowingProcessNode(pullFailure));
+        var processor = new RenderNodeProcessor(root, useRenderCache: false, RenderIntent.Delivery);
+
+        InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => processor.PullToRoot());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(actual, Is.SameAs(pullFailure),
+                "cleanup failures must not replace the child pull failure");
+            Assert.That(disposed, Is.EqualTo(new[] { "throwing-cleanup", "remaining-cleanup" }));
+        });
+    }
+
+    [Test]
     public void DisposeAll_DisposesEveryOperation_EvenWhenAnOperationThrowsOnDispose()
     {
         var disposed = new List<string>();
@@ -335,6 +357,11 @@ public class RenderNodeProcessorExceptionSafetyTests
     private sealed class StaticRenderNode(params RenderNodeOperation[] operations) : RenderNode
     {
         public override RenderNodeOperation[] Process(RenderNodeContext context) => operations;
+    }
+
+    private sealed class ThrowingProcessNode(Exception exception) : RenderNode
+    {
+        public override RenderNodeOperation[] Process(RenderNodeContext context) => throw exception;
     }
 
     // Substitutes RenderTarget allocation so the exception-safety paths can run with a RenderTarget
