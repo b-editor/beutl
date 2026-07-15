@@ -230,6 +230,59 @@ public class RenderTargetPoolTests
     }
 
     [Test]
+    public void LeaseDispose_AfterOwningDispatcherStops_ReleasesBackingAndBalancesLeaseCount()
+    {
+        Dispatcher dispatcher = Dispatcher.Spawn();
+        RenderTargetPool? pool = null;
+        RenderTarget? lease = null;
+        int backingDisposeCount = 0;
+        try
+        {
+            (pool, lease) = dispatcher.Invoke(() =>
+            {
+                var created = new RenderTargetPool();
+                created.SetBackingFactoryForTest((width, height) =>
+                {
+                    SKSurface surface = SKSurface.Create(new SKImageInfo(width, height))
+                        ?? throw new InvalidOperationException("Could not create the test surface.");
+                    return (surface, null);
+                });
+                created.SetDisposeBackingForTest(pooled =>
+                {
+                    Interlocked.Increment(ref backingDisposeCount);
+                    pooled.DisposeBacking();
+                });
+                return (created, created.Acquire(W, H)
+                    ?? throw new InvalidOperationException("Could not acquire the test lease."));
+            });
+            Assert.That(pool.LiveLeaseCount, Is.EqualTo(1));
+
+            dispatcher.Shutdown();
+            Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(10)), Is.True,
+                "the test dispatcher must finish before the last lease is released");
+
+            lease.Dispose();
+            lease = null;
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(backingDisposeCount, Is.EqualTo(1),
+                    "a rejected cleanup dispatch must dispose the backing inline instead of leaking it");
+                Assert.That(pool.LiveLeaseCount, Is.Zero,
+                    "the shutdown fallback must balance the lease accounting");
+                Assert.That(pool.IdleCount, Is.Zero,
+                    "a stopped dispatcher cannot accept a returned buffer for later reuse");
+            });
+        }
+        finally
+        {
+            lease?.Dispose();
+            if (!dispatcher.HasShutdownStarted)
+                dispatcher.Shutdown();
+        }
+    }
+
+    [Test]
     public void Clear_DisposeFailureStillReleasesEveryIdleBackingAndResetsAccounting()
     {
         RunOnRenderThread(() =>

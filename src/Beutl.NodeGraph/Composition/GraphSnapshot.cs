@@ -172,6 +172,9 @@ public sealed class GraphSnapshot : IDisposable
                 DisableResourceShare = context.DisableResourceShare,
                 PreferProxy = context.PreferProxy,
                 PreferredProxyPreset = context.PreferredProxyPreset,
+                RenderIntent = context is GraphCompositionContext graphContext
+                    ? graphContext.RenderIntent
+                    : Beutl.Graphics.Rendering.RenderIntent.Preview,
             };
         }
 
@@ -294,6 +297,9 @@ public sealed class GraphSnapshot : IDisposable
             ctx.DisableResourceShare = context.DisableResourceShare;
             ctx.PreferProxy = context.PreferProxy;
             ctx.PreferredProxyPreset = context.PreferredProxyPreset;
+            ctx.RenderIntent = context is GraphCompositionContext graphContext
+                ? graphContext.RenderIntent
+                : Beutl.Graphics.Rendering.RenderIntent.Preview;
 
             // アニメーション/プロパティ値をロード
             LoadAnimatedValues(ctx.Resource, ctx.Time);

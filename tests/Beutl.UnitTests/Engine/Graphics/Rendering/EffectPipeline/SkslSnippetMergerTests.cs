@@ -294,6 +294,31 @@ public class SkslSnippetMergerTests
         });
     }
 
+    [TestCase("1e3")]
+    [TestCase("1E-3")]
+    [TestCase("0.5e3")]
+    [TestCase(".5e+2")]
+    [TestCase("2.718")]
+    public void Merge_ExponentLiteralContainingDeclarationName_DoesNotRenameExponent(string literal)
+    {
+        string source =
+            "uniform float e;\n"
+            + $"half4 apply(half4 c) {{ return c * ({literal} + e); }}";
+
+        string merged = SkslSnippetMerger.Merge([SkslSource.Snippet(source)]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(merged, Does.Contain(literal),
+                "the exponent marker belongs to the numeric token and must not be alpha-renamed");
+            Assert.That(merged, Does.Contain("+ fe0_e"),
+                "the actual uniform reference must still be renamed");
+            using SKRuntimeEffect? effect = SKRuntimeEffect.CreateShader(merged, out string? error);
+            Assert.That(error, Is.Null, $"the exponent-bearing merged program compiles ({error})");
+            Assert.That(effect, Is.Not.Null);
+        });
+    }
+
     // CANARY: the merger's whole-word rename does NOT exclude struct bodies, which is sound only while SkSL
     // itself rejects function-local struct statements (top-level structs are already rejected at Snippet()). If a
     // Skia upgrade starts ACCEPTING this, a field sharing a top-level name would be renamed in its declaration but

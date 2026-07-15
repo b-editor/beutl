@@ -61,11 +61,24 @@ public sealed partial class Clipping : FilterEffect
             bool anyNegative = thickness.Left < 0 || thickness.Top < 0 || thickness.Right < 0 || thickness.Bottom < 0;
             if (anyNegative)
             {
-                var grow = new Thickness(
-                    Math.Max(0, -thickness.Left),
-                    Math.Max(0, -thickness.Top),
-                    Math.Max(0, -thickness.Right) + (thickness.Left < 0 ? 1 : 0),
-                    Math.Max(0, -thickness.Bottom) + (thickness.Top < 0 ? 1 : 0));
+                Thickness grow;
+                if (autoCenter)
+                {
+                    // AutoCenter redistributes the net negative expansion equally across both sides. Allocate that
+                    // symmetric extent up front (plus one logical pixel of rounding slack) so the centered target
+                    // never falls back to the un-centered NewBounds at execution time.
+                    float horizontal = Math.Max(0, -(thickness.Left + thickness.Right) / 2) + 1;
+                    float vertical = Math.Max(0, -(thickness.Top + thickness.Bottom) / 2) + 1;
+                    grow = new Thickness(horizontal, vertical, horizontal, vertical);
+                }
+                else
+                {
+                    grow = new Thickness(
+                        Math.Max(0, -thickness.Left),
+                        Math.Max(0, -thickness.Top),
+                        Math.Max(0, -thickness.Right) + (thickness.Left < 0 ? 1 : 0),
+                        Math.Max(0, -thickness.Bottom) + (thickness.Top < 0 ? 1 : 0));
+                }
                 bounds = BoundsContract.Create(
                     rect => rect.Inflate(grow),
                     _ => inputBounds);
@@ -158,6 +171,17 @@ public sealed partial class Clipping : FilterEffect
         {
             session.DiscardOutput();
             return;
+        }
+
+        if (!autoClip)
+        {
+            Rect originalRect = input.Bounds.WithX(0).WithY(0);
+            Rect fixedClipRect = originalRect.Deflate(effective).Normalize();
+            if (originalRect.Intersect(fixedClipRect).IsEmpty)
+            {
+                session.DiscardOutput();
+                return;
+            }
         }
 
         // The buffer occupies TargetBounds (already sized by the forward map); the callback only needs the crop

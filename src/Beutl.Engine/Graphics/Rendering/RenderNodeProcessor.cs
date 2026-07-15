@@ -321,9 +321,15 @@ public class RenderNodeProcessor
         RenderNodeOperation[] input = [];
         if (node is ContainerRenderNode container)
         {
-            Rect childRequestedBounds = node is TransformRenderNode transform
-                ? transform.MapRequestedBoundsToChild(requestedBounds)
-                : requestedBounds;
+            Rect childRequestedBounds = node switch
+            {
+                // A filter effect's backward ROI is not known until after its children have been pulled and its
+                // graph has been described. Forwarding the outer request here would bake a nested effect to that
+                // narrow rect before an expanding parent effect can request its halo.
+                FilterEffectRenderNode => Rect.Invalid,
+                TransformRenderNode transform => transform.MapRequestedBoundsToChild(requestedBounds),
+                _ => requestedBounds,
+            };
             using var operations = new PooledList<RenderNodeOperation>();
             try
             {

@@ -9,7 +9,7 @@ namespace Beutl.NodeGraph;
 
 internal class NodeGraphFilterEffectRenderNode(NodeGraphFilterEffect.Resource resource) : FilterEffectRenderNode(resource)
 {
-    private readonly CompositionContext _compositionContext = new(TimeSpan.Zero);
+    private readonly GraphCompositionContext _compositionContext = new(TimeSpan.Zero);
 
     private NodeGraphFilterEffect.Resource? GraphResource => FilterEffect?.Resource as NodeGraphFilterEffect.Resource;
 
@@ -37,6 +37,7 @@ internal class NodeGraphFilterEffectRenderNode(NodeGraphFilterEffect.Resource re
             _compositionContext.PreferProxy = GraphResource.PreferProxy;
             _compositionContext.PreferredProxyPreset = GraphResource.PreferredProxyPreset;
             _compositionContext.DisableResourceShare = GraphResource.DisableResourceShare;
+            _compositionContext.RenderIntent = context.RenderIntent;
             GraphResource.Snapshot.Evaluate(CompositionTarget.Graphics, _compositionContext);
 
             // 4. OutputNode から出力 RenderNode を収集

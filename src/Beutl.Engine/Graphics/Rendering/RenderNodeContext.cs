@@ -38,6 +38,13 @@ public class RenderNodeContext(
     internal RenderTargetPool? Pool { get; set; }
 
     /// <summary>
+    /// Overrides the render-tree stability predicate when an executor supplies the input operations through an
+    /// opaque seam instead of container children. A false value keeps content-blind prefix signatures from treating
+    /// same-bounds animated input as stable.
+    /// </summary>
+    internal bool? InputSubtreeStableOverride { get; init; }
+
+    /// <summary>
     /// Logical region the parent needs from this node's output. <see cref="Rect.Invalid"/> requests the full
     /// output. Filter-effect plans seed their backward ROI walk from this value (FR-011).
     /// </summary>

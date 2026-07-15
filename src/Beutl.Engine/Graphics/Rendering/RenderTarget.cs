@@ -370,7 +370,10 @@ public class RenderTarget : IDisposable
                                 }
                                 else
                                 {
-                                    _dispatcher.Dispatch(work);
+                                    // Shutdown rejects new dispatcher work. At that point device teardown is already
+                                    // underway, so execute the final release inline rather than leak the backing.
+                                    if (!_dispatcher.TryDispatch(work))
+                                        work();
                                 }
                             }
                             else

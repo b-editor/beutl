@@ -122,6 +122,29 @@ public class AutoClipEmptyOutputTests
         }
     }
 
+    [Test]
+    public void FixedClip_PositiveWidthWindowOutsideInput_ProducesNoOperation()
+    {
+        var clip = new Clipping();
+        clip.Left.CurrentValue = 210;
+        clip.Right.CurrentValue = -20;
+
+        using FilterEffect.Resource resource = clip.ToResource(CompositionContext.Default);
+        using var node = new PlanFilterEffectRenderNode(resource);
+        var context = new RenderNodeContext([MakeContentRect(s_input, s_input)], RenderIntent.Delivery);
+
+        RenderNodeOperation[] ops = node.Process(context);
+        try
+        {
+            Assert.That(ops, Is.Empty,
+                "a normalized clip window that has positive size but is disjoint from the input must be dropped");
+        }
+        finally
+        {
+            RenderNodeOperation.DisposeAll(ops);
+        }
+    }
+
     private static RenderNodeOperation MakeTransparentRect(Rect bounds)
         => RenderNodeOperation.CreateLambda(
             bounds,

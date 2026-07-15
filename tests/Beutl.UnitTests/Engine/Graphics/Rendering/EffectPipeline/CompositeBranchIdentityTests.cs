@@ -176,6 +176,53 @@ public class CompositeBranchIdentityTests
     }
 
     [Test]
+    public void NestedGraph_MixedDynamicAndSparseStaticChildren_PreservesLeadingStaticHole()
+    {
+        var seen = new List<int>();
+        var builder = new EffectGraphBuilder(
+            s_input, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
+        builder.Split(SplitNodeDescriptor.Static(
+            emitter =>
+            {
+                emitter.Emit(new Rect(0, 0, 10, 10), session => DrawInput(session));
+                emitter.Emit(new Rect(10, 0, 10, 10), session => DrawInput(session));
+            },
+            branchCount: 2,
+            structuralToken: "two-parent-branches"));
+        builder.NestedGraph(NestedGraphNodeDescriptor.Create(
+            (branchBuilder, branchIndex) =>
+            {
+                if (branchIndex == 0)
+                {
+                    branchBuilder.Split(SplitNodeDescriptor.Dynamic(
+                        emitter => emitter.Emit(emitter.Input.Bounds, session => DrawInput(session)),
+                        structuralToken: "dynamic-first-child"));
+                }
+                else
+                {
+                    branchBuilder.Split(SplitNodeDescriptor.Static(
+                        emitter =>
+                        {
+                            emitter.Emit(emitter.Input.Bounds, static session => session.DiscardOutput());
+                            emitter.Emit(emitter.Input.Bounds, session => DrawInput(session));
+                        },
+                        branchCount: 2,
+                        structuralToken: "sparse-static-second-child"));
+                }
+            },
+            structuralToken: "mixed-child-cardinality"));
+        builder.NestedGraph(NestedGraphNodeDescriptor.Create(
+            (_, branchIndex) => seen.Add(branchIndex),
+            structuralToken: "observe-mixed-child-indices"));
+
+        RenderNodeOperation[] outputs = Execute(builder);
+        RenderNodeOperation.DisposeAll(outputs);
+
+        Assert.That(seen, Is.EqualTo(new[] { 0, 2 }),
+            "the surviving second static emit must retain the authored leading hole after a dynamic sibling");
+    }
+
+    [Test]
     public void FoldedColorFilterFallback_AfterGeometryDropsMiddleBranch_KeepsOriginalOffset()
     {
         var builder = CreateSplitBuilder(discardInsideSplit: false, thirdBranchWidth: 100);

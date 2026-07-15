@@ -1,5 +1,6 @@
 ﻿using Beutl.Graphics.Backend;
 using Beutl.Graphics.Backend.Vulkan;
+using Beutl.Graphics.Rendering;
 
 namespace Beutl.UnitTests.Engine.Graphics.Backend;
 
@@ -129,5 +130,70 @@ public class GpuDisposeBatchTests
 
         Assert.That(crossThreadFailure, Is.Null,
             "a failure seam installed on one test thread must not affect concurrent render threads");
+    }
+
+    [Test]
+    public void Batch_DrainsEachDistinctContextExactlyOnce()
+    {
+        var firstContext = new object();
+        var secondContext = new object();
+        int firstDrains = 0;
+        int secondDrains = 0;
+        GpuDisposeBatch.ResetFlushCountForTest();
+
+        using (GpuDisposeBatch.Begin())
+        {
+            GpuDisposeBatch.DrainBeforeDestroyForTest(firstContext, () => firstDrains++);
+            GpuDisposeBatch.DrainBeforeDestroyForTest(firstContext, () => firstDrains++);
+            GpuDisposeBatch.DrainBeforeDestroyForTest(secondContext, () => secondDrains++);
+            GpuDisposeBatch.DrainBeforeDestroyForTest(secondContext, () => secondDrains++);
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(firstDrains, Is.EqualTo(1));
+            Assert.That(secondDrains, Is.EqualTo(1));
+            Assert.That(GpuDisposeBatch.FlushCount, Is.EqualTo(2),
+                "a mixed-context batch must drain once per context, not once for the whole batch");
+        });
+    }
+
+    [Test]
+    public void VulkanTextureDispose_FromWorkerThread_ReleasesHandlesOnRenderThread()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTexture2D texture = VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var context = GraphicsContextFactory.SharedContext
+                ?? throw new InvalidOperationException("A graphics context is required.");
+            return (VulkanTexture2D)context.CreateTexture2D(16, 16, TextureFormat.RGBA16Float);
+        });
+        using var renderThreadEntered = new ManualResetEventSlim();
+        using var releaseRenderThread = new ManualResetEventSlim();
+
+        try
+        {
+            RenderThread.Dispatcher.Dispatch(() =>
+            {
+                renderThreadEntered.Set();
+                releaseRenderThread.Wait();
+            });
+            Assert.That(renderThreadEntered.Wait(TimeSpan.FromSeconds(10)), Is.True,
+                "the render-thread blocker must start before the worker disposes the texture");
+
+            Task.Run(texture.Dispose).GetAwaiter().GetResult();
+
+            Assert.That(texture.NativeHandlesReleasedForTest, Is.False,
+                "worker disposal must enqueue native teardown instead of draining and destroying handles inline");
+
+            releaseRenderThread.Set();
+            RenderThread.Dispatcher.Invoke(static () => { });
+            Assert.That(texture.NativeHandlesReleasedForTest, Is.True);
+        }
+        finally
+        {
+            releaseRenderThread.Set();
+            RenderThread.Dispatcher.Invoke(texture.Dispose);
+        }
     }
 }

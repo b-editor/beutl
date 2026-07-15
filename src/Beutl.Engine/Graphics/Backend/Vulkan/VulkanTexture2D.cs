@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Runtime.InteropServices;
+using Beutl.Graphics.Rendering;
 using Silk.NET.Vulkan;
 using SkiaSharp;
 
@@ -330,19 +331,43 @@ internal unsafe class VulkanTexture2D : ITexture2D
         if (_disposed) return;
         _disposed = true;
 
+        if (!RenderThread.Dispatcher.CheckAccess())
+        {
+            if (RenderThread.Dispatcher.TryDispatch(() => DisposeNativeHandles(drainSkia: true)))
+                return;
+
+            // Dispatcher shutdown means the device is already being torn down. A finalizer or late lease must still
+            // release its Vulkan handles, but synchronously flushing the render-thread-affine GRContext here is unsafe.
+            DisposeNativeHandles(drainSkia: false);
+            return;
+        }
+
+        DisposeNativeHandles(drainSkia: true);
+    }
+
+    protected virtual GRContext? SkiaContextForDrain => _context.SkiaContextOrNull;
+
+    private void DisposeNativeHandles(bool drainSkia)
+    {
+        if (_nativeHandlesReleased)
+            return;
+
         // Skia only borrows this image (GRBackendRenderTarget): other surfaces' recorded-but-unflushed
         // ops may still sample it, and destroying the VkImage first leaves those pending command buffers
         // pointing at freed memory — the next GRContext flush then faults inside the driver (fatal on
         // SwiftShader). Drain all pending Skia work while the image is still alive. Under a pool eviction
-        // batch the drain runs once for the whole batch (GpuDisposeBatch); a lone dispose drains itself.
-        try
+        // batch the drain runs once per live context (GpuDisposeBatch); a lone dispose drains itself.
+        if (drainSkia)
         {
-            GpuDisposeBatch.DrainBeforeDestroy(_context.SkiaContextOrNull);
-        }
-        catch
-        {
-            // A lost context or failed queue drain must not strand the native allocations forever. Dispose is
-            // best-effort and non-throwing; the handle teardown below still runs exactly once.
+            try
+            {
+                GpuDisposeBatch.DrainBeforeDestroy(SkiaContextForDrain);
+            }
+            catch
+            {
+                // A lost context or failed queue drain must not strand the native allocations forever. Dispose is
+                // best-effort and non-throwing; the handle teardown below still runs exactly once.
+            }
         }
 
         var vk = _context.Vk;

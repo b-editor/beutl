@@ -2,6 +2,7 @@
 
 using Beutl.Engine;
 using Beutl.Language;
+using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
@@ -125,15 +126,50 @@ public sealed partial class Curves : FilterEffect
             s_snippet,
             samplers:
             [
-                builder.Sampler("masterCurve", r.MasterCurve.ToShader()),
-                builder.Sampler("redCurve", r.RedCurve.ToShader()),
-                builder.Sampler("greenCurve", r.GreenCurve.ToShader()),
-                builder.Sampler("blueCurve", r.BlueCurve.ToShader()),
-                builder.Sampler("hueVsHue", r.HueVsHue.ToShader()),
-                builder.Sampler("hueVsSat", r.HueVsSaturation.ToShader()),
-                builder.Sampler("hueVsLuma", r.HueVsLuminance.ToShader()),
-                builder.Sampler("lumaVsSat", r.LuminanceVsSaturation.ToShader()),
-                builder.Sampler("satVsSat", r.SaturationVsSaturation.ToShader()),
+                new ChildBinding("masterCurve", r.GetOrBuildCurveShader(0, r.MasterCurve)),
+                new ChildBinding("redCurve", r.GetOrBuildCurveShader(1, r.RedCurve)),
+                new ChildBinding("greenCurve", r.GetOrBuildCurveShader(2, r.GreenCurve)),
+                new ChildBinding("blueCurve", r.GetOrBuildCurveShader(3, r.BlueCurve)),
+                new ChildBinding("hueVsHue", r.GetOrBuildCurveShader(4, r.HueVsHue)),
+                new ChildBinding("hueVsSat", r.GetOrBuildCurveShader(5, r.HueVsSaturation)),
+                new ChildBinding("hueVsLuma", r.GetOrBuildCurveShader(6, r.HueVsLuminance)),
+                new ChildBinding("lumaVsSat", r.GetOrBuildCurveShader(7, r.LuminanceVsSaturation)),
+                new ChildBinding("satVsSat", r.GetOrBuildCurveShader(8, r.SaturationVsSaturation)),
             ]));
+    }
+
+    public new partial class Resource
+    {
+        private readonly CurveMap?[] _cachedCurves = new CurveMap?[9];
+        private readonly SKShader?[] _cachedCurveShaders = new SKShader?[9];
+
+        internal int CurveShaderBuildCountForTest { get; private set; }
+
+        internal SKShader GetOrBuildCurveShader(int slot, CurveMap curve)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(slot);
+            if (slot >= _cachedCurves.Length)
+                throw new ArgumentOutOfRangeException(nameof(slot));
+
+            SKShader? shader = _cachedCurveShaders[slot];
+            if (shader is null || !ReferenceEquals(_cachedCurves[slot], curve))
+            {
+                shader?.Dispose();
+                shader = curve.ToShader();
+                _cachedCurves[slot] = curve;
+                _cachedCurveShaders[slot] = shader;
+                CurveShaderBuildCountForTest++;
+            }
+
+            return shader;
+        }
+
+        partial void PostDispose(bool disposing)
+        {
+            foreach (SKShader? shader in _cachedCurveShaders)
+                shader?.Dispose();
+            Array.Clear(_cachedCurveShaders);
+            Array.Clear(_cachedCurves);
+        }
     }
 }

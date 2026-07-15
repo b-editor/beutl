@@ -1,8 +1,10 @@
 ﻿using Beutl.Composition;
 using Beutl.Graphics;
+using Beutl.Graphics.Backend;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics3D;
 using Beutl.UnitTests.Engine.Graphics.Backend;
+using Moq;
 
 namespace Beutl.UnitTests.Engine.Graphics3D;
 
@@ -46,6 +48,38 @@ public class Scene3DRenderNodeScaleTests
                 DisposeAll(ops);
             }
         });
+    }
+
+    [Test]
+    public void Process_AuxiliaryPullWithout3DSupport_ProducesNoOperation()
+    {
+        var unsupported = new Mock<IGraphicsContext>(MockBehavior.Strict);
+        unsupported.SetupGet(x => x.Supports3DRendering).Returns(false);
+        Scene3DRenderNode.SetGraphicsContextProviderForTest(() => unsupported.Object);
+        try
+        {
+            var scene = new Scene3D();
+            scene.RenderWidth.CurrentValue = 32;
+            scene.RenderHeight.CurrentValue = 32;
+            using var resource = (Scene3D.Resource)scene.ToResource(CompositionContext.Default);
+            using var node = new Scene3DRenderNode(resource);
+            var context = new RenderNodeContext(
+                [], RenderIntent.Preview, outputScale: 1f,
+                pullPurpose: RenderPullPurpose.Auxiliary);
+
+            RenderNodeOperation[] ops = node.Process(context);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(ops, Is.Empty,
+                    "auxiliary pulls must not advertise a 3D scene when the current context cannot render it");
+                Assert.That(resource.Renderer, Is.Null);
+            });
+        }
+        finally
+        {
+            Scene3DRenderNode.SetGraphicsContextProviderForTest(null);
+        }
     }
 
     [Test]

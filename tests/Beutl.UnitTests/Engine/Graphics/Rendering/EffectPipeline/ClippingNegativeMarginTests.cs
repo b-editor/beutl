@@ -148,6 +148,31 @@ public class ClippingNegativeMarginTests
         }
     }
 
+    [Test]
+    public void AutoClip_AutoCenter_OneSidedNegativeMargin_AllocatesSymmetricGrowth()
+    {
+        var clip = new Clipping();
+        clip.AutoClip.CurrentValue = true;
+        clip.AutoCenter.CurrentValue = true;
+        clip.Left.CurrentValue = -10;
+
+        using FilterEffect.Resource resource = clip.ToResource(CompositionContext.Default);
+        using var node = new PlanFilterEffectRenderNode(resource);
+        var context = new RenderNodeContext([MakeContentRect(s_input, s_input)], RenderIntent.Delivery);
+
+        RenderNodeOperation[] ops = node.Process(context);
+        try
+        {
+            Assert.That(ops, Has.Length.EqualTo(1));
+            Assert.That(ops[0].Bounds, Is.EqualTo(new Rect(-5, 0, 110, 100)),
+                "AutoCenter must preserve the original center when only one side expands the clip window");
+        }
+        finally
+        {
+            RenderNodeOperation.DisposeAll(ops);
+        }
+    }
+
     private static RenderNodeOperation[] RenderClipping(Action<Clipping> configure)
     {
         var clip = new Clipping();

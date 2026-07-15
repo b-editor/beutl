@@ -294,7 +294,9 @@ internal static class PlanExecutor
         ref int ordinalGeneration, ref int ordinalSpan)
     {
         var branchResults = new List<BranchExecutionResult>(current.Count);
+        var branchEntryOrdinals = new List<int>(current.Count);
         int initialGeneration = ordinalGeneration;
+        int initialSpan = Math.Max(1, ordinalSpan);
         var liveBranchIndices = new HashSet<int>();
         for (int i = 0; i < current.Count; i++)
             liveBranchIndices.Add(ResolveBranchOrdinal(current[i].Ordinal, i));
@@ -344,6 +346,7 @@ internal static class PlanExecutor
                         ordinalGeneration: ordinalGeneration,
                         ordinalSpan: ordinalSpan);
                     branchResults.Add(branchResult);
+                    branchEntryOrdinals.Add(branchIndex);
                 }
                 finally
                 {
@@ -380,8 +383,9 @@ internal static class PlanExecutor
         // publish ordinal zero. The span includes discarded emits, preserving holes for downstream offsets.
         int nextOrdinal = 0;
         int resultGeneration = initialGeneration + 1;
-        foreach (BranchExecutionResult result in branchResults)
+        for (int resultIndex = 0; resultIndex < branchResults.Count; resultIndex++)
         {
+            BranchExecutionResult result = branchResults[resultIndex];
             bool locallyReset = result.OrdinalGeneration > initialGeneration;
             int localBase;
             int localSpan;
@@ -391,16 +395,13 @@ internal static class PlanExecutor
                 localSpan = result.OrdinalSpan;
                 resultGeneration = Math.Max(resultGeneration, result.OrdinalGeneration);
             }
-            else if (result.Outputs.Length > 0)
-            {
-                localBase = result.Outputs.Min(static branch => branch.Ordinal);
-                int localMax = result.Outputs.Max(static branch => branch.Ordinal);
-                localSpan = Math.Max(1, localMax - localBase + 1);
-            }
             else
             {
-                localBase = 0;
-                localSpan = 1;
+                // A non-reset child preserves the incoming ordinal namespace. Derive this sibling's true authored
+                // slice from the branch ordinal it entered with and the span multiplication performed by static
+                // splits. Looking at surviving outputs would collapse leading/trailing dropped emits.
+                localSpan = Math.Max(1, result.OrdinalSpan / initialSpan);
+                localBase = branchEntryOrdinals[resultIndex] * localSpan;
             }
 
             foreach (BranchOperation output in result.Outputs)
@@ -480,6 +481,10 @@ internal static class PlanExecutor
                 Diagnostics = diagnostics,
                 Pool = pool,
                 IsRenderCacheEnabled = isRenderCacheEnabled,
+                // Inputs arrive from the executing parent plan rather than this node's container children. Their
+                // pixels may change while bounds and density stay fixed, so a nested plan must fail closed instead
+                // of resuming a content-blind retained prefix.
+                InputSubtreeStableOverride = false,
                 // A custom node is opaque to the compiler, so its backward bounds contract is unknown. Passing the
                 // outer crop directly would let a later expanding pass (blur, shadow, stroke) clip the halo before
                 // it is produced. The custom node therefore receives the conservative full-input request; only

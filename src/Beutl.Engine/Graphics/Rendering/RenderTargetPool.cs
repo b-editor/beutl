@@ -243,7 +243,12 @@ internal sealed class RenderTargetPool : IDisposable
         // (PooledTextureLease.Dispose runs on the caller thread); marshal like DisposeBacking does.
         if (_dispatcher != null && !_dispatcher.CheckAccess())
         {
-            _dispatcher.Dispatch(() => Return(pooled, leaseGeneration));
+            if (_dispatcher.TryDispatch(() => Return(pooled, leaseGeneration)))
+                return;
+
+            // Once the owning dispatcher rejects work, no further pool reuse can occur. Balance the live lease and
+            // release the backing inline as a last resort; device teardown is already underway.
+            ReturnAfterDispatcherShutdown(pooled, leaseGeneration);
             return;
         }
 
@@ -266,6 +271,16 @@ internal sealed class RenderTargetPool : IDisposable
         pooled.BucketNode = GetBucket(pooled.Key).AddLast(pooled);
         pooled.LruNode = _lru.AddLast(pooled);
         _idleBytes += pooled.ByteSize;
+    }
+
+    private void ReturnAfterDispatcherShutdown(PooledSurface pooled, int leaseGeneration)
+    {
+        if (pooled.IsPooled || pooled.Generation != leaseGeneration)
+            return;
+
+        Interlocked.Decrement(ref _liveLeases);
+        pooled.Generation++;
+        _disposeBacking(pooled);
     }
 
     /// <summary>
@@ -480,8 +495,10 @@ internal sealed class RenderTargetPool : IDisposable
     {
         if (_dispatcher == null || _dispatcher.CheckAccess())
             _disposeBacking(pooled);
-        else
-            _dispatcher.Dispatch(() => _disposeBacking(pooled));
+        else if (!_dispatcher.TryDispatch(() => _disposeBacking(pooled)))
+            // The dispatcher is stopping, so it can no longer run GPU-affine cleanup. Device teardown has begun;
+            // release inline rather than silently abandon the backing.
+            _disposeBacking(pooled);
     }
 
     private LinkedList<PooledSurface> GetBucket(BucketKey key)

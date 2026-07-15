@@ -162,6 +162,17 @@ public class Dispatcher
         _synchronizationContext.Post(priority, operation, ct);
     }
 
+    /// <summary>
+    /// Attempts to queue cleanup work and reports whether the dispatcher accepted it. Internal teardown paths use
+    /// the result to release native resources inline after shutdown instead of silently abandoning them.
+    /// </summary>
+    internal bool TryDispatch(
+        Action operation, DispatchPriority priority = DispatchPriority.Medium, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(operation);
+        return _synchronizationContext.TryPost(priority, operation, ct);
+    }
+
     public void Dispatch(Func<Task> operation, DispatchPriority priority = DispatchPriority.Medium, CancellationToken ct = default)
     {
         _synchronizationContext.Post(priority, () => operation(), ct);

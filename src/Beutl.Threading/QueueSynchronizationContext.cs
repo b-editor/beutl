@@ -322,6 +322,16 @@ internal sealed class QueueSynchronizationContext(Dispatcher dispatcher, TimePro
             queued.Abort(new ObjectDisposedException(nameof(Dispatcher), "The dispatcher is shutting down."));
     }
 
+    internal bool TryPost(DispatchPriority priority, Action operation, CancellationToken ct)
+    {
+        DispatcherOperation queued = new(operation, priority, ct);
+        if (TryPost(queued))
+            return true;
+
+        queued.Abort(new ObjectDisposedException(nameof(Dispatcher), "The dispatcher is shutting down."));
+        return false;
+    }
+
     internal void Post(DispatcherOperation operation)
     {
         if (!TryPost(operation))

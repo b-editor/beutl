@@ -55,8 +55,7 @@ public sealed partial class TransformEffect : FilterEffect
         builder.Geometry(GeometryNodeDescriptor.Create(
             session =>
             {
-                Rect inRect = session.Inputs[0].Bounds;
-                Vector origin = originPoint.ToPixels(inRect.Size);
+                Vector origin = originPoint.ToPixels(inputBounds.Size);
                 Matrix offset = Matrix.CreateTranslation(origin);
                 TransformGeometry.Render(session, (-offset) * mat * offset);
             },

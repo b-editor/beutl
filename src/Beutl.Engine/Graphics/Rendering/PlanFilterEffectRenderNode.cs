@@ -49,6 +49,7 @@ public class PlanFilterEffectRenderNode(FilterEffect.Resource filterEffect) : Fi
                 {
                     s_beforeDisabledPrefixReleaseForTest?.Invoke();
                     _prefixCache.Release();
+                    _nestedPlanCache.NotifyServedFromCache();
                 }
             }
             catch
@@ -132,9 +133,11 @@ public class PlanFilterEffectRenderNode(FilterEffect.Resource filterEffect) : Fi
 
                 if (context.Pool != null && context.IsRenderCacheEnabled)
                 {
+                    bool inputSubtreeStable = context.InputSubtreeStableOverride
+                        ?? RenderNodeCacheHelper.CanCacheRecursiveChildrenOnly(this);
                     PrefixDecision decision = _prefixCache.Prepare(
                         resource, plan, key, contextId, workingScale, context.OutputScale, context.MaxWorkingScale,
-                        context.RenderIntent, context.Input, RenderNodeCacheHelper.CanCacheRecursiveChildrenOnly(this),
+                        context.RenderIntent, context.Input, inputSubtreeStable,
                         resources);
 
                     switch (decision.Mode)

@@ -511,6 +511,74 @@ public class CustomRenderNodeEffectInGraphTests
             "an ancestor cache hit must notify persistent embedded nodes that Process will not run");
     }
 
+    [Test]
+    public void DisabledOwner_NotifiesNestedCustomNodesThatExecutionWasSkipped()
+    {
+        var calls = new int[1];
+        var cacheNotifications = new int[1];
+        var group = new FilterEffectGroup();
+        group.Children.Add(new ProbeCustomNodeEffect(
+            calls, servedFromCacheCount: cacheNotifications));
+        using FilterEffect.Resource resource = group.ToResource(CompositionContext.Default);
+        using var owner = new PlanFilterEffectRenderNode(resource);
+
+        RenderNodeOperation.DisposeAll(owner.Process(
+            new RenderNodeContext([MakeInput(s_bounds)], RenderIntent.Delivery)));
+        Assert.That(calls[0], Is.EqualTo(1), "sanity: the nested node was created and executed");
+
+        group.IsEnabled = false;
+        bool updateOnly = false;
+        resource.Update(group, CompositionContext.Default, ref updateOnly);
+        owner.Update(resource);
+        RenderNodeOperation.DisposeAll(owner.Process(
+            new RenderNodeContext([MakeInput(s_bounds)], RenderIntent.Delivery)));
+
+        Assert.That(cacheNotifications[0], Is.EqualTo(1),
+            "a disabled plan owner must notify nested nodes so they release execution-dependent retained state");
+    }
+
+    [Test]
+    public void EmbeddedPlanNode_WithOpaqueParentInput_NeverReusesContentBlindPrefix()
+    {
+        var group = new FilterEffectGroup();
+        group.Children.Add(new NestedPrefixPlanEffect());
+        using FilterEffect.Resource resource = group.ToResource(CompositionContext.Default);
+        using var owner = new PlanFilterEffectRenderNode(resource);
+        using var pool = new RenderTargetPool();
+        var diagnostics = new PipelineDiagnostics();
+
+        long totalHits = 0;
+        for (int frame = 0; frame < 6; frame++)
+        {
+            pool.Trim(frame);
+            diagnostics.Reset();
+            var input = RenderNodeOperation.CreateLambda(
+                s_bounds,
+                canvas => canvas.DrawRectangle(
+                    s_bounds,
+                    frame % 2 == 0 ? Brushes.Resource.Red : Brushes.Resource.Blue,
+                    null),
+                hitTest: s_bounds.Contains);
+            var context = new RenderNodeContext([input], RenderIntent.Delivery)
+            {
+                Diagnostics = diagnostics,
+                Pool = pool,
+                IsRenderCacheEnabled = true,
+            };
+
+            RenderNodeOperation.DisposeAll(owner.Process(context));
+            totalHits += diagnostics.Snapshot().PrefixCacheHits;
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(totalHits, Is.Zero,
+                "opaque custom-pass inputs can change pixels at stable bounds, so the nested prefix must fail closed");
+            Assert.That(pool.RetainedPrefixCount, Is.Zero,
+                "an unstable nested input must not retain a content-blind prefix buffer");
+        });
+    }
+
     // ---- Base class: group-safe by construction (GPU-free) ---------------------------------------------
 
     // M2: an effect deriving from CustomRenderNodeFilterEffect inherits a sealed Describe (it declares none of its
@@ -970,6 +1038,43 @@ internal sealed class ProbeRenderNode : FilterEffectRenderNode
         base.OnServedFromCache();
     }
 }
+
+[SuppressResourceClassGeneration]
+internal sealed partial class NestedPrefixPlanEffect : FilterEffect
+{
+    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
+    {
+        builder.Blur(new Size(4, 4));
+        builder.Geometry(GeometryNodeDescriptor.Create(
+            static session =>
+            {
+                ImmediateCanvas canvas = session.OpenCanvas();
+                using (canvas.PushDeviceSpace())
+                    session.Inputs[0].Draw(canvas, default);
+            },
+            BoundsContract.Identity,
+            structuralToken: "nested-prefix-tail"));
+    }
+
+    public override Resource ToResource(CompositionContext context)
+    {
+        var resource = new Resource();
+        bool updateOnly = false;
+        resource.Update(this, context, ref updateOnly);
+        return resource;
+    }
+
+    public new sealed class Resource : FilterEffect.Resource
+    {
+        private static readonly PlanFilterEffectRenderNodeFactory s_factory =
+            PlanFilterEffectRenderNodeFactory.Of<Resource, NestedPrefixPlanNode>(
+                static resource => new NestedPrefixPlanNode(resource));
+
+        public override PlanFilterEffectRenderNodeFactory PlanRenderNodeFactory => s_factory;
+    }
+}
+
+internal sealed class NestedPrefixPlanNode(FilterEffect.Resource resource) : PlanFilterEffectRenderNode(resource);
 
 [SuppressResourceClassGeneration]
 internal sealed partial class FanOutCustomNodeEffect(int outputCount) : CustomRenderNodeFilterEffect

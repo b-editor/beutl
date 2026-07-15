@@ -16,6 +16,9 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
 {
     private static readonly ILogger s_logger = Log.CreateLogger<Scene3DRenderNode>();
 
+    [ThreadStatic]
+    private static Func<IGraphicsContext?>? s_graphicsContextProviderForTest;
+
     public Rect Bounds { get; private set; } = new(0, 0, scene.RenderWidth, scene.RenderHeight);
 
     public (Scene3D.Resource Resource, int Version)? Scene { get; private set; } = scene.Capture();
@@ -59,6 +62,10 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
         int dw = w == 1f ? width : (int)MathF.Ceiling(width * w);
         int dh = w == 1f ? height : (int)MathF.Ceiling(height * w);
 
+        var graphicsContext = s_graphicsContextProviderForTest?.Invoke() ?? GraphicsContextFactory.SharedContext;
+        if (graphicsContext == null || !graphicsContext.Supports3DRendering)
+            return [];
+
         if (context.IsAuxiliaryPull)
         {
             // The 2D renderer's hit-test and boundary contracts for a rendered 3D scene are the output rectangle.
@@ -72,10 +79,6 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
                     effectiveScale: EffectiveScale.At(w))
             ];
         }
-
-        var graphicsContext = GraphicsContextFactory.SharedContext;
-        if (graphicsContext == null || !graphicsContext.Supports3DRendering)
-            return [];
 
         Renderer3D renderer = scene.Renderer ??= new Renderer3D(graphicsContext);
 
@@ -170,6 +173,9 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
 
         return [operation];
     }
+
+    internal static void SetGraphicsContextProviderForTest(Func<IGraphicsContext?>? provider)
+        => s_graphicsContextProviderForTest = provider;
 
     private static Object3D.Resource? FindObjectById(IEnumerable<Object3D.Resource> objects, Guid targetId)
     {

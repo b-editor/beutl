@@ -36,6 +36,43 @@ internal static class SkslLexer
             if (char.IsWhiteSpace(c))
                 continue;
 
+            if (char.IsDigit(c) || c == '.' && i + 1 < source.Length && char.IsDigit(source[i + 1]))
+            {
+                int start = i;
+                if (c == '.')
+                {
+                    while (i + 1 < source.Length && char.IsDigit(source[i + 1]))
+                        i++;
+                }
+                else
+                {
+                    while (i + 1 < source.Length && char.IsDigit(source[i + 1]))
+                        i++;
+                    if (i + 1 < source.Length && source[i + 1] == '.')
+                    {
+                        i++;
+                        while (i + 1 < source.Length && char.IsDigit(source[i + 1]))
+                            i++;
+                    }
+                }
+
+                if (i + 1 < source.Length && source[i + 1] is 'e' or 'E')
+                {
+                    int exponentEnd = i + 2;
+                    if (exponentEnd < source.Length && source[exponentEnd] is '+' or '-')
+                        exponentEnd++;
+                    int exponentDigits = exponentEnd;
+                    while (exponentEnd < source.Length && char.IsDigit(source[exponentEnd]))
+                        exponentEnd++;
+                    if (exponentEnd > exponentDigits)
+                        i = exponentEnd - 1;
+                }
+
+                tokens.Add(new SkslToken(
+                    source[start..(i + 1)], false, braceDepth, parenthesisDepth, start, i + 1 - start));
+                continue;
+            }
+
             if (char.IsLetter(c) || c == '_')
             {
                 int start = i;

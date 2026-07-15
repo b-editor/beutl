@@ -169,6 +169,55 @@ public class BackwardRoiContractTests
         AssertRectClose(required, requested.Translate(-translate), tolerance: 0.5);
     }
 
+    [Test]
+    public void Transform_CroppedExecution_MatchesFullRenderInsideRequestedRegion()
+    {
+        var rotation = new RotationTransform { Rotation = { CurrentValue = 35f } };
+        var effect = new TransformEffect { Transform = { CurrentValue = rotation } };
+        var requested = new Rect(45, 30, 75, 60);
+
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using Bitmap full = RenderChain([effect], GradientInput, Rect.Invalid);
+            using Bitmap cropped = RenderChain([effect], GradientInput, requested);
+
+            double meanDiff = MeanChannelDiff(
+                full, cropped,
+                (int)requested.Left, (int)requested.Top,
+                (int)requested.Right, (int)requested.Bottom);
+            Assert.That(meanDiff, Is.LessThanOrEqualTo(3.0),
+                "ROI execution must rotate around the describe-time target pivot, not the cropped input rectangle");
+        });
+    }
+
+    [Test]
+    public void PathFollow_CroppedExecution_MatchesFullRenderInsideRequestedRegion()
+    {
+        var figure = new PathFigure { StartPoint = { CurrentValue = new Point(0, 0) } };
+        figure.Segments.Add(new LineSegment(new Point(100, 60)));
+        var geometry = new PathGeometry { Figures = { figure } };
+        var effect = new PathFollowEffect
+        {
+            Geometry = { CurrentValue = geometry },
+            Progress = { CurrentValue = 50f },
+            FollowRotation = { CurrentValue = true },
+        };
+        var requested = new Rect(55, 40, 80, 60);
+
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using Bitmap full = RenderChain([effect], GradientInput, Rect.Invalid);
+            using Bitmap cropped = RenderChain([effect], GradientInput, requested);
+
+            double meanDiff = MeanChannelDiff(
+                full, cropped,
+                (int)requested.Left, (int)requested.Top,
+                (int)requested.Right, (int)requested.Bottom);
+            Assert.That(meanDiff, Is.LessThanOrEqualTo(3.0),
+                "ROI execution must follow around the describe-time target pivot, not the cropped input rectangle");
+        });
+    }
+
     // InnerShadow draws a blurred (3σ), offset (Position) shadow copy, so its backward must claim r ∪ (r − Position)
     // inflated by 3σ (the DropShadow pattern). Identity (r => r) under-claims and crops the offset shadow source.
     [Test]

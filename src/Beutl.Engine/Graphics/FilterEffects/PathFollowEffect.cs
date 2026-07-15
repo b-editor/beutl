@@ -56,8 +56,7 @@ public sealed partial class PathFollowEffect : FilterEffect
         builder.Geometry(GeometryNodeDescriptor.Create(
             session =>
             {
-                Rect inRect = session.Inputs[0].Bounds;
-                var center = new Vector(inRect.Width / 2, inRect.Height / 2);
+                var center = new Vector(inputBounds.Width / 2, inputBounds.Height / 2);
                 TransformGeometry.Render(session, LocalMatrix(translate, rotationAngle, center));
             },
             BoundsContract.Create(

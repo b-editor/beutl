@@ -50,7 +50,9 @@ public sealed class TransformRenderNode(Matrix transform, TransformOperator tran
 
     internal Rect MapRequestedBoundsToChild(Rect requestedBounds)
     {
-        if (requestedBounds.IsInvalid || !Transform.HasInverse)
+        if (requestedBounds.IsInvalid
+            || TransformOperator != TransformOperator.Prepend
+            || !Transform.HasInverse)
             return Rect.Invalid;
 
         return requestedBounds.TransformToAABB(Transform.Invert());

@@ -1,5 +1,7 @@
 ﻿using Beutl.Composition;
 
+using Beutl.Graphics.Rendering;
+
 namespace Beutl.NodeGraph.Composition;
 
 public sealed class GraphCompositionContext : CompositionContext
@@ -13,6 +15,9 @@ public sealed class GraphCompositionContext : CompositionContext
     internal GraphSnapshot Snapshot { get; set; } = null!;
 
     public CompositionTarget Target { get; internal set; }
+
+    /// <summary>The ambient failure policy of the render that is evaluating this graph.</summary>
+    internal RenderIntent RenderIntent { get; set; } = RenderIntent.Preview;
 
     public bool HasConnection(IInputPort port)
     {
