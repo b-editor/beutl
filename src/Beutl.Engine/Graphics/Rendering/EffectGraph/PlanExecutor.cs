@@ -551,7 +551,11 @@ internal static class PlanExecutor
         if (outputCount == inputOrdinals.Length)
             return inputOrdinals;
         if (inputOrdinals.Length == 1)
-            return Enumerable.Repeat(inputOrdinals[0], outputCount).ToArray();
+        {
+            int parentOrdinal = inputOrdinals[0];
+            int firstOutputOrdinal = parentOrdinal == NoBranchOrdinal ? 0 : parentOrdinal * outputCount;
+            return Enumerable.Range(firstOutputOrdinal, outputCount).ToArray();
+        }
         if (Array.TrueForAll(inputOrdinals, static ordinal => ordinal == NoBranchOrdinal))
             return Enumerable.Repeat(NoBranchOrdinal, outputCount).ToArray();
         if (outputCount == 0)

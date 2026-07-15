@@ -162,39 +162,39 @@ public class DispatcherTests
     }
 
     [Test]
-    public async Task InvokeVoid_CancelAfterExecutionStarts_WaitsForCompletion()
+    public void InvokeVoid_CancelAfterExecutionStarts_StopsWaiting()
     {
         var dispatcher = Dispatcher.Spawn();
         using var started = new ManualResetEventSlim();
         using var release = new ManualResetEventSlim();
-        using var callerReturned = new ManualResetEventSlim();
+        using var operationFinished = new ManualResetEventSlim();
         using var cts = new CancellationTokenSource();
 
         try
         {
-            Task invocation = Task.Run(() =>
+            Task invocation = Task.Run(() => dispatcher.Invoke(() =>
             {
                 try
                 {
-                    dispatcher.Invoke(() =>
-                    {
-                        started.Set();
-                        release.Wait();
-                    }, ct: cts.Token);
+                    started.Set();
+                    release.Wait();
                 }
                 finally
                 {
-                    callerReturned.Set();
+                    operationFinished.Set();
                 }
-            });
+            }, ct: cts.Token));
 
             Assert.That(started.Wait(TimeSpan.FromSeconds(5)), Is.True, "The dispatcher operation did not start.");
             cts.Cancel();
 
-            Assert.That(callerReturned.Wait(TimeSpan.FromMilliseconds(250)), Is.False,
-                "Cancellation after execution starts must not return before the operation finishes.");
+            Assert.CatchAsync<OperationCanceledException>(async () =>
+                await invocation.WaitAsync(TimeSpan.FromSeconds(2)));
+            Assert.That(operationFinished.IsSet, Is.False,
+                "The synchronous caller must observe cancellation without waiting for the running delegate.");
             release.Set();
-            await invocation;
+            Assert.That(operationFinished.Wait(TimeSpan.FromSeconds(5)), Is.True,
+                "The dispatcher operation did not finish after it was released.");
         }
         finally
         {
@@ -204,42 +204,40 @@ public class DispatcherTests
     }
 
     [Test]
-    public async Task InvokeResult_CancelAfterExecutionStarts_ReturnsResult()
+    public void InvokeResult_CancelAfterExecutionStarts_StopsWaiting()
     {
         var dispatcher = Dispatcher.Spawn();
         using var started = new ManualResetEventSlim();
         using var release = new ManualResetEventSlim();
-        using var callerReturned = new ManualResetEventSlim();
+        using var operationFinished = new ManualResetEventSlim();
         using var cts = new CancellationTokenSource();
 
         try
         {
-            int result = 0;
-            Task invocation = Task.Run(() =>
+            Task invocation = Task.Run(() => dispatcher.Invoke(() =>
             {
                 try
                 {
-                    result = dispatcher.Invoke(() =>
-                    {
-                        started.Set();
-                        release.Wait();
-                        return 42;
-                    }, ct: cts.Token);
+                    started.Set();
+                    release.Wait();
+                    return 42;
                 }
                 finally
                 {
-                    callerReturned.Set();
+                    operationFinished.Set();
                 }
-            });
+            }, ct: cts.Token));
 
             Assert.That(started.Wait(TimeSpan.FromSeconds(5)), Is.True, "The dispatcher operation did not start.");
             cts.Cancel();
 
-            Assert.That(callerReturned.Wait(TimeSpan.FromMilliseconds(250)), Is.False,
-                "Cancellation after execution starts must not return before the operation finishes.");
+            Assert.CatchAsync<OperationCanceledException>(async () =>
+                await invocation.WaitAsync(TimeSpan.FromSeconds(2)));
+            Assert.That(operationFinished.IsSet, Is.False,
+                "The synchronous result caller must observe cancellation without waiting for the running delegate.");
             release.Set();
-            await invocation;
-            Assert.That(result, Is.EqualTo(42));
+            Assert.That(operationFinished.Wait(TimeSpan.FromSeconds(5)), Is.True,
+                "The dispatcher operation did not finish after it was released.");
         }
         finally
         {

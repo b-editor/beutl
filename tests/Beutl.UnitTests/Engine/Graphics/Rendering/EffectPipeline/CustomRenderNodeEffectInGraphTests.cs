@@ -144,6 +144,73 @@ public class CustomRenderNodeEffectInGraphTests
         });
     }
 
+    [Test]
+    public void Execute_CustomRenderNodeFanOut_FromLinearInput_PreservesOutputIdentityAfterDrop()
+    {
+        var seen = new List<int>();
+        var effect = new FanOutCustomNodeEffect(outputCount: 3);
+        using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
+        using var runtimeCache = new NestedGraphPlanCache();
+        var builder = new EffectGraphBuilder(
+            s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery,
+            nestedPlanCache: runtimeCache);
+        builder.Effect(resource);
+        builder.Geometry(GeometryNodeDescriptor.Create(
+            session =>
+            {
+                if (session.Inputs[0].Bounds.X == 1)
+                    session.DiscardOutput();
+            },
+            BoundsContract.Create(static bounds => bounds, static bounds => bounds),
+            structuralToken: "drop-middle-custom-output"));
+        builder.NestedGraph(NestedGraphNodeDescriptor.Create(
+            (_, branchIndex) => seen.Add(branchIndex),
+            structuralToken: "observe-linear-custom-output-indices"));
+
+        RenderNodeOperation.DisposeAll(Execute(builder));
+
+        Assert.That(seen, Is.EqualTo(new[] { 0, 2 }),
+            "a custom fan-out creates a stable ordinal namespace even from a linear input, so dropping the middle "
+            + "output cannot compress the final output onto ordinal one");
+    }
+
+    [Test]
+    public void Execute_CustomRenderNodeFanOut_FromSparseParent_UsesHierarchicalOrdinals()
+    {
+        var seen = new List<int>();
+        var effect = new FanOutCustomNodeEffect(outputCount: 2);
+        using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
+        using var runtimeCache = new NestedGraphPlanCache();
+        var builder = new EffectGraphBuilder(
+            s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery,
+            nestedPlanCache: runtimeCache);
+        builder.Split(SplitNodeDescriptor.Static(
+            emitter =>
+            {
+                for (int i = 0; i < 3; i++)
+                {
+                    int parentOrdinal = i;
+                    emitter.Emit(new Rect(parentOrdinal * 10, 0, 10, 10), session =>
+                    {
+                        if (parentOrdinal != 2)
+                            session.DiscardOutput();
+                    });
+                }
+            },
+            branchCount: 3,
+            structuralToken: "sparse-parent-before-custom-fan-out"));
+        builder.Effect(resource);
+        builder.NestedGraph(NestedGraphNodeDescriptor.Create(
+            (_, branchIndex) => seen.Add(branchIndex),
+            structuralToken: "observe-sparse-custom-output-indices"));
+
+        RenderNodeOperation.DisposeAll(Execute(builder));
+
+        Assert.That(seen, Is.EqualTo(new[] { 4, 5 }),
+            "two outputs under sparse parent ordinal two occupy its static-split-style hierarchical slice "
+            + "2 * 2 + [0, 1], rather than colliding on the parent ordinal");
+    }
+
     // A throwing child render node must not leak the ops handed to it: the executor's catch disposes the inputs and
     // the whole plan execution unwinds (C7). Drives it through the executor directly so the throw is observable.
     [Test]
@@ -657,6 +724,17 @@ public class CustomRenderNodeEffectInGraphTests
         return EffectGraphCompiler.Compile(graph, diagnostics: null);
     }
 
+    private static RenderNodeOperation[] Execute(EffectGraphBuilder builder)
+    {
+        using EffectGraph graph = builder.Build();
+        CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
+        FrameResources resources = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale: 1f);
+        return PlanExecutor.Execute(
+            plan, resources, [MakeInput(s_bounds)], outputScale: 1f, workingScale: 1f,
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null,
+            renderIntent: RenderIntent.Delivery);
+    }
+
     private static StructuralKey KeyOf(FilterEffectGroup group, FilterEffect.Resource resource)
     {
         var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
@@ -890,6 +968,50 @@ internal sealed class ProbeRenderNode : FilterEffectRenderNode
         if (_resource.ServedFromCacheCount != null)
             _resource.ServedFromCacheCount[0]++;
         base.OnServedFromCache();
+    }
+}
+
+[SuppressResourceClassGeneration]
+internal sealed partial class FanOutCustomNodeEffect(int outputCount) : CustomRenderNodeFilterEffect
+{
+    public override Resource ToResource(CompositionContext context)
+    {
+        var resource = new Resource(outputCount);
+        bool updateOnly = false;
+        resource.Update(this, context, ref updateOnly);
+        return resource;
+    }
+
+    public new sealed class Resource(int outputCount) : CustomRenderNodeFilterEffect.Resource
+    {
+        private static readonly FilterEffectRenderNodeFactory s_factory =
+            FilterEffectRenderNodeFactory.Of<Resource, FanOutRenderNode>(static r => new FanOutRenderNode(r));
+
+        public int OutputCount => outputCount;
+
+        public override FilterEffectRenderNodeFactory RenderNodeFactory
+            => s_factory;
+    }
+}
+
+internal sealed class FanOutRenderNode(FanOutCustomNodeEffect.Resource resource) : FilterEffectRenderNode(resource)
+{
+    public override RenderNodeOperation[] Process(RenderNodeContext context)
+    {
+        RenderNodeOperation input = context.Input.Single();
+        Rect inputBounds = input.Bounds;
+        EffectiveScale effectiveScale = input.EffectiveScale;
+        input.Dispose();
+
+        return Enumerable.Range(0, resource.OutputCount)
+            .Select(index =>
+            {
+                var bounds = new Rect(
+                    inputBounds.X + index, inputBounds.Y, inputBounds.Width, inputBounds.Height);
+                return RenderNodeOperation.CreateLambda(
+                    bounds, static _ => { }, hitTest: bounds.Contains, effectiveScale: effectiveScale);
+            })
+            .ToArray();
     }
 }
 

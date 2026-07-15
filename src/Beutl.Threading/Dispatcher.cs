@@ -120,7 +120,7 @@ public class Dispatcher
         }
         else
         {
-            _synchronizationContext.Send(priority, operation, ct).GetAwaiter().GetResult();
+            _synchronizationContext.Send(priority, operation, ct).WaitAsync(ct).GetAwaiter().GetResult();
         }
     }
 
@@ -133,7 +133,7 @@ public class Dispatcher
         }
         else
         {
-            return InvokeAsync(operation, priority, ct).GetAwaiter().GetResult();
+            return InvokeAsync(operation, priority, ct).WaitAsync(ct).GetAwaiter().GetResult();
         }
     }
 
