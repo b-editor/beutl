@@ -123,6 +123,59 @@ public class CompositeBranchIdentityTests
     }
 
     [Test]
+    public void NestedGraph_ChildFanOut_PreservesChildOrdinalsOutsideRecursiveExecution()
+    {
+        var seen = new List<int>();
+        var builder = CreateSplitBuilder(discardInsideSplit: true);
+        builder.NestedGraph(NestedGraphNodeDescriptor.Create(
+            (branchBuilder, _) => branchBuilder.Split(SplitNodeDescriptor.Static(
+                emitter =>
+                {
+                    for (int i = 0; i < 2; i++)
+                        emitter.Emit(emitter.Input.Bounds, session => DrawInput(session));
+                },
+                branchCount: 2,
+                structuralToken: "child-static-split")),
+            structuralToken: "nested-child-fan-out"));
+        builder.NestedGraph(NestedGraphNodeDescriptor.Create(
+            (_, branchIndex) => seen.Add(branchIndex),
+            structuralToken: "observe-child-fan-out-indices"));
+
+        RenderNodeOperation[] outputs = Execute(builder);
+        RenderNodeOperation.DisposeAll(outputs);
+
+        Assert.That(seen, Is.EqualTo(new[] { 0, 1, 4, 5 }),
+            "recursive execution must return the child split's ordinals instead of relabeling every output with "
+            + "its sparse parent ordinal");
+    }
+
+    [Test]
+    public void NestedGraph_ChildDynamicFanOut_ConcatenatesSiblingOrdinalNamespaces()
+    {
+        var seen = new List<int>();
+        var builder = CreateSplitBuilder(discardInsideSplit: false);
+        builder.NestedGraph(NestedGraphNodeDescriptor.Create(
+            (branchBuilder, _) => branchBuilder.Split(SplitNodeDescriptor.Dynamic(
+                emitter =>
+                {
+                    emitter.Emit(emitter.Input.Bounds, static session => session.DiscardOutput());
+                    emitter.Emit(emitter.Input.Bounds, session => DrawInput(session));
+                },
+                structuralToken: "child-dynamic-split")),
+            structuralToken: "nested-child-dynamic-fan-out"));
+        builder.NestedGraph(NestedGraphNodeDescriptor.Create(
+            (_, branchIndex) => seen.Add(branchIndex),
+            structuralToken: "observe-child-dynamic-indices"));
+
+        RenderNodeOperation[] outputs = Execute(builder);
+        RenderNodeOperation.DisposeAll(outputs);
+
+        Assert.That(seen, Is.EqualTo(new[] { 1, 3, 5 }),
+            "each recursive dynamic split owns a consecutive slice of the downstream ordinal namespace, and a "
+            + "discarded emit retains its hole instead of letting every parent publish ordinal one");
+    }
+
+    [Test]
     public void FoldedColorFilterFallback_AfterGeometryDropsMiddleBranch_KeepsOriginalOffset()
     {
         var builder = CreateSplitBuilder(discardInsideSplit: false, thirdBranchWidth: 100);

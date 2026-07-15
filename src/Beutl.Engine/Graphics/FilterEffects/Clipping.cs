@@ -254,7 +254,7 @@ public sealed partial class Clipping : FilterEffect
         }
 
         return any
-            ? new Thickness(x0, y0, bitmap.Width - x1, bitmap.Height - y1)
+            ? new Thickness(x0, y0, bitmap.Width - x1 - 1, bitmap.Height - y1 - 1)
             : null;
     }
 }

@@ -212,6 +212,49 @@ public class PrimitivePassTests
     }
 
     [Test]
+    public void SplitEffect_AfterRuntimeBoundsShrink_UsesDynamicCompletionContract()
+    {
+        var split = new SplitEffect
+        {
+            HorizontalDivisions = { CurrentValue = 2 },
+            VerticalDivisions = { CurrentValue = 2 },
+        };
+        var builder = new EffectGraphBuilder(
+            s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
+        builder.Geometry(GeometryNodeDescriptor.Create(
+            session =>
+            {
+                session.Inputs[0].Draw(session.OpenCanvas());
+                session.SetOutputBounds(new Rect(0, 0, 0.5f, 0.5f));
+            },
+            BoundsContract.Identity,
+            structuralToken: "runtime-bounds-shrink"));
+        using FilterEffect.Resource splitResource
+            = (FilterEffect.Resource)split.ToResource(CompositionContext.Default);
+        split.Describe(builder, splitResource);
+        using EffectGraph graph = builder.Build();
+        CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
+        FrameResources resources = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale: 1f);
+        var splitPass = (SplitPass)plan.Passes[1];
+        using var pool = new RenderTargetPool();
+
+        RenderNodeOperation[] outputs = PlanExecutor.Execute(
+            plan, resources, [Input()], outputScale: 1f, workingScale: 1f,
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool,
+            renderIntent: RenderIntent.Delivery);
+        RenderNodeOperation.DisposeAll(outputs);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(splitPass.IsDynamicOutputs, Is.True,
+                "describe-time bounds cannot promise four emissions after a callback may tighten runtime bounds");
+            Assert.That(outputs, Is.Empty,
+                "sub-pixel runtime tiles emit nothing without violating a stale static completion count");
+            Assert.That(pool.LiveLeaseCount, Is.Zero);
+        });
+    }
+
+    [Test]
     public void SplitEffect_AfterFanOut_UsesDynamicBranchContract()
     {
         var first = new SplitEffect

@@ -1,4 +1,5 @@
-﻿using Beutl.Engine;
+﻿using System.Runtime.ExceptionServices;
+using Beutl.Engine;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering.Cache;
@@ -61,6 +62,7 @@ public class PlanFilterEffectRenderNode(FilterEffect.Resource filterEffect) : Fi
             return context.Input;
         }
 
+        bool inputCleanupCompleted = false;
         try
         {
             // Resolve working scale from the densest concrete input, capped by the global ceiling.
@@ -138,7 +140,8 @@ public class PlanFilterEffectRenderNode(FilterEffect.Resource filterEffect) : Fi
                     switch (decision.Mode)
                     {
                         case PrefixMode.Resume:
-                            return ExecuteResumed(context, plan, resources, workingScale, decision);
+                            return ExecuteResumed(
+                                context, plan, resources, workingScale, decision, ref inputCleanupCompleted);
                         case PrefixMode.Capture:
                             return ExecuteAndCapture(context, plan, resources, workingScale, decision.Pass);
                     }
@@ -167,7 +170,8 @@ public class PlanFilterEffectRenderNode(FilterEffect.Resource filterEffect) : Fi
             // Ownership normally transfers to the executor. Describe, compilation, resource resolution, and prefix
             // setup can fail before that hand-off, so release the input operations here as well. Operations are
             // idempotent, making this safe when an executor path already completed its own exception sweep.
-            RenderNodeOperation.DisposeAll(context.Input);
+            if (!inputCleanupCompleted)
+                RenderNodeOperation.DisposeAll(context.Input);
             throw;
         }
     }
@@ -186,9 +190,13 @@ public class PlanFilterEffectRenderNode(FilterEffect.Resource filterEffect) : Fi
     // allocate. The fresh input ops are discarded (the stable prefix already encapsulates them), counting one hit.
     private RenderNodeOperation[] ExecuteResumed(
         RenderNodeContext context, CompiledPlan plan, FrameResources resources, float workingScale,
-        PrefixDecision decision)
+        PrefixDecision decision, ref bool inputCleanupCompleted)
     {
-        RenderNodeOperation.DisposeAll(context.Input);
+        Exception? cleanupFailure = DisposeResumedInputs(context.Input);
+        inputCleanupCompleted = true;
+        if (cleanupFailure != null)
+            ExceptionDispatchInfo.Capture(cleanupFailure).Throw();
+
         if (context.Diagnostics != null)
             context.Diagnostics.PrefixCacheHits++;
 
@@ -200,6 +208,13 @@ public class PlanFilterEffectRenderNode(FilterEffect.Resource filterEffect) : Fi
             isRenderCacheEnabled: context.IsRenderCacheEnabled,
             pullPurpose: context.PullPurpose,
             renderIntent: context.RenderIntent);
+    }
+
+    internal static Exception? DisposeResumedInputs(ReadOnlySpan<RenderNodeOperation> input)
+    {
+        Exception? cleanupFailure = null;
+        RenderNodeOperation.DisposeAll(input, ref cleanupFailure);
+        return cleanupFailure;
     }
 
     // Full execution that additionally retains the capture pass's output for subsequent frames to resume from.
@@ -269,12 +284,63 @@ public class PlanFilterEffectRenderNode(FilterEffect.Resource filterEffect) : Fi
         return result;
     }
 
-    protected internal override void OnServedFromCache() => _prefixCache.Release();
+    protected internal override void OnServedFromCache()
+    {
+        Exception? cleanupFailure = null;
+        try
+        {
+            _prefixCache.Release();
+        }
+        catch (Exception ex)
+        {
+            cleanupFailure = ex;
+        }
+
+        try
+        {
+            _nestedPlanCache.NotifyServedFromCache();
+        }
+        catch (Exception ex)
+        {
+            cleanupFailure ??= ex;
+        }
+
+        if (cleanupFailure != null)
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(cleanupFailure).Throw();
+    }
 
     protected override void OnDispose(bool disposing)
     {
-        base.OnDispose(disposing);
+        Exception? cleanupFailure = null;
+        try
+        {
+            base.OnDispose(disposing);
+        }
+        catch (Exception ex)
+        {
+            cleanupFailure = ex;
+        }
+
         _planCache.Invalidate();
-        _prefixCache.Dispose();
+        try
+        {
+            _nestedPlanCache.Dispose();
+        }
+        catch (Exception ex)
+        {
+            cleanupFailure ??= ex;
+        }
+
+        try
+        {
+            _prefixCache.Dispose();
+        }
+        catch (Exception ex)
+        {
+            cleanupFailure ??= ex;
+        }
+
+        if (cleanupFailure != null)
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(cleanupFailure).Throw();
     }
 }

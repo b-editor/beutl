@@ -26,9 +26,9 @@ public class AutoClipOutputBoundsTightenTests
     private static readonly Rect s_content = new(30, 30, 40, 40);
 
     // The legacy Apply's tightened rect for content at [30,70) x [30,70) on a 100x100 input at density 1: the detected
-    // margins are (30,30,31,31) device px, so the clip rect is (30,30,39,39), and the leading-edge ceiling/-1 offset
-    // (thickness.Left/Top > 0) shifts the origin back by one px, giving NewBounds = (29,29,39,39).
-    private static readonly Rect s_tightened = new(29, 29, 39, 39);
+    // margins are (30,30,30,30) device px, so the clip rect is (30,30,40,40), and the leading-edge ceiling/-1 offset
+    // (thickness.Left/Top > 0) shifts the origin back by one px, giving NewBounds = (29,29,40,40).
+    private static readonly Rect s_tightened = new(29, 29, 40, 40);
 
     [OneTimeSetUp]
     public void SeedLoggerFactory()
@@ -126,11 +126,11 @@ public class AutoClipOutputBoundsTightenTests
     // A downstream bounds-inflating pass (DropShadow) must see the AutoClip's TIGHTENED output, not its un-shrunk
     // full-input rect. Pre-fix the linear non-invariant branch sized DropShadow from the frame-start resolution.OutputRoi
     // (the un-shrunk full input), re-inflating the full-size rect. DropShadow keeps the original at the tightened
-    // origin (29,29) plus the zero-sigma shadow at +(20,20): union(tightened, tightened+(20,20)) = (29,29,59,59).
+    // origin (29,29) plus the zero-sigma shadow at +(20,20): union(tightened, tightened+(20,20)) = (29,29,60,60).
     [Test]
     public void AutoClipThenDropShadow_PublishedBoundsDeriveFromTightenedInput()
     {
-        var expectedTightenedDerived = new Rect(29, 29, 59, 59);
+        var expectedTightenedDerived = new Rect(29, 29, 60, 60);
         var fullInputDerived = new Rect(0, 0, 120, 120);
 
         RenderNodeOperation[] ops = RenderAutoClipThenDropShadow();

@@ -224,7 +224,7 @@ public class NodeGraphFilterEffectRenderNodeTests
     }
 
     [Test]
-    public void Process_InputWrapperCleanupThrows_ReturnsSuccessfulOutputAndSweepsEveryInput()
+    public void Process_InputWrapperCleanupThrows_DiscardsOutputAndSurfacesCleanupFailure()
     {
         var host = new NodeGraphFilterEffect();
         GraphModel model = host.Model.CurrentValue!;
@@ -236,6 +236,70 @@ public class NodeGraphFilterEffectRenderNodeTests
         model.Nodes.Add(outputNode);
         model.Connect((IInputPort)successfulNode.Items[1], inputNode.Output);
         model.Connect(outputNode.InputPort, (IOutputPort)successfulNode.Items[0]);
+
+        using var resource = (NodeGraphFilterEffect.Resource)host.ToResource(CompositionContext.Default);
+        using FilterEffectRenderNode node = resource.RenderNodeFactory.Create(resource);
+        bool firstDisposeAttempted = false;
+        bool secondDisposed = false;
+        var cleanupFailure = new InvalidOperationException("simulated wrapper cleanup failure");
+        RenderNodeOperation first = RenderNodeOperation.CreateLambda(
+            new Rect(0, 0, 1, 1),
+            static _ => { },
+            onDispose: () =>
+            {
+                firstDisposeAttempted = true;
+                throw cleanupFailure;
+            });
+        RenderNodeOperation second = RenderNodeOperation.CreateLambda(
+            new Rect(0, 0, 1, 1),
+            static _ => { },
+            onDispose: () => secondDisposed = true);
+        TrackedResultRenderNode.ResultDisposed = false;
+
+        InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(
+            () => node.Process(new RenderNodeContext([first, second], RenderIntent.Delivery)));
+
+        int slot = resource.Snapshot.FindSlotIndex(inputNode);
+        var inputResource = (FilterEffectInputNode.Resource)resource.Snapshot.GetResource(slot)!;
+        RenderNodeOperation[] retained = inputResource.Wrapper.Process(new RenderNodeContext([], RenderIntent.Delivery));
+        try
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(actual, Is.SameAs(cleanupFailure));
+                Assert.That(firstDisposeAttempted, Is.True);
+                Assert.That(secondDisposed, Is.True,
+                    "one throwing input must not abort cleanup of later wrapper references");
+                Assert.That(retained, Is.Empty, "the wrapper must publish its cleared state before cleanup begins");
+                Assert.That(TrackedResultRenderNode.ResultDisposed, Is.True,
+                    "a cleanup failure must dispose the generated output instead of returning success");
+            });
+        }
+        finally
+        {
+            DisposeAll(retained);
+        }
+    }
+
+    [Test]
+    public void Process_OutputPullAndInputCleanupThrow_PreservesOutputPullFailureAndSweepsEverything()
+    {
+        var host = new NodeGraphFilterEffect();
+        GraphModel model = host.Model.CurrentValue!;
+        var inputNode = new FilterEffectInputNode();
+        var successfulNode = new FilterEffectNode<TrackedResultEffect>();
+        var successfulOutput = new OutputNode();
+        var throwingNode = new FilterEffectNode<ThrowingProcessEffect>();
+        var throwingOutput = new OutputNode();
+        model.Nodes.Add(inputNode);
+        model.Nodes.Add(successfulNode);
+        model.Nodes.Add(successfulOutput);
+        model.Nodes.Add(throwingNode);
+        model.Nodes.Add(throwingOutput);
+        model.Connect((IInputPort)successfulNode.Items[1], inputNode.Output);
+        model.Connect(successfulOutput.InputPort, (IOutputPort)successfulNode.Items[0]);
+        model.Connect((IInputPort)throwingNode.Items[1], inputNode.Output);
+        model.Connect(throwingOutput.InputPort, (IOutputPort)throwingNode.Items[0]);
 
         using var resource = (NodeGraphFilterEffect.Resource)host.ToResource(CompositionContext.Default);
         using FilterEffectRenderNode node = resource.RenderNodeFactory.Create(resource);
@@ -255,7 +319,8 @@ public class NodeGraphFilterEffectRenderNodeTests
             onDispose: () => secondDisposed = true);
         TrackedResultRenderNode.ResultDisposed = false;
 
-        RenderNodeOperation[] outputs = node.Process(new RenderNodeContext([first, second], RenderIntent.Delivery));
+        InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(
+            () => node.Process(new RenderNodeContext([first, second], RenderIntent.Delivery)));
 
         int slot = resource.Snapshot.FindSlotIndex(inputNode);
         var inputResource = (FilterEffectInputNode.Resource)resource.Snapshot.GetResource(slot)!;
@@ -264,23 +329,19 @@ public class NodeGraphFilterEffectRenderNodeTests
         {
             Assert.Multiple(() =>
             {
-                Assert.That(outputs, Has.Length.EqualTo(1),
-                    "wrapper cleanup must not make an already-produced graph output unreachable");
+                Assert.That(actual!.Message, Is.EqualTo("simulated later output failure"),
+                    "wrapper cleanup must not replace the primary output-pull failure");
                 Assert.That(firstDisposeAttempted, Is.True);
-                Assert.That(secondDisposed, Is.True,
-                    "one throwing input must not abort cleanup of later wrapper references");
-                Assert.That(retained, Is.Empty, "the wrapper must publish its cleared state before cleanup begins");
-                Assert.That(TrackedResultRenderNode.ResultDisposed, Is.False,
-                    "the successful output remains caller-owned after Process returns");
+                Assert.That(secondDisposed, Is.True);
+                Assert.That(TrackedResultRenderNode.ResultDisposed, Is.True,
+                    "an earlier generated output must still be swept");
+                Assert.That(retained, Is.Empty);
             });
         }
         finally
         {
             DisposeAll(retained);
-            DisposeAll(outputs);
         }
-
-        Assert.That(TrackedResultRenderNode.ResultDisposed, Is.True);
     }
 
     [Test]

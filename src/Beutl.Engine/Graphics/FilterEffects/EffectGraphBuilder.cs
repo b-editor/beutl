@@ -17,10 +17,13 @@ public sealed class EffectGraphBuilder
     private readonly List<EffectNode> _nodes = [];
     private readonly HashSet<IDisposable> _disposables = new(ReferenceEqualityComparer.Instance);
     private readonly NestedGraphPlanCache _nestedPlanCache;
+    private readonly bool _ownsNestedPlanCache;
     private readonly HashSet<int> _visitedNestedOrdinals = [];
+    private readonly HashSet<int> _visitedCustomOrdinals = [];
     private int _childScopeDepth;
     private int _currentChildIndex;
     private bool _hasBranchedInput;
+    private bool _hasRuntimeDependentBounds;
     private BuilderState _state;
 
     private enum BuilderState
@@ -42,6 +45,7 @@ public sealed class EffectGraphBuilder
         MaxWorkingScale = maxWorkingScale;
         RenderIntent = RenderPolicyValidation.Validate(renderIntent, nameof(renderIntent));
         PullPurpose = RenderPolicyValidation.Validate(pullPurpose, nameof(pullPurpose));
+        _ownsNestedPlanCache = nestedPlanCache is null;
         _nestedPlanCache = nestedPlanCache ?? new NestedGraphPlanCache();
     }
 
@@ -70,6 +74,10 @@ public sealed class EffectGraphBuilder
     // preceding fan-out: execution receives each branch's own bounds, which may be smaller or even sub-pixel.
     // Keep this engine-only state separate from the public authoring surface and use the dynamic-output contract.
     internal bool HasBranchedInput => _hasBranchedInput;
+
+    // A runtime callback can tighten or otherwise replace the logical bounds that subsequent passes receive. A
+    // built-in split cannot promise a static completion count from describe-time Bounds after such a pass.
+    internal bool HasRuntimeDependentBounds => _hasRuntimeDependentBounds;
 
     /// <summary>Appends a shader node (snippet or whole-source).</summary>
     public EffectGraphBuilder Shader(ShaderNodeDescriptor descriptor)
@@ -255,13 +263,20 @@ public sealed class EffectGraphBuilder
         Rect output = descriptor.Bounds.TransformBounds(input);
         int ordinal = _nodes.Count;
         NestedGraphNodePlanCache? nestedCache = null;
+        CustomRenderNodePlanCache? customNodeCache = null;
         if (descriptor is NestedGraphNodeDescriptor)
         {
             _visitedNestedOrdinals.Add(ordinal);
             nestedCache = _nestedPlanCache.GetNode(ordinal);
         }
+        else if (descriptor is CustomRenderNodeDescriptor)
+        {
+            _visitedCustomOrdinals.Add(ordinal);
+            customNodeCache = _nestedPlanCache.GetCustomNode(ordinal);
+        }
 
-        _nodes.Add(new EffectNode(descriptor, input, output, _currentChildIndex, nestedCache));
+        _nodes.Add(new EffectNode(
+            descriptor, input, output, _currentChildIndex, nestedCache, customNodeCache));
         if (!output.IsInvalid)
         {
             Bounds = output;
@@ -273,6 +288,12 @@ public sealed class EffectGraphBuilder
             SplitNodeDescriptor or NestedGraphNodeDescriptor or CustomRenderNodeDescriptor => true,
             _ => _hasBranchedInput,
         };
+        _hasRuntimeDependentBounds |= descriptor is GeometryNodeDescriptor
+            or ComputeNodeDescriptor { Fallback.Kind: ComputeFallbackKind.Cpu }
+            or SplitNodeDescriptor
+            or CompositeNodeDescriptor
+            or NestedGraphNodeDescriptor
+            or CustomRenderNodeDescriptor;
 
         return this;
     }
@@ -294,6 +315,7 @@ public sealed class EffectGraphBuilder
         int savedNodeCount = _nodes.Count;
         Rect savedBounds = Bounds;
         bool savedHasBranchedInput = _hasBranchedInput;
+        bool savedHasRuntimeDependentBounds = _hasRuntimeDependentBounds;
         try
         {
             append();
@@ -304,8 +326,10 @@ public sealed class EffectGraphBuilder
             if (_nodes.Count > savedNodeCount)
                 _nodes.RemoveRange(savedNodeCount, _nodes.Count - savedNodeCount);
             _visitedNestedOrdinals.RemoveWhere(staticOrdinal => staticOrdinal >= savedNodeCount);
+            _visitedCustomOrdinals.RemoveWhere(staticOrdinal => staticOrdinal >= savedNodeCount);
             Bounds = savedBounds;
             _hasBranchedInput = savedHasBranchedInput;
+            _hasRuntimeDependentBounds = savedHasRuntimeDependentBounds;
             onError(ex);
             return false;
         }
@@ -314,7 +338,30 @@ public sealed class EffectGraphBuilder
     internal EffectGraph Build()
     {
         ThrowIfNotOpen();
-        _nestedPlanCache.PruneNodes(_visitedNestedOrdinals);
+        Exception? cleanupFailure = null;
+        try
+        {
+            _nestedPlanCache.PruneNodes(_visitedNestedOrdinals);
+        }
+        catch (Exception ex)
+        {
+            cleanupFailure = ex;
+        }
+
+        try
+        {
+            _nestedPlanCache.PruneCustomNodes(_visitedCustomOrdinals);
+        }
+        catch (Exception ex)
+        {
+            cleanupFailure ??= ex;
+        }
+
+        if (cleanupFailure != null)
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(cleanupFailure).Throw();
+
+        if (_ownsNestedPlanCache)
+            _disposables.Add(_nestedPlanCache);
         // Ownership of the tracked disposables transfers to the graph, which releases them once the frame's plan has
         // executed; Abort must then not touch them (the graph would double-dispose). Flip the state only after the
         // graph exists, or a construction throw leaves the builder open for its caller's finally-block to abort.
@@ -332,6 +379,17 @@ public sealed class EffectGraphBuilder
             return;
 
         _state = BuilderState.Aborted;
+        if (_ownsNestedPlanCache)
+        {
+            try
+            {
+                _nestedPlanCache.Dispose();
+            }
+            catch
+            {
+            }
+        }
+
         foreach (IDisposable disposable in _disposables)
         {
             try

@@ -218,17 +218,19 @@ public sealed partial class LutEffect : FilterEffect
             return _cachedLutShader;
         }
 
-        internal void ClearCachedLutShader()
+        private bool ClearCachedLutShader()
         {
+            bool hadCachedLut = _cachedLutShader is not null || _cachedCube is not null;
             _cachedLutShader?.Dispose();
             _cachedLutShader = null;
             _cachedCube = null;
+            return hadCachedLut;
         }
 
         partial void PostUpdate(LutEffect obj, CompositionContext context)
         {
-            if (Source?.Cube == null)
-                ClearCachedLutShader();
+            if (Source?.Cube == null && ClearCachedLutShader())
+                Version++;
         }
 
         partial void PostDispose(bool disposing)

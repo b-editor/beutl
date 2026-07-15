@@ -758,7 +758,9 @@ half4 apply(half4 c) {
     {
         var bounds = new Rect(0, 0, 100, 100);
         using var graph = new EffectGraph(
-            [new EffectNode(new UnknownDescriptor(), bounds, bounds, 0, nestedPlanCache: null)],
+            [new EffectNode(
+                new UnknownDescriptor(), bounds, bounds, 0,
+                nestedPlanCache: null, customNodeCache: null)],
             bounds, outputScale: 1f, workingScale: 1f, disposables: []);
 
         Assert.That(

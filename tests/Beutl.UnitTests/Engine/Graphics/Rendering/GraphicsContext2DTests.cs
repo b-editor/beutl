@@ -170,6 +170,32 @@ public class GraphicsContext2DTests
     }
 
     [Test]
+    public void Pop_PropagatesAnyChangedSibling_WhenLaterSiblingIsUnchanged()
+    {
+        var root = new ContainerRenderNode();
+        var firstRect = new Rect(0, 0, 100, 100);
+        var secondRect = new Rect(200, 0, 100, 100);
+
+        using (var context = new GraphicsContext2D(root, new Size(1920, 1080)))
+        using (context.Push())
+        {
+            context.DrawRectangle(firstRect, Brushes.Resource.White, null);
+            context.DrawRectangle(secondRect, Brushes.Resource.White, null);
+        }
+
+        root.HasChanges = false;
+        using (var context = new GraphicsContext2D(root, new Size(1920, 1080)))
+        using (context.Push())
+        {
+            context.DrawRectangle(firstRect.WithWidth(120), Brushes.Resource.White, null);
+            context.DrawRectangle(secondRect, Brushes.Resource.White, null);
+        }
+
+        Assert.That(root.HasChanges, Is.True,
+            "a later unchanged sibling must not erase an earlier sibling's change before the nested root is popped");
+    }
+
+    [Test]
     public void DrawDrawable_ShouldCreateDrawableRenderNode()
     {
         var drawable = new RectShape();

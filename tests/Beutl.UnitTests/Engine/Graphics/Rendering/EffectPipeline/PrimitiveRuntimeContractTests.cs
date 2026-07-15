@@ -332,6 +332,49 @@ public class PrimitiveRuntimeContractTests
     }
 
     [Test]
+    public void ComputePreviewIdentity_CleanupFailureIsSurfacedAfterFullSweep()
+    {
+        var graphics = VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.RequireComputeCapable(graphics, "compute preview-identity cleanup contract");
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var dispatchFailure = new InvalidOperationException("transient preview dispatch failure");
+            var cleanupFailure = new InvalidOperationException("preview identity input cleanup failed");
+            ComputeNodeDescriptor descriptor = ComputeNodeDescriptor.Create(
+                _ => throw dispatchFailure,
+                passCount: 1,
+                BoundsContract.FullFrame,
+                ComputeFallbackPolicy.Identity,
+                structuralToken: "preview-identity-cleanup-failure",
+                dispatchFailureBehavior: ComputeDispatchFailureBehavior.IdentityInPreview);
+            (CompiledPlan plan, FrameResources resources) = Compile(
+                new EffectGraphBuilder(s_bounds, 1f, 1f, RenderIntent.Preview).Compute(descriptor));
+            using var pool = new RenderTargetPool();
+            bool inputDisposed = false;
+            RenderNodeOperation input = RenderNodeOperation.CreateLambda(
+                s_bounds,
+                canvas => canvas.DrawRectangle(s_bounds, Brushes.Resource.White, null),
+                onDispose: () => inputDisposed = true);
+
+            using IDisposable hook = PlanExecutor.UseTestHooks(
+                hooks => hooks.ComputeInputDisposeFailure = cleanupFailure);
+            InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
+                plan, resources, [input], 1f, 1f, float.PositiveInfinity,
+                diagnostics: null, pool, renderIntent: RenderIntent.Preview));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(actual, Is.SameAs(cleanupFailure),
+                    "the dispatch failure is nonfatal in preview, but cleanup failure must remain observable");
+                Assert.That(inputDisposed, Is.True,
+                    "throwing after preview-identity cleanup transfers no source operation back to the caller");
+                Assert.That(pool.LiveLeaseCount, Is.Zero,
+                    "scratch, output, and input targets must all be released before cleanup failure is rethrown");
+            });
+        });
+    }
+
+    [Test]
     public void DisposeDisposablesCapturingFailure_SweepsAllAndReturnsFirstFailure()
     {
         var firstFailure = new InvalidOperationException("first cleanup failure");
@@ -590,6 +633,37 @@ public class PrimitiveRuntimeContractTests
     }
 
     [Test]
+    public void SplitBranchCallbackFailure_RemainsPrimaryWhenTargetCleanupAlsoFails()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var primary = new InvalidOperationException("split branch callback failed");
+            var cleanup = new InvalidOperationException("split branch target cleanup failed");
+            SplitNodeDescriptor descriptor = SplitNodeDescriptor.Static(
+                emitter => emitter.Emit(emitter.Input.Bounds, _ => throw primary),
+                branchCount: 1,
+                structuralToken: "split-branch-primary-failure");
+            (CompiledPlan plan, FrameResources resources) = Compile(
+                new EffectGraphBuilder(s_bounds, 1f, 1f, RenderIntent.Delivery).Split(descriptor));
+            using var pool = new RenderTargetPool();
+
+            using IDisposable hook = PlanExecutor.UseTestHooks(
+                hooks => hooks.SplitBranchDisposeFailure = cleanup);
+            InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
+                plan, resources, [Input()], 1f, 1f, float.PositiveInfinity,
+                diagnostics: null, pool, renderIntent: RenderIntent.Delivery));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(actual, Is.SameAs(primary));
+                Assert.That(pool.LiveLeaseCount, Is.Zero,
+                    "the branch target, materialized input, and source operation must all be released");
+            });
+        });
+    }
+
+    [Test]
     public void GeometryInputCleanupFailure_ReleasesCompletedOutputAndInputOperation()
     {
         GeometryNodeDescriptor descriptor = GeometryNodeDescriptor.Create(
@@ -716,6 +790,45 @@ public class PrimitiveRuntimeContractTests
         {
             geometryOutputDisposeHook.Dispose();
         }
+    }
+
+    [Test]
+    public void GeometryDiscard_CleanupSweepsAllAndRethrowsFirstFailure()
+    {
+        var outputFailure = new InvalidOperationException("discarded geometry output cleanup failed");
+        var operationFailure = new InvalidOperationException("discarded geometry operation cleanup failed");
+        GeometryNodeDescriptor descriptor = GeometryNodeDescriptor.Create(
+            static session => session.DiscardOutput(),
+            BoundsContract.Identity,
+            structuralToken: "geometry-discard-cleanup-failure");
+        (CompiledPlan plan, FrameResources resources) = Compile(
+            new EffectGraphBuilder(s_bounds, 1f, 1f, RenderIntent.Delivery).Geometry(descriptor));
+        using var pool = new RenderTargetPool();
+        bool inputDisposed = false;
+        RenderNodeOperation input = RenderNodeOperation.CreateLambda(
+            s_bounds,
+            canvas => canvas.DrawRectangle(s_bounds, Brushes.Resource.White, null),
+            onDispose: () =>
+            {
+                inputDisposed = true;
+                throw operationFailure;
+            });
+
+        using IDisposable hook = PlanExecutor.UseTestHooks(
+            hooks => hooks.GeometryOutputDisposeFailure = outputFailure);
+        InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
+            plan, resources, [input], 1f, 1f, float.PositiveInfinity,
+            diagnostics: null, pool, renderIntent: RenderIntent.Delivery));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(actual, Is.SameAs(outputFailure),
+                "the first cleanup failure must survive the later operation-dispose failure");
+            Assert.That(inputDisposed, Is.True,
+                "the source operation is still consumed after discarded-output cleanup fails");
+            Assert.That(pool.LiveLeaseCount, Is.Zero,
+                "discard cleanup must sweep both materialized targets before rethrowing");
+        });
     }
 
     [Test]

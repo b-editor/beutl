@@ -57,23 +57,47 @@ public sealed partial class ImageTextureSource : TextureSource
                     BitmapAlphaType.Premul,
                     BitmapColorSpace.LinearSrgb);
 
-                _gpuTexture = graphicsContext.CreateTexture2D(
-                    Source.FrameSize.Width,
-                    Source.FrameSize.Height,
-                    linearBitmap.ColorType == BitmapColorType.RgbaF16
-                        ? TextureFormat.RGBA16Float
-                        : TextureFormat.BGRA8Unorm);
-
-                // Upload pixel data
-                unsafe
+                ITexture2D? texture = null;
+                try
                 {
-                    var data = new ReadOnlySpan<byte>(
-                        (void*)linearBitmap.Data,
-                        linearBitmap.ByteCount);
-                    _gpuTexture.Upload(data);
-                }
+                    texture = graphicsContext.CreateTexture2D(
+                        Source.FrameSize.Width,
+                        Source.FrameSize.Height,
+                        linearBitmap.ColorType == BitmapColorType.RgbaF16
+                            ? TextureFormat.RGBA16Float
+                            : TextureFormat.BGRA8Unorm);
 
-                _gpuTextureVersion = Version;
+                    // Upload pixel data
+                    unsafe
+                    {
+                        var data = new ReadOnlySpan<byte>(
+                            (void*)linearBitmap.Data,
+                            linearBitmap.ByteCount);
+                        texture.Upload(data);
+                    }
+
+                    _gpuTexture = texture;
+                    _gpuTextureVersion = Version;
+                }
+                catch
+                {
+                    try
+                    {
+                        texture?.Dispose();
+                    }
+                    catch
+                    {
+                        // Cleanup is best-effort. Delivery must preserve the allocation/upload failure, while
+                        // preview still degrades to a missing texture instead of surfacing a cleanup failure.
+                    }
+
+                    _gpuTexture = null;
+                    _gpuTextureVersion = -1;
+                    if (renderIntent == RenderIntent.Delivery)
+                        throw;
+
+                    return null;
+                }
             }
 
             return _gpuTexture;
@@ -83,6 +107,7 @@ public sealed partial class ImageTextureSource : TextureSource
         {
             _gpuTexture?.Dispose();
             _gpuTexture = null;
+            _gpuTextureVersion = -1;
         }
 
         partial void PostDispose(bool disposing)

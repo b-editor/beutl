@@ -627,6 +627,88 @@ public class PrefixCacheTests
         });
     }
 
+    [Test]
+    public void ResumeFrame_InputCleanupFailure_DoesNotReturnCachedOutputOrRetryCleanup()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            ProgramCache.Clear();
+            var (root, gamma, _) = MakeBlurGamma();
+            using var resource = (FilterEffect.Resource)root.ToResource(CompositionContext.Default);
+            using var node = new PlanFilterEffectRenderNode(resource);
+            using var pool = new RenderTargetPool();
+            var diagnostics = new PipelineDiagnostics();
+
+            for (int frame = 0; frame <= 3; frame++)
+                Step(node, resource, root, gamma, diagnostics, pool, frame, 1f);
+
+            gamma.Amount.CurrentValue = 58f;
+            bool updateOnly = false;
+            resource.Update(root, CompositionContext.Default, ref updateOnly);
+            node.Update(resource);
+            diagnostics.Reset();
+            var cleanupFailure = new InvalidOperationException("resumed input cleanup failed");
+            int firstDisposeAttempts = 0;
+            RenderNodeOperation first = RenderNodeOperation.CreateLambda(
+                s_bounds,
+                static _ => { },
+                onDispose: () =>
+                {
+                    firstDisposeAttempts++;
+                    throw cleanupFailure;
+                });
+            var context = new RenderNodeContext([first], RenderIntent.Delivery)
+            {
+                Diagnostics = diagnostics,
+                Pool = pool,
+            };
+
+            InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => node.Process(context));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(actual, Is.SameAs(cleanupFailure));
+                Assert.That(firstDisposeAttempts, Is.EqualTo(1),
+                    "the completed input sweep must not retry a faulting operation in the outer catch");
+                Assert.That(diagnostics.Snapshot().PrefixCacheHits, Is.Zero,
+                    "a failed input cleanup must not be counted or returned as a successful cache resume");
+                Assert.That(pool.LiveLeaseCount, Is.EqualTo(1),
+                    "the retained prefix remains owned by the cache without leaking a per-call shallow copy");
+            });
+        });
+    }
+
+    [Test]
+    public void ResumeInputCleanupFailure_SweepsEveryInputAndPreservesFirstFailure()
+    {
+        var firstFailure = new InvalidOperationException("first resumed input cleanup failed");
+        int firstDisposeAttempts = 0;
+        bool secondDisposed = false;
+        RenderNodeOperation first = RenderNodeOperation.CreateLambda(
+            s_bounds,
+            static _ => { },
+            onDispose: () =>
+            {
+                firstDisposeAttempts++;
+                throw firstFailure;
+            });
+        RenderNodeOperation second = RenderNodeOperation.CreateLambda(
+            s_bounds,
+            static _ => { },
+            onDispose: () => secondDisposed = true);
+
+        Exception? actual = PlanFilterEffectRenderNode.DisposeResumedInputs([first, second]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(actual, Is.SameAs(firstFailure));
+            Assert.That(firstDisposeAttempts, Is.EqualTo(1));
+            Assert.That(secondDisposed, Is.True,
+                "a cleanup failure must not abort the remaining resumed-frame inputs");
+        });
+    }
+
     // Disabling the effect after the prefix has engaged must release the retained cross-frame lease, not pin it until
     // node dispose: the disabled branch bypasses execution entirely, so nothing else would ever return that buffer to
     // the pool while the effect stays off.

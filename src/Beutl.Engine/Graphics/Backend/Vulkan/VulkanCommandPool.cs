@@ -7,6 +7,9 @@ using Semaphore = Silk.NET.Vulkan.Semaphore;
 
 internal sealed unsafe class VulkanCommandPool : IDisposable
 {
+    [ThreadStatic]
+    private static Action? s_beforeImmediateSubmitForTest;
+
     private readonly Vk _vk;
     private readonly Device _device;
     private readonly Queue _graphicsQueue;
@@ -34,6 +37,9 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
     public Fence ImmediateFence => _immediateFence;
 
     public Semaphore SubmissionSemaphore => _submissionSemaphore;
+
+    internal static void SetBeforeImmediateSubmitForTest(Action? callback)
+        => s_beforeImmediateSubmitForTest = callback;
 
     private CommandPool CreateCommandPool()
     {
@@ -85,6 +91,8 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
 
     public void SubmitImmediateCommands(Action<CommandBuffer> record)
     {
+        s_beforeImmediateSubmitForTest?.Invoke();
+
         CommandBufferAllocateInfo allocInfo = new()
         {
             SType = StructureType.CommandBufferAllocateInfo,
@@ -195,33 +203,44 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
     public void TransitionImageLayout(Image image, ImageLayout oldLayout, ImageLayout newLayout, ImageAspectFlags aspectMask)
     {
         SubmitImmediateCommands(commandBuffer =>
+            RecordImageLayoutTransition(commandBuffer, image, oldLayout, newLayout, aspectMask));
+    }
+
+    internal void RecordImageLayoutTransition(
+        CommandBuffer commandBuffer,
+        Image image,
+        ImageLayout oldLayout,
+        ImageLayout newLayout,
+        ImageAspectFlags aspectMask)
+    {
+        if (oldLayout == newLayout)
+            return;
+
+        ImageMemoryBarrier barrier = new()
         {
-            ImageMemoryBarrier barrier = new()
+            SType = StructureType.ImageMemoryBarrier,
+            OldLayout = oldLayout,
+            NewLayout = newLayout,
+            SrcQueueFamilyIndex = Vk.QueueFamilyIgnored,
+            DstQueueFamilyIndex = Vk.QueueFamilyIgnored,
+            Image = image,
+            SubresourceRange = new ImageSubresourceRange
             {
-                SType = StructureType.ImageMemoryBarrier,
-                OldLayout = oldLayout,
-                NewLayout = newLayout,
-                SrcQueueFamilyIndex = Vk.QueueFamilyIgnored,
-                DstQueueFamilyIndex = Vk.QueueFamilyIgnored,
-                Image = image,
-                SubresourceRange = new ImageSubresourceRange
-                {
-                    AspectMask = aspectMask,
-                    BaseMipLevel = 0,
-                    LevelCount = 1,
-                    BaseArrayLayer = 0,
-                    LayerCount = 1
-                }
-            };
+                AspectMask = aspectMask,
+                BaseMipLevel = 0,
+                LevelCount = 1,
+                BaseArrayLayer = 0,
+                LayerCount = 1
+            }
+        };
 
-            GetPipelineStages(oldLayout, newLayout, out PipelineStageFlags srcStage, out PipelineStageFlags dstStage,
-                out AccessFlags srcAccess, out AccessFlags dstAccess);
+        GetPipelineStages(oldLayout, newLayout, out PipelineStageFlags srcStage, out PipelineStageFlags dstStage,
+            out AccessFlags srcAccess, out AccessFlags dstAccess);
 
-            barrier.SrcAccessMask = srcAccess;
-            barrier.DstAccessMask = dstAccess;
+        barrier.SrcAccessMask = srcAccess;
+        barrier.DstAccessMask = dstAccess;
 
-            _vk.CmdPipelineBarrier(commandBuffer, srcStage, dstStage, 0, 0, null, 0, null, 1, &barrier);
-        });
+        _vk.CmdPipelineBarrier(commandBuffer, srcStage, dstStage, 0, 0, null, 0, null, 1, &barrier);
     }
 
     public void TransitionImageLayout(
@@ -303,6 +322,27 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
             srcAccess = AccessFlags.ColorAttachmentWriteBit;
             dstAccess = AccessFlags.TransferReadBit;
         }
+        else if (oldLayout == ImageLayout.ShaderReadOnlyOptimal && newLayout == ImageLayout.TransferSrcOptimal)
+        {
+            srcStage = PipelineStageFlags.FragmentShaderBit | PipelineStageFlags.ComputeShaderBit;
+            dstStage = PipelineStageFlags.TransferBit;
+            srcAccess = AccessFlags.ShaderReadBit;
+            dstAccess = AccessFlags.TransferReadBit;
+        }
+        else if (oldLayout == ImageLayout.Undefined && newLayout == ImageLayout.TransferSrcOptimal)
+        {
+            srcStage = PipelineStageFlags.TopOfPipeBit;
+            dstStage = PipelineStageFlags.TransferBit;
+            srcAccess = 0;
+            dstAccess = AccessFlags.TransferReadBit;
+        }
+        else if (oldLayout == ImageLayout.TransferDstOptimal && newLayout == ImageLayout.TransferSrcOptimal)
+        {
+            srcStage = PipelineStageFlags.TransferBit;
+            dstStage = PipelineStageFlags.TransferBit;
+            srcAccess = AccessFlags.TransferWriteBit;
+            dstAccess = AccessFlags.TransferReadBit;
+        }
         else if (oldLayout == ImageLayout.TransferSrcOptimal && newLayout == ImageLayout.ColorAttachmentOptimal)
         {
             srcStage = PipelineStageFlags.TransferBit;
@@ -322,6 +362,13 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
             srcStage = PipelineStageFlags.FragmentShaderBit | PipelineStageFlags.ComputeShaderBit;
             dstStage = PipelineStageFlags.TransferBit;
             srcAccess = AccessFlags.ShaderReadBit;
+            dstAccess = AccessFlags.TransferWriteBit;
+        }
+        else if (oldLayout == ImageLayout.TransferSrcOptimal && newLayout == ImageLayout.TransferDstOptimal)
+        {
+            srcStage = PipelineStageFlags.TransferBit;
+            dstStage = PipelineStageFlags.TransferBit;
+            srcAccess = AccessFlags.TransferReadBit;
             dstAccess = AccessFlags.TransferWriteBit;
         }
         // Depth image transitions
@@ -357,9 +404,23 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
         else if (oldLayout == ImageLayout.TransferDstOptimal && newLayout == ImageLayout.ShaderReadOnlyOptimal)
         {
             srcStage = PipelineStageFlags.TransferBit;
-            dstStage = PipelineStageFlags.FragmentShaderBit;
+            dstStage = PipelineStageFlags.FragmentShaderBit | PipelineStageFlags.ComputeShaderBit;
             srcAccess = AccessFlags.TransferWriteBit;
             dstAccess = AccessFlags.ShaderReadBit;
+        }
+        else if (oldLayout == ImageLayout.TransferSrcOptimal && newLayout == ImageLayout.ShaderReadOnlyOptimal)
+        {
+            srcStage = PipelineStageFlags.TransferBit;
+            dstStage = PipelineStageFlags.FragmentShaderBit | PipelineStageFlags.ComputeShaderBit;
+            srcAccess = AccessFlags.TransferReadBit;
+            dstAccess = AccessFlags.ShaderReadBit;
+        }
+        else if (oldLayout == ImageLayout.TransferDstOptimal && newLayout == ImageLayout.ColorAttachmentOptimal)
+        {
+            srcStage = PipelineStageFlags.TransferBit;
+            dstStage = PipelineStageFlags.ColorAttachmentOutputBit;
+            srcAccess = AccessFlags.TransferWriteBit;
+            dstAccess = AccessFlags.ColorAttachmentReadBit | AccessFlags.ColorAttachmentWriteBit;
         }
     }
 

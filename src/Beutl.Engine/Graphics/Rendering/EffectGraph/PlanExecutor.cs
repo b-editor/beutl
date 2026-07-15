@@ -27,6 +27,9 @@ internal static class PlanExecutor
 
     private readonly record struct BranchOperation(RenderNodeOperation Op, int Ordinal);
 
+    private readonly record struct BranchExecutionResult(
+        BranchOperation[] Outputs, int OrdinalGeneration, int OrdinalSpan);
+
     // Failure injection is scoped to the caller's execution context. Dispatcher operations capture that context, so
     // render-thread tests still see their hooks without mutating process-wide state or racing parallel fixtures.
     private static readonly AsyncLocal<TestHooks?> s_testHooks = new();
@@ -117,6 +120,33 @@ internal static class PlanExecutor
     {
         renderIntent = RenderPolicyValidation.Validate(renderIntent, nameof(renderIntent));
         pullPurpose = RenderPolicyValidation.Validate(pullPurpose, nameof(pullPurpose));
+        var inputBranches = new BranchOperation[inputs.Length];
+        for (int i = 0; i < inputs.Length; i++)
+            inputBranches[i] = new BranchOperation(inputs[i], NoBranchOrdinal);
+
+        BranchExecutionResult result = ExecuteBranches(
+            plan, resources, inputBranches, outputScale, workingScale, maxWorkingScale,
+            diagnostics, pool, renderIntent, startPass, captureSink, isRenderCacheEnabled, pullPurpose);
+        return result.Outputs.Select(static branch => branch.Op).ToArray();
+    }
+
+    private static BranchExecutionResult ExecuteBranches(
+        CompiledPlan plan,
+        FrameResources resources,
+        BranchOperation[] inputs,
+        float outputScale,
+        float workingScale,
+        float maxWorkingScale,
+        PipelineDiagnostics? diagnostics,
+        RenderTargetPool? pool,
+        RenderIntent renderIntent,
+        int startPass = 0,
+        PrefixCaptureSink? captureSink = null,
+        bool isRenderCacheEnabled = true,
+        RenderPullPurpose pullPurpose = RenderPullPurpose.Frame,
+        int ordinalGeneration = 0,
+        int ordinalSpan = 0)
+    {
         // FR-007 (C3.1) measurement scope: pooled leases live before this execution belong to the caller (an outer
         // plan, a held upstream op) and are subtracted from the peak measured for this plan.
         long leaseBaseline = 0;
@@ -129,9 +159,7 @@ internal static class PlanExecutor
         // Thread the whole operation set through the schedule pass by pass, so a split/composite can fan the set out
         // and back in and each descriptor pass maps every current operation.
         int maxDimension = resources.MaxDimension;
-        var current = new List<BranchOperation>(inputs.Length);
-        foreach (RenderNodeOperation input in inputs)
-            current.Add(new BranchOperation(input, NoBranchOrdinal));
+        var current = new List<BranchOperation>(inputs);
         PassBackend runtimeBackend = PassBackend.Skia;
         try
         {
@@ -156,19 +184,31 @@ internal static class PlanExecutor
                 switch (pass)
                 {
                     case SplitPass split:
-                        ExecuteSplit(
+                        int splitSpan = ExecuteSplit(
                             split, current, outputScale, workingScale, maxWorkingScale, maxDimension,
                             diagnostics, pool, renderIntent, pullPurpose);
+                        if (split.IsDynamicOutputs)
+                        {
+                            ordinalGeneration++;
+                            ordinalSpan = splitSpan;
+                        }
+                        else
+                        {
+                            ordinalSpan = Math.Max(1, ordinalSpan) * split.BranchCount;
+                        }
                         break;
                     case CompositePass composite:
                         ExecuteComposite(
                             composite, current, outputScale, workingScale, maxWorkingScale, maxDimension,
                             diagnostics, pool, renderIntent, pullPurpose);
+                        ordinalGeneration = 0;
+                        ordinalSpan = 0;
                         break;
                     case NestedGraphPass nestedGraph:
                         ExecuteNestedGraph(
                             nestedGraph, current, outputScale, workingScale, maxWorkingScale, maxDimension,
-                            diagnostics, pool, isRenderCacheEnabled, pullPurpose, renderIntent);
+                            diagnostics, pool, isRenderCacheEnabled, pullPurpose, renderIntent,
+                            ref ordinalGeneration, ref ordinalSpan);
                         break;
                     case CustomRenderNodePass customNode:
                         ExecuteCustomRenderNode(
@@ -198,7 +238,7 @@ internal static class PlanExecutor
             // Assert against that inflated bound rather than skipping, so a capture that over-retains is still caught.
             AssertPeakLiveWithinPlan(plan, inputs.Length, pool, leaseBaseline, captureSink?.Captured == true ? 1 : 0);
 
-            return current.Select(static branch => branch.Op).ToArray();
+            return new BranchExecutionResult(current.ToArray(), ordinalGeneration, ordinalSpan);
         }
         catch
         {
@@ -250,9 +290,11 @@ internal static class PlanExecutor
         NestedGraphPass pass, List<BranchOperation> current,
         float outputScale, float workingScale,
         float maxWorkingScale, int maxDimension, PipelineDiagnostics? diagnostics, RenderTargetPool? pool,
-        bool isRenderCacheEnabled, RenderPullPurpose pullPurpose, RenderIntent renderIntent)
+        bool isRenderCacheEnabled, RenderPullPurpose pullPurpose, RenderIntent renderIntent,
+        ref int ordinalGeneration, ref int ordinalSpan)
     {
-        var outputs = new List<BranchOperation>(current.Count);
+        var branchResults = new List<BranchExecutionResult>(current.Count);
+        int initialGeneration = ordinalGeneration;
         var liveBranchIndices = new HashSet<int>();
         for (int i = 0; i < current.Count; i++)
             liveBranchIndices.Add(ResolveBranchOrdinal(current[i].Ordinal, i));
@@ -294,14 +336,14 @@ internal static class PlanExecutor
                     // Hand ownership of op to the recursion only once it is about to consume it: a DescribeBranch/
                     // Build/Compile/ResolveResources throw above still leaves op in current for the catch to dispose.
                     current[i] = default;
-                    RenderNodeOperation[] branchOutputs = Execute(
-                        branchPlan, branchResources, [op], outputScale, branchScale, maxWorkingScale,
-                        diagnostics, pool,
+                    BranchExecutionResult branchResult = ExecuteBranches(
+                        branchPlan, branchResources, [new BranchOperation(op, branchIndex)],
+                        outputScale, branchScale, maxWorkingScale, diagnostics, pool, renderIntent,
                         isRenderCacheEnabled: isRenderCacheEnabled,
                         pullPurpose: pullPurpose,
-                        renderIntent: renderIntent);
-                    foreach (RenderNodeOperation branchOutput in branchOutputs)
-                        outputs.Add(new BranchOperation(branchOutput, branchIndex));
+                        ordinalGeneration: ordinalGeneration,
+                        ordinalSpan: ordinalSpan);
+                    branchResults.Add(branchResult);
                 }
                 finally
                 {
@@ -311,14 +353,67 @@ internal static class PlanExecutor
         }
         catch
         {
-            DisposeBranchOperations(CollectionsMarshal.AsSpan(outputs));
+            foreach (BranchExecutionResult result in branchResults)
+                DisposeBranchOperations(result.Outputs);
             DisposeBranchOperations(CollectionsMarshal.AsSpan(current));
             current.Clear();
             throw;
         }
 
         current.Clear();
-        current.AddRange(outputs);
+        bool resetInsideChild = branchResults.Exists(result => result.OrdinalGeneration > initialGeneration);
+        if (!resetInsideChild)
+        {
+            foreach (BranchExecutionResult result in branchResults)
+                current.AddRange(result.Outputs);
+            if (branchResults.Count > 0)
+            {
+                ordinalGeneration = branchResults.Max(static result => result.OrdinalGeneration);
+                ordinalSpan = branchResults.Max(static result => result.OrdinalSpan);
+            }
+
+            return;
+        }
+
+        // A dynamic fan-out inside a child plan starts a local execution-time ordinal namespace. Concatenate each
+        // parent branch's local namespace in authored parent order so sibling recursive executions cannot both
+        // publish ordinal zero. The span includes discarded emits, preserving holes for downstream offsets.
+        int nextOrdinal = 0;
+        int resultGeneration = initialGeneration + 1;
+        foreach (BranchExecutionResult result in branchResults)
+        {
+            bool locallyReset = result.OrdinalGeneration > initialGeneration;
+            int localBase;
+            int localSpan;
+            if (locallyReset)
+            {
+                localBase = 0;
+                localSpan = result.OrdinalSpan;
+                resultGeneration = Math.Max(resultGeneration, result.OrdinalGeneration);
+            }
+            else if (result.Outputs.Length > 0)
+            {
+                localBase = result.Outputs.Min(static branch => branch.Ordinal);
+                int localMax = result.Outputs.Max(static branch => branch.Ordinal);
+                localSpan = Math.Max(1, localMax - localBase + 1);
+            }
+            else
+            {
+                localBase = 0;
+                localSpan = 1;
+            }
+
+            foreach (BranchOperation output in result.Outputs)
+            {
+                int localOrdinal = output.Ordinal == NoBranchOrdinal ? 0 : output.Ordinal - localBase;
+                current.Add(new BranchOperation(output.Op, nextOrdinal + localOrdinal));
+            }
+
+            nextOrdinal += localSpan;
+        }
+
+        ordinalGeneration = resultGeneration;
+        ordinalSpan = nextOrdinal;
     }
 
     // The input rect the resolver assumed pass k consumes: the previous pass's resolved output ROI (its full bounds
@@ -345,13 +440,10 @@ internal static class PlanExecutor
     // EffectiveScale (the carried density, C3.2) and OutputScale/MaxWorkingScale — the same resolution a top-level
     // filter-effect node performs.
     //
-    // The wrapper node is created per frame, not persisted. The executor is stateless and reentrant (nested-graph
-    // recursion, prefix resume), so a passIndex-keyed node map cannot survive a branch plan recompiled fresh each
-    // frame; and the realistic child — a NodeGraphFilterEffectRenderNode — rebuilds its inner RenderNodeProcessor on
-    // every Process, so its render caches live on the persisted graph-model resources, not on this wrapper. Persisting
-    // the wrapper would therefore save no cache while forcing that map through the reentrant executor. Disposing the
-    // wrapper stays alive until every operation it returned has been disposed: plugin operations may lazily read
-    // node-owned caches, child nodes, or native state when Render is called after Process returns.
+    // The node instance lives in the owning plan node's hierarchical runtime cache. Keeping that cache outside the
+    // CPU-only CompiledPlan preserves custom node state across parameter rebinds while nested node/branch scopes keep
+    // equal local ordinals isolated. Cache replacement/pruning retires the node immediately, but active output leases
+    // defer its actual disposal until every lazily-rendered operation it returned has expired.
     private static void ExecuteCustomRenderNode(
         CustomRenderNodePass pass, List<BranchOperation> current,
         float outputScale, float maxWorkingScale,
@@ -365,12 +457,12 @@ internal static class PlanExecutor
         // Execute catch from disposing ops the child now owns, and stops a double-drop on the passthrough path.
         current.Clear();
 
-        // The factory runs after current was cleared, so a Create throw would strand the detached inputs in neither
-        // disposal sweep; release them here (C7).
-        FilterEffectRenderNode node;
+        // Cache replacement/factory creation runs after current was cleared, so a throw would strand the detached
+        // inputs in neither disposal sweep; release them here (C7).
+        CustomRenderNodePlanCache.NodeEntry nodeEntry;
         try
         {
-            node = pass.Factory.Create(pass.Resource);
+            nodeEntry = pass.NodeCache.GetOrCreate(pass.Resource, pass.Factory);
         }
         catch
         {
@@ -378,9 +470,9 @@ internal static class PlanExecutor
             throw;
         }
 
-        bool nodeOwnedByOutputs = false;
         try
         {
+            FilterEffectRenderNode node = nodeEntry.Node;
             node.Update(pass.Resource);
             var childContext = new RenderNodeContext(
                 inputs, renderIntent, outputScale, maxWorkingScale, pullPurpose)
@@ -413,38 +505,36 @@ internal static class PlanExecutor
                 throw;
             }
 
-            if (outputs.Length > 0)
+            var mapped = new BranchOperation[outputs.Length];
+            int mappedCount = 0;
+            try
             {
-                var lifetime = new CustomNodeLifetime(node, outputs.Length);
-                var wrapped = new BranchOperation[outputs.Length];
-                int wrappedCount = 0;
-                try
+                for (; mappedCount < outputs.Length; mappedCount++)
                 {
-                    for (; wrappedCount < outputs.Length; wrappedCount++)
+                    RenderNodeOperation output = outputs[mappedCount];
+                    Action release = nodeEntry.AcquireOutputLease();
+                    RenderNodeOperation leased;
+                    try
                     {
-                        RenderNodeOperation output = outputs[wrappedCount];
-                        RenderNodeOperation decorated = RenderNodeOperation.CreateDecorator(
-                            output, output.Render, output.HitTest, lifetime.CreateReleaseOnce());
-                        wrapped[wrappedCount] = new BranchOperation(decorated, outputOrdinals[wrappedCount]);
+                        leased = RenderNodeOperation.CreateDecorator(
+                            output, output.Render, output.HitTest, release);
                     }
-                }
-                catch
-                {
-                    DisposeBranchOperations(wrapped.AsSpan(0, wrappedCount));
-                    RenderNodeOperation.DisposeAll(outputs.AsSpan(wrappedCount));
-                    throw;
+                    catch
+                    {
+                        release();
+                        throw;
+                    }
+
+                    mapped[mappedCount] = new BranchOperation(leased, outputOrdinals[mappedCount]);
                 }
 
-                try
-                {
-                    current.AddRange(wrapped);
-                    nodeOwnedByOutputs = true;
-                }
-                catch
-                {
-                    DisposeBranchOperations(wrapped);
-                    throw;
-                }
+                current.AddRange(mapped);
+            }
+            catch
+            {
+                DisposeBranchOperations(mapped.AsSpan(0, mappedCount));
+                RenderNodeOperation.DisposeAll(outputs.AsSpan(mappedCount));
+                throw;
             }
         }
         catch
@@ -452,15 +542,8 @@ internal static class PlanExecutor
             // A throw mid-Process leaves ownership ambiguous; dispose the inputs best-effort (idempotent, so a
             // partially-consumed set is safe) so nothing the child had not yet adopted is stranded (C7).
             RenderNodeOperation.DisposeAll(inputs);
-            Exception? cleanupFailure = null;
-            if (!nodeOwnedByOutputs)
-                CaptureDisposeFailure(node, ref cleanupFailure);
-            LogCleanupFailure(cleanupFailure, "custom render-node failure cleanup");
             throw;
         }
-
-        if (!nodeOwnedByOutputs)
-            node.Dispose();
     }
 
     private static int[] MapCustomOutputOrdinals(int[] inputOrdinals, int outputCount)
@@ -477,24 +560,6 @@ internal static class PlanExecutor
         throw new InvalidOperationException(
             "A custom render node changed the size of an active split branch set, so stable branch identity cannot "
             + "be preserved. Composite the branch set before invoking the custom node, or return one output per input.");
-    }
-
-    private sealed class CustomNodeLifetime(FilterEffectRenderNode node, int references)
-    {
-        private int _references = references;
-
-        public Action CreateReleaseOnce()
-        {
-            int released = 0;
-            return () =>
-            {
-                if (Interlocked.Exchange(ref released, 1) == 0
-                    && Interlocked.Decrement(ref _references) == 0)
-                {
-                    node.Dispose();
-                }
-            };
-        }
     }
 
     // Applies a descriptor pass to every current operation independently. A single upstream operation uses the
@@ -1203,12 +1268,7 @@ internal static class PlanExecutor
         }
 
         Exception? successCleanupFailure = null;
-        CaptureDisposeFailure(outputTarget, ref successCleanupFailure);
-        if (s_testHooks.Value?.GeometryOutputDisposeFailure is { } outputDisposeFailure)
-        {
-            s_testHooks.Value.GeometryOutputDisposeFailure = null;
-            successCleanupFailure ??= outputDisposeFailure;
-        }
+        CaptureGeometryOutputDisposeFailure(outputTarget, ref successCleanupFailure);
         CaptureDisposeFailure(op, ref successCleanupFailure);
         if (successCleanupFailure is { } cleanupFailure)
         {
@@ -1354,7 +1414,7 @@ internal static class PlanExecutor
             Exception? cleanupFailure = null;
             ReleaseComputeScratch(scratch, ref cleanupFailure);
             CaptureDisposeFailure(outputTarget, ref cleanupFailure);
-            CaptureDisposeFailure(inputTarget, ref cleanupFailure);
+            CaptureComputeInputDisposeFailure(inputTarget, ref cleanupFailure);
             LogCleanupFailure(cleanupFailure, "compute scratch-allocation cleanup");
             return DropOrThrow(op, renderIntent, ex.Message);
         }
@@ -1372,10 +1432,15 @@ internal static class PlanExecutor
             Exception? cleanupFailure = null;
             ReleaseComputeScratch(scratch, ref cleanupFailure);
             CaptureDisposeFailure(outputTarget, ref cleanupFailure);
-            CaptureDisposeFailure(inputTarget, ref cleanupFailure);
-            LogCleanupFailure(cleanupFailure, "compute preview-identity cleanup");
+            CaptureComputeInputDisposeFailure(inputTarget, ref cleanupFailure);
             s_logger.LogWarning(ex,
                 "Compute dispatch failed. Preview keeps the source because the pass declares IdentityInPreview.");
+            if (cleanupFailure is { } firstCleanupFailure)
+            {
+                CaptureDisposeFailure(op, ref cleanupFailure);
+                ExceptionDispatchInfo.Capture(firstCleanupFailure).Throw();
+            }
+
             return op;
         }
         catch
@@ -1511,8 +1576,12 @@ internal static class PlanExecutor
         // DiscardOutput supersedes a requested shrink (§C3): a dropped pass produces nothing regardless of order.
         if (discarded)
         {
-            outputTarget.Dispose();
-            op.Dispose();
+            Exception? cleanupFailure = null;
+            CaptureGeometryOutputDisposeFailure(outputTarget, ref cleanupFailure);
+            CaptureDisposeFailure(op, ref cleanupFailure);
+            if (cleanupFailure != null)
+                ExceptionDispatchInfo.Capture(cleanupFailure).Throw();
+
             return null;
         }
 
@@ -1607,6 +1676,26 @@ internal static class PlanExecutor
         }
     }
 
+    private static void CaptureGeometryOutputDisposeFailure(RenderTarget outputTarget, ref Exception? cleanupFailure)
+    {
+        CaptureDisposeFailure(outputTarget, ref cleanupFailure);
+        if (s_testHooks.Value?.GeometryOutputDisposeFailure is { } outputDisposeFailure)
+        {
+            s_testHooks.Value.GeometryOutputDisposeFailure = null;
+            cleanupFailure ??= outputDisposeFailure;
+        }
+    }
+
+    private static void CaptureSplitBranchDisposeFailure(RenderTarget target, ref Exception? cleanupFailure)
+    {
+        CaptureDisposeFailure(target, ref cleanupFailure);
+        if (s_testHooks.Value?.SplitBranchDisposeFailure is { } branchDisposeFailure)
+        {
+            s_testHooks.Value.SplitBranchDisposeFailure = null;
+            cleanupFailure ??= branchDisposeFailure;
+        }
+    }
+
     private static void LogCleanupFailure(Exception? cleanupFailure, string operation)
     {
         if (cleanupFailure != null)
@@ -1615,7 +1704,7 @@ internal static class PlanExecutor
 
     // Fan-out: each current op is materialized once and split into the branches its callback emits (a static count
     // or, for dynamic outputs, an execution-time-resolved count the executor allocates, counts and releases).
-    private static void ExecuteSplit(
+    private static int ExecuteSplit(
         SplitPass pass, List<BranchOperation> current,
         float outputScale, float workingScale,
         float maxWorkingScale, int maxDimension, PipelineDiagnostics? diagnostics, RenderTargetPool? pool,
@@ -1723,6 +1812,7 @@ internal static class PlanExecutor
 
         current.Clear();
         current.AddRange(outputs);
+        return pass.IsDynamicOutputs ? nextBranchOrdinal : 0;
     }
 
     // Fan-in: composite the whole current branch set into one output under the blend mode, applying each branch's
@@ -2171,9 +2261,12 @@ internal static class PlanExecutor
                 discarded = session.IsOutputDiscarded;
                 shrunk = session.ShrunkOutputBounds;
             }
-            catch
+            catch (Exception primaryFailure)
             {
-                target.Dispose();
+                Exception? cleanupFailure = null;
+                CaptureSplitBranchDisposeFailure(target, ref cleanupFailure);
+                LogCleanupFailure(cleanupFailure, "split branch callback failure cleanup");
+                ExceptionDispatchInfo.Capture(primaryFailure).Throw();
                 throw;
             }
 
@@ -2256,12 +2349,7 @@ internal static class PlanExecutor
             }
 
             Exception? branchCleanupFailure = null;
-            CaptureDisposeFailure(branchTarget, ref branchCleanupFailure);
-            if (s_testHooks.Value?.SplitBranchDisposeFailure is { } branchDisposeFailure)
-            {
-                s_testHooks.Value.SplitBranchDisposeFailure = null;
-                branchCleanupFailure ??= branchDisposeFailure;
-            }
+            CaptureSplitBranchDisposeFailure(branchTarget, ref branchCleanupFailure);
             if (branchCleanupFailure is { } cleanupFailure)
             {
                 CaptureDisposeFailure(tightTarget, ref branchCleanupFailure);

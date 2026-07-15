@@ -13,7 +13,7 @@ namespace Beutl.Graphics.Rendering;
 /// </summary>
 internal sealed class EffectNode(
     EffectNodeDescriptor descriptor, Rect inputBounds, Rect outputBounds, int childIndex,
-    NestedGraphNodePlanCache? nestedPlanCache)
+    NestedGraphNodePlanCache? nestedPlanCache, CustomRenderNodePlanCache? customNodeCache)
 {
     public EffectNodeDescriptor Descriptor { get; } = descriptor;
 
@@ -32,14 +32,18 @@ internal sealed class EffectNode(
     /// <summary>Persistent branch-plan cache for a nested node; null for every other descriptor kind.</summary>
     public NestedGraphNodePlanCache? NestedPlanCache { get; } = nestedPlanCache;
 
+    /// <summary>Persistent render-node cache for a custom node; null for every other descriptor kind.</summary>
+    public CustomRenderNodePlanCache? CustomNodeCache { get; } = customNodeCache;
+
     public IReadOnlyList<int> InputIndices { get; init; } = [];
 }
 
 /// <summary>
 /// The DAG an <see cref="Effects.EffectGraphBuilder"/> produces (feature 004, data-model §3): an ordered node
-/// list plus the render-request context (bounds/scales) the compiler and executor need. Owns no GPU state; it
-/// does own per-frame describe-time disposables (sampler/child shaders), released by <see cref="Dispose"/> once
-/// the frame's plan has executed.
+/// list plus the render-request context (bounds/scales) the compiler and executor need. It owns per-frame
+/// describe-time disposables (sampler/child shaders), released by <see cref="Dispose"/> once the frame's plan has
+/// executed. A standalone builder also transfers its private hierarchical runtime cache here; production plan render
+/// nodes instead supply and own their persistent cache explicitly.
 /// </summary>
 internal sealed class EffectGraph(
     IReadOnlyList<EffectNode> nodes,

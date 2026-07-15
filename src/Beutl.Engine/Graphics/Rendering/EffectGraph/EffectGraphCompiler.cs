@@ -162,7 +162,11 @@ internal static class EffectGraphCompiler
             }
             else if (node.Descriptor is CustomRenderNodeDescriptor custom)
             {
-                passes.Add(new CustomRenderNodePass(custom.Resource, custom.Factory)
+                passes.Add(new CustomRenderNodePass(
+                    custom.Resource,
+                    custom.Factory,
+                    node.CustomNodeCache
+                    ?? throw new InvalidOperationException("A custom render node is missing its persistent cache scope."))
                 {
                     InputBounds = node.InputBounds,
                     OutputBounds = node.OutputBounds,

@@ -27,13 +27,13 @@ public class ClippingNegativeMarginTests
         Log.LoggerFactory = Microsoft.Extensions.Logging.LoggerFactory.Create(static _ => { });
     }
 
-    // AutoClip detects margins (30,30,31,31) for the 40x40 content; Left = -50 makes the effective left margin
-    // 30 - 50 = -20, so the kept rect extends 20 px left of the input: NewBounds = (-20, 29, 89, 39) (top keeps the
-    // legacy leading-edge -1 shift; width = 100 - (-20) - 31, height = 100 - 30 - 31).
+    // AutoClip detects margins (30,30,30,30) for the 40x40 content; Left = -50 makes the effective left margin
+    // 30 - 50 = -20, so the kept rect extends 20 px left of the input: NewBounds = (-20, 29, 90, 40) (top keeps the
+    // legacy leading-edge -1 shift; width = 100 - (-20) - 30, height = 100 - 30 - 30).
     [Test]
     public void AutoClip_NegativeLeft_ExpandsOutputWithTransparentMargin()
     {
-        var expected = new Rect(-20, 29, 89, 39);
+        var expected = new Rect(-20, 29, 90, 40);
 
         RenderNodeOperation[] ops = RenderClipping(clip =>
         {
@@ -62,12 +62,12 @@ public class ClippingNegativeMarginTests
         }
     }
 
-    // All-sides negative expansion stays inside the input: margins (30,30,31,31) - 10 each side keep a positive
-    // effective margin, so the box just loosens by 10 px per side around the content: (19, 19, 59, 59).
+    // All-sides negative expansion stays inside the input: margins (30,30,30,30) - 10 each side keep a positive
+    // effective margin, so the box just loosens by 10 px per side around the content: (19, 19, 60, 60).
     [Test]
     public void AutoClip_UniformNegative_LoosensDetectedBoxBySetAmount()
     {
-        var expected = new Rect(19, 19, 59, 59);
+        var expected = new Rect(19, 19, 60, 60);
 
         RenderNodeOperation[] ops = RenderClipping(clip =>
         {

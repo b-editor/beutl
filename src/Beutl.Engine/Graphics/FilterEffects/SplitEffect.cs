@@ -40,6 +40,7 @@ public partial class SplitEffect : FilterEffect
         Action<ISplitEmitter> emit = emitter => EmitTiles(emitter, hDiv, vDiv, hSpacing, vSpacing);
         long branchCount = (long)hDiv * vDiv;
         bool hasRenderableStaticBranches = !builder.HasBranchedInput
+            && !builder.HasRuntimeDependentBounds
             && hDiv > 0
             && vDiv > 0
             && builder.Bounds.Width / hDiv >= 1f

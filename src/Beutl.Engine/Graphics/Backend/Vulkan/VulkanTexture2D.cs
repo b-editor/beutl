@@ -317,9 +317,11 @@ internal unsafe class VulkanTexture2D : ITexture2D
         _currentLayout = layout;
     }
 
-    // CopyTexture performs its final TransferDst -> ColorAttachmentOptimal transition inside its blit command
-    // buffer; the tracker must follow, or the next TransitionTo issues its barrier from a stale oldLayout.
+    // CopyTexture performs its final transitions inside the blit command buffer; the tracker must follow, or the
+    // next TransitionTo issues its barrier from a stale oldLayout.
     internal void MarkLayout(ImageLayout layout) => _currentLayout = layout;
+
+    internal ImageLayout CurrentLayout => _currentLayout;
 
     internal ImageLayout CurrentLayoutForTest => _currentLayout;
 

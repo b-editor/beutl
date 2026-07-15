@@ -153,7 +153,8 @@ public class CustomRenderNodeEffectInGraphTests
         group.Children.Add(new Gamma { Amount = { CurrentValue = 1.5f } });
         group.Children.Add(new ThrowingCustomNodeEffect());
 
-        CompiledPlan plan = CompileGroup(group);
+        using var runtimeCache = new NestedGraphPlanCache();
+        CompiledPlan plan = CompileGroup(group, runtimeCache);
         FrameResources res = EffectGraphCompiler.ResolveResources(plan, s_bounds, workingScale: 1f);
         var input = MakeInput(s_bounds);
 
@@ -171,7 +172,8 @@ public class CustomRenderNodeEffectInGraphTests
         var group = new FilterEffectGroup();
         group.Children.Add(new ThrowingProcessAndDisposeCustomNodeEffect(primary, cleanup));
 
-        CompiledPlan plan = CompileGroup(group);
+        var runtimeCache = new NestedGraphPlanCache();
+        CompiledPlan plan = CompileGroup(group, runtimeCache);
         FrameResources res = EffectGraphCompiler.ResolveResources(plan, s_bounds, workingScale: 1f);
         RenderNodeOperation input = MakeInput(s_bounds);
 
@@ -185,6 +187,10 @@ public class CustomRenderNodeEffectInGraphTests
                 "custom-node cleanup must not replace the primary Process failure");
             Assert.That(input.IsDisposed, Is.True);
         });
+
+        InvalidOperationException? disposeError = Assert.Throws<InvalidOperationException>(runtimeCache.Dispose);
+        Assert.That(disposeError, Is.SameAs(cleanup),
+            "the persistent node's disposal failure belongs to owner teardown, not the earlier Process failure");
     }
 
     [Test]
@@ -193,7 +199,8 @@ public class CustomRenderNodeEffectInGraphTests
         var group = new FilterEffectGroup();
         group.Children.Add(new NullArrayCustomNodeEffect());
 
-        CompiledPlan plan = CompileGroup(group);
+        using var runtimeCache = new NestedGraphPlanCache();
+        CompiledPlan plan = CompileGroup(group, runtimeCache);
         FrameResources res = EffectGraphCompiler.ResolveResources(plan, s_bounds, workingScale: 1f);
         RenderNodeOperation input = MakeInput(s_bounds);
 
@@ -219,7 +226,8 @@ public class CustomRenderNodeEffectInGraphTests
         group.Children.Add(new Gamma { Amount = { CurrentValue = 1.5f } });
         group.Children.Add(new ThrowingFactoryCustomNodeEffect());
 
-        CompiledPlan plan = CompileGroup(group);
+        using var runtimeCache = new NestedGraphPlanCache();
+        CompiledPlan plan = CompileGroup(group, runtimeCache);
         FrameResources res = EffectGraphCompiler.ResolveResources(plan, s_bounds, workingScale: 1f);
         using var pool = new RenderTargetPool();
 
@@ -231,7 +239,7 @@ public class CustomRenderNodeEffectInGraphTests
     }
 
     [Test]
-    public void Execute_CustomRenderNode_KeepsNodeAliveAndForwardsExecutionPolicyUntilOutputsDispose()
+    public void Execute_CustomRenderNode_StandaloneOwnerDefersNodeDisposeUntilOutputsExpire()
     {
         var disposed = new bool[1];
         var observedCache = new bool[1];
@@ -242,19 +250,25 @@ public class CustomRenderNodeEffectInGraphTests
         group.Children.Add(new LifetimeProbeCustomNodeEffect(
             disposed, observedCache, observedRoi, observedAuxiliary));
 
-        CompiledPlan plan = CompileGroup(group);
+        using FilterEffect.Resource resource = (FilterEffect.Resource)group.ToResource(CompositionContext.Default);
+        var builder = new EffectGraphBuilder(
+            s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
+        group.Describe(builder, resource);
+        EffectGraph graph = builder.Build();
+        CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
         FrameResources res = EffectGraphCompiler.ResolveResources(plan, requested, workingScale: 1f);
         RenderNodeOperation[] outputs = PlanExecutor.Execute(
             plan, res, [MakeInput(s_bounds)], outputScale: 1f, workingScale: 1f,
             maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null,
             isRenderCacheEnabled: false,
             pullPurpose: RenderPullPurpose.Auxiliary, renderIntent: RenderIntent.Delivery);
+        graph.Dispose();
         try
         {
             Assert.Multiple(() =>
             {
                 Assert.That(disposed[0], Is.False,
-                    "the node must stay alive while its lazily-rendered operation can reference node-owned state");
+                    "retiring the standalone graph owner must defer node disposal while a lazy output is live");
                 Assert.That(observedCache[0], Is.False,
                     "an embedded node inherits the caller's render-cache policy");
                 Assert.That(observedRoi[0].IsInvalid, Is.True,
@@ -274,7 +288,7 @@ public class CustomRenderNodeEffectInGraphTests
         }
 
         Assert.That(disposed[0], Is.True,
-            "disposing the last returned operation releases the embedded custom node exactly then");
+            "disposing the last returned operation completes the retired owner's deferred node disposal");
     }
 
     // ---- Plan cache / structural key -------------------------------------------------------------------
@@ -338,6 +352,96 @@ public class CustomRenderNodeEffectInGraphTests
                 "later frames rebind the animated neighbor's parameters without recompiling (the custom node does not force it)");
             Assert.That(probeCalls[0], Is.EqualTo(frames), "the custom child render node ran every frame");
         });
+    }
+
+    [Test]
+    public void EmbeddedCustomRenderNode_ReusesStateAcrossFrames_AndDisposesWithPlanOwner()
+    {
+        var calls = new int[1];
+        var creations = new int[1];
+        var disposals = new int[1];
+        var observedStates = new List<int>();
+        var group = new FilterEffectGroup();
+        group.Children.Add(new ProbeCustomNodeEffect(calls, creations, disposals, observedStates));
+
+        using FilterEffect.Resource resource = (FilterEffect.Resource)group.ToResource(CompositionContext.Default);
+        var owner = new PlanFilterEffectRenderNode(resource);
+        for (int frame = 0; frame < 2; frame++)
+        {
+            RenderNodeOperation[] outputs = owner.Process(
+                new RenderNodeContext([MakeInput(s_bounds)], RenderIntent.Delivery));
+            RenderNodeOperation.DisposeAll(outputs);
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(creations[0], Is.EqualTo(1),
+                "parameter rebinds reuse the embedded custom node instead of recreating it per frame");
+            Assert.That(observedStates, Is.EqualTo(new[] { 1, 2 }),
+                "mutable node state survives across the descriptor's lifetime");
+            Assert.That(disposals[0], Is.Zero,
+                "disposing frame outputs releases leases but not the still-current persistent node");
+        });
+
+        owner.Dispose();
+        Assert.That(disposals[0], Is.EqualTo(1),
+            "the plan render-node owner disposes the embedded node exactly once");
+    }
+
+    [Test]
+    public void EmbeddedCustomRenderNode_ReplacementAndPruneDisposeRetiredNodes()
+    {
+        var calls = new int[1];
+        var creations = new int[1];
+        var disposals = new int[1];
+        var group = new FilterEffectGroup();
+        group.Children.Add(new ProbeCustomNodeEffect(calls, creations, disposals));
+        using FilterEffect.Resource resource = (FilterEffect.Resource)group.ToResource(CompositionContext.Default);
+        using var owner = new PlanFilterEffectRenderNode(resource);
+
+        RenderNodeOperation.DisposeAll(owner.Process(
+            new RenderNodeContext([MakeInput(s_bounds)], RenderIntent.Delivery)));
+
+        group.Children[0] = new ProbeCustomNodeEffect(calls, creations, disposals);
+        bool updateOnly = false;
+        resource.Update(group, CompositionContext.Default, ref updateOnly);
+        owner.Update(resource);
+        RenderNodeOperation.DisposeAll(owner.Process(
+            new RenderNodeContext([MakeInput(s_bounds)], RenderIntent.Delivery)));
+        Assert.Multiple(() =>
+        {
+            Assert.That(creations[0], Is.EqualTo(2));
+            Assert.That(disposals[0], Is.EqualTo(1),
+                "a resource-identity replacement retires the previous persistent node");
+        });
+
+        group.Children.Clear();
+        updateOnly = false;
+        resource.Update(group, CompositionContext.Default, ref updateOnly);
+        owner.Update(resource);
+        RenderNodeOperation.DisposeAll(owner.Process(
+            new RenderNodeContext([MakeInput(s_bounds)], RenderIntent.Delivery)));
+        Assert.That(disposals[0], Is.EqualTo(2),
+            "removing the descriptor prunes and disposes its persistent cache entry");
+    }
+
+    [Test]
+    public void EmbeddedCustomRenderNode_ReceivesAncestorCacheNotification()
+    {
+        var calls = new int[1];
+        var cacheNotifications = new int[1];
+        var group = new FilterEffectGroup();
+        group.Children.Add(new ProbeCustomNodeEffect(
+            calls, servedFromCacheCount: cacheNotifications));
+        using FilterEffect.Resource resource = (FilterEffect.Resource)group.ToResource(CompositionContext.Default);
+        using var owner = new PlanFilterEffectRenderNode(resource);
+
+        RenderNodeOperation.DisposeAll(owner.Process(
+            new RenderNodeContext([MakeInput(s_bounds)], RenderIntent.Delivery)));
+        owner.OnServedFromCache();
+
+        Assert.That(cacheNotifications[0], Is.EqualTo(1),
+            "an ancestor cache hit must notify persistent embedded nodes that Process will not run");
     }
 
     // ---- Base class: group-safe by construction (GPU-free) ---------------------------------------------
@@ -542,6 +646,17 @@ public class CustomRenderNodeEffectInGraphTests
         return EffectGraphCompiler.Compile(graph, diagnostics: null);
     }
 
+    private static CompiledPlan CompileGroup(FilterEffectGroup group, NestedGraphPlanCache runtimeCache)
+    {
+        using FilterEffect.Resource resource = (FilterEffect.Resource)group.ToResource(CompositionContext.Default);
+        var builder = new EffectGraphBuilder(
+            s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery,
+            nestedPlanCache: runtimeCache);
+        group.Describe(builder, resource);
+        using EffectGraph graph = builder.Build();
+        return EffectGraphCompiler.Compile(graph, diagnostics: null);
+    }
+
     private static StructuralKey KeyOf(FilterEffectGroup group, FilterEffect.Resource resource)
     {
         var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
@@ -553,7 +668,10 @@ public class CustomRenderNodeEffectInGraphTests
     private static Bitmap RenderGroupRaster(FilterEffectGroup group)
     {
         using FilterEffect.Resource resource = (FilterEffect.Resource)group.ToResource(CompositionContext.Default);
-        var builder = new EffectGraphBuilder(s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
+        using var runtimeCache = new NestedGraphPlanCache();
+        var builder = new EffectGraphBuilder(
+            s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery,
+            nestedPlanCache: runtimeCache);
         group.Describe(builder, resource);
         using EffectGraph graph = builder.Build();
         CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
@@ -695,36 +813,83 @@ public class CustomRenderNodeEffectInGraphTests
 // CustomRenderNodeFilterEffect makes it describable — and group-safe — with no Describe boilerplate; the render node
 // counts its invocations while passing the ops through unchanged (identity).
 [SuppressResourceClassGeneration]
-internal sealed partial class ProbeCustomNodeEffect(int[] callCount) : CustomRenderNodeFilterEffect
+internal sealed partial class ProbeCustomNodeEffect(
+    int[] callCount,
+    int[]? creationCount = null,
+    int[]? disposalCount = null,
+    List<int>? observedStates = null,
+    int[]? servedFromCacheCount = null) : CustomRenderNodeFilterEffect
 {
     public override Resource ToResource(CompositionContext context)
     {
-        var resource = new Resource(callCount);
+        var resource = new Resource(
+            callCount, creationCount, disposalCount, observedStates, servedFromCacheCount);
         bool updateOnly = false;
         resource.Update(this, context, ref updateOnly);
         return resource;
     }
 
-    public new sealed class Resource(int[] callCount) : CustomRenderNodeFilterEffect.Resource
+    public new sealed class Resource(
+        int[] callCount,
+        int[]? creationCount,
+        int[]? disposalCount,
+        List<int>? observedStates,
+        int[]? servedFromCacheCount) : CustomRenderNodeFilterEffect.Resource
     {
         private static readonly FilterEffectRenderNodeFactory s_factory =
             FilterEffectRenderNodeFactory.Of<Resource, ProbeRenderNode>(static r => new ProbeRenderNode(r));
 
         public int[] CallCount => callCount;
 
+        public int[]? CreationCount => creationCount;
+
+        public int[]? DisposalCount => disposalCount;
+
+        public List<int>? ObservedStates => observedStates;
+
+        public int[]? ServedFromCacheCount => servedFromCacheCount;
+
         public override FilterEffectRenderNodeFactory RenderNodeFactory
             => s_factory;
     }
 }
 
-internal sealed class ProbeRenderNode(ProbeCustomNodeEffect.Resource resource) : FilterEffectRenderNode(resource)
+internal sealed class ProbeRenderNode : FilterEffectRenderNode
 {
+    private readonly ProbeCustomNodeEffect.Resource _resource;
+    private int _state;
+
+    public ProbeRenderNode(ProbeCustomNodeEffect.Resource resource)
+        : base(resource)
+    {
+        _resource = resource;
+        if (resource.CreationCount != null)
+            resource.CreationCount[0]++;
+    }
+
     public override RenderNodeOperation[] Process(RenderNodeContext context)
     {
         if (FilterEffect?.Resource is ProbeCustomNodeEffect.Resource probe)
+        {
             probe.CallCount[0]++;
+            probe.ObservedStates?.Add(++_state);
+        }
 
         return context.Input;
+    }
+
+    protected override void OnDispose(bool disposing)
+    {
+        if (_resource.DisposalCount != null)
+            _resource.DisposalCount[0]++;
+        base.OnDispose(disposing);
+    }
+
+    protected internal override void OnServedFromCache()
+    {
+        if (_resource.ServedFromCacheCount != null)
+            _resource.ServedFromCacheCount[0]++;
+        base.OnServedFromCache();
     }
 }
 

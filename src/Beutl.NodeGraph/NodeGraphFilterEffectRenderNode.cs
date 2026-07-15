@@ -1,17 +1,14 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Runtime.ExceptionServices;
+using System.Runtime.InteropServices;
 using Beutl.Composition;
 using Beutl.Graphics.Rendering;
-using Beutl.Logging;
 using Beutl.NodeGraph.Composition;
 using Beutl.NodeGraph.Nodes;
-using Microsoft.Extensions.Logging;
 
 namespace Beutl.NodeGraph;
 
 internal class NodeGraphFilterEffectRenderNode(NodeGraphFilterEffect.Resource resource) : FilterEffectRenderNode(resource)
 {
-    private static readonly ILogger s_logger = Log.CreateLogger<NodeGraphFilterEffectRenderNode>();
-
     private readonly CompositionContext _compositionContext = new(TimeSpan.Zero);
 
     private NodeGraphFilterEffect.Resource? GraphResource => FilterEffect?.Resource as NodeGraphFilterEffect.Resource;
@@ -31,6 +28,8 @@ internal class NodeGraphFilterEffectRenderNode(NodeGraphFilterEffect.Resource re
         // 2. 入力 operations を OperationWrapperRenderNode に設定（Evaluate の前に行う）
         inputWrapper.SetOperations(context.Input);
         var allResults = new List<RenderNodeOperation>();
+        RenderNodeOperation[]? result = null;
+        Exception? primaryFailure = null;
         try
         {
             // 3. グラフのノードを評価
@@ -47,38 +46,49 @@ internal class NodeGraphFilterEffectRenderNode(NodeGraphFilterEffect.Resource re
                 // SetOperations transferred the input into the wrapper's ref-counted ownership. Return proxies
                 // before the finally block clears the wrapper: the proxies keep those refs alive until the caller
                 // disposes the passthrough output, while the wrapper itself retains nothing after Process returns.
-                return context.CreateChildProcessor(inputWrapper, context.IsRenderCacheEnabled).PullToRoot();
+                result = context.CreateChildProcessor(inputWrapper, context.IsRenderCacheEnabled).PullToRoot();
             }
-
-            // 5. RenderNodeProcessor でグラフ出力ツリーを処理
-            foreach (RenderNode outputNode in outputRenderNodes)
+            else
             {
-                // Thread the complete parent execution policy through the hosted graph.
-                var processor = context.CreateChildProcessor(outputNode, context.IsRenderCacheEnabled);
-                allResults.AddRange(processor.PullToRoot());
-            }
+                // 5. RenderNodeProcessor でグラフ出力ツリーを処理
+                foreach (RenderNode outputNode in outputRenderNodes)
+                {
+                    // Thread the complete parent execution policy through the hosted graph.
+                    var processor = context.CreateChildProcessor(outputNode, context.IsRenderCacheEnabled);
+                    allResults.AddRange(processor.PullToRoot());
+                }
 
-            return allResults.ToArray();
+                result = allResults.ToArray();
+            }
         }
-        catch
+        catch (Exception ex)
         {
+            primaryFailure = ex;
             RenderNodeOperation.DisposeAll(CollectionsMarshal.AsSpan(allResults));
-            throw;
         }
-        finally
+
+        Exception? inputCleanupFailure = null;
+        try
         {
-            try
-            {
-                inputWrapper.SetOperations([]);
-            }
-            catch (Exception ex)
-            {
-                // SetOperations publishes the empty wrapper and sweeps every reference before surfacing a cleanup
-                // failure. The graph outputs are already complete (or a primary pull failure is already in flight),
-                // so teardown must not make those outputs unreachable or replace that primary exception.
-                s_logger.LogWarning(ex, "A node-graph input operation failed to dispose after graph evaluation");
-            }
+            inputWrapper.SetOperations([]);
         }
+        catch (Exception ex)
+        {
+            inputCleanupFailure = ex;
+        }
+
+        if (primaryFailure != null)
+            ExceptionDispatchInfo.Capture(primaryFailure).Throw();
+
+        if (inputCleanupFailure != null)
+        {
+            // A successful graph pull has not transferred ownership to the caller yet. Discard every generated
+            // output before surfacing the input teardown failure, while keeping that failure as the primary one.
+            RenderNodeOperation.DisposeAll(result);
+            ExceptionDispatchInfo.Capture(inputCleanupFailure).Throw();
+        }
+
+        return result ?? [];
     }
 
     private OperationWrapperRenderNode? FindInputWrapper(GraphModel model)

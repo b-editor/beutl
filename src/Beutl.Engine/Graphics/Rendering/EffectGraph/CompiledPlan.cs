@@ -319,7 +319,8 @@ internal sealed record NestedGraphPass(
 /// <see cref="RenderNode.Process"/> (threading the shared diagnostics/pool and cache policy) and feeds the returned
 /// ops onward. The child receives a full requested region because this opaque pass has no compiler-visible backward
 /// bounds contract; forwarding the outer crop could clip pixels needed by a later expanding pass. The executor keeps
-/// the child node alive until every returned operation is disposed, so deferred rendering may use node-owned state. Its
+/// a persistent child node in the owning hierarchical runtime cache; retired nodes stay alive until every returned
+/// operation is disposed, so deferred rendering may use node-owned state. Its
 /// outputs are execution-time-resolved (<see cref="CompiledPass.IsDynamicOutputs"/>), so it terminates fusion and
 /// the C10 prefix and is exempt from the static peak-live bound; the work it drives counts on the shared
 /// <see cref="PipelineDiagnostics"/> like every other pass (C8). <see cref="NodeType"/> is part of the structural
@@ -327,7 +328,8 @@ internal sealed record NestedGraphPass(
 /// </summary>
 internal sealed record CustomRenderNodePass(
     Effects.FilterEffect.Resource Resource,
-    FilterEffectRenderNodeFactory Factory) : CompiledPass
+    FilterEffectRenderNodeFactory Factory,
+    CustomRenderNodePlanCache NodeCache) : CompiledPass
 {
     internal Type NodeType => Factory.NodeType;
 

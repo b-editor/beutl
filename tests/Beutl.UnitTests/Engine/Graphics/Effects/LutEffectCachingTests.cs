@@ -3,6 +3,7 @@ using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
+using Beutl.Media.Source;
 using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Effects;
@@ -56,6 +57,44 @@ public class LutEffectCachingTests
 
         Assert.That(cached.Handle, Is.EqualTo(nint.Zero),
             "removing the LUT source must release the cached native shader immediately");
+    }
+
+    [Test]
+    public void Update_WithoutSourceCube_ReleasesCacheAndAdvancesVersion()
+    {
+        var effect = new LutEffect();
+        using var resource = (LutEffect.Resource)effect.ToResource(CompositionContext.Default);
+        _ = resource.GetOrBuildLutShader(MakeCube());
+        int previousVersion = resource.Version;
+
+        bool updateOnly = true;
+        resource.Update(effect, CompositionContext.Default, ref updateOnly);
+
+        Assert.That(resource.Version, Is.GreaterThan(previousVersion),
+            "discarding a cached LUT must invalidate any retained plan that captured that shader");
+    }
+
+    [Test]
+    public void Update_WithFailedCubeLoad_ReleasesCacheAndAdvancesVersion()
+    {
+        var effect = new LutEffect();
+        var missing = new CubeSource();
+        missing.ReadFrom(new Uri("file:///path/that/does/not/exist.cube"));
+        effect.Source.CurrentValue = missing;
+        using var resource = (LutEffect.Resource)effect.ToResource(CompositionContext.Default);
+        SKShader cached = resource.GetOrBuildLutShader(MakeCube());
+        int previousVersion = resource.Version;
+
+        bool updateOnly = true;
+        resource.Update(effect, CompositionContext.Default, ref updateOnly);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(cached.Handle, Is.EqualTo(nint.Zero),
+                "a failed cube load must discard the shader built from the previous cube");
+            Assert.That(resource.Version, Is.GreaterThan(previousVersion),
+                "a failed cube load must invalidate any retained plan that captured the old shader");
+        });
     }
 
     [Test]

@@ -116,6 +116,9 @@ internal sealed class VulkanContext : IGraphicsContext
 
     public bool Supports3DRendering => true;
 
+    internal static void SetBeforeImmediateSubmitForTest(Action? callback)
+        => VulkanCommandPool.SetBeforeImmediateSubmitForTest(callback);
+
     public ITexture2D CreateTexture2D(int width, int height, TextureFormat format)
     {
         ImageUsageFlags usage;
@@ -317,15 +320,20 @@ internal sealed class VulkanContext : IGraphicsContext
     {
         var vulkanSource = (VulkanTexture2D)source;
         var vulkanDest = (VulkanTexture2D)destination;
-
-        // Transition source to transfer source layout
-        vulkanSource.TransitionTo(ImageLayout.TransferSrcOptimal);
-        // Pooled destinations may already be in a sampling or attachment layout. Transition from the tracked layout
-        // instead of declaring their previous contents undefined.
-        vulkanDest.TransitionTo(ImageLayout.TransferDstOptimal);
+        ImageLayout sourceLayout = vulkanSource.CurrentLayout;
+        ImageLayout destinationLayout = vulkanDest.CurrentLayout;
 
         SubmitImmediateCommands(cmd =>
         {
+            // Record both pre-copy transitions in the same command buffer as the blit. Besides avoiding two
+            // submit-and-wait cycles, this keeps the barriers ordered with the operation whose layouts they establish.
+            _vulkanCommandPool.RecordImageLayoutTransition(
+                cmd, vulkanSource.ImageHandle, sourceLayout, ImageLayout.TransferSrcOptimal,
+                ImageAspectFlags.ColorBit);
+            _vulkanCommandPool.RecordImageLayoutTransition(
+                cmd, vulkanDest.ImageHandle, destinationLayout, ImageLayout.TransferDstOptimal,
+                ImageAspectFlags.ColorBit);
+
             // Use blit for format conversion (RGBA8 -> BGRA8)
             var blitRegion = new ImageBlit
             {
@@ -360,43 +368,18 @@ internal sealed class VulkanContext : IGraphicsContext
                 &blitRegion,
                 Filter.Nearest);
 
-            // Transition destination back to color attachment optimal
-            var barrier = new ImageMemoryBarrier
-            {
-                SType = StructureType.ImageMemoryBarrier,
-                OldLayout = ImageLayout.TransferDstOptimal,
-                NewLayout = ImageLayout.ColorAttachmentOptimal,
-                SrcQueueFamilyIndex = Vk.QueueFamilyIgnored,
-                DstQueueFamilyIndex = Vk.QueueFamilyIgnored,
-                Image = vulkanDest.ImageHandle,
-                SubresourceRange = new ImageSubresourceRange
-                {
-                    AspectMask = ImageAspectFlags.ColorBit,
-                    BaseMipLevel = 0,
-                    LevelCount = 1,
-                    BaseArrayLayer = 0,
-                    LayerCount = 1
-                },
-                SrcAccessMask = AccessFlags.TransferWriteBit,
-                DstAccessMask = AccessFlags.ColorAttachmentReadBit | AccessFlags.ColorAttachmentWriteBit
-            };
-
-            Vk.CmdPipelineBarrier(
-                cmd,
-                PipelineStageFlags.TransferBit,
-                PipelineStageFlags.ColorAttachmentOutputBit,
-                0,
-                0, null,
-                0, null,
-                1, &barrier);
+            _vulkanCommandPool.RecordImageLayoutTransition(
+                cmd, vulkanDest.ImageHandle, ImageLayout.TransferDstOptimal,
+                ImageLayout.ColorAttachmentOptimal, ImageAspectFlags.ColorBit);
+            _vulkanCommandPool.RecordImageLayoutTransition(
+                cmd, vulkanSource.ImageHandle, ImageLayout.TransferSrcOptimal,
+                ImageLayout.ShaderReadOnlyOptimal, ImageAspectFlags.ColorBit);
         });
 
-        // Transition source back to shader read optimal
-        vulkanSource.TransitionTo(ImageLayout.ShaderReadOnlyOptimal);
-        // The final in-command transition bypasses TransitionTo, so sync the destination's tracked layout to the
-        // layout the command buffer actually left the image in.
+        // A failed submission leaves the GPU state uncertain, so update the software trackers only after the existing
+        // synchronous immediate-submit helper has returned successfully.
+        vulkanSource.MarkLayout(ImageLayout.ShaderReadOnlyOptimal);
         vulkanDest.MarkLayout(ImageLayout.ColorAttachmentOptimal);
-
     }
 
     public unsafe void CopyTextureToCubeFace(ITexture2D source, ITextureCube destination, int faceIndex)

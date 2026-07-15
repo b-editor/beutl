@@ -157,7 +157,7 @@ public sealed class GraphicsContext2D(
         }
         else
         {
-            _hasChanges = next.Update(source, fill, pen);
+            _hasChanges |= next.Update(source, fill, pen);
         }
 
         ++_drawOperationindex;
@@ -190,7 +190,7 @@ public sealed class GraphicsContext2D(
         }
         else
         {
-            _hasChanges = next.Update(source, frame, fill, pen);
+            _hasChanges |= next.Update(source, frame, fill, pen);
         }
 
         ++_drawOperationindex;
@@ -209,7 +209,7 @@ public sealed class GraphicsContext2D(
         }
         else
         {
-            _hasChanges = next.Update(rect, fill, pen);
+            _hasChanges |= next.Update(rect, fill, pen);
         }
 
         ++_drawOperationindex;
@@ -230,7 +230,7 @@ public sealed class GraphicsContext2D(
         }
         else
         {
-            _hasChanges = next.Update(geometry, fill, pen);
+            _hasChanges |= next.Update(geometry, fill, pen);
         }
 
         ++_drawOperationindex;
@@ -249,7 +249,7 @@ public sealed class GraphicsContext2D(
         }
         else
         {
-            _hasChanges = next.Update(rect, fill, pen);
+            _hasChanges |= next.Update(rect, fill, pen);
         }
 
         ++_drawOperationindex;
@@ -269,7 +269,7 @@ public sealed class GraphicsContext2D(
         }
         else
         {
-            _hasChanges = next.Update(text, fill, pen);
+            _hasChanges |= next.Update(text, fill, pen);
         }
 
         ++_drawOperationindex;
@@ -288,7 +288,7 @@ public sealed class GraphicsContext2D(
         }
         else
         {
-            _hasChanges = next.Update(drawable);
+            _hasChanges |= next.Update(drawable);
             Push(next);
         }
 
@@ -335,7 +335,7 @@ public sealed class GraphicsContext2D(
         }
         else
         {
-            _hasChanges = updateNode(next, parameters);
+            _hasChanges |= updateNode(next, parameters);
         }
 
         ++_drawOperationindex;
@@ -354,7 +354,7 @@ public sealed class GraphicsContext2D(
         }
         else
         {
-            _hasChanges = next.Update(backdrop, b);
+            _hasChanges |= next.Update(backdrop, b);
         }
 
         ++_drawOperationindex;
@@ -443,7 +443,7 @@ public sealed class GraphicsContext2D(
         }
         else
         {
-            _hasChanges = next.Update(limit);
+            _hasChanges |= next.Update(limit);
             Push(next);
         }
 
@@ -460,7 +460,7 @@ public sealed class GraphicsContext2D(
         }
         else
         {
-            _hasChanges = next.Update(blendMode);
+            _hasChanges |= next.Update(blendMode);
             Push(next);
         }
 
@@ -477,7 +477,7 @@ public sealed class GraphicsContext2D(
         }
         else
         {
-            _hasChanges = next.Update(clip, operation);
+            _hasChanges |= next.Update(clip, operation);
             Push(next);
         }
 
@@ -497,7 +497,7 @@ public sealed class GraphicsContext2D(
         }
         else
         {
-            _hasChanges = next.Update(geometry, operation);
+            _hasChanges |= next.Update(geometry, operation);
             Push(next);
         }
 
@@ -514,7 +514,7 @@ public sealed class GraphicsContext2D(
         }
         else
         {
-            _hasChanges = next.Update(opacity);
+            _hasChanges |= next.Update(opacity);
             Push(next);
         }
 
@@ -547,7 +547,7 @@ public sealed class GraphicsContext2D(
         }
         else
         {
-            _hasChanges = next.Update(mask, bounds, invert);
+            _hasChanges |= next.Update(mask, bounds, invert);
             Push(next);
         }
 
@@ -564,7 +564,7 @@ public sealed class GraphicsContext2D(
         }
         else
         {
-            _hasChanges = next.Update(matrix, transformOperator);
+            _hasChanges |= next.Update(matrix, transformOperator);
             Push(next);
         }
 
@@ -585,7 +585,7 @@ public sealed class GraphicsContext2D(
         }
         else
         {
-            _hasChanges = next.Update(matrix, transformOperator);
+            _hasChanges |= next.Update(matrix, transformOperator);
             Push(next);
         }
 
@@ -608,7 +608,7 @@ public sealed class GraphicsContext2D(
         }
         else
         {
-            _hasChanges = updateNode(next, parameters);
+            _hasChanges |= updateNode(next, parameters);
             Push(next);
         }
 
@@ -625,7 +625,7 @@ public sealed class GraphicsContext2D(
         RenderNode? peeked = Next();
         if (peeked is FilterEffectRenderNode next && factory.Matches(next))
         {
-            _hasChanges = next.Update(resource);
+            _hasChanges |= next.Update(resource);
             Push(next);
         }
         else

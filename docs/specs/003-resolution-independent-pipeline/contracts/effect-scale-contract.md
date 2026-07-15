@@ -60,8 +60,9 @@ public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource 
         structuralToken: nameof(MyEffect)));
 }
 
-// An effect that needs a working scale OTHER than the supply density keeps the standard
-// plan pipeline and overrides only its working-scale policy.
+// The default has no effect-level policy knob: every ordinary effect uses the supply-driven scale.
+// An effect that deliberately needs a different scale keeps the standard plan pipeline and implements
+// its floor/ceiling directly in a retained plan-node override.
 public new partial class Resource
 {
     private static readonly PlanFilterEffectRenderNodeFactory s_factory =
@@ -81,7 +82,8 @@ public sealed class MyScalePlanNode(FilterEffect.Resource resource)
     {
         float supply = RenderNodeContext.ResolveWorkingScale(
             inputs, context.OutputScale, context.MaxWorkingScale);
-        return MathF.Min(MathF.Max(supply, 2f * context.OutputScale), context.MaxWorkingScale);
+        float withExplicitFloor = MathF.Max(supply, 2f * context.OutputScale);
+        return MathF.Min(withExplicitFloor, context.MaxWorkingScale); // explicit global ceiling
     }
 }
 ```
@@ -90,7 +92,7 @@ public sealed class MyScalePlanNode(FilterEffect.Resource resource)
 
 ## Working scale — what scale an effect runs at
 
-Every effect runs at the **supply-driven working scale `w`**, computed from its inputs' effective scales (there is **no per-effect policy knob**). The rule is `w = min( max(s_out, densest concrete supply), MaxWorkingScale )` *(amended 2026-06-15 — `s_out` is the FLOOR; the earlier "a 0.5 proxy stays 0.5" wording is superseded)*:
+By default, every effect runs at the **supply-driven working scale `w`**, computed from its inputs' effective scales. There is **no `ResolutionPolicy` property, enum, or other per-effect policy knob**. The default rule is `w = min( max(s_out, densest concrete supply), MaxWorkingScale )` *(amended 2026-06-15 — `s_out` is the FLOOR; the earlier "a 0.5 proxy stays 0.5" wording is superseded)*:
 
 - `w` is **floored at `s_out`** (the deliverable density) and **raised by the densest concrete (bitmap) input above it**. A 2.0 source runs at 2.0 (no downsample — `s_out` is **not** a ceiling). A **sub-output** concrete supply — an enlarged / low-density bitmap, `At(0.5)` — feeding an effect at a `1.0` export is **floored to `w = 1.0`** (rendering at the deliverable density, matching the pre-feature renderer), **not** held at 0.5. Why: an effect's own working resolution (its blur kernel / shadow / shader grid) is distinct from the source's available *detail* — running it below `s_out` only discards resolution the delivery target can use, without fabricating source detail. A genuine reduced-scale proxy is still cheap in **preview**: at a `0.5` preview a `0.5` proxy gives `max(0.5, 0.5) = 0.5`.
 - vector-only inputs (`Unbounded`) impose no supply → `w` stays at the `s_out` floor; a mixed bitmap+vector boundary likewise lands at `s_out` when no concrete input exceeds it, so crisp vector siblings are not dragged down to a low-density bitmap — now an instance of the universal floor, no longer a special case.
@@ -98,7 +100,7 @@ Every effect runs at the **supply-driven working scale `w`**, computed from its 
 
 **Every built-in runs supply-driven** — including the FR-013 resolution-sensitive set (`PixelSort`, contour `Stroke`/`FlatShadow`/`PartsSplit`, `AutoClip`, `Dilate`, `Erode`, `Mosaic`, custom SKSL/GLSL, image-map `Displacement`), since running at the supply density already keeps a high source's density through them. The working scale MUST NOT change the `s_out = 1.0` output.
 
-**Need a different working scale?** Override `FilterEffect.Resource.PlanRenderNodeFactory` with a retained `PlanFilterEffectRenderNodeFactory`, and override `PlanFilterEffectRenderNode.ResolveWorkingScale` as above. There is intentionally no closed `ResolutionPolicy` enum.
+**Need a different working scale?** Override `FilterEffect.Resource.PlanRenderNodeFactory` with a retained `PlanFilterEffectRenderNodeFactory`, then override `PlanFilterEffectRenderNode.ResolveWorkingScale` as above. The override is the policy: it explicitly computes any custom floor and ceiling in code and remains responsible for returning a positive finite value within `context.MaxWorkingScale`. It does not select a hidden `ResolutionPolicy`; there is intentionally no such closed enum or property.
 
 > **Footgun — `w` is per-boundary, not per-op; and shrinking a source makes it *more* expensive (2026-06-15).** `w` = the **densest concrete input** applies to the **whole buffer-allocating boundary**, so a single small high-density sibling raises the working scale — and thus the buffer **area** (`∝ w²`) — of the *entire* boundary, not just its own region. Example: a 4K logo shrunk into a corner carries `At(16)` density; under a shared effect (or any container allocating one buffer for the group) it lifts the whole boundary to `w = 16`, allocating a `16×`-denser buffer for mostly-low-density content. Because density is *backing pixels per logical unit*, scaling a high-resolution source **down** **raises** its density — so the source gets **more** expensive the smaller you draw it (inverting the usual "smaller = cheaper" intuition). The per-buffer **dimension** clamp (`ClampWorkingScaleToBufferBudget`) keeps such a buffer *allocatable* but does not stop it from dominating the boundary's cost. This contract is intentionally per-boundary; per-region working scales and a request-scoped area/byte budget would be a separate allocator design.
 

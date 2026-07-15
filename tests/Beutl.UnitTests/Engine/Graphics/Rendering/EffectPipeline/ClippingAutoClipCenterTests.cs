@@ -25,10 +25,10 @@ public class ClippingAutoClipCenterTests
     private static readonly Rect s_input = new(0, 0, 100, 100);
     private static readonly Rect s_content = new(30, 30, 40, 40);
 
-    // Un-centered AutoClip tightens to NewBounds = (29,29,39,39) (see AutoClipOutputBoundsTightenTests). AutoCenter
-    // re-centers the 39x39 clip rect inside the 100x100 input frame: X = Y = (100 - 39) / 2 = 30.5.
-    private static readonly Rect s_centered = new(30.5f, 30.5f, 39, 39);
-    private static readonly Rect s_unCentered = new(29, 29, 39, 39);
+    // Un-centered AutoClip tightens to NewBounds = (29,29,40,40) (see AutoClipOutputBoundsTightenTests). AutoCenter
+    // re-centers the 40x40 clip rect inside the 100x100 input frame: X = Y = (100 - 40) / 2 = 30.
+    private static readonly Rect s_centered = new(30, 30, 40, 40);
+    private static readonly Rect s_unCentered = new(29, 29, 40, 40);
 
     [OneTimeSetUp]
     public void SeedLoggerFactory()
