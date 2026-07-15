@@ -793,6 +793,43 @@ public class PrimitiveRuntimeContractTests
     }
 
     [Test]
+    public void GeometryShrinkDrawFailure_RemainsPrimaryWhenOperationCleanupAlsoFails()
+    {
+        Rect tight = s_bounds.Deflate(4);
+        GeometryNodeDescriptor descriptor = GeometryNodeDescriptor.Create(
+            session =>
+            {
+                session.Inputs[0].Draw(session.OpenCanvas());
+                session.SetOutputBounds(tight);
+            },
+            BoundsContract.Identity,
+            structuralToken: "geometry-shrink-primary-failure");
+        (CompiledPlan plan, FrameResources resources) = Compile(
+            new EffectGraphBuilder(s_bounds, 1f, 1f, RenderIntent.Delivery).Geometry(descriptor));
+        using var pool = new RenderTargetPool();
+        var primary = new InvalidOperationException("geometry shrink draw failed");
+        var cleanup = new InvalidOperationException("geometry source operation cleanup failed");
+        RenderNodeOperation input = RenderNodeOperation.CreateLambda(
+            s_bounds,
+            canvas => canvas.DrawRectangle(s_bounds, Brushes.Resource.White, null),
+            onDispose: () => throw cleanup);
+
+        using IDisposable hook = PlanExecutor.UseTestHooks(
+            hooks => hooks.GeometryShrinkDrawFailure = primary);
+        InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
+            plan, resources, [input], 1f, 1f, float.PositiveInfinity,
+            diagnostics: null, pool, renderIntent: RenderIntent.Delivery));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(actual, Is.SameAs(primary),
+                "operation cleanup must not replace the shrink draw's primary failure");
+            Assert.That(pool.LiveLeaseCount, Is.Zero,
+                "both shrink targets must be released even when operation cleanup fails");
+        });
+    }
+
+    [Test]
     public void GeometryDiscard_CleanupSweepsAllAndRethrowsFirstFailure()
     {
         var outputFailure = new InvalidOperationException("discarded geometry output cleanup failed");

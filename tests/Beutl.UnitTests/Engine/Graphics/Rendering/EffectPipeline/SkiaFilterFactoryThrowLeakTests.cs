@@ -108,6 +108,34 @@ public class SkiaFilterFactoryThrowLeakTests
         }
     }
 
+    [Test]
+    public void SkiaFilter_FactoryFailure_RemainsPrimaryWhenInputCleanupAlsoFails()
+    {
+        var primary = new InvalidOperationException("skia filter factory failed");
+        var cleanup = new InvalidOperationException("input operation cleanup failed");
+        RenderNodeOperation input = RenderNodeOperation.CreateLambda(
+            s_bounds,
+            static _ => { },
+            onDispose: () => throw cleanup);
+        var builder = new EffectGraphBuilder(
+            s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
+        builder.SkiaFilter(SkiaFilterNodeDescriptor.Create(
+            _ => throw primary,
+            BoundsContract.Identity,
+            structuralToken: "skia-filter-primary-failure"));
+        using EffectGraph graph = builder.Build();
+        CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
+        FrameResources frame = EffectGraphCompiler.ResolveResources(plan, s_bounds, workingScale: 1f);
+
+        InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
+            plan, frame, [input], outputScale: 1f, workingScale: 1f,
+            maxWorkingScale: float.PositiveInfinity, diagnostics: null, pool: null,
+            renderIntent: RenderIntent.Delivery));
+
+        Assert.That(actual, Is.SameAs(primary),
+            "input cleanup must not replace the filter factory's primary failure");
+    }
+
     private static BoundsContract InflateContract(Thickness inflate)
         => BoundsContract.Create(rect => rect.Inflate(inflate), rect => rect.Inflate(inflate));
 

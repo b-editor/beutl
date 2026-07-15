@@ -82,10 +82,11 @@ Hash accumulated over: node kinds + topology (branch structure), complete shader
 
 | Field | Type | Notes |
 |---|---|---|
-| `Key` | `StructuralKey` + graphics-context identity | cache identity (D3). Bounds, ROIs, buffer sizes, and the resolved working scale are **per-frame resolution inputs, not key parts** — parameter-driven bounds (animated blur sigma, stroke pen) change sizes without recompiling. Compute pass counts and exact static branch counts are structural. A dynamic-output split deliberately resolves its count at execution and excludes that count from the key. |
-| `Passes` | `CompiledPass[]` | topologically ordered schedule |
+| `Key` | `StructuralKey` | structural plan identity (D3). `PlanCache` pairs this key with the graphics-context identity in its cache entry; the context identity is not stored in `CompiledPlan`. Bounds, ROIs, buffer sizes, and the resolved working scale are **per-frame resolution inputs, not key parts** — parameter-driven bounds (animated blur sigma, stroke pen) change sizes without recompiling. Compute pass counts and exact static branch counts are structural. A dynamic-output split deliberately resolves its count at execution and excludes that count from the key. |
+| `Passes` | `ImmutableArray<CompiledPass>` | topologically ordered schedule |
 | `Resources` | `ResourcePlan` | structural shape of intermediates (formats, lifetime intervals) |
-| `ParameterSlots` | `ParameterSlot[]` | where each frame's uniform/filter values go |
+
+Per-frame values are carried by a separate `ParameterBlock`: it rebuilds the current pass payloads from the freshly described graph and rebinds them onto a cache-compatible `CompiledPlan`. There is no `ParameterSlots` field on the plan.
 
 ### `CompiledPass` (one of)
 
@@ -96,7 +97,6 @@ Hash accumulated over: node kinds + topology (branch structure), complete shader
 - **`CompositePass` / split edges**: composite op + input refs.
 - **`NestedGraphPass`**: per-branch describe callback; the executor re-describes, compiles, and recursively runs a child graph per branch index (dynamic-output).
 - **`CustomRenderNodePass`**: a child `CustomRenderNodeFilterEffect.Resource` + its render-node `Type`; the executor drives the child's custom `FilterEffectRenderNode` as one node of the plan (full-frame, dynamic-output). The child inherits cache policy and shared diagnostics/pool, remains alive until its returned operations are disposed, and receives a conservative full request because the opaque pass has no compiler-visible backward bounds contract. The declarative home for an effect whose execution lives in a custom render node (`NodeGraphFilterEffect`), so it can be embedded in a group/delay-animation. See execution-plan §C3.6.
-- **`OpaqueLegacyPass`** (transition-only, rollout steps 3–5): wraps an unmigrated effect's legacy item list and executes it via the retained (internal-only) activator machinery; deleted with the bridge in step 6.
 - Common: `Backend` (Skia | Vulkan), `SyncBefore` flags (computed at schedule time: set only at backend transitions — D5), `IsDynamicOutputs` (execution-time-resolved output count; executor-owned pooled allocation, exempt from the static peak-live bound, counted and leak-checked).
 
 ### `ResourcePlan` (structural shape) + per-frame resource resolution
@@ -117,7 +117,7 @@ The process-wide cache buckets entries by composed-source signature and verifies
 
 ## 4. Execution layer (internal)
 
-### `RenderTargetPool` (per shared graphics context)
+### `RenderTargetPool` (per renderer)
 
 | Member | Semantics |
 |---|---|
@@ -127,15 +127,15 @@ The process-wide cache buckets entries by composed-source signature and verifies
 | `Trim(frameIndex)` | dispose targets unused ≥ N frames; enforce byte soft-cap LRU |
 | Failure | propagate current semantics: preview → drop/degrade; delivery → throw (FR-015) |
 
-Invariants: acquire/release strictly render-thread; every executor-acquired target is released by the end of the frame (leak assertion in debug tests); pooled targets are cleared on acquire. Bucket identity includes resource kind (`Skia surface` versus `raw texture`) in addition to size and format, so a raw RGBA16F texture cannot consume an RGBA16F `RenderTarget` entry or vice versa.
+Invariants: acquire and pool maintenance are render-thread-affine; a last lease release from another thread is marshalled to the owning dispatcher. Every executor-acquired target is released by the end of the frame except the one explicitly adopted by the bounded cross-frame prefix cache. Contents are undefined on acquire, and the consuming draw/dispatch initializes the target exactly once before reading it. Bucket identity includes resource kind (`Skia surface` versus `raw texture`) in addition to size and format, so a raw RGBA16F texture cannot consume an RGBA16F `RenderTarget` entry or vice versa.
 
 ### `PlanExecutor`
 
-Runs passes in order: resolve ROI targets from pool → bind parameter blocks → sync iff `SyncBefore` → draw/dispatch → release inputs whose `LastUse` passed. Emits counters (§5). Owns `GeometrySession` lifecycles.
+Runs passes in order: consume the frame-resolved ROI/target sizes → execute the rebound pass payloads → track the actual runtime backend across fallbacks and nested graphs → draw/dispatch → release consumed inputs. `SyncBefore` remains schedule metadata; the executor counts only transitions actually taken, while target/backend preparation performs the synchronization. Emits counters (§5). Owns `GeometrySession` lifecycles.
 
 ### `ParameterBlock`
 
-Per-frame values bound into `ParameterSlots`: uniform floats/vectors/matrices, `SKColorFilter` instances, sampler textures, push constants. Written by the describe pass on cache hit; the only per-frame mutable state (FR-009).
+The freshly described graph is grouped into a current `ImmutableArray<CompiledPass>` payload carrying uniform bindings, filter factories, sampler textures, push constants, callbacks, and animated bounds. On a cache hit, `ParameterBlock.RebindOnto` verifies that this pass shape matches the cached structural plan, reuses its key/resource plan and program layouts, and returns a `CompiledPlan` whose passes contain the current frame's values (FR-009).
 
 ## 5. Observability (public read surface)
 

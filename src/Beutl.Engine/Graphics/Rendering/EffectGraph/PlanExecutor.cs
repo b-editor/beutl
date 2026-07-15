@@ -28,7 +28,7 @@ internal static class PlanExecutor
     private readonly record struct BranchOperation(RenderNodeOperation Op, int Ordinal);
 
     private readonly record struct BranchExecutionResult(
-        BranchOperation[] Outputs, int OrdinalGeneration, int OrdinalSpan);
+        BranchOperation[] Outputs, int OrdinalGeneration, int OrdinalSpan, PassBackend Backend);
 
     // Failure injection is scoped to the caller's execution context. Dispatcher operations capture that context, so
     // render-thread tests still see their hooks without mutating process-wide state or racing parallel fixtures.
@@ -50,6 +50,8 @@ internal static class PlanExecutor
 
         public Exception? GeometryOutputDisposeFailure { get; set; }
 
+        public Exception? GeometryShrinkDrawFailure { get; set; }
+
         public Exception? SplitInputDisposeFailure { get; set; }
 
         public Exception? SplitBranchDisposeFailure { get; set; }
@@ -70,6 +72,7 @@ internal static class PlanExecutor
                 ComputeInputDisposeFailure = ComputeInputDisposeFailure,
                 GeometryInputDisposeFailure = GeometryInputDisposeFailure,
                 GeometryOutputDisposeFailure = GeometryOutputDisposeFailure,
+                GeometryShrinkDrawFailure = GeometryShrinkDrawFailure,
                 SplitInputDisposeFailure = SplitInputDisposeFailure,
                 SplitBranchDisposeFailure = SplitBranchDisposeFailure,
                 CompositeFilterDisposeFailure = CompositeFilterDisposeFailure,
@@ -145,7 +148,8 @@ internal static class PlanExecutor
         bool isRenderCacheEnabled = true,
         RenderPullPurpose pullPurpose = RenderPullPurpose.Frame,
         int ordinalGeneration = 0,
-        int ordinalSpan = 0)
+        int ordinalSpan = 0,
+        PassBackend initialBackend = PassBackend.Skia)
     {
         // FR-007 (C3.1) measurement scope: pooled leases live before this execution belong to the caller (an outer
         // plan, a held upstream op) and are subtracted from the peak measured for this plan.
@@ -160,12 +164,13 @@ internal static class PlanExecutor
         // and back in and each descriptor pass maps every current operation.
         int maxDimension = resources.MaxDimension;
         var current = new List<BranchOperation>(inputs);
-        PassBackend runtimeBackend = PassBackend.Skia;
+        PassBackend runtimeBackend = initialBackend;
         try
         {
             for (int k = startPass; k < plan.Passes.Length; k++)
             {
                 CompiledPass pass = plan.Passes[k];
+                bool tracksBackendRecursively = pass is NestedGraphPass;
                 bool supportsCompute = pass is ComputePass && SupportsCompute();
                 bool consumesOnSkia = pass switch
                 {
@@ -177,7 +182,11 @@ internal static class PlanExecutor
                 // Count the runtime Vulkan -> Skia synchronization before materializing an output written by compute.
                 // A real compute pass counts its Skia -> Vulkan synchronization at PrepareForSampling below. An
                 // Identity/Skip fallback consumes nothing, so compiler metadata alone must not increment the counter.
-                if (current.Count > 0 && consumesOnSkia && runtimeBackend == PassBackend.Vulkan && diagnostics != null)
+                if (!tracksBackendRecursively
+                    && current.Count > 0
+                    && consumesOnSkia
+                    && runtimeBackend == PassBackend.Vulkan
+                    && diagnostics != null)
                     diagnostics.FlushSyncs++;
 
                 bool wroteVulkanOutput = false;
@@ -208,7 +217,7 @@ internal static class PlanExecutor
                         ExecuteNestedGraph(
                             nestedGraph, current, outputScale, workingScale, maxWorkingScale, maxDimension,
                             diagnostics, pool, isRenderCacheEnabled, pullPurpose, renderIntent,
-                            ref ordinalGeneration, ref ordinalSpan);
+                            ref ordinalGeneration, ref ordinalSpan, ref runtimeBackend);
                         break;
                     case CustomRenderNodePass customNode:
                         ExecuteCustomRenderNode(
@@ -224,7 +233,7 @@ internal static class PlanExecutor
                         break;
                 }
 
-                if (current.Count > 0)
+                if (!tracksBackendRecursively && current.Count > 0)
                 {
                     if (wroteVulkanOutput)
                         runtimeBackend = PassBackend.Vulkan;
@@ -238,7 +247,7 @@ internal static class PlanExecutor
             // Assert against that inflated bound rather than skipping, so a capture that over-retains is still caught.
             AssertPeakLiveWithinPlan(plan, inputs.Length, pool, leaseBaseline, captureSink?.Captured == true ? 1 : 0);
 
-            return new BranchExecutionResult(current.ToArray(), ordinalGeneration, ordinalSpan);
+            return new BranchExecutionResult(current.ToArray(), ordinalGeneration, ordinalSpan, runtimeBackend);
         }
         catch
         {
@@ -291,7 +300,7 @@ internal static class PlanExecutor
         float outputScale, float workingScale,
         float maxWorkingScale, int maxDimension, PipelineDiagnostics? diagnostics, RenderTargetPool? pool,
         bool isRenderCacheEnabled, RenderPullPurpose pullPurpose, RenderIntent renderIntent,
-        ref int ordinalGeneration, ref int ordinalSpan)
+        ref int ordinalGeneration, ref int ordinalSpan, ref PassBackend runtimeBackend)
     {
         var branchResults = new List<BranchExecutionResult>(current.Count);
         var branchEntryOrdinals = new List<int>(current.Count);
@@ -344,7 +353,9 @@ internal static class PlanExecutor
                         isRenderCacheEnabled: isRenderCacheEnabled,
                         pullPurpose: pullPurpose,
                         ordinalGeneration: ordinalGeneration,
-                        ordinalSpan: ordinalSpan);
+                        ordinalSpan: ordinalSpan,
+                        initialBackend: runtimeBackend);
+                    runtimeBackend = branchResult.Backend;
                     branchResults.Add(branchResult);
                     branchEntryOrdinals.Add(branchIndex);
                 }
@@ -800,7 +811,9 @@ internal static class PlanExecutor
             }
             catch
             {
-                op.Dispose();
+                Exception? cleanupFailure = null;
+                CaptureDisposeFailure(op, ref cleanupFailure);
+                LogCleanupFailure(cleanupFailure, "Skia-filter factory failure cleanup");
                 throw;
             }
 
@@ -1027,7 +1040,9 @@ internal static class PlanExecutor
         }
         catch
         {
-            filter?.Dispose();
+            Exception? cleanupFailure = null;
+            CaptureDisposeFailure(filter, ref cleanupFailure);
+            LogCleanupFailure(cleanupFailure, "Skia-filter construction failure cleanup");
             throw;
         }
     }
@@ -1042,12 +1057,17 @@ internal static class PlanExecutor
             using var paint = new SKPaint { ImageFilter = filter };
             BakeSource(target, w, outBounds, source, maxWorkingScale, renderIntent, pullPurpose, paint);
         }
-        finally
+        catch
         {
-            // SKPaint.Dispose does not own its image filter. The prepared chain transfers here immediately before
-            // the bake and is released whether drawing succeeds or throws.
-            filter.Dispose();
+            Exception? cleanupFailure = null;
+            CaptureDisposeFailure(filter, ref cleanupFailure);
+            LogCleanupFailure(cleanupFailure, "Skia-filter draw failure cleanup");
+            throw;
         }
+
+        // SKPaint.Dispose does not own its image filter. A successful draw transfers cleanup here; a failed draw
+        // releases it in the catch above without allowing a native cleanup fault to replace the draw failure.
+        filter.Dispose();
     }
 
     // Maps the halo-baked src image into the output pass's device space: output device coordinate c corresponds to
@@ -1241,15 +1261,21 @@ internal static class PlanExecutor
         if (tw <= 0 || th <= 0)
         {
             // A degenerate (empty) shrink yields nothing, matching DiscardOutput and the §C3 empty-output drop.
-            outputTarget.Dispose();
-            op.Dispose();
+            Exception? emptyCleanupFailure = null;
+            CaptureGeometryOutputDisposeFailure(outputTarget, ref emptyCleanupFailure);
+            CaptureDisposeFailure(op, ref emptyCleanupFailure);
+            if (emptyCleanupFailure is { } failure)
+                ExceptionDispatchInfo.Capture(failure).Throw();
+
             return null;
         }
 
         RenderTarget? tightTarget = RenderTargetPool.Acquire(pool, tw, th, diagnostics);
         if (tightTarget == null)
         {
-            outputTarget.Dispose();
+            Exception? allocationCleanupFailure = null;
+            CaptureGeometryOutputDisposeFailure(outputTarget, ref allocationCleanupFailure);
+            LogCleanupFailure(allocationCleanupFailure, "geometry shrink allocation-failure cleanup");
             return DropOrThrow(op, renderIntent,
                 $"Geometry shrink output allocation failed ({tw}x{th} px, w {w}, bounds {tight}).");
         }
@@ -1262,6 +1288,12 @@ internal static class PlanExecutor
             canvas.Clear();
             using (canvas.PushDeviceSpace())
             {
+                if (s_testHooks.Value?.GeometryShrinkDrawFailure is { } injected)
+                {
+                    s_testHooks.Value.GeometryShrinkDrawFailure = null;
+                    throw injected;
+                }
+
                 // The full output holds the pass content with outBounds.Position at device origin; shift it left/up by
                 // the sub-rect offset so the tight region lands at the tighter target's origin (the legacy blit).
                 canvas.DrawRenderTarget(
@@ -1270,9 +1302,11 @@ internal static class PlanExecutor
         }
         catch
         {
-            tightTarget.Dispose();
-            outputTarget.Dispose();
-            op.Dispose();
+            Exception? drawCleanupFailure = null;
+            CaptureDisposeFailure(tightTarget, ref drawCleanupFailure);
+            CaptureGeometryOutputDisposeFailure(outputTarget, ref drawCleanupFailure);
+            CaptureDisposeFailure(op, ref drawCleanupFailure);
+            LogCleanupFailure(drawCleanupFailure, "geometry shrink draw failure cleanup");
             throw;
         }
 
@@ -1294,7 +1328,9 @@ internal static class PlanExecutor
         }
         catch
         {
-            tightTarget.Dispose();
+            Exception? creationCleanupFailure = null;
+            CaptureDisposeFailure(tightTarget, ref creationCleanupFailure);
+            LogCleanupFailure(creationCleanupFailure, "geometry shrink operation-creation failure cleanup");
             throw;
         }
     }
@@ -2322,14 +2358,20 @@ internal static class PlanExecutor
             if (tw <= 0 || th <= 0)
             {
                 // A degenerate (empty) shrink yields nothing, matching DiscardOutput and the §C3 empty-output drop.
-                branchTarget.Dispose();
+                Exception? emptyCleanupFailure = null;
+                CaptureSplitBranchDisposeFailure(branchTarget, ref emptyCleanupFailure);
+                if (emptyCleanupFailure is { } failure)
+                    ExceptionDispatchInfo.Capture(failure).Throw();
+
                 return;
             }
 
             RenderTarget? tightTarget = RenderTargetPool.Acquire(pool, tw, th, diagnostics);
             if (tightTarget == null)
             {
-                branchTarget.Dispose();
+                Exception? allocationCleanupFailure = null;
+                CaptureSplitBranchDisposeFailure(branchTarget, ref allocationCleanupFailure);
+                LogCleanupFailure(allocationCleanupFailure, "split branch shrink allocation-failure cleanup");
                 if (renderIntent == RenderIntent.Delivery)
                     throw new InvalidOperationException($"Split branch shrink allocation failed ({tw}x{th} px, w {w}).");
 
@@ -2352,8 +2394,10 @@ internal static class PlanExecutor
             }
             catch
             {
-                tightTarget.Dispose();
-                branchTarget.Dispose();
+                Exception? drawCleanupFailure = null;
+                CaptureDisposeFailure(tightTarget, ref drawCleanupFailure);
+                CaptureSplitBranchDisposeFailure(branchTarget, ref drawCleanupFailure);
+                LogCleanupFailure(drawCleanupFailure, "split branch shrink draw failure cleanup");
                 throw;
             }
 
@@ -2376,10 +2420,12 @@ internal static class PlanExecutor
             }
             catch
             {
+                Exception? creationCleanupFailure = null;
                 if (output != null)
-                    output.Dispose();
+                    CaptureDisposeFailure(output, ref creationCleanupFailure);
                 else
-                    tightTarget.Dispose();
+                    CaptureDisposeFailure(tightTarget, ref creationCleanupFailure);
+                LogCleanupFailure(creationCleanupFailure, "split branch shrink operation-creation failure cleanup");
                 throw;
             }
         }

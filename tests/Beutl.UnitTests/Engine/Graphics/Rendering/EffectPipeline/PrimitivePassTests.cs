@@ -115,6 +115,43 @@ public class PrimitivePassTests
         });
     }
 
+    [Test]
+    public void NestedComputeFollowedBySkia_CountsBothBackendTransitions()
+    {
+        var context = VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.RequireComputeCapable(context, "nested compute synchronization");
+
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            ComputeNodeDescriptor copy = ComputeNodeDescriptor.Create(
+                static ctx => ctx.CopySourceToDestination(),
+                passCount: 1,
+                BoundsContract.FullFrame,
+                ComputeFallbackPolicy.Identity,
+                structuralToken: "nested-copy");
+            var builder = new EffectGraphBuilder(
+                s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
+            builder.NestedGraph(NestedGraphNodeDescriptor.Create(
+                (nested, _) => nested.Compute(copy),
+                structuralToken: "nested-compute"));
+            builder.Brightness(1.1f);
+            using EffectGraph graph = builder.Build();
+            var diagnostics = new PipelineDiagnostics();
+            using var pool = new RenderTargetPool();
+            CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics);
+            FrameResources frame = EffectGraphCompiler.ResolveResources(plan, Rect.Invalid, workingScale: 1f);
+
+            RenderNodeOperation[] outputs = PlanExecutor.Execute(
+                plan, frame, [Input()], outputScale: 1f, workingScale: 1f,
+                maxWorkingScale: float.PositiveInfinity, diagnostics, pool,
+                renderIntent: RenderIntent.Delivery);
+            RenderNodeOperation.DisposeAll(outputs);
+
+            Assert.That(diagnostics.Snapshot().FlushSyncs, Is.EqualTo(2),
+                "the nested Skia-to-Vulkan transition and outer Vulkan-to-Skia transition must both be counted");
+        });
+    }
+
     // C3.6: the split division count is structural, so animating it recompiles exactly once per change while a
     // parameter-only frame (spacing) hits the cache.
     [Test]
