@@ -134,21 +134,21 @@ public class MFReader : MediaReader
 
     public override bool HasAudio { get; }
 
-    public override unsafe bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
+    protected override unsafe bool ReadVideoCore(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
     {
         if (MFThread.Dispatcher.CheckAccess())
         {
-            return ReadVideoCore(frame, out image);
+            return ReadVideoOnce(frame, out image);
         }
         else
         {
             image = null;
-            if (!HasVideo || _decoder == null || IsDisposed)
+            if (_decoder == null || IsDisposed)
                 return false;
 
             (bool result, Ref<Bitmap>? image1) = MFThread.Dispatcher.Invoke(() =>
             {
-                bool ret = ReadVideoCore(frame, out Ref<Bitmap>? image1);
+                bool ret = ReadVideoOnce(frame, out Ref<Bitmap>? image1);
                 return (ret, image1);
             });
             image = image1!;
@@ -156,10 +156,10 @@ public class MFReader : MediaReader
         }
     }
 
-    private unsafe bool ReadVideoCore(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
+    private unsafe bool ReadVideoOnce(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
     {
         image = null;
-        if (!HasVideo || _decoder == null || IsDisposed)
+        if (_decoder == null || IsDisposed)
             return false;
 
         MFMediaInfo info = _decoder.GetMediaInfo();
@@ -198,11 +198,11 @@ public class MFReader : MediaReader
         }
     }
 
-    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
+    protected override bool ReadAudioCore(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
     {
         if (MFThread.Dispatcher.CheckAccess())
         {
-            return ReadAudioCore(start, length, out sound);
+            return ReadAudioOnce(start, length, out sound);
         }
         else
         {
@@ -212,7 +212,7 @@ public class MFReader : MediaReader
 
             (bool result, Ref<IPcm>? sound1) = MFThread.Dispatcher.Invoke(() =>
             {
-                bool ret = ReadAudioCore(start, length, out Ref<IPcm>? sound1);
+                bool ret = ReadAudioOnce(start, length, out Ref<IPcm>? sound1);
                 return (ret, sound1);
             });
             sound = sound1!;
@@ -220,7 +220,7 @@ public class MFReader : MediaReader
         }
     }
 
-    private bool ReadAudioCore(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
+    private bool ReadAudioOnce(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
     {
         sound = null;
         if (IsDisposed || _audioReader == null || _waveFormat == null || _provider == null)

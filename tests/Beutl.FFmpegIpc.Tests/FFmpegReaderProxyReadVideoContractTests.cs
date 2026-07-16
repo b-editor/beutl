@@ -7,14 +7,13 @@ namespace Beutl.FFmpegIpc.Tests;
 /// <summary>
 /// Process-level IPC contract test: spawns the real GPL <c>Beutl.FFmpegWorker</c> (via the MIT
 /// <see cref="FFmpegDecoderInfo"/> / <c>FFmpegReaderProxy</c> path) and pins the audio-only
-/// <c>ReadVideo</c> error contract.
+/// <c>ReadVideo</c> contract.
 /// <para>
-/// <c>DecodingHandler.HandleReadVideo</c> answers a <c>ReadVideo</c> request against an audio-only
-/// reader with <c>IpcMessage.CreateError(...)</c> (no ring buffer, <c>HasVideo == false</c>). The
-/// transport surfaces that error message as a thrown <see cref="FFmpegWorkerException"/>, so
-/// <c>FFmpegReaderProxy.ReadVideo</c> throws rather than silently returning <c>false</c>. This test
-/// pins that end-to-end contract so a future regression (e.g. swapping the error for a
-/// <c>Success = false</c> response) is caught.
+/// <c>MediaReader.ReadVideo</c> short-circuits to <c>false</c> when <c>HasVideo == false</c>, so an
+/// audio-only reader never issues the per-frame IPC round-trip (and never reaches
+/// <c>DecodingHandler.HandleReadVideo</c>'s audio-only <c>IpcMessage.CreateError(...)</c> branch,
+/// which remains only as a guard for direct IPC clients). This test pins that end-to-end contract so
+/// a future regression (e.g. reintroducing a throwing "stream does not exist" path) is caught.
 /// </para>
 /// <para>
 /// The worker binary is copied into the test output by the <c>CopyWorkerBinary</c> MSBuild target
@@ -53,7 +52,7 @@ public class FFmpegReaderProxyReadVideoContractTests
     }
 
     [Test]
-    public void ReadVideo_OnAudioOnlyFile_ThrowsFFmpegWorkerException()
+    public void ReadVideo_OnAudioOnlyFile_ReturnsFalse()
     {
         if (!WorkerBinaryPresent())
         {
@@ -91,10 +90,14 @@ public class FFmpegReaderProxyReadVideoContractTests
             Assert.That(reader.HasVideo, Is.False, "the WAV fixture must be audio-only (no video stream)");
         });
 
-        Assert.That(
-            () => reader!.ReadVideo(0, out _),
-            Throws.TypeOf<FFmpegWorkerException>(),
-            "ReadVideo on an audio-only reader must surface the worker's CreateError as a thrown FFmpegWorkerException, not a silent false");
+        bool result = reader!.ReadVideo(0, out var image);
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                result, Is.False,
+                "ReadVideo on an audio-only reader must return false via the HasVideo short-circuit, not throw");
+            Assert.That(image, Is.Null);
+        });
     }
 
     // CopyWorkerBinary lays the worker flat into the test bin dir, but Nuke publish isolates it under an

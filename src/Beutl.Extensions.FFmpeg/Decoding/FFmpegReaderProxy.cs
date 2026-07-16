@@ -62,15 +62,15 @@ public sealed class FFmpegReaderProxy : MediaReader
         }
     }
 
-    public override VideoStreamInfo VideoInfo => field ?? throw new Exception("The stream does not exist.");
+    public override VideoStreamInfo VideoInfo => field ?? throw new InvalidOperationException("The video stream does not exist.");
 
-    public override AudioStreamInfo AudioInfo => field ?? throw new Exception("The stream does not exist.");
+    public override AudioStreamInfo AudioInfo => field ?? throw new InvalidOperationException("The audio stream does not exist.");
 
     public override bool HasVideo => _openResponse.HasVideo;
 
     public override bool HasAudio => _openResponse.HasAudio;
 
-    public override unsafe bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
+    protected override unsafe bool ReadVideoCore(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
     {
         var request = new ReadVideoRequest { ReaderId = _readerId, Frame = frame };
         var response = _connection.RequestAsync<ReadVideoRequest, ReadVideoResponse>(
@@ -122,7 +122,7 @@ public sealed class FFmpegReaderProxy : MediaReader
         }
     }
 
-    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
+    protected override bool ReadAudioCore(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
     {
         int sampleRate = AudioInfo.SampleRate;
 
@@ -132,10 +132,10 @@ public sealed class FFmpegReaderProxy : MediaReader
             return ReadAudioChunked(start, length, sampleRate, out sound);
         }
 
-        return ReadAudioCore(start, length, out sound);
+        return ReadAudioChunk(start, length, out sound);
     }
 
-    private unsafe bool ReadAudioCore(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
+    private unsafe bool ReadAudioChunk(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
     {
         var request = new ReadAudioRequest { ReaderId = _readerId, Start = start, Length = length };
         var response = _connection.RequestAsync<ReadAudioRequest, ReadAudioResponse>(
@@ -175,7 +175,7 @@ public sealed class FFmpegReaderProxy : MediaReader
             {
                 int currentChunk = Math.Min(chunkSize, length - offset);
 
-                if (!ReadAudioCore(start + offset, currentChunk, out Ref<IPcm>? chunkRef))
+                if (!ReadAudioChunk(start + offset, currentChunk, out Ref<IPcm>? chunkRef))
                 {
                     // A genuine failure (IPC error / disposed) aborts the whole request.
                     scratch.Dispose();

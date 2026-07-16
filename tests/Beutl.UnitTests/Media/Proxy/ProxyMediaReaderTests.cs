@@ -1,4 +1,6 @@
-﻿using Beutl.Graphics;
+﻿using System.Diagnostics.CodeAnalysis;
+
+using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.Media.Music;
@@ -148,13 +150,13 @@ public sealed class ProxyMediaReaderTests
         public override bool HasVideo => true;
         public override bool HasAudio => false;
 
-        public override bool ReadVideo(int frame, out Ref<Bitmap>? image)
+        protected override bool ReadVideoCore(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
         {
             image = null;
             return false;
         }
 
-        public override bool ReadAudio(int start, int length, out Ref<IPcm>? sound)
+        protected override bool ReadAudioCore(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
         {
             sound = null;
             return false;

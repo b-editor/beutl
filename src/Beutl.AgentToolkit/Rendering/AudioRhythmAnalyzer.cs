@@ -76,9 +76,14 @@ public sealed class AudioRhythmAnalyzer
             DisableResourceShare = true
         });
 
-        if (resource.MediaReader is null || resource.SampleRate <= 0)
+        if (resource.MediaReader is null)
         {
             throw new CodecUnavailableException($"No audio decoder could open '{fullPath}'.");
+        }
+
+        if (!resource.MediaReader.HasAudio || resource.SampleRate <= 0)
+        {
+            throw new CodecUnavailableException($"'{fullPath}' has no audio stream.");
         }
 
         int sampleRate = resource.SampleRate;

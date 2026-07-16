@@ -205,9 +205,20 @@ public sealed class VideoSource : MediaSource
 
                 ProxyResolution = _counter.Value.ProxyResolution;
 
-                Duration = TimeSpan.FromSeconds(_counter.Value.VideoInfo.Duration.ToDouble());
-                FrameRate = _counter.Value.VideoInfo.FrameRate;
-                FrameSize = _counter.Value.VideoInfo.FrameSize;
+                if (_counter.Value.HasVideo)
+                {
+                    var vi = _counter.Value.VideoInfo;
+                    Duration = TimeSpan.FromSeconds(vi.Duration.ToDouble());
+                    FrameRate = vi.FrameRate;
+                    FrameSize = vi.FrameSize;
+                }
+                else
+                {
+                    // Missing-stream sentinels; keep in sync with SoundSource's SampleRate = 0 convention.
+                    Duration = TimeSpan.Zero;
+                    FrameRate = new Rational(0, 1);
+                    FrameSize = default;
+                }
                 LogicalFrameSize = ProxyResolution?.OriginalLogicalFrameSize ?? FrameSize;
                 _loadedUri = videoSource.Uri;
                 _loadedPreferProxy = context.PreferProxy;

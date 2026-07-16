@@ -35,7 +35,7 @@ public sealed class WaveReader : MediaReader
 
     public override bool HasAudio => true;
 
-    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
+    protected override bool ReadAudioCore(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
     {
         sound = null;
         if (IsDisposed)
@@ -46,7 +46,7 @@ public sealed class WaveReader : MediaReader
         return true;
     }
 
-    public override bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
+    protected override bool ReadVideoCore(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
     {
         image = null;
         return false;

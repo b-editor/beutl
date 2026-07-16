@@ -150,9 +150,19 @@ public sealed class SoundSource : MediaSource
                     }
                 }
 
-                Duration = TimeSpan.FromSeconds(_counter.Value.AudioInfo.Duration.ToDouble());
-                SampleRate = _counter.Value.AudioInfo.SampleRate;
-                NumChannels = _counter.Value.AudioInfo.NumChannels;
+                if (_counter.Value.HasAudio)
+                {
+                    var ai = _counter.Value.AudioInfo;
+                    Duration = TimeSpan.FromSeconds(ai.Duration.ToDouble());
+                    SampleRate = ai.SampleRate;
+                    NumChannels = ai.NumChannels;
+                }
+                else
+                {
+                    Duration = TimeSpan.Zero;
+                    SampleRate = 0;
+                    NumChannels = 0;
+                }
                 _loadedUri = soundSource.Uri;
 
                 if (!updateOnly)

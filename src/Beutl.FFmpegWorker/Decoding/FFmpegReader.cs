@@ -139,15 +139,15 @@ public sealed class FFmpegReader : MediaReader
 
     private MediaFrame? ActiveVideoFrame => _isHWDecoding ? _swVideoFrame : _currentVideoFrame;
 
-    public override VideoStreamInfo VideoInfo => field ?? throw new Exception("The stream does not exist.");
+    public override VideoStreamInfo VideoInfo => field ?? throw new InvalidOperationException("The video stream does not exist.");
 
-    public override AudioStreamInfo AudioInfo => field ?? throw new Exception("The stream does not exist.");
+    public override AudioStreamInfo AudioInfo => field ?? throw new InvalidOperationException("The audio stream does not exist.");
 
     public override bool HasVideo => _hasVideo;
 
     public override bool HasAudio => _hasAudio;
 
-    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? result)
+    protected override bool ReadAudioCore(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? result)
     {
         // Decoder側でResampleされるかのチェックのため
         if (length == 0)
@@ -175,6 +175,10 @@ public sealed class FFmpegReader : MediaReader
     public unsafe bool ReadAudio(int start, int length, Span<byte> destination, out AudioFrameInfo info)
     {
         info = default;
+
+        // The IPC handler calls this overload directly, bypassing MediaReader.ReadAudio's HasAudio guard.
+        if (!HasAudio)
+            return false;
 
         if (length == 0)
         {
@@ -269,11 +273,11 @@ public sealed class FFmpegReader : MediaReader
         }
     }
 
-    public override unsafe bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
+    protected override unsafe bool ReadVideoCore(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
     {
         image = null;
 
-        MediaFrame? filterFrame = ReadVideoCore(frame);
+        MediaFrame? filterFrame = DecodeVideoFrame(frame);
         if (filterFrame == null) return false;
 
         // フレームの色空間を取得
@@ -315,7 +319,7 @@ public sealed class FFmpegReader : MediaReader
     {
         info = default;
 
-        MediaFrame? filterFrame = ReadVideoCore(frame);
+        MediaFrame? filterFrame = DecodeVideoFrame(frame);
         if (filterFrame == null) return false;
 
         try
@@ -357,7 +361,7 @@ public sealed class FFmpegReader : MediaReader
         }
     }
 
-    private MediaFrame? ReadVideoCore(int frame)
+    private MediaFrame? DecodeVideoFrame(int frame)
     {
         var videoFrame = ActiveVideoFrame;
         if (_videoStream == null || _videoDecoder == null || videoFrame == null)

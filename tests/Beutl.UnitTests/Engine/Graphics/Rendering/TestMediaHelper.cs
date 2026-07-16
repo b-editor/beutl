@@ -168,7 +168,7 @@ internal sealed class TestMediaReader : MediaReader
 
     public override bool HasAudio => false;
 
-    public override bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
+    protected override bool ReadVideoCore(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
     {
         if (frame < 0 || frame >= _frameCount)
         {
@@ -185,7 +185,7 @@ internal sealed class TestMediaReader : MediaReader
         return true;
     }
 
-    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
+    protected override bool ReadAudioCore(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
     {
         sound = null;
         return false;
@@ -217,13 +217,13 @@ internal sealed class TestAudioReader : MediaReader
 
     public override bool HasAudio => true;
 
-    public override bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
+    protected override bool ReadVideoCore(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
     {
         image = null;
         return false;
     }
 
-    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
+    protected override bool ReadAudioCore(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
     {
         if (length <= 0)
         {

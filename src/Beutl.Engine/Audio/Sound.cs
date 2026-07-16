@@ -48,7 +48,9 @@ public abstract partial class Sound : EngineObject
         }
 
         var soundSource = resource.GetSoundSource();
-        if (soundSource == null)
+        // SampleRate <= 0 (no audio stream / failed load) must not reach ResampleNode: it would
+        // propagate a 0 Hz AudioProcessContext and crash SourceNode's buffer allocation.
+        if (soundSource == null || soundSource.SampleRate <= 0)
         {
             context.Clear();
             return;

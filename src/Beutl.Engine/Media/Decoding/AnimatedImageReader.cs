@@ -40,7 +40,7 @@ public class AnimatedImageReader : MediaReader
 
     public override bool HasAudio => false;
 
-    public override bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
+    protected override bool ReadVideoCore(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
     {
         image = null;
         if (_codec == null)
@@ -177,7 +177,7 @@ public class AnimatedImageReader : MediaReader
         return frameBitmap;
     }
 
-    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
+    protected override bool ReadAudioCore(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
     {
         sound = null;
         return false;

@@ -20,12 +20,12 @@ internal sealed class ProxyMediaReader(
 
     public override ProxyResolution? ProxyResolution => resolution;
 
-    public override bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
+    protected override bool ReadVideoCore(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
     {
         return inner.ReadVideo(frame, out image);
     }
 
-    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
+    protected override bool ReadAudioCore(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
     {
         return inner.ReadAudio(start, length, out sound);
     }

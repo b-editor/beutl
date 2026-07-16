@@ -58,7 +58,22 @@ public abstract class MediaReader : IDisposable
         throw new FileNotFoundException(null, file);
     }
 
-    public abstract bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image);
+    public bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
+    {
+        if (!HasVideo)
+        {
+            image = null;
+            return false;
+        }
+
+        return ReadVideoCore(frame, out image);
+    }
+
+    /// <summary>
+    /// Implements <see cref="ReadVideo"/>. Called only when <see cref="HasVideo"/> is
+    /// <see langword="true"/>, so implementations may access <see cref="VideoInfo"/> freely.
+    /// </summary>
+    protected abstract bool ReadVideoCore(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image);
 
     /// <summary>
     /// Decodes audio samples starting at <paramref name="start"/>.
@@ -89,7 +104,22 @@ public abstract class MediaReader : IDisposable
     /// disposed, has no audio stream, or hit an unrecoverable decode/transport error. End-of-stream is
     /// not reported via <see langword="false"/>; use <see cref="IPcm.NumSamples"/> for that.
     /// </returns>
-    public abstract bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound);
+    public bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
+    {
+        if (!HasAudio)
+        {
+            sound = null;
+            return false;
+        }
+
+        return ReadAudioCore(start, length, out sound);
+    }
+
+    /// <summary>
+    /// Implements <see cref="ReadAudio"/>. Called only when <see cref="HasAudio"/> is
+    /// <see langword="true"/>, so implementations may access <see cref="AudioInfo"/> freely.
+    /// </summary>
+    protected abstract bool ReadAudioCore(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound);
 
     public void Dispose()
     {
