@@ -230,6 +230,78 @@ public class RenderTargetPoolTests
     }
 
     [Test]
+    public void Dispose_FromWorkerThread_WaitsForSweepAndRethrowsFailure()
+    {
+        Dispatcher dispatcher = Dispatcher.Spawn();
+        RenderTargetPool? pool = null;
+        using var dispatcherEntered = new ManualResetEventSlim();
+        using var releaseDispatcher = new ManualResetEventSlim();
+        using var disposeStarted = new ManualResetEventSlim();
+        var injected = new InvalidOperationException("idle backing dispose failed");
+        try
+        {
+            pool = dispatcher.Invoke(() =>
+            {
+                var created = new RenderTargetPool();
+                created.SetBackingFactoryForTest((width, height) =>
+                {
+                    SKSurface surface = SKSurface.Create(new SKImageInfo(width, height))
+                        ?? throw new InvalidOperationException("Could not create the test surface.");
+                    return (surface, null);
+                });
+                created.SetDisposeBackingForTest(pooled =>
+                {
+                    pooled.DisposeBacking();
+                    throw injected;
+                });
+                created.Acquire(W, H)!.Dispose();
+                return created;
+            });
+
+            dispatcher.Dispatch(() =>
+            {
+                dispatcherEntered.Set();
+                releaseDispatcher.Wait();
+            }, DispatchPriority.High);
+            Assert.That(dispatcherEntered.Wait(TimeSpan.FromSeconds(5)), Is.True);
+
+            Task<Exception?> disposeTask = Task.Run(() =>
+            {
+                disposeStarted.Set();
+                try
+                {
+                    pool.Dispose();
+                    return null;
+                }
+                catch (Exception ex)
+                {
+                    return ex;
+                }
+            });
+            Assert.That(disposeStarted.Wait(TimeSpan.FromSeconds(5)), Is.True);
+            Assert.That(disposeTask.Wait(TimeSpan.FromMilliseconds(250)), Is.False,
+                "off-thread disposal must wait for its dispatcher-affine sweep to finish");
+
+            releaseDispatcher.Set();
+            Exception? actual = disposeTask.GetAwaiter().GetResult();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(actual, Is.SameAs(injected));
+                Assert.That(pool.IdleCount, Is.Zero);
+                Assert.That(pool.IdleBytes, Is.Zero);
+                Assert.That(pool.BucketCountForTest, Is.Zero);
+            });
+        }
+        finally
+        {
+            releaseDispatcher.Set();
+            pool?.Dispose();
+            dispatcher.Shutdown();
+        }
+    }
+
+    [Test]
     public void Dispose_AfterOwningDispatcherStops_SweepsIdleBackingsInline()
     {
         Dispatcher dispatcher = Dispatcher.Spawn();
