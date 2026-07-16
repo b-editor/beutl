@@ -835,6 +835,51 @@ public class DispatcherTests
         }
     }
 
+    // Regression: a throwing abort fallback used to escape mid-sweep, so later abandoned operations were never
+    // aborted and their cleanup fallbacks never ran.
+    [Test]
+    public void Shutdown_ThrowingAbortFallback_StillAbortsRemainingOperationsAndSurfacesFailure()
+    {
+        var dispatcher = Dispatcher.Spawn();
+        dispatcher.Thread.IsBackground = true;
+        using var entered = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        var abortFailure = new InvalidOperationException("abort fallback failed");
+        Exception? secondAbortReason = null;
+        try
+        {
+            dispatcher.Dispatch(() =>
+            {
+                entered.Set();
+                release.Wait();
+            }, DispatchPriority.High);
+            Assert.That(entered.Wait(TimeSpan.FromSeconds(5)), Is.True);
+
+            Assert.That(dispatcher.TryDispatch(
+                static () => { }, _ => throw abortFailure, DispatchPriority.Low), Is.True);
+            Assert.That(dispatcher.TryDispatch(
+                static () => { }, ex => secondAbortReason = ex, DispatchPriority.Low), Is.True);
+
+            InvalidOperationException? surfaced =
+                Assert.Throws<InvalidOperationException>(dispatcher.Shutdown);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(surfaced, Is.SameAs(abortFailure),
+                    "the first abort-fallback failure surfaces after the sweep completes");
+                Assert.That(secondAbortReason, Is.InstanceOf<ObjectDisposedException>(),
+                    "a throwing abort fallback must not stop the remaining abort sweep");
+                Assert.That(dispatcher.HasShutdownStarted, Is.True,
+                    "shutdown still progresses when an abort fallback throws");
+            });
+        }
+        finally
+        {
+            release.Set();
+            Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(5)), Is.True);
+        }
+    }
+
     // Regression: an unguarded negative `next - now` (timer slips past between flush and wait)
     // used to throw in CancelAfter and kill the dispatcher thread.
     [Test]

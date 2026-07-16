@@ -229,9 +229,14 @@ internal static class PlanExecutor
                             ref ordinalGeneration, ref ordinalSpan, ref runtimeBackend, renderTargetFactory);
                         break;
                     case CustomRenderNodePass customNode:
-                        ExecuteCustomRenderNode(
+                        int customSpan = ExecuteCustomRenderNode(
                             customNode, current, outputScale, maxWorkingScale, diagnostics, pool,
                             isRenderCacheEnabled, pullPurpose, renderIntent, renderTargetFactory);
+                        if (customSpan >= 0)
+                        {
+                            ordinalGeneration++;
+                            ordinalSpan = customSpan;
+                        }
                         break;
                     default:
                         wroteVulkanOutput = MapDescriptorPass(
@@ -467,7 +472,9 @@ internal static class PlanExecutor
     // CPU-only CompiledPlan preserves custom node state across parameter rebinds while nested node/branch scopes keep
     // equal local ordinals isolated. Cache replacement/pruning retires the node immediately, but active output leases
     // defer its actual disposal until every lazily-rendered operation it returned has expired.
-    private static void ExecuteCustomRenderNode(
+    // Returns the local ordinal span when the node's execution-time output count started a fresh dynamic ordinal
+    // namespace (the caller bumps the generation, exactly like a dynamic split), or -1 for an identity mapping.
+    private static int ExecuteCustomRenderNode(
         CustomRenderNodePass pass, List<BranchOperation> current,
         float outputScale, float maxWorkingScale,
         PipelineDiagnostics? diagnostics, RenderTargetPool? pool, bool isRenderCacheEnabled,
@@ -524,9 +531,10 @@ internal static class PlanExecutor
             }
 
             int[] outputOrdinals;
+            bool startsLocalNamespace;
             try
             {
-                outputOrdinals = MapCustomOutputOrdinals(inputOrdinals, outputs.Length);
+                outputOrdinals = MapCustomOutputOrdinals(inputOrdinals, outputs.Length, out startsLocalNamespace);
             }
             catch
             {
@@ -565,6 +573,8 @@ internal static class PlanExecutor
                 RenderNodeOperation.DisposeAll(outputs.AsSpan(mappedCount));
                 throw;
             }
+
+            return startsLocalNamespace ? outputs.Length : -1;
         }
         catch
         {
@@ -575,15 +585,18 @@ internal static class PlanExecutor
         }
     }
 
-    private static int[] MapCustomOutputOrdinals(int[] inputOrdinals, int outputCount)
+    private static int[] MapCustomOutputOrdinals(int[] inputOrdinals, int outputCount, out bool startsLocalNamespace)
     {
+        startsLocalNamespace = false;
         if (outputCount == inputOrdinals.Length)
             return inputOrdinals;
         if (inputOrdinals.Length == 1)
         {
-            int parentOrdinal = inputOrdinals[0];
-            int firstOutputOrdinal = parentOrdinal == NoBranchOrdinal ? 0 : parentOrdinal * outputCount;
-            return Enumerable.Range(firstOutputOrdinal, outputCount).ToArray();
+            // The output count is execution-time-resolved and can differ across sibling branches, so no
+            // parent-ordinal stride is collision-free; a local dynamic namespace (like a dynamic split) relies on
+            // the nested-graph reconciliation to concatenate siblings.
+            startsLocalNamespace = true;
+            return Enumerable.Range(0, outputCount).ToArray();
         }
         if (Array.TrueForAll(inputOrdinals, static ordinal => ordinal == NoBranchOrdinal))
             return Enumerable.Repeat(NoBranchOrdinal, outputCount).ToArray();

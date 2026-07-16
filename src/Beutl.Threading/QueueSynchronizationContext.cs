@@ -1,4 +1,6 @@
-﻿namespace Beutl.Threading;
+﻿using System.Runtime.ExceptionServices;
+
+namespace Beutl.Threading;
 
 internal sealed class QueueSynchronizationContext(Dispatcher dispatcher, TimeProvider timeProvider) : SynchronizationContext
 {
@@ -81,8 +83,15 @@ internal sealed class QueueSynchronizationContext(Dispatcher dispatcher, TimePro
             abandoned = DrainQueues();
         }
 
-        Abort(abandoned);
-        ShutdownStarted?.Invoke(dispatcher, EventArgs.Empty);
+        // The events must fire even when an abort fallback threw, or shutdown waiters would never resume.
+        try
+        {
+            Abort(abandoned);
+        }
+        finally
+        {
+            ShutdownStarted?.Invoke(dispatcher, EventArgs.Empty);
+        }
     }
 
     private void Finish()
@@ -102,10 +111,16 @@ internal sealed class QueueSynchronizationContext(Dispatcher dispatcher, TimePro
             abandoned = DrainQueues();
         }
 
-        Abort(abandoned);
-        if (raiseStarted)
-            ShutdownStarted?.Invoke(dispatcher, EventArgs.Empty);
-        ShutdownFinished?.Invoke(dispatcher, EventArgs.Empty);
+        try
+        {
+            Abort(abandoned);
+        }
+        finally
+        {
+            if (raiseStarted)
+                ShutdownStarted?.Invoke(dispatcher, EventArgs.Empty);
+            ShutdownFinished?.Invoke(dispatcher, EventArgs.Empty);
+        }
     }
 
     private List<DispatcherOperation> DrainQueues()
@@ -118,10 +133,22 @@ internal sealed class QueueSynchronizationContext(Dispatcher dispatcher, TimePro
     private static void Abort(List<DispatcherOperation> operations)
     {
         var exception = new ObjectDisposedException(nameof(Dispatcher), "The dispatcher is shutting down.");
+        Exception? abortFailure = null;
         foreach (DispatcherOperation operation in operations)
         {
-            operation.Abort(exception);
+            // A throwing abort fallback must not stop the sweep — every abandoned operation still gets aborted.
+            try
+            {
+                operation.Abort(exception);
+            }
+            catch (Exception ex)
+            {
+                abortFailure ??= ex;
+            }
         }
+
+        if (abortFailure is not null)
+            ExceptionDispatchInfo.Capture(abortFailure).Throw();
     }
 
     private void ExecuteAvailableOperations()

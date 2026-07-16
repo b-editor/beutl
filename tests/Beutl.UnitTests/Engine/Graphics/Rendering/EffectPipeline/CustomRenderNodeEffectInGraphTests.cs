@@ -175,7 +175,7 @@ public class CustomRenderNodeEffectInGraphTests
     }
 
     [Test]
-    public void Execute_CustomRenderNodeFanOut_FromSparseParent_UsesHierarchicalOrdinals()
+    public void Execute_CustomRenderNodeFanOut_FromSparseParent_StartsFreshDynamicNamespace()
     {
         var seen = new List<int>();
         var effect = new FanOutCustomNodeEffect(outputCount: 2);
@@ -206,9 +206,53 @@ public class CustomRenderNodeEffectInGraphTests
 
         RenderNodeOperation.DisposeAll(Execute(builder));
 
-        Assert.That(seen, Is.EqualTo(new[] { 4, 5 }),
-            "two outputs under sparse parent ordinal two occupy its static-split-style hierarchical slice "
-            + "2 * 2 + [0, 1], rather than colliding on the parent ordinal");
+        Assert.That(seen, Is.EqualTo(new[] { 0, 1 }),
+            "a custom fan-out's execution-time output count starts a fresh dynamic ordinal namespace (like a "
+            + "dynamic split), rather than a parent-ordinal stride that can collide across differing sibling counts");
+    }
+
+    // Regression: a parent-ordinal * outputCount stride collides when sibling branches return different counts
+    // (3 and 2 outputs both publish ordinals 4/5), folding two branches onto one downstream branch identity.
+    [Test]
+    public void Execute_CustomRenderNodeFanOut_DifferingSiblingCounts_KeepDistinctBranchIdentities()
+    {
+        var seen = new List<int>();
+        int[] fanOutCounts = [1, 3, 2];
+        FilterEffect.Resource[] resources = fanOutCounts
+            .Select(count => (FilterEffect.Resource)new FanOutCustomNodeEffect(count).ToResource(CompositionContext.Default))
+            .ToArray();
+        try
+        {
+            using var runtimeCache = new NestedGraphPlanCache();
+            var builder = new EffectGraphBuilder(
+                s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery,
+                nestedPlanCache: runtimeCache);
+            builder.Split(SplitNodeDescriptor.Static(
+                emitter =>
+                {
+                    for (int i = 0; i < 3; i++)
+                        emitter.Emit(new Rect(i * 10, 0, 10, 10), static _ => { });
+                },
+                branchCount: 3,
+                structuralToken: "uniform-parent-before-differing-fan-outs"));
+            builder.NestedGraph(NestedGraphNodeDescriptor.Create(
+                (childBuilder, branchIndex) => childBuilder.Effect(resources[branchIndex]),
+                structuralToken: "per-branch-differing-custom-fan-out"));
+            builder.NestedGraph(NestedGraphNodeDescriptor.Create(
+                (_, branchIndex) => seen.Add(branchIndex),
+                structuralToken: "observe-differing-fan-out-indices"));
+
+            RenderNodeOperation.DisposeAll(Execute(builder));
+
+            Assert.That(seen, Is.EqualTo(new[] { 0, 1, 2, 3, 4, 5 }),
+                "sibling branches fanning out to 1/3/2 outputs concatenate into one collision-free namespace, so "
+                + "no two live branches share a downstream branch identity");
+        }
+        finally
+        {
+            foreach (FilterEffect.Resource resource in resources)
+                resource.Dispose();
+        }
     }
 
     // A throwing child render node must not leak the ops handed to it: the executor's catch disposes the inputs and
