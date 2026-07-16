@@ -82,6 +82,54 @@ public class Scene3DRenderNodeScaleTests
         }
     }
 
+    // The teardown of a renderer discarded after an allocation failure is itself fallible (native pass disposal);
+    // its throw must never replace the delivery allocation failure, abort the preview drop, or leave the
+    // inconsistent renderer retained on the resource.
+    [TestCase(RenderIntent.Preview)]
+    [TestCase(RenderIntent.Delivery)]
+    public void Process_FrameAllocationFailure_PreservesPolicyWhenTeardownAlsoThrows(RenderIntent intent)
+    {
+        var compiler = new Mock<Beutl.Graphics.Backend.IShaderCompiler>();
+        compiler.As<IDisposable>().Setup(x => x.Dispose())
+            .Throws(new InvalidOperationException("teardown failed"));
+        var graphicsContext = new Mock<IGraphicsContext>();
+        graphicsContext.SetupGet(x => x.Supports3DRendering).Returns(true);
+        graphicsContext.Setup(x => x.CreateShaderCompiler()).Returns(compiler.Object);
+        graphicsContext
+            .Setup(x => x.CreateTexture2D(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<TextureFormat>()))
+            .Throws(new InvalidOperationException("allocation failed"));
+        Scene3DRenderNode.SetGraphicsContextProviderForTest(() => graphicsContext.Object);
+        try
+        {
+            var scene = new Scene3D();
+            scene.RenderWidth.CurrentValue = 32;
+            scene.RenderHeight.CurrentValue = 32;
+            using var resource = (Scene3D.Resource)scene.ToResource(CompositionContext.Default);
+            using var node = new Scene3DRenderNode(resource);
+            var context = new RenderNodeContext([], intent, outputScale: 1f);
+
+            if (intent == RenderIntent.Delivery)
+            {
+                InvalidOperationException? exception =
+                    Assert.Throws<InvalidOperationException>(() => node.Process(context));
+                Assert.That(exception!.Message, Does.Contain("3D render surface allocation failed"),
+                    "the teardown throw must not replace the delivery allocation failure");
+            }
+            else
+            {
+                RenderNodeOperation[] ops = node.Process(context);
+                Assert.That(ops, Is.Empty, "preview drops the frame when the 3D surface cannot allocate");
+            }
+
+            Assert.That(resource.Renderer, Is.Null,
+                "the inconsistent renderer must be discarded even when its teardown throws");
+        }
+        finally
+        {
+            Scene3DRenderNode.SetGraphicsContextProviderForTest(null);
+        }
+    }
+
     [Test]
     public void Process_RespectsMaxWorkingScale_WhenOutputScaleIsHigher()
     {

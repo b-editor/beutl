@@ -22,6 +22,28 @@ public class ImageTextureSourceFailureTests
 
     [TestCase(RenderIntent.Preview, false)]
     [TestCase(RenderIntent.Delivery, true)]
+    public void BitmapConversionFailure_FollowsRenderIntent(RenderIntent intent, bool shouldThrow)
+    {
+        // A distinct fill color keeps this data-URI-shared bitmap private to this test before it is disposed.
+        using ImageTextureSource.Resource resource = CreateResource(new Color(255, 12, 34, 56));
+        resource.Source!.Bitmap!.Dispose();
+        // Strict: the conversion throws before any GPU work, so the context must never be touched.
+        var graphicsContext = new Mock<IGraphicsContext>(MockBehavior.Strict);
+
+        if (shouldThrow)
+        {
+            Assert.Throws<ObjectDisposedException>(() =>
+                resource.GetTexture(graphicsContext.Object, intent, RenderPullPurpose.Frame));
+        }
+        else
+        {
+            Assert.That(resource.GetTexture(graphicsContext.Object, intent, RenderPullPurpose.Frame), Is.Null,
+                "preview must drop a texture whose bitmap conversion failed");
+        }
+    }
+
+    [TestCase(RenderIntent.Preview, false)]
+    [TestCase(RenderIntent.Delivery, true)]
     public void TextureAllocationFailure_FollowsRenderIntent(RenderIntent intent, bool shouldThrow)
     {
         using ImageTextureSource.Resource resource = CreateResource();
@@ -98,9 +120,9 @@ public class ImageTextureSourceFailureTests
             "cleanup must still be attempted before its failure is suppressed");
     }
 
-    private static ImageTextureSource.Resource CreateResource()
+    private static ImageTextureSource.Resource CreateResource(Color? fillColor = null)
     {
-        Uri uri = TestMediaHelper.CreateTestImageUri(8, 8, Colors.White);
+        Uri uri = TestMediaHelper.CreateTestImageUri(8, 8, fillColor ?? Colors.White);
         var image = new ImageSource();
         image.ReadFrom(uri);
         var source = new ImageTextureSource();

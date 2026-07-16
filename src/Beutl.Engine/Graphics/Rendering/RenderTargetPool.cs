@@ -423,10 +423,18 @@ internal sealed class RenderTargetPool : IDisposable
     {
         if (_dispatcher != null && !_dispatcher.CheckAccess())
         {
-            _dispatcher.Invoke(Dispose);
+            // Pool state is render-thread-affine, but shutdown can reject or abandon the marshal; the fallback
+            // then sweeps inline on this thread — after shutdown the render thread never gets another turn, so
+            // inline is the only remaining owner (same shape as the lease-return and backing-dispose paths).
+            _dispatcher.TryDispatch(DisposeCore, _ => DisposeCore());
             return;
         }
 
+        DisposeCore();
+    }
+
+    private void DisposeCore()
+    {
         if (_isDisposed)
             return;
 

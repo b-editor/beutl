@@ -50,16 +50,22 @@ public sealed partial class ImageTextureSource : TextureSource
             {
                 DisposeGpuTexture();
 
-                using var linearBitmap = Source.Bitmap.Convert(
-                    Source.Bitmap.ColorType == BitmapColorType.RgbaF16
-                        ? BitmapColorType.RgbaF16
-                        : BitmapColorType.Bgra8888,
-                    BitmapAlphaType.Premul,
-                    BitmapColorSpace.LinearSrgb);
-
                 ITexture2D? texture = null;
                 try
                 {
+                    // The conversion allocates a full linear copy and can throw before any GPU work starts, so it
+                    // must sit inside the same preview/delivery failure-policy scope as allocation and upload.
+                    // Reading pixel properties on a disposed bitmap (a released weak-shared counter) faults
+                    // natively; surface it as a managed failure inside that scope instead.
+                    Bitmap sourceBitmap = Source.Bitmap;
+                    sourceBitmap.ThrowIfDisposed();
+                    using var linearBitmap = sourceBitmap.Convert(
+                        sourceBitmap.ColorType == BitmapColorType.RgbaF16
+                            ? BitmapColorType.RgbaF16
+                            : BitmapColorType.Bgra8888,
+                        BitmapAlphaType.Premul,
+                        BitmapColorSpace.LinearSrgb);
+
                     texture = graphicsContext.CreateTexture2D(
                         Source.FrameSize.Width,
                         Source.FrameSize.Height,

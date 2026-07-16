@@ -230,6 +230,54 @@ public class RenderTargetPoolTests
     }
 
     [Test]
+    public void Dispose_AfterOwningDispatcherStops_SweepsIdleBackingsInline()
+    {
+        Dispatcher dispatcher = Dispatcher.Spawn();
+        RenderTargetPool? pool = null;
+        int backingDisposeCount = 0;
+        try
+        {
+            pool = dispatcher.Invoke(() =>
+            {
+                var created = new RenderTargetPool();
+                created.SetBackingFactoryForTest((width, height) =>
+                {
+                    SKSurface surface = SKSurface.Create(new SKImageInfo(width, height))
+                        ?? throw new InvalidOperationException("Could not create the test surface.");
+                    return (surface, null);
+                });
+                created.SetDisposeBackingForTest(pooled =>
+                {
+                    Interlocked.Increment(ref backingDisposeCount);
+                    pooled.DisposeBacking();
+                });
+                created.Acquire(W, H)!.Dispose();
+                return created;
+            });
+            Assert.That(pool.IdleCount, Is.EqualTo(1), "precondition: one idle backing is retained by the pool");
+
+            dispatcher.Shutdown();
+            Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(10)), Is.True,
+                "the test dispatcher must finish before the pool is disposed");
+
+            Assert.That(pool.Dispose, Throws.Nothing,
+                "disposal after dispatcher shutdown must fall back inline instead of surfacing the rejected marshal");
+            Assert.Multiple(() =>
+            {
+                Assert.That(backingDisposeCount, Is.EqualTo(1),
+                    "the idle backing must be swept inline when the render thread never gets another turn");
+                Assert.That(pool.IdleCount, Is.Zero);
+                Assert.That(pool.IdleBytes, Is.Zero);
+            });
+        }
+        finally
+        {
+            if (!dispatcher.HasShutdownStarted)
+                dispatcher.Shutdown();
+        }
+    }
+
+    [Test]
     public void LeaseDispose_AfterOwningDispatcherStops_ReleasesBackingAndBalancesLeaseCount()
     {
         Dispatcher dispatcher = Dispatcher.Spawn();

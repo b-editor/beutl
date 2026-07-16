@@ -94,9 +94,11 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
                 s_logger.LogWarning(ex,
                     "3D render surface allocation failed ({Width}x{Height} px, density {Scale}, intent {RenderIntent}).",
                     dw, dh, w, context.RenderIntent);
-                // Failed resize may leave the renderer inconsistent, so discard it and rebuild next frame.
-                renderer.Dispose();
+                // Failed resize may leave the renderer inconsistent, so discard it and rebuild next frame. Clear
+                // the field before the fallible native teardown, and never let a teardown throw replace the
+                // allocation failure (delivery) or abort the preview drop.
                 scene.Renderer = null;
+                DisposeRendererAfterFailure(renderer);
                 if (context.RenderIntent == RenderIntent.Delivery)
                 {
                     throw new InvalidOperationException(
@@ -135,6 +137,20 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
 
     internal static void SetGraphicsContextProviderForTest(Func<IGraphicsContext?>? provider)
         => s_graphicsContextProviderForTest = provider;
+
+    // Native pass teardown is itself fallible; a discard-and-rebuild (or transient-renderer) path must log a
+    // teardown throw instead of letting it replace the primary failure or abort a preview drop.
+    private static void DisposeRendererAfterFailure(Renderer3D renderer)
+    {
+        try
+        {
+            renderer.Dispose();
+        }
+        catch (Exception ex)
+        {
+            s_logger.LogWarning(ex, "3D renderer teardown failed while discarding an inconsistent renderer.");
+        }
+    }
 
     private static void RenderScene(
         Renderer3D renderer, Scene3D.Resource scene, Camera3D.Resource camera, RenderNodeContext context)
@@ -250,7 +266,8 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
         finally
         {
             surface?.Dispose();
-            renderer?.Dispose();
+            if (renderer != null)
+                DisposeRendererAfterFailure(renderer);
         }
     }
 
