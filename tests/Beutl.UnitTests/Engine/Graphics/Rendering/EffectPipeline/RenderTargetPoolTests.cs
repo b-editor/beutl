@@ -283,6 +283,71 @@ public class RenderTargetPoolTests
     }
 
     [Test]
+    public void LeaseReturn_AcceptedBeforeShutdown_IsNotAbandonedAndBalancesAtomicCounters()
+    {
+        Dispatcher dispatcher = Dispatcher.Spawn();
+        dispatcher.Thread.IsBackground = true;
+        RenderTargetPool? pool = null;
+        RenderTarget? lease = null;
+        int backingDisposeCount = 0;
+        using var entered = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        try
+        {
+            (pool, lease) = dispatcher.Invoke(() =>
+            {
+                var created = new RenderTargetPool();
+                created.SetBackingFactoryForTest((width, height) =>
+                {
+                    SKSurface surface = SKSurface.Create(new SKImageInfo(width, height))
+                        ?? throw new InvalidOperationException("Could not create the test surface.");
+                    return (surface, null);
+                });
+                created.SetDisposeBackingForTest(pooled =>
+                {
+                    Interlocked.Increment(ref backingDisposeCount);
+                    pooled.DisposeBacking();
+                });
+                RenderTarget acquired = created.Acquire(W, H)
+                    ?? throw new InvalidOperationException("Could not acquire the test lease.");
+                created.Dispose();
+                return (created, acquired);
+            });
+
+            dispatcher.Dispatch(() =>
+            {
+                entered.Set();
+                release.Wait();
+            }, DispatchPriority.High);
+            Assert.That(entered.Wait(TimeSpan.FromSeconds(5)), Is.True);
+
+            lease.Dispose();
+            lease = null;
+            Assert.That(pool.LiveLeaseCount, Is.EqualTo(1),
+                "the accepted return remains live until either its action or abort fallback runs");
+
+            dispatcher.Shutdown();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(backingDisposeCount, Is.EqualTo(1),
+                    "draining an accepted return must release its backing exactly once");
+                Assert.That(pool.LiveLeaseCount, Is.Zero,
+                    "the shutdown fallback must atomically balance the live lease count");
+                Assert.That(pool.PeakLiveLeaseCount, Is.EqualTo(1));
+            });
+        }
+        finally
+        {
+            lease?.Dispose();
+            release.Set();
+            if (!dispatcher.HasShutdownStarted)
+                dispatcher.Shutdown();
+            Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(5)), Is.True);
+        }
+    }
+
+    [Test]
     public void Clear_DisposeFailureStillReleasesEveryIdleBackingAndResetsAccounting()
     {
         RunOnRenderThread(() =>

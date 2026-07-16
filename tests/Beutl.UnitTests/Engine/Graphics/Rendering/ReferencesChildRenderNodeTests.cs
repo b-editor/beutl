@@ -41,10 +41,12 @@ public class ReferencesChildRenderNodeTests
         {
             Diagnostics = diagnostics,
             Pool = pool,
+            InputSubtreeStableOverride = false,
             RequestedBounds = requestedBounds,
         };
 
         RenderNodeProcessor processor = context.CreateChildProcessor(root, useRenderCache: false);
+        RenderNodeOperation.DisposeAll(processor.PullToRoot());
 
         Assert.Multiple(() =>
         {
@@ -55,7 +57,10 @@ public class ReferencesChildRenderNodeTests
             Assert.That(processor.Pool, Is.SameAs(pool));
             Assert.That(processor.RenderIntent, Is.EqualTo(RenderIntent.Preview));
             Assert.That(processor.PullPurpose, Is.EqualTo(RenderPullPurpose.Auxiliary));
+            Assert.That(processor.InputSubtreeStableOverride, Is.False);
             Assert.That(processor.RequestedBounds, Is.EqualTo(requestedBounds));
+            Assert.That(root.ObservedInputSubtreeStableOverride, Is.False,
+                "opaque parent input must keep nested prefix caches fail-closed");
         });
     }
 
@@ -65,10 +70,13 @@ public class ReferencesChildRenderNodeTests
 
         public RenderIntent ObservedIntent { get; private set; }
 
+        public bool? ObservedInputSubtreeStableOverride { get; private set; }
+
         public override RenderNodeOperation[] Process(RenderNodeContext context)
         {
             ObservedAuxiliaryPull = context.IsAuxiliaryPull;
             ObservedIntent = context.RenderIntent;
+            ObservedInputSubtreeStableOverride = context.InputSubtreeStableOverride;
             return [];
         }
     }

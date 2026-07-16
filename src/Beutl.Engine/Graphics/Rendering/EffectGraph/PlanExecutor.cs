@@ -58,6 +58,10 @@ internal static class PlanExecutor
 
         public Exception? CompositeFilterDisposeFailure { get; set; }
 
+        public Exception? CompositeFoldStageDisposeFailure { get; set; }
+
+        public Action<SKColorFilter>? CompositeFoldCreated { get; set; }
+
         public Exception? SkiaFilterDisposeFailure { get; set; }
 
         public bool ForceComputeFallback { get; set; }
@@ -76,6 +80,8 @@ internal static class PlanExecutor
                 SplitInputDisposeFailure = SplitInputDisposeFailure,
                 SplitBranchDisposeFailure = SplitBranchDisposeFailure,
                 CompositeFilterDisposeFailure = CompositeFilterDisposeFailure,
+                CompositeFoldStageDisposeFailure = CompositeFoldStageDisposeFailure,
+                CompositeFoldCreated = CompositeFoldCreated,
                 SkiaFilterDisposeFailure = SkiaFilterDisposeFailure,
                 ForceComputeFallback = ForceComputeFallback,
             };
@@ -1934,8 +1940,12 @@ internal static class PlanExecutor
         RenderTarget? target = RenderTargetPool.Acquire(pool, bw, bh, diagnostics);
         if (target == null)
         {
-            DisposeBranchOperations(CollectionsMarshal.AsSpan(current));
+            Exception? allocationCleanupFailure = null;
+            CaptureOperationDisposeFailures(CollectionsMarshal.AsSpan(current), ref allocationCleanupFailure);
             current.Clear();
+            if (allocationCleanupFailure is { } failure)
+                ExceptionDispatchInfo.Capture(failure).Throw();
+
             if (renderIntent == RenderIntent.Delivery)
                 throw new InvalidOperationException($"Composite output allocation failed ({bw}x{bh} px, w {w}).");
 
@@ -2096,22 +2106,44 @@ internal static class PlanExecutor
                     {
                         next = SKColorFilter.CreateCompose(filter, composed);
                     }
-                    catch
+                    catch (Exception primaryFailure)
                     {
-                        filter.Dispose();
+                        Exception? cleanupFailure = null;
+                        CaptureDisposeFailure(filter, ref cleanupFailure);
+                        LogCleanupFailure(cleanupFailure, "composite color-filter creation cleanup");
+                        ExceptionDispatchInfo.Capture(primaryFailure).Throw();
                         throw;
                     }
 
-                    composed.Dispose();
-                    filter.Dispose();
+                    s_testHooks.Value?.CompositeFoldCreated?.Invoke(next);
+                    Exception? stageCleanupFailure = null;
+                    CaptureDisposeFailure(composed, ref stageCleanupFailure);
+                    CaptureDisposeFailure(filter, ref stageCleanupFailure);
+                    if (s_testHooks.Value?.CompositeFoldStageDisposeFailure is { } injected)
+                    {
+                        s_testHooks.Value.CompositeFoldStageDisposeFailure = null;
+                        stageCleanupFailure ??= injected;
+                    }
+
+                    if (stageCleanupFailure is { } failure)
+                    {
+                        CaptureDisposeFailure(next, ref stageCleanupFailure);
+                        composed = null;
+                        ExceptionDispatchInfo.Capture(failure).Throw();
+                    }
+
                     composed = next;
                 }
             }
         }
-        catch
+        catch (Exception primaryFailure)
         {
-            // A mid-loop factory throw leaves the partially composed accumulator owned by no one; dispose it here.
-            composed?.Dispose();
+            // A mid-loop factory or cleanup throw leaves the partially composed accumulator owned by no one.
+            Exception? cleanupFailure = null;
+            CaptureDisposeFailure(composed, ref cleanupFailure);
+            composed = null;
+            LogCleanupFailure(cleanupFailure, "composite color-filter failure cleanup");
+            ExceptionDispatchInfo.Capture(primaryFailure).Throw();
             throw;
         }
 
@@ -2325,7 +2357,11 @@ internal static class PlanExecutor
             // DiscardOutput supersedes a requested shrink (§C3), exactly as the single-op geometry path handles it.
             if (discarded)
             {
-                target.Dispose();
+                Exception? cleanupFailure = null;
+                CaptureSplitBranchDisposeFailure(target, ref cleanupFailure);
+                if (cleanupFailure is { } failure)
+                    ExceptionDispatchInfo.Capture(failure).Throw();
+
                 return;
             }
 

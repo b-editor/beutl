@@ -663,6 +663,37 @@ public class PrimitiveRuntimeContractTests
         });
     }
 
+    [TestCase(RenderIntent.Preview)]
+    [TestCase(RenderIntent.Delivery)]
+    public void SplitDiscard_CleanupFailureIsCapturedAndAllLeasesAreReleased(RenderIntent renderIntent)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            SplitNodeDescriptor descriptor = SplitNodeDescriptor.Static(
+                emitter => emitter.Emit(emitter.Input.Bounds, static session => session.DiscardOutput()),
+                branchCount: 1,
+                structuralToken: "split-discard-cleanup-failure");
+            (CompiledPlan plan, FrameResources resources) = Compile(
+                new EffectGraphBuilder(s_bounds, 1f, 1f, renderIntent).Split(descriptor));
+            using var pool = new RenderTargetPool();
+            var injected = new InvalidOperationException("discarded split branch cleanup failed");
+
+            using IDisposable hook = PlanExecutor.UseTestHooks(
+                hooks => hooks.SplitBranchDisposeFailure = injected);
+            InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
+                plan, resources, [Input()], 1f, 1f, float.PositiveInfinity,
+                diagnostics: null, pool, renderIntent: renderIntent));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(actual, Is.SameAs(injected));
+                Assert.That(pool.LiveLeaseCount, Is.Zero,
+                    "discard cleanup must release the branch target, materialized input, and source operation");
+            });
+        });
+    }
+
     [Test]
     public void GeometryInputCleanupFailure_ReleasesCompletedOutputAndInputOperation()
     {

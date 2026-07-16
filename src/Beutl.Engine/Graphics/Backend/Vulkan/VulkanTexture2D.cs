@@ -333,12 +333,14 @@ internal unsafe class VulkanTexture2D : ITexture2D
 
         if (!RenderThread.Dispatcher.CheckAccess())
         {
-            if (RenderThread.Dispatcher.TryDispatch(() => DisposeNativeHandles(drainSkia: true)))
-                return;
-
-            // Dispatcher shutdown means the device is already being torn down. A finalizer or late lease must still
-            // release its Vulkan handles, but synchronously flushing the render-thread-affine GRContext here is unsafe.
-            DisposeNativeHandles(drainSkia: false);
+            RenderThread.Dispatcher.TryDispatch(
+                () => DisposeNativeHandles(drainSkia: true),
+                _ =>
+                {
+                    // Dispatcher shutdown means the device is already being torn down. A finalizer or late lease must
+                    // still release its Vulkan handles, but flushing the render-thread-affine GRContext here is unsafe.
+                    DisposeNativeHandles(drainSkia: false);
+                });
             return;
         }
 

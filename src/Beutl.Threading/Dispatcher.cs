@@ -173,6 +173,21 @@ public class Dispatcher
         return _synchronizationContext.TryPost(priority, operation, ct);
     }
 
+    /// <summary>
+    /// Attempts to queue cleanup work with a fallback that runs if shutdown abandons the accepted operation.
+    /// The fallback also runs when the dispatcher has already stopped accepting work.
+    /// </summary>
+    internal bool TryDispatch(
+        Action operation,
+        Action<Exception> abort,
+        DispatchPriority priority = DispatchPriority.Medium,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(operation);
+        ArgumentNullException.ThrowIfNull(abort);
+        return _synchronizationContext.TryPost(priority, operation, ct, abort);
+    }
+
     public void Dispatch(Func<Task> operation, DispatchPriority priority = DispatchPriority.Medium, CancellationToken ct = default)
     {
         _synchronizationContext.Post(priority, () => operation(), ct);

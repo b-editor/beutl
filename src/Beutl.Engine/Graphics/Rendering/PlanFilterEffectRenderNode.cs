@@ -366,7 +366,7 @@ public class PlanFilterEffectRenderNode(FilterEffect.Resource filterEffect) : Fi
             cleanupFailure ??= ex;
         }
 
-        if (cleanupFailure != null)
+        if (disposing && cleanupFailure != null)
             System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(cleanupFailure).Throw();
     }
 

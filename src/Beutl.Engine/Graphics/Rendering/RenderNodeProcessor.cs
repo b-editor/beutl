@@ -72,6 +72,11 @@ public class RenderNodeProcessor
     /// <summary>The logical output region requested by this pull's parent; invalid means full output.</summary>
     public Rect RequestedBounds { get; init; } = Rect.Invalid;
 
+    /// <summary>
+    /// Overrides input-subtree stability for every context in this nested pull when the parent supplies opaque input.
+    /// </summary>
+    internal bool? InputSubtreeStableOverride { get; init; }
+
     /// <summary>Marks this pull as hit-test/bounds-only work that must preserve frame-render cache state.</summary>
     public RenderPullPurpose PullPurpose { get; }
 
@@ -362,6 +367,7 @@ public class RenderNodeProcessor
             Diagnostics = Diagnostics,
             Pool = Pool,
             RenderTargetFactory = _inheritedRenderTargetFactory ?? CreateRenderTarget,
+            InputSubtreeStableOverride = InputSubtreeStableOverride,
             RequestedBounds = requestedBounds,
         };
         var result = node.Process(context);

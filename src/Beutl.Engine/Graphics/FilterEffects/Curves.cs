@@ -10,7 +10,7 @@ namespace Beutl.Graphics.Effects;
 public sealed partial class Curves : FilterEffect
 {
     // Fusable snippet; `c` is the premultiplied linear-light source pixel (contract A2).
-    // The nine curve lookups are extra texture samplers (their contents are parameters, A4).
+    // The nine curve samplers are extra textures (their contents are parameters, A4).
     private static readonly string s_snippet =
         """
         uniform shader masterCurve;

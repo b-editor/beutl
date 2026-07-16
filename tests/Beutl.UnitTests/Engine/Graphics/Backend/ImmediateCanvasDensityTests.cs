@@ -268,6 +268,27 @@ public class ImmediateCanvasDensityTests
     }
 
     [Test]
+    public void DrawNode_MapsViewportThroughCurrentLogicalTransform()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using var target = RenderTarget.Create(200, 100)!;
+            using var canvas = new ImmediateCanvas(
+                target, RenderIntent.Delivery, 2f, logicalSize: new Size(100, 50));
+            using var probe = new RequestedBoundsProbeNode();
+
+            using (canvas.PushTransform(Matrix.CreateTranslation(20, 10)))
+            {
+                canvas.DrawNode(probe);
+            }
+
+            Assert.That(probe.ObservedRequestedBounds, Is.EqualTo(new Rect(-20, -10, 100, 50)),
+                "the canvas viewport must be inverse-mapped into the nested node's local coordinates");
+        });
+    }
+
+    [Test]
     public void Dispose_AfterBackingRenderTargetDisposed_SkipsBaseRestoreInsteadOfCrashing()
     {
         // Regression: disposing the backing surface zeroes the cached SKCanvas Handle; RestoreToCount on
@@ -296,5 +317,16 @@ public class ImmediateCanvasDensityTests
     {
         var p = bmp.SKBitmap.GetPixel(x, y);
         return p.Red > 150 && p.Green > 150 && p.Blue > 150;
+    }
+
+    private sealed class RequestedBoundsProbeNode : RenderNode
+    {
+        public Rect ObservedRequestedBounds { get; private set; } = Rect.Invalid;
+
+        public override RenderNodeOperation[] Process(RenderNodeContext context)
+        {
+            ObservedRequestedBounds = context.RequestedBounds;
+            return [];
+        }
     }
 }

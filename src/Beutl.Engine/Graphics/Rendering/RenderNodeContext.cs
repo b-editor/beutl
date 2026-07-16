@@ -94,6 +94,7 @@ public class RenderNodeContext(
             Pool, root, useRenderCache, RenderIntent, OutputScale, MaxWorkingScale, Diagnostics, PullPurpose,
             RenderTargetFactory)
         {
+            InputSubtreeStableOverride = InputSubtreeStableOverride,
             RequestedBounds = requestedBounds ?? RequestedBounds,
         };
     }

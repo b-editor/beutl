@@ -88,4 +88,44 @@ public class FilterEffectRenderNodeTest
 
         Assert.That(result, Is.True);
     }
+
+    [Test]
+    public void FinalizerDispose_DoesNotPropagateChildCleanupFailure()
+    {
+        var effect = new Blur();
+        using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
+        var node = new FinalizerProbePlanNode(resource);
+        var child = new ThrowingDisposeNode();
+        node.AddChild(child);
+        try
+        {
+            Assert.DoesNotThrow(node.DisposeFromFinalizerForTest,
+                "cleanup failures must never escape the RenderNode finalizer path");
+            Assert.That(child.DisposeCount, Is.EqualTo(1));
+        }
+        finally
+        {
+            GC.SuppressFinalize(node);
+            GC.SuppressFinalize(child);
+        }
+    }
+
+    private sealed class FinalizerProbePlanNode(FilterEffect.Resource resource)
+        : PlanFilterEffectRenderNode(resource)
+    {
+        public void DisposeFromFinalizerForTest() => OnDispose(disposing: false);
+    }
+
+    private sealed class ThrowingDisposeNode : RenderNode
+    {
+        public int DisposeCount { get; private set; }
+
+        public override RenderNodeOperation[] Process(RenderNodeContext context) => [];
+
+        protected override void OnDispose(bool disposing)
+        {
+            DisposeCount++;
+            throw new InvalidOperationException("simulated child cleanup failure");
+        }
+    }
 }

@@ -112,6 +112,95 @@ public class CompositeFoldFactoryThrowLeakTests
     }
 
     [Test]
+    public void CompositeFold_StageCleanupThrows_ReleasesFreshComposedFilterAndAllLeases()
+    {
+        using var pool = new RenderTargetPool();
+        var builder = new EffectGraphBuilder(s_bounds, 1f, 1f, RenderIntent.Delivery);
+        builder.Split(SplitNodeDescriptor.Static(
+            emitter =>
+            {
+                for (int i = 0; i < 2; i++)
+                {
+                    emitter.Emit(emitter.Input.Bounds, session =>
+                        session.Inputs[0].Draw(session.OpenCanvas(), default));
+                }
+            },
+            branchCount: 2,
+            structuralToken: "composite-stage-cleanup-split"));
+        builder.ColorFilter(ColorFilterNodeDescriptor.Create(
+            SKColorFilter.CreateLumaColor,
+            structuralToken: "composite-stage-cleanup-first"));
+        builder.ColorFilter(ColorFilterNodeDescriptor.Create(
+            SKColorFilter.CreateLumaColor,
+            structuralToken: "composite-stage-cleanup-second"));
+        builder.Composite(CompositeNodeDescriptor.Create(
+            BlendMode.SrcOver,
+            structuralToken: "composite-stage-cleanup"));
+
+        using EffectGraph graph = builder.Build();
+        CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
+        FrameResources frame = EffectGraphCompiler.ResolveResources(plan, s_bounds, 1f);
+        var injected = new InvalidOperationException("composite folded-stage cleanup failed");
+        SKColorFilter? freshComposed = null;
+
+        using IDisposable hook = PlanExecutor.UseTestHooks(hooks =>
+        {
+            hooks.CompositeFoldCreated = filter => freshComposed = filter;
+            hooks.CompositeFoldStageDisposeFailure = injected;
+        });
+        InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
+            plan, frame, [Input()], 1f, 1f, float.PositiveInfinity,
+            diagnostics: null, pool, renderIntent: RenderIntent.Delivery));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(actual, Is.SameAs(injected));
+            Assert.That(freshComposed, Is.Not.Null);
+            Assert.That(freshComposed!.Handle, Is.EqualTo(IntPtr.Zero),
+                "the newly composed filter must be released if retiring an earlier stage fails");
+            Assert.That(pool.LiveLeaseCount, Is.Zero);
+        });
+    }
+
+    [TestCase(RenderIntent.Preview)]
+    [TestCase(RenderIntent.Delivery)]
+    public void CompositeAllocationMiss_PreservesFirstBranchCleanupFailureAndSweepsRemaining(
+        RenderIntent renderIntent)
+    {
+        using var pool = new RenderTargetPool();
+        pool.SetBackingFactoryFailingAfterForTest(successfulAcquires: 0);
+        var builder = new EffectGraphBuilder(s_bounds, 1f, 1f, renderIntent);
+        builder.Composite(CompositeNodeDescriptor.Create(
+            BlendMode.SrcOver,
+            structuralToken: "composite-allocation-cleanup"));
+        using EffectGraph graph = builder.Build();
+        CompiledPlan plan = EffectGraphCompiler.Compile(graph, diagnostics: null);
+        FrameResources frame = EffectGraphCompiler.ResolveResources(plan, s_bounds, 1f);
+        var injected = new InvalidOperationException("composite allocation branch cleanup failed");
+        bool secondDisposed = false;
+        RenderNodeOperation first = RenderNodeOperation.CreateLambda(
+            s_bounds,
+            _ => { },
+            onDispose: () => throw injected);
+        RenderNodeOperation second = RenderNodeOperation.CreateLambda(
+            s_bounds,
+            _ => { },
+            onDispose: () => secondDisposed = true);
+
+        InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => PlanExecutor.Execute(
+            plan, frame, [first, second], 1f, 1f, float.PositiveInfinity,
+            diagnostics: null, pool, renderIntent: renderIntent));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(actual, Is.SameAs(injected));
+            Assert.That(secondDisposed, Is.True,
+                "an earlier cleanup failure must not abandon later composite branches");
+            Assert.That(pool.LiveLeaseCount, Is.Zero);
+        });
+    }
+
+    [Test]
     public void Composite_BranchCleanupThrows_SweepsRemainingBranchesAndReleasesTarget()
     {
         using var pool = new RenderTargetPool();

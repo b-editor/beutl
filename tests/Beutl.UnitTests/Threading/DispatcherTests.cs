@@ -793,6 +793,48 @@ public class DispatcherTests
         });
     }
 
+    [Test]
+    public void TryDispatch_AcceptedCleanup_RunsAbortFallbackWhenShutdownDrainsQueue()
+    {
+        var dispatcher = Dispatcher.Spawn();
+        dispatcher.Thread.IsBackground = true;
+        using var entered = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        bool cleanupRan = false;
+        Exception? abortReason = null;
+        try
+        {
+            dispatcher.Dispatch(() =>
+            {
+                entered.Set();
+                release.Wait();
+            }, DispatchPriority.High);
+            Assert.That(entered.Wait(TimeSpan.FromSeconds(5)), Is.True);
+
+            bool accepted = dispatcher.TryDispatch(
+                () => cleanupRan = true,
+                ex => abortReason = ex,
+                DispatchPriority.Low);
+            Assert.That(accepted, Is.True, "the cleanup must first enter the dispatcher queue");
+
+            dispatcher.Shutdown();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(cleanupRan, Is.False, "shutdown drained the queued action before it could run");
+                Assert.That(abortReason, Is.InstanceOf<ObjectDisposedException>(),
+                    "accepted cleanup must receive a fallback callback when shutdown abandons it");
+            });
+        }
+        finally
+        {
+            release.Set();
+            if (!dispatcher.HasShutdownStarted)
+                dispatcher.Shutdown();
+            Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(5)), Is.True);
+        }
+    }
+
     // Regression: an unguarded negative `next - now` (timer slips past between flush and wait)
     // used to throw in CancelAfter and kill the dispatcher thread.
     [Test]

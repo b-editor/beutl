@@ -97,13 +97,14 @@ internal sealed class RenderTargetPool : IDisposable
     internal PrefixRetentionBudget PrefixRetentionBudget => _prefixRetentionBudget;
 
     /// <summary>Number of leases currently issued and not yet returned. Test/diagnostic surface.</summary>
-    public long LiveLeaseCount => _liveLeases;
+    public long LiveLeaseCount => Interlocked.Read(ref _liveLeases);
 
     /// <summary>High-water mark of concurrently live leases since the last <see cref="ResetPeakLiveLeases"/> (the FR-007 measured peak).</summary>
-    public long PeakLiveLeaseCount => _peakLiveLeases;
+    public long PeakLiveLeaseCount => Interlocked.Read(ref _peakLiveLeases);
 
     /// <summary>Restarts the peak-live window at the current live count; the plan executor calls this once per plan execution.</summary>
-    internal void ResetPeakLiveLeases() => _peakLiveLeases = _liveLeases;
+    internal void ResetPeakLiveLeases()
+        => Interlocked.Exchange(ref _peakLiveLeases, Interlocked.Read(ref _liveLeases));
 
     /// <summary>
     /// Acquires an RGBA16F buffer of exactly <paramref name="width"/> × <paramref name="height"/>:
@@ -203,9 +204,16 @@ internal sealed class RenderTargetPool : IDisposable
 
     private void OnLeaseIssued()
     {
-        _liveLeases++;
-        if (_liveLeases > _peakLiveLeases)
-            _peakLiveLeases = _liveLeases;
+        long liveLeases = Interlocked.Increment(ref _liveLeases);
+        long peakLiveLeases = Interlocked.Read(ref _peakLiveLeases);
+        while (liveLeases > peakLiveLeases)
+        {
+            long observed = Interlocked.CompareExchange(ref _peakLiveLeases, liveLeases, peakLiveLeases);
+            if (observed == peakLiveLeases)
+                break;
+
+            peakLiveLeases = observed;
+        }
     }
 
     /// <summary>
@@ -243,12 +251,9 @@ internal sealed class RenderTargetPool : IDisposable
         // (PooledTextureLease.Dispose runs on the caller thread); marshal like DisposeBacking does.
         if (_dispatcher != null && !_dispatcher.CheckAccess())
         {
-            if (_dispatcher.TryDispatch(() => Return(pooled, leaseGeneration)))
-                return;
-
-            // Once the owning dispatcher rejects work, no further pool reuse can occur. Balance the live lease and
-            // release the backing inline as a last resort; device teardown is already underway.
-            ReturnAfterDispatcherShutdown(pooled, leaseGeneration);
+            _dispatcher.TryDispatch(
+                () => Return(pooled, leaseGeneration),
+                _ => ReturnAfterDispatcherShutdown(pooled, leaseGeneration));
             return;
         }
 
@@ -258,7 +263,7 @@ internal sealed class RenderTargetPool : IDisposable
         if (pooled.IsPooled || pooled.Generation != leaseGeneration)
             return;
 
-        _liveLeases--;
+        Interlocked.Decrement(ref _liveLeases);
         if (_isDisposed)
         {
             DisposeBacking(pooled);
@@ -495,10 +500,8 @@ internal sealed class RenderTargetPool : IDisposable
     {
         if (_dispatcher == null || _dispatcher.CheckAccess())
             _disposeBacking(pooled);
-        else if (!_dispatcher.TryDispatch(() => _disposeBacking(pooled)))
-            // The dispatcher is stopping, so it can no longer run GPU-affine cleanup. Device teardown has begun;
-            // release inline rather than silently abandon the backing.
-            _disposeBacking(pooled);
+        else
+            _dispatcher.TryDispatch(() => _disposeBacking(pooled), _ => _disposeBacking(pooled));
     }
 
     private LinkedList<PooledSurface> GetBucket(BucketKey key)

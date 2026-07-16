@@ -249,7 +249,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
             node, true, RenderIntent, _currentDensity, MaxWorkingScale,
             pullPurpose: PullPurpose)
         {
-            RequestedBounds = new Rect(default, LogicalSize),
+            RequestedBounds = GetNestedRequestedBounds(),
         };
         processor.Render(this);
     }
@@ -260,9 +260,24 @@ public partial class ImmediateCanvas : IDisposable, IPopable
             node, true, RenderIntent, _currentDensity, MaxWorkingScale,
             pullPurpose: PullPurpose)
         {
-            RequestedBounds = new Rect(default, LogicalSize),
+            RequestedBounds = GetNestedRequestedBounds(),
         };
         processor.Render(this);
+    }
+
+    private Rect GetNestedRequestedBounds()
+    {
+        Size viewportSize = _currentBaseTransform.IsIdentity && SurfaceDensity != 1f
+            ? DeviceSize.ToSize(1f)
+            : LogicalSize;
+        var viewport = new Rect(default, viewportSize);
+        if (!_currentBaseTransform.TryInvert(out Matrix inverseBase))
+            return Rect.Invalid;
+
+        Matrix currentToViewport = _currentTransform.Append(inverseBase);
+        return currentToViewport.TryInvert(out Matrix viewportToCurrent)
+            ? viewport.TransformToAABB(viewportToCurrent)
+            : Rect.Invalid;
     }
 
     public void DrawBackdrop(IBackdrop backdrop)

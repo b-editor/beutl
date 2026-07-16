@@ -323,8 +323,15 @@ internal sealed class QueueSynchronizationContext(Dispatcher dispatcher, TimePro
     }
 
     internal bool TryPost(DispatchPriority priority, Action operation, CancellationToken ct)
+        => TryPost(priority, operation, ct, abort: null);
+
+    internal bool TryPost(
+        DispatchPriority priority,
+        Action operation,
+        CancellationToken ct,
+        Action<Exception>? abort)
     {
-        DispatcherOperation queued = new(operation, priority, ct);
+        DispatcherOperation queued = new(operation, priority, ct, abort);
         if (TryPost(queued))
             return true;
 
