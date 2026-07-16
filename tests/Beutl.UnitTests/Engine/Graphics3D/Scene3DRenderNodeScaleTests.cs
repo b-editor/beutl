@@ -3,6 +3,7 @@ using Beutl.Graphics;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics3D;
+using Beutl.Media.Proxy;
 using Beutl.UnitTests.Engine.Graphics.Backend;
 using Moq;
 
@@ -12,6 +13,37 @@ namespace Beutl.UnitTests.Engine.Graphics3D;
 [TestFixture]
 public class Scene3DRenderNodeScaleTests
 {
+    [Test]
+    public void CreateCompositionContext_PreservesAmbientPolicyAndProxyRouting()
+    {
+        var scene = new Scene3D();
+        using var resource = (Scene3D.Resource)scene.ToResource(new CompositionContext(
+            TimeSpan.FromSeconds(2),
+            RenderIntent.Preview,
+            RenderPullPurpose.Frame)
+        {
+            DisableResourceShare = true,
+            PreferProxy = true,
+            PreferredProxyPreset = ProxyPreset.Half,
+        });
+        var renderContext = new RenderNodeContext(
+            [],
+            RenderIntent.Delivery,
+            pullPurpose: RenderPullPurpose.Auxiliary);
+
+        CompositionContext context = Scene3DRenderNode.CreateCompositionContext(resource, renderContext);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(context.Time, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(context.RenderIntent, Is.EqualTo(RenderIntent.Delivery));
+            Assert.That(context.PullPurpose, Is.EqualTo(RenderPullPurpose.Auxiliary));
+            Assert.That(context.DisableResourceShare, Is.True);
+            Assert.That(context.PreferProxy, Is.True);
+            Assert.That(context.PreferredProxyPreset, Is.EqualTo(ProxyPreset.Half));
+        });
+    }
+
     [Test]
     public void Process_AuxiliaryPullDoesNotPopulateFrameRenderer()
     {
@@ -75,6 +107,55 @@ public class Scene3DRenderNodeScaleTests
                     "auxiliary pulls must not advertise a 3D scene when the current context cannot render it");
                 Assert.That(resource.Renderer, Is.Null);
             });
+        }
+        finally
+        {
+            Scene3DRenderNode.SetGraphicsContextProviderForTest(null);
+        }
+    }
+
+    [Test]
+    public void Process_HoldsSceneOperationUntilResourceUseCompletes()
+    {
+        var unsupported = new Mock<IGraphicsContext>(MockBehavior.Strict);
+        unsupported.SetupGet(x => x.Supports3DRendering).Returns(false);
+        var scene = new Scene3D();
+        scene.RenderWidth.CurrentValue = 32;
+        scene.RenderHeight.CurrentValue = 32;
+        using var resource = (Scene3D.Resource)scene.ToResource(CompositionContext.Default);
+        using var node = new Scene3DRenderNode(resource);
+        Exception? concurrentCleanupFailure = null;
+        Scene3DRenderNode.SetGraphicsContextProviderForTest(() =>
+        {
+            try
+            {
+                Task.Run(resource.Dispose).GetAwaiter().GetResult();
+            }
+            catch (Exception ex)
+            {
+                concurrentCleanupFailure = ex;
+            }
+
+            return unsupported.Object;
+        });
+
+        try
+        {
+            RenderNodeOperation[] operations = node.Process(new RenderNodeContext(
+                [], RenderIntent.Preview, outputScale: 1f));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(operations, Is.Empty);
+                Assert.That(concurrentCleanupFailure, Is.TypeOf<InvalidOperationException>());
+                Assert.That(resource.IsDisposed, Is.False,
+                    "cleanup rejected during rendering must remain retryable");
+            });
+
+            Assert.DoesNotThrow(resource.Dispose);
+            Assert.That(resource.IsDisposed, Is.True);
+            Assert.Throws<ObjectDisposedException>(() => resource.Renderer = null,
+                "a renderer must never be published into a terminal resource");
         }
         finally
         {

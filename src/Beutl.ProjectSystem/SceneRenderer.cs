@@ -26,7 +26,7 @@ public sealed class SceneRenderer : Renderer
         bool forceOriginalSource)
         : base(scene.FrameSize.Width, scene.FrameSize.Height, renderIntent, renderScale, maxWorkingScale)
     {
-        _compositor = new SceneCompositor(scene)
+        _compositor = new SceneCompositor(scene, renderIntent)
         {
             DisableResourceShare = disableResourceShare,
             ForceOriginalSource = forceOriginalSource,

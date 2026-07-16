@@ -1,5 +1,8 @@
 ﻿using Beutl.Composition;
+using Beutl.Engine;
+using Beutl.Graphics;
 using Beutl.Graphics.Effects;
+using Beutl.Graphics.Rendering;
 using Beutl.Media.Proxy;
 
 namespace Beutl.UnitTests.Engine.Graphics;
@@ -72,5 +75,69 @@ public sealed class DelayAnimationEffectProxyContextTests
             ref updateOnly);
 
         Assert.That(resource.Version, Is.GreaterThan(before));
+    }
+
+    [Test]
+    public void NestedBranch_UsesBuilderRenderPolicyForDelayedChildContext()
+    {
+        var child = new PolicyCaptureEffect();
+        var effect = new DelayAnimationEffect();
+        effect.Effect.CurrentValue = child;
+        using var resource = (DelayAnimationEffect.Resource)effect.ToResource(
+            new CompositionContext(TimeSpan.Zero));
+        var builder = new EffectGraphBuilder(
+            new Rect(0, 0, 16, 16),
+            outputScale: 1f,
+            workingScale: 1f,
+            renderIntent: RenderIntent.Delivery,
+            pullPurpose: RenderPullPurpose.Auxiliary);
+        effect.Describe(builder, resource);
+        using EffectGraph graph = builder.Build();
+        var nested = (NestedGraphNodeDescriptor)graph.Nodes.Single().Descriptor;
+        var branchBuilder = new EffectGraphBuilder(
+            new Rect(0, 0, 16, 16),
+            outputScale: 1f,
+            workingScale: 1f,
+            renderIntent: RenderIntent.Delivery,
+            pullPurpose: RenderPullPurpose.Auxiliary);
+
+        nested.DescribeBranch(branchBuilder, 0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(child.ObservedRenderIntent, Is.EqualTo(RenderIntent.Delivery));
+            Assert.That(child.ObservedPullPurpose, Is.EqualTo(RenderPullPurpose.Auxiliary));
+        });
+    }
+}
+
+[SuppressResourceClassGeneration]
+internal sealed class PolicyCaptureEffect : FilterEffect
+{
+    public RenderIntent ObservedRenderIntent { get; private set; } = RenderIntent.Preview;
+
+    public RenderPullPurpose ObservedPullPurpose { get; private set; } = RenderPullPurpose.Frame;
+
+    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
+    {
+    }
+
+    public override Resource ToResource(CompositionContext context)
+    {
+        var resource = new Resource();
+        bool updateOnly = false;
+        resource.Update(this, context, ref updateOnly);
+        return resource;
+    }
+
+    public new sealed class Resource : FilterEffect.Resource
+    {
+        public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
+        {
+            base.Update(obj, context, ref updateOnly);
+            var effect = (PolicyCaptureEffect)obj;
+            effect.ObservedRenderIntent = context.RenderIntent;
+            effect.ObservedPullPurpose = context.PullPurpose;
+        }
     }
 }

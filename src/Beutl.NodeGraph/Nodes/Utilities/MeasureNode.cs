@@ -27,7 +27,7 @@ public partial class MeasureNode : GraphNode
 
     public partial class Resource
     {
-        public override void Update(GraphCompositionContext context)
+        protected override void UpdateCore(GraphCompositionContext context)
         {
             if (Input is RenderNode renderNode)
             {

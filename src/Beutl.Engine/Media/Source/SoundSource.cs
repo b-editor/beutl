@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using Beutl.Audio.Graph;
 using Beutl.Composition;
 using Beutl.Engine;
+using Beutl.Graphics.Rendering;
 using Beutl.Media.Decoding;
 using Beutl.Media.Music;
 
@@ -35,86 +36,123 @@ public sealed class SoundSource : MediaSource
     public override Resource ToResource(CompositionContext context)
     {
         var resource = new Resource();
-        bool updateOnly = true;
-        resource.Update(this, context, ref updateOnly);
-        return resource;
+        try
+        {
+            bool updateOnly = true;
+            resource.Update(this, context, ref updateOnly);
+            return resource;
+        }
+        catch
+        {
+            try
+            {
+                resource.Dispose();
+            }
+            catch
+            {
+                // Preserve the acquisition failure while reclaiming any partially initialized reader.
+            }
+
+            throw;
+        }
     }
 
     public new sealed class Resource : MediaSource.Resource
     {
         private Counter<MediaReader>? _counter;
+        private TimeSpan _duration;
         private Uri? _loadedUri;
+        private int _numChannels;
+        private int _sampleRate;
 
-        public TimeSpan Duration { get; private set; }
+        public TimeSpan Duration => ReadGeneratedResourceState(ref _duration);
 
-        public int SampleRate { get; private set; }
+        public int SampleRate => ReadGeneratedResourceState(ref _sampleRate);
 
-        public int NumChannels { get; private set; }
+        public int NumChannels => ReadGeneratedResourceState(ref _numChannels);
 
-        public MediaReader? MediaReader => _counter?.Value;
+        public MediaReader? MediaReader => ReadGeneratedResourceState(
+            ref _counter,
+            static counter => counter?.Value);
 
         public bool Read(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
         {
-            if (IsDisposed || _counter == null)
+            using GeneratedResourceOperationLease operation = BeginExclusiveResourceOperation();
+            Counter<MediaReader>? counter = _counter;
+            if (counter == null)
             {
                 sound = null;
                 return false;
             }
 
-            return _counter.Value.ReadAudio(start, length, out sound);
+            return counter.Value.ReadAudio(start, length, out sound);
         }
 
         public bool Read(TimeSpan start, TimeSpan length, [NotNullWhen(true)] out Ref<IPcm>? sound)
         {
-            if (IsDisposed || _counter == null)
+            using GeneratedResourceOperationLease operation = BeginExclusiveResourceOperation();
+            Counter<MediaReader>? counter = _counter;
+            if (counter == null)
             {
                 sound = null;
                 return false;
             }
 
-            return _counter.Value.ReadAudio(ToSamples(start), ToSamples(length), out sound);
+            return counter.Value.ReadAudio(ToSamples(start), ToSamples(length), out sound);
         }
 
         public bool Read(TimeSpan start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
         {
-            if (IsDisposed || _counter == null)
+            using GeneratedResourceOperationLease operation = BeginExclusiveResourceOperation();
+            Counter<MediaReader>? counter = _counter;
+            if (counter == null)
             {
                 sound = null;
                 return false;
             }
 
-            return _counter.Value.ReadAudio(ToSamples(start), length, out sound);
+            return counter.Value.ReadAudio(ToSamples(start), length, out sound);
         }
 
         public bool Read(int start, TimeSpan length, [NotNullWhen(true)] out Ref<IPcm>? sound)
         {
-            if (IsDisposed || _counter == null)
+            using GeneratedResourceOperationLease operation = BeginExclusiveResourceOperation();
+            Counter<MediaReader>? counter = _counter;
+            if (counter == null)
             {
                 sound = null;
                 return false;
             }
 
-            return _counter.Value.ReadAudio(start, ToSamples(length), out sound);
+            return counter.Value.ReadAudio(start, ToSamples(length), out sound);
         }
 
         private int ToSamples(TimeSpan timeSpan)
         {
             // Compute in long and clamp to a valid int offset, so a time past int.MaxValue samples
             // does not wrap to a negative offset.
-            long samples = AudioMath.TimeToSampleIndex(timeSpan, SampleRate);
+            long samples = AudioMath.TimeToSampleIndex(timeSpan, _sampleRate);
             return (int)Math.Clamp(samples, 0, int.MaxValue);
         }
 
         public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
         {
-            base.Update(obj, context, ref updateOnly);
             var soundSource = (SoundSource)obj;
+            using GeneratedResourceOperationLease operation = BeginExclusiveResourceOperation(soundSource);
+            base.Update(obj, context, ref updateOnly);
 
             // Load media reader if URI changed
-            if (_loadedUri != soundSource.Uri && soundSource.HasUri)
+            bool retryPreviewFailureForDelivery = context.RenderIntent == RenderIntent.Delivery
+                && _loadedUri == soundSource.Uri
+                && _counter == null;
+            if ((_loadedUri != soundSource.Uri || retryPreviewFailureForDelivery) && soundSource.HasUri)
             {
-                _counter?.Release();
+                Counter<MediaReader>? oldCounter = _counter;
                 _counter = null;
+                _duration = default;
+                _sampleRate = 0;
+                _numChannels = 0;
+                oldCounter?.Release();
 
                 Counter<MediaReader>? shared = null;
                 if (!context.DisableResourceShare)
@@ -130,29 +168,51 @@ public sealed class SoundSource : MediaSource
                 }
                 else
                 {
+                    MediaReader? reader = null;
+                    Counter<MediaReader>? acquired = null;
                     try
                     {
-                        var reader = MediaReader.Open(soundSource.Uri.LocalPath, new(MediaMode.Audio));
-                        _counter = new Counter<MediaReader>(reader, null);
+                        reader = MediaReader.Open(soundSource.Uri.LocalPath, new(MediaMode.Audio));
+                        acquired = new Counter<MediaReader>(reader, null);
+                        reader = null;
                         // DisableResourceShare 時は WeakReference を書き換えない。
                         // 他 Renderer（プレビュー側）の共有カウンタを
                         // エンコード専用カウンタで汚染してしまうため。
                         if (!context.DisableResourceShare)
                         {
-                            Volatile.Write(ref soundSource._mediaReaderRef, new WeakReference<Counter<MediaReader>>(_counter));
+                            Volatile.Write(
+                                ref soundSource._mediaReaderRef,
+                                new WeakReference<Counter<MediaReader>>(acquired));
                         }
+
+                        _counter = acquired;
+                        acquired = null;
                     }
                     catch
                     {
+                        try
+                        {
+                            acquired?.Release();
+                            reader?.Dispose();
+                        }
+                        catch
+                        {
+                            // Preserve the decoder/resource acquisition failure. Preview still degrades to silence,
+                            // while Delivery rethrows that exact primary failure below.
+                        }
+
                         _counter = null;
+                        if (context.RenderIntent == RenderIntent.Delivery)
+                            throw;
+
                         _loadedUri = soundSource.Uri;
                         return;
                     }
                 }
 
-                Duration = TimeSpan.FromSeconds(_counter.Value.AudioInfo.Duration.ToDouble());
-                SampleRate = _counter.Value.AudioInfo.SampleRate;
-                NumChannels = _counter.Value.AudioInfo.NumChannels;
+                _duration = TimeSpan.FromSeconds(_counter.Value.AudioInfo.Duration.ToDouble());
+                _sampleRate = _counter.Value.AudioInfo.SampleRate;
+                _numChannels = _counter.Value.AudioInfo.NumChannels;
                 _loadedUri = soundSource.Uri;
 
                 if (!updateOnly)
@@ -165,9 +225,37 @@ public sealed class SoundSource : MediaSource
 
         protected override void Dispose(bool disposing)
         {
-            base.Dispose(disposing);
-            _counter?.Release();
-            _counter = null;
+            Counter<MediaReader>? counter = null;
+            if (disposing)
+            {
+                counter = _counter;
+                _counter = null;
+                _loadedUri = null;
+                _duration = default;
+                _sampleRate = 0;
+                _numChannels = 0;
+            }
+
+            Exception? failure = null;
+            try
+            {
+                counter?.Release();
+            }
+            catch (Exception ex)
+            {
+                failure = ex;
+            }
+
+            try
+            {
+                base.Dispose(disposing);
+            }
+            catch (Exception ex)
+            {
+                failure ??= ex;
+            }
+
+            ThrowIfCleanupFailed(failure);
         }
     }
 }

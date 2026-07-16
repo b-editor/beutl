@@ -66,10 +66,10 @@ public sealed partial class Plane3D : Object3D
             {
                 if (_meshResource.GetOriginal() != _mesh)
                 {
-                    var oldMesh = _meshResource;
-                    _meshResource = _mesh.ToResource(context);
-                    oldMesh.Dispose();
+                    PlaneMesh.Resource replacement = _mesh.ToResource(context);
+                    var cleanupFailure = ReplaceOwnedResource(ref _meshResource, replacement);
                     Version++;
+                    cleanupFailure?.Throw();
                 }
                 else
                 {
@@ -84,11 +84,22 @@ public sealed partial class Plane3D : Object3D
             }
         }
 
-        partial void PostDispose(bool disposing)
+        partial void PrepareResourceDispose(
+            bool disposing,
+            EngineObject.Resource.GeneratedResourceCleanupContext context)
         {
-            _meshResource?.Dispose();
+            if (disposing)
+                context.Reserve(_meshResource);
         }
 
-        public override Mesh.Resource? GetMesh() => _meshResource;
+        partial void PostDispose(bool disposing)
+        {
+            if (!disposing)
+                return;
+
+            _meshResource = null;
+        }
+
+        public override Mesh.Resource? GetMesh() => ReadGeneratedResourceState(ref _meshResource);
     }
 }

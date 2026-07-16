@@ -383,6 +383,10 @@ internal static class PlanExecutor
                     builder.Abort();
                 }
             }
+
+            // The live set was fixed before branch execution, so engine-owned nested effects can prune sparse
+            // per-branch state in this same pull. Run after every live branch has finished using its resource.
+            pass.BranchesCompleted?.Invoke(liveBranchIndices);
         }
         catch
         {

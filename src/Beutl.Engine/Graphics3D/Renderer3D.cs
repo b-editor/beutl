@@ -22,6 +22,7 @@ internal sealed class Renderer3D : IRenderer3D
 {
     private readonly IGraphicsContext _context;
     private readonly IShaderCompiler _shaderCompiler;
+    private bool _initialized;
     private bool _disposed;
 
     // Render passes
@@ -57,6 +58,10 @@ internal sealed class Renderer3D : IRenderer3D
 
     public void Initialize(int width, int height)
     {
+        ThrowIfDisposed();
+        if (_initialized)
+            throw new InvalidOperationException($"{nameof(Renderer3D)} is already initialized.");
+
         // Commit Width/Height only after all allocations succeed, so a failure is retryable.
         ShadowManager? shadowManager = null;
         GeometryPass? geometryPass = null;
@@ -88,13 +93,16 @@ internal sealed class Renderer3D : IRenderer3D
         }
         catch
         {
-            outputTexture?.Dispose();
-            flipPass?.Dispose();
-            gizmoPass?.Dispose();
-            transparentPass?.Dispose();
-            lightingPass?.Dispose();
-            geometryPass?.Dispose();
-            shadowManager?.Dispose();
+            // Preserve the allocation/initialization failure while still sweeping every local. Native pass
+            // teardown is fallible, so a cleanup throw must not strand the resources that follow it.
+            Exception? ignoredCleanupFailure = null;
+            CaptureDisposeFailure(outputTexture, ref ignoredCleanupFailure);
+            CaptureDisposeFailure(flipPass, ref ignoredCleanupFailure);
+            CaptureDisposeFailure(gizmoPass, ref ignoredCleanupFailure);
+            CaptureDisposeFailure(transparentPass, ref ignoredCleanupFailure);
+            CaptureDisposeFailure(lightingPass, ref ignoredCleanupFailure);
+            CaptureDisposeFailure(geometryPass, ref ignoredCleanupFailure);
+            CaptureDisposeFailure(shadowManager, ref ignoredCleanupFailure);
             throw;
         }
 
@@ -107,10 +115,12 @@ internal sealed class Renderer3D : IRenderer3D
         _outputTexture = outputTexture;
         Width = width;
         Height = height;
+        _initialized = true;
     }
 
     public void Resize(int width, int height)
     {
+        ThrowIfNotInitialized();
         if (Width == width && Height == height)
             return;
 
@@ -145,24 +155,43 @@ internal sealed class Renderer3D : IRenderer3D
         }
         catch
         {
-            outputTexture?.Dispose();
-            if (gizmoPass != _gizmoPass) gizmoPass?.Dispose();
-            if (transparentPass != _transparentPass) transparentPass?.Dispose();
-            if (lightingPass != _lightingPass) lightingPass?.Dispose();
+            // The resize failure is primary. Dispose every newly-created local without allowing an earlier
+            // cleanup failure to mask it or skip the later resources. Retained passes are owned by this renderer
+            // and are released when Scene3DRenderNode discards the inconsistent renderer.
+            Exception? ignoredCleanupFailure = null;
+            CaptureDisposeFailure(outputTexture, ref ignoredCleanupFailure);
+            if (gizmoPass != _gizmoPass) CaptureDisposeFailure(gizmoPass, ref ignoredCleanupFailure);
+            if (transparentPass != _transparentPass)
+                CaptureDisposeFailure(transparentPass, ref ignoredCleanupFailure);
+            if (lightingPass != _lightingPass) CaptureDisposeFailure(lightingPass, ref ignoredCleanupFailure);
             throw;
         }
 
-        if (_lightingPass != lightingPass) _lightingPass?.Dispose();
-        if (_transparentPass != transparentPass) _transparentPass?.Dispose();
-        if (_gizmoPass != gizmoPass) _gizmoPass?.Dispose();
-        _outputTexture?.Dispose();
+        LightingPass? previousLightingPass = _lightingPass;
+        TransparentPass? previousTransparentPass = _transparentPass;
+        GizmoPass? previousGizmoPass = _gizmoPass;
+        ITexture2D? previousOutputTexture = _outputTexture;
 
+        // Commit the complete new state before fallible old-state teardown. If cleanup reports a failure, the
+        // renderer remains internally coherent and its caller can safely discard it through Dispose().
         _lightingPass = lightingPass;
         _transparentPass = transparentPass;
         _gizmoPass = gizmoPass;
         _outputTexture = outputTexture;
         Width = width;
         Height = height;
+
+        Exception? cleanupFailure = null;
+        if (previousLightingPass != lightingPass)
+            CaptureDisposeFailure(previousLightingPass, ref cleanupFailure);
+        if (previousTransparentPass != transparentPass)
+            CaptureDisposeFailure(previousTransparentPass, ref cleanupFailure);
+        if (previousGizmoPass != gizmoPass)
+            CaptureDisposeFailure(previousGizmoPass, ref cleanupFailure);
+        if (previousOutputTexture != outputTexture)
+            CaptureDisposeFailure(previousOutputTexture, ref cleanupFailure);
+
+        Graphics3DDisposal.ThrowIfFailed(cleanupFailure);
     }
 
     public void Render(
@@ -178,7 +207,7 @@ internal sealed class Renderer3D : IRenderer3D
         Object3D.Resource? gizmoTarget = null,
         GizmoMode gizmoMode = GizmoMode.None)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        ThrowIfNotInitialized();
 
         if (_geometryPass == null || _lightingPass == null || _transparentPass == null ||
             _gizmoPass == null || _flipPass == null || _shadowManager == null)
@@ -368,17 +397,19 @@ internal sealed class Renderer3D : IRenderer3D
 
     public SKSurface? CreateSkiaSurface()
     {
+        ThrowIfNotInitialized();
         return _outputTexture?.CreateSkiaSurface();
     }
 
     public byte[] DownloadPixels()
     {
+        ThrowIfNotInitialized();
         return _outputTexture?.DownloadPixels() ?? [];
     }
 
     public Object3D.Resource? HitTest(Point screenPoint)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        ThrowIfNotInitialized();
 
         if (_lastCamera == null || _lastObjects == null || _lastObjects.Count == 0)
             return null;
@@ -393,7 +424,7 @@ internal sealed class Renderer3D : IRenderer3D
     /// <returns>A list representing the path from root to the hit object, or empty if none.</returns>
     public IReadOnlyList<Object3D.Resource> HitTestWithPath(Point screenPoint)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        ThrowIfNotInitialized();
 
         if (_lastCamera == null || _lastObjects == null || _lastObjects.Count == 0)
             return [];
@@ -403,7 +434,7 @@ internal sealed class Renderer3D : IRenderer3D
 
     public GizmoAxis GizmoHitTest(Point screenPoint, Object3D.Resource? gizmoTarget, GizmoMode gizmoMode)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        ThrowIfNotInitialized();
 
         if (_lastCamera == null || gizmoTarget == null || gizmoMode == GizmoMode.None)
             return GizmoAxis.None;
@@ -426,15 +457,52 @@ internal sealed class Renderer3D : IRenderer3D
     {
         if (_disposed) return;
         _disposed = true;
+        _initialized = false;
 
-        _flipPass?.Dispose();
-        _gizmoPass?.Dispose();
-        _transparentPass?.Dispose();
-        _lightingPass?.Dispose();
-        _geometryPass?.Dispose();
-        _shadowManager?.Dispose();
-        _outputTexture?.Dispose();
+        FlipPass? flipPass = _flipPass;
+        GizmoPass? gizmoPass = _gizmoPass;
+        TransparentPass? transparentPass = _transparentPass;
+        LightingPass? lightingPass = _lightingPass;
+        GeometryPass? geometryPass = _geometryPass;
+        ShadowManager? shadowManager = _shadowManager;
+        ITexture2D? outputTexture = _outputTexture;
 
-        (_shaderCompiler as IDisposable)?.Dispose();
+        // Detach first so the disposed renderer never retains partially torn-down native resources.
+        _flipPass = null;
+        _gizmoPass = null;
+        _transparentPass = null;
+        _lightingPass = null;
+        _geometryPass = null;
+        _shadowManager = null;
+        _outputTexture = null;
+        _lastCamera = null;
+        _lastObjects = null;
+
+        Exception? cleanupFailure = null;
+        CaptureDisposeFailure(flipPass, ref cleanupFailure);
+        CaptureDisposeFailure(gizmoPass, ref cleanupFailure);
+        CaptureDisposeFailure(transparentPass, ref cleanupFailure);
+        CaptureDisposeFailure(lightingPass, ref cleanupFailure);
+        CaptureDisposeFailure(geometryPass, ref cleanupFailure);
+        CaptureDisposeFailure(shadowManager, ref cleanupFailure);
+        CaptureDisposeFailure(outputTexture, ref cleanupFailure);
+        CaptureDisposeFailure(_shaderCompiler as IDisposable, ref cleanupFailure);
+
+        GC.SuppressFinalize(this);
+
+        Graphics3DDisposal.ThrowIfFailed(cleanupFailure);
+    }
+
+    private static void CaptureDisposeFailure(IDisposable? resource, ref Exception? failure)
+        => Graphics3DDisposal.Capture(resource, ref failure);
+
+    private void ThrowIfDisposed()
+        => ObjectDisposedException.ThrowIf(_disposed, this);
+
+    private void ThrowIfNotInitialized()
+    {
+        ThrowIfDisposed();
+        if (!_initialized)
+            throw new InvalidOperationException($"{nameof(Renderer3D)} is not initialized.");
     }
 }

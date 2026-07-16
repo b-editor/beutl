@@ -296,25 +296,95 @@ public abstract partial class GraphNode : EngineObject
 
     public partial class Resource
     {
-        public int SlotIndex { get; internal set; }
-        public IItemValue[] ItemValues { get; internal set; } = [];
-        public IRenderer? Renderer { get; internal set; }
-        public Dictionary<INodeMember, int> ItemIndexMap { get; set; } = new();
+        private int _slotIndex = -1;
+        private IReadOnlyList<IItemValue> _itemValues = Array.Empty<IItemValue>();
+        private IRenderer? _renderer;
+        private IReadOnlyDictionary<INodeMember, int> _itemIndexMap
+            = new Dictionary<INodeMember, int>();
 
-        public virtual void Initialize(GraphCompositionContext context)
+        public int SlotIndex => ReadGeneratedResourceState(ref _slotIndex);
+
+        public IReadOnlyList<IItemValue> ItemValues => ReadGeneratedResourceState(ref _itemValues);
+
+        public IRenderer? Renderer => ReadGeneratedResourceState(ref _renderer);
+
+        public IReadOnlyDictionary<INodeMember, int> ItemIndexMap
+            => ReadGeneratedResourceState(ref _itemIndexMap);
+
+        internal void InstallGraphState(
+            int slotIndex,
+            IItemValue[] itemValues,
+            Dictionary<INodeMember, int> itemIndexMap)
+        {
+            ArgumentNullException.ThrowIfNull(itemValues);
+            ArgumentNullException.ThrowIfNull(itemIndexMap);
+            using GeneratedResourceOperationLease operation = BeginExclusiveResourceOperation();
+            _slotIndex = slotIndex;
+            _itemValues = Array.AsReadOnly(itemValues);
+            _itemIndexMap = new System.Collections.ObjectModel.ReadOnlyDictionary<INodeMember, int>(itemIndexMap);
+        }
+
+        internal void SetRenderer(IRenderer? renderer)
+        {
+            using GeneratedResourceOperationLease operation = BeginExclusiveResourceOperation();
+            _renderer = renderer;
+        }
+
+        public void Initialize(GraphCompositionContext context)
+        {
+            using GeneratedResourceOperationLease operation = BeginExclusiveResourceOperation();
+            InitializeCore(context);
+        }
+
+        protected virtual void InitializeCore(GraphCompositionContext context)
         {
         }
 
-        public virtual void Uninitialize()
+        public void Uninitialize()
+        {
+            using GeneratedResourceOperationLease operation = BeginExclusiveResourceOperation();
+            UninitializeCore();
+        }
+
+        internal void UninitializeAfterResourcesReserved()
+        {
+            ValidateGeneratedResourceAccess();
+            UninitializeCore();
+        }
+
+        protected virtual void UninitializeCore()
         {
         }
 
-        public virtual void BindNodePortValues()
+        public void BindNodePortValues()
+        {
+            using GeneratedResourceOperationLease operation = BeginExclusiveResourceOperation();
+            BindNodePortValuesCore();
+        }
+
+        protected virtual void BindNodePortValuesCore()
         {
         }
 
-        public virtual void Update(GraphCompositionContext context)
+        public void Update(GraphCompositionContext context)
         {
+            using GeneratedResourceOperationLease operation = BeginExclusiveResourceOperation();
+            UpdateCore(context);
+        }
+
+        protected virtual void UpdateCore(GraphCompositionContext context)
+        {
+        }
+
+        partial void PostDispose(bool disposing)
+        {
+            if (!disposing)
+                return;
+
+            _slotIndex = -1;
+            _itemValues = Array.Empty<IItemValue>();
+            _renderer = null;
+            _itemIndexMap = new Dictionary<INodeMember, int>();
         }
     }
 }

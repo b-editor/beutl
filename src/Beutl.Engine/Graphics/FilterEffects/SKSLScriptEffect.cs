@@ -222,9 +222,17 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
 
         partial void PostDispose(bool disposing)
         {
-            _shader?.Dispose();
+            if (!disposing)
+                return;
+
+            SKSLShader? shader = _shader;
             _shader = null;
+            _compiledScript = null;
             _compileError = null;
+
+            Exception? failure = null;
+            DisposeOwnedResources(ref failure, shader);
+            ThrowIfCleanupFailed(failure);
         }
     }
 }

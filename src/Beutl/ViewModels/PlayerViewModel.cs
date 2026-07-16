@@ -1,6 +1,7 @@
 ﻿using System.Globalization;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
+using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
 using Beutl.Audio;
 using Beutl.Audio.Composing;
@@ -1505,7 +1506,12 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         PreviewInvalidated?.Invoke(this, EventArgs.Empty);
     }
 
-    private void DrawBoundaries(Renderer renderer, SKCanvas canvas, Size canvasSize, bool recalculate = false)
+    private void DrawBoundaries(
+        SceneRenderer renderer,
+        TimeSpan time,
+        SKCanvas canvas,
+        Size canvasSize,
+        bool recalculate = false)
     {
         int? selected = _editorSelection.SelectedLayerNumber.Value;
         if (selected.HasValue)
@@ -1517,9 +1523,12 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 strokeScale = 1;
 
             // フレームキャッシュを使う場合はBoundsを再計算する必要がある
+            CompositionFrame auxiliaryFrame = renderer.Compositor.EvaluateGraphics(
+                time,
+                RenderPullPurpose.Auxiliary);
             Rect[] boundary = recalculate
-                ? renderer.RecalculateBoundaries(selected.Value)
-                : renderer.GetBoundaries(selected.Value);
+                ? renderer.RecalculateBoundaries(auxiliaryFrame, selected.Value)
+                : renderer.GetBoundaries(auxiliaryFrame, selected.Value);
             if (boundary.Length > 0)
             {
                 using var paint = new SKPaint
@@ -1679,7 +1688,9 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                                 // geometry, not the last onion sample's.
                                 renderer.UpdateFrame(renderer.Compositor.EvaluateGraphics(time));
 
-                                DrawBoundaries(renderer, canvas, new(currentBitmap.Width, currentBitmap.Height), true);
+                                DrawBoundaries(
+                                    renderer, time, canvas,
+                                    new(currentBitmap.Width, currentBitmap.Height), true);
                             }
 
                             // Ownership moves to bitmapRef here; this is the last statement in the
@@ -1723,7 +1734,9 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
                             using (var canvas = new SKCanvas(bitmap.SKBitmap))
                             {
-                                DrawBoundaries(renderer, canvas, new(bitmap.Width, bitmap.Height), true);
+                                DrawBoundaries(
+                                    renderer, time, canvas,
+                                    new(bitmap.Width, bitmap.Height), true);
                             }
                         }
                     }
@@ -1742,7 +1755,9 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
                         using (var canvas = new SKCanvas(bitmap.SKBitmap))
                         {
-                            DrawBoundaries(renderer, canvas, new(bitmap.Width, bitmap.Height), true);
+                            DrawBoundaries(
+                                renderer, time, canvas,
+                                new(bitmap.Width, bitmap.Height), true);
                         }
                     }
 
@@ -1845,25 +1860,73 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         {
             if (Scene == null) throw new Exception("Scene is null.");
             SceneRenderer renderer = EditViewModel.Renderer.Value;
-            var resource = drawable.ToResource(new CompositionContext(CurrentFrame.Value));
-            PixelSize frameSize = renderer.FrameSize;
-            using var root = new DrawableRenderNode(resource);
-            using (var context = new GraphicsContext2D(root, frameSize.ToSize(1)))
+            Drawable.Resource? resource = null;
+            DrawableRenderNode? root = null;
+            RenderNodeOperation[]? operations = null;
+            Exception? failure = null;
+            PixelSize result = default;
+            try
             {
-                drawable.Render(context, resource);
+                resource = drawable.ToResource(new CompositionContext(
+                    CurrentFrame.Value,
+                    RenderIntent.Preview,
+                    RenderPullPurpose.Auxiliary));
+                PixelSize frameSize = renderer.FrameSize;
+                root = new DrawableRenderNode(resource);
+                using (var context = new GraphicsContext2D(root, frameSize.ToSize(1)))
+                {
+                    drawable.Render(context, resource);
+                }
+
+                var processor = new RenderNodeProcessor(
+                    root, false, RenderIntent.Preview, pullPurpose: RenderPullPurpose.Auxiliary);
+                operations = processor.PullToRoot();
+                var bounds = Rect.Empty;
+                foreach (RenderNodeOperation operation in operations)
+                {
+                    bounds = bounds.Union(operation.Bounds);
+                }
+
+                result = PixelRect.FromRect(bounds).Size;
+            }
+            catch (Exception ex)
+            {
+                failure = ex;
+            }
+            finally
+            {
+                if (operations != null)
+                {
+                    foreach (RenderNodeOperation operation in operations)
+                    {
+                        TryDisposeMeasurementResource(operation, ref failure);
+                    }
+                }
+
+                TryDisposeMeasurementResource(root, ref failure);
+                TryDisposeMeasurementResource(resource, ref failure);
             }
 
-            var processor = new RenderNodeProcessor(
-                root, false, RenderIntent.Preview, pullPurpose: RenderPullPurpose.Auxiliary);
-            var bounds = Rect.Empty;
-            foreach (var op in processor.PullToRoot())
-            {
-                bounds = bounds.Union(op.Bounds);
-                op.Dispose();
-            }
+            if (failure != null)
+                ExceptionDispatchInfo.Capture(failure).Throw();
 
-            return PixelRect.FromRect(bounds).Size;
+            return result;
         });
+    }
+
+    internal static void TryDisposeMeasurementResource(IDisposable? resource, ref Exception? failure)
+    {
+        if (resource == null)
+            return;
+
+        try
+        {
+            resource.Dispose();
+        }
+        catch (Exception ex)
+        {
+            failure ??= ex;
+        }
     }
 
     /// <summary>
@@ -1878,7 +1941,10 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             if (Scene == null) throw new Exception("Scene is null.");
             // TODO: Rendererに特定のDrawableのみを描画するクラスを追加する
             SceneRenderer renderer = EditViewModel.Renderer.Value;
-            var resource = drawable.ToResource(new CompositionContext(CurrentFrame.Value));
+            using Drawable.Resource resource = drawable.ToResource(new CompositionContext(
+                CurrentFrame.Value,
+                RenderIntent.Delivery,
+                RenderPullPurpose.Frame));
             PixelSize frameSize = renderer.FrameSize;
             using var root = new DrawableRenderNode(resource);
             using (var context = new GraphicsContext2D(root, frameSize.ToSize(1)))

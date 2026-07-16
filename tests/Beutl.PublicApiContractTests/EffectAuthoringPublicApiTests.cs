@@ -1,7 +1,10 @@
 ﻿using System.Reflection;
+using Beutl.Composition;
+using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
 using SkiaSharp;
 
@@ -17,9 +20,17 @@ public sealed class EffectAuthoringPublicApiTests
     [Test]
     public void PluginEffect_CanOverrideDescribeAndReferenceEveryAuthoringBoundary()
     {
+        var effect = new PublicAuthoringEffect();
+        effect.PluginValue.CurrentValue = 0.25f;
+        using PublicAuthoringEffect.Resource generatedResource = effect.ToResource(CompositionContext.Default);
+
         Assert.Multiple(() =>
         {
             Assert.That(typeof(PublicAuthoringEffect).GetMethod(nameof(FilterEffect.Describe))!.IsPublic, Is.True);
+            Assert.That(generatedResource, Is.TypeOf<PublicAuthoringEffect.Resource>(),
+                "the public gate must consume the source-generated concrete Resource type");
+            Assert.That(generatedResource.PluginValue, Is.EqualTo(0.25f),
+                "the generated Resource must snapshot an out-of-tree IProperty value");
             Assert.That(typeof(PublicCustomRenderNode).IsSubclassOf(typeof(FilterEffectRenderNode)), Is.True);
             Assert.That(typeof(PublicPlanRenderNode).IsSubclassOf(typeof(PlanFilterEffectRenderNode)), Is.True);
             Assert.That(typeof(PublicCustomResource).IsSubclassOf(typeof(CustomRenderNodeFilterEffect.Resource)),
@@ -53,6 +64,15 @@ public sealed class EffectAuthoringPublicApiTests
             Assert.That(typeof(PassUniformContext).GetProperty(nameof(PassUniformContext.PullPurpose)), Is.Not.Null);
             Assert.That(typeof(ImmediateCanvas).GetProperty(nameof(ImmediateCanvas.PullPurpose)), Is.Not.Null);
             Assert.That(typeof(BrushConstructor).GetProperty(nameof(BrushConstructor.PullPurpose)), Is.Not.Null);
+            Assert.That(typeof(RenderNodeCacheHelper).GetMethods()
+                .Where(static method => method.Name == nameof(RenderNodeCacheHelper.MakeCache))
+                .SelectMany(static method => method.GetParameters())
+                .Any(static parameter => parameter.ParameterType == typeof(RenderPullPurpose)), Is.True,
+                "public cache warm-up must retain an explicit purpose parameter so auxiliary requests fail loudly");
+            Assert.That(typeof(RenderNodeCache).GetProperty(nameof(RenderNodeCache.CachedRenderIntent)), Is.Not.Null);
+            Assert.That(typeof(RenderNodeCache).GetProperty(nameof(RenderNodeCache.CachedPullPurpose)), Is.Not.Null);
+            Assert.That(typeof(RenderNodeCache).GetMethod(nameof(RenderNodeCache.IsCachedFor)), Is.Not.Null);
+            Assert.That(typeof(RenderNodeCache).GetMethod(nameof(RenderNodeCache.IsCacheRejectedFor)), Is.Not.Null);
             Assert.That(typeof(RenderNodeProcessor).GetConstructors()
                 .SelectMany(static constructor => constructor.GetParameters())
                 .Any(static parameter => parameter.ParameterType.Name == "RenderTargetPool"), Is.False,
@@ -66,43 +86,26 @@ public sealed class EffectAuthoringPublicApiTests
         });
     }
 
-    public abstract class PublicAuthoringEffect : FilterEffect
+    [Test]
+    public void PersistentRenderNodeCacheWarmup_IsFrameOnlyForNonFriendCallers()
     {
-        public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
-        {
-            builder.Shader(ShaderNodeDescriptor.Snippet(
-                "uniform float pluginValue; half4 apply(half4 c) { return c * pluginValue; }",
-                static uniforms => uniforms.Add(new PublicUniformBinding("pluginValue"))));
-            builder.ColorFilter(ColorFilterNodeDescriptor.Create(
-                static () => SKColorFilter.CreateLumaColor(), "public-color-filter"));
-            builder.SkiaFilter(SkiaFilterNodeDescriptor.Create(
-                static inner => inner, BoundsContract.Identity, "public-skia-filter"));
-            builder.Compute(ComputeNodeDescriptor.Create(
-                static context =>
-                {
-                    _ = context.SourceBounds;
-                    _ = context.TargetBounds;
-                    _ = context.SourceScale;
-                    _ = context.WorkingScale;
-                    context.CopySourceToDestination();
-                },
-                passCount: 1,
-                BoundsContract.FullFrame, ComputeFallbackPolicy.Identity,
-                structuralToken: "public-compute"));
-            builder.Geometry(GeometryNodeDescriptor.Create(
-                static _ => { }, BoundsContract.Identity, "public-geometry"));
-            builder.Split(SplitNodeDescriptor.Static(
-                static emitter => emitter.Emit(emitter.Input.Bounds, static _ => { }),
-                branchCount: 1,
-                structuralToken: "public-split"));
-            builder.Composite(CompositeNodeDescriptor.Create(
-                BlendMode.SrcOver, structuralToken: "public-composite"));
-            builder.NestedGraph(NestedGraphNodeDescriptor.Create(
-                static (nested, _) => nested.Saturate(1f), "public-nested-graph"));
+        using var node = new PublicCacheProbeNode();
 
-            if (resource is PublicCustomResource custom)
-                builder.Effect(custom);
-        }
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<NotSupportedException>(() => RenderNodeCacheHelper.MakeCache(
+                node,
+                RenderCacheOptions.Disabled,
+                RenderIntent.Preview,
+                pullPurpose: RenderPullPurpose.Auxiliary));
+            Assert.Throws<NotSupportedException>(() => RenderNodeCacheHelper.CreateDefaultCache(
+                node,
+                RenderCacheOptions.Default,
+                RenderIntent.Preview,
+                pullPurpose: RenderPullPurpose.Auxiliary));
+            Assert.That(node.Cache.IsCached, Is.False);
+            Assert.That(node.Cache.IsCacheRejected, Is.False);
+        });
     }
 
     public sealed class PublicCustomResource : CustomRenderNodeFilterEffect.Resource
@@ -166,5 +169,94 @@ public sealed class EffectAuthoringPublicApiTests
         _ = builder.Track(graphOwnedDisposable);
         _ = new ChildBinding("publicCachedChild", callerOwnedChild);
         _ = ChildBinding.Deferred("publicDeferredChild", deferredFactory);
+    }
+
+    // Compile-only coverage for the direct opaque-node appender and a runtime-count split. Containers normally use
+    // builder.Effect(customResource); both lower-level factories remain public for authors that need them explicitly.
+    private static void ReferenceDirectGraphBoundaries(
+        EffectGraphBuilder builder,
+        PublicCustomResource customResource,
+        Action<ISplitEmitter> dynamicSplit)
+    {
+        _ = NestedGraphNodeDescriptor.Create(
+            static (_, _) => { },
+            null);
+        builder.Split(SplitNodeDescriptor.Dynamic(dynamicSplit, "public-dynamic-split"));
+        builder.CustomRenderNode(CustomRenderNodeDescriptor.Create(customResource));
+    }
+
+    // Compile-only coverage for explicit frame-cache policy from a non-friend plugin assembly.
+    private static void ReferenceFrameCacheWarmup(RenderNode node)
+    {
+        RenderNodeCacheHelper.MakeCache(
+            node,
+            RenderCacheOptions.Default,
+            RenderIntent.Preview,
+            pullPurpose: RenderPullPurpose.Frame);
+        RenderNodeCacheHelper.CreateDefaultCache(
+            node,
+            RenderCacheOptions.Default,
+            RenderIntent.Preview,
+            pullPurpose: RenderPullPurpose.Frame);
+        _ = node.Cache.CachedRenderIntent;
+        _ = node.Cache.CachedPullPurpose;
+        _ = node.Cache.IsCachedFor(RenderIntent.Preview, RenderPullPurpose.Frame);
+        _ = node.Cache.IsCacheRejectedFor(RenderIntent.Preview, RenderPullPurpose.Frame);
+    }
+
+    private sealed class PublicCacheProbeNode : RenderNode
+    {
+        public override RenderNodeOperation[] Process(RenderNodeContext context) => [];
+    }
+}
+
+// This must remain concrete, partial, property-backed, and top-level. Those constraints make this project a real
+// non-friend compile gate for the same source-generator path an out-of-tree effect package uses.
+public sealed partial class PublicAuthoringEffect : FilterEffect
+{
+    public PublicAuthoringEffect()
+    {
+        ScanProperties<PublicAuthoringEffect>();
+    }
+
+    public IProperty<float> PluginValue { get; } = Property.CreateAnimatable(1f);
+
+    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
+    {
+        var r = (Resource)resource;
+        builder.Shader(ShaderNodeDescriptor.Snippet(
+            "uniform float pluginValue; half4 apply(half4 c) { return c * pluginValue; }",
+            uniforms => uniforms.Float("pluginValue", r.PluginValue)));
+        builder.ColorFilter(ColorFilterNodeDescriptor.Create(
+            static () => SKColorFilter.CreateLumaColor(), "public-color-filter"));
+        builder.SkiaFilter(SkiaFilterNodeDescriptor.Create(
+            static inner => inner, BoundsContract.Identity, "public-skia-filter"));
+        builder.Compute(ComputeNodeDescriptor.Create(
+            static context =>
+            {
+                _ = context.SourceBounds;
+                _ = context.TargetBounds;
+                _ = context.SourceScale;
+                _ = context.WorkingScale;
+                context.CopySourceToDestination();
+            },
+            passCount: 1,
+            BoundsContract.FullFrame, ComputeFallbackPolicy.Identity,
+            structuralToken: "public-compute"));
+        builder.Geometry(GeometryNodeDescriptor.Create(
+            static _ => { }, BoundsContract.Identity, "public-geometry"));
+        builder.Split(SplitNodeDescriptor.Static(
+            static emitter => emitter.Emit(emitter.Input.Bounds, static _ => { }),
+            branchCount: 1,
+            structuralToken: "public-split"));
+        builder.Composite(CompositeNodeDescriptor.Create(
+            BlendMode.SrcOver, structuralToken: "public-composite"));
+        builder.NestedGraph(NestedGraphNodeDescriptor.CreateStateful(
+            static (nested, _) => nested.Saturate(1f),
+            static liveBranchOrdinals => _ = liveBranchOrdinals.Count,
+            "public-stateful-nested-graph"));
+
+        if (resource is EffectAuthoringPublicApiTests.PublicCustomResource custom)
+            builder.Effect(custom);
     }
 }

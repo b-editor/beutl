@@ -6,6 +6,7 @@ using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Media.Proxy;
 using Beutl.NodeGraph;
+using Beutl.NodeGraph.Composition;
 using Beutl.NodeGraph.Nodes;
 
 namespace Beutl.UnitTests.NodeGraph;
@@ -16,7 +17,7 @@ namespace Beutl.UnitTests.NodeGraph;
 public class NodeGraphFilterEffectRenderNodeTests
 {
     // Graph: FilterEffectInputNode -> FilterEffectNode<ScaleProbeEffect> -> OutputNode.
-    private static NodeGraphFilterEffect.Resource BuildGraphResource()
+    private static NodeGraphFilterEffect.Resource BuildGraphResource(RenderPolicyCaptureNode? policyCapture = null)
     {
         var effect = new NodeGraphFilterEffect();
         GraphModel model = effect.Model.CurrentValue!;
@@ -27,6 +28,10 @@ public class NodeGraphFilterEffectRenderNodeTests
         model.Nodes.Add(inputNode);
         model.Nodes.Add(probeNode);
         model.Nodes.Add(outputNode);
+        if (policyCapture != null)
+        {
+            model.Nodes.Add(policyCapture);
+        }
 
         // The render-chain ports are not exposed publicly: Items[0] = Output, Items[1] = list Input
         // (per-property value inputs follow at Items[2+]). Reach them by index.
@@ -81,9 +86,10 @@ public class NodeGraphFilterEffectRenderNodeTests
     }
 
     [Test]
-    public void Process_ForwardsAuxiliaryPull_IntoGraphOutputSubtree()
+    public void Process_ForwardsRenderPolicy_IntoGraphContextAndOutputSubtree()
     {
-        using NodeGraphFilterEffect.Resource resource = BuildGraphResource();
+        var policyCapture = new RenderPolicyCaptureNode();
+        using NodeGraphFilterEffect.Resource resource = BuildGraphResource(policyCapture);
         using FilterEffectRenderNode node = resource.RenderNodeFactory.Create(resource);
         ScaleProbeRenderNode.SawAuxiliaryPull = false;
         var context = new RenderNodeContext(
@@ -93,8 +99,15 @@ public class NodeGraphFilterEffectRenderNodeTests
         RenderNodeOperation[] ops = node.Process(context);
         try
         {
-            Assert.That(ScaleProbeRenderNode.SawAuxiliaryPull, Is.True,
-                "the hosted processor must preserve hit-test/bounds-only execution policy");
+            Assert.Multiple(() =>
+            {
+                Assert.That(policyCapture.ObservedRenderIntent, Is.EqualTo(RenderIntent.Delivery),
+                    "graph resources must observe the parent preview/delivery policy");
+                Assert.That(policyCapture.ObservedPullPurpose, Is.EqualTo(RenderPullPurpose.Auxiliary),
+                    "graph resources must observe the parent frame/auxiliary pull purpose");
+                Assert.That(ScaleProbeRenderNode.SawAuxiliaryPull, Is.True,
+                    "the hosted processor must preserve hit-test/bounds-only execution policy");
+            });
         }
         finally
         {
@@ -137,6 +150,52 @@ public class NodeGraphFilterEffectRenderNodeTests
     }
 
     [Test]
+    public async Task Process_HoldsGraphResourceLeaseUntilEvaluationAndPullComplete()
+    {
+        var host = new NodeGraphFilterEffect();
+        GraphModel model = host.Model.CurrentValue!;
+        var inputNode = new FilterEffectInputNode();
+        var blockingNode = new FilterEffectNode<BlockingProcessEffect>();
+        var outputNode = new OutputNode();
+        model.Nodes.Add(inputNode);
+        model.Nodes.Add(blockingNode);
+        model.Nodes.Add(outputNode);
+        model.Connect((IInputPort)blockingNode.Items[1], inputNode.Output);
+        model.Connect(outputNode.InputPort, (IOutputPort)blockingNode.Items[0]);
+
+        var resource = (NodeGraphFilterEffect.Resource)host.ToResource(CompositionContext.Default);
+        using FilterEffectRenderNode node = resource.RenderNodeFactory.Create(resource);
+        BlockingProcessRenderNode.Reset();
+        Task<RenderNodeOperation[]> processTask = Task.Run(
+            () => node.Process(new RenderNodeContext([SourceOp(1f)], RenderIntent.Delivery)));
+
+        Assert.That(BlockingProcessRenderNode.Entered.Wait(TimeSpan.FromSeconds(10)), Is.True);
+        var addedNode = new TopologyInitializationProbeNode();
+        try
+        {
+            Assert.Throws<InvalidOperationException>(resource.Dispose);
+            Assert.That(resource.IsDisposed, Is.False,
+                "a failed concurrent cleanup attempt must leave the graph resource installed");
+            Assert.DoesNotThrow(() => model.Nodes.Add(addedNode),
+                "topology invalidation must not throw after the graph collection has already changed");
+            Assert.That(addedNode.InitializeCount, Is.Zero);
+        }
+        finally
+        {
+            BlockingProcessRenderNode.Continue.Set();
+        }
+
+        RenderNodeOperation[] operations = await processTask.WaitAsync(TimeSpan.FromSeconds(10));
+        DisposeAll(operations);
+        bool updateOnly = false;
+        resource.Update(host, CompositionContext.Default, ref updateOnly);
+        Assert.That(addedNode.InitializeCount, Is.EqualTo(1),
+            "the topology request recorded during Process must force the next snapshot rebuild");
+        Assert.DoesNotThrow(resource.Dispose);
+        Assert.That(resource.IsDisposed, Is.True);
+    }
+
+    [Test]
     public void Process_NoOutput_ClearsInputWrapperBeforeReturningPassthrough()
     {
         var effect = new NodeGraphFilterEffect();
@@ -149,9 +208,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         RenderNodeOperation input = SourceOp(1f);
         RenderNodeOperation[] outputs = node.Process(new RenderNodeContext([input], RenderIntent.Delivery));
 
-        int slot = resource.Snapshot.FindSlotIndex(inputNode);
-        var inputResource = (FilterEffectInputNode.Resource)resource.Snapshot.GetResource(slot)!;
-        RenderNodeOperation[] retained = inputResource.Wrapper.Process(new RenderNodeContext([], RenderIntent.Delivery));
+        RenderNodeOperation[] retained = PullRetainedInputOperations(resource, inputNode);
         try
         {
             Assert.Multiple(() =>
@@ -202,9 +259,7 @@ public class NodeGraphFilterEffectRenderNodeTests
 
         Assert.Throws<InvalidOperationException>(() => node.Process(new RenderNodeContext([input], RenderIntent.Delivery)));
 
-        int slot = resource.Snapshot.FindSlotIndex(inputNode);
-        var inputResource = (FilterEffectInputNode.Resource)resource.Snapshot.GetResource(slot)!;
-        RenderNodeOperation[] retained = inputResource.Wrapper.Process(new RenderNodeContext([], RenderIntent.Delivery));
+        RenderNodeOperation[] retained = PullRetainedInputOperations(resource, inputNode);
         try
         {
             Assert.Multiple(() =>
@@ -259,9 +314,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(
             () => node.Process(new RenderNodeContext([first, second], RenderIntent.Delivery)));
 
-        int slot = resource.Snapshot.FindSlotIndex(inputNode);
-        var inputResource = (FilterEffectInputNode.Resource)resource.Snapshot.GetResource(slot)!;
-        RenderNodeOperation[] retained = inputResource.Wrapper.Process(new RenderNodeContext([], RenderIntent.Delivery));
+        RenderNodeOperation[] retained = PullRetainedInputOperations(resource, inputNode);
         try
         {
             Assert.Multiple(() =>
@@ -322,9 +375,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(
             () => node.Process(new RenderNodeContext([first, second], RenderIntent.Delivery)));
 
-        int slot = resource.Snapshot.FindSlotIndex(inputNode);
-        var inputResource = (FilterEffectInputNode.Resource)resource.Snapshot.GetResource(slot)!;
-        RenderNodeOperation[] retained = inputResource.Wrapper.Process(new RenderNodeContext([], RenderIntent.Delivery));
+        RenderNodeOperation[] retained = PullRetainedInputOperations(resource, inputNode);
         try
         {
             Assert.Multiple(() =>
@@ -379,6 +430,35 @@ public class NodeGraphFilterEffectRenderNodeTests
         foreach (RenderNodeOperation op in ops)
         {
             op.Dispose();
+        }
+    }
+
+    private static RenderNodeOperation[] PullRetainedInputOperations(
+        NodeGraphFilterEffect.Resource resource,
+        FilterEffectInputNode inputNode)
+    {
+        return resource.UseEvaluationState(state =>
+        {
+            int slot = state.Snapshot.FindSlotIndex(inputNode);
+            var inputResource = (FilterEffectInputNode.Resource)state.Snapshot.GetResource(slot)!;
+            return inputResource.Wrapper.Process(new RenderNodeContext([], RenderIntent.Delivery));
+        });
+    }
+}
+
+internal sealed partial class RenderPolicyCaptureNode : GraphNode
+{
+    public RenderIntent ObservedRenderIntent { get; private set; } = RenderIntent.Preview;
+
+    public RenderPullPurpose ObservedPullPurpose { get; private set; } = RenderPullPurpose.Frame;
+
+    public partial class Resource
+    {
+        protected override void UpdateCore(GraphCompositionContext context)
+        {
+            var node = GetOriginal();
+            node.ObservedRenderIntent = context.RenderIntent;
+            node.ObservedPullPurpose = context.PullPurpose;
         }
     }
 }
@@ -560,5 +640,50 @@ internal sealed class ThrowingProcessRenderNode(FilterEffect.Resource resource) 
             operation.Dispose();
 
         throw new InvalidOperationException("simulated later output failure");
+    }
+}
+
+[SuppressResourceClassGeneration]
+internal sealed partial class BlockingProcessEffect : CustomRenderNodeFilterEffect
+{
+    public override Resource ToResource(CompositionContext context)
+    {
+        var resource = new Resource();
+        bool updateOnly = false;
+        resource.Update(this, context, ref updateOnly);
+        return resource;
+    }
+
+    public new sealed class Resource : CustomRenderNodeFilterEffect.Resource
+    {
+        private static readonly FilterEffectRenderNodeFactory s_factory =
+            FilterEffectRenderNodeFactory.Of<Resource, BlockingProcessRenderNode>(
+                static resource => new BlockingProcessRenderNode(resource));
+
+        public override FilterEffectRenderNodeFactory RenderNodeFactory => s_factory;
+    }
+}
+
+internal sealed class BlockingProcessRenderNode(FilterEffect.Resource resource) : FilterEffectRenderNode(resource)
+{
+    public static ManualResetEventSlim Entered { get; private set; } = new();
+
+    public static ManualResetEventSlim Continue { get; private set; } = new();
+
+    public static void Reset()
+    {
+        Entered.Dispose();
+        Continue.Dispose();
+        Entered = new ManualResetEventSlim();
+        Continue = new ManualResetEventSlim();
+    }
+
+    public override RenderNodeOperation[] Process(RenderNodeContext context)
+    {
+        Entered.Set();
+        if (!Continue.Wait(TimeSpan.FromSeconds(10)))
+            throw new TimeoutException("The blocked graph effect pull was not released.");
+
+        return context.Input;
     }
 }

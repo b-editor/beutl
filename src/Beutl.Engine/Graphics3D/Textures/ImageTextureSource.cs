@@ -111,14 +111,16 @@ public sealed partial class ImageTextureSource : TextureSource
 
         private void DisposeGpuTexture()
         {
-            _gpuTexture?.Dispose();
+            ITexture2D? gpuTexture = _gpuTexture;
             _gpuTexture = null;
             _gpuTextureVersion = -1;
+            gpuTexture?.Dispose();
         }
 
         partial void PostDispose(bool disposing)
         {
-            DisposeGpuTexture();
+            if (disposing)
+                DisposeGpuTexture();
         }
     }
 }

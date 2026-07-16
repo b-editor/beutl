@@ -392,10 +392,16 @@ public partial class PlayerView : UserControl
             TimeSpan ctxTime = time;
             snap = RenderThread.Dispatcher.Invoke(() =>
             {
-                BtlRect? bounds = renderer.GetBoundary(target);
+                CompositionFrame auxiliaryFrame = renderer.Compositor.EvaluateGraphics(
+                    ctxTime,
+                    RenderPullPurpose.Auxiliary);
+                BtlRect? bounds = renderer.GetBoundary(auxiliaryFrame, target);
                 if (bounds is not { Width: > 0, Height: > 0 }) return null;
 
-                var ctx = new CompositionContext(ctxTime);
+                var ctx = new CompositionContext(
+                    ctxTime,
+                    RenderIntent.Preview,
+                    RenderPullPurpose.Auxiliary);
                 if (_transformHandleResource == null || _transformHandleResourceTarget != target)
                 {
                     _transformHandleResource?.Dispose();

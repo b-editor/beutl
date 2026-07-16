@@ -1,9 +1,16 @@
-﻿using Beutl.Graphics.Rendering.Cache;
+﻿using System.Runtime.ExceptionServices;
+using Beutl.Graphics.Rendering.Cache;
 
 namespace Beutl.Graphics.Rendering;
 
 public abstract class RenderNode : IDisposable
 {
+    private const int ActiveDisposeState = 0;
+    private const int DisposingState = 1;
+    private const int DisposedState = 2;
+
+    private int _disposeState;
+
     protected RenderNode()
     {
         Cache = new RenderNodeCache(this);
@@ -11,14 +18,24 @@ public abstract class RenderNode : IDisposable
 
     ~RenderNode()
     {
-        if (!IsDisposed)
+        if (!TryBeginDispose())
+            return;
+
+        try
         {
             OnDispose(false);
-            IsDisposed = true;
+        }
+        catch
+        {
+            // Finalizers must never allow cleanup failures to escape onto the finalizer thread.
+        }
+        finally
+        {
+            CompleteDispose();
         }
     }
 
-    public bool IsDisposed { get; private set; }
+    public bool IsDisposed => Volatile.Read(ref _disposeState) == DisposedState;
 
     public bool HasChanges { get; set; }
 
@@ -28,13 +45,48 @@ public abstract class RenderNode : IDisposable
 
     public void Dispose()
     {
-        if (!IsDisposed)
+        if (!TryBeginDispose())
+            return;
+
+        Exception? failure = null;
+        try
         {
             OnDispose(true);
+        }
+        catch (Exception ex)
+        {
+            failure = ex;
+        }
+
+        try
+        {
             Cache.Dispose();
-            IsDisposed = true;
+        }
+        catch (Exception ex)
+        {
+            failure ??= ex;
+        }
+        finally
+        {
+            CompleteDispose();
             GC.SuppressFinalize(this);
         }
+
+        if (failure != null)
+        {
+            ExceptionDispatchInfo.Capture(failure).Throw();
+        }
+    }
+
+    private bool TryBeginDispose()
+        => Interlocked.CompareExchange(
+            ref _disposeState,
+            DisposingState,
+            ActiveDisposeState) == ActiveDisposeState;
+
+    private void CompleteDispose()
+    {
+        Volatile.Write(ref _disposeState, DisposedState);
     }
 
     protected virtual void OnDispose(bool disposing)

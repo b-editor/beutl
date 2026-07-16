@@ -31,6 +31,7 @@ public abstract partial class FilterEffect : EngineObject
             PlanFilterEffectRenderNodeFactory.Of<Resource, PlanFilterEffectRenderNode>(
                 static resource => new PlanFilterEffectRenderNode(resource));
         private static long s_nextStructuralId;
+        internal static Action<Resource>? StructuralIdBeforePublishForTests;
         private long _structuralId;
 
         /// <summary>
@@ -42,9 +43,14 @@ public abstract partial class FilterEffect : EngineObject
         {
             get
             {
-                if (_structuralId == 0)
-                    _structuralId = System.Threading.Interlocked.Increment(ref s_nextStructuralId);
-                return _structuralId;
+                long published = Volatile.Read(ref _structuralId);
+                if (published != 0)
+                    return published;
+
+                long candidate = Interlocked.Increment(ref s_nextStructuralId);
+                Volatile.Read(ref StructuralIdBeforePublishForTests)?.Invoke(this);
+                published = Interlocked.CompareExchange(ref _structuralId, candidate, 0);
+                return published == 0 ? candidate : published;
             }
         }
 

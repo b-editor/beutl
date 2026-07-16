@@ -79,8 +79,16 @@ public sealed class ItemValue<T> : IReadOnlyItemValue<T>
 
     public void Dispose()
     {
-        _disposer?.Invoke();
+        Action? disposer = _disposer;
         _disposer = null;
         _receiver = null;
+        try
+        {
+            disposer?.Invoke();
+        }
+        finally
+        {
+            Value = default;
+        }
     }
 }

@@ -99,7 +99,8 @@ public sealed record SplitNodeDescriptor : EffectNodeDescriptor
 /// <summary>
 /// A fan-in node (feature 004, data-model §1, contract A2): the current branch set is composited back into one
 /// output by drawing each branch (at its per-input offset) under <see cref="BlendMode"/>. Fusion never crosses a
-/// composite. The blend mode and branch count are structural.
+/// composite. The blend mode, input-offset count, and structural token participate in plan identity. The branch set
+/// comes from the current runtime topology; a dynamic split's execution-time branch count is not structural.
 /// </summary>
 public sealed record CompositeNodeDescriptor : EffectNodeDescriptor
 {

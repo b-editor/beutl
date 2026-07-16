@@ -307,6 +307,7 @@ internal sealed record CompositePass(BlendMode BlendMode, ImmutableArray<Point> 
 /// </summary>
 internal sealed record NestedGraphPass(
     Action<EffectGraphBuilder, int> DescribeBranch,
+    Action<IReadOnlySet<int>>? BranchesCompleted,
     NestedGraphNodePlanCache PlanCache) : CompiledPass
 {
     /// <inheritdoc/>

@@ -1,11 +1,18 @@
-﻿using Beutl.Media.Source;
+﻿using System.Runtime.ExceptionServices;
+using Beutl.Media.Source;
 using SkiaSharp;
 
 namespace Beutl.Graphics.Rendering;
 
 public abstract class RenderNodeOperation : IDisposable
 {
-    public bool IsDisposed { get; private set; }
+    private const int ActiveDisposeState = 0;
+    private const int DisposingState = 1;
+    private const int DisposedState = 2;
+
+    private int _disposeState;
+
+    public bool IsDisposed => Volatile.Read(ref _disposeState) == DisposedState;
 
     // Invalidになることはない
     public abstract Rect Bounds { get; }
@@ -21,10 +28,21 @@ public abstract class RenderNodeOperation : IDisposable
 
     public void Dispose()
     {
-        if (!IsDisposed)
+        if (Interlocked.CompareExchange(
+                ref _disposeState,
+                DisposingState,
+                ActiveDisposeState) != ActiveDisposeState)
+        {
+            return;
+        }
+
+        try
         {
             OnDispose(true);
-            IsDisposed = true;
+        }
+        finally
+        {
+            Volatile.Write(ref _disposeState, DisposedState);
             GC.SuppressFinalize(this);
         }
     }
@@ -73,13 +91,28 @@ public abstract class RenderNodeOperation : IDisposable
     {
         return CreateLambda(child.Bounds, render, hitTest: hitTest ?? child.HitTest, onDispose: () =>
         {
+            Exception? failure = null;
             try
             {
                 child.Dispose();
             }
-            finally
+            catch (Exception ex)
+            {
+                failure = ex;
+            }
+
+            try
             {
                 onDispose?.Invoke();
+            }
+            catch (Exception ex)
+            {
+                failure ??= ex;
+            }
+
+            if (failure != null)
+            {
+                ExceptionDispatchInfo.Capture(failure).Throw();
             }
         }, effectiveScale: child.EffectiveScale);
     }

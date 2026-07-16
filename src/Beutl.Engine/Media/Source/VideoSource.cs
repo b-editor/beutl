@@ -41,14 +41,34 @@ public sealed class VideoSource : MediaSource
     public override Resource ToResource(CompositionContext context)
     {
         var resource = new Resource();
-        bool updateOnly = true;
-        resource.Update(this, context, ref updateOnly);
-        return resource;
+        try
+        {
+            bool updateOnly = true;
+            resource.Update(this, context, ref updateOnly);
+            return resource;
+        }
+        catch
+        {
+            try
+            {
+                resource.Dispose();
+            }
+            catch
+            {
+                // Preserve the acquisition failure while reclaiming any partially initialized reader.
+            }
+
+            throw;
+        }
     }
 
     public new sealed class Resource : MediaSource.Resource
     {
         private Counter<MediaReader>? _counter;
+        private TimeSpan _duration;
+        private Rational _frameRate;
+        private PixelSize _frameSize;
+        private PixelSize _logicalFrameSize;
         private Uri? _loadedUri;
         private bool _loadedPreferProxy;
         private ProxyPreset _loadedPreferredProxyPreset;
@@ -57,49 +77,59 @@ public sealed class VideoSource : MediaSource
         // this source. Kept as the path key, not a live fingerprint, so a missing original still tracks
         // versions and reopens when a proxy is registered for its path.
         private string? _proxyVersionSource;
+        private ProxyResolution? _proxyResolution;
 
-        public TimeSpan Duration { get; private set; }
+        public TimeSpan Duration => ReadGeneratedResourceState(ref _duration);
 
-        public Rational FrameRate { get; private set; }
+        public Rational FrameRate => ReadGeneratedResourceState(ref _frameRate);
 
-        public PixelSize FrameSize { get; private set; }
+        public PixelSize FrameSize => ReadGeneratedResourceState(ref _frameSize);
 
-        public PixelSize LogicalFrameSize { get; private set; }
+        public PixelSize LogicalFrameSize => ReadGeneratedResourceState(ref _logicalFrameSize);
 
-        public ProxyResolution? ProxyResolution { get; private set; }
+        public ProxyResolution? ProxyResolution => ReadGeneratedResourceState(ref _proxyResolution);
 
-        public float SupplyDensity => ProxyResolution?.SupplyDensity ?? 1f;
+        public float SupplyDensity => ReadGeneratedResourceState(
+            ref _proxyResolution,
+            static resolution => resolution?.SupplyDensity ?? 1f);
 
-        public MediaReader? MediaReader => _counter?.Value;
+        public MediaReader? MediaReader => ReadGeneratedResourceState(
+            ref _counter,
+            static counter => counter?.Value);
 
         public bool Read(TimeSpan frame, [NotNullWhen(true)] out Ref<Bitmap>? bitmap)
         {
-            if (IsDisposed || _counter == null)
+            using GeneratedResourceOperationLease operation = BeginExclusiveResourceOperation();
+            Counter<MediaReader>? counter = _counter;
+            if (counter == null)
             {
                 bitmap = null;
                 return false;
             }
 
-            double frameRate = FrameRate.ToDouble();
+            double frameRate = _frameRate.ToDouble();
             double frameNum = frame.TotalSeconds * frameRate;
-            return _counter.Value.ReadVideo((int)frameNum, out bitmap);
+            return counter.Value.ReadVideo((int)frameNum, out bitmap);
         }
 
         public bool Read(int frame, [NotNullWhen(true)] out Ref<Bitmap>? bitmap)
         {
-            if (IsDisposed || _counter == null)
+            using GeneratedResourceOperationLease operation = BeginExclusiveResourceOperation();
+            Counter<MediaReader>? counter = _counter;
+            if (counter == null)
             {
                 bitmap = null;
                 return false;
             }
 
-            return _counter.Value.ReadVideo(frame, out bitmap);
+            return counter.Value.ReadVideo(frame, out bitmap);
         }
 
         public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
         {
-            base.Update(obj, context, ref updateOnly);
             var videoSource = (VideoSource)obj;
+            using GeneratedResourceOperationLease operation = BeginExclusiveResourceOperation(videoSource);
+            base.Update(obj, context, ref updateOnly);
             IProxyResolver? proxyResolver = context.PreferProxy ? DecoderRegistry.ProxyResolver : null;
             // Compare only THIS source's proxy version so a proxy change to another
             // source does not force this reader to reopen (FR-023).
@@ -114,9 +144,19 @@ public sealed class VideoSource : MediaSource
                     || _loadedProxyResolverVersion != proxyResolverVersion)
                 && videoSource.HasUri)
             {
-                _counter?.Release();
+                Counter<MediaReader>? oldCounter = _counter;
                 _counter = null;
-                ProxyResolution = null;
+                _proxyResolution = null;
+                _duration = default;
+                _frameRate = default;
+                _frameSize = default;
+                _logicalFrameSize = default;
+                _loadedUri = null;
+                _loadedPreferProxy = false;
+                _loadedPreferredProxyPreset = default;
+                _loadedProxyResolverVersion = 0;
+                _proxyVersionSource = null;
+                oldCounter?.Release();
 
                 // Refresh the per-source key for the current URI, then re-read this source's version so
                 // the reload baseline matches the new source. A missing original cannot be fingerprinted,
@@ -203,12 +243,12 @@ public sealed class VideoSource : MediaSource
                     }
                 }
 
-                ProxyResolution = _counter.Value.ProxyResolution;
+                _proxyResolution = _counter.Value.ProxyResolution;
 
-                Duration = TimeSpan.FromSeconds(_counter.Value.VideoInfo.Duration.ToDouble());
-                FrameRate = _counter.Value.VideoInfo.FrameRate;
-                FrameSize = _counter.Value.VideoInfo.FrameSize;
-                LogicalFrameSize = ProxyResolution?.OriginalLogicalFrameSize ?? FrameSize;
+                _duration = TimeSpan.FromSeconds(_counter.Value.VideoInfo.Duration.ToDouble());
+                _frameRate = _counter.Value.VideoInfo.FrameRate;
+                _frameSize = _counter.Value.VideoInfo.FrameSize;
+                _logicalFrameSize = _proxyResolution?.OriginalLogicalFrameSize ?? _frameSize;
                 _loadedUri = videoSource.Uri;
                 _loadedPreferProxy = context.PreferProxy;
                 _loadedPreferredProxyPreset = context.PreferredProxyPreset;
@@ -224,9 +264,39 @@ public sealed class VideoSource : MediaSource
 
         protected override void Dispose(bool disposing)
         {
-            base.Dispose(disposing);
-            _counter?.Release();
-            _counter = null;
+            Counter<MediaReader>? counter = null;
+            if (disposing)
+            {
+                counter = _counter;
+                _counter = null;
+                _loadedUri = null;
+                _proxyResolution = null;
+                _duration = default;
+                _frameRate = default;
+                _frameSize = default;
+                _logicalFrameSize = default;
+            }
+
+            Exception? failure = null;
+            try
+            {
+                counter?.Release();
+            }
+            catch (Exception ex)
+            {
+                failure = ex;
+            }
+
+            try
+            {
+                base.Dispose(disposing);
+            }
+            catch (Exception ex)
+            {
+                failure ??= ex;
+            }
+
+            ThrowIfCleanupFailed(failure);
         }
     }
 }

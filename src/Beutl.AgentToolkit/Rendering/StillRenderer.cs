@@ -1,4 +1,5 @@
-﻿using Beutl.Engine;
+﻿using Beutl.Composition;
+using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Rendering;
@@ -698,6 +699,12 @@ public sealed class StillRenderer
         TimeSpan time)
     {
         TimeSpan renderTime = time + scene.Start;
+        CompositionFrame auxiliaryFrame = renderer.Compositor.EvaluateGraphics(
+            renderTime,
+            RenderPullPurpose.Auxiliary);
+        // Align composition-time graph/resource evaluation once before walking every nested text object. Calling the
+        // frame-taking single-boundary overload inside the recursion would revalidate the whole frame per text.
+        renderer.UpdateFrame(auxiliaryFrame);
         var result = new List<RenderedTextBounds>();
         foreach (Element element in scene.Children)
         {

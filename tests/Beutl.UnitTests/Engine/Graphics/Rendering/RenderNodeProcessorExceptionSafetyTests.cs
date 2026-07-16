@@ -223,6 +223,60 @@ public class RenderNodeProcessorExceptionSafetyTests
     }
 
     [Test]
+    public void Pull_ProcessFailure_SweepsEveryInputAndPreservesProcessException()
+    {
+        var processFailure = new InvalidOperationException("process-fault");
+        var disposed = new List<string>();
+        using var root = new ThrowingContainerNode(processFailure);
+        root.AddChild(new StaticRenderNode(
+            CreateOperation("throwing-cleanup", disposed, throwOnDispose: true),
+            CreateOperation("remaining-cleanup", disposed)));
+        var processor = new RenderNodeProcessor(root, useRenderCache: false, RenderIntent.Delivery);
+
+        InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => processor.PullToRoot());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(actual, Is.SameAs(processFailure));
+            Assert.That(disposed, Is.EqualTo(new[] { "throwing-cleanup", "remaining-cleanup" }));
+        });
+    }
+
+    [Test]
+    public void Pull_BookkeepingFailure_SweepsDistinctResultAndEveryInput()
+    {
+        var disposed = new List<string>();
+        using var root = new CacheDisablingResultNode(disposed);
+        root.AddChild(new StaticRenderNode(CreateOperation("input", disposed)));
+        root.Cache.Dispose();
+        var processor = new RenderNodeProcessor(root, useRenderCache: true, RenderIntent.Delivery);
+
+        Assert.Throws<ObjectDisposedException>(() => processor.PullToRoot());
+
+        Assert.That(disposed, Is.EqualTo(new[] { "result", "input" }));
+    }
+
+    [Test]
+    public void RasterizeAndConcat_BoundsFailure_SweepsEveryOperationAndPreservesBoundsException()
+    {
+        var boundsFailure = new InvalidOperationException("bounds-fault");
+        var disposed = new List<string>();
+        using var node = new StaticRenderNode(
+            new ThrowingBoundsOperation(boundsFailure, "bounds", disposed, throwOnDispose: true),
+            CreateOperation("remaining", disposed, throwOnDispose: true));
+        var processor = new RenderNodeProcessor(node, useRenderCache: false, RenderIntent.Delivery);
+
+        InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(
+            () => processor.RasterizeAndConcat());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(actual, Is.SameAs(boundsFailure));
+            Assert.That(disposed, Is.EqualTo(new[] { "bounds", "remaining" }));
+        });
+    }
+
+    [Test]
     public void CreateChildProcessor_InheritsParentRenderTargetAllocator()
     {
         using var root = new ChildRasterizingNode();
@@ -375,6 +429,42 @@ public class RenderNodeProcessorExceptionSafetyTests
     private sealed class ThrowingProcessNode(Exception exception) : RenderNode
     {
         public override RenderNodeOperation[] Process(RenderNodeContext context) => throw exception;
+    }
+
+    private sealed class ThrowingContainerNode(Exception exception) : ContainerRenderNode
+    {
+        public override RenderNodeOperation[] Process(RenderNodeContext context) => throw exception;
+    }
+
+    private sealed class CacheDisablingResultNode(ICollection<string> disposed) : ContainerRenderNode
+    {
+        public override RenderNodeOperation[] Process(RenderNodeContext context)
+        {
+            context.IsRenderCacheEnabled = false;
+            return [CreateOperation("result", disposed, throwOnDispose: true)];
+        }
+    }
+
+    private sealed class ThrowingBoundsOperation(
+        Exception exception,
+        string name,
+        ICollection<string> disposed,
+        bool throwOnDispose) : RenderNodeOperation
+    {
+        public override Rect Bounds => throw exception;
+
+        public override void Render(ImmediateCanvas canvas)
+        {
+        }
+
+        public override bool HitTest(Point point) => false;
+
+        protected override void OnDispose(bool disposing)
+        {
+            disposed.Add(name);
+            if (throwOnDispose)
+                throw new InvalidOperationException($"{name}-dispose-fault");
+        }
     }
 
     private sealed class ChildRasterizingNode : RenderNode

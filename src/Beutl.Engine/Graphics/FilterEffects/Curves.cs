@@ -140,12 +140,34 @@ public sealed partial class Curves : FilterEffect
 
     public new partial class Resource
     {
-        private readonly CurveMap?[] _cachedCurves = new CurveMap?[9];
-        private readonly SKShader?[] _cachedCurveShaders = new SKShader?[9];
+        private CurveMap?[] _cachedCurves = new CurveMap?[9];
+        private SKShader?[] _cachedCurveShaders = new SKShader?[9];
 
         internal int CurveShaderBuildCountForTest { get; private set; }
 
         internal SKShader GetOrBuildCurveShader(int slot, CurveMap curve)
+            => GetOrBuildCurveShaderCore(
+                slot,
+                curve,
+                static value => value.ToShader(),
+                static shader => shader.Dispose());
+
+        internal SKShader GetOrBuildCurveShaderForTest(
+            int slot,
+            CurveMap curve,
+            Func<CurveMap, SKShader> shaderFactory,
+            Action<SKShader> shaderDisposer)
+        {
+            ArgumentNullException.ThrowIfNull(shaderFactory);
+            ArgumentNullException.ThrowIfNull(shaderDisposer);
+            return GetOrBuildCurveShaderCore(slot, curve, shaderFactory, shaderDisposer);
+        }
+
+        private SKShader GetOrBuildCurveShaderCore(
+            int slot,
+            CurveMap curve,
+            Func<CurveMap, SKShader> shaderFactory,
+            Action<SKShader> shaderDisposer)
         {
             ArgumentOutOfRangeException.ThrowIfNegative(slot);
             if (slot >= _cachedCurves.Length)
@@ -154,11 +176,16 @@ public sealed partial class Curves : FilterEffect
             SKShader? shader = _cachedCurveShaders[slot];
             if (shader is null || !ReferenceEquals(_cachedCurves[slot], curve))
             {
-                shader?.Dispose();
-                shader = curve.ToShader();
+                // Build and publish the replacement before retiring the previous shader. A construction failure
+                // leaves the old key/shader pair untouched; a disposal failure leaves the new pair coherent and is
+                // still propagated to the caller by identity.
+                SKShader replacement = shaderFactory(curve);
                 _cachedCurves[slot] = curve;
-                _cachedCurveShaders[slot] = shader;
+                _cachedCurveShaders[slot] = replacement;
                 CurveShaderBuildCountForTest++;
+                if (shader != null && !ReferenceEquals(shader, replacement))
+                    shaderDisposer(shader);
+                shader = replacement;
             }
 
             return shader;
@@ -166,10 +193,20 @@ public sealed partial class Curves : FilterEffect
 
         partial void PostDispose(bool disposing)
         {
-            foreach (SKShader? shader in _cachedCurveShaders)
-                shader?.Dispose();
-            Array.Clear(_cachedCurveShaders);
-            Array.Clear(_cachedCurves);
+            if (!disposing)
+                return;
+
+            SKShader?[] cachedCurveShaders = _cachedCurveShaders;
+            _cachedCurveShaders = new SKShader?[9];
+            CurveMap?[] cachedCurves = _cachedCurves;
+            _cachedCurves = new CurveMap?[9];
+            CurveShaderBuildCountForTest = 0;
+
+            Exception? failure = null;
+            DisposeOwnedResources(ref failure, cachedCurveShaders);
+            Array.Clear(cachedCurveShaders);
+            Array.Clear(cachedCurves);
+            ThrowIfCleanupFailed(failure);
         }
     }
 }

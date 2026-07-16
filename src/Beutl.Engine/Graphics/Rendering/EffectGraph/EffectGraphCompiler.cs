@@ -149,6 +149,7 @@ internal static class EffectGraphCompiler
             {
                 passes.Add(new NestedGraphPass(
                     nested.DescribeBranch,
+                    nested.BranchesCompleted,
                     node.NestedPlanCache ?? throw new InvalidOperationException("A nested graph is missing its plan cache scope."))
                 {
                     InputBounds = node.InputBounds,

@@ -7,11 +7,13 @@ Effects describe a graph in `FilterEffect.Describe(EffectGraphBuilder builder, F
 ## Table of contents
 1. [Builder properties](#builder-properties)
 2. [Convenience methods](#convenience-methods) — blur/shadow, color, morphology, transform
-3. [Node descriptors](#node-descriptors) — Shader, ColorFilter, SkiaFilter, Geometry, Compute, Split/Composite
-4. [GeometrySession & EffectInput](#geometrysession--effectinput)
-5. [BoundsContract](#boundscontract)
-6. [Structural vs parameter](#structural-vs-parameter)
-7. [Shader uniforms (SKSL / GLSL)](#shader-uniforms-sksl--glsl)
+3. [Node descriptors](#node-descriptors) — Shader, ColorFilter, SkiaFilter, Geometry, Compute, Split/Composite, NestedGraph, CustomRenderNode
+4. [Child effects and custom execution](#child-effects-and-custom-execution)
+5. [Shader children and resource ownership](#shader-children-and-resource-ownership)
+6. [GeometrySession & EffectInput](#geometrysession--effectinput)
+7. [BoundsContract](#boundscontract)
+8. [Structural vs parameter](#structural-vs-parameter)
+9. [Shader uniforms (SKSL / GLSL)](#shader-uniforms-sksl--glsl)
 
 ---
 
@@ -78,7 +80,7 @@ EffectGraphBuilder MatrixConvolution(
 
 ## Node descriptors
 
-Append with `builder.Shader/ColorFilter/SkiaFilter/Geometry/Compute/Split/Composite/NestedGraph(descriptor)`.
+Append with `builder.Shader/ColorFilter/SkiaFilter/Geometry/Compute/Split/Composite/NestedGraph/CustomRenderNode(descriptor)`.
 `EffectNodeDescriptor` is a closed union: use these public sealed descriptor types rather than deriving a new kind.
 
 ### Shader (SKSL)
@@ -102,6 +104,23 @@ ShaderNodeDescriptor.WholeSourceInvariant(
 ```
 There is no separate `SamplerBinding`: eager samplers and extra child shaders are both `ChildBinding`s. Uniforms are bound via the `UniformBindingBuilder`. Device-space values use `DensityScaledFloat2` or `Deferred`, not a describe-time `builder.WorkingScale` multiplier.
 
+`UniformBindingBuilder` exposes the complete typed binding vocabulary below. `Raw` is evaluated when the parameter
+block is applied; use `Deferred` when the value needs the execution-time pass context.
+
+```csharp
+Float(string name, float value)
+Float2(string name, float x, float y)
+Float3(string name, float x, float y, float z)
+Float4(string name, float x, float y, float z, float w)
+Int(string name, int value)
+FloatArray(string name, float[] values)
+Matrix3x3(string name, Matrix value)
+DensityScaledFloat2(string name, float logicalX, float logicalY)
+Raw(string name, Action<SKRuntimeShaderBuilder, string> writer)
+Deferred(string name, Action<SKRuntimeShaderBuilder, string, PassUniformContext> writer)
+Add(UniformBinding binding)
+```
+
 ### ColorFilter / SkiaFilter (raw Skia)
 ```csharp
 ColorFilterNodeDescriptor.Create(Func<SKColorFilter?> factory, object? structuralToken = null)
@@ -116,6 +135,11 @@ GeometryNodeDescriptor.Create(
     Action<GeometrySession> render, BoundsContract bounds,
     object? structuralToken = null,
     bool requiresReadback = false)                        // bounds MANDATORY
+
+// Script-friendly appender; omitted bounds default to FullFrame.
+builder.Geometry(
+    Action<GeometrySession> render, BoundsContract? bounds = null,
+    object? structuralToken = null, bool requiresReadback = false)
 ```
 The sole descriptor that carries a rendering callback. Never fused, always its own pass. Set `requiresReadback` when the callback calls `EffectInput.Snapshot()`; undeclared readback is rejected.
 
@@ -135,8 +159,137 @@ ComputeNodeDescriptor.Create(
 SplitNodeDescriptor.Static(
     Action<ISplitEmitter> emit, int branchCount, object? structuralToken = null,
     bool requiresReadback = false)
+
+SplitNodeDescriptor.Dynamic(
+    Action<ISplitEmitter> emit, object? structuralToken = null,
+    bool requiresReadback = false)
+
+CompositeNodeDescriptor.Create(
+    BlendMode blendMode, IEnumerable<Point>? inputOffsets = null,
+    object? structuralToken = null)
 ```
 `emitter.Emit(tileBounds, session => { ... })` schedules a branch. A static split must call `Emit` exactly `branchCount` times; excess calls fail before allocating and a shortfall fails after the callback returns. Fusion never crosses a split. Set `requiresReadback` when the emitter snapshots `emitter.Input`.
+
+A dynamic split discovers its branch count at execution time and therefore keeps that count out of the structural
+key. Use it when the exact count cannot be declared safely at describe time. `CompositeNodeDescriptor` folds the
+current branch set into one output; `inputOffsets`, when supplied, are per-branch logical translations.
+
+### NestedGraph
+
+```csharp
+NestedGraphNodeDescriptor.Create(
+    Action<EffectGraphBuilder, int> describeBranch,
+    object? structuralToken = null)
+
+NestedGraphNodeDescriptor.CreateStateful(
+    Action<EffectGraphBuilder, int> describeBranch,
+    Action<IReadOnlySet<int>> branchesCompleted,
+    object? structuralToken = null)
+```
+
+The callback receives a builder over one branch and its stable branch index. The executor maintains a persistent
+hierarchical plan cache per parent-node ordinal and branch index. Use `nested.Effect(childResource)` inside the
+callback when the child may select a custom factory. A stateful author uses `CreateStateful`; after every live branch
+in a successful pull finishes, `branchesCompleted` receives the complete stable live-ordinal set so state for
+disappeared branches can be retired. It is not invoked when any branch fails.
+
+### CustomRenderNode
+
+```csharp
+CustomRenderNodeDescriptor.Create(CustomRenderNodeFilterEffect.Resource resource)
+builder.CustomRenderNode(CustomRenderNodeDescriptor descriptor)
+```
+
+This is the typed direct-node boundary for fully opaque execution. It is always full-frame, dynamic-output, and
+never fused. Prefer `builder.Effect(resource)` when composing an effect: it chooses inline declarative execution or
+a custom descriptor without changing the child's top-level policy. Use `CustomRenderNode` directly only when code
+already holds a constructed descriptor or a `CustomRenderNodeFilterEffect.Resource`.
+
+---
+
+## Child effects and custom execution
+
+### Placement-preserving composition
+
+```csharp
+EffectGraphBuilder builder.Effect(FilterEffect.Resource child)
+```
+
+Containers use this method for every enabled child. The default plan factory is inlined into the current graph; an
+overridden plan factory or a fully opaque factory becomes one `CustomRenderNodeDescriptor`. Do not call the child's
+`Describe` method directly, because doing so discards its selected render-node policy.
+
+### Narrow plan-policy customization
+
+An ordinary descriptor-authored effect may extend its generated `Resource` partial and return a retained plan
+factory. Its node MUST derive from `PlanFilterEffectRenderNode`; graph compilation, ROI, pooling, and caches remain
+engine-owned.
+
+```csharp
+public new partial class Resource
+{
+    private static readonly PlanFilterEffectRenderNodeFactory s_factory =
+        PlanFilterEffectRenderNodeFactory.Of<Resource, MyPlanRenderNode>(
+            static resource => new MyPlanRenderNode(resource));
+
+    public override PlanFilterEffectRenderNodeFactory PlanRenderNodeFactory => s_factory;
+}
+
+PlanFilterEffectRenderNodeFactory.Of<TResource, TNode>(Func<TResource, TNode> create)
+    where TResource : FilterEffect.Resource
+    where TNode : PlanFilterEffectRenderNode
+```
+
+### Fully opaque execution
+
+Derive the effect from `CustomRenderNodeFilterEffect`. Its sealed `Describe` routes the generated custom resource
+through `builder.Effect`, keeping top-level and nested placement equivalent. Extend the generated `Resource`
+partial to provide the mandatory retained factory, and implement `Process` in a `FilterEffectRenderNode` subclass.
+
+```csharp
+public new partial class Resource
+{
+    private static readonly FilterEffectRenderNodeFactory s_factory =
+        FilterEffectRenderNodeFactory.Of<Resource, MyRenderNode>(
+            static resource => new MyRenderNode(resource));
+
+    public override FilterEffectRenderNodeFactory RenderNodeFactory => s_factory;
+}
+
+FilterEffectRenderNodeFactory.Of<TResource, TNode>(Func<TResource, TNode> create)
+    where TResource : FilterEffect.Resource
+    where TNode : FilterEffectRenderNode
+```
+
+Both factory properties MUST return a stable retained instance. Factory reference identity participates in render
+node reuse; constructing a new factory on each getter call disables reuse. The opaque child render node remains
+alive until all operations it returned are disposed. Its `RenderNodeContext` preserves render intent, pull purpose,
+scales, diagnostics, cache policy, and child-processor allocation policy, but receives `RequestedBounds =
+Rect.Invalid` because an opaque pass has no compiler-visible backward-bounds contract.
+
+---
+
+## Shader children and resource ownership
+
+```csharp
+ChildBinding builder.Sampler(string name, SKShader shader)
+ChildBinding builder.Child(string name, SKShader shader)
+T builder.Track<T>(T disposable) where T : IDisposable
+new ChildBinding(string name, SKShader shader)
+ChildBinding.Deferred(string name, Func<PassUniformContext, SKShader> factory)
+```
+
+| Construction | Owner and lifetime | Use |
+|---|---|---|
+| `builder.Sampler` / `builder.Child` | Graph-owned; disposed after the frame's graph executes, including a skipped pass | A fresh eager shader created in `Describe` |
+| `builder.Track` | Graph-owned; each registered instance is disposed once with the graph | Any other fresh per-frame disposable used by descriptors |
+| `new ChildBinding(...)` | Caller-owned; the graph and executor never dispose it | A cached eager shader whose owner manages eviction/disposal |
+| `ChildBinding.Deferred(...)` | Executor-owned; factory returns a fresh shader per pass and the executor disposes it after that pass | A density-, bounds-, or coordinate-dependent child built from `PassUniformContext` |
+
+Only an eager sampler that is invariant with respect to pixel position may be attached to a fusable snippet.
+Whole-source shaders accept eager and deferred children. Names are structural; shader instances and contents are
+parameters. Never dispose a graph-owned or executor-owned product yourself, and never return a cached/shared shader
+from a deferred factory.
 
 ---
 

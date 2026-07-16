@@ -173,9 +173,17 @@ public sealed partial class GLSLScriptEffect : FilterEffect, IScriptCompilableEf
 
         partial void PostDispose(bool disposing)
         {
-            _shader?.Dispose();
+            if (!disposing)
+                return;
+
+            GLSLShader? shader = _shader;
             _shader = null;
+            _compiledShader = null;
             _compileError = null;
+
+            Exception? failure = null;
+            DisposeOwnedResources(ref failure, shader);
+            ThrowIfCleanupFailed(failure);
         }
     }
 }

@@ -12,14 +12,22 @@ public sealed record NestedGraphNodeDescriptor : EffectNodeDescriptor
 {
     internal override EffectNodeKind Kind => EffectNodeKind.NestedGraph;
 
-    private NestedGraphNodeDescriptor(Action<EffectGraphBuilder, int> describeBranch, object structuralToken)
+    private NestedGraphNodeDescriptor(
+        Action<EffectGraphBuilder, int> describeBranch,
+        Action<IReadOnlySet<int>>? branchesCompleted,
+        object structuralToken)
     {
         DescribeBranch = describeBranch;
+        BranchesCompleted = branchesCompleted;
         StructuralToken = structuralToken;
     }
 
     /// <summary>Describes the child graph for one branch: (builder over the branch's bounds, branch index).</summary>
     public Action<EffectGraphBuilder, int> DescribeBranch { get; }
+
+    // The executor invokes this only after every live branch has completed successfully. Descriptor authors supply
+    // it through CreateStateful when they retain state keyed by stable branch ordinal.
+    internal Action<IReadOnlySet<int>>? BranchesCompleted { get; }
 
     /// <summary>Identity of the nested-graph kind for the structural key. Tokens share a plan only when their
     /// runtime types and <see cref="object.Equals(object?)"/> values match; equality and hash code must stay stable.</summary>
@@ -40,6 +48,31 @@ public sealed record NestedGraphNodeDescriptor : EffectNodeDescriptor
     {
         ArgumentNullException.ThrowIfNull(describeBranch);
         return new NestedGraphNodeDescriptor(
-            describeBranch, structuralToken ?? describeBranch.Method);
+            describeBranch, branchesCompleted: null, structuralToken ?? describeBranch.Method);
+    }
+
+    /// <summary>
+    /// Builds a stateful nested-graph node. After every branch in a successful pull has finished using its
+    /// branch-local graph, <paramref name="branchesCompleted"/> receives the complete set of stable live branch
+    /// ordinals. Authors may use that set to retire state for ordinals that disappeared. The callback is not invoked
+    /// when describing, building, compiling, resolving, or executing any branch fails; if the callback itself throws,
+    /// the pull fails and the executor releases every output produced by the nested pass.
+    /// </summary>
+    /// <param name="describeBranch">Describes the child graph for one stable branch ordinal.</param>
+    /// <param name="branchesCompleted">
+    /// Observes the complete live-ordinal set after all live branches have completed successfully.
+    /// </param>
+    /// <param name="structuralToken">
+    /// Stable identity of the nested-graph kind. Defaults to <paramref name="describeBranch"/>'s method identity.
+    /// </param>
+    public static NestedGraphNodeDescriptor CreateStateful(
+        Action<EffectGraphBuilder, int> describeBranch,
+        Action<IReadOnlySet<int>> branchesCompleted,
+        object? structuralToken = null)
+    {
+        ArgumentNullException.ThrowIfNull(describeBranch);
+        ArgumentNullException.ThrowIfNull(branchesCompleted);
+        return new NestedGraphNodeDescriptor(
+            describeBranch, branchesCompleted, structuralToken ?? describeBranch.Method);
     }
 }

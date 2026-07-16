@@ -253,22 +253,33 @@ public sealed partial class PBRMaterial : Material3D
 
         partial void PostDispose(bool disposing)
         {
-            _descriptorSet?.Dispose();
+            if (!disposing)
+                return;
+
+            IDescriptorSet? descriptorSet = _descriptorSet;
             _descriptorSet = null;
-            _uniformBuffer?.Dispose();
+            IBuffer? uniformBuffer = _uniformBuffer;
             _uniformBuffer = null;
-            _sampler?.Dispose();
+            ISampler? sampler = _sampler;
             _sampler = null;
 
-            _defaultWhiteTexture?.Dispose();
-            _defaultNormalTexture?.Dispose();
-            _defaultBlackTexture?.Dispose();
+            ITexture2D? defaultWhiteTexture = _defaultWhiteTexture;
+            ITexture2D? defaultNormalTexture = _defaultNormalTexture;
+            ITexture2D? defaultBlackTexture = _defaultBlackTexture;
             _defaultWhiteTexture = null;
             _defaultNormalTexture = null;
             _defaultBlackTexture = null;
 
-            _pipeline?.Dispose();
+            IPipeline3D? pipeline = _pipeline;
             _pipeline = null;
+            Graphics3DDisposal.DisposeAll(
+                descriptorSet,
+                uniformBuffer,
+                sampler,
+                defaultWhiteTexture,
+                defaultNormalTexture,
+                defaultBlackTexture,
+                pipeline);
         }
 
         /// <summary>

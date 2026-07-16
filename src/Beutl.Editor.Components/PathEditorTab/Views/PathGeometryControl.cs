@@ -111,7 +111,15 @@ public class PathGeometryControl : Control
         {
             var figureResource = pathGeometry.Figures.FirstOrDefault(f => f.GetOriginal() == Figure);
             if (figureResource == null) return;
-            int index = figureResource.Segments.FindIndex(s => s.GetOriginal() == SelectedOperation);
+            int index = -1;
+            for (int i = 0; i < figureResource.Segments.Count; i++)
+            {
+                if (figureResource.Segments[i].GetOriginal() == SelectedOperation)
+                {
+                    index = i;
+                    break;
+                }
+            }
             if (figureResource.Segments.Count > 0 && index >= 0)
             {
                 AvaMatrix mat = Matrix * AvaMatrix.CreateScale(Scale, Scale);

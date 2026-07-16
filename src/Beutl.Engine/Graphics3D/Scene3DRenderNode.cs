@@ -1,4 +1,5 @@
-﻿using Beutl.Composition;
+﻿using System.Runtime.ExceptionServices;
+using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Backend;
@@ -13,19 +14,33 @@ namespace Beutl.Graphics3D;
 /// <summary>
 /// Render node for 3D scene rendering.
 /// </summary>
-internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
+internal sealed class Scene3DRenderNode : RenderNode
 {
     private static readonly ILogger s_logger = Log.CreateLogger<Scene3DRenderNode>();
 
     [ThreadStatic]
     private static Func<IGraphicsContext?>? s_graphicsContextProviderForTest;
 
-    public Rect Bounds { get; private set; } = new(0, 0, scene.RenderWidth, scene.RenderHeight);
+    [ThreadStatic]
+    private static Action? s_afterAuxiliaryCopyCreatedForTest;
 
-    public (Scene3D.Resource Resource, int Version)? Scene { get; private set; } = scene.Capture();
+    [ThreadStatic]
+    private static Action<IDisposable>? s_auxiliaryDisposerForTest;
+
+    public Scene3DRenderNode(Scene3D.Resource scene)
+    {
+        using Scene3D.Resource.RenderOperationLease resourceOperation = scene.BeginRenderOperation();
+        Bounds = new Rect(0, 0, scene.RenderWidth, scene.RenderHeight);
+        Scene = scene.Capture();
+    }
+
+    public Rect Bounds { get; private set; }
+
+    public (Scene3D.Resource Resource, int Version)? Scene { get; private set; }
 
     public bool Update(Scene3D.Resource scene)
     {
+        using Scene3D.Resource.RenderOperationLease operation = scene.BeginRenderOperation();
         bool changed = false;
 
         if (!scene.Compare(Scene))
@@ -44,6 +59,8 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
         var scene = Scene?.Resource;
         if (scene == null)
             return [];
+
+        using Scene3D.Resource.RenderOperationLease resourceOperation = scene.BeginRenderOperation();
 
         // Camera is already a Resource from the source generator
         var cameraResource = scene.Camera;
@@ -138,8 +155,27 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
     internal static void SetGraphicsContextProviderForTest(Func<IGraphicsContext?>? provider)
         => s_graphicsContextProviderForTest = provider;
 
-    // Native pass teardown is itself fallible; a discard-and-rebuild (or transient-renderer) path must log a
-    // teardown throw instead of letting it replace the primary failure or abort a preview drop.
+    internal static void SetAuxiliaryCleanupHooksForTest(
+        Action? afterCopyCreated, Action<IDisposable>? disposer)
+    {
+        s_afterAuxiliaryCopyCreatedForTest = afterCopyCreated;
+        s_auxiliaryDisposerForTest = disposer;
+    }
+
+    private static void DisposeAuxiliaryResource(IDisposable resource)
+    {
+        if (s_auxiliaryDisposerForTest is { } disposer)
+        {
+            disposer(resource);
+        }
+        else
+        {
+            resource.Dispose();
+        }
+    }
+
+    // Native pass teardown is itself fallible; a discard-and-rebuild path must log a teardown throw instead of
+    // letting it replace the primary failure or abort a preview drop.
     private static void DisposeRendererAfterFailure(Renderer3D renderer)
     {
         try
@@ -167,10 +203,7 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
         }
 
         renderer.Render(
-            new CompositionContext(scene.Time)
-            {
-                DisableResourceShare = scene.DisableResourceShare,
-            },
+            CreateCompositionContextCore(scene, context),
             camera,
             objectResources,
             lightResources,
@@ -183,6 +216,29 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
             scene.GizmoMode);
     }
 
+    internal static CompositionContext CreateCompositionContext(
+        Scene3D.Resource scene,
+        RenderNodeContext context)
+    {
+        using Scene3D.Resource.RenderOperationLease operation = scene.BeginRenderOperation();
+        return CreateCompositionContextCore(scene, context);
+    }
+
+    private static CompositionContext CreateCompositionContextCore(
+        Scene3D.Resource scene,
+        RenderNodeContext context)
+    {
+        return new CompositionContext(
+            scene.Time,
+            context.RenderIntent,
+            context.PullPurpose)
+        {
+            DisableResourceShare = scene.DisableResourceShare,
+            PreferProxy = scene.PreferProxy,
+            PreferredProxyPreset = scene.PreferredProxyPreset,
+        };
+    }
+
     // The auxiliary render goes through a transient renderer and hands its pixels off in a self-contained
     // RenderTarget: the emitted operation must not depend on renderer-owned GPU textures that are torn down here.
     private RenderNodeOperation[] RenderAuxiliary(
@@ -191,6 +247,9 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
     {
         Renderer3D? renderer = null;
         SkiaSharp.SKSurface? surface = null;
+        RenderTarget? copy = null;
+        RenderNodeOperation? operation = null;
+        bool operationFailed = false;
         try
         {
             try
@@ -200,6 +259,7 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
             }
             catch (Exception ex)
             {
+                operationFailed = true;
                 s_logger.LogWarning(ex,
                     "Auxiliary 3D render surface allocation failed ({Width}x{Height} px, density {Scale}, intent {RenderIntent}).",
                     dw, dh, w, context.RenderIntent);
@@ -217,6 +277,7 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
             surface = renderer.CreateSkiaSurface();
             if (surface == null)
             {
+                operationFailed = true;
                 if (context.RenderIntent == RenderIntent.Delivery)
                 {
                     throw new InvalidOperationException(
@@ -226,9 +287,10 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
                 return [EmptyAuxiliaryOperation(w)];
             }
 
-            RenderTarget? copy = RenderTarget.Create(dw, dh);
+            copy = RenderTarget.Create(dw, dh);
             if (copy == null)
             {
+                operationFailed = true;
                 if (context.RenderIntent == RenderIntent.Delivery)
                 {
                     throw new InvalidOperationException(
@@ -238,36 +300,67 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
                 return [EmptyAuxiliaryOperation(w)];
             }
 
-            try
+            s_afterAuxiliaryCopyCreatedForTest?.Invoke();
+
+            using (var canvas = new ImmediateCanvas(
+                copy, context.RenderIntent, w, context.MaxWorkingScale, logicalSize: Bounds.Size,
+                pullPurpose: context.PullPurpose))
             {
-                using (var canvas = new ImmediateCanvas(
-                    copy, context.RenderIntent, w, context.MaxWorkingScale, logicalSize: Bounds.Size,
-                    pullPurpose: context.PullPurpose))
+                canvas.Clear();
+                using (canvas.PushDeviceSpace())
                 {
-                    canvas.Clear();
-                    using (canvas.PushDeviceSpace())
-                    {
-                        canvas.Canvas.DrawSurface(surface, 0, 0);
-                    }
+                    canvas.Canvas.DrawSurface(surface, 0, 0);
                 }
             }
-            catch
-            {
-                copy.Dispose();
-                throw;
-            }
 
-            return
-            [
-                RenderNodeOperation.CreateFromRenderTarget(
-                    Bounds, new Point(0, 0), copy, EffectiveScale.At(w))
-            ];
+            operation = RenderNodeOperation.CreateFromRenderTarget(
+                Bounds, new Point(0, 0), copy, EffectiveScale.At(w));
+            copy = null; // ownership moved to the operation
+            return [operation];
+        }
+        catch
+        {
+            operationFailed = true;
+            throw;
         }
         finally
         {
-            surface?.Dispose();
-            if (renderer != null)
-                DisposeRendererAfterFailure(renderer);
+            Exception? cleanupFailure = null;
+            CaptureAuxiliaryDisposeFailure(copy, ref cleanupFailure);
+            CaptureAuxiliaryDisposeFailure(surface, ref cleanupFailure);
+            CaptureAuxiliaryDisposeFailure(renderer, ref cleanupFailure);
+
+            if (cleanupFailure != null)
+            {
+                if (operationFailed)
+                {
+                    s_logger.LogWarning(cleanupFailure,
+                        "Auxiliary 3D resources failed to dispose after a render failure.");
+                }
+                else
+                {
+                    // A return was already prepared. If teardown fails, reclaim the operation that the caller will
+                    // never receive before reporting the first cleanup failure.
+                    Exception firstCleanupFailure = cleanupFailure;
+                    CaptureAuxiliaryDisposeFailure(operation, ref cleanupFailure);
+                    ExceptionDispatchInfo.Capture(firstCleanupFailure).Throw();
+                }
+            }
+        }
+    }
+
+    private static void CaptureAuxiliaryDisposeFailure(IDisposable? resource, ref Exception? failure)
+    {
+        if (resource == null)
+            return;
+
+        try
+        {
+            DisposeAuxiliaryResource(resource);
+        }
+        catch (Exception ex)
+        {
+            failure ??= ex;
         }
     }
 

@@ -297,7 +297,7 @@ internal sealed class EffectPrefixCache : IDisposable
         // A group exposes its top-level child resources (each with its own Version); a non-group effect is one child.
         if (resource is FilterEffectGroup.Resource group)
         {
-            List<FilterEffect.Resource> children = group.Children;
+            IReadOnlyList<FilterEffect.Resource> children = group.Children;
             var versions = new (EngineObject.Resource, int)[children.Count];
             for (int i = 0; i < children.Count; i++)
                 versions[i] = (children[i], children[i].Version);

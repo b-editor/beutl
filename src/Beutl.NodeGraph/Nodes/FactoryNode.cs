@@ -51,7 +51,7 @@ public partial class FactoryNode<T> : GraphNode
 
     public partial class Resource
     {
-        public override void Update(GraphCompositionContext context)
+        protected override void UpdateCore(GraphCompositionContext context)
         {
             var node = GetOriginal();
             OutputPort = node.Object;

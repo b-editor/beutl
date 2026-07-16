@@ -36,7 +36,7 @@ Breaking public-API changes are explicitly in scope: the imperative `FilterEffec
 
 **Out of scope (deliberately):**
 
-- The 3D scene pipeline (`Scene3DRenderNode` internals), audio pipeline, and transitions between clips.
+- New 3D rendering features, audio-pipeline changes, and transitions between clips. The narrow 3D changes required to propagate feature 004's mandatory `RenderIntent`/`RenderPullPurpose` through nested material textures, and to preserve executor failure/cleanup guarantees at the 2D↔3D boundary, are in scope; they do not redesign 3D rendering or add visual behavior.
 - New user-facing effects or changes to any effect's visual parameters — this is a pipeline redesign, not an effect feature.
 - Node-graph *editor UI* changes; `Beutl.NodeGraph`'s UI keeps working against the migrated `NodeGraphFilterEffect`.
 - Decoder/media-source changes (proxy workflow) and render-node-tree (non-effect) compositing changes beyond what effect migration requires.

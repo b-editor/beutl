@@ -2,6 +2,7 @@
 using Beutl.Extensibility;
 using Beutl.Extensions.FFmpeg;
 using Beutl.Extensions.FFmpeg.Encoding;
+using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 
@@ -32,6 +33,7 @@ public sealed class ExportOrchestrationTests
         {
             Assert.That(composer.Compositor.ForceOriginalSource, Is.True);
             Assert.That(composer.Compositor.DisableResourceShare, Is.True);
+            Assert.That(composer.Compositor.RenderIntent, Is.EqualTo(RenderIntent.Delivery));
             Assert.That(composer.SampleRate, Is.EqualTo(44100));
         });
     }

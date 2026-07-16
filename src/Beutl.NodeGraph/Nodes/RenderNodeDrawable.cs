@@ -12,10 +12,26 @@ public sealed class RenderNodeDrawable : Drawable
 
     public override Resource ToResource(CompositionContext context)
     {
-        bool updateOnly = false;
         var resource = new Resource();
-        resource.Update(this, context, ref updateOnly);
-        return resource;
+        try
+        {
+            bool updateOnly = false;
+            resource.Update(this, context, ref updateOnly);
+            return resource;
+        }
+        catch
+        {
+            try
+            {
+                resource.Dispose();
+            }
+            catch
+            {
+                // Preserve the acquisition failure while reclaiming the partially initialized drawable resource.
+            }
+
+            throw;
+        }
     }
 
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
@@ -30,10 +46,11 @@ public sealed class RenderNodeDrawable : Drawable
     public override void Render(GraphicsContext2D context, Drawable.Resource resource)
     {
         var r = resource as Resource;
-        if (r?.GraphNode != null)
+        RenderNode? graphNode = r?.GraphNode;
+        if (graphNode != null)
         {
             context.DrawNode(
-                r.GraphNode,
+                graphNode,
                 n => new ReferencesChildRenderNode(n),
                 (refNode, n) => refNode.Update(n));
         }
@@ -41,26 +58,36 @@ public sealed class RenderNodeDrawable : Drawable
 
     public new sealed class Resource : Drawable.Resource
     {
-        public RenderNode? GraphNode { get; set; }
+        private RenderNode? _graphNode;
+
+        public RenderNode? GraphNode => ReadGeneratedResourceState(ref _graphNode);
 
         public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
         {
+            var typed = (RenderNodeDrawable)obj;
+            using GeneratedResourceOperationLease operation = BeginExclusiveResourceOperation(typed);
             base.Update(obj, context, ref updateOnly);
             if (obj is RenderNodeDrawable renderNode)
             {
-                if (GraphNode != renderNode.GraphNode)
+                if (_graphNode != renderNode.GraphNode)
                 {
-                    GraphNode = renderNode.GraphNode;
+                    _graphNode = renderNode.GraphNode;
                     Version++;
                     updateOnly = true;
                 }
 
-                if (GraphNode?.HasChanges == true)
+                if (_graphNode?.HasChanges == true)
                 {
                     Version++;
                     updateOnly = true;
                 }
             }
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            _graphNode = null;
+            base.Dispose(disposing);
         }
     }
 }

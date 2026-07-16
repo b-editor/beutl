@@ -64,11 +64,15 @@ public sealed partial class AudioSpectrogramDrawable : AudioVisualizerDrawable
 
         partial void PostDispose(bool disposing)
         {
-            if (disposing)
-            {
-                _paint?.Dispose();
-            }
+            if (!disposing)
+                return;
+
+            var paint = _paint;
             _paint = null;
+
+            Exception? failure = null;
+            DisposeOwnedResources(ref failure, paint);
+            ThrowIfCleanupFailed(failure);
         }
 
         protected override void RenderForeground(ImmediateCanvas canvas, Rect bounds)

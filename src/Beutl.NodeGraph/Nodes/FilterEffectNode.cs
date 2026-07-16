@@ -1,4 +1,5 @@
-﻿using Beutl.Engine;
+﻿using System.Runtime.ExceptionServices;
+using Beutl.Engine;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.NodeGraph.Composition;
@@ -50,46 +51,80 @@ public partial class FilterEffectNode<T> : ConfigureNode
 
     public partial class Resource
     {
-        protected override void UpdateCore(GraphCompositionContext context)
+        private FilterEffect.Resource? _filterEffectResource;
+
+        protected override void UpdateConfiguredCore(GraphCompositionContext context)
         {
             var node = GetOriginal();
-            FilterEffect.Resource? resource;
             var output = OutputPort;
+            ExceptionDispatchInfo? failure = null;
 
-            if (output == null || output.IsDisposed)
+            if (_filterEffectResource == null)
             {
-                resource = node.Object.ToResource(context);
-                OutputPort = resource.ResolveRenderNodeFactory().Factory.Create(resource);
+                _filterEffectResource = node.Object.ToResource(context);
             }
-            else if (output is FilterEffectRenderNode { FilterEffect.Resource: { } filterEffect } fen)
+            else if (_filterEffectResource.GetOriginal() != node.Object)
             {
-                resource = filterEffect;
+                FilterEffect.Resource replacement = node.Object.ToResource(context);
+                failure = ReplaceOwnedResource(ref _filterEffectResource, replacement);
+            }
+            else
+            {
                 bool updateOnly = false;
-                resource.Update(node.Object, context, ref updateOnly);
-                FilterEffectRenderNodeFactory factory = resource.ResolveRenderNodeFactory().Factory;
+                _filterEffectResource.Update(node.Object, context, ref updateOnly);
+            }
+
+            FilterEffect.Resource filterEffectResource = _filterEffectResource!;
+            FilterEffectRenderNodeFactory factory = filterEffectResource.ResolveRenderNodeFactory().Factory;
+            if (output is not FilterEffectRenderNode fen || output.IsDisposed)
+            {
+                OutputPort = factory.Create(filterEffectResource);
+            }
+            else
+            {
                 if (!factory.Matches(fen))
                 {
-                    FilterEffectRenderNode replacement = factory.Create(resource);
+                    FilterEffectRenderNode replacement = factory.Create(filterEffectResource);
                     replacement.BringFrom(output);
                     OutputPort = replacement;
-                    output.Dispose();
+                    try
+                    {
+                        output.Dispose();
+                    }
+                    catch (Exception ex)
+                    {
+                        failure ??= ExceptionDispatchInfo.Capture(ex);
+                    }
                 }
                 else
                 {
-                    fen.Update(resource);
+                    fen.Update(filterEffectResource);
                 }
+            }
+
+            failure?.Throw();
+        }
+
+        partial void PrepareResourceDispose(bool disposing, GeneratedResourceCleanupContext context)
+        {
+            if (disposing)
+            {
+                context.Reserve(_filterEffectResource);
             }
         }
 
         partial void PostDispose(bool disposing)
         {
-            if (OutputPort is FilterEffectRenderNode { FilterEffect.Resource: { } filterEffect })
-            {
-                filterEffect.Dispose();
-            }
+            if (!disposing)
+                return;
 
-            OutputPort?.Dispose();
+            RenderNode? output = OutputPort;
             OutputPort = null;
+            _filterEffectResource = null;
+
+            Exception? failure = null;
+            DisposeOwnedResources(ref failure, output);
+            ThrowIfCleanupFailed(failure);
         }
     }
 }

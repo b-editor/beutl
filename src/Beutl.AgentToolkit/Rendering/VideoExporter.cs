@@ -149,7 +149,11 @@ public sealed class VideoExporter(EncoderRegistration encoders)
     // Final output: audio must never read proxy media, even though audio opens skip the proxy resolver today.
     internal static SceneComposer CreateExportComposer(Scene scene, int sampleRate)
     {
-        return new SceneComposer(scene, disableResourceShare: true, forceOriginalSource: true)
+        return new SceneComposer(
+            scene,
+            RenderIntent.Delivery,
+            disableResourceShare: true,
+            forceOriginalSource: true)
         {
             SampleRate = sampleRate,
         };

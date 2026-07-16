@@ -15,7 +15,7 @@ description: |
 
 Override the abstract `FilterEffect.Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)` and append node descriptors via `builder`:
 
-- **Shader** (SKSL snippet or whole-source), **ColorFilter**, **SkiaFilter** (`SKImageFilter`), **Geometry** (imperative canvas draw), **Compute** (GLSL passes), **Split** / **Composite**, **NestedGraph**.
+- **Shader** (SKSL snippet or whole-source), **ColorFilter**, **SkiaFilter** (`SKImageFilter`), **Geometry** (imperative canvas draw), **Compute** (GLSL passes), **Split** / **Composite**, **NestedGraph**, and the typed **CustomRenderNode** boundary for fully opaque execution.
 - Convenience methods (`builder.Blur`, `builder.DropShadow`, `builder.Saturate`, `builder.Dilate`, `builder.Transform`, color matrices, …) keep the names they had on the old `FilterEffectContext` and expand to the right descriptor for you.
 
 Consequences you author against: adjacent coordinate-invariant color nodes **fuse into one GPU draw**; intermediate buffers come from a **pool**; compiled plans are **cached on a structural key**, so animated parameter values update uniforms without recompiling. This is why the two hard rules below matter — never bake a parameter value into shader source, and always declare bounds for non-invariant work.
@@ -52,7 +52,9 @@ public sealed partial class YourEffect : FilterEffect
 }
 ```
 
-**Important:** the `partial` keyword is required (a source generator emits the `Resource` class).
+**Important:** the `partial` keyword and the `Beutl.Engine.SourceGenerators` analyzer are both required: the
+generator emits the concrete `Resource` class and `ToResource` implementation. The recommended
+`Beutl.Extensibility.Sdk` project setup below references the analyzer automatically.
 
 ### 2. Property definition patterns
 
@@ -153,7 +155,7 @@ Children.Clear();
 public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
 {
     var r = (Resource)resource;
-    // r.Children is auto-generated as List<FilterEffect.Resource>
+    // r.Children is auto-generated as an immutable IReadOnlyList<FilterEffect.Resource> snapshot.
     foreach (FilterEffect.Resource child in r.Children)
     {
         if (!child.IsEnabled)
@@ -208,6 +210,9 @@ unknown descriptor kind because the compiler has no registration seam for one.
 | Imperative canvas drawing (stroke, flat shadow, clip, C# script) | `builder.Geometry(GeometryNodeDescriptor.Create(...))` |
 | GLSL / compute passes | `builder.Compute(ComputeNodeDescriptor.Create(...))` |
 | Fan out into tiles/branches | `builder.Split(...)` / `builder.Composite(...)` |
+| Describe a child graph independently for every branch | `builder.NestedGraph(NestedGraphNodeDescriptor.Create(...))` |
+| Compose another effect without changing its top-level execution policy | `builder.Effect(childResource)` |
+| Embed a fully opaque child render node | normally `builder.Effect(customChildResource)`; use `builder.CustomRenderNode(CustomRenderNodeDescriptor.Create(...))` only when you already hold the descriptor/resource boundary |
 
 **Built-in convenience methods** (same names as before; full list in [references/context_methods.md](references/context_methods.md)):
 
@@ -221,6 +226,25 @@ builder.Dilate(radiusX, radiusY);        // morphology
 builder.Erode(radiusX, radiusY);
 builder.Transform(matrix, interpolationMode);
 ```
+
+**Child effects and custom execution:**
+
+- Containers MUST call `builder.Effect(childResource)`, not `childResource.GetOriginal().Describe(...)`. The
+  builder inlines an ordinary effect only when it uses the default plan factory; otherwise it emits a typed
+  `CustomRenderNodeDescriptor`, so nested placement preserves the child's top-level policy.
+- For a narrow execution-policy hook while retaining graph compilation, ROI, pooling, and caching, extend the
+  generated `Resource` partial and override `PlanRenderNodeFactory` with one retained
+  `PlanFilterEffectRenderNodeFactory.Of<TResource,TNode>(...)`. `TNode` MUST derive from
+  `PlanFilterEffectRenderNode`.
+- For fully opaque execution, derive the effect from `CustomRenderNodeFilterEffect`, extend its generated
+  `Resource` partial with one retained `FilterEffectRenderNodeFactory.Of<TResource,TNode>(...)`, and implement a
+  `FilterEffectRenderNode`. The base seals `Describe` and routes the resource through `builder.Effect`, so the
+  effect remains group-safe. Do not create a new factory on each property access: factory identity controls node
+  reuse.
+- `builder.Sampler` and `builder.Child` transfer a fresh eager shader to graph ownership;
+  `builder.Track` transfers any other per-frame disposable. `new ChildBinding(...)` remains caller-owned, while
+  `ChildBinding.Deferred(...)` returns a fresh executor-owned shader for each pass. See the complete signatures and
+  ownership table in [references/context_methods.md](references/context_methods.md).
 
 **Two hard rules (why the cache/fusion works):**
 
@@ -381,18 +405,37 @@ public new partial class Resource
     {
         if (_compiledScript == script) return;
 
-        _runtimeEffect?.Dispose();
+        SKRuntimeEffect? replacement = null;
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(script))
+            {
+                replacement = SKRuntimeEffect.CreateShader(script, out string? errorText);
+                // validate replacement and handle errors before publishing it
+            }
+        }
+        catch
+        {
+            replacement?.Dispose();
+            throw;
+        }
+
+        SKRuntimeEffect? previous = _runtimeEffect;
+        _runtimeEffect = replacement;
         _compiledScript = script;
-
-        if (string.IsNullOrWhiteSpace(script)) return;
-
-        _runtimeEffect = SKRuntimeEffect.CreateShader(script, out string? errorText);
-        // handle errors
+        previous?.Dispose();
     }
 
     partial void PostDispose(bool disposing)
     {
-        _runtimeEffect?.Dispose();
+        if (!disposing) return;
+
+        SKRuntimeEffect? runtimeEffect = _runtimeEffect;
+        _runtimeEffect = null;
+        _compiledScript = null;
+        Exception? failure = null;
+        DisposeOwnedResources(ref failure, runtimeEffect);
+        ThrowIfCleanupFailed(failure);
     }
 }
 ```
@@ -456,9 +499,28 @@ public sealed partial class MyCustomEffect : FilterEffect
 
 ### csproj reference
 
+Use the extension SDK. It references the Beutl packages and `Beutl.Engine.SourceGenerators` analyzer at the same
+version, so the concrete partial effect shown above compiles with its generated `Resource`:
+
+```xml
+<Project Sdk="Beutl.Extensibility.Sdk/x.x.x">
+  <PropertyGroup>
+    <PackageId>Beutl.Extensions.MyExtension</PackageId>
+    <Version>1.0.0</Version>
+  </PropertyGroup>
+</Project>
+```
+
+If the project must keep `Microsoft.NET.Sdk`, reference the analyzer explicitly; a
+`Beutl.Extensibility` package reference alone does not run resource generation:
+
 ```xml
 <ItemGroup>
   <PackageReference Include="Beutl.Extensibility" Version="x.x.x" />
+  <PackageReference Include="Beutl.Engine.SourceGenerators" Version="x.x.x"
+                    OutputItemType="Analyzer"
+                    ReferenceOutputAssembly="false"
+                    PrivateAssets="all" />
 </ItemGroup>
 ```
 
@@ -513,7 +575,32 @@ MyExtension/Effects/YourEffect.cs
 
 ## About the Resource class
 
-The source generator (`EngineObjectResourceGenerator`) emits a `partial class Resource`. Property values declared as `IProperty<T>` are copied onto this `Resource` class so they can be accessed thread-safely during rendering.
+The source generator (`EngineObjectResourceGenerator`) emits a `partial class Resource`. Property values declared as
+`IProperty<T>` are captured onto this `Resource` class for rendering. Generated list properties are get-only
+`IReadOnlyList<T.Resource>` immutable snapshots; mutate the owning model property and run `Resource.Update`, never
+the resource snapshot itself. An owned object-resource property may only be initialized once or assigned the same
+identity, so replacing it directly throws instead of leaking the previous owner.
+
+Generated resources reserve the complete generated ownership graph before cleanup and dispose every generated
+child/list resource even when one cleanup fails. A manual partial that owns an `EngineObject.Resource` must reserve
+it without mutation in `PrepareResourceDispose`, then detach it in `PostDispose`; the graph performs the disposal.
+For other manually owned disposables, only release managed objects when `disposing` is true, detach every owned field
+before invoking fallible cleanup, sweep every owner, and rethrow the exact first failure with the protected
+`DisposeOwnedResources` / `ThrowIfCleanupFailed` helpers.
+
+All resource update/bind operations are non-reentrant. A handwritten or generation-suppressed `Resource.Update`
+must hold `BeginExclusiveResourceOperation(obj)` across the complete override. Handwritten ownership getters return
+`ReadGeneratedResourceState(ref field)` so validation and the read are atomic. Disposal during an operation or
+another thread's cleanup throws `InvalidOperationException` before cleanup starts and is retryable once that
+operation finishes; getter access after cleanup throws `ObjectDisposedException`. Recompile every
+extension containing generated `Resource` classes so it emits the new lifecycle protocol.
+Cleanup hooks also run for a directly constructed `Resource`; such a resource has no `GetOriginal()` value until its
+first `Update` begins, so cleanup must not assume that value exists.
+
+The generated `ToResource` method also treats construction as a transaction: it creates a fresh resource for each
+call and disposes a partially initialized instance if `Update` fails. A custom `ToResource` override must preserve
+both rules. In particular, never return one resource instance from multiple calls or share it between Frame and
+Auxiliary contexts; each context may update and dispose its resource independently.
 
 ### Extending the Resource class
 
@@ -531,7 +618,13 @@ public new partial class Resource
 
     partial void PostDispose(bool disposing)
     {
-        _effect?.Dispose();
+        if (!disposing) return;
+
+        SKRuntimeEffect? effect = _effect;
+        _effect = null;
+        Exception? failure = null;
+        DisposeOwnedResources(ref failure, effect);
+        ThrowIfCleanupFailed(failure);
     }
 }
 ```

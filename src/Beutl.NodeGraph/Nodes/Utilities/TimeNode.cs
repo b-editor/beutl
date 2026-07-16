@@ -22,7 +22,7 @@ public partial class TimeNode : GraphNode
 
     public partial class Resource
     {
-        public override void Update(GraphCompositionContext context)
+        protected override void UpdateCore(GraphCompositionContext context)
         {
             var node = GetOriginal();
             float duration = (float)node.TimeRange.Duration.TotalSeconds;

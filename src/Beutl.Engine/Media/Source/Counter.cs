@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Runtime.ExceptionServices;
 
 namespace Beutl.Media.Source;
 
@@ -99,8 +100,27 @@ internal sealed class Counter<T>
             }
         }
 
-        onRelease?.Invoke();
-        toDispose?.Dispose();
+        Exception? failure = null;
+        try
+        {
+            onRelease?.Invoke();
+        }
+        catch (Exception ex)
+        {
+            failure = ex;
+        }
+
+        try
+        {
+            toDispose?.Dispose();
+        }
+        catch (Exception ex)
+        {
+            failure ??= ex;
+        }
+
+        if (failure != null)
+            ExceptionDispatchInfo.Capture(failure).Throw();
     }
 
     /// <summary>

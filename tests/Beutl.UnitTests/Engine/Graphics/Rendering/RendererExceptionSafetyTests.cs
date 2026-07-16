@@ -1,10 +1,12 @@
 ﻿using System.Collections.Immutable;
+using System.Reflection;
 
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
+using Beutl.ProjectSystem;
 using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
@@ -43,8 +45,135 @@ public class RendererExceptionSafetyTests
 
             var ex = Assert.Throws<InvalidOperationException>(() => renderer.Render(frame));
 
-            Assert.That(ex!.Message, Is.EqualTo("fault"));
-            Assert.That(disposed, Is.EquivalentTo(new[] { "first", "fault", "remaining" }));
+            Assert.Multiple(() =>
+            {
+                Assert.That(ex!.Message, Is.EqualTo("fault"));
+                Assert.That(disposed, Is.EquivalentTo(new[] { "first", "fault", "remaining" }));
+                Assert.That(renderer.CurrentFramePullPurpose, Is.Null,
+                    "a failed render must not publish the input frame as current");
+            });
+        });
+    }
+
+    [Test]
+    public void UpdateFrame_DoesNotPublishPurpose_WhenDrawableUpdateThrows()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using var renderer = new Renderer(16, 16, RenderIntent.Delivery);
+            var validDrawable = new RoiAwareBoundsDrawable();
+            using var validResource = (Drawable.Resource)validDrawable.ToResource(new CompositionContext(
+                TimeSpan.Zero,
+                RenderIntent.Delivery,
+                RenderPullPurpose.Auxiliary));
+            var validFrame = new CompositionFrame(
+                ImmutableArray.Create<EngineObject.Resource>(validResource),
+                new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
+                new PixelSize(16, 16),
+                RenderIntent.Delivery,
+                RenderPullPurpose.Auxiliary);
+            Assert.That(
+                renderer.GetBoundary(validFrame, validDrawable),
+                Is.EqualTo(new Rect(-8, 0, 16, 8)));
+            Assert.That(renderer.CurrentFramePullPurpose, Is.EqualTo(RenderPullPurpose.Auxiliary));
+
+            var drawable = new ThrowingFrameUpdateDrawable();
+            using var resource = (Drawable.Resource)drawable.ToResource(new CompositionContext(
+                TimeSpan.Zero,
+                RenderIntent.Delivery,
+                RenderPullPurpose.Auxiliary));
+            var failingFrame = new CompositionFrame(
+                ImmutableArray.Create<EngineObject.Resource>(validResource, resource),
+                validFrame.Time,
+                validFrame.Size,
+                RenderIntent.Delivery,
+                RenderPullPurpose.Auxiliary);
+
+            InvalidOperationException? error = Assert.Throws<InvalidOperationException>(
+                () => renderer.UpdateFrame(failingFrame));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(error!.Message, Is.EqualTo("injected frame update failure"));
+                Assert.That(renderer.CurrentFramePullPurpose, Is.Null,
+                    "a failed update must invalidate, rather than publish, the partial render-node tree");
+                Assert.That(renderer.GetBoundary(validDrawable), Is.Null,
+                    "a clean entry added before the failure must not remain visible as the current frame");
+                Assert.That(renderer.FindRenderNode(validDrawable), Is.Null,
+                    "a failed frame must not expose an entry retained before the fault");
+            });
+
+            drawable.ThrowOnRender = false;
+            Assert.DoesNotThrow(() => renderer.UpdateFrame(failingFrame));
+            Assert.Multiple(() =>
+            {
+                Assert.That(drawable.RenderCalls, Is.EqualTo(2),
+                    "retry must rebuild the faulted node tree instead of treating its partial resource as current");
+                Assert.That(renderer.CurrentFramePullPurpose, Is.EqualTo(RenderPullPurpose.Auxiliary));
+            });
+        });
+    }
+
+    [Test]
+    public void RenderDrawable_WhenDrawableRenderThrows_EvictsFaultedEntryBeforeRetry()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var drawable = new ThrowingFrameUpdateDrawable();
+            using var resource = (Drawable.Resource)drawable.ToResource(new CompositionContext(
+                TimeSpan.Zero,
+                RenderIntent.Delivery,
+                RenderPullPurpose.Frame));
+            CompositionFrame frame = CreateFrame(resource);
+            using var renderer = new Renderer(16, 16, RenderIntent.Delivery);
+
+            InvalidOperationException? error = Assert.Throws<InvalidOperationException>(() => renderer.Render(frame));
+            drawable.ThrowOnRender = false;
+            Assert.DoesNotThrow(() => renderer.Render(frame));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(error!.Message, Is.EqualTo("injected frame update failure"));
+                Assert.That(drawable.RenderCalls, Is.EqualTo(2),
+                    "retry must render into a new node tree after the first tree was left incomplete");
+                Assert.That(renderer.CurrentFramePullPurpose, Is.EqualTo(RenderPullPurpose.Frame));
+            });
+        });
+    }
+
+    [Test]
+    public void UpdateFrame_WhenRenderAndRetiredNodeCleanupThrow_PreservesRenderFailure()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var renderFailure = new InvalidOperationException("render callback failure");
+            var cleanupFailure = new InvalidOperationException("retired node cleanup failure");
+            var drawable = new DualFailureDrawable(renderFailure, cleanupFailure);
+            using var resource = (Drawable.Resource)drawable.ToResource(new CompositionContext(
+                TimeSpan.Zero, RenderIntent.Delivery, RenderPullPurpose.Auxiliary));
+            CompositionFrame frame = CreateFrame(resource, RenderPullPurpose.Auxiliary);
+            using var renderer = new Renderer(16, 16, RenderIntent.Delivery);
+            renderer.UpdateFrame(frame);
+
+            drawable.ThrowOnRender = true;
+            drawable.Revision.CurrentValue++;
+            bool updateOnly = false;
+            resource.Update(drawable, new CompositionContext(
+                TimeSpan.Zero, RenderIntent.Delivery, RenderPullPurpose.Auxiliary), ref updateOnly);
+
+            InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(
+                () => renderer.UpdateFrame(frame));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(actual, Is.SameAs(renderFailure));
+                Assert.That(drawable.RetiredNodeDisposeCalls, Is.EqualTo(1));
+                Assert.That(renderer.CurrentFramePullPurpose, Is.Null);
+                Assert.That(renderer.FindRenderNode(drawable), Is.Null);
+            });
         });
     }
 
@@ -56,14 +185,14 @@ public class RendererExceptionSafetyTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             using var resource = CreateResource(
+                RenderPullPurpose.Auxiliary,
                 CreateOperation("first", disposed),
                 CreateOperation("fault", disposed, throwOnDispose: true),
                 CreateOperation("remaining", disposed));
             using var renderer = new Renderer(16, 16, RenderIntent.Delivery);
-            CompositionFrame frame = CreateFrame(resource);
-            renderer.UpdateFrame(frame);
+            CompositionFrame frame = CreateFrame(resource, RenderPullPurpose.Auxiliary);
 
-            var ex = Assert.Throws<InvalidOperationException>(() => renderer.RecalculateBoundaries(0));
+            var ex = Assert.Throws<InvalidOperationException>(() => renderer.RecalculateBoundaries(frame, 0));
 
             Assert.That(ex!.Message, Is.EqualTo("fault"));
             // The faulting op must not be re-disposed; the trailing op must still be cleaned up by the sweep.
@@ -78,16 +207,31 @@ public class RendererExceptionSafetyTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             var drawable = new RoiAwareBoundsDrawable();
-            using var resource = (Drawable.Resource)drawable.ToResource(CompositionContext.Default);
+            using var resource = (Drawable.Resource)drawable.ToResource(new CompositionContext(
+                TimeSpan.Zero,
+                RenderIntent.Delivery,
+                RenderPullPurpose.Frame));
             using var renderer = new Renderer(16, 16, RenderIntent.Delivery);
             var frame = new CompositionFrame(
                 ImmutableArray.Create<EngineObject.Resource>(resource),
                 new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
-                new PixelSize(16, 16));
+                new PixelSize(16, 16),
+                RenderIntent.Delivery,
+                RenderPullPurpose.Frame);
 
             renderer.Render(frame);
+            using var auxiliaryResource = (Drawable.Resource)drawable.ToResource(new CompositionContext(
+                TimeSpan.Zero,
+                RenderIntent.Delivery,
+                RenderPullPurpose.Auxiliary));
+            var auxiliaryFrame = new CompositionFrame(
+                ImmutableArray.Create<EngineObject.Resource>(auxiliaryResource),
+                frame.Time,
+                frame.Size,
+                RenderIntent.Delivery,
+                RenderPullPurpose.Auxiliary);
 
-            Assert.That(renderer.GetBoundary(drawable), Is.EqualTo(new Rect(-8, 0, 16, 8)));
+            Assert.That(renderer.GetBoundary(auxiliaryFrame, drawable), Is.EqualTo(new Rect(-8, 0, 16, 8)));
         });
     }
 
@@ -98,16 +242,31 @@ public class RendererExceptionSafetyTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             var drawable = new FullyOffscreenRoiAwareBoundsDrawable();
-            using var resource = (Drawable.Resource)drawable.ToResource(CompositionContext.Default);
+            using var resource = (Drawable.Resource)drawable.ToResource(new CompositionContext(
+                TimeSpan.Zero,
+                RenderIntent.Delivery,
+                RenderPullPurpose.Frame));
             using var renderer = new Renderer(16, 16, RenderIntent.Delivery);
             var frame = new CompositionFrame(
                 ImmutableArray.Create<EngineObject.Resource>(resource),
                 new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
-                new PixelSize(16, 16));
+                new PixelSize(16, 16),
+                RenderIntent.Delivery,
+                RenderPullPurpose.Frame);
 
             renderer.Render(frame);
+            using var auxiliaryResource = (Drawable.Resource)drawable.ToResource(new CompositionContext(
+                TimeSpan.Zero,
+                RenderIntent.Delivery,
+                RenderPullPurpose.Auxiliary));
+            var auxiliaryFrame = new CompositionFrame(
+                ImmutableArray.Create<EngineObject.Resource>(auxiliaryResource),
+                frame.Time,
+                frame.Size,
+                RenderIntent.Delivery,
+                RenderPullPurpose.Auxiliary);
 
-            Assert.That(renderer.GetBoundary(drawable), Is.EqualTo(new Rect(-16, 0, 8, 8)));
+            Assert.That(renderer.GetBoundary(auxiliaryFrame, drawable), Is.EqualTo(new Rect(-16, 0, 8, 8)));
         });
     }
 
@@ -120,12 +279,13 @@ public class RendererExceptionSafetyTests
             var cleanupFailure = new InvalidOperationException("first cleanup failure");
             var disposed = new List<string>();
             using var resource = CreateResource(
+                RenderPullPurpose.Auxiliary,
                 CreateOperation("first", disposed, disposeFailure: cleanupFailure),
                 CreateOperation(
                     "remaining", disposed,
                     disposeFailure: new InvalidOperationException("second cleanup failure")));
             using var renderer = new Renderer(16, 16, RenderIntent.Delivery);
-            CompositionFrame frame = CreateFrame(resource);
+            CompositionFrame frame = CreateFrame(resource, RenderPullPurpose.Auxiliary);
 
             InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(
                 () => renderer.HitTest(frame, new Point(15, 15)));
@@ -148,13 +308,14 @@ public class RendererExceptionSafetyTests
             var cleanupFailure = new InvalidOperationException("cleanup failure");
             var disposed = new List<string>();
             using var resource = CreateResource(
+                RenderPullPurpose.Auxiliary,
                 CreateOperation(
                     "first", disposed, hitTestFailure: hitTestFailure, disposeFailure: cleanupFailure),
                 CreateOperation(
                     "remaining", disposed,
                     disposeFailure: new InvalidOperationException("second cleanup failure")));
             using var renderer = new Renderer(16, 16, RenderIntent.Delivery);
-            CompositionFrame frame = CreateFrame(resource);
+            CompositionFrame frame = CreateFrame(resource, RenderPullPurpose.Auxiliary);
 
             InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(
                 () => renderer.HitTest(frame, new Point(0, 0)));
@@ -177,13 +338,17 @@ public class RendererExceptionSafetyTests
             var disposed = new List<string>();
             var first = new DisposalTrackingDrawable("first", disposed, failure);
             var second = new DisposalTrackingDrawable("second", disposed, failure);
-            using var firstResource = first.ToResource(CompositionContext.Default);
-            using var secondResource = second.ToResource(CompositionContext.Default);
+            var compositionContext = new CompositionContext(
+                TimeSpan.Zero, RenderIntent.Delivery, RenderPullPurpose.Frame);
+            using var firstResource = first.ToResource(compositionContext);
+            using var secondResource = second.ToResource(compositionContext);
             var resources = ImmutableArray.Create<EngineObject.Resource>(firstResource, secondResource);
             var frame = new CompositionFrame(
                 resources,
                 new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
-                new PixelSize(16, 16));
+                new PixelSize(16, 16),
+                RenderIntent.Delivery,
+                RenderPullPurpose.Frame);
             using var renderer = new Renderer(16, 16, RenderIntent.Delivery);
             renderer.UpdateFrame(frame);
 
@@ -195,6 +360,10 @@ public class RendererExceptionSafetyTests
                 Assert.That(disposed, Is.EquivalentTo(new[] { "first", "second" }),
                     "an entry disposal failure must not strand entries removed from the cache table");
                 Assert.DoesNotThrow(renderer.ClearAllCaches, "the detached cache table must remain empty");
+                Assert.That(renderer.CurrentFramePullPurpose, Is.Null);
+                Assert.That(renderer.FindRenderNode(first), Is.Null,
+                    "clearing caches must not leave a disposed entry published as the current frame");
+                Assert.That(renderer.GetBoundary(first), Is.Null);
             });
         });
     }
@@ -222,18 +391,118 @@ public class RendererExceptionSafetyTests
         });
     }
 
-    private static Drawable.Resource CreateResource(params RenderNodeOperation[] operations)
+    [Test]
+    public void Dispose_DetachesDrawableHierarchyHandlers()
     {
-        var drawable = new FaultingDrawable(operations);
-        return (Drawable.Resource)drawable.ToResource(CompositionContext.Default);
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var drawable = new RoiAwareBoundsDrawable();
+            using var resource = (Drawable.Resource)drawable.ToResource(new CompositionContext(
+                TimeSpan.Zero, RenderIntent.Delivery, RenderPullPurpose.Frame));
+            var renderer = new Renderer(16, 16, RenderIntent.Delivery);
+            renderer.UpdateFrame(CreateFrame(resource));
+            FieldInfo eventField = typeof(Hierarchical).GetField(
+                "DetachedFromHierarchy",
+                BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+            Assert.That(((Delegate?)eventField.GetValue(drawable))?.GetInvocationList(), Has.Length.EqualTo(1));
+            renderer.Dispose();
+
+            Assert.That(((Delegate?)eventField.GetValue(drawable))?.GetInvocationList(), Is.Null.Or.Empty,
+                "disposing a renderer must not leave its hierarchy handler rooted by a long-lived drawable");
+        });
     }
 
-    private static CompositionFrame CreateFrame(Drawable.Resource resource)
+    [Test]
+    public void HierarchyDetach_WhenEntryCleanupThrows_UnpublishesCurrentEntryBeforeCleanup()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var cleanupFailure = new InvalidOperationException("detach cleanup failure");
+            var disposed = new List<string>();
+            var drawable = new DisposalTrackingDrawable("detached", disposed, cleanupFailure);
+            string basePath = Path.Combine(Path.GetTempPath(), $"beutl_renderer_detach_{Guid.NewGuid():N}");
+            var element = new Element
+            {
+                Uri = new Uri(Path.Combine(basePath, "element.layer"))
+            };
+            element.AddObject(drawable);
+            var scene = new Scene(16, 16, string.Empty)
+            {
+                Uri = new Uri(Path.Combine(basePath, "scene.scene"))
+            };
+            scene.Children.Add(element);
+            var hierarchyRoot = new BeutlApplication();
+            hierarchyRoot.Items.Add(scene);
+            using var resource = (Drawable.Resource)drawable.ToResource(new CompositionContext(
+                TimeSpan.Zero, RenderIntent.Delivery, RenderPullPurpose.Frame));
+            using var renderer = new Renderer(16, 16, RenderIntent.Delivery);
+            renderer.UpdateFrame(CreateFrame(resource));
+
+            InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(
+                () => element.RemoveObject(drawable));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(actual, Is.SameAs(cleanupFailure));
+                Assert.That(disposed, Is.EqualTo(new[] { "detached" }));
+                Assert.That(renderer.FindRenderNode(drawable), Is.Null);
+                Assert.That(renderer.GetBoundary(drawable), Is.Null,
+                    "a partially disposed detached entry must never remain visible as current");
+            });
+        });
+    }
+
+    [Test]
+    public void DisposedRenderer_RejectsWorkBeforeRecreatingNodeEntries()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var drawable = new ThrowingFrameUpdateDrawable { ThrowOnRender = false };
+            using var resource = (Drawable.Resource)drawable.ToResource(new CompositionContext(
+                TimeSpan.Zero, RenderIntent.Delivery, RenderPullPurpose.Frame));
+            CompositionFrame frame = CreateFrame(resource);
+            var renderer = new Renderer(16, 16, RenderIntent.Delivery);
+            renderer.Dispose();
+
+            Assert.Multiple(() =>
+            {
+                Assert.Throws<ObjectDisposedException>(() => renderer.Render(frame));
+                Assert.Throws<ObjectDisposedException>(() => renderer.UpdateFrame(frame));
+                Assert.Throws<ObjectDisposedException>(() => renderer.FindRenderNode(drawable));
+                Assert.Throws<ObjectDisposedException>(() => renderer.Snapshot());
+                Assert.That(drawable.RenderCalls, Is.Zero);
+            });
+        });
+    }
+
+    private static Drawable.Resource CreateResource(params RenderNodeOperation[] operations)
+        => CreateResource(RenderPullPurpose.Frame, operations);
+
+    private static Drawable.Resource CreateResource(
+        RenderPullPurpose pullPurpose,
+        params RenderNodeOperation[] operations)
+    {
+        var drawable = new FaultingDrawable(operations);
+        return (Drawable.Resource)drawable.ToResource(new CompositionContext(
+            TimeSpan.Zero,
+            RenderIntent.Delivery,
+            pullPurpose));
+    }
+
+    private static CompositionFrame CreateFrame(
+        Drawable.Resource resource,
+        RenderPullPurpose pullPurpose = RenderPullPurpose.Frame)
     {
         return new CompositionFrame(
             ImmutableArray.Create<EngineObject.Resource>(resource),
             new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
-            new PixelSize(16, 16));
+            new PixelSize(16, 16),
+            RenderIntent.Delivery,
+            pullPurpose);
     }
 
     private static RenderNodeOperation CreateOperation(
@@ -274,6 +543,28 @@ internal sealed class ThrowingDisposeRenderer(int width, int height)
 {
     protected override void OnDispose(bool disposing)
         => throw new InvalidOperationException("injected renderer disposal failure");
+}
+
+internal sealed partial class ThrowingFrameUpdateDrawable : Drawable
+{
+    public bool ThrowOnRender { get; set; } = true;
+
+    public int RenderCalls { get; private set; }
+
+    public override void Render(GraphicsContext2D context, Drawable.Resource resource)
+    {
+        RenderCalls++;
+        if (ThrowOnRender)
+        {
+            throw new InvalidOperationException("injected frame update failure");
+        }
+    }
+
+    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource) => new(1, 1);
+
+    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
+    {
+    }
 }
 
 // Emits a fixed set of ops into the render graph, with Render overridden to bypass the blend/opacity/filter
@@ -358,6 +649,58 @@ internal sealed partial class DisposalTrackingDrawable(
 
     protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
     {
+    }
+}
+
+internal sealed partial class DualFailureDrawable(
+    Exception renderFailure,
+    Exception retiredNodeCleanupFailure) : Drawable
+{
+    private readonly StableRenderNode _stableNode = new();
+    private readonly ThrowingCleanupRenderNode _retiredNode = new(retiredNodeCleanupFailure);
+
+    public IProperty<int> Revision { get; } = Property.Create(0);
+
+    public bool ThrowOnRender { get; set; }
+
+    public int RetiredNodeDisposeCalls => _retiredNode.DisposeCalls;
+
+    public override void Render(GraphicsContext2D context, Drawable.Resource resource)
+    {
+        context.DrawNode(_stableNode);
+        if (ThrowOnRender)
+        {
+            throw renderFailure;
+        }
+
+        context.DrawNode(_retiredNode);
+    }
+
+    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource) => Size.Empty;
+
+    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
+    {
+    }
+
+    private sealed class StableRenderNode : RenderNode
+    {
+        public override RenderNodeOperation[] Process(RenderNodeContext context) => [];
+    }
+
+    private sealed class ThrowingCleanupRenderNode(Exception failure) : RenderNode
+    {
+        public int DisposeCalls { get; private set; }
+
+        public override RenderNodeOperation[] Process(RenderNodeContext context) => [];
+
+        protected override void OnDispose(bool disposing)
+        {
+            if (disposing)
+            {
+                DisposeCalls++;
+                throw failure;
+            }
+        }
     }
 }
 

@@ -112,7 +112,7 @@ public partial class SourceVideo : IThumbnailsProvider
             preferProxy: false,
             preferredProxyPreset: ProxyPreset.Quarter);
 
-    // preferProxy false must keep the original decode path byte-identical (shared Default context).
+    // preferProxy false keeps the original decode path while both modes use explicit auxiliary-preview policy.
     public async IAsyncEnumerable<(int Index, int Count, Bitmap Thumbnail)> GetThumbnailStripAsync(
         int maxWidth,
         int maxHeight,
@@ -127,13 +127,21 @@ public partial class SourceVideo : IThumbnailsProvider
         DrawableRenderNode? node = null;
         try
         {
+            // Thumbnail resource evaluation and the processor below are one auxiliary preview operation; keep
+            // both policy carriers explicit so a nested resource cannot accidentally mutate retained frame state.
             resource = ToResource(preferProxy
-                ? new CompositionContext(TimeSpan.Zero)
+                ? new CompositionContext(
+                    TimeSpan.Zero,
+                    RenderIntent.Preview,
+                    RenderPullPurpose.Auxiliary)
                 {
                     PreferProxy = true,
                     PreferredProxyPreset = preferredProxyPreset,
                 }
-                : CompositionContext.Default);
+                : new CompositionContext(
+                    TimeSpan.Zero,
+                    RenderIntent.Preview,
+                    RenderPullPurpose.Auxiliary));
 
             if (resource.Source is not { } source)
                 yield break;
@@ -191,7 +199,10 @@ public partial class SourceVideo : IThumbnailsProvider
                     if (cancellationToken.IsCancellationRequested)
                         return null;
 
-                    var ctx = new CompositionContext(time + TimeRange.Start)
+                    var ctx = new CompositionContext(
+                        time + TimeRange.Start,
+                        RenderIntent.Preview,
+                        RenderPullPurpose.Auxiliary)
                     {
                         PreferProxy = preferProxy,
                         PreferredProxyPreset = preferredProxyPreset,

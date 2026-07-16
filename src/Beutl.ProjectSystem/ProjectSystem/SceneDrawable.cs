@@ -97,7 +97,8 @@ public sealed partial class SceneDrawable : Drawable
 
             if (_compositor?.Scene != ReferencedScene
                 || _compositor?.DisableResourceShare != context.DisableResourceShare
-                || _compositor?.ForceOriginalSource != forceOriginalSource)
+                || _compositor?.ForceOriginalSource != forceOriginalSource
+                || _compositor?.RenderIntent != context.RenderIntent)
             {
                 _compositor?.Dispose();
                 _compositor = null;
@@ -105,7 +106,7 @@ public sealed partial class SceneDrawable : Drawable
 
             if (ReferencedScene != null && _compositor == null)
             {
-                _compositor = new SceneCompositor(ReferencedScene)
+                _compositor = new SceneCompositor(ReferencedScene, context.RenderIntent)
                 {
                     DisableResourceShare = context.DisableResourceShare,
                     ForceOriginalSource = forceOriginalSource,
@@ -120,7 +121,9 @@ public sealed partial class SceneDrawable : Drawable
             try
             {
                 CapturedCompositionFrame? oldFrame = Frame != null ? new CapturedCompositionFrame(Frame.Value) : null;
-                Frame = _compositor?.EvaluateGraphics(context.Time - obj.Start);
+                Frame = _compositor?.EvaluateGraphics(
+                    context.Time - obj.Start,
+                    context.PullPurpose);
 
                 if (oldFrame.HasValue && Frame.HasValue)
                 {
@@ -145,12 +148,16 @@ public sealed partial class SceneDrawable : Drawable
 
         partial void PostDispose(bool disposing)
         {
-            if (disposing)
-            {
-                _compositor?.Dispose();
-                _compositor = null;
-                Frame = null;
-            }
+            if (!disposing)
+                return;
+
+            SceneCompositor? compositor = _compositor;
+            _compositor = null;
+            Frame = null;
+
+            Exception? failure = null;
+            DisposeOwnedResources(ref failure, compositor);
+            ThrowIfCleanupFailed(failure);
         }
     }
 

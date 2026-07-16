@@ -29,8 +29,8 @@ public sealed partial class DrawableTextureSource : TextureSource
 
     public partial class Resource
     {
-        private readonly TextureCache _frameCache = new();
-        private readonly TextureCache _auxiliaryCache = new();
+        private TextureCache? _frameCache = new();
+        private TextureCache? _auxiliaryCache = new();
 
         public override ITexture2D? GetTexture(
             IGraphicsContext graphicsContext,
@@ -38,12 +38,14 @@ public sealed partial class DrawableTextureSource : TextureSource
             RenderPullPurpose pullPurpose,
             float surfaceDensity = 1f)
         {
+            ObjectDisposedException.ThrowIf(IsDisposed, this);
+            TextureCache frameCache = _frameCache!;
+            TextureCache auxiliaryCache = _auxiliaryCache!;
             renderIntent = RenderPolicyValidation.Validate(renderIntent, nameof(renderIntent));
             pullPurpose = RenderPolicyValidation.Validate(pullPurpose, nameof(pullPurpose));
             if (Drawable == null)
             {
-                _frameCache.Dispose();
-                _auxiliaryCache.Dispose();
+                Graphics3DDisposal.DisposeAll(frameCache, auxiliaryCache);
                 return null;
             }
 
@@ -60,15 +62,15 @@ public sealed partial class DrawableTextureSource : TextureSource
             // The reverse is intentionally forbidden: output produced under auxiliary policy must never seed a
             // retained frame cache.
             if (pullPurpose == RenderPullPurpose.Auxiliary
-                && _frameCache.Matches(
+                && frameCache.Matches(
                     deviceWidth, deviceHeight, Version, density, renderIntent, RenderPullPurpose.Frame))
             {
-                return _frameCache.RenderTarget!.Texture;
+                return frameCache.RenderTarget!.Texture;
             }
 
             TextureCache cache = pullPurpose == RenderPullPurpose.Auxiliary
-                ? _auxiliaryCache
-                : _frameCache;
+                ? auxiliaryCache
+                : frameCache;
 
             if (cache.Width != deviceWidth || cache.Height != deviceHeight || cache.RenderTarget == null)
             {
@@ -124,8 +126,14 @@ public sealed partial class DrawableTextureSource : TextureSource
 
         partial void PostDispose(bool disposing)
         {
-            _frameCache.Dispose();
-            _auxiliaryCache.Dispose();
+            if (!disposing)
+                return;
+
+            TextureCache? frameCache = _frameCache;
+            _frameCache = null;
+            TextureCache? auxiliaryCache = _auxiliaryCache;
+            _auxiliaryCache = null;
+            Graphics3DDisposal.DisposeAll(frameCache, auxiliaryCache);
         }
 
         private sealed class TextureCache : IDisposable
@@ -163,14 +171,16 @@ public sealed partial class DrawableTextureSource : TextureSource
 
             public void DisposeRenderTarget()
             {
-                RenderTarget?.Dispose();
+                RenderTarget? renderTarget = RenderTarget;
                 RenderTarget = null;
+                renderTarget?.Dispose();
             }
 
             public void Dispose()
             {
-                DisposeRenderTarget();
-                DrawableNode?.Dispose();
+                RenderTarget? renderTarget = RenderTarget;
+                RenderTarget = null;
+                DrawableRenderNode? drawableNode = DrawableNode;
                 DrawableNode = null;
                 RenderTargetVersion = -1;
                 Width = 0;
@@ -178,6 +188,7 @@ public sealed partial class DrawableTextureSource : TextureSource
                 Density = -1f;
                 RenderIntent = null;
                 PullPurpose = null;
+                Graphics3DDisposal.DisposeAll(renderTarget, drawableNode);
             }
         }
     }

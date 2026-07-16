@@ -1,4 +1,6 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using System.Collections.ObjectModel;
+using System.ComponentModel.DataAnnotations;
+using System.Runtime.ExceptionServices;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Language;
@@ -27,12 +29,6 @@ public partial class DelayAnimationEffect : FilterEffect
         var r = (Resource)resource;
         if (r.Effect is not { } child) return;
 
-        // Release per-branch resources left over from an earlier describe that fanned out into more branches than the
-        // most recent one produced: the cache only grows in the branch callback, so a shrinking branch count (a split
-        // that emitted fewer parts) would otherwise retain the stale resources until the effect is disposed. The trim
-        // target is the branch count observed during the previous describe's callbacks.
-        r.TrimDelayedResourcesToObservedBranchCount();
-
         // A nested graph per branch (research D8): branch i re-describes the child effect at the clock delayed by
         // delay × i, so a split fan-out gets the staggered animation the legacy per-target pull produced. Branch 0's
         // delayed clock is the current clock, so the single-input path equals describing the child directly.
@@ -42,101 +38,158 @@ public partial class DelayAnimationEffect : FilterEffect
         bool disableResourceShare = r.DisableResourceShare;
         bool preferProxy = r.PreferProxy;
         ProxyPreset preferredProxyPreset = r.PreferredProxyPreset;
-        List<FilterEffect.Resource> cache = r.DelayedResources;
 
-        builder.NestedGraph(NestedGraphNodeDescriptor.Create(
+        builder.NestedGraph(NestedGraphNodeDescriptor.CreateStateful(
             (branchBuilder, i) =>
             {
-                r.ObserveBranch(i);
                 TimeSpan delayedTime = globalTime - TimeSpan.FromMilliseconds(delay * i);
-                var delayedContext = new CompositionContext(delayedTime)
+                var delayedContext = new CompositionContext(
+                    delayedTime,
+                    branchBuilder.RenderIntent,
+                    branchBuilder.PullPurpose)
                 {
                     DisableResourceShare = disableResourceShare,
                     PreferProxy = preferProxy,
                     PreferredProxyPreset = preferredProxyPreset,
                 };
-                while (cache.Count <= i)
-                {
-                    cache.Add(childEffect.ToResource(delayedContext));
-                }
+                FilterEffect.Resource delayedResource =
+                    r.GetOrCreateDelayedResource(i, childEffect, delayedContext);
 
                 bool updateOnly = false;
-                cache[i].Update(childEffect, delayedContext, ref updateOnly);
-                if (cache[i].IsEnabled)
+                delayedResource.Update(childEffect, delayedContext, ref updateOnly);
+                if (delayedResource.IsEnabled)
                 {
-                    branchBuilder.Effect(cache[i]);
+                    branchBuilder.Effect(delayedResource);
                 }
             },
+            r.PruneDelayedResources,
             structuralToken: nameof(DelayAnimationEffect)));
     }
 
     public override Resource ToResource(CompositionContext context)
     {
         var resource = new Resource();
-        bool updateOnly = true;
-        resource.Update(this, context, ref updateOnly);
-        return resource;
+        try
+        {
+            bool updateOnly = true;
+            resource.Update(this, context, ref updateOnly);
+            return resource;
+        }
+        catch
+        {
+            try
+            {
+                resource.Dispose();
+            }
+            catch
+            {
+                // Preserve the acquisition failure while reclaiming every partially initialized child resource.
+            }
+
+            throw;
+        }
     }
 
     public new class Resource : FilterEffect.Resource
     {
+        private static readonly IReadOnlyDictionary<int, FilterEffect.Resource> s_emptyDelayedResources
+            = new ReadOnlyDictionary<int, FilterEffect.Resource>(new Dictionary<int, FilterEffect.Resource>());
+
         private float _delay;
         private FilterEffect.Resource? _effect;
         private TimeSpan _globalTime;
         private bool _disableResourceShare;
         private bool _preferProxy;
         private ProxyPreset _preferredProxyPreset = ProxyPreset.Quarter;
-        private readonly List<FilterEffect.Resource> _delayedResources = [];
-        private int _branchHighWater;
+        private readonly Dictionary<int, FilterEffect.Resource> _delayedResources = [];
+        private IReadOnlyDictionary<int, FilterEffect.Resource> _delayedResourcesSnapshot = s_emptyDelayedResources;
+        private EngineObject? _delayedResourceOriginal;
 
-        public float Delay => _delay;
+        public float Delay => ReadGeneratedResourceState(ref _delay);
 
-        public FilterEffect.Resource? Effect => _effect;
+        public FilterEffect.Resource? Effect => ReadGeneratedResourceState(ref _effect);
 
-        public TimeSpan GlobalTime => _globalTime;
+        public TimeSpan GlobalTime => ReadGeneratedResourceState(ref _globalTime);
 
-        public bool DisableResourceShare => _disableResourceShare;
+        public bool DisableResourceShare => ReadGeneratedResourceState(ref _disableResourceShare);
 
-        public bool PreferProxy => _preferProxy;
+        public bool PreferProxy => ReadGeneratedResourceState(ref _preferProxy);
 
-        public ProxyPreset PreferredProxyPreset => _preferredProxyPreset;
+        public ProxyPreset PreferredProxyPreset
+            => ReadGeneratedResourceState(ref _preferredProxyPreset);
 
-        public List<FilterEffect.Resource> DelayedResources => _delayedResources;
+        public IReadOnlyDictionary<int, FilterEffect.Resource> DelayedResources
+            => ReadGeneratedResourceState(ref _delayedResourcesSnapshot);
 
-        // Records that branch `index` was described this pass; the trim at the next describe keeps the cache no larger
-        // than the highest branch count seen.
-        internal void ObserveBranch(int index)
+        internal FilterEffect.Resource GetOrCreateDelayedResource(
+            int branchOrdinal,
+            EngineObject childEffect,
+            CompositionContext context)
         {
-            if (index + 1 > _branchHighWater)
-                _branchHighWater = index + 1;
-        }
-
-        // Disposes and removes cache entries above the previous pass's observed branch count, then resets the mark so
-        // the current pass's callbacks re-accumulate it.
-        internal void TrimDelayedResourcesToObservedBranchCount()
-        {
-            while (_delayedResources.Count > _branchHighWater)
+            using GeneratedResourceOperationLease operation = BeginExclusiveResourceOperation();
+            ArgumentOutOfRangeException.ThrowIfNegative(branchOrdinal);
+            if (!_delayedResources.TryGetValue(branchOrdinal, out FilterEffect.Resource? resource))
             {
-                _delayedResources[^1].Dispose();
-                _delayedResources.RemoveAt(_delayedResources.Count - 1);
+                resource = (FilterEffect.Resource)childEffect.ToResource(context);
+                _delayedResources.Add(branchOrdinal, resource);
+                _delayedResourceOriginal ??= childEffect;
+                PublishDelayedResourcesSnapshot();
             }
 
-            _branchHighWater = 0;
+            return resource;
         }
 
-        public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
+        internal void PruneDelayedResources(IReadOnlySet<int> liveBranchOrdinals)
+        {
+            using GeneratedResourceOperationLease operation = BeginExclusiveResourceOperation();
+            List<KeyValuePair<int, FilterEffect.Resource>>? stale = null;
+            foreach (KeyValuePair<int, FilterEffect.Resource> entry in _delayedResources)
+            {
+                if (!liveBranchOrdinals.Contains(entry.Key))
+                    (stale ??= []).Add(entry);
+            }
+
+            if (stale == null)
+                return;
+
+            var roots = new FilterEffect.Resource[stale.Count];
+            for (int i = 0; i < stale.Count; i++)
+                roots[i] = stale[i].Value;
+
+            ExceptionDispatchInfo? cleanupFailure = RetireOwnedResourceGraphs(roots);
+            foreach (KeyValuePair<int, FilterEffect.Resource> entry in stale)
+                _delayedResources.Remove(entry.Key);
+            if (_delayedResources.Count == 0)
+                _delayedResourceOriginal = null;
+            PublishDelayedResourcesSnapshot();
+            cleanupFailure?.Throw();
+        }
+
+        public sealed override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
+        {
+            var typed = (DelayAnimationEffect)obj;
+            if (!IsCompatibleUpdateOwner(typed))
+            {
+                throw new InvalidCastException(
+                    $"{GetType().FullName} cannot update from {typed.GetType().FullName}.");
+            }
+
+            using GeneratedResourceOperationLease operation = BeginExclusiveResourceOperation(typed);
+            UpdateCore(typed, context, ref updateOnly);
+        }
+
+        /// <summary>
+        /// Purely validates the owner type before the update lease is acquired or the published original changes.
+        /// A resource paired with a derived effect overrides this predicate with its exact compatible owner type.
+        /// </summary>
+        protected virtual bool IsCompatibleUpdateOwner(DelayAnimationEffect obj) => true;
+
+        protected virtual void UpdateCore(DelayAnimationEffect obj, CompositionContext context, ref bool updateOnly)
         {
             base.Update(obj, context, ref updateOnly);
 
-            var typed = (DelayAnimationEffect)obj;
-            CompareAndUpdate(context, typed.Delay, ref _delay, ref updateOnly);
-            CompareAndUpdateObject(context, typed.Effect, ref _effect, ref updateOnly);
-            if (_delayedResources.Count > 0 && _delayedResources[0].GetOriginal() != Effect?.GetOriginal())
-            {
-                foreach (var r in _delayedResources)
-                    r.Dispose();
-                _delayedResources.Clear();
-            }
+            CompareAndUpdate(context, obj.Delay, ref _delay, ref updateOnly);
+            UpdateEffect(context, obj, ref updateOnly);
 
             TimeSpan oldTime = _globalTime;
             bool oldDisableResourceShare = _disableResourceShare;
@@ -158,19 +211,133 @@ public partial class DelayAnimationEffect : FilterEffect
             }
         }
 
-        protected override void Dispose(bool disposing)
+        protected override void PrepareGeneratedResourceCleanupCore(
+            bool disposing,
+            GeneratedResourceCleanupContext context)
         {
             if (disposing)
             {
-                _effect?.Dispose();
-                _effect = null;
-
-                foreach (var r in _delayedResources)
-                    r.Dispose();
-                _delayedResources.Clear();
+                context.Reserve(_effect);
+                foreach (FilterEffect.Resource resource in _delayedResources.Values)
+                {
+                    context.Reserve(resource);
+                }
             }
 
-            base.Dispose(disposing);
+            base.PrepareGeneratedResourceCleanupCore(disposing, context);
+        }
+
+        protected override void CleanupGeneratedResourceCore(
+            bool disposing,
+            GeneratedResourceCleanupContext context)
+        {
+            try
+            {
+                FilterEffect.Resource? effect = _effect;
+                _effect = null;
+                FilterEffect.Resource[] delayed = DetachDelayedResources();
+
+                if (disposing)
+                {
+                    context.DisposeOwned(effect);
+                    foreach (FilterEffect.Resource resource in delayed)
+                    {
+                        context.DisposeOwned(resource);
+                    }
+                }
+            }
+            finally
+            {
+                base.CleanupGeneratedResourceCore(disposing, context);
+            }
+        }
+
+        private FilterEffect.Resource[] DetachDelayedResources()
+        {
+            FilterEffect.Resource[] resources = [.. _delayedResources.Values];
+            _delayedResources.Clear();
+            _delayedResourceOriginal = null;
+            _delayedResourcesSnapshot = s_emptyDelayedResources;
+            return resources;
+        }
+
+        private void PublishDelayedResourcesSnapshot()
+        {
+            _delayedResourcesSnapshot = _delayedResources.Count == 0
+                ? s_emptyDelayedResources
+                : new ReadOnlyDictionary<int, FilterEffect.Resource>(
+                    new Dictionary<int, FilterEffect.Resource>(_delayedResources));
+        }
+
+        private void UpdateEffect(
+            CompositionContext context,
+            DelayAnimationEffect owner,
+            ref bool updateOnly)
+        {
+            FilterEffect? value = context.Get(owner.Effect);
+            FilterEffect.Resource? current = _effect;
+            if (current != null && ReferenceEquals(current.GetOriginal(), value))
+            {
+                int oldVersion = current.Version;
+                bool childUpdateOnly = false;
+                current.Update(value!, context, ref childUpdateOnly);
+                if (!updateOnly && oldVersion != current.Version)
+                {
+                    Version++;
+                    updateOnly = true;
+                }
+
+                if (_delayedResources.Count > 0 && !ReferenceEquals(_delayedResourceOriginal, value))
+                    RetireAllDelayedResources();
+                return;
+            }
+
+            FilterEffect.Resource? replacement = value == null
+                ? null
+                : (FilterEffect.Resource)value.ToResource(context);
+            var roots = new FilterEffect.Resource[(current == null ? 0 : 1) + _delayedResources.Count];
+            int rootIndex = 0;
+            if (current != null)
+                roots[rootIndex++] = current;
+            foreach (FilterEffect.Resource delayed in _delayedResources.Values)
+                roots[rootIndex++] = delayed;
+
+            ExceptionDispatchInfo? cleanupFailure;
+            try
+            {
+                cleanupFailure = RetireOwnedResourceGraphs(roots);
+            }
+            catch
+            {
+                try
+                {
+                    replacement?.Dispose();
+                }
+                catch
+                {
+                    // Preserve the reservation failure while reclaiming the unpublished replacement best-effort.
+                }
+
+                throw;
+            }
+
+            _effect = replacement;
+            DetachDelayedResources();
+            if (!updateOnly)
+            {
+                Version++;
+                updateOnly = true;
+            }
+
+            cleanupFailure?.Throw();
+        }
+
+        private void RetireAllDelayedResources()
+        {
+            FilterEffect.Resource[] roots = [.. _delayedResources.Values];
+            ExceptionDispatchInfo? cleanupFailure = RetireOwnedResourceGraphs(roots);
+            DetachDelayedResources();
+            cleanupFailure?.Throw();
         }
     }
 }

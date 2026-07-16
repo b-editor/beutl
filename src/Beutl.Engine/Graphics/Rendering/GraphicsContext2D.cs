@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics.Effects;
+﻿using System.Runtime.ExceptionServices;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.Media.Source;
@@ -40,6 +41,9 @@ public sealed class GraphicsContext2D(
 
     private void Add(RenderNode node)
     {
+        ArgumentNullException.ThrowIfNull(node);
+        ObjectDisposedException.ThrowIf(node.IsDisposed, node);
+
         if (_drawOperationindex < _container.Children.Count)
         {
             Untracked(_container.Children[_drawOperationindex]);
@@ -90,7 +94,34 @@ public sealed class GraphicsContext2D(
 
     public void Dispose()
     {
-        _container.RemoveRange(_drawOperationindex, _container.Children.Count - _drawOperationindex);
+        RenderNode[] retired = [.. _container.Children.Skip(_drawOperationindex)];
+        _container.RemoveRange(_drawOperationindex, retired.Length);
+        Exception? failure = null;
+        foreach (RenderNode node in retired)
+        {
+            try
+            {
+                Untracked(node);
+            }
+            catch (Exception ex)
+            {
+                failure ??= ex;
+            }
+
+            try
+            {
+                node.Dispose();
+            }
+            catch (Exception ex)
+            {
+                failure ??= ex;
+            }
+        }
+
+        if (failure != null)
+        {
+            ExceptionDispatchInfo.Capture(failure).Throw();
+        }
     }
 
     public void Reset()
@@ -293,14 +324,35 @@ public sealed class GraphicsContext2D(
         }
 
         int count = _nodes.Count;
+        Exception? renderFailure = null;
         try
         {
             var obj = drawable.GetOriginal();
             obj.Render(this, drawable);
         }
-        finally
+        catch (Exception ex)
+        {
+            renderFailure = ex;
+        }
+
+        Exception? cleanupFailure = null;
+        try
         {
             Pop(count);
+        }
+        catch (Exception ex)
+        {
+            cleanupFailure = ex;
+        }
+
+        if (renderFailure != null)
+        {
+            ExceptionDispatchInfo.Capture(renderFailure).Throw();
+        }
+
+        if (cleanupFailure != null)
+        {
+            ExceptionDispatchInfo.Capture(cleanupFailure).Throw();
         }
     }
 
@@ -335,7 +387,16 @@ public sealed class GraphicsContext2D(
         }
         else
         {
-            _hasChanges |= updateNode(next, parameters);
+            try
+            {
+                _hasChanges |= updateNode(next, parameters);
+            }
+            finally
+            {
+                DetachDisposedUpdatedNode(next);
+            }
+
+            ObjectDisposedException.ThrowIf(next.IsDisposed, next);
         }
 
         ++_drawOperationindex;
@@ -375,24 +436,14 @@ public sealed class GraphicsContext2D(
 
     public void Pop(int count = -1)
     {
+        Exception? failure = null;
         if (count < 0)
         {
             while (count < 0
                    && _nodes.TryPop(out (ContainerRenderNode, int) state))
             {
-                foreach (RenderNode node in _container.Children.Take(_drawOperationindex..))
-                {
-                    _hasChanges = true;
-                    node.Dispose();
-                    Untracked(node);
-                }
-
-                _container.RemoveRange(_drawOperationindex, _container.Children.Count - _drawOperationindex);
-
-                _container = state.Item1;
-                _container.HasChanges = _container.HasChanges || _hasChanges;
-                _drawOperationindex = state.Item2;
-
+                Exception? levelFailure = PopContainer(state);
+                failure ??= levelFailure;
                 count++;
             }
         }
@@ -401,20 +452,62 @@ public sealed class GraphicsContext2D(
             while (_nodes.Count >= count
                    && _nodes.TryPop(out (ContainerRenderNode, int) state))
             {
-                foreach (RenderNode node in _container.Children.Take(_drawOperationindex..))
-                {
-                    _hasChanges = true;
-                    node.Dispose();
-                    Untracked(node);
-                }
-
-                _container.RemoveRange(_drawOperationindex, _container.Children.Count - _drawOperationindex);
-
-                _container = state.Item1;
-                _container.HasChanges = _container.HasChanges || _hasChanges;
-                _drawOperationindex = state.Item2;
+                Exception? levelFailure = PopContainer(state);
+                failure ??= levelFailure;
             }
         }
+
+        if (failure != null)
+        {
+            ExceptionDispatchInfo.Capture(failure).Throw();
+        }
+    }
+
+    private Exception? PopContainer((ContainerRenderNode Container, int DrawOperationIndex) state)
+    {
+        RenderNode[] retired = [.. _container.Children.Skip(_drawOperationindex)];
+        try
+        {
+            _container.RemoveRange(_drawOperationindex, retired.Length);
+        }
+        catch
+        {
+            _nodes.Push(state);
+            throw;
+        }
+
+        if (retired.Length > 0)
+        {
+            _hasChanges = true;
+        }
+
+        _container = state.Container;
+        _container.HasChanges = _container.HasChanges || _hasChanges;
+        _drawOperationindex = state.DrawOperationIndex;
+
+        Exception? failure = null;
+        foreach (RenderNode node in retired)
+        {
+            try
+            {
+                Untracked(node);
+            }
+            catch (Exception ex)
+            {
+                failure ??= ex;
+            }
+
+            try
+            {
+                node.Dispose();
+            }
+            catch (Exception ex)
+            {
+                failure ??= ex;
+            }
+        }
+
+        return failure;
     }
 
     public PushedState Push()
@@ -608,11 +701,42 @@ public sealed class GraphicsContext2D(
         }
         else
         {
-            _hasChanges |= updateNode(next, parameters);
+            try
+            {
+                _hasChanges |= updateNode(next, parameters);
+            }
+            finally
+            {
+                DetachDisposedUpdatedNode(next);
+            }
+
+            ObjectDisposedException.ThrowIf(next.IsDisposed, next);
             Push(next);
         }
 
         return new(this, _nodes.Count);
+    }
+
+    private void DetachDisposedUpdatedNode(RenderNode node)
+    {
+        if (!node.IsDisposed)
+            return;
+
+        if (_drawOperationindex < _container.Children.Count
+            && ReferenceEquals(_container.Children[_drawOperationindex], node))
+        {
+            _container.RemoveRange(_drawOperationindex, 1);
+            _hasChanges = true;
+            try
+            {
+                Untracked(node);
+            }
+            catch
+            {
+                // The updater violated the ownership contract by disposing an installed node. Keep that
+                // contract failure primary after detaching the corrupt entry from the retained tree.
+            }
+        }
     }
 
     private PushedState PushFilterEffectNode(

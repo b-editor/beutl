@@ -27,7 +27,12 @@ public static class ClassInfoExtractor
         INamedTypeSymbol? iPropertySymbol = compilation.GetTypeByMetadataName("Beutl.Engine.IProperty`1");
         INamedTypeSymbol? iListPropertySymbol = compilation.GetTypeByMetadataName("Beutl.Engine.IListProperty`1");
         INamedTypeSymbol? suppressAttribute = compilation.GetTypeByMetadataName("Beutl.Engine.SuppressResourceClassGenerationAttribute");
-        if (engineObjectSymbol is null || iPropertySymbol is null || iListPropertySymbol is null || suppressAttribute is null)
+        INamedTypeSymbol? compositionContextSymbol = compilation.GetTypeByMetadataName("Beutl.Composition.CompositionContext");
+        if (engineObjectSymbol is null
+            || iPropertySymbol is null
+            || iListPropertySymbol is null
+            || suppressAttribute is null
+            || compositionContextSymbol is null)
         {
             return null;
         }
@@ -48,7 +53,16 @@ public static class ClassInfoExtractor
             return null;
         }
 
-        bool suppressedResourceClassGeneration = TypeAnalysisHelpers.HasSuppressResourceClassGenerationAttribute(symbol, suppressAttribute);
+        INamedTypeSymbol? inheritedTypedResourceUpdateOwner =
+            TypeAnalysisHelpers.FindInheritedTypedResourceUpdateOwner(
+                symbol,
+                engineObjectSymbol,
+                compositionContextSymbol,
+                suppressAttribute);
+        bool directlySuppressesResourceClassGeneration =
+            TypeAnalysisHelpers.HasDirectSuppressResourceClassGenerationAttribute(symbol, suppressAttribute);
+        bool hasSuppressedResourceAncestor =
+            TypeAnalysisHelpers.HasSuppressResourceClassGenerationAttribute(symbol, suppressAttribute);
         bool isPartial = classDeclaration.Modifiers.Any(m => m.IsKind(SyntaxKind.PartialKeyword));
 
         var valueProperties = ImmutableArray.CreateBuilder<ValuePropertyInfo>();
@@ -162,10 +176,20 @@ public static class ClassInfoExtractor
             baseResourceOwner = baseType;
         }
 
+        bool hasDeclaredResourceMembers = valueProperties.Any(property => !property.ExcludeFromResource)
+            || objectProperties.Any(property => !property.ExcludeFromResource)
+            || listProperties.Any(property => !property.ExcludeFromResource)
+            || portProperties.Count > 0;
+        bool usesInheritedTypedResourceContract = inheritedTypedResourceUpdateOwner != null
+            && (isPartial || hasDeclaredResourceMembers);
+        bool suppressedResourceClassGeneration = directlySuppressesResourceClassGeneration
+            || (hasSuppressedResourceAncestor && !usesInheritedTypedResourceContract);
+
         return new ClassInfo(
             symbol,
             isPartial,
             baseResourceOwner,
+            inheritedTypedResourceUpdateOwner,
             valueProperties.ToImmutable(),
             objectProperties.ToImmutable(),
             listProperties.ToImmutable(),

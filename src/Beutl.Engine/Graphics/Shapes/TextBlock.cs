@@ -246,7 +246,7 @@ public partial class TextBlock : Drawable
 
         public float Spacing { get; private set; }
 
-        public Pen.Resource? Pen => _pen;
+        public Pen.Resource? Pen => ReadGeneratedResourceState(ref _pen);
 
         public TextElements GetTextElements()
         {
@@ -277,11 +277,27 @@ public partial class TextBlock : Drawable
             return _elements;
         }
 
+        partial void PrepareResourceDispose(
+            bool disposing,
+            EngineObject.Resource.GeneratedResourceCleanupContext context)
+        {
+            if (disposing)
+                context.Reserve(_pen);
+        }
+
         partial void PostDispose(bool disposing)
         {
-            _pen?.Dispose();
-            _elements?.Dispose();
+            if (!disposing)
+                return;
+
+            _pen = null;
+            TextElements? elements = _elements;
             _elements = null;
+            _fillCache = null;
+
+            Exception? failure = null;
+            DisposeOwnedResources(ref failure, elements);
+            ThrowIfCleanupFailed(failure);
         }
 
         partial void PreUpdate(TextBlock obj, CompositionContext context)

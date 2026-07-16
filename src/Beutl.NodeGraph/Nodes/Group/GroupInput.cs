@@ -65,18 +65,37 @@ public partial class GroupInput : GraphNode, IDynamicPortNode
 
     public partial class Resource
     {
-        public IItemValue[]? OuterInputValues { get; set; }
+        private IReadOnlyList<IItemValue>? _outerInputValues;
 
-        public override void Update(GraphCompositionContext context)
+        public IReadOnlyList<IItemValue>? OuterInputValues
         {
-            if (OuterInputValues == null) return;
+            get => ReadGeneratedResourceState(ref _outerInputValues);
+            set
+            {
+                using GeneratedResourceOperationLease operation = BeginExclusiveResourceOperation();
+                _outerInputValues = value == null
+                    ? null
+                    : Array.AsReadOnly(value.ToArray());
+            }
+        }
+
+        protected override void UpdateCore(GraphCompositionContext context)
+        {
+            IReadOnlyList<IItemValue>? outerInputValues = OuterInputValues;
+            if (outerInputValues == null) return;
 
             var node = GetOriginal();
             // 外部 GroupNode の入力値を GroupInput の出力値にコピー
-            for (int i = 0; i < ItemValues.Length && i < OuterInputValues.Length; i++)
+            for (int i = 0; i < ItemValues.Count && i < outerInputValues.Count; i++)
             {
-                ItemValues[i].PropagateFrom(OuterInputValues[i]);
+                ItemValues[i].PropagateFrom(outerInputValues[i]);
             }
+        }
+
+        partial void PostDispose(bool disposing)
+        {
+            if (disposing)
+                _outerInputValues = null;
         }
     }
 }

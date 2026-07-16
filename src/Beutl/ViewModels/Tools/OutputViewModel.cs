@@ -329,7 +329,11 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 renderer.CacheOptions = RenderCacheOptions.Disabled;
                 var frameProgress = new Subject<TimeSpan>();
                 using var frameProvider = new FrameProviderImpl(Model, videoSettings.FrameRate, renderer, frameProgress);
-                using var composer = new SceneComposer(Model, disableResourceShare: true, forceOriginalSource: true)
+                using var composer = new SceneComposer(
+                    Model,
+                    RenderIntent.Delivery,
+                    disableResourceShare: true,
+                    forceOriginalSource: true)
                 {
                     SampleRate = audioSettings.SampleRate
                 };

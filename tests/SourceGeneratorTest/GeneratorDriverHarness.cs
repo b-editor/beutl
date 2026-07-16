@@ -62,7 +62,9 @@ internal static class GeneratorDriverHarness
             // validated) and an IList<T> (passed to CompareAndUpdateList), mirroring the real interface.
             public interface IListProperty<T> : IProperty, System.Collections.Generic.IList<T> { }
 
-            [System.AttributeUsage(System.AttributeTargets.Class | System.AttributeTargets.Property)]
+            [System.AttributeUsage(
+                System.AttributeTargets.Class | System.AttributeTargets.Property,
+                Inherited = false)]
             public sealed class SuppressResourceClassGenerationAttribute : System.Attribute { }
         }
 

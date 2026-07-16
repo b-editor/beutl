@@ -559,6 +559,31 @@ public sealed class EffectGraphBuilder
         GradientSpreadMethod spreadMethod, bool convolveAlpha)
     {
         ArgumentNullException.ThrowIfNull(kernel);
+        if (kernelSize.Width <= 0 || kernelSize.Height <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(kernelSize),
+                kernelSize,
+                "Matrix-convolution kernel dimensions must both be positive.");
+        }
+
+        long expectedKernelLength = (long)kernelSize.Width * kernelSize.Height;
+        if (expectedKernelLength > int.MaxValue || kernel.Length != expectedKernelLength)
+        {
+            throw new ArgumentException(
+                $"The kernel must contain exactly {expectedKernelLength} values for a {kernelSize.Width}x{kernelSize.Height} matrix.",
+                nameof(kernel));
+        }
+
+        if ((uint)kernelOffset.X >= (uint)kernelSize.Width
+            || (uint)kernelOffset.Y >= (uint)kernelSize.Height)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(kernelOffset),
+                kernelOffset,
+                "The kernel offset must lie inside the kernel dimensions.");
+        }
+
         int w = kernelSize.Width - 1;
         int h = kernelSize.Height - 1;
         // Backward: Skia samples input at p + (i, j) − kernelOffset for i ∈ [0, kw), j ∈ [0, kh), so a requested

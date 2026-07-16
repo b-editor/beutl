@@ -98,13 +98,17 @@ public sealed partial class BarSpectrumShape : SpectrumShape
 
         partial void PostDispose(bool disposing)
         {
-            if (disposing)
-            {
-                _paint?.Dispose();
-                _path?.Dispose();
-            }
+            if (!disposing)
+                return;
+
+            var paint = _paint;
             _paint = null;
+            var path = _path;
             _path = null;
+
+            Exception? failure = null;
+            DisposeOwnedResources(ref failure, paint, path);
+            ThrowIfCleanupFailed(failure);
         }
     }
 }

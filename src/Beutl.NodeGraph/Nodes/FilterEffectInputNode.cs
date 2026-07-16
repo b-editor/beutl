@@ -14,19 +14,29 @@ public partial class FilterEffectInputNode : GraphNode
 
     public partial class Resource
     {
-        internal OperationWrapperRenderNode Wrapper { get; } = new();
+        private OperationWrapperRenderNode? _wrapper = new();
 
-        public override void Update(GraphCompositionContext context)
+        internal OperationWrapperRenderNode Wrapper
+            => ReadGeneratedResourceState(ref _wrapper)
+                ?? throw new ObjectDisposedException(nameof(Resource));
+
+        protected override void UpdateCore(GraphCompositionContext context)
         {
             Output = Wrapper;
         }
 
         partial void PostDispose(bool disposing)
         {
-            if (disposing)
-            {
-                Wrapper.Dispose();
-            }
+            if (!disposing)
+                return;
+
+            OperationWrapperRenderNode? wrapper = _wrapper;
+            _wrapper = null;
+            Output = null;
+
+            Exception? failure = null;
+            DisposeOwnedResources(ref failure, wrapper);
+            ThrowIfCleanupFailed(failure);
         }
     }
 }

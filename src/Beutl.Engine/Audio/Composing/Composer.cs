@@ -1,16 +1,68 @@
 ﻿using System.Runtime.CompilerServices;
+using System.Runtime.ExceptionServices;
 using Beutl.Animation;
 using Beutl.Audio.Graph;
 using Beutl.Composition;
+using Beutl.Graphics.Rendering;
 using Beutl.Media;
 
 namespace Beutl.Audio.Composing;
 
 public class Composer : IComposer
 {
+    private const int ActiveDisposeState = 0;
+    private const int DisposingState = 1;
+    private const int DisposedState = 2;
+
     private readonly AnimationSampler _animationSampler = new();
-    private readonly ConditionalWeakTable<Sound, AudioNodeEntry> _audioCache = [];
+    private readonly ConditionalWeakTable<Sound, AudioNodeCache> _audioCache = [];
     private readonly List<AudioNodeEntry> _currentEntry = new();
+    private int _disposeState;
+
+    private sealed class AudioNodeCache : IDisposable
+    {
+        public AudioNodeEntry Frame { get; } = new();
+
+        public AudioNodeEntry Auxiliary { get; } = new();
+
+        public EventHandler? EditedHandler { get; set; }
+
+        public AudioNodeEntry Get(RenderPullPurpose pullPurpose)
+            => pullPurpose == RenderPullPurpose.Frame ? Frame : Auxiliary;
+
+        public void MarkDirty()
+        {
+            Frame.IsDirty = true;
+            Auxiliary.IsDirty = true;
+        }
+
+        public void Dispose()
+        {
+            Exception? failure = null;
+            try
+            {
+                Frame.Dispose();
+            }
+            catch (Exception ex)
+            {
+                failure = ex;
+            }
+
+            try
+            {
+                Auxiliary.Dispose();
+            }
+            catch (Exception ex)
+            {
+                failure ??= ex;
+            }
+
+            if (failure != null)
+            {
+                ExceptionDispatchInfo.Capture(failure).Throw();
+            }
+        }
+    }
 
     private sealed class AudioNodeEntry : IDisposable
     {
@@ -18,52 +70,110 @@ public class Composer : IComposer
         public AudioNode[]? OutputNodes { get; set; }
         public bool IsDirty { get; set; } = true;
         public int Version { get; set; }
-        public EventHandler? EditedHandler { get; set; }
+        public Sound.Resource? Resource { get; set; }
 
         public void Dispose()
         {
-            foreach (var node in Nodes)
+            AudioNode[] nodes = [.. Nodes];
+            Nodes.Clear();
+            OutputNodes = null;
+            Resource = null;
+            Exception? failure = null;
+            foreach (var node in nodes)
             {
-                node.Dispose();
+                try
+                {
+                    node.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    failure ??= ex;
+                }
             }
 
-            Nodes.Clear();
+            if (failure != null)
+            {
+                ExceptionDispatchInfo.Capture(failure).Throw();
+            }
         }
     }
 
     public Composer()
+        : this(Graphics.Rendering.RenderIntent.Preview)
     {
+    }
+
+    public Composer(Graphics.Rendering.RenderIntent renderIntent)
+    {
+        RenderIntent = Graphics.Rendering.RenderPolicyValidation.Validate(renderIntent, nameof(renderIntent));
         SampleRate = 44100;
     }
 
     ~Composer()
     {
-        if (!IsDisposed)
+        if (!TryBeginDispose())
+            return;
+
+        try
         {
             OnDispose(false);
-            IsDisposed = true;
+        }
+        catch
+        {
+            // Finalizers must never allow cleanup failures to escape onto the finalizer thread.
+        }
+        finally
+        {
+            CompleteDispose();
         }
     }
 
     public int SampleRate { get; init; }
 
-    public bool IsDisposed { get; private set; }
+    /// <summary>The preview/delivery policy accepted by this composer.</summary>
+    public Graphics.Rendering.RenderIntent RenderIntent { get; }
+
+    public bool IsDisposed => Volatile.Read(ref _disposeState) == DisposedState;
 
     public bool IsAudioRendering { get; private set; }
 
     public void Dispose()
     {
-        if (!IsDisposed)
+        if (!TryBeginDispose())
+            return;
+
+        try
         {
             OnDispose(true);
-            GC.SuppressFinalize(this);
-
-            IsDisposed = true;
         }
+        finally
+        {
+            CompleteDispose();
+            GC.SuppressFinalize(this);
+        }
+    }
+
+    private bool TryBeginDispose()
+        => Interlocked.CompareExchange(
+            ref _disposeState,
+            DisposingState,
+            ActiveDisposeState) == ActiveDisposeState;
+
+    private void CompleteDispose()
+    {
+        Volatile.Write(ref _disposeState, DisposedState);
     }
 
     public AudioBuffer? Compose(TimeRange timeRange, CompositionFrame frame)
     {
+        ObjectDisposedException.ThrowIf(IsDisposed, this);
+        if (frame.RenderIntent != RenderIntent)
+        {
+            throw new ArgumentException(
+                $"Composer requires a {RenderIntent} composition frame, but received {frame.RenderIntent}.",
+                nameof(frame));
+        }
+
         if (!IsAudioRendering)
         {
             try
@@ -74,11 +184,19 @@ public class Composer : IComposer
                 foreach (var resource in frame.Objects)
                 {
                     if (resource is Sound.Resource sound)
-                        ComposeSound(sound, timeRange);
+                        ComposeSound(sound, timeRange, frame.PullPurpose);
                 }
 
                 // Build final audio graph
-                return BuildFinalOutput(timeRange);
+                try
+                {
+                    return BuildFinalOutput(timeRange);
+                }
+                catch
+                {
+                    ResetCurrentEntriesAfterProcessingFailure();
+                    throw;
+                }
             }
             finally
             {
@@ -194,65 +312,128 @@ public class Composer : IComposer
     /// </summary>
     public void InvalidateCache()
     {
-        foreach (var kvp in _audioCache)
-        {
-            kvp.Value.Dispose();
-        }
-
+        ObjectDisposedException.ThrowIf(IsDisposed, this);
+        KeyValuePair<Sound, AudioNodeCache>[] entries = [.. _audioCache];
         _audioCache.Clear();
+        CleanupAudioCaches(entries);
     }
 
     /// <summary>
     /// Composes a sound with caching support and differential updates.
     /// </summary>
-    protected void ComposeSound(Sound.Resource resource, TimeRange timeRange)
+    protected void ComposeSound(
+        Sound.Resource resource,
+        TimeRange timeRange,
+        RenderPullPurpose pullPurpose)
     {
+        ObjectDisposedException.ThrowIf(IsDisposed, this);
         var sound = resource.GetOriginal();
         // Get or create cache entry
-        if (!_audioCache.TryGetValue(sound, out var entry))
+        if (!_audioCache.TryGetValue(sound, out AudioNodeCache? cache))
         {
-            entry = new AudioNodeEntry();
-            _audioCache.AddOrUpdate(sound, entry);
+            cache = new AudioNodeCache();
+            _audioCache.AddOrUpdate(sound, cache);
 
             // Register invalidation handler
             var handler = new EventHandler((s, e) => OnSoundEdited(sound, e));
             sound.Edited += handler;
-            entry.EditedHandler = handler;
+            cache.EditedHandler = handler;
         }
+
+        AudioNodeEntry entry = cache.Get(pullPurpose);
 
         // 今までSoundGroupに子要素が追加されたらEditedが発生していたのでIsDirtyが自動的にtrueになっていたが、
         // Resource側で子要素を追加するようになったので、Editedイベントが発生しなくなった。なので、Versionを比較して変更を検出するようにする
-        if (entry.IsDirty || entry.Version != resource.Version)
+        if (entry.IsDirty
+            || entry.Version != resource.Version
+            || !ReferenceEquals(entry.Resource, resource))
         {
-            // AudioContextはDisposeしない。AudioNodeが解放されてしまうので
             var context = new AudioContext(SampleRate, 2);
+            try
+            {
+                // Reused nodes remain owned by entry until the replacement graph commits. If any callback fails,
+                // the union of the old and partially built graph is evicted and disposed before retry.
+                context.BeginUpdate(entry.Nodes);
+                sound.Compose(context, resource);
+                AudioNode[] outputNodes = context.GetOutputNodes().ToArray();
+                context.EndUpdate();
+                AudioNode[] nodes = [.. context.Nodes];
 
-            // Begin differential update with previous nodes
-            context.BeginUpdate(entry.Nodes);
-
-            // Compose the sound
-            sound.Compose(context, resource);
-            entry.OutputNodes = context.GetOutputNodes().ToArray();
-
-            // Complete differential update
-            context.EndUpdate();
-
-            // Capture current nodes
-            entry.Nodes.Clear();
-            entry.Nodes.AddRange(context.Nodes);
-
-            entry.Version = resource.Version;
-            entry.IsDirty = false;
+                entry.Nodes.Clear();
+                entry.Nodes.AddRange(nodes);
+                entry.OutputNodes = outputNodes;
+                entry.Version = resource.Version;
+                entry.Resource = resource;
+                entry.IsDirty = false;
+            }
+            catch
+            {
+                ResetFaultedBuild(entry, context);
+                throw;
+            }
         }
 
         _currentEntry.Add(entry);
     }
 
+    private static void ResetFaultedBuild(AudioNodeEntry entry, AudioContext context)
+    {
+        try
+        {
+            // Until the replacement graph commits, AudioContext owns both its current nodes and all previous nodes
+            // it has not already retired. Clearing the cache aliases after that one ownership sweep avoids invoking
+            // derived AudioNode cleanup twice when EndUpdate itself was the operation that failed.
+            context.Dispose();
+        }
+        catch
+        {
+            // Preserve the composition/EndUpdate failure after AudioContext's full best-effort cleanup sweep.
+        }
+
+        entry.Nodes.Clear();
+        entry.OutputNodes = null;
+        entry.Resource = null;
+        entry.IsDirty = true;
+    }
+
+    private static void ResetFaultedEntry(AudioNodeEntry entry)
+    {
+        var ownedNodes = new HashSet<AudioNode>(ReferenceEqualityComparer.Instance);
+        ownedNodes.UnionWith(entry.Nodes);
+        entry.Nodes.Clear();
+        entry.OutputNodes = null;
+        entry.Resource = null;
+        entry.IsDirty = true;
+
+        foreach (AudioNode node in ownedNodes)
+        {
+            try
+            {
+                node.Dispose();
+            }
+            catch
+            {
+                // The composition callback/EndUpdate failure remains primary after the full cleanup sweep.
+            }
+        }
+    }
+
+    private void ResetCurrentEntriesAfterProcessingFailure()
+    {
+        var entries = new HashSet<AudioNodeEntry>(ReferenceEqualityComparer.Instance);
+        entries.UnionWith(_currentEntry);
+        _currentEntry.Clear();
+        foreach (AudioNodeEntry entry in entries)
+        {
+            ResetFaultedEntry(entry);
+        }
+    }
+
     private void OnSoundEdited(Sound sound, EventArgs e)
     {
-        if (_audioCache.TryGetValue(sound, out var entry))
+        if (_audioCache.TryGetValue(sound, out AudioNodeCache? cache))
         {
-            entry.IsDirty = true;
+            cache.MarkDirty();
         }
     }
 
@@ -261,36 +442,64 @@ public class Composer : IComposer
     /// </summary>
     protected void CleanupSoundHandlers(IEnumerable<Sound> sounds)
     {
+        var entries = new List<KeyValuePair<Sound, AudioNodeCache>>();
         foreach (var sound in sounds)
         {
-            if (_audioCache.TryGetValue(sound, out var entry))
+            if (_audioCache.TryGetValue(sound, out AudioNodeCache? cache))
             {
-                if (entry.EditedHandler != null)
-                {
-                    sound.Edited -= entry.EditedHandler;
-                }
-
                 _audioCache.Remove(sound);
+                entries.Add(new KeyValuePair<Sound, AudioNodeCache>(sound, cache));
             }
         }
+
+        CleanupAudioCaches(entries);
     }
 
     protected virtual void OnDispose(bool disposing)
     {
         if (disposing)
         {
-            // Clean up all contexts and event handlers
-            foreach (var kvp in _audioCache)
-            {
-                if (kvp.Value.EditedHandler != null)
-                {
-                    kvp.Key.Edited -= kvp.Value.EditedHandler;
-                }
+            KeyValuePair<Sound, AudioNodeCache>[] entries = [.. _audioCache];
+            _audioCache.Clear();
+            CleanupAudioCaches(entries);
+        }
+    }
 
-                kvp.Value.Dispose();
+    private static void CleanupAudioCaches(
+        IEnumerable<KeyValuePair<Sound, AudioNodeCache>> entries)
+    {
+        Exception? failure = null;
+        foreach ((Sound sound, AudioNodeCache cache) in entries)
+        {
+            if (cache.EditedHandler != null)
+            {
+                try
+                {
+                    sound.Edited -= cache.EditedHandler;
+                }
+                catch (Exception ex)
+                {
+                    failure ??= ex;
+                }
+                finally
+                {
+                    cache.EditedHandler = null;
+                }
             }
 
-            _audioCache.Clear();
+            try
+            {
+                cache.Dispose();
+            }
+            catch (Exception ex)
+            {
+                failure ??= ex;
+            }
+        }
+
+        if (failure != null)
+        {
+            ExceptionDispatchInfo.Capture(failure).Throw();
         }
     }
 }

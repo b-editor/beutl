@@ -101,15 +101,19 @@ public sealed partial class LineWaveformShape : WaveformShape
 
         partial void PostDispose(bool disposing)
         {
-            if (disposing)
-            {
-                _path?.Dispose();
-                _paint?.Dispose();
-                _cornerEffect?.Dispose();
-            }
+            if (!disposing)
+                return;
+
+            var path = _path;
             _path = null;
+            var paint = _paint;
             _paint = null;
+            var cornerEffect = _cornerEffect;
             _cornerEffect = null;
+
+            Exception? failure = null;
+            DisposeOwnedResources(ref failure, path, paint, cornerEffect);
+            ThrowIfCleanupFailed(failure);
         }
     }
 }

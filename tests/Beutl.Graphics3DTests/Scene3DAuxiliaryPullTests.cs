@@ -3,6 +3,7 @@ using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics3D;
 using Beutl.Media;
+using SkiaSharp;
 
 namespace Beutl.Graphics3DTests;
 
@@ -62,6 +63,126 @@ public class Scene3DAuxiliaryPullTests
             }
             finally
             {
+                Scene3DRenderNode.SetGraphicsContextProviderForTest(null);
+            }
+        });
+    }
+
+    [Test]
+    public void AuxiliaryPull_FailurePreservesPrimaryAndSweepsCopySurfaceAndRenderer()
+    {
+        GpuTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var primaryFailure = new InvalidOperationException("auxiliary copy failure");
+            var copyCleanupFailure = new InvalidOperationException("copy cleanup failure");
+            var surfaceCleanupFailure = new InvalidOperationException("surface cleanup failure");
+            var disposed = new List<string>();
+            Scene3DRenderNode.SetGraphicsContextProviderForTest(() => GpuTestEnvironment.SharedContext);
+            Scene3DRenderNode.SetAuxiliaryCleanupHooksForTest(
+                () => throw primaryFailure,
+                resource =>
+                {
+                    switch (resource)
+                    {
+                        case RenderTarget:
+                            disposed.Add("copy");
+                            resource.Dispose();
+                            throw copyCleanupFailure;
+                        case SKSurface:
+                            disposed.Add("surface");
+                            resource.Dispose();
+                            throw surfaceCleanupFailure;
+                        case Renderer3D:
+                            disposed.Add("renderer");
+                            resource.Dispose();
+                            break;
+                        default:
+                            resource.Dispose();
+                            break;
+                    }
+                });
+            try
+            {
+                var scene = new Scene3D();
+                scene.RenderWidth.CurrentValue = 32;
+                scene.RenderHeight.CurrentValue = 32;
+                using var resource = (Scene3D.Resource)scene.ToResource(CompositionContext.Default);
+                using var node = new Scene3DRenderNode(resource);
+                var context = new RenderNodeContext(
+                    [], RenderIntent.Delivery, outputScale: 1f,
+                    pullPurpose: RenderPullPurpose.Auxiliary);
+
+                InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(
+                    () => node.Process(context));
+
+                Assert.Multiple(() =>
+                {
+                    Assert.That(actual, Is.SameAs(primaryFailure));
+                    Assert.That(disposed, Is.EqualTo(new[] { "copy", "surface", "renderer" }));
+                });
+            }
+            finally
+            {
+                Scene3DRenderNode.SetAuxiliaryCleanupHooksForTest(null, null);
+                Scene3DRenderNode.SetGraphicsContextProviderForTest(null);
+            }
+        });
+    }
+
+    [Test]
+    public void AuxiliaryPull_SuccessfulRenderThrowsFirstCleanupFailureAndReclaimsOperation()
+    {
+        GpuTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var surfaceCleanupFailure = new InvalidOperationException("surface cleanup failure");
+            var disposed = new List<string>();
+            Scene3DRenderNode.SetGraphicsContextProviderForTest(() => GpuTestEnvironment.SharedContext);
+            Scene3DRenderNode.SetAuxiliaryCleanupHooksForTest(
+                null,
+                resource =>
+                {
+                    switch (resource)
+                    {
+                        case SKSurface:
+                            disposed.Add("surface");
+                            resource.Dispose();
+                            throw surfaceCleanupFailure;
+                        case Renderer3D:
+                            disposed.Add("renderer");
+                            resource.Dispose();
+                            break;
+                        case RenderNodeOperation:
+                            disposed.Add("operation");
+                            resource.Dispose();
+                            break;
+                        default:
+                            resource.Dispose();
+                            break;
+                    }
+                });
+            try
+            {
+                var scene = new Scene3D();
+                scene.RenderWidth.CurrentValue = 32;
+                scene.RenderHeight.CurrentValue = 32;
+                using var resource = (Scene3D.Resource)scene.ToResource(CompositionContext.Default);
+                using var node = new Scene3DRenderNode(resource);
+                var context = new RenderNodeContext(
+                    [], RenderIntent.Delivery, outputScale: 1f,
+                    pullPurpose: RenderPullPurpose.Auxiliary);
+
+                InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(
+                    () => node.Process(context));
+
+                Assert.Multiple(() =>
+                {
+                    Assert.That(actual, Is.SameAs(surfaceCleanupFailure));
+                    Assert.That(disposed, Is.EqualTo(new[] { "surface", "renderer", "operation" }));
+                });
+            }
+            finally
+            {
+                Scene3DRenderNode.SetAuxiliaryCleanupHooksForTest(null, null);
                 Scene3DRenderNode.SetGraphicsContextProviderForTest(null);
             }
         });

@@ -223,9 +223,10 @@ public sealed partial class LutEffect : FilterEffect
         private bool ClearCachedLutShader()
         {
             bool hadCachedLut = _cachedLutShader is not null || _cachedCube is not null;
-            _cachedLutShader?.Dispose();
+            SKShader? cachedLutShader = _cachedLutShader;
             _cachedLutShader = null;
             _cachedCube = null;
+            cachedLutShader?.Dispose();
             return hadCachedLut;
         }
 
@@ -237,7 +238,8 @@ public sealed partial class LutEffect : FilterEffect
 
         partial void PostDispose(bool disposing)
         {
-            ClearCachedLutShader();
+            if (disposing)
+                ClearCachedLutShader();
         }
     }
 

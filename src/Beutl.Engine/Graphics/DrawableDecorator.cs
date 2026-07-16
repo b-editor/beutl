@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using System.Collections.ObjectModel;
+using System.ComponentModel.DataAnnotations;
 using Beutl.Collections.Pooled;
 using Beutl.Composition;
 using Beutl.Engine;
@@ -65,17 +66,18 @@ public sealed partial class DrawableDecorator : Drawable, IFlowOperator
 
     public new partial class Resource
     {
-        private readonly PooledList<int> _childrenVersion = [];
-        private List<Drawable.Resource> _children = [];
+        private static readonly ReadOnlyCollection<Drawable.Resource> s_emptyChildren
+            = Array.AsReadOnly(Array.Empty<Drawable.Resource>());
 
-        public List<Drawable.Resource> Children
-        {
-            get => _children;
-            set => _children = value;
-        }
+        private readonly List<Drawable.Resource> _children = [];
+        private readonly PooledList<int> _childrenVersion = [];
+        private IReadOnlyList<Drawable.Resource> _childrenSnapshot = s_emptyChildren;
+
+        public IReadOnlyList<Drawable.Resource> Children => ReadGeneratedResourceState(ref _childrenSnapshot);
 
         partial void PostUpdate(DrawableDecorator obj, CompositionContext context)
         {
+            EngineObject.Resource[]? flowRollbackSnapshot = context.Flow?.ToArray();
             using var consumed = new PooledList<Drawable.Resource>();
             if (context.Flow != null)
             {
@@ -90,27 +92,82 @@ public sealed partial class DrawableDecorator : Drawable, IFlowOperator
             }
 
             bool changed = false;
-            ResourceReconciler.ReconcileListFromFlow(
-                context: context,
-                property: obj.Children,
-                consumed: consumed,
-                field: _children,
-                versions: _childrenVersion,
-                changed: ref changed);
+            try
+            {
+                ResourceReconciler.ReconcileListFromFlow(
+                    context: context,
+                    property: obj.Children,
+                    consumed: consumed,
+                    field: _children,
+                    versions: _childrenVersion,
+                    flowRollbackSnapshot: flowRollbackSnapshot,
+                    changed: ref changed);
+            }
+            finally
+            {
+                PublishChildrenSnapshotIfChanged();
+                if (changed)
+                    Version++;
+            }
+        }
 
-            if (changed)
-                Version++;
+        partial void PrepareResourceDispose(
+            bool disposing,
+            EngineObject.Resource.GeneratedResourceCleanupContext context)
+        {
+            if (!disposing)
+                return;
+
+            int ownedStart = Math.Min(_childrenVersion.Count, _children.Count);
+            for (int i = ownedStart; i < _children.Count; i++)
+            {
+                context.Reserve(_children[i]);
+            }
         }
 
         partial void PostDispose(bool disposing)
         {
-            for (int i = _childrenVersion.Count; i < _children.Count; i++)
+            if (!disposing)
+                return;
+
+            Exception? failure = null;
+            _children.Clear();
+            Volatile.Write(ref _childrenSnapshot, s_emptyChildren);
+            try
             {
-                _children[i].Dispose();
+                _childrenVersion.Dispose();
+            }
+            catch (Exception ex)
+            {
+                failure ??= ex;
             }
 
-            _children.Clear();
-            _childrenVersion.Dispose();
+            ThrowIfCleanupFailed(failure);
+        }
+
+        private void PublishChildrenSnapshotIfChanged()
+        {
+            IReadOnlyList<Drawable.Resource> current = Volatile.Read(ref _childrenSnapshot);
+            if (current.Count == _children.Count)
+            {
+                bool matches = true;
+                for (int i = 0; i < _children.Count; i++)
+                {
+                    if (!ReferenceEquals(current[i], _children[i]))
+                    {
+                        matches = false;
+                        break;
+                    }
+                }
+
+                if (matches)
+                    return;
+            }
+
+            IReadOnlyList<Drawable.Resource> next = _children.Count == 0
+                ? s_emptyChildren
+                : Array.AsReadOnly(_children.ToArray());
+            Volatile.Write(ref _childrenSnapshot, next);
         }
     }
 }

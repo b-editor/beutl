@@ -1,11 +1,13 @@
 ﻿using Beutl.Engine;
+using Beutl.Graphics.Rendering;
 using Beutl.Media.Proxy;
 
 namespace Beutl.Composition;
 
 /// <summary>
 /// Per-evaluation context flowing through the composition graph. Carries the proxy/original
-/// decode selection, the resource-sharing toggle, and the resolve-time proxy density cap.
+/// decode selection, the resource-sharing toggle, the resolve-time proxy density cap, and the ambient
+/// render policy for nested evaluation.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -30,9 +32,34 @@ namespace Beutl.Composition;
 /// <see cref="ProxyResolver.Resolve(Uri, ProxyPreset)"/>, which prefers the densest Ready proxy
 /// whose scale does not exceed this preset's scale.
 /// </para>
+/// <para>
+/// <b>Render policy.</b> Property and animation evaluation also use this type, so ordinary callers may
+/// omit the policy and receive the meaningful non-delivery default <see cref="Graphics.Rendering.RenderIntent.Preview"/>
+/// with <see cref="RenderPullPurpose.Frame"/>. Render hosts pass both values explicitly. The values are
+/// publicly observable by nested resources and plugin nodes but cannot be changed by external consumers.
+/// </para>
 /// </remarks>
-public class CompositionContext(TimeSpan time)
+public class CompositionContext
 {
+    /// <summary>
+    /// Initializes ordinary property or animation evaluation with preview/frame policy.
+    /// </summary>
+    public CompositionContext(TimeSpan time)
+        : this(time, RenderIntent.Preview, RenderPullPurpose.Frame)
+    {
+    }
+
+    /// <summary>Initializes evaluation with an explicit ambient render policy.</summary>
+    public CompositionContext(
+        TimeSpan time,
+        RenderIntent renderIntent,
+        RenderPullPurpose pullPurpose)
+    {
+        Time = time;
+        RenderIntent = RenderPolicyValidation.Validate(renderIntent, nameof(renderIntent));
+        PullPurpose = RenderPolicyValidation.Validate(pullPurpose, nameof(pullPurpose));
+    }
+
     // A fresh instance per access, not a shared singleton: Time / DisableResourceShare / PreferProxy /
     // PreferredProxyPreset are all mutable, so a caller that writes to a context it received must not be
     // able to corrupt a global baseline for every other render.
@@ -40,13 +67,25 @@ public class CompositionContext(TimeSpan time)
 
     public IList<EngineObject.Resource>? Flow { get; set; }
 
-    public TimeSpan Time { get; set; } = time;
+    public TimeSpan Time { get; set; }
 
     public bool DisableResourceShare { get; set; }
 
     public bool PreferProxy { get; set; }
 
     public ProxyPreset PreferredProxyPreset { get; set; } = ProxyPreset.Quarter;
+
+    /// <summary>The ambient preview or delivery failure policy for nested evaluation.</summary>
+    public RenderIntent RenderIntent { get; private set; }
+
+    /// <summary>Whether nested evaluation belongs to a normal frame pull or auxiliary work.</summary>
+    public RenderPullPurpose PullPurpose { get; private set; }
+
+    internal void UpdateRenderPolicy(RenderIntent renderIntent, RenderPullPurpose pullPurpose)
+    {
+        RenderIntent = RenderPolicyValidation.Validate(renderIntent, nameof(renderIntent));
+        PullPurpose = RenderPolicyValidation.Validate(pullPurpose, nameof(pullPurpose));
+    }
 
     public virtual T Get<T>(IProperty<T> property)
     {

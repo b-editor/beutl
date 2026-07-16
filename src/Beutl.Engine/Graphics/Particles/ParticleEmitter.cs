@@ -175,9 +175,25 @@ public partial class ParticleEmitter : Drawable
     public override Resource ToResource(CompositionContext context)
     {
         var resource = new Resource();
-        bool updateOnly = true;
-        resource.Update(this, context, ref updateOnly);
-        return resource;
+        try
+        {
+            bool updateOnly = true;
+            resource.Update(this, context, ref updateOnly);
+            return resource;
+        }
+        catch
+        {
+            try
+            {
+                resource.Dispose();
+            }
+            catch
+            {
+                // Preserve the acquisition failure while reclaiming every partially initialized child resource.
+            }
+
+            throw;
+        }
     }
 
     public new class Resource : Drawable.Resource
@@ -215,18 +231,35 @@ public partial class ParticleEmitter : Drawable
         private bool _useEndColor;
         private float _time;
 
-        public Drawable.Resource? ParticleDrawable => _particleDrawable;
+        public Drawable.Resource? ParticleDrawable => ReadGeneratedResourceState(ref _particleDrawable);
 
         internal ReadOnlyMemory<Particle> GetAliveParticles()
         {
             return _simulator.GetAliveParticles();
         }
 
-        public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
+        public sealed override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
         {
-            base.Update(obj, context, ref updateOnly);
+            var typed = (ParticleEmitter)obj;
+            if (!IsCompatibleUpdateOwner(typed))
+            {
+                throw new InvalidCastException(
+                    $"{GetType().FullName} cannot update from {typed.GetType().FullName}.");
+            }
 
-            var emitter = (ParticleEmitter)obj;
+            using GeneratedResourceOperationLease operation = BeginExclusiveResourceOperation(typed);
+            UpdateCore(typed, context, ref updateOnly);
+        }
+
+        /// <summary>
+        /// Purely validates the owner type before the update lease is acquired or the published original changes.
+        /// A resource paired with a derived emitter overrides this predicate with its exact compatible owner type.
+        /// </summary>
+        protected virtual bool IsCompatibleUpdateOwner(ParticleEmitter obj) => true;
+
+        protected virtual void UpdateCore(ParticleEmitter emitter, CompositionContext context, ref bool updateOnly)
+        {
+            base.Update(emitter, context, ref updateOnly);
 
             var versionBefore = Version;
             CompareAndUpdate(context, emitter.Seed, ref _seed, ref updateOnly);
@@ -264,7 +297,7 @@ public partial class ParticleEmitter : Drawable
 
             // Time tracking
             float oldTime = _time;
-            _time = (float)(context.Time - obj.TimeRange.Start).TotalSeconds;
+            _time = (float)(context.Time - emitter.TimeRange.Start).TotalSeconds;
 
             if (paramChanged)
             {
@@ -311,14 +344,35 @@ public partial class ParticleEmitter : Drawable
             }
         }
 
-        protected override void Dispose(bool disposing)
+        protected override void PrepareGeneratedResourceCleanupCore(
+            bool disposing,
+            GeneratedResourceCleanupContext context)
         {
             if (disposing)
             {
-                _particleDrawable?.Dispose();
+                context.Reserve(_particleDrawable);
             }
 
-            base.Dispose(disposing);
+            base.PrepareGeneratedResourceCleanupCore(disposing, context);
+        }
+
+        protected override void CleanupGeneratedResourceCore(
+            bool disposing,
+            GeneratedResourceCleanupContext context)
+        {
+            try
+            {
+                Drawable.Resource? particleDrawable = _particleDrawable;
+                _particleDrawable = null;
+                if (disposing)
+                {
+                    context.DisposeOwned(particleDrawable);
+                }
+            }
+            finally
+            {
+                base.CleanupGeneratedResourceCore(disposing, context);
+            }
         }
     }
 }

@@ -30,6 +30,8 @@ public class EngineObject
 
         public int Version { get; protected set; }
 
+        public bool IsDisposed { get; private set; }
+
         public EngineObject GetOriginal() => _original;
 
         public virtual void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
@@ -39,10 +41,76 @@ public class EngineObject
 
         public void Dispose()
         {
-            Dispose(true);
+            if (IsDisposed)
+                return;
+
+            try
+            {
+                Dispose(true);
+            }
+            finally
+            {
+                IsDisposed = true;
+            }
         }
 
         protected virtual void Dispose(bool disposing)
+        {
+        }
+
+        protected ref struct GeneratedResourceOperationLease
+        {
+            public void Dispose()
+            {
+            }
+        }
+
+        protected sealed class GeneratedResourceCleanupContext
+        {
+            public void Reserve(Resource? resource)
+            {
+            }
+
+            public void DisposeOwned(Resource? resource)
+            {
+            }
+
+            public void DisposeOwned(IDisposable? disposable)
+            {
+            }
+
+            public void Capture(Exception exception)
+            {
+            }
+        }
+
+        protected GeneratedResourceOperationLease BeginGeneratedResourceOperation(EngineObject? original = null)
+        {
+            return new GeneratedResourceOperationLease();
+        }
+
+        protected GeneratedResourceOperationLease BeginExclusiveResourceOperation(EngineObject? original = null)
+        {
+            return new GeneratedResourceOperationLease();
+        }
+
+        protected void ValidateGeneratedResourceAccess()
+        {
+        }
+
+        protected virtual void PrepareGeneratedResourceCleanupCore(
+            bool disposing,
+            GeneratedResourceCleanupContext context)
+        {
+        }
+
+        protected virtual void RollbackGeneratedResourceCleanupCore()
+        {
+        }
+
+        protected virtual void CleanupGeneratedResourceCore(
+            bool disposing,
+            GeneratedResourceCleanupContext context)
         {
         }
 

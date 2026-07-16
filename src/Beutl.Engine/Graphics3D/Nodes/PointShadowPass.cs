@@ -161,15 +161,18 @@ void main() {
     /// </summary>
     public void ResizeShadowMap(int faceSize)
     {
+        ThrowIfNotInitialized();
         CreateShadowCubeMap(faceSize);
     }
 
     private void CreateShadowCubeMap(int faceSize)
     {
         // Dispose old resources
-        DisposeFaceResources();
-        RenderPass?.Dispose();
-        ShadowCubeTexture?.Dispose();
+        Exception? cleanupFailure = null;
+        DisposeFaceResources(ref cleanupFailure);
+        Graphics3DDisposal.Capture(RenderPass, ref cleanupFailure);
+        Graphics3DDisposal.Capture(ShadowCubeTexture, ref cleanupFailure);
+        Graphics3DDisposal.ThrowIfFailed(cleanupFailure);
 
         // Create shadow cube map texture
         ShadowCubeTexture = Context.CreateTextureCube(faceSize, TextureFormat.Depth32Float);
@@ -194,16 +197,20 @@ void main() {
         }
     }
 
-    private void DisposeFaceResources()
+    private void DisposeFaceResources(ref Exception? failure)
     {
         for (int i = 0; i < 6; i++)
         {
-            _faceFramebuffers[i]?.Dispose();
+            IFramebuffer3D? framebuffer = _faceFramebuffers[i];
             _faceFramebuffers[i] = null;
-            _faceDummyTextures[i]?.Dispose();
+            ITexture2D? dummyTexture = _faceDummyTextures[i];
             _faceDummyTextures[i] = null;
-            _faceDepthTextures[i]?.Dispose();
+            ITexture2D? depthTexture = _faceDepthTextures[i];
             _faceDepthTextures[i] = null;
+
+            Graphics3DDisposal.Capture(framebuffer, ref failure);
+            Graphics3DDisposal.Capture(dummyTexture, ref failure);
+            Graphics3DDisposal.Capture(depthTexture, ref failure);
         }
     }
 
@@ -218,8 +225,7 @@ void main() {
         if (RenderPass == null || _vertexShaderSpirv == null || _fragmentShaderSpirv == null)
             return;
 
-        _shadowPipeline?.Dispose();
-        _descriptorSet?.Dispose();
+        Graphics3DDisposal.DisposeAll(_shadowPipeline, _descriptorSet);
 
         // Descriptor binding for light data UBO
         var descriptorBindings = new DescriptorBinding[]
@@ -280,6 +286,7 @@ void main() {
     /// </summary>
     public void SetupForPointLight(PointLight3D.Resource light)
     {
+        ThrowIfNotInitialized();
         _lightPosition = light.Position;
         _farPlane = light.Range;
 
@@ -307,6 +314,7 @@ void main() {
     /// </summary>
     public void Execute(IReadOnlyList<Object3D.Resource> objects)
     {
+        ThrowIfNotInitialized();
         if (RenderPass == null || _shadowPipeline == null || _descriptorSet == null)
             return;
 
@@ -397,11 +405,13 @@ void main() {
 
     protected override void OnDispose()
     {
-        _shadowPipeline?.Dispose();
-        _descriptorSet?.Dispose();
-        _lightDataBuffer?.Dispose();
-        DisposeFaceResources();
-        RenderPass?.Dispose();
-        ShadowCubeTexture?.Dispose();
+        Exception? cleanupFailure = null;
+        Graphics3DDisposal.Capture(_shadowPipeline, ref cleanupFailure);
+        Graphics3DDisposal.Capture(_descriptorSet, ref cleanupFailure);
+        Graphics3DDisposal.Capture(_lightDataBuffer, ref cleanupFailure);
+        DisposeFaceResources(ref cleanupFailure);
+        Graphics3DDisposal.Capture(RenderPass, ref cleanupFailure);
+        Graphics3DDisposal.Capture(ShadowCubeTexture, ref cleanupFailure);
+        Graphics3DDisposal.ThrowIfFailed(cleanupFailure);
     }
 }

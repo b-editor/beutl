@@ -82,9 +82,25 @@ public partial class ShakeEffect : FilterEffect
     public override Resource ToResource(CompositionContext context)
     {
         var resource = new Resource();
-        bool updateOnly = true;
-        resource.Update(this, context, ref updateOnly);
-        return resource;
+        try
+        {
+            bool updateOnly = true;
+            resource.Update(this, context, ref updateOnly);
+            return resource;
+        }
+        catch
+        {
+            try
+            {
+                resource.Dispose();
+            }
+            catch
+            {
+                // Preserve the acquisition failure while reclaiming the partially initialized effect resource.
+            }
+
+            throw;
+        }
     }
 
     public new class Resource : FilterEffect.Resource
@@ -94,21 +110,40 @@ public partial class ShakeEffect : FilterEffect
         private float _speed;
         private float _time;
 
-        public float StrengthX => _strengthX;
+        public float StrengthX => ReadGeneratedResourceState(ref _strengthX);
 
-        public float StrengthY => _strengthY;
+        public float StrengthY => ReadGeneratedResourceState(ref _strengthY);
 
-        public float Speed => _speed;
+        public float Speed => ReadGeneratedResourceState(ref _speed);
 
-        public float Time => _time;
+        public float Time => ReadGeneratedResourceState(ref _time);
 
-        public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
+        public sealed override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
+        {
+            var typed = (ShakeEffect)obj;
+            if (!IsCompatibleUpdateOwner(typed))
+            {
+                throw new InvalidCastException(
+                    $"{GetType().FullName} cannot update from {typed.GetType().FullName}.");
+            }
+
+            using GeneratedResourceOperationLease operation = BeginExclusiveResourceOperation(typed);
+            UpdateCore(typed, context, ref updateOnly);
+        }
+
+        /// <summary>
+        /// Purely validates the owner type before the update lease is acquired or the published original changes.
+        /// A resource paired with a derived effect overrides this predicate with its exact compatible owner type.
+        /// </summary>
+        protected virtual bool IsCompatibleUpdateOwner(ShakeEffect obj) => true;
+
+        protected virtual void UpdateCore(ShakeEffect obj, CompositionContext context, ref bool updateOnly)
         {
             base.Update(obj, context, ref updateOnly);
 
-            CompareAndUpdate(context, ((ShakeEffect)obj).StrengthX, ref _strengthX, ref updateOnly);
-            CompareAndUpdate(context, ((ShakeEffect)obj).StrengthY, ref _strengthY, ref updateOnly);
-            CompareAndUpdate(context, ((ShakeEffect)obj).Speed, ref _speed, ref updateOnly);
+            CompareAndUpdate(context, obj.StrengthX, ref _strengthX, ref updateOnly);
+            CompareAndUpdate(context, obj.StrengthY, ref _strengthY, ref updateOnly);
+            CompareAndUpdate(context, obj.Speed, ref _speed, ref updateOnly);
 
             float oldTime = _time;
             _time = (float)(context.Time - obj.TimeRange.Start).TotalSeconds;

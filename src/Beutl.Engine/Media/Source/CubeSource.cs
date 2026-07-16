@@ -20,9 +20,25 @@ public sealed class CubeSource : MediaSource
     public override Resource ToResource(CompositionContext context)
     {
         var resource = new Resource();
-        bool updateOnly = true;
-        resource.Update(this, context, ref updateOnly);
-        return resource;
+        try
+        {
+            bool updateOnly = true;
+            resource.Update(this, context, ref updateOnly);
+            return resource;
+        }
+        catch
+        {
+            try
+            {
+                resource.Dispose();
+            }
+            catch
+            {
+                // Preserve the acquisition failure while reclaiming any partially initialized resource.
+            }
+
+            throw;
+        }
     }
 
     public new sealed class Resource : MediaSource.Resource
@@ -30,12 +46,13 @@ public sealed class CubeSource : MediaSource
         private CubeFile? _cube;
         private Uri? _loadedUri;
 
-        public CubeFile? Cube => _cube;
+        public CubeFile? Cube => ReadGeneratedResourceState(ref _cube);
 
         public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
         {
-            base.Update(obj, context, ref updateOnly);
             var cubeSource = (CubeSource)obj;
+            using GeneratedResourceOperationLease operation = BeginExclusiveResourceOperation(cubeSource);
+            base.Update(obj, context, ref updateOnly);
 
             if (_loadedUri != cubeSource.Uri && cubeSource.HasUri)
             {
@@ -72,8 +89,23 @@ public sealed class CubeSource : MediaSource
 
         protected override void Dispose(bool disposing)
         {
-            base.Dispose(disposing);
-            _cube = null;
+            if (disposing)
+            {
+                _cube = null;
+                _loadedUri = null;
+            }
+
+            Exception? failure = null;
+            try
+            {
+                base.Dispose(disposing);
+            }
+            catch (Exception ex)
+            {
+                failure = ex;
+            }
+
+            ThrowIfCleanupFailed(failure);
         }
     }
 }

@@ -84,13 +84,17 @@ public sealed partial class DotsWaveformShape : WaveformShape
 
         partial void PostDispose(bool disposing)
         {
-            if (disposing)
-            {
-                _path?.Dispose();
-                _paint?.Dispose();
-            }
+            if (!disposing)
+                return;
+
+            var path = _path;
             _path = null;
+            var paint = _paint;
             _paint = null;
+
+            Exception? failure = null;
+            DisposeOwnedResources(ref failure, path, paint);
+            ThrowIfCleanupFailed(failure);
         }
     }
 }

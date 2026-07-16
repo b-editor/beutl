@@ -286,17 +286,22 @@ public partial class GroupNode : GraphNode
     public partial class Resource
     {
         private GraphSnapshot? _innerSnapshot;
+        private GraphGroup? _subscribedGroup;
         private int _groupInputSlotIndex = -1;
         private int _groupOutputSlotIndex = -1;
+        private bool _innerResourcesReservedForDispose;
+        private GeneratedResourceCleanupContext? _resourceCleanupContext;
 
-        public override void Initialize(GraphCompositionContext context)
+        protected override void InitializeCore(GraphCompositionContext context)
         {
             var node = GetOriginal();
-            node.Group.TopologyChanged += OnGroupTopologyChanged;
+            GraphGroup group = node.Group;
+            group.TopologyChanged += OnGroupTopologyChanged;
+            _subscribedGroup = group;
             _innerSnapshot = new GraphSnapshot();
-            _innerSnapshot.Build(node.Group, context);
-            _groupInputSlotIndex = _innerSnapshot.FindSlotIndex(node.Group.Input);
-            _groupOutputSlotIndex = _innerSnapshot.FindSlotIndex(node.Group.Output);
+            _innerSnapshot.Build(group, context);
+            _groupInputSlotIndex = _innerSnapshot.FindSlotIndex(group.Input);
+            _groupOutputSlotIndex = _innerSnapshot.FindSlotIndex(group.Output);
         }
 
         private void OnGroupTopologyChanged(object? sender, EventArgs e)
@@ -304,20 +309,81 @@ public partial class GroupNode : GraphNode
             _innerSnapshot?.MarkDirty();
         }
 
-        public override void Uninitialize()
+        protected override void UninitializeCore()
         {
-            var node = GetOriginal();
-            node.Group.TopologyChanged -= OnGroupTopologyChanged;
-            _innerSnapshot?.Dispose();
-            _innerSnapshot = null;
-            _groupInputSlotIndex = -1;
-            _groupOutputSlotIndex = -1;
+            Uninitialize(_innerResourcesReservedForDispose);
         }
 
-        public override void Update(GraphCompositionContext context)
+        private void Uninitialize(bool resourcesReserved)
+        {
+            _innerResourcesReservedForDispose = false;
+            GraphSnapshot? innerSnapshot = _innerSnapshot;
+            Exception? failure = null;
+            bool ownershipDetached = innerSnapshot == null;
+            if (resourcesReserved && innerSnapshot != null)
+            {
+                GeneratedResourceCleanupContext? context = _resourceCleanupContext;
+                if (context == null)
+                {
+                    failure = new InvalidOperationException(
+                        "The inner graph resources were not reserved before cleanup.");
+                    innerSnapshot.RollbackCleanupReservation();
+                    _ = innerSnapshot.DetachAndDisposeWithoutReservation();
+                    ownershipDetached = !innerSnapshot.HasOwnedState();
+                }
+                else
+                {
+                    try
+                    {
+                        innerSnapshot.DisposeAfterResourcesReserved(context.DisposeOwned, context.Capture);
+                        ownershipDetached = true;
+                    }
+                    catch (Exception ex)
+                    {
+                        failure = ex;
+                        ownershipDetached = !innerSnapshot.HasOwnedState();
+                    }
+                }
+            }
+            else if (innerSnapshot != null)
+            {
+                try
+                {
+                    innerSnapshot.Dispose();
+                    ownershipDetached = true;
+                }
+                catch (Exception ex)
+                {
+                    failure = ex;
+                    ownershipDetached = !innerSnapshot.HasOwnedState();
+                }
+            }
+
+            if (ownershipDetached)
+            {
+                _innerSnapshot = null;
+                _groupInputSlotIndex = -1;
+                _groupOutputSlotIndex = -1;
+
+                GraphGroup? subscribedGroup = _subscribedGroup;
+                _subscribedGroup = null;
+                subscribedGroup?.TopologyChanged -= OnGroupTopologyChanged;
+            }
+
+            if (resourcesReserved)
+                _resourceCleanupContext = null;
+
+            ThrowIfCleanupFailed(failure);
+        }
+
+        protected override void UpdateCore(GraphCompositionContext context)
         {
             var node = GetOriginal();
             if (_innerSnapshot == null) return;
+
+            _innerSnapshot.Build(node.Group, context);
+            _groupInputSlotIndex = _innerSnapshot.FindSlotIndex(node.Group.Input);
+            _groupOutputSlotIndex = _innerSnapshot.FindSlotIndex(node.Group.Output);
 
             // GroupNodeの入力値からGroupInputの出力値に転送
             if (node.Group.Input != null && _groupInputSlotIndex >= 0)
@@ -357,11 +423,28 @@ public partial class GroupNode : GraphNode
             }
         }
 
+        partial void PrepareResourceDispose(bool disposing, GeneratedResourceCleanupContext context)
+        {
+            if (disposing)
+            {
+                _resourceCleanupContext = context;
+                _innerSnapshot?.ReserveResources(context.Reserve);
+                _innerResourcesReservedForDispose = true;
+            }
+        }
+
+        partial void RollbackResourceDisposePreparation()
+        {
+            _innerSnapshot?.RollbackCleanupReservation();
+            _innerResourcesReservedForDispose = false;
+            _resourceCleanupContext = null;
+        }
+
         partial void PostDispose(bool disposing)
         {
             if (disposing)
             {
-                Uninitialize();
+                Uninitialize(resourcesReserved: true);
             }
         }
     }

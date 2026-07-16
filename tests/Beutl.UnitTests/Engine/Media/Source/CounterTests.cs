@@ -133,6 +133,24 @@ public class CounterTests
     }
 
     [Test]
+    public void OnReleaseFailure_StillDisposesValueAndPreservesFailure()
+    {
+        var failure = new InvalidOperationException("release callback failed");
+        var fake = new Fake();
+        var counter = new Counter<Fake>(fake, () => throw failure);
+
+        InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(counter.Release);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(actual, Is.SameAs(failure));
+            Assert.That(fake.DisposeCount, Is.EqualTo(1));
+            Assert.That(counter.RefCount, Is.Zero);
+            Assert.Throws<ObjectDisposedException>(() => _ = counter.Value);
+        });
+    }
+
+    [Test]
     public async Task ParallelAddRefRelease_DoesNotLoseRef()
     {
         const int Threads = 8;

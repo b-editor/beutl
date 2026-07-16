@@ -17,12 +17,12 @@ public abstract partial class ConfigureNode : GraphNode
 
     public partial class Resource
     {
-        public override void Update(GraphCompositionContext context)
+        protected sealed override void UpdateCore(GraphCompositionContext context)
         {
             var node = GetOriginal();
             var inputs = context.CollectListInputValues(node.InputPort);
 
-            UpdateCore(context);
+            UpdateConfiguredCore(context);
             var output = OutputPort;
             if (output == null) return;
 
@@ -34,7 +34,7 @@ public abstract partial class ConfigureNode : GraphNode
             }
         }
 
-        protected virtual void UpdateCore(GraphCompositionContext context)
+        protected virtual void UpdateConfiguredCore(GraphCompositionContext context)
         {
         }
     }

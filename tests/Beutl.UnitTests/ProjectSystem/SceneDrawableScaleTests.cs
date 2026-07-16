@@ -138,16 +138,27 @@ public class SceneDrawableScaleTests
                 Scene inner = CreateInnerScene(basePath, 120, 90, counter);
                 var drawable = new SceneDrawable();
                 drawable.ReferencedScene.CurrentValue = inner;
-                using Drawable.Resource resource = drawable.ToResource(new CompositionContext(TimeSpan.Zero));
-                using var root = new DrawableRenderNode(resource);
-                using (var context = new GraphicsContext2D(root, inner.FrameSize.ToSize(1), outputScale: 1f))
+                using Drawable.Resource frameResource = drawable.ToResource(new CompositionContext(
+                    TimeSpan.Zero, RenderIntent.Preview, RenderPullPurpose.Frame));
+                using Drawable.Resource auxiliaryResource = drawable.ToResource(new CompositionContext(
+                    TimeSpan.Zero, RenderIntent.Preview, RenderPullPurpose.Auxiliary));
+                using var frameRoot = new DrawableRenderNode(frameResource);
+                using var auxiliaryRoot = new DrawableRenderNode(auxiliaryResource);
+                using (var context = new GraphicsContext2D(
+                           frameRoot, inner.FrameSize.ToSize(1), outputScale: 1f))
                 {
-                    drawable.Render(context, resource);
+                    drawable.Render(context, frameResource);
                 }
 
-                RenderRecordedRoot(root, inner.FrameSize, 1f, RenderPullPurpose.Frame);
-                RenderRecordedRoot(root, inner.FrameSize, 2f, RenderPullPurpose.Auxiliary);
-                RenderRecordedRoot(root, inner.FrameSize, 1f, RenderPullPurpose.Frame);
+                using (var context = new GraphicsContext2D(
+                           auxiliaryRoot, inner.FrameSize.ToSize(1), outputScale: 2f))
+                {
+                    drawable.Render(context, auxiliaryResource);
+                }
+
+                RenderRecordedRoot(frameRoot, inner.FrameSize, 1f, RenderPullPurpose.Frame);
+                RenderRecordedRoot(auxiliaryRoot, inner.FrameSize, 2f, RenderPullPurpose.Auxiliary);
+                RenderRecordedRoot(frameRoot, inner.FrameSize, 1f, RenderPullPurpose.Frame);
 
                 Assert.That(counter.RenderCount, Is.EqualTo(2),
                     "the retained frame renderer should survive an auxiliary pull at a different scale");

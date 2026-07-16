@@ -966,6 +966,32 @@ half4 apply(half4 c) {
     }
 
     [Test]
+    public void MatrixConvolution_InvalidPayloadThrowsBeforeAppendingDescriptor()
+    {
+        EffectGraphBuilder builder = NewBuilder(new Rect(0, 0, 100, 100));
+
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => builder.MatrixConvolution(
+                new PixelSize(0, 3), [], 1f, 0f, new PixelPoint(0, 0),
+                GradientSpreadMethod.Pad, convolveAlpha: true));
+            Assert.Throws<ArgumentException>(() => builder.MatrixConvolution(
+                new PixelSize(3, 3), new float[8], 1f, 0f, new PixelPoint(1, 1),
+                GradientSpreadMethod.Pad, convolveAlpha: true));
+            Assert.Throws<ArgumentOutOfRangeException>(() => builder.MatrixConvolution(
+                new PixelSize(3, 3), new float[9], 1f, 0f, new PixelPoint(-1, 1),
+                GradientSpreadMethod.Pad, convolveAlpha: true));
+            Assert.Throws<ArgumentOutOfRangeException>(() => builder.MatrixConvolution(
+                new PixelSize(3, 3), new float[9], 1f, 0f, new PixelPoint(3, 1),
+                GradientSpreadMethod.Pad, convolveAlpha: true));
+        });
+
+        CompiledPlan plan = Compile(builder.Blur(new Size(1, 1)));
+        Assert.That(plan.Passes, Has.Length.EqualTo(1),
+            "invalid convolution payloads must not append partial descriptors");
+    }
+
+    [Test]
     public void ResolveResources_TransformBackward_MapsRoiThroughInverseMatrix()
     {
         var bounds = new Rect(0, 0, 400, 400);

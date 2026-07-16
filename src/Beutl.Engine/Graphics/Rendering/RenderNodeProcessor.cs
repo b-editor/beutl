@@ -115,19 +115,19 @@ public class RenderNodeProcessor
     /// </summary>
     internal (RenderTarget RenderTarget, Rect Bounds)? RasterizeAt(RenderNodeOperation op, float w)
     {
-        var rect = w == 1f ? PixelRect.FromRect(op.Bounds) : PixelRect.FromRect(op.Bounds, w);
-        if (rect.Width <= 0 || rect.Height <= 0)
-        {
-            op.Dispose();
-            return null;
-        }
-
-        // A throwing OnDispose leaves the op's IsDisposed false, so the catch keys off this flag
-        // (not IsDisposed) to avoid re-disposing — and re-running OnDispose on — an op already torn down.
         RenderTarget? renderTarget = null;
         bool opDisposeStarted = false;
         try
         {
+            Rect opBounds = op.Bounds;
+            var rect = w == 1f ? PixelRect.FromRect(opBounds) : PixelRect.FromRect(opBounds, w);
+            if (rect.Width <= 0 || rect.Height <= 0)
+            {
+                opDisposeStarted = true;
+                op.Dispose();
+                return null;
+            }
+
             renderTarget = CreateRenderTarget(rect.Width, rect.Height);
             if (renderTarget == null)
             {
@@ -137,11 +137,10 @@ public class RenderNodeProcessor
             }
 
             using var canvas = new ImmediateCanvas(
-                renderTarget, RenderIntent, w, MaxWorkingScale, logicalSize: op.Bounds.Size,
+                renderTarget, RenderIntent, w, MaxWorkingScale, logicalSize: opBounds.Size,
                 pullPurpose: PullPurpose);
             canvas.Clear();
 
-            Rect opBounds = op.Bounds;
             using (canvas.PushTransform(Matrix.CreateTranslation(-opBounds.X, -opBounds.Y)))
             {
                 op.Render(canvas);
@@ -232,14 +231,16 @@ public class RenderNodeProcessor
     public Bitmap RasterizeAndConcat()
     {
         var ops = PullToRoot();
-        var bounds = ops.Aggregate(Rect.Empty, (a, n) => a.Union(n.Bounds));
-        float w = OutputScale;
-        var rect = w == 1f ? PixelRect.FromRect(bounds) : PixelRect.FromRect(bounds, w);
         RenderTarget? renderTarget = null;
         ImmediateCanvas? canvas = null;
         int consumed = 0;
         try
         {
+            // Bounds are owned-operation state too: a custom operation may throw while exposing
+            // them, so aggregation belongs inside the same cleanup boundary as rendering.
+            var bounds = ops.Aggregate(Rect.Empty, (a, n) => a.Union(n.Bounds));
+            float w = OutputScale;
+            var rect = w == 1f ? PixelRect.FromRect(bounds) : PixelRect.FromRect(bounds, w);
             renderTarget =
                 CreateRenderTarget(rect.Width, rect.Height) ?? throw new Exception("RenderTarget is null");
             canvas = new ImmediateCanvas(
@@ -316,7 +317,9 @@ public class RenderNodeProcessor
 
     private RenderNodeOperation[] Pull(RenderNode node, Rect requestedBounds)
     {
-        if (_useRenderCache && node.Cache is { IsCached: true } cache)
+        bool usePersistentCache = _useRenderCache && PullPurpose == RenderPullPurpose.Frame;
+        if (usePersistentCache && node.Cache is { } cache
+            && cache.IsCachedFor(RenderIntent, PullPurpose))
         {
             // Replay tiles with the density they were rasterized at.
             return cache.UseCache()
@@ -361,21 +364,61 @@ public class RenderNodeProcessor
 
         var context = new RenderNodeContext(input, RenderIntent, OutputScale, MaxWorkingScale, PullPurpose)
         {
-            // Seeded from the processor's useRenderCache so cache-consuming nodes (the pass-prefix cache) can honor
-            // a caller's disabled render caching; a node may still CLEAR it to opt its subtree out (read back below).
-            IsRenderCacheEnabled = _useRenderCache,
+            // Persistent caches are frame-only. Auxiliary pulls always execute without consulting or mutating retained
+            // frame state; a frame node may still CLEAR this flag to opt its subtree out (read back below).
+            IsRenderCacheEnabled = usePersistentCache,
             Diagnostics = Diagnostics,
             Pool = Pool,
             RenderTargetFactory = _inheritedRenderTargetFactory ?? CreateRenderTarget,
             InputSubtreeStableOverride = InputSubtreeStableOverride,
             RequestedBounds = requestedBounds,
         };
-        var result = node.Process(context);
-        if (_useRenderCache && !context.IsRenderCacheEnabled)
+        RenderNodeOperation[]? result = null;
+        try
         {
-            node.Cache.ReportRenderCount(0);
-        }
+            result = node.Process(context);
+            if (usePersistentCache && !context.IsRenderCacheEnabled)
+            {
+                node.Cache.ReportRenderCount(0);
+            }
 
-        return result;
+            return result;
+        }
+        catch
+        {
+            // Process may transfer input ownership into wrappers in its result. Dispose result-only
+            // operations first, then sweep every input. RenderNodeOperation is state-first/idempotent,
+            // so wrappers that release an input cannot make the second sweep unsafe.
+            if (result != null)
+            {
+                foreach (RenderNodeOperation operation in result)
+                {
+                    bool isInput = false;
+                    foreach (RenderNodeOperation inputOperation in input)
+                    {
+                        if (ReferenceEquals(operation, inputOperation))
+                        {
+                            isInput = true;
+                            break;
+                        }
+                    }
+
+                    if (!isInput)
+                    {
+                        try
+                        {
+                            operation.Dispose();
+                        }
+                        catch
+                        {
+                            // Preserve the Process/bookkeeping failure while continuing the sweep.
+                        }
+                    }
+                }
+            }
+
+            RenderNodeOperation.DisposeAll(input);
+            throw;
+        }
     }
 }

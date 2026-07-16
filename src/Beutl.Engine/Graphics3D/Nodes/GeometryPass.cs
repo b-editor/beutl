@@ -71,13 +71,14 @@ public sealed class GeometryPass : GraphicsNode3D
     private void CreateGBuffer(int width, int height)
     {
         // Dispose old resources
-        Framebuffer?.Dispose();
-        RenderPass?.Dispose();
-        PositionTexture?.Dispose();
-        NormalMetallicTexture?.Dispose();
-        AlbedoRoughnessTexture?.Dispose();
-        EmissionAOTexture?.Dispose();
-        DepthTexture?.Dispose();
+        Graphics3DDisposal.DisposeAll(
+            Framebuffer,
+            RenderPass,
+            PositionTexture,
+            NormalMetallicTexture,
+            AlbedoRoughnessTexture,
+            EmissionAOTexture,
+            DepthTexture);
 
         // Create G-Buffer textures
         PositionTexture = Context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
@@ -109,6 +110,7 @@ public sealed class GeometryPass : GraphicsNode3D
         RenderPullPurpose pullPurpose,
         float surfaceDensity = 1f)
     {
+        ThrowIfNotInitialized();
         if (Framebuffer == null || RenderPass == null)
             return;
 
@@ -201,14 +203,14 @@ public sealed class GeometryPass : GraphicsNode3D
 
     protected override void OnDispose()
     {
-        _defaultMaterialResource?.Dispose();
-
-        Framebuffer?.Dispose();
-        RenderPass?.Dispose();
-        PositionTexture?.Dispose();
-        NormalMetallicTexture?.Dispose();
-        AlbedoRoughnessTexture?.Dispose();
-        EmissionAOTexture?.Dispose();
-        DepthTexture?.Dispose();
+        Graphics3DDisposal.DisposeAll(
+            _defaultMaterialResource,
+            Framebuffer,
+            RenderPass,
+            PositionTexture,
+            NormalMetallicTexture,
+            AlbedoRoughnessTexture,
+            EmissionAOTexture,
+            DepthTexture);
     }
 }

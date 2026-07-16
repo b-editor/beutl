@@ -1,13 +1,13 @@
 ﻿using Beutl.Composition;
 
-using Beutl.Graphics.Rendering;
-
 namespace Beutl.NodeGraph.Composition;
 
 public sealed class GraphCompositionContext : CompositionContext
 {
-    public GraphCompositionContext(TimeSpan time) : base(time)
+    internal GraphCompositionContext(CompositionContext context)
+        : base(context.Time, context.RenderIntent, context.PullPurpose)
     {
+        UpdateFrom(context);
     }
 
     internal GraphNode.Resource Resource { get; set; } = null!;
@@ -16,8 +16,14 @@ public sealed class GraphCompositionContext : CompositionContext
 
     public CompositionTarget Target { get; internal set; }
 
-    /// <summary>The ambient failure policy of the render that is evaluating this graph.</summary>
-    internal RenderIntent RenderIntent { get; set; } = RenderIntent.Preview;
+    internal void UpdateFrom(CompositionContext context)
+    {
+        Time = context.Time;
+        DisableResourceShare = context.DisableResourceShare;
+        PreferProxy = context.PreferProxy;
+        PreferredProxyPreset = context.PreferredProxyPreset;
+        UpdateRenderPolicy(context.RenderIntent, context.PullPurpose);
+    }
 
     public bool HasConnection(IInputPort port)
     {
