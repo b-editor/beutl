@@ -223,6 +223,49 @@ public class CompositeBranchIdentityTests
     }
 
     [Test]
+    public void NestedGraph_SiblingsWithDifferingStaticFanOut_ConcatenateOrdinalNamespaces()
+    {
+        var seen = new List<int>();
+        var builder = new EffectGraphBuilder(
+            s_input, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
+        builder.Split(SplitNodeDescriptor.Static(
+            emitter =>
+            {
+                emitter.Emit(new Rect(0, 0, 10, 10), session => DrawInput(session));
+                emitter.Emit(new Rect(10, 0, 10, 10), session => DrawInput(session));
+            },
+            branchCount: 2,
+            structuralToken: "two-parent-branches-for-mixed-fan-out"));
+        builder.NestedGraph(NestedGraphNodeDescriptor.Create(
+            (branchBuilder, branchIndex) =>
+            {
+                // Branch 0 fans out 2-way; branch 1 appends nothing (an identity child keeps its single branch).
+                if (branchIndex == 0)
+                {
+                    branchBuilder.Split(SplitNodeDescriptor.Static(
+                        emitter =>
+                        {
+                            emitter.Emit(emitter.Input.Bounds, session => DrawInput(session));
+                            emitter.Emit(emitter.Input.Bounds, session => DrawInput(session));
+                        },
+                        branchCount: 2,
+                        structuralToken: "wide-static-child"));
+                }
+            },
+            structuralToken: "differing-static-fan-out"));
+        builder.NestedGraph(NestedGraphNodeDescriptor.Create(
+            (_, branchIndex) => seen.Add(branchIndex),
+            structuralToken: "observe-differing-fan-out-indices"));
+
+        RenderNodeOperation[] outputs = Execute(builder);
+        RenderNodeOperation.DisposeAll(outputs);
+
+        Assert.That(seen, Is.EqualTo(new[] { 0, 1, 2 }),
+            "siblings with differing static fan-out factors cannot share one multiplicative namespace — the "
+            + "2-way child's [0,1] must not collide with the identity sibling's [1]");
+    }
+
+    [Test]
     public void FoldedColorFilterFallback_AfterGeometryDropsMiddleBranch_KeepsOriginalOffset()
     {
         var builder = CreateSplitBuilder(discardInsideSplit: false, thirdBranchWidth: 100);

@@ -33,4 +33,27 @@ public class UniformBindingTests
             () => builder.Add(new FloatUniform("amount", 2f)),
             Throws.TypeOf<ArgumentException>().With.Message.Contains("Duplicate uniform"));
     }
+
+    [Test]
+    public void DuplicateTypedName_BlamesTheNameParameter()
+    {
+        var builder = new UniformBindingBuilder().Float("amount", 1f);
+
+        Assert.That(
+            () => builder.Float("amount", 2f),
+            Throws.TypeOf<ArgumentException>()
+                .With.Property(nameof(ArgumentException.ParamName)).EqualTo("name")
+                .And.Message.Contains("Duplicate uniform"));
+    }
+
+    [Test]
+    public void DuplicatePluginBinding_BlamesTheBindingParameter()
+    {
+        var builder = new UniformBindingBuilder().Float("amount", 1f);
+
+        Assert.That(
+            () => builder.Add(new FloatUniform("amount", 2f)),
+            Throws.TypeOf<ArgumentException>()
+                .With.Property(nameof(ArgumentException.ParamName)).EqualTo("binding"));
+    }
 }

@@ -116,6 +116,25 @@ public class CustomRenderNodeEffectInGraphTests
         Assert.That(error.Message, Does.Contain(nameof(ProbeRenderNode)).And.Contain("concrete node type"));
     }
 
+    // The public authoring pair: CustomRenderNodeDescriptor.Create is public, so the builder exposes a public
+    // appender to reach it (Effect() covers resources; this covers an author holding a constructed descriptor).
+    [Test]
+    public void PublicCustomRenderNodeAppender_DrivesTheDescriptorLikeTheEffectPath()
+    {
+        var probeCalls = new int[1];
+        var effect = new ProbeCustomNodeEffect(probeCalls);
+        using ProbeCustomNodeEffect.Resource resource = effect.ToResource(CompositionContext.Default);
+        var builder = new EffectGraphBuilder(
+            s_bounds, outputScale: 1f, workingScale: 1f, renderIntent: RenderIntent.Delivery);
+        builder.CustomRenderNode(CustomRenderNodeDescriptor.Create(resource));
+
+        RenderNodeOperation[] outputs = Execute(builder);
+        RenderNodeOperation.DisposeAll(outputs);
+
+        Assert.That(probeCalls[0], Is.GreaterThanOrEqualTo(1),
+            "the publicly appended descriptor must drive the child render node");
+    }
+
     // ---- Executor (GPU-free, raster) -------------------------------------------------------------------
 
     // Proves the CustomRenderNodePass genuinely drives the child render node (the probe counter increments) and threads

@@ -349,9 +349,6 @@ internal sealed class QueueSynchronizationContext(Dispatcher dispatcher, TimePro
             queued.Abort(new ObjectDisposedException(nameof(Dispatcher), "The dispatcher is shutting down."));
     }
 
-    internal bool TryPost(DispatchPriority priority, Action operation, CancellationToken ct)
-        => TryPost(priority, operation, ct, abort: null);
-
     internal bool TryPost(
         DispatchPriority priority,
         Action operation,

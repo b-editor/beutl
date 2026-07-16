@@ -92,7 +92,8 @@ public class PlanFilterEffectRenderNode(FilterEffect.Resource filterEffect) : Fi
             // transfers to the graph at Build); the engine aborts the still-open builder in the finally path.
             var graphBuilder = new EffectGraphBuilder(
                 bounds, context.OutputScale, workingScale, context.RenderIntent,
-                context.MaxWorkingScale, runtimeState.NestedPlanCache, context.PullPurpose);
+                context.MaxWorkingScale, runtimeState.NestedPlanCache, context.PullPurpose,
+                hasBranchedInput: context.Input.Length > 1);
             try
             {
                 resource.GetOriginal().Describe(graphBuilder, resource);

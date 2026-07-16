@@ -3,6 +3,7 @@ using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics3D.Camera;
 using Beutl.Graphics3D.Lighting;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
@@ -68,16 +69,10 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
 
         if (context.IsAuxiliaryPull)
         {
-            // The 2D renderer's hit-test and boundary contracts for a rendered 3D scene are the output rectangle.
-            // Building a second G-buffer/shadow renderer cannot refine either answer, so keep auxiliary pulls CPU-only.
-            return
-            [
-                RenderNodeOperation.CreateLambda(
-                    Bounds,
-                    static _ => { },
-                    Bounds.Contains,
-                    effectiveScale: EffectiveScale.At(w))
-            ];
+            // Auxiliary pulls feed real pixels (brush previews, node-graph thumbnails, headless stills), so they
+            // render the scene like a frame pull — through a transient renderer, because the shared frame renderer's
+            // surface size and cached hit-test state must not be disturbed by an out-of-band pull at another density.
+            return RenderAuxiliary(scene, cameraResource, graphicsContext, context, dw, dh, w);
         }
 
         Renderer3D renderer = scene.Renderer ??= new Renderer3D(graphicsContext);
@@ -114,44 +109,8 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
 
         renderer.SurfaceDensity = w;
 
-        var objectResources = new List<Object3D.Resource>();
-        var lightResources = new List<Light3D.Resource>();
-        objectResources.AddRange(scene.Objects.Where(obj => obj.IsEnabled));
-        lightResources.AddRange(scene.Lights.Where(light => light.IsEnabled));
-
-        // Find gizmo target object
-        Object3D.Resource? gizmoTarget = null;
-        if (scene.GizmoTarget.HasValue)
-        {
-            gizmoTarget = FindObjectById(objectResources, scene.GizmoTarget.Value);
-        }
-
-        // Render
-        SkiaSharp.SKSurface? surface;
-        try
-        {
-            renderer.Render(
-                new CompositionContext(scene.Time)
-                {
-                    DisableResourceShare = scene.DisableResourceShare,
-                },
-                cameraResource,
-                objectResources,
-                lightResources,
-                scene.BackgroundColor,
-                scene.AmbientColor,
-                scene.AmbientIntensity,
-                context.RenderIntent,
-                context.PullPurpose,
-                gizmoTarget,
-                scene.GizmoMode);
-
-            surface = renderer.CreateSkiaSurface();
-        }
-        catch
-        {
-            throw;
-        }
+        RenderScene(renderer, scene, cameraResource, context);
+        SkiaSharp.SKSurface? surface = renderer.CreateSkiaSurface();
 
         if (surface == null)
         {
@@ -176,6 +135,132 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
 
     internal static void SetGraphicsContextProviderForTest(Func<IGraphicsContext?>? provider)
         => s_graphicsContextProviderForTest = provider;
+
+    private static void RenderScene(
+        Renderer3D renderer, Scene3D.Resource scene, Camera3D.Resource camera, RenderNodeContext context)
+    {
+        var objectResources = new List<Object3D.Resource>();
+        var lightResources = new List<Light3D.Resource>();
+        objectResources.AddRange(scene.Objects.Where(obj => obj.IsEnabled));
+        lightResources.AddRange(scene.Lights.Where(light => light.IsEnabled));
+
+        Object3D.Resource? gizmoTarget = null;
+        if (scene.GizmoTarget.HasValue)
+        {
+            gizmoTarget = FindObjectById(objectResources, scene.GizmoTarget.Value);
+        }
+
+        renderer.Render(
+            new CompositionContext(scene.Time)
+            {
+                DisableResourceShare = scene.DisableResourceShare,
+            },
+            camera,
+            objectResources,
+            lightResources,
+            scene.BackgroundColor,
+            scene.AmbientColor,
+            scene.AmbientIntensity,
+            context.RenderIntent,
+            context.PullPurpose,
+            gizmoTarget,
+            scene.GizmoMode);
+    }
+
+    // The auxiliary render goes through a transient renderer and hands its pixels off in a self-contained
+    // RenderTarget: the emitted operation must not depend on renderer-owned GPU textures that are torn down here.
+    private RenderNodeOperation[] RenderAuxiliary(
+        Scene3D.Resource scene, Camera3D.Resource camera, IGraphicsContext graphicsContext,
+        RenderNodeContext context, int dw, int dh, float w)
+    {
+        Renderer3D? renderer = null;
+        SkiaSharp.SKSurface? surface = null;
+        try
+        {
+            try
+            {
+                renderer = new Renderer3D(graphicsContext);
+                renderer.Initialize(dw, dh);
+            }
+            catch (Exception ex)
+            {
+                s_logger.LogWarning(ex,
+                    "Auxiliary 3D render surface allocation failed ({Width}x{Height} px, density {Scale}, intent {RenderIntent}).",
+                    dw, dh, w, context.RenderIntent);
+                if (context.RenderIntent == RenderIntent.Delivery)
+                {
+                    throw new InvalidOperationException(
+                        $"Auxiliary 3D render surface allocation failed ({dw}x{dh} px, density {w}).", ex);
+                }
+
+                return [EmptyAuxiliaryOperation(w)];
+            }
+
+            renderer.SurfaceDensity = w;
+            RenderScene(renderer, scene, camera, context);
+            surface = renderer.CreateSkiaSurface();
+            if (surface == null)
+            {
+                if (context.RenderIntent == RenderIntent.Delivery)
+                {
+                    throw new InvalidOperationException(
+                        $"Could not create the auxiliary 3D output surface ({dw}x{dh} px, density {w}).");
+                }
+
+                return [EmptyAuxiliaryOperation(w)];
+            }
+
+            RenderTarget? copy = RenderTarget.Create(dw, dh);
+            if (copy == null)
+            {
+                if (context.RenderIntent == RenderIntent.Delivery)
+                {
+                    throw new InvalidOperationException(
+                        $"Auxiliary 3D output copy allocation failed ({dw}x{dh} px, density {w}).");
+                }
+
+                return [EmptyAuxiliaryOperation(w)];
+            }
+
+            try
+            {
+                using (var canvas = new ImmediateCanvas(
+                    copy, context.RenderIntent, w, context.MaxWorkingScale, logicalSize: Bounds.Size,
+                    pullPurpose: context.PullPurpose))
+                {
+                    canvas.Clear();
+                    using (canvas.PushDeviceSpace())
+                    {
+                        canvas.Canvas.DrawSurface(surface, 0, 0);
+                    }
+                }
+            }
+            catch
+            {
+                copy.Dispose();
+                throw;
+            }
+
+            return
+            [
+                RenderNodeOperation.CreateFromRenderTarget(
+                    Bounds, new Point(0, 0), copy, EffectiveScale.At(w))
+            ];
+        }
+        finally
+        {
+            surface?.Dispose();
+            renderer?.Dispose();
+        }
+    }
+
+    // Preview keeps the hit-test/bounds contract alive when the auxiliary render cannot allocate.
+    private RenderNodeOperation EmptyAuxiliaryOperation(float w)
+        => RenderNodeOperation.CreateLambda(
+            Bounds,
+            static _ => { },
+            Bounds.Contains,
+            effectiveScale: EffectiveScale.At(w));
 
     private static Object3D.Resource? FindObjectById(IEnumerable<Object3D.Resource> objects, Guid targetId)
     {

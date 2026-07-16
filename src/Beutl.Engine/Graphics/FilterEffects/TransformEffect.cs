@@ -45,17 +45,19 @@ public sealed partial class TransformEffect : FilterEffect
         }
 
         // The ApplyToTarget path pivots each operation around its own centre (not the shared bounds centre a single
-        // matrix filter would use), so it is a per-operation geometry redraw. In the linear single-input pipeline the
-        // op's bounds equal the builder's; a fanned-out set (upstream split) still pivots each branch on its own rect.
-        // Backward inverts the same transform the forward applies (pivoted on the describe-time input bounds, which the
-        // forward map also uses): an identity backward crops an upstream pass to the un-transformed region and loses
-        // the pixels the rotation/scale pulls in (A3). FullFrame is unavailable here — the forward inflates the AABB,
-        // so it would collapse the buffer to the input rect and clip the transformed content (the FlatShadow rationale).
+        // matrix filter would use), so it is a per-operation geometry redraw. The render callback must derive the
+        // pivot from the executed operation's own rect (session.Inputs[0]): the executor sizes every output buffer by
+        // forward-mapping that same rect, so after an upstream fan-out a branch pivoted on the describe-time union
+        // rotates out of its allocated buffer and vanishes. Backward inverts the same transform pivoted on the
+        // describe-time input bounds (the resolver's whole-set view; over-claiming is safe, under-claiming crops):
+        // an identity backward crops an upstream pass to the un-transformed region and loses the pixels the
+        // rotation/scale pulls in (A3). FullFrame is unavailable here — the forward inflates the AABB, so it would
+        // collapse the buffer to the input rect and clip the transformed content (the FlatShadow rationale).
         Rect inputBounds = builder.Bounds;
         builder.Geometry(GeometryNodeDescriptor.Create(
             session =>
             {
-                Vector origin = originPoint.ToPixels(inputBounds.Size);
+                Vector origin = originPoint.ToPixels(session.Inputs[0].Bounds.Size);
                 Matrix offset = Matrix.CreateTranslation(origin);
                 TransformGeometry.Render(session, (-offset) * mat * offset);
             },

@@ -90,11 +90,14 @@ internal static class GoldenReferenceStore
 
         double ssim = ImageMetrics.Ssim(reference, actual);
         double mae = ImageMetrics.MeanAbsoluteError(reference, actual);
-        TestContext.WriteLine($"[golden-ref] {category}/{name} SSIM={ssim:F4} MAE={mae:F4}");
+        double alphaMae = ImageMetrics.AlphaMeanAbsoluteError(reference, actual);
+        TestContext.WriteLine($"[golden-ref] {category}/{name} SSIM={ssim:F4} MAE={mae:F4} AlphaMAE={alphaMae:F4}");
         Assert.Multiple(() =>
         {
             Assert.That(ssim, Is.GreaterThanOrEqualTo(GoldenThresholds.ExactSsimMin), $"{name}: SSIM below parity floor");
             Assert.That(mae, Is.LessThanOrEqualTo(GoldenThresholds.ExactMaeMax), $"{name}: MAE above parity ceiling");
+            Assert.That(alphaMae, Is.LessThanOrEqualTo(GoldenThresholds.ExactMaeMax),
+                $"{name}: alpha MAE above parity ceiling (RGB MAE and luminance SSIM cannot see alpha-only regressions)");
         });
     }
 

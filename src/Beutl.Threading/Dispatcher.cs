@@ -163,19 +163,10 @@ public class Dispatcher
     }
 
     /// <summary>
-    /// Attempts to queue cleanup work and reports whether the dispatcher accepted it. Internal teardown paths use
-    /// the result to release native resources inline after shutdown instead of silently abandoning them.
-    /// </summary>
-    internal bool TryDispatch(
-        Action operation, DispatchPriority priority = DispatchPriority.Medium, CancellationToken ct = default)
-    {
-        ArgumentNullException.ThrowIfNull(operation);
-        return _synchronizationContext.TryPost(priority, operation, ct);
-    }
-
-    /// <summary>
     /// Attempts to queue cleanup work with a fallback that runs if shutdown abandons the accepted operation.
-    /// The fallback also runs when the dispatcher has already stopped accepting work.
+    /// The fallback also runs when the dispatcher has already stopped accepting work. Returns whether the
+    /// dispatcher accepted the work; teardown paths use the result to release native resources inline after
+    /// shutdown instead of silently abandoning them.
     /// </summary>
     internal bool TryDispatch(
         Action operation,

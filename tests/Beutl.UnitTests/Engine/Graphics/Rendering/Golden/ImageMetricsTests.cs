@@ -45,6 +45,34 @@ public class ImageMetricsTests
     }
 
     [Test]
+    public void AlphaMeanAbsoluteError_Identical_IsZero()
+    {
+        using var a = Flat(16, 16, 0.4f, 0.6f, 0.8f, a: 0.7f);
+        using var b = Flat(16, 16, 0.4f, 0.6f, 0.8f, a: 0.7f);
+
+        Assert.That(ImageMetrics.AlphaMeanAbsoluteError(a, b), Is.EqualTo(0.0).Within(1e-6));
+    }
+
+    // The parity-gate hole this metric closes: RGB MAE and luminance SSIM both read only the color channels, so an
+    // alpha-only regression sails through them.
+    [Test]
+    public void AlphaMeanAbsoluteError_SeesAlphaOnlyDrift_ThatRgbMetricsMiss()
+    {
+        using var a = Flat(16, 16, 0.2f, 0.4f, 0.6f, a: 1f);
+        using var b = Flat(16, 16, 0.2f, 0.4f, 0.6f, a: 0.5f);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ImageMetrics.MeanAbsoluteError(a, b), Is.EqualTo(0.0).Within(1e-6),
+                "RGB MAE is blind to an alpha-only difference");
+            Assert.That(ImageMetrics.Ssim(a, b), Is.EqualTo(1.0).Within(1e-6),
+                "luminance SSIM is blind to an alpha-only difference");
+            Assert.That(ImageMetrics.AlphaMeanAbsoluteError(a, b), Is.EqualTo(0.5).Within(2e-3),
+                "the alpha metric must expose the drift the RGB metrics miss");
+        });
+    }
+
+    [Test]
     public void Ssim_Identical_IsOne()
     {
         using var a = Flat(16, 16, 0.4f, 0.6f, 0.8f);

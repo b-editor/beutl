@@ -36,7 +36,7 @@ public sealed class EffectGraphBuilder
     internal EffectGraphBuilder(
         Rect bounds, float outputScale, float workingScale, RenderIntent renderIntent,
         float maxWorkingScale = float.PositiveInfinity, NestedGraphPlanCache? nestedPlanCache = null,
-        RenderPullPurpose pullPurpose = RenderPullPurpose.Frame)
+        RenderPullPurpose pullPurpose = RenderPullPurpose.Frame, bool hasBranchedInput = false)
     {
         OriginalBounds = bounds;
         Bounds = bounds;
@@ -47,6 +47,9 @@ public sealed class EffectGraphBuilder
         PullPurpose = RenderPolicyValidation.Validate(pullPurpose, nameof(pullPurpose));
         _ownsNestedPlanCache = nestedPlanCache is null;
         _nestedPlanCache = nestedPlanCache ?? new NestedGraphPlanCache();
+        // A multi-op input set (a DrawableGroup's children) is already a fan-out: Bounds is the set's union, so a
+        // built-in split must not declare a static branch count from it (a small member op can emit zero tiles).
+        _hasBranchedInput = hasBranchedInput;
     }
 
     /// <summary>The current logical bounds, advanced by each appended node's forward bounds.</summary>
@@ -149,6 +152,17 @@ public sealed class EffectGraphBuilder
 
     /// <summary>Appends a per-branch nested graph node: the executor re-describes and runs a child graph per branch index.</summary>
     public EffectGraphBuilder NestedGraph(NestedGraphNodeDescriptor descriptor)
+    {
+        ArgumentNullException.ThrowIfNull(descriptor);
+        return Append(descriptor);
+    }
+
+    /// <summary>
+    /// Appends a custom-render-node node: the descriptor's captured render node runs as one opaque node inside the
+    /// plan. <see cref="Effect"/> is the usual entry (it resolves a child's factory and inlines describable
+    /// children); this appender serves an author who already holds a constructed descriptor.
+    /// </summary>
+    public EffectGraphBuilder CustomRenderNode(CustomRenderNodeDescriptor descriptor)
     {
         ArgumentNullException.ThrowIfNull(descriptor);
         return Append(descriptor);
@@ -288,8 +302,10 @@ public sealed class EffectGraphBuilder
             SplitNodeDescriptor or NestedGraphNodeDescriptor or CustomRenderNodeDescriptor => true,
             _ => _hasBranchedInput,
         };
+        // A compute node is runtime-dependent under every fallback kind: without Vulkan, Identity passes the input
+        // through against a possibly non-identity contract, Skip drops the op, and Cpu runs a session callback.
         _hasRuntimeDependentBounds |= descriptor is GeometryNodeDescriptor
-            or ComputeNodeDescriptor { Fallback.Kind: ComputeFallbackKind.Cpu }
+            or ComputeNodeDescriptor
             or SplitNodeDescriptor
             or CompositeNodeDescriptor
             or NestedGraphNodeDescriptor

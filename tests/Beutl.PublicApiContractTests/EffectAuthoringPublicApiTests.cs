@@ -46,6 +46,9 @@ public sealed class EffectAuthoringPublicApiTests
             Assert.That(typeof(RenderNodeContext).GetMethod(nameof(RenderNodeContext.CreateChildProcessor)),
                 Is.Not.Null);
             Assert.That(typeof(EffectGraphBuilder).GetProperty(nameof(EffectGraphBuilder.PullPurpose)), Is.Not.Null);
+            Assert.That(typeof(EffectGraphBuilder).GetMethod(
+                nameof(EffectGraphBuilder.CustomRenderNode), [typeof(CustomRenderNodeDescriptor)]), Is.Not.Null,
+                "the public CustomRenderNodeDescriptor.Create factory needs a public appender to be reachable");
             Assert.That(typeof(GeometrySession).GetProperty(nameof(GeometrySession.PullPurpose)), Is.Not.Null);
             Assert.That(typeof(PassUniformContext).GetProperty(nameof(PassUniformContext.PullPurpose)), Is.Not.Null);
             Assert.That(typeof(ImmediateCanvas).GetProperty(nameof(ImmediateCanvas.PullPurpose)), Is.Not.Null);

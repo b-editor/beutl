@@ -210,8 +210,10 @@ public sealed partial class LutEffect : FilterEffect
         {
             if (_cachedLutShader is null || !ReferenceEquals(_cachedCube, cube))
             {
+                // Build before swapping: a BuildLutShader throw must not leave the cache holding a disposed shader.
+                SKShader shader = BuildLutShader(cube);
                 _cachedLutShader?.Dispose();
-                _cachedLutShader = BuildLutShader(cube);
+                _cachedLutShader = shader;
                 _cachedCube = cube;
             }
 

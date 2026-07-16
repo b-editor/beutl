@@ -321,6 +321,7 @@ internal static class PlanExecutor
         var branchEntryOrdinals = new List<int>(current.Count);
         int initialGeneration = ordinalGeneration;
         int initialSpan = Math.Max(1, ordinalSpan);
+        PassBackend entryBackend = runtimeBackend;
         var liveBranchIndices = new HashSet<int>();
         for (int i = 0; i < current.Count; i++)
             liveBranchIndices.Add(ResolveBranchOrdinal(current[i].Ordinal, i));
@@ -362,6 +363,9 @@ internal static class PlanExecutor
                     // Hand ownership of op to the recursion only once it is about to consume it: a DescribeBranch/
                     // Build/Compile/ResolveResources throw above still leaves op in current for the catch to dispose.
                     current[i] = default;
+                    // Every sibling starts from the parent's entry backend: siblings run independent plans over
+                    // independent inputs, so inheriting the previous sibling's ending backend would count a phantom
+                    // Vulkan->Skia sync at each later sibling's first consuming pass (C4.2 counts N, not 2N-1).
                     BranchExecutionResult branchResult = ExecuteBranches(
                         branchPlan, branchResources, [new BranchOperation(op, branchIndex)],
                         outputScale, branchScale, maxWorkingScale, diagnostics, pool, renderIntent,
@@ -369,9 +373,8 @@ internal static class PlanExecutor
                         pullPurpose: pullPurpose,
                         ordinalGeneration: ordinalGeneration,
                         ordinalSpan: ordinalSpan,
-                        initialBackend: runtimeBackend,
+                        initialBackend: entryBackend,
                         renderTargetFactory: renderTargetFactory);
-                    runtimeBackend = branchResult.Backend;
                     branchResults.Add(branchResult);
                     branchEntryOrdinals.Add(branchIndex);
                 }
@@ -391,8 +394,38 @@ internal static class PlanExecutor
         }
 
         current.Clear();
+        // Siblings ran independently from the entry backend; any branch that ends with pending Vulkan work leaves
+        // the shared context in the Vulkan state for the parent's next consuming pass.
+        if (branchResults.Count > 0)
+        {
+            runtimeBackend = branchResults.Exists(static result => result.Backend == PassBackend.Vulkan)
+                ? PassBackend.Vulkan
+                : PassBackend.Skia;
+        }
+
         bool resetInsideChild = branchResults.Exists(result => result.OrdinalGeneration > initialGeneration);
+        // The namespace-preserving fast path assumes ONE static fan-out factor across all siblings (each child's
+        // ordinals are its entry ordinal multiplied by that factor). Children with differing factors overlap — a
+        // 2-way static split beside an identity child publishes [0,1] and [1] — so a mixed-factor set must
+        // re-namespace by concatenation exactly like a reset child.
+        bool uniformChildFanOut = true;
         if (!resetInsideChild)
+        {
+            int sharedLocalSpan = -1;
+            foreach (BranchExecutionResult result in branchResults)
+            {
+                int localSpan = Math.Max(1, result.OrdinalSpan / initialSpan);
+                if (sharedLocalSpan >= 0 && sharedLocalSpan != localSpan)
+                {
+                    uniformChildFanOut = false;
+                    break;
+                }
+
+                sharedLocalSpan = localSpan;
+            }
+        }
+
+        if (!resetInsideChild && uniformChildFanOut)
         {
             foreach (BranchExecutionResult result in branchResults)
                 current.AddRange(result.Outputs);

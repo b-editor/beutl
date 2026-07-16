@@ -49,14 +49,18 @@ public sealed partial class PathFollowEffect : FilterEffect
         float rotationAngle = r.FollowRotation ? MathF.Atan2(tangent.Y, tangent.X) : 0f;
 
         // The pass translates (and optionally rotates) its input, so producing output region `rect` samples the input
-        // over the inverse of the follow transform. Backward inverts the same transform the forward maps (pivoted on
-        // the describe-time input bounds, matching TransformEffect.ApplyToTarget); an identity backward under-claims
-        // and crops an upstream pass to the un-followed region, losing the pixels the follow motion pulls in (A3).
+        // over the inverse of the follow transform. The render callback pivots on the executed operation's own rect
+        // (session.Inputs[0]), matching the forward map the executor sizes each output buffer with — after an
+        // upstream fan-out a branch pivoted on the describe-time union rotates out of its allocated buffer. Backward
+        // inverts the transform pivoted on the describe-time input bounds (the resolver's whole-set view); an
+        // identity backward under-claims and crops an upstream pass to the un-followed region, losing the pixels the
+        // follow motion pulls in (A3).
         Rect inputBounds = builder.Bounds;
         builder.Geometry(GeometryNodeDescriptor.Create(
             session =>
             {
-                var center = new Vector(inputBounds.Width / 2, inputBounds.Height / 2);
+                Rect opBounds = session.Inputs[0].Bounds;
+                var center = new Vector(opBounds.Width / 2, opBounds.Height / 2);
                 TransformGeometry.Render(session, LocalMatrix(translate, rotationAngle, center));
             },
             BoundsContract.Create(

@@ -46,6 +46,22 @@ public class LutEffectCachingTests
     }
 
     [Test]
+    public void GetOrBuildLutShader_SwappingBackToAPreviousCube_ReturnsALiveShader()
+    {
+        var effect = new LutEffect();
+        using var resource = (LutEffect.Resource)effect.ToResource(CompositionContext.Default);
+        CubeFile cubeA = MakeCube();
+        CubeFile cubeB = MakeCube();
+
+        resource.GetOrBuildLutShader(cubeA);
+        resource.GetOrBuildLutShader(cubeB);
+        SKShader back = resource.GetOrBuildLutShader(cubeA);
+
+        Assert.That(back.Handle, Is.Not.EqualTo(nint.Zero),
+            "the cache must never hand out a disposed shader after cube swaps in either direction");
+    }
+
+    [Test]
     public void Update_WithoutSourceCube_ReleasesCachedShader()
     {
         var effect = new LutEffect();

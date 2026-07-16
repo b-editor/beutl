@@ -310,16 +310,18 @@ public sealed class UniformBindingBuilder
     {
         ArgumentNullException.ThrowIfNull(binding);
         Validate(binding.Name);
-        return AddBinding(binding);
+        return AddBinding(binding, nameof(binding));
     }
 
-    private UniformBindingBuilder AddBinding(UniformBinding binding)
+    // The typed appenders all take the duplicated value through their `name` parameter, so the duplicate-name
+    // ArgumentException must blame a parameter that exists at the caller ("name", or Add's "binding").
+    private UniformBindingBuilder AddBinding(UniformBinding binding, string paramName = "name")
     {
         if (!_names.Add(binding.Name))
         {
             throw new ArgumentException(
                 $"Duplicate uniform binding name '{binding.Name}': uniforms bind by name, so a later value would "
-                + "silently replace the earlier binding.", nameof(binding));
+                + "silently replace the earlier binding.", paramName);
         }
 
         _bindings.Add(binding);
