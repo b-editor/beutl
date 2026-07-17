@@ -3,12 +3,14 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctrls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:ext="using:Beutl.Extensibility"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:Beutl.ViewModels.SettingsPages"
              x:Name="root"
+             x:CompileBindings="True"
              d:DesignHeight="450"
              d:DesignWidth="800"
              x:DataType="vm:ViewSettingsPageViewModel"
@@ -29,11 +31,14 @@
                                           Icon="DarkTheme">
 
                     <ctrls:OptionsDisplayItem.ActionButton>
-                        <ComboBox MinWidth="250" SelectedIndex="{CompiledBinding SelectedTheme.Value}">
-                            <ComboBoxItem Content="{x:Static lang:SettingsStrings.Light}" />
-                            <ComboBoxItem Content="{x:Static lang:SettingsStrings.Dark}" />
-                            <ComboBoxItem Content="{x:Static lang:SettingsStrings.HighContrast}" />
-                            <ComboBoxItem Content="{x:Static lang:SettingsStrings.FollowSystem}" />
+                        <ComboBox MinWidth="250"
+                                  ItemsSource="{CompiledBinding AvailableThemes}"
+                                  SelectedItem="{CompiledBinding SelectedThemeDescriptor.Value}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="ext:ThemeDescriptor">
+                                    <TextBlock Text="{CompiledBinding DisplayName}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
                         </ComboBox>
                     </ctrls:OptionsDisplayItem.ActionButton>
                 </ctrls:OptionsDisplayItem>

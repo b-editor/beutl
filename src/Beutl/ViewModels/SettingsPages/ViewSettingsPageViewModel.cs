@@ -1,6 +1,8 @@
-﻿using Avalonia.Media;
+﻿using System.Collections.ObjectModel;
+using Avalonia.Media;
 using Beutl.Configuration;
 using Beutl.Controls.Navigation;
+using Beutl.Extensibility;
 using FluentAvalonia.Styling;
 using Reactive.Bindings;
 
@@ -19,10 +21,29 @@ public sealed class ViewSettingsPageViewModel : PageContext, IDisposable
         _config = GlobalConfiguration.Instance.ViewConfig;
         _editorSettings = editorSettings;
 
-        SelectedTheme = _config.GetObservable(ViewConfig.ThemeProperty).Select(x => (int)x)
-            .ToReactiveProperty()
+        RefreshAvailableThemes();
+        ThemeRegistry.Changed += OnThemeRegistryChanged;
+
+        SelectedThemeDescriptor = new ReactiveProperty<ThemeDescriptor?>(ThemeRegistry.Resolve(_config.Theme))
             .DisposeWith(_disposables);
-        SelectedTheme.Subscribe(v => _config.Theme = (ViewConfig.ViewTheme)v)
+        SelectedThemeDescriptor.Subscribe(d =>
+            {
+                if (d is { } descriptor && _config.Theme != descriptor.Id)
+                {
+                    _config.Theme = descriptor.Id;
+                }
+            })
+            .DisposeWith(_disposables);
+
+        _config.GetObservable(ViewConfig.ThemeProperty)
+            .Subscribe(id =>
+            {
+                if (ThemeRegistry.Resolve(id) is { } descriptor
+                    && SelectedThemeDescriptor.Value?.Id != descriptor.Id)
+                {
+                    SelectedThemeDescriptor.Value = descriptor;
+                }
+            })
             .DisposeWith(_disposables);
 
         SelectedLanguage = _config.GetObservable(ViewConfig.UICultureProperty)
@@ -95,7 +116,9 @@ public sealed class ViewSettingsPageViewModel : PageContext, IDisposable
             .DisposeWith(_disposables);
     }
 
-    public ReactiveProperty<int> SelectedTheme { get; }
+    public ObservableCollection<ThemeDescriptor> AvailableThemes { get; } = new();
+
+    public ReactiveProperty<ThemeDescriptor?> SelectedThemeDescriptor { get; }
 
     public ReactiveProperty<CultureInfo> SelectedLanguage { get; }
 
@@ -167,6 +190,17 @@ public sealed class ViewSettingsPageViewModel : PageContext, IDisposable
         ];
     }
 
+    private void RefreshAvailableThemes()
+    {
+        AvailableThemes.Clear();
+        foreach (ThemeDescriptor descriptor in ThemeRegistry.Enumerate())
+        {
+            AvailableThemes.Add(descriptor);
+        }
+    }
+
+    private void OnThemeRegistryChanged(object? sender, EventArgs e) => RefreshAvailableThemes();
+
     private static void UpdateAppAccentColor(Color? color)
     {
         ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
@@ -182,6 +216,7 @@ public sealed class ViewSettingsPageViewModel : PageContext, IDisposable
 
     public void Dispose()
     {
+        ThemeRegistry.Changed -= OnThemeRegistryChanged;
         _disposables.Dispose();
     }
 }

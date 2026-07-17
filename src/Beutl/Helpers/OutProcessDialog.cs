@@ -1,6 +1,8 @@
-﻿using Beutl.Configuration;
-
+﻿using Avalonia.Styling;
+using Beutl.Configuration;
+using Beutl.Extensibility;
 using DynamicData;
+using FluentAvalonia.Styling;
 
 namespace Beutl.Helpers;
 
@@ -38,16 +40,15 @@ public static class OutProcessDialog
             startInfo.ArgumentList.Add("--closable");
 
         ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
-        if (viewConfig.Theme != ViewConfig.ViewTheme.System)
+        if (viewConfig.Theme != BuiltinThemeIds.System)
         {
-            startInfo.ArgumentList.AddRange(["--theme",
-                viewConfig.Theme switch
-                {
-                    ViewConfig.ViewTheme.Light => "light",
-                    ViewConfig.ViewTheme.Dark => "dark",
-                    ViewConfig.ViewTheme.HighContrast => "highcontrast",
-                    ViewConfig.ViewTheme.System or _ => "auto",
-                }]);
+            // The waiting dialog runs in a separate process with no ThemeRegistry/extensions, so
+            // translate the theme id to a base variant it understands. Custom themes fall back to
+            // their descriptor's BaseVariant; "system" is excluded above and stays OS-following.
+            string themeArg = ThemeRegistry.ResolveOrDefault(viewConfig.Theme) is { } descriptor
+                ? ToThemeArg(descriptor)
+                : "auto";
+            startInfo.ArgumentList.AddRange(["--theme", themeArg]);
         }
 
         var process = Process.Start(startInfo);
@@ -60,5 +61,30 @@ public static class OutProcessDialog
         }
 
         return Disposable.Create(ProcessExit);
+    }
+
+    private static string ToThemeArg(ThemeDescriptor descriptor)
+    {
+        if (descriptor.IsSystemFollowing)
+        {
+            return "auto";
+        }
+
+        if (descriptor.BaseVariant == ThemeVariant.Light)
+        {
+            return "light";
+        }
+
+        if (descriptor.BaseVariant == ThemeVariant.Dark)
+        {
+            return "dark";
+        }
+
+        if (descriptor.BaseVariant == FluentAvaloniaTheme.HighContrastTheme)
+        {
+            return "highcontrast";
+        }
+
+        return "dark";
     }
 }

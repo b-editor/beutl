@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel;
 using System.Globalization;
+using System.Text.Json.Nodes;
 using Beutl.Collections;
 using Beutl.Serialization;
 
@@ -7,7 +8,7 @@ namespace Beutl.Configuration;
 
 public sealed class ViewConfig : ConfigurationBase
 {
-    public static readonly CoreProperty<ViewTheme> ThemeProperty;
+    public static readonly CoreProperty<string> ThemeProperty;
     public static readonly CoreProperty<CultureInfo> UICultureProperty;
     public static readonly CoreProperty<(int X, int Y)?> WindowPositionProperty;
     public static readonly CoreProperty<(int Width, int Height)?> WindowSizeProperty;
@@ -24,8 +25,8 @@ public sealed class ViewConfig : ConfigurationBase
 
     static ViewConfig()
     {
-        ThemeProperty = ConfigureProperty<ViewTheme, ViewConfig>(nameof(Theme))
-            .DefaultValue(ViewTheme.Dark)
+        ThemeProperty = ConfigureProperty<string, ViewConfig>(nameof(Theme))
+            .DefaultValue(BuiltinThemeIds.Dark)
             .Register();
 
         UICultureProperty = ConfigureProperty<CultureInfo, ViewConfig>(nameof(UICulture))
@@ -76,7 +77,8 @@ public sealed class ViewConfig : ConfigurationBase
         _recentProjects.CollectionChanged += (_, _) => OnChanged();
     }
 
-    public ViewTheme Theme
+    [NotAutoSerialized]
+    public string Theme
     {
         get => GetValue(ThemeProperty);
         set => SetValue(ThemeProperty, value);
@@ -146,17 +148,15 @@ public sealed class ViewConfig : ConfigurationBase
         set => SetValue(LastOpenedProjectFileProperty, value);
     }
 
-    public enum ViewTheme
-    {
-        Light,
-        Dark,
-        HighContrast,
-        System
-    }
-
     public override void Deserialize(ICoreSerializationContext context)
     {
         base.Deserialize(context);
+
+        if (context is JsonSerializationContext jsonContext)
+        {
+            Theme = NormalizeThemeId(jsonContext.GetNode(nameof(Theme)));
+        }
+
         // 古い settings.json や手動編集後のファイルでこれらのキーが欠落していると
         // GetValue が null を返す。null! を素通りさせると _recentFiles.Replace(null) で
         // ArgumentNullException が起き、後続の Editor/Graphics/Tutorial 設定の
@@ -187,6 +187,7 @@ public sealed class ViewConfig : ConfigurationBase
     public override void Serialize(ICoreSerializationContext context)
     {
         base.Serialize(context);
+        context.SetValue(nameof(Theme), Theme);
         context.SetValue(nameof(RecentFiles), RecentFiles);
         context.SetValue(nameof(RecentProjects), RecentProjects);
 
@@ -222,6 +223,47 @@ public sealed class ViewConfig : ConfigurationBase
         {
             OnChanged();
         }
+    }
+
+    // Migrate legacy <2.0 ViewTheme enum values (int 0-3 or PascalCase name) to the stable
+    // lowercase id. Unknown ids (custom themes) are kept as-is.
+    private static string NormalizeThemeId(JsonNode? node)
+    {
+        if (node is not JsonValue value)
+        {
+            return BuiltinThemeIds.Dark;
+        }
+
+        return NormalizeThemeIdString(value.ToJsonString().Trim('"'));
+    }
+
+    private static string NormalizeThemeIdString(string raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return BuiltinThemeIds.Dark;
+        }
+
+        if (int.TryParse(raw, out int legacyEnum))
+        {
+            return legacyEnum switch
+            {
+                0 => BuiltinThemeIds.Light,
+                1 => BuiltinThemeIds.Dark,
+                2 => BuiltinThemeIds.HighContrast,
+                3 => BuiltinThemeIds.System,
+                _ => BuiltinThemeIds.Dark,
+            };
+        }
+
+        return raw.ToLowerInvariant() switch
+        {
+            "light" => BuiltinThemeIds.Light,
+            "dark" => BuiltinThemeIds.Dark,
+            "highcontrast" => BuiltinThemeIds.HighContrast,
+            "system" => BuiltinThemeIds.System,
+            _ => raw,
+        };
     }
 
     private record WindowPositionRecord(int X, int Y);
