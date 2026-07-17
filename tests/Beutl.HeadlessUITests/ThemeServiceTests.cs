@@ -55,6 +55,27 @@ public class ThemeServiceTests
     }
 
     [AvaloniaTest]
+    public void ApplyTheme_WhenResourceIsNotAResourceDictionary_LeavesCurrentThemeIntact()
+    {
+        // A root that loads but is not an IResourceProvider is a broken theme, not a theme without
+        // resources: treating it as the latter drops the previous overrides and applies none.
+        using var scope = new ThemeScope();
+        Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
+        scope.Service.Start();
+        Dispatcher.UIThread.RunJobs();
+
+        var wrongRoot = new ThemeDescriptor(
+            "test.wrongroot", "WrongRoot", ThemeVariant.Light,
+            new Uri("avares://Beutl.HeadlessUITests/Assets/NotAResourceDictionary.axaml"));
+        ThemeRegistry.Register(wrongRoot);
+
+        scope.Config.Theme = "test.wrongroot";
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(Application.Current.RequestedThemeVariant, Is.EqualTo(ThemeVariant.Dark));
+    }
+
+    [AvaloniaTest]
     public void UnregisteringActiveTheme_NotifiesItsOwner()
     {
         // Unload removes the theme from the registry before the host reverts, so resolving the owner
@@ -89,12 +110,13 @@ public class ThemeServiceTests
         public override void OnReverted() => RevertedCount++;
     }
 
-    // ThemeRegistry is a static global and ThemeService.Start seeds it with the built-ins, so each
-    // test has to hand back an empty registry.
+    // ThemeRegistry is a static global that ThemeService.Start seeds with the built-ins, so each
+    // test both starts from and hands back an empty registry.
     private sealed class ThemeScope : IDisposable
     {
         public ThemeScope()
         {
+            ClearRegistry();
             FluentAvaloniaTheme theme = Application.Current!.Styles.OfType<FluentAvaloniaTheme>().Single();
             Config = new ViewConfig();
             Service = new ThemeService(theme, Config);
@@ -107,6 +129,11 @@ public class ThemeServiceTests
         public void Dispose()
         {
             Service.Dispose();
+            ClearRegistry();
+        }
+
+        private static void ClearRegistry()
+        {
             foreach (ThemeDescriptor descriptor in ThemeRegistry.Enumerate())
             {
                 ThemeRegistry.Unregister(descriptor);

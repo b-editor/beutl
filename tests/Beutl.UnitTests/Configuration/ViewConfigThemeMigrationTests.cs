@@ -58,7 +58,10 @@ public class ViewConfigThemeMigrationTests
     {
         var config = new ViewConfig { Theme = themeId };
 
-        JsonObject json = CoreSerializer.SerializeToJsonObject(config);
+        // Round-trip through JSON *text*, the way settings.json actually persists: escaping only
+        // happens on write, so handing the in-memory JsonObject straight back would skip it.
+        JsonObject serialized = CoreSerializer.SerializeToJsonObject(config);
+        var json = JsonNode.Parse(serialized.ToJsonString())!.AsObject();
         var restored = new ViewConfig();
         CoreSerializer.PopulateFromJsonObject(restored, json);
 

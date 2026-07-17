@@ -125,8 +125,27 @@ internal sealed class ThemeService : IDisposable
         ThemeNotifier.NotifyApplied(descriptor, extension);
     }
 
-    private static IResourceProvider? LoadResources(ThemeDescriptor descriptor) =>
-        descriptor.ResourceUri is { } uri ? AvaloniaXamlLoader.Load(uri, null) as IResourceProvider : null;
+    private static IResourceProvider? LoadResources(ThemeDescriptor descriptor)
+    {
+        if (descriptor.ResourceUri is not { } uri)
+        {
+            return null;
+        }
+
+        object? loaded = AvaloniaXamlLoader.Load(uri, null);
+        if (loaded is IResourceProvider resources)
+        {
+            return resources;
+        }
+
+        // A root that is not a ResourceDictionary would otherwise be indistinguishable from "this
+        // theme has no resources", which silently drops the previous theme's overrides. Throwing
+        // routes it through the caller's catch, so the current theme survives and the extension
+        // author gets the offending type.
+        throw new InvalidOperationException(
+            $"Theme '{descriptor.Id}' resource '{uri}' must be a ResourceDictionary, but loaded as " +
+            $"'{loaded?.GetType().FullName ?? "null"}'.");
+    }
 
     private void SwapResources(IResourceProvider? next)
     {

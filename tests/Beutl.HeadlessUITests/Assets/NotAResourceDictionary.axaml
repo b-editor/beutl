@@ -1,0 +1,4 @@
+<!--  A ThemeDescriptor.ResourceUri pointing at a root that is not a ResourceDictionary.  -->
+<TextBlock xmlns="https://github.com/avaloniaui"
+           xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+           Text="not a resource dictionary" />
