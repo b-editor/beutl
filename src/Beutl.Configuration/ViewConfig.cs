@@ -160,7 +160,7 @@ public sealed class ViewConfig : ConfigurationBase
         }
         else
         {
-            Theme = NormalizeThemeIdString(context.GetValue<string>(nameof(Theme)));
+            Theme = BuiltinThemeIds.Normalize(context.GetValue<string>(nameof(Theme)));
         }
 
         // 古い settings.json や手動編集後のファイルでこれらのキーが欠落していると
@@ -231,8 +231,9 @@ public sealed class ViewConfig : ConfigurationBase
         }
     }
 
-    // Migrate legacy <2.0 ViewTheme enum values (int 0-3 or PascalCase name) to the stable
-    // lowercase id. Unknown ids (custom themes) are kept as-is.
+    // Migrate legacy <2.0 ViewTheme enum values (a JSON number, or a PascalCase name) to the stable
+    // lowercase id. The rule lives in BuiltinThemeIds because ThemeRegistry validates extension ids
+    // against it — the two must not drift.
     private static string NormalizeThemeId(JsonNode? node)
     {
         if (node is not JsonValue value)
@@ -240,50 +241,14 @@ public sealed class ViewConfig : ConfigurationBase
             return BuiltinThemeIds.Dark;
         }
 
+        // A JSON number is only ever the legacy enum; ids are persisted as strings.
         if (value.TryGetValue(out int legacyEnum))
         {
-            return NormalizeLegacyEnum(legacyEnum);
+            return BuiltinThemeIds.FromLegacyEnum(legacyEnum);
         }
 
-        return value.TryGetValue(out string? raw) ? NormalizeThemeIdString(raw) : BuiltinThemeIds.Dark;
+        return value.TryGetValue(out string? raw) ? BuiltinThemeIds.Normalize(raw) : BuiltinThemeIds.Dark;
     }
-
-    private static string NormalizeThemeIdString(string? raw)
-    {
-        if (string.IsNullOrWhiteSpace(raw))
-        {
-            return BuiltinThemeIds.Dark;
-        }
-
-        raw = raw.Trim();
-
-        // <2.0 wrote the enum as a JSON number, but a hand-edited settings.json may quote it. Only
-        // the values the enum actually had migrate: theme ids are otherwise arbitrary strings, so a
-        // custom id that merely looks numeric ("2026") must survive as itself.
-        if (int.TryParse(raw, CultureInfo.InvariantCulture, out int legacyEnum)
-            && legacyEnum is >= 0 and <= 3)
-        {
-            return NormalizeLegacyEnum(legacyEnum);
-        }
-
-        return raw.ToLowerInvariant() switch
-        {
-            "light" => BuiltinThemeIds.Light,
-            "dark" => BuiltinThemeIds.Dark,
-            "highcontrast" => BuiltinThemeIds.HighContrast,
-            "system" => BuiltinThemeIds.System,
-            _ => raw,
-        };
-    }
-
-    private static string NormalizeLegacyEnum(int value) => value switch
-    {
-        0 => BuiltinThemeIds.Light,
-        1 => BuiltinThemeIds.Dark,
-        2 => BuiltinThemeIds.HighContrast,
-        3 => BuiltinThemeIds.System,
-        _ => BuiltinThemeIds.Dark,
-    };
 
     private record WindowPositionRecord(int X, int Y);
 

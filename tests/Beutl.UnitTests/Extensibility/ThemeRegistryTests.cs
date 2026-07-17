@@ -106,7 +106,7 @@ public class ThemeRegistryTests
     }
 
     [Test]
-    public void Register_RejectsExtensionTakingOverAHostRegisteredId()
+    public void Register_RejectsExtensionTakingOverABuiltinId()
     {
         // Letting an extension win a built-in id means its Unload evicts the built-in: the identity
         // check in Unregister cannot help, because by then the extension's descriptor is the entry.
@@ -122,6 +122,45 @@ public class ThemeRegistryTests
             Assert.That(ThemeRegistry.GetExtension(BuiltinThemeIds.Dark), Is.Null);
             Assert.That(hijacker.Descriptor, Is.Null, "a rejected Load must not leave a descriptor behind");
         });
+    }
+
+    [Test]
+    public void Register_RejectsBuiltinId_EvenBeforeTheHostSeedsIt()
+    {
+        // Extensions load on background threads and can reach Register before ThemeService.Start.
+        // An order-dependent rule would accept the id here and let the host silently overwrite it.
+        Assert.That(ThemeRegistry.Resolve(BuiltinThemeIds.Dark), Is.Null, "precondition: nothing seeded");
+
+        var hijacker = new TestThemeExtension(BuiltinThemeIds.Dark, "Early");
+
+        Assert.Throws<ArgumentException>(() => hijacker.Load());
+    }
+
+    // Settings normalization rewrites these to the built-in on load, so accepting one would mean the
+    // user's selection silently reverts to the built-in after a restart.
+    [TestCase("Dark")]
+    [TestCase("LIGHT")]
+    [TestCase("HighContrast")]
+    [TestCase("  system  ")]
+    [TestCase("2")]
+    [TestCase("0")]
+    public void Register_RejectsExtensionUsingALegacyAliasOfABuiltinId(string id)
+    {
+        var ext = new TestThemeExtension(id, "Alias");
+
+        Assert.Throws<ArgumentException>(() => ext.Load());
+    }
+
+    [TestCase("plugin.solarized")]
+    [TestCase("2026")]
+    [TestCase("darker")]
+    [TestCase("my.dark")]
+    public void Register_AcceptsExtensionIdsThatOnlyResembleBuiltins(string id)
+    {
+        var ext = new TestThemeExtension(id, "Custom");
+
+        Assert.DoesNotThrow(() => ext.Load());
+        Assert.That(ThemeRegistry.GetExtension(id), Is.SameAs(ext));
     }
 
     [Test]

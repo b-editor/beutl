@@ -26,6 +26,7 @@ internal sealed class ThemeService : IDisposable
     private ThemeExtension? _appliedExtension;
     private IDisposable? _themeSubscription;
     private bool _changedSubscribed;
+    private int _applyQueued;
 
     public ThemeService(FluentAvaloniaTheme theme, ViewConfig viewConfig)
     {
@@ -41,10 +42,10 @@ internal sealed class ThemeService : IDisposable
         }
 
         _themeSubscription = _viewConfig.GetObservable(ViewConfig.ThemeProperty)
-            .Subscribe(ApplyTheme);
+            .Subscribe(_ => ScheduleApply());
         ThemeRegistry.Changed += OnThemeRegistryChanged;
         _changedSubscribed = true;
-        ApplyTheme(_viewConfig.Theme);
+        ScheduleApply();
     }
 
     private static ThemeDescriptor[] GetBuiltinThemes() =>
@@ -55,20 +56,29 @@ internal sealed class ThemeService : IDisposable
         new(BuiltinThemeIds.System, SettingsStrings.FollowSystem, ThemeVariant.Default, IsSystemFollowing: true),
     ];
 
-    private void OnThemeRegistryChanged(object? sender, EventArgs e)
+    // The selected theme may have just been registered or removed (ResolveOrDefault falls back to Dark).
+    private void OnThemeRegistryChanged(object? sender, EventArgs e) => ScheduleApply();
+
+    // Every trigger wants the same thing — apply whatever the config now names — so a burst of them
+    // (Parallel.ForEach extension loading registers themes one by one) collapses into a single
+    // pending job instead of one Send-priority callback each.
+    private void ScheduleApply()
     {
-        // The selected theme may have just been registered or removed (ResolveOrDefault falls back to Dark).
-        ApplyTheme(_viewConfig.Theme);
+        if (Interlocked.Exchange(ref _applyQueued, 1) != 0)
+        {
+            return;
+        }
+
+        Dispatcher.UIThread.Post(ResolveAndApply, DispatcherPriority.Send);
     }
 
-    // Resolve on the UI thread rather than here: the registry can change between a background-thread
-    // resolve and the queued callback, which would apply a descriptor that is already superseded.
-    private void ApplyTheme(string themeId) =>
-        Dispatcher.UIThread.InvokeAsync(() => ResolveAndApply(themeId), DispatcherPriority.Send);
-
-    private void ResolveAndApply(string themeId)
+    // Both the config value and the registry are read here rather than at schedule time: either can
+    // change between the trigger and this callback, and only the state at apply time is right.
+    private void ResolveAndApply()
     {
-        if (ThemeRegistry.ResolveOrDefault(themeId) is not { } descriptor)
+        Interlocked.Exchange(ref _applyQueued, 0);
+
+        if (ThemeRegistry.ResolveOrDefault(_viewConfig.Theme) is not { } descriptor)
         {
             return; // nothing registered yet (very early startup)
         }
@@ -88,9 +98,9 @@ internal sealed class ThemeService : IDisposable
             return;
         }
 
-        // Owner of this exact instance, resolved once: ThemeRegistry cannot map the id back to the
-        // extension after it unregisters (which is when the revert notification is due), and by now
-        // the id may belong to a replacement registered since ApplyTheme queued this call.
+        // Owner of this exact instance: ThemeRegistry cannot map the id back to the extension after
+        // it unregisters, which is when the revert notification is due, and an id lookup could by
+        // then belong to a replacement registered on a background thread.
         ThemeExtension? extension = ThemeRegistry.GetOwner(descriptor);
 
         // ResourceUri is extension-controlled and may be missing or malformed. Load before touching
