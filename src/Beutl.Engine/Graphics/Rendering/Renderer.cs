@@ -699,7 +699,7 @@ public class Renderer : IRenderer
         [
             .. _allCurrentEntries
                 .Where(e => e.Node.Drawable?.Resource.GetOriginal().ZIndex == zIndex)
-                .Select(EnsureBoundary)
+                .Select(CalculateBoundary)
         ];
     }
 

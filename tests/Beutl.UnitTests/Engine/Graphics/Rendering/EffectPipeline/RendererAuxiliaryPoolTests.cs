@@ -202,7 +202,7 @@ public class RendererAuxiliaryPoolTests
     }
 
     [Test]
-    public void RecalculateBoundaries_AfterFrameRender_ReusesTheRenderedBounds()
+    public void RecalculateBoundaries_AfterCachedBoundary_ForcesFreshAuxiliaryPull()
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
@@ -215,29 +215,34 @@ public class RendererAuxiliaryPoolTests
                 Fill = { CurrentValue = Brushes.White },
                 FilterEffect = { CurrentValue = new PoolProbeEffect() },
             };
-            Drawable.Resource resource = shape.ToResource(new CompositionContext(
+            using Drawable.Resource resource = shape.ToResource(new CompositionContext(
                 TimeSpan.Zero,
                 RenderIntent.Delivery,
-                RenderPullPurpose.Frame));
+                RenderPullPurpose.Auxiliary));
             var frame = new CompositionFrame(
                 ImmutableArray.Create<EngineObject.Resource>(resource),
                 new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
                 new PixelSize(128, 96),
                 RenderIntent.Delivery,
-                RenderPullPurpose.Frame);
+                RenderPullPurpose.Auxiliary);
 
             using var renderer = new Renderer(128, 96, RenderIntent.Delivery);
-            renderer.Render(frame);
-            int frameProcessCount = PoolProbeRenderNode.ProcessCount;
+            Rect[] initialBoundaries = renderer.GetBoundaries(frame, shape.ZIndex);
+            int initialProcessCount = PoolProbeRenderNode.ProcessCount;
+            Rect[] cachedBoundaries = renderer.GetBoundaries(frame, shape.ZIndex);
+            int cachedProcessCount = PoolProbeRenderNode.ProcessCount;
 
-            Rect[] boundaries = renderer.RecalculateBoundaries(shape.ZIndex);
+            Rect[] recalculatedBoundaries = renderer.RecalculateBoundaries(frame, shape.ZIndex);
 
             Assert.Multiple(() =>
             {
-                Assert.That(boundaries, Has.Length.EqualTo(1));
-                Assert.That(boundaries[0], Is.EqualTo(new Rect(32, 24, 64, 48)));
-                Assert.That(PoolProbeRenderNode.ProcessCount, Is.EqualTo(frameProcessCount),
-                    "The selection overlay must reuse bounds collected during the frame pull instead of executing the effect pipeline again.");
+                Assert.That(initialBoundaries, Is.EqualTo(new[] { new Rect(32, 24, 64, 48) }));
+                Assert.That(cachedBoundaries, Is.EqualTo(initialBoundaries));
+                Assert.That(cachedProcessCount, Is.EqualTo(initialProcessCount),
+                    "Ordinary boundary reads must reuse a clean cached boundary.");
+                Assert.That(recalculatedBoundaries, Is.EqualTo(initialBoundaries));
+                Assert.That(PoolProbeRenderNode.ProcessCount, Is.EqualTo(cachedProcessCount + 1),
+                    "Explicit boundary recalculation must execute a fresh auxiliary pull even when the cached boundary is clean.");
             });
         });
     }
