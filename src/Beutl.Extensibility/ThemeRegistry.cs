@@ -40,13 +40,21 @@ public static class ThemeRegistry
         RaiseChanged();
     }
 
+    /// <summary>
+    /// Removes <paramref name="descriptor"/> only when it is still the instance registered under its
+    /// id, so an extension unloading after another one overwrote its id cannot evict the replacement.
+    /// Identity is reference equality, not the record's structural equality: two owners may supply
+    /// equal-valued descriptors, and only the one that registered may remove it.
+    /// </summary>
     public static bool Unregister(ThemeDescriptor descriptor)
     {
         ArgumentNullException.ThrowIfNull(descriptor);
         bool removed;
         lock (s_lock)
         {
-            removed = s_themes.Remove(descriptor.Id);
+            removed = s_themes.TryGetValue(descriptor.Id, out var entry)
+                      && ReferenceEquals(entry.Descriptor, descriptor)
+                      && s_themes.Remove(descriptor.Id);
         }
 
         if (removed)

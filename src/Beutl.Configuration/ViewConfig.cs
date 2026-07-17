@@ -152,9 +152,15 @@ public sealed class ViewConfig : ConfigurationBase
     {
         base.Deserialize(context);
 
-        if (context is JsonSerializationContext jsonContext)
+        // The raw node is needed only to tell a legacy JSON number from a string id; any other
+        // context can only carry the string form.
+        if (context is IJsonSerializationContext jsonContext)
         {
             Theme = NormalizeThemeId(jsonContext.GetNode(nameof(Theme)));
+        }
+        else
+        {
+            Theme = NormalizeThemeIdString(context.GetValue<string>(nameof(Theme)));
         }
 
         // 古い settings.json や手動編集後のファイルでこれらのキーが欠落していると
@@ -234,26 +240,27 @@ public sealed class ViewConfig : ConfigurationBase
             return BuiltinThemeIds.Dark;
         }
 
-        return NormalizeThemeIdString(value.ToJsonString().Trim('"'));
+        if (value.TryGetValue(out int legacyEnum))
+        {
+            return NormalizeLegacyEnum(legacyEnum);
+        }
+
+        return value.TryGetValue(out string? raw) ? NormalizeThemeIdString(raw) : BuiltinThemeIds.Dark;
     }
 
-    private static string NormalizeThemeIdString(string raw)
+    private static string NormalizeThemeIdString(string? raw)
     {
         if (string.IsNullOrWhiteSpace(raw))
         {
             return BuiltinThemeIds.Dark;
         }
 
-        if (int.TryParse(raw, out int legacyEnum))
+        raw = raw.Trim();
+
+        // <2.0 wrote the enum as a JSON number, but a hand-edited settings.json may quote it.
+        if (int.TryParse(raw, CultureInfo.InvariantCulture, out int legacyEnum))
         {
-            return legacyEnum switch
-            {
-                0 => BuiltinThemeIds.Light,
-                1 => BuiltinThemeIds.Dark,
-                2 => BuiltinThemeIds.HighContrast,
-                3 => BuiltinThemeIds.System,
-                _ => BuiltinThemeIds.Dark,
-            };
+            return NormalizeLegacyEnum(legacyEnum);
         }
 
         return raw.ToLowerInvariant() switch
@@ -265,6 +272,15 @@ public sealed class ViewConfig : ConfigurationBase
             _ => raw,
         };
     }
+
+    private static string NormalizeLegacyEnum(int value) => value switch
+    {
+        0 => BuiltinThemeIds.Light,
+        1 => BuiltinThemeIds.Dark,
+        2 => BuiltinThemeIds.HighContrast,
+        3 => BuiltinThemeIds.System,
+        _ => BuiltinThemeIds.Dark,
+    };
 
     private record WindowPositionRecord(int X, int Y);
 

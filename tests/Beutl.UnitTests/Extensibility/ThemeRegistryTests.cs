@@ -50,6 +50,62 @@ public class ThemeRegistryTests
     }
 
     [Test]
+    public void Unregister_StaleDescriptor_KeepsReplacement()
+    {
+        // The first owner unloads after a second one took over the id: removing purely by id would
+        // evict the replacement and leave the theme picker without a theme that is still live.
+        var first = new ThemeDescriptor("test.stale", "First", ThemeVariant.Dark);
+        var second = new ThemeDescriptor("test.stale", "Second", ThemeVariant.Light);
+
+        ThemeRegistry.Register(first);
+        ThemeRegistry.Register(second);
+
+        Assert.That(ThemeRegistry.Unregister(first), Is.False);
+        Assert.That(ThemeRegistry.Resolve("test.stale"), Is.SameAs(second));
+
+        Assert.That(ThemeRegistry.Unregister(second), Is.True);
+        Assert.That(ThemeRegistry.Resolve("test.stale"), Is.Null);
+    }
+
+    [Test]
+    public void Unregister_EqualValuedDescriptor_DoesNotEvictRegisteredInstance()
+    {
+        // ThemeDescriptor is a record, so an unrelated owner can hold a structurally equal value.
+        // Only the instance that actually registered may remove the entry.
+        var registered = new ThemeDescriptor("test.equal", "Same", ThemeVariant.Dark);
+        var equalCopy = new ThemeDescriptor("test.equal", "Same", ThemeVariant.Dark);
+        Assert.That(equalCopy, Is.EqualTo(registered));
+
+        ThemeRegistry.Register(registered);
+
+        Assert.That(ThemeRegistry.Unregister(equalCopy), Is.False);
+        Assert.That(ThemeRegistry.Resolve("test.equal"), Is.SameAs(registered));
+    }
+
+    [Test]
+    public void Unregister_StaleDescriptor_DoesNotRaiseChanged()
+    {
+        var first = new ThemeDescriptor("test.stalechanged", "First", ThemeVariant.Dark);
+        var second = new ThemeDescriptor("test.stalechanged", "Second", ThemeVariant.Light);
+        ThemeRegistry.Register(first);
+        ThemeRegistry.Register(second);
+
+        int calls = 0;
+        ThemeRegistry.Changed += OnChanged;
+        try
+        {
+            Assert.That(ThemeRegistry.Unregister(first), Is.False);
+            Assert.That(calls, Is.EqualTo(0));
+        }
+        finally
+        {
+            ThemeRegistry.Changed -= OnChanged;
+        }
+
+        void OnChanged(object? sender, EventArgs e) => calls++;
+    }
+
+    [Test]
     public void Register_RejectsSystemFollowingWithResourceUri()
     {
         var descriptor = new ThemeDescriptor(
@@ -80,18 +136,36 @@ public class ThemeRegistryTests
         ext.Load();
         ThemeDescriptor descriptor = ThemeRegistry.Resolve("test.notify")!;
 
-        ThemeNotifier.NotifyApplied(descriptor);
+        ThemeNotifier.NotifyApplied(descriptor, ext);
         Assert.That(ext.AppliedCount, Is.EqualTo(1));
         Assert.That(ext.LastApplied?.Id, Is.EqualTo("test.notify"));
 
-        ThemeNotifier.NotifyReverted(descriptor);
+        ThemeNotifier.NotifyReverted(descriptor, ext);
         Assert.That(ext.RevertedCount, Is.EqualTo(1));
 
-        // Built-in (no extension) must not throw.
-        ThemeNotifier.NotifyApplied(new ThemeDescriptor(BuiltinThemeIds.Dark, "Dark", ThemeVariant.Dark));
-        ThemeNotifier.NotifyReverted(new ThemeDescriptor(BuiltinThemeIds.Dark, "Dark", ThemeVariant.Dark));
+        // Built-in (no owning extension) must not throw.
+        ThemeNotifier.NotifyApplied(new ThemeDescriptor(BuiltinThemeIds.Dark, "Dark", ThemeVariant.Dark), null);
+        ThemeNotifier.NotifyReverted(new ThemeDescriptor(BuiltinThemeIds.Dark, "Dark", ThemeVariant.Dark), null);
 
         ext.Unload();
+    }
+
+    [Test]
+    public void NotifyReverted_UsesCapturedOwner_AfterUnregister()
+    {
+        // ThemeService captures the owner at apply time, then reverts once the extension has already
+        // removed the theme from the registry. An id-based lookup would find nothing here, so
+        // OnReverted would never fire and the extension could not release its apply-time resources.
+        var ext = new TestThemeExtension("test.revert", "Revert");
+        ext.Load();
+        ThemeDescriptor descriptor = ThemeRegistry.Resolve("test.revert")!;
+
+        ext.Unload();
+        Assert.That(ThemeRegistry.GetExtension("test.revert"), Is.Null);
+
+        ThemeNotifier.NotifyReverted(descriptor, ext);
+
+        Assert.That(ext.RevertedCount, Is.EqualTo(1));
     }
 
     [Test]
@@ -101,8 +175,8 @@ public class ThemeRegistryTests
         ext.Load();
         ThemeDescriptor descriptor = ThemeRegistry.Resolve("test.throw")!;
 
-        Assert.DoesNotThrow(() => ThemeNotifier.NotifyApplied(descriptor));
-        Assert.DoesNotThrow(() => ThemeNotifier.NotifyReverted(descriptor));
+        Assert.DoesNotThrow(() => ThemeNotifier.NotifyApplied(descriptor, ext));
+        Assert.DoesNotThrow(() => ThemeNotifier.NotifyReverted(descriptor, ext));
 
         ext.Unload();
     }

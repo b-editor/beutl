@@ -4,6 +4,7 @@
              xmlns:ctrls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:ext="using:Beutl.Extensibility"
+             xmlns:glob="using:System.Globalization"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -53,8 +54,8 @@
                                   ItemsSource="{CompiledBinding Cultures}"
                                   SelectedItem="{CompiledBinding SelectedLanguage.Value}">
                             <ComboBox.ItemTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding DisplayName}" />
+                                <DataTemplate x:DataType="glob:CultureInfo">
+                                    <TextBlock Text="{CompiledBinding DisplayName}" />
                                 </DataTemplate>
                             </ComboBox.ItemTemplate>
                         </ComboBox>

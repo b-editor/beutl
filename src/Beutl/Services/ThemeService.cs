@@ -6,7 +6,9 @@ using Avalonia.Threading;
 using Beutl.Configuration;
 using Beutl.Extensibility;
 using Beutl.Language;
+using Beutl.Logging;
 using FluentAvalonia.Styling;
+using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
 namespace Beutl.Services;
@@ -16,10 +18,12 @@ namespace Beutl.Services;
 // brush-override resources. Re-applies on ViewConfig.Theme changes and ThemeRegistry.Changed.
 internal sealed class ThemeService : IDisposable
 {
+    private static readonly ILogger s_logger = Log.CreateLogger<ThemeService>();
     private readonly FluentAvaloniaTheme _theme;
     private readonly ViewConfig _viewConfig;
     private IResourceProvider? _currentResources;
     private ThemeDescriptor? _appliedDescriptor;
+    private ThemeExtension? _appliedExtension;
     private IDisposable? _themeSubscription;
     private bool _changedSubscribed;
 
@@ -77,8 +81,29 @@ internal sealed class ThemeService : IDisposable
             return;
         }
 
+        // Capture the owner now: ThemeRegistry can no longer map the id back to this extension once
+        // it unregisters, which is exactly when the revert notification is due.
+        ThemeExtension? extension = ThemeRegistry.GetExtension(descriptor.Id);
+
+        // ResourceUri is extension-controlled and may be missing or malformed. Load before touching
+        // any state so a failure leaves the current theme intact — committing _appliedDescriptor
+        // first would also make every later attempt at this descriptor a no-op.
+        IResourceProvider? nextResources;
+        try
+        {
+            nextResources = LoadResources(descriptor);
+        }
+        catch (Exception ex)
+        {
+            s_logger.LogWarning(
+                ex, "Failed to load resources for theme '{Id}'; keeping the current theme.", descriptor.Id);
+            return;
+        }
+
         ThemeDescriptor? previous = _appliedDescriptor;
+        ThemeExtension? previousExtension = _appliedExtension;
         _appliedDescriptor = descriptor;
+        _appliedExtension = extension;
 
         if (descriptor.IsSystemFollowing)
         {
@@ -90,32 +115,31 @@ internal sealed class ThemeService : IDisposable
             Application.Current!.RequestedThemeVariant = descriptor.BaseVariant;
         }
 
-        ApplyResources(descriptor);
+        SwapResources(nextResources);
 
         if (previous != null)
         {
-            ThemeNotifier.NotifyReverted(previous);
+            ThemeNotifier.NotifyReverted(previous, previousExtension);
         }
 
-        ThemeNotifier.NotifyApplied(descriptor);
+        ThemeNotifier.NotifyApplied(descriptor, extension);
     }
 
-    private void ApplyResources(ThemeDescriptor descriptor)
+    private static IResourceProvider? LoadResources(ThemeDescriptor descriptor) =>
+        descriptor.ResourceUri is { } uri ? AvaloniaXamlLoader.Load(uri, null) as IResourceProvider : null;
+
+    private void SwapResources(IResourceProvider? next)
     {
         var merged = Application.Current!.Resources.MergedDictionaries;
         if (_currentResources != null)
         {
             merged.Remove(_currentResources);
-            _currentResources = null;
         }
 
-        if (descriptor.ResourceUri is { } uri)
+        _currentResources = next;
+        if (next != null)
         {
-            if (AvaloniaXamlLoader.Load(uri, null) is IResourceProvider resource)
-            {
-                _currentResources = resource;
-                merged.Add(resource);
-            }
+            merged.Add(next);
         }
     }
 

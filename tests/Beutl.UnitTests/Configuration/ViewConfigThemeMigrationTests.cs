@@ -48,6 +48,47 @@ public class ViewConfigThemeMigrationTests
         Assert.That(config.Theme, Is.EqualTo(expected));
     }
 
+    // A custom id survives a JSON round-trip only if it is decoded rather than read as raw JSON
+    // text: System.Text.Json escapes these on write, and the escapes must not reach the registry.
+    [TestCase("plugin.\"quoted\"")]
+    [TestCase("plugin.back\\slash")]
+    [TestCase("plugin.日本語")]
+    [TestCase("plugin.tab\there")]
+    public void DecodesEscapedCustomThemeId(string themeId)
+    {
+        var config = new ViewConfig { Theme = themeId };
+
+        JsonObject json = CoreSerializer.SerializeToJsonObject(config);
+        var restored = new ViewConfig();
+        CoreSerializer.PopulateFromJsonObject(restored, json);
+
+        Assert.That(restored.Theme, Is.EqualTo(themeId));
+    }
+
+    [TestCase("  dark  ", BuiltinThemeIds.Dark)]
+    [TestCase("\tSystem\n", BuiltinThemeIds.System)]
+    [TestCase(" 2 ", BuiltinThemeIds.HighContrast)]
+    public void NormalizesWhitespacePaddedThemeId(string raw, string expected)
+    {
+        var json = new JsonObject { ["Theme"] = JsonValue.Create(raw) };
+        var config = new ViewConfig();
+
+        CoreSerializer.PopulateFromJsonObject(config, json);
+
+        Assert.That(config.Theme, Is.EqualTo(expected));
+    }
+
+    [Test]
+    public void DefaultsToDark_WhenThemeNull()
+    {
+        var json = new JsonObject { ["Theme"] = null };
+        var config = new ViewConfig();
+
+        CoreSerializer.PopulateFromJsonObject(config, json);
+
+        Assert.That(config.Theme, Is.EqualTo(BuiltinThemeIds.Dark));
+    }
+
     [Test]
     public void DefaultsToDark_WhenThemeMissing()
     {
