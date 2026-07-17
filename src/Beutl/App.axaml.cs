@@ -32,6 +32,7 @@ public sealed class App : Application
     private static readonly ILogger s_logger = Log.CreateLogger<App>();
     private readonly TaskCompletionSource _windowOpenTcs = new();
     private FluentAvaloniaTheme? _theme;
+    private ThemeService? _themeService;
     private MainViewModel? _mainViewModel;
     private Startup? _startUp;
 
@@ -58,27 +59,8 @@ public sealed class App : Application
 
         activity?.AddEvent(new ActivityEvent("Xaml_Loaded"));
 
-        view.GetObservable(ViewConfig.ThemeProperty).Subscribe(v =>
-        {
-            Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                switch (v)
-                {
-                    case ViewConfig.ViewTheme.Light:
-                        RequestedThemeVariant = ThemeVariant.Light;
-                        break;
-                    case ViewConfig.ViewTheme.Dark:
-                        RequestedThemeVariant = ThemeVariant.Dark;
-                        break;
-                    case ViewConfig.ViewTheme.HighContrast:
-                        RequestedThemeVariant = FluentAvaloniaTheme.HighContrastTheme;
-                        break;
-                    case ViewConfig.ViewTheme.System:
-                        _theme.PreferSystemTheme = true;
-                        break;
-                }
-            }, DispatcherPriority.Send);
-        });
+        _themeService = new ThemeService(_theme!, view);
+        _themeService.Start();
 
         if (!OperatingSystem.IsWindows())
         {

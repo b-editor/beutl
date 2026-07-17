@@ -1,6 +1,9 @@
-﻿using Avalonia.Media;
+﻿using System.Collections.ObjectModel;
+using Avalonia.Media;
+using Avalonia.Threading;
 using Beutl.Configuration;
 using Beutl.Controls.Navigation;
+using Beutl.Extensibility;
 using FluentAvalonia.Styling;
 using Reactive.Bindings;
 
@@ -13,16 +16,38 @@ public sealed class ViewSettingsPageViewModel : PageContext, IDisposable
     // 一部の設定を移動したので、ナビゲーションするために
     private readonly Lazy<EditorSettingsPageViewModel> _editorSettings;
     private readonly CompositeDisposable _disposables = [];
+    private bool _disposed;
 
     public ViewSettingsPageViewModel(Lazy<EditorSettingsPageViewModel> editorSettings)
     {
         _config = GlobalConfiguration.Instance.ViewConfig;
         _editorSettings = editorSettings;
 
-        SelectedTheme = _config.GetObservable(ViewConfig.ThemeProperty).Select(x => (int)x)
-            .ToReactiveProperty()
+        // Created before the first refresh: RefreshAvailableThemes restores the selection through it.
+        SelectedThemeDescriptor = new ReactiveProperty<ThemeDescriptor?>(ThemeRegistry.Resolve(_config.Theme))
             .DisposeWith(_disposables);
-        SelectedTheme.Subscribe(v => _config.Theme = (ViewConfig.ViewTheme)v)
+
+        RefreshAvailableThemes();
+        ThemeRegistry.Changed += OnThemeRegistryChanged;
+
+        SelectedThemeDescriptor.Subscribe(d =>
+            {
+                if (d is { } descriptor && _config.Theme != descriptor.Id)
+                {
+                    _config.Theme = descriptor.Id;
+                }
+            })
+            .DisposeWith(_disposables);
+
+        _config.GetObservable(ViewConfig.ThemeProperty)
+            .Subscribe(id =>
+            {
+                if (ThemeRegistry.Resolve(id) is { } descriptor
+                    && SelectedThemeDescriptor.Value?.Id != descriptor.Id)
+                {
+                    SelectedThemeDescriptor.Value = descriptor;
+                }
+            })
             .DisposeWith(_disposables);
 
         SelectedLanguage = _config.GetObservable(ViewConfig.UICultureProperty)
@@ -95,7 +120,9 @@ public sealed class ViewSettingsPageViewModel : PageContext, IDisposable
             .DisposeWith(_disposables);
     }
 
-    public ReactiveProperty<int> SelectedTheme { get; }
+    public ObservableCollection<ThemeDescriptor> AvailableThemes { get; } = new();
+
+    public ReactiveProperty<ThemeDescriptor?> SelectedThemeDescriptor { get; }
 
     public ReactiveProperty<CultureInfo> SelectedLanguage { get; }
 
@@ -167,6 +194,32 @@ public sealed class ViewSettingsPageViewModel : PageContext, IDisposable
         ];
     }
 
+    private void RefreshAvailableThemes()
+    {
+        AvailableThemes.Clear();
+        foreach (ThemeDescriptor descriptor in ThemeRegistry.Enumerate())
+        {
+            AvailableThemes.Add(descriptor);
+        }
+
+        // Clearing the collection makes the bound ComboBox push null into the selection, and a theme
+        // registered after this page was constructed never resolved in the first place. Re-resolve
+        // from the config so the picker keeps showing the configured theme.
+        SelectedThemeDescriptor.Value = ThemeRegistry.Resolve(_config.Theme);
+    }
+
+    // ThemeRegistry.Changed fires synchronously on whichever thread registered the theme, and
+    // extensions load on background threads (Task.Run / Parallel.ForEach), so mutating the bound
+    // collection has to be marshalled to the UI thread.
+    private void OnThemeRegistryChanged(object? sender, EventArgs e) =>
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (!_disposed)
+            {
+                RefreshAvailableThemes();
+            }
+        });
+
     private static void UpdateAppAccentColor(Color? color)
     {
         ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
@@ -182,6 +235,9 @@ public sealed class ViewSettingsPageViewModel : PageContext, IDisposable
 
     public void Dispose()
     {
+        // Unsubscribing does not cancel a refresh already queued on the dispatcher.
+        _disposed = true;
+        ThemeRegistry.Changed -= OnThemeRegistryChanged;
         _disposables.Dispose();
     }
 }

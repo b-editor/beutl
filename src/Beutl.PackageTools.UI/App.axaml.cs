@@ -26,17 +26,22 @@ public partial class App : Application
 
         switch (view.Theme)
         {
-            case ViewConfig.ViewTheme.Light:
+            case BuiltinThemeIds.Light:
                 RequestedThemeVariant = ThemeVariant.Light;
                 break;
-            case ViewConfig.ViewTheme.Dark:
+            case BuiltinThemeIds.Dark:
                 RequestedThemeVariant = ThemeVariant.Dark;
                 break;
-            case ViewConfig.ViewTheme.HighContrast:
+            case BuiltinThemeIds.HighContrast:
                 RequestedThemeVariant = FluentAvaloniaTheme.HighContrastTheme;
                 break;
-            case ViewConfig.ViewTheme.System:
+            case BuiltinThemeIds.System:
                 theme.PreferSystemTheme = true;
+                break;
+            default:
+                // PackageTools.UI loads no extensions/ThemeRegistry, so a custom theme id can't be
+                // resolved here — fall back to Dark rather than carry an unknown variant.
+                RequestedThemeVariant = ThemeVariant.Dark;
                 break;
         }
 

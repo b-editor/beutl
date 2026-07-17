@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel;
 using System.Globalization;
+using System.Text.Json.Nodes;
 using Beutl.Collections;
 using Beutl.Serialization;
 
@@ -7,7 +8,7 @@ namespace Beutl.Configuration;
 
 public sealed class ViewConfig : ConfigurationBase
 {
-    public static readonly CoreProperty<ViewTheme> ThemeProperty;
+    public static readonly CoreProperty<string> ThemeProperty;
     public static readonly CoreProperty<CultureInfo> UICultureProperty;
     public static readonly CoreProperty<(int X, int Y)?> WindowPositionProperty;
     public static readonly CoreProperty<(int Width, int Height)?> WindowSizeProperty;
@@ -24,8 +25,8 @@ public sealed class ViewConfig : ConfigurationBase
 
     static ViewConfig()
     {
-        ThemeProperty = ConfigureProperty<ViewTheme, ViewConfig>(nameof(Theme))
-            .DefaultValue(ViewTheme.Dark)
+        ThemeProperty = ConfigureProperty<string, ViewConfig>(nameof(Theme))
+            .DefaultValue(BuiltinThemeIds.Dark)
             .Register();
 
         UICultureProperty = ConfigureProperty<CultureInfo, ViewConfig>(nameof(UICulture))
@@ -76,7 +77,8 @@ public sealed class ViewConfig : ConfigurationBase
         _recentProjects.CollectionChanged += (_, _) => OnChanged();
     }
 
-    public ViewTheme Theme
+    [NotAutoSerialized]
+    public string Theme
     {
         get => GetValue(ThemeProperty);
         set => SetValue(ThemeProperty, value);
@@ -146,17 +148,21 @@ public sealed class ViewConfig : ConfigurationBase
         set => SetValue(LastOpenedProjectFileProperty, value);
     }
 
-    public enum ViewTheme
-    {
-        Light,
-        Dark,
-        HighContrast,
-        System
-    }
-
     public override void Deserialize(ICoreSerializationContext context)
     {
         base.Deserialize(context);
+
+        // The raw node is needed only to tell a legacy JSON number from a string id; any other
+        // context can only carry the string form.
+        if (context is IJsonSerializationContext jsonContext)
+        {
+            Theme = NormalizeThemeId(jsonContext.GetNode(nameof(Theme)));
+        }
+        else
+        {
+            Theme = BuiltinThemeIds.Normalize(context.GetValue<string>(nameof(Theme)));
+        }
+
         // 古い settings.json や手動編集後のファイルでこれらのキーが欠落していると
         // GetValue が null を返す。null! を素通りさせると _recentFiles.Replace(null) で
         // ArgumentNullException が起き、後続の Editor/Graphics/Tutorial 設定の
@@ -187,6 +193,7 @@ public sealed class ViewConfig : ConfigurationBase
     public override void Serialize(ICoreSerializationContext context)
     {
         base.Serialize(context);
+        context.SetValue(nameof(Theme), Theme);
         context.SetValue(nameof(RecentFiles), RecentFiles);
         context.SetValue(nameof(RecentProjects), RecentProjects);
 
@@ -222,6 +229,25 @@ public sealed class ViewConfig : ConfigurationBase
         {
             OnChanged();
         }
+    }
+
+    // Migrate legacy <2.0 ViewTheme enum values (a JSON number, or a PascalCase name) to the stable
+    // lowercase id. The rule lives in BuiltinThemeIds because ThemeRegistry validates extension ids
+    // against it — the two must not drift.
+    private static string NormalizeThemeId(JsonNode? node)
+    {
+        if (node is not JsonValue value)
+        {
+            return BuiltinThemeIds.Dark;
+        }
+
+        // A JSON number is only ever the legacy enum; ids are persisted as strings.
+        if (value.TryGetValue(out int legacyEnum))
+        {
+            return BuiltinThemeIds.FromLegacyEnum(legacyEnum);
+        }
+
+        return value.TryGetValue(out string? raw) ? BuiltinThemeIds.Normalize(raw) : BuiltinThemeIds.Dark;
     }
 
     private record WindowPositionRecord(int X, int Y);
