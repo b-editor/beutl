@@ -68,6 +68,21 @@ public class ViewConfigThemeMigrationTests
         Assert.That(restored.Theme, Is.EqualTo(themeId));
     }
 
+    // Only 0-3 were ever ViewTheme members. A custom id that merely looks numeric is a normal id and
+    // must not be swallowed by the legacy-enum path.
+    [TestCase("2026")]
+    [TestCase("4")]
+    [TestCase("-1")]
+    public void KeepsNumericLookingCustomThemeId(string themeId)
+    {
+        var json = new JsonObject { ["Theme"] = JsonValue.Create(themeId) };
+        var config = new ViewConfig();
+
+        CoreSerializer.PopulateFromJsonObject(config, json);
+
+        Assert.That(config.Theme, Is.EqualTo(themeId));
+    }
+
     [TestCase("  dark  ", BuiltinThemeIds.Dark)]
     [TestCase("\tSystem\n", BuiltinThemeIds.System)]
     [TestCase(" 2 ", BuiltinThemeIds.HighContrast)]

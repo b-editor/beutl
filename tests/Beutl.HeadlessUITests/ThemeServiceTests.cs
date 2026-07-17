@@ -97,6 +97,35 @@ public class ThemeServiceTests
         Assert.That(ext.RevertedCount, Is.EqualTo(1));
     }
 
+    [AvaloniaTest]
+    public void ReregisteringActiveThemeWithNewOwner_NotifiesBothOwners()
+    {
+        // A package reload re-registers an equal-valued descriptor under the same id. The registry
+        // keys ownership on the instance, so this is a new owner: the outgoing one must be reverted
+        // and the incoming one applied, rather than the whole apply being skipped as "unchanged".
+        using var scope = new ThemeScope();
+        scope.Service.Start();
+        Dispatcher.UIThread.RunJobs();
+
+        var first = new RecordingThemeExtension("test.reload", "Reload");
+        first.Load();
+        scope.Config.Theme = "test.reload";
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(first.AppliedCount, Is.EqualTo(1), "precondition: the first owner's theme was applied");
+
+        var second = new RecordingThemeExtension("test.reload", "Reload");
+        Assert.That(second.GetThemeDescriptor(), Is.EqualTo(first.GetThemeDescriptor()),
+            "precondition: the descriptors are equal-valued but distinct instances");
+        second.Load();
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(second.AppliedCount, Is.EqualTo(1), "the new owner should be applied");
+            Assert.That(first.RevertedCount, Is.EqualTo(1), "the outgoing owner should be reverted");
+        });
+    }
+
     private sealed class RecordingThemeExtension(string id, string name) : ThemeExtension
     {
         private readonly ThemeDescriptor _descriptor = new(id, name, ThemeVariant.Dark);

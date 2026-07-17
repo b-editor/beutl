@@ -75,15 +75,19 @@ internal sealed class ThemeService : IDisposable
     private void ApplyCore(ThemeDescriptor descriptor)
     {
         // Skip when the resolved descriptor is unchanged — re-applying on unrelated
-        // ThemeRegistry.Changed (extension load/unload) would flicker.
-        if (_appliedDescriptor == descriptor)
+        // ThemeRegistry.Changed (extension load/unload) would flicker. Identity rather than the
+        // record's structural equality, matching how ThemeRegistry keys ownership: an equal-valued
+        // re-registration is a new owner that still needs its OnApplied. An untouched registry
+        // resolves to the same instance, so this still skips.
+        if (ReferenceEquals(_appliedDescriptor, descriptor))
         {
             return;
         }
 
-        // Capture the owner now: ThemeRegistry can no longer map the id back to this extension once
-        // it unregisters, which is exactly when the revert notification is due.
-        ThemeExtension? extension = ThemeRegistry.GetExtension(descriptor.Id);
+        // Owner of this exact instance, resolved once: ThemeRegistry cannot map the id back to the
+        // extension after it unregisters (which is when the revert notification is due), and by now
+        // the id may belong to a replacement registered since ApplyTheme queued this call.
+        ThemeExtension? extension = ThemeRegistry.GetOwner(descriptor);
 
         // ResourceUri is extension-controlled and may be missing or malformed. Load before touching
         // any state so a failure leaves the current theme intact — committing _appliedDescriptor
@@ -143,8 +147,8 @@ internal sealed class ThemeService : IDisposable
         // routes it through the caller's catch, so the current theme survives and the extension
         // author gets the offending type.
         throw new InvalidOperationException(
-            $"Theme '{descriptor.Id}' resource '{uri}' must be a ResourceDictionary, but loaded as " +
-            $"'{loaded?.GetType().FullName ?? "null"}'.");
+            $"Theme '{descriptor.Id}' resource '{uri}' must be a ResourceDictionary (or another " +
+            $"{nameof(IResourceProvider)}), but loaded as '{loaded?.GetType().FullName ?? "null"}'.");
     }
 
     private void SwapResources(IResourceProvider? next)

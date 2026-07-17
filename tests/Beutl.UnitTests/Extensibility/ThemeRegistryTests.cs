@@ -106,6 +106,36 @@ public class ThemeRegistryTests
     }
 
     [Test]
+    public void GetOwner_ReturnsNull_ForAReplacedDescriptor()
+    {
+        // A holder of an already-replaced descriptor must not be handed the replacement's owner —
+        // that would route OnApplied/OnReverted to an extension that never supplied it.
+        var firstExt = new TestThemeExtension("test.owner", "First");
+        firstExt.Load();
+        ThemeDescriptor firstDescriptor = firstExt.Descriptor!;
+
+        var secondExt = new TestThemeExtension("test.owner", "Second");
+        secondExt.Load();
+
+        Assert.That(ThemeRegistry.GetOwner(firstDescriptor), Is.Null);
+        Assert.That(ThemeRegistry.GetOwner(secondExt.Descriptor!), Is.SameAs(secondExt));
+
+        // GetExtension is id-based and cannot make this distinction; that is why GetOwner exists.
+        Assert.That(ThemeRegistry.GetExtension("test.owner"), Is.SameAs(secondExt));
+    }
+
+    [Test]
+    public void GetOwner_ReturnsNull_ForBuiltinAndUnregistered()
+    {
+        var builtin = new ThemeDescriptor(BuiltinThemeIds.Dark, "Dark", ThemeVariant.Dark);
+        ThemeRegistry.Register(builtin);
+
+        Assert.That(ThemeRegistry.GetOwner(builtin), Is.Null);
+        Assert.That(
+            ThemeRegistry.GetOwner(new ThemeDescriptor("test.absent", "Absent", ThemeVariant.Dark)), Is.Null);
+    }
+
+    [Test]
     public void Register_RejectsSystemFollowingWithResourceUri()
     {
         var descriptor = new ThemeDescriptor(

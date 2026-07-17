@@ -87,6 +87,24 @@ public static class ThemeRegistry
     }
 
     /// <summary>
+    /// The <see cref="ThemeExtension"/> that registered this exact <paramref name="descriptor"/>, or
+    /// null when it is a host-registered built-in or no longer the registration under its id.
+    /// Prefer this over <see cref="GetExtension(string?)"/> when holding a descriptor: an id lookup
+    /// can hand back the owner of a replacement registered since the descriptor was resolved.
+    /// </summary>
+    public static ThemeExtension? GetOwner(ThemeDescriptor descriptor)
+    {
+        ArgumentNullException.ThrowIfNull(descriptor);
+        lock (s_lock)
+        {
+            return s_themes.TryGetValue(descriptor.Id, out var entry)
+                   && ReferenceEquals(entry.Descriptor, descriptor)
+                ? entry.Extension
+                : null;
+        }
+    }
+
+    /// <summary>
     /// Resolves <paramref name="id"/>, falling back to the built-in Dark, then to the first
     /// registered non-system-following theme. Returns null only when nothing is registered yet
     /// (early startup, before the host registers the built-ins).

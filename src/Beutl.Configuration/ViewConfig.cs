@@ -257,8 +257,11 @@ public sealed class ViewConfig : ConfigurationBase
 
         raw = raw.Trim();
 
-        // <2.0 wrote the enum as a JSON number, but a hand-edited settings.json may quote it.
-        if (int.TryParse(raw, CultureInfo.InvariantCulture, out int legacyEnum))
+        // <2.0 wrote the enum as a JSON number, but a hand-edited settings.json may quote it. Only
+        // the values the enum actually had migrate: theme ids are otherwise arbitrary strings, so a
+        // custom id that merely looks numeric ("2026") must survive as itself.
+        if (int.TryParse(raw, CultureInfo.InvariantCulture, out int legacyEnum)
+            && legacyEnum is >= 0 and <= 3)
         {
             return NormalizeLegacyEnum(legacyEnum);
         }
