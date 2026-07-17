@@ -1,4 +1,5 @@
-﻿using System.Globalization;
+﻿using System.Collections.Frozen;
+using System.Globalization;
 
 namespace Beutl;
 
@@ -13,8 +14,10 @@ public static class BuiltinThemeIds
     public const string HighContrast = "highcontrast";
     public const string System = "system";
 
-    public static IReadOnlySet<string> All { get; } =
-        new HashSet<string>(StringComparer.Ordinal) { Light, Dark, HighContrast, System };
+    // Frozen rather than a HashSet behind IReadOnlySet: this gates ThemeRegistry's reserved-id
+    // enforcement, so a caller must not be able to downcast and mutate it.
+    public static FrozenSet<string> All { get; } =
+        FrozenSet.ToFrozenSet([Light, Dark, HighContrast, System], StringComparer.Ordinal);
 
     // <2.0 persisted the ViewTheme enum, whose only members were 0-3.
     public static string FromLegacyEnum(int value) => value switch

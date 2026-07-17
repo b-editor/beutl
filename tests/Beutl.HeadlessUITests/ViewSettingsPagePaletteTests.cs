@@ -21,8 +21,26 @@ public class ViewSettingsPagePaletteTests
     [AvaloniaTest]
     public void AccentPaletteSwatches_BindToTheirColorItem()
     {
-        GlobalConfiguration.Instance.ViewConfig.UseCustomAccentColor = true;
+        // ViewSettingsPageViewModel reads the ViewConfig singleton, so reset it here (not in
+        // SetUp/TearDown, which run off the UI thread) and hand it back unchanged.
+        ViewConfig config = GlobalConfiguration.Instance.ViewConfig;
+        bool useCustomAccent = config.UseCustomAccentColor;
+        string? customAccentColor = config.CustomAccentColor;
+        config.UseCustomAccentColor = true;
 
+        try
+        {
+            AssertSwatchesBindToTheirColorItem();
+        }
+        finally
+        {
+            config.UseCustomAccentColor = useCustomAccent;
+            config.CustomAccentColor = customAccentColor;
+        }
+    }
+
+    private static void AssertSwatchesBindToTheirColorItem()
+    {
         var viewModel = new ViewSettingsPageViewModel(
             new Lazy<EditorSettingsPageViewModel>(() => new EditorSettingsPageViewModel()));
         var page = new ViewSettingsPage { DataContext = viewModel };

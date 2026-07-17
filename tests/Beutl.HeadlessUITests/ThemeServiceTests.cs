@@ -35,6 +35,54 @@ public class ThemeServiceTests
     }
 
     [AvaloniaTest]
+    public void StartWithABrokenSelectedTheme_FallsBackToDark()
+    {
+        // Extensions load before ThemeService.Start, so the selected theme can already be registered
+        // — and broken — at the first apply. There is no current theme to keep and nothing
+        // guarantees another trigger, so bailing out would leave the app unthemed.
+        using var scope = new ThemeScope();
+        Application.Current!.RequestedThemeVariant = ThemeVariant.Light;
+
+        var broken = new ThemeDescriptor(
+            "test.brokenstartup", "Broken", ThemeVariant.Light, new Uri("avares://NoSuchAssembly/Missing.axaml"));
+        ThemeRegistry.Register(broken);
+        scope.Config.Theme = "test.brokenstartup";
+
+        scope.Service.Start();
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(Application.Current.RequestedThemeVariant, Is.EqualTo(ThemeVariant.Dark));
+    }
+
+    [AvaloniaTest]
+    public void FailedReplacementOfTheActiveTheme_FallsBackInsteadOfKeepingTheEvictedOne()
+    {
+        // A second extension takes over the applied id with a broken theme. Keeping the old
+        // descriptor would leave an evicted theme active — and its owner would never be reverted,
+        // because the stale Unregister at its Unload raises no Changed.
+        using var scope = new ThemeScope();
+        scope.Service.Start();
+        Dispatcher.UIThread.RunJobs();
+
+        var first = new RecordingThemeExtension("test.evicted", "First");
+        first.Load();
+        scope.Config.Theme = "test.evicted";
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(first.AppliedCount, Is.EqualTo(1), "precondition: the first owner's theme was applied");
+
+        ThemeRegistry.Register(
+            new ThemeDescriptor(
+                "test.evicted", "Broken", ThemeVariant.Light, new Uri("avares://NoSuchAssembly/Missing.axaml")));
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(Application.Current!.RequestedThemeVariant, Is.EqualTo(ThemeVariant.Dark));
+            Assert.That(first.RevertedCount, Is.EqualTo(1), "the evicted owner should be reverted");
+        });
+    }
+
+    [AvaloniaTest]
     public void ApplyTheme_AfterFailedLoad_StillAppliesAnotherTheme()
     {
         using var scope = new ThemeScope();

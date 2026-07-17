@@ -83,10 +83,31 @@ internal sealed class ThemeService : IDisposable
             return; // nothing registered yet (very early startup)
         }
 
-        ApplyCore(descriptor);
+        if (ApplyCore(descriptor))
+        {
+            return;
+        }
+
+        // The selected theme could not be applied. Keeping the current one is right only while it is
+        // still registered — at first apply there is none (the app would stay unthemed, and nothing
+        // guarantees another trigger), and a failed candidate may have replaced the applied
+        // descriptor's id, which would leave an evicted theme active with its owner never reverted.
+        if (_appliedDescriptor != null
+            && ReferenceEquals(ThemeRegistry.Resolve(_appliedDescriptor.Id), _appliedDescriptor))
+        {
+            return;
+        }
+
+        if (ThemeRegistry.Resolve(BuiltinThemeIds.Dark) is { } fallback
+            && !ReferenceEquals(fallback, descriptor))
+        {
+            ApplyCore(fallback);
+        }
     }
 
-    private void ApplyCore(ThemeDescriptor descriptor)
+    // False when the descriptor could not be applied and the caller should fall back; skipping an
+    // already-applied descriptor counts as applied.
+    private bool ApplyCore(ThemeDescriptor descriptor)
     {
         // Skip when the resolved descriptor is unchanged — re-applying on unrelated
         // ThemeRegistry.Changed (extension load/unload) would flicker. Identity rather than the
@@ -95,7 +116,7 @@ internal sealed class ThemeService : IDisposable
         // resolves to the same instance, so this still skips.
         if (ReferenceEquals(_appliedDescriptor, descriptor))
         {
-            return;
+            return true;
         }
 
         // Owner of this exact instance: ThemeRegistry cannot map the id back to the extension after
@@ -113,9 +134,8 @@ internal sealed class ThemeService : IDisposable
         }
         catch (Exception ex)
         {
-            s_logger.LogWarning(
-                ex, "Failed to load resources for theme '{Id}'; keeping the current theme.", descriptor.Id);
-            return;
+            s_logger.LogWarning(ex, "Failed to load resources for theme '{Id}'.", descriptor.Id);
+            return false;
         }
 
         ThemeDescriptor? previous = _appliedDescriptor;
@@ -141,6 +161,7 @@ internal sealed class ThemeService : IDisposable
         }
 
         ThemeNotifier.NotifyApplied(descriptor, extension);
+        return true;
     }
 
     private static IResourceProvider? LoadResources(ThemeDescriptor descriptor)
