@@ -6,9 +6,12 @@ namespace Beutl.Extensibility;
 
 // Static registry of ThemeDescriptor instances. A ThemeExtension registers its descriptor at
 // Load() and unregisters at Unload(); the host resolves the selected theme id and re-applies when
-// the set changes. Ids are unique: a repeat Register for the same id overwrites, so a re-Load after
-// a rolled-back partial init is idempotent. The optional ThemeExtension is kept alongside the
-// descriptor so the host can notify the owning extension on apply/revert without a separate lookup.
+// the set changes. Ids are unique and a repeat Register overwrites, so a re-Load after a rolled-back
+// partial init is idempotent — except that an extension cannot overwrite a host-registered id.
+// Registration is keyed on the descriptor instance, not the record's value: only the instance that
+// registered an id may Unregister it, so an extension replaced by another cannot evict its
+// successor. The owning ThemeExtension is kept alongside the descriptor so the host can notify it on
+// apply/revert without a separate lookup; null means the host registered it.
 public static class ThemeRegistry
 {
     private static readonly ILogger s_logger = Log.CreateLogger(nameof(ThemeRegistry));
@@ -34,6 +37,18 @@ public static class ThemeRegistry
 
         lock (s_lock)
         {
+            // An extension may not take over a host-registered theme. It would win the id, and its
+            // Unload would then evict the built-in entirely — ResolveOrDefault's Dark fallback and
+            // the settings picker would lose it until restart.
+            if (extension != null
+                && s_themes.TryGetValue(descriptor.Id, out var existing)
+                && existing.Extension == null)
+            {
+                throw new ArgumentException(
+                    $"Theme id '{descriptor.Id}' is registered by the host and cannot be replaced by an extension. Choose an id unique to the extension.",
+                    nameof(descriptor));
+            }
+
             s_themes[descriptor.Id] = (descriptor, extension);
         }
 

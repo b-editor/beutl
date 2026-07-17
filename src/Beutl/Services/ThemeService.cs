@@ -61,15 +61,19 @@ internal sealed class ThemeService : IDisposable
         ApplyTheme(_viewConfig.Theme);
     }
 
-    private void ApplyTheme(string themeId)
+    // Resolve on the UI thread rather than here: the registry can change between a background-thread
+    // resolve and the queued callback, which would apply a descriptor that is already superseded.
+    private void ApplyTheme(string themeId) =>
+        Dispatcher.UIThread.InvokeAsync(() => ResolveAndApply(themeId), DispatcherPriority.Send);
+
+    private void ResolveAndApply(string themeId)
     {
-        ThemeDescriptor? descriptor = ThemeRegistry.ResolveOrDefault(themeId);
-        if (descriptor == null)
+        if (ThemeRegistry.ResolveOrDefault(themeId) is not { } descriptor)
         {
             return; // nothing registered yet (very early startup)
         }
 
-        Dispatcher.UIThread.InvokeAsync(() => ApplyCore(descriptor), DispatcherPriority.Send);
+        ApplyCore(descriptor);
     }
 
     private void ApplyCore(ThemeDescriptor descriptor)

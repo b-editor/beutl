@@ -106,6 +106,51 @@ public class ThemeRegistryTests
     }
 
     [Test]
+    public void Register_RejectsExtensionTakingOverAHostRegisteredId()
+    {
+        // Letting an extension win a built-in id means its Unload evicts the built-in: the identity
+        // check in Unregister cannot help, because by then the extension's descriptor is the entry.
+        var builtin = new ThemeDescriptor(BuiltinThemeIds.Dark, "Dark", ThemeVariant.Dark);
+        ThemeRegistry.Register(builtin);
+
+        var hijacker = new TestThemeExtension(BuiltinThemeIds.Dark, "Hijacked");
+
+        Assert.Throws<ArgumentException>(() => hijacker.Load());
+        Assert.Multiple(() =>
+        {
+            Assert.That(ThemeRegistry.Resolve(BuiltinThemeIds.Dark), Is.SameAs(builtin));
+            Assert.That(ThemeRegistry.GetExtension(BuiltinThemeIds.Dark), Is.Null);
+            Assert.That(hijacker.Descriptor, Is.Null, "a rejected Load must not leave a descriptor behind");
+        });
+    }
+
+    [Test]
+    public void Register_AllowsHostToReregisterItsOwnBuiltin()
+    {
+        // Two ThemeService instances (or a restart of one) re-seed the built-ins; host-over-host is
+        // not a takeover.
+        var first = new ThemeDescriptor(BuiltinThemeIds.Dark, "Dark", ThemeVariant.Dark);
+        var second = new ThemeDescriptor(BuiltinThemeIds.Dark, "Dark", ThemeVariant.Dark);
+        ThemeRegistry.Register(first);
+
+        Assert.DoesNotThrow(() => ThemeRegistry.Register(second));
+        Assert.That(ThemeRegistry.Resolve(BuiltinThemeIds.Dark), Is.SameAs(second));
+    }
+
+    [Test]
+    public void Register_AllowsExtensionToReplaceAnotherExtensionsId()
+    {
+        // Only the host is protected: extension-over-extension stays allowed and is handled by the
+        // identity check in Unregister.
+        var first = new TestThemeExtension("test.shared", "First");
+        var second = new TestThemeExtension("test.shared", "Second");
+        first.Load();
+
+        Assert.DoesNotThrow(() => second.Load());
+        Assert.That(ThemeRegistry.GetExtension("test.shared"), Is.SameAs(second));
+    }
+
+    [Test]
     public void GetOwner_ReturnsNull_ForAReplacedDescriptor()
     {
         // A holder of an already-replaced descriptor must not be handed the replacement's owner —

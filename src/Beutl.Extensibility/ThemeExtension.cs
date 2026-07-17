@@ -15,8 +15,11 @@ public abstract class ThemeExtension : Extension
 
     public override void Load()
     {
-        _descriptor = GetThemeDescriptor();
-        ThemeRegistry.Register(_descriptor, this);
+        // Assigned only once Register accepts it, so a rejected descriptor (e.g. an id the host
+        // owns) leaves Descriptor null rather than naming a theme this extension does not have.
+        ThemeDescriptor descriptor = GetThemeDescriptor();
+        ThemeRegistry.Register(descriptor, this);
+        _descriptor = descriptor;
     }
 
     public override void Unload()

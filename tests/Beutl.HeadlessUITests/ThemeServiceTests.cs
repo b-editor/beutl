@@ -114,8 +114,13 @@ public class ThemeServiceTests
         Assert.That(first.AppliedCount, Is.EqualTo(1), "precondition: the first owner's theme was applied");
 
         var second = new RecordingThemeExtension("test.reload", "Reload");
-        Assert.That(second.GetThemeDescriptor(), Is.EqualTo(first.GetThemeDescriptor()),
-            "precondition: the descriptors are equal-valued but distinct instances");
+        Assert.Multiple(() =>
+        {
+            Assert.That(second.GetThemeDescriptor(), Is.EqualTo(first.GetThemeDescriptor()),
+                "precondition: the descriptors are equal-valued");
+            Assert.That(second.GetThemeDescriptor(), Is.Not.SameAs(first.GetThemeDescriptor()),
+                "precondition: the descriptors are distinct instances");
+        });
         second.Load();
         Dispatcher.UIThread.RunJobs();
 
