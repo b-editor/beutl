@@ -23,28 +23,32 @@ public sealed class StartupNotificationServiceTests
         Assert.That(notification.Title, Is.EqualTo(SettingsStrings.Telemetry));
         Assert.That(notification.Message, Is.EqualTo(SettingsStrings.Telemetry_Description));
         Assert.That(notification.Expiration, Is.EqualTo(Timeout.InfiniteTimeSpan));
-        Assert.That(notification.Actions, Has.Count.EqualTo(2));
+        Assert.That(notification.IsClosable, Is.False);
+        Assert.That(notification.OnClose is null, Is.True);
+        Assert.That(notification.Actions, Has.Count.EqualTo(3));
         Assert.Multiple(() =>
         {
             Assert.That(notification.Actions![0].Text, Is.EqualTo(Strings.ShowDetails));
             Assert.That(notification.Actions[0].DismissOnInvoke, Is.False);
-            Assert.That(notification.Actions[1].Text, Is.EqualTo(Strings.Agree));
+            Assert.That(notification.Actions[1].Text, Is.EqualTo(Strings.Disagree));
             Assert.That(notification.Actions[1].DismissOnInvoke, Is.True);
+            Assert.That(notification.Actions[2].Text, Is.EqualTo(Strings.Agree));
+            Assert.That(notification.Actions[2].DismissOnInvoke, Is.True);
         });
 
-        notification.Actions![1].Callback();
+        notification.Actions![2].Callback();
 
         AssertTelemetry(config, true);
     }
 
     [Test]
-    public void ShowTelemetryConsent_WhenClosed_DisablesTelemetry()
+    public void ShowTelemetryConsent_WhenDisagreed_DisablesTelemetry()
     {
         using var scope = new NotificationHandlerScope();
         var config = new TelemetryConfig();
 
         StartupNotificationService.ShowTelemetryConsent(config);
-        AssertSingleNotification(scope.Handler).OnClose!.Invoke();
+        AssertSingleNotification(scope.Handler).Actions![1].Callback();
 
         AssertTelemetry(config, false);
     }
@@ -130,6 +134,14 @@ public sealed class StartupNotificationServiceTests
     }
 
     [Test]
+    public void Notification_DefaultsToClosable()
+    {
+        var notification = new Notification("Title", "Message");
+
+        Assert.That(notification.IsClosable, Is.True);
+    }
+
+    [Test]
     public async Task WaitForDismissal_CompletesPersistentDelayWhenDismissed()
     {
         var dismissed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -155,7 +167,8 @@ public sealed class StartupNotificationServiceTests
             [
                 new("Details", () => nonDismissingInvocations++, DismissOnInvoke: false),
                 new("Accept", () => dismissingInvocations++)
-            ]);
+            ],
+            IsClosable: false);
         var handler = new NotificationServiceHandler();
         InfoBar infoBar = handler.BuildInfoBar(notification, dismissed, () => { });
         var actionPanel = (WrapPanel)infoBar.ActionButton!;
@@ -169,6 +182,7 @@ public sealed class StartupNotificationServiceTests
             Assert.That(nonDismissingInvocations, Is.EqualTo(1));
             Assert.That(dismissingInvocations, Is.Zero);
             Assert.That(infoBar.IsOpen, Is.True);
+            Assert.That(infoBar.IsClosable, Is.False);
             Assert.That(dismissed.Task.IsCompleted, Is.False);
         });
 

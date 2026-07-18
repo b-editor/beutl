@@ -22,12 +22,13 @@ internal static class StartupNotificationService
             SettingsStrings.Telemetry,
             SettingsStrings.Telemetry_Description,
             expiration: Timeout.InfiniteTimeSpan,
-            onClose: () => SetTelemetryEnabled(config, false),
             actions:
             [
                 new(Strings.ShowDetails, OpenTelemetryDetails, DismissOnInvoke: false),
+                new(Strings.Disagree, () => SetTelemetryEnabled(config, false)),
                 new(Strings.Agree, () => SetTelemetryEnabled(config, true))
-            ]);
+            ],
+            isClosable: false);
     }
 
     public static Task<bool> ConfirmSideloadExtensions(IReadOnlyList<string> packageNames)

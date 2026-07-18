@@ -134,7 +134,7 @@ public sealed class NotificationServiceHandler : INotificationServiceHandler
             DataContext = notification,
             Title = notification.Title,
             Message = notification.Message,
-            IsClosable = true,
+            IsClosable = notification.IsClosable,
             IsOpen = true,
             Width = 350,
             Severity = notification.Type switch
