@@ -16,21 +16,25 @@ public sealed class AfterLoadingExtensionsTask : StartupTask
         {
             LoadInstalledExtensionTask t1 = _startup.GetTask<LoadInstalledExtensionTask>();
             LoadPrimitiveExtensionTask t2 = _startup.GetTask<LoadPrimitiveExtensionTask>();
-            LoadSideloadExtensionTask t3 = _startup.GetTask<LoadSideloadExtensionTask>();
-            await Task.WhenAll(t1.Task, t2.Task, t3.Task);
+            await Task.WhenAll(t1.Task, t2.Task);
 
-            (LocalPackage, Exception)[] failures = [.. t1.Failures, .. t2.Failures, .. t3.Failures];
-            if (failures.Length > 0)
-            {
-                NotificationService.ShowError(
-                    MessageStrings.FailedToLoadPackage,
-                    string.Format(MessageStrings.FailedToLoadNPackages, failures.Length),
-                    actions: [new(Strings.Details, () => ShowPackageLoadingError(failures))]);
-            }
+            (LocalPackage, Exception)[] failures = [.. t1.Failures, .. t2.Failures];
+            ShowFailures(failures);
         });
     }
 
     public override Task Task { get; }
+
+    internal static void ShowFailures(IReadOnlyList<(LocalPackage, Exception)> failures)
+    {
+        if (failures.Count == 0)
+            return;
+
+        NotificationService.ShowError(
+            MessageStrings.FailedToLoadPackage,
+            string.Format(MessageStrings.FailedToLoadNPackages, failures.Count),
+            actions: [new(Strings.Details, () => ShowPackageLoadingError(failures))]);
+    }
 
     // ユーザー向けのテキストファイルを生成して、デフォルトのテキストエディタで表示する。
     private static async void ShowPackageLoadingError(IReadOnlyList<(LocalPackage, Exception)> failures)
