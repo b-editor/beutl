@@ -1,7 +1,11 @@
-﻿namespace Beutl.Services;
+﻿using Beutl.Logging;
+using Microsoft.Extensions.Logging;
+
+namespace Beutl.Services;
 
 public static class NotificationService
 {
+    private static readonly ILogger s_logger = Log.CreateLogger(typeof(NotificationService));
     private static INotificationServiceHandler? s_handler;
 
     public static INotificationServiceHandler Handler
@@ -21,13 +25,43 @@ public static class NotificationService
 
     internal static void Dispatch(Notification notification, INotificationServiceHandler? handler)
     {
-        if (handler is not null)
+        int failureReported = 0;
+
+        void ReportShowFailure()
         {
-            handler.Show(notification);
+            if (Interlocked.Exchange(ref failureReported, 1) != 0)
+                return;
+
+            try
+            {
+                notification.OnShowFailed?.Invoke();
+            }
+            catch (Exception e)
+            {
+                s_logger.LogError(
+                    e,
+                    "Notification OnShowFailed callback failed (Type={Type}, Title={Title})",
+                    notification.Type, notification.Title);
+            }
         }
-        else
+
+        if (handler is null)
         {
-            notification.OnShowFailed?.Invoke();
+            ReportShowFailure();
+            return;
+        }
+
+        try
+        {
+            handler.Show(notification with { OnShowFailed = ReportShowFailure });
+        }
+        catch (Exception e)
+        {
+            s_logger.LogError(
+                e,
+                "Notification handler failed (Type={Type}, Title={Title})",
+                notification.Type, notification.Title);
+            ReportShowFailure();
         }
     }
 
