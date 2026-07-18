@@ -38,13 +38,8 @@ public sealed class FlipPass : GraphicsNode3D
     private void CreateResources(int width, int height)
     {
         // Dispose old resources
-        Framebuffer?.Dispose();
-        RenderPass?.Dispose();
-        OutputTexture?.Dispose();
-        _depthTexture?.Dispose();
-        _pipeline?.Dispose();
-        _descriptorSet?.Dispose();
-        _sampler?.Dispose();
+        Graphics3DDisposal.DisposeAll(
+            Framebuffer, RenderPass, OutputTexture, _depthTexture, _pipeline, _descriptorSet, _sampler);
 
         // Create output and depth textures
         OutputTexture = Context.CreateTexture2D(width, height, TextureFormat.RGBA8Unorm);
@@ -100,6 +95,7 @@ public sealed class FlipPass : GraphicsNode3D
     /// </summary>
     public void SetInputTexture(ITexture2D inputTexture)
     {
+        ThrowIfNotInitialized();
         _inputTexture = inputTexture;
 
         if (_descriptorSet != null && _sampler != null)
@@ -113,6 +109,7 @@ public sealed class FlipPass : GraphicsNode3D
     /// </summary>
     public void Execute()
     {
+        ThrowIfNotInitialized();
         if (Framebuffer == null || RenderPass == null || _pipeline == null || _descriptorSet == null || _inputTexture == null)
             return;
 
@@ -132,13 +129,8 @@ public sealed class FlipPass : GraphicsNode3D
 
     protected override void OnDispose()
     {
-        _descriptorSet?.Dispose();
-        _pipeline?.Dispose();
-        _sampler?.Dispose();
-        Framebuffer?.Dispose();
-        RenderPass?.Dispose();
-        OutputTexture?.Dispose();
-        _depthTexture?.Dispose();
+        Graphics3DDisposal.DisposeAll(
+            _descriptorSet, _pipeline, _sampler, Framebuffer, RenderPass, OutputTexture, _depthTexture);
     }
 
     // === Flip Pass Shaders ===

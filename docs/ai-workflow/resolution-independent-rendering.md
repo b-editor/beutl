@@ -13,7 +13,7 @@ filter effects, brushes, and shaders.
 |---|---|---|
 | **Output scale `s_out`** | `Renderer.OutputScale` / `RenderNodeContext.OutputScale` | the final target only: device pixels per logical unit at the root. `1.0` = logical == device. |
 | **Effective scale** | `RenderNodeOperation.EffectiveScale` | the supply density an op's pixels actually exist at. Vector ops are `Unbounded`; bitmap ops report `At(scale)`. |
-| **Working scale `w`** | `FilterEffectContext.WorkingScale` (+ `RenderNodeContext.ResolveWorkingScale`) | the density a buffer-allocating boundary runs at, negotiated from the inputs' supply densities (falling back to `s_out` for vector-only inputs), capped by `MaxWorkingScale`. There is no per-effect policy knob. |
+| **Working scale `w`** | `EffectGraphBuilder.WorkingScale` / `GeometrySession.WorkingScale` (+ `RenderNodeContext.ResolveWorkingScale`) | the density a buffer-allocating boundary runs at, negotiated from the inputs' supply densities (falling back to `s_out` for vector-only inputs), capped by `MaxWorkingScale`. There is no per-effect policy knob. |
 
 ## What most authors need to do: nothing
 
@@ -25,34 +25,35 @@ image filters (blur, drop shadow, color, gradients) for free**. This is empirica
 - every built-in effect category (incl. the buffer-allocating InnerShadow, 0.9983) scales faithfully
   at reduced scale with **no per-effect code**.
 
-So if your effect is built from the `FilterEffectContext` primitives (`Blur`, `DropShadow`, `Dilate`,
+So if your effect is built from the `EffectGraphBuilder` convenience methods (`Blur`, `DropShadow`, `Dilate`,
 `Transform`, color matrices, …) or draws plain geometry/text, **do not multiply anything by a scale**:
 the CTM handles it, and a manual `× w` would double-scale and regress the result.
 
 ## When scale matters
 
-- **Reading the working scale.** A `CustomEffect` / SKSL / GLSL author who hand-allocates an
-  intermediate or hard-codes a pixel literal reads `CustomFilterEffectContext.WorkingScale`
-  (or `FilterEffectContext.WorkingScale`); both default to `1.0`. `CreateTarget(bounds)` already
-  allocates a `ceil(bounds × w)` device buffer tagged `EffectiveScale.At(w)`, so the runtime shader
-  evaluates in DEVICE pixels: multiply any **absolute-length** pixel literal
-  (tile size, displacement amount, split offset, a hard-coded `iResolution`-style constant) by `w` to
-  stay logically constant. Content-relative logic (a luminance pixel-sort, a normalized-uv shader)
-  needs nothing. The built-ins already do this — Mosaic (`tileSize × w`), DisplacementMap (translate /
-  pivot `× w`, plus a `CreateScale(w)` local matrix on the displacement-map shader so it shares the base
-  texture's device-px coord space), PartsSplit (contour bounds `/ w`), SKSL (`iResolution`/`width`/`height`
-  `× w` + `iScale = w`), GLSL (`Width`/`Height` push constants `× w`, plus a `scale` push constant `= w`
-  mirroring SKSL's `iScale`) — verified by `CustomEffectSupersampleTests` (Mosaic + DisplacementMap 2×-delivered vs 1:1 SSIM
-  1.0000; Mosaic strictly closer to ground truth than 1:1).
+- **Reading the working scale.** Geometry callbacks read `GeometrySession.WorkingScale` because it is the
+  execution-time density of their canvas. SKSL authors late-bind every device-space uniform from
+  `PassUniformContext`: use `UniformBindingBuilder.DensityScaledFloat2` for logical lengths and `Deferred` for
+  target dimensions, pivots, or other values that need `WorkingScale`, `TargetWidth`, `TargetHeight`, or
+  `TargetBounds`. GLSL compute authors read the corresponding execution values from `IComputeContext`
+  (`WorkingScale`, `Width`, `Height`, `TargetBounds`) inside the dispatch callback. Do not freeze either kind of
+  shader value from `EffectGraphBuilder.WorkingScale` in `Describe`; the executor can re-clamp the actual pass below
+  that density when the buffer crosses the per-axis budget. Runtime shaders evaluate in DEVICE pixels, so
+  absolute-length values still scale by the execution-time `w`, while content-relative logic such as normalized UV
+  needs no conversion. The built-ins already follow this rule — Mosaic late-binds tile size and resolution,
+  DisplacementMap late-binds translation/pivot and its deferred child, and script effects receive the executed
+  buffer dimensions and scale.
 - **Working scale (supply-driven).** Every effect runs at its **input supply density** — the densest
   concrete (bitmap) input, with `s_out` as the floor for vector-only/mixed boundaries, capped only by the
-  global memory ceiling (`MaxWorkingScale`). `s_out` is **not** a ceiling. Resolution-sensitive effects
+  global quality ceiling (`MaxWorkingScale`). `s_out` is **not** a ceiling. Resolution-sensitive effects
   (PixelSort, Dilate/Erode, Mosaic, contour Stroke/FlatShadow/PartsSplit, Displacement, custom SKSL/GLSL,
   Clipping) get a high-resolution source's detail through them for free, with no per-effect knob. There is
   **no `ResolutionPolicy`**: the earlier `Inherit`/`ClampToOutput`/`Oversample(k)`/`PreserveSource` policy
   was removed because no built-in needed a non-default value. An effect that genuinely needs a different
-  working scale (clamp-to-output for perf, oversample for SSAA) returns a `FilterEffectRenderNode` subclass from
-  `FilterEffect.Resource.CreateRenderNode()` and overrides `Process` to compute its own `w`.
+  working scale (clamp-to-output for perf, oversample for SSAA) selects a `PlanFilterEffectRenderNode` subclass through
+  `FilterEffect.Resource.PlanRenderNodeFactory` and overrides `ResolveWorkingScale`, preserving the graph compiler,
+  ROI propagation, pooling, and caches. Fully opaque execution instead derives from `CustomRenderNodeFilterEffect`
+  and supplies a dedicated `FilterEffectRenderNodeFactory` whose node implements `Process`.
 - **Bitmap sources.** A decoded image/video op reports its decoded density as `EffectiveScale.At(...)`,
   distinct from its logical footprint. Mixed-scale compositing resamples off-target bitmaps via
   `ImmediateCanvas.DrawRenderTargetScaled` / `DrawSurfaceScaled` (Mitchell). 003 ships only this seam; the

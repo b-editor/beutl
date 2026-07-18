@@ -70,7 +70,7 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
             return TimeSpan.FromTicks((long)(timeSpan.Ticks * (resource.Speed / 100.0)));
         }
 
-        resource._speedIntegrator.EnsureCache(anm);
+        resource._speedIntegrator!.EnsureCache(anm);
         return resource._speedIntegrator.Integrate(timeSpan, keyFrameAnimation);
     }
 
@@ -169,7 +169,7 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
 
     public partial class Resource
     {
-        internal readonly SpeedIntegrator _speedIntegrator = new(60);
+        internal SpeedIntegrator? _speedIntegrator = new(60);
 
         public TimeSpan RenderedPosition { get; internal set; }
 
@@ -177,7 +177,15 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
 
         partial void PostDispose(bool disposing)
         {
-            _speedIntegrator.Dispose();
+            if (!disposing)
+                return;
+
+            SpeedIntegrator? speedIntegrator = _speedIntegrator;
+            _speedIntegrator = null;
+
+            Exception? failure = null;
+            DisposeOwnedResources(ref failure, speedIntegrator);
+            ThrowIfCleanupFailed(failure);
         }
 
         partial void PostUpdate(SourceVideo obj, CompositionContext context)

@@ -44,7 +44,7 @@ public partial class DisplacementMapEffect : FilterEffect
     [Display(Name = nameof(GraphicsStrings.DisplacementMapEffect_ShowDisplacementMap), ResourceType = typeof(GraphicsStrings))]
     public IProperty<bool> ShowDisplacementMap { get; } = Property.CreateAnimatable(false);
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
         Brush.Resource? displacementMap = r.DisplacementMap;
@@ -52,41 +52,33 @@ public partial class DisplacementMapEffect : FilterEffect
 
         if (r.ShowDisplacementMap)
         {
-            context.CustomEffect(displacementMap,
-                static (brush, effectContext) =>
-                {
-                    for (int i = 0; i < effectContext.Targets.Count; i++)
-                    {
-                        EffectTarget effectTarget = effectContext.Targets[i];
-                        // Create target first so the map brush uses the buffer's post-clamp density.
-                        var newTarget = effectContext.CreateTarget(effectTarget.Bounds);
-                        float w = newTarget.Scale.Value;
-                        using var displacementMapShader =
-                            new BrushConstructor(new Rect(effectTarget.Bounds.Size), brush, BlendMode.SrcOver, w,
-                                    effectContext.MaxWorkingScale)
-                                .CreateShader();
-
-                        using (var paint = new SKPaint())
-                        using (var canvas = effectContext.Open(newTarget))
-                        {
-                            paint.Shader = displacementMapShader;
-                            canvas.Clear();
-                            // The base CTM CreateScale(w) maps the logical DrawRect onto the full
-                            // ceil(bounds × w) device buffer; no manual prescale. w == 1 = bare logical rect.
-                            canvas.Canvas.DrawRect(
-                                new SKRect(0, 0, effectTarget.Bounds.Width, effectTarget.Bounds.Height),
-                                paint);
-
-                            effectContext.Targets[i] = newTarget;
-                        }
-
-                        effectTarget.Dispose();
-                    }
-                });
+            // The map-preview path anchors the displacement brush to the FULL output rect (`new Rect(session.Bounds
+            // .Size)`), exactly as the real transform passes anchor the map in full-frame device space and declare
+            // FullFrame (DisplacementMapTransform). Identity would let a downstream deflating pass ROI-crop this to an
+            // OFFSET sub-rect and re-anchor the brush there (A3); FullFrame keeps it baking full-frame.
+            builder.Geometry(GeometryNodeDescriptor.Create(
+                session => DrawDisplacementMap(session, displacementMap),
+                BoundsContract.FullFrame,
+                structuralToken: nameof(DisplacementMapEffect) + ".Show"));
         }
         else if (r.Transform is { } transform)
         {
-            transform.GetOriginal().ApplyTo(displacementMap, transform, r.SpreadMethod, r.Channel, r.Signed, context);
+            transform.GetOriginal().Describe(
+                builder, displacementMap, transform, r.SpreadMethod, r.Channel, r.Signed);
         }
     }
+
+    private static void DrawDisplacementMap(GeometrySession session, Brush.Resource map)
+    {
+        ImmediateCanvas canvas = session.OpenCanvas();
+        float w = canvas.Density;
+        using SKShader? shader =
+            new BrushConstructor(
+                    new Rect(session.Bounds.Size), map, BlendMode.SrcOver, session.RenderIntent, w,
+                    session.MaxWorkingScale, session.Diagnostics, session.PullPurpose)
+                .CreateShader();
+        using var paint = new SKPaint { Shader = shader };
+        canvas.Canvas.DrawRect(new SKRect(0, 0, (float)session.Bounds.Width, (float)session.Bounds.Height), paint);
+    }
+
 }

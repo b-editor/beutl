@@ -96,6 +96,220 @@ public class DispatcherTests
     }
 
     [Test]
+    public void InvokeAsyncVoid_CancelWhileQueued_CancelsWithoutExecuting()
+    {
+        var dispatcher = Dispatcher.Spawn();
+        using var blockerStarted = new ManualResetEventSlim();
+        using var releaseBlocker = new ManualResetEventSlim();
+        using var cts = new CancellationTokenSource();
+        bool executed = false;
+
+        try
+        {
+            dispatcher.Dispatch(() =>
+            {
+                blockerStarted.Set();
+                releaseBlocker.Wait();
+            }, DispatchPriority.High);
+            Assert.That(blockerStarted.Wait(TimeSpan.FromSeconds(5)), Is.True, "The queue blocker did not start.");
+
+            Task task = dispatcher.InvokeAsync(() => executed = true, ct: cts.Token);
+            cts.Cancel();
+
+            Assert.CatchAsync<OperationCanceledException>(async () => await task);
+            Assert.That(executed, Is.False);
+        }
+        finally
+        {
+            releaseBlocker.Set();
+            dispatcher.Shutdown();
+        }
+    }
+
+    [Test]
+    public void InvokeAsyncResult_CancelWhileQueued_CancelsWithoutExecuting()
+    {
+        var dispatcher = Dispatcher.Spawn();
+        using var blockerStarted = new ManualResetEventSlim();
+        using var releaseBlocker = new ManualResetEventSlim();
+        using var cts = new CancellationTokenSource();
+        bool executed = false;
+
+        try
+        {
+            dispatcher.Dispatch(() =>
+            {
+                blockerStarted.Set();
+                releaseBlocker.Wait();
+            }, DispatchPriority.High);
+            Assert.That(blockerStarted.Wait(TimeSpan.FromSeconds(5)), Is.True, "The queue blocker did not start.");
+
+            Task<int> task = dispatcher.InvokeAsync(() =>
+            {
+                executed = true;
+                return 42;
+            }, ct: cts.Token);
+            cts.Cancel();
+
+            Assert.CatchAsync<OperationCanceledException>(async () => await task);
+            Assert.That(executed, Is.False);
+        }
+        finally
+        {
+            releaseBlocker.Set();
+            dispatcher.Shutdown();
+        }
+    }
+
+    [Test]
+    public void InvokeVoid_CancelAfterExecutionStarts_StopsWaiting()
+    {
+        var dispatcher = Dispatcher.Spawn();
+        using var started = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        using var operationFinished = new ManualResetEventSlim();
+        using var cts = new CancellationTokenSource();
+
+        try
+        {
+            Task invocation = Task.Run(() => dispatcher.Invoke(() =>
+            {
+                try
+                {
+                    started.Set();
+                    release.Wait();
+                }
+                finally
+                {
+                    operationFinished.Set();
+                }
+            }, ct: cts.Token));
+
+            Assert.That(started.Wait(TimeSpan.FromSeconds(5)), Is.True, "The dispatcher operation did not start.");
+            cts.Cancel();
+
+            Assert.CatchAsync<OperationCanceledException>(async () =>
+                await invocation.WaitAsync(TimeSpan.FromSeconds(2)));
+            Assert.That(operationFinished.IsSet, Is.False,
+                "The synchronous caller must observe cancellation without waiting for the running delegate.");
+            release.Set();
+            Assert.That(operationFinished.Wait(TimeSpan.FromSeconds(5)), Is.True,
+                "The dispatcher operation did not finish after it was released.");
+        }
+        finally
+        {
+            release.Set();
+            dispatcher.Shutdown();
+        }
+    }
+
+    [Test]
+    public void InvokeResult_CancelAfterExecutionStarts_StopsWaiting()
+    {
+        var dispatcher = Dispatcher.Spawn();
+        using var started = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        using var operationFinished = new ManualResetEventSlim();
+        using var cts = new CancellationTokenSource();
+
+        try
+        {
+            Task invocation = Task.Run(() => dispatcher.Invoke(() =>
+            {
+                try
+                {
+                    started.Set();
+                    release.Wait();
+                    return 42;
+                }
+                finally
+                {
+                    operationFinished.Set();
+                }
+            }, ct: cts.Token));
+
+            Assert.That(started.Wait(TimeSpan.FromSeconds(5)), Is.True, "The dispatcher operation did not start.");
+            cts.Cancel();
+
+            Assert.CatchAsync<OperationCanceledException>(async () =>
+                await invocation.WaitAsync(TimeSpan.FromSeconds(2)));
+            Assert.That(operationFinished.IsSet, Is.False,
+                "The synchronous result caller must observe cancellation without waiting for the running delegate.");
+            release.Set();
+            Assert.That(operationFinished.Wait(TimeSpan.FromSeconds(5)), Is.True,
+                "The dispatcher operation did not finish after it was released.");
+        }
+        finally
+        {
+            release.Set();
+            dispatcher.Shutdown();
+        }
+    }
+
+    [Test]
+    public async Task InvokeAsyncVoid_CancelAfterExecutionStarts_DoesNotCancelCompletion()
+    {
+        var dispatcher = Dispatcher.Spawn();
+        using var started = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        using var cts = new CancellationTokenSource();
+
+        try
+        {
+            Task task = dispatcher.InvokeAsync(() =>
+            {
+                started.Set();
+                release.Wait();
+            }, ct: cts.Token);
+
+            Assert.That(started.Wait(TimeSpan.FromSeconds(5)), Is.True, "The dispatcher operation did not start.");
+            cts.Cancel();
+
+            Assert.That(task.IsCompleted, Is.False,
+                "Cancellation after execution starts must not complete the task before the operation finishes.");
+            release.Set();
+            await task;
+        }
+        finally
+        {
+            release.Set();
+            dispatcher.Shutdown();
+        }
+    }
+
+    [Test]
+    public async Task InvokeAsyncResult_CancelAfterExecutionStarts_ReturnsResult()
+    {
+        var dispatcher = Dispatcher.Spawn();
+        using var started = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        using var cts = new CancellationTokenSource();
+
+        try
+        {
+            Task<int> task = dispatcher.InvokeAsync(() =>
+            {
+                started.Set();
+                release.Wait();
+                return 42;
+            }, ct: cts.Token);
+
+            Assert.That(started.Wait(TimeSpan.FromSeconds(5)), Is.True, "The dispatcher operation did not start.");
+            cts.Cancel();
+
+            Assert.That(task.IsCompleted, Is.False,
+                "Cancellation after execution starts must not complete the task before the operation finishes.");
+            release.Set();
+            Assert.That(await task, Is.EqualTo(42));
+        }
+        finally
+        {
+            release.Set();
+            dispatcher.Shutdown();
+        }
+    }
+
+    [Test]
     public void InvokeExecutionContext()
     {
         var dispatcher = Dispatcher.Spawn();
@@ -530,6 +744,139 @@ public class DispatcherTests
                 dispatcher.Thread.Join(TimeSpan.FromSeconds(5)),
                 Is.True,
                 $"Iteration {i}: dispatcher deadlocked in WaitForPendingOperations after Shutdown");
+        }
+    }
+
+    [Test]
+    public async Task Invoke_AfterShutdown_CompletesWithFailureInsteadOfBlocking()
+    {
+        var dispatcher = Dispatcher.Spawn();
+        dispatcher.Shutdown();
+        Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(5)), Is.True);
+
+        Task invoke = Task.Run(() => dispatcher.Invoke(() => { }));
+        Task completed = await Task.WhenAny(invoke, Task.Delay(TimeSpan.FromSeconds(2)));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(completed, Is.SameAs(invoke),
+                "Invoke queued after shutdown must not wait forever for a dispatcher that has already exited.");
+            Assert.That(invoke.Exception?.InnerException, Is.InstanceOf<ObjectDisposedException>());
+        });
+    }
+
+    [Test]
+    public async Task Invoke_AcceptedBeforeShutdown_IsFaultedWhenQueueIsDrained()
+    {
+        var dispatcher = Dispatcher.Spawn();
+        dispatcher.Thread.IsBackground = true;
+        using var entered = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        dispatcher.Dispatch(() =>
+        {
+            entered.Set();
+            release.Wait();
+        }, DispatchPriority.High);
+        Assert.That(entered.Wait(TimeSpan.FromSeconds(5)), Is.True);
+
+        Task pending = dispatcher.InvokeAsync(() => { }, DispatchPriority.Low);
+        dispatcher.Shutdown();
+        Task completed = await Task.WhenAny(pending, Task.Delay(TimeSpan.FromSeconds(2)));
+        release.Set();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(completed, Is.SameAs(pending),
+                "an accepted synchronous request must be faulted instead of orphaned during shutdown");
+            Assert.That(pending.Exception?.InnerException, Is.InstanceOf<ObjectDisposedException>());
+            Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(5)), Is.True);
+        });
+    }
+
+    [Test]
+    public void TryDispatch_AcceptedCleanup_RunsAbortFallbackWhenShutdownDrainsQueue()
+    {
+        var dispatcher = Dispatcher.Spawn();
+        dispatcher.Thread.IsBackground = true;
+        using var entered = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        bool cleanupRan = false;
+        Exception? abortReason = null;
+        try
+        {
+            dispatcher.Dispatch(() =>
+            {
+                entered.Set();
+                release.Wait();
+            }, DispatchPriority.High);
+            Assert.That(entered.Wait(TimeSpan.FromSeconds(5)), Is.True);
+
+            bool accepted = dispatcher.TryDispatch(
+                () => cleanupRan = true,
+                ex => abortReason = ex,
+                DispatchPriority.Low);
+            Assert.That(accepted, Is.True, "the cleanup must first enter the dispatcher queue");
+
+            dispatcher.Shutdown();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(cleanupRan, Is.False, "shutdown drained the queued action before it could run");
+                Assert.That(abortReason, Is.InstanceOf<ObjectDisposedException>(),
+                    "accepted cleanup must receive a fallback callback when shutdown abandons it");
+            });
+        }
+        finally
+        {
+            release.Set();
+            if (!dispatcher.HasShutdownStarted)
+                dispatcher.Shutdown();
+            Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(5)), Is.True);
+        }
+    }
+
+    // Regression: a throwing abort fallback used to escape mid-sweep, so later abandoned operations were never
+    // aborted and their cleanup fallbacks never ran.
+    [Test]
+    public void Shutdown_ThrowingAbortFallback_StillAbortsRemainingOperationsAndSurfacesFailure()
+    {
+        var dispatcher = Dispatcher.Spawn();
+        dispatcher.Thread.IsBackground = true;
+        using var entered = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        var abortFailure = new InvalidOperationException("abort fallback failed");
+        Exception? secondAbortReason = null;
+        try
+        {
+            dispatcher.Dispatch(() =>
+            {
+                entered.Set();
+                release.Wait();
+            }, DispatchPriority.High);
+            Assert.That(entered.Wait(TimeSpan.FromSeconds(5)), Is.True);
+
+            Assert.That(dispatcher.TryDispatch(
+                static () => { }, _ => throw abortFailure, DispatchPriority.Low), Is.True);
+            Assert.That(dispatcher.TryDispatch(
+                static () => { }, ex => secondAbortReason = ex, DispatchPriority.Low), Is.True);
+
+            InvalidOperationException? surfaced =
+                Assert.Throws<InvalidOperationException>(dispatcher.Shutdown);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(surfaced, Is.SameAs(abortFailure),
+                    "the first abort-fallback failure surfaces after the sweep completes");
+                Assert.That(secondAbortReason, Is.InstanceOf<ObjectDisposedException>(),
+                    "a throwing abort fallback must not stop the remaining abort sweep");
+                Assert.That(dispatcher.HasShutdownStarted, Is.True,
+                    "shutdown still progresses when an abort fallback throws");
+            });
+        }
+        finally
+        {
+            release.Set();
+            Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(5)), Is.True);
         }
     }
 

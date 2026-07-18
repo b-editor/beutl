@@ -53,7 +53,7 @@ public class ProxyVideoLogicalSizeTests
         source.ReadFrom(new Uri(scope.OriginalPath));
         using var resource = source.ToResource(new CompositionContext(TimeSpan.Zero) { PreferProxy = true });
         var node = new VideoSourceRenderNode(resource, frame: 0, Brushes.Resource.White, null);
-        RenderNodeOperation[] operations = node.Process(new RenderNodeContext([]));
+        RenderNodeOperation[] operations = node.Process(new RenderNodeContext([], RenderIntent.Delivery));
 
         Assert.Multiple(() =>
         {
@@ -78,7 +78,7 @@ public class ProxyVideoLogicalSizeTests
         source.ReadFrom(new Uri(path));
         using var resource = source.ToResource(new CompositionContext(TimeSpan.Zero) { PreferProxy = false });
         var node = new VideoSourceRenderNode(resource, frame: 0, Brushes.Resource.White, null);
-        RenderNodeOperation[] operations = node.Process(new RenderNodeContext([]));
+        RenderNodeOperation[] operations = node.Process(new RenderNodeContext([], RenderIntent.Delivery));
 
         Assert.Multiple(() =>
         {
@@ -203,7 +203,7 @@ public class ProxyVideoLogicalSizeTests
             using var resource = source.ToResource(new CompositionContext(TimeSpan.Zero) { PreferProxy = true });
             using RenderTarget target = RenderTarget.Create(100, 80)!;
 
-            using (var canvas = new ImmediateCanvas(target, 1f))
+            using (var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 1f))
             {
                 canvas.Clear(Colors.Black);
                 canvas.DrawVideoSource(resource, 1, Brushes.Resource.White, null);
@@ -251,7 +251,7 @@ public class ProxyVideoLogicalSizeTests
             };
             scene.Children.Add(element);
 
-            using var renderer = new SceneRenderer(scene);
+            using var renderer = new SceneRenderer(scene, RenderIntent.Preview);
             renderer.Render(renderer.Compositor.EvaluateGraphics(TimeSpan.FromSeconds(1d / 30d)));
 
             using Bitmap snapshot = renderer.Snapshot();
@@ -299,7 +299,7 @@ public class ProxyVideoLogicalSizeTests
             };
             scene.Children.Add(element);
 
-            using var renderer = new SceneRenderer(scene);
+            using var renderer = new SceneRenderer(scene, RenderIntent.Preview);
             renderer.Render(renderer.Compositor.EvaluateGraphics(TimeSpan.FromSeconds(1d / 30d)));
 
             using Bitmap snapshot = renderer.Snapshot();
@@ -349,7 +349,7 @@ public class ProxyVideoLogicalSizeTests
             };
             scene.Children.Add(element);
 
-            using var renderer = new SceneRenderer(scene);
+            using var renderer = new SceneRenderer(scene, RenderIntent.Preview);
             renderer.Render(renderer.Compositor.EvaluateGraphics(TimeSpan.FromSeconds(1d / 30d)));
 
             using Bitmap snapshot = renderer.Snapshot();

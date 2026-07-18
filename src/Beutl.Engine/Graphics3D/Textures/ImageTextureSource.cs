@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Engine;
 using Beutl.Graphics.Backend;
+using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.Source;
@@ -25,8 +26,14 @@ public sealed partial class ImageTextureSource : TextureSource
 
         // A decoded bitmap has a fixed pixel count, so surfaceDensity is ignored here —
         // unlike DrawableTextureSource, whose vector content re-rasterizes at the surface density.
-        public override ITexture2D? GetTexture(IGraphicsContext graphicsContext, float surfaceDensity = 1f)
+        public override ITexture2D? GetTexture(
+            IGraphicsContext graphicsContext,
+            RenderIntent renderIntent,
+            RenderPullPurpose pullPurpose,
+            float surfaceDensity = 1f)
         {
+            RenderPolicyValidation.Validate(renderIntent, nameof(renderIntent));
+            RenderPolicyValidation.Validate(pullPurpose, nameof(pullPurpose));
             if (Source?.Bitmap == null)
             {
                 DisposeGpuTexture();
@@ -43,30 +50,60 @@ public sealed partial class ImageTextureSource : TextureSource
             {
                 DisposeGpuTexture();
 
-                using var linearBitmap = Source.Bitmap.Convert(
-                    Source.Bitmap.ColorType == BitmapColorType.RgbaF16
-                        ? BitmapColorType.RgbaF16
-                        : BitmapColorType.Bgra8888,
-                    BitmapAlphaType.Premul,
-                    BitmapColorSpace.LinearSrgb);
-
-                _gpuTexture = graphicsContext.CreateTexture2D(
-                    Source.FrameSize.Width,
-                    Source.FrameSize.Height,
-                    linearBitmap.ColorType == BitmapColorType.RgbaF16
-                        ? TextureFormat.RGBA16Float
-                        : TextureFormat.BGRA8Unorm);
-
-                // Upload pixel data
-                unsafe
+                ITexture2D? texture = null;
+                try
                 {
-                    var data = new ReadOnlySpan<byte>(
-                        (void*)linearBitmap.Data,
-                        linearBitmap.ByteCount);
-                    _gpuTexture.Upload(data);
-                }
+                    // The conversion allocates a full linear copy and can throw before any GPU work starts, so it
+                    // must sit inside the same preview/delivery failure-policy scope as allocation and upload.
+                    // Reading pixel properties on a disposed bitmap (a released weak-shared counter) faults
+                    // natively; surface it as a managed failure inside that scope instead.
+                    Bitmap sourceBitmap = Source.Bitmap;
+                    sourceBitmap.ThrowIfDisposed();
+                    using var linearBitmap = sourceBitmap.Convert(
+                        sourceBitmap.ColorType == BitmapColorType.RgbaF16
+                            ? BitmapColorType.RgbaF16
+                            : BitmapColorType.Bgra8888,
+                        BitmapAlphaType.Premul,
+                        BitmapColorSpace.LinearSrgb);
 
-                _gpuTextureVersion = Version;
+                    texture = graphicsContext.CreateTexture2D(
+                        Source.FrameSize.Width,
+                        Source.FrameSize.Height,
+                        linearBitmap.ColorType == BitmapColorType.RgbaF16
+                            ? TextureFormat.RGBA16Float
+                            : TextureFormat.BGRA8Unorm);
+
+                    // Upload pixel data
+                    unsafe
+                    {
+                        var data = new ReadOnlySpan<byte>(
+                            (void*)linearBitmap.Data,
+                            linearBitmap.ByteCount);
+                        texture.Upload(data);
+                    }
+
+                    _gpuTexture = texture;
+                    _gpuTextureVersion = Version;
+                }
+                catch
+                {
+                    try
+                    {
+                        texture?.Dispose();
+                    }
+                    catch
+                    {
+                        // Cleanup is best-effort. Delivery must preserve the allocation/upload failure, while
+                        // preview still degrades to a missing texture instead of surfacing a cleanup failure.
+                    }
+
+                    _gpuTexture = null;
+                    _gpuTextureVersion = -1;
+                    if (renderIntent == RenderIntent.Delivery)
+                        throw;
+
+                    return null;
+                }
             }
 
             return _gpuTexture;
@@ -74,13 +111,16 @@ public sealed partial class ImageTextureSource : TextureSource
 
         private void DisposeGpuTexture()
         {
-            _gpuTexture?.Dispose();
+            ITexture2D? gpuTexture = _gpuTexture;
             _gpuTexture = null;
+            _gpuTextureVersion = -1;
+            gpuTexture?.Dispose();
         }
 
         partial void PostDispose(bool disposing)
         {
-            DisposeGpuTexture();
+            if (disposing)
+                DisposeGpuTexture();
         }
     }
 }

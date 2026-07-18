@@ -9,8 +9,9 @@ using SkiaSharp;
 namespace Beutl.Graphics;
 
 public readonly struct BrushConstructor(
-    Rect bounds, Brush.Resource? brush, BlendMode blendMode, float scale = 1f,
-    float maxWorkingScale = float.PositiveInfinity)
+    Rect bounds, Brush.Resource? brush, BlendMode blendMode, RenderIntent renderIntent, float scale = 1f,
+    float maxWorkingScale = float.PositiveInfinity, PipelineDiagnostics? diagnostics = null,
+    RenderPullPurpose pullPurpose = RenderPullPurpose.Frame)
 {
     private static readonly ILogger s_logger = Log.CreateLogger("BrushConstructor");
 
@@ -29,12 +30,56 @@ public readonly struct BrushConstructor(
     /// <summary>Working-scale ceiling forwarded into nested pulls (e.g. <see cref="DrawableBrush"/>).</summary>
     public float MaxWorkingScale { get; } = RenderNodeContext.SanitizeMaxWorkingScale(maxWorkingScale);
 
+    /// <summary>Explicit preview/delivery failure policy for nested brush allocations.</summary>
+    public RenderIntent RenderIntent { get; } =
+        RenderPolicyValidation.Validate(renderIntent, nameof(renderIntent));
+
+    /// <summary>The pull purpose forwarded into nested drawable-brush rendering.</summary>
+    public RenderPullPurpose PullPurpose { get; } =
+        RenderPolicyValidation.Validate(pullPurpose, nameof(pullPurpose));
+
+    /// <summary>
+    /// The owning renderer's effect-pipeline counters when this brush is constructed <em>during effect
+    /// execution</em> (the migrated effects pass their pass's diagnostics), else <see langword="null"/> (standalone
+    /// 2D drawing / tooling). A <see cref="DrawableBrush"/> renders a nested drawable to produce its shader; threading
+    /// this makes that nested render observable on <c>IRenderer.Diagnostics</c> (FR-017): any effect inside the
+    /// drawable counts on it, and the brush's own composition buffers count <see cref="PipelineDiagnostics.TargetAllocations"/>.
+    /// The nested render is deliberately NOT pooled: a brush renders while its outer effect pass already holds its
+    /// declared pooled leases, and an extra pool lease here would exceed the plan's static peak-live bound
+    /// (execution-plan §C3.1, FR-007) — correctness over reuse.
+    /// </summary>
+    public PipelineDiagnostics? Diagnostics { get; } = diagnostics;
+
+    /// <summary>
+    /// Whether <see cref="CreateShader"/> would return a non-null shader for <paramref name="brush"/>, decided from
+    /// the brush's SHAPE alone — no rendering, no target allocation, no GPU work (contract A1 / FR-001). This mirrors
+    /// every null-return branch of <see cref="CreateShader"/> so a describe-time author can decide "does this brush
+    /// yield a shader" without the describe-time render the removed <see cref="DisplacementMapTransform"/> probe did:
+    /// a null/unknown brush, a <see cref="BrushPresenter"/> with no target, a gradient with no stops, an image brush
+    /// with no bitmap, or a drawable brush with no drawable yields nothing. A brush WITH content (a drawable/image
+    /// brush) is reported as producing a shader here; whether its allocation later succeeds is a render-time concern
+    /// (an image brush without a bitmap instead throws in <see cref="CreateShader"/>, so this reports it as no-shader).
+    /// </summary>
+    public static bool CanCreateShader(Brush.Resource? brush) => brush switch
+    {
+        BrushPresenter.Resource presenter => presenter.Target is { } target && CanCreateShader(target),
+        SolidColorBrush.Resource => true,
+        GradientBrush.Resource gradient => gradient.GradientStops.Count > 0,
+        ImageBrush.Resource image => image.Source?.Bitmap is not null,
+        DrawableBrush.Resource drawable => drawable.Drawable is not null,
+        PerlinNoiseBrush.Resource perlin =>
+            perlin.PerlinNoiseType is PerlinNoiseType.Turbulence or PerlinNoiseType.Fractal,
+        _ => false,
+    };
+
     public void ConfigurePaint(SKPaint paint)
     {
         // Handle BrushPresenter by delegating to the target brush
         if (Brush is BrushPresenter.Resource presenter && presenter.Target != null)
         {
-            new BrushConstructor(Bounds, presenter.Target, BlendMode, Scale, MaxWorkingScale).ConfigurePaint(paint);
+            new BrushConstructor(
+                Bounds, presenter.Target, BlendMode, RenderIntent, Scale, MaxWorkingScale, Diagnostics, PullPurpose)
+                .ConfigurePaint(paint);
             return;
         }
 
@@ -71,7 +116,9 @@ public readonly struct BrushConstructor(
         // Handle BrushPresenter by delegating to the target brush
         if (Brush is BrushPresenter.Resource presenter && presenter.Target != null)
         {
-            return new BrushConstructor(Bounds, presenter.Target, BlendMode, Scale, MaxWorkingScale).CreateShader();
+            return new BrushConstructor(
+                Bounds, presenter.Target, BlendMode, RenderIntent, Scale, MaxWorkingScale, Diagnostics, PullPurpose)
+                .CreateShader();
         }
 
         float opacity = (Brush?.Opacity ?? 0) / 100f;
@@ -250,13 +297,19 @@ public readonly struct BrushConstructor(
             using var node = new DrawableRenderNode(drawable);
             using var context = new GraphicsContext2D(node, new Size((int)Bounds.Width, (int)Bounds.Height), s);
             drawable.GetOriginal().Render(context, drawable);
-            var processor = new RenderNodeProcessor(node, true, s, MaxWorkingScale);
+            // Thread the owning renderer's diagnostics (not the pool) into the nested pull: an effect inside the
+            // drawable then counts on IRenderer.Diagnostics (FR-017) instead of a throwaway instance. The pool is
+            // deliberately withheld — see the Diagnostics doc (FR-007 static peak-live bound).
+            var processor = new RenderNodeProcessor(
+                node, true, RenderIntent, s, MaxWorkingScale, Diagnostics,
+                pullPurpose: PullPurpose);
             var ops = processor.RasterizeToRenderTargets();
             var totalBounds = ops.Aggregate(Rect.Empty, (current, item) => current.Union(item.Bounds));
 
             int dw = Math.Max(1, (int)MathF.Ceiling((float)totalBounds.Width * s));
             int dh = Math.Max(1, (int)MathF.Ceiling((float)totalBounds.Height * s));
-            renderTarget = RenderTarget.Create(dw, dh);
+            // Non-pooled but counted: Acquire(null, …) allocates directly yet records TargetAllocations.
+            renderTarget = RenderTargetPool.Acquire(null, dw, dh, Diagnostics);
             if (renderTarget == null)
             {
                 // Dispose ops that the blit loop below would have consumed.
@@ -272,7 +325,8 @@ public readonly struct BrushConstructor(
             }
 
             // Density 1: raw device-px blits with hand-computed offsets (no base CTM re-scale).
-            using (var icanvas = new ImmediateCanvas(renderTarget, 1f, MaxWorkingScale))
+            using (var icanvas = new ImmediateCanvas(
+                       renderTarget, RenderIntent, 1f, MaxWorkingScale, pullPurpose: PullPurpose))
             {
                 icanvas.Clear();
 
@@ -303,7 +357,7 @@ public readonly struct BrushConstructor(
             int iw = Math.Max(1, (int)MathF.Ceiling((float)calc.IntermediateSize.Width * s));
             int ih = Math.Max(1, (int)MathF.Ceiling((float)calc.IntermediateSize.Height * s));
 
-            intermediate = RenderTarget.Create(iw, ih);
+            intermediate = RenderTargetPool.Acquire(null, iw, ih, Diagnostics);
             if (intermediate == null)
             {
                 s_logger.LogWarning(
@@ -315,7 +369,8 @@ public readonly struct BrushConstructor(
             }
 
             // Density 1: the SetMatrix below builds an absolute device matrix with Scale(s) folded in.
-            using (var canvas = new ImmediateCanvas(intermediate, 1f, MaxWorkingScale))
+            using (var canvas = new ImmediateCanvas(
+                       intermediate, RenderIntent, 1f, MaxWorkingScale, pullPurpose: PullPurpose))
             using (var paintTmp = new SKPaint())
             {
                 canvas.Canvas.Clear();
@@ -379,7 +434,7 @@ public readonly struct BrushConstructor(
 
     private void ThrowIfDeliveryAllocationFailure(string message)
     {
-        if (float.IsPositiveInfinity(MaxWorkingScale))
+        if (RenderIntent == RenderIntent.Delivery)
         {
             throw new InvalidOperationException(message);
         }

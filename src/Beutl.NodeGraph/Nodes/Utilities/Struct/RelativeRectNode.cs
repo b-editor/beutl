@@ -31,7 +31,7 @@ public partial class RelativeRectNode : GraphNode
 
     public partial class Resource
     {
-        public override void Update(GraphCompositionContext context)
+        protected override void UpdateCore(GraphCompositionContext context)
         {
             Value = new RelativeRect(new Point(X, Y), new Size(Width, Height), Unit);
         }

@@ -19,7 +19,7 @@ public partial class PreviewNode : GraphNode
 
     public partial class Resource
     {
-        public override void Update(GraphCompositionContext context)
+        protected override void UpdateCore(GraphCompositionContext context)
         {
             var node = GetOriginal();
             if (!node._preview.IsEnabled)
@@ -28,7 +28,8 @@ public partial class PreviewNode : GraphNode
             if (Input is RenderNode renderNode)
             {
                 // Scale 1 intentional: GraphCompositionContext carries no output scale; thumbnails are logical-res.
-                var processor = new RenderNodeProcessor(renderNode, true);
+                var processor = new RenderNodeProcessor(
+                    renderNode, true, RenderIntent.Preview, pullPurpose: RenderPullPurpose.Auxiliary);
                 var bitmap = processor.RasterizeAndConcat();
                 node._preview.Value?.Dispose();
                 node._preview.Value = Ref<Bitmap>.Create(bitmap);

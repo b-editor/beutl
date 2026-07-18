@@ -317,7 +317,7 @@ public class ResolutionScaleTests
     [TestCase(float.PositiveInfinity)]
     public void RenderNodeContext_SanitizesDegenerateOutputScaleToOne(float bad)
     {
-        var ctx = new RenderNodeContext([], outputScale: bad);
+        var ctx = new RenderNodeContext([], RenderIntent.Delivery, outputScale: bad);
         Assert.That(ctx.OutputScale, Is.EqualTo(1f));
     }
 
@@ -326,7 +326,7 @@ public class ResolutionScaleTests
     [TestCase(-1f)]
     public void RenderNodeContext_DegenerateMaxWorkingScale_IsTreatedAsNoCeiling(float bad)
     {
-        var ctx = new RenderNodeContext([], outputScale: 1f, maxWorkingScale: bad);
+        var ctx = new RenderNodeContext([], RenderIntent.Delivery, outputScale: 1f, maxWorkingScale: bad);
         Assert.That(ctx.MaxWorkingScale, Is.EqualTo(float.PositiveInfinity));
         // and it must not pull a resolved working scale to zero / NaN
         float w = RenderNodeContext.ResolveWorkingScale([EffectiveScale.At(3f)], 1f, ctx.MaxWorkingScale);
@@ -339,7 +339,7 @@ public class ResolutionScaleTests
     public void RenderNodeProcessor_DegenerateMaxWorkingScale_IsTreatedAsNoCeiling(float bad)
     {
         using var node = new OperationWrapperRenderNode();
-        var processor = new RenderNodeProcessor(node, false, 1f, bad);
+        var processor = new RenderNodeProcessor(node, false, RenderIntent.Delivery, 1f, bad);
         Assert.That(processor.MaxWorkingScale, Is.EqualTo(float.PositiveInfinity));
     }
 
@@ -349,7 +349,7 @@ public class ResolutionScaleTests
     public void RenderNodeProcessor_DegenerateOutputScale_DefaultsToOne(float bad)
     {
         using var node = new OperationWrapperRenderNode();
-        var processor = new RenderNodeProcessor(node, false, bad);
+        var processor = new RenderNodeProcessor(node, false, RenderIntent.Delivery, bad);
         Assert.That(processor.OutputScale, Is.EqualTo(1f));
     }
 
@@ -359,11 +359,11 @@ public class ResolutionScaleTests
     public void DeviceBufferSize_MatchesCreateTargetFormula()
     {
         // Must match CreateTarget: (int) truncation at w==1, ceil(bounds * w) at w!=1.
-        Assert.That(CustomFilterEffectContext.DeviceBufferSize(new Rect(0, 0, 100.7f, 50.2f), 1f),
+        Assert.That(RenderNodeContext.DeviceBufferSize(new Rect(0, 0, 100.7f, 50.2f), 1f),
             Is.EqualTo((100, 50)), "w == 1 truncates");
-        Assert.That(CustomFilterEffectContext.DeviceBufferSize(new Rect(0, 0, 100.0f, 50.0f), 2f),
+        Assert.That(RenderNodeContext.DeviceBufferSize(new Rect(0, 0, 100.0f, 50.0f), 2f),
             Is.EqualTo((200, 100)), "integral bounds * w stays integral");
-        Assert.That(CustomFilterEffectContext.DeviceBufferSize(new Rect(0, 0, 100.3f, 50.1f), 2f),
+        Assert.That(RenderNodeContext.DeviceBufferSize(new Rect(0, 0, 100.3f, 50.1f), 2f),
             Is.EqualTo((201, 101)), "fractional bounds * w ceils up");
     }
 
@@ -376,7 +376,7 @@ public class ResolutionScaleTests
         // Unbounded supply density; a wrongly-concrete value would inflate the upstream working scale.
         using var node = new LayerRenderNode(new Rect(0, 0, 100, 100));
 
-        RenderNodeOperation[] result = node.Process(new RenderNodeContext([]));
+        RenderNodeOperation[] result = node.Process(new RenderNodeContext([], RenderIntent.Delivery));
         try
         {
             Assert.That(result, Has.Length.EqualTo(1));
@@ -403,7 +403,7 @@ public class ResolutionScaleTests
             effectiveScale: EffectiveScale.At(0.5f));
         node.SetOperations([op]);
 
-        RenderNodeOperation[] result = node.Process(new RenderNodeContext([]));
+        RenderNodeOperation[] result = node.Process(new RenderNodeContext([], RenderIntent.Delivery));
         try
         {
             Assert.That(result, Has.Length.EqualTo(1));
@@ -415,6 +415,43 @@ public class ResolutionScaleTests
         {
             foreach (RenderNodeOperation r in result)
                 r.Dispose();
+        }
+    }
+
+    [Test]
+    public void OperationWrapperSetOperations_PreviousCleanupFailureReleasesReplacementAndClearsState()
+    {
+        using var node = new OperationWrapperRenderNode();
+        var previousFailure = new InvalidOperationException("simulated previous-operation cleanup failure");
+        bool replacementDisposed = false;
+        RenderNodeOperation previous = RenderNodeOperation.CreateLambda(
+            new Rect(0, 0, 1, 1),
+            render: static _ => { },
+            onDispose: () => throw previousFailure);
+        RenderNodeOperation replacement = RenderNodeOperation.CreateLambda(
+            new Rect(0, 0, 1, 1),
+            render: static _ => { },
+            onDispose: () => replacementDisposed = true);
+        node.SetOperations([previous]);
+
+        InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(
+            () => node.SetOperations([replacement]));
+        RenderNodeOperation[] retained = node.Process(new RenderNodeContext([], RenderIntent.Delivery));
+        try
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(actual, Is.SameAs(previousFailure),
+                    "replacement cleanup must not replace the original disposal failure");
+                Assert.That(replacementDisposed, Is.True,
+                    "a failed replacement must immediately release the newly acquired operation");
+                Assert.That(retained, Is.Empty,
+                    "a failed replacement must leave the wrapper empty instead of pinning the new operation");
+            });
+        }
+        finally
+        {
+            RenderNodeOperation.DisposeAll(retained);
         }
     }
 }

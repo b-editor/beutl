@@ -111,16 +111,15 @@ void main() {
     /// </summary>
     public void ResizeShadowMap(int size)
     {
+        ThrowIfNotInitialized();
         CreateShadowMap(size, size);
     }
 
     private void CreateShadowMap(int width, int height)
     {
         // Dispose old resources
-        Framebuffer?.Dispose();
-        RenderPass?.Dispose();
-        ShadowDepthTexture?.Dispose();
-        DummyColorTexture?.Dispose();
+        Graphics3DDisposal.DisposeAll(
+            Framebuffer, RenderPass, ShadowDepthTexture, DummyColorTexture);
 
         // Create shadow depth texture
         ShadowDepthTexture = Context.CreateTexture2D(width, height, TextureFormat.Depth32Float);
@@ -173,6 +172,7 @@ void main() {
     /// </summary>
     public void SetupForDirectionalLight(DirectionalLight3D.Resource light, Vector3 sceneCenter, float sceneRadius)
     {
+        ThrowIfNotInitialized();
         var direction = light.Direction;
         if (direction == Vector3.Zero)
             direction = new Vector3(0, -1, 0);
@@ -198,6 +198,7 @@ void main() {
     /// </summary>
     public void SetupForSpotLight(SpotLight3D.Resource light)
     {
+        ThrowIfNotInitialized();
         var position = light.Position;
         var direction = light.Direction;
         if (direction == Vector3.Zero)
@@ -226,6 +227,7 @@ void main() {
     /// </summary>
     public void Execute(IReadOnlyList<Object3D.Resource> objects)
     {
+        ThrowIfNotInitialized();
         if (Framebuffer == null || RenderPass == null || _shadowPipeline == null)
             return;
 
@@ -295,10 +297,7 @@ void main() {
 
     protected override void OnDispose()
     {
-        _shadowPipeline?.Dispose();
-        Framebuffer?.Dispose();
-        RenderPass?.Dispose();
-        ShadowDepthTexture?.Dispose();
-        DummyColorTexture?.Dispose();
+        Graphics3DDisposal.DisposeAll(
+            _shadowPipeline, Framebuffer, RenderPass, ShadowDepthTexture, DummyColorTexture);
     }
 }

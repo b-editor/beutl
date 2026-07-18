@@ -1,5 +1,6 @@
 ﻿using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
+using Beutl.Media;
 using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
@@ -28,7 +29,7 @@ public class RenderNodeProcessorExceptionSafetyTests
             CreateOperation("first", disposed),
             CreateOperation("fault", disposed, throwOnRender: true),
             CreateOperation("remaining", disposed));
-        var processor = new RenderNodeProcessor(node, useRenderCache: false);
+        var processor = new RenderNodeProcessor(node, useRenderCache: false, RenderIntent.Delivery);
 
         var ex = Assert.Throws<InvalidOperationException>(() => rasterize(processor));
 
@@ -44,7 +45,7 @@ public class RenderNodeProcessorExceptionSafetyTests
             CreateOperation("first", disposed),
             CreateOperation("fault", disposed, throwOnDispose: true),
             CreateOperation("remaining", disposed));
-        var processor = new RenderNodeProcessor(node, useRenderCache: false);
+        var processor = new RenderNodeProcessor(node, useRenderCache: false, RenderIntent.Delivery);
 
         // A double-dispose would re-run the faulting op's OnDispose (use-after-free for GPU-backed
         // ops) and skip the remaining op, so the faulting op must be disposed exactly once.
@@ -60,7 +61,7 @@ public class RenderNodeProcessorExceptionSafetyTests
     {
         var disposed = new List<string>();
         using var node = CreateRenderThrowWithThrowingRemainingOps(disposed);
-        var processor = new RenderNodeProcessor(node, useRenderCache: false);
+        var processor = new RenderNodeProcessor(node, useRenderCache: false, RenderIntent.Delivery);
 
         var ex = Assert.Throws<InvalidOperationException>(() => rasterize(processor));
 
@@ -87,7 +88,7 @@ public class RenderNodeProcessorExceptionSafetyTests
             CreateOperation("render-fault", disposed, throwOnRender: true, throwOnDispose: true,
                 disposeFaultMessage: "dispose-fault"),
             CreateOperation("remaining", disposed));
-        var processor = new RenderNodeProcessor(node, useRenderCache: false);
+        var processor = new RenderNodeProcessor(node, useRenderCache: false, RenderIntent.Delivery);
 
         var ex = Assert.Throws<InvalidOperationException>(() => rasterize(processor));
 
@@ -167,10 +168,10 @@ public class RenderNodeProcessorExceptionSafetyTests
             CreateOperation("first", disposed),
             CreateOperation("fault", disposed, throwOnRender: true),
             CreateOperation("remaining", disposed));
-        var processor = new RenderNodeProcessor(node, useRenderCache: false);
+        var processor = new RenderNodeProcessor(node, useRenderCache: false, RenderIntent.Delivery);
 
         using var renderTarget = RenderTarget.CreateNull(4, 4);
-        using var canvas = new ImmediateCanvas(renderTarget);
+        using var canvas = new ImmediateCanvas(renderTarget, RenderIntent.Delivery);
 
         var ex = Assert.Throws<InvalidOperationException>(() => processor.Render(canvas));
 
@@ -188,15 +189,103 @@ public class RenderNodeProcessorExceptionSafetyTests
             CreateOperation("first", disposed),
             CreateOperation("fault", disposed, throwOnDispose: true),
             CreateOperation("remaining", disposed));
-        var processor = new RenderNodeProcessor(node, useRenderCache: false);
+        var processor = new RenderNodeProcessor(node, useRenderCache: false, RenderIntent.Delivery);
 
         using var renderTarget = RenderTarget.CreateNull(4, 4);
-        using var canvas = new ImmediateCanvas(renderTarget);
+        using var canvas = new ImmediateCanvas(renderTarget, RenderIntent.Delivery);
 
         var ex = Assert.Throws<InvalidOperationException>(() => processor.Render(canvas));
 
         Assert.That(ex!.Message, Is.EqualTo("fault"));
         Assert.That(disposed, Is.EqualTo(new[] { "first", "fault", "remaining" }));
+    }
+
+    [Test]
+    public void Pull_DisposesCompletedChildOperations_WhenLaterChildPullThrows()
+    {
+        var pullFailure = new InvalidOperationException("child-pull-fault");
+        var disposed = new List<string>();
+        using var root = new ContainerRenderNode();
+        root.AddChild(new StaticRenderNode(
+            CreateOperation("throwing-cleanup", disposed, throwOnDispose: true),
+            CreateOperation("remaining-cleanup", disposed)));
+        root.AddChild(new ThrowingProcessNode(pullFailure));
+        var processor = new RenderNodeProcessor(root, useRenderCache: false, RenderIntent.Delivery);
+
+        InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => processor.PullToRoot());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(actual, Is.SameAs(pullFailure),
+                "cleanup failures must not replace the child pull failure");
+            Assert.That(disposed, Is.EqualTo(new[] { "throwing-cleanup", "remaining-cleanup" }));
+        });
+    }
+
+    [Test]
+    public void Pull_ProcessFailure_SweepsEveryInputAndPreservesProcessException()
+    {
+        var processFailure = new InvalidOperationException("process-fault");
+        var disposed = new List<string>();
+        using var root = new ThrowingContainerNode(processFailure);
+        root.AddChild(new StaticRenderNode(
+            CreateOperation("throwing-cleanup", disposed, throwOnDispose: true),
+            CreateOperation("remaining-cleanup", disposed)));
+        var processor = new RenderNodeProcessor(root, useRenderCache: false, RenderIntent.Delivery);
+
+        InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() => processor.PullToRoot());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(actual, Is.SameAs(processFailure));
+            Assert.That(disposed, Is.EqualTo(new[] { "throwing-cleanup", "remaining-cleanup" }));
+        });
+    }
+
+    [Test]
+    public void Pull_BookkeepingFailure_SweepsDistinctResultAndEveryInput()
+    {
+        var disposed = new List<string>();
+        using var root = new CacheDisablingResultNode(disposed);
+        root.AddChild(new StaticRenderNode(CreateOperation("input", disposed)));
+        root.Cache.Dispose();
+        var processor = new RenderNodeProcessor(root, useRenderCache: true, RenderIntent.Delivery);
+
+        Assert.Throws<ObjectDisposedException>(() => processor.PullToRoot());
+
+        Assert.That(disposed, Is.EqualTo(new[] { "result", "input" }));
+    }
+
+    [Test]
+    public void RasterizeAndConcat_BoundsFailure_SweepsEveryOperationAndPreservesBoundsException()
+    {
+        var boundsFailure = new InvalidOperationException("bounds-fault");
+        var disposed = new List<string>();
+        using var node = new StaticRenderNode(
+            new ThrowingBoundsOperation(boundsFailure, "bounds", disposed, throwOnDispose: true),
+            CreateOperation("remaining", disposed, throwOnDispose: true));
+        var processor = new RenderNodeProcessor(node, useRenderCache: false, RenderIntent.Delivery);
+
+        InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(
+            () => processor.RasterizeAndConcat());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(actual, Is.SameAs(boundsFailure));
+            Assert.That(disposed, Is.EqualTo(new[] { "bounds", "remaining" }));
+        });
+    }
+
+    [Test]
+    public void CreateChildProcessor_InheritsParentRenderTargetAllocator()
+    {
+        using var root = new ChildRasterizingNode();
+        var processor = new FakeRenderNodeProcessor(root, _ => false, throwOnCreate: true);
+
+        InvalidOperationException? error = Assert.Throws<InvalidOperationException>(() => processor.PullToRoot());
+
+        Assert.That(error!.Message, Is.EqualTo("rt-create-fault"),
+            "nested rasterization must use the allocation policy supplied by the parent processor");
     }
 
     [Test]
@@ -212,6 +301,21 @@ public class RenderNodeProcessorExceptionSafetyTests
 
         Assert.DoesNotThrow(() => RenderNodeOperation.DisposeAll(ops));
         Assert.That(disposed, Is.EqualTo(new[] { "first", "throws", "remaining" }));
+    }
+
+    [Test]
+    public void DisposeAll_SkipsUnfilledOperationSlots()
+    {
+        var disposed = new List<string>();
+        RenderNodeOperation[] ops =
+        [
+            CreateOperation("first", disposed),
+            null!,
+            CreateOperation("remaining", disposed),
+        ];
+
+        Assert.DoesNotThrow(() => RenderNodeOperation.DisposeAll(ops));
+        Assert.That(disposed, Is.EqualTo(new[] { "first", "remaining" }));
     }
 
     // RasterizeToRenderTargets keeps successfully-rendered targets in a list, so a list-resident
@@ -322,6 +426,61 @@ public class RenderNodeProcessorExceptionSafetyTests
         public override RenderNodeOperation[] Process(RenderNodeContext context) => operations;
     }
 
+    private sealed class ThrowingProcessNode(Exception exception) : RenderNode
+    {
+        public override RenderNodeOperation[] Process(RenderNodeContext context) => throw exception;
+    }
+
+    private sealed class ThrowingContainerNode(Exception exception) : ContainerRenderNode
+    {
+        public override RenderNodeOperation[] Process(RenderNodeContext context) => throw exception;
+    }
+
+    private sealed class CacheDisablingResultNode(ICollection<string> disposed) : ContainerRenderNode
+    {
+        public override RenderNodeOperation[] Process(RenderNodeContext context)
+        {
+            context.IsRenderCacheEnabled = false;
+            return [CreateOperation("result", disposed, throwOnDispose: true)];
+        }
+    }
+
+    private sealed class ThrowingBoundsOperation(
+        Exception exception,
+        string name,
+        ICollection<string> disposed,
+        bool throwOnDispose) : RenderNodeOperation
+    {
+        public override Rect Bounds => throw exception;
+
+        public override void Render(ImmediateCanvas canvas)
+        {
+        }
+
+        public override bool HitTest(Point point) => false;
+
+        protected override void OnDispose(bool disposing)
+        {
+            disposed.Add(name);
+            if (throwOnDispose)
+                throw new InvalidOperationException($"{name}-dispose-fault");
+        }
+    }
+
+    private sealed class ChildRasterizingNode : RenderNode
+    {
+        public override RenderNodeOperation[] Process(RenderNodeContext context)
+        {
+            using var child = new StaticRenderNode(
+                CreateOperation("nested", new List<string>()));
+            RenderNodeProcessor processor = context.CreateChildProcessor(child, useRenderCache: false);
+            List<Bitmap> bitmaps = processor.Rasterize();
+            foreach (Bitmap bitmap in bitmaps)
+                bitmap.Dispose();
+            return [];
+        }
+    }
+
     // Substitutes RenderTarget allocation so the exception-safety paths can run with a RenderTarget
     // whose Dispose() throws, or with a failing/null allocation, none of which a real GPU target offers.
     private sealed class FakeRenderNodeProcessor(
@@ -329,7 +488,7 @@ public class RenderNodeProcessorExceptionSafetyTests
         Func<int, bool> shouldThrowOnDispose,
         bool throwOnCreate = false,
         bool returnNullOnCreate = false)
-        : RenderNodeProcessor(root, useRenderCache: false)
+        : RenderNodeProcessor(root, useRenderCache: false, RenderIntent.Delivery)
     {
         public List<FakeRenderTarget> CreatedTargets { get; } = new();
 

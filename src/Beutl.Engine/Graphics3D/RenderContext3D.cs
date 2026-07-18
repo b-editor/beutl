@@ -1,6 +1,7 @@
 ﻿using System.Numerics;
 using Beutl.Composition;
 using Beutl.Graphics.Backend;
+using Beutl.Graphics.Rendering;
 using Beutl.Graphics3D.Lighting;
 
 namespace Beutl.Graphics3D;
@@ -28,6 +29,8 @@ public readonly struct RenderContext3D
         Vector3 ambientColor,
         IReadOnlyList<LightData> lights,
         CompositionContext compositionContext,
+        RenderIntent renderIntent,
+        RenderPullPurpose pullPurpose,
         float surfaceDensity = 1f)
     {
         GraphicsContext = graphicsContext;
@@ -39,6 +42,8 @@ public readonly struct RenderContext3D
         AmbientColor = ambientColor;
         Lights = lights;
         CompositionContext = compositionContext;
+        RenderIntent = RenderPolicyValidation.Validate(renderIntent, nameof(renderIntent));
+        PullPurpose = RenderPolicyValidation.Validate(pullPurpose, nameof(pullPurpose));
         SurfaceDensity = surfaceDensity;
     }
 
@@ -87,6 +92,12 @@ public readonly struct RenderContext3D
     /// May be null if not provided during 3D rendering.
     /// </summary>
     public CompositionContext CompositionContext { get; }
+
+    /// <summary>The preview/delivery failure policy for nested material texture rendering.</summary>
+    public RenderIntent RenderIntent { get; }
+
+    /// <summary>The pull purpose propagated to nested material texture rendering.</summary>
+    public RenderPullPurpose PullPurpose { get; }
 
     /// <summary>
     /// The surface render density (device px per logical unit), mirroring <see cref="IRenderer3D.SurfaceDensity"/>.

@@ -16,7 +16,7 @@ public class FilterEffectRenderNodeTest
                 canvas => canvas.DrawEllipse(new Rect(0, 0, 100, 100), Brushes.Resource.White, null),
                 point => false
             )
-        ]);
+        ], RenderIntent.Delivery);
     }
 
     [Test]
@@ -24,7 +24,7 @@ public class FilterEffectRenderNodeTest
     {
         var effect = new Blur();
         var resource = effect.ToResource(CompositionContext.Default);
-        var node = new FilterEffectRenderNode(resource);
+        var node = new PlanFilterEffectRenderNode(resource);
         var context = CreateRenderNodeContext();
         var operations = node.Process(context);
 
@@ -36,7 +36,7 @@ public class FilterEffectRenderNodeTest
     {
         var effect = new Blur() { Sigma = { CurrentValue = new(10, 10) } };
         var resource = effect.ToResource(CompositionContext.Default);
-        var node = new FilterEffectRenderNode(resource);
+        var node = new PlanFilterEffectRenderNode(resource);
         var context = CreateRenderNodeContext();
         var operations = node.Process(context);
 
@@ -52,7 +52,7 @@ public class FilterEffectRenderNodeTest
     {
         var effect = new Blur();
         var resource = effect.ToResource(CompositionContext.Default);
-        var node = new FilterEffectRenderNode(resource);
+        var node = new PlanFilterEffectRenderNode(resource);
 
         var result = node.Update(resource);
 
@@ -65,7 +65,7 @@ public class FilterEffectRenderNodeTest
     {
         var effect = new Blur();
         var resource = effect.ToResource(CompositionContext.Default);
-        var node = new FilterEffectRenderNode(resource);
+        var node = new PlanFilterEffectRenderNode(resource);
         effect.Sigma.CurrentValue = new(10, 10);
         var updateOnly = false;
         resource.Update(effect, CompositionContext.Default, ref updateOnly);
@@ -82,10 +82,50 @@ public class FilterEffectRenderNodeTest
         var effect2 = new DropShadow();
         var effectResource1 = effect1.ToResource(CompositionContext.Default);
         var effectResource2 = effect2.ToResource(CompositionContext.Default);
-        var node = new FilterEffectRenderNode(effectResource1);
+        var node = new PlanFilterEffectRenderNode(effectResource1);
 
         var result = node.Update(effectResource2);
 
         Assert.That(result, Is.True);
+    }
+
+    [Test]
+    public void FinalizerDispose_DoesNotPropagateChildCleanupFailure()
+    {
+        var effect = new Blur();
+        using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
+        var node = new FinalizerProbePlanNode(resource);
+        var child = new ThrowingDisposeNode();
+        node.AddChild(child);
+        try
+        {
+            Assert.DoesNotThrow(node.DisposeFromFinalizerForTest,
+                "cleanup failures must never escape the RenderNode finalizer path");
+            Assert.That(child.DisposeCount, Is.EqualTo(1));
+        }
+        finally
+        {
+            GC.SuppressFinalize(node);
+            GC.SuppressFinalize(child);
+        }
+    }
+
+    private sealed class FinalizerProbePlanNode(FilterEffect.Resource resource)
+        : PlanFilterEffectRenderNode(resource)
+    {
+        public void DisposeFromFinalizerForTest() => OnDispose(disposing: false);
+    }
+
+    private sealed class ThrowingDisposeNode : RenderNode
+    {
+        public int DisposeCount { get; private set; }
+
+        public override RenderNodeOperation[] Process(RenderNodeContext context) => [];
+
+        protected override void OnDispose(bool disposing)
+        {
+            DisposeCount++;
+            throw new InvalidOperationException("simulated child cleanup failure");
+        }
     }
 }

@@ -6,6 +6,7 @@ using Beutl.Audio.Composing;
 using Beutl.Audio.Graph;
 using Beutl.Composition;
 using Beutl.Engine;
+using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Serialization;
 using Beutl.Threading;
@@ -88,7 +89,12 @@ public sealed partial class SourceSound : IThumbnailsProvider
         IThumbnailCacheService? cacheService,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        using var resource = ToResource(CompositionContext.Default);
+        // Waveform generation is preview-only auxiliary work and must not alter retained frame state in nested
+        // sound/effect resources.
+        using var resource = ToResource(new CompositionContext(
+            TimeSpan.Zero,
+            RenderIntent.Preview,
+            RenderPullPurpose.Auxiliary));
         if (resource.Source == null)
             yield break;
 
@@ -112,8 +118,13 @@ public sealed partial class SourceSound : IThumbnailsProvider
         double chunkDurationSecs = duration.TotalSeconds / chunkCount;
         var cacheThreshold = TimeSpan.FromSeconds(chunkDurationSecs * 0.5);
 
-        using var composer = new Composer { SampleRate = sampleRate };
-        var frame = new CompositionFrame([resource], TimeRange, default);
+        using var composer = new Composer(RenderIntent.Preview) { SampleRate = sampleRate };
+        var frame = new CompositionFrame(
+            [resource],
+            TimeRange,
+            default,
+            RenderIntent.Preview,
+            RenderPullPurpose.Auxiliary);
 
         for (int chunkIndex = 0; chunkIndex < chunkCount; chunkIndex++)
         {

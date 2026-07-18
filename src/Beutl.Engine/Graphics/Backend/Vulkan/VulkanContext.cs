@@ -93,6 +93,12 @@ internal sealed class VulkanContext : IGraphicsContext
     public GRContext SkiaContext => _skiaContext ?? throw new InvalidOperationException(
         "SkiaSharp Vulkan context is not initialized. Make sure the Vulkan context was created successfully.");
 
+    /// <summary>
+    /// The Skia context, or <see langword="null"/> when it was never created (MoltenVK) or the
+    /// context is already disposed. For teardown paths that must not throw.
+    /// </summary>
+    internal GRContext? SkiaContextOrNull => _skiaContext;
+
     public Vk Vk => _vulkanInstance.Vk;
 
     public Instance Instance => _vulkanInstance.Instance;
@@ -109,6 +115,9 @@ internal sealed class VulkanContext : IGraphicsContext
         _vulkanInstance.EnabledExtensions.Concat(_vulkanDevice.EnabledExtensions);
 
     public bool Supports3DRendering => true;
+
+    internal static void SetBeforeImmediateSubmitForTest(Action? callback)
+        => VulkanCommandPool.SetBeforeImmediateSubmitForTest(callback);
 
     public ITexture2D CreateTexture2D(int width, int height, TextureFormat format)
     {
@@ -162,19 +171,74 @@ internal sealed class VulkanContext : IGraphicsContext
 
     public IRenderPass3D CreateRenderPass3D(
         IReadOnlyList<TextureFormat> colorFormats,
-        TextureFormat depthFormat = TextureFormat.Depth32Float,
+        TextureFormat? depthFormat,
         AttachmentLoadOp colorLoadOp = AttachmentLoadOp.Clear,
         AttachmentLoadOp depthLoadOp = AttachmentLoadOp.Clear)
     {
+        if (depthFormat is { } format && !format.IsDepthFormat())
+            throw new ArgumentException("The depth attachment format must be a depth format.", nameof(depthFormat));
+
         var vulkanColorFormats = colorFormats.Select(f => f.ToVulkanFormat()).ToList();
-        return new VulkanRenderPass3D(this, vulkanColorFormats, depthFormat.ToVulkanFormat(), colorLoadOp, depthLoadOp);
+        Format? vulkanDepthFormat = depthFormat?.ToVulkanFormat();
+        return new VulkanRenderPass3D(this, vulkanColorFormats, vulkanDepthFormat, colorLoadOp, depthLoadOp);
     }
 
-    public IFramebuffer3D CreateFramebuffer3D(IRenderPass3D renderPass, IReadOnlyList<ITexture2D> colorTextures, ITexture2D depthTexture)
+    public IFramebuffer3D CreateFramebuffer3D(
+        IRenderPass3D renderPass, IReadOnlyList<ITexture2D> colorTextures, ITexture2D? depthTexture)
     {
         var vulkanRenderPass = (VulkanRenderPass3D)renderPass;
         var vulkanColorTextures = colorTextures.Cast<VulkanTexture2D>().ToList();
-        var vulkanDepthTexture = (VulkanTexture2D)depthTexture;
+        var vulkanDepthTexture = (VulkanTexture2D?)depthTexture;
+        if (vulkanColorTextures.Count != vulkanRenderPass.ColorAttachmentCount)
+        {
+            throw new ArgumentException(
+                "The framebuffer color texture count must match the render pass color attachment count.",
+                nameof(colorTextures));
+        }
+        if (vulkanColorTextures.Count == 0)
+            throw new ArgumentException("At least one color texture is required.", nameof(colorTextures));
+
+        for (int i = 0; i < vulkanColorTextures.Count; i++)
+        {
+            if (vulkanColorTextures[i].Format.ToVulkanFormat() != vulkanRenderPass.ColorFormats[i])
+            {
+                throw new ArgumentException(
+                    $"Framebuffer color texture {i} must match the corresponding render pass format.",
+                    nameof(colorTextures));
+            }
+        }
+
+        int width = vulkanColorTextures[0].Width;
+        int height = vulkanColorTextures[0].Height;
+        if (vulkanColorTextures.Any(texture => texture.Width != width || texture.Height != height))
+        {
+            throw new ArgumentException(
+                "Every framebuffer color texture must have matching dimensions.", nameof(colorTextures));
+        }
+
+        if (vulkanRenderPass.HasDepthAttachment != (vulkanDepthTexture != null))
+        {
+            throw new ArgumentException(
+                "The framebuffer depth texture must match the render pass depth attachment declaration.",
+                nameof(depthTexture));
+        }
+        if (vulkanDepthTexture != null)
+        {
+            if (vulkanDepthTexture.Format.ToVulkanFormat() != vulkanRenderPass.DepthFormat)
+            {
+                throw new ArgumentException(
+                    "The framebuffer depth texture format must match the render pass depth format.",
+                    nameof(depthTexture));
+            }
+
+            if (vulkanDepthTexture.Width != width || vulkanDepthTexture.Height != height)
+            {
+                throw new ArgumentException(
+                    "The framebuffer depth texture dimensions must match every color attachment.",
+                    nameof(depthTexture));
+            }
+        }
+
         return new VulkanFramebuffer3D(this, vulkanRenderPass.Handle, vulkanColorTextures, vulkanDepthTexture);
     }
 
@@ -192,6 +256,13 @@ internal sealed class VulkanContext : IGraphicsContext
             .ToArray();
         var vulkanVertexInput = VulkanFlagConverter.ToVulkan(vertexInput);
         var pipelineOptions = options ?? PipelineOptions.Default;
+        if (!vulkanRenderPass.HasDepthAttachment
+            && (pipelineOptions.DepthTestEnabled || pipelineOptions.DepthWriteEnabled))
+        {
+            throw new ArgumentException(
+                "A color-only render pass cannot use a pipeline with depth testing or depth writes enabled.",
+                nameof(options));
+        }
 
         return new VulkanPipeline3D(
             this,
@@ -249,42 +320,19 @@ internal sealed class VulkanContext : IGraphicsContext
     {
         var vulkanSource = (VulkanTexture2D)source;
         var vulkanDest = (VulkanTexture2D)destination;
+        ImageLayout sourceLayout = vulkanSource.CurrentLayout;
+        ImageLayout destinationLayout = vulkanDest.CurrentLayout;
 
-        // Transition source to transfer source layout
-        vulkanSource.TransitionTo(ImageLayout.TransferSrcOptimal);
-
-        // Transition destination to transfer destination
         SubmitImmediateCommands(cmd =>
         {
-            // Transition destination to transfer destination
-            var barrier = new ImageMemoryBarrier
-            {
-                SType = StructureType.ImageMemoryBarrier,
-                OldLayout = ImageLayout.Undefined,
-                NewLayout = ImageLayout.TransferDstOptimal,
-                SrcQueueFamilyIndex = Vk.QueueFamilyIgnored,
-                DstQueueFamilyIndex = Vk.QueueFamilyIgnored,
-                Image = vulkanDest.ImageHandle,
-                SubresourceRange = new ImageSubresourceRange
-                {
-                    AspectMask = ImageAspectFlags.ColorBit,
-                    BaseMipLevel = 0,
-                    LevelCount = 1,
-                    BaseArrayLayer = 0,
-                    LayerCount = 1
-                },
-                SrcAccessMask = 0,
-                DstAccessMask = AccessFlags.TransferWriteBit
-            };
-
-            Vk.CmdPipelineBarrier(
-                cmd,
-                PipelineStageFlags.TopOfPipeBit,
-                PipelineStageFlags.TransferBit,
-                0,
-                0, null,
-                0, null,
-                1, &barrier);
+            // Record both pre-copy transitions in the same command buffer as the blit. Besides avoiding two
+            // submit-and-wait cycles, this keeps the barriers ordered with the operation whose layouts they establish.
+            _vulkanCommandPool.RecordImageLayoutTransition(
+                cmd, vulkanSource.ImageHandle, sourceLayout, ImageLayout.TransferSrcOptimal,
+                ImageAspectFlags.ColorBit);
+            _vulkanCommandPool.RecordImageLayoutTransition(
+                cmd, vulkanDest.ImageHandle, destinationLayout, ImageLayout.TransferDstOptimal,
+                ImageAspectFlags.ColorBit);
 
             // Use blit for format conversion (RGBA8 -> BGRA8)
             var blitRegion = new ImageBlit
@@ -320,24 +368,18 @@ internal sealed class VulkanContext : IGraphicsContext
                 &blitRegion,
                 Filter.Nearest);
 
-            // Transition destination back to color attachment optimal
-            barrier.OldLayout = ImageLayout.TransferDstOptimal;
-            barrier.NewLayout = ImageLayout.ColorAttachmentOptimal;
-            barrier.SrcAccessMask = AccessFlags.TransferWriteBit;
-            barrier.DstAccessMask = AccessFlags.ColorAttachmentReadBit | AccessFlags.ColorAttachmentWriteBit;
-
-            Vk.CmdPipelineBarrier(
-                cmd,
-                PipelineStageFlags.TransferBit,
-                PipelineStageFlags.ColorAttachmentOutputBit,
-                0,
-                0, null,
-                0, null,
-                1, &barrier);
+            _vulkanCommandPool.RecordImageLayoutTransition(
+                cmd, vulkanDest.ImageHandle, ImageLayout.TransferDstOptimal,
+                ImageLayout.ColorAttachmentOptimal, ImageAspectFlags.ColorBit);
+            _vulkanCommandPool.RecordImageLayoutTransition(
+                cmd, vulkanSource.ImageHandle, ImageLayout.TransferSrcOptimal,
+                ImageLayout.ShaderReadOnlyOptimal, ImageAspectFlags.ColorBit);
         });
 
-        // Transition source back to shader read optimal
-        vulkanSource.TransitionTo(ImageLayout.ShaderReadOnlyOptimal);
+        // A failed submission leaves the GPU state uncertain, so update the software trackers only after the existing
+        // synchronous immediate-submit helper has returned successfully.
+        vulkanSource.MarkLayout(ImageLayout.ShaderReadOnlyOptimal);
+        vulkanDest.MarkLayout(ImageLayout.ColorAttachmentOptimal);
     }
 
     public unsafe void CopyTextureToCubeFace(ITexture2D source, ITextureCube destination, int faceIndex)

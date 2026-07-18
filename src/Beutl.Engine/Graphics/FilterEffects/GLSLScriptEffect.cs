@@ -71,39 +71,36 @@ public sealed partial class GLSLScriptEffect : FilterEffect, IScriptCompilableEf
         }
     }
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
-
         if (r._shader == null)
             return;
 
-        context.CustomEffect(
-            (progress: r.Progress, duration: r.Duration, time: r.Time, shader: r._shader,
-                compileError: r._compileError),
-            OnApplyTo,
-            static (_, r) => r);
-    }
+        GLSLShader shader = r._shader;
+        float progress = r.Progress;
+        float duration = r.Duration;
+        float time = r.Time;
 
-    private static void OnApplyTo(
-        (float progress, float duration, float time, GLSLShader shader, string? compileError) data,
-        CustomFilterEffectContext c)
-    {
-        // Push constants report device px at the clamped buffer density.
-        data.shader.Apply(c, target =>
-        {
-            float w = c.ResolveTargetDensity(target.Bounds);
-            (int devW, int devH) = CustomFilterEffectContext.DeviceBufferSize(target.Bounds, w);
-            return new PushConstants
+        // One coordinate-invariant-in-bounds GLSL pass over a pooled destination; without Vulkan the legacy path
+        // rendered nothing (a pass-through), so the fallback is identity.
+        builder.Compute(ComputeNodeDescriptor.Create(
+            ctx =>
             {
-                Progress = data.progress,
-                Duration = data.duration,
-                Time = data.time,
-                Width = devW,
-                Height = devH,
-                Scale = w
-            };
-        });
+                ctx.Run(shader, ctx.Source, ctx.Destination, new PushConstants
+                {
+                    Progress = progress,
+                    Duration = duration,
+                    Time = time,
+                    Width = ctx.Width,
+                    Height = ctx.Height,
+                    Scale = ctx.WorkingScale,
+                });
+            },
+            passCount: 1,
+            BoundsContract.FullFrame,
+            ComputeFallbackPolicy.Identity,
+            structuralToken: nameof(GLSLScriptEffect)));
     }
 
     // Field order must match the GLSL `layout(push_constant)` block.
@@ -176,9 +173,17 @@ public sealed partial class GLSLScriptEffect : FilterEffect, IScriptCompilableEf
 
         partial void PostDispose(bool disposing)
         {
-            _shader?.Dispose();
+            if (!disposing)
+                return;
+
+            GLSLShader? shader = _shader;
             _shader = null;
+            _compiledShader = null;
             _compileError = null;
+
+            Exception? failure = null;
+            DisposeOwnedResources(ref failure, shader);
+            ThrowIfCleanupFailed(failure);
         }
     }
 }

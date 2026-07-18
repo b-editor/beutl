@@ -1,11 +1,18 @@
-﻿using Beutl.Media.Source;
+﻿using System.Runtime.ExceptionServices;
+using Beutl.Media.Source;
 using SkiaSharp;
 
 namespace Beutl.Graphics.Rendering;
 
 public abstract class RenderNodeOperation : IDisposable
 {
-    public bool IsDisposed { get; private set; }
+    private const int ActiveDisposeState = 0;
+    private const int DisposingState = 1;
+    private const int DisposedState = 2;
+
+    private int _disposeState;
+
+    public bool IsDisposed => Volatile.Read(ref _disposeState) == DisposedState;
 
     // Invalidになることはない
     public abstract Rect Bounds { get; }
@@ -21,10 +28,21 @@ public abstract class RenderNodeOperation : IDisposable
 
     public void Dispose()
     {
-        if (!IsDisposed)
+        if (Interlocked.CompareExchange(
+                ref _disposeState,
+                DisposingState,
+                ActiveDisposeState) != ActiveDisposeState)
+        {
+            return;
+        }
+
+        try
         {
             OnDispose(true);
-            IsDisposed = true;
+        }
+        finally
+        {
+            Volatile.Write(ref _disposeState, DisposedState);
             GC.SuppressFinalize(this);
         }
     }
@@ -39,15 +57,29 @@ public abstract class RenderNodeOperation : IDisposable
     /// </summary>
     internal static void DisposeAll(ReadOnlySpan<RenderNodeOperation> ops)
     {
+        Exception? ignored = null;
+        DisposeAll(ops, ref ignored);
+    }
+
+    /// <summary>
+    /// Disposes every operation and records the first cleanup failure without stopping the sweep.
+    /// A caller with an in-flight primary failure can ignore the captured cleanup failure; a successful
+    /// operation can rethrow it after all resources have been released.
+    /// </summary>
+    internal static void DisposeAll(ReadOnlySpan<RenderNodeOperation> ops, ref Exception? failure)
+    {
         foreach (var op in ops)
         {
+            if (op is null)
+                continue;
+
             try
             {
                 op.Dispose();
             }
-            catch
+            catch (Exception ex)
             {
-                // Best-effort: a faulting Dispose must not stop the remaining ops from being released.
+                failure ??= ex;
             }
         }
     }
@@ -59,8 +91,29 @@ public abstract class RenderNodeOperation : IDisposable
     {
         return CreateLambda(child.Bounds, render, hitTest: hitTest ?? child.HitTest, onDispose: () =>
         {
-            child.Dispose();
-            onDispose?.Invoke();
+            Exception? failure = null;
+            try
+            {
+                child.Dispose();
+            }
+            catch (Exception ex)
+            {
+                failure = ex;
+            }
+
+            try
+            {
+                onDispose?.Invoke();
+            }
+            catch (Exception ex)
+            {
+                failure ??= ex;
+            }
+
+            if (failure != null)
+            {
+                ExceptionDispatchInfo.Capture(failure).Throw();
+            }
         }, effectiveScale: child.EffectiveScale);
     }
 

@@ -13,7 +13,7 @@ namespace Beutl.NodeGraph;
 
 [Display(Name = nameof(GraphicsStrings.NodeGraphFilterEffect), ResourceType = typeof(GraphicsStrings))]
 [SuppressResourceClassGeneration]
-public sealed partial class NodeGraphFilterEffect : FilterEffect
+public sealed partial class NodeGraphFilterEffect : CustomRenderNodeFilterEffect
 {
     public NodeGraphFilterEffect()
     {
@@ -23,95 +23,196 @@ public sealed partial class NodeGraphFilterEffect : FilterEffect
 
     public IProperty<GraphModel?> Model { get; } = Property.Create<GraphModel?>();
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-    {
-        throw new NotSupportedException(
-            $"{nameof(NodeGraphFilterEffect)} does not support {nameof(ApplyTo)}. " +
-            "Use the resource/render-node pipeline (via ToResource and CreateRenderNode) instead.");
-    }
-
     public override Resource ToResource(CompositionContext context)
     {
-        bool updateOnly = false;
         var resource = new Resource();
-        resource.Update(this, context, ref updateOnly);
-        return resource;
+        try
+        {
+            bool updateOnly = false;
+            resource.Update(this, context, ref updateOnly);
+            return resource;
+        }
+        catch
+        {
+            try
+            {
+                resource.Dispose();
+            }
+            catch
+            {
+                // Preserve the acquisition failure while reclaiming the partially evaluated graph snapshot.
+            }
+
+            throw;
+        }
     }
 
-    public new sealed class Resource : FilterEffect.Resource
+    public new sealed class Resource : CustomRenderNodeFilterEffect.Resource
     {
-        public GraphSnapshot Snapshot { get; } = new();
+        private static readonly FilterEffectRenderNodeFactory s_renderNodeFactory =
+            FilterEffectRenderNodeFactory.Of<Resource, NodeGraphFilterEffectRenderNode>(
+                static resource => new NodeGraphFilterEffectRenderNode(resource));
 
-        public GraphModel? Model { get; private set; }
+        private readonly GraphSnapshot _snapshot = new();
+        private GeneratedResourceCleanupContext? _resourceCleanupContext;
+        private EvaluationState _evaluationState;
 
-        public TimeSpan? LastTime { get; private set; }
+        public Resource()
+        {
+            _evaluationState = new EvaluationState(
+                _snapshot,
+                null,
+                null,
+                false,
+                ProxyPreset.Quarter,
+                false);
+        }
+
+        public GraphModel? Model => ReadEvaluationState().Model;
+
+        public TimeSpan? LastTime => ReadEvaluationState().LastTime;
 
         // Composition flags captured from the build-time context; the render node replays the graph
         // with a fresh context and must restore them. Otherwise graph video inputs always evaluate
         // with PreferProxy=false (wrong in a "prefer proxy" preview) and DisableResourceShare=false
         // (loses reader isolation during an export/full-scale render).
-        public bool PreferProxy { get; private set; }
+        public bool PreferProxy => ReadEvaluationState().PreferProxy;
 
-        public ProxyPreset PreferredProxyPreset { get; private set; } = ProxyPreset.Quarter;
+        public ProxyPreset PreferredProxyPreset => ReadEvaluationState().PreferredProxyPreset;
 
-        public bool DisableResourceShare { get; private set; }
+        public bool DisableResourceShare => ReadEvaluationState().DisableResourceShare;
 
-        public override FilterEffectRenderNode CreateRenderNode()
+        private EvaluationState ReadEvaluationState()
+            => ReadGeneratedResourceState(ref _evaluationState);
+
+        internal TResult UseEvaluationState<TResult>(Func<EvaluationState, TResult> action)
         {
-            return new NodeGraphFilterEffectRenderNode(this);
+            ArgumentNullException.ThrowIfNull(action);
+            using GeneratedResourceOperationLease operation = BeginExclusiveResourceOperation();
+            return action(_evaluationState);
         }
 
-        public override PushedState Push(GraphicsContext2D context)
-        {
-            return context.PushNode(
-                this,
-                resource => new NodeGraphFilterEffectRenderNode(resource),
-                (node, resource) => node.Update(resource));
-        }
+        public override FilterEffectRenderNodeFactory RenderNodeFactory
+            => s_renderNodeFactory;
 
         public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
         {
+            var typed = (NodeGraphFilterEffect)obj;
+            using GeneratedResourceOperationLease operation = BeginExclusiveResourceOperation(typed);
             base.Update(obj, context, ref updateOnly);
 
             if (obj is NodeGraphFilterEffect filterEffect)
             {
-                if (Model != filterEffect.Model.CurrentValue)
+                EvaluationState previous = _evaluationState;
+                GraphModel? model = filterEffect.Model.CurrentValue;
+                if (previous.Model != model)
                 {
-                    Model?.TopologyChanged -= OnModelTopologyChanged;
-                    Model = filterEffect.Model.CurrentValue;
-                    Model?.TopologyChanged += OnModelTopologyChanged;
-                    Snapshot.MarkDirty();
+                    previous.Model?.TopologyChanged -= OnModelTopologyChanged;
+                    model?.TopologyChanged += OnModelTopologyChanged;
+                    previous.Snapshot.MarkDirty();
                 }
 
-                if (Model != null)
+                if (model != null)
                 {
-                    LastTime = context.Time;
-                    PreferProxy = context.PreferProxy;
-                    PreferredProxyPreset = context.PreferredProxyPreset;
-                    DisableResourceShare = context.DisableResourceShare;
-                    Snapshot.Build(Model, context);
+                    try
+                    {
+                        previous.Snapshot.Build(model, context);
+                    }
+                    catch
+                    {
+                        _evaluationState = previous with { Model = model, LastTime = null };
+                        throw;
+                    }
+
+                    _evaluationState = new EvaluationState(
+                        previous.Snapshot,
+                        model,
+                        context.Time,
+                        context.PreferProxy,
+                        context.PreferredProxyPreset,
+                        context.DisableResourceShare);
                     Version++;
                     updateOnly = true;
+                }
+                else
+                {
+                    _evaluationState = previous with { Model = null, LastTime = null };
                 }
             }
             else
             {
-                Model?.TopologyChanged -= OnModelTopologyChanged;
-                Snapshot.MarkDirty();
+                EvaluationState previous = _evaluationState;
+                previous.Model?.TopologyChanged -= OnModelTopologyChanged;
+                previous.Snapshot.MarkDirty();
+                _evaluationState = previous with { Model = null, LastTime = null };
             }
         }
 
         private void OnModelTopologyChanged(object? sender, EventArgs e)
         {
-            Snapshot.MarkDirty();
+            _snapshot.MarkDirty();
+        }
+
+        protected override void PrepareGeneratedResourceCleanupCore(
+            bool disposing,
+            GeneratedResourceCleanupContext context)
+        {
+            if (disposing)
+            {
+                _resourceCleanupContext = context;
+                _evaluationState.Snapshot.ReserveResources(context.Reserve);
+            }
+
+            base.PrepareGeneratedResourceCleanupCore(disposing, context);
+        }
+
+        protected override void RollbackGeneratedResourceCleanupCore()
+        {
+            _resourceCleanupContext = null;
+            _evaluationState.Snapshot.RollbackCleanupReservation();
+            base.RollbackGeneratedResourceCleanupCore();
         }
 
         protected override void Dispose(bool disposing)
         {
-            Model?.TopologyChanged -= OnModelTopologyChanged;
-            Model = null;
-            if (disposing) Snapshot.Dispose();
-            base.Dispose(disposing);
+            EvaluationState state = _evaluationState;
+            GraphModel? model = state.Model;
+            _evaluationState = state with { Model = null, LastTime = null };
+            Exception? failure = null;
+            if (model != null)
+            {
+                NodeGraphDisposal.Capture(
+                    () => model.TopologyChanged -= OnModelTopologyChanged,
+                    ref failure);
+            }
+
+            if (disposing)
+            {
+                GeneratedResourceCleanupContext? context = _resourceCleanupContext;
+                _resourceCleanupContext = null;
+                if (context == null)
+                {
+                    failure = new InvalidOperationException("The graph resources were not reserved before cleanup.");
+                    state.Snapshot.RollbackCleanupReservation();
+                    _ = state.Snapshot.DetachAndDisposeWithoutReservation();
+                }
+                else
+                {
+                    NodeGraphDisposal.Capture(
+                        () => state.Snapshot.DisposeAfterResourcesReserved(context.DisposeOwned, context.Capture),
+                        ref failure);
+                }
+            }
+            NodeGraphDisposal.Capture(() => base.Dispose(disposing), ref failure);
+            NodeGraphDisposal.ThrowIfFailed(failure);
         }
+
+        internal readonly record struct EvaluationState(
+            GraphSnapshot Snapshot,
+            GraphModel? Model,
+            TimeSpan? LastTime,
+            bool PreferProxy,
+            ProxyPreset PreferredProxyPreset,
+            bool DisableResourceShare);
     }
 }

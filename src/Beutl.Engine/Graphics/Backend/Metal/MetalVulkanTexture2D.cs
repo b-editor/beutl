@@ -79,6 +79,8 @@ internal sealed unsafe class MetalVulkanTexture2D : VulkanTexture2D
             SKColorSpace.CreateSrgbLinear());
     }
 
+    protected override GRContext? SkiaContextForDrain => _metalContext.SkiaContext;
+
     private IntPtr ExportMetalTexture()
     {
         var vk = _context.Vk;

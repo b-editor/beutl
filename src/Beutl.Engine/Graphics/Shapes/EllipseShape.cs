@@ -41,10 +41,10 @@ public sealed partial class EllipseShape : Shape
             {
                 if (_geometryResource.GetOriginal() != _geometry)
                 {
-                    var oldGeometry = _geometryResource;
-                    _geometryResource = _geometry.ToResource(context);
-                    oldGeometry.Dispose();
+                    EllipseGeometry.Resource replacement = _geometry.ToResource(context);
+                    var cleanupFailure = ReplaceOwnedResource(ref _geometryResource, replacement);
                     Version++;
+                    cleanupFailure?.Throw();
                 }
                 else
                 {
@@ -59,11 +59,22 @@ public sealed partial class EllipseShape : Shape
             }
         }
 
-        partial void PostDispose(bool disposing)
+        partial void PrepareResourceDispose(
+            bool disposing,
+            EngineObject.Resource.GeneratedResourceCleanupContext context)
         {
-            _geometryResource?.Dispose();
+            if (disposing)
+                context.Reserve(_geometryResource);
         }
 
-        public override Geometry.Resource? GetGeometry() => _geometryResource;
+        partial void PostDispose(bool disposing)
+        {
+            if (!disposing)
+                return;
+
+            _geometryResource = null;
+        }
+
+        public override Geometry.Resource? GetGeometry() => ReadGeneratedResourceState(ref _geometryResource);
     }
 }

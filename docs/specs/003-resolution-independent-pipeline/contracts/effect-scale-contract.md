@@ -1,6 +1,6 @@
 # Contract: Effect / drawable / brush / pen scale contract
 
-**Feature**: 003 | FR-008/FR-009/FR-010/FR-011/FR-012/FR-015. Audience: authors of `FilterEffect`, `CustomEffect`, `Drawable`, brushes, and C# script effects (in-tree and plugin).
+**Feature**: 003 | FR-008/FR-009/FR-010/FR-011/FR-012/FR-015. Audience: authors of `FilterEffect`, effect-graph descriptors, `Drawable`, brushes, and C# script effects (in-tree and plugin). The authoring surface was replaced by feature 004; the scale semantics below remain binding on the declarative API.
 
 ## The rule (FR-008) — what matters is the COORDINATE SPACE, not the parameter type
 
@@ -16,9 +16,9 @@ and the base CTM scales it to device for free. Device-space code opts out with `
 
 | Coordinate space | Rule | Examples |
 |---|---|---|
-| **Logical-space geometry drawn under the CTM** | **Leave unchanged.** The CTM already scales it. | shape/bar geometry, pen thickness/offset/dash (pre-outlined logical, D3), Shake displacement (translates logical bounds), `DrawRectangle`/`DrawPath` coords, gradient stops/points, drop-shadow offset & sigma and dilate/erode radius **when passed to a Skia `SKImageFilter`** (they ride the `CreateScale(w)` CTM in `FilterEffectActivator.Flush`) |
-| **Device-buffer dimensions / device-space shader uniforms / device pixel indexing** | **Convert once (`× w`).** These bypass the CTM. | a `CustomEffect` buffer's `ceil(bounds × w)` size; SKSL `iScale`/`width`/`height`/`fragCoord`; a CustomEffect point-blit's absolute-px literal (`MyPixelRadius * c.WorkingScale`); the tile/drawable intermediate raster size (A-1) |
-| **Readback-derived geometry (device → logical)** | **Convert device back to logical (`÷ w`).** | `ContourTracer` / `PartsSplit` vertices traced from the device alpha mask (`/w` so `CreateTarget` re-densifies) |
+| **Logical-space geometry drawn under the CTM** | **Leave unchanged.** The CTM already scales it. | shape/bar geometry, pen thickness/offset/dash (pre-outlined logical, D3), Shake displacement (translates logical bounds), `DrawRectangle`/`DrawPath` coords, gradient stops/points, drop-shadow offset & sigma and dilate/erode radius passed to a declarative Skia-filter node |
+| **Device-buffer dimensions / device-space shader uniforms / device pixel indexing** | **Convert once (`× w`).** These bypass the CTM. | `PassUniformContext.TargetWidth`/`TargetHeight`; SKSL `iScale`/`width`/`height`/`fragCoord`; a geometry callback's absolute-px literal (`MyPixelRadius * session.WorkingScale`); the tile/drawable intermediate raster size (A-1) |
+| **Readback-derived geometry (device → logical)** | **Convert device back to logical (`÷ w`).** | `ContourTracer` / `PartsSplit` vertices traced from `EffectInput.Snapshot()` (`/ EffectInput.Density` before drawing through the output CTM) |
 | **Magnitude-invariant** | **Leave unchanged.** Not a length. | color; angle; percentage; ratio; 0..1 value; `RelativePoint`/`RelativeRect`; blend mode; count; enum; `MiterLimit`; caps/joins/alignment; `Trim*` |
 
 **Non-obvious cases (empirically settled on this branch):**
@@ -29,64 +29,70 @@ and the base CTM scales it to device for free. Device-space code opts out with `
 
 ## How an author reads the active scale (FR-015)
 
-Two accessors, both default `1.0`. **They expose the `WorkingScale` `w`** (what the effect runs at), not the output scale. An effect that needs the eventual delivery target reads `FilterEffectContext.OutputScale`.
+The declarative surface exposes scale at the point where each value can be resolved correctly:
 
-1. **`FilterEffectContext.WorkingScale`** — for `CSharpScriptEffect` and out-of-tree `FilterEffect`s built from the context primitives. The Skia `SKImageFilter` primitives (`Blur`/`DropShadow`/`Dilate`/`Erode`/`Transform`/`MatrixConvolution`) take their spatial-length args **raw (logical)** — they are **NOT** multiplied by `WorkingScale`; they ride the `CreateScale(w)` CTM that `FilterEffectActivator.Flush` pushes, so Skia scales them for free. An effect that forwards through them inherits scale-correctness **without multiplying anything** (multiplying would double-scale). Only **CustomEffect point-blit** code (Mosaic/InnerShadow/ColorShift/…) multiplies its absolute-length args by `WorkingScale` (those blit into a `ceil(bounds × w)` device buffer instead of riding the CTM).
-2. **`CustomFilterEffectContext.WorkingScale`** — for `CustomEffect` / SKSL / GLSL. `CreateTarget(bounds)` allocates `ceil(bounds × WorkingScale)`; `Open` returns that buffer's canvas **already carrying the baked base CTM `CreateScale(density)`** (the buffer's real, post-clamp density — read it from the returned target's `Scale.Value` for clamp-correct device math). So the effect draws **logical** content directly through the `ImmediateCanvas` APIs with **no manual prescale** (the `StrokeEffect` pattern — this also routes brush fills through the canvas's density so tile/image/drawable brushes rasterize at `w`). Code that must work in **device pixels** — point-blitting another device buffer, a contour traced from the device alpha mask, a full-buffer shader rect — wraps that draw in **`canvas.PushDeviceSpace()`** (CTM → identity, density → 1) and uses device-px literals (`× WorkingScale`). **Clamp caveat (FR-037(b)) — `WorkingScale` is the REQUESTED density; the allocated buffer can be CLAMPED below it.** On a **large-bounds** frame the allocated target is reduced by `ClampWorkingScaleToBufferBudget` (FR-037(b)) to stay within the 16384-px GPU axis limit, and the created target carries that **lower** density in its `Scale.Value`. Device-pixel author math (point-blit offsets, shader resolution uniforms, absolute-px literals) multiplying by the **bare `WorkingScale`** then computes coordinates for a *denser* buffer than was allocated and **mis-registers** (the draw lands at the wrong pixels). So such code MUST read the **created target's `Scale.Value`**, not `WorkingScale`. An effect that builds device-px values **before** it holds a target to read `Scale.Value` from — the in-tree shader effects compute uniforms up front, and `GLSLShader.Apply` hands its callback the *source* target — must recompute the density `CreateTarget` will resolve: `RenderNodeContext.ClampWorkingScaleToBufferBudget(bounds, WorkingScale)` on the **same `bounds`** passed to `CreateTarget` (the one canonical clamp `CreateTarget` itself calls, so the result is identical by construction — see `Mosaic`/`ColorShift`/`Displacement`/`SKSLScriptEffect`/`GLSLScriptEffect`). When you *do* hold the created target, read its `Scale.Value` directly (the InnerShadow/BlendMode pattern).
+1. **`EffectGraphBuilder.OutputScale` / `WorkingScale`** describe the effect boundary. Pass Skia-filter lengths (`Blur`/`DropShadow`/`Dilate`/`Erode`/`Transform`/`MatrixConvolution`) in raw logical units. Do **not** freeze a device-space shader uniform from `builder.WorkingScale`: per-pass bounds resolution and the 16 384-px clamp can execute that pass at a lower density.
+2. **`PassUniformContext.WorkingScale` / `TargetWidth` / `TargetHeight`** are the execution-time values for shader uniforms. Bind logical device lengths through `UniformBindingBuilder.DensityScaledFloat2`; use `Deferred` for target size, resolution, or other derived values.
+3. **`GeometrySession.WorkingScale`** is the output canvas density. `OpenCanvas()` already carries the `CreateScale(w)` base CTM, so logical geometry is not pre-scaled; use `PushDeviceSpace()` and `session.WorkingScale` only for device-pixel work. Each `EffectInput` has its own `Density`; use that density for snapshot/readback coordinates and bridge input-device pixels to the output density when required.
+4. **`IComputeContext.WorkingScale` / `Width` / `Height`** are the corresponding execution-time values for compute dispatch and push constants.
 
 ```csharp
-// out-of-tree FilterEffect example
-public override void ApplyTo(FilterEffectContext context)
+// Out-of-tree FilterEffect example after feature 004.
+public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
 {
-    // sigma is a logical length -> pass it RAW; the Skia primitive rides the root CTM, so do NOT multiply by w
-    context.Blur(new Size(BlurRadius, BlurRadius));
+    // Sigma is logical: pass it raw. The pass canvas applies the working-density CTM.
+    builder.Blur(new Size(BlurRadius, BlurRadius));
 
-    // a custom step: logical content draws directly (the canvas bakes CreateScale(density));
-    // device-pixel work (point-blit / contour / shader rect) wraps in PushDeviceSpace.
-    context.CustomEffect(state, (d, c) =>
-    {
-        EffectTarget t = c.CreateTarget(bounds);          // ceil(bounds * WorkingScale) device buffer
-        using ImmediateCanvas canvas = c.Open(t);         // base CTM = CreateScale(t.Scale.Value), already baked
-        canvas.DrawRectangle(logicalRect, brush, null);   // LOGICAL — no manual prescale
-        using (canvas.PushDeviceSpace())                  // absolute device px
+    builder.Geometry(GeometryNodeDescriptor.Create(
+        session =>
         {
-            float devRadius = MyPixelRadius * t.Scale.Value; // post-clamp density
-            // ... device-px draw (e.g. canvas.DrawRenderTarget(other, devicePoint)) ...
-        }
-    });
+            ImmediateCanvas canvas = session.OpenCanvas(); // executor-owned; do not dispose
+            session.Inputs[0].Draw(canvas);                 // preserve the upstream result
+            canvas.DrawRectangle(logicalRect, brush, null); // logical; no manual pre-scale
+
+            using (canvas.PushDeviceSpace())
+            {
+                float devRadius = MyPixelRadius * session.WorkingScale;
+                // ... device-pixel output work ...
+            }
+        },
+        BoundsContract.FullFrame,
+        structuralToken: nameof(MyEffect)));
 }
 
-// An effect that needs a working scale OTHER than the supply density (clamp-to-output for perf,
-// oversample for SSAA) overrides the render node instead of declaring a policy:
-public sealed partial class Resource
+// The default has no effect-level policy knob: every ordinary effect uses the supply-driven scale.
+// An effect that deliberately needs a different scale keeps the standard plan pipeline and implements
+// its floor/ceiling directly in a retained plan-node override.
+public new partial class Resource
 {
-    public override FilterEffectRenderNode CreateRenderNode() => new OversampleRenderNode(this);
+    private static readonly PlanFilterEffectRenderNodeFactory s_factory =
+        PlanFilterEffectRenderNodeFactory.Of<Resource, MyScalePlanNode>(
+            static resource => new MyScalePlanNode(resource));
+
+    public override PlanFilterEffectRenderNodeFactory PlanRenderNodeFactory
+        => s_factory;
 }
 
-private sealed class OversampleRenderNode(FilterEffect.Resource fe) : FilterEffectRenderNode(fe)
+public sealed class MyScalePlanNode(FilterEffect.Resource resource)
+    : PlanFilterEffectRenderNode(resource)
 {
-    public override RenderNodeOperation[] Process(RenderNodeContext context)
+    protected override float ResolveWorkingScale(
+        RenderNodeContext context,
+        ReadOnlySpan<EffectiveScale> inputs)
     {
-        // base.Process recomputes the supply-driven w and ignores any w you compute here,
-        // so a custom w means reproducing the Process body with your own value. Today this is
-        // a full copy of the base flow — only the `workingScale =` line differs (a separate PR
-        // improves FilterEffectRenderNode's general customizability, shrinking this copy surface):
-        //
-        //   var inputScales = ...; // = context.Input[i].EffectiveScale
-        //   float supplyW = RenderNodeContext.ResolveWorkingScale(inputScales, context.OutputScale, context.MaxWorkingScale);
-        //   float workingScale = MathF.Min(MathF.Max(supplyW, 2f * context.OutputScale), context.MaxWorkingScale); // SSAA-on-demand
-        //   using var feContext = new FilterEffectContext(context.CalculateBounds(), context.OutputScale, workingScale);
-        //   ... (the rest of FilterEffectRenderNode.Process verbatim) ...
-        return base.Process(context); // placeholder — supply-driven; see the copy above for a custom w
+        float supply = RenderNodeContext.ResolveWorkingScale(
+            inputs, context.OutputScale, context.MaxWorkingScale);
+        float withExplicitFloor = MathF.Max(supply, 2f * context.OutputScale);
+        return MathF.Min(withExplicitFloor, context.MaxWorkingScale); // explicit global ceiling
     }
 }
 ```
 
-> **Note (as shipped):** the `CreateRenderNode()` override **is now honoured on every push path** — `FilterEffect.Resource.Push` routes through `CreateRenderNode()` (2026-06-10), so an effect on a normal `Drawable` (not just the node-graph path) gets its custom `FilterEffectRenderNode`. **Still deferred** is the ergonomics: `FilterEffectRenderNode.Process` computes the supply-driven `w` inline, so a subclass wanting a *different* `w` must copy the whole `Process` body (`base.Process(context)` runs supply-driven and silently ignores any `w` the subclass computed). Overriding `FilterEffectRenderNode` is a general customization point — working scale is only one reason to do it — so the follow-up is a **separate PR improving the node's overall customizability** (reducing how much of `Process` a subclass must reproduce), not a working-scale-specific hook: a narrow `protected virtual float ResolveWorkingScale(RenderNodeContext)` seam was considered and **will not be added**. So today: overriding the *whole* `Process` works end-to-end, but there is no shortcut for the "only change `w`" case yet.
+> **Note:** `PlanFilterEffectRenderNode` retains declarative compilation, ROI, pooling, and plan/prefix caches. A genuinely opaque effect instead derives from `CustomRenderNodeFilterEffect` and supplies a static `FilterEffectRenderNodeFactory`; that route owns the complete `Process(RenderNodeContext)` implementation. See 004 [`breaking-changes.md`](../../004-gpu-pass-fusion/contracts/breaking-changes.md).
 
 ## Working scale — what scale an effect runs at
 
-Every effect runs at the **supply-driven working scale `w`**, computed from its inputs' effective scales (there is **no per-effect policy knob**). The rule is `w = min( max(s_out, densest concrete supply), MaxWorkingScale )` *(amended 2026-06-15 — `s_out` is the FLOOR; the earlier "a 0.5 proxy stays 0.5" wording is superseded)*:
+By default, every effect runs at the **supply-driven working scale `w`**, computed from its inputs' effective scales. There is **no `ResolutionPolicy` property, enum, or other per-effect policy knob**. The default rule is `w = min( max(s_out, densest concrete supply), MaxWorkingScale )` *(amended 2026-06-15 — `s_out` is the FLOOR; the earlier "a 0.5 proxy stays 0.5" wording is superseded)*:
 
 - `w` is **floored at `s_out`** (the deliverable density) and **raised by the densest concrete (bitmap) input above it**. A 2.0 source runs at 2.0 (no downsample — `s_out` is **not** a ceiling). A **sub-output** concrete supply — an enlarged / low-density bitmap, `At(0.5)` — feeding an effect at a `1.0` export is **floored to `w = 1.0`** (rendering at the deliverable density, matching the pre-feature renderer), **not** held at 0.5. Why: an effect's own working resolution (its blur kernel / shadow / shader grid) is distinct from the source's available *detail* — running it below `s_out` only discards resolution the delivery target can use, without fabricating source detail. A genuine reduced-scale proxy is still cheap in **preview**: at a `0.5` preview a `0.5` proxy gives `max(0.5, 0.5) = 0.5`.
 - vector-only inputs (`Unbounded`) impose no supply → `w` stays at the `s_out` floor; a mixed bitmap+vector boundary likewise lands at `s_out` when no concrete input exceeds it, so crisp vector siblings are not dragged down to a low-density bitmap — now an instance of the universal floor, no longer a special case.
@@ -94,9 +100,9 @@ Every effect runs at the **supply-driven working scale `w`**, computed from its 
 
 **Every built-in runs supply-driven** — including the FR-013 resolution-sensitive set (`PixelSort`, contour `Stroke`/`FlatShadow`/`PartsSplit`, `AutoClip`, `Dilate`, `Erode`, `Mosaic`, custom SKSL/GLSL, image-map `Displacement`), since running at the supply density already keeps a high source's density through them. The working scale MUST NOT change the `s_out = 1.0` output.
 
-**Need a different working scale?** An effect that genuinely needs clamp-to-output (perf) or oversampling (SSAA) returns a `FilterEffectRenderNode` subclass from `FilterEffect.Resource.CreateRenderNode()` and overrides `Process` to compute its own `w` (see the example above). There is intentionally no declarative `ResolutionPolicy` — no built-in needed one, and a custom render node is more flexible than a closed enum. *(Earlier drafts had an `Inherit`/`ClampToOutput`/`Oversample(k)`/`PreserveSource` policy; it was removed.)*
+**Need a different working scale?** Override `FilterEffect.Resource.PlanRenderNodeFactory` with a retained `PlanFilterEffectRenderNodeFactory`, then override `PlanFilterEffectRenderNode.ResolveWorkingScale` as above. The override is the policy: it explicitly computes any custom floor and ceiling in code and remains responsible for returning a positive finite value within `context.MaxWorkingScale`. It does not select a hidden `ResolutionPolicy`; there is intentionally no such closed enum or property.
 
-> **Footgun — `w` is per-boundary, not per-op; and shrinking a source makes it *more* expensive (2026-06-15).** `w` = the **densest concrete input** applies to the **whole buffer-allocating boundary**, so a single small high-density sibling raises the working scale — and thus the buffer **area** (`∝ w²`) — of the *entire* boundary, not just its own region. Example: a 4K logo shrunk into a corner carries `At(16)` density; under a shared effect (or any container allocating one buffer for the group) it lifts the whole boundary to `w = 16`, allocating a `16×`-denser buffer for mostly-low-density content. Because density is *backing pixels per logical unit*, scaling a high-resolution source **down** **raises** its density — so the source gets **more** expensive the smaller you draw it (inverting the usual "smaller = cheaper" intuition). The per-buffer **dimension** clamp (`ClampWorkingScaleToBufferBudget`) keeps such a buffer *allocatable* but does not stop it from dominating the boundary's cost. **Follow-up (deferred):** per-target (per-region) `w` scoping and a request-scoped area/byte budget — so a small dense sibling raises only its own region's density — are the proper fix.
+> **Footgun — `w` is per-boundary, not per-op; and shrinking a source makes it *more* expensive (2026-06-15).** `w` = the **densest concrete input** applies to the **whole buffer-allocating boundary**, so a single small high-density sibling raises the working scale — and thus the buffer **area** (`∝ w²`) — of the *entire* boundary, not just its own region. Example: a 4K logo shrunk into a corner carries `At(16)` density; under a shared effect (or any container allocating one buffer for the group) it lifts the whole boundary to `w = 16`, allocating a `16×`-denser buffer for mostly-low-density content. Because density is *backing pixels per logical unit*, scaling a high-resolution source **down** **raises** its density — so the source gets **more** expensive the smaller you draw it (inverting the usual "smaller = cheaper" intuition). The per-buffer **dimension** clamp (`ClampWorkingScaleToBufferBudget`) keeps such a buffer *allocatable* but does not stop it from dominating the boundary's cost. This contract is intentionally per-boundary; per-region working scales and a request-scoped area/byte budget would be a separate allocator design.
 
 ## Resolution-sensitive effects (FR-013)
 
@@ -115,4 +121,4 @@ Relatedly, `RenderNodeContext` **sanitizes degenerate inputs once at constructio
 
 ## Mechanism summary
 
-Centralized scaling lives in the `FilterEffectContext` primitives (covers built-ins and their forwarders for free); the per-effect read accessor (`WorkingScale`) is the escape hatch for pixel-reading custom/shader/script effects, and a custom `FilterEffectRenderNode` is the escape hatch for *what scale* the effect runs at. A plugin effect that touches neither still renders correctly at `s_out=1.0` (supply-driven + `Unbounded` inputs → `w=1.0`); it simply runs supply-driven and won't drive oversampling until it adopts this contract.
+Centralized scaling lives in the compiled effect plan and executor. Logical convenience/Skia-filter parameters need no manual scaling; execution-time shader values come from `PassUniformContext`, geometry values from `GeometrySession`, and compute values from `IComputeContext`. A plugin that owns a complete non-default execution path derives from `CustomRenderNodeFilterEffect` and supplies its dedicated `FilterEffectRenderNode`; ordinary effects cannot accidentally enter that opaque route. A plugin effect that uses only logical descriptor values still renders correctly at `s_out=1.0` (supply-driven + `Unbounded` inputs → `w=1.0`).

@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using System.Collections.ObjectModel;
+using System.ComponentModel.DataAnnotations;
 using Beutl.Audio.Graph;
 using Beutl.Collections.Pooled;
 using Beutl.Composition;
@@ -119,14 +120,20 @@ public sealed partial class SoundGroup : Sound, IFlowOperator
 
     public partial class Resource
     {
-        private readonly PooledList<int> _childrenVersion = [];
+        private static readonly ReadOnlyCollection<Sound.Resource> s_emptyChildren
+            = Array.AsReadOnly(Array.Empty<Sound.Resource>());
 
-        public List<Sound.Resource> Children { get; set; } = [];
+        private readonly List<Sound.Resource> _children = [];
+        private readonly PooledList<int> _childrenVersion = [];
+        private ReadOnlyCollection<Sound.Resource> _childrenSnapshot = s_emptyChildren;
+
+        public IReadOnlyList<Sound.Resource> Children => ReadGeneratedResourceState(ref _childrenSnapshot);
 
         public override SoundSource.Resource? GetSoundSource() => null;
 
         partial void PreUpdate(SoundGroup obj, CompositionContext context)
         {
+            EngineObject.Resource[]? flowRollbackSnapshot = context.Flow?.ToArray();
             using var consumed = new PooledList<Sound.Resource>();
             if (context.Flow != null)
             {
@@ -141,27 +148,86 @@ public sealed partial class SoundGroup : Sound, IFlowOperator
             }
 
             bool changed = false;
-            ResourceReconciler.ReconcileListFromFlow(
-                context: context,
-                property: obj.Children,
-                consumed: consumed,
-                field: Children,
-                versions: _childrenVersion,
-                changed: ref changed);
+            try
+            {
+                ResourceReconciler.ReconcileListFromFlow(
+                    context: context,
+                    property: obj.Children,
+                    consumed: consumed,
+                    field: _children,
+                    versions: _childrenVersion,
+                    flowRollbackSnapshot: flowRollbackSnapshot,
+                    changed: ref changed);
+            }
+            finally
+            {
+                PublishChildrenSnapshotIfChanged();
+                if (changed)
+                    Version++;
+            }
+        }
 
-            if (changed)
-                Version++;
+        partial void PostUpdate(SoundGroup obj, CompositionContext context)
+        {
+            PublishChildrenSnapshotIfChanged();
+        }
+
+        partial void PrepareResourceDispose(
+            bool disposing,
+            EngineObject.Resource.GeneratedResourceCleanupContext context)
+        {
+            if (!disposing)
+                return;
+
+            int ownedStart = Math.Min(_childrenVersion.Count, _children.Count);
+            for (int i = ownedStart; i < _children.Count; i++)
+            {
+                context.Reserve(_children[i]);
+            }
         }
 
         partial void PostDispose(bool disposing)
         {
-            for (int i = _childrenVersion.Count; i < Children.Count; i++)
+            if (!disposing)
+                return;
+
+            Volatile.Write(ref _childrenSnapshot, s_emptyChildren);
+            Exception? failure = null;
+            _children.Clear();
+            try
             {
-                Children[i].Dispose();
+                _childrenVersion.Dispose();
+            }
+            catch (Exception ex)
+            {
+                failure ??= ex;
             }
 
-            Children.Clear();
-            _childrenVersion.Dispose();
+            ThrowIfCleanupFailed(failure);
+        }
+
+        private void PublishChildrenSnapshotIfChanged()
+        {
+            ReadOnlyCollection<Sound.Resource> snapshot = Volatile.Read(ref _childrenSnapshot);
+            if (snapshot.Count == _children.Count)
+            {
+                bool unchanged = true;
+                for (int i = 0; i < _children.Count; i++)
+                {
+                    if (!ReferenceEquals(snapshot[i], _children[i]))
+                    {
+                        unchanged = false;
+                        break;
+                    }
+                }
+
+                if (unchanged)
+                    return;
+            }
+
+            Volatile.Write(
+                ref _childrenSnapshot,
+                _children.Count == 0 ? s_emptyChildren : Array.AsReadOnly(_children.ToArray()));
         }
     }
 }

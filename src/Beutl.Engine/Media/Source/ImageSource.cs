@@ -30,30 +30,53 @@ public sealed class ImageSource : MediaSource
     public override Resource ToResource(CompositionContext context)
     {
         var resource = new Resource();
-        bool updateOnly = true;
-        resource.Update(this, context, ref updateOnly);
-        return resource;
+        try
+        {
+            bool updateOnly = true;
+            resource.Update(this, context, ref updateOnly);
+            return resource;
+        }
+        catch
+        {
+            try
+            {
+                resource.Dispose();
+            }
+            catch
+            {
+                // Preserve the acquisition failure while reclaiming any partially initialized bitmap.
+            }
+
+            throw;
+        }
     }
 
     public new sealed class Resource : MediaSource.Resource
     {
         private Counter<Bitmap>? _counter;
+        private PixelSize _frameSize;
         private Uri? _loadedUri;
 
-        public PixelSize FrameSize { get; private set; }
+        public PixelSize FrameSize => ReadGeneratedResourceState(ref _frameSize);
 
-        public Bitmap? Bitmap => _counter?.Value;
+        public Bitmap? Bitmap => ReadGeneratedResourceState(
+            ref _counter,
+            static counter => counter?.Value);
 
         public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
         {
-            base.Update(obj, context, ref updateOnly);
             var imageSource = (ImageSource)obj;
+            using GeneratedResourceOperationLease operation = BeginExclusiveResourceOperation(imageSource);
+            base.Update(obj, context, ref updateOnly);
 
             // Load bitmap if URI changed
             if (_loadedUri != imageSource.Uri && imageSource.HasUri)
             {
-                _counter?.Release();
+                Counter<Bitmap>? oldCounter = _counter;
                 _counter = null;
+                _loadedUri = null;
+                _frameSize = default;
+                oldCounter?.Release();
 
                 Counter<Bitmap>? shared = null;
                 if (!context.DisableResourceShare)
@@ -90,7 +113,7 @@ public sealed class ImageSource : MediaSource
                     }
                 }
 
-                FrameSize = new PixelSize(_counter.Value.Width, _counter.Value.Height);
+                _frameSize = new PixelSize(_counter.Value.Width, _counter.Value.Height);
                 _loadedUri = imageSource.Uri;
 
                 if (!updateOnly)
@@ -103,9 +126,35 @@ public sealed class ImageSource : MediaSource
 
         protected override void Dispose(bool disposing)
         {
-            base.Dispose(disposing);
-            _counter?.Release();
-            _counter = null;
+            Counter<Bitmap>? counter = null;
+            if (disposing)
+            {
+                counter = _counter;
+                _counter = null;
+                _loadedUri = null;
+                _frameSize = default;
+            }
+
+            Exception? failure = null;
+            try
+            {
+                counter?.Release();
+            }
+            catch (Exception ex)
+            {
+                failure = ex;
+            }
+
+            try
+            {
+                base.Dispose(disposing);
+            }
+            catch (Exception ex)
+            {
+                failure ??= ex;
+            }
+
+            ThrowIfCleanupFailed(failure);
         }
     }
 }

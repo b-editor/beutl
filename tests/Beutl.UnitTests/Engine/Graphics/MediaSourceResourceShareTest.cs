@@ -1,4 +1,5 @@
 ﻿using Beutl.Composition;
+using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.UnitTests.Engine.Graphics.Rendering;
@@ -230,5 +231,76 @@ public class MediaSourceResourceShareTest
         Assert.That(newResource.MediaReader, Is.Not.Null);
         Assert.That(newResource.MediaReader, Is.Not.SameAs(oldResource.MediaReader),
             "URI 切替後の Resource が旧 URI の MediaReader を共有してはならない");
+    }
+
+    [Test]
+    public void SoundSource_MissingFileInPreview_DegradesToSilence()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.missing-audio");
+        var soundSource = new SoundSource();
+        soundSource.ReadFrom(new Uri(path));
+        var context = new CompositionContext(
+            TimeSpan.Zero,
+            RenderIntent.Preview,
+            RenderPullPurpose.Frame);
+
+        using SoundSource.Resource resource = soundSource.ToResource(context);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(resource.MediaReader, Is.Null);
+            Assert.That(resource.Duration, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(resource.SampleRate, Is.Zero);
+            Assert.That(resource.NumChannels, Is.Zero);
+        });
+    }
+
+    [Test]
+    public void SoundSource_MissingFileInDelivery_RethrowsDecoderFailure()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.missing-audio");
+        var soundSource = new SoundSource();
+        soundSource.ReadFrom(new Uri(path));
+        var context = new CompositionContext(
+            TimeSpan.Zero,
+            RenderIntent.Delivery,
+            RenderPullPurpose.Frame);
+
+        FileNotFoundException? actual = Assert.Throws<FileNotFoundException>(
+            () => soundSource.ToResource(context));
+
+        Assert.That(actual!.FileName, Is.EqualTo(path));
+    }
+
+    [Test]
+    public void SoundSource_PreviewFailureThenDeliveryUpdate_RetriesAndThrows()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.missing-audio");
+        var soundSource = new SoundSource();
+        soundSource.ReadFrom(new Uri(path));
+        var preview = new CompositionContext(
+            TimeSpan.Zero,
+            RenderIntent.Preview,
+            RenderPullPurpose.Frame);
+        var delivery = new CompositionContext(
+            TimeSpan.Zero,
+            RenderIntent.Delivery,
+            RenderPullPurpose.Frame);
+        using SoundSource.Resource resource = soundSource.ToResource(preview);
+
+        FileNotFoundException? actual = Assert.Throws<FileNotFoundException>(() =>
+        {
+            bool updateOnly = false;
+            resource.Update(soundSource, delivery, ref updateOnly);
+        });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(actual!.FileName, Is.EqualTo(path));
+            Assert.That(resource.MediaReader, Is.Null);
+            Assert.That(resource.Duration, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(resource.SampleRate, Is.Zero);
+            Assert.That(resource.NumChannels, Is.Zero);
+        });
     }
 }

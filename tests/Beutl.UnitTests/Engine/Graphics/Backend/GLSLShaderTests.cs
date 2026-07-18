@@ -1,5 +1,6 @@
 ﻿using System.Runtime.InteropServices;
 using Beutl.Graphics;
+using Beutl.Graphics.Backend;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
@@ -96,7 +97,7 @@ public class GLSLShaderTests
     }
 
     [Test]
-    public void Apply_AfterDispose_Throws()
+    public void ExecuteSingleTarget_AfterDispose_Throws()
     {
         VulkanTestEnvironment.EnsureAvailable();
 
@@ -105,48 +106,38 @@ public class GLSLShaderTests
             var shader = GLSLShader.Create(ConstantBlueFragment);
             shader.Dispose();
 
-            using var targets = new EffectTargets();
-            var ctx = CreateCustomContext(targets);
-
             Assert.Throws<ObjectDisposedException>(() =>
-                shader.Apply<DummyPush>(ctx, new DummyPush()));
+                shader.ExecuteSingleTarget<DummyPush>(null!, null!, new DummyPush()));
         });
     }
 
     [Test]
-    public void Apply_OverwritesTargetWithShaderOutput()
+    public void ExecuteSingleTarget_OverwritesDestinationWithShaderOutput()
     {
         var ctx = VulkanTestEnvironment.EnsureAvailable();
 
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using var targets = new EffectTargets();
-
-            // Set up a 4x4 red EffectTarget so we can detect the shader's blue overwrite.
+            // A 4x4 red source so the shader's blue overwrite is detectable.
             using var sourceRenderTarget = RenderTarget.Create(4, 4);
             Assume.That(sourceRenderTarget, Is.Not.Null);
-            using (var canvas = new ImmediateCanvas(sourceRenderTarget!))
+            Assume.That(sourceRenderTarget!.Texture, Is.Not.Null);
+            using (var canvas = new ImmediateCanvas(sourceRenderTarget, RenderIntent.Delivery))
             {
                 canvas.Clear(Colors.Red);
             }
 
-            targets.Add(new EffectTarget(sourceRenderTarget!, new Rect(0, 0, 4, 4)));
+            sourceRenderTarget.PrepareForSampling();
 
-            var customCtx = CreateCustomContext(targets);
+            using Beutl.Graphics.Backend.ITexture2D destination =
+                ctx.CreateTexture2D(4, 4, Beutl.Graphics.Backend.TextureFormat.RGBA16Float);
 
             using var shader = GLSLShader.Create(ConstantBlueFragment);
-            shader.Apply<DummyPush>(customCtx, new DummyPush());
-
-            // After Apply, the EffectTarget at index 0 should be replaced with the shader output.
-            var resultTarget = targets[0];
-            Assert.That(resultTarget.RenderTarget, Is.Not.Null);
-            Assert.That(resultTarget.RenderTarget!.Texture, Is.Not.Null);
-            Assert.That(resultTarget.RenderTarget.Width, Is.EqualTo(4));
+            shader.ExecuteSingleTarget(sourceRenderTarget.Texture!, destination, new DummyPush());
 
             ctx.WaitIdle();
 
-            // Sample the resulting texture pixels.
-            byte[] pixels = resultTarget.RenderTarget.Texture!.DownloadPixels();
+            byte[] pixels = destination.DownloadPixels();
             // RGBA16Float: 8 bytes per pixel
             Assert.That(pixels.Length, Is.EqualTo(4 * 4 * 8));
 
@@ -160,6 +151,51 @@ public class GLSLShaderTests
         });
     }
 
-    private static CustomFilterEffectContext CreateCustomContext(EffectTargets targets)
-        => new CustomFilterEffectContext(targets);
+    [Test]
+    public void ExecuteSingleTarget_SourcePreparationFailureIsClassified()
+    {
+        var ctx = VulkanTestEnvironment.EnsureAvailable();
+
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using ITexture2D source = ctx.CreateTexture2D(4, 4, TextureFormat.RGBA16Float);
+            using ITexture2D destination = ctx.CreateTexture2D(4, 4, TextureFormat.RGBA16Float);
+            using var shader = GLSLShader.Create(ConstantBlueFragment);
+            var failingSource = new SamplingFailureTexture(source);
+
+            InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
+                shader.ExecuteSingleTarget(failingSource, destination, new DummyPush()))!;
+
+            Assert.That(ComputeBackendPreparationFailure.IsMarked(error), Is.True,
+                "a texture-layout failure inside GLSL dispatch must bypass identity preview fallback");
+        });
+    }
+
+    private sealed class SamplingFailureTexture(ITexture2D inner) : ITexture2D
+    {
+        public int Width => inner.Width;
+
+        public int Height => inner.Height;
+
+        public TextureFormat Format => inner.Format;
+
+        public IntPtr NativeHandle => inner.NativeHandle;
+
+        public IntPtr NativeViewHandle => inner.NativeViewHandle;
+
+        public void Upload(ReadOnlySpan<byte> data) => inner.Upload(data);
+
+        public byte[] DownloadPixels() => inner.DownloadPixels();
+
+        public SkiaSharp.SKSurface CreateSkiaSurface() => inner.CreateSkiaSurface();
+
+        public void PrepareForRender() => inner.PrepareForRender();
+
+        public void PrepareForSampling() =>
+            throw new InvalidOperationException("simulated GLSL source preparation failure");
+
+        public void Dispose()
+        {
+        }
+    }
 }

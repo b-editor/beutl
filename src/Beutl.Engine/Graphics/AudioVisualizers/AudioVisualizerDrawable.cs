@@ -56,7 +56,7 @@ public abstract partial class AudioVisualizerDrawable : Drawable
     {
         private const int DefaultComposerSampleRate = 44100;
 
-        private Composer? _composer;
+        private IComposer? _composer;
         private Sound.Resource? _source;
 
         private float[] _cachedSamples = [];
@@ -65,12 +65,20 @@ public abstract partial class AudioVisualizerDrawable : Drawable
         private TimeSpan _cachedStart;
         private TimeSpan _cachedDuration;
         private int _cachedSourceVersion = -1;
+        private Sound.Resource? _cachedSource;
+        private RenderIntent? _cachedRenderIntent;
+        private RenderPullPurpose? _cachedPullPurpose;
+        private RenderIntent _renderIntent = RenderIntent.Preview;
+        private RenderPullPurpose _pullPurpose = RenderPullPurpose.Frame;
 
         // CompositionFrame の Objects 配列は _source が変わった時だけ作り直す。
         private ImmutableArray<EngineObject.Resource> _frameObjects;
         private Sound.Resource? _frameObjectsSource;
 
-        public Sound.Resource? Source => _source;
+        internal Func<RenderIntent, IComposer> ComposerFactory { get; set; }
+            = static renderIntent => new Composer(renderIntent) { SampleRate = DefaultComposerSampleRate };
+
+        public Sound.Resource? Source => ReadGeneratedResourceState(ref _source);
 
         internal float[] CachedSamples => _cachedSamples;
         internal int CachedSampleLength => _cachedSampleLength;
@@ -82,9 +90,19 @@ public abstract partial class AudioVisualizerDrawable : Drawable
 
         partial void PostUpdate(AudioVisualizerDrawable obj, CompositionContext context)
         {
+            _renderIntent = context.RenderIntent;
+            _pullPurpose = context.PullPurpose;
             // 音声処理は専用コンテキストで実行し、MediaReader 等のリソース共有を無効化する。
             // これにより、プレビュー/エンコード側が保持する共有カウンタを visualizer 側の読み出しで汚染しない。
-            var audioContext = new CompositionContext(context.Time) { DisableResourceShare = true };
+            var audioContext = new CompositionContext(
+                context.Time,
+                context.RenderIntent,
+                context.PullPurpose)
+            {
+                DisableResourceShare = true,
+                PreferProxy = context.PreferProxy,
+                PreferredProxyPreset = context.PreferredProxyPreset,
+            };
             bool sourceUpdateOnly = true;
             CompareAndUpdateObject(audioContext, obj.Source, ref _source, ref sourceUpdateOnly);
 
@@ -98,24 +116,55 @@ public abstract partial class AudioVisualizerDrawable : Drawable
                 _cachedSampleRate = 0;
                 _cachedDuration = TimeSpan.Zero;
                 _cachedSourceVersion = -1;
+                _cachedSource = null;
+                _cachedRenderIntent = null;
+                _cachedPullPurpose = null;
                 return;
             }
 
-            _composer ??= new Composer { SampleRate = DefaultComposerSampleRate };
+            if (_composer?.RenderIntent != context.RenderIntent)
+            {
+                IComposer replacement = ComposerFactory(context.RenderIntent)
+                    ?? throw new InvalidOperationException("The audio visualizer composer factory returned null.");
+                IComposer? oldComposer = _composer;
+                _composer = replacement;
+                oldComposer?.Dispose();
+            }
             (TimeSpan start, TimeSpan duration) = ComputeSampleWindow(context.Time);
             EnsureSamplesComposed(start, duration);
         }
 
-        partial void PostDispose(bool disposing)
+        partial void PrepareResourceDispose(
+            bool disposing,
+            EngineObject.Resource.GeneratedResourceCleanupContext context)
         {
             if (disposing)
-            {
-                _composer?.Dispose();
-                _source?.Dispose();
-            }
+                context.Reserve(_source);
+        }
+
+        partial void PostDispose(bool disposing)
+        {
+            if (!disposing)
+                return;
+
+            IComposer? composer = _composer;
             _composer = null;
             _source = null;
             _cachedSamples = [];
+            _cachedSampleLength = 0;
+            _cachedSampleRate = 0;
+            _cachedStart = default;
+            _cachedDuration = default;
+            _cachedSourceVersion = -1;
+            _cachedSource = null;
+            _cachedRenderIntent = null;
+            _cachedPullPurpose = null;
+            _frameObjects = default;
+            _frameObjectsSource = null;
+
+            Exception? failure = null;
+            DisposeOwnedResources(ref failure, composer);
+            ThrowIfCleanupFailed(failure);
         }
 
         protected abstract (TimeSpan Start, TimeSpan Duration) ComputeSampleWindow(TimeSpan currentTime);
@@ -131,6 +180,8 @@ public abstract partial class AudioVisualizerDrawable : Drawable
         private void EnsureSamplesComposed(TimeSpan targetStart, TimeSpan targetDuration)
         {
             int rate = _composer!.SampleRate;
+            Sound.Resource source = _source
+                ?? throw new InvalidOperationException("An audio visualizer cannot compose without a source resource.");
 
             if (targetDuration <= TimeSpan.Zero)
             {
@@ -142,27 +193,34 @@ public abstract partial class AudioVisualizerDrawable : Drawable
                 _cachedSampleRate = rate;
                 _cachedStart = targetStart;
                 _cachedDuration = TimeSpan.Zero;
-                _cachedSourceVersion = _source!.Version;
+                _cachedSourceVersion = source.Version;
+                _cachedSource = source;
+                _cachedRenderIntent = _renderIntent;
+                _cachedPullPurpose = _pullPurpose;
                 return;
             }
 
-            bool needsRecompose = _cachedSourceVersion != _source!.Version
+            bool needsRecompose = !ReferenceEquals(_cachedSource, source)
+                || _cachedSourceVersion != source.Version
                 || _cachedStart != targetStart
                 || _cachedDuration != targetDuration
-                || _cachedSampleRate != rate;
+                || _cachedSampleRate != rate
+                || _cachedRenderIntent != _renderIntent
+                || _cachedPullPurpose != _pullPurpose;
 
             if (!needsRecompose) return;
 
             var targetRange = new TimeRange(targetStart, targetDuration);
-            Sound sound = _source.GetOriginal();
+            Sound sound = source.GetOriginal();
 
-            if (!ReferenceEquals(_frameObjectsSource, _source))
+            if (!ReferenceEquals(_frameObjectsSource, source))
             {
-                _frameObjects = ImmutableArray.Create<EngineObject.Resource>(_source);
-                _frameObjectsSource = _source;
+                _frameObjects = ImmutableArray.Create<EngineObject.Resource>(source);
+                _frameObjectsSource = source;
             }
 
-            var frame = new CompositionFrame(_frameObjects, sound.TimeRange, default);
+            var frame = new CompositionFrame(
+                _frameObjects, sound.TimeRange, default, _renderIntent, _pullPurpose);
 
             AudioBuffer? buffer = _composer.Compose(targetRange, frame);
             try
@@ -204,7 +262,10 @@ public abstract partial class AudioVisualizerDrawable : Drawable
             _cachedSampleRate = rate;
             _cachedStart = targetStart;
             _cachedDuration = targetDuration;
-            _cachedSourceVersion = _source.Version;
+            _cachedSourceVersion = source.Version;
+            _cachedSource = source;
+            _cachedRenderIntent = _renderIntent;
+            _cachedPullPurpose = _pullPurpose;
             Version++;
         }
     }

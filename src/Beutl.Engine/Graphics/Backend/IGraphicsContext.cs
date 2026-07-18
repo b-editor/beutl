@@ -62,12 +62,14 @@ public interface IGraphicsContext : IDisposable
     /// Creates a new 3D render pass with multiple color attachments and specified load operations.
     /// </summary>
     /// <param name="colorFormats">Formats for each color attachment.</param>
-    /// <param name="depthFormat">Format for the depth attachment.</param>
+    /// <param name="depthFormat">
+    /// Optional format for the depth attachment. A non-null value must be a depth format; use null for a color-only pass.
+    /// </param>
     /// <param name="colorLoadOp">The load operation for color attachments.</param>
-    /// <param name="depthLoadOp">The load operation for the depth attachment.</param>
+    /// <param name="depthLoadOp">The load operation for the depth attachment. Ignored when <paramref name="depthFormat"/> is null.</param>
     IRenderPass3D CreateRenderPass3D(
         IReadOnlyList<TextureFormat> colorFormats,
-        TextureFormat depthFormat = TextureFormat.Depth32Float,
+        TextureFormat? depthFormat,
         AttachmentLoadOp colorLoadOp = AttachmentLoadOp.Clear,
         AttachmentLoadOp depthLoadOp = AttachmentLoadOp.Clear);
 
@@ -76,8 +78,11 @@ public interface IGraphicsContext : IDisposable
     /// </summary>
     /// <param name="renderPass">The render pass to use with this framebuffer.</param>
     /// <param name="colorTextures">The color attachment textures.</param>
-    /// <param name="depthTexture">The depth attachment texture.</param>
-    IFramebuffer3D CreateFramebuffer3D(IRenderPass3D renderPass, IReadOnlyList<ITexture2D> colorTextures, ITexture2D depthTexture);
+    /// <param name="depthTexture">
+    /// The optional depth attachment texture. Its presence, format, and dimensions must match the render pass declaration.
+    /// </param>
+    IFramebuffer3D CreateFramebuffer3D(
+        IRenderPass3D renderPass, IReadOnlyList<ITexture2D> colorTextures, ITexture2D? depthTexture);
 
     /// <summary>
     /// Creates a new 3D pipeline.
@@ -87,7 +92,10 @@ public interface IGraphicsContext : IDisposable
     /// <param name="fragmentShaderSpirv">The compiled fragment shader SPIR-V bytecode.</param>
     /// <param name="descriptorBindings">The descriptor bindings for the pipeline.</param>
     /// <param name="vertexInput">The vertex input description. Use VertexInputDescription.Empty for fullscreen passes.</param>
-    /// <param name="options">Pipeline options (depth test, cull mode, etc.). If null, uses PipelineOptions.Default.</param>
+    /// <param name="options">
+    /// Pipeline options (depth test, cull mode, etc.). If null, uses PipelineOptions.Default. A color-only render pass
+    /// requires both depth testing and depth writes to be disabled.
+    /// </param>
     /// <returns>A new pipeline instance.</returns>
     IPipeline3D CreatePipeline3D(
         IRenderPass3D renderPass,

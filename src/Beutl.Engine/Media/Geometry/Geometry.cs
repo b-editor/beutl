@@ -122,11 +122,19 @@ public abstract partial class Geometry : EngineObject
 
         partial void PostDispose(bool disposing)
         {
-            _cachedPath?.Dispose();
+            if (!disposing)
+                return;
 
-            _cachedStrokePath?.Dispose();
-
+            GeometryContext? cachedPath = _cachedPath;
+            _cachedPath = null;
+            SKPath? cachedStrokePath = _cachedStrokePath;
+            _cachedStrokePath = null;
             _cachedPen = null;
+            _capturedVersion = null;
+
+            Exception? failure = null;
+            DisposeOwnedResources(ref failure, cachedPath, cachedStrokePath);
+            ThrowIfCleanupFailed(failure);
         }
     }
 }

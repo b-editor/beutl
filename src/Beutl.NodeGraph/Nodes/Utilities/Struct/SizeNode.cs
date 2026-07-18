@@ -20,7 +20,7 @@ public partial class SizeNode : GraphNode
 
     public partial class Resource
     {
-        public override void Update(GraphCompositionContext context)
+        protected override void UpdateCore(GraphCompositionContext context)
         {
             Value = new Size(Width, Height);
         }

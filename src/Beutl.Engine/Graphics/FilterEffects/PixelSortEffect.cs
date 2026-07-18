@@ -213,6 +213,34 @@ public sealed partial class PixelSortEffect : FilterEffect
     private static GLSLShader? s_rankShader;
     private static GLSLShader? s_gatherShader;
     private static bool s_shadersInitialized;
+    private static bool s_forceShaderInitFailureForTests;
+
+    // Test seam: forces the next shader init to behave as if GLSL compilation failed (shaders stay null) so the
+    // identity-copy fallback can be exercised on a live Vulkan context without a real compile fault. Resets the
+    // init cache so a prior successful init does not shortcut it; the caller restores the flag afterward.
+    internal static void ForceShaderInitFailureForTests()
+    {
+        DisposeShaders();
+        s_shadersInitialized = false;
+        s_forceShaderInitFailureForTests = true;
+    }
+
+    internal static void ResetShaderInitForTests()
+    {
+        DisposeShaders();
+        s_shadersInitialized = false;
+        s_forceShaderInitFailureForTests = false;
+    }
+
+    private static void DisposeShaders()
+    {
+        s_prepareShader?.Dispose();
+        s_rankShader?.Dispose();
+        s_gatherShader?.Dispose();
+        s_prepareShader = null;
+        s_rankShader = null;
+        s_gatherShader = null;
+    }
 
     public PixelSortEffect()
     {
@@ -247,6 +275,15 @@ public sealed partial class PixelSortEffect : FilterEffect
             return;
         }
 
+        if (s_forceShaderInitFailureForTests)
+        {
+            s_prepareShader = null;
+            s_rankShader = null;
+            s_gatherShader = null;
+            s_shadersInitialized = true;
+            return;
+        }
+
         try
         {
             s_prepareShader = GLSLShader.Create(PrepareShaderSource);
@@ -264,22 +301,6 @@ public sealed partial class PixelSortEffect : FilterEffect
         }
     }
 
-    // Delivery (MaxWorkingScale == +inf) must not ship silently unsorted frames; preview keeps the
-    // source pixels and logs. Cancellation always propagates.
-    internal static bool ShouldRethrowPassFailure(Exception exception, float maxWorkingScale)
-        => exception is OperationCanceledException || float.IsPositiveInfinity(maxWorkingScale);
-
-    // Same delivery contract for the non-exception failure: an output target without a texture
-    // (allocation failure) must fail a delivery render instead of shipping the frame unsorted.
-    internal static void ThrowIfDeliveryAllocationFailure(float maxWorkingScale, int targetIndex)
-    {
-        if (float.IsPositiveInfinity(maxWorkingScale))
-        {
-            throw new InvalidOperationException(
-                $"PixelSort could not allocate an output target for target {targetIndex}; the delivery render fails instead of shipping unsorted pixels.");
-        }
-    }
-
     private readonly record struct EffectData(
         PixelSortDirection Direction,
         PixelSortKey SortKey,
@@ -287,113 +308,66 @@ public sealed partial class PixelSortEffect : FilterEffect
         float ThresholdMax,
         bool Ascending);
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
         var data = new EffectData(r.Direction, r.SortKey, r.ThresholdMin / 100f, r.ThresholdMax / 100f, r.Ascending);
-        context.CustomEffect(data, static (d, ctx) => OnApplyTo(d, ctx), static (_, b) => b);
+        // Three coordinate-invariant-in-bounds compute passes (prepare -> rank -> gather+restore) over pooled
+        // ping-pong color targets. Without Vulkan the effect is inactive today, so the fallback is identity.
+        builder.Compute(ComputeNodeDescriptor.Create(
+            ctx => Dispatch(data, ctx),
+            passCount: 3,
+            BoundsContract.FullFrame,
+            ComputeFallbackPolicy.Identity,
+            colorScratchCount: 2,
+            structuralToken: nameof(PixelSortEffect),
+            dispatchFailureBehavior: ComputeDispatchFailureBehavior.IdentityInPreview));
     }
 
-    private static void OnApplyTo(EffectData r, CustomFilterEffectContext ctx)
+    private static void Dispatch(EffectData r, IComputeContext ctx)
     {
         EnsureShadersInitialized();
-
         if (s_prepareShader == null || s_rankShader == null || s_gatherShader == null)
-            return;
-
-        IGraphicsContext? gfx = GraphicsContextFactory.SharedContext;
-        if (gfx == null || !gfx.Supports3DRendering)
-            return;
-
-        for (int i = 0; i < ctx.Targets.Count; i++)
         {
-            EffectTarget target = ctx.Targets[i];
-            RenderTarget? renderTarget = target.RenderTarget;
-            if (renderTarget?.Texture == null) continue;
-
-            ITexture2D originalTexture = renderTarget.Texture;
-            int width = originalTexture.Width;
-            int height = originalTexture.Height;
-
-            try
-            {
-                using ITexture2D prepTexture = gfx.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
-                using ITexture2D rankTexture = gfx.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
-                using ITexture2D depth = gfx.CreateTexture2D(width, height, TextureFormat.Depth32Float);
-
-                // Pass 1: Prepare - encode sort key into alpha
-                s_prepareShader.ExecuteSingleTarget(
-                    originalTexture, prepTexture, depth,
-                    new PreparePushConstants
-                    {
-                        ThresholdMin = r.ThresholdMin,
-                        ThresholdMax = r.ThresholdMax,
-                        SortKeyType = (int)r.SortKey,
-                        SortDir = (int)r.Direction,
-                        Width = width,
-                        Height = height,
-                    });
-
-                // Pass 2: Rank - compute each pixel's rank within its segment
-                s_rankShader.ExecuteSingleTarget(
-                    prepTexture, rankTexture, depth,
-                    new RankPushConstants
-                    {
-                        SortDir = (int)r.Direction,
-                        Width = width,
-                        Height = height,
-                    });
-
-                // Pass 3: Gather + Restore - place pixels by rank, restore anchors
-                EffectTarget newTarget = ctx.CreateTarget(target.Bounds);
-                RenderTarget? newRenderTarget = newTarget.RenderTarget;
-
-                if (newRenderTarget?.Texture == null)
-                {
-                    newTarget.Dispose();
-                    ThrowIfDeliveryAllocationFailure(ctx.MaxWorkingScale, i);
-                    continue;
-                }
-
-                try
-                {
-                    using ITexture2D gatherDepth = gfx.CreateTexture2D(width, height, TextureFormat.Depth32Float);
-
-                    s_gatherShader.ExecuteSingleTargetWithMask(
-                        rankTexture, originalTexture, newRenderTarget.Texture, gatherDepth,
-                        new GatherPushConstants
-                        {
-                            SortDir = (int)r.Direction,
-                            Ascending = r.Ascending ? 1 : 0,
-                            Width = width,
-                            Height = height,
-                        });
-
-                    target.Dispose();
-                    ctx.Targets[i] = newTarget;
-                }
-                catch (Exception ex)
-                {
-                    newTarget.Dispose();
-                    if (ShouldRethrowPassFailure(ex, ctx.MaxWorkingScale))
-                    {
-                        throw;
-                    }
-
-                    s_logger.LogWarning(ex, "PixelSort gather pass failed for target {Index}; keeping the source pixels.", i);
-                }
-            }
-            catch (Exception ex)
-            {
-                if (ShouldRethrowPassFailure(ex, ctx.MaxWorkingScale))
-                {
-                    throw;
-                }
-
-                s_logger.LogWarning(ex, "PixelSort pass failed for target {Index}; leaving it unsorted.", i);
-                continue;
-            }
+            // Shaders unavailable on a Vulkan context (a GLSL compile fault): the destination was cleared, so
+            // returning now would blank the layer. Copy the source through instead — the effect degrades to identity.
+            ctx.CopySourceToDestination();
+            return;
         }
+
+        int width = ctx.Width;
+        int height = ctx.Height;
+
+        ITexture2D prep = ctx.AcquireColorScratch();
+        ITexture2D rank = ctx.AcquireColorScratch();
+
+        ctx.Run(s_prepareShader, ctx.Source, prep,
+            new PreparePushConstants
+            {
+                ThresholdMin = r.ThresholdMin,
+                ThresholdMax = r.ThresholdMax,
+                SortKeyType = (int)r.SortKey,
+                SortDir = (int)r.Direction,
+                Width = width,
+                Height = height,
+            });
+
+        ctx.Run(s_rankShader, prep, rank,
+            new RankPushConstants
+            {
+                SortDir = (int)r.Direction,
+                Width = width,
+                Height = height,
+            });
+
+        ctx.Run(s_gatherShader, rank, ctx.Source, ctx.Destination,
+            new GatherPushConstants
+            {
+                SortDir = (int)r.Direction,
+                Ascending = r.Ascending ? 1 : 0,
+                Width = width,
+                Height = height,
+            });
     }
 
     [StructLayout(LayoutKind.Sequential)]

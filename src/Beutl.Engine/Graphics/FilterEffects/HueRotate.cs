@@ -16,9 +16,9 @@ public sealed partial class HueRotate : FilterEffect
     [Display(Name = nameof(GraphicsStrings.Angle), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Angle { get; } = Property.CreateAnimatable<float>();
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
-        context.HueRotate(r.Angle);
+        builder.HueRotate(r.Angle);
     }
 }

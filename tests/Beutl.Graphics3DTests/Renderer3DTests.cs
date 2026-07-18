@@ -1,6 +1,7 @@
 ﻿using System.Numerics;
 using Beutl.Composition;
 using Beutl.Graphics.Backend;
+using Beutl.Graphics.Rendering;
 using Beutl.Graphics3D;
 using Beutl.Graphics3D.Camera;
 using Beutl.Graphics3D.Lighting;
@@ -109,7 +110,9 @@ public class Renderer3DTests
                     lights,
                     new Color(255, 25, 25, 30),
                     Colors.White,
-                    0.08f);
+                    0.08f,
+                    RenderIntent.Delivery,
+                    RenderPullPurpose.Frame);
 
                 return renderer.DownloadPixels();
             }
@@ -343,7 +346,9 @@ public class Renderer3DTests
                     lights,
                     new Color(255, 40, 50, 60),
                     Colors.White,
-                    0.15f);
+                    0.15f,
+                    RenderIntent.Delivery,
+                    RenderPullPurpose.Frame);
 
                 return renderer.DownloadPixels();
             }

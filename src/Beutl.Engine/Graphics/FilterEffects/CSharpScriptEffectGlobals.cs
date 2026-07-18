@@ -2,19 +2,34 @@
 
 namespace Beutl.Graphics.Effects;
 
+/// <summary>
+/// The script globals a <see cref="CSharpScriptEffect"/> script runs against (feature 004, contract A6,
+/// contracts/breaking-changes.md). A script authors the declarative effect graph exactly like a compiled effect
+/// author: it appends node descriptors through <see cref="Builder"/> (an <see cref="EffectGraphBuilder"/>). The
+/// convenience vocabulary (<c>Blur</c>, <c>DropShadow</c>, <c>Saturate</c>, <c>ColorMatrix</c>, <c>Transform</c>,
+/// …) mirrors the removed imperative context's method names, so legacy scripts migrate near-mechanically
+/// (<c>Context.Blur(…)</c> → <c>Builder.Blur(…)</c>); custom canvas drawing stays available through
+/// <see cref="EffectGraphBuilder.Geometry(System.Action{GeometrySession}, System.Nullable{BoundsContract}, object, bool)"/>.
+/// Legacy <c>Context</c>/<c>Session</c> identifiers are diagnosed by <see cref="CSharpScriptEffect"/>'s Roslyn
+/// validation without retaining public compatibility members on this globals type.
+/// </summary>
 public class CSharpScriptEffectGlobals
 {
-    private readonly FilterEffectContext _context;
-
-    public CSharpScriptEffectGlobals(FilterEffectContext context, float progress, float duration, float time)
+    public CSharpScriptEffectGlobals(EffectGraphBuilder builder, float progress, float duration, float time)
     {
-        _context = context ?? throw new ArgumentNullException(nameof(context));
+        Builder = builder ?? throw new ArgumentNullException(nameof(builder));
         Progress = progress;
         Duration = duration;
         Time = time;
     }
 
-    public FilterEffectContext Context => _context;
+    /// <summary>
+    /// The declarative recording surface the script appends node descriptors to — the same
+    /// <see cref="EffectGraphBuilder"/> a compiled effect author receives in <c>Describe</c>. Its convenience
+    /// vocabulary and <see cref="EffectGraphBuilder.Geometry(System.Action{GeometrySession}, System.Nullable{BoundsContract}, object, bool)"/>
+    /// escape hatch cover blur/shadow/color filtering and arbitrary canvas drawing.
+    /// </summary>
+    public EffectGraphBuilder Builder { get; }
 
     public float Time { get; }
 

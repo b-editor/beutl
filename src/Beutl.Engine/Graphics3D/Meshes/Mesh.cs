@@ -117,12 +117,16 @@ public abstract partial class Mesh : EngineObject
 
         partial void PostDispose(bool disposing)
         {
-            VertexBuffer?.Dispose();
+            if (!disposing)
+                return;
+
+            IBuffer? vertexBuffer = VertexBuffer;
             VertexBuffer = null;
-            IndexBuffer?.Dispose();
+            IBuffer? indexBuffer = IndexBuffer;
             IndexBuffer = null;
             _cachedVertices = null;
             _cachedIndices = null;
+            Graphics3DDisposal.DisposeAll(vertexBuffer, indexBuffer);
         }
     }
 }

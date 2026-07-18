@@ -58,7 +58,10 @@ public sealed partial class BarSpectrumShape : SpectrumShape
             }
 
             _paint ??= new SKPaint();
-            new BrushConstructor(bounds, fill, BlendMode.SrcOver, canvas.Density, canvas.MaxWorkingScale).ConfigurePaint(_paint);
+            new BrushConstructor(
+                bounds, fill, BlendMode.SrcOver, canvas.RenderIntent, canvas.Density, canvas.MaxWorkingScale,
+                pullPurpose: canvas.PullPurpose)
+                .ConfigurePaint(_paint);
             _paint.Style = SKPaintStyle.Fill;
 
             _path ??= new SKPath();
@@ -95,13 +98,17 @@ public sealed partial class BarSpectrumShape : SpectrumShape
 
         partial void PostDispose(bool disposing)
         {
-            if (disposing)
-            {
-                _paint?.Dispose();
-                _path?.Dispose();
-            }
+            if (!disposing)
+                return;
+
+            var paint = _paint;
             _paint = null;
+            var path = _path;
             _path = null;
+
+            Exception? failure = null;
+            DisposeOwnedResources(ref failure, paint, path);
+            ThrowIfCleanupFailed(failure);
         }
     }
 }

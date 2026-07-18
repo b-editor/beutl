@@ -24,7 +24,7 @@ public sealed partial class PathFollowEffect : FilterEffect
     [Display(Name = nameof(GraphicsStrings.PathFollowEffect_FollowRotation), ResourceType = typeof(GraphicsStrings))]
     public IProperty<bool> FollowRotation { get; } = Property.CreateAnimatable(false);
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
         if (r.Geometry == null)
@@ -35,65 +35,75 @@ public sealed partial class PathFollowEffect : FilterEffect
             return;
 
         float progress = Math.Clamp(r.Progress, 0f, 100f) / 100f;
-
         using var pathMeasure = new SKPathMeasure(skPath);
         float totalLength = pathMeasure.Length;
         if (totalLength <= 0)
             return;
 
-        float distance = totalLength * progress;
-
-        if (!pathMeasure.GetPositionAndTangent(distance, out SKPoint position, out SKPoint tangent))
+        if (!pathMeasure.GetPositionAndTangent(totalLength * progress, out SKPoint position, out SKPoint tangent))
             return;
-
         if (!pathMeasure.GetPosition(0, out SKPoint startPosition))
             return;
 
-        float offsetX = position.X - startPosition.X;
-        float offsetY = position.Y - startPosition.Y;
+        var translate = Matrix.CreateTranslation(position.X - startPosition.X, position.Y - startPosition.Y);
+        float rotationAngle = r.FollowRotation ? MathF.Atan2(tangent.Y, tangent.X) : 0f;
 
-        float rotationAngle = 0f;
-        if (r.FollowRotation)
+        // The pass translates (and optionally rotates) its input, so producing output region `rect` samples the input
+        // over the inverse of the follow transform. The render callback pivots on the executed operation's own rect
+        // (session.Inputs[0]), matching the forward map the executor sizes each output buffer with — after an
+        // upstream fan-out a branch pivoted on the describe-time union rotates out of its allocated buffer. Backward
+        // inverts the transform pivoted on the describe-time input bounds (the resolver's whole-set view); an
+        // identity backward under-claims and crops an upstream pass to the un-followed region, losing the pixels the
+        // follow motion pulls in (A3).
+        Rect inputBounds = builder.Bounds;
+        builder.Geometry(GeometryNodeDescriptor.Create(
+            session =>
+            {
+                Rect opBounds = session.Inputs[0].Bounds;
+                var center = new Vector(opBounds.Width / 2, opBounds.Height / 2);
+                TransformGeometry.Render(session, LocalMatrix(translate, rotationAngle, center));
+            },
+            BoundsContract.Create(
+                rect => FollowBounds(rect, translate, rotationAngle),
+                rect => InverseFollowBounds(rect, translate, rotationAngle, inputBounds)),
+            structuralToken: nameof(PathFollowEffect)));
+    }
+
+    private static Matrix LocalMatrix(Matrix translate, float rotationAngle, Vector center)
+    {
+        if (rotationAngle == 0)
+            return translate;
+
+        Matrix offset = Matrix.CreateTranslation(center);
+        return -offset * Matrix.CreateRotation(rotationAngle) * offset * translate;
+    }
+
+    private static Rect FollowBounds(Rect rect, Matrix translate, float rotationAngle)
+    {
+        if (rotationAngle == 0)
+            return rect.TransformToAABB(translate);
+
+        var center = new Vector(rect.Width / 2, rect.Height / 2);
+        Matrix offset = Matrix.CreateTranslation(center + rect.Position);
+        Matrix m1 = -offset * Matrix.CreateRotation(rotationAngle) * offset * translate;
+        return rect.TransformToAABB(m1);
+    }
+
+    private static Rect InverseFollowBounds(Rect rect, Matrix translate, float rotationAngle, Rect inputBounds)
+    {
+        Matrix forward;
+        if (rotationAngle == 0)
         {
-            rotationAngle = MathF.Atan2(tangent.Y, tangent.X);
+            forward = translate;
+        }
+        else
+        {
+            var center = new Vector(inputBounds.Width / 2, inputBounds.Height / 2);
+            Matrix offset = Matrix.CreateTranslation(center + inputBounds.Position);
+            forward = -offset * Matrix.CreateRotation(rotationAngle) * offset * translate;
         }
 
-        context.CustomEffect((offsetX, offsetY, rotationAngle), static (data, effectContext) =>
-        {
-            effectContext.ForEach((_, target) =>
-            {
-
-                var translate = Matrix.CreateTranslation(data.offsetX, data.offsetY);
-                Matrix m1, m2;
-                if (data.rotationAngle != 0)
-                {
-                    var center = new Vector(target.Bounds.Width / 2, target.Bounds.Height / 2);
-                    var rotate = Matrix.CreateRotation(data.rotationAngle);
-
-                    var offset1 = Matrix.CreateTranslation(center + target.Bounds.Position);
-                    var offset2 = Matrix.CreateTranslation(center);
-                    m1 = -offset1 * rotate * offset1 * translate;
-                    m2 = -offset2 * rotate * offset2 * translate;
-                }
-                else
-                {
-                    m1 = m2 = translate;
-                }
-
-                var newBounds = target.Bounds.TransformToAABB(m1);
-                var newTarget = effectContext.CreateTarget(newBounds);
-                // Open bakes the base CTM from the target's density.
-                using (var canvas = effectContext.Open(newTarget))
-                using (canvas.PushTransform(Matrix.CreateTranslation(target.Bounds.Position - newTarget.Bounds.Position)))
-                using (canvas.PushTransform(m2))
-                {
-                    canvas.Clear();
-                    target.Draw(canvas);
-                }
-
-                target.Dispose();
-                return newTarget;
-            });
-        });
+        return forward.TryInvert(out Matrix inverted) ? rect.TransformToAABB(inverted) : Rect.Invalid;
     }
+
 }

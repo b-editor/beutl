@@ -1,14 +1,17 @@
 ﻿using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
-using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
-using Beutl.UnitTests.Engine.Graphics.Backend;
 using Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
+// Crash-safety of effects fed degenerate parameters, exercised end-to-end through the declarative pipeline. The
+// legacy imperative-pipeline harness (FilterEffectActivator / EffectTarget / SKImageFilterBuilder) is gone; the same
+// intent is now covered by rendering through GoldenImageHarness, which builds the effect graph, compiles it and runs
+// the executor. The executor's C7 empty-bounds skip / delivery-vs-preview drop-or-throw normalization is unit-tested
+// directly in EffectPipeline/PrimitivePassTests.
 [NonParallelizable]
 public sealed class FilterEffectCrashSafetyTests
 {
@@ -24,64 +27,44 @@ public sealed class FilterEffectCrashSafetyTests
     }
 
     [Test]
-    public void ShakeEffect_extreme_values_keep_target_bounds_finite()
+    public void ShakeEffect_extreme_values_render_a_finite_frame()
     {
-        using var source = RenderTarget.Create(100, 60);
-        Assert.That(source, Is.Not.Null, "A CPU RenderTarget is required for this test.");
-
-        using var targets = new EffectTargets
-        {
-            new EffectTarget(source!, new Rect(0, 0, 100, 60)),
-        };
-        using var feCtx = new FilterEffectContext(new Rect(0, 0, 100, 60));
-        var effect = new ShakeEffect
+        // Speed +Inf and NaN/MaxValue strengths would produce a non-finite geometry translation without ShakeEffect's
+        // ClampOffset guard, which then yields non-finite pass bounds and an unallocatable buffer. The clamp keeps the
+        // translation finite, so the render completes and produces a full-size frame instead of crashing.
+        var shape = new RectShape();
+        shape.Width.CurrentValue = 150;
+        shape.Height.CurrentValue = 60;
+        shape.Fill.CurrentValue = Brushes.White;
+        shape.FilterEffect.CurrentValue = new ShakeEffect
         {
             Speed = { CurrentValue = float.PositiveInfinity },
             StrengthX = { CurrentValue = float.NaN },
-            StrengthY = { CurrentValue = float.MaxValue }
+            StrengthY = { CurrentValue = float.MaxValue },
         };
-        effect.ApplyTo(feCtx, effect.ToResource(new CompositionContext(TimeSpan.Zero)));
 
-        using var builder = new SKImageFilterBuilder();
-        using var activator = new FilterEffectActivator(targets, builder);
-        Assert.DoesNotThrow(() => activator.Apply(feCtx));
-
-        foreach (EffectTarget target in activator.CurrentTargets)
-        {
-            Assert.That(IsFinite(target.Bounds), Is.True, $"Shaken bounds must stay finite; got {target.Bounds}.");
-            Assert.That(IsFinite(target.OriginalBounds), Is.True, $"Original bounds must stay finite; got {target.OriginalBounds}.");
-        }
+        Bitmap? rendered = null;
+        Assert.DoesNotThrow(() => rendered = GoldenImageHarness.RenderAtScale(
+            shape.ToResource(CompositionContext.Default), Frame, 1f));
+        using Bitmap bitmap = rendered!;
+        Assert.That(bitmap.Width, Is.EqualTo(Frame.Width));
+        Assert.That(bitmap.Height, Is.EqualTo(Frame.Height));
     }
 
-    private static bool IsFinite(Rect rect)
-        => double.IsFinite(rect.X)
-           && double.IsFinite(rect.Y)
-           && double.IsFinite(rect.Width)
-           && double.IsFinite(rect.Height);
-
     [Test]
-    public void PixelSort_half_initialized_gpu_path_degrades_to_noop()
+    public void PixelSort_renders_without_throwing_and_degrades_when_gpu_absent()
     {
-        VulkanTestEnvironment.EnsureAvailable();
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        // PixelSort is a Vulkan compute effect; its identity fallback makes the pass a no-op when no compute
+        // context is available, so the render must complete without throwing on either path.
+        var shape = new RectShape();
+        shape.Width.CurrentValue = 120;
+        shape.Height.CurrentValue = 80;
+        shape.Fill.CurrentValue = Brushes.White;
+        shape.FilterEffect.CurrentValue = new PixelSortEffect();
+
+        Assert.DoesNotThrow(() =>
         {
-            using var sourceRenderTarget = RenderTarget.Create(0, 0);
-            if (sourceRenderTarget is null)
-            {
-                Assert.Pass("Zero-sized RenderTarget is unavailable in this backend.");
-            }
-
-            using var targets = new EffectTargets
-            {
-                new EffectTarget(sourceRenderTarget!, new Rect(0, 0, 0, 0)),
-            };
-            using var feCtx = new FilterEffectContext(new Rect(0, 0, 0, 0));
-            var effect = new PixelSortEffect();
-            effect.ApplyTo(feCtx, effect.ToResource(new CompositionContext(TimeSpan.Zero)));
-
-            using var builder = new SKImageFilterBuilder();
-            using var activator = new FilterEffectActivator(targets, builder);
-            Assert.DoesNotThrow(() => activator.Apply(feCtx));
+            using Bitmap _ = GoldenImageHarness.RenderAtScale(shape.ToResource(CompositionContext.Default), Frame, 1f);
         });
     }
 

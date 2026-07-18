@@ -1,4 +1,5 @@
-﻿using Beutl.Engine;
+﻿using Beutl.Composition;
+using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Rendering;
@@ -170,7 +171,8 @@ public sealed class StillRenderer
             // Agent still render is a final output, so force original media (proxies are preview-only);
             // otherwise the default PreferProxy setting would decode cached proxies here.
             using var renderer = new SceneRenderer(
-                scene, normalizedScale, disableResourceShare: true, maxWorkingScale: float.PositiveInfinity, forceOriginalSource: true);
+                scene, RenderIntent.Delivery, normalizedScale, disableResourceShare: true,
+                maxWorkingScale: float.PositiveInfinity, forceOriginalSource: true);
             renderer.CacheOptions = RenderCacheOptions.Disabled;
 
             ThrowIfSourcesMissing(scene, time + scene.Start);
@@ -200,7 +202,8 @@ public sealed class StillRenderer
             // Agent still render is a final output, so force original media (proxies are preview-only);
             // otherwise the default PreferProxy setting would decode cached proxies here.
             using var renderer = new SceneRenderer(
-                scene, normalizedScale, disableResourceShare: true, maxWorkingScale: float.PositiveInfinity, forceOriginalSource: true);
+                scene, RenderIntent.Delivery, normalizedScale, disableResourceShare: true,
+                maxWorkingScale: float.PositiveInfinity, forceOriginalSource: true);
             renderer.CacheOptions = RenderCacheOptions.Disabled;
 
             ThrowIfSourcesMissing(scene, time + scene.Start);
@@ -696,6 +699,12 @@ public sealed class StillRenderer
         TimeSpan time)
     {
         TimeSpan renderTime = time + scene.Start;
+        CompositionFrame auxiliaryFrame = renderer.Compositor.EvaluateGraphics(
+            renderTime,
+            RenderPullPurpose.Auxiliary);
+        // Align composition-time graph/resource evaluation once before walking every nested text object. Calling the
+        // frame-taking single-boundary overload inside the recursion would revalidate the whole frame per text.
+        renderer.UpdateFrame(auxiliaryFrame);
         var result = new List<RenderedTextBounds>();
         foreach (Element element in scene.Children)
         {

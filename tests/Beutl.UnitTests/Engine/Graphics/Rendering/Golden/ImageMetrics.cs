@@ -33,6 +33,28 @@ internal static class ImageMetrics
         return sum / (pixels * 3);
     }
 
+    /// <summary>
+    /// Mean absolute error over the alpha channel of two same-size RgbaF16 bitmaps. RGB MAE and luminance SSIM are
+    /// both blind to alpha-only regressions, so the golden gates assert this separately (widening the RGB loop to
+    /// four channels would change the divisor and silently re-scale the pinned 0.02 threshold).
+    /// </summary>
+    public static double AlphaMeanAbsoluteError(Bitmap a, Bitmap b)
+    {
+        EnsureComparable(a, b);
+        ReadOnlySpan<ushort> pa = a.GetPixelSpan<ushort>();
+        ReadOnlySpan<ushort> pb = b.GetPixelSpan<ushort>();
+        int pixels = a.Width * a.Height;
+
+        double sum = 0;
+        for (int i = 0; i < pixels; i++)
+        {
+            int o = i * 4 + 3;
+            sum += Math.Abs(HalfBitsToFloat(pa[o]) - HalfBitsToFloat(pb[o]));
+        }
+
+        return sum / pixels;
+    }
+
     /// <summary>Global SSIM over linear luminance. Returns 1.0 for identical inputs.</summary>
     public static double Ssim(Bitmap a, Bitmap b)
     {

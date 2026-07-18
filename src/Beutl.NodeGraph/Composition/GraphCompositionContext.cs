@@ -4,8 +4,10 @@ namespace Beutl.NodeGraph.Composition;
 
 public sealed class GraphCompositionContext : CompositionContext
 {
-    public GraphCompositionContext(TimeSpan time) : base(time)
+    internal GraphCompositionContext(CompositionContext context)
+        : base(context.Time, context.RenderIntent, context.PullPurpose)
     {
+        UpdateFrom(context);
     }
 
     internal GraphNode.Resource Resource { get; set; } = null!;
@@ -13,6 +15,15 @@ public sealed class GraphCompositionContext : CompositionContext
     internal GraphSnapshot Snapshot { get; set; } = null!;
 
     public CompositionTarget Target { get; internal set; }
+
+    internal void UpdateFrom(CompositionContext context)
+    {
+        Time = context.Time;
+        DisableResourceShare = context.DisableResourceShare;
+        PreferProxy = context.PreferProxy;
+        PreferredProxyPreset = context.PreferredProxyPreset;
+        UpdateRenderPolicy(context.RenderIntent, context.PullPurpose);
+    }
 
     public bool HasConnection(IInputPort port)
     {

@@ -1,5 +1,6 @@
 ﻿using Beutl.Composition;
 using Beutl.Graphics;
+using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.Media.Proxy;
@@ -56,7 +57,7 @@ public sealed class ExportRenderContextSafetyTests
             Uri = new Uri(Path.Combine(scope.RootPath, "test.scene")),
         };
         scene.Children.Add(element);
-        using var compositor = new SceneCompositor(scene)
+        using var compositor = new SceneCompositor(scene, RenderIntent.Delivery)
         {
             DisableResourceShare = true,
             ForceOriginalSource = true,
@@ -123,7 +124,7 @@ public sealed class ExportRenderContextSafetyTests
             Uri = new Uri(Path.Combine(scope.RootPath, "test.scene")),
         };
         scene.Children.Add(element);
-        using var compositor = new SceneCompositor(scene)
+        using var compositor = new SceneCompositor(scene, RenderIntent.Delivery)
         {
             DisableResourceShare = true,
             ForceOriginalSource = true,

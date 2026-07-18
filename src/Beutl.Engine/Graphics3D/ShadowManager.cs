@@ -45,55 +45,124 @@ internal sealed class ShadowManager : IDisposable
     /// <summary>
     /// Gets the number of active 2D shadow maps.
     /// </summary>
-    public int ActiveShadowCount2D => _activeShadowCount2D;
+    public int ActiveShadowCount2D
+    {
+        get
+        {
+            ThrowIfNotInitialized();
+            return _activeShadowCount2D;
+        }
+    }
 
     /// <summary>
     /// Gets the number of active cube shadow maps.
     /// </summary>
-    public int ActiveShadowCountCube => _activeShadowCountCube;
+    public int ActiveShadowCountCube
+    {
+        get
+        {
+            ThrowIfNotInitialized();
+            return _activeShadowCountCube;
+        }
+    }
 
     /// <summary>
     /// Gets the 2D shadow map array texture.
     /// </summary>
-    public ITextureArray? ShadowMapArray => _shadowMapArray;
+    public ITextureArray? ShadowMapArray
+    {
+        get
+        {
+            ThrowIfNotInitialized();
+            return _shadowMapArray;
+        }
+    }
 
     /// <summary>
     /// Gets the cube shadow map array texture.
     /// </summary>
-    public ITextureCubeArray? ShadowMapCubeArray => _shadowMapCubeArray;
+    public ITextureCubeArray? ShadowMapCubeArray
+    {
+        get
+        {
+            ThrowIfNotInitialized();
+            return _shadowMapCubeArray;
+        }
+    }
 
     /// <summary>
     /// Initializes the shadow manager.
     /// </summary>
     public void Initialize()
     {
-        if (_initialized) return;
+        ThrowIfDisposed();
+        if (_initialized)
+            throw new InvalidOperationException($"{nameof(ShadowManager)} is already initialized.");
 
-        // Create shadow passes
-        for (int i = 0; i < MaxShadowMaps2D; i++)
+        var shadowPasses2D = new ShadowPass?[MaxShadowMaps2D];
+        var pointShadowPasses = new PointShadowPass?[MaxShadowMapsCube];
+        ITextureArray? shadowMapArray = null;
+        ITextureCubeArray? shadowMapCubeArray = null;
+        try
         {
-            _shadowPasses2D[i] = new ShadowPass(_context, _shaderCompiler);
-            _shadowPasses2D[i].Initialize(ShadowPass.DefaultShadowMapSize, ShadowPass.DefaultShadowMapSize);
+            // Create shadow passes
+            for (int i = 0; i < MaxShadowMaps2D; i++)
+            {
+                var pass = new ShadowPass(_context, _shaderCompiler);
+                shadowPasses2D[i] = pass;
+                pass.Initialize(ShadowPass.DefaultShadowMapSize, ShadowPass.DefaultShadowMapSize);
+            }
+
+            for (int i = 0; i < MaxShadowMapsCube; i++)
+            {
+                var pass = new PointShadowPass(_context, _shaderCompiler);
+                pointShadowPasses[i] = pass;
+                pass.Initialize(PointShadowPass.DefaultCubeFaceSize, PointShadowPass.DefaultCubeFaceSize);
+            }
+
+            // Create shadow map array for 2D shadows
+            shadowMapArray = _context.CreateTextureArray(
+                ShadowPass.DefaultShadowMapSize,
+                ShadowPass.DefaultShadowMapSize,
+                MaxShadowMaps2D,
+                TextureFormat.Depth32Float);
+
+            // Create shadow cube map array for point light shadows
+            shadowMapCubeArray = _context.CreateTextureCubeArray(
+                PointShadowPass.DefaultCubeFaceSize,
+                MaxShadowMapsCube,
+                TextureFormat.Depth32Float);
+        }
+        catch
+        {
+            Exception? ignoredCleanupFailure = null;
+            for (int i = shadowPasses2D.Length - 1; i >= 0; i--)
+            {
+                Graphics3DDisposal.Capture(shadowPasses2D[i], ref ignoredCleanupFailure);
+            }
+
+            for (int i = pointShadowPasses.Length - 1; i >= 0; i--)
+            {
+                Graphics3DDisposal.Capture(pointShadowPasses[i], ref ignoredCleanupFailure);
+            }
+
+            Graphics3DDisposal.Capture(shadowMapArray, ref ignoredCleanupFailure);
+            Graphics3DDisposal.Capture(shadowMapCubeArray, ref ignoredCleanupFailure);
+            throw;
         }
 
-        for (int i = 0; i < MaxShadowMapsCube; i++)
+        for (int i = 0; i < shadowPasses2D.Length; i++)
         {
-            _pointShadowPasses[i] = new PointShadowPass(_context, _shaderCompiler);
-            _pointShadowPasses[i].Initialize(PointShadowPass.DefaultCubeFaceSize, PointShadowPass.DefaultCubeFaceSize);
+            _shadowPasses2D[i] = shadowPasses2D[i]!;
         }
 
-        // Create shadow map array for 2D shadows
-        _shadowMapArray = _context.CreateTextureArray(
-            ShadowPass.DefaultShadowMapSize,
-            ShadowPass.DefaultShadowMapSize,
-            MaxShadowMaps2D,
-            TextureFormat.Depth32Float);
+        for (int i = 0; i < pointShadowPasses.Length; i++)
+        {
+            _pointShadowPasses[i] = pointShadowPasses[i]!;
+        }
 
-        // Create shadow cube map array for point light shadows
-        _shadowMapCubeArray = _context.CreateTextureCubeArray(
-            PointShadowPass.DefaultCubeFaceSize,
-            MaxShadowMapsCube,
-            TextureFormat.Depth32Float);
+        _shadowMapArray = shadowMapArray;
+        _shadowMapCubeArray = shadowMapCubeArray;
 
         _initialized = true;
     }
@@ -112,6 +181,7 @@ internal sealed class ShadowManager : IDisposable
         Vector3 sceneCenter,
         float sceneRadius)
     {
+        ThrowIfDisposed();
         if (!_initialized)
             Initialize();
 
@@ -264,6 +334,7 @@ internal sealed class ShadowManager : IDisposable
     /// </summary>
     public ShadowUBO GetShadowUBO()
     {
+        ThrowIfNotInitialized();
         var ubo = new ShadowUBO
         {
             ShadowCount2D = _activeShadowCount2D,
@@ -283,6 +354,7 @@ internal sealed class ShadowManager : IDisposable
     /// </summary>
     public ReadOnlySpan<ShadowInfo> GetShadowInfos()
     {
+        ThrowIfNotInitialized();
         return _shadowInfos.AsSpan(0, Math.Min(_activeShadowCount2D + _activeShadowCountCube, ShadowInfoArray.MaxShadows));
     }
 
@@ -291,6 +363,7 @@ internal sealed class ShadowManager : IDisposable
     /// </summary>
     public ITexture2D? GetShadowMap2D(int index)
     {
+        ThrowIfNotInitialized();
         if (index < 0 || index >= _activeShadowCount2D)
             return null;
 
@@ -303,6 +376,7 @@ internal sealed class ShadowManager : IDisposable
     /// </summary>
     public void PrepareForSampling()
     {
+        ThrowIfNotInitialized();
         // Prepare 2D shadow maps
         for (int i = 0; i < _activeShadowCount2D; i++)
         {
@@ -325,18 +399,43 @@ internal sealed class ShadowManager : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+        _initialized = false;
+        _activeShadowCount2D = 0;
+        _activeShadowCountCube = 0;
+        Array.Clear(_shadowInfos);
 
-        foreach (var pass in _shadowPasses2D)
+        Exception? cleanupFailure = null;
+        for (int i = 0; i < _shadowPasses2D.Length; i++)
         {
-            pass?.Dispose();
+            ShadowPass? pass = _shadowPasses2D[i];
+            _shadowPasses2D[i] = null!;
+            Graphics3DDisposal.Capture(pass, ref cleanupFailure);
         }
 
-        foreach (var pass in _pointShadowPasses)
+        for (int i = 0; i < _pointShadowPasses.Length; i++)
         {
-            pass?.Dispose();
+            PointShadowPass? pass = _pointShadowPasses[i];
+            _pointShadowPasses[i] = null!;
+            Graphics3DDisposal.Capture(pass, ref cleanupFailure);
         }
 
-        _shadowMapArray?.Dispose();
-        _shadowMapCubeArray?.Dispose();
+        ITextureArray? shadowMapArray = _shadowMapArray;
+        ITextureCubeArray? shadowMapCubeArray = _shadowMapCubeArray;
+        _shadowMapArray = null;
+        _shadowMapCubeArray = null;
+        Graphics3DDisposal.Capture(shadowMapArray, ref cleanupFailure);
+        Graphics3DDisposal.Capture(shadowMapCubeArray, ref cleanupFailure);
+
+        Graphics3DDisposal.ThrowIfFailed(cleanupFailure);
+    }
+
+    private void ThrowIfDisposed()
+        => ObjectDisposedException.ThrowIf(_disposed, this);
+
+    private void ThrowIfNotInitialized()
+    {
+        ThrowIfDisposed();
+        if (!_initialized)
+            throw new InvalidOperationException($"{nameof(ShadowManager)} is not initialized.");
     }
 }

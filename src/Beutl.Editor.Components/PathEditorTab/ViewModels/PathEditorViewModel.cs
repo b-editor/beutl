@@ -169,7 +169,7 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorContext
         // Groupプロパティを初期化
         context.ExpandForEditing();
 
-        var shapeResource = shape.ToResource(new CompositionContext(_clock.CurrentTime.Value));
+        using Shape.Resource shapeResource = shape.ToResource(new CompositionContext(_clock.CurrentTime.Value));
         Avalonia.Matrix matrix = CalculateMatrix(shapeResource).ToAvaMatrix();
         if (matrix.TryInvert(out Avalonia.Matrix inverted)
             && shapeResource is GeometryShape.Resource { Data: not null } geometryShapeResource

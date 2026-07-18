@@ -64,12 +64,40 @@ public partial class MyDrawable : Drawable
 - Create string resources inside the extension project.
 - `Beutl.Language.Strings` is not available (internal).
 
+### Extension project setup
+
+Use the extension SDK. It references the Beutl packages and the `Beutl.Engine.SourceGenerators` analyzer at the
+same version, so a partial drawable receives its generated `Resource` and `ToResource` implementation:
+
+```xml
+<Project Sdk="Beutl.Extensibility.Sdk/x.x.x">
+  <PropertyGroup>
+    <PackageId>Beutl.Extensions.MyExtension</PackageId>
+    <Version>1.0.0</Version>
+  </PropertyGroup>
+</Project>
+```
+
+If the project must keep `Microsoft.NET.Sdk`, reference the analyzer explicitly; a
+`Beutl.Extensibility` package reference alone does not run resource generation:
+
+```xml
+<ItemGroup>
+  <PackageReference Include="Beutl.Extensibility" Version="x.x.x" />
+  <PackageReference Include="Beutl.Engine.SourceGenerators" Version="x.x.x"
+                    OutputItemType="Analyzer"
+                    ReferenceOutputAssembly="false"
+                    PrivateAssets="all" />
+</ItemGroup>
+```
+
 ## Basic pattern
 
 ### 1. Minimal Drawable
 
 ```csharp
 using System.ComponentModel.DataAnnotations;
+using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
@@ -105,7 +133,7 @@ public partial class MyDrawable : Drawable
 
 | Element | Why |
 |------|------|
-| `partial class` | Required — a source generator emits the `Resource` class |
+| `partial class` | Required — the `Beutl.Engine.SourceGenerators` analyzer emits the `Resource` class |
 | `[Display]` attribute | Sets the display name shown in the editor |
 | `ScanProperties<T>()` in the constructor | Registers properties with the system |
 | `MeasureCore` | Returns the drawable's size |
@@ -166,9 +194,10 @@ public IListProperty<GradientStop> GradientStops { get; } = Property.CreateList<
 ```
 
 **Behavior of `IListProperty`:**
-- The source generator emits a `List<T.Resource>` field.
-- Adds, removes, and updates are tracked automatically.
-- Inside the `Resource` class the collection is accessible as `List<T.Resource>`.
+- The source generator owns a private `List<T.Resource>` backing field.
+- Adds, removes, and updates on the `EngineObject` property are reconciled automatically by `Resource.Update`.
+- Inside the `Resource` class the collection is exposed as a get-only `IReadOnlyList<T.Resource>` immutable snapshot.
+  Do not cast or mutate it; update the owning `IListProperty<T>` and run `Resource.Update`.
 
 **Example (`DrawableGroup`):**
 ```csharp
@@ -179,7 +208,7 @@ public sealed partial class DrawableGroup : Drawable
     protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
     {
         var r = (Resource)resource;
-        // Resource.Children is List<Drawable.Resource>
+        // Resource.Children is an immutable IReadOnlyList<Drawable.Resource> snapshot.
         foreach (Drawable.Resource item in r.Children)
         {
             context.DrawDrawable(item);
@@ -200,6 +229,27 @@ public IProperty<FontFamily?> FontFamily { get; } = Property.Create<FontFamily?>
 
 ## The Resource class
 
+The source generator creates a fresh `Resource` for every `ToResource` call and treats initialization as a
+transaction: if `Update` fails, it disposes the partially initialized resource while preserving the acquisition
+failure. A custom `ToResource` override must keep both guarantees. Never return a cached resource or the same
+instance from multiple calls; Frame and Auxiliary contexts own, update, and dispose their resources independently,
+and composition rejects cross-purpose aliases.
+
+Generated ownership is reserved as one graph before cleanup starts and swept completely even when one cleanup fails.
+For a manually owned `EngineObject.Resource`, implement `PrepareResourceDispose` and call `context.Reserve(...)`
+without mutating state, then detach the field in `PostDispose`; the reserved graph performs the disposal. For other
+managed disposables, release only when `disposing` is true, detach every field before fallible cleanup, dispose every
+owner via `DisposeOwnedResources`, and rethrow the exact first failure with `ThrowIfCleanupFailed`.
+
+All resource operations are non-reentrant. A handwritten or generation-suppressed `Resource.Update` must hold
+`BeginExclusiveResourceOperation(obj)` across the complete override. A handwritten ownership getter must return
+`ReadGeneratedResourceState(ref field)` so validation and the read share the lifecycle gate. Disposal during an
+update/bind operation or another thread's cleanup throws `InvalidOperationException` before cleanup starts and can
+be retried after that operation ends; getter access after cleanup throws `ObjectDisposedException`. Recompile every
+extension that contains generated `Resource` classes; an older generated binary cannot participate in this protocol.
+Cleanup of a directly constructed `Resource` also runs these hooks, before any original object necessarily exists;
+do not call `GetOriginal()` from cleanup unless the resource is known to have completed or entered `Update`.
+
 To extend the auto-generated `Resource` class:
 
 ```csharp
@@ -213,26 +263,37 @@ public partial class MyDrawable : Drawable
         private MyInternalData? _cachedData;
 
         // Hook called before Update
-        partial void PreUpdate(MyDrawable obj, RenderContext context)
+        partial void PreUpdate(MyDrawable obj, CompositionContext context)
         {
             // Refresh custom values
         }
 
         // Hook called after Update
-        partial void PostUpdate(MyDrawable obj, RenderContext context)
+        partial void PostUpdate(MyDrawable obj, CompositionContext context)
         {
             // Refresh cache; bump Version
             if (_needsUpdate)
             {
-                Version++;
+                MyInternalData? cachedData = _cachedData;
                 _cachedData = null;
+                Version++;
+
+                Exception? failure = null;
+                DisposeOwnedResources(ref failure, cachedData);
+                ThrowIfCleanupFailed(failure);
             }
         }
 
         // Hook called on disposal
         partial void PostDispose(bool disposing)
         {
-            _cachedData?.Dispose();
+            if (!disposing) return;
+
+            MyInternalData? cachedData = _cachedData;
+            _cachedData = null;
+            Exception? failure = null;
+            DisposeOwnedResources(ref failure, cachedData);
+            ThrowIfCleanupFailed(failure);
         }
     }
 }
@@ -243,7 +304,7 @@ public partial class MyDrawable : Drawable
 `Resource.Version` drives cache invalidation. Bump `Version++` whenever the value changes.
 
 ```csharp
-partial void PostUpdate(MyDrawable obj, RenderContext context)
+partial void PostUpdate(MyDrawable obj, CompositionContext context)
 {
     if (_geometryResource is null)
     {
@@ -253,7 +314,8 @@ partial void PostUpdate(MyDrawable obj, RenderContext context)
     else
     {
         var oldVersion = _geometryResource.Version;
-        _geometryResource.Update(_geometry, context, ref _);
+        bool updateOnly = false;
+        _geometryResource.Update(_geometry, context, ref updateOnly);
         if (oldVersion != _geometryResource.Version)
         {
             Version++;
@@ -317,7 +379,7 @@ public override void Render(GraphicsContext2D context, Drawable.Resource resourc
         var r = (Resource)resource;
 
         // Custom rendering logic
-        Size availableSize = context.Size.ToSize(1);
+        Size availableSize = context.Size;
         Size size = MeasureCore(availableSize, resource);
 
         Matrix transform = GetTransformMatrix(availableSize, size, resource);
@@ -347,7 +409,7 @@ public override void Render(GraphicsContext2D context, Drawable.Resource resourc
     if (resource.IsEnabled)
     {
         var r = (Resource)resource;
-        Size availableSize = context.Size.ToSize(1);
+        Size availableSize = context.Size;
         var boundsMemory = context.UseMemory<Rect>();
 
         using (context.PushBlendMode(r.BlendMode))
@@ -373,7 +435,7 @@ public sealed partial class MyShape : Shape
         private readonly MyGeometry _geometry = new();
         private MyGeometry.Resource? _geometryResource;
 
-        partial void PostUpdate(MyShape obj, RenderContext context)
+        partial void PostUpdate(MyShape obj, CompositionContext context)
         {
             // Update the geometry
             _geometry.Width.CurrentValue = Math.Max(Width, 0);
@@ -389,16 +451,16 @@ public sealed partial class MyShape : Shape
             {
                 if (_geometryResource.GetOriginal() != _geometry)
                 {
-                    var oldGeometry = _geometryResource;
-                    _geometryResource = _geometry.ToResource(context);
-                    oldGeometry.Dispose();
+                    MyGeometry.Resource replacement = _geometry.ToResource(context);
+                    var cleanupFailure = ReplaceOwnedResource(ref _geometryResource, replacement);
                     Version++;
+                    cleanupFailure?.Throw();
                 }
                 else
                 {
                     var oldVersion = _geometryResource.Version;
-                    var _ = false;
-                    _geometryResource.Update(_geometry, context, ref _);
+                    bool updateOnly = false;
+                    _geometryResource.Update(_geometry, context, ref updateOnly);
                     if (oldVersion != _geometryResource.Version)
                     {
                         Version++;
@@ -407,12 +469,23 @@ public sealed partial class MyShape : Shape
             }
         }
 
-        partial void PostDispose(bool disposing)
+        partial void PrepareResourceDispose(
+            bool disposing,
+            EngineObject.Resource.GeneratedResourceCleanupContext context)
         {
-            _geometryResource?.Dispose();
+            if (disposing)
+                context.Reserve(_geometryResource);
         }
 
-        public override Geometry.Resource? GetGeometry() => _geometryResource;
+        partial void PostDispose(bool disposing)
+        {
+            if (!disposing) return;
+
+            _geometryResource = null;
+        }
+
+        public override Geometry.Resource? GetGeometry()
+            => ReadGeneratedResourceState(ref _geometryResource);
     }
 }
 ```
@@ -426,7 +499,8 @@ When you add a new Drawable, confirm:
 - [ ] Constructor calls `ScanProperties<T>()`
 - [ ] `MeasureCore` returns the size
 - [ ] `OnDraw` implements drawing
-- [ ] Resources for object properties are disposed in the appropriate partial method
+- [ ] Manual resources are detached and fully swept under a `disposing` guard
+- [ ] A custom `ToResource` returns a fresh instance per call and rolls back failed initialization
 - [ ] `Version++` is called whenever a value changes
 - [ ] Strings added (core: `Strings.resx` / extension: your own resource)
 - [ ] Correct namespace for the extension case

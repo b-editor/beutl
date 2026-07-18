@@ -55,7 +55,7 @@ public class RectangleRenderNodeTest
         pen.Brush.CurrentValue = Brushes.Black;
         pen.Thickness.CurrentValue = 1;
         var penResource = pen.ToResource(CompositionContext.Default);
-        var context = new RenderNodeContext([]);
+        var context = new RenderNodeContext([], RenderIntent.Delivery);
 
         var node = new RectangleRenderNode(rect, fill, penResource);
         var operations = node.Process(context);
@@ -73,7 +73,7 @@ public class RectangleRenderNodeTest
         pen.Brush.CurrentValue = Brushes.Black;
         pen.Thickness.CurrentValue = 1;
         var penResource = pen.ToResource(CompositionContext.Default);
-        var context = new RenderNodeContext([]);
+        var context = new RenderNodeContext([], RenderIntent.Delivery);
 
         var node = new RectangleRenderNode(rect, fill, penResource);
         var operations = node.Process(context);
@@ -91,7 +91,7 @@ public class RectangleRenderNodeTest
         pen.Brush.CurrentValue = Brushes.Black;
         pen.Thickness.CurrentValue = 1;
         var penResource = pen.ToResource(CompositionContext.Default);
-        var context = new RenderNodeContext([]);
+        var context = new RenderNodeContext([], RenderIntent.Delivery);
 
         var node = new RectangleRenderNode(rect, fill, penResource);
         var operations = node.Process(context);
@@ -108,7 +108,7 @@ public class RectangleRenderNodeTest
         pen.Brush.CurrentValue = Brushes.Black;
         pen.Thickness.CurrentValue = 50;
         var penResource = pen.ToResource(CompositionContext.Default);
-        var context = new RenderNodeContext([]);
+        var context = new RenderNodeContext([], RenderIntent.Delivery);
 
         var node = new RectangleRenderNode(rect, null, penResource);
         var operations = node.Process(context);

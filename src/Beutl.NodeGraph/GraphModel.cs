@@ -60,6 +60,7 @@ public partial class GraphModel : EngineObject
     {
         obj.TopologyChanged -= OnTopologyChanged;
         obj.Edited -= OnNodeEdited;
+        RaiseTopologyChanged();
         RaiseEdited();
     }
 
@@ -67,6 +68,7 @@ public partial class GraphModel : EngineObject
     {
         obj.TopologyChanged += OnTopologyChanged;
         obj.Edited += OnNodeEdited;
+        RaiseTopologyChanged();
         RaiseEdited();
     }
 

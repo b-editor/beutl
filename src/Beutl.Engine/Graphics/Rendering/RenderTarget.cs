@@ -8,17 +8,29 @@ namespace Beutl.Graphics.Rendering;
 
 public class RenderTarget : IDisposable
 {
+    [ThreadStatic]
+    private static Action? s_computeWritePreparedForTest;
+
     private readonly SKSurfaceCounter<SKSurface> _surface;
     private readonly SKSurfaceCounter<ITexture2D>? _texture;
     private readonly Dispatcher? _dispatcher = Dispatcher.Current;
 
+    // Non-null when this handle is a lease over a pooled buffer (see <see cref="RenderTargetPool"/>).
+    // The captured generation freezes the value the underlying <see cref="PooledSurface"/> had at
+    // acquire time; the pool bumps that generation on return, so a stale copy of a since-returned
+    // (and possibly reissued) lease is rejected by <see cref="VerifyLeaseCurrent"/>.
+    private readonly PooledSurface? _pooled;
+    private readonly int _leaseGeneration;
+
     private RenderTarget(SKSurfaceCounter<SKSurface> surface, int width, int height,
-        SKSurfaceCounter<ITexture2D>? texture = null)
+        SKSurfaceCounter<ITexture2D>? texture = null, PooledSurface? pooled = null, int leaseGeneration = 0)
     {
         _surface = surface;
         Width = width;
         Height = height;
         _texture = texture;
+        _pooled = pooled;
+        _leaseGeneration = leaseGeneration;
     }
 
     /// <summary>
@@ -36,8 +48,15 @@ public class RenderTarget : IDisposable
         Dispose(disposing: false);
     }
 
-    internal SKSurface Value =>
-        !IsDisposed ? _surface.Value! : throw new ObjectDisposedException(nameof(RenderTarget));
+    internal SKSurface Value
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(IsDisposed, this);
+            VerifyLeaseCurrent();
+            return _surface.Value!;
+        }
+    }
 
     public int Width { get; }
 
@@ -45,9 +64,44 @@ public class RenderTarget : IDisposable
 
     public bool IsDisposed { get; protected set; }
 
-    internal ITexture2D? Texture => _texture?.Value;
+    internal ITexture2D? Texture
+    {
+        get
+        {
+            VerifyLeaseCurrent();
+            return _texture?.Value;
+        }
+    }
+
+    /// <summary>
+    /// Throws when this handle leases a pooled buffer that has since been returned to the pool (its
+    /// generation moved on). Guards against a stale shallow copy reading or writing a reissued surface;
+    /// a no-op for non-pooled targets.
+    /// </summary>
+    private void VerifyLeaseCurrent()
+    {
+        if (_pooled != null && _pooled.Generation != _leaseGeneration)
+            throw new ObjectDisposedException(
+                nameof(RenderTarget),
+                "This pooled render-target lease has expired: the surface was returned to the pool and may have been reissued.");
+    }
 
     public static RenderTarget? Create(int width, int height)
+    {
+        if (CreateBackingSurface(width, height) is not { } backing)
+            return null;
+
+        var (surface, sharedTexture) = backing;
+        var textureRef = sharedTexture != null ? new SKSurfaceCounter<ITexture2D>(sharedTexture) : null;
+        return new RenderTarget(new SKSurfaceCounter<SKSurface>(surface), width, height, textureRef);
+    }
+
+    /// <summary>
+    /// Allocates the raw RGBA16F surface (Vulkan-texture-backed on the render thread, raster otherwise)
+    /// that both <see cref="Create"/> and <see cref="RenderTargetPool"/> wrap. Returns <see langword="null"/>
+    /// on failure, exactly as <see cref="Create"/> does.
+    /// </summary>
+    internal static (SKSurface Surface, ITexture2D? Texture)? CreateBackingSurface(int width, int height)
     {
         try
         {
@@ -74,15 +128,33 @@ public class RenderTarget : IDisposable
                 }
             }
 
-            var textureRef = sharedTexture != null ? new SKSurfaceCounter<ITexture2D>(sharedTexture) : null;
-            return surface == null
-                ? null
-                : new RenderTarget(new SKSurfaceCounter<SKSurface>(surface), width, height, textureRef);
+            return surface == null ? null : (surface, sharedTexture);
         }
         catch
         {
             return null;
         }
+    }
+
+    /// <summary>
+    /// Wraps a <paramref name="pooled"/> buffer in a fresh lease handle for <see cref="RenderTargetPool"/>.
+    /// The last ref-count release returns the buffer to <paramref name="pool"/> instead of disposing it;
+    /// the texture counter's last release is a no-op because the pool owns the texture until eviction.
+    /// </summary>
+    internal static RenderTarget WrapPooled(RenderTargetPool pool, PooledSurface pooled)
+    {
+        if (pooled.Surface is not { } surface)
+        {
+            throw new InvalidOperationException(
+                "Cannot wrap a surface-less pooled texture as a RenderTarget; lease it via AcquireTexture instead.");
+        }
+
+        int leaseGeneration = pooled.Generation;
+        var surfaceRef = new SKSurfaceCounter<SKSurface>(surface, onLastRelease: () => pool.Return(pooled, leaseGeneration));
+        var textureRef = pooled.Texture != null
+            ? new SKSurfaceCounter<ITexture2D>(pooled.Texture, onLastRelease: static () => { })
+            : null;
+        return new RenderTarget(surfaceRef, pooled.Width, pooled.Height, textureRef, pooled, leaseGeneration);
     }
 
     public static RenderTarget CreateNull(int width, int height)
@@ -101,6 +173,18 @@ public class RenderTarget : IDisposable
     {
         VerifyAccess();
         PrepareForSampling();
+        var result = CreateSnapshotBitmap();
+        ReadPixelsInto(result);
+        return result;
+    }
+
+    /// <summary>
+    /// Reads pixels after an executor-owned pass boundary has already called <see cref="PrepareForSampling"/>.
+    /// Effect callbacks reach this only through an input whose descriptor declared readback.
+    /// </summary>
+    internal Bitmap SnapshotPrepared()
+    {
+        VerifyAccess();
         var result = CreateSnapshotBitmap();
         ReadPixelsInto(result);
         return result;
@@ -161,16 +245,22 @@ public class RenderTarget : IDisposable
 
     public RenderTarget ShallowCopy()
     {
+        ObjectDisposedException.ThrowIf(IsDisposed, this);
+        VerifyLeaseCurrent();
         _surface.AddRef();
         _texture?.AddRef();
-        return new RenderTarget(_surface, Width, Height, _texture);
+        return new RenderTarget(_surface, Width, Height, _texture, _pooled, _leaseGeneration);
     }
 
     public void VerifyAccess()
     {
         ObjectDisposedException.ThrowIf(IsDisposed, this);
+        VerifyLeaseCurrent();
         _dispatcher?.VerifyAccess();
     }
+
+    internal PooledSurface PooledSurfaceOrThrowForTest() =>
+        _pooled ?? throw new InvalidOperationException("This RenderTarget is not a pooled lease.");
 
     public void Dispose()
     {
@@ -215,7 +305,20 @@ public class RenderTarget : IDisposable
         _texture?.Value?.PrepareForSampling();
     }
 
-    private sealed class SKSurfaceCounter<T>(T value)
+    // A reused surface can carry recorded-but-unflushed Skia ops from its previous lease. Submit them BEFORE raw
+    // Vulkan writes the same VkImage: a deferred op replayed by a later Skia flush would overwrite the compute result.
+    internal void PrepareForComputeWrite()
+    {
+        VerifyAccess();
+
+        _surface.Value!.Flush(true, true);
+        s_computeWritePreparedForTest?.Invoke();
+    }
+
+    internal static void SetComputeWritePreparedObserverForTest(Action? observer)
+        => s_computeWritePreparedForTest = observer;
+
+    private sealed class SKSurfaceCounter<T>(T value, Action? onLastRelease = null)
         where T : class, IDisposable
     {
         private readonly Dispatcher? _dispatcher = Dispatcher.Current;
@@ -256,20 +359,25 @@ public class RenderTarget : IDisposable
                         Value = null;
                         if (value != null)
                         {
+                            // Pooled leases reclaim (return the buffer to the pool) instead of disposing;
+                            // both run on the render thread, marshaled the same way.
+                            Action work = onLastRelease ?? value.Dispose;
                             if (_dispatcher != null)
                             {
                                 if (_dispatcher.CheckAccess())
                                 {
-                                    value.Dispose();
+                                    work();
                                 }
                                 else
                                 {
-                                    _dispatcher.Dispatch(value.Dispose);
+                                    // If shutdown rejects or later abandons the accepted work, run the idempotent final
+                                    // release inline rather than losing ownership after the ref count reached zero.
+                                    _dispatcher.TryDispatch(work, _ => work());
                                 }
                             }
                             else
                             {
-                                value.Dispose();
+                                work();
                             }
                         }
                     }

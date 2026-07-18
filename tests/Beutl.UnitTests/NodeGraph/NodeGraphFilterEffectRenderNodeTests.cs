@@ -6,6 +6,7 @@ using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Media.Proxy;
 using Beutl.NodeGraph;
+using Beutl.NodeGraph.Composition;
 using Beutl.NodeGraph.Nodes;
 
 namespace Beutl.UnitTests.NodeGraph;
@@ -16,7 +17,7 @@ namespace Beutl.UnitTests.NodeGraph;
 public class NodeGraphFilterEffectRenderNodeTests
 {
     // Graph: FilterEffectInputNode -> FilterEffectNode<ScaleProbeEffect> -> OutputNode.
-    private static NodeGraphFilterEffect.Resource BuildGraphResource()
+    private static NodeGraphFilterEffect.Resource BuildGraphResource(RenderPolicyCaptureNode? policyCapture = null)
     {
         var effect = new NodeGraphFilterEffect();
         GraphModel model = effect.Model.CurrentValue!;
@@ -27,6 +28,10 @@ public class NodeGraphFilterEffectRenderNodeTests
         model.Nodes.Add(inputNode);
         model.Nodes.Add(probeNode);
         model.Nodes.Add(outputNode);
+        if (policyCapture != null)
+        {
+            model.Nodes.Add(policyCapture);
+        }
 
         // The render-chain ports are not exposed publicly: Items[0] = Output, Items[1] = list Input
         // (per-property value inputs follow at Items[2+]). Reach them by index.
@@ -52,8 +57,8 @@ public class NodeGraphFilterEffectRenderNodeTests
     public void Process_ForwardsOutputScale_IntoGraphOutputSubtree(float outputScale, float expectedW)
     {
         using NodeGraphFilterEffect.Resource resource = BuildGraphResource();
-        using FilterEffectRenderNode node = resource.CreateRenderNode();
-        var context = new RenderNodeContext([SourceOp(1.0f)], outputScale: outputScale);
+        using FilterEffectRenderNode node = resource.RenderNodeFactory.Create(resource);
+        var context = new RenderNodeContext([SourceOp(1.0f)], RenderIntent.Delivery, outputScale: outputScale);
 
         RenderNodeOperation[] ops = node.Process(context);
 
@@ -69,8 +74,8 @@ public class NodeGraphFilterEffectRenderNodeTests
     public void Process_ForwardsMaxWorkingScale_IntoGraphOutputSubtree(float maxWorkingScale, float expectedW)
     {
         using NodeGraphFilterEffect.Resource resource = BuildGraphResource();
-        using FilterEffectRenderNode node = resource.CreateRenderNode();
-        var context = new RenderNodeContext([SourceOp(4.0f)], outputScale: 1.0f, maxWorkingScale: maxWorkingScale);
+        using FilterEffectRenderNode node = resource.RenderNodeFactory.Create(resource);
+        var context = new RenderNodeContext([SourceOp(4.0f)], RenderIntent.Delivery, outputScale: 1.0f, maxWorkingScale: maxWorkingScale);
 
         RenderNodeOperation[] ops = node.Process(context);
 
@@ -78,6 +83,36 @@ public class NodeGraphFilterEffectRenderNodeTests
         Assert.That(ops[0].EffectiveScale.Value, Is.EqualTo(expectedW).Within(1e-4),
             "the forwarded MaxWorkingScale did not cap the working scale inside the graph");
         DisposeAll(ops);
+    }
+
+    [Test]
+    public void Process_ForwardsRenderPolicy_IntoGraphContextAndOutputSubtree()
+    {
+        var policyCapture = new RenderPolicyCaptureNode();
+        using NodeGraphFilterEffect.Resource resource = BuildGraphResource(policyCapture);
+        using FilterEffectRenderNode node = resource.RenderNodeFactory.Create(resource);
+        ScaleProbeRenderNode.SawAuxiliaryPull = false;
+        var context = new RenderNodeContext(
+            [SourceOp(1f)], RenderIntent.Delivery,
+            pullPurpose: RenderPullPurpose.Auxiliary);
+
+        RenderNodeOperation[] ops = node.Process(context);
+        try
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(policyCapture.ObservedRenderIntent, Is.EqualTo(RenderIntent.Delivery),
+                    "graph resources must observe the parent preview/delivery policy");
+                Assert.That(policyCapture.ObservedPullPurpose, Is.EqualTo(RenderPullPurpose.Auxiliary),
+                    "graph resources must observe the parent frame/auxiliary pull purpose");
+                Assert.That(ScaleProbeRenderNode.SawAuxiliaryPull, Is.True,
+                    "the hosted processor must preserve hit-test/bounds-only execution policy");
+            });
+        }
+        finally
+        {
+            DisposeAll(ops);
+        }
     }
 
     [Test]
@@ -114,6 +149,282 @@ public class NodeGraphFilterEffectRenderNodeTests
         Assert.That(resource.PreferProxy, Is.False);
     }
 
+    [Test]
+    public async Task Process_HoldsGraphResourceLeaseUntilEvaluationAndPullComplete()
+    {
+        var host = new NodeGraphFilterEffect();
+        GraphModel model = host.Model.CurrentValue!;
+        var inputNode = new FilterEffectInputNode();
+        var blockingNode = new FilterEffectNode<BlockingProcessEffect>();
+        var outputNode = new OutputNode();
+        model.Nodes.Add(inputNode);
+        model.Nodes.Add(blockingNode);
+        model.Nodes.Add(outputNode);
+        model.Connect((IInputPort)blockingNode.Items[1], inputNode.Output);
+        model.Connect(outputNode.InputPort, (IOutputPort)blockingNode.Items[0]);
+
+        var resource = (NodeGraphFilterEffect.Resource)host.ToResource(CompositionContext.Default);
+        using FilterEffectRenderNode node = resource.RenderNodeFactory.Create(resource);
+        BlockingProcessRenderNode.Reset();
+        Task<RenderNodeOperation[]> processTask = Task.Run(
+            () => node.Process(new RenderNodeContext([SourceOp(1f)], RenderIntent.Delivery)));
+
+        Assert.That(BlockingProcessRenderNode.Entered.Wait(TimeSpan.FromSeconds(10)), Is.True);
+        var addedNode = new TopologyInitializationProbeNode();
+        try
+        {
+            Assert.Throws<InvalidOperationException>(resource.Dispose);
+            Assert.That(resource.IsDisposed, Is.False,
+                "a failed concurrent cleanup attempt must leave the graph resource installed");
+            Assert.DoesNotThrow(() => model.Nodes.Add(addedNode),
+                "topology invalidation must not throw after the graph collection has already changed");
+            Assert.That(addedNode.InitializeCount, Is.Zero);
+        }
+        finally
+        {
+            BlockingProcessRenderNode.Continue.Set();
+        }
+
+        RenderNodeOperation[] operations = await processTask.WaitAsync(TimeSpan.FromSeconds(10));
+        DisposeAll(operations);
+        bool updateOnly = false;
+        resource.Update(host, CompositionContext.Default, ref updateOnly);
+        Assert.That(addedNode.InitializeCount, Is.EqualTo(1),
+            "the topology request recorded during Process must force the next snapshot rebuild");
+        Assert.DoesNotThrow(resource.Dispose);
+        Assert.That(resource.IsDisposed, Is.True);
+    }
+
+    [Test]
+    public void Process_NoOutput_ClearsInputWrapperBeforeReturningPassthrough()
+    {
+        var effect = new NodeGraphFilterEffect();
+        GraphModel model = effect.Model.CurrentValue!;
+        var inputNode = new FilterEffectInputNode();
+        model.Nodes.Add(inputNode);
+
+        using var resource = (NodeGraphFilterEffect.Resource)effect.ToResource(CompositionContext.Default);
+        using FilterEffectRenderNode node = resource.RenderNodeFactory.Create(resource);
+        RenderNodeOperation input = SourceOp(1f);
+        RenderNodeOperation[] outputs = node.Process(new RenderNodeContext([input], RenderIntent.Delivery));
+
+        RenderNodeOperation[] retained = PullRetainedInputOperations(resource, inputNode);
+        try
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(outputs, Has.Length.EqualTo(1), "the no-output graph passes its input through");
+                Assert.That(outputs[0], Is.Not.SameAs(input),
+                    "the passthrough is a ref-counted proxy so clearing the wrapper cannot dispose it early");
+                Assert.That(input.IsDisposed, Is.False,
+                    "the returned proxy must keep the underlying input alive until the proxy is disposed");
+                Assert.That(retained, Is.Empty,
+                    "the wrapper must not retain the input after the early no-output return");
+            });
+        }
+        finally
+        {
+            DisposeAll(retained);
+            DisposeAll(outputs);
+        }
+
+        Assert.That(input.IsDisposed, Is.True,
+            "disposing the passthrough proxy releases the wrapper's last ownership of the input");
+    }
+
+    [Test]
+    public void Process_LaterOutputThrows_DisposesEarlierResultsAndClearsInputWrapper()
+    {
+        var host = new NodeGraphFilterEffect();
+        GraphModel model = host.Model.CurrentValue!;
+        var inputNode = new FilterEffectInputNode();
+        var successfulNode = new FilterEffectNode<TrackedResultEffect>();
+        var successfulOutput = new OutputNode();
+        var throwingNode = new FilterEffectNode<ThrowingProcessEffect>();
+        var throwingOutput = new OutputNode();
+        model.Nodes.Add(inputNode);
+        model.Nodes.Add(successfulNode);
+        model.Nodes.Add(successfulOutput);
+        model.Nodes.Add(throwingNode);
+        model.Nodes.Add(throwingOutput);
+        model.Connect((IInputPort)successfulNode.Items[1], inputNode.Output);
+        model.Connect(successfulOutput.InputPort, (IOutputPort)successfulNode.Items[0]);
+        model.Connect((IInputPort)throwingNode.Items[1], inputNode.Output);
+        model.Connect(throwingOutput.InputPort, (IOutputPort)throwingNode.Items[0]);
+
+        using var resource = (NodeGraphFilterEffect.Resource)host.ToResource(CompositionContext.Default);
+        using FilterEffectRenderNode node = resource.RenderNodeFactory.Create(resource);
+        RenderNodeOperation input = SourceOp(1f);
+        TrackedResultRenderNode.ResultDisposed = false;
+
+        Assert.Throws<InvalidOperationException>(() => node.Process(new RenderNodeContext([input], RenderIntent.Delivery)));
+
+        RenderNodeOperation[] retained = PullRetainedInputOperations(resource, inputNode);
+        try
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(TrackedResultRenderNode.ResultDisposed, Is.True,
+                    "an operation returned by an earlier output must be swept when a later output throws");
+                Assert.That(input.IsDisposed, Is.True,
+                    "the failing pull must release the wrapper's ownership of the graph input");
+                Assert.That(retained, Is.Empty,
+                    "the input wrapper must be cleared even when an output pull throws");
+            });
+        }
+        finally
+        {
+            DisposeAll(retained);
+        }
+    }
+
+    [Test]
+    public void Process_InputWrapperCleanupThrows_DiscardsOutputAndSurfacesCleanupFailure()
+    {
+        var host = new NodeGraphFilterEffect();
+        GraphModel model = host.Model.CurrentValue!;
+        var inputNode = new FilterEffectInputNode();
+        var successfulNode = new FilterEffectNode<TrackedResultEffect>();
+        var outputNode = new OutputNode();
+        model.Nodes.Add(inputNode);
+        model.Nodes.Add(successfulNode);
+        model.Nodes.Add(outputNode);
+        model.Connect((IInputPort)successfulNode.Items[1], inputNode.Output);
+        model.Connect(outputNode.InputPort, (IOutputPort)successfulNode.Items[0]);
+
+        using var resource = (NodeGraphFilterEffect.Resource)host.ToResource(CompositionContext.Default);
+        using FilterEffectRenderNode node = resource.RenderNodeFactory.Create(resource);
+        bool firstDisposeAttempted = false;
+        bool secondDisposed = false;
+        var cleanupFailure = new InvalidOperationException("simulated wrapper cleanup failure");
+        RenderNodeOperation first = RenderNodeOperation.CreateLambda(
+            new Rect(0, 0, 1, 1),
+            static _ => { },
+            onDispose: () =>
+            {
+                firstDisposeAttempted = true;
+                throw cleanupFailure;
+            });
+        RenderNodeOperation second = RenderNodeOperation.CreateLambda(
+            new Rect(0, 0, 1, 1),
+            static _ => { },
+            onDispose: () => secondDisposed = true);
+        TrackedResultRenderNode.ResultDisposed = false;
+
+        InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(
+            () => node.Process(new RenderNodeContext([first, second], RenderIntent.Delivery)));
+
+        RenderNodeOperation[] retained = PullRetainedInputOperations(resource, inputNode);
+        try
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(actual, Is.SameAs(cleanupFailure));
+                Assert.That(firstDisposeAttempted, Is.True);
+                Assert.That(secondDisposed, Is.True,
+                    "one throwing input must not abort cleanup of later wrapper references");
+                Assert.That(retained, Is.Empty, "the wrapper must publish its cleared state before cleanup begins");
+                Assert.That(TrackedResultRenderNode.ResultDisposed, Is.True,
+                    "a cleanup failure must dispose the generated output instead of returning success");
+            });
+        }
+        finally
+        {
+            DisposeAll(retained);
+        }
+    }
+
+    [Test]
+    public void Process_OutputPullAndInputCleanupThrow_PreservesOutputPullFailureAndSweepsEverything()
+    {
+        var host = new NodeGraphFilterEffect();
+        GraphModel model = host.Model.CurrentValue!;
+        var inputNode = new FilterEffectInputNode();
+        var successfulNode = new FilterEffectNode<TrackedResultEffect>();
+        var successfulOutput = new OutputNode();
+        var throwingNode = new FilterEffectNode<ThrowingProcessEffect>();
+        var throwingOutput = new OutputNode();
+        model.Nodes.Add(inputNode);
+        model.Nodes.Add(successfulNode);
+        model.Nodes.Add(successfulOutput);
+        model.Nodes.Add(throwingNode);
+        model.Nodes.Add(throwingOutput);
+        model.Connect((IInputPort)successfulNode.Items[1], inputNode.Output);
+        model.Connect(successfulOutput.InputPort, (IOutputPort)successfulNode.Items[0]);
+        model.Connect((IInputPort)throwingNode.Items[1], inputNode.Output);
+        model.Connect(throwingOutput.InputPort, (IOutputPort)throwingNode.Items[0]);
+
+        using var resource = (NodeGraphFilterEffect.Resource)host.ToResource(CompositionContext.Default);
+        using FilterEffectRenderNode node = resource.RenderNodeFactory.Create(resource);
+        bool firstDisposeAttempted = false;
+        bool secondDisposed = false;
+        RenderNodeOperation first = RenderNodeOperation.CreateLambda(
+            new Rect(0, 0, 1, 1),
+            static _ => { },
+            onDispose: () =>
+            {
+                firstDisposeAttempted = true;
+                throw new InvalidOperationException("simulated wrapper cleanup failure");
+            });
+        RenderNodeOperation second = RenderNodeOperation.CreateLambda(
+            new Rect(0, 0, 1, 1),
+            static _ => { },
+            onDispose: () => secondDisposed = true);
+        TrackedResultRenderNode.ResultDisposed = false;
+
+        InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(
+            () => node.Process(new RenderNodeContext([first, second], RenderIntent.Delivery)));
+
+        RenderNodeOperation[] retained = PullRetainedInputOperations(resource, inputNode);
+        try
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(actual!.Message, Is.EqualTo("simulated later output failure"),
+                    "wrapper cleanup must not replace the primary output-pull failure");
+                Assert.That(firstDisposeAttempted, Is.True);
+                Assert.That(secondDisposed, Is.True);
+                Assert.That(TrackedResultRenderNode.ResultDisposed, Is.True,
+                    "an earlier generated output must still be swept");
+                Assert.That(retained, Is.Empty);
+            });
+        }
+        finally
+        {
+            DisposeAll(retained);
+        }
+    }
+
+    [Test]
+    public void FilterEffectNode_ReplacesOutputWhenUpdatedFactoryChangesNodeType()
+    {
+        var host = new NodeGraphFilterEffect();
+        GraphModel model = host.Model.CurrentValue!;
+        var inputNode = new FilterEffectInputNode();
+        var effectNode = new FilterEffectNode<SwitchingFactoryEffect>();
+        var outputNode = new OutputNode();
+        model.Nodes.Add(inputNode);
+        model.Nodes.Add(effectNode);
+        model.Nodes.Add(outputNode);
+        model.Connect((IInputPort)effectNode.Items[1], inputNode.Output);
+        model.Connect(outputNode.InputPort, (IOutputPort)effectNode.Items[0]);
+
+        using var resource = (NodeGraphFilterEffect.Resource)host.ToResource(CompositionContext.Default);
+        using FilterEffectRenderNode node = resource.RenderNodeFactory.Create(resource);
+        SecondFactoryRenderNode.SawDisposedChild = false;
+        RenderNodeOperation[] first = node.Process(new RenderNodeContext([SourceOp(1f)], RenderIntent.Delivery));
+        Assert.That(first.Single().EffectiveScale.Value, Is.EqualTo(1f));
+        DisposeAll(first);
+
+        effectNode.Object.UseSecond.CurrentValue = true;
+        RenderNodeOperation[] second = node.Process(new RenderNodeContext([SourceOp(1f)], RenderIntent.Delivery));
+        Assert.That(second.Single().EffectiveScale.Value, Is.EqualTo(2f),
+            "the graph must execute the new factory node type after the resource changes");
+        Assert.That(SecondFactoryRenderNode.SawDisposedChild, Is.False,
+            "replacing the effect node must transfer its input children before disposing the old container");
+        DisposeAll(second);
+    }
+
     private static void DisposeAll(RenderNodeOperation[] ops)
     {
         foreach (RenderNodeOperation op in ops)
@@ -121,17 +432,42 @@ public class NodeGraphFilterEffectRenderNodeTests
             op.Dispose();
         }
     }
+
+    private static RenderNodeOperation[] PullRetainedInputOperations(
+        NodeGraphFilterEffect.Resource resource,
+        FilterEffectInputNode inputNode)
+    {
+        return resource.UseEvaluationState(state =>
+        {
+            int slot = state.Snapshot.FindSlotIndex(inputNode);
+            var inputResource = (FilterEffectInputNode.Resource)state.Snapshot.GetResource(slot)!;
+            return inputResource.Wrapper.Process(new RenderNodeContext([], RenderIntent.Delivery));
+        });
+    }
+}
+
+internal sealed partial class RenderPolicyCaptureNode : GraphNode
+{
+    public RenderIntent ObservedRenderIntent { get; private set; } = RenderIntent.Preview;
+
+    public RenderPullPurpose ObservedPullPurpose { get; private set; } = RenderPullPurpose.Frame;
+
+    public partial class Resource
+    {
+        protected override void UpdateCore(GraphCompositionContext context)
+        {
+            var node = GetOriginal();
+            node.ObservedRenderIntent = context.RenderIntent;
+            node.ObservedPullPurpose = context.PullPurpose;
+        }
+    }
 }
 
 // A GPU-free FilterEffect whose render node stamps the resolved working scale onto passthrough ops,
 // exposing the scale that NodeGraphFilterEffectRenderNode forwarded.
 [SuppressResourceClassGeneration]
-internal sealed partial class ScaleProbeEffect : FilterEffect
+internal sealed partial class ScaleProbeEffect : CustomRenderNodeFilterEffect
 {
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-    {
-    }
-
     public override Resource ToResource(CompositionContext context)
     {
         var resource = new Resource();
@@ -140,16 +476,23 @@ internal sealed partial class ScaleProbeEffect : FilterEffect
         return resource;
     }
 
-    public new sealed class Resource : FilterEffect.Resource
+    public new sealed class Resource : CustomRenderNodeFilterEffect.Resource
     {
-        public override FilterEffectRenderNode CreateRenderNode() => new ScaleProbeRenderNode(this);
+        private static readonly FilterEffectRenderNodeFactory s_factory =
+            FilterEffectRenderNodeFactory.Of<Resource, ScaleProbeRenderNode>(static r => new ScaleProbeRenderNode(r));
+
+        public override FilterEffectRenderNodeFactory RenderNodeFactory
+            => s_factory;
     }
 }
 
 internal sealed class ScaleProbeRenderNode(FilterEffect.Resource fe) : FilterEffectRenderNode(fe)
 {
+    public static bool SawAuxiliaryPull { get; set; }
+
     public override RenderNodeOperation[] Process(RenderNodeContext context)
     {
+        SawAuxiliaryPull |= context.IsAuxiliaryPull;
         // Resolve w as FilterEffectRenderNode.Process would, but skip its GPU path (buffer-budget clamp +
         // SkiaSharp build/rasterize). So w is the forwarded supply-driven scale, not a real final scale.
         EffectiveScale[] scales = context.Input.Select(i => i.EffectiveScale).ToArray();
@@ -161,5 +504,186 @@ internal sealed class ScaleProbeRenderNode(FilterEffect.Resource fe) : FilterEff
                 onDispose: input.Dispose,
                 effectiveScale: EffectiveScale.At(w)))
             .ToArray();
+    }
+}
+
+[SuppressResourceClassGeneration]
+internal sealed partial class SwitchingFactoryEffect : CustomRenderNodeFilterEffect
+{
+    public SwitchingFactoryEffect()
+    {
+        ScanProperties<SwitchingFactoryEffect>();
+    }
+
+    public IProperty<bool> UseSecond { get; } = Property.Create(false);
+
+    public override Resource ToResource(CompositionContext context)
+    {
+        var resource = new Resource();
+        bool updateOnly = false;
+        resource.Update(this, context, ref updateOnly);
+        return resource;
+    }
+
+    public new sealed class Resource : CustomRenderNodeFilterEffect.Resource
+    {
+        private static readonly FilterEffectRenderNodeFactory s_firstFactory =
+            FilterEffectRenderNodeFactory.Of<Resource, FirstFactoryRenderNode>(static r => new FirstFactoryRenderNode(r));
+        private static readonly FilterEffectRenderNodeFactory s_secondFactory =
+            FilterEffectRenderNodeFactory.Of<Resource, SecondFactoryRenderNode>(static r => new SecondFactoryRenderNode(r));
+        private bool _useSecond;
+
+        public override FilterEffectRenderNodeFactory RenderNodeFactory => _useSecond
+            ? s_secondFactory
+            : s_firstFactory;
+
+        public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
+        {
+            base.Update(obj, context, ref updateOnly);
+            _useSecond = ((SwitchingFactoryEffect)obj).UseSecond.CurrentValue;
+        }
+    }
+}
+
+internal sealed class FirstFactoryRenderNode(FilterEffect.Resource resource) : FilterEffectRenderNode(resource)
+{
+    public override RenderNodeOperation[] Process(RenderNodeContext context) => Stamp(context.Input, 1f);
+
+    internal static RenderNodeOperation[] Stamp(RenderNodeOperation[] inputs, float scale)
+    {
+        foreach (RenderNodeOperation input in inputs)
+            input.Dispose();
+
+        return [RenderNodeOperation.CreateLambda(
+            new Rect(0, 0, 1, 1), _ => { }, effectiveScale: EffectiveScale.At(scale))];
+    }
+}
+
+internal sealed class SecondFactoryRenderNode(FilterEffect.Resource resource) : FilterEffectRenderNode(resource)
+{
+    internal static bool SawDisposedChild { get; set; }
+
+    public override RenderNodeOperation[] Process(RenderNodeContext context)
+    {
+        SawDisposedChild |= Children.Any(child => child.IsDisposed);
+        return FirstFactoryRenderNode.Stamp(context.Input, 2f);
+    }
+}
+
+[SuppressResourceClassGeneration]
+internal sealed partial class TrackedResultEffect : CustomRenderNodeFilterEffect
+{
+    public override Resource ToResource(CompositionContext context)
+    {
+        var resource = new Resource();
+        bool updateOnly = false;
+        resource.Update(this, context, ref updateOnly);
+        return resource;
+    }
+
+    public new sealed class Resource : CustomRenderNodeFilterEffect.Resource
+    {
+        private static readonly FilterEffectRenderNodeFactory s_factory =
+            FilterEffectRenderNodeFactory.Of<Resource, TrackedResultRenderNode>(
+                static resource => new TrackedResultRenderNode(resource));
+
+        public override FilterEffectRenderNodeFactory RenderNodeFactory
+            => s_factory;
+    }
+}
+
+internal sealed class TrackedResultRenderNode(FilterEffect.Resource resource) : FilterEffectRenderNode(resource)
+{
+    internal static bool ResultDisposed { get; set; }
+
+    public override RenderNodeOperation[] Process(RenderNodeContext context)
+    {
+        DisposeAll(context.Input);
+        return [RenderNodeOperation.CreateLambda(
+            new Rect(0, 0, 1, 1), _ => { }, onDispose: () => ResultDisposed = true)];
+    }
+
+    private static void DisposeAll(RenderNodeOperation[] operations)
+    {
+        foreach (RenderNodeOperation operation in operations)
+            operation.Dispose();
+    }
+}
+
+[SuppressResourceClassGeneration]
+internal sealed partial class ThrowingProcessEffect : CustomRenderNodeFilterEffect
+{
+    public override Resource ToResource(CompositionContext context)
+    {
+        var resource = new Resource();
+        bool updateOnly = false;
+        resource.Update(this, context, ref updateOnly);
+        return resource;
+    }
+
+    public new sealed class Resource : CustomRenderNodeFilterEffect.Resource
+    {
+        private static readonly FilterEffectRenderNodeFactory s_factory =
+            FilterEffectRenderNodeFactory.Of<Resource, ThrowingProcessRenderNode>(
+                static resource => new ThrowingProcessRenderNode(resource));
+
+        public override FilterEffectRenderNodeFactory RenderNodeFactory
+            => s_factory;
+    }
+}
+
+internal sealed class ThrowingProcessRenderNode(FilterEffect.Resource resource) : FilterEffectRenderNode(resource)
+{
+    public override RenderNodeOperation[] Process(RenderNodeContext context)
+    {
+        foreach (RenderNodeOperation operation in context.Input)
+            operation.Dispose();
+
+        throw new InvalidOperationException("simulated later output failure");
+    }
+}
+
+[SuppressResourceClassGeneration]
+internal sealed partial class BlockingProcessEffect : CustomRenderNodeFilterEffect
+{
+    public override Resource ToResource(CompositionContext context)
+    {
+        var resource = new Resource();
+        bool updateOnly = false;
+        resource.Update(this, context, ref updateOnly);
+        return resource;
+    }
+
+    public new sealed class Resource : CustomRenderNodeFilterEffect.Resource
+    {
+        private static readonly FilterEffectRenderNodeFactory s_factory =
+            FilterEffectRenderNodeFactory.Of<Resource, BlockingProcessRenderNode>(
+                static resource => new BlockingProcessRenderNode(resource));
+
+        public override FilterEffectRenderNodeFactory RenderNodeFactory => s_factory;
+    }
+}
+
+internal sealed class BlockingProcessRenderNode(FilterEffect.Resource resource) : FilterEffectRenderNode(resource)
+{
+    public static ManualResetEventSlim Entered { get; private set; } = new();
+
+    public static ManualResetEventSlim Continue { get; private set; } = new();
+
+    public static void Reset()
+    {
+        Entered.Dispose();
+        Continue.Dispose();
+        Entered = new ManualResetEventSlim();
+        Continue = new ManualResetEventSlim();
+    }
+
+    public override RenderNodeOperation[] Process(RenderNodeContext context)
+    {
+        Entered.Set();
+        if (!Continue.Wait(TimeSpan.FromSeconds(10)))
+            throw new TimeoutException("The blocked graph effect pull was not released.");
+
+        return context.Input;
     }
 }

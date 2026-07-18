@@ -3,26 +3,91 @@ using Beutl.Media;
 
 namespace Beutl.Graphics.Rendering;
 
-public class RenderNodeProcessor(
-    RenderNode root,
-    bool useRenderCache,
-    float outputScale = 1f,
-    float maxWorkingScale = float.PositiveInfinity)
+public class RenderNodeProcessor
 {
-    public RenderNode Root { get; } = root;
+    private readonly bool _useRenderCache;
+    private readonly Func<int, int, RenderTarget?>? _inheritedRenderTargetFactory;
+
+    public RenderNodeProcessor(
+        RenderNode root,
+        bool useRenderCache,
+        RenderIntent renderIntent,
+        float outputScale = 1f,
+        float maxWorkingScale = float.PositiveInfinity,
+        PipelineDiagnostics? diagnostics = null,
+        RenderPullPurpose pullPurpose = RenderPullPurpose.Frame)
+        : this(
+            pool: null, root, useRenderCache, renderIntent, outputScale, maxWorkingScale, diagnostics,
+            pullPurpose)
+    {
+    }
+
+    internal RenderNodeProcessor(
+        RenderTargetPool? pool,
+        RenderNode root,
+        bool useRenderCache,
+        RenderIntent renderIntent,
+        float outputScale = 1f,
+        float maxWorkingScale = float.PositiveInfinity,
+        PipelineDiagnostics? diagnostics = null,
+        RenderPullPurpose pullPurpose = RenderPullPurpose.Frame,
+        Func<int, int, RenderTarget?>? renderTargetFactory = null)
+    {
+        ArgumentNullException.ThrowIfNull(root);
+        Root = root;
+        _useRenderCache = useRenderCache;
+        OutputScale = float.IsFinite(outputScale) && outputScale > 0f ? outputScale : 1f;
+        MaxWorkingScale = RenderNodeContext.SanitizeMaxWorkingScale(maxWorkingScale);
+        Diagnostics = diagnostics ?? new PipelineDiagnostics();
+        Pool = pool;
+        RenderIntent = RenderPolicyValidation.Validate(renderIntent, nameof(renderIntent));
+        PullPurpose = RenderPolicyValidation.Validate(pullPurpose, nameof(pullPurpose));
+        _inheritedRenderTargetFactory = renderTargetFactory;
+    }
+
+    public RenderNode Root { get; }
 
     /// <summary>Output scale <c>s_out</c> seeded into every <see cref="RenderNodeContext"/>. Sanitized to positive-finite.</summary>
-    public float OutputScale { get; } = float.IsFinite(outputScale) && outputScale > 0f ? outputScale : 1f;
+    public float OutputScale { get; }
 
     /// <summary>Working-scale ceiling seeded into every <see cref="RenderNodeContext"/>. <c>+Inf</c> = no ceiling.</summary>
-    public float MaxWorkingScale { get; } = RenderNodeContext.SanitizeMaxWorkingScale(maxWorkingScale);
+    public float MaxWorkingScale { get; }
+
+    /// <summary>
+    /// Effect-pipeline counters seeded into every pulled <see cref="RenderNodeContext"/>. A renderer that
+    /// creates processors per frame hands in its own instance so counts accumulate per renderer; a
+    /// standalone processor owns a fresh one.
+    /// </summary>
+    public PipelineDiagnostics Diagnostics { get; }
+
+    /// <summary>
+    /// Render-target pool seeded into every pulled <see cref="RenderNodeContext"/>, or <see langword="null"/>
+    /// to allocate effect intermediates directly (behavior-identical to the pre-pool pipeline).
+    /// </summary>
+    internal RenderTargetPool? Pool { get; }
+
+    /// <summary>Preview/delivery failure policy seeded into every pulled node context.</summary>
+    public RenderIntent RenderIntent { get; }
+
+    /// <summary>The logical output region requested by this pull's parent; invalid means full output.</summary>
+    public Rect RequestedBounds { get; init; } = Rect.Invalid;
+
+    /// <summary>
+    /// Overrides input-subtree stability for every context in this nested pull when the parent supplies opaque input.
+    /// </summary>
+    internal bool? InputSubtreeStableOverride { get; init; }
+
+    /// <summary>Marks this pull as hit-test/bounds-only work that must preserve frame-render cache state.</summary>
+    public RenderPullPurpose PullPurpose { get; }
 
     /// <summary>
     /// Allocates the intermediate <see cref="RenderTarget"/> used to rasterize each operation.
     /// Override to substitute a custom allocation (e.g. pooling). Defaults to <see cref="RenderTarget.Create"/>.
     /// </summary>
     protected virtual RenderTarget? CreateRenderTarget(int width, int height)
-        => RenderTarget.Create(width, height);
+        => _inheritedRenderTargetFactory is { } factory
+            ? factory(width, height)
+            : RenderTarget.Create(width, height);
 
     public void Render(ImmediateCanvas canvas)
     {
@@ -50,19 +115,19 @@ public class RenderNodeProcessor(
     /// </summary>
     internal (RenderTarget RenderTarget, Rect Bounds)? RasterizeAt(RenderNodeOperation op, float w)
     {
-        var rect = w == 1f ? PixelRect.FromRect(op.Bounds) : PixelRect.FromRect(op.Bounds, w);
-        if (rect.Width <= 0 || rect.Height <= 0)
-        {
-            op.Dispose();
-            return null;
-        }
-
-        // A throwing OnDispose leaves the op's IsDisposed false, so the catch keys off this flag
-        // (not IsDisposed) to avoid re-disposing — and re-running OnDispose on — an op already torn down.
         RenderTarget? renderTarget = null;
         bool opDisposeStarted = false;
         try
         {
+            Rect opBounds = op.Bounds;
+            var rect = w == 1f ? PixelRect.FromRect(opBounds) : PixelRect.FromRect(opBounds, w);
+            if (rect.Width <= 0 || rect.Height <= 0)
+            {
+                opDisposeStarted = true;
+                op.Dispose();
+                return null;
+            }
+
             renderTarget = CreateRenderTarget(rect.Width, rect.Height);
             if (renderTarget == null)
             {
@@ -71,10 +136,11 @@ public class RenderNodeProcessor(
                 throw new Exception("RenderTarget is null");
             }
 
-            using var canvas = new ImmediateCanvas(renderTarget, w, MaxWorkingScale, logicalSize: op.Bounds.Size);
+            using var canvas = new ImmediateCanvas(
+                renderTarget, RenderIntent, w, MaxWorkingScale, logicalSize: opBounds.Size,
+                pullPurpose: PullPurpose);
             canvas.Clear();
 
-            Rect opBounds = op.Bounds;
             using (canvas.PushTransform(Matrix.CreateTranslation(-opBounds.X, -opBounds.Y)))
             {
                 op.Render(canvas);
@@ -165,17 +231,21 @@ public class RenderNodeProcessor(
     public Bitmap RasterizeAndConcat()
     {
         var ops = PullToRoot();
-        var bounds = ops.Aggregate(Rect.Empty, (a, n) => a.Union(n.Bounds));
-        float w = OutputScale;
-        var rect = w == 1f ? PixelRect.FromRect(bounds) : PixelRect.FromRect(bounds, w);
         RenderTarget? renderTarget = null;
         ImmediateCanvas? canvas = null;
         int consumed = 0;
         try
         {
+            // Bounds are owned-operation state too: a custom operation may throw while exposing
+            // them, so aggregation belongs inside the same cleanup boundary as rendering.
+            var bounds = ops.Aggregate(Rect.Empty, (a, n) => a.Union(n.Bounds));
+            float w = OutputScale;
+            var rect = w == 1f ? PixelRect.FromRect(bounds) : PixelRect.FromRect(bounds, w);
             renderTarget =
                 CreateRenderTarget(rect.Width, rect.Height) ?? throw new Exception("RenderTarget is null");
-            canvas = new ImmediateCanvas(renderTarget, w, MaxWorkingScale, logicalSize: bounds.Size);
+            canvas = new ImmediateCanvas(
+                renderTarget, RenderIntent, w, MaxWorkingScale, logicalSize: bounds.Size,
+                pullPurpose: PullPurpose);
             canvas.Clear();
 
             using (canvas.PushTransform(Matrix.CreateTranslation(-bounds.X, -bounds.Y)))
@@ -242,7 +312,14 @@ public class RenderNodeProcessor(
 
     public RenderNodeOperation[] Pull(RenderNode node)
     {
-        if (useRenderCache && node.Cache is { IsCached: true } cache)
+        return Pull(node, RequestedBounds);
+    }
+
+    private RenderNodeOperation[] Pull(RenderNode node, Rect requestedBounds)
+    {
+        bool usePersistentCache = _useRenderCache && PullPurpose == RenderPullPurpose.Frame;
+        if (usePersistentCache && node.Cache is { } cache
+            && cache.IsCachedFor(RenderIntent, PullPurpose))
         {
             // Replay tiles with the density they were rasterized at.
             return cache.UseCache()
@@ -257,22 +334,91 @@ public class RenderNodeProcessor(
         RenderNodeOperation[] input = [];
         if (node is ContainerRenderNode container)
         {
-            using var operations = new PooledList<RenderNodeOperation>();
-            foreach (RenderNode innerNode in container.Children)
+            Rect childRequestedBounds = node switch
             {
-                operations.AddRange(Pull(innerNode));
+                // A filter effect's backward ROI is not known until after its children have been pulled and its
+                // graph has been described. Forwarding the outer request here would bake a nested effect to that
+                // narrow rect before an expanding parent effect can request its halo.
+                FilterEffectRenderNode => Rect.Invalid,
+                TransformRenderNode transform => transform.MapRequestedBoundsToChild(requestedBounds),
+                _ => requestedBounds,
+            };
+            using var operations = new PooledList<RenderNodeOperation>();
+            try
+            {
+                foreach (RenderNode innerNode in container.Children)
+                {
+                    operations.AddRange(Pull(innerNode, childRequestedBounds));
+                }
+
+                input = operations.ToArray();
+            }
+            catch
+            {
+                // A later child pull can fail after earlier siblings produced operations. Preserve that
+                // pull failure while sweeping every already-produced operation, including faulting disposals.
+                RenderNodeOperation.DisposeAll(operations.Span);
+                throw;
+            }
+        }
+
+        var context = new RenderNodeContext(input, RenderIntent, OutputScale, MaxWorkingScale, PullPurpose)
+        {
+            // Persistent caches are frame-only. Auxiliary pulls always execute without consulting or mutating retained
+            // frame state; a frame node may still CLEAR this flag to opt its subtree out (read back below).
+            IsRenderCacheEnabled = usePersistentCache,
+            Diagnostics = Diagnostics,
+            Pool = Pool,
+            RenderTargetFactory = _inheritedRenderTargetFactory ?? CreateRenderTarget,
+            InputSubtreeStableOverride = InputSubtreeStableOverride,
+            RequestedBounds = requestedBounds,
+        };
+        RenderNodeOperation[]? result = null;
+        try
+        {
+            result = node.Process(context);
+            if (usePersistentCache && !context.IsRenderCacheEnabled)
+            {
+                node.Cache.ReportRenderCount(0);
             }
 
-            input = operations.ToArray();
+            return result;
         }
-
-        var context = new RenderNodeContext(input, OutputScale, MaxWorkingScale);
-        var result = node.Process(context);
-        if (useRenderCache && !context.IsRenderCacheEnabled)
+        catch
         {
-            node.Cache.ReportRenderCount(0);
-        }
+            // Process may transfer input ownership into wrappers in its result. Dispose result-only
+            // operations first, then sweep every input. RenderNodeOperation is state-first/idempotent,
+            // so wrappers that release an input cannot make the second sweep unsafe.
+            if (result != null)
+            {
+                foreach (RenderNodeOperation operation in result)
+                {
+                    bool isInput = false;
+                    foreach (RenderNodeOperation inputOperation in input)
+                    {
+                        if (ReferenceEquals(operation, inputOperation))
+                        {
+                            isInput = true;
+                            break;
+                        }
+                    }
 
-        return result;
+                    if (!isInput)
+                    {
+                        try
+                        {
+                            operation.Dispose();
+                        }
+                        catch
+                        {
+                            // Preserve the Process/bookkeeping failure while continuing the sweep.
+                        }
+                    }
+                }
+            }
+
+            RenderNodeOperation.DisposeAll(input);
+            throw;
+        }
     }
 }

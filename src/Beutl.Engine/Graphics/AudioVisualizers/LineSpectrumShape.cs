@@ -46,7 +46,10 @@ public sealed partial class LineSpectrumShape : SpectrumShape
             float cornerRadius = smoothness * slotWidth * 0.5f;
 
             _paint ??= new SKPaint();
-            new BrushConstructor(bounds, fill, BlendMode.SrcOver, canvas.Density, canvas.MaxWorkingScale).ConfigurePaint(_paint);
+            new BrushConstructor(
+                bounds, fill, BlendMode.SrcOver, canvas.RenderIntent, canvas.Density, canvas.MaxWorkingScale,
+                pullPurpose: canvas.PullPurpose)
+                .ConfigurePaint(_paint);
             _paint.Style = SKPaintStyle.Stroke;
             _paint.StrokeCap = SKStrokeCap.Round;
             _paint.StrokeJoin = SKStrokeJoin.Round;
@@ -76,15 +79,19 @@ public sealed partial class LineSpectrumShape : SpectrumShape
 
         partial void PostDispose(bool disposing)
         {
-            if (disposing)
-            {
-                _path?.Dispose();
-                _paint?.Dispose();
-                _cornerEffect?.Dispose();
-            }
+            if (!disposing)
+                return;
+
+            var path = _path;
             _path = null;
+            var paint = _paint;
             _paint = null;
+            var cornerEffect = _cornerEffect;
             _cornerEffect = null;
+
+            Exception? failure = null;
+            DisposeOwnedResources(ref failure, path, paint, cornerEffect);
+            ThrowIfCleanupFailed(failure);
         }
     }
 }

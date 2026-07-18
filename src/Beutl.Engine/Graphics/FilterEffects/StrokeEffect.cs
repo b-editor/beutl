@@ -31,13 +31,84 @@ public partial class StrokeEffect : FilterEffect
     [Display(Name = nameof(GraphicsStrings.StrokeEffect_Style), ResourceType = typeof(GraphicsStrings))]
     public IProperty<StrokeStyles> Style { get; } = Property.CreateAnimatable(StrokeStyles.Background);
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
-        context.CustomEffect(
-            (r.Offset, r.Pen, r.Style),
-            Apply,
-            TransformBounds);
+        if (r.Pen is null)
+            return;
+
+        var data = (r.Offset, r.Pen, r.Style);
+        // Forward is the pen+offset inflation. ApplyGeometry snapshots and contour-traces the WHOLE materialized input,
+        // so backward must claim the entire input regardless of the requested output region: an identity backward lets
+        // a downstream deflating pass crop the upstream, feeding a cropped snapshot into the tracer — the crop edge
+        // becomes a false contour and content outside the ROI is dropped (A3).
+        Rect inputBounds = builder.Bounds;
+        builder.Geometry(GeometryNodeDescriptor.Create(
+            session => ApplyGeometry(session, data),
+            BoundsContract.Create(rect => TransformBounds(data, rect), _ => inputBounds),
+            structuralToken: nameof(StrokeEffect), requiresReadback: true));
+    }
+
+    private static void ApplyGeometry(
+        GeometrySession session, (Point Offset, Pen.Resource? Pen, StrokeStyles Style) data)
+    {
+        if (data.Pen is not { } pen)
+            return;
+
+        EffectInput input = session.Inputs[0];
+        ImmediateCanvas newCanvas = session.OpenCanvas();
+        using Bitmap src = input.Snapshot();
+
+        // Contours come back in the input's device px; scale to logical (by the input density) so pen width and
+        // offset stay logical. The composite then runs in logical space via input.Draw, so no output-density bridge.
+        float w = input.Density.IsUnbounded ? 1f : input.Density.Value;
+        using SKPath borderPath = CreateBorderPath(src);
+        if (w != 1f)
+            borderPath.Transform(SKMatrix.CreateScale(1f / w, 1f / w));
+
+        Rect transformedBounds = session.Bounds;
+        var origin = Matrix.CreateTranslation(
+            input.Bounds.X - transformedBounds.X,
+            input.Bounds.Y - transformedBounds.Y);
+
+        using (newCanvas.PushTransform(origin))
+        {
+            if (data.Style == StrokeStyles.Background)
+            {
+                input.Draw(newCanvas);
+            }
+
+            using (newCanvas.PushTransform(Matrix.CreateTranslation(data.Offset.X, data.Offset.Y)))
+            {
+                newCanvas.DrawSKPath(borderPath, true, null, pen);
+            }
+
+            if (data.Style == StrokeStyles.Foreground)
+            {
+                input.Draw(newCanvas);
+            }
+        }
+    }
+
+    private static SKPath CreateBorderPath(Bitmap src)
+    {
+        using var contours = ContourTracer.FindContours(src);
+
+        var skpath = new SKPath();
+        foreach (var contour in contours)
+        {
+            for (int j = 0; j < contour.Count; j++)
+            {
+                if (j == 0)
+                    skpath.MoveTo(contour[j].X, contour[j].Y);
+                else
+                    skpath.LineTo(contour[j].X, contour[j].Y);
+            }
+
+            skpath.Close();
+        }
+
+        return skpath;
     }
 
     private static Rect TransformBounds((Point Offset, Pen.Resource? Pen, StrokeStyles Style) data, Rect rect)
@@ -47,73 +118,5 @@ public partial class StrokeEffect : FilterEffect
         return borderBounds.Inflate(new Thickness(
             Math.Abs(data.Offset.X), Math.Abs(data.Offset.Y),
             Math.Abs(data.Offset.X), Math.Abs(data.Offset.Y)));
-    }
-
-    private static void Apply((Point Offset, Pen.Resource? Pen, StrokeStyles Style) data, CustomFilterEffectContext context)
-    {
-        static SKPath CreateBorderPath(Bitmap src)
-        {
-            using var contours = ContourTracer.FindContours(src);
-
-            var skpath = new SKPath();
-            foreach (var contour in contours)
-            {
-                for (int j = 0; j < contour.Count; j++)
-                {
-                    if (j == 0)
-                        skpath.MoveTo(contour[j].X, contour[j].Y);
-                    else
-                        skpath.LineTo(contour[j].X, contour[j].Y);
-                }
-
-                skpath.Close();
-            }
-
-            return skpath;
-        }
-
-        if (data.Pen is { } pen)
-        {
-            for (int i = 0; i < context.Targets.Count; i++)
-            {
-                EffectTarget target = context.Targets[i];
-                RenderTarget srcRenderTarget = target.RenderTarget!;
-                using var src = srcRenderTarget.Snapshot();
-
-                // The contour path is device px; map to logical (/ w) for logical pen width/offset.
-                float w = context.WorkingScale;
-                using SKPath borderPath = CreateBorderPath(src);
-                if (w != 1f) borderPath.Transform(SKMatrix.CreateScale(1f / w, 1f / w));
-
-                Rect transformedBounds = TransformBounds(data, target.Bounds);
-                var origin = Matrix.CreateTranslation(
-                    target.Bounds.X - transformedBounds.X,
-                    target.Bounds.Y - transformedBounds.Y);
-
-                EffectTarget newTarget = context.CreateTarget(transformedBounds);
-                using (ImmediateCanvas newCanvas = context.Open(newTarget))
-                using (newCanvas.PushTransform(origin))
-                {
-                    newCanvas.Clear();
-                    if (data.Style == StrokeStyles.Background)
-                    {
-                        target.Draw(newCanvas);
-                    }
-
-                    using (newCanvas.PushTransform(Matrix.CreateTranslation(data.Offset.X, data.Offset.Y)))
-                    {
-                        newCanvas.DrawSKPath(borderPath, true, null, pen);
-                    }
-
-                    if (data.Style == StrokeStyles.Foreground)
-                    {
-                        target.Draw(newCanvas);
-                    }
-                }
-
-                target.Dispose();
-                context.Targets[i] = newTarget;
-            }
-        }
     }
 }

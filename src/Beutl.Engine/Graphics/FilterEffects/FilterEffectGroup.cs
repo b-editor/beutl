@@ -14,12 +14,25 @@ public sealed partial class FilterEffectGroup : FilterEffect
 
     public IListProperty<FilterEffect> Children { get; } = Property.CreateList<FilterEffect>();
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+    // Describe each child into the same builder, mirroring how ApplyTo concatenates them into one context. Without
+    // this a bridged group would hide its migrated children behind a single opaque pass and they could never fuse.
+    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
-        foreach (FilterEffect.Resource item in r.Children)
+        // Bracket each child's descriptors with its index so the compiler can attribute passes to children (C10
+        // provenance), enabling the pass-prefix output cache to reuse a stable leading run of children. A disabled
+        // child appends nothing but keeps its provenance index i (never renumbered), so indices stay aligned to the
+        // group's child list the prefix cache tracks.
+        for (int i = 0; i < r.Children.Count; i++)
         {
-            item.GetOriginal().ApplyTo(context, item);
+            FilterEffect.Resource item = r.Children[i];
+            if (!item.IsEnabled)
+                continue;
+
+            using (builder.BeginChildScope(i))
+            {
+                builder.Effect(item);
+            }
         }
     }
 }

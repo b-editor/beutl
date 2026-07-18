@@ -26,16 +26,12 @@ public partial class InnerShadow : FilterEffect
     [Display(Name = nameof(GraphicsStrings.ShadowOnly), ResourceType = typeof(GraphicsStrings))]
     public IProperty<bool> ShadowOnly { get; } = Property.CreateAnimatable(false);
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
         if (r.ShadowOnly)
-        {
-            context.InnerShadowOnly(r.Position, r.Sigma, r.Color);
-        }
+            builder.InnerShadowOnly(r.Position, r.Sigma, r.Color);
         else
-        {
-            context.InnerShadow(r.Position, r.Sigma, r.Color);
-        }
+            builder.InnerShadow(r.Position, r.Sigma, r.Color);
     }
 }

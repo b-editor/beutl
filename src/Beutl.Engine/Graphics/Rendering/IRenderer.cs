@@ -6,6 +6,9 @@ namespace Beutl.Graphics.Rendering;
 
 public interface IRenderer : IDisposable
 {
+    /// <summary>The preview/delivery policy accepted by this renderer.</summary>
+    RenderIntent RenderIntent => RenderIntent.Preview;
+
     PixelSize FrameSize { get; }
 
     /// <summary>
@@ -17,6 +20,13 @@ public interface IRenderer : IDisposable
     PixelSize DeviceSize => new(
         (int)Math.Ceiling(FrameSize.Width * OutputScale),
         (int)Math.Ceiling(FrameSize.Height * OutputScale));
+
+    /// <summary>
+    /// Effect-pipeline counters accumulated across this renderer's render/pull calls
+    /// (contracts/execution-plan.md §C8). <see langword="null"/> when the implementation does not
+    /// observe the pipeline.
+    /// </summary>
+    PipelineDiagnostics? Diagnostics => null;
 
     TimeSpan Time { get; }
 
@@ -66,7 +76,43 @@ public interface IRenderer : IDisposable
 
     Rect[] GetBoundaries(int zIndex);
 
+    /// <summary>
+    /// Updates this renderer from an auxiliary composition frame before measuring the requested layer boundaries.
+    /// Build <paramref name="frame"/> with
+    /// <see cref="ICompositor.EvaluateGraphics(TimeSpan, RenderPullPurpose)"/> and
+    /// <see cref="RenderPullPurpose.Auxiliary"/> so composition-time node evaluation and the render-tree pull use
+    /// the same policy.
+    /// </summary>
+    Rect[] GetBoundaries(CompositionFrame frame, int zIndex)
+    {
+        if (frame.RenderIntent != RenderIntent || frame.PullPurpose != RenderPullPurpose.Auxiliary)
+        {
+            throw new ArgumentException(
+                $"Boundary measurement requires a {RenderIntent} composition frame evaluated for an auxiliary pull.",
+                nameof(frame));
+        }
+
+        throw new NotSupportedException(
+            $"{GetType().FullName} must implement purpose-isolated boundary measurement before it can service auxiliary pulls.");
+    }
+
     Rect? GetBoundary(Drawable drawable) => null;
+
+    /// <summary>
+    /// Updates this renderer from an auxiliary composition frame before measuring one drawable's boundary.
+    /// </summary>
+    Rect? GetBoundary(CompositionFrame frame, Drawable drawable)
+    {
+        if (frame.RenderIntent != RenderIntent || frame.PullPurpose != RenderPullPurpose.Auxiliary)
+        {
+            throw new ArgumentException(
+                $"Boundary measurement requires a {RenderIntent} composition frame evaluated for an auxiliary pull.",
+                nameof(frame));
+        }
+
+        throw new NotSupportedException(
+            $"{GetType().FullName} must implement purpose-isolated boundary measurement before it can service auxiliary pulls.");
+    }
 
     DrawableRenderNode? FindRenderNode(Drawable drawable);
 

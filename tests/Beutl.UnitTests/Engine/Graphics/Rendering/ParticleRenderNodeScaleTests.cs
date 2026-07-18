@@ -37,6 +37,17 @@ public class ParticleRenderNodeScaleTests
         return (ParticleEmitter.Resource)emitter.ToResource(ctx);
     }
 
+    private static (ParticleEmitter.Resource Resource, CountingParticleDrawable Drawable)
+        BuildResourceWithCountingParticleDrawable()
+    {
+        var particle = new CountingParticleDrawable();
+        var emitter = new ParticleEmitter();
+        emitter.ParticleDrawable.CurrentValue = particle;
+
+        var ctx = new CompositionContext(TimeSpan.FromSeconds(1.0));
+        return ((ParticleEmitter.Resource)emitter.ToResource(ctx), particle);
+    }
+
     [Test]
     public void Resource_AfterOneSecond_HasAliveParticles()
     {
@@ -58,7 +69,7 @@ public class ParticleRenderNodeScaleTests
                 "precondition: at least one alive particle is required for Process to emit an op");
 
             using var node = new ParticleRenderNode(resource);
-            var context = new RenderNodeContext([], outputScale: outputScale);
+            var context = new RenderNodeContext([], RenderIntent.Delivery, outputScale: outputScale);
 
             RenderNodeOperation[] ops = node.Process(context);
 
@@ -73,6 +84,30 @@ public class ParticleRenderNodeScaleTests
     }
 
     [Test]
+    public void Process_AuxiliaryScaleDoesNotReplaceFrameParticleCache()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var (resource, drawable) = BuildResourceWithCountingParticleDrawable();
+            using (resource)
+            using (var node = new ParticleRenderNode(resource))
+            {
+                DisposeAll(node.Process(new RenderNodeContext(
+                    [], RenderIntent.Preview, outputScale: 1f)));
+                DisposeAll(node.Process(new RenderNodeContext(
+                    [], RenderIntent.Preview, outputScale: 2f,
+                    pullPurpose: RenderPullPurpose.Auxiliary)));
+                DisposeAll(node.Process(new RenderNodeContext(
+                    [], RenderIntent.Preview, outputScale: 1f)));
+
+                Assert.That(drawable.RenderCount, Is.EqualTo(2),
+                    "the frame cache should survive an auxiliary pull at a different scale");
+            }
+        });
+    }
+
+    [Test]
     public void Process_WhenParticleDrawableBufferClamps_TagsActualDensity()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -83,7 +118,7 @@ public class ParticleRenderNodeScaleTests
                 "precondition: at least one alive particle is required for Process to emit an op");
 
             using var node = new ParticleRenderNode(resource);
-            var context = new RenderNodeContext([], outputScale: 8f);
+            var context = new RenderNodeContext([], RenderIntent.Delivery, outputScale: 8f);
 
             RenderNodeOperation[] ops = node.Process(context);
 
@@ -104,5 +139,18 @@ public class ParticleRenderNodeScaleTests
         {
             op.Dispose();
         }
+    }
+}
+
+internal sealed partial class CountingParticleDrawable : Drawable
+{
+    public int RenderCount { get; private set; }
+
+    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource) => new(20, 20);
+
+    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
+    {
+        RenderCount++;
+        context.DrawRectangle(new Rect(0, 0, 20, 20), Brushes.Resource.White, null);
     }
 }

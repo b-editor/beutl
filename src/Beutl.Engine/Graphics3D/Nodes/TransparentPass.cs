@@ -1,6 +1,7 @@
 ﻿using System.Numerics;
 using Beutl.Composition;
 using Beutl.Graphics.Backend;
+using Beutl.Graphics.Rendering;
 using Beutl.Graphics3D.Lighting;
 using Beutl.Graphics3D.Meshes;
 using Beutl.Media;
@@ -44,6 +45,7 @@ public sealed class TransparentPass : GraphicsNode3D
     /// <param name="colorTexture">The color texture from LightingPass.</param>
     public void SetColorTexture(ITexture2D colorTexture)
     {
+        ThrowIfNotInitialized();
         _colorInput = colorTexture;
     }
 
@@ -60,9 +62,7 @@ public sealed class TransparentPass : GraphicsNode3D
     private void CreateResources(int width, int height)
     {
         // Dispose old resources
-        Framebuffer?.Dispose();
-        RenderPass?.Dispose();
-        OutputTexture?.Dispose();
+        Graphics3DDisposal.DisposeAll(Framebuffer, RenderPass, OutputTexture);
 
         // Create output texture (same format as LightingPass output)
         OutputTexture = Context.CreateTexture2D(width, height, TextureFormat.RGBA8Unorm);
@@ -99,8 +99,11 @@ public sealed class TransparentPass : GraphicsNode3D
         Color ambientColor,
         float ambientIntensity,
         float aspectRatio,
+        RenderIntent renderIntent,
+        RenderPullPurpose pullPurpose,
         float surfaceDensity = 1f)
     {
+        ThrowIfNotInitialized();
         if (Framebuffer == null || RenderPass == null || OutputTexture == null || _colorInput == null)
             return;
 
@@ -124,6 +127,8 @@ public sealed class TransparentPass : GraphicsNode3D
             ambientColor.ToLinearPremultiplied().AsVector3() * ambientIntensity,
             lights,
             compositionContext,
+            renderIntent,
+            pullPurpose,
             surfaceDensity);
 
         // Begin transparent pass with load (preserves copied content and depth buffer)
@@ -147,7 +152,7 @@ public sealed class TransparentPass : GraphicsNode3D
             return;
 
         // Ensure GPU buffers are created/updated
-        EnsureMeshBuffers(meshResource);
+        MeshBufferUploadHelper.Ensure(Context, meshResource);
 
         if (meshResource.VertexBuffer == null || meshResource.IndexBuffer == null)
             return;
@@ -171,63 +176,8 @@ public sealed class TransparentPass : GraphicsNode3D
         RenderPass.DrawIndexed((uint)meshResource.IndexCount);
     }
 
-    private void EnsureMeshBuffers(Mesh.Resource meshResource)
-    {
-        if (!meshResource.BuffersDirty)
-            return;
-
-        var vertices = meshResource.GetVertices();
-        var indices = meshResource.GetIndices();
-
-        if (vertices.Length == 0 || indices.Length == 0)
-            return;
-
-        ulong vertexSize = (ulong)(vertices.Length * System.Runtime.InteropServices.Marshal.SizeOf<Vertex3D>());
-        ulong indexSize = (ulong)(indices.Length * sizeof(uint));
-
-        // Dispose old buffers if they exist
-        meshResource.VertexBuffer?.Dispose();
-        meshResource.IndexBuffer?.Dispose();
-
-        // Create new device-local buffers
-        var vertexBuffer = Context.CreateBuffer(
-            vertexSize,
-            BufferUsage.VertexBuffer | BufferUsage.TransferDestination,
-            MemoryProperty.DeviceLocal);
-
-        var indexBuffer = Context.CreateBuffer(
-            indexSize,
-            BufferUsage.IndexBuffer | BufferUsage.TransferDestination,
-            MemoryProperty.DeviceLocal);
-
-        // Create staging buffers and upload
-        using var vertexStaging = Context.CreateBuffer(
-            vertexSize,
-            BufferUsage.TransferSource,
-            MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
-
-        using var indexStaging = Context.CreateBuffer(
-            indexSize,
-            BufferUsage.TransferSource,
-            MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
-
-        vertexStaging.Upload(vertices);
-        indexStaging.Upload(indices);
-
-        // Copy from staging to device local
-        Context.CopyBuffer(vertexStaging, vertexBuffer, vertexSize);
-        Context.CopyBuffer(indexStaging, indexBuffer, indexSize);
-
-        // Store in mesh resource
-        meshResource.VertexBuffer = vertexBuffer;
-        meshResource.IndexBuffer = indexBuffer;
-        meshResource.BuffersDirty = false;
-    }
-
     protected override void OnDispose()
     {
-        Framebuffer?.Dispose();
-        RenderPass?.Dispose();
-        OutputTexture?.Dispose();
+        Graphics3DDisposal.DisposeAll(Framebuffer, RenderPass, OutputTexture);
     }
 }

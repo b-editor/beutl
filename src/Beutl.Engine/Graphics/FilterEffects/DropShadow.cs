@@ -26,16 +26,16 @@ public sealed partial class DropShadow : FilterEffect
     [Display(Name = nameof(GraphicsStrings.ShadowOnly), ResourceType = typeof(GraphicsStrings))]
     public IProperty<bool> ShadowOnly { get; } = Property.CreateAnimatable(false);
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
         if (r.ShadowOnly)
         {
-            context.DropShadowOnly(r.Position, r.Sigma, r.Color);
+            builder.DropShadowOnly(r.Position, r.Sigma, r.Color);
         }
         else
         {
-            context.DropShadow(r.Position, r.Sigma, r.Color);
+            builder.DropShadow(r.Position, r.Sigma, r.Color);
         }
     }
 }

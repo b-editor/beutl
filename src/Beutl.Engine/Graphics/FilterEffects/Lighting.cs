@@ -19,9 +19,9 @@ public sealed partial class Lighting : FilterEffect
     [Display(Name = nameof(GraphicsStrings.Lighting_Add), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Color> Add { get; } = Property.CreateAnimatable<Color>();
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
-        context.Lighting(r.Multiply, r.Add);
+        builder.Lighting(r.Multiply, r.Add);
     }
 }

@@ -1,5 +1,7 @@
-﻿using Beutl.Audio;
+﻿using System.Runtime.ExceptionServices;
+using Beutl.Audio;
 using Beutl.Audio.Composing;
+using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 
@@ -15,8 +17,18 @@ public sealed class SceneComposer : Composer
     }
 
     public SceneComposer(Scene scene, bool disableResourceShare, bool forceOriginalSource)
+        : this(scene, RenderIntent.Preview, disableResourceShare, forceOriginalSource)
     {
-        _compositor = new SceneCompositor(scene)
+    }
+
+    public SceneComposer(
+        Scene scene,
+        RenderIntent renderIntent,
+        bool disableResourceShare = false,
+        bool forceOriginalSource = false)
+        : base(renderIntent)
+    {
+        _compositor = new SceneCompositor(scene, renderIntent)
         {
             DisableResourceShare = disableResourceShare,
             ForceOriginalSource = forceOriginalSource,
@@ -33,8 +45,31 @@ public sealed class SceneComposer : Composer
 
     protected override void OnDispose(bool disposing)
     {
-        base.OnDispose(disposing);
+        Exception? failure = null;
+        try
+        {
+            base.OnDispose(disposing);
+        }
+        catch (Exception ex)
+        {
+            failure = ex;
+        }
+
         if (disposing)
-            _compositor.Dispose();
+        {
+            try
+            {
+                _compositor.Dispose();
+            }
+            catch (Exception ex)
+            {
+                failure ??= ex;
+            }
+        }
+
+        if (failure != null)
+        {
+            ExceptionDispatchInfo.Capture(failure).Throw();
+        }
     }
 }

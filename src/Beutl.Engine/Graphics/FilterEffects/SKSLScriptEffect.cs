@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Composition;
 using Beutl.Engine;
+using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
@@ -22,6 +23,17 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
     [Display(Name = nameof(GraphicsStrings.Script), ResourceType = typeof(GraphicsStrings))]
     [DataType(DataType.MultilineText)]
     public IProperty<string> Script { get; } = Property.Create(GetDefaultScript());
+
+    /// <summary>
+    /// Opt-in assertion (contract A6/A3) that the script samples only the current pixel
+    /// (<c>src.eval(fragCoord)</c> with no coordinate offset). When set, the node is described as a
+    /// coordinate-invariant whole-source shader: it gets identity bounds and identity ROI by construction, so it
+    /// never inflates buffers or blocks ROI propagation. It stays its own pass either way — fusion requires a
+    /// snippet, and a script is always whole-source. Setting this on a script that samples neighbours produces
+    /// wrong output by contract — the single-pixel rule is the author's responsibility.
+    /// </summary>
+    [Display(Name = "Coordinate invariant")]
+    public IProperty<bool> CoordinateInvariant { get; } = Property.Create(false);
 
     private static string GetDefaultScript()
     {
@@ -62,60 +74,95 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
         }
     }
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
-
         if (r._shader == null)
             return;
 
-        context.CustomEffect(
-            (Resource: r.Progress, duration: r.Duration, time: r.Time, shader: r._shader,
-                compileError: r._compileError),
-            OnApplyTo,
-            static (_, r) => r);
+        SKRuntimeEffect effect = r._shader.Effect;
+        string source = r._compiledScript!;
+
+        if (!effect.Children.Contains("src"))
+        {
+            // A script with no `src` child never samples the source — it is a pure generator. The whole-source path
+            // requires the implicit `src` binding, so it runs as a geometry pass drawing the built shader over the
+            // input rect (the legacy behavior for such scripts).
+            DescribeGenerator(builder, r);
+            return;
+        }
+
+        float progress = r.Progress;
+        float duration = r.Duration;
+        float time = r.Time;
+
+        // The resolution/density uniforms (width/height/iResolution/iScale) are late-bound to the pass's
+        // execution-time buffer and working scale (execution-plan §C3.2): the budget re-clamp — and, for a
+        // non-invariant script, the monotonic carry from an upstream forward-inflating pass — can execute the
+        // script below the describe-time working scale, and FullFrame alone does not protect against that. The
+        // time/progress uniforms are density-independent and stay describe-time.
+        void BindUniforms(UniformBindingBuilder u)
+        {
+            if (effect.Uniforms.Contains("progress")) u.Float("progress", progress);
+            if (effect.Uniforms.Contains("duration")) u.Float("duration", duration);
+            if (effect.Uniforms.Contains("time")) u.Float("time", time);
+            if (effect.Uniforms.Contains("width")) u.Deferred("width", static (b, name, ctx) => b.Uniforms[name] = (float)ctx.TargetWidth);
+            if (effect.Uniforms.Contains("height")) u.Deferred("height", static (b, name, ctx) => b.Uniforms[name] = (float)ctx.TargetHeight);
+            if (effect.Uniforms.Contains("iResolution")) u.Deferred("iResolution", static (b, name, ctx) => b.Uniforms[name] = new[] { (float)ctx.TargetWidth, (float)ctx.TargetHeight });
+            if (effect.Uniforms.Contains("iScale")) u.Deferred("iScale", static (b, name, ctx) => b.Uniforms[name] = ctx.WorkingScale);
+            if (effect.Uniforms.Contains("iTime")) u.Float("iTime", time);
+        }
+
+        // A non-invariant script may sample non-locally (src.eval(fragCoord + offset)); a downstream deflating pass
+        // (a fixed Clipping) would ROI-crop an Identity-bounds bake to a sub-rect and shift/clip those samples
+        // (contract A3). FullFrame keeps it baking full-frame. The CoordinateInvariant opt-in asserts single-pixel
+        // sampling, so it keeps identity bounds and participates in ROI propagation by construction.
+        builder.Shader(r.CoordinateInvariant
+            ? ShaderNodeDescriptor.WholeSourceInvariant(
+                source, BindUniforms, srcTileMode: SKShaderTileMode.Clamp)
+            : ShaderNodeDescriptor.WholeSource(
+                source, BoundsContract.FullFrame, BindUniforms, srcTileMode: SKShaderTileMode.Clamp));
     }
 
-    private static void OnApplyTo(
-        (float progress, float duration, float time, SKSLShader shader, string? compileError) data,
-        CustomFilterEffectContext c)
+    private static void DescribeGenerator(EffectGraphBuilder builder, Resource r)
     {
-        for (int i = 0; i < c.Targets.Count; i++)
-        {
-            using var effectTarget = c.Targets[i];
-            var renderTarget = effectTarget.RenderTarget!;
+        SKSLShader shader = r._shader!;
+        float progress = r.Progress;
+        float duration = r.Duration;
+        float time = r.Time;
 
-            using var image = renderTarget.Value.Snapshot();
-            using var baseShader = image.ToShader();
+        builder.Geometry(GeometryNodeDescriptor.Create(
+            session =>
+            {
+                ImmediateCanvas canvas = session.OpenCanvas();
+                SKRuntimeEffect effect = shader.Effect;
+                using var uniforms = new SKRuntimeEffectUniforms(effect);
 
-            var builder = data.shader.CreateBuilder();
-            var effect = data.shader.Effect;
+                // Resolution uniforms report device px at the output buffer's real (possibly clamped) density.
+                float w = canvas.Density;
+                (int devW, int devH) = RenderNodeContext.DeviceBufferSize(session.Bounds, w);
+                if (effect.Uniforms.Contains("progress")) uniforms["progress"] = progress;
+                if (effect.Uniforms.Contains("duration")) uniforms["duration"] = duration;
+                if (effect.Uniforms.Contains("time")) uniforms["time"] = time;
+                if (effect.Uniforms.Contains("width")) uniforms["width"] = (float)devW;
+                if (effect.Uniforms.Contains("height")) uniforms["height"] = (float)devH;
+                if (effect.Uniforms.Contains("iResolution")) uniforms["iResolution"] = new SKPoint(devW, devH);
+                if (effect.Uniforms.Contains("iScale")) uniforms["iScale"] = w;
+                if (effect.Uniforms.Contains("iTime")) uniforms["iTime"] = time;
 
-            if (effect.Children.Contains("src"))
-                builder.Children["src"] = baseShader;
-            if (effect.Uniforms.Contains("progress"))
-                builder.Uniforms["progress"] = data.progress;
-            if (effect.Uniforms.Contains("duration"))
-                builder.Uniforms["duration"] = data.duration;
-            if (effect.Uniforms.Contains("time"))
-                builder.Uniforms["time"] = data.time;
-            // Resolution uniforms report device px at the clamped buffer density.
-            float w = c.ResolveTargetDensity(effectTarget.Bounds);
-            (int devW, int devH) = CustomFilterEffectContext.DeviceBufferSize(effectTarget.Bounds, w);
-            if (effect.Uniforms.Contains("width"))
-                builder.Uniforms["width"] = (float)devW;
-            if (effect.Uniforms.Contains("height"))
-                builder.Uniforms["height"] = (float)devH;
-            if (effect.Uniforms.Contains("iResolution"))
-                builder.Uniforms["iResolution"] = new SKPoint(devW, devH);
-            if (effect.Uniforms.Contains("iScale"))
-                builder.Uniforms["iScale"] = w;
-            if (effect.Uniforms.Contains("iTime"))
-                builder.Uniforms["iTime"] = data.time;
-
-            // 新しいターゲットに適用
-            c.Targets[i] = data.shader.ApplyToNewTarget(c, builder, effectTarget.Bounds);
-        }
+                using SKShader built = effect.ToShader(uniforms);
+                using var paint = new SKPaint { Shader = built };
+                using (canvas.PushDeviceSpace())
+                {
+                    canvas.Canvas.DrawRect(new SKRect(0, 0, devW, devH), paint);
+                }
+            },
+            // The generated pattern is anchored to the FULL output rect: fragCoord/width/height are the pass buffer's
+            // device coordinates (A3). Identity would let a downstream deflating pass ROI-crop this to an OFFSET
+            // sub-rect with a LOCAL fragCoord origin and a sub-rect width/height, rescaling and shifting the pattern.
+            // FullFrame keeps it baking full-frame — the BlendEffect / DisplacementMap show-map precedent.
+            BoundsContract.FullFrame,
+            structuralToken: nameof(SKSLScriptEffect) + ".Generator"));
     }
 
     public new partial class Resource
@@ -175,9 +222,17 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
 
         partial void PostDispose(bool disposing)
         {
-            _shader?.Dispose();
+            if (!disposing)
+                return;
+
+            SKSLShader? shader = _shader;
             _shader = null;
+            _compiledScript = null;
             _compileError = null;
+
+            Exception? failure = null;
+            DisposeOwnedResources(ref failure, shader);
+            ThrowIfCleanupFailed(failure);
         }
     }
 }

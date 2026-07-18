@@ -51,7 +51,7 @@ public class EllipseRenderNodeTest
         Pen pen = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 1 } };
         var fillResource = fill.ToResource(CompositionContext.Default);
         var penResource = pen.ToResource(CompositionContext.Default);
-        var context = new RenderNodeContext([]);
+        var context = new RenderNodeContext([], RenderIntent.Delivery);
 
         var node = new EllipseRenderNode(rect, fillResource, penResource);
         var operations = node.Process(context);
@@ -68,7 +68,7 @@ public class EllipseRenderNodeTest
         Pen pen = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 1 } };
         var fillResource = fill.ToResource(CompositionContext.Default);
         var penResource = pen.ToResource(CompositionContext.Default);
-        var context = new RenderNodeContext([]);
+        var context = new RenderNodeContext([], RenderIntent.Delivery);
 
         var node = new EllipseRenderNode(rect, fillResource, penResource);
         var operations = node.Process(context);
@@ -85,7 +85,7 @@ public class EllipseRenderNodeTest
         Pen pen = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 1 } };
         var fillResource = fill.ToResource(CompositionContext.Default);
         var penResource = pen.ToResource(CompositionContext.Default);
-        var context = new RenderNodeContext([]);
+        var context = new RenderNodeContext([], RenderIntent.Delivery);
 
         var node = new EllipseRenderNode(rect, fillResource, penResource);
         var operations = node.Process(context);
@@ -100,7 +100,7 @@ public class EllipseRenderNodeTest
         var rect = new Rect(25, 25, 75, 75);
         Pen pen = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 50 } };
         var penResource = pen.ToResource(CompositionContext.Default);
-        var context = new RenderNodeContext([]);
+        var context = new RenderNodeContext([], RenderIntent.Delivery);
 
         var node = new EllipseRenderNode(rect, null, penResource);
         var operations = node.Process(context);

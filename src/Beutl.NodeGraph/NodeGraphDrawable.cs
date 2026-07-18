@@ -24,10 +24,26 @@ public sealed partial class NodeGraphDrawable : Drawable
 
     public override Resource ToResource(CompositionContext context)
     {
-        bool updateOnly = false;
         var resource = new Resource();
-        resource.Update(this, context, ref updateOnly);
-        return resource;
+        try
+        {
+            bool updateOnly = false;
+            resource.Update(this, context, ref updateOnly);
+            return resource;
+        }
+        catch
+        {
+            try
+            {
+                resource.Dispose();
+            }
+            catch
+            {
+                // Preserve the acquisition failure while reclaiming the partially evaluated graph snapshot.
+            }
+
+            throw;
+        }
     }
 
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource) => availableSize;
@@ -52,13 +68,16 @@ public sealed partial class NodeGraphDrawable : Drawable
     {
         private readonly GraphSnapshot _snapshot = new();
         private GraphModel? _model;
+        private GeneratedResourceCleanupContext? _resourceCleanupContext;
+        private IReadOnlyList<RenderNode> _outputRenderNodes = Array.Empty<RenderNode>();
 
-        public List<RenderNode> OutputRenderNode { get; private set; } = [];
+        public IReadOnlyList<RenderNode> OutputRenderNode => ReadGeneratedResourceState(ref _outputRenderNodes);
 
         public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
         {
+            var typed = (NodeGraphDrawable)obj;
+            using GeneratedResourceOperationLease operation = BeginExclusiveResourceOperation(typed);
             base.Update(obj, context, ref updateOnly);
-            OutputRenderNode.Clear();
             if (obj is NodeGraphDrawable drawable)
             {
                 if (_model != drawable.Model.CurrentValue)
@@ -72,19 +91,23 @@ public sealed partial class NodeGraphDrawable : Drawable
                 if (_model != null)
                 {
                     _snapshot.Build(_model, context);
-
                     _snapshot.Evaluate(CompositionTarget.Graphics, context);
 
-                    PullOutputValue(_model);
+                    _outputRenderNodes = PullOutputValue(_model);
 
                     Version++;
                     updateOnly = true;
+                }
+                else
+                {
+                    _outputRenderNodes = Array.Empty<RenderNode>();
                 }
             }
             else
             {
                 _model?.TopologyChanged -= OnModelTopologyChanged;
                 _snapshot.MarkDirty();
+                _outputRenderNodes = Array.Empty<RenderNode>();
             }
         }
 
@@ -93,8 +116,9 @@ public sealed partial class NodeGraphDrawable : Drawable
             _snapshot.MarkDirty();
         }
 
-        private void PullOutputValue(GraphModel model)
+        private IReadOnlyList<RenderNode> PullOutputValue(GraphModel model)
         {
+            var outputs = new List<RenderNode>();
             foreach (var node in model.Nodes)
             {
                 if (node is OutputNode outputNode)
@@ -111,18 +135,68 @@ public sealed partial class NodeGraphDrawable : Drawable
                     IItemValue? itemValue = _snapshot.GetItemValue(slotIndex, itemIndex);
                     if (itemValue?.GetBoxed() is RenderNode renderNode)
                     {
-                        OutputRenderNode.Add(renderNode);
+                        outputs.Add(renderNode);
                     }
                 }
             }
+
+            return outputs.Count == 0
+                ? Array.Empty<RenderNode>()
+                : Array.AsReadOnly(outputs.ToArray());
+        }
+
+        protected override void PrepareGeneratedResourceCleanupCore(
+            bool disposing,
+            GeneratedResourceCleanupContext context)
+        {
+            if (disposing)
+            {
+                _resourceCleanupContext = context;
+                _snapshot.ReserveResources(context.Reserve);
+            }
+
+            base.PrepareGeneratedResourceCleanupCore(disposing, context);
+        }
+
+        protected override void RollbackGeneratedResourceCleanupCore()
+        {
+            _resourceCleanupContext = null;
+            _snapshot.RollbackCleanupReservation();
+            base.RollbackGeneratedResourceCleanupCore();
         }
 
         protected override void Dispose(bool disposing)
         {
-            _model?.TopologyChanged -= OnModelTopologyChanged;
+            GraphModel? model = _model;
             _model = null;
-            if (disposing) _snapshot.Dispose();
-            base.Dispose(disposing);
+            _outputRenderNodes = Array.Empty<RenderNode>();
+            Exception? failure = null;
+            if (model != null)
+            {
+                NodeGraphDisposal.Capture(
+                    () => model.TopologyChanged -= OnModelTopologyChanged,
+                    ref failure);
+            }
+
+            if (disposing)
+            {
+                GeneratedResourceCleanupContext? context = _resourceCleanupContext;
+                _resourceCleanupContext = null;
+                if (context == null)
+                {
+                    failure = new InvalidOperationException("The graph resources were not reserved before cleanup.");
+                    _snapshot.RollbackCleanupReservation();
+                    _ = _snapshot.DetachAndDisposeWithoutReservation();
+                }
+                else
+                {
+                    NodeGraphDisposal.Capture(
+                        () => _snapshot.DisposeAfterResourcesReserved(context.DisposeOwned, context.Capture),
+                        ref failure);
+                }
+            }
+            NodeGraphDisposal.Capture(() => base.Dispose(disposing), ref failure);
+            NodeGraphDisposal.ThrowIfFailed(failure);
         }
     }
 }

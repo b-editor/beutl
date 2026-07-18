@@ -15,7 +15,7 @@ public partial class TransformNode : ConfigureNode
 
     public partial class Resource
     {
-        protected override void UpdateCore(GraphCompositionContext context)
+        protected override void UpdateConfiguredCore(GraphCompositionContext context)
         {
             var node = GetOriginal();
             var matrix = context.HasConnection(node.Matrix)

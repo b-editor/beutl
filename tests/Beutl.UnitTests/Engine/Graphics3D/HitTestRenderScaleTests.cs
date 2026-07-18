@@ -3,6 +3,7 @@
 using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Backend;
+using Beutl.Graphics.Rendering;
 using Beutl.Graphics3D;
 using Beutl.Graphics3D.Camera;
 using Beutl.Graphics3D.Lighting;
@@ -144,7 +145,9 @@ public class HitTestRenderScaleTests
             using var renderer = new Renderer3D(ctx);
             renderer.Initialize(deviceWidth, deviceHeight);
             renderer.SurfaceDensity = scale; // mirrors Scene3DRenderNode: device surface is ceil(logical × scale)
-            renderer.Render(context, camera, objects, lights, Colors.Black, Colors.White, 0.1f);
+            renderer.Render(
+                context, camera, objects, lights, Colors.Black, Colors.White, 0.1f,
+                RenderIntent.Delivery, RenderPullPurpose.Frame);
 
             var logicalCenter = new Point(LogicalWidth / 2f, LogicalHeight / 2f);
             Object3D.Resource? hit = renderer.HitTest(logicalCenter);

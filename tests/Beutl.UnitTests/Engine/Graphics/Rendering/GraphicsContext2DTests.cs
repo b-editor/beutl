@@ -46,7 +46,10 @@ public class GraphicsContext2DTests
             drawable.Render(context, resource);
         }
 
-        ((FilterEffectGroup)drawable.FilterEffect.CurrentValue).Children.RemoveAt(0);
+        // A FilterEffectGroup is one render node (its whole child chain describes into a single graph, fed to
+        // fusion), so mutating its children re-describes the same node rather than untracking one. Removing the
+        // effect entirely is what untracks the FilterEffectRenderNode.
+        drawable.FilterEffect.CurrentValue = null;
         var updateOnly = false;
         resource.Update(drawable, CompositionContext.Default, ref updateOnly);
 
@@ -64,7 +67,7 @@ public class GraphicsContext2DTests
 
         Assert.That(triggered, Is.True);
         Assert.That(untrackedNode, Is.Not.Null);
-        Assert.That(untrackedNode, Is.TypeOf<FilterEffectRenderNode>());
+        Assert.That(untrackedNode, Is.TypeOf<PlanFilterEffectRenderNode>());
     }
 
     [Test]
@@ -77,6 +80,26 @@ public class GraphicsContext2DTests
 
         Assert.That(node.Children, Is.Not.Empty);
         Assert.That(node.Children[0], Is.InstanceOf<ClearRenderNode>());
+    }
+
+    [Test]
+    public void Dispose_WhenUpdatedGraphShrinks_DisposesEveryRetiredNode()
+    {
+        var container = new ContainerRenderNode();
+        var first = new TrackingRenderNode();
+        var second = new TrackingRenderNode();
+        container.AddChild(first);
+        container.AddChild(second);
+        var context = new GraphicsContext2D(container);
+
+        context.Dispose();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(container.Children, Is.Empty);
+            Assert.That(first.DisposeCalls, Is.EqualTo(1));
+            Assert.That(second.DisposeCalls, Is.EqualTo(1));
+        });
     }
 
     [Test]
@@ -167,6 +190,32 @@ public class GraphicsContext2DTests
     }
 
     [Test]
+    public void Pop_PropagatesAnyChangedSibling_WhenLaterSiblingIsUnchanged()
+    {
+        var root = new ContainerRenderNode();
+        var firstRect = new Rect(0, 0, 100, 100);
+        var secondRect = new Rect(200, 0, 100, 100);
+
+        using (var context = new GraphicsContext2D(root, new Size(1920, 1080)))
+        using (context.Push())
+        {
+            context.DrawRectangle(firstRect, Brushes.Resource.White, null);
+            context.DrawRectangle(secondRect, Brushes.Resource.White, null);
+        }
+
+        root.HasChanges = false;
+        using (var context = new GraphicsContext2D(root, new Size(1920, 1080)))
+        using (context.Push())
+        {
+            context.DrawRectangle(firstRect.WithWidth(120), Brushes.Resource.White, null);
+            context.DrawRectangle(secondRect, Brushes.Resource.White, null);
+        }
+
+        Assert.That(root.HasChanges, Is.True,
+            "a later unchanged sibling must not erase an earlier sibling's change before the nested root is popped");
+    }
+
+    [Test]
     public void DrawDrawable_ShouldCreateDrawableRenderNode()
     {
         var drawable = new RectShape();
@@ -191,6 +240,141 @@ public class GraphicsContext2DTests
 
         Assert.That(node.Children, Is.Not.Empty);
         Assert.That(node.Children[0], Is.EqualTo(child));
+    }
+
+    [Test]
+    public void DrawNodeFactory_WhenFactoryReturnsDisposedNode_RejectsBeforeOwnershipTransfer()
+    {
+        var container = new ContainerRenderNode();
+        using var context = new GraphicsContext2D(container);
+        var disposed = new TrackingRenderNode();
+        disposed.Dispose();
+
+        Assert.Throws<ObjectDisposedException>(() =>
+            context.DrawNode(0, _ => disposed, static (_, _) => false));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(container.Children, Is.Empty);
+            Assert.That(disposed.DisposeCalls, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public void DrawNodeFactory_WhenUpdaterDisposesInstalledNode_DetachesAndRejectsIt()
+    {
+        var container = new ContainerRenderNode();
+        using var context = new GraphicsContext2D(container);
+        var node = new TrackingRenderNode();
+        context.DrawNode(0, _ => node, static (_, _) => false);
+        context.Reset();
+
+        Assert.Throws<ObjectDisposedException>(() =>
+            context.DrawNode<TrackingRenderNode, int>(
+                1,
+                _ => throw new AssertionException("factory must not run"),
+                (current, _) =>
+            {
+                current.Dispose();
+                return false;
+            }));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(container.Children, Is.Empty);
+            Assert.That(node.DisposeCalls, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public void DrawNodeFactory_WhenUpdaterDisposeThrows_DetachesNodeAndPreservesUpdaterFailure()
+    {
+        var updaterFailure = new InvalidOperationException("updater dispose failure");
+        var cleanupFailure = new InvalidOperationException("untracked cleanup failure");
+        var container = new ContainerRenderNode();
+        using var context = new GraphicsContext2D(container);
+        var node = new ThrowingTrackingRenderNode(updaterFailure);
+        context.DrawNode(0, _ => node, static (_, _) => false);
+        context.Reset();
+        context.OnUntracked = _ => throw cleanupFailure;
+
+        InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() =>
+            context.DrawNode<ThrowingTrackingRenderNode, int>(
+                1,
+                _ => throw new AssertionException("factory must not run"),
+                static (current, _) =>
+                {
+                    current.Dispose();
+                    return false;
+                }));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(actual, Is.SameAs(updaterFailure));
+            Assert.That(container.Children, Is.Empty);
+            Assert.That(node.IsDisposed, Is.True);
+            Assert.That(node.DisposeCalls, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public void PushNodeFactory_WhenUpdaterDisposesInstalledNode_DoesNotPushIt()
+    {
+        var root = new ContainerRenderNode();
+        using var context = new GraphicsContext2D(root);
+        var node = new ContainerRenderNode();
+        using (context.PushNode(0, _ => node, static (_, _) => false))
+        {
+        }
+        context.Reset();
+
+        Assert.Throws<ObjectDisposedException>(() =>
+            context.PushNode<ContainerRenderNode, int>(
+                1,
+                _ => throw new AssertionException("factory must not run"),
+                (current, _) =>
+            {
+                current.Dispose();
+                return false;
+            }));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(root.Children, Is.Empty);
+            Assert.That(node.IsDisposed, Is.True);
+        });
+    }
+
+    [Test]
+    public void PushNodeFactory_WhenUpdaterThrowsAfterDisposal_DetachesNodeAndPreservesUpdaterFailure()
+    {
+        var updaterFailure = new InvalidOperationException("updater failure after disposal");
+        var cleanupFailure = new InvalidOperationException("untracked cleanup failure");
+        var root = new ContainerRenderNode();
+        using var context = new GraphicsContext2D(root);
+        var node = new ContainerRenderNode();
+        using (context.PushNode(0, _ => node, static (_, _) => false))
+        {
+        }
+        context.Reset();
+        context.OnUntracked = _ => throw cleanupFailure;
+
+        InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() =>
+            context.PushNode<ContainerRenderNode, int>(
+                1,
+                _ => throw new AssertionException("factory must not run"),
+                (current, _) =>
+                {
+                    current.Dispose();
+                    throw updaterFailure;
+                }));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(actual, Is.SameAs(updaterFailure));
+            Assert.That(root.Children, Is.Empty);
+            Assert.That(node.IsDisposed, Is.True);
+        });
     }
 
     [Test]
@@ -360,5 +544,134 @@ public class GraphicsContext2DTests
 
         Assert.That(node.Children, Is.Not.Empty);
         Assert.That(node.Children[0], Is.InstanceOf<TransformRenderNode>());
+    }
+
+    [Test]
+    public void Pop_WhenRetiredCleanupThrows_DetachesAllChildrenAndRestoresParentState()
+    {
+        var untrackedFailure = new InvalidOperationException("untracked failure");
+        var disposeFailure = new InvalidOperationException("dispose failure");
+        var root = new ContainerRenderNode();
+        var context = new GraphicsContext2D(root, new Size(1920, 1080));
+        var throwing = new ThrowingTrackingRenderNode(disposeFailure);
+        var sibling = new TrackingRenderNode();
+
+        using (context.Push())
+        {
+            context.DrawNode(throwing);
+            context.DrawNode(sibling);
+        }
+
+        context.Reset();
+        context.OnUntracked = node =>
+        {
+            if (ReferenceEquals(node, throwing))
+                throw untrackedFailure;
+        };
+        PushedState state = context.Push();
+
+        InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(state.Dispose);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(actual, Is.SameAs(untrackedFailure));
+            Assert.That(throwing.DisposeCalls, Is.EqualTo(1));
+            Assert.That(sibling.DisposeCalls, Is.EqualTo(1));
+            Assert.That(((ContainerRenderNode)root.Children[0]).Children, Is.Empty);
+        });
+
+        context.OnUntracked = null;
+        var parentChild = new TrackingRenderNode();
+        Assert.DoesNotThrow(() => context.DrawNode(parentChild),
+            "the failed nested cleanup must leave subsequent drawing at the parent level");
+        Assert.That(root.Children[1], Is.SameAs(parentChild));
+    }
+
+    [Test]
+    public void Pop_WhenInnerCleanupThrows_StillRestoresEveryRequestedParentLevel()
+    {
+        var cleanupFailure = new InvalidOperationException("nested cleanup failure");
+        var root = new ContainerRenderNode();
+        var context = new GraphicsContext2D(root, new Size(1920, 1080));
+        var throwing = new ThrowingTrackingRenderNode(cleanupFailure);
+
+        using (context.Push())
+        using (context.Push())
+        {
+            context.DrawNode(throwing);
+        }
+
+        context.Reset();
+        PushedState outer = context.Push();
+        context.Push();
+
+        InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(outer.Dispose);
+
+        var parentChild = new TrackingRenderNode();
+        Assert.Multiple(() =>
+        {
+            Assert.That(actual, Is.SameAs(cleanupFailure));
+            Assert.That(throwing.DisposeCalls, Is.EqualTo(1));
+            Assert.DoesNotThrow(() => context.DrawNode(parentChild));
+            Assert.That(root.Children[1], Is.SameAs(parentChild),
+                "cleanup failure at an inner level must not leave the context inside a nested container");
+        });
+    }
+
+    [Test]
+    public void DrawDrawable_WhenRenderAndNestedCleanupThrow_PreservesRenderFailure()
+    {
+        var renderFailure = new InvalidOperationException("nested render failure");
+        var cleanupFailure = new InvalidOperationException("nested cleanup failure");
+        var drawable = new DualFailureDrawable(renderFailure, cleanupFailure);
+        using var resource = (Drawable.Resource)drawable.ToResource(new CompositionContext(
+            TimeSpan.Zero,
+            RenderIntent.Delivery,
+            RenderPullPurpose.Frame));
+        var root = new ContainerRenderNode();
+        var context = new GraphicsContext2D(root, new Size(1920, 1080));
+        context.DrawDrawable(resource);
+        context.Reset();
+        drawable.ThrowOnRender = true;
+
+        InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(
+            () => context.DrawDrawable(resource));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(actual, Is.SameAs(renderFailure));
+            Assert.That(drawable.RetiredNodeDisposeCalls, Is.EqualTo(1));
+        });
+    }
+}
+
+internal sealed class TrackingRenderNode : RenderNode
+{
+    public int DisposeCalls { get; private set; }
+
+    public override RenderNodeOperation[] Process(RenderNodeContext context) => [];
+
+    protected override void OnDispose(bool disposing)
+    {
+        if (disposing)
+        {
+            DisposeCalls++;
+        }
+    }
+}
+
+internal sealed class ThrowingTrackingRenderNode(Exception failure) : RenderNode
+{
+    public int DisposeCalls { get; private set; }
+
+    public override RenderNodeOperation[] Process(RenderNodeContext context) => [];
+
+    protected override void OnDispose(bool disposing)
+    {
+        if (disposing)
+        {
+            DisposeCalls++;
+            throw failure;
+        }
     }
 }

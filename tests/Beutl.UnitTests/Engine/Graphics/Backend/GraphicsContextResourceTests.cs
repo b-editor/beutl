@@ -35,6 +35,137 @@ public class GraphicsContextResourceTests
     }
 
     [Test]
+    public void CreateFramebuffer3D_ColorOnly_HasNoDepthAttachment()
+    {
+        var ctx = VulkanTestEnvironment.EnsureAvailable();
+
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using ITexture2D color = ctx.CreateTexture2D(8, 8, TextureFormat.RGBA8Unorm);
+            using IRenderPass3D renderPass = ctx.CreateRenderPass3D(
+                [TextureFormat.RGBA8Unorm], depthFormat: null);
+            using IFramebuffer3D framebuffer = ctx.CreateFramebuffer3D(renderPass, [color], depthTexture: null);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(framebuffer.ColorTextures, Has.Count.EqualTo(1));
+                Assert.That(framebuffer.DepthTexture, Is.Null);
+            });
+        });
+    }
+
+    [Test]
+    public void CreateFramebuffer3D_DepthPresenceMustMatchRenderPass()
+    {
+        var ctx = VulkanTestEnvironment.EnsureAvailable();
+
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using ITexture2D color = ctx.CreateTexture2D(8, 8, TextureFormat.RGBA8Unorm);
+            using ITexture2D depth = ctx.CreateTexture2D(8, 8, TextureFormat.Depth32Float);
+            using IRenderPass3D colorOnly = ctx.CreateRenderPass3D(
+                [TextureFormat.RGBA8Unorm], depthFormat: null);
+            using IRenderPass3D withDepth = ctx.CreateRenderPass3D(
+                [TextureFormat.RGBA8Unorm], TextureFormat.Depth32Float);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(
+                    () => ctx.CreateFramebuffer3D(colorOnly, [color], depth),
+                    Throws.ArgumentException.With.Message.Contains("must match"));
+                Assert.That(
+                    () => ctx.CreateFramebuffer3D(withDepth, [color], depthTexture: null),
+                    Throws.ArgumentException.With.Message.Contains("must match"));
+            });
+        });
+    }
+
+    [Test]
+    public void CreateFramebuffer3D_DepthFormatAndDimensionsMustMatchRenderPass()
+    {
+        var ctx = VulkanTestEnvironment.EnsureAvailable();
+
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using ITexture2D color = ctx.CreateTexture2D(8, 8, TextureFormat.RGBA8Unorm);
+            using ITexture2D wrongFormat = ctx.CreateTexture2D(8, 8, TextureFormat.RGBA8Unorm);
+            using ITexture2D wrongSize = ctx.CreateTexture2D(4, 4, TextureFormat.Depth32Float);
+            using IRenderPass3D renderPass = ctx.CreateRenderPass3D(
+                [TextureFormat.RGBA8Unorm], TextureFormat.Depth32Float);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(
+                    () => ctx.CreateFramebuffer3D(renderPass, [color], wrongFormat),
+                    Throws.ArgumentException.With.Message.Contains("format"));
+                Assert.That(
+                    () => ctx.CreateFramebuffer3D(renderPass, [color], wrongSize),
+                    Throws.ArgumentException.With.Message.Contains("dimensions"));
+            });
+        });
+    }
+
+    [Test]
+    public void CreateFramebuffer3D_ColorAttachmentsMustMatchRenderPass()
+    {
+        var ctx = VulkanTestEnvironment.EnsureAvailable();
+
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using ITexture2D rgba = ctx.CreateTexture2D(8, 8, TextureFormat.RGBA8Unorm);
+            using ITexture2D bgra = ctx.CreateTexture2D(8, 8, TextureFormat.BGRA8Unorm);
+            using ITexture2D wrongSize = ctx.CreateTexture2D(4, 8, TextureFormat.RGBA8Unorm);
+            using IRenderPass3D single = ctx.CreateRenderPass3D(
+                [TextureFormat.RGBA8Unorm], depthFormat: null);
+            using IRenderPass3D doubleColor = ctx.CreateRenderPass3D(
+                [TextureFormat.RGBA8Unorm, TextureFormat.RGBA8Unorm], depthFormat: null);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(
+                    () => ctx.CreateFramebuffer3D(doubleColor, [rgba], depthTexture: null),
+                    Throws.ArgumentException.With.Message.Contains("count"));
+                Assert.That(
+                    () => ctx.CreateFramebuffer3D(single, [bgra], depthTexture: null),
+                    Throws.ArgumentException.With.Message.Contains("format"));
+                Assert.That(
+                    () => ctx.CreateFramebuffer3D(doubleColor, [rgba, wrongSize], depthTexture: null),
+                    Throws.ArgumentException.With.Message.Contains("dimensions"));
+            });
+        });
+    }
+
+    [Test]
+    public void CreatePipeline3D_ColorOnlyRejectsDepthEnabledOptions()
+    {
+        var ctx = VulkanTestEnvironment.EnsureAvailable();
+
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using IRenderPass3D renderPass = ctx.CreateRenderPass3D(
+                [TextureFormat.RGBA8Unorm], depthFormat: null);
+
+            Assert.That(
+                () => ctx.CreatePipeline3D(
+                    renderPass, [], [], [], VertexInputDescription.Empty, options: null),
+                Throws.ArgumentException.With.Message.Contains("depth"));
+        });
+    }
+
+    [Test]
+    public void CreateRenderPass3D_RejectsColorFormatAsDepthAttachment()
+    {
+        var ctx = VulkanTestEnvironment.EnsureAvailable();
+
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            Assert.That(
+                () => ctx.CreateRenderPass3D([TextureFormat.RGBA8Unorm], TextureFormat.RGBA8Unorm),
+                Throws.ArgumentException.With.Message.Contains("depth format"));
+        });
+    }
+
+    [Test]
     public void CreateTexture2D_UploadAndDownload_RoundTrips()
     {
         var ctx = VulkanTestEnvironment.EnsureAvailable();

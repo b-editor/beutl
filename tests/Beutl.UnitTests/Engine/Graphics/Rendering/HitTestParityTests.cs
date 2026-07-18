@@ -15,7 +15,7 @@ public class HitTestParityTests
         var rect = new Rect(0, 0, 100, 80);
         var fill = new SolidColorBrush(Colors.Red).ToResource(CompositionContext.Default);
         var node = new EllipseRenderNode(rect, fill, null);
-        var context = new RenderNodeContext([], outputScale);
+        var context = new RenderNodeContext([], RenderIntent.Delivery, outputScale);
         return node.Process(context)[0];
     }
 

@@ -23,7 +23,7 @@ public partial class RelativePointNode : GraphNode
 
     public partial class Resource
     {
-        public override void Update(GraphCompositionContext context)
+        protected override void UpdateCore(GraphCompositionContext context)
         {
             Value = new RelativePoint(X, Y, Unit);
         }

@@ -139,7 +139,8 @@ public sealed partial class TransparentMaterial : Material3D
             var graphicsContext = context.GraphicsContext;
 
             // Get texture
-            ITexture2D? colorTex = ColorMap?.GetTexture(graphicsContext, context.SurfaceDensity);
+            ITexture2D? colorTex = ColorMap?.GetTexture(
+                graphicsContext, context.RenderIntent, context.PullPurpose, context.SurfaceDensity);
             int hasTexture = colorTex != null ? 1 : 0;
 
             // Update texture binding
@@ -175,18 +176,23 @@ public sealed partial class TransparentMaterial : Material3D
 
         partial void PostDispose(bool disposing)
         {
-            _descriptorSet?.Dispose();
+            if (!disposing)
+                return;
+
+            IDescriptorSet? descriptorSet = _descriptorSet;
             _descriptorSet = null;
-            _uniformBuffer?.Dispose();
+            IBuffer? uniformBuffer = _uniformBuffer;
             _uniformBuffer = null;
-            _sampler?.Dispose();
+            ISampler? sampler = _sampler;
             _sampler = null;
 
-            _defaultWhiteTexture?.Dispose();
+            ITexture2D? defaultWhiteTexture = _defaultWhiteTexture;
             _defaultWhiteTexture = null;
 
-            _pipeline?.Dispose();
+            IPipeline3D? pipeline = _pipeline;
             _pipeline = null;
+            Graphics3DDisposal.DisposeAll(
+                descriptorSet, uniformBuffer, sampler, defaultWhiteTexture, pipeline);
         }
 
         /// <summary>

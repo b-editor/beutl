@@ -14,7 +14,7 @@ public sealed partial class ChoicesProviderTest : FilterEffect
     [ChoicesProvider(typeof(WellKnownSizesProvider))]
     public IProperty<WellKnownSize?> Size { get; } = Property.Create<WellKnownSize?>();
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
     {
     }
 }

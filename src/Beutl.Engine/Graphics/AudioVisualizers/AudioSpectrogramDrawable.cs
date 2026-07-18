@@ -64,11 +64,15 @@ public sealed partial class AudioSpectrogramDrawable : AudioVisualizerDrawable
 
         partial void PostDispose(bool disposing)
         {
-            if (disposing)
-            {
-                _paint?.Dispose();
-            }
+            if (!disposing)
+                return;
+
+            var paint = _paint;
             _paint = null;
+
+            Exception? failure = null;
+            DisposeOwnedResources(ref failure, paint);
+            ThrowIfCleanupFailed(failure);
         }
 
         protected override void RenderForeground(ImmediateCanvas canvas, Rect bounds)
@@ -101,7 +105,10 @@ public sealed partial class AudioSpectrogramDrawable : AudioVisualizerDrawable
 
             // 高強度 (normalized=1) 相当の Fill を 1 度構築し、各セルは Alpha のみ書き換える。
             _paint ??= new SKPaint();
-            new BrushConstructor(bounds, Fill, BlendMode.SrcOver, canvas.Density, canvas.MaxWorkingScale).ConfigurePaint(_paint);
+            new BrushConstructor(
+                bounds, Fill, BlendMode.SrcOver, canvas.RenderIntent, canvas.Density, canvas.MaxWorkingScale,
+                pullPurpose: canvas.PullPurpose)
+                .ConfigurePaint(_paint);
             _paint.Style = SKPaintStyle.Fill;
             SKColor baseColor = _paint.Color;
             byte baseAlpha = baseColor.Alpha;

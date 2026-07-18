@@ -56,7 +56,7 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
             return TimeSpan.FromTicks((long)(timeSpan.Ticks * (resource.Speed / 100.0)));
         }
 
-        resource.SpeedIntegrator.EnsureCache(anm);
+        resource.SpeedIntegrator!.EnsureCache(anm);
         return resource.SpeedIntegrator.Integrate(timeSpan, keyFrameAnimation);
     }
 
@@ -169,10 +169,10 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
 
     public partial class Resource
     {
-        internal readonly Media.SpeedIntegrator SpeedIntegrator = new(60);
+        internal Media.SpeedIntegrator? SpeedIntegrator = new(60);
         private Drawable.Resource? _target;
 
-        public Drawable.Resource? Target => _target;
+        public Drawable.Resource? Target => ReadGeneratedResourceState(ref _target);
 
         partial void PostUpdate(DrawableTimeController obj, CompositionContext context)
         {
@@ -200,13 +200,19 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
             {
                 context.Time = obj.CalculateTargetTime(context.Time, this, targetDrawable);
                 bool changed = false;
-                ResourceReconciler.ReconcileResource(
-                    context: context,
-                    value: targetDrawable,
-                    field: ref _target,
-                    changed: ref changed);
-                if (changed)
-                    Version++;
+                try
+                {
+                    ResourceReconciler.ReconcileResource(
+                        context: context,
+                        value: targetDrawable,
+                        field: ref _target,
+                        changed: ref changed);
+                }
+                finally
+                {
+                    if (changed)
+                        Version++;
+                }
             }
             finally
             {
@@ -214,10 +220,26 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
             }
         }
 
+        partial void PrepareResourceDispose(
+            bool disposing,
+            EngineObject.Resource.GeneratedResourceCleanupContext context)
+        {
+            if (disposing)
+                context.Reserve(_target);
+        }
+
         partial void PostDispose(bool disposing)
         {
-            _target?.Dispose();
-            SpeedIntegrator.Dispose();
+            if (!disposing)
+                return;
+
+            _target = null;
+            Media.SpeedIntegrator? speedIntegrator = SpeedIntegrator;
+            SpeedIntegrator = null;
+
+            Exception? failure = null;
+            DisposeOwnedResources(ref failure, speedIntegrator);
+            ThrowIfCleanupFailed(failure);
         }
     }
 }

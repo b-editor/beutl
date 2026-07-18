@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using System.Collections.ObjectModel;
+using System.ComponentModel.DataAnnotations;
 using Beutl.Collections.Pooled;
 using Beutl.Composition;
 using Beutl.Engine;
@@ -68,12 +69,18 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
 
     public new partial class Resource
     {
-        private readonly PooledList<int> _childrenVersion = [];
+        private static readonly ReadOnlyCollection<Drawable.Resource> s_emptyChildren
+            = Array.AsReadOnly(Array.Empty<Drawable.Resource>());
 
-        public List<Drawable.Resource> Children { get; set; } = [];
+        private readonly List<Drawable.Resource> _children = [];
+        private readonly PooledList<int> _childrenVersion = [];
+        private IReadOnlyList<Drawable.Resource> _childrenSnapshot = s_emptyChildren;
+
+        public IReadOnlyList<Drawable.Resource> Children => ReadGeneratedResourceState(ref _childrenSnapshot);
 
         partial void PreUpdate(DrawableGroup obj, CompositionContext context)
         {
+            EngineObject.Resource[]? flowRollbackSnapshot = context.Flow?.ToArray();
             // Consume all Drawables from flow
             using var consumed = new PooledList<Drawable.Resource>();
             if (context.Flow != null)
@@ -90,27 +97,87 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
 
             // Reconcile children from consumed drawables
             bool changed = false;
-            ResourceReconciler.ReconcileListFromFlow(
-                context: context,
-                property: obj.Children,
-                consumed: consumed,
-                field: Children,
-                versions: _childrenVersion,
-                changed: ref changed);
+            try
+            {
+                ResourceReconciler.ReconcileListFromFlow(
+                    context: context,
+                    property: obj.Children,
+                    consumed: consumed,
+                    field: _children,
+                    versions: _childrenVersion,
+                    flowRollbackSnapshot: flowRollbackSnapshot,
+                    changed: ref changed);
+            }
+            finally
+            {
+                PublishChildrenSnapshotIfChanged();
+                if (changed)
+                    Version++;
+            }
+        }
 
-            if (changed)
-                Version++;
+        partial void PostUpdate(DrawableGroup obj, CompositionContext context)
+        {
+            PublishChildrenSnapshotIfChanged();
+        }
+
+        partial void PrepareResourceDispose(
+            bool disposing,
+            EngineObject.Resource.GeneratedResourceCleanupContext context)
+        {
+            if (!disposing)
+                return;
+
+            int ownedStart = Math.Min(_childrenVersion.Count, _children.Count);
+            for (int i = ownedStart; i < _children.Count; i++)
+            {
+                context.Reserve(_children[i]);
+            }
         }
 
         partial void PostDispose(bool disposing)
         {
-            for (int i = _childrenVersion.Count; i < Children.Count; i++)
+            if (!disposing)
+                return;
+
+            Exception? failure = null;
+            _children.Clear();
+            Volatile.Write(ref _childrenSnapshot, s_emptyChildren);
+            try
             {
-                Children[i].Dispose();
+                _childrenVersion.Dispose();
+            }
+            catch (Exception ex)
+            {
+                failure ??= ex;
             }
 
-            Children.Clear();
-            _childrenVersion.Dispose();
+            ThrowIfCleanupFailed(failure);
+        }
+
+        private void PublishChildrenSnapshotIfChanged()
+        {
+            IReadOnlyList<Drawable.Resource> current = Volatile.Read(ref _childrenSnapshot);
+            if (current.Count == _children.Count)
+            {
+                bool matches = true;
+                for (int i = 0; i < _children.Count; i++)
+                {
+                    if (!ReferenceEquals(current[i], _children[i]))
+                    {
+                        matches = false;
+                        break;
+                    }
+                }
+
+                if (matches)
+                    return;
+            }
+
+            IReadOnlyList<Drawable.Resource> next = _children.Count == 0
+                ? s_emptyChildren
+                : Array.AsReadOnly(_children.ToArray());
+            Volatile.Write(ref _childrenSnapshot, next);
         }
     }
 

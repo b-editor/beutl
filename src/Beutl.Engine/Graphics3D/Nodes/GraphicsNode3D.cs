@@ -48,6 +48,7 @@ public abstract class GraphicsNode3D : RenderNode3D
     /// </summary>
     public void PrepareForSampling()
     {
+        ThrowIfNotInitialized();
         Framebuffer?.PrepareForSampling();
     }
 }

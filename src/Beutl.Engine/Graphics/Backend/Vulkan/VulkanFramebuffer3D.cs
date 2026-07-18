@@ -12,7 +12,7 @@ internal sealed unsafe class VulkanFramebuffer3D : IFramebuffer3D
     private readonly VulkanContext _context;
     private readonly Framebuffer _framebuffer;
     private readonly List<VulkanTexture2D> _colorTextures;
-    private readonly VulkanTexture2D _depthTexture;
+    private readonly VulkanTexture2D? _depthTexture;
     private readonly bool _ownsColorTextures;
     private readonly bool _ownsDepthTexture;
     private readonly int _width;
@@ -26,7 +26,7 @@ internal sealed unsafe class VulkanFramebuffer3D : IFramebuffer3D
         VulkanContext context,
         RenderPass renderPass,
         IReadOnlyList<VulkanTexture2D> colorTextures,
-        VulkanTexture2D depthTexture,
+        VulkanTexture2D? depthTexture,
         bool ownsColorTextures = false,
         bool ownsDepthTexture = false)
     {
@@ -47,14 +47,15 @@ internal sealed unsafe class VulkanFramebuffer3D : IFramebuffer3D
         var device = context.Device;
 
         // Create framebuffer with all attachments
-        int attachmentCount = colorTextures.Count + 1; // colors + depth
+        int attachmentCount = colorTextures.Count + (depthTexture != null ? 1 : 0);
         var attachments = stackalloc ImageView[attachmentCount];
 
         for (int i = 0; i < colorTextures.Count; i++)
         {
             attachments[i] = colorTextures[i].ImageViewHandle;
         }
-        attachments[colorTextures.Count] = depthTexture.ImageViewHandle;
+        if (depthTexture != null)
+            attachments[colorTextures.Count] = depthTexture.ImageViewHandle;
 
         var framebufferInfo = new FramebufferCreateInfo
         {
@@ -82,7 +83,7 @@ internal sealed unsafe class VulkanFramebuffer3D : IFramebuffer3D
 
     public IReadOnlyList<ITexture2D> ColorTextures => _colorTextures;
 
-    public ITexture2D DepthTexture => _depthTexture;
+    public ITexture2D? DepthTexture => _depthTexture;
 
     public Framebuffer Handle => _framebuffer;
 
@@ -92,7 +93,7 @@ internal sealed unsafe class VulkanFramebuffer3D : IFramebuffer3D
         {
             texture.TransitionTo(ImageLayout.ShaderReadOnlyOptimal);
         }
-        _depthTexture.TransitionTo(ImageLayout.ShaderReadOnlyOptimal);
+        _depthTexture?.TransitionTo(ImageLayout.ShaderReadOnlyOptimal);
     }
 
     public void PrepareForRendering()
@@ -101,7 +102,7 @@ internal sealed unsafe class VulkanFramebuffer3D : IFramebuffer3D
         {
             texture.TransitionTo(ImageLayout.ColorAttachmentOptimal);
         }
-        _depthTexture.TransitionTo(ImageLayout.DepthStencilAttachmentOptimal);
+        _depthTexture?.TransitionTo(ImageLayout.DepthStencilAttachmentOptimal);
     }
 
     public void Dispose()
@@ -120,8 +121,6 @@ internal sealed unsafe class VulkanFramebuffer3D : IFramebuffer3D
         }
 
         if (_ownsDepthTexture)
-        {
-            _depthTexture.Dispose();
-        }
+            _depthTexture?.Dispose();
     }
 }

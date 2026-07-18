@@ -19,7 +19,7 @@ public class ImmediateCanvasDensityTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             using var target = RenderTarget.Create(64, 48)!;
-            using var canvas = new ImmediateCanvas(target, 1f);
+            using var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 1f);
 
             // density 1: matrix untouched, logical == device.
             Assert.That(canvas.Transform, Is.EqualTo(Matrix.Identity));
@@ -37,7 +37,7 @@ public class ImmediateCanvasDensityTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             using var target = RenderTarget.Create(200, 100)!;
-            using var canvas = new ImmediateCanvas(target, 2f, logicalSize: new Size(100, 50));
+            using var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 2f, logicalSize: new Size(100, 50));
 
             Assert.That(canvas.Transform, Is.EqualTo(Matrix.CreateScale(2f, 2f)));
             Assert.That(canvas.Density, Is.EqualTo(2f));
@@ -55,7 +55,7 @@ public class ImmediateCanvasDensityTests
         {
             using var target = RenderTarget.Create(401, 201)!;
             // Fractional logical viewport must survive verbatim, not truncated through device px.
-            using var canvas = new ImmediateCanvas(target, 2f, logicalSize: new Size(200.5f, 100.25f));
+            using var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 2f, logicalSize: new Size(200.5f, 100.25f));
 
             Assert.That(canvas.LogicalSize, Is.EqualTo(new Size(200.5f, 100.25f)));
             Assert.That(canvas.DeviceSize, Is.EqualTo(new PixelSize(401, 201)));
@@ -69,7 +69,7 @@ public class ImmediateCanvasDensityTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             using var target = RenderTarget.Create(100, 100)!;
-            using (var canvas = new ImmediateCanvas(target, 2f, logicalSize: new Size(50, 50)))
+            using (var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 2f, logicalSize: new Size(50, 50)))
             {
                 canvas.Clear(Colors.Black);
                 // Logical rect; base CTM maps it to device (20,20)-(60,60).
@@ -90,7 +90,7 @@ public class ImmediateCanvasDensityTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             using var target = RenderTarget.Create(200, 100)!;
-            using var canvas = new ImmediateCanvas(target, 2f, logicalSize: new Size(100, 50));
+            using var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 2f, logicalSize: new Size(100, 50));
 
             using (canvas.PushDeviceSpace())
             {
@@ -112,7 +112,7 @@ public class ImmediateCanvasDensityTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             using var target = RenderTarget.Create(200, 100)!;
-            using var canvas = new ImmediateCanvas(target, 2f, logicalSize: new Size(100, 50));
+            using var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 2f, logicalSize: new Size(100, 50));
 
             using (canvas.PushTransform(Matrix.CreateTranslation(17, 23)))
             {
@@ -135,7 +135,7 @@ public class ImmediateCanvasDensityTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             using var target = RenderTarget.Create(200, 100)!;
-            using var canvas = new ImmediateCanvas(target, 2f, logicalSize: new Size(100, 50));
+            using var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 2f, logicalSize: new Size(100, 50));
 
             using (canvas.PushDeviceSpace())
             using (canvas.PushTransform(Matrix.CreateTranslation(5, 5)))
@@ -160,7 +160,7 @@ public class ImmediateCanvasDensityTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             using var target = RenderTarget.Create(200, 100)!;
-            using var canvas = new ImmediateCanvas(target, 2f, logicalSize: new Size(100, 50));
+            using var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 2f, logicalSize: new Size(100, 50));
 
             var m = Matrix.CreateTranslation(7, 9);
             using (canvas.PushTransform(m, TransformOperator.Set))
@@ -180,7 +180,7 @@ public class ImmediateCanvasDensityTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             using var target = RenderTarget.Create(200, 100)!;
-            using var canvas = new ImmediateCanvas(target, 2f, logicalSize: new Size(100, 50));
+            using var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 2f, logicalSize: new Size(100, 50));
 
             using (canvas.PushTransform(Matrix.CreateTranslation(11, 13)))
             {
@@ -201,13 +201,13 @@ public class ImmediateCanvasDensityTests
             using var target = RenderTarget.Create(200, 100)!;
 
             // Open at density 2, then dispose (must restore the save stack).
-            using (var canvas = new ImmediateCanvas(target, 2f, logicalSize: new Size(100, 50)))
+            using (var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 2f, logicalSize: new Size(100, 50)))
             {
                 Assert.That(canvas.Transform, Is.EqualTo(Matrix.CreateScale(2f, 2f)));
             }
 
             // Re-open the SAME target at density 1: it must NOT inherit the previous base matrix / save depth.
-            using (var canvas2 = new ImmediateCanvas(target, 1f))
+            using (var canvas2 = new ImmediateCanvas(target, RenderIntent.Delivery, 1f))
             {
                 Assert.That(canvas2.Transform, Is.EqualTo(Matrix.Identity),
                     "a reused RenderTarget must not carry the prior canvas's base CTM");
@@ -222,7 +222,7 @@ public class ImmediateCanvasDensityTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             using var target = RenderTarget.Create(200, 100)!;
-            using var canvas = new ImmediateCanvas(target, 2f, logicalSize: new Size(100, 50));
+            using var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 2f, logicalSize: new Size(100, 50));
 
             using (canvas.PushDeviceSpace())
             {
@@ -252,7 +252,7 @@ public class ImmediateCanvasDensityTests
             using Drawable.Resource resource = shape.ToResource(CompositionContext.Default);
 
             using var target = RenderTarget.Create(100, 100)!; // device = ceil(50 logical x 2)
-            using (var canvas = new ImmediateCanvas(target, 2f, logicalSize: new Size(50, 50)))
+            using (var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 2f, logicalSize: new Size(50, 50)))
             {
                 canvas.Clear(Colors.Black);
                 canvas.DrawDrawable(resource);
@@ -268,6 +268,27 @@ public class ImmediateCanvasDensityTests
     }
 
     [Test]
+    public void DrawNode_MapsViewportThroughCurrentLogicalTransform()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using var target = RenderTarget.Create(200, 100)!;
+            using var canvas = new ImmediateCanvas(
+                target, RenderIntent.Delivery, 2f, logicalSize: new Size(100, 50));
+            using var probe = new RequestedBoundsProbeNode();
+
+            using (canvas.PushTransform(Matrix.CreateTranslation(20, 10)))
+            {
+                canvas.DrawNode(probe);
+            }
+
+            Assert.That(probe.ObservedRequestedBounds, Is.EqualTo(new Rect(-20, -10, 100, 50)),
+                "the canvas viewport must be inverse-mapped into the nested node's local coordinates");
+        });
+    }
+
+    [Test]
     public void Dispose_AfterBackingRenderTargetDisposed_SkipsBaseRestoreInsteadOfCrashing()
     {
         // Regression: disposing the backing surface zeroes the cached SKCanvas Handle; RestoreToCount on
@@ -277,7 +298,7 @@ public class ImmediateCanvasDensityTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             var target = RenderTarget.Create(200, 100)!;
-            var canvas = new ImmediateCanvas(target, 2f, logicalSize: new Size(100, 50));
+            var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 2f, logicalSize: new Size(100, 50));
 
             target.Dispose();
             Assert.That(target.IsDisposed, Is.True);
@@ -296,5 +317,16 @@ public class ImmediateCanvasDensityTests
     {
         var p = bmp.SKBitmap.GetPixel(x, y);
         return p.Red > 150 && p.Green > 150 && p.Blue > 150;
+    }
+
+    private sealed class RequestedBoundsProbeNode : RenderNode
+    {
+        public Rect ObservedRequestedBounds { get; private set; } = Rect.Invalid;
+
+        public override RenderNodeOperation[] Process(RenderNodeContext context)
+        {
+            ObservedRequestedBounds = context.RequestedBounds;
+            return [];
+        }
     }
 }

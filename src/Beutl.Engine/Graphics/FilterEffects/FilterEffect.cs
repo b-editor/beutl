@@ -4,31 +4,78 @@ using Beutl.Serialization;
 
 namespace Beutl.Graphics.Effects;
 
-public sealed partial class FallbackFilterEffect : FilterEffect, IFallback;
+public sealed partial class FallbackFilterEffect : FilterEffect, IFallback
+{
+    // An unresolved effect type renders as a passthrough: Describe appends no node so the graph is the identity and
+    // the input flows through unchanged.
+    public override void Describe(EffectGraphBuilder builder, FilterEffect.Resource resource)
+    {
+    }
+}
 
 [FallbackType(typeof(FallbackFilterEffect))]
 [PresenterType(typeof(FilterEffectPresenter))]
 public abstract partial class FilterEffect : EngineObject
 {
-    public abstract void ApplyTo(FilterEffectContext context, Resource resource);
+    /// <summary>
+    /// Describes this effect as a graph of node descriptors (feature 004, data-model §1, contract A1). Invoked by
+    /// the engine whenever the effect's graph may be needed; it MUST be side-effect-free apart from appending
+    /// descriptors — no rendering, no target allocation, no GPU calls — and read every animated value from
+    /// <paramref name="resource"/>, never from live properties.
+    /// </summary>
+    public abstract void Describe(EffectGraphBuilder builder, Resource resource);
 
     public abstract partial class Resource
     {
+        private static readonly PlanFilterEffectRenderNodeFactory s_defaultPlanRenderNodeFactory =
+            PlanFilterEffectRenderNodeFactory.Of<Resource, PlanFilterEffectRenderNode>(
+                static resource => new PlanFilterEffectRenderNode(resource));
+        private static long s_nextStructuralId;
+        internal static Action<Resource>? StructuralIdBeforePublishForTests;
+        private long _structuralId;
+
         /// <summary>
-        /// Creates the render node for this effect. Override to supply a custom
-        /// <see cref="FilterEffectRenderNode"/> subclass with a different working scale.
+        /// A collision-free, process-stable token for this resource instance, lazily assigned on first read and
+        /// constant thereafter. Used by <see cref="Rendering.StructuralKey"/> to give a custom-render-node node a
+        /// reference identity that never aliases two distinct instances (unlike an object hash code, which can collide).
         /// </summary>
-        public virtual FilterEffectRenderNode CreateRenderNode()
+        internal long StructuralId
         {
-            return new FilterEffectRenderNode(this);
+            get
+            {
+                long published = Volatile.Read(ref _structuralId);
+                if (published != 0)
+                    return published;
+
+                long candidate = Interlocked.Increment(ref s_nextStructuralId);
+                Volatile.Read(ref StructuralIdBeforePublishForTests)?.Invoke(this);
+                published = Interlocked.CompareExchange(ref _structuralId, candidate, 0);
+                return published == 0 ? candidate : published;
+            }
         }
 
-        public virtual PushedState Push(GraphicsContext2D context)
+        /// <summary>
+        /// Creates the standard compiled-plan render node. Override with a retained singleton factory whose node
+        /// derives from <see cref="PlanFilterEffectRenderNode"/> to customize a narrow execution policy while keeping
+        /// compiler, ROI, pooling, and cache behavior. Fully opaque execution belongs to
+        /// <see cref="CustomRenderNodeFilterEffect.Resource"/> instead.
+        /// </summary>
+        public virtual PlanFilterEffectRenderNodeFactory PlanRenderNodeFactory
+            => s_defaultPlanRenderNodeFactory;
+
+        internal (FilterEffectRenderNodeFactory Factory, bool CanInline) ResolveRenderNodeFactory()
         {
-            return context.PushNode(
-                this,
-                resource => resource.CreateRenderNode(),
-                (node, resource) => node.Update(resource));
+            if (this is CustomRenderNodeFilterEffect.Resource custom)
+            {
+                FilterEffectRenderNodeFactory customFactory = custom.RenderNodeFactory
+                    ?? throw new InvalidOperationException("A custom filter effect returned a null render-node factory.");
+                return (customFactory, false);
+            }
+
+            PlanFilterEffectRenderNodeFactory planFactory = PlanRenderNodeFactory
+                ?? throw new InvalidOperationException("A filter effect returned a null plan render-node factory.");
+            return (planFactory.Inner, ReferenceEquals(planFactory, s_defaultPlanRenderNodeFactory));
         }
+
     }
 }

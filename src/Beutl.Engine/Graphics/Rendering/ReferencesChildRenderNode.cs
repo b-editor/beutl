@@ -22,9 +22,8 @@ public class ReferencesChildRenderNode(RenderNode? child) : RenderNode
     {
         if (Child != null && !Child.IsDisposed)
         {
-            // Forward the working-scale ceiling into the nested pull.
-            var processor = new RenderNodeProcessor(
-                Child, context.IsRenderCacheEnabled, context.OutputScale, context.MaxWorkingScale);
+            // A referenced subtree inherits the complete pull policy and the executor-owned resources.
+            var processor = context.CreateChildProcessor(Child, context.IsRenderCacheEnabled);
             return processor.PullToRoot();
         }
 

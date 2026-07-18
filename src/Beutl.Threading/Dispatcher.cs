@@ -120,7 +120,7 @@ public class Dispatcher
         }
         else
         {
-            _synchronizationContext.Send(priority, operation, ct).Wait(ct);
+            _synchronizationContext.Send(priority, operation, ct).WaitAsync(ct).GetAwaiter().GetResult();
         }
     }
 
@@ -133,9 +133,7 @@ public class Dispatcher
         }
         else
         {
-            Task<T> task = InvokeAsync(operation, priority, ct);
-            task.Wait(ct);
-            return task.Result;
+            return InvokeAsync(operation, priority, ct).WaitAsync(ct).GetAwaiter().GetResult();
         }
     }
 
@@ -162,6 +160,23 @@ public class Dispatcher
     public void Dispatch(Action operation, DispatchPriority priority = DispatchPriority.Medium, CancellationToken ct = default)
     {
         _synchronizationContext.Post(priority, operation, ct);
+    }
+
+    /// <summary>
+    /// Attempts to queue cleanup work with a fallback that runs if shutdown abandons the accepted operation.
+    /// The fallback also runs when the dispatcher has already stopped accepting work. Returns whether the
+    /// dispatcher accepted the work; teardown paths use the result to release native resources inline after
+    /// shutdown instead of silently abandoning them.
+    /// </summary>
+    internal bool TryDispatch(
+        Action operation,
+        Action<Exception> abort,
+        DispatchPriority priority = DispatchPriority.Medium,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(operation);
+        ArgumentNullException.ThrowIfNull(abort);
+        return _synchronizationContext.TryPost(priority, operation, ct, abort);
     }
 
     public void Dispatch(Func<Task> operation, DispatchPriority priority = DispatchPriority.Medium, CancellationToken ct = default)

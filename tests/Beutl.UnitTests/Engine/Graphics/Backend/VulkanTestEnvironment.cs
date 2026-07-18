@@ -96,4 +96,40 @@ internal static class VulkanTestEnvironment
 
     public static void InvokeOnRenderThread(Action action)
         => RenderThread.Dispatcher.Invoke(action);
+
+    /// <summary>
+    /// True when BEUTL_REQUIRE_GPU is set: a GPU-capable CI job that wants a silent GPU/compute skip turned into a
+    /// hard failure. Shared by <see cref="GpuGoldenSuiteCanaryTests"/> and <see cref="RequireComputeCapable"/>.
+    /// </summary>
+    public static bool IsGpuRequired
+    {
+        get
+        {
+            string? require = Environment.GetEnvironmentVariable("BEUTL_REQUIRE_GPU");
+            return string.Equals(require, "1", StringComparison.Ordinal)
+                   || string.Equals(require, "true", StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    /// <summary>
+    /// Compute-capability gate for a Vulkan-compute test: returns when <paramref name="context"/> supports 3D
+    /// rendering, otherwise <see cref="Assert.Fail(string)"/>'s under BEUTL_REQUIRE_GPU (so a compute-incapable CI
+    /// job no longer silently drops the runtime compute counter/gate surface) and <see cref="Assert.Ignore(string)"/>'s
+    /// otherwise. Mirrors <see cref="GpuGoldenSuiteCanaryTests"/> for device PRESENCE, but for compute CAPABILITY.
+    /// </summary>
+    public static void RequireComputeCapable(IGraphicsContext context, string what)
+    {
+        if (context.Supports3DRendering)
+            return;
+
+        string reason = $"{what} requires a Vulkan compute-capable context (Supports3DRendering == false).";
+        if (IsGpuRequired)
+        {
+            Assert.Fail(
+                "BEUTL_REQUIRE_GPU is set but " + reason + " The runtime compute counter/gate surface "
+                + "(FlushSyncs, K-dispatch GpuPasses, compute alloc/scratch failure) is being silently skipped.");
+        }
+
+        Assert.Ignore(reason + " Set BEUTL_REQUIRE_GPU=1 on a compute-capable CI job to enforce it.");
+    }
 }

@@ -34,7 +34,9 @@ public partial class PlayerView
             Drawable? drawable = await RenderThread.Dispatcher.InvokeAsync(() =>
             {
                 var compositor = editViewModel.Renderer.Value.Compositor;
-                var compositionFrame = compositor.EvaluateGraphics(frame);
+                var compositionFrame = compositor.EvaluateGraphics(
+                    frame,
+                    RenderPullPurpose.Auxiliary);
                 return editViewModel.Renderer.Value.HitTest(compositionFrame, new((float)scaledPosition.X, (float)scaledPosition.Y));
             });
 

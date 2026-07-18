@@ -51,18 +51,19 @@ public sealed class LightingPass : GraphicsNode3D
     private void CreateLightingResources(int width, int height)
     {
         // Dispose old resources
-        Framebuffer?.Dispose();
-        RenderPass?.Dispose();
-        OutputTexture?.Dispose();
-        _pipeline?.Dispose();
-        _descriptorSet?.Dispose();
-        _cameraUniformBuffer?.Dispose();
-        _lightsBuffer?.Dispose();
-        _shadowBuffer?.Dispose();
-        _gBufferSampler?.Dispose();
-        _shadowSampler?.Dispose();
-        _dummyShadowArray?.Dispose();
-        _dummyShadowCubeArray?.Dispose();
+        Graphics3DDisposal.DisposeAll(
+            Framebuffer,
+            RenderPass,
+            OutputTexture,
+            _pipeline,
+            _descriptorSet,
+            _cameraUniformBuffer,
+            _lightsBuffer,
+            _shadowBuffer,
+            _gBufferSampler,
+            _shadowSampler,
+            _dummyShadowArray,
+            _dummyShadowCubeArray);
 
         // Create output texture
         OutputTexture = Context.CreateTexture2D(width, height, TextureFormat.RGBA8Unorm);
@@ -170,6 +171,7 @@ public sealed class LightingPass : GraphicsNode3D
     /// </summary>
     public void BindGBuffer(GeometryPass geometryPass)
     {
+        ThrowIfNotInitialized();
         if (_descriptorSet == null || _gBufferSampler == null)
             return;
 
@@ -184,6 +186,7 @@ public sealed class LightingPass : GraphicsNode3D
     /// </summary>
     internal void BindShadowMaps(ShadowManager shadowManager)
     {
+        ThrowIfNotInitialized();
         if (_descriptorSet == null || _shadowSampler == null)
             return;
 
@@ -221,6 +224,7 @@ public sealed class LightingPass : GraphicsNode3D
         float ambientIntensity,
         ShadowUBO? shadowData = null)
     {
+        ThrowIfNotInitialized();
         if (Framebuffer == null || RenderPass == null || _pipeline == null || _descriptorSet == null)
             return;
 
@@ -260,18 +264,19 @@ public sealed class LightingPass : GraphicsNode3D
 
     protected override void OnDispose()
     {
-        _descriptorSet?.Dispose();
-        _pipeline?.Dispose();
-        _lightsBuffer?.Dispose();
-        _cameraUniformBuffer?.Dispose();
-        _shadowBuffer?.Dispose();
-        _gBufferSampler?.Dispose();
-        _shadowSampler?.Dispose();
-        _dummyShadowArray?.Dispose();
-        _dummyShadowCubeArray?.Dispose();
-        Framebuffer?.Dispose();
-        RenderPass?.Dispose();
-        OutputTexture?.Dispose();
+        Graphics3DDisposal.DisposeAll(
+            _descriptorSet,
+            _pipeline,
+            _lightsBuffer,
+            _cameraUniformBuffer,
+            _shadowBuffer,
+            _gBufferSampler,
+            _shadowSampler,
+            _dummyShadowArray,
+            _dummyShadowCubeArray,
+            Framebuffer,
+            RenderPass,
+            OutputTexture);
     }
 
     // === Lighting Pass Shader ===

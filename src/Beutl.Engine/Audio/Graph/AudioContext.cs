@@ -1,4 +1,5 @@
-﻿using Beutl.Audio.Effects;
+﻿using System.Runtime.ExceptionServices;
+using Beutl.Audio.Effects;
 using Beutl.Audio.Graph.Nodes;
 using Beutl.Engine;
 using Beutl.Media.Source;
@@ -16,6 +17,7 @@ public sealed class AudioContext : IDisposable
     private List<AudioNode>? _previousNodes;
     private AudioNode? _currentNode;
     private bool _disposed;
+    private bool _isClearing;
 
     /// <summary>
     /// Gets the sample rate for the audio context.
@@ -49,7 +51,7 @@ public sealed class AudioContext : IDisposable
     public AudioContext(int sampleRate, int channelCount, IEnumerable<AudioNode> previousNodes)
         : this(sampleRate, channelCount)
     {
-        _previousNodes = previousNodes.ToList();
+        _previousNodes = SnapshotPreviousNodes(previousNodes);
     }
 
     /// <summary>
@@ -416,16 +418,30 @@ public sealed class AudioContext : IDisposable
     public void Clear()
     {
         ThrowIfDisposed();
-
-        foreach (var node in _nodes)
+        _isClearing = true;
+        try
         {
-            node.Dispose();
+            ClearCore();
         }
+        finally
+        {
+            _isClearing = false;
+        }
+    }
 
+    private void ClearCore()
+    {
+        var nodes = new HashSet<AudioNode>(_nodes, ReferenceEqualityComparer.Instance);
+        if (_previousNodes != null)
+        {
+            nodes.UnionWith(_previousNodes);
+        }
         _nodes.Clear();
         _connections.Clear();
         _outputNodes.Clear();
         _currentNode = null;
+        _previousNodes = null;
+        DisposeNodes(nodes);
     }
 
     /// <summary>
@@ -502,13 +518,30 @@ public sealed class AudioContext : IDisposable
         ThrowIfDisposed();
 
         // Save previous nodes for reuse
-        _previousNodes = previousNodes.ToList();
+        _previousNodes = SnapshotPreviousNodes(previousNodes);
 
         // Clear current state
         _nodes.Clear();
         _connections.Clear();
         _outputNodes.Clear();
         _currentNode = null;
+    }
+
+    private static List<AudioNode> SnapshotPreviousNodes(IEnumerable<AudioNode> previousNodes)
+    {
+        ArgumentNullException.ThrowIfNull(previousNodes);
+        var result = new List<AudioNode>();
+        var seen = new HashSet<AudioNode>(ReferenceEqualityComparer.Instance);
+        foreach (AudioNode node in previousNodes)
+        {
+            ArgumentNullException.ThrowIfNull(node);
+            if (seen.Add(node))
+            {
+                result.Add(node);
+            }
+        }
+
+        return result;
     }
 
     /// <summary>
@@ -519,9 +552,10 @@ public sealed class AudioContext : IDisposable
         ThrowIfDisposed();
 
         // Dispose unused nodes from previous state
-        if (_previousNodes is { Count: > 0 })
+        if (_previousNodes is { } previousNodes)
         {
-            foreach (var prevNode in _previousNodes)
+            var unusedNodes = new List<AudioNode>();
+            foreach (AudioNode prevNode in previousNodes)
             {
                 if (!_nodes.Contains(prevNode))
                 {
@@ -529,11 +563,23 @@ public sealed class AudioContext : IDisposable
                     {
                         node.RemoveInput(prevNode);
                     }
-                    prevNode.Dispose();
+                    unusedNodes.Add(prevNode);
                 }
             }
 
+            // Classification and input detachment can execute user-defined equality code. Retain the previous
+            // ownership snapshot until both finish, so a failure before the guaranteed full DisposeNodes sweep can
+            // still be recovered by Dispose(). Once the sweep starts, it visits every item even when one throws.
             _previousNodes = null;
+            _isClearing = true;
+            try
+            {
+                DisposeNodes(unusedNodes);
+            }
+            finally
+            {
+                _isClearing = false;
+            }
         }
     }
 
@@ -541,14 +587,50 @@ public sealed class AudioContext : IDisposable
     {
         if (_disposed)
             return;
+        if (_isClearing)
+        {
+            throw new InvalidOperationException(
+                "The audio context cannot be disposed while its nodes are being cleared.");
+        }
 
-        Clear();
         _disposed = true;
+        _isClearing = true;
+        try
+        {
+            ClearCore();
+        }
+        finally
+        {
+            _isClearing = false;
+        }
+    }
+
+    private static void DisposeNodes(IEnumerable<AudioNode> nodes)
+    {
+        Exception? failure = null;
+        foreach (AudioNode node in nodes)
+        {
+            try
+            {
+                node.Dispose();
+            }
+            catch (Exception ex)
+            {
+                failure ??= ex;
+            }
+        }
+
+        if (failure != null)
+        {
+            ExceptionDispatchInfo.Capture(failure).Throw();
+        }
     }
 
     private void ThrowIfDisposed()
     {
         if (_disposed)
             throw new ObjectDisposedException(nameof(AudioContext));
+        if (_isClearing)
+            throw new InvalidOperationException("The audio context cannot be mutated while its nodes are being cleared.");
     }
 }

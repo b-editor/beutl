@@ -50,6 +50,7 @@ public sealed class GizmoPass : GraphicsNode3D
     /// </summary>
     public void SetColorTexture(ITexture2D colorTexture)
     {
+        ThrowIfNotInitialized();
         if (_colorTexture == colorTexture)
             return;
 
@@ -81,11 +82,8 @@ public sealed class GizmoPass : GraphicsNode3D
     private void CreateGizmoResources()
     {
         // Dispose old resources
-        _pipeline?.Dispose();
-        _descriptorSet?.Dispose();
-        _uniformBuffer?.Dispose();
-        Framebuffer?.Dispose();
-        RenderPass?.Dispose();
+        Graphics3DDisposal.DisposeAll(
+            _pipeline, _descriptorSet, _uniformBuffer, Framebuffer, RenderPass);
 
         // Create render pass (single color attachment with depth)
         // Use Load for color to preserve existing content, Load for depth to use existing depth buffer
@@ -182,6 +180,7 @@ public sealed class GizmoPass : GraphicsNode3D
         GizmoMode gizmoMode,
         float aspectRatio)
     {
+        ThrowIfNotInitialized();
         if (Framebuffer == null || RenderPass == null || _pipeline == null || _descriptorSet == null)
             return;
 
@@ -263,19 +262,18 @@ public sealed class GizmoPass : GraphicsNode3D
 
     protected override void OnDispose()
     {
-        _descriptorSet?.Dispose();
-        _pipeline?.Dispose();
-        _uniformBuffer?.Dispose();
-
-        _translateVertexBuffer?.Dispose();
-        _translateIndexBuffer?.Dispose();
-        _rotateVertexBuffer?.Dispose();
-        _rotateIndexBuffer?.Dispose();
-        _scaleVertexBuffer?.Dispose();
-        _scaleIndexBuffer?.Dispose();
-
-        Framebuffer?.Dispose();
-        RenderPass?.Dispose();
+        Graphics3DDisposal.DisposeAll(
+            _descriptorSet,
+            _pipeline,
+            _uniformBuffer,
+            _translateVertexBuffer,
+            _translateIndexBuffer,
+            _rotateVertexBuffer,
+            _rotateIndexBuffer,
+            _scaleVertexBuffer,
+            _scaleIndexBuffer,
+            Framebuffer,
+            RenderPass);
     }
 
     // === Gizmo Shaders ===

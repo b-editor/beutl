@@ -29,18 +29,23 @@ public sealed partial class DrawableTextureSource : TextureSource
 
     public partial class Resource
     {
-        private DrawableRenderNode? _drawableNode;
-        private RenderTarget? _renderTarget;
-        private int _renderTargetVersion = -1;
-        private int _lastWidth;
-        private int _lastHeight;
-        private float _lastDensity = -1f;
+        private TextureCache? _frameCache = new();
+        private TextureCache? _auxiliaryCache = new();
 
-        public override ITexture2D? GetTexture(IGraphicsContext graphicsContext, float surfaceDensity = 1f)
+        public override ITexture2D? GetTexture(
+            IGraphicsContext graphicsContext,
+            RenderIntent renderIntent,
+            RenderPullPurpose pullPurpose,
+            float surfaceDensity = 1f)
         {
+            ObjectDisposedException.ThrowIf(IsDisposed, this);
+            TextureCache frameCache = _frameCache!;
+            TextureCache auxiliaryCache = _auxiliaryCache!;
+            renderIntent = RenderPolicyValidation.Validate(renderIntent, nameof(renderIntent));
+            pullPurpose = RenderPolicyValidation.Validate(pullPurpose, nameof(pullPurpose));
             if (Drawable == null)
             {
-                DisposeRenderTarget();
+                Graphics3DDisposal.DisposeAll(frameCache, auxiliaryCache);
                 return null;
             }
 
@@ -53,54 +58,138 @@ public sealed partial class DrawableTextureSource : TextureSource
             int deviceWidth = Math.Max(1, (int)Math.Ceiling(textureWidth * (double)density));
             int deviceHeight = Math.Max(1, (int)Math.Ceiling(textureHeight * (double)density));
 
-            if (_lastWidth != deviceWidth || _lastHeight != deviceHeight || _renderTarget == null)
+            // An auxiliary pull may read an already-compatible frame texture without mutating frame state.
+            // The reverse is intentionally forbidden: output produced under auxiliary policy must never seed a
+            // retained frame cache.
+            if (pullPurpose == RenderPullPurpose.Auxiliary
+                && frameCache.Matches(
+                    deviceWidth, deviceHeight, Version, density, renderIntent, RenderPullPurpose.Frame))
             {
-                DisposeRenderTarget();
+                return frameCache.RenderTarget!.Texture;
+            }
 
-                _renderTarget = RenderTarget.Create(deviceWidth, deviceHeight);
-                if (_renderTarget == null) return null;
+            TextureCache cache = pullPurpose == RenderPullPurpose.Auxiliary
+                ? auxiliaryCache
+                : frameCache;
 
-                _lastWidth = deviceWidth;
-                _lastHeight = deviceHeight;
-                _renderTargetVersion = -1; // force a re-render into the resized target
+            if (cache.Width != deviceWidth || cache.Height != deviceHeight || cache.RenderTarget == null)
+            {
+                cache.DisposeRenderTarget();
+
+                cache.RenderTarget = RenderTarget.Create(deviceWidth, deviceHeight);
+                if (cache.RenderTarget == null)
+                {
+                    if (renderIntent == RenderIntent.Delivery)
+                    {
+                        throw new InvalidOperationException(
+                            $"Drawable texture allocation failed ({deviceWidth}x{deviceHeight} px, density {density}).");
+                    }
+
+                    return null;
+                }
+
+                cache.Width = deviceWidth;
+                cache.Height = deviceHeight;
+                cache.RenderTargetVersion = -1; // force a re-render into the resized target
             }
 
             // Re-render on content change or density change.
-            if (_renderTargetVersion != Version || _lastDensity != density)
+            if (!cache.Matches(deviceWidth, deviceHeight, Version, density, renderIntent, pullPurpose))
             {
-                _lastDensity = density;
-                _drawableNode ??= new DrawableRenderNode(Drawable);
-                _drawableNode.Update(Drawable);
+                cache.Density = density;
+                cache.DrawableNode ??= new DrawableRenderNode(Drawable);
+                cache.DrawableNode.Update(Drawable);
                 using (var context = new GraphicsContext2D(
-                           _drawableNode, new Size(textureWidth, textureHeight), density))
+                           cache.DrawableNode, new Size(textureWidth, textureHeight), density))
                 {
                     Drawable.GetOriginal().Render(context, Drawable);
                 }
 
-                var processor = new RenderNodeProcessor(_drawableNode, true, density, density);
-                using (var canvas = new ImmediateCanvas(_renderTarget, density, density))
+                var processor = new RenderNodeProcessor(
+                    cache.DrawableNode, true, renderIntent, density, density, pullPurpose: pullPurpose);
+                using (var canvas = new ImmediateCanvas(
+                           cache.RenderTarget, renderIntent, density, density, pullPurpose: pullPurpose))
                 {
                     canvas.Clear();
                     processor.Render(canvas);
                 }
 
                 // Prepare for sampling (flush the surface)
-                _renderTarget.PrepareForSampling();
-                _renderTargetVersion = Version;
+                cache.RenderTarget.PrepareForSampling();
+                cache.RenderTargetVersion = Version;
+                cache.RenderIntent = renderIntent;
+                cache.PullPurpose = pullPurpose;
             }
 
-            return _renderTarget?.Texture;
-        }
-
-        private void DisposeRenderTarget()
-        {
-            _renderTarget?.Dispose();
-            _renderTarget = null;
+            return cache.RenderTarget?.Texture;
         }
 
         partial void PostDispose(bool disposing)
         {
-            DisposeRenderTarget();
+            if (!disposing)
+                return;
+
+            TextureCache? frameCache = _frameCache;
+            _frameCache = null;
+            TextureCache? auxiliaryCache = _auxiliaryCache;
+            _auxiliaryCache = null;
+            Graphics3DDisposal.DisposeAll(frameCache, auxiliaryCache);
+        }
+
+        private sealed class TextureCache : IDisposable
+        {
+            public DrawableRenderNode? DrawableNode { get; set; }
+
+            public RenderTarget? RenderTarget { get; set; }
+
+            public int RenderTargetVersion { get; set; } = -1;
+
+            public int Width { get; set; }
+
+            public int Height { get; set; }
+
+            public float Density { get; set; } = -1f;
+
+            public RenderIntent? RenderIntent { get; set; }
+
+            public RenderPullPurpose? PullPurpose { get; set; }
+
+            public bool Matches(
+                int width,
+                int height,
+                int version,
+                float density,
+                RenderIntent renderIntent,
+                RenderPullPurpose pullPurpose)
+                => RenderTarget != null
+                   && Width == width
+                   && Height == height
+                   && RenderTargetVersion == version
+                   && Density == density
+                   && RenderIntent == renderIntent
+                   && PullPurpose == pullPurpose;
+
+            public void DisposeRenderTarget()
+            {
+                RenderTarget? renderTarget = RenderTarget;
+                RenderTarget = null;
+                renderTarget?.Dispose();
+            }
+
+            public void Dispose()
+            {
+                RenderTarget? renderTarget = RenderTarget;
+                RenderTarget = null;
+                DrawableRenderNode? drawableNode = DrawableNode;
+                DrawableNode = null;
+                RenderTargetVersion = -1;
+                Width = 0;
+                Height = 0;
+                Density = -1f;
+                RenderIntent = null;
+                PullPurpose = null;
+                Graphics3DDisposal.DisposeAll(renderTarget, drawableNode);
+            }
         }
     }
 }

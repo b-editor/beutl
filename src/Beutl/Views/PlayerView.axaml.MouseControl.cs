@@ -361,7 +361,9 @@ public partial class PlayerView
                 drawable = RenderThread.Dispatcher.Invoke(() =>
                 {
                     var compositor = EditViewModel.Renderer.Value.Compositor;
-                    var compositionFrame = compositor.EvaluateGraphics(Clock.CurrentTime.Value);
+                    var compositionFrame = compositor.EvaluateGraphics(
+                        Clock.CurrentTime.Value,
+                        RenderPullPurpose.Auxiliary);
                     return EditViewModel.Renderer.Value.HitTest(compositionFrame,
                         new((float)scaledStartPosition.X, (float)scaledStartPosition.Y));
                 });
@@ -1723,7 +1725,9 @@ public partial class PlayerView
             var drawable = RenderThread.Dispatcher.Invoke(() =>
             {
                 var compositor = EditViewModel.Renderer.Value.Compositor;
-                var compositionFrame = compositor.EvaluateGraphics(Clock.CurrentTime.Value);
+                var compositionFrame = compositor.EvaluateGraphics(
+                    Clock.CurrentTime.Value,
+                    RenderPullPurpose.Auxiliary);
                 return EditViewModel.Renderer.Value.HitTest(compositionFrame, new((float)scaledPos.X, (float)scaledPos.Y));
             });
 

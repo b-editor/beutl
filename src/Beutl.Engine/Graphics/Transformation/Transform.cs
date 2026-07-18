@@ -16,25 +16,48 @@ public abstract class Transform : EngineObject
     public override Resource ToResource(CompositionContext context)
     {
         var resource = new Resource();
-        bool updateOnly = true;
-        resource.Update(this, context, ref updateOnly);
-        return resource;
+        try
+        {
+            bool updateOnly = true;
+            resource.Update(this, context, ref updateOnly);
+            return resource;
+        }
+        catch
+        {
+            try
+            {
+                resource.Dispose();
+            }
+            catch
+            {
+                // Preserve the acquisition failure while reclaiming the partially initialized resource.
+            }
+
+            throw;
+        }
     }
 
     public new sealed class Resource : EngineObject.Resource
     {
-        public Matrix Matrix { get; set; } = Matrix.Identity;
+        private Matrix _matrix = Matrix.Identity;
+
+        public Matrix Matrix
+        {
+            get => ReadGeneratedResourceState(ref _matrix);
+            set => WriteGeneratedResourceState(ref _matrix, value);
+        }
 
         public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
         {
-            base.Update(obj, context, ref updateOnly);
             var transform = (Transform)obj;
+            using GeneratedResourceOperationLease operation = BeginExclusiveResourceOperation(transform);
+            base.Update(obj, context, ref updateOnly);
 
-            var oldMatrix = Matrix;
-            Matrix = transform.CreateMatrix(context);
+            Matrix oldMatrix = _matrix;
+            _matrix = transform.CreateMatrix(context);
             if (updateOnly) return;
 
-            if (oldMatrix != Matrix)
+            if (oldMatrix != _matrix)
             {
                 updateOnly = true;
                 Version++;

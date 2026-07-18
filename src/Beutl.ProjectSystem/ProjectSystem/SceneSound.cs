@@ -4,6 +4,7 @@ using Beutl.Audio.Composing;
 using Beutl.Audio.Graph;
 using Beutl.Composition;
 using Beutl.Engine;
+using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.Source;
@@ -70,6 +71,9 @@ public sealed partial class SceneSound : Sound
     {
         private static readonly AsyncLocal<HashSet<Scene>?> s_evaluatingScenes = new();
         internal SceneCompositor? _compositor;
+        private RenderPullPurpose _pullPurpose = RenderPullPurpose.Frame;
+
+        internal RenderPullPurpose PullPurpose => _pullPurpose;
 
         public override SoundSource.Resource? GetSoundSource() => null;
 
@@ -87,9 +91,11 @@ public sealed partial class SceneSound : Sound
         partial void PostUpdate(SceneSound obj, CompositionContext context)
         {
             bool forceOriginalSource = !context.PreferProxy;
+            _pullPurpose = context.PullPurpose;
             if (_compositor?.Scene != ReferencedScene
                 || _compositor?.DisableResourceShare != context.DisableResourceShare
-                || _compositor?.ForceOriginalSource != forceOriginalSource)
+                || _compositor?.ForceOriginalSource != forceOriginalSource
+                || _compositor?.RenderIntent != context.RenderIntent)
             {
                 _compositor?.Dispose();
                 _compositor = null;
@@ -97,7 +103,7 @@ public sealed partial class SceneSound : Sound
 
             if (ReferencedScene != null && _compositor == null)
             {
-                _compositor = new SceneCompositor(ReferencedScene)
+                _compositor = new SceneCompositor(ReferencedScene, context.RenderIntent)
                 {
                     DisableResourceShare = context.DisableResourceShare,
                     ForceOriginalSource = forceOriginalSource,
@@ -107,8 +113,15 @@ public sealed partial class SceneSound : Sound
 
         partial void PostDispose(bool disposing)
         {
-            _compositor?.Dispose();
+            if (!disposing)
+                return;
+
+            SceneCompositor? compositor = _compositor;
             _compositor = null;
+
+            Exception? failure = null;
+            DisposeOwnedResources(ref failure, compositor);
+            ThrowIfCleanupFailed(failure);
         }
     }
 
@@ -119,9 +132,10 @@ public sealed partial class SceneSound : Sound
 
         public override AudioBuffer Process(AudioProcessContext context)
         {
-            var scene = _resource?.ReferencedScene;
-            var compositor = _resource?._compositor;
-            if (scene == null || compositor == null)
+            Resource? resource = _resource;
+            var scene = resource?.ReferencedScene;
+            var compositor = resource?._compositor;
+            if (resource == null || scene == null || compositor == null)
             {
                 return new AudioBuffer(context.SampleRate, 2, context.GetSampleCount());
             }
@@ -133,13 +147,14 @@ public sealed partial class SceneSound : Sound
 
             try
             {
-                if (_composer?.SampleRate != context.SampleRate)
+                if (_composer?.SampleRate != context.SampleRate
+                    || _composer?.RenderIntent != compositor.RenderIntent)
                 {
                     _composer?.Dispose();
-                    _composer = new Composer { SampleRate = context.SampleRate };
+                    _composer = new Composer(compositor.RenderIntent) { SampleRate = context.SampleRate };
                 }
 
-                var frame = compositor.EvaluateAudio(context.TimeRange);
+                var frame = compositor.EvaluateAudio(context.TimeRange, resource.PullPurpose);
                 var buffer = _composer.Compose(context.TimeRange, frame);
                 if (buffer == null)
                 {

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Runtime.InteropServices;
+using Beutl.Graphics.Rendering;
 using Silk.NET.Vulkan;
 using SkiaSharp;
 
@@ -20,6 +21,7 @@ internal unsafe class VulkanTexture2D : ITexture2D
     protected readonly ulong _allocationSize;
     protected ImageLayout _currentLayout = ImageLayout.Undefined;
     protected bool _disposed;
+    private bool _nativeHandlesReleased;
 
     public VulkanTexture2D(
         VulkanContext context,
@@ -316,27 +318,94 @@ internal unsafe class VulkanTexture2D : ITexture2D
         _currentLayout = layout;
     }
 
+    // CopyTexture performs its final transitions inside the blit command buffer; the tracker must follow, or the
+    // next TransitionTo issues its barrier from a stale oldLayout.
+    internal void MarkLayout(ImageLayout layout) => _currentLayout = layout;
+
+    internal ImageLayout CurrentLayout => _currentLayout;
+
+    internal ImageLayout CurrentLayoutForTest => _currentLayout;
+
     public virtual void Dispose()
     {
         if (_disposed) return;
         _disposed = true;
 
+        if (!RenderThread.Dispatcher.CheckAccess())
+        {
+            RenderThread.Dispatcher.TryDispatch(
+                () => DisposeNativeHandles(drainSkia: true),
+                _ =>
+                {
+                    // Dispatcher shutdown means the device is already being torn down. A finalizer or late lease must
+                    // still release its Vulkan handles, but flushing the render-thread-affine GRContext here is unsafe.
+                    DisposeNativeHandles(drainSkia: false);
+                });
+            return;
+        }
+
+        DisposeNativeHandles(drainSkia: true);
+    }
+
+    protected virtual GRContext? SkiaContextForDrain => _context.SkiaContextOrNull;
+
+    private void DisposeNativeHandles(bool drainSkia)
+    {
+        if (_nativeHandlesReleased)
+            return;
+
+        // Skia only borrows this image (GRBackendRenderTarget): other surfaces' recorded-but-unflushed
+        // ops may still sample it, and destroying the VkImage first leaves those pending command buffers
+        // pointing at freed memory — the next GRContext flush then faults inside the driver (fatal on
+        // SwiftShader). Drain all pending Skia work while the image is still alive. Under a pool eviction
+        // batch the drain runs once per live context (GpuDisposeBatch); a lone dispose drains itself.
+        if (drainSkia)
+        {
+            try
+            {
+                GpuDisposeBatch.DrainBeforeDestroy(SkiaContextForDrain);
+            }
+            catch
+            {
+                // A lost context or failed queue drain must not strand the native allocations forever. Dispose is
+                // best-effort and non-throwing; the handle teardown below still runs exactly once.
+            }
+        }
+
         var vk = _context.Vk;
         var device = _context.Device;
-
-        if (_imageView.Handle != 0)
+        try
         {
-            vk.DestroyImageView(device, _imageView, null);
+            if (_imageView.Handle != 0)
+                vk.DestroyImageView(device, _imageView, null);
+        }
+        catch
+        {
+            // Continue with the independent image and memory handles.
         }
 
-        if (_image.Handle != 0)
+        try
         {
-            vk.DestroyImage(device, _image, null);
+            if (_image.Handle != 0)
+                vk.DestroyImage(device, _image, null);
+        }
+        catch
+        {
+            // Continue with the memory allocation even when image destruction reports context loss.
         }
 
-        if (_memory.Handle != 0)
+        try
         {
-            vk.FreeMemory(device, _memory, null);
+            if (_memory.Handle != 0)
+                vk.FreeMemory(device, _memory, null);
         }
+        catch
+        {
+            // Dispose must not throw; no later retry can safely recover a lost Vulkan device.
+        }
+
+        _nativeHandlesReleased = true;
     }
+
+    internal bool NativeHandlesReleasedForTest => _nativeHandlesReleased;
 }

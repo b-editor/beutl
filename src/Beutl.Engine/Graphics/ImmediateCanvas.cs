@@ -1,5 +1,4 @@
-﻿using Beutl.Graphics.Backend;
-using Beutl.Graphics.Rendering;
+﻿using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.Media.TextFormatting;
@@ -26,9 +25,12 @@ public partial class ImmediateCanvas : IDisposable, IPopable
     // Base matrix for the Set transform operator: _baseTransform normally, identity inside PushDeviceSpace().
     private Matrix _currentBaseTransform;
 
-    public ImmediateCanvas(RenderTarget renderTarget, float density = 1f,
-        float maxWorkingScale = float.PositiveInfinity, Size logicalSize = default)
+    public ImmediateCanvas(RenderTarget renderTarget, RenderIntent renderIntent, float density = 1f,
+        float maxWorkingScale = float.PositiveInfinity, Size logicalSize = default,
+        RenderPullPurpose pullPurpose = RenderPullPurpose.Frame)
     {
+        RenderIntent = RenderPolicyValidation.Validate(renderIntent, nameof(renderIntent));
+        PullPurpose = RenderPolicyValidation.Validate(pullPurpose, nameof(pullPurpose));
         if (density <= 0f || !float.IsFinite(density))
             throw new ArgumentOutOfRangeException(nameof(density), density,
                 "Density must be a positive finite value.");
@@ -102,6 +104,12 @@ public partial class ImmediateCanvas : IDisposable, IPopable
     /// <summary>Working-scale ceiling forwarded into nested pulls. <c>+Inf</c> = no ceiling.</summary>
     public float MaxWorkingScale { get; }
 
+    /// <summary>Explicit preview/delivery failure policy forwarded into nested brush renders.</summary>
+    public RenderIntent RenderIntent { get; }
+
+    /// <summary>The pull purpose forwarded into nested drawables and brushes.</summary>
+    public RenderPullPurpose PullPurpose { get; }
+
     public Matrix Transform
     {
         get { return _currentTransform; }
@@ -146,14 +154,12 @@ public partial class ImmediateCanvas : IDisposable, IPopable
     {
         void DisposeCore()
         {
-            // Must suppress finalizer before GPU ops that might throw.
+            // Closing a canvas records no synchronization. Effect-pipeline flushes and backend transitions are
+            // scheduled by PlanExecutor; root presentation/readback synchronizes at its own explicit boundary.
             IsDisposed = true;
             GC.SuppressFinalize(this);
             try
             {
-                // Flush GPU work while surface and paints are still alive.
-                GraphicsContextFactory.SharedContext?.SkiaContext.Flush(true, true);
-
                 // Undo the base Save() (density != 1). Guard Canvas.Handle: SkiaSharp may have
                 // zeroed it during GrContext teardown; RestoreToCount on a zero Handle SIGSEGVs.
                 if (_baseSaveCount >= 0 && Canvas is not null && Canvas.Handle != IntPtr.Zero)
@@ -163,7 +169,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
             }
             catch
             {
-                // Best-effort GPU-state cleanup; never abort disposal (or crash the finalizer thread) on it.
+                // Best-effort canvas-state cleanup; never abort disposal on a torn-down native canvas.
             }
 
             _sharedFillPaint.Dispose();
@@ -189,20 +195,15 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         _sharedFillPaint.IsAntialias = true;
 
         Canvas.DrawSurface(surface, point.X, point.Y, _sharedFillPaint);
-
-        surface.Flush(true, true);
     }
 
     public void DrawRenderTarget(RenderTarget renderTarget, Point point)
     {
-        // NOTE: renderTargetを保持しておいて次回Flushされたときに開放すると効率的
         renderTarget.VerifyAccess();
         _sharedFillPaint.Reset();
         _sharedFillPaint.IsAntialias = true;
 
         Canvas.DrawSurface(renderTarget.Value, point.X, point.Y, _sharedFillPaint);
-
-        renderTarget.Value.Flush(true, true);
     }
 
     // Draw a buffer into a logical destination rect (Mitchell resample).
@@ -213,8 +214,6 @@ public partial class ImmediateCanvas : IDisposable, IPopable
 
         using SKImage image = renderTarget.Value.Snapshot();
         DrawImageScaled(image, dest);
-
-        renderTarget.Value.Flush(true, true);
     }
 
     // Draw a pre-snapshotted image into a logical destination rect (Mitchell resample).
@@ -239,8 +238,6 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         var src = SKRect.Create(image.Width, image.Height);
         var dest = SKRect.Create((float)origin.X, (float)origin.Y, image.Width / scale, image.Height / scale);
         Canvas.DrawImage(image, src, dest, new SKSamplingOptions(SKCubicResampler.Mitchell), _sharedFillPaint);
-
-        surface.Flush(true, true);
     }
 
     public void DrawDrawable(Drawable.Resource drawable)
@@ -248,14 +245,39 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         using var node = new DrawableRenderNode(drawable);
         using var context = new GraphicsContext2D(node, LogicalSize, _currentDensity);
         drawable.GetOriginal().Render(context, drawable);
-        var processor = new RenderNodeProcessor(node, true, _currentDensity, MaxWorkingScale);
+        var processor = new RenderNodeProcessor(
+            node, true, RenderIntent, _currentDensity, MaxWorkingScale,
+            pullPurpose: PullPurpose)
+        {
+            RequestedBounds = GetNestedRequestedBounds(),
+        };
         processor.Render(this);
     }
 
     public void DrawNode(RenderNode node)
     {
-        var processor = new RenderNodeProcessor(node, true, _currentDensity, MaxWorkingScale);
+        var processor = new RenderNodeProcessor(
+            node, true, RenderIntent, _currentDensity, MaxWorkingScale,
+            pullPurpose: PullPurpose)
+        {
+            RequestedBounds = GetNestedRequestedBounds(),
+        };
         processor.Render(this);
+    }
+
+    private Rect GetNestedRequestedBounds()
+    {
+        Size viewportSize = _currentBaseTransform.IsIdentity && SurfaceDensity != 1f
+            ? DeviceSize.ToSize(1f)
+            : LogicalSize;
+        var viewport = new Rect(default, viewportSize);
+        if (!_currentBaseTransform.TryInvert(out Matrix inverseBase))
+            return Rect.Invalid;
+
+        Matrix currentToViewport = _currentTransform.Append(inverseBase);
+        return currentToViewport.TryInvert(out Matrix viewportToCurrent)
+            ? viewport.TransformToAABB(viewportToCurrent)
+            : Rect.Invalid;
     }
 
     public void DrawBackdrop(IBackdrop backdrop)
@@ -581,7 +603,10 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         var paint = new SKPaint();
 
         int count = Canvas.SaveLayer(paint);
-        new BrushConstructor(bounds, mask, (BlendMode)paint.BlendMode, _currentDensity, MaxWorkingScale).ConfigurePaint(paint);
+        new BrushConstructor(
+            bounds, mask, (BlendMode)paint.BlendMode, RenderIntent, _currentDensity, MaxWorkingScale,
+            pullPurpose: PullPurpose)
+            .ConfigurePaint(paint);
         _states.Push(new CanvasPushedState.MaskPushedState(count, invert, paint));
         return new PushedState(this, _states.Count);
     }
@@ -636,15 +661,24 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         return new PushedState(this, _states.Count);
     }
 
-    public PushedState PushBlendMode(BlendMode blendMode)
+    public PushedState PushBlendMode(BlendMode blendMode) => PushBlendMode(blendMode, colorFilter: null);
+
+    // The color filter, when set, transforms the layer's pixels before the blend (the composite-fold path, C9);
+    // the caller owns the filter's lifetime — disposing the paint on Pop does not free it. `layerBounds` limits
+    // the SaveLayer to that rect (in the current canvas space); Skia widens the layer itself when the filter
+    // affects transparent black, so a bounded layer never changes pixels — it only avoids the full-canvas
+    // round trip. Callers must not bound the layer under a blend mode that alters the destination where the
+    // source is transparent.
+    internal PushedState PushBlendMode(BlendMode blendMode, SKColorFilter? colorFilter, Rect? layerBounds = null)
     {
         VerifyAccess();
         BlendMode tmp = BlendMode;
         BlendMode = blendMode;
         var paint = new SKPaint();
         paint.BlendMode = (SKBlendMode)blendMode;
+        paint.ColorFilter = colorFilter;
 
-        int count = Canvas.SaveLayer(paint);
+        int count = layerBounds is { } bounds ? Canvas.SaveLayer(bounds.ToSKRect(), paint) : Canvas.SaveLayer(paint);
         _states.Push(new CanvasPushedState.BlendModePushedState(tmp, count, paint));
         return new PushedState(this, _states.Count);
     }
@@ -663,13 +697,19 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         if (pen != null && pen.Thickness != 0)
         {
             _sharedStrokePaint.IsStroke = false;
-            new BrushConstructor(bounds, pen.Brush, blendMode, scale ?? _currentDensity, MaxWorkingScale).ConfigurePaint(_sharedStrokePaint);
+            new BrushConstructor(
+                bounds, pen.Brush, blendMode, RenderIntent, scale ?? _currentDensity, MaxWorkingScale,
+                pullPurpose: PullPurpose)
+                .ConfigurePaint(_sharedStrokePaint);
         }
     }
 
     private void ConfigureFillPaint(Rect bounds, Brush.Resource? brush, BlendMode blendMode = BlendMode.SrcOver, float? scale = null)
     {
         _sharedFillPaint.Reset();
-        new BrushConstructor(bounds, brush, blendMode, scale ?? _currentDensity, MaxWorkingScale).ConfigurePaint(_sharedFillPaint);
+        new BrushConstructor(
+            bounds, brush, blendMode, RenderIntent, scale ?? _currentDensity, MaxWorkingScale,
+            pullPurpose: PullPurpose)
+            .ConfigurePaint(_sharedFillPaint);
     }
 }

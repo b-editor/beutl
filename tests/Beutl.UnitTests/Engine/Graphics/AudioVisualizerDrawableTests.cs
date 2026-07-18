@@ -1,4 +1,5 @@
 ﻿using Beutl.Audio;
+using Beutl.Audio.Composing;
 using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.AudioVisualizers;
@@ -139,6 +140,77 @@ public class AudioVisualizerDrawableTests
     }
 
     [Test]
+    public void Resource_SourceIdentityChangeWithSameVersion_RecomposesSamples()
+    {
+        var drawable = CreateWaveform();
+        var first = new SoundGroup();
+        var second = new SoundGroup();
+        drawable.Source.CurrentValue = first;
+        var calls = new List<CompositionCall>();
+        using var resource = new AudioWaveformDrawable.Resource
+        {
+            ComposerFactory = intent => new ProbeComposer(intent, calls)
+        };
+        var context = new CompositionContext(
+            TimeSpan.FromSeconds(1),
+            RenderIntent.Preview,
+            RenderPullPurpose.Frame);
+
+        Update(resource, drawable, context);
+        int firstVersion = resource.Source!.Version;
+        drawable.Source.CurrentValue = second;
+        Update(resource, drawable, context);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(calls, Has.Count.EqualTo(2),
+                "a different source resource must not reuse samples keyed only by an equal Version");
+            Assert.That(calls[0].Source, Is.Not.SameAs(calls[1].Source));
+            Assert.That(calls[1].Source.Version, Is.EqualTo(firstVersion),
+                "the regression requires distinct source identities with the same numeric Version");
+            Assert.That(resource.CachedSamples[0], Is.EqualTo(2f));
+        });
+    }
+
+    [Test]
+    public void Resource_RenderPolicyChange_RecomposesSamplesForEachPolicy()
+    {
+        var drawable = CreateWaveform();
+        drawable.Source.CurrentValue = new SoundGroup();
+        var calls = new List<CompositionCall>();
+        using var resource = new AudioWaveformDrawable.Resource
+        {
+            ComposerFactory = intent => new ProbeComposer(intent, calls)
+        };
+        TimeSpan time = TimeSpan.FromSeconds(1);
+
+        Update(resource, drawable, new CompositionContext(
+            time, RenderIntent.Preview, RenderPullPurpose.Frame));
+        Update(resource, drawable, new CompositionContext(
+            time, RenderIntent.Preview, RenderPullPurpose.Auxiliary));
+        Update(resource, drawable, new CompositionContext(
+            time, RenderIntent.Delivery, RenderPullPurpose.Auxiliary));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(calls, Has.Count.EqualTo(3));
+            Assert.That(calls.Select(x => x.RenderIntent), Is.EqualTo(new[]
+            {
+                RenderIntent.Preview,
+                RenderIntent.Preview,
+                RenderIntent.Delivery
+            }));
+            Assert.That(calls.Select(x => x.PullPurpose), Is.EqualTo(new[]
+            {
+                RenderPullPurpose.Frame,
+                RenderPullPurpose.Auxiliary,
+                RenderPullPurpose.Auxiliary
+            }));
+            Assert.That(resource.CachedSamples[0], Is.EqualTo(3f));
+        });
+    }
+
+    [Test]
     public void Spectrogram_AtReducedScale_DoesNotThrow()
     {
         var drawable = CreateSpectrogram();
@@ -239,5 +311,47 @@ public class AudioVisualizerDrawableTests
             using Bitmap second = RenderSpectrogramWithSamples(2f);
             GoldenImageHarness.AssertByteIdentical(first, second);
         });
+    }
+
+    private static void Update(
+        AudioWaveformDrawable.Resource resource,
+        AudioWaveformDrawable drawable,
+        CompositionContext context)
+    {
+        bool updateOnly = false;
+        resource.Update(drawable, context, ref updateOnly);
+    }
+
+    private readonly record struct CompositionCall(
+        Sound.Resource Source,
+        RenderIntent RenderIntent,
+        RenderPullPurpose PullPurpose);
+
+    private sealed class ProbeComposer(
+        RenderIntent renderIntent,
+        List<CompositionCall> calls) : IComposer
+    {
+        public RenderIntent RenderIntent { get; } = renderIntent;
+
+        public bool IsAudioRendering => false;
+
+        public bool IsDisposed { get; private set; }
+
+        public int SampleRate => 44100;
+
+        public AudioBuffer? Compose(TimeRange range, CompositionFrame frame)
+        {
+            Sound.Resource source = (Sound.Resource)frame.Objects[0];
+            calls.Add(new CompositionCall(source, frame.RenderIntent, frame.PullPurpose));
+            var buffer = new AudioBuffer(SampleRate, 2, 4);
+            buffer.GetChannelData(0).Fill(calls.Count);
+            buffer.GetChannelData(1).Fill(calls.Count);
+            return buffer;
+        }
+
+        public void Dispose()
+        {
+            IsDisposed = true;
+        }
     }
 }

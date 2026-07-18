@@ -8,6 +8,7 @@ public readonly record struct ClassInfo(
     INamedTypeSymbol Symbol,
     bool IsPartial,
     INamedTypeSymbol? BaseResourceOwner,
+    INamedTypeSymbol? InheritedTypedResourceUpdateOwner,
     ImmutableArray<ValuePropertyInfo> ValueProperties,
     ImmutableArray<ObjectPropertyInfo> ObjectProperties,
     ImmutableArray<ListPropertyInfo> ListProperties,
