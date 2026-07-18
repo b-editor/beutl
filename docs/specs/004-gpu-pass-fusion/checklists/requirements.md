@@ -31,6 +31,6 @@
 
 ## Notes
 
-- Validation completed in two refinement iterations; no `[NEEDS CLARIFICATION]` markers remain.
-- Existing public API names appear only where the user fixed compatibility or extensibility outcomes. Internal operation, compiler, executor, cache, and resource type shapes remain planning decisions.
-- Independent source, donor-evidence, and public-design reviews passed after tightening complete-request scope, cache behavior, Shader validation/semantics/fallback, Geometry scope, 3D boundaries, lifetime, and measurable outcomes.
+- Validation completed in three refinement iterations; no `[NEEDS CLARIFICATION]` markers remain.
+- The exact `void RenderNode.Process(RenderNodeContext)` direction and existing public API names appear because the user fixed those public extensibility outcomes. Helper overloads and internal operation, compiler, executor, cache, and resource type shapes remain planning decisions.
+- Independent source inventory, donor-evidence, and public-design reviews passed after covering every existing render-node graph shape, breaking migration, recording purity, nested-request continuity, cache behavior, Shader and Geometry semantics, 3D boundaries, lifetime, and measurable outcomes.
