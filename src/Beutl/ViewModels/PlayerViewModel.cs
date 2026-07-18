@@ -629,8 +629,8 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                         failure,
                         rate,
                         () => _sessionGuard.Owns(generation));
-                    tcs.TrySetResult(true);
                 });
+                tcs.TrySetResult(true);
                 return true;
             }
 
@@ -1273,7 +1273,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             clock.Anchor(startTime + TimeSpan.FromSeconds(seconds));
         }
 
-        try
+        async Task PlaybackLoop()
         {
             PrepareBuffer(primaryBuffer);
 
@@ -1325,6 +1325,12 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 AnchorClock();
             }
         }
+
+        try
+        {
+            await RunAudioPlaybackWithImmediateStopAsync(cts.Token, source.Stop, PlaybackLoop)
+                .ConfigureAwait(false);
+        }
         catch (OperationCanceledException)
         {
             source.Stop();
@@ -1335,6 +1341,13 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             primaryBuffer.Dispose();
             secondaryBuffer.Dispose();
         }
+    }
+
+    internal static async Task RunAudioPlaybackWithImmediateStopAsync(
+        CancellationToken token, Action stop, Func<Task> playback)
+    {
+        using CancellationTokenRegistration stopPlayback = token.Register(stop);
+        await playback().ConfigureAwait(false);
     }
 
     private async Task PlayWithOpenAL(AudioContext audioContext, Scene scene,
@@ -1968,7 +1981,17 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 token);
         }
 
-        previousCts?.Cancel();
+        if (previousCts is not null)
+        {
+            try
+            {
+                previousCts.Cancel();
+            }
+            finally
+            {
+                previousCts.Dispose();
+            }
+        }
     }
 
     private void UpdateCurrentFrame(TimeSpan timeSpan)

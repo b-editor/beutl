@@ -189,7 +189,94 @@ public class PreviewRenderErrorTests
     }
 
     [AvaloniaTest]
-    public async Task Play_WhenRenderingFails_ShowsPreviewErrorAndStopsWithoutNotification()
+    public async Task BufferedPlayer_WhenPlaybackIsCanceledDuringRendering_DoesNotStoreFailure()
+    {
+        GpuTestGate.EnsureAvailable();
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorForNewScene("canceled-rendering-buffered-player");
+        var drawable = new ArmablePreviewFaultDrawable();
+        var adder = (IElementAdder)editor.GetRequiredService<IElementAdder>();
+        adder.AddElement(new ElementDescription(
+            Start: TimeSpan.Zero,
+            Length: TimeSpan.FromSeconds(2),
+            Layer: 0,
+            EngineObjectFactory: () => drawable));
+        HeadlessTestHelpers.Settle();
+        RenderThread.Dispatcher.Invoke(static () => { });
+        editor.FrameCacheManager.Value.Clear();
+        drawable.Arm();
+
+        using var isPlaying = new ReactivePropertySlim<bool>(true);
+        using var playbackCts = new CancellationTokenSource();
+        using var player = new BufferedPlayer(
+            editor,
+            editor.Scene,
+            isPlaying,
+            editor.Player.GetFrameRate(),
+            playbackCts.Token);
+
+        try
+        {
+            player.Start();
+            await drawable.RenderEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            playbackCts.Cancel();
+            drawable.ReleaseRender();
+
+            await WaitUntilAsync(() => player.ProducerStopped, TimeSpan.FromSeconds(5));
+            Assert.That(player.Failure, Is.Null);
+        }
+        finally
+        {
+            drawable.ReleaseRender();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task BufferedPlayer_WhenDisposedDuringRendering_DoesNotStoreFailure()
+    {
+        GpuTestGate.EnsureAvailable();
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorForNewScene("disposed-rendering-buffered-player");
+        var drawable = new ArmablePreviewFaultDrawable();
+        var adder = (IElementAdder)editor.GetRequiredService<IElementAdder>();
+        adder.AddElement(new ElementDescription(
+            Start: TimeSpan.Zero,
+            Length: TimeSpan.FromSeconds(2),
+            Layer: 0,
+            EngineObjectFactory: () => drawable));
+        HeadlessTestHelpers.Settle();
+        RenderThread.Dispatcher.Invoke(static () => { });
+        editor.FrameCacheManager.Value.Clear();
+        drawable.Arm();
+
+        using var isPlaying = new ReactivePropertySlim<bool>(true);
+        using var player = new BufferedPlayer(
+            editor,
+            editor.Scene,
+            isPlaying,
+            editor.Player.GetFrameRate(),
+            CancellationToken.None);
+
+        try
+        {
+            player.Start();
+            await drawable.RenderEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            player.Dispose();
+            drawable.ReleaseRender();
+
+            await WaitUntilAsync(() => player.ProducerStopped, TimeSpan.FromSeconds(5));
+            Assert.That(player.Failure, Is.Null);
+        }
+        finally
+        {
+            drawable.ReleaseRender();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Play_WhenRenderingFails_ShowsPreviewErrorAndStopsWithoutRenderNotification()
     {
         GpuTestGate.EnsureAvailable();
         await ResetProjectAsync();
@@ -217,7 +304,9 @@ public class PreviewRenderErrorTests
                 Assert.That(message, Is.EqualTo(Beutl.Language.MessageStrings.FrameDrawingException));
                 Assert.That(editor.Player.IsPlaying.Value, Is.False);
                 Assert.That(editor.FrameCacheManager.Value.CurrentFrame, Is.EqualTo(0));
-                Assert.That(notifications.Notifications, Is.Empty);
+                Assert.That(
+                    notifications.Notifications.Select(static notification => notification.Message),
+                    Does.Not.Contain(Beutl.Language.MessageStrings.FrameDrawingException));
             });
         }
         finally
@@ -414,6 +503,41 @@ internal sealed partial class SupersededPreviewFaultDrawable : Drawable
             _releaseFirstRender.Task.GetAwaiter().GetResult();
             throw new InvalidOperationException(PreviewFaultDrawable.ErrorMessage);
         }
+    }
+
+    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource) => new(16, 16);
+
+    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
+    {
+    }
+}
+
+internal sealed partial class ArmablePreviewFaultDrawable : Drawable
+{
+    private readonly TaskCompletionSource<bool> _renderEntered =
+        new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly TaskCompletionSource<bool> _releaseRender =
+        new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private volatile bool _armed;
+
+    public TaskCompletionSource<bool> RenderEntered => _renderEntered;
+
+    public void Arm()
+    {
+        _armed = true;
+        Opacity.CurrentValue = 99f;
+    }
+
+    public void ReleaseRender() => _releaseRender.TrySetResult(true);
+
+    public override void Render(GraphicsContext2D context, Drawable.Resource resource)
+    {
+        if (!_armed)
+            return;
+
+        _renderEntered.TrySetResult(true);
+        _releaseRender.Task.GetAwaiter().GetResult();
+        throw new InvalidOperationException(PreviewFaultDrawable.ErrorMessage);
     }
 
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource) => new(16, 16);

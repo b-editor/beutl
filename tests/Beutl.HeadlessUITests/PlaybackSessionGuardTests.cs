@@ -101,7 +101,11 @@ public class PlaybackSessionGuardTests
         Task<bool> updateTask = Task.Run(() => guard.TryApply(first, () =>
         {
             updateEntered.Set();
-            releaseUpdate.Wait();
+            if (!releaseUpdate.Wait(TimeSpan.FromSeconds(5)))
+            {
+                throw new TimeoutException("The guarded update was not released within the test timeout.");
+            }
+
             state = 1;
         }));
         Assert.That(updateEntered.Wait(TimeSpan.FromSeconds(5)), Is.True);

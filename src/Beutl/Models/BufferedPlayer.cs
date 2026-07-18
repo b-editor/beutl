@@ -172,8 +172,11 @@ internal sealed class BufferedPlayer : IPlayer
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An exception occurred while drawing the frame.");
-                Volatile.Write(ref _renderFailure, new RenderFailure(ex, frame));
+                _logger.LogError(ex, "An exception occurred while drawing frame {Frame}.", frame);
+                if (!_isDisposed && !_playbackToken.IsCancellationRequested && _isPlaying.Value)
+                {
+                    Volatile.Write(ref _renderFailure, new RenderFailure(ex, frame));
+                }
             }
             finally
             {
