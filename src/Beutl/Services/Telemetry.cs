@@ -78,6 +78,9 @@ internal class Telemetry : IDisposable
     private TracerProvider? CreateTracer()
     {
         TelemetryConfig t = GlobalConfiguration.Instance.TelemetryConfig;
+        if (!IsConsentConfigured(t))
+            return null;
+
         var list = new List<string>(4);
         if (t.Beutl_Application == true)
             list.Add("Beutl.Application");
@@ -120,6 +123,14 @@ internal class Telemetry : IDisposable
         return Applilcation.StartActivity(name, kind);
     }
 
+    internal static bool IsConsentConfigured(TelemetryConfig config)
+    {
+        return config.Beutl_Api_Client.HasValue
+            && config.Beutl_Application.HasValue
+            && config.Beutl_PackageManagement.HasValue
+            && config.Beutl_Logging.HasValue;
+    }
+
     public void Dispose()
     {
         _tracerProvider?.Dispose();
@@ -153,7 +164,8 @@ internal class Telemetry : IDisposable
             // Serilogへ行くログはデフォルトでTrace以上
             builder.AddSerilog(Log.Logger, true);
 
-            if (GlobalConfiguration.Instance.TelemetryConfig.Beutl_Logging == true)
+            TelemetryConfig telemetryConfig = GlobalConfiguration.Instance.TelemetryConfig;
+            if (IsConsentConfigured(telemetryConfig) && telemetryConfig.Beutl_Logging == true)
             {
                 builder.SetMinimumLevel(LogLevel.Information);
                 builder.AddOpenTelemetry(o =>

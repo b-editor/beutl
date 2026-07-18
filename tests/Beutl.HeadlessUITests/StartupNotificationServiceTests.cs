@@ -70,6 +70,23 @@ public sealed class StartupNotificationServiceTests
         Assert.That(scope.Handler.Notifications, Is.Empty);
     }
 
+    [Test]
+    public void TelemetryConsent_IsConfiguredOnlyWhenEveryChoiceHasAValue()
+    {
+        var config = new TelemetryConfig
+        {
+            Beutl_Api_Client = true,
+            Beutl_Application = false,
+            Beutl_PackageManagement = true
+        };
+
+        Assert.That(Telemetry.IsConsentConfigured(config), Is.False);
+
+        config.Beutl_Logging = false;
+
+        Assert.That(Telemetry.IsConsentConfigured(config), Is.True);
+    }
+
     [TestCase(true)]
     [TestCase(false)]
     public async Task ConfirmSideloadExtensions_CompletesFromUserChoice(bool accept)

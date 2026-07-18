@@ -18,10 +18,7 @@ internal static class StartupNotificationService
 
     public static void ShowTelemetryConsent(TelemetryConfig config)
     {
-        if (config.Beutl_Api_Client.HasValue
-            && config.Beutl_Application.HasValue
-            && config.Beutl_PackageManagement.HasValue
-            && config.Beutl_Logging.HasValue)
+        if (Telemetry.IsConsentConfigured(config))
         {
             return;
         }

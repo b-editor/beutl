@@ -43,6 +43,51 @@ public sealed class LoadSideloadExtensionTaskTests
     }
 
     [Test]
+    public async Task WaitForAcceptedLoading_DoesNotWaitForPendingConfirmation()
+    {
+        var confirmation = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var package = new LocalPackage { Name = "Sideload" };
+        var task = CreateTask([package], confirmation.Task, _ => { });
+
+        await task.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.That(
+            async () => await task.WaitForAcceptedLoadingAsync().WaitAsync(TimeSpan.FromSeconds(5)),
+            Throws.Nothing);
+
+        confirmation.SetResult(false);
+        await task.DeferredLoadingTask.WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [Test]
+    public async Task WaitForAcceptedLoading_WaitsForAcceptedLoad()
+    {
+        using var releaseLoad = new ManualResetEventSlim();
+        var loadStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var package = new LocalPackage { Name = "Sideload" };
+        var task = CreateTask([package], Task.FromResult(true), _ =>
+        {
+            loadStarted.TrySetResult();
+            releaseLoad.Wait(TimeSpan.FromSeconds(5));
+        });
+
+        await task.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await loadStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Task wait = task.WaitForAcceptedLoadingAsync();
+
+        try
+        {
+            Assert.That(wait.IsCompleted, Is.False);
+        }
+        finally
+        {
+            releaseLoad.Set();
+        }
+
+        await wait.WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [Test]
     public async Task DeferredLoadingTask_ReportsLoadFailures()
     {
         var package = new LocalPackage { Name = "Broken" };

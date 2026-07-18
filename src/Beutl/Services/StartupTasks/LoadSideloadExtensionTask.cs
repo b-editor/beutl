@@ -13,6 +13,7 @@ public sealed class LoadSideloadExtensionTask : StartupTask
     private readonly Action<LocalPackage> _load;
     private readonly Func<IReadOnlyList<string>, Task<bool>> _confirm;
     private readonly Action<IReadOnlyList<(LocalPackage, Exception)>> _showFailures;
+    private Task<bool>? _confirmationTask;
     private Task _deferredLoadingTask = System.Threading.Tasks.Task.CompletedTask;
 
     public LoadSideloadExtensionTask(PackageManager manager)
@@ -45,7 +46,9 @@ public sealed class LoadSideloadExtensionTask : StartupTask
                 {
                     activity?.AddEvent(new ActivityEvent("Done_GetSideLoadPackages"));
                     Task<bool> confirmation = _confirm(sideloads.Select(x => x.Name).ToArray());
-                    _deferredLoadingTask = LoadAfterConfirmation(sideloads, confirmation);
+                    _confirmationTask = confirmation;
+                    _deferredLoadingTask = System.Threading.Tasks.Task.Run(
+                        () => LoadAfterConfirmation(sideloads, confirmation));
                 }
             }
         });
@@ -56,6 +59,16 @@ public sealed class LoadSideloadExtensionTask : StartupTask
     internal Task DeferredLoadingTask => _deferredLoadingTask;
 
     public ConcurrentBag<(LocalPackage, Exception)> Failures { get; } = [];
+
+    internal async Task WaitForAcceptedLoadingAsync()
+    {
+        await Task.ConfigureAwait(false);
+
+        if (_confirmationTask?.IsCompleted == true)
+        {
+            await _deferredLoadingTask.ConfigureAwait(false);
+        }
+    }
 
     private async Task LoadAfterConfirmation(IReadOnlyList<LocalPackage> sideloads, Task<bool> confirmation)
     {
