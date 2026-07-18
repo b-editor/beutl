@@ -138,21 +138,56 @@
             </Button>
         </Player.InnerRightContent>
         <Player.Content>
-            <Panel Name="framePanel"
-                   Margin="0"
-                   Background="Transparent">
-                <Border Name="imageBackground"
-                        Background="Black"
-                        ClipToBounds="True" />
+            <Grid>
+                <Panel Name="framePanel"
+                       Margin="0"
+                       Background="Transparent">
+                    <Border Name="imageBackground"
+                            Background="Black"
+                            ClipToBounds="True" />
 
-                <!-- BitmapView or HdrBitmapView is created dynamically in code-behind -->
+                    <!-- BitmapView or HdrBitmapView is created dynamically in code-behind -->
 
-                <pathEditor:PathEditorView Name="pathEditorView"
-                                           DataContext="{Binding PathEditor}" />
+                    <pathEditor:PathEditorView Name="pathEditorView"
+                                               DataContext="{Binding PathEditor}" />
 
-                <local:TransformHandlesOverlay Name="transformHandlesOverlay"
-                                               IsVisible="False" />
-            </Panel>
+                    <local:TransformHandlesOverlay Name="transformHandlesOverlay"
+                                                   IsVisible="False" />
+                </Panel>
+
+                <!-- Keep the error outside framePanel so preview pan/zoom does not transform it. -->
+                <Border Name="previewRenderErrorOverlay"
+                        Padding="24"
+                        Background="{DynamicResource SmokeFillColorDefaultBrush}"
+                        IsHitTestVisible="False"
+                        IsVisible="{Binding PreviewRenderError.Value,
+                                            Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                    <Border MaxWidth="480"
+                            Padding="16"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Background="{DynamicResource SystemFillColorCriticalBackgroundBrush}"
+                            BorderBrush="{DynamicResource SystemFillColorCriticalBrush}"
+                            BorderThickness="1"
+                            CornerRadius="4">
+                        <StackPanel Spacing="8">
+                            <TextBlock HorizontalAlignment="Center"
+                                       FontSize="18"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                                       Text="{x:Static lang:MessageStrings.UnexpectedError}" />
+                            <TextBlock Name="previewRenderErrorMessage"
+                                       HorizontalAlignment="Center"
+                                       AutomationProperties.LiveSetting="Assertive"
+                                       AutomationProperties.Name="{Binding PreviewRenderError.Value}"
+                                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                                       Text="{Binding PreviewRenderError.Value}"
+                                       TextAlignment="Center"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Border>
+                </Border>
+            </Grid>
         </Player.Content>
     </Player>
 </UserControl>

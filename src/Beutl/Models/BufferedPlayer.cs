@@ -5,7 +5,6 @@ using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
-using Beutl.Services;
 using Beutl.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -13,7 +12,7 @@ using Reactive.Bindings;
 
 namespace Beutl.Models;
 
-public sealed class BufferedPlayer : IPlayer
+internal sealed class BufferedPlayer : IPlayer
 {
     private readonly ILogger _logger = Log.CreateLogger<BufferedPlayer>();
     private readonly ConcurrentQueue<IPlayer.Frame> _queue = new();
@@ -21,11 +20,13 @@ public sealed class BufferedPlayer : IPlayer
     private readonly IEditorClock _editorClock;
     private readonly Scene _scene;
     private readonly IReadOnlyReactiveProperty<bool> _isPlaying;
+    private readonly CancellationToken _playbackToken;
     private readonly int _rate;
     private readonly BufferedPlayerWaitGate _waitRenderGate;
     private readonly BufferedPlayerWaitGate _waitTimerGate;
     private readonly IDisposable _disposable;
     private int? _requestedFrame;
+    private RenderFailure? _renderFailure;
     private volatile bool _isDisposed;
 
     // Set true whenever the producer (Start's dispatched loop) is no longer running. The consumer waits on a
@@ -37,15 +38,19 @@ public sealed class BufferedPlayer : IPlayer
 
     public bool ProducerStopped => _producerStopped;
 
+    internal RenderFailure? Failure => Volatile.Read(ref _renderFailure);
+
     public BufferedPlayer(
         EditViewModel editViewModel, Scene scene,
-        IReactiveProperty<bool> isPlaying, int rate)
+        IReactiveProperty<bool> isPlaying, int rate,
+        CancellationToken playbackToken)
     {
         _editViewModel = editViewModel;
         _editorClock = editViewModel.GetRequiredService<IEditorClock>();
         _scene = scene;
         _isPlaying = isPlaying;
         _rate = rate;
+        _playbackToken = playbackToken;
         _waitRenderGate = new(() => _isDisposed || _producerStopped);
         _waitTimerGate = new(() => _isDisposed);
 
@@ -63,15 +68,22 @@ public sealed class BufferedPlayer : IPlayer
 
         RenderThread.Dispatcher.Dispatch(() =>
         {
+            Volatile.Write(ref _renderFailure, null);
             _producerStopped = false;
+            int frame = startFrame;
+            SceneRenderer? activeRenderer = null;
+            FrameCacheManager? activeCacheManager = null;
             try
             {
+                if (_isDisposed || _playbackToken.IsCancellationRequested)
+                    return;
+
                 _logger.LogInformation("Start rendering from frame {StartFrame} to {DurationFrame}", startFrame,
                     durationFrame);
                 int endFrame = (int)_scene.Start.ToFrameNumber(_rate) + durationFrame;
-                for (int frame = startFrame; frame < endFrame; frame++)
+                for (; frame < endFrame; frame++)
                 {
-                    if (!_isPlaying.Value)
+                    if (_isDisposed || _playbackToken.IsCancellationRequested || !_isPlaying.Value)
                     {
                         _logger.LogInformation("Rendering stopped at frame {Frame}", frame);
                         break;
@@ -82,16 +94,16 @@ public sealed class BufferedPlayer : IPlayer
                         WaitTimer();
                     }
 
-                    if (!_isPlaying.Value)
+                    if (_isDisposed || _playbackToken.IsCancellationRequested || !_isPlaying.Value)
                     {
                         _logger.LogInformation("Rendering stopped at frame {Frame}", frame);
                         break;
                     }
 
                     // Re-read the pair each frame; a rebuild-by-replacement may have disposed the old instances.
-                    SceneRenderer renderer = _editViewModel.Renderer.Value;
-                    FrameCacheManager frameCacheManager = _editViewModel.FrameCacheManager.Value;
-                    if (renderer.IsDisposed || frameCacheManager.IsDisposed)
+                    activeRenderer = _editViewModel.Renderer.Value;
+                    activeCacheManager = _editViewModel.FrameCacheManager.Value;
+                    if (activeRenderer.IsDisposed || activeCacheManager.IsDisposed)
                     {
                         _logger.LogInformation(
                             "Renderer rebuilt mid-playback; stopping the playback producer at frame {Frame}", frame);
@@ -102,23 +114,35 @@ public sealed class BufferedPlayer : IPlayer
 
                     // キャッシュを探す
                     // cacheは参照を既に追加されている
-                    if (frameCacheManager.TryGet(frame, out Ref<Bitmap>? cache))
+                    if (activeCacheManager.TryGet(frame, out Ref<Bitmap>? cache))
                     {
+                        if (_isDisposed || _playbackToken.IsCancellationRequested)
+                        {
+                            cache.Dispose();
+                            break;
+                        }
+
                         _queue.Enqueue(new(cache, frame));
                     }
                     else
                     {
-                        var compositionFrame = renderer.Compositor.EvaluateGraphics(time);
-                        renderer.Render(compositionFrame);
-                        using (Ref<Bitmap> bitmap = Ref<Bitmap>.Create(renderer.Snapshot()))
+                        var compositionFrame = activeRenderer.Compositor.EvaluateGraphics(time);
+                        activeRenderer.Render(compositionFrame);
+                        if (_isDisposed || _playbackToken.IsCancellationRequested)
+                            break;
+
+                        using (Ref<Bitmap> bitmap = Ref<Bitmap>.Create(activeRenderer.Snapshot()))
                         {
+                            if (_isDisposed || _playbackToken.IsCancellationRequested)
+                                break;
+
                             _queue.Enqueue(new(bitmap.Clone(), frame));
-                            frameCacheManager.Add(frame, bitmap);
+                            activeCacheManager.Add(frame, bitmap);
                         }
                     }
 
                     _waitRenderGate.Cancel();
-                    if (_isPlaying.Value)
+                    if (!_isDisposed && !_playbackToken.IsCancellationRequested && _isPlaying.Value)
                         _editViewModel.BufferStatus.EndTime.Value = time;
 
                     int? requestedFrame = _requestedFrame;
@@ -134,7 +158,10 @@ public sealed class BufferedPlayer : IPlayer
 
                 _logger.LogInformation("Rendering completed.");
             }
-            catch (ObjectDisposedException ex)
+            catch (ObjectDisposedException ex) when (
+                _isDisposed
+                || activeRenderer?.IsDisposed == true
+                || activeCacheManager?.IsDisposed == true)
             {
                 // A concurrent rebuild disposed the renderer/cache between the IsDisposed re-check and
                 // Render()/Snapshot() — a TOCTOU the per-frame re-read narrows but cannot close, since disposal
@@ -145,9 +172,8 @@ public sealed class BufferedPlayer : IPlayer
             }
             catch (Exception ex)
             {
-                NotificationService.ShowError(MessageStrings.UnexpectedError,
-                    MessageStrings.FrameDrawingException);
                 _logger.LogError(ex, "An exception occurred while drawing the frame.");
+                Volatile.Write(ref _renderFailure, new RenderFailure(ex, frame));
             }
             finally
             {
@@ -158,6 +184,13 @@ public sealed class BufferedPlayer : IPlayer
                 _producerStopped = true;
                 _waitRenderGate.Cancel();
                 _waitTimerGate.Cancel();
+                if (_isDisposed)
+                {
+                    while (_queue.TryDequeue(out IPlayer.Frame queuedFrame))
+                    {
+                        queuedFrame.Bitmap.Dispose();
+                    }
+                }
             }
         }, Threading.DispatchPriority.High);
     }
@@ -223,4 +256,6 @@ public sealed class BufferedPlayer : IPlayer
             _logger.LogError(ex, "An exception occurred while disposing.");
         }
     }
+
+    internal sealed record RenderFailure(Exception Exception, int Frame);
 }

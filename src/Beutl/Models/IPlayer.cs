@@ -3,7 +3,7 @@ using Beutl.Media.Source;
 
 namespace Beutl.Models;
 
-public interface IPlayer : IDisposable
+internal interface IPlayer : IDisposable
 {
     public record struct Frame(Ref<Bitmap> Bitmap, int Time);
 
